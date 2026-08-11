@@ -80,8 +80,11 @@ The `sync` field on a keyed collection takes three forms, and choosing is mostly
 std.sync({
   schema: Channel,
   sync: {
-    strategy: syncStrategy.oldToNew(),
-    forwardFetch: ({ cursor }) => channelsAfter(cursor),
+    total: {
+      strategy: syncStrategy.oldToNew({
+        fetch: ({ cursor }) => channelsAfter(cursor),
+      }),
+    },
   },
 });
 
@@ -91,8 +94,9 @@ std.sync({
   sync: {
     partitions: {
       channelId: (channelId) => ({
-        strategy: syncStrategy.oldToNew(),
-        forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+        strategy: syncStrategy.oldToNew({
+          fetch: ({ cursor }) => messagesAfter(channelId, cursor),
+        }),
       }),
     },
   },

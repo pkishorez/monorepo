@@ -25,31 +25,33 @@ type PartitionedStrategy<TItem, TState> = {
 };
 ```
 
-Notice what `run`'s context carries: `writeServerTruth`, `getState`/`setState` (already routed to this partition's slot), `forwardFetch`, and a `scope` for subscriptions and fibers. Notice what it _doesn't_ carry: a partition value. The strategy has no idea channels exist. When you write
+Notice what `run`'s context carries: `writeServerTruth`, `getState`/`setState` (already routed to this partition's slot), and a `scope` for subscriptions and fibers. It carries neither a generic fetch source nor a partition value. Each strategy constructor receives exactly the sources its algorithm consumes. When you write
 
 ```ts
 partitions: {
   channelId: (channelId) => ({
-    strategy: syncStrategy.oldToNew(),
-    forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+    strategy: syncStrategy.oldToNew({
+      fetch: ({ cursor }) => messagesAfter(channelId, cursor),
+    }),
   }),
 },
 ```
 
-the channel lives only in your closure. The engine calls your factory when the partition activates, and the strategy just asks its context for "the next batch after this cursor" — whoever answers, answers. This is why one strategy implementation serves every partition of every collection, and why your fetch closures are the single place partition knowledge exists.
+the channel lives only in your closure. The engine calls your factory when the partition activates, while the worker only knows its explicitly supplied source. This is why one strategy implementation serves every partition of every collection, and why your source closures are the single place partition knowledge exists.
 
-Each factory returns a `PartitionEntry`: the strategy, a mandatory `forwardFetch` (the old→new pull source — even `newToOld` declares one, because the [cadence loop](#cadence-sync--the-drift-repair-loop) and `bidirectional`'s ascending frontier reuse it), and an optional `cadence` policy.
+Each factory returns a `PartitionEntry`: a strategy and, when wanted, an independent `repair` capability. A worker owns its sources; cadence repair owns `repair.fetchFrom`. No worker must declare a source it does not consume.
 
 ## `syncStrategy.oldToNew` — the honest replay
 
 The simplest possible policy: read the saved cursor, fetch forward, write the batch, advance the cursor to the batch's newest entity, repeat. Batches must arrive in ascending `_u` order — the cursor is literally the last element.
 
 ```ts
-strategy: syncStrategy.oldToNew(),
-forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
+strategy: syncStrategy.oldToNew({
+  fetch: ({ cursor }) => messagesAfter(channelId, cursor),
+}),
 ```
 
-In poll mode (no config), an empty batch means the drain is done and `run` completes — history replayed, nothing left to do until something else (a broadcast, a cadence pass) delivers more. If you want the strategy itself to stay live, hand it a stream instead:
+With the `fetch` source, an empty batch means the drain is done and `run` completes — history replayed, nothing left to do until something else (a broadcast or repair pass) delivers more. If you want the strategy itself to stay live, hand it a stream instead:
 
 ```ts
 strategy: syncStrategy.oldToNew({
@@ -70,7 +72,6 @@ strategy: syncStrategy.newToOld({
   subscribeOlder: ({ cursor }) => olderMessagesStream(channelId, cursor),
   subscribeNewer: ({ cursor }) => liveMessagesStream(channelId, cursor),
 }),
-forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
 ```
 
 `subscribeOlder` is the **backfill**: a finite stream descending toward the channel's oldest message, completing when it gets there (given a cursor, it resumes from and including it). `subscribeNewer` is the **live tail**: anchored at a cursor, it catches up anything missed and then stays open.
@@ -92,14 +93,14 @@ where each cursor is a boundary _entity_, per the [cursor rules](/docs/std-toolk
 ```ts
 strategy: syncStrategy.bidirectional({
   fetchOlder: ({ cursor }) => messagesBefore(channelId, cursor),
+  fetchNewer: ({ cursor }) => messagesAfter(channelId, cursor),
   subscribeNewer: ({ cursor }) => liveMessagesStream(channelId, cursor),
 }),
-forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
 ```
 
-Here the entry's `forwardFetch` is load-bearing: it _is_ the ascending frontier. Both pulls read `{ cursor: null }` as their natural extreme — newest page for `fetchOlder`, oldest page for `forwardFetch` — and an empty batch as "frontier finished."
+Here `fetchNewer` is the ascending frontier owned directly by the strategy. Both pulls read `{ cursor: null }` as their natural extreme — newest page for `fetchOlder`, oldest page for `fetchNewer` — and an empty batch as "frontier finished."
 
-A cold start seeds both ends concurrently: one `fetchOlder({ cursor: null })` for the newest page, one `forwardFetch({ cursor: null })` for the oldest. That yields two disjoint covered slices with one gap between them — the two-frontier picture in the visualizer. Then three fibers run under the scope: a **downward frontier** pulling older from the top slice's low, an **upward frontier** pulling newer from the bottom slice's high, and the **live tail** streaming above the fresh top. Every batch reconciles into the shared slice list — insert the range, merge anything overlapping or touching — and both pulls re-read that list each iteration, so whichever frontier closes the gap, the other notices the collapse to a single slice on its next loop and exits cleanly. The live tail alone stays open.
+A cold start seeds both ends concurrently: one `fetchOlder({ cursor: null })` for the newest page, one `fetchNewer({ cursor: null })` for the oldest. That yields two disjoint covered slices with one gap between them — the two-frontier picture in the visualizer. Then three fibers run under the scope: a **downward frontier** pulling older from the top slice's low, an **upward frontier** pulling newer from the bottom slice's high, and the **live tail** streaming above the fresh top. Every batch reconciles into the shared slice list — insert the range, merge anything overlapping or touching — and both pulls re-read that list each iteration, so whichever frontier closes the gap, the other notices the collapse to a single slice on its next loop and exits cleanly. The live tail alone stays open.
 
 Sync State is the slice list, nothing more: `{ slices: Slice[] }`. No `reachedOldest` — the upward frontier anchors the true floor on page one of every cold session, so the flag would always be true and carry no information. A warm resume with persisted slices doesn't re-seed at all: the live tail anchors at the covered top and the frontiers resume from the stored boundaries, precisely so ranges already sitting in offline storage aren't refetched.
 
@@ -137,15 +138,17 @@ One failure mode remains that no drain order fixes. Two messages are written in 
 partitions: {
   channelId: (channelId) => ({
     strategy: syncStrategy.newToOld({ /* … */ }),
-    forwardFetch: ({ cursor }) => messagesAfter(channelId, cursor),
-    cadence: { window: 30_000, readiness: 5_000, pollDelay: 10_000 },
+    repair: {
+      fetchFrom: ({ cursor }) => messagesAfter(channelId, cursor),
+      cadence: { window: 30_000, readiness: 5_000, pollDelay: 10_000 },
+    },
   }),
 },
 ```
 
-Each pass scans the partition's projected rows for **suspects** — rows delivered so soon after their own `_u` was minted (`_s − uTime(_u) < window`) that same-instant siblings might still have been in flight. It waits until the oldest suspect has aged past `readiness` (correcting for client–server clock skew via `_c − _s`), then re-fetches through the entry's `forwardFetch` from the suspect's predecessor and writes the results down. If nothing was missed, every result is a convergence no-op; if something was, it lands now. When a scan finds no suspects at all, the loop sleeps `pollDelay` before scanning again. An optional `debug: true` makes the loop narrate each step to the console.
+Each pass scans the partition's projected rows for **suspects** — rows delivered so soon after their own `_u` was minted (`_s − uTime(_u) < window`) that same-instant siblings might still have been in flight. It waits until the oldest suspect has aged past `readiness` (correcting for client–server clock skew via `_c − _s`), then re-fetches through `repair.fetchFrom` from the suspect's predecessor and writes the results down. If nothing was missed, every result is a convergence no-op; if something was, it lands now. When a scan finds no suspects at all, the loop sleeps `pollDelay` before scanning again. An optional `debug: true` reports each step through Effect's logger.
 
-The discipline that keeps cadence safe to run everywhere: it **only writes the Source of Truth**. It owns no cursor, never touches Sync State, and claims no forward progress — it re-confirms, nothing else. It also politely idles while the collection has no subscribers, and you set it once for a whole instance with `createStdSync({ cadence: { … } })` — each partition inherits the default, overrides it with its own config, or opts out with `cadence: false`.
+The discipline that keeps cadence safe to run everywhere: it **only writes the Source of Truth**. It owns no cursor, never touches Sync State, and claims no forward progress — it re-confirms, nothing else. It also politely idles while the collection has no subscribers. `createStdSync({ cadence: { … } })` supplies a default policy only to entries that explicitly declare `repair`; `repair.cadence` overrides it. Omitting `repair` always disables repair.
 
 Strategies pull truth down; next is the other direction — your user's writes going up, and what paces them.
 

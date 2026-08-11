@@ -17,12 +17,18 @@
     "src/eschema/tutorial",
     "src/snapshot/__tests__",
     "src/tanstack-sync/__tests__",
-    "src/tanstack-sync/cadence-sync/__tests__",
-    "src/tanstack-sync/offline-storage/__tests__",
-    "src/tanstack-sync/partitioned/__tests__",
-    "src/tanstack-sync/partitioned/strategies/bidirectional/__tests__",
-    "src/tanstack-sync/partitioned/strategies/new-to-old/__tests__",
-    "src/tanstack-sync/source-of-truth/__tests__"
+    "src/tanstack-sync/composition/keyed-sync/__tests__",
+    "src/tanstack-sync/domain/partition-identity/__tests__",
+    "src/tanstack-sync/lifecycle/strategy-lifecycle/__tests__",
+    "src/tanstack-sync/runtime/mutation-pacing/__tests__",
+    "src/tanstack-sync/workers/cadence-repair/__tests__",
+    "src/tanstack-sync/workers/get-once/__tests__",
+    "src/tanstack-sync/persistence/indexed-db-storage/__tests__",
+    "src/tanstack-sync/persistence/offline-storage/__tests__",
+    "src/tanstack-sync/workers/bidirectional/__tests__",
+    "src/tanstack-sync/workers/new-to-old/__tests__",
+    "src/tanstack-sync/workers/old-to-new/__tests__",
+    "src/tanstack-sync/persistence/source-of-truth/__tests__"
   ],
   "layers": {
     "eschema-barrel": {
@@ -146,52 +152,36 @@
       "paths": ["src/db/sqlite/sql/adapters"],
       "description": "Runtime-specific SQLite bindings"
     },
-    "sync-entrypoint": {
+    "sync-public": {
       "paths": [
         "src/tanstack-sync/index.ts",
-        "src/tanstack-sync/create-std-sync.ts"
+        "src/tanstack-sync/tanstack-sync.ts"
       ],
-      "description": "Public API entrypoints"
+      "description": "Public facade and collection factory"
     },
-    "sync-partitioned": {
-      "paths": ["src/tanstack-sync/partitioned"],
-      "description": "Partitioned collection sync and shared strategy runtime"
+    "sync-composition": {
+      "paths": ["src/tanstack-sync/composition"],
+      "description": "Keyed hybrid and single-item collection composition"
     },
-    "sync-single-item": {
-      "paths": ["src/tanstack-sync/single-item"],
-      "description": "Single-item sync, built on the partitioned runtime"
+    "sync-lifecycle": {
+      "paths": ["src/tanstack-sync/lifecycle"],
+      "description": "Total, partition, singleton, and strategy lifecycles"
     },
-    "sync-cadence": {
-      "paths": ["src/tanstack-sync/cadence-sync"],
-      "description": "Cadence scheduling shared by both strategies"
+    "sync-workers": {
+      "paths": ["src/tanstack-sync/workers"],
+      "description": "Independent sync and repair workers"
     },
-    "sync-projection": {
-      "paths": ["src/tanstack-sync/collection-projection"],
-      "description": "Collection view / projector"
+    "sync-runtime": {
+      "paths": ["src/tanstack-sync/runtime"],
+      "description": "Typed TanStack and Effect runtime capabilities"
     },
-    "sync-inspector": {
-      "paths": ["src/tanstack-sync/inspector"],
-      "description": "Devtools inspector collections and row types"
+    "sync-persistence": {
+      "paths": ["src/tanstack-sync/persistence"],
+      "description": "Offline storage, server truth, and strategy progress"
     },
-    "sync-paced": {
-      "paths": ["src/tanstack-sync/paced"],
-      "description": "Pacing and coalescing infrastructure"
-    },
-    "sync-registry": {
-      "paths": ["src/tanstack-sync/registry"],
-      "description": "Tracker and registry"
-    },
-    "sync-source-of-truth": {
-      "paths": ["src/tanstack-sync/source-of-truth"],
-      "description": "Convergence engine and write-error types"
-    },
-    "sync-offline-storage": {
-      "paths": ["src/tanstack-sync/offline-storage"],
-      "description": "Internal grouped key-value storage and public adapters"
-    },
-    "sync-util": {
-      "paths": ["src/tanstack-sync/util", "src/tanstack-sync/types.ts"],
-      "description": "Shared types and utility helpers"
+    "sync-domain": {
+      "paths": ["src/tanstack-sync/domain"],
+      "description": "Pure sync policies, identities, state, and errors"
     }
   },
   "modules": {
@@ -254,19 +244,38 @@
     "src/snapshot/domain": {},
     "src/snapshot/index.ts": {},
     "src/snapshot/snapshot": {},
-    "src/tanstack-sync/cadence-sync": {},
-    "src/tanstack-sync/collection-projection": {},
-    "src/tanstack-sync/create-std-sync.ts": { "shared": true },
+    "src/tanstack-sync/composition/keyed-sync": {},
+    "src/tanstack-sync/composition/single-item-sync": {},
+    "src/tanstack-sync/domain/cadence-policy": {},
+    "src/tanstack-sync/domain/entity-convergence": {},
+    "src/tanstack-sync/domain/entity-validation": {},
+    "src/tanstack-sync/domain/partition-identity": {},
+    "src/tanstack-sync/domain/slice-coverage": {},
+    "src/tanstack-sync/domain/strategy-state": {},
+    "src/tanstack-sync/domain/sync-error": {},
+    "src/tanstack-sync/domain/sync-event": { "shared": true },
     "src/tanstack-sync/index.ts": {},
-    "src/tanstack-sync/inspector": {},
-    "src/tanstack-sync/offline-storage": {},
-    "src/tanstack-sync/paced": {},
-    "src/tanstack-sync/partitioned": {},
-    "src/tanstack-sync/registry": {},
-    "src/tanstack-sync/single-item": {},
-    "src/tanstack-sync/source-of-truth": {},
-    "src/tanstack-sync/types.ts": { "shared": true },
-    "src/tanstack-sync/util": {}
+    "src/tanstack-sync/lifecycle/partition-sync": {},
+    "src/tanstack-sync/lifecycle/single-item-lifecycle": {},
+    "src/tanstack-sync/lifecycle/strategy-lifecycle": { "shared": true },
+    "src/tanstack-sync/lifecycle/sync-execution": {},
+    "src/tanstack-sync/persistence/indexed-db-storage": {},
+    "src/tanstack-sync/persistence/offline-storage": { "shared": true },
+    "src/tanstack-sync/persistence/source-of-truth": {},
+    "src/tanstack-sync/persistence/sync-state": {},
+    "src/tanstack-sync/runtime/collection-model": { "shared": true },
+    "src/tanstack-sync/runtime/collection-projection": {},
+    "src/tanstack-sync/runtime/effect-runner": { "shared": true },
+    "src/tanstack-sync/runtime/mutation-pacing": {},
+    "src/tanstack-sync/runtime/pending-mutations": {},
+    "src/tanstack-sync/runtime/strategy-runtime": {},
+    "src/tanstack-sync/runtime/sync-registry": {},
+    "src/tanstack-sync/tanstack-sync.ts": { "shared": true },
+    "src/tanstack-sync/workers/bidirectional": {},
+    "src/tanstack-sync/workers/cadence-repair": {},
+    "src/tanstack-sync/workers/get-once": {},
+    "src/tanstack-sync/workers/new-to-old": {},
+    "src/tanstack-sync/workers/old-to-new": {}
   },
   "layerGraphs": {
     "eschema": {
@@ -370,47 +379,25 @@
       }
     },
     "tanstack-sync": {
-      "description": "TanStack sync entrypoints, strategies, convergence, and persistence",
+      "description": "Acyclic TanStack Sync domain, persistence, runtime, worker, lifecycle, composition, and facade layers",
       "rules": {
-        "sync-entrypoint": [
-          "sync-single-item",
-          "sync-partitioned",
-          "sync-cadence",
-          "sync-inspector",
-          "sync-offline-storage",
-          "sync-paced",
-          "sync-registry",
-          "sync-util",
+        "sync-public": ["sync-composition", "sync-workers"],
+        "sync-composition": ["sync-lifecycle", "sync-workers"],
+        "sync-lifecycle": [
+          "sync-workers",
+          "sync-runtime",
+          "sync-domain",
           "core-barrel"
         ],
-        "sync-single-item": [
-          "sync-partitioned",
-          "sync-projection",
-          "sync-inspector",
-          "sync-paced",
-          "sync-registry",
-          "sync-source-of-truth",
-          "sync-offline-storage",
-          "sync-util",
-          "core-barrel"
+        "sync-workers": ["sync-runtime", "sync-domain", "core-barrel"],
+        "sync-runtime": [
+          "sync-persistence",
+          "sync-domain",
+          "core-barrel",
+          "eschema-barrel"
         ],
-        "sync-partitioned": [
-          "sync-cadence",
-          "sync-projection",
-          "sync-inspector",
-          "sync-paced",
-          "sync-registry",
-          "sync-source-of-truth",
-          "sync-offline-storage",
-          "sync-util",
-          "core-barrel"
-        ],
-        "sync-cadence": ["sync-source-of-truth", "sync-util", "core-barrel"],
-        "sync-projection": ["sync-source-of-truth", "sync-util", "core-barrel"],
-        "sync-registry": ["sync-source-of-truth", "core-barrel"],
-        "sync-inspector": ["sync-offline-storage", "sync-util"],
-        "sync-source-of-truth": ["sync-offline-storage", "core-barrel"],
-        "sync-util": ["core-barrel"]
+        "sync-persistence": ["sync-domain", "core-barrel", "eschema-barrel"],
+        "sync-domain": ["core-barrel"]
       }
     }
   }

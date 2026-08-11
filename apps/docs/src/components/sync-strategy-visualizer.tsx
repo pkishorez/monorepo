@@ -130,7 +130,7 @@ const makeSim = (strategy: StrategyId): Sim => {
         narr: {
           title: 'Ready — Sync State is { cursor: null }',
           detail:
-            'Nothing has been drained yet, so the persisted cursor is null. The first forwardFetch will start at the very oldest message in the partition. Press play or step through.',
+            'Nothing has been drained yet, so the persisted cursor is null. The first fetch will start at the very oldest message in the partition. Press play or step through.',
         },
       };
     case 'newToOld':
@@ -164,7 +164,7 @@ const makeSim = (strategy: StrategyId): Sim => {
         narr: {
           title: 'Ready — { slices: [] }',
           detail:
-            'The run opens with two concurrent fetches, one from each end of the partition: fetchOlder({ cursor: null }) grabs the newest page while forwardFetch({ cursor: null }) grabs the oldest.',
+            'The run opens with two concurrent fetches, one from each end of the partition: fetchOlder({ cursor: null }) grabs the newest page while fetchNewer({ cursor: null }) grabs the oldest.',
         },
       };
   }
@@ -238,7 +238,7 @@ const stepOldToNew = (sim: OldToNewSim): OldToNewSim => {
       lastBatch: [],
       caughtUp: true,
       narr: {
-        title: 'forwardFetch → empty batch',
+        title: 'fetch → empty batch',
         detail:
           'Nothing is newer than the cursor: history is drained. A poll-based run ends here; with a stream source the strategy stays subscribed and arrivals flow through the same write-then-advance path. Try "New message arrives".',
       },
@@ -253,7 +253,7 @@ const stepOldToNew = (sim: OldToNewSim): OldToNewSim => {
           'The subscription pushes the arrival as just another batch: writeServerTruth, then setState({ cursor }) moves the cursor up to it. Because _u is monotonic the cursor only ever moves forward — everything at or below it stays complete.',
       }
     : {
-        title: `forwardFetch({ cursor: ${sim.cursorU === null ? 'null' : `…${short(sim.cursorU)}`} }) → ${batch.length} items`,
+        title: `fetch({ cursor: ${sim.cursorU === null ? 'null' : `…${short(sim.cursorU)}`} }) → ${batch.length} items`,
         detail:
           sim.cursorU === null
             ? 'A null cursor means "start from the oldest". The batch is written through writeServerTruth, then setState persists the batch\'s newest entity as the cursor. Crash now and the next run resumes exactly here.'
@@ -347,7 +347,7 @@ const stepBidirectional = (sim: BidirectionalSim): BidirectionalSim => {
       tailAnchorU: freshTop,
       narr: {
         title: 'anchor both ends — two concurrent fetches',
-        detail: `fetchOlder({ cursor: null }) returned the newest ${latest.length} messages while forwardFetch({ cursor: null }) returned the oldest ${oldest.length}, concurrently. Both were written and committed — two disjoint slices with one gap between them. The live tail subscribes above …${short(freshTop)}.`,
+        detail: `fetchOlder({ cursor: null }) returned the newest ${latest.length} messages while fetchNewer({ cursor: null }) returned the oldest ${oldest.length}, concurrently. Both were written and committed — two disjoint slices with one gap between them. The live tail subscribes above …${short(freshTop)}.`,
       },
     };
   }
@@ -402,7 +402,7 @@ const stepBidirectional = (sim: BidirectionalSim): BidirectionalSim => {
     converged,
     nextLoop: 'down',
     narr: {
-      title: `upward loop: forwardFetch({ cursor: …${short(bottom.highU)} }) → ${batch.length} items`,
+      title: `upward loop: fetchNewer({ cursor: …${short(bottom.highU)} }) → ${batch.length} items`,
       detail: `The upward loop mirrors it from the other end: fetch the page just above the bottom slice's high edge and commit addRange(bottom.high, newestOf(batch)).${converged ? collapseNote : ''}`,
     },
   };

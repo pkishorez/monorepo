@@ -57,8 +57,14 @@ The collection may contain rows from partitions that are no longer active. Parti
 
 Two public methods:
 
-- **sync** — a keyed collection. Declares an optional **global** strategy (mirrors the whole set, runs the **global partition**) and/or an optional **`partitions`** map (per field-value slice, activated on demand). Global and partitions coexist in one engine over one shared SoT.
+- **sync** — a keyed collection. Declares an optional **global** strategy, optional on-demand **partitions**, or both as **Hybrid Sync**. All paths converge through one shared SoT.
 - **singleItemSync** — holds exactly one record with no id field. Separate strategy family.
+
+### Hybrid Sync
+
+A keyed sync shape where background global coverage and on-demand partition acceleration coexist. The global path eventually covers the whole set; an active partition prioritizes the subset needed now so the user does not wait for the global backlog.
+
+_Avoid_: Total versus partitioned sync, priority sync.
 
 ### Partition
 
@@ -93,7 +99,7 @@ SoT can use the default memory backend or a configured Offline Storage backend. 
 
 SoT can be written while the TanStack collection is unmounted. If callbacks are absent, projection is deferred. On mount, the engine projects current SoT into the collection.
 
-Server-truth writes are atomic. A batch either succeeds as a whole or fails through `WriteError`. Stale valid entities are no-ops, not failures.
+Server-truth writes are atomic. A batch either succeeds as a whole or fails through `WriteError`. Stale valid entities are no-ops, not failures. Writes for one collection are serialized by a one-permit semaphore so concurrent total, partition, mutation, and registry deliveries cannot interleave their read-compare-write decisions.
 
 ### Collection Projection
 
@@ -108,12 +114,11 @@ Serializable per-strategy, per-partition data stored by the engine and interpret
 A **Stored Sync State** is the on-disk wrapper the engine writes to Offline Storage for one strategy partition:
 
 ```
-{ strategy: string, value: unknown, meta?: PartitionMeta }
+{ strategy: string, value: unknown }
 ```
 
 - `strategy` — the owning strategy name. On read, a mismatch resets the slot to the strategy's empty state.
 - `value` — the opaque strategy-owned Sync State.
-- `meta` — optional partition identity for inspection.
 
 It shares no vocabulary with **Entity**: it carries strategy bookkeeping, never server truth. (The internal identifier `StoredStrategyState` refers to this wrapper; "envelope" is retired as a glossary term.)
 
@@ -153,13 +158,13 @@ For `singleItemSync`, lifecycle is collection-level: start on sync start, stop o
 
 An opaque boundary marker handed to the user's `fetch` closure. Concretely it is the boundary **entity** (`Cursor<TItem> = EntityType<TItem>`), not a bare `_u` string.
 
-The strategy never interprets a cursor except to read `_u` for ordering and boundary comparison. "How to fetch older/newer than this cursor" — and any tie-breaking to keep `_u` a strict total order — is the closure's concern. `{ cursor: null }` means the natural extreme page (newest for `fetchOlder`, oldest for `fetchNewer`).
+The strategy reads `_u` only for ordering and boundary comparison. "How to fetch relative to this cursor" — and any tie-breaking needed to keep `_u` a strict total order — is the source closure's concern. The meaning of `{ cursor: null }` is documented by each worker/source contract.
 
 ### Sync Strategy
 
 The pluggable unit that decides how data flows from the server into the engine.
 
-A strategy is **partition-blind**. Its entire contract is "given my current cursor, fetch the next batch" — it has no concept of partitions, partition values, or lifecycle mechanics.
+A strategy is **partition-blind**. Its constructor receives exactly the sources its algorithm consumes, usually through closures that capture a partition value. The running strategy has no concept of partitions, partition values, or lifecycle mechanics.
 
 A strategy does not own SoT. At lifecycle start the engine calls `run(ctx)` with a `StrategyContext`:
 
@@ -172,21 +177,22 @@ type StrategyContext<TItem, TState> = {
 };
 ```
 
-`StrategyContext` carries **no partition value**. The partition value lives only in the user's `fetch` closure and the engine's per-partition runtime map.
+`StrategyContext` carries no fetch source and **no partition value**. Sources belong to the strategy constructor; the partition value lives only in those user closures and the engine's per-partition runtime map.
 
-The strategy contract is a single method `run(ctx): Effect<void, WriteError, Scope>`. A strategy does **not** catch failures from `writeServerTruth` — it lets `WriteError` surface. The engine owns the recovery policy: on any `run` failure it logs the error, tears down the current run, and restarts `run` from the top on a fixed 2-second spaced schedule. Because a restart re-reads Sync State, a drain resumes from its last cursor. `run` may complete early (a pull that drains) or stay alive (a subscription); completion is **not** teardown. Teardown happens only when the engine closes the partition scope, which also interrupts the retry loop. Cleanup is the strategy's own `Effect.addFinalizer` registered on that scope; the engine never knows what is being torn down. Strategies expose **no public utils** — there is no `utils.sync`. A partitioned collection can hold heterogeneous per-partition strategies, so no single strategy-specific util surface can be type-safe. `collection.utils` is engine-owned and generic only (`schema`, `write`, `mutation`).
+The strategy contract is a single method `run(ctx): Effect<void, unknown, Scope | R>`, where `R` is the optional application runtime environment. A strategy does **not** catch failures from `writeServerTruth` — it lets `WriteError` surface. The engine owns the recovery policy: on any `run` failure it reports a structured event and restarts `run` from the top on a fixed 2-second spaced schedule. Because a restart re-reads Sync State, a drain resumes from its last cursor. `run` may complete early (a pull that drains) or stay alive (a subscription); completion is **not** teardown. Teardown happens only when the engine closes the partition scope, which also interrupts the retry loop. Cleanup is the strategy's own `Effect.addFinalizer` registered on that scope; the engine never knows what is being torn down. Strategies expose **no public utils** — there is no `utils.sync`. A partitioned collection can hold heterogeneous per-partition strategies, so no single strategy-specific util surface can be type-safe. `collection.utils` is engine-owned and generic only (`schema`, `writeUpsert`, `pacedUpdate`, and pending-mutation inspection).
 
 **Strategy binding per shape:**
 
-- Global keyed strategy — `strategy` is a single strategy instance (collection-scoped, one global partition).
-- Partitioned `sync` — each entry in the `partitions` map is a factory `(partitionValue) => Strategy`. The engine calls it on partition refcount `0→1`; the strategy captures the value by closure and stays partition-blind.
+- Total keyed sync — `sync.total` is one entry containing a strategy and optional repair capability.
+- Partition sync — each entry in `sync.partitions` is a factory `(partitionValue) => { strategy, repair? }`. The engine calls it on partition refcount `0→1`; strategy and repair sources capture the value while the strategy stays partition-blind.
+- Hybrid sync — `sync.total` and `sync.partitions` coexist. Their progress slots and lifecycles are independent; their entity writes share one SoT.
 
 **Partitioned strategy family**:
 
 - **OldToNew** — fetches from older records toward newer records.
-- **NewToOld** _(future)_ — newest-first delivery with a live tail. Exists to escape `OldToNew`'s limitation: with a large backlog, `OldToNew` blocks the newest records behind a full replay of the backlog. `NewToOld` makes the newest records visible **immediately** and pushes the bulk fill into the background. It runs two activities under the strategy scope:
-  - **Live tail** (`subscribeNewer`, a stream): each session anchors at the **fresh current top** (the newest record of the latest slice it just fetched), then streams forward live. It anchors at the fresh top, **not** the saved high-water — anchoring at the saved high would re-impose the `OldToNew` replay problem.
-  - **Backfill** (`fetchOlder`, a cursor-based pull): a single descending frontier from the latest slice's low end, skipping/merging older covered ranges as it meets them, draining toward the absolute bottom in the background.
+- **NewToOld** — newest-first delivery with a live tail. Exists to escape `OldToNew`'s limitation: with a large backlog, `OldToNew` blocks the newest records behind a full replay of the backlog. `NewToOld` makes the newest records visible **immediately** and pushes the bulk fill into the background. It runs two activities under the strategy scope:
+  - **Live tail** (`subscribeNewer`, a stream): waits for the backfill's first available top and then streams strictly newer batches.
+  - **Backfill** (`subscribeOlder`, a finite stream): resumes from the saved top slice's low boundary, or from `null` on a cold start, and drains toward the absolute bottom.
 
   Covered state is a **persisted list of disjoint `_u` ranges (slices)** plus a single collection-level `reachedOldest` flag:
 
@@ -198,18 +204,16 @@ The strategy contract is a single method `run(ctx): Effect<void, WriteError, Sco
   - A **slice** is a contiguous loaded range whose `low`/`high` are the boundary **entities** at the oldest and newest `_u` of the range. Slice ordering and overlap are computed by comparing those entities' `_u`.
   - **Reconcile** runs on every batch (live-tail push and backfill pull alike): extend the touched slice, then merge any slices that overlap or touch, keeping the list disjoint and minimal. Overlap is detected by `_u` comparison — the strategy reads `_u` to sort batches and compare boundaries; the cursor is opaque only as to _how to fetch older from it_. Exact no-overlap adjacency is undetectable but harmless: backfill overlaps into the next slice on its next page and merges then.
   - **`reachedOldest`** is a property of the whole sync, not of a slice. It becomes true only after the lowest material slice has been proven to reach the absolute floor. An empty collection leaves `reachedOldest: false` because there is no bottom slice to anchor future gaps. The Upward Migration invariant guarantees the oldest record never moves, so once a material floor is proven, the flag is true forever. Every later session is then **pure gap-filling above the floor** — backfill stops as soon as its frontier merges into the bottom-most slice and never probes below the floor again.
-  - The **latest slice** is just the session's first `fetchOlder({ cursor: null })` (null ⇒ newest page); no separate "get latest" endpoint.
-
-  **Run shape.** Every session (warm or cold) runs the same sequence: (1) `fetchOlder({ cursor: null })` → reconcile → `freshTop`; (2) start the live tail anchored at `freshTop`; (3) start backfill descending from the latest page's low. The live tail anchors at the **fresh** top every time, never the saved high. Both fibers live under the one strategy `scope` and share the `slices` state through a single `SynchronizedRef` whose `updateEffect` reconciles and persists atomically. A `WriteError` in either fiber surfaces and restarts the whole `run` (per the standard strategy contract); the restart re-reads persisted `slices`/`reachedOldest` and resumes.
+    **Run shape.** Backfill and live-tail fibers run together. Backfill publishes its first available top through a `Deferred`; the live tail waits for that anchor before subscribing. Both share the slice state through a `SynchronizedRef` and persist reconciled updates atomically. On restart, backfill resumes from the saved top slice's low boundary and the live tail anchors at its saved high boundary.
 
   A large reload gap produces genuinely disjoint slices (old region + fresh top slice) with a real gap that backfill grinds through later; if the data did not grow, the fresh latest slice overlaps the saved top slice and reconcile collapses them, so no spurious gap. Relies on the **Upward Migration invariant** below to keep covered ranges trustworthy across reloads.
 
-- **Bidirectional** _(future)_ — newest-first delivery (like `NewToOld`) plus a second backfill frontier ascending from the absolute oldest record. Exists to make the **oldest** records visible immediately too, instead of only after the downward backfill grinds through the whole backlog. Coverage converges on a single gap closed from **both ends**. Both backfill directions are **cursor pulls** (loops), so each re-reads the shared slice list every iteration and stops cleanly at collapse; only the live tail is a stream. It runs three activities under the strategy scope:
+- **Bidirectional** — newest-first delivery (like `NewToOld`) plus a second backfill frontier ascending from the absolute oldest record. Exists to make the **oldest** records visible immediately too, instead of only after the downward backfill grinds through the whole backlog. Coverage converges on a single gap closed from **both ends**. It runs three activities under the strategy scope:
   - **Live tail** (`subscribeNewer`, a stream): anchors at the session's fresh top, streams forward live, stays open.
   - **Downward frontier** (`fetchOlder`, a cursor pull): `{ cursor: null }` resolves the **newest page**; a non-null cursor resolves the page strictly **older** than it. Descends from the top slice's low.
   - **Upward frontier** (`fetchNewer`, a cursor pull): `{ cursor: null }` resolves the **oldest page**; a non-null cursor resolves the page strictly **newer** than it; an empty batch means the frontier has caught up. Ascends from the bottom slice's high.
 
-  Every session seeds the newest page (`fetchOlder({ cursor: null })`) and the oldest page (`fetchNewer({ cursor: null })`) — both complete before the fibers start, giving a deterministic two-slice (or already-collapsed) starting state. The live tail anchors at the `freshTop` from the newest-page seed.
+  A cold session seeds the newest page with `fetchOlder({ cursor: null })` and the oldest page with `fetchNewer({ cursor: null })` before starting the three fibers. A warm session resumes directly from persisted slices and anchors the live tail at the saved top.
 
   Covered state is the same disjoint `_u` slice list as `NewToOld`, **minus** `reachedOldest`:
 
@@ -217,7 +221,7 @@ The strategy contract is a single method `run(ctx): Effect<void, WriteError, Sco
   type BidirectionalState = { slices: Slice[] };
   ```
 
-  `reachedOldest` is dropped because the upward frontier anchors the true floor on page one of every session, so "have we reached the oldest" is always yes — a constant flag carries no information. The inspector's slice-count derivation keys off `slices` alone, so parity holds.
+  `reachedOldest` is dropped because the upward frontier anchors the true floor on page one of every session, so "have we reached the oldest" is always yes — a constant flag carries no information.
   - **Termination** is **single-slice collapse**: when the slice list reduces to one contiguous range, both anchors are covered and the gap is closed. The downward frontier marches from the top slice's `low` (swallowing middle gaps as it descends); the upward frontier marches from the bottom slice's `high` (swallowing middle gaps as it rises). Whichever reconciles the closing batch produces `slices.length === 1`; the other observes it on its next loop and exits. A warm resume whose gap is already closed starts, both pulls see one slice, exit immediately, and only the live tail keeps running.
   - **Empty collection**: a frontier whose **seed page is empty** exits immediately. With a genuinely empty dataset neither pull has anything to do, `slices` stays empty (never reaches one slice — harmless), and the live tail parks waiting for the first arrival. So a frontier stops when `slices` collapses to one **or** its seed page is empty.
 
@@ -232,8 +236,6 @@ The cursor handed to the user's fetch closure is **opaque** (the boundary entity
 **Single-item strategy family**:
 
 - **GetOnce** — fetches once on lifecycle start.
-- **Poll** — fetches on start and repeats while active.
-- **Subscribe** — receives a stream while active.
 
 ### Cadence Sync
 
@@ -241,7 +243,7 @@ A drift-repair loop that runs **in parallel** with a partition's Sync Strategy, 
 
 Each pass scans the partition's projected rows (narrowed to `field = value`) for **suspects** — rows delivered so close to their own `_u` that sibling records at the same `_u` may still have been in flight (`_s − uTime(_u) < window`). Once the oldest suspect has aged past `readiness` (adjusting for the `_c − _s` clock skew), it re-fetches from the suspect's predecessor anchor and writes the result through `writeServerTruth`.
 
-Cadence Sync **only writes Source of Truth**; it never reads or advances Sync State — it owns no cursor and claims no forward progress. It is optional per partition (`cadence?: CadenceConfig | false`) and inherits a `defaultCadence` from `createStdSync`. Config is `{ window, readiness, pollDelay, debug? }`.
+Cadence Sync **only writes Source of Truth**; it never reads or advances Sync State — it owns no cursor and claims no forward progress. It is an explicit per-entry `repair` capability containing `fetchFrom` and an optional cadence override. A declared repair inherits `cadence` from `createStdSync` when it omits its own policy. Omitting `repair` disables repair even when a default exists. Config is `{ window, readiness, pollDelay, debug? }`.
 
 _Avoid_: Cadence Sync Strategy (it is not a Sync Strategy), polling.
 
@@ -301,11 +303,23 @@ Internal structure that remembers which collections a `createStdSync()` instance
 
 ### createStdSync
 
-The factory. One call per app or feature scope. Returns `sync`, `singleItemSync`, and `registry`.
+The factory. One call per app or feature scope. Returns `sync`, `collection`, `singleItemSync`, `singleItemCollection`, and `registry`.
 
-`sync` is the unified keyed-collection method. One collection declares an optional **global** `strategy` (an instance, runs the **global partition** at sync start) and an optional **`partitions`** map (`field → (partitionValue) => Strategy`, each activated on a matching `loadSubset`). Both coexist in one engine sharing one SoT; convergence dedupes overlap. The runtime routes each live query: matching partition field → that partition's strategy; no match → covered by the global (or `console.error` if no global configured).
+`sync` is the unified keyed-collection method. One collection declares `sync.total`, `sync.partitions`, or both. Total sync runs the **global partition** at collection start. Each typed partition factory is activated by a matching `loadSubset`. Both coexist in one engine sharing one SoT; convergence dedupes overlap. The runtime routes each live query: matching partition field → that partition's strategy; no match → covered by total sync, or reported as an `UnservedQuery` event when no total sync exists.
 
-The public surface of the main barrel, no exported types: `createStdSync`, `syncStrategy` (`syncStrategy.oldToNew`), `singleItemSyncStrategy` (`singleItemSyncStrategy.getOnce`), and `paceStrategy` (`paceStrategy.coalesce`, `paceStrategy.debounce`, ...). The `@std-toolkit/tanstack-sync/paced` subpath additionally exports the raw `coalesceStrategy` primitive. All config/result/interface types flow through inference.
+The public surface of the main barrel includes `createStdSync`, `syncStrategy`, `singleItemSyncStrategy`, `paceStrategy`, runtime/config/strategy types, structured sync-event types, and storage types. The `std-toolkit/tanstack-sync/paced` subpath additionally exports the raw `coalesceStrategy` primitive. Collection config and utility types primarily flow through schema and runtime inference.
+
+### Effect Runtime
+
+An optional `ManagedRuntime` supplied to `createStdSync`. Strategies, fetches, and mutation callbacks may require its environment `R`. At TanStack DB's synchronous and promise boundaries, std-sync executes Effects through the supplied runtime's `runSync` or `runPromise`. When no runtime is supplied, the public API fixes `R` to `never` and uses the corresponding global Effect runner. This prevents declaring service-requiring callbacks without also providing their runtime. Imperative execution is centralized in the shared **Effect Runner** runtime module.
+
+### Sync Event
+
+A structured operational fact reported through the Effect-valued `onEvent` callback. Events cover strategy and cadence failures, initialization failures, unserved queries, and registry write failures. They replace the former Inspector: observability consumes explicit events without adding inspection metadata to persisted domain state or coupling the sync engine to a UI model.
+
+### Layer Graph
+
+The enforceable dependency structure for tanstack-sync: **domain → persistence → runtime → workers → lifecycle → composition → public**. Lifecycle owns running scopes, retries, cadence fibers, and shutdown; composition joins lifecycle with TanStack callbacks, projection, persistence, and mutation handlers. Modules in one layer are independent unless their Laymos entry is explicitly marked `shared`. Every folder module is a deep module with a narrow `index.ts` door and a matching implementation file.
 
 ### StdSync
 
@@ -313,7 +327,7 @@ The object returned by `createStdSync`.
 
 ### Pace Strategy
 
-A distinct axis from a **sync strategy**. A _pace strategy_ controls **when** `pacedUpdate`'s optimistic mutations are committed to the server, not how data is pulled into the SoT. It plugs into TanStack DB's `createPacedMutations`. Built-in pacers are `debounce`, `throttle`, and `queue`; std-sync adds `coalesce`. Exposed two ways: the raw reusable primitive `coalesceStrategy()` (drop into any `createPacedMutations`), exported from the **`@std-toolkit/tanstack-sync/paced` subpath** (not the main barrel), and the collection-level namespace `paceStrategy` (`paceStrategy.coalesce()`, `paceStrategy.debounce(...)`, ...) selected via the `updatePacing?` field on `sync`.
+A distinct axis from a **sync strategy**. A _pace strategy_ controls **when** `pacedUpdate`'s optimistic mutations are committed to the server, not how data is pulled into the SoT. It plugs into TanStack DB's `createPacedMutations`. Built-in pacers are `debounce`, `throttle`, and `queue`; std-sync adds `coalesce`. Exposed two ways: the raw reusable primitive `coalesceStrategy()` (drop into any `createPacedMutations`), exported from the **`std-toolkit/tanstack-sync/paced` subpath** (not the main barrel), and the collection-level namespace `paceStrategy` (`paceStrategy.coalesce()`, `paceStrategy.debounce(...)`, ...) selected via the `updatePacing?` field on `sync`.
 
 ### Coalesce (pace strategy)
 
