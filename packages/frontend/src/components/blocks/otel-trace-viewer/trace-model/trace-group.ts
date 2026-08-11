@@ -45,6 +45,16 @@ function buildSpanTree(spans: OtelSpan[]): SpanNode[] {
     }
   }
 
+  const sortByStartTime = (nodes: SpanNode[]) => {
+    nodes.sort(
+      (left, right) =>
+        left.span.startTime - right.span.startTime ||
+        left.span.spanId.localeCompare(right.span.spanId),
+    );
+    for (const node of nodes) sortByStartTime(node.children);
+  };
+  sortByStartTime(roots);
+
   return roots;
 }
 

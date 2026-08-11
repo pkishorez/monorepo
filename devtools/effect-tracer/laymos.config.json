@@ -9,6 +9,7 @@
     }
   },
   "modules": {
+    "src/flow": { "shared": true },
     "src/recorder": {},
     "src/telemetry": { "nested": ["dev-telemetry"] }
   },

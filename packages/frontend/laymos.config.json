@@ -31,6 +31,7 @@
   },
   "modules": {
     "src/components/blocks/file-tree": { "shared": true },
+    "src/components/blocks/flow-swimlane": {},
     "src/components/blocks/json": { "shared": true },
     "src/components/blocks/laymos": {},
     "src/components/blocks/otel-trace-viewer": {},

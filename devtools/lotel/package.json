@@ -18,6 +18,14 @@
       "types": "./dist/orchestrator/telemetry/rpc-entry.d.ts",
       "default": "./dist/orchestrator/telemetry/rpc-entry.js"
     },
+    "./telemetry": {
+      "types": "./dist/domain/telemetry-schema/index.d.ts",
+      "default": "./dist/domain/telemetry-schema/index.js"
+    },
+    "./flow": {
+      "types": "./dist/domain/flow/index.d.ts",
+      "default": "./dist/domain/flow/index.js"
+    },
     "./sqlite": {
       "types": "./dist/services/telemetry-store/sqlite-entry.d.ts",
       "default": "./dist/services/telemetry-store/sqlite-entry.js"
@@ -37,6 +45,7 @@
     "test:watch": "vp test src --watch"
   },
   "dependencies": {
+    "@pkishorez/effect-tracer": "workspace:*",
     "effect": "catalog:",
     "std-toolkit": "workspace:*"
   },

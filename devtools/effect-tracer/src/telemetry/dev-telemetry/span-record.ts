@@ -25,9 +25,9 @@ const spanKey = (span: Tracer.NativeSpan) => `${span.traceId}:${span.spanId}`;
 const spanRecord = (span: Tracer.NativeSpan) => {
   const spanStatus = span.status;
   const ended = spanStatus._tag === 'Ended';
-  const attributes = ended
-    ? OtlpResource.entriesToAttributes(span.attributes.entries())
-    : [];
+  const attributes = OtlpResource.entriesToAttributes(
+    span.attributes.entries(),
+  );
   const events = ended
     ? span.events.map(([name, time, eventAttributes]) => ({
         name,

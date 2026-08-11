@@ -14,6 +14,10 @@
       "types": "./dist/recorder/index.d.ts",
       "default": "./dist/recorder/index.js"
     },
+    "./flow": {
+      "types": "./dist/flow/index.d.ts",
+      "default": "./dist/flow/index.js"
+    },
     "./telemetry": {
       "types": "./dist/telemetry/index.d.ts",
       "default": "./dist/telemetry/index.js"

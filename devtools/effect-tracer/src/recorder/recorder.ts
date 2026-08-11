@@ -1,4 +1,6 @@
 import { Effect, Exit, Logger, Option, References, Tracer } from 'effect';
+import type { RecordedFlow } from '../flow/index.js';
+import { projectRecordedFlow, recordedFlowIds } from './flow-snapshot.js';
 
 const DEFAULT_MAX_SPANS = 2_000;
 
@@ -20,7 +22,10 @@ export type TraceLogLevel =
   | 'Trace';
 
 /** A span's lifecycle state. */
-export type CapturedSpanStatus = 'success' | 'error' | 'running' | 'unset';
+export type CapturedSpanStatus = Extract<
+  RecordedFlow['items'][number],
+  { kind: 'activity' }
+>['status'];
 
 /** An event captured during a span. */
 export interface CapturedEvent {
@@ -31,6 +36,8 @@ export interface CapturedEvent {
 
 /** A log captured while the recorder is installed. */
 export interface CapturedLog {
+  /** Stable identity for this log, assigned in arrival order. */
+  readonly id: string;
   readonly spanId: string | null;
   readonly timestamp: number;
   readonly level: TraceLogLevel;
@@ -104,6 +111,10 @@ export interface TraceRecorder {
   ) => Effect.Effect<A, E, R>;
   /** Everything recorded so far. Safe to call at any point, including mid-run. */
   readonly snapshot: () => CapturedTrace;
+  /** Returns one Flow derived from its recorded spans and logs. */
+  readonly snapshotFlow: (flowId: string) => RecordedFlow | null;
+  /** Returns every Flow currently represented in the recording. */
+  readonly snapshotFlows: () => readonly RecordedFlow[];
 }
 
 type NativeSpanOptions = ConstructorParameters<typeof Tracer.NativeSpan>[0];
@@ -136,6 +147,7 @@ export function makeTraceRecorder(
 
   const spans: Tracer.NativeSpan[] = [];
   const logs: CapturedLog[] = [];
+  let logSequence = 0;
   let truncated = false;
 
   const toValue = (value: unknown): TraceValue =>
@@ -163,6 +175,7 @@ export function makeTraceRecorder(
     const level = logLevel(logOptions.logLevel);
     if (level === null) return;
     const log: CapturedLog = {
+      id: `log-${logSequence++}`,
       spanId: logOptions.fiber.currentSpan?.spanId ?? null,
       timestamp: logOptions.date.getTime(),
       level,
@@ -181,40 +194,49 @@ export function makeTraceRecorder(
     onLog?.(log);
   });
 
+  const snapshot = (): CapturedTrace => {
+    if (requireFinishedSpans) {
+      for (const span of spans) {
+        if (span.status._tag === 'Started') {
+          throw namedError(
+            'IncompleteTrace',
+            `Span "${span.name}" did not finish inside the recorded Effect`,
+          );
+        }
+      }
+    }
+    const normalized = sortSpans(
+      spans.map((span) => normalizeSpan(span, toValue)),
+    );
+    const recordedIds = new Set(normalized.map(({ spanId }) => spanId));
+    return {
+      spans: normalized,
+      logs: logs
+        .map((log) => ({
+          ...log,
+          spanId:
+            log.spanId !== null && recordedIds.has(log.spanId)
+              ? log.spanId
+              : null,
+        }))
+        .sort((left, right) => left.timestamp - right.timestamp),
+      truncated,
+    };
+  };
+
   return {
     instrument: (effect) =>
       effect.pipe(
         Effect.withTracer(tracer),
         Effect.provide(Logger.layer([logger])),
       ),
-    snapshot: () => {
-      if (requireFinishedSpans) {
-        for (const span of spans) {
-          if (span.status._tag === 'Started') {
-            throw namedError(
-              'IncompleteTrace',
-              `Span "${span.name}" did not finish inside the recorded Effect`,
-            );
-          }
-        }
-      }
-      const normalized = sortSpans(
-        spans.map((span) => normalizeSpan(span, toValue)),
-      );
-      const recordedIds = new Set(normalized.map(({ spanId }) => spanId));
-      return {
-        spans: normalized,
-        logs: logs
-          .map((log) => ({
-            ...log,
-            spanId:
-              log.spanId !== null && recordedIds.has(log.spanId)
-                ? log.spanId
-                : null,
-          }))
-          .sort((left, right) => left.timestamp - right.timestamp),
-        truncated,
-      };
+    snapshot,
+    snapshotFlow: (flowId) => projectRecordedFlow(snapshot(), flowId),
+    snapshotFlows: () => {
+      const trace = snapshot();
+      return recordedFlowIds(trace)
+        .map((flowId) => projectRecordedFlow(trace, flowId))
+        .filter((flow) => flow !== null);
     },
   };
 }
