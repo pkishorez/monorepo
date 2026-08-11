@@ -10,7 +10,7 @@ import {
   type ESchemaEncoded,
   type ESchemaType,
 } from '../index.js';
-import { ESchemaError } from '../utils.js';
+import { ESchemaError } from '../index.js';
 import { StringToNumber } from './fixtures.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>

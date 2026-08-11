@@ -4,7 +4,7 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { ESchema, fromType } from '../index.js';
-import { ESchemaError } from '../utils.js';
+import { ESchemaError } from '../index.js';
 import { StringToNumber } from './fixtures.js';
 
 describe('ESchema', () => {

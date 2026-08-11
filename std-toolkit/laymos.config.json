@@ -29,23 +29,37 @@
       "paths": ["src/eschema/index.ts"],
       "description": "Public barrel"
     },
-    "eschema-impl": {
+    "eschema-constructs": {
       "paths": [
-        "src/eschema/eschema.ts",
-        "src/eschema/internal",
-        "src/eschema/schema.ts",
-        "src/eschema/types.ts",
-        "src/eschema/utils.ts",
-        "src/snapshot/model.ts",
-        "src/snapshot/snapshot.ts",
-        "src/snapshot/internal",
-        "src/snapshot/table-adapter"
+        "src/eschema/eschema",
+        "src/eschema/entity-eschema",
+        "src/eschema/value-eschema"
       ],
-      "description": "ESchema and semantic snapshot implementation"
+      "description": "Public ESchema variants and their local builders"
+    },
+    "eschema-composition": {
+      "paths": ["src/eschema/schema-composition"],
+      "description": "Effect Schema composition"
+    },
+    "eschema-domain": {
+      "paths": ["src/eschema/domain"],
+      "description": "Evolution, field policy, runtimes, errors, and introspection"
     },
     "snapshot-barrel": {
       "paths": ["src/snapshot/index.ts"],
       "description": "Public barrel"
+    },
+    "snapshot-facade": {
+      "paths": ["src/snapshot/snapshot"],
+      "description": "Public Snapshot operation composition"
+    },
+    "snapshot-capture": {
+      "paths": ["src/snapshot/capture"],
+      "description": "ESchema and table contract capture"
+    },
+    "snapshot-domain": {
+      "paths": ["src/snapshot/domain"],
+      "description": "Snapshot models, errors, and canonical ordering"
     },
     "cli": {
       "paths": ["src/cli"],
@@ -86,7 +100,7 @@
     },
     "db-persistence-domain": {
       "paths": ["src/db/domain"],
-      "description": "Shared persistence failures"
+      "description": "Shared persistence failures and entity registration"
     },
     "idb-barrel": {
       "paths": ["src/db/idb/index.ts"],
@@ -201,6 +215,7 @@
     "src/db/dynamodb/services/dynamo-table": {},
     "src/db/dynamodb/services/dynamodb": { "shared": true },
     "src/db/dynamodb/types": { "shared": true },
+    "src/db/domain/entity-registry": { "shared": true },
     "src/db/domain/persistence-error": { "shared": true },
     "src/db/idb/clients/idb-client": {},
     "src/db/idb/domain/entity-persistence": {},
@@ -225,17 +240,20 @@
     "src/db/sqlite/sql/adapters/bun": {},
     "src/db/sqlite/sql/adapters/durable-object": {},
     "src/db/sqlite/sql/adapters/node": {},
-    "src/eschema/eschema.ts": { "shared": true },
+    "src/eschema/domain/eschema-error": { "shared": true },
+    "src/eschema/domain/introspection": { "shared": true },
+    "src/eschema/domain/object-schema-runtime": {},
+    "src/eschema/domain/schema-model": { "shared": true },
+    "src/eschema/entity-eschema": {},
+    "src/eschema/eschema": { "shared": true },
     "src/eschema/index.ts": {},
-    "src/eschema/internal": {},
-    "src/eschema/schema.ts": { "shared": true },
-    "src/eschema/types.ts": { "shared": true },
-    "src/eschema/utils.ts": { "shared": true },
+    "src/eschema/schema-composition": {},
+    "src/eschema/value-eschema": {},
+    "src/snapshot/capture/eschema-capture": { "shared": true },
+    "src/snapshot/capture/table-capture": { "shared": true },
+    "src/snapshot/domain": {},
     "src/snapshot/index.ts": {},
-    "src/snapshot/internal": { "shared": true },
-    "src/snapshot/model.ts": { "shared": true },
-    "src/snapshot/snapshot.ts": {},
-    "src/snapshot/table-adapter": { "shared": true },
+    "src/snapshot/snapshot": {},
     "src/tanstack-sync/cadence-sync": {},
     "src/tanstack-sync/collection-projection": {},
     "src/tanstack-sync/create-std-sync.ts": { "shared": true },
@@ -252,10 +270,29 @@
   },
   "layerGraphs": {
     "eschema": {
-      "description": "Schema entrypoints and implementation",
+      "description": "ESchema entrypoint, constructs, composition, and domain",
       "rules": {
-        "eschema-barrel": ["eschema-impl"],
-        "snapshot-barrel": ["eschema-impl"]
+        "eschema-barrel": [
+          "eschema-constructs",
+          "eschema-composition",
+          "eschema-domain"
+        ],
+        "eschema-constructs": ["eschema-domain"],
+        "eschema-composition": ["eschema-domain"]
+      }
+    },
+    "snapshot": {
+      "description": "Snapshot facade, capture, domain, and one-way ESchema integration",
+      "rules": {
+        "snapshot-barrel": ["snapshot-facade", "snapshot-domain"],
+        "snapshot-facade": [
+          "snapshot-capture",
+          "snapshot-domain",
+          "eschema-domain",
+          "eschema-constructs"
+        ],
+        "snapshot-capture": ["snapshot-domain", "eschema-domain"],
+        "snapshot-domain": []
       }
     },
     "core": {
@@ -291,7 +328,8 @@
           "dynamodb-domain",
           "db-persistence-domain",
           "core-barrel",
-          "snapshot-barrel"
+          "snapshot-barrel",
+          "snapshot-capture"
         ],
         "dynamodb-clients": ["dynamodb-domain"],
         "dynamodb-domain": ["db-persistence-domain", "core-barrel"]
@@ -306,7 +344,8 @@
           "idb-domain",
           "db-persistence-domain",
           "core-barrel",
-          "snapshot-barrel"
+          "snapshot-barrel",
+          "snapshot-capture"
         ],
         "idb-clients": ["idb-services"],
         "idb-domain": ["db-persistence-domain", "core-barrel"]
@@ -322,7 +361,8 @@
           "sqlite-domain",
           "db-persistence-domain",
           "core-barrel",
-          "snapshot-barrel"
+          "snapshot-barrel",
+          "snapshot-capture"
         ],
         "sqlite-clients": [],
         "sqlite-domain": ["db-persistence-domain", "core-barrel"],

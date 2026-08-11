@@ -1,6 +1,9 @@
-export { ESchema, EntityESchema, ValueESchema, toSchema } from './eschema.js';
-export { ESchemaError } from './utils.js';
-export { fromType, id, metaSchema } from './schema.js';
+export { ESchema } from './eschema/index.js';
+export { EntityESchema } from './entity-eschema/index.js';
+export { ValueESchema } from './value-eschema/index.js';
+export { toSchema } from './schema-composition/index.js';
+export { ESchemaError } from './domain/eschema-error/index.js';
+export { fromType, id, metaSchema } from './domain/schema-model/index.js';
 export type {
   Prettify,
   AnyESchema,
@@ -16,4 +19,4 @@ export type {
   StructFieldsSchema,
   ValueEnvelopeEncoded,
   ValueSchema,
-} from './types.js';
+} from './domain/schema-model/index.js';

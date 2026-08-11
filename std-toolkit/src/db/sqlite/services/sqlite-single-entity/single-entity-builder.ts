@@ -2,7 +2,7 @@ import type {
   AnyUnkeyedESchema,
   ESchemaType,
 } from '../../../../eschema/index.js';
-import type { TableSnapshotEntity } from '../../../../snapshot/table-adapter/index.js';
+import type { TableSnapshotEntity } from '../../../domain/entity-registry/index.js';
 import type { SQLiteEntityTable } from '../sqlite-entity/index.js';
 import type { SQLiteSingleEntity } from './sqlite-single-entity.js';
 import { makeSQLiteSingleEntityContext } from './single-entity-context.js';

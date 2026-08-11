@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { Effect } from 'effect';
 import { createJiti } from 'jiti';
 import { Snapshot } from '../snapshot/index.js';
-import type { ContractSnapshot } from '../snapshot/model.js';
+import type { ContractSnapshot } from '../snapshot/index.js';
 
 const entryFileName = 'std-toolkit.snapshot.ts';
 const baselineFileName = 'std-toolkit.snapshot.json';

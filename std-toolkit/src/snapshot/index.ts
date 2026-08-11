@@ -1,5 +1,8 @@
-export { Snapshot } from './snapshot.js';
-export { SnapshotDecodeError, SnapshotIdentityConflict } from './model.js';
+export { Snapshot } from './snapshot/index.js';
+export {
+  SnapshotDecodeError,
+  SnapshotIdentityConflict,
+} from './domain/index.js';
 export type {
   ContractSnapshot,
   ESchemaDefinition,
@@ -12,4 +15,4 @@ export type {
   TableEntitySnapshotSource,
   TableIndexSnapshot,
   TableSnapshot,
-} from './model.js';
+} from './domain/index.js';

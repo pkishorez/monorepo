@@ -38,23 +38,23 @@ describe('ESchema semantic snapshots', () => {
       Schema.Tuple([Schema.Literal(1n), Schema.BigInt]),
     ).build();
 
-    expect(plain.snapshot().schemas[0]?.versions).toHaveLength(2);
-    expect(entity.snapshot().schemas[0]).toMatchObject({
+    expect(Snapshot.capture(plain).schemas[0]?.versions).toHaveLength(2);
+    expect(Snapshot.capture(entity).schemas[0]).toMatchObject({
       identity: 'User',
       kind: 'entity',
       idField: 'userId',
     });
-    expect(value.snapshot().schemas[0]).toMatchObject({ kind: 'value' });
-    expect(JSON.stringify(value.snapshot())).toContain('BigInt');
+    expect(Snapshot.capture(value).schemas[0]).toMatchObject({ kind: 'value' });
+    expect(JSON.stringify(Snapshot.capture(value))).toContain('BigInt');
     expect(
-      plain.snapshot().schemas[0]?.versions[0]?.transformations,
+      Snapshot.capture(plain).schemas[0]?.versions[0]?.transformations,
     ).toContainEqual(expect.objectContaining({ name: 'numberFromString' }));
-    expect(Snapshot.inspect(plain.snapshot())).toEqual([]);
-    expect(Snapshot.inspect(entity.snapshot())).toEqual([]);
+    expect(Snapshot.inspect(Snapshot.capture(plain))).toEqual([]);
+    expect(Snapshot.inspect(Snapshot.capture(entity))).toEqual([]);
 
-    const json = JSON.parse(JSON.stringify(plain.snapshot()));
+    const json = JSON.parse(JSON.stringify(Snapshot.capture(plain)));
     await expect(Effect.runPromise(Snapshot.decode(json))).resolves.toEqual(
-      plain.snapshot(),
+      Snapshot.capture(plain),
     );
   });
 
@@ -65,14 +65,13 @@ describe('ESchema semantic snapshots', () => {
     const filtered = Schema.String.check(
       Schema.makeFilter((value) => value.length > 0 || 'empty'),
     );
-    const snapshot = ESchema.make('Limitations', {
+    const limitations = ESchema.make('Limitations', {
       customTransform,
       declaration,
       filtered,
       builtInDate: Schema.Date,
-    })
-      .build()
-      .snapshot();
+    }).build();
+    const snapshot = Snapshot.capture(limitations);
     const version = snapshot.schemas[0]!.versions[0]!;
 
     expect(version.encoded).toBeDefined();
@@ -91,7 +90,7 @@ describe('ESchema semantic snapshots', () => {
       first: toSchema(child),
       second: toSchema(child),
     }).build();
-    const snapshot = parent.snapshot();
+    const snapshot = Snapshot.capture(parent);
 
     expect(snapshot.schemas.map((item) => item.identity)).toEqual([
       'Child',
@@ -105,13 +104,13 @@ describe('ESchema semantic snapshots', () => {
       first: toSchema(first),
       second: toSchema(second),
     }).build();
-    expect(() => conflict.snapshot()).toThrow(SnapshotIdentityConflict);
+    expect(() => Snapshot.capture(conflict)).toThrow(SnapshotIdentityConflict);
   });
 
   it('rejects duplicate definitions and dangling references', async () => {
-    const snapshot = ESchema.make('Item', { value: Schema.String })
-      .build()
-      .snapshot();
+    const snapshot = Snapshot.capture(
+      ESchema.make('Item', { value: Schema.String }).build(),
+    );
     const duplicate = {
       ...snapshot,
       schemas: [...snapshot.schemas, snapshot.schemas[0]],
@@ -147,43 +146,39 @@ describe('ESchema semantic snapshots', () => {
   it('sorts definitions and fields without sorting meaningful schema order', () => {
     const alpha = ESchema.make('Alpha', { value: Schema.String }).build();
     const zulu = ESchema.make('Zulu', { value: Schema.Number }).build();
-    const first = ESchema.make('Root', {
+    const firstSchema = ESchema.make('Root', {
       zulu: toSchema(zulu),
       alpha: toSchema(alpha),
-    })
-      .build()
-      .snapshot();
+    }).build();
+    const first = Snapshot.capture(firstSchema);
 
     const alphaAgain = ESchema.make('Alpha', { value: Schema.String }).build();
     const zuluAgain = ESchema.make('Zulu', { value: Schema.Number }).build();
-    const reordered = ESchema.make('Root', {
+    const reorderedSchema = ESchema.make('Root', {
       alpha: toSchema(alphaAgain),
       zulu: toSchema(zuluAgain),
-    })
-      .build()
-      .snapshot();
+    }).build();
+    const reordered = Snapshot.capture(reorderedSchema);
 
     expect(JSON.stringify(first)).toBe(JSON.stringify(reordered));
     expect(Snapshot.render(first)).toBe(Snapshot.render(reordered));
 
-    const ordered = ValueESchema.make(
+    const orderedSchema = ValueESchema.make(
       'Literals',
       Schema.Tuple([
         Schema.Literals(['zulu', 'alpha']),
         Schema.Literals(['second', 'first']),
       ]),
-    )
-      .build()
-      .snapshot();
-    const reversed = ValueESchema.make(
+    ).build();
+    const ordered = Snapshot.capture(orderedSchema);
+    const reversedSchema = ValueESchema.make(
       'Literals',
       Schema.Tuple([
         Schema.Literals(['alpha', 'zulu']),
         Schema.Literals(['first', 'second']),
       ]),
-    )
-      .build()
-      .snapshot();
+    ).build();
+    const reversed = Snapshot.capture(reversedSchema);
     expect(JSON.stringify(ordered)).not.toBe(JSON.stringify(reversed));
   });
 });

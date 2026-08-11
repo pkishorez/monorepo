@@ -31,10 +31,6 @@
       "types": "./dist/eschema/index.d.ts",
       "default": "./dist/eschema/index.js"
     },
-    "./eschema/*": {
-      "types": "./dist/eschema/*",
-      "import": "./dist/eschema/*"
-    },
     "./snapshot": {
       "types": "./dist/snapshot/index.d.ts",
       "default": "./dist/snapshot/index.js"
