@@ -16,9 +16,9 @@ type FlowEntities = Pick<
 const CONTENDED_WRITE_RETRIES = 5;
 
 const isContendedWrite = (error: SQLiteError) =>
-  error.error._tag === 'ConditionFailed' ||
-  error.error._tag === 'ItemAlreadyExists' ||
-  error.error._tag === 'NoItemToUpdate';
+  error._tag === 'ConditionFailed' ||
+  error._tag === 'ItemAlreadyExists' ||
+  error._tag === 'NoItemToUpdate';
 
 /** Atomically writes one telemetry record and advances its Flow catalog entry. */
 export const writeFlowRecord = (

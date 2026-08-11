@@ -6,6 +6,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 
 - [core](./src/core/CONTEXT.md) — the shared spine: the **Entity** model, **Entity Meta**, **Broadcaster**, and the base error. Every other context builds on these terms.
 - [eschema](./src/eschema/CONTEXT.md) — versioned, self-migrating schemas (schema evolution).
+- [snapshot](./src/snapshot/CONTEXT.md) — semantic contract capture, inspection, comparison, and rendering for ESchemas and database tables.
 - [db](./src/db/CONTEXT.md) — the single-table storage kernel shared by the database adapters.
   - [db/dynamodb](./src/db/dynamodb/CONTEXT.md) — DynamoDB adapter specifics.
   - [db/sqlite](./src/db/sqlite/CONTEXT.md) — SQLite adapter specifics.
@@ -16,7 +17,9 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 
 - **core** is the shared kernel for the whole toolkit. eschema, db (dynamodb/sqlite), and tanstack-sync all speak its **Entity** / **Entity Meta** vocabulary.
 - **eschema → core**: core's `_v` field is an eschema **version**; core's `EntitySchema` wraps an eschema schema.
+- **snapshot → eschema**: snapshot consumes ESchema structural introspection to produce **ESchema snapshots**; eschema does not depend on snapshot.
 - **db → core, eschema**: the adapters persist core **Entities** whose `value` is validated by an eschema schema.
+- **db → snapshot**: database tables provide topology and registered-entity source data to snapshot and expose `table.snapshot()` as their capture surface.
 - **db (dynamodb ↔ sqlite ↔ idb)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite and idb mirror dynamodb's topology and each child context records only its divergences.
 - **tanstack-sync → core**: consumes core **Entities** from the wire; interprets `_u` for convergence and `_s`/`_c` for cadence.
 

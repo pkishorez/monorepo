@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
  * Interactive demo of eschema's fold-forward decode and latest-only encode.
  *
  * The version chain mirrors the docs' running Message schema (v1 → v4). The
- * simulation follows `std-toolkit/src/eschema/eschema.ts` exactly: a missing
+ * simulation follows the ESchema runtime exactly: a missing
  * `_v` stamp resolves to the first version, decode folds forward through every
  * migration after the stamped version, and encode always writes the latest
  * shape stamped with the latest version.

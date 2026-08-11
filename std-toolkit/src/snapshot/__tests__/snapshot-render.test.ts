@@ -6,11 +6,9 @@ import { Snapshot, type TableSnapshot } from '../index.js';
 describe('snapshot rendering', () => {
   it('renders nested domain contracts deterministically', () => {
     const child = ESchema.make('Child', { value: Schema.String }).build();
-    const snapshot = ESchema.make('Parent', {
-      child: toSchema(child),
-    })
-      .build()
-      .snapshot();
+    const snapshot = Snapshot.capture(
+      ESchema.make('Parent', { child: toSchema(child) }).build(),
+    );
     const rendered = Snapshot.render(snapshot);
 
     expect(rendered).toContain('DATABASE CONTRACT');
@@ -54,9 +52,9 @@ describe('snapshot rendering', () => {
   });
 
   it('dispatches ESchema and table rendering without recursion', () => {
-    const eschema = ESchema.make('Item', { value: Schema.String })
-      .build()
-      .snapshot();
+    const eschema = Snapshot.capture(
+      ESchema.make('Item', { value: Schema.String }).build(),
+    );
     const table: TableSnapshot = {
       _v: 'v1',
       kind: 'table',

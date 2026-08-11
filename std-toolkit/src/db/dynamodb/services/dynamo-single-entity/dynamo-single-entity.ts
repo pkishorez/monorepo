@@ -1,9 +1,9 @@
 import type { AnyUnkeyedESchema } from '../../../../eschema/index.js';
+import { singletonSnapshotSource } from '../../../../snapshot/capture/table-capture/index.js';
 import {
-  singletonSnapshotSource,
   tableSnapshotSource,
   type TableSnapshotEntity,
-} from '../../../../snapshot/table-adapter/index.js';
+} from '../../../domain/entity-registry/index.js';
 import type { EntityTable as DynamoTable } from '../../domain/entity-persistence/index.js';
 import {
   makeSingleEntityBuilder,

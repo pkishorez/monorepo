@@ -11,3 +11,5 @@ Reshape the DynamoDB, SQLite, and IndexedDB adapters around explicit table topol
 **Breaking:** IndexedDB store names now belong to `IdbTable.make(storeName)`, while `idbLayer(dbName)` is scoped to the complete database and can serve multiple tables. The `std-toolkit/idb/*` wildcard export has been removed, and failures are exposed as `IdbError`.
 
 Add shared tagged persistence failures across adapters, typed transaction validation, `hardDelete(key, 'I KNOW WHAT I AM DOING')`, and table- or entity-scoped `dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')` cleanup.
+
+**Breaking:** `EntityESchema` no longer extends `ESchema`; the two are now sibling types. Checks like `entity instanceof ESchema` return `false` — use the `AnyESchema` / `AnyEntityESchema` structural types to accept either.

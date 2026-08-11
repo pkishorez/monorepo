@@ -3,11 +3,37 @@ import { Schema } from 'effect';
 import {
   ESchema,
   EntityESchema,
+  ValueESchema,
   type AnyESchema,
   type AnyEntityESchema,
   type AnyUnkeyedESchema,
   type ESchemaType,
+  type StructFieldsSchema,
+  type ValueSchema,
 } from '../index.js';
+
+function acceptsConcreteESchema<
+  V extends string,
+  S extends StructFieldsSchema,
+  N extends string,
+>(schema: ESchema<V, S, N>) {
+  return schema;
+}
+
+function acceptsConcreteEntityESchema<
+  N extends string,
+  Id extends string,
+  V extends string,
+  S extends StructFieldsSchema,
+>(schema: EntityESchema<N, Id, V, S>) {
+  return schema;
+}
+
+function acceptsConcreteValueESchema<V extends string, S extends ValueSchema>(
+  schema: ValueESchema<V, S>,
+) {
+  return schema;
+}
 
 function acceptsAnyESchema(schema: AnyESchema) {
   return schema.getDescriptor();
@@ -25,6 +51,7 @@ const base = ESchema.make('Base', { a: Schema.String }).build();
 const entity = EntityESchema.make('User', 'id', {
   a: Schema.String,
 }).build();
+const value = ValueESchema.make('Count', Schema.Number).build();
 
 describe('ESchema', () => {
   describe('Types', () => {
@@ -35,6 +62,13 @@ describe('ESchema', () => {
 
       it('accepts EntityESchema as AnyESchema', () => {
         expect(acceptsAnyESchema(entity).type).toBe('object');
+        expect(entity).not.toBeInstanceOf(ESchema);
+      });
+
+      it('preserves concrete schema classes through builders', () => {
+        expect(acceptsConcreteESchema(base)).toBe(base);
+        expect(acceptsConcreteEntityESchema(entity)).toBe(entity);
+        expect(acceptsConcreteValueESchema(value)).toBe(value);
       });
 
       it('accepts ESchema as AnyUnkeyedESchema', () => {

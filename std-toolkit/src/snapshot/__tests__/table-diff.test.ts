@@ -31,7 +31,7 @@ function table(): TableSnapshot {
         ],
       },
     ],
-    schemas: schema.snapshot().schemas,
+    schemas: Snapshot.capture(schema).schemas,
   };
 }
 
@@ -74,7 +74,7 @@ describe('table snapshot diff', () => {
       email: Schema.String,
     }).build();
     const before = clone() as any;
-    before.schemas.push(...alternate.snapshot().schemas);
+    before.schemas.push(...Snapshot.capture(alternate).schemas);
     const after = structuredClone(before);
     after.entities[0].schema = 'AlternateUser';
 
@@ -205,7 +205,7 @@ describe('table snapshot diff', () => {
       }))
       .build();
     const appended = clone() as any;
-    appended.schemas = evolved.snapshot().schemas;
+    appended.schemas = Snapshot.capture(evolved).schemas;
     expect(
       Snapshot.diff(table(), appended).find(
         ({ kind }) => kind === 'version-added',
@@ -243,11 +243,11 @@ describe('table snapshot diff', () => {
     const nestedBefore = {
       ...table(),
       entities: [{ ...table().entities[0]!, name: 'Parent', schema: 'Parent' }],
-      schemas: parent(childV1).snapshot().schemas,
+      schemas: Snapshot.capture(parent(childV1)).schemas,
     };
     const nestedAfter = {
       ...nestedBefore,
-      schemas: parent(childV2).snapshot().schemas,
+      schemas: Snapshot.capture(parent(childV2)).schemas,
     };
     expect(
       Snapshot.diff(nestedBefore, nestedAfter).find(

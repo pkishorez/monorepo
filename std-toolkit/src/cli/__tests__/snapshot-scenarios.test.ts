@@ -10,6 +10,7 @@ import type {
   TableIndexSnapshot,
   TableSnapshot,
 } from '../../snapshot/index.js';
+import { Snapshot } from '../../snapshot/index.js';
 import { runSnapshotCommand } from '../snapshot-command.js';
 
 const directories: string[] = [];
@@ -145,7 +146,7 @@ function table(options?: {
     primaryIndex: options?.primaryIndex ?? { pk: 'pk', sk: 'sk' },
     secondaryIndexes: options?.secondaryIndexes ?? [],
     entities: options?.entities ?? [entity()],
-    schemas: options?.schemas ?? userV1.snapshot().schemas,
+    schemas: options?.schemas ?? Snapshot.capture(userV1).schemas,
   };
 }
 
@@ -252,19 +253,19 @@ const scenarios: readonly Scenario[] = [
   {
     name: 'complex-field-added-safely',
     baseline: table(),
-    current: table({ schemas: userV2.snapshot().schemas }),
+    current: table({ schemas: Snapshot.capture(userV2).schemas }),
     exitCode: 1,
   },
   {
     name: 'approved-complex-field-edited',
     baseline: table(),
-    current: table({ schemas: userEditedV1.snapshot().schemas }),
+    current: table({ schemas: Snapshot.capture(userEditedV1).schemas }),
     exitCode: 1,
   },
   {
     name: 'transformation-changed',
     baseline: table(),
-    current: table({ schemas: transformedUser.snapshot().schemas }),
+    current: table({ schemas: Snapshot.capture(transformedUser).schemas }),
     exitCode: 1,
   },
   {
@@ -275,8 +276,12 @@ const scenarios: readonly Scenario[] = [
   },
   {
     name: 'unverifiable-transform-warning',
-    baseline: table({ schemas: customTransformedUser.snapshot().schemas }),
-    current: table({ schemas: customTransformedUser.snapshot().schemas }),
+    baseline: table({
+      schemas: Snapshot.capture(customTransformedUser).schemas,
+    }),
+    current: table({
+      schemas: Snapshot.capture(customTransformedUser).schemas,
+    }),
     exitCode: 0,
   },
 ];

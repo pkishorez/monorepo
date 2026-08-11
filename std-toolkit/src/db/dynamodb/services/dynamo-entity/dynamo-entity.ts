@@ -6,10 +6,8 @@ import { Schema } from 'effect';
 import type { EntityTable as DynamoTable } from '../../domain/entity-persistence/index.js';
 import type { TableEntitySnapshotSource } from '../../../../snapshot/index.js';
 import type { IndexPkValue } from '../../types/index.js';
-import {
-  keyedSnapshotSource,
-  tableSnapshotSource,
-} from '../../../../snapshot/table-adapter/index.js';
+import { keyedSnapshotSource } from '../../../../snapshot/capture/table-capture/index.js';
+import { tableSnapshotSource } from '../../../domain/entity-registry/index.js';
 import { makeEntityBuilder } from './entity-builder.js';
 import {
   EntityIndex,

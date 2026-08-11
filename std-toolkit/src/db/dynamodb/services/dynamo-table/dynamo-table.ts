@@ -31,10 +31,8 @@ import {
   type KeyConditionExprParameters,
 } from '../../domain/expression/index.js';
 import type { TableSnapshot } from '../../../../snapshot/index.js';
-import {
-  createEntityRegistry,
-  createTableSnapshot,
-} from '../../../../snapshot/table-adapter/index.js';
+import { createTableSnapshot } from '../../../../snapshot/capture/table-capture/index.js';
+import { createEntityRegistry } from '../../../domain/entity-registry/index.js';
 import {
   tableIdentityTypeId,
   type TableIdentity,

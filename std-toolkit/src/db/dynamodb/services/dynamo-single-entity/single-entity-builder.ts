@@ -2,7 +2,7 @@ import type {
   AnyUnkeyedESchema,
   ESchemaType,
 } from '../../../../eschema/index.js';
-import type { TableSnapshotEntity } from '../../../../snapshot/table-adapter/index.js';
+import type { TableSnapshotEntity } from '../../../domain/entity-registry/index.js';
 import type { EntityTable as DynamoTable } from '../../domain/entity-persistence/index.js';
 import type { DynamoSingleEntity } from './dynamo-single-entity.js';
 import { makeSingleEntityContext } from './single-entity-context.js';

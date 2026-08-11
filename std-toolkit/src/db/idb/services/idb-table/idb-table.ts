@@ -13,10 +13,8 @@ import {
 import { makeIdbEntity, type IdbEntityOp } from '../idb-entity/index.js';
 import { makeIdbSingleEntity } from '../idb-single-entity/index.js';
 import type { TableSnapshot } from '../../../../snapshot/index.js';
-import {
-  createEntityRegistry,
-  createTableSnapshot,
-} from '../../../../snapshot/table-adapter/index.js';
+import { createTableSnapshot } from '../../../../snapshot/capture/table-capture/index.js';
+import { createEntityRegistry } from '../../../domain/entity-registry/index.js';
 
 /**
  * Defines the structure of a primary or secondary index.

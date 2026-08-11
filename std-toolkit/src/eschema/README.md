@@ -3,12 +3,15 @@
 Versioned, self-migrating schemas built on Effect Schema. Data written at any past version
 is automatically folded forward to the current shape on decode.
 
-## Subpaths
+## Public entrypoint
 
 ```ts
-import { ESchema, EntityESchema, ValueESchema, toSchema } from 'std-toolkit/eschema';
-// wildcard — import internal paths directly (advanced use)
-import '...` from 'std-toolkit/eschema/*';
+import {
+  ESchema,
+  EntityESchema,
+  ValueESchema,
+  toSchema,
+} from 'std-toolkit/eschema';
 ```
 
 ## Core model
@@ -53,7 +56,7 @@ import { readFile } from 'node:fs/promises';
 import { Effect } from 'effect';
 import { Snapshot } from 'std-toolkit/snapshot';
 
-const current = User.snapshot();
+const current = Snapshot.capture(User);
 const stored = JSON.parse(await readFile('contracts/user.json', 'utf8'));
 const baseline = await Effect.runPromise(Snapshot.decode(stored));
 

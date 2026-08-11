@@ -19,7 +19,16 @@ import { table } from './src/db/table.js';
 export default table.snapshot();
 ```
 
-For standalone schemas, export the schema's own snapshot — `export default Message.snapshot()`. Either way, nested schemas composed via `toSchema` are pulled in automatically; the contract covers the whole tree.
+For standalone schemas, capture them through the snapshot context:
+
+```ts title="std-toolkit.snapshot.ts"
+import { Snapshot } from 'std-toolkit/snapshot';
+import { Message } from './src/message.js';
+
+export default Snapshot.capture(Message);
+```
+
+Either way, nested schemas composed via `toSchema` are pulled in automatically; the contract covers the whole tree.
 
 ## The command
 
