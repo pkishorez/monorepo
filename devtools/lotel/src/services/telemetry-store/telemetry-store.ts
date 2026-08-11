@@ -5,10 +5,13 @@ import type {
   SpanRecord,
   UpdateCursor,
 } from '../../domain/telemetry-schema/index.js';
+import { FlowEntitySchema } from '../../domain/flow/index.js';
 import {
   makeSqliteTelemetryStore,
   sqliteTelemetryStoreDependencies,
 } from './sqlite/index.js';
+
+type FlowEntity = typeof FlowEntitySchema.Type;
 
 interface BatchWriteResult {
   accepted: number;
@@ -37,11 +40,24 @@ export interface TelemetryStoreShape {
     _u: UpdateCursor,
     limit?: number,
   ): Effect.Effect<{ items: EntityType<LogRecord>[] }, TelemetryStoreError>;
+  listFlows(
+    _u: UpdateCursor,
+    limit?: number,
+  ): Effect.Effect<{ items: EntityType<FlowEntity>[] }, TelemetryStoreError>;
   findSpansByTrace(
     traceId: string,
   ): Effect.Effect<EntityType<SpanRecord>[], TelemetryStoreError>;
   findLogsByTrace(
     traceId: string,
+  ): Effect.Effect<EntityType<LogRecord>[], TelemetryStoreError>;
+  findFlow(
+    flowId: string,
+  ): Effect.Effect<EntityType<FlowEntity> | null, TelemetryStoreError>;
+  findSpansByFlow(
+    flowId: string,
+  ): Effect.Effect<EntityType<SpanRecord>[], TelemetryStoreError>;
+  findLogsByFlow(
+    flowId: string,
   ): Effect.Effect<EntityType<LogRecord>[], TelemetryStoreError>;
   clearTelemetry: Effect.Effect<number, TelemetryStoreError>;
 }

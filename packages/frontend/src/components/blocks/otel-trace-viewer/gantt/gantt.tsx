@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FocusIcon } from 'lucide-react';
 
 import { Button } from '#components/ui/button';
@@ -18,6 +18,7 @@ import {
   BAR_COL_INSET,
   BAR_MIN_WIDTH_PX,
   buildGanttRows,
+  defaultCollapsedSpanIds,
   MAX_NAME_COL_WIDTH,
   MIN_NAME_COL_WIDTH,
   NAME_COL_WIDTH,
@@ -75,9 +76,26 @@ export function Gantt({
   onLogClick,
   onLogHover,
 }: GanttProps) {
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
-    () => new Set(),
+  // Running traces can discover deeper spans after the waterfall mounts. Add
+  // only newly discovered branches to the collapsed defaults so a user's
+  // explicit expand/collapse choices remain untouched.
+  const collapsibleIds = useMemo(
+    () => defaultCollapsedSpanIds(trace.roots),
+    [trace.roots],
   );
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
+    () => collapsibleIds,
+  );
+  const knownCollapsibleIds = useRef(collapsibleIds);
+
+  useEffect(() => {
+    const newlyDiscovered = [...collapsibleIds].filter(
+      (spanId) => !knownCollapsibleIds.current.has(spanId),
+    );
+    knownCollapsibleIds.current = collapsibleIds;
+    if (newlyDiscovered.length === 0) return;
+    setCollapsed((current) => new Set([...current, ...newlyDiscovered]));
+  }, [collapsibleIds]);
 
   const toggleCollapse = useCallback((spanId: string) => {
     setCollapsed((prev) => {

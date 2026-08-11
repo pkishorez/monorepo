@@ -16,14 +16,40 @@ export const SpanEntitySchema = EntityESchema.make('Span', 'spanId', {
   traceId: Schema.String,
   span: fromType<SpanPayload>(),
   context: fromType<TelemetryContext>(),
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      flowId: Schema.NullOr(Schema.String),
+      participantName: Schema.NullOr(Schema.String),
+    },
+    (previous) => ({
+      ...previous,
+      flowId: null,
+      participantName: null,
+    }),
+  )
+  .build();
 
 export const LogEntitySchema = EntityESchema.make('LogRecord', 'id', {
   traceId: Schema.NullOr(Schema.String),
   spanId: Schema.NullOr(Schema.String),
   log: fromType<LogPayload>(),
   context: fromType<TelemetryContext>(),
-}).build();
+})
+  .evolve(
+    'v2',
+    {
+      flowId: Schema.NullOr(Schema.String),
+      participantName: Schema.NullOr(Schema.String),
+    },
+    (previous) => ({
+      ...previous,
+      flowId: null,
+      participantName: null,
+    }),
+  )
+  .build();
 
 export type SpanRecord = typeof SpanEntitySchema.Type;
 export type LogRecord = typeof LogEntitySchema.Type;
@@ -34,6 +60,15 @@ export const NewLogRecordSchema = Schema.Struct({
   log: fromType<LogPayload>(),
   context: fromType<TelemetryContext>(),
 });
+
+export const NewSpanRecordSchema = Schema.Struct({
+  traceId: Schema.String,
+  spanId: Schema.String,
+  span: fromType<SpanPayload>(),
+  context: fromType<TelemetryContext>(),
+});
+
+export type NewSpanRecord = typeof NewSpanRecordSchema.Type;
 
 export type NewLogRecord = typeof NewLogRecordSchema.Type;
 
@@ -119,5 +154,6 @@ export type {
   ExportTraceServiceRequest,
   OtlpLogRecord,
   OtlpSpan,
+  KeyValue,
   TelemetryContext,
 } from './otlp.js';

@@ -28,6 +28,21 @@ function countDescendants(node: SpanNode): number {
   return total;
 }
 
+/** Collapse every branch below a root so the first child level stays visible. */
+export function defaultCollapsedSpanIds(roots: readonly SpanNode[]) {
+  const spanIds = new Set<string>();
+
+  function visitDescendants(node: SpanNode) {
+    for (const child of node.children) {
+      if (child.children.length > 0) spanIds.add(child.span.spanId);
+      visitDescendants(child);
+    }
+  }
+
+  for (const root of roots) visitDescendants(root);
+  return spanIds;
+}
+
 export function buildGanttRows(
   roots: SpanNode[],
   traceStart: number,

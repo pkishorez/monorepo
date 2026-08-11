@@ -73,6 +73,7 @@
   },
   "devDependencies": {
     "@pkishorez/devtools": "workspace:*",
+    "@pkishorez/effect-tracer": "workspace:*",
     "@tailwindcss/typography": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",

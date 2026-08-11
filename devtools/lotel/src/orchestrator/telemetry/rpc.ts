@@ -6,18 +6,23 @@ import {
   LogListSchema,
   LotelRpcError,
   NewLogRecordSchema,
-  SpanEntitySchema,
+  NewSpanRecordSchema,
   SpanListSchema,
   TraceDetailsSchema,
   TraceNotFound,
 } from '../../domain/telemetry-schema/index.js';
+import {
+  FlowListSchema,
+  FlowNotFound,
+  RecordedFlowSchema,
+} from '../../domain/flow/index.js';
 import { Schema } from 'effect';
 
 export const makeLotelRpc = () =>
   RpcGroup.make(
     Rpc.make('SaveSpans', {
       payload: {
-        records: Schema.Array(SpanEntitySchema.schema),
+        records: Schema.Array(NewSpanRecordSchema),
       },
       success: BatchWriteResultSchema,
       error: LotelRpcError,
@@ -39,10 +44,20 @@ export const makeLotelRpc = () =>
       success: LogListSchema,
       error: LotelRpcError,
     }),
+    Rpc.make('ListFlows', {
+      payload: ListPayloadSchema,
+      success: FlowListSchema,
+      error: LotelRpcError,
+    }),
     Rpc.make('GetTrace', {
       payload: { traceId: Schema.String },
       success: TraceDetailsSchema,
       error: Schema.Union([TraceNotFound, LotelRpcError]),
+    }),
+    Rpc.make('GetFlow', {
+      payload: { flowId: Schema.String },
+      success: RecordedFlowSchema,
+      error: Schema.Union([FlowNotFound, LotelRpcError]),
     }),
     Rpc.make('ClearTelemetry', {
       payload: {},

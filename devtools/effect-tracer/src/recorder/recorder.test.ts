@@ -3,10 +3,62 @@ import { describe, expect, it } from 'vitest';
 
 import { makeTraceRecorder } from './recorder.js';
 import type { CapturedSpan } from './recorder.js';
+import { initFlow } from '../flow/flow.js';
 
 const names = (spans: readonly CapturedSpan[]) => spans.map(({ name }) => name);
 
 describe('makeTraceRecorder', () => {
+  it('exposes recorded Flow activities, events, messages, and status', async () => {
+    const recorder = makeTraceRecorder();
+    const client = initFlow({
+      id: 'call-123',
+      participantName: 'client-a',
+      participants: ['server'] as const,
+    });
+    const server = initFlow({
+      id: 'call-123',
+      participantName: 'server',
+      participants: ['client-a'] as const,
+    });
+
+    await Effect.runPromise(
+      recorder.instrument(
+        Effect.gen(function* () {
+          yield* Effect.sleep('1 millis').pipe(client.withSpan('Create offer'));
+          yield* client.log('Offer ready');
+          yield* client.send('server', { type: 'offer' });
+          yield* Effect.sleep('1 millis').pipe(server.withSpan('Accept offer'));
+          yield* server.end('completed');
+        }),
+      ),
+    );
+
+    const flow = recorder.snapshotFlow('call-123');
+    expect(flow?.status).toBe('completed');
+    expect(flow?.items).toHaveLength(5);
+    expect(flow?.items.filter(({ kind }) => kind === 'activity')).toHaveLength(
+      2,
+    );
+    expect(
+      flow?.items.filter(({ kind }) => kind === 'local-event'),
+    ).toHaveLength(2);
+    expect(flow?.items).toContainEqual(
+      expect.objectContaining({
+        kind: 'activity',
+        participantName: 'client-a',
+        name: 'Create offer',
+      }),
+    );
+    expect(flow?.items).toContainEqual(
+      expect.objectContaining({ kind: 'message', destination: 'server' }),
+    );
+    expect(flow?.items.at(-1)).toMatchObject({
+      kind: 'local-event',
+      status: 'completed',
+    });
+    expect(recorder.snapshotFlows()).toHaveLength(1);
+  });
+
   it('records spans nested under their parent', async () => {
     const recorder = makeTraceRecorder();
 

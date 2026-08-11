@@ -1,1 +1,1 @@
-export { TraceViewer, type TraceViewerProps } from './trace-viewer';
+export { TraceViewer } from './trace-viewer';

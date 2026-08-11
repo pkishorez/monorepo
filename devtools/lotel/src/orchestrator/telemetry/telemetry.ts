@@ -11,7 +11,11 @@ import {
   OtlpBadRequest,
   TraceNotFound,
 } from '../../domain/telemetry-schema/index.js';
-import { TelemetryStore } from '../../services/telemetry-store/index.js';
+import { FlowNotFound, makeRecordedFlow } from '../../domain/flow/index.js';
+import {
+  TelemetryStore,
+  TelemetryStoreError,
+} from '../../services/telemetry-store/index.js';
 import { makeLotelOtlpHttpGroup } from './otlp-http.js';
 import { LotelRpc } from './rpc-entry.js';
 
@@ -19,11 +23,30 @@ export { LotelRpc } from './rpc-entry.js';
 export const LotelOtlpHttpGroup = makeLotelOtlpHttpGroup();
 
 const toRpcError = (cause: unknown) =>
-  new LotelRpcError({ message: String(cause) });
+  new LotelRpcError({
+    message:
+      cause instanceof TelemetryStoreError
+        ? `${cause.operation}: ${cause.cause}`
+        : String(cause),
+  });
 
 const saveSpans = (
-  records: Parameters<(typeof TelemetryStore.Service)['saveSpans']>[0],
-) => Effect.flatMap(TelemetryStore, (store) => store.saveSpans(records));
+  records: ReadonlyArray<{
+    traceId: string;
+    spanId: string;
+    span: object;
+    context: object;
+  }>,
+) =>
+  Effect.flatMap(TelemetryStore, (store) =>
+    store.saveSpans(
+      records.map((record) => ({
+        ...record,
+        flowId: null,
+        participantName: null,
+      })),
+    ),
+  );
 
 const insertLogs = (
   records: ReadonlyArray<{
@@ -36,7 +59,12 @@ const insertLogs = (
   Effect.gen(function* () {
     const store = yield* TelemetryStore;
     const identified = yield* Effect.forEach(records, (record) =>
-      Effect.map(nextUlid, (id) => ({ ...record, id })),
+      Effect.map(nextUlid, (id) => ({
+        ...record,
+        id,
+        flowId: null,
+        participantName: null,
+      })),
     );
     return yield* store.insertLogs(identified);
   });
@@ -48,6 +76,18 @@ const getTrace = (traceId: string) =>
     if (spans.length === 0) return yield* new TraceNotFound({ traceId });
     const logs = yield* store.findLogsByTrace(traceId);
     return makeTraceDetails(traceId, spans, logs);
+  });
+
+const getFlow = (flowId: string) =>
+  Effect.gen(function* () {
+    const store = yield* TelemetryStore;
+    const flow = yield* store.findFlow(flowId);
+    if (!flow) return yield* new FlowNotFound({ flowId });
+    const [spans, logs] = yield* Effect.all([
+      store.findSpansByFlow(flowId),
+      store.findLogsByFlow(flowId),
+    ]);
+    return makeRecordedFlow(flow, spans, logs);
   });
 
 export const LotelRpcLive = LotelRpc.toLayer({
@@ -63,10 +103,20 @@ export const LotelRpcLive = LotelRpc.toLayer({
     Effect.flatMap(TelemetryStore, (store) => store.listLogs(_u, limit)).pipe(
       Effect.mapError(toRpcError),
     ),
+  ListFlows: ({ _u, limit }) =>
+    Effect.flatMap(TelemetryStore, (store) => store.listFlows(_u, limit)).pipe(
+      Effect.mapError(toRpcError),
+    ),
   GetTrace: ({ traceId }) =>
     getTrace(traceId).pipe(
       Effect.mapError((cause) =>
         cause._tag === 'TraceNotFound' ? cause : toRpcError(cause),
+      ),
+    ),
+  GetFlow: ({ flowId }) =>
+    getFlow(flowId).pipe(
+      Effect.mapError((cause) =>
+        cause._tag === 'FlowNotFound' ? cause : toRpcError(cause),
       ),
     ),
   ClearTelemetry: () =>

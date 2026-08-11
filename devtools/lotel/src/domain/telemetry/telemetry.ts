@@ -1,11 +1,14 @@
 import type { EntityType } from 'std-toolkit/core';
-import type {
-  ExportLogsServiceRequest,
-  ExportTraceServiceRequest,
-  LogRecord,
-  NewLogRecord,
-  SpanRecord,
+import {
+  ExportLogsServiceRequestSchema,
+  ExportTraceServiceRequestSchema,
+  NewLogRecordSchema,
 } from '../telemetry-schema/index.js';
+import type { LogRecord, SpanRecord } from '../telemetry-schema/index.js';
+
+type ExportLogsServiceRequest = typeof ExportLogsServiceRequestSchema.Type;
+type ExportTraceServiceRequest = typeof ExportTraceServiceRequestSchema.Type;
+type NewLogRecord = typeof NewLogRecordSchema.Type;
 
 const toNanoseconds = (value: string | number | undefined): bigint | null => {
   if (value === undefined) return null;
@@ -45,6 +48,8 @@ export const spanRecordsFromRequest = (request: ExportTraceServiceRequest) => {
         records.push({
           traceId,
           spanId,
+          flowId: null,
+          participantName: null,
           span,
           context: {
             ...(resourceSpans.resource && { resource: resourceSpans.resource }),
