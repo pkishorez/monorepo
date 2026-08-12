@@ -5,6 +5,14 @@ import { oldToNew } from '../index.js';
 
 type Item = { id: string };
 
+const flow = {
+  log: () => Effect.void,
+  withSpan:
+    () =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect,
+};
+
 const entity = (id: string, updated: string): EntityType<Item> => ({
   value: { id },
   meta: { _e: 'Item', _v: 'v1', _u: updated, _d: false },
@@ -29,6 +37,7 @@ describe('old-to-new', () => {
         Effect.gen(function* () {
           const scope = yield* Effect.scope;
           yield* strategy.run({
+            flow,
             writeServerTruth: () =>
               Effect.sync(() => {
                 events.push('write');

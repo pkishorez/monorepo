@@ -32,15 +32,19 @@ const mount = (collection: {
   sync: { sync: (callbacks: never) => unknown };
 }) => {
   const events: unknown[] = [];
+  const probe = { readyCount: 0 };
   const callbacks = {
-    begin: vi.fn(() => events.push('begin')),
-    write: vi.fn((operation: unknown) => events.push(operation)),
-    commit: vi.fn(() => events.push('commit')),
-    truncate: vi.fn(),
-    markReady: vi.fn(() => events.push('ready')),
+    begin: () => events.push('begin'),
+    write: (operation: unknown) => events.push(operation),
+    commit: () => events.push('commit'),
+    truncate: () => undefined,
+    markReady: () => {
+      probe.readyCount += 1;
+      events.push('ready');
+    },
     collection: {
-      update: vi.fn(),
-      on: vi.fn(() => vi.fn()),
+      update: () => undefined,
+      on: () => () => undefined,
       status: 'ready',
       size: 0,
       subscriberCount: 0,
@@ -50,7 +54,7 @@ const mount = (collection: {
     cleanup: () => void | Promise<void>;
     loadSubset: (options: typeof subset) => true;
   };
-  return { callbacks, events, subscription };
+  return { events, probe, subscription };
 };
 
 class RuntimeProbe extends Context.Service<
@@ -86,13 +90,13 @@ describe('hybrid sync', () => {
         },
       },
     });
-    const { callbacks, subscription } = mount(collection);
+    const { probe, subscription } = mount(collection);
 
     await vi.waitFor(() => expect(workers).toContain('total'));
     subscription.loadSubset(subset);
 
     await vi.waitFor(() => expect(workers).toContain('partition'));
-    expect(callbacks.markReady).toHaveBeenCalledOnce();
+    expect(probe.readyCount).toBe(1);
     await subscription.cleanup();
     await runtime.dispose();
   });

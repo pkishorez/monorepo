@@ -6,6 +6,9 @@ export const flowAttributes = {
   status: 'flow.status',
 } as const;
 
+/** Namespace for user-defined attributes attached directly to Flow logs. */
+export const flowAttributePrefix = 'flowattr.' as const;
+
 export const flowItemTypes = {
   localEvent: 'local-event',
   message: 'message',

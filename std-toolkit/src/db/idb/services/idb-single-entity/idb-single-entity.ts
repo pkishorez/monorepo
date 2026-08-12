@@ -3,7 +3,7 @@ import { singletonSnapshotSource } from '../../../../snapshot/capture/table-capt
 import {
   tableSnapshotSource,
   type TableSnapshotEntity,
-} from '../../../domain/entity-registry/index.js';
+} from '../../../../snapshot/capture/table-entity-registry/index.js';
 import type { IdbEntityTable } from '../idb-entity/index.js';
 import {
   makeIdbSingleEntityBuilder,

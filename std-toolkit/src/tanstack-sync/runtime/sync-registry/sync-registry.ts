@@ -4,6 +4,7 @@ import type { WriteError } from '../../domain/sync-error/index.js';
 import type { EffectRunner } from '../effect-runner/index.js';
 import { isEntity } from '../../domain/entity-validation/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
+import type { CollectionFlow } from '../sync-flow/index.js';
 
 export type CollectionHandle = {
   schemaName: string;
@@ -13,6 +14,7 @@ export type CollectionHandle = {
   projectOnly: (
     entities: EntityType<unknown>[],
   ) => Effect.Effect<void, WriteError>;
+  flow: () => CollectionFlow | null;
 };
 
 export type Tracker = {
@@ -78,8 +80,21 @@ export const buildRegistry = <R>(
       const handle = tracker.lookup(type);
       if (!handle) continue;
       const route = persist ? handle.writeServerTruth : handle.projectOnly;
+      const flow = handle.flow();
+      const delivery = route(entities);
       void runner.runPromise(
-        route(entities).pipe(
+        (flow
+          ? delivery.pipe(
+              flow.collection.withSpan('Registry Delivery', {
+                attributes: {
+                  collection: type,
+                  entityCount: entities.length,
+                  persist,
+                },
+              }),
+            )
+          : delivery
+        ).pipe(
           Effect.catch((cause) =>
             report({
               _tag: 'RegistryWriteFailed',

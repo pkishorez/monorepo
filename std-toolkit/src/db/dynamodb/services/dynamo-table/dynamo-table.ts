@@ -32,7 +32,7 @@ import {
 } from '../../domain/expression/index.js';
 import type { TableSnapshot } from '../../../../snapshot/index.js';
 import { createTableSnapshot } from '../../../../snapshot/capture/table-capture/index.js';
-import { createEntityRegistry } from '../../../domain/entity-registry/index.js';
+import { createTableEntityRegistry } from '../../../../snapshot/capture/table-entity-registry/index.js';
 import {
   tableIdentityTypeId,
   type TableIdentity,
@@ -136,7 +136,7 @@ export class DynamoTable<
   readonly [tableIdentityTypeId] = {};
   readonly primary: TPrimaryIndex;
   readonly secondaryIndexMap: TSecondaryIndexMap;
-  #entities = createEntityRegistry();
+  #entities = createTableEntityRegistry();
 
   constructor(
     logicalName: string,

@@ -11,6 +11,8 @@ type RecordedFlowActivity = Extract<
 interface FlowSwimlaneProps {
   readonly flow: RecordedFlow;
   readonly className?: string;
+  readonly selectedItemId?: string | null;
+  readonly onItemClick?: (item: RecordedFlow['items'][number]) => void;
   readonly onActivityClick?: (activity: RecordedFlowActivity) => void;
 }
 
@@ -18,6 +20,8 @@ interface FlowSwimlaneProps {
 export function FlowSwimlane({
   flow,
   className,
+  selectedItemId,
+  onItemClick,
   onActivityClick,
 }: FlowSwimlaneProps) {
   const layout = makeFlowLayout(flow.items);
@@ -30,6 +34,8 @@ export function FlowSwimlane({
       <FlowCanvas
         flowId={flow.id}
         layout={layout}
+        selectedItemId={selectedItemId}
+        onItemClick={onItemClick}
         onActivityClick={onActivityClick}
       />
     </div>

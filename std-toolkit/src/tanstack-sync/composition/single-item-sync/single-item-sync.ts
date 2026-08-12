@@ -32,6 +32,12 @@ import {
 import type { EffectRunner } from '../../runtime/effect-runner/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { startSingleItemLifecycle } from '../../lifecycle/single-item-lifecycle/index.js';
+import { nextUlid } from '../../../core/index.js';
+import {
+  makeCollectionFlow,
+  singleItemParticipantName,
+  type StrategyFlow,
+} from '../../runtime/sync-flow/index.js';
 
 const SINGLETON_KEY = '__singleton__';
 const SINGLE_STATE_KEY = '__single__';
@@ -73,6 +79,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   type TItem = S['Type'];
 
   const { schema, strategy, options, onUpdate, updatePacing } = config;
+  const flow = makeCollectionFlow(schema.name, config.runner.runSync(nextUlid));
   const sotGroup = config.offlineStorage.group(
     offlineStorageGroupName.sourceOfTruth(schema.name),
   );
@@ -110,10 +117,19 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   const writeServerTruth = (
     entities: EntityType<TItem>[],
+    syncFlow?: StrategyFlow,
   ): Effect.Effect<void, WriteError> =>
     Effect.gen(function* () {
       const accepted = yield* sot.write(entities);
       project(accepted);
+      if (syncFlow && entities.length > 0) {
+        yield* syncFlow.log('Source of Truth write', {
+          attributes: {
+            receivedCount: entities.length,
+            storedCount: accepted.upserts.length + accepted.tombstoned.length,
+          },
+        });
+      }
     }).pipe(
       Effect.withSpan('tanstack-sync.write-server-truth', {
         attributes: {
@@ -132,6 +148,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     schemaName: schema.name,
     writeServerTruth: writeServerTruth as CollectionHandle['writeServerTruth'],
     projectOnly: projectOnly as CollectionHandle['projectOnly'],
+    flow: () => flow,
   };
   tracker.register(handle);
 
@@ -140,11 +157,20 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     onUpdate,
     updatePacing,
     runner: config.runner,
+    flow: () => flow,
   });
 
   const sync: SyncConfig<CollectionItem<TItem>, string>['sync'] = (
     callbacks,
   ) => {
+    const strategyFlow = flow.participant(
+      singleItemParticipantName(strategy.name),
+    );
+    config.runner.runSync(
+      flow.collection.log('Collection start', {
+        attributes: { collection: schema.name },
+      }),
+    );
     const local = makeCollectionProjector<TItem>(callbacks);
     projector = local;
     collectionUpdate = (updater) =>
@@ -153,14 +179,31 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     const run = config.runner.runPromise(
       Effect.catch(
         Effect.gen(function* () {
-          const entities = yield* readCurrent;
+          const entities = yield* readCurrent.pipe(
+            flow.collection.withSpan('Source of Truth hydration', {
+              attributes: { collection: schema.name },
+            }),
+          );
           local.projectAll(entities);
           callbacks.markReady();
+          yield* flow.collection.log('Collection ready', {
+            attributes: {
+              collection: schema.name,
+              entityCount: entities.length,
+            },
+          });
+          yield* flow.collection.send(
+            strategyFlow.name,
+            'Single-item sync start',
+          );
 
           return yield* startSingleItemLifecycle({
             strategy,
-            makeContext: (scope) => ({
-              writeServerTruth,
+            flow: strategyFlow,
+            makeContext: (scope, workerFlow) => ({
+              flow: workerFlow,
+              writeServerTruth: (entities) =>
+                writeServerTruth(entities, workerFlow),
               getState: stateStore.get(SINGLE_STATE_KEY),
               setState: (state) => stateStore.set(SINGLE_STATE_KEY, state),
               scope,
@@ -173,14 +216,31 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
                 strategy: strategy.name,
                 cause: error,
               }),
+            onDefect: (cause) =>
+              config.report({
+                _tag: 'StrategyDefect',
+                collection: schema.name,
+                partitionKey: SINGLE_STATE_KEY,
+                strategy: strategy.name,
+                cause,
+              }),
           });
         }).pipe(
           Effect.tapError((error) =>
-            config.report({
-              _tag: 'InitializationFailed',
-              collection: schema.name,
-              cause: error,
-            }),
+            config
+              .report({
+                _tag: 'InitializationFailed',
+                collection: schema.name,
+                cause: error,
+              })
+              .pipe(
+                Effect.andThen(
+                  flow.collection.log('Collection init failure', {
+                    attributes: { cause: String(error) },
+                    level: 'error',
+                  }),
+                ),
+              ),
           ),
         ),
         () => Effect.succeed(null),
@@ -190,10 +250,19 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     return {
       cleanup: async () => {
         const mounted = await run;
-        if (!mounted) return;
-        await config.runner.runPromise(mounted.close);
+        if (mounted) {
+          await config.runner.runPromise(
+            flow.collection.send(strategyFlow.name, 'Single-item sync stop'),
+          );
+          await config.runner.runPromise(mounted.close);
+        }
         projector = null;
         collectionUpdate = null;
+        await config.runner.runPromise(
+          flow.collection.log('Collection cleanup', {
+            attributes: { collection: schema.name },
+          }),
+        );
       },
     };
   };

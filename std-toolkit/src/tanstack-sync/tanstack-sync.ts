@@ -180,6 +180,7 @@ export type { CadenceConfig } from './domain/cadence-policy/index.js';
 export type { SyncEvent } from './domain/sync-event/index.js';
 export type { SyncReporter } from './domain/sync-event/index.js';
 export type { EffectRuntime } from './runtime/effect-runner/index.js';
+export type { StrategyFlow } from './runtime/sync-flow/index.js';
 export type { OldToNewConfig } from './workers/old-to-new/index.js';
 export type { NewToOldConfig } from './workers/new-to-old/index.js';
 export type { BidirectionalConfig } from './workers/bidirectional/index.js';

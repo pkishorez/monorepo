@@ -101,6 +101,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@pkishorez/effect-tracer": "workspace:*",
     "@standard-schema/spec": "catalog:",
     "aws4fetch": "catalog:",
     "idb": "catalog:",

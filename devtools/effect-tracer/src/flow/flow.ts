@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import {
+  flowAttributePrefix,
   flowAttributes,
   flowItemTypes,
   type TerminalFlowStatus,
@@ -8,11 +9,13 @@ import { writeFlowLog, type FlowLogLevel } from './log.js';
 
 interface FlowLogOptions {
   readonly attributes?: Readonly<Record<string, unknown>>;
+  readonly flowAttributes?: Readonly<Record<string, unknown>>;
   readonly level?: FlowLogLevel;
 }
 
 interface FlowEndOptions {
   readonly attributes?: Readonly<Record<string, unknown>>;
+  readonly flowAttributes?: Readonly<Record<string, unknown>>;
   readonly message?: unknown;
 }
 
@@ -23,6 +26,7 @@ interface Flow<Participant extends string> {
     name: string,
     options?: {
       readonly attributes?: Readonly<Record<string, unknown>>;
+      readonly flowAttributes?: Readonly<Record<string, unknown>>;
     },
   ) => <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
   readonly log: (
@@ -63,6 +67,18 @@ const makeFlowAttributes = (id: string, participantName: string) => ({
   [flowAttributes.participantName]: participantName,
 });
 
+const makeNamespacedFlowAttributes = (
+  attributes: Readonly<Record<string, unknown>> | undefined,
+) =>
+  Object.fromEntries(
+    Object.entries(attributes ?? {}).map(([key, value]) => [
+      key.startsWith(flowAttributePrefix)
+        ? key
+        : `${flowAttributePrefix}${key}`,
+      value,
+    ]),
+  );
+
 /** Creates an application-propagated Flow bound to the local Participant. */
 export const initFlow = <
   const Participants extends readonly string[] | undefined = undefined,
@@ -79,17 +95,23 @@ export const initFlow = <
     participantName: options.participantName,
     withSpan: (name, spanOptions) =>
       Effect.withSpan(name, {
-        attributes: { ...spanOptions?.attributes, ...attributes },
+        attributes: {
+          ...spanOptions?.attributes,
+          ...makeNamespacedFlowAttributes(spanOptions?.flowAttributes),
+          ...attributes,
+        },
       }),
     log: (message, logOptions) =>
       writeFlowLog(logOptions?.level ?? 'info', message, {
         ...logOptions?.attributes,
+        ...makeNamespacedFlowAttributes(logOptions?.flowAttributes),
         ...attributes,
         [flowAttributes.itemType]: flowItemTypes.localEvent,
       }),
     send: (participantName, message, logOptions) =>
       writeFlowLog(logOptions?.level ?? 'info', message, {
         ...logOptions?.attributes,
+        ...makeNamespacedFlowAttributes(logOptions?.flowAttributes),
         ...attributes,
         [flowAttributes.itemType]: flowItemTypes.message,
         [flowAttributes.messageTo]: participantName,
@@ -97,6 +119,7 @@ export const initFlow = <
     end: (status, endOptions) =>
       writeFlowLog('info', endOptions?.message ?? `Flow ${status}`, {
         ...endOptions?.attributes,
+        ...makeNamespacedFlowAttributes(endOptions?.flowAttributes),
         ...attributes,
         [flowAttributes.itemType]: flowItemTypes.localEvent,
         [flowAttributes.status]: status,
@@ -105,6 +128,7 @@ export const initFlow = <
 };
 
 export {
+  flowAttributePrefix,
   flowAttributes,
   flowItemTypes,
   flowStatuses,

@@ -4,11 +4,7 @@ import type { EntityType } from '../../core/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { it, describe, expect } from 'vitest';
 import { vi } from 'vitest';
-import {
-  createStdSync,
-  singleItemSyncStrategy,
-  syncStrategy,
-} from '../tanstack-sync.js';
+import { createStdSync } from '../tanstack-sync.js';
 import {
   offlineStorageGroupName,
   type OfflineStorage,
@@ -63,22 +59,32 @@ const noopSingleStrategy = {
 
 const makeCallbacks = () => {
   const events: unknown[] = [];
+  const writes: unknown[] = [];
+  const probe = { readyCount: 0 };
   return {
     callbacks: {
-      begin: vi.fn(() => events.push('begin')),
-      write: vi.fn((operation: unknown) => events.push(operation)),
-      commit: vi.fn(() => events.push('commit')),
-      truncate: vi.fn(() => events.push('truncate')),
-      markReady: vi.fn(() => events.push('ready')),
+      begin: () => events.push('begin'),
+      write: (operation: unknown) => {
+        writes.push(operation);
+        events.push(operation);
+      },
+      commit: () => events.push('commit'),
+      truncate: () => events.push('truncate'),
+      markReady: () => {
+        probe.readyCount += 1;
+        events.push('ready');
+      },
       collection: {
-        update: vi.fn(),
-        on: vi.fn(() => vi.fn()),
+        update: () => undefined,
+        on: () => () => undefined,
         status: 'ready',
         size: 0,
         subscriberCount: 0,
       },
     },
     events,
+    writes,
+    probe,
   };
 };
 
@@ -172,21 +178,6 @@ const failingSingletonWriteStorage = (): OfflineStorage => ({
 describe('TanStack Sync', () => {
   describe('Offline storage', () => {
     describe('Keyed sync', () => {
-      it('accepts a built-in strategy without erasing its typed state', () => {
-        const collection = createStdSync().sync({
-          schema: todoSchema,
-          sync: {
-            total: {
-              strategy: syncStrategy.oldToNew<Todo>({
-                fetch: () => Effect.succeed([]),
-              }),
-            },
-          },
-        });
-
-        expect(collection.sync).toBeDefined();
-      });
-
       it('projects persisted live SoT entities before marking the collection ready', async () => {
         const storage = memoryOfflineStorage();
         await Effect.runPromise(
@@ -203,11 +194,9 @@ describe('TanStack Sync', () => {
           offlineStorage: storage,
         });
 
-        const { callbacks, events } = mount(collection);
+        const { events, probe } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
         expect(events).toEqual([
           'begin',
           {
@@ -246,11 +235,9 @@ describe('TanStack Sync', () => {
           ),
         );
 
-        const { callbacks, events } = mount(collection);
+        const { events, probe } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
         expect(events).toContainEqual({
           type: 'insert',
           value: {
@@ -287,12 +274,10 @@ describe('TanStack Sync', () => {
           ),
         );
 
-        const { callbacks } = mount(collection);
+        const { probe, writes } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
-        expect(callbacks.write).not.toHaveBeenCalled();
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
+        expect(writes).toEqual([]);
       });
 
       it('returns a failing Storage effect when writeUpsert cannot persist', async () => {
@@ -348,11 +333,9 @@ describe('TanStack Sync', () => {
             },
           },
         });
-        const { callbacks, subscription } = mount(collection);
+        const { probe, subscription } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
         subscription.loadSubset({
           where: {
             type: 'func',
@@ -404,11 +387,9 @@ describe('TanStack Sync', () => {
             },
           },
         });
-        const { callbacks, subscription } = mount(collection);
+        const { probe, subscription } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
         subscription.loadSubset({
           where: {
             type: 'func',
@@ -470,11 +451,9 @@ describe('TanStack Sync', () => {
             },
           },
         });
-        const { callbacks, subscription } = mount(collection);
+        const { probe, subscription } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
         subscription.loadSubset({
           where: {
             type: 'func',
@@ -524,27 +503,26 @@ describe('TanStack Sync', () => {
           ),
         );
 
-        const { callbacks } = mount(collection);
+        const { probe, writes } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
-        expect(callbacks.write).toHaveBeenCalledTimes(1);
-        expect(callbacks.write).toHaveBeenCalledWith({
-          type: 'insert',
-          value: {
-            id: 'local',
-            listId: 'inbox',
-            title: 'local',
-            _meta: expect.objectContaining({
-              _e: 'Todo',
-              _v: 'v1',
-              _u: '1',
-              _d: false,
-              _c: expect.any(Number),
-            }),
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
+        expect(writes).toEqual([
+          {
+            type: 'insert',
+            value: {
+              id: 'local',
+              listId: 'inbox',
+              title: 'local',
+              _meta: expect.objectContaining({
+                _e: 'Todo',
+                _v: 'v1',
+                _u: '1',
+                _d: false,
+                _c: expect.any(Number),
+              }),
+            },
           },
-        });
+        ]);
       });
 
       it('does not mark ready when persisted SoT cannot be read on mount', async () => {
@@ -556,7 +534,7 @@ describe('TanStack Sync', () => {
           offlineStorage: failingReadStorage(),
         });
 
-        const { callbacks } = mount(collection);
+        const { probe } = mount(collection);
 
         await vi.waitFor(() => expect(events).toHaveLength(1));
         expect(events).toContainEqual({
@@ -564,7 +542,7 @@ describe('TanStack Sync', () => {
           collection: 'Todo',
           cause: expect.objectContaining({ _tag: 'Storage' }),
         });
-        expect(callbacks.markReady).not.toHaveBeenCalled();
+        expect(probe.readyCount).toBe(0);
       });
 
       it('persists registry writes while unmounted and projects them on mount', async () => {
@@ -596,12 +574,10 @@ describe('TanStack Sync', () => {
           });
         });
 
-        const { callbacks } = mount(collection);
+        const { probe, writes } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
-        expect(callbacks.write).toHaveBeenCalledWith({
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
+        expect(writes).toContainEqual({
           type: 'insert',
           value: {
             id: 'todo-1',
@@ -620,21 +596,6 @@ describe('TanStack Sync', () => {
     });
 
     describe('Single-item sync', () => {
-      it('accepts a built-in strategy without erasing its typed state', () => {
-        const collection = createStdSync().singleItemSync({
-          schema: settingsSchema,
-          strategy: singleItemSyncStrategy.getOnce({
-            get: () =>
-              Effect.succeed({
-                value: { theme: 'dark' },
-                meta: { _e: 'Settings', _v: 'v1', _u: '1' },
-              }),
-          }),
-        });
-
-        expect(collection.sync).toBeDefined();
-      });
-
       it('persists singleton SoT across recreated std-sync instances with IndexedDB', async () => {
         const name = `single-item-${crypto.randomUUID()}`;
 
@@ -658,11 +619,9 @@ describe('TanStack Sync', () => {
           strategy: noopSingleStrategy,
         });
 
-        const { callbacks, events } = mount(secondCollection);
+        const { events, probe } = mount(secondCollection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
         expect(events).toEqual([
           'begin',
           {
@@ -708,25 +667,24 @@ describe('TanStack Sync', () => {
           ]),
         );
 
-        const { callbacks } = mount(collection);
+        const { probe, writes } = mount(collection);
 
-        await vi.waitFor(() =>
-          expect(callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
-        expect(callbacks.write).toHaveBeenCalledTimes(1);
-        expect(callbacks.write).toHaveBeenCalledWith({
-          type: 'insert',
-          value: {
-            theme: 'local',
-            _meta: {
-              _e: 'Settings',
-              _v: 'v1',
-              _u: '1',
-              _d: false,
-              _c: expect.any(Number),
+        await vi.waitFor(() => expect(probe.readyCount).toBe(1));
+        expect(writes).toEqual([
+          {
+            type: 'insert',
+            value: {
+              theme: 'local',
+              _meta: {
+                _e: 'Settings',
+                _v: 'v1',
+                _u: '1',
+                _d: false,
+                _c: expect.any(Number),
+              },
             },
           },
-        });
+        ]);
       });
 
       it('does not mark ready when single-item persisted SoT cannot be read on mount', async () => {
@@ -739,7 +697,7 @@ describe('TanStack Sync', () => {
           strategy: noopSingleStrategy,
         });
 
-        const { callbacks } = mount(collection);
+        const { probe } = mount(collection);
 
         await vi.waitFor(() => expect(events).toHaveLength(1));
         expect(events).toContainEqual({
@@ -747,7 +705,7 @@ describe('TanStack Sync', () => {
           collection: 'Settings',
           cause: expect.objectContaining({ _tag: 'Storage' }),
         });
-        expect(callbacks.markReady).not.toHaveBeenCalled();
+        expect(probe.readyCount).toBe(0);
       });
 
       it('resumes a single-item strategy from persisted sync state', async () => {
@@ -766,9 +724,7 @@ describe('TanStack Sync', () => {
 
         const firstMount = mount(firstCollection);
 
-        await vi.waitFor(() =>
-          expect(firstMount.callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(firstMount.probe.readyCount).toBe(1));
         await vi.waitFor(async () => {
           await expect(
             Effect.runPromise(
@@ -802,9 +758,7 @@ describe('TanStack Sync', () => {
 
         const secondMount = mount(secondCollection);
 
-        await vi.waitFor(() =>
-          expect(secondMount.callbacks.markReady).toHaveBeenCalledTimes(1),
-        );
+        await vi.waitFor(() => expect(secondMount.probe.readyCount).toBe(1));
         await vi.waitFor(() =>
           expect(observed).toEqual([{ cursor: 'settings-v2' }]),
         );

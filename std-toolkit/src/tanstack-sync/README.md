@@ -150,6 +150,35 @@ supplied runtime is a type error.
 failures, unserved queries, and registry write failures. When omitted, events use
 Effect's logger.
 
+## Flow tracing
+
+Every Collection instance owns one Effect Tracer Flow with an id shaped as
+`std-collection::<schema-name>::<ulid>`. The same Flow remains active across
+Collection starts, cleanup, and later restarts; std-sync never ends it. Effect
+telemetry configuration decides whether that Flow is exported.
+
+The Flow has a `collection` lane, one global worker lane, one stable lane for each
+logical Partition, a lane for each Cadence Repair worker, and one worker lane for
+Single Item Sync. Repeated subscribers to the same Partition share its lane and
+produce subscriber-count messages. Strategies run inside a Flow activity so API
+and persistence spans are linked as nested trace work. Every non-empty strategy
+or Cadence Repair delivery logs how many entities were received and how many the
+SoT accepted after convergence.
+
+Custom strategies can add high-level activities and events through `ctx.flow`:
+
+```typescript
+run: (ctx) =>
+  api.fetchPage().pipe(
+    ctx.flow.withSpan('Fetch page'),
+    Effect.tap((page) =>
+      ctx.flow.log('Page fetched', {
+        attributes: { entityCount: page.length },
+      }),
+    ),
+  );
+```
+
 ## Single-item sync
 
 Use `singleItemSync` or `singleItemCollection` for a record with no id field.

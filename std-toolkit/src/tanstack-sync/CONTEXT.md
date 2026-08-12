@@ -170,6 +170,7 @@ A strategy does not own SoT. At lifecycle start the engine calls `run(ctx)` with
 
 ```ts
 type StrategyContext<TItem, TState> = {
+  flow: StrategyFlow; // log and withSpan for this strategy participant
   writeServerTruth: (entities) => Effect.Effect<void, WriteError>;
   getState: Effect.Effect<TState>; // decoded state for this strategy partition
   setState: (state: TState) => Effect.Effect<void>; // routed to this partition's slot
@@ -178,6 +179,16 @@ type StrategyContext<TItem, TState> = {
 ```
 
 `StrategyContext` carries no fetch source and **no partition value**. Sources belong to the strategy constructor; the partition value lives only in those user closures and the engine's per-partition runtime map.
+
+### Collection Flow
+
+The Effect Tracer Flow for one Collection instance. It is created with the Collection configuration and has id `std-collection::<schema-name>::<ulid>`. TanStack DB starting `sync(callbacks)` and later running cleanup are events inside the same Flow. A later start of the same Collection reuses that Flow. std-sync never emits a terminal Flow status; the Flow stays active for the full lifetime of the Collection object.
+
+The `collection` participant records initialization, readiness, cleanup, mutations, Registry deliveries, and control messages. A global strategy has one worker participant. Each logical Partition has one stable worker participant across repeated `0→1→0` Sync Lifecycles, so multiple subscribers and later reactivation remain in the same lane. Cadence Repair and Single Item Sync use their own worker participants. SoT is nested work inside the calling participant, not a participant of its own.
+
+Lifecycle boundaries and subscriber counts are Flow logs or messages. Each supervised strategy attempt is a Flow activity. Nested API, Sync State, and SoT spans remain available through that activity's trace. After each non-empty strategy or Cadence Repair delivery, the worker logs `receivedCount` and `storedCount`; `storedCount` is the number of live upserts and tombstones accepted by SoT convergence. Custom strategies receive only `log` and `withSpan` through `StrategyContext.flow`; lifecycle remains the only owner of messages.
+
+Collection start, cleanup, and initialization failure are non-terminal events. Strategy and Cadence Repair failures remain local to their participant because supervision retries them. If Effect telemetry is not configured for export, these spans and logs have no external exporter; std-sync has no separate tracing switch.
 
 The strategy contract is a single method `run(ctx): Effect<void, unknown, Scope | R>`, where `R` is the optional application runtime environment. A strategy does **not** catch failures from `writeServerTruth` — it lets `WriteError` surface. The engine owns the recovery policy: on any `run` failure it reports a structured event and restarts `run` from the top on a fixed 2-second spaced schedule. Because a restart re-reads Sync State, a drain resumes from its last cursor. `run` may complete early (a pull that drains) or stay alive (a subscription); completion is **not** teardown. Teardown happens only when the engine closes the partition scope, which also interrupts the retry loop. Cleanup is the strategy's own `Effect.addFinalizer` registered on that scope; the engine never knows what is being torn down. Strategies expose **no public utils** — there is no `utils.sync`. A partitioned collection can hold heterogeneous per-partition strategies, so no single strategy-specific util surface can be type-safe. `collection.utils` is engine-owned and generic only (`schema`, `writeUpsert`, `pacedUpdate`, and pending-mutation inspection).
 
@@ -241,7 +252,7 @@ The cursor handed to the user's fetch closure is **opaque** (the boundary entity
 
 A drift-repair loop that runs **in parallel** with a partition's Sync Strategy, forked under the same partition scope. It does not pull new history; it re-confirms recently-delivered rows so the strategy's covered ranges do not silently drift.
 
-Each pass scans the partition's projected rows (narrowed to `field = value`) for **suspects** — rows delivered so close to their own `_u` that sibling records at the same `_u` may still have been in flight (`_s − uTime(_u) < window`). Once the oldest suspect has aged past `readiness` (adjusting for the `_c − _s` clock skew), it re-fetches from the suspect's predecessor anchor and writes the result through `writeServerTruth`.
+Each pass scans the partition's projected rows (narrowed to `field = value`) for **suspects** — rows delivered so close to their own `_u` that sibling records at the same `_u` may still have been in flight (`_s − uTime(_u) < window`). Once the oldest suspect has aged past `readiness` (adjusting for the `_c − _s` clock skew), it re-fetches from the suspect's predecessor anchor and writes the result through `writeServerTruth`. That `_u` is repaired at most once during the active Cadence Repair run, even when the server returns the same suspect unchanged. Every repair waits `pollDelay` before the next scan, preventing a tight repair loop.
 
 Cadence Sync **only writes Source of Truth**; it never reads or advances Sync State — it owns no cursor and claims no forward progress. It is an explicit per-entry `repair` capability containing `fetchFrom` and an optional cadence override. A declared repair inherits `cadence` from `createStdSync` when it omits its own policy. Omitting `repair` disables repair even when a default exists. Config is `{ window, readiness, pollDelay, debug? }`.
 

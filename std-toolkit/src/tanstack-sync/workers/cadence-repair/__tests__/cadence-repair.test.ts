@@ -1,7 +1,6 @@
 import { Effect, Fiber, Schedule, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { it, describe, expect } from 'vitest';
-import { vi } from 'vitest';
 import { ulid } from 'ulidx';
 import { uTime, type EntityType } from '../../../../core/index.js';
 import type { CollectionItem } from '../../../runtime/collection-model/index.js';
@@ -88,10 +87,29 @@ const makeFakeCollection = (opts: {
   return collection;
 };
 
-const writeFor = (collection: FakeCollection) =>
-  vi.fn((entities: EntityType<Item>[]) =>
-    Effect.sync(() => collection.applyWrite(entities)),
-  );
+const fetchFor = (results: EntityType<Item>[]) => {
+  const anchors: Array<EntityType<Item> | null> = [];
+  return {
+    anchors,
+    fetchFrom: (anchor: EntityType<Item> | null) =>
+      Effect.sync(() => {
+        anchors.push(anchor);
+        return results;
+      }),
+  };
+};
+
+const writeFor = (collection: FakeCollection) => {
+  const batches: EntityType<Item>[][] = [];
+  return {
+    batches,
+    writeServerTruth: (entities: EntityType<Item>[]) =>
+      Effect.sync(() => {
+        batches.push(entities);
+        collection.applyWrite(entities);
+      }),
+  };
+};
 
 const defaultConfig: CadenceConfig = {
   window: 5_000,
@@ -129,14 +147,12 @@ describe('TanStack Sync', () => {
 
         const fetchResults = [makeEntity(uStr, { _s: nowMs, _c: nowMs })];
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { anchors, fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect, predecessor],
         });
-        const writeServerTruth = writeFor(collection);
+        const { batches, writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -154,10 +170,40 @@ describe('TanStack Sync', () => {
           nowMs,
         );
 
-        expect(fetchFrom).toHaveBeenCalledOnce();
-        expect(fetchFrom).toHaveBeenCalledWith(predecessor);
-        expect(writeServerTruth).toHaveBeenCalledOnce();
-        expect(writeServerTruth).toHaveBeenCalledWith(fetchResults);
+        expect(anchors).toEqual([predecessor]);
+        expect(batches).toEqual([fetchResults]);
+      });
+
+      it('does not repair the same unchanged suspect again', async () => {
+        const nowMs = 100_000;
+        const uStr = uAt(nowMs - 20_000);
+        const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
+        const { anchors, fetchFrom } = fetchFor([suspect]);
+        const collection = makeFakeCollection({
+          subscriberCount: 1,
+          entities: [suspect],
+        });
+
+        await runWithTestClock(
+          Effect.gen(function* () {
+            const fiber = yield* fork(
+              runCadenceSync({
+                collection,
+                fetchFrom,
+                writeServerTruth: writeFor(collection).writeServerTruth,
+                config: defaultConfig,
+              }),
+            );
+
+            yield* Effect.yieldNow;
+            expect(anchors).toHaveLength(1);
+            yield* TestClock.adjust(defaultConfig.pollDelay * 3);
+            yield* Effect.yieldNow;
+            expect(anchors).toHaveLength(1);
+            yield* Fiber.interrupt(fiber);
+          }),
+          nowMs,
+        );
       });
 
       it('does not repair a suspect not yet past readiness; repairs after clock advances', async () => {
@@ -167,14 +213,12 @@ describe('TanStack Sync', () => {
         const suspect = makeEntity(uStr, { _s: 1_000 });
         const fetchResults = [makeEntity(uStr, { _s: 15_000, _c: 15_000 })];
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { anchors, fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect],
         });
-        const writeServerTruth = writeFor(collection);
+        const { batches, writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -188,7 +232,7 @@ describe('TanStack Sync', () => {
             );
 
             // At t=0: elapsed = 0 - 0 = 0 < readiness(10_000); loop sleeps
-            expect(fetchFrom).not.toHaveBeenCalled();
+            expect(anchors).toEqual([]);
 
             // Advance clock past readiness (10_000ms); loop wakes and repairs
             yield* TestClock.adjust(12_000);
@@ -197,17 +241,17 @@ describe('TanStack Sync', () => {
           baseMs,
         );
 
-        expect(fetchFrom).toHaveBeenCalledOnce();
-        expect(writeServerTruth).toHaveBeenCalledOnce();
+        expect(anchors).toHaveLength(1);
+        expect(batches).toHaveLength(1);
       });
 
       it('never treats a record without _s as a suspect', async () => {
-        const fetchFrom = vi.fn(() => Effect.succeed([] as EntityType<Item>[]));
+        const { anchors, fetchFrom } = fetchFor([]);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [makeEntity(uAt(100_000))],
         });
-        const writeServerTruth = writeFor(collection);
+        const { batches, writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -220,8 +264,8 @@ describe('TanStack Sync', () => {
               }),
             );
 
-            expect(fetchFrom).not.toHaveBeenCalled();
-            expect(writeServerTruth).not.toHaveBeenCalled();
+            expect(anchors).toEqual([]);
+            expect(batches).toEqual([]);
             yield* Fiber.interrupt(fiber);
           }),
           100_000,
@@ -229,14 +273,14 @@ describe('TanStack Sync', () => {
       });
 
       it('never treats a record with _s − _u >= cadence as a suspect', async () => {
-        const fetchFrom = vi.fn(() => Effect.succeed([] as EntityType<Item>[]));
+        const { anchors, fetchFrom } = fetchFor([]);
         const uStr = uAt(100_000 - 20_000);
         // _s - _u = 20_000ms >= cadence(5_000) → settled, not a suspect
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [makeEntity(uStr, { _s: uTime(uStr)! + 20_000 })],
         });
-        const writeServerTruth = writeFor(collection);
+        const { writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -249,7 +293,7 @@ describe('TanStack Sync', () => {
               }),
             );
 
-            expect(fetchFrom).not.toHaveBeenCalled();
+            expect(anchors).toEqual([]);
             yield* Fiber.interrupt(fiber);
           }),
           100_000,
@@ -263,14 +307,12 @@ describe('TanStack Sync', () => {
         const suspect = makeEntity(uStr, { _s: 1_000, _c: 31_000 });
         const fetchResults = [makeEntity(uStr, { _s: 50_000, _c: 80_000 })];
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { anchors, fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect],
         });
-        const writeServerTruth = writeFor(collection);
+        const { batches, writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -286,7 +328,7 @@ describe('TanStack Sync', () => {
             // Without skew: ready at t=10_000; with skew (_c-_s=30_000): ready at t=40_000
             yield* TestClock.adjust(15_000);
             // Still sleeping (readiness not met with skew correction)
-            expect(fetchFrom).not.toHaveBeenCalled();
+            expect(anchors).toEqual([]);
 
             // Advance past 40_000ms total
             yield* TestClock.adjust(30_000);
@@ -295,8 +337,8 @@ describe('TanStack Sync', () => {
           baseMs,
         );
 
-        expect(fetchFrom).toHaveBeenCalledOnce();
-        expect(writeServerTruth).toHaveBeenCalledOnce();
+        expect(anchors).toHaveLength(1);
+        expect(batches).toHaveLength(1);
       });
 
       it('does not scan when subscriberCount is 0, resumes when opened', async () => {
@@ -305,14 +347,12 @@ describe('TanStack Sync', () => {
         const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
         const fetchResults = [makeEntity(uStr, { _s: nowMs })];
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { anchors, fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 0,
           entities: [suspect],
         });
-        const writeServerTruth = writeFor(collection);
+        const { writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -327,7 +367,7 @@ describe('TanStack Sync', () => {
 
             // Latch closed (0 subscribers); loop parked — no scans
             expect(collection.valuesCallCount()).toBe(0);
-            expect(fetchFrom).not.toHaveBeenCalled();
+            expect(anchors).toEqual([]);
 
             // Open latch
             collection.emitSubscribersChange(0, 1);
@@ -337,7 +377,7 @@ describe('TanStack Sync', () => {
         );
 
         expect(collection.valuesCallCount()).toBeGreaterThan(0);
-        expect(fetchFrom).toHaveBeenCalledOnce();
+        expect(anchors).toHaveLength(1);
       });
 
       it('uses a null anchor when the suspect has no predecessor', async () => {
@@ -346,14 +386,12 @@ describe('TanStack Sync', () => {
         const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
         const fetchResults = [makeEntity(uStr, { _s: nowMs })];
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { anchors, fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect],
         });
-        const writeServerTruth = writeFor(collection);
+        const { writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -371,7 +409,7 @@ describe('TanStack Sync', () => {
           nowMs,
         );
 
-        expect(fetchFrom).toHaveBeenCalledWith(null);
+        expect(anchors).toEqual([null]);
       });
 
       it('releases the subscriber listener before retrying a failed attempt', async () => {
@@ -380,16 +418,14 @@ describe('TanStack Sync', () => {
         const suspect = makeEntity(uStr, { _s: uTime(uStr)! + 1_000 });
         const fetchResults = [makeEntity(uStr, { _s: nowMs })];
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect],
         });
 
         let attempts = 0;
-        const writeServerTruth = vi.fn((entities: EntityType<Item>[]) => {
+        const writeServerTruth = (entities: EntityType<Item>[]) => {
           attempts += 1;
           if (attempts === 1) {
             return Effect.fail({
@@ -398,7 +434,7 @@ describe('TanStack Sync', () => {
             } as WriteError);
           }
           return Effect.sync(() => collection.applyWrite(entities));
-        });
+        };
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -413,7 +449,7 @@ describe('TanStack Sync', () => {
 
             for (let i = 0; i < 5; i++) yield* Effect.yieldNow;
 
-            expect(writeServerTruth).toHaveBeenCalledTimes(2);
+            expect(attempts).toBe(2);
             expect(collection.subscriberListenerCount()).toBe(1);
 
             yield* Fiber.interrupt(fiber);
@@ -428,14 +464,12 @@ describe('TanStack Sync', () => {
         const suspect = makeEntity(uStr, { _s: Date.parse(uStr) + 1_000 });
         const fetchResults = [makeEntity(uStr, { _s: nowMs, _c: nowMs })];
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { anchors, fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect],
         });
-        const writeServerTruth = writeFor(collection);
+        const { batches, writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -453,22 +487,20 @@ describe('TanStack Sync', () => {
           nowMs,
         );
 
-        expect(fetchFrom).toHaveBeenCalledOnce();
-        expect(writeServerTruth).toHaveBeenCalledOnce();
+        expect(anchors).toHaveLength(1);
+        expect(batches).toHaveLength(1);
       });
 
       it('fails with a WriteError when _u is neither a ULID nor an ISO timestamp', async () => {
         const nowMs = 100_000;
         const suspect = makeEntity('not-a-valid-u', { _s: nowMs });
 
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed([] as EntityType<Item>[]),
-        );
+        const { anchors, fetchFrom } = fetchFor([]);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect],
         });
-        const writeServerTruth = writeFor(collection);
+        const { writeServerTruth } = writeFor(collection);
 
         const exit = await runWithTestClock(
           Effect.gen(function* () {
@@ -487,7 +519,7 @@ describe('TanStack Sync', () => {
         );
 
         expect(exit._tag).toBe('Failure');
-        expect(fetchFrom).not.toHaveBeenCalled();
+        expect(anchors).toEqual([]);
       });
 
       it('anchors on the same-partition predecessor and ignores other partitions', async () => {
@@ -511,14 +543,12 @@ describe('TanStack Sync', () => {
         const fetchResults = [
           makeEntity(suspectU, { id: 'a-suspect', p: 'A', _s: nowMs }),
         ];
-        const fetchFrom = vi.fn((_anchor: EntityType<Item> | null) =>
-          Effect.succeed(fetchResults),
-        );
+        const { anchors, fetchFrom } = fetchFor(fetchResults);
         const collection = makeFakeCollection({
           subscriberCount: 1,
           entities: [suspect, samePartitionPredecessor, otherPartition],
         });
-        const writeServerTruth = writeFor(collection);
+        const { batches, writeServerTruth } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -537,8 +567,8 @@ describe('TanStack Sync', () => {
           nowMs,
         );
 
-        expect(fetchFrom).toHaveBeenCalledWith(samePartitionPredecessor);
-        expect(writeServerTruth).toHaveBeenCalledOnce();
+        expect(anchors).toEqual([samePartitionPredecessor]);
+        expect(batches).toHaveLength(1);
       });
     });
   });

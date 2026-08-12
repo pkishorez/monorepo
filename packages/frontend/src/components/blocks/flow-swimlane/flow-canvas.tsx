@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
 import { flowHeaderHeight, flowRowGap, type FlowLayout } from './layout';
 
@@ -44,15 +44,22 @@ const formatDuration = (milliseconds: number) => {
 export function FlowCanvas({
   flowId,
   layout,
+  selectedItemId,
+  onItemClick,
   onActivityClick,
 }: {
   readonly flowId: string;
   readonly layout: FlowLayout;
+  readonly selectedItemId?: string | null | undefined;
+  readonly onItemClick?:
+    | ((item: RecordedFlow['items'][number]) => void)
+    | undefined;
   readonly onActivityClick?:
     | ((activity: RecordedFlowActivity) => void)
     | undefined;
 }) {
   const markerId = useId().replaceAll(':', '');
+  const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const { height, items, laneX, participants, width } = layout;
   const terminalIndex = items.findIndex(
     (item) => item.kind === 'local-event' && item.status !== undefined,
@@ -120,10 +127,20 @@ export function FlowCanvas({
       })}
 
       {items.map((item, index) => {
+        const selectedMember = item.members.find(
+          ({ id }) => id === selectedItemId,
+        );
+        const selected = selectedMember !== undefined;
+        const hovered = item.id === hoveredItemId;
         const y = flowHeaderHeight + index * flowRowGap + flowRowGap / 2;
         const x = laneX.get(item.participantName)!;
+        const label =
+          item.repeatCount > 1
+            ? `${item.name} ×${item.repeatCount}`
+            : item.name;
 
         if (item.kind === 'message') {
+          const activate = () => onItemClick?.(item);
           const destinationX = laneX.get(item.destination)!;
           const messageWidth = Math.min(
             messageMaxWidth,
@@ -131,7 +148,55 @@ export function FlowCanvas({
           );
           const messageX = (x + destinationX) / 2 - messageWidth / 2;
           return (
-            <g key={item.id} data-flow-item="message">
+            <g
+              key={item.id}
+              data-flow-item="message"
+              data-selected={selected || undefined}
+              role={onItemClick ? 'button' : undefined}
+              tabIndex={onItemClick ? 0 : undefined}
+              aria-label={onItemClick ? `Open ${label} log entry` : undefined}
+              onClick={activate}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') activate();
+              }}
+              onMouseEnter={() => {
+                if (!selected) setHoveredItemId(item.id);
+              }}
+              onMouseLeave={() => setHoveredItemId(null)}
+              style={{
+                cursor: onItemClick ? 'pointer' : 'default',
+                outline: 'none',
+              }}
+            >
+              <rect
+                x={0}
+                y={y - flowRowGap / 2}
+                width={width}
+                height={flowRowGap}
+                fill={
+                  selected
+                    ? 'transparent'
+                    : hovered
+                      ? 'color-mix(in oklab, var(--color-primary) 3%, transparent)'
+                      : 'transparent'
+                }
+                style={{ transition: 'fill 120ms ease-out' }}
+              />
+              {selected && (
+                <rect
+                  x={messageX - 7}
+                  y={y - messageHeight / 2 - 7}
+                  width={messageWidth + 14}
+                  height={messageHeight + 14}
+                  rx={13}
+                  fill="color-mix(in oklab, var(--color-primary) 22%, transparent)"
+                  stroke="var(--color-primary)"
+                  strokeWidth={4}
+                  style={{
+                    filter: 'drop-shadow(0 0 7px var(--color-primary))',
+                  }}
+                />
+              )}
               <line
                 x1={x}
                 y1={y}
@@ -147,8 +212,13 @@ export function FlowCanvas({
                 width={messageWidth}
                 height={messageHeight}
                 rx={7}
-                fill="var(--color-card)"
-                stroke={messageColor}
+                fill={
+                  selected
+                    ? 'color-mix(in oklab, var(--color-primary) 18%, var(--color-card))'
+                    : 'var(--color-card)'
+                }
+                stroke={selected ? 'var(--color-primary)' : messageColor}
+                strokeWidth={selected ? 2.5 : 1}
               />
               <foreignObject
                 x={messageX + 10}
@@ -159,9 +229,9 @@ export function FlowCanvas({
                 <div
                   className="truncate text-center text-xs leading-[26px] font-semibold"
                   style={{ color: messageColor }}
-                  title={`${item.participantName} → ${item.destination}: ${item.name}`}
+                  title={`${item.participantName} → ${item.destination}: ${label}`}
                 >
-                  {item.name}
+                  {label}
                 </div>
               </foreignObject>
             </g>
@@ -169,31 +239,73 @@ export function FlowCanvas({
         }
 
         if (item.kind === 'activity') {
-          const activate = () => onActivityClick?.(item);
+          const clickable =
+            onItemClick !== undefined || onActivityClick !== undefined;
+          const activate = () => {
+            onItemClick?.(item);
+            onActivityClick?.(item);
+          };
           return (
             <g
               key={item.id}
               data-flow-item="activity"
-              role={onActivityClick ? 'button' : undefined}
-              tabIndex={onActivityClick ? 0 : undefined}
-              aria-label={
-                onActivityClick ? `Open ${item.name} activity` : undefined
-              }
+              data-selected={selected || undefined}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              aria-label={clickable ? `Open ${label} activity` : undefined}
               onClick={activate}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') activate();
               }}
-              style={{ cursor: onActivityClick ? 'pointer' : 'default' }}
+              onMouseEnter={() => {
+                if (!selected) setHoveredItemId(item.id);
+              }}
+              onMouseLeave={() => setHoveredItemId(null)}
+              style={{
+                cursor: clickable ? 'pointer' : 'default',
+                outline: 'none',
+              }}
             >
+              <rect
+                x={0}
+                y={y - flowRowGap / 2}
+                width={width}
+                height={flowRowGap}
+                fill={
+                  selected
+                    ? 'transparent'
+                    : hovered
+                      ? 'color-mix(in oklab, var(--color-primary) 3%, transparent)'
+                      : 'transparent'
+                }
+                style={{ transition: 'fill 120ms ease-out' }}
+              />
+              {selected && (
+                <rect
+                  x={x - activityWidth / 2 - 7}
+                  y={y - itemHeight / 2 - 7}
+                  width={activityWidth + 14}
+                  height={itemHeight + 14}
+                  rx={15}
+                  fill="color-mix(in oklab, var(--color-primary) 22%, transparent)"
+                  stroke="var(--color-primary)"
+                  strokeWidth={4}
+                  style={{
+                    filter: 'drop-shadow(0 0 7px var(--color-primary))',
+                  }}
+                />
+              )}
               <rect
                 x={x - activityWidth / 2}
                 y={y - itemHeight / 2}
                 width={activityWidth}
                 height={itemHeight}
                 rx={9}
-                fill={`color-mix(in oklab, ${activityColor[item.status]} 7%, var(--color-card))`}
-                stroke={activityColor[item.status]}
-                strokeWidth={1.5}
+                fill={`color-mix(in oklab, ${selected ? 'var(--color-primary)' : activityColor[item.status]} ${selected ? 18 : 7}%, var(--color-card))`}
+                stroke={
+                  selected ? 'var(--color-primary)' : activityColor[item.status]
+                }
+                strokeWidth={selected ? 2.5 : 1.5}
               />
               <foreignObject
                 x={x - activityWidth / 2 + 10}
@@ -203,10 +315,10 @@ export function FlowCanvas({
               >
                 <div
                   className="flex h-full min-w-0 flex-col items-center justify-center text-foreground"
-                  title={item.name}
+                  title={label}
                 >
                   <span className="w-full truncate text-center text-xs font-semibold">
-                    {item.name}
+                    {label}
                   </span>
                   {item.duration !== null && (
                     <span className="text-[10px] text-muted-foreground">
@@ -228,13 +340,60 @@ export function FlowCanvas({
                 ? 'var(--color-muted-foreground)'
                 : undefined;
         const color = terminalColor ?? eventColor[item.severity];
+        const activate = () =>
+          onItemClick?.(selectedMember ?? item.members[0]!);
 
         return (
           <g
             key={item.id}
             data-flow-item="local-event"
             data-flow-terminal={item.status ?? undefined}
+            data-selected={selected || undefined}
+            role={onItemClick ? 'button' : undefined}
+            tabIndex={onItemClick ? 0 : undefined}
+            aria-label={onItemClick ? `Open ${label} log entry` : undefined}
+            onClick={activate}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') activate();
+            }}
+            onMouseEnter={() => {
+              if (!selected) setHoveredItemId(item.id);
+            }}
+            onMouseLeave={() => setHoveredItemId(null)}
+            style={{
+              cursor: onItemClick ? 'pointer' : 'default',
+              outline: 'none',
+            }}
           >
+            <rect
+              x={0}
+              y={y - flowRowGap / 2}
+              width={width}
+              height={flowRowGap}
+              fill={
+                selected
+                  ? 'transparent'
+                  : hovered
+                    ? 'color-mix(in oklab, var(--color-primary) 3%, transparent)'
+                    : 'transparent'
+              }
+              style={{ transition: 'fill 120ms ease-out' }}
+            />
+            {selected && (
+              <rect
+                x={x - localEventWidth / 2 - 7}
+                y={y - 21}
+                width={localEventWidth + 14}
+                height={42}
+                rx={13}
+                fill="color-mix(in oklab, var(--color-primary) 22%, transparent)"
+                stroke="var(--color-primary)"
+                strokeWidth={4}
+                style={{
+                  filter: 'drop-shadow(0 0 7px var(--color-primary))',
+                }}
+              />
+            )}
             <rect
               x={x - localEventWidth / 2}
               y={y - 14}
@@ -242,11 +401,18 @@ export function FlowCanvas({
               height={28}
               rx={7}
               fill={
-                terminalColor
-                  ? `color-mix(in oklab, ${terminalColor} 7%, var(--color-card))`
-                  : 'var(--color-card)'
+                selected
+                  ? 'color-mix(in oklab, var(--color-primary) 18%, var(--color-card))'
+                  : terminalColor
+                    ? `color-mix(in oklab, ${terminalColor} 7%, var(--color-card))`
+                    : 'var(--color-card)'
               }
-              stroke={terminalColor ?? 'var(--color-border)'}
+              stroke={
+                selected
+                  ? 'var(--color-primary)'
+                  : (terminalColor ?? 'var(--color-border)')
+              }
+              strokeWidth={selected ? 2.5 : 1}
             />
             <foreignObject
               x={x - localEventWidth / 2 + 10}
@@ -257,9 +423,9 @@ export function FlowCanvas({
               <div
                 className="truncate text-center text-xs leading-[26px] font-medium"
                 style={{ color }}
-                title={item.name}
+                title={label}
               >
-                {item.name}
+                {label}
               </div>
             </foreignObject>
           </g>

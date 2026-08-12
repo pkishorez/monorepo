@@ -25,7 +25,7 @@ type PartitionedStrategy<TItem, TState> = {
 };
 ```
 
-Notice what `run`'s context carries: `writeServerTruth`, `getState`/`setState` (already routed to this partition's slot), and a `scope` for subscriptions and fibers. It carries neither a generic fetch source nor a partition value. Each strategy constructor receives exactly the sources its algorithm consumes. When you write
+Notice what `run`'s context carries: `writeServerTruth`, `getState`/`setState` (already routed to this partition's slot), a `scope` for subscriptions and fibers, and `flow.log`/`flow.withSpan` for adding events and activities to this worker's Flow lane. It carries neither a generic fetch source nor a partition value. Each strategy constructor receives exactly the sources its algorithm consumes. When you write
 
 ```ts
 partitions: {
@@ -146,7 +146,7 @@ partitions: {
 },
 ```
 
-Each pass scans the partition's projected rows for **suspects** — rows delivered so soon after their own `_u` was minted (`_s − uTime(_u) < window`) that same-instant siblings might still have been in flight. It waits until the oldest suspect has aged past `readiness` (correcting for client–server clock skew via `_c − _s`), then re-fetches through `repair.fetchFrom` from the suspect's predecessor and writes the results down. If nothing was missed, every result is a convergence no-op; if something was, it lands now. When a scan finds no suspects at all, the loop sleeps `pollDelay` before scanning again. An optional `debug: true` reports each step through Effect's logger.
+Each pass scans the partition's projected rows for **suspects** — rows delivered so soon after their own `_u` was minted (`_s − uTime(_u) < window`) that same-instant siblings might still have been in flight. It waits until the oldest suspect has aged past `readiness` (correcting for client–server clock skew via `_c − _s`), then re-fetches through `repair.fetchFrom` from the suspect's predecessor and writes the results down. If nothing was missed, every result is a convergence no-op; if something was, it lands now. One active repair run handles each suspect `_u` once, including when the source returns it unchanged, and waits `pollDelay` after every repair. This prevents an unchanged suspect from driving a repair loop. An optional `debug: true` reports each step through Effect's logger.
 
 The discipline that keeps cadence safe to run everywhere: it **only writes the Source of Truth**. It owns no cursor, never touches Sync State, and claims no forward progress — it re-confirms, nothing else. It also politely idles while the collection has no subscribers. `createStdSync({ cadence: { … } })` supplies a default policy only to entries that explicitly declare `repair`; `repair.cadence` overrides it. Omitting `repair` always disables repair.
 
