@@ -2,7 +2,7 @@ import type {
   AnyUnkeyedESchema,
   ESchemaType,
 } from '../../../../eschema/index.js';
-import type { TableSnapshotEntity } from '../../../domain/entity-registry/index.js';
+import type { TableSnapshotEntity } from '../../../../snapshot/capture/table-entity-registry/index.js';
 import type { IdbEntityTable } from '../idb-entity/index.js';
 import type { IdbSingleEntity } from './idb-single-entity.js';
 import { makeIdbSingleEntityContext } from './single-entity-context.js';

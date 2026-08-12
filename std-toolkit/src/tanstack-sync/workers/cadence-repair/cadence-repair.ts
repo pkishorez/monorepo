@@ -98,6 +98,7 @@ const scanSuspects = <T>(
   collection: SyncCollection<T>,
   window: number,
   partition: Partition | undefined,
+  repaired: ReadonlySet<string>,
 ): SuspectScan<T> => {
   let scanned = 0;
   let suspectCount = 0;
@@ -108,6 +109,7 @@ const scanSuspects = <T>(
     if (meta == null || !inPartition(row as Record<string, unknown>, partition))
       continue;
     scanned += 1;
+    if (repaired.has(meta._u)) continue;
     const suspect = isSuspect<T>(meta, window);
     if (suspect === 'invalid-u') {
       return {
@@ -162,6 +164,7 @@ export const runCadenceSync = <T, E, R = never>(
     Effect.gen(function* () {
       const { collection, fetchFrom, writeServerTruth, partition, config } =
         deps;
+      const repaired = new Set<string>();
 
       const dbg = (event: string, data: Record<string, unknown>) =>
         config.debug
@@ -202,7 +205,7 @@ export const runCadenceSync = <T, E, R = never>(
           suspectCount,
           scanned,
           invalidU,
-        } = scanSuspects(collection, config.window, partition);
+        } = scanSuspects(collection, config.window, partition, repaired);
 
         if (invalidU !== undefined) {
           return yield* Effect.fail({
@@ -245,7 +248,9 @@ export const runCadenceSync = <T, E, R = never>(
           ),
         );
         yield* writeServerTruth(results);
+        repaired.add(suspect.meta._u);
         yield* dbg('repair:wrote', { fetched: results.length });
+        yield* Effect.sleep(config.pollDelay);
 
         return yield* loop;
       });

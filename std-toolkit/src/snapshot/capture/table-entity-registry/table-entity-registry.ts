@@ -1,4 +1,4 @@
-import type { TableEntitySnapshotSource } from '../../../snapshot/index.js';
+import type { TableEntitySnapshotSource } from '../../domain/index.js';
 
 export const tableSnapshotSource = Symbol('std-toolkit/table-snapshot-source');
 
@@ -7,7 +7,7 @@ export interface TableSnapshotEntity {
   [tableSnapshotSource](): TableEntitySnapshotSource;
 }
 
-export function createEntityRegistry() {
+export function createTableEntityRegistry() {
   const entities: TableSnapshotEntity[] = [];
   return {
     register(entity: TableSnapshotEntity): void {

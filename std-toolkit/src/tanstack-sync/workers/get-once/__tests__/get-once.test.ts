@@ -5,6 +5,14 @@ import { getOnce } from '../index.js';
 
 type Settings = { theme: string };
 
+const flow = {
+  log: () => Effect.void,
+  withSpan:
+    () =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect,
+};
+
 describe('get-once', () => {
   it('fetches and writes the singleton as server truth', async () => {
     const written: EntityType<Settings>[][] = [];
@@ -21,6 +29,7 @@ describe('get-once', () => {
         Effect.gen(function* () {
           const scope = yield* Effect.scope;
           yield* strategy.run({
+            flow,
             writeServerTruth: (entities) =>
               Effect.sync(() => {
                 written.push(entities);

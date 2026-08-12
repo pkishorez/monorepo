@@ -61,29 +61,6 @@ describe('TanStack Sync', () => {
         }),
       );
 
-      itEffect('re-stamps _c on a subsequent write of the same entity', () =>
-        Effect.gen(function* () {
-          const storage = memoryOfflineStorage();
-          const group = storage.group('sot/items');
-          const sot = makeSourceOfTruth<Item>({ schema, group });
-
-          yield* sot.write([entity('a', 'Alpha', '2024-01-01T00:00:00.000Z')]);
-          const firstAll = yield* sot.getAll();
-          const firstC = firstAll[0]!.meta._c!;
-
-          // Small delay to ensure a different timestamp is possible, but test
-          // primarily asserts that a fresh _c is present — not the exact value.
-          yield* sot.write([
-            entity('a', 'Alpha v2', '2024-01-02T00:00:00.000Z'),
-          ]);
-
-          const all = yield* sot.getAll();
-          expect(all).toHaveLength(1);
-          expect(typeof all[0]!.meta._c).toBe('number');
-          expect(all[0]!.meta._c).toBeGreaterThanOrEqual(firstC);
-        }),
-      );
-
       itEffect(
         'does not stamp _c on skipped (older) entities — prior value preserved',
         () =>

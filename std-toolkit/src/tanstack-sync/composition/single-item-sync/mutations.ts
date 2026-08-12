@@ -14,6 +14,7 @@ import {
   toEntity,
 } from '../../runtime/collection-model/index.js';
 import type { EffectRunner } from '../../runtime/effect-runner/index.js';
+import type { CollectionFlow } from '../../runtime/sync-flow/index.js';
 
 /** The single-item collection has one record, so one fixed pending-tracker key. */
 const SINGLE_KEY = '__single__';
@@ -37,20 +38,30 @@ export const buildMutationHandlers = <TItem extends object, R = never>(args: {
     | undefined;
   updatePacing?: PaceStrategyFactory | undefined;
   runner: EffectRunner<R>;
+  flow: () => CollectionFlow | null;
 }) => {
   type TCollItem = CollectionItem<TItem>;
-  const { writeServerTruth, onUpdate, updatePacing, runner } = args;
+  const { writeServerTruth, onUpdate, updatePacing, runner, flow } = args;
 
   const pending = runner.runSync(makePendingTracker);
-
-  const flush = (entity: SingleEntityType<TItem>): Promise<void> =>
-    runner.runPromise(writeServerTruth([toEntity(entity)]));
 
   const runUpdate = async (updates: Partial<TItem>): Promise<void> => {
     pending.increment(SINGLE_KEY);
     try {
-      const result = await runner.runPromise(onUpdate!({ updates }));
-      await flush(result);
+      const mutation = Effect.gen(function* () {
+        const result = yield* onUpdate!({ updates });
+        yield* writeServerTruth([toEntity(result)]);
+      });
+      const activeFlow = flow();
+      await runner.runPromise(
+        activeFlow
+          ? mutation.pipe(
+              activeFlow.collection.withSpan('Collection Mutation', {
+                attributes: { operation: 'update' },
+              }),
+            )
+          : mutation,
+      );
     } finally {
       pending.decrement(SINGLE_KEY);
     }

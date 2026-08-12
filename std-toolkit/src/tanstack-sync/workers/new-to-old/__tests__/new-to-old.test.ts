@@ -7,6 +7,14 @@ import type { StrategyContext } from '../../../runtime/strategy-runtime/index.js
 
 type Item = { id: string };
 
+const flow = {
+  log: () => Effect.void,
+  withSpan:
+    () =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      effect,
+};
+
 const entity = (id: string, u: string): EntityType<Item> => ({
   value: { id },
   meta: { _e: 't', _v: '1', _d: false, _u: u },
@@ -30,6 +38,7 @@ const drive = async (opts: {
   };
 
   const ctx: StrategyContext<Item, NewToOldState> = {
+    flow,
     writeServerTruth: (entities) =>
       Effect.sync(() => {
         written.push(...(entities as EntityType<Item>[]));
@@ -95,6 +104,7 @@ describe('TanStack Sync', () => {
           const written: EntityType<Item>[] = [];
           let state: NewToOldState = { slices: [], reachedOldest: false };
           const ctx: StrategyContext<Item, NewToOldState> = {
+            flow,
             writeServerTruth: (entities) =>
               Effect.sync(() => {
                 written.push(...(entities as EntityType<Item>[]));

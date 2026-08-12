@@ -14,7 +14,7 @@ import { makeIdbEntity, type IdbEntityOp } from '../idb-entity/index.js';
 import { makeIdbSingleEntity } from '../idb-single-entity/index.js';
 import type { TableSnapshot } from '../../../../snapshot/index.js';
 import { createTableSnapshot } from '../../../../snapshot/capture/table-capture/index.js';
-import { createEntityRegistry } from '../../../domain/entity-registry/index.js';
+import { createTableEntityRegistry } from '../../../../snapshot/capture/table-entity-registry/index.js';
 
 /**
  * Defines the structure of a primary or secondary index.
@@ -336,7 +336,7 @@ function withEntityDefinitions<
   TPrimaryIndex extends IndexDefinition,
   TSecondaryIndexMap extends Record<string, IndexDefinition>,
 >(base: IdbTableInstance<TPrimaryIndex, TSecondaryIndexMap>) {
-  const { register, snapshotSources } = createEntityRegistry();
+  const { register, snapshotSources } = createTableEntityRegistry();
 
   return {
     ...base,

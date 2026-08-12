@@ -7,7 +7,7 @@ import type { EntityTable as DynamoTable } from '../../domain/entity-persistence
 import type { TableEntitySnapshotSource } from '../../../../snapshot/index.js';
 import type { IndexPkValue } from '../../types/index.js';
 import { keyedSnapshotSource } from '../../../../snapshot/capture/table-capture/index.js';
-import { tableSnapshotSource } from '../../../domain/entity-registry/index.js';
+import { tableSnapshotSource } from '../../../../snapshot/capture/table-entity-registry/index.js';
 import { makeEntityBuilder } from './entity-builder.js';
 import {
   EntityIndex,

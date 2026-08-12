@@ -1,4 +1,4 @@
-import { Effect, Scope } from 'effect';
+import { Effect, Exit, Scope } from 'effect';
 import type {
   CadenceConfig,
   SyncCollection,
@@ -41,6 +41,12 @@ import {
   type EffectRunner,
 } from '../../runtime/effect-runner/index.js';
 import { makeSyncExecution } from '../../lifecycle/sync-execution/index.js';
+import { nextUlid } from '../../../core/index.js';
+import {
+  makeCollectionFlow,
+  partitionParticipantName,
+  type StrategyFlow,
+} from '../../runtime/sync-flow/index.js';
 
 type Projector<TItem> = ReturnType<typeof makeCollectionProjector<TItem>>;
 
@@ -92,6 +98,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
 
   const { schema } = config;
   const runner = config.runner ?? makeEffectRunner<R>(undefined);
+  const flow = makeCollectionFlow(schema.name, runner.runSync(nextUlid));
   const partitionFields = Object.keys(config.partitions ?? {});
   const resolvePartitionEntry = (
     field: string,
@@ -129,9 +136,21 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   let nativeCollection: SyncCollection<TItem> | null = null;
   const writeServerTruth = (
     entities: EntityType<TItem>[],
+    syncFlow?: StrategyFlow,
   ): Effect.Effect<void, WriteError> =>
     sot.write(entities).pipe(
       Effect.tap((accepted) => Effect.sync(() => projector?.project(accepted))),
+      Effect.tap((accepted) =>
+        syncFlow && entities.length > 0
+          ? syncFlow.log('Source of Truth write', {
+              attributes: {
+                receivedCount: entities.length,
+                storedCount:
+                  accepted.upserts.length + accepted.tombstoned.length,
+              },
+            })
+          : Effect.void,
+      ),
       Effect.asVoid,
       Effect.withSpan('tanstack-sync.write-server-truth', {
         attributes: {
@@ -154,6 +173,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     key: string,
     scope: Scope.Scope,
     strat: PartitionedStrategy<TItem, TState, R>,
+    flow: StrategyFlow,
   ): StrategyContext<TItem, TState> => {
     const stateStore = makeSyncStateStore({
       schemaName: schema.name,
@@ -162,7 +182,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       state: strat.state,
     });
     return {
-      writeServerTruth,
+      flow,
+      writeServerTruth: (entities) => writeServerTruth(entities, flow),
       getState: stateStore.get(key),
       setState: (state) => stateStore.set(key, state),
       scope,
@@ -187,6 +208,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     writeServerTruth,
     pending,
     runner,
+    flow: () => flow,
   });
 
   const utils: EngineUtils<S> = {
@@ -217,6 +239,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     projectOnly: projectOnly as (
       entities: EntityType<unknown>[],
     ) => Effect.Effect<void, WriteError>,
+    flow: () => flow,
   });
 
   return {
@@ -229,6 +252,11 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     ...(partitionFields.length > 0 && { syncMode: 'on-demand' as const }),
     sync: {
       sync: (callbacks) => {
+        runner.runSync(
+          flow.collection.log('Collection start', {
+            attributes: { collection: schema.name },
+          }),
+        );
         projector = makeCollectionProjector<TItem>(callbacks, { deleteKeyOf });
         collectionUpdate = (key, updater) =>
           callbacks.collection.update(key, updater);
@@ -241,26 +269,58 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           on: (event, listener) => native.on(event, listener),
           values: () => native.values(),
         };
-        void runner.runPromise(
-          Effect.gen(function* () {
-            const all = yield* sot.getAll();
-            projector?.projectAll(all);
-            callbacks.markReady();
-            if (config.total) {
-              // Total sync is one implicit partition over the whole set.
-              yield* execution.start(GLOBAL_PARTITION_KEY, config.total);
-            }
-          }).pipe(
-            Effect.tapError((error) =>
-              config.report({
-                _tag: 'InitializationFailed',
-                collection: schema.name,
-                cause: error,
-              }),
+        let active = true;
+        const initializationScope = runner.runSync(Scope.make());
+        runner.runSync(
+          Effect.forkIn(
+            Effect.gen(function* () {
+              const all = yield* sot.getAll().pipe(
+                flow.collection.withSpan('Source of Truth hydration', {
+                  attributes: { collection: schema.name },
+                }),
+              );
+              const ready = yield* Effect.sync(() => {
+                if (!active) return false;
+                projector?.projectAll(all);
+                callbacks.markReady();
+                return true;
+              });
+              if (!ready) return;
+              yield* flow.collection.log('Collection ready', {
+                attributes: {
+                  collection: schema.name,
+                  entityCount: all.length,
+                },
+              });
+              if (config.total) {
+                yield* execution
+                  .start(GLOBAL_PARTITION_KEY, config.total, flow)
+                  .pipe(Effect.uninterruptible);
+              }
+            }).pipe(
+              Effect.tapError((error) =>
+                config
+                  .report({
+                    _tag: 'InitializationFailed',
+                    collection: schema.name,
+                    cause: error,
+                  })
+                  .pipe(
+                    Effect.andThen(
+                      flow.collection.log('Collection init failure', {
+                        attributes: { cause: String(error) },
+                        level: 'error',
+                      }),
+                    ),
+                  ),
+              ),
+              Effect.ignore,
             ),
-            Effect.ignore,
+            initializationScope,
           ),
         );
+
+        const partitionParticipants = new Map<string, string>();
 
         const loadSubset = (opts: LoadSubsetOptions): true => {
           const r = partitionLifecycle.load(opts);
@@ -277,12 +337,37 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           }
           if (r.activated) {
             const entry = resolvePartitionEntry(r.field, r.partitionValue);
+            const participantName = partitionParticipantName(
+              { field: r.field, value: r.partitionValue },
+              entry.strategy.name,
+            );
+            partitionParticipants.set(r.partitionKey, participantName);
             runner.runSync(
-              execution.start(r.partitionKey, entry, {
+              flow.collection.send(participantName, 'Partition subscribe', {
+                attributes: {
+                  partitionKey: r.partitionKey,
+                  subscriberCount: r.subscriberCount,
+                },
+              }),
+            );
+            runner.runSync(
+              execution.start(r.partitionKey, entry, flow, {
                 field: r.field,
                 value: r.partitionValue,
               }),
             );
+          } else {
+            const participantName = partitionParticipants.get(r.partitionKey);
+            if (participantName) {
+              runner.runSync(
+                flow.collection.send(participantName, 'Partition subscribe', {
+                  attributes: {
+                    partitionKey: r.partitionKey,
+                    subscriberCount: r.subscriberCount,
+                  },
+                }),
+              );
+            }
           }
           return true;
         };
@@ -290,14 +375,32 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         const unloadSubset = (opts: LoadSubsetOptions): void => {
           const r = partitionLifecycle.unload(opts);
           if (!r) return;
+          const participantName = partitionParticipants.get(r.partitionKey);
+          if (participantName) {
+            runner.runSync(
+              flow.collection.send(participantName, 'Partition unsubscribe', {
+                attributes: {
+                  partitionKey: r.partitionKey,
+                  subscriberCount: r.subscriberCount,
+                },
+              }),
+            );
+          }
           if (r.deactivated) runner.runSync(execution.stop(r.partitionKey));
         };
 
         const cleanup = async (): Promise<void> => {
+          active = false;
+          await runner.runPromise(Scope.close(initializationScope, Exit.void));
           await runner.runPromise(execution.stopAll);
           projector = null;
           collectionUpdate = null;
           nativeCollection = null;
+          await runner.runPromise(
+            flow.collection.log('Collection cleanup', {
+              attributes: { collection: schema.name },
+            }),
+          );
         };
 
         return { cleanup, loadSubset, unloadSubset };

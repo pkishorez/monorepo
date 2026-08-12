@@ -1,4 +1,5 @@
 export {
+  flowAttributePrefix,
   flowAttributes,
   flowItemTypes,
   flowStatuses,

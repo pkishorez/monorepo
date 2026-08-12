@@ -6,6 +6,7 @@ import type { CadenceConfig } from '../../domain/cadence-policy/index.js';
 import type { ForwardFetch } from '../collection-model/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import type { PartitionValue } from '../../domain/partition-identity/index.js';
+import type { StrategyFlow } from '../sync-flow/index.js';
 
 /**
  * The engine-provided surface a strategy runs against. Carries neither a source
@@ -13,6 +14,7 @@ import type { PartitionValue } from '../../domain/partition-identity/index.js';
  * already routed to the current lifecycle slot.
  */
 export type StrategyContext<TItem, TState = unknown> = {
+  flow: StrategyFlow;
   writeServerTruth: (
     entities: EntityType<TItem>[],
   ) => Effect.Effect<void, WriteError>;

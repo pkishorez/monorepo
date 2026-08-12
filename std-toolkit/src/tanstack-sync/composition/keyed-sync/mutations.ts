@@ -20,6 +20,7 @@ import {
 import { stripMetaPartial } from '../../runtime/collection-model/index.js';
 import type { EffectRunner } from '../../runtime/effect-runner/index.js';
 import type { PendingTracker } from '../../runtime/pending-mutations/index.js';
+import type { CollectionFlow } from '../../runtime/sync-flow/index.js';
 
 const stripMeta = <TItem extends object>(
   item: CollectionItem<TItem>,
@@ -55,6 +56,7 @@ export const buildMutationHandlers = <
   updatePacing?: PaceStrategyFactory;
   pending: PendingTracker;
   runner: EffectRunner<R>;
+  flow: () => CollectionFlow | null;
 }) => {
   type TItem = S['Type'];
   type TCollItem = CollectionItem<TItem>;
@@ -68,21 +70,36 @@ export const buildMutationHandlers = <
     updatePacing,
     pending,
     runner,
+    flow,
   } = args;
 
   const idField = schema.idField as string;
 
-  const flush = (entity: EntityType<TItem>): Promise<void> =>
-    runner.runPromise(writeServerTruth([entity]));
-
   const runMutation = async (
     key: string,
+    operation: 'delete' | 'insert' | 'update',
     effect: Effect.Effect<EntityType<TItem>, unknown, R>,
   ): Promise<void> => {
     pending.increment(key);
     try {
-      const result = await runner.runPromise(effect);
-      await flush(result);
+      const mutation = Effect.gen(function* () {
+        const result = yield* effect;
+        yield* writeServerTruth([result]);
+      });
+      const activeFlow = flow();
+      await runner.runPromise(
+        activeFlow
+          ? mutation.pipe(
+              activeFlow.collection.withSpan('Collection Mutation', {
+                attributes: {
+                  collection: schema.name,
+                  entityKey: key,
+                  operation,
+                },
+              }),
+            )
+          : mutation,
+      );
     } finally {
       pending.decrement(key);
     }
@@ -100,7 +117,7 @@ export const buildMutationHandlers = <
       }: InsertMutationFnParams<TCollItem, string>): Promise<void> => {
         const mutation = transaction.mutations[0]!;
         const value = stripMeta<TItem>(mutation.modified);
-        await runMutation(String(mutation.key), onInsert(value));
+        await runMutation(String(mutation.key), 'insert', onInsert(value));
       }
     : undefined;
 
@@ -111,7 +128,11 @@ export const buildMutationHandlers = <
         const mutation = transaction.mutations[0]!;
         const key = String(mutation.key);
         const updates = stripMetaPartial<TItem>(mutation.changes);
-        await runMutation(key, onUpdate(buildUpdatePayload(key, updates)));
+        await runMutation(
+          key,
+          'update',
+          onUpdate(buildUpdatePayload(key, updates)),
+        );
       }
     : undefined;
 
@@ -120,7 +141,7 @@ export const buildMutationHandlers = <
         transaction,
       }: DeleteMutationFnParams<TCollItem, string>): Promise<void> => {
         const key = String(transaction.mutations[0]!.key);
-        await runMutation(key, onDelete(key));
+        await runMutation(key, 'delete', onDelete(key));
       }
     : undefined;
 
@@ -144,6 +165,7 @@ export const buildMutationHandlers = <
                 const updates = stripMetaPartial<TItem>(merged);
                 await runMutation(
                   key,
+                  'update',
                   onUpdate(buildUpdatePayload(key, updates)),
                 );
               },

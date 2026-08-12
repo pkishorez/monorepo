@@ -1,0 +1,261 @@
+import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { Effect, Schema } from 'effect';
+import { describe, expect, it, vi } from 'vitest';
+import { EntityESchema } from '../../../../eschema/index.js';
+import { noStrategyState } from '../../../domain/strategy-state/index.js';
+import { createStdSync } from '../../../tanstack-sync.js';
+import type { EffectRuntime } from '../../../runtime/effect-runner/index.js';
+import type { EntityType } from '../../../../core/index.js';
+import type { OfflineStorage } from '../../../persistence/offline-storage/index.js';
+
+const schema = EntityESchema.make('Comment', 'id', {
+  postId: Schema.String,
+  body: Schema.String,
+}).build();
+
+const subset = {
+  where: {
+    type: 'func' as const,
+    name: 'eq' as const,
+    args: [
+      { type: 'ref' as const, path: ['comments', 'postId'] },
+      { type: 'val' as const, value: 'post-1' },
+    ],
+  },
+};
+
+describe('collection flow tracing', () => {
+  it('cancels Source of Truth hydration during cleanup', async () => {
+    const storage: OfflineStorage = {
+      group: () => ({
+        get: () => Effect.succeed(null),
+        getAll: () => Effect.never,
+        put: () => Effect.void,
+        putMany: () => Effect.void,
+        delete: () => Effect.void,
+        clear: () => Effect.void,
+      }),
+      clear: () => Effect.void,
+    };
+    const strategyRuns: string[] = [];
+    const built = createStdSync({ offlineStorage: storage }).sync({
+      schema,
+      sync: {
+        total: {
+          strategy: {
+            name: 'global-worker',
+            state: noStrategyState(),
+            run: () =>
+              Effect.sync(() => strategyRuns.push('started')).pipe(
+                Effect.andThen(Effect.never),
+              ),
+          },
+        },
+      },
+    });
+    const probe = { readyCount: 0, writeCount: 0 };
+    const mounted = built.sync.sync({
+      begin: () => undefined,
+      write: () => {
+        probe.writeCount += 1;
+      },
+      commit: () => undefined,
+      truncate: () => undefined,
+      markReady: () => {
+        probe.readyCount += 1;
+      },
+      collection: {
+        update: () => undefined,
+        on: () => () => undefined,
+        subscriberCount: 0,
+        values: () => [][Symbol.iterator](),
+      },
+    } as never) as { cleanup: () => Promise<void> };
+
+    await expect(mounted.cleanup()).resolves.toBeUndefined();
+    expect(probe).toEqual({ readyCount: 0, writeCount: 0 });
+    expect(strategyRuns).toEqual([]);
+  });
+
+  it('records one collection flow with stable global and partition lanes', async () => {
+    const recorder = makeTraceRecorder();
+    const runtime = {
+      runSync: <A, E>(effect: Effect.Effect<A, E, never>) =>
+        Effect.runSync(recorder.instrument(effect)),
+      runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
+        Effect.runPromise(recorder.instrument(effect)),
+    } satisfies EffectRuntime<never>;
+    const entity: EntityType<typeof schema.Type> = {
+      value: { id: 'comment-1', postId: 'post-1', body: 'Hello' },
+      meta: { _e: 'Comment', _v: 'v1', _u: '1', _d: false },
+    };
+    const strategy = (name: string, writes = false) => ({
+      name,
+      state: noStrategyState(),
+      run: (ctx: {
+        flow: { log: (message: unknown) => Effect.Effect<void> };
+        writeServerTruth: (
+          entities: EntityType<typeof schema.Type>[],
+        ) => Effect.Effect<void, unknown>;
+      }) =>
+        ctx.flow
+          .log('Custom strategy working')
+          .pipe(
+            Effect.andThen(
+              writes
+                ? ctx
+                    .writeServerTruth([entity])
+                    .pipe(Effect.andThen(ctx.writeServerTruth([entity])))
+                : Effect.void,
+            ),
+            Effect.andThen(Effect.never),
+          ),
+    });
+    const built = createStdSync({ runtime }).sync({
+      schema,
+      sync: {
+        total: { strategy: strategy('global-worker', true) },
+        partitions: {
+          postId: () => ({ strategy: strategy('partition-worker') }),
+        },
+      },
+    });
+    const probe = { readyCount: 0 };
+    const mounted = built.sync.sync({
+      begin: () => undefined,
+      write: () => undefined,
+      commit: () => undefined,
+      truncate: () => undefined,
+      markReady: () => {
+        probe.readyCount += 1;
+      },
+      collection: {
+        update: () => undefined,
+        on: () => () => undefined,
+        subscriberCount: 1,
+        values: () => [][Symbol.iterator](),
+      },
+    } as never) as {
+      cleanup: () => Promise<void>;
+      loadSubset: (options: typeof subset) => true;
+      unloadSubset: (options: typeof subset) => void;
+    };
+
+    await vi.waitFor(() => expect(probe.readyCount).toBe(1));
+    mounted.loadSubset(subset);
+    mounted.loadSubset(subset);
+    await vi.waitFor(() =>
+      expect(
+        recorder
+          .snapshotFlows()[0]
+          ?.items.filter((item) => item.name === 'Custom strategy working'),
+      ).toHaveLength(2),
+    );
+    await vi.waitFor(() =>
+      expect(
+        recorder
+          .snapshot()
+          .logs.filter((log) => log.message === 'Source of Truth write'),
+      ).toHaveLength(2),
+    );
+    mounted.unloadSubset(subset);
+    mounted.unloadSubset(subset);
+    await mounted.cleanup();
+
+    const flows = recorder.snapshotFlows();
+    expect(flows).toHaveLength(1);
+    const flow = flows[0]!;
+    expect(flow.id).toMatch(
+      /^std-collection::Comment::[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
+    expect(flow.status).toBe('active');
+    expect(flow.warnings).toEqual([]);
+    expect(
+      recorder.snapshot().spans.every((span) => span.endTime !== null),
+    ).toBe(true);
+
+    const participants = new Set(
+      flow.items.map(({ participantName }) => participantName),
+    );
+    expect(participants).toEqual(
+      new Set([
+        'collection',
+        'global-sync::global-worker',
+        'partition-sync::postId=string:"post-1"::partition-worker',
+      ]),
+    );
+    expect(
+      flow.items.filter(
+        (item) =>
+          item.kind === 'message' && item.name === 'Partition subscribe',
+      ),
+    ).toHaveLength(2);
+    const syncWrites = recorder
+      .snapshot()
+      .logs.filter((log) => log.message === 'Source of Truth write');
+    expect(syncWrites).toHaveLength(2);
+    expect(syncWrites.map((log) => log.annotations.storedCount).sort()).toEqual(
+      [0, 1],
+    );
+    expect(syncWrites.map((log) => log.annotations.receivedCount)).toEqual([
+      1, 1,
+    ]);
+    expect(
+      new Set(
+        flow.items
+          .filter(
+            (item) =>
+              item.kind === 'activity' && item.name === 'Strategy attempt',
+          )
+          .map(({ participantName }) => participantName),
+      ),
+    ).toEqual(
+      new Set([
+        'global-sync::global-worker',
+        'partition-sync::postId=string:"post-1"::partition-worker',
+      ]),
+    );
+  });
+
+  it('keeps one active flow across repeated collection starts and cleanups', async () => {
+    const recorder = makeTraceRecorder();
+    const runtime = {
+      runSync: <A, E>(effect: Effect.Effect<A, E, never>) =>
+        Effect.runSync(recorder.instrument(effect)),
+      runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
+        Effect.runPromise(recorder.instrument(effect)),
+    } satisfies EffectRuntime<never>;
+    const built = createStdSync({ runtime }).sync({ schema });
+
+    for (let lifecycle = 0; lifecycle < 2; lifecycle += 1) {
+      const probe = { readyCount: 0 };
+      const mounted = built.sync.sync({
+        begin: () => undefined,
+        write: () => undefined,
+        commit: () => undefined,
+        truncate: () => undefined,
+        markReady: () => {
+          probe.readyCount += 1;
+        },
+        collection: {
+          update: () => undefined,
+          on: () => () => undefined,
+          subscriberCount: 0,
+          values: () => [][Symbol.iterator](),
+        },
+      } as never) as { cleanup: () => Promise<void> };
+      await vi.waitFor(() => expect(probe.readyCount).toBe(1));
+      await mounted.cleanup();
+    }
+
+    const flows = recorder.snapshotFlows();
+    expect(flows).toHaveLength(1);
+    expect(flows[0]?.status).toBe('active');
+    expect(
+      flows[0]?.items.filter((item) => item.name === 'Collection start'),
+    ).toHaveLength(2);
+    expect(
+      flows[0]?.items.filter((item) => item.name === 'Collection cleanup'),
+    ).toHaveLength(2);
+  });
+});

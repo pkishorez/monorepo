@@ -17,7 +17,10 @@ describe('initFlow', () => {
 
     await Effect.runPromise(
       Effect.gen(function* () {
-        yield* flow.log('created');
+        yield* flow.log('created', {
+          attributes: { 'http.request.method': 'POST' },
+          flowAttributes: { roomId: 'room-7', 'flowattr.priority': 'high' },
+        });
         yield* flow.send('server', { offer: 'sdp' });
         yield* flow.end('completed');
       }).pipe(Effect.withLogger(logger)),
@@ -25,6 +28,9 @@ describe('initFlow', () => {
 
     expect(annotations).toEqual([
       {
+        'flowattr.priority': 'high',
+        'flowattr.roomId': 'room-7',
+        'http.request.method': 'POST',
         'flow.id': 'call-123',
         'flow.item.type': 'local-event',
         'flow.participant.name': 'client-a',
@@ -62,7 +68,12 @@ describe('initFlow', () => {
       recorder.instrument(
         Effect.gen(function* () {
           yield* Effect.void.pipe(Effect.withSpan('ordinary-child'));
-        }).pipe(flow.withSpan('Create offer')),
+        }).pipe(
+          flow.withSpan('Create offer', {
+            attributes: { 'http.request.method': 'POST' },
+            flowAttributes: { requestId: 'request-7' },
+          }),
+        ),
       ),
     );
 
@@ -72,6 +83,8 @@ describe('initFlow', () => {
     ).toEqual({
       'flow.id': 'call-123',
       'flow.participant.name': 'client-a',
+      'flowattr.requestId': 'request-7',
+      'http.request.method': 'POST',
     });
     expect(
       spans.find(({ name }) => name === 'ordinary-child')?.attributes,
