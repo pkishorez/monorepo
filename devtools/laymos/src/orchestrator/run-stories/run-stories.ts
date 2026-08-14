@@ -2,32 +2,36 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Cause, Effect, Stream } from 'effect';
+import { Cause, Effect, Exit, Stream } from 'effect';
 import { NodeServices } from '@effect/platform-node';
 import { tsImport } from 'tsx/esm/api';
 
 import {
   isStory,
-  isStoryDoc,
   isStoryGroup,
   StoryContext,
   type Story,
   type StoryGroup,
 } from '../../story/index.js';
 import type {
-  StoryDocLeaf,
+  JsonValue,
+  QuestionLeaf,
+  QuestionReport,
+  QuestionSection,
+  StoryAssertion,
   StoryLeaf,
   StoryReport,
-  StorySection,
   StorySource,
   StoryTree,
   StoryTreeGroup,
 } from '../../story/schema/index.js';
+import { slugifyQuestion } from '../../story/schema/index.js';
 import type { ConfigError } from '../../services/config/index.js';
 import {
   ConfigService,
   ConfigServiceLive,
 } from '../../services/config/index.js';
+import { extractSnippets } from './extract-snippets.js';
 import { StoriesError } from './errors.js';
 
 interface IndexedStory {
@@ -116,7 +120,6 @@ function indexGroup(
 > {
   return Effect.gen(function* () {
     yield* checkUniqueTitles(group.children, path, entryPoint);
-    const docs: StoryDocLeaf[] = [];
     const groups: StoryTreeGroup[] = [];
     const leaves: StoryLeaf[] = [];
     const stories: IndexedStory[] = [];
@@ -124,21 +127,16 @@ function indexGroup(
       const id = [...path, child.title].join('/');
       if (isStory(child)) {
         const source = yield* loadStorySource(child, options.projectRoot);
+        const snippets = extractSnippets(source.path, source.content);
+        const questions = yield* indexQuestions(child, source, snippets);
         leaves.push({
           id,
           title: child.title,
-          description: child.description,
-          markdown: child.markdown,
-          ...(source === undefined ? {} : { source }),
+          setup: snippets.setup,
+          questions,
+          source,
         });
         stories.push({ id, story: child });
-      } else if (isStoryDoc(child)) {
-        docs.push({
-          id,
-          title: child.title,
-          description: child.description,
-          markdown: child.markdown,
-        });
       } else {
         const indexed = yield* indexGroup(
           child,
@@ -151,36 +149,65 @@ function indexGroup(
       }
     }
     return {
-      tree: { ...groupDocs(group), docs, groups, stories: leaves },
+      tree: { title: group.title, groups, stories: leaves },
       stories,
     };
+  });
+}
+
+function indexQuestions(
+  story: Story,
+  source: StorySource,
+  snippets: ReturnType<typeof extractSnippets>,
+): Effect.Effect<readonly QuestionLeaf[], StoriesError> {
+  return Effect.gen(function* () {
+    const seen = new Set<string>();
+    const leaves: QuestionLeaf[] = [];
+    for (const [index, question] of story.questions.entries()) {
+      const slug = slugifyQuestion(question.question);
+      if (seen.has(slug)) {
+        return yield* new StoriesError({
+          reason: 'duplicate-question',
+          path: source.path,
+          cause: question.question,
+        });
+      }
+      seen.add(slug);
+      const snippet =
+        snippets.proofs.get(question.question) ?? snippets.orderedProofs[index];
+      if (snippet === undefined) {
+        return yield* new StoriesError({
+          reason: 'snippet-extraction',
+          path: source.path,
+          cause: question.question,
+        });
+      }
+      leaves.push({
+        slug,
+        question: question.question,
+        answer: question.answer,
+        snippet,
+      });
+    }
+    return leaves;
   });
 }
 
 function loadStorySource(
   story: Story,
   projectRoot: string,
-): Effect.Effect<StorySource | undefined, StoriesError> {
-  if (story.sourceUrl === undefined) return Effect.succeed(undefined);
+): Effect.Effect<StorySource, StoriesError> {
   return Effect.try({
     try: () => {
-      const filePath = fileURLToPath(story.sourceUrl!);
+      const filePath = fileURLToPath(story.sourceUrl);
       return {
         path: relative(projectRoot, filePath),
         content: readFileSync(filePath, 'utf8'),
       };
     },
     catch: (cause) =>
-      new StoriesError({ reason: 'load', path: story.sourceUrl!, cause }),
+      new StoriesError({ reason: 'load', path: story.sourceUrl, cause }),
   });
-}
-
-function groupDocs(group: StoryGroup) {
-  return {
-    title: group.title,
-    description: group.description,
-    markdown: group.markdown,
-  };
 }
 
 function checkUniqueTitles(
@@ -202,54 +229,92 @@ function checkUniqueTitles(
   return Effect.void;
 }
 
-interface MutableSection {
-  section: StorySection;
-}
-
 function runStory({ id, story }: IndexedStory): Effect.Effect<StoryReport> {
   return Effect.gen(function* () {
-    const sections: MutableSection[] = [];
-    const exit = yield* story.run.pipe(
+    const questions: QuestionReport[] = [];
+    for (const question of story.questions) {
+      questions.push(yield* runQuestion(question));
+    }
+    const verdict = questions.some(({ verdict }) => verdict === 'errored')
+      ? 'errored'
+      : questions.some(({ verdict }) => verdict === 'failed')
+        ? 'failed'
+        : 'passed';
+    return { id, verdict, questions } satisfies StoryReport;
+  });
+}
+
+function runQuestion(
+  question: Story['questions'][number],
+): Effect.Effect<QuestionReport> {
+  return Effect.gen(function* () {
+    const sections: QuestionSection[] = [];
+    const assertions: StoryAssertion[] = [];
+    const exit = yield* question.proof.pipe(
       Effect.provideService(StoryContext, {
         beginSection: (section) =>
           Effect.sync(() => {
-            sections.push({ section: { ...section, assertions: [] } });
+            sections.push(section);
           }),
         assert: (description, passed) =>
           Effect.sync(() => {
-            const current = sections.at(-1) ?? {
-              section: { kind: 'exec', description: 'checks', assertions: [] },
-            };
-            if (!sections.includes(current)) sections.push(current);
-            current.section = {
-              ...current.section,
-              assertions: [
-                ...current.section.assertions,
-                { description, passed },
-              ],
-            };
+            assertions.push({ description, passed });
           }),
       }),
       Effect.exit,
     );
-
-    const collected = sections.map(({ section }) => section);
-    if (exit._tag === 'Failure') {
+    const slug = slugifyQuestion(question.question);
+    if (Exit.isFailure(exit)) {
       return {
-        id,
+        slug,
         verdict: 'errored',
-        sections: collected,
         error: Cause.pretty(exit.cause),
-      } satisfies StoryReport;
+        assertions,
+        sections,
+      } satisfies QuestionReport;
     }
-
-    const failed = collected.some((section) =>
-      section.assertions.some((assertion) => !assertion.passed),
-    );
+    const failed = assertions.some((assertion) => !assertion.passed);
     return {
-      id,
+      slug,
       verdict: failed ? 'failed' : 'passed',
-      sections: collected,
-    } satisfies StoryReport;
+      result: toJsonValue(exit.value),
+      assertions,
+      sections,
+    } satisfies QuestionReport;
   });
+}
+
+function toJsonValue(value: unknown, seen = new Set<object>()): JsonValue {
+  if (value === null || value === undefined) return null;
+  switch (typeof value) {
+    case 'string':
+      return value;
+    case 'number':
+      return Number.isFinite(value) ? value : String(value);
+    case 'boolean':
+      return value;
+    case 'bigint':
+    case 'function':
+    case 'symbol':
+      return String(value);
+  }
+  const object = value as object;
+  if (seen.has(object)) return '[circular]';
+  seen.add(object);
+  if (Array.isArray(object)) {
+    return object.map((item) => toJsonValue(item, seen));
+  }
+  if (object instanceof Date) return object.toISOString();
+  if (object instanceof Map) {
+    return [...object.entries()].map(([key, item]) => [
+      toJsonValue(key, seen),
+      toJsonValue(item, seen),
+    ]);
+  }
+  if (object instanceof Set) {
+    return [...object.values()].map((item) => toJsonValue(item, seen));
+  }
+  return Object.fromEntries(
+    Object.entries(object).map(([key, item]) => [key, toJsonValue(item, seen)]),
+  );
 }

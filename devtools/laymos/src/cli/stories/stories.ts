@@ -40,23 +40,22 @@ const verdictMarks = {
 } as const;
 
 function renderReport(report: StoryReport): string {
-  const assertions = report.sections.flatMap((section) => section.assertions);
   const depth = report.id.split('/').length - 1;
   const pad = '  '.repeat(depth);
   const title = report.id.split('/').at(-1) ?? report.id;
   const lines = [
-    `${pad}${verdictMarks[report.verdict]} ${title} — ${report.verdict} (${report.sections.length} section${report.sections.length === 1 ? '' : 's'}, ${assertions.length} assertion${assertions.length === 1 ? '' : 's'})`,
+    `${pad}${verdictMarks[report.verdict]} ${title} — ${report.verdict} (${report.questions.length} question${report.questions.length === 1 ? '' : 's'})`,
   ];
-  for (const section of report.sections) {
-    lines.push(`${pad}  [${section.kind}] ${section.description}`);
-    for (const assertion of section.assertions) {
+  for (const question of report.questions) {
+    lines.push(`${pad}  ${verdictMarks[question.verdict]} ${question.slug}`);
+    for (const assertion of question.assertions) {
       lines.push(
         `${pad}    ${assertion.passed ? '✓' : '✗'} ${assertion.description}`,
       );
     }
-  }
-  if (report.error !== undefined) {
-    lines.push(indent(report.error, `${pad}  `));
+    if (question.error !== undefined) {
+      lines.push(indent(question.error, `${pad}    `));
+    }
   }
   return lines.join('\n');
 }

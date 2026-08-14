@@ -1,30 +1,33 @@
 // RPC transports and renderers use this browser-safe Story report contract.
 export {
   CapturedTraceSchema,
+  QuestionReportSchema,
+  QuestionSectionSchema,
   RecordedFlowSchema,
   StoryAssertionSchema,
   StoryReportSchema,
-  StorySectionSchema,
   StoryVerdictSchema,
 } from './story-report-schema.js';
 export type {
   CapturedTrace,
   JsonValue,
+  QuestionReport,
+  QuestionSection,
   RecordedFlow,
   StoryAssertion,
   StoryReport,
-  StorySection,
   StoryVerdict,
 } from './story-report-schema.js';
+export { slugifyQuestion } from './slug.js';
 export {
-  StoryDocLeafSchema,
+  QuestionLeafSchema,
   StoryLeafSchema,
   StorySourceSchema,
   StoryTreeGroupSchema,
   StoryTreeSchema,
 } from './story-tree-schema.js';
 export type {
-  StoryDocLeaf,
+  QuestionLeaf,
   StoryLeaf,
   StorySource,
   StoryTree,

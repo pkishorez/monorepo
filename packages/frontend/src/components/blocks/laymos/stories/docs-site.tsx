@@ -13,8 +13,10 @@ import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
 import {
+  countQuestions,
   groupVerdict,
   indexTree,
+  isChapter,
   type StoriesViewProps,
   type StoryReports,
 } from './model';
@@ -32,8 +34,35 @@ export function StoriesDocsSite({
   const nodes = useMemo(() => indexTree(tree), [tree]);
   const [selectedId, setSelectedId] = useState(tree.title);
   const selected = nodes.get(selectedId) ?? nodes.get(tree.title);
+  let displayed = selected;
+  let focusStoryId: string | undefined;
+  if (selected?.kind === 'story') {
+    const parent = nodes.get(selected.parentId);
+    if (parent?.kind === 'group' && isChapter(parent.group)) {
+      displayed = parent;
+      focusStoryId = selected.id;
+    }
+  }
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [expandedChapterId, setExpandedChapterId] = useState<
+    string | undefined
+  >();
+  let selectedChapterId: string | undefined;
+  if (selected?.kind === 'group' && isChapter(selected.group)) {
+    selectedChapterId = selected.id;
+  } else if (selected?.kind === 'story') {
+    const parent = nodes.get(selected.parentId);
+    if (parent?.kind === 'group' && isChapter(parent.group)) {
+      selectedChapterId = parent.id;
+    }
+  }
+
+  useEffect(() => {
+    if (selectedChapterId !== undefined) {
+      setExpandedChapterId(selectedChapterId);
+    }
+  }, [selectedChapterId]);
 
   return (
     <div className={cn('flex min-h-0 flex-col', className)}>
@@ -60,7 +89,7 @@ export function StoriesDocsSite({
           running={running}
           onRun={onRun}
           selection={
-            selected === undefined || selected.kind === 'doc'
+            selected === undefined
               ? undefined
               : {
                   id: selected.id,
@@ -89,6 +118,8 @@ export function StoriesDocsSite({
               depth={0}
               reports={reports}
               selectedId={selected?.id}
+              expandedChapterId={expandedChapterId}
+              onExpandedChapterChange={setExpandedChapterId}
               onSelect={setSelectedId}
             />
           </nav>
@@ -101,14 +132,15 @@ export function StoriesDocsSite({
               scrollbarStyles,
             )}
           >
-            {selected !== undefined && (
+            {displayed !== undefined && (
               <div className="mx-auto max-w-3xl">
                 <NodePage
-                  node={selected}
+                  node={displayed}
                   reports={reports}
                   running={running}
                   onRun={onRun}
                   onSelect={setSelectedId}
+                  focusStoryId={focusStoryId}
                 />
               </div>
             )}
@@ -125,6 +157,8 @@ function SidebarGroup({
   depth,
   reports,
   selectedId,
+  expandedChapterId,
+  onExpandedChapterChange,
   onSelect,
 }: {
   readonly id: string;
@@ -132,20 +166,26 @@ function SidebarGroup({
   readonly depth: number;
   readonly reports?: StoryReports;
   readonly selectedId?: string;
+  readonly expandedChapterId?: string;
+  readonly onExpandedChapterChange: (id: string | undefined) => void;
   readonly onSelect: (id: string) => void;
 }) {
-  const [open, setOpen] = useState(true);
+  const chapter = isChapter(group);
+  const [groupOpen, setGroupOpen] = useState(true);
   const selectedInside =
-    selectedId !== undefined && selectedId.startsWith(`${id}/`);
+    selectedId !== undefined &&
+    (selectedId === id || selectedId.startsWith(`${id}/`));
+  const open = chapter ? expandedChapterId === id : groupOpen;
   useEffect(() => {
-    if (selectedInside) setOpen(true);
-  }, [selectedInside]);
+    if (!chapter && selectedInside) setGroupOpen(true);
+  }, [chapter, selectedInside]);
   return (
     <div className="flex flex-col">
       <SidebarRow
         label={group.title}
         depth={depth}
         verdict={groupVerdict(group, reports)}
+        count={isChapter(group) ? countQuestions(group) : undefined}
         selected={selectedId === id}
         emphasized
         onSelect={() => onSelect(id)}
@@ -153,9 +193,13 @@ function SidebarGroup({
           <span
             onClick={(event) => {
               event.stopPropagation();
-              setOpen((value) => !value);
+              if (chapter) {
+                onExpandedChapterChange(open ? undefined : id);
+              } else {
+                setGroupOpen((value) => !value);
+              }
             }}
-            className="-ml-1 rounded p-0.5 text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+            className="rounded p-0.5 text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
           >
             <ChevronRight
               className={cn(
@@ -167,17 +211,6 @@ function SidebarGroup({
         }
       />
       {open &&
-        group.docs.map((doc) => (
-          <SidebarRow
-            key={doc.id}
-            label={doc.title}
-            depth={depth + 1}
-            doc
-            selected={selectedId === doc.id}
-            onSelect={() => onSelect(doc.id)}
-          />
-        ))}
-      {open &&
         group.stories.map((story) => (
           <SidebarRow
             key={story.id}
@@ -185,6 +218,7 @@ function SidebarGroup({
             depth={depth + 1}
             verdict={reports?.[story.id]?.verdict}
             selected={selectedId === story.id}
+            leaf
             onSelect={() => onSelect(story.id)}
           />
         ))}
@@ -197,6 +231,8 @@ function SidebarGroup({
             depth={depth + 1}
             reports={reports}
             selectedId={selectedId}
+            expandedChapterId={expandedChapterId}
+            onExpandedChapterChange={onExpandedChapterChange}
             onSelect={onSelect}
           />
         ))}
@@ -208,8 +244,9 @@ function SidebarRow({
   label,
   depth,
   verdict,
-  doc = false,
+  count,
   selected,
+  leaf = false,
   emphasized = false,
   onSelect,
   toggle,
@@ -217,8 +254,9 @@ function SidebarRow({
   readonly label: string;
   readonly depth: number;
   readonly verdict?: 'passed' | 'failed' | 'errored';
-  readonly doc?: boolean;
+  readonly count?: number;
   readonly selected: boolean;
+  readonly leaf?: boolean;
   readonly emphasized?: boolean;
   readonly onSelect: () => void;
   readonly toggle?: ReactNode;
@@ -236,13 +274,28 @@ function SidebarRow({
         emphasized && 'font-medium text-foreground',
       )}
     >
-      {toggle}
-      {doc ? (
-        <FileText className="size-3 shrink-0 text-muted-foreground/70" />
-      ) : (
-        <VerdictDot verdict={verdict} />
+      <span className="flex size-4.5 shrink-0 items-center justify-center">
+        {toggle ??
+          (leaf && (
+            <span
+              className={cn(
+                'flex size-4 items-center justify-center rounded border',
+                selected
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-border/70 bg-muted/60 text-muted-foreground/70',
+              )}
+            >
+              <FileText className="size-2.5" />
+            </span>
+          ))}
+      </span>
+      <VerdictDot verdict={verdict} />
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count !== undefined && (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">
+          {count}
+        </span>
       )}
-      <span className="truncate">{label}</span>
     </button>
   );
 }
