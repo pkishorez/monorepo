@@ -1,4 +1,5 @@
 import {
+  BookOpenText,
   ChartNoAxesGantt,
   ChevronDown,
   Layers3,
@@ -30,6 +31,32 @@ import {
 import type { TraceView } from '../trace-view';
 
 const DEFAULT_SIDEBAR_WIDTH = 360;
+
+const VIEW_MODES = [
+  {
+    view: 'waterfall',
+    label: 'Waterfall',
+    title: 'Waterfall view',
+    icon: ChartNoAxesGantt,
+  },
+  {
+    view: 'parallel',
+    label: 'Parallel',
+    title: 'Parallel spans view',
+    icon: Layers3,
+  },
+  {
+    view: 'narrative',
+    label: 'Narrative',
+    title: 'Narrative view',
+    icon: BookOpenText,
+  },
+] as const satisfies readonly {
+  view: TraceView;
+  label: string;
+  title: string;
+  icon: typeof ChartNoAxesGantt;
+}[];
 
 export interface TraceViewerProps {
   /** Spans from one or more traces. Grouping into traces is handled here. */
@@ -271,34 +298,23 @@ export function TraceViewer({
               </>
             )}
             <div className="ml-auto flex shrink-0 items-center rounded-md border border-border/70 bg-muted/30 p-0.5">
-              <button
-                aria-pressed={resolvedView === 'waterfall'}
-                className={cn(
-                  'flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted-foreground transition-colors hover:text-foreground',
-                  resolvedView === 'waterfall' &&
-                    'bg-background text-foreground shadow-sm',
-                )}
-                onClick={() => changeView('waterfall')}
-                title="Waterfall view"
-                type="button"
-              >
-                <ChartNoAxesGantt aria-hidden className="size-3.5" />
-                <span className="max-[700px]:sr-only">Waterfall</span>
-              </button>
-              <button
-                aria-pressed={resolvedView === 'parallel'}
-                className={cn(
-                  'flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted-foreground transition-colors hover:text-foreground',
-                  resolvedView === 'parallel' &&
-                    'bg-background text-foreground shadow-sm',
-                )}
-                onClick={() => changeView('parallel')}
-                title="Parallel spans view"
-                type="button"
-              >
-                <Layers3 aria-hidden className="size-3.5" />
-                <span className="max-[700px]:sr-only">Parallel</span>
-              </button>
+              {VIEW_MODES.map(({ view: mode, label, title, icon: Icon }) => (
+                <button
+                  aria-pressed={resolvedView === mode}
+                  className={cn(
+                    'flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted-foreground transition-colors hover:text-foreground',
+                    resolvedView === mode &&
+                      'bg-background text-foreground shadow-sm',
+                  )}
+                  key={mode}
+                  onClick={() => changeView(mode)}
+                  title={title}
+                  type="button"
+                >
+                  <Icon aria-hidden className="size-3.5" />
+                  <span className="max-[700px]:sr-only">{label}</span>
+                </button>
+              ))}
             </div>
             <Button
               type="button"

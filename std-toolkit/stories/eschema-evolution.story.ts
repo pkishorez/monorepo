@@ -20,8 +20,26 @@ readable after the schema grows an \`age\` field.
   run: Effect.gen(function* () {
     const user = yield* Story.trace(
       'decode a v1 payload with the latest schema',
-      User.decode({ _v: 'v1', id: 'u1', name: 'Alice', email: 'a@b.com' }).pipe(
-        Effect.withSpan('decode-v1-user'),
+      Effect.gen(function* () {
+        yield* Effect.log(
+          'Found a stored v1 row: it predates the age field entirely',
+        );
+        const decoded = yield* User.decode({
+          _v: 'v1',
+          id: 'u1',
+          name: 'Alice',
+          email: 'a@b.com',
+        });
+        yield* Effect.log(
+          'Decode walked the v1→v2 evolve step and backfilled age to 0',
+        );
+        return decoded;
+      }).pipe(
+        Effect.withSpan('decode-v1-user', {
+          attributes: {
+            narrative: 'Read an old v1 user row with the latest User schema',
+          },
+        }),
       ),
     );
     yield* Story.assert('the v1 row is migrated to v2', '_v' in user === false);

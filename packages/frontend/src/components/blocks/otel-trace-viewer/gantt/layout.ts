@@ -1,17 +1,18 @@
-import type { OtelSpan } from '../trace-model';
-import type { SpanNode } from '../trace-model';
+import type { OtelEvent, OtelSpan, SpanNode } from '../trace-model';
+import { isLog } from '../trace-model';
 
 export const NAME_COL_WIDTH = 248;
 export const MIN_NAME_COL_WIDTH = 140;
 export const MAX_NAME_COL_WIDTH = 640;
-export const ROW_HEIGHT_PX = 32;
+export const ROW_HEIGHT_PX = 36;
 export const BAR_HEIGHT_PX = 18;
 /** Minimum rendered width of a span bar so short spans stay visible/clickable. */
 export const BAR_MIN_WIDTH_PX = 6;
 export const INDENT_PX = 16;
 export const BAR_COL_INSET = 10;
 
-export type GanttRow = {
+export type GanttSpanRow = {
+  kind: 'span';
   span: OtelSpan;
   depth: number;
   startPct: number;
@@ -21,6 +22,16 @@ export type GanttRow = {
   /** Number of descendant spans hidden while this row is collapsed. */
   hiddenCount: number;
 };
+
+export type GanttLogEntry = {
+  kind: 'log';
+  /** The span the log belongs to. */
+  span: OtelSpan;
+  event: OtelEvent;
+  depth: number;
+};
+
+export type GanttRow = GanttSpanRow | GanttLogEntry;
 
 function countDescendants(node: SpanNode): number {
   let total = 0;
@@ -48,6 +59,7 @@ export function buildGanttRows(
   traceStart: number,
   traceEnd: number,
   collapsed?: ReadonlySet<string>,
+  showLogs = false,
 ): GanttRow[] {
   const total = Math.max(traceEnd - traceStart, 1);
   const rows: GanttRow[] = [];
@@ -61,6 +73,7 @@ export function buildGanttRows(
     const isCollapsed = depth > 0 && (collapsed?.has(span.spanId) ?? false);
 
     rows.push({
+      kind: 'span',
       span,
       depth,
       startPct,
@@ -70,7 +83,28 @@ export function buildGanttRows(
       hiddenCount: isCollapsed ? countDescendants(node) : 0,
     });
 
-    if (!isCollapsed) for (const child of children) visit(child, depth + 1);
+    if (isCollapsed) return;
+
+    const logs = showLogs
+      ? span.events
+          .filter(isLog)
+          .sort((left, right) => left.timestamp - right.timestamp)
+      : [];
+
+    // A span's rows tell its story in time order: children and its own logs
+    // interleaved where they actually happened, not logs-first.
+    const entries = [
+      ...children.map((child) => ({ at: child.span.startTime, child })),
+      ...logs.map((event) => ({ at: event.timestamp, event })),
+    ].sort((left, right) => left.at - right.at);
+
+    for (const entry of entries) {
+      if ('child' in entry) {
+        visit(entry.child, depth + 1);
+      } else {
+        rows.push({ kind: 'log', span, event: entry.event, depth: depth + 1 });
+      }
+    }
   }
 
   for (const root of roots) visit(root, 0);

@@ -5,7 +5,7 @@ import type { StoryReport } from 'laymos';
 import ReactMarkdown from 'react-markdown';
 
 import { FlowSwimlane } from '../../flow-swimlane/index';
-import { TraceViewer } from '../../otel-trace-viewer/index';
+import { attachCapturedLogs, TraceViewer } from '../../otel-trace-viewer/index';
 import { cn } from '#lib/utils';
 
 type StorySection = StoryReport['sections'][number];
@@ -183,7 +183,9 @@ function SectionCard({ section }: { readonly section: StorySection }) {
       )}
       {open && section.kind === 'trace' && (
         <div className="border-t border-border/60">
-          <TraceViewer spans={section.trace.spans} />
+          <TraceViewer
+            spans={attachCapturedLogs(section.trace.spans, section.trace.logs)}
+          />
           {section.trace.truncated && (
             <div className="px-3.5 py-1.5 text-xs text-muted-foreground">
               trace truncated
