@@ -58,6 +58,8 @@ export class StoriesUnavailableError extends Schema.TaggedErrorClass<StoriesUnav
     'load',
     'invalid-root',
     'duplicate-title',
+    'duplicate-question',
+    'snippet-extraction',
     'unknown-scope',
   ]),
   path: Schema.String,

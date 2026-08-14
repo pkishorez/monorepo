@@ -135,33 +135,22 @@ export const StoryAssertionSchema = Schema.Struct({
 }).annotate({
   title: 'Story Assertion',
   description:
-    'One recorded Story assertion outcome, grouped under the Story section it verifies.',
+    "One recorded assertion outcome pinning a Question's answer to its captured proof.",
 });
 
-const sectionAssertions = Schema.Array(StoryAssertionSchema);
-
-export const StorySectionSchema = Schema.Union([
+export const QuestionSectionSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal('trace'),
-    description: Schema.String,
     trace: CapturedTraceSchema,
-    assertions: sectionAssertions,
   }),
   Schema.Struct({
     kind: Schema.Literal('flow'),
-    description: Schema.String,
     flow: RecordedFlowSchema,
-    assertions: sectionAssertions,
-  }),
-  Schema.Struct({
-    kind: Schema.Literal('exec'),
-    description: Schema.String,
-    assertions: sectionAssertions,
   }),
 ]).annotate({
-  title: 'Story Section',
+  title: 'Question Section',
   description:
-    'One sectioned step of a Story run: a described trace, flow, or generic execution plus the Story assertions that verify it.',
+    "One captured artifact of a Question's proof run: a trace or a flow.",
 });
 
 export const StoryVerdictSchema = Schema.Literals([
@@ -170,20 +159,33 @@ export const StoryVerdictSchema = Schema.Literals([
   'errored',
 ]);
 
+export const QuestionReportSchema = Schema.Struct({
+  slug: Schema.String,
+  verdict: StoryVerdictSchema,
+  result: Schema.optional(JsonValueSchema),
+  error: Schema.optional(Schema.String),
+  assertions: Schema.Array(StoryAssertionSchema),
+  sections: Schema.Array(QuestionSectionSchema),
+}).annotate({
+  title: 'Question Report',
+  description:
+    "The structured record of one Question's proof run: the captured result (or error), the assertions pinning the answer, and any captured sections.",
+});
+
 export const StoryReportSchema = Schema.Struct({
   id: Schema.String,
   verdict: StoryVerdictSchema,
-  sections: Schema.Array(StorySectionSchema),
-  error: Schema.optional(Schema.String),
+  questions: Schema.Array(QuestionReportSchema),
 }).annotate({
   title: 'Story Report',
   description:
-    "The structured record of one Story run, attached to the Story tree by the Story's id: verdict and the ordered Story sections.",
+    "The structured record of one Story run, attached to the Story tree by the Story's id: one Question report per authored Question, in order.",
 });
 
 export type CapturedTrace = typeof CapturedTraceSchema.Type;
 export type RecordedFlow = typeof RecordedFlowSchema.Type;
 export type StoryAssertion = typeof StoryAssertionSchema.Type;
-export type StorySection = typeof StorySectionSchema.Type;
+export type QuestionSection = typeof QuestionSectionSchema.Type;
+export type QuestionReport = typeof QuestionReportSchema.Type;
 export type StoryVerdict = typeof StoryVerdictSchema.Type;
 export type StoryReport = typeof StoryReportSchema.Type;

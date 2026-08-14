@@ -6,6 +6,8 @@ export class StoriesError extends Data.TaggedError('StoriesError')<{
     | 'load'
     | 'invalid-root'
     | 'duplicate-title'
+    | 'duplicate-question'
+    | 'snippet-extraction'
     | 'unknown-scope';
   readonly path: string;
   readonly cause: unknown;

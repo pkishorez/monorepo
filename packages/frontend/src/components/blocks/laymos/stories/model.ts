@@ -49,7 +49,24 @@ export function runSummary(
 }
 
 export type StoryLeaf = StoryTree['stories'][number];
-export type StoryDocLeaf = StoryTree['docs'][number];
+
+export function isChapter(group: StoryTree): boolean {
+  return group.groups.length === 0 && group.stories.length > 0;
+}
+
+export function countQuestions(group: StoryTree): number {
+  return (
+    group.stories.reduce((sum, story) => sum + story.questions.length, 0) +
+    group.groups.reduce((sum, child) => sum + countQuestions(child), 0)
+  );
+}
+
+export function storyAnchor(story: StoryLeaf): string {
+  return story.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 export type TreeNode =
   | {
@@ -57,12 +74,6 @@ export type TreeNode =
       readonly id: string;
       readonly group: StoryTree;
       readonly parentId?: string;
-    }
-  | {
-      readonly kind: 'doc';
-      readonly id: string;
-      readonly doc: StoryDocLeaf;
-      readonly parentId: string;
     }
   | {
       readonly kind: 'story';
@@ -75,9 +86,6 @@ export function indexTree(tree: StoryTree): ReadonlyMap<string, TreeNode> {
   const nodes = new Map<string, TreeNode>();
   const walk = (group: StoryTree, id: string, parentId?: string) => {
     nodes.set(id, { kind: 'group', id, group, parentId });
-    for (const doc of group.docs) {
-      nodes.set(doc.id, { kind: 'doc', id: doc.id, doc, parentId: id });
-    }
     for (const story of group.stories) {
       nodes.set(story.id, { kind: 'story', id: story.id, story, parentId: id });
     }

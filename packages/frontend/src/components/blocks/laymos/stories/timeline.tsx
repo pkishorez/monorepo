@@ -9,7 +9,8 @@ import { attachCapturedLogs, TraceViewer } from '../../otel-trace-viewer/index';
 import { SourceViewer } from '../../source-viewer/index';
 import { cn } from '#lib/utils';
 
-type StorySection = StoryReport['sections'][number];
+export type QuestionReport = StoryReport['questions'][number];
+type QuestionSection = QuestionReport['sections'][number];
 
 export type Verdict = StoryReport['verdict'];
 
@@ -107,87 +108,38 @@ function MarkdownCode({ className, children }: ComponentProps<'code'>) {
   );
 }
 
-export function StoryReportBody({ report }: { readonly report: StoryReport }) {
+export function CodeSnippet({
+  code,
+  className,
+}: {
+  readonly code: string;
+  readonly className?: string;
+}) {
   return (
-    <div className="flex flex-col gap-3">
-      {report.sections.map((section, index) => (
-        <SectionCard key={index} section={section} />
-      ))}
-      {report.error !== undefined && (
-        <pre className="overflow-x-auto rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs leading-relaxed text-red-600 dark:text-red-400">
-          {report.error}
-        </pre>
-      )}
-    </div>
+    <SourceViewer
+      filePath="snippet.ts"
+      content={code}
+      autoHeight
+      showHeader={false}
+      showLineNumbers={false}
+      className={cn('rounded-lg border border-border', className)}
+    />
   );
 }
 
-const sectionKindStyles = {
-  trace: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  flow: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  exec: 'bg-muted text-muted-foreground',
-} as const;
-
-function SectionCard({ section }: { readonly section: StorySection }) {
-  const [open, setOpen] = useState(false);
-  const expandable = section.kind !== 'exec';
-  const passed = section.assertions.filter(
-    (assertion) => assertion.passed,
-  ).length;
-  const total = section.assertions.length;
-  const header = (
-    <>
-      <span
-        className={cn(
-          'rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider',
-          sectionKindStyles[section.kind],
-        )}
-      >
-        {section.kind}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium leading-snug">
-        {section.description}
-      </span>
-      {total > 0 && (
-        <span
-          className={cn(
-            'text-xs tabular-nums',
-            passed === total
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-red-600 dark:text-red-400',
-          )}
-        >
-          {passed}/{total}
-        </span>
-      )}
-      {expandable && (
-        <ChevronDown
-          className={cn(
-            'size-4 shrink-0 text-muted-foreground transition-transform',
-            open && 'rotate-180',
-          )}
-        />
-      )}
-    </>
-  );
+export function QuestionProof({ report }: { readonly report: QuestionReport }) {
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      {expandable ? (
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          className="flex w-full items-center gap-2.5 bg-muted/30 px-3.5 py-2.5 text-left transition-colors hover:bg-muted/60"
-        >
-          {header}
-        </button>
+    <div className="flex flex-col gap-2.5">
+      {report.error !== undefined ? (
+        <pre className="overflow-x-auto rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-xs leading-relaxed text-red-600 dark:text-red-400">
+          {report.error}
+        </pre>
       ) : (
-        <header className="flex items-center gap-2.5 bg-muted/30 px-3.5 py-2.5">
-          {header}
-        </header>
+        <ResultBlock result={report.result ?? null} />
       )}
-      {total > 0 && (
-        <ul className="flex flex-col gap-1.5 border-t border-border/60 px-3.5 py-2.5">
-          {section.assertions.map((assertion, index) => (
+      {report.assertions.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {report.assertions.map((assertion, index) => (
             <li key={index} className="flex items-start gap-2 text-sm">
               <StatusIcon
                 verdict={assertion.passed ? 'passed' : 'failed'}
@@ -198,6 +150,68 @@ function SectionCard({ section }: { readonly section: StorySection }) {
           ))}
         </ul>
       )}
+      {report.sections.map((section, index) => (
+        <ArtifactCard key={index} section={section} />
+      ))}
+    </div>
+  );
+}
+
+function ResultBlock({
+  result,
+}: {
+  readonly result: NonNullable<QuestionReport['result']> | null;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-border">
+      <div className="border-b border-border/60 bg-muted/30 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        result
+      </div>
+      <SourceViewer
+        filePath="result.json"
+        content={JSON.stringify(result, null, 2)}
+        autoHeight
+        showHeader={false}
+        showLineNumbers={false}
+      />
+    </div>
+  );
+}
+
+const artifactStyles = {
+  trace: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
+  flow: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+} as const;
+
+function ArtifactCard({ section }: { readonly section: QuestionSection }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2.5 bg-muted/30 px-3.5 py-2 text-left transition-colors hover:bg-muted/60"
+      >
+        <span
+          className={cn(
+            'rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider',
+            artifactStyles[section.kind],
+          )}
+        >
+          {section.kind}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {section.kind === 'trace'
+            ? `${section.trace.spans.length} span${section.trace.spans.length === 1 ? '' : 's'}`
+            : `${section.flow.items.length} item${section.flow.items.length === 1 ? '' : 's'}`}
+        </span>
+        <ChevronDown
+          className={cn(
+            'size-4 shrink-0 text-muted-foreground transition-transform',
+            open && 'rotate-180',
+          )}
+        />
+      </button>
       {open && section.kind === 'flow' && (
         <div className="border-t border-border/60">
           <FlowSwimlane flow={section.flow as RecordedFlow} />

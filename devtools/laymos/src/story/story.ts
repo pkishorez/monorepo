@@ -1,17 +1,12 @@
 import { Context, Effect } from 'effect';
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
 
-import type { StorySection } from './schema/index.js';
-
-export type StorySectionStart =
-  | Omit<Extract<StorySection, { kind: 'trace' }>, 'assertions'>
-  | Omit<Extract<StorySection, { kind: 'flow' }>, 'assertions'>
-  | Omit<Extract<StorySection, { kind: 'exec' }>, 'assertions'>;
+import type { QuestionSection } from './schema/index.js';
 
 export class StoryContext extends Context.Service<
   StoryContext,
   {
-    readonly beginSection: (section: StorySectionStart) => Effect.Effect<void>;
+    readonly beginSection: (section: QuestionSection) => Effect.Effect<void>;
     readonly assert: (
       description: string,
       passed: boolean,
@@ -19,64 +14,61 @@ export class StoryContext extends Context.Service<
   }
 >()('StoryContext') {}
 
+export interface StoryQuestion {
+  readonly question: string;
+  readonly answer: string;
+  readonly proof: Effect.Effect<unknown, unknown, StoryContext>;
+}
+
 export interface Story {
   readonly title: string;
-  readonly description: string;
-  readonly markdown: string;
-  readonly sourceUrl?: string;
-  readonly run: Effect.Effect<unknown, unknown, StoryContext>;
+  readonly sourceUrl: string;
+  readonly questions: readonly StoryQuestion[];
 }
-
-export interface StoryDoc {
-  readonly kind: 'doc';
-  readonly title: string;
-  readonly description: string;
-  readonly markdown: string;
-}
-
-export type StoryNode = Story | StoryDoc | StoryGroup;
 
 export interface StoryGroup {
   readonly title: string;
-  readonly description: string;
-  readonly markdown: string;
   readonly children: readonly StoryNode[];
 }
+
+export type StoryNode = Story | StoryGroup;
 
 export const Story = {
   make(story: Story): Story {
     return story;
   },
 
-  doc(doc: Omit<StoryDoc, 'kind'>): StoryDoc {
-    return { ...doc, kind: 'doc' };
+  question(
+    question: string,
+    options: {
+      readonly answer: string;
+      readonly proof: Effect.Effect<unknown, unknown, StoryContext>;
+    },
+  ): StoryQuestion {
+    return { question, answer: options.answer, proof: options.proof };
   },
 
-  group(group: StoryGroup): StoryGroup {
-    return group;
+  group(title: string, children: readonly StoryNode[]): StoryGroup {
+    return { title, children };
   },
 
   trace<A, E, R>(
-    description: string,
     effect: Effect.Effect<A, E, R>,
   ): Effect.Effect<A, E, R | StoryContext> {
     return Effect.gen(function* () {
       const context = yield* StoryContext;
       const recorder = makeTraceRecorder();
-      return yield* recorder.instrument(effect).pipe(
-        Effect.onExit(() =>
-          context.beginSection({
-            kind: 'trace',
-            description,
-            trace: recorder.snapshot(),
-          }),
-        ),
-      );
+      return yield* recorder
+        .instrument(effect)
+        .pipe(
+          Effect.onExit(() =>
+            context.beginSection({ kind: 'trace', trace: recorder.snapshot() }),
+          ),
+        );
     });
   },
 
   flow<A, E, R>(
-    description: string,
     effect: Effect.Effect<A, E, R>,
   ): Effect.Effect<A, E, R | StoryContext> {
     return Effect.gen(function* () {
@@ -87,24 +79,10 @@ export const Story = {
         .pipe(
           Effect.onExit(() =>
             Effect.forEach(recorder.snapshotFlows(), (flow) =>
-              context.beginSection({ kind: 'flow', description, flow }),
+              context.beginSection({ kind: 'flow', flow }),
             ),
           ),
         );
-    });
-  },
-
-  exec<A, E, R>(
-    description: string,
-    effect: Effect.Effect<A, E, R>,
-  ): Effect.Effect<A, E, R | StoryContext> {
-    return Effect.gen(function* () {
-      const context = yield* StoryContext;
-      return yield* effect.pipe(
-        Effect.onExit(() =>
-          context.beginSection({ kind: 'exec', description }),
-        ),
-      );
     });
   },
 
@@ -123,35 +101,22 @@ export function isStory(value: unknown): value is Story {
   const story = value as Story;
   return (
     typeof story.title === 'string' &&
-    typeof story.description === 'string' &&
-    typeof story.markdown === 'string' &&
-    Effect.isEffect(story.run)
-  );
-}
-
-export function isStoryDoc(value: unknown): value is StoryDoc {
-  if (typeof value !== 'object' || value === null) return false;
-  const doc = value as StoryDoc;
-  return (
-    doc.kind === 'doc' &&
-    typeof doc.title === 'string' &&
-    typeof doc.description === 'string' &&
-    typeof doc.markdown === 'string'
+    typeof story.sourceUrl === 'string' &&
+    Array.isArray(story.questions) &&
+    story.questions.every(
+      (question) =>
+        typeof question.question === 'string' &&
+        typeof question.answer === 'string' &&
+        Effect.isEffect(question.proof),
+    )
   );
 }
 
 export function isStoryGroup(value: unknown): value is StoryGroup {
   if (typeof value !== 'object' || value === null) return false;
   const group = value as StoryGroup;
-  if (
-    typeof group.title !== 'string' ||
-    typeof group.description !== 'string' ||
-    typeof group.markdown !== 'string' ||
-    !Array.isArray(group.children)
-  ) {
+  if (typeof group.title !== 'string' || !Array.isArray(group.children)) {
     return false;
   }
-  return group.children.every(
-    (child) => isStory(child) || isStoryDoc(child) || isStoryGroup(child),
-  );
+  return group.children.every((child) => isStory(child) || isStoryGroup(child));
 }

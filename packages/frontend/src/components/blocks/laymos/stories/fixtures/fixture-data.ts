@@ -2,68 +2,118 @@ import type { StoryReport, StoryTree } from 'laymos';
 
 const start = 1_755_000_000_000;
 
+const eschemaSetup = `const User = ESchema.make('User', {
+  name: Schema.String,
+})
+  .evolve('v2', { age: Schema.Number }, (previous) => ({
+    ...previous,
+    age: 0,
+  }))
+  .build();`;
+
+const evolveSource = `import { Effect, Schema } from 'effect';
+import { Story } from 'laymos/story';
+import { ESchema } from 'std-toolkit/eschema';
+
+${eschemaSetup}
+
+export const evolvesAnEntity = Story.make({
+  title: 'Evolves an entity across versions',
+  sourceUrl: import.meta.url,
+  questions: [/* … */],
+});`;
+
 export const storyTree: StoryTree = {
   title: 'std-toolkit',
-  description: 'Database-agnostic sync over single-table item collections.',
-  markdown: `
-std-toolkit layers a synchronizable data toolkit over any database that can
-store sorted items in a single table. Schemas evolve in place, snapshots
-capture state, and sync flows move changes between peers.
-
-The groups below walk through each capability with executable stories.
-`,
-  docs: [],
   groups: [
     {
       title: 'ESchema',
-      description: 'Versioned entity schemas that migrate old data forward.',
-      markdown: `
-\`EntityESchema\` declares an entity's shape per version. Every \`evolve\`
-step records how to migrate the previous version forward, so decoding any
-historical payload yields the latest shape.
-`,
-      docs: [],
       groups: [],
       stories: [
         {
           id: 'std-toolkit/ESchema/Evolves an entity across versions',
           title: 'Evolves an entity across versions',
-          description: 'Old rows stay readable as the schema grows.',
-          markdown:
-            'Decoding a v1 payload migrates it forward through every `evolve` step, so old rows stay readable after the schema grows an `age` field.',
-        },
-        {
-          id: 'std-toolkit/ESchema/Rejects an unknown version tag',
-          title: 'Rejects an unknown version tag',
-          description: 'Decoding fails loudly for versions never declared.',
-          markdown:
-            'A payload tagged with a version the schema never declared is refused with a typed decode error instead of being silently coerced.',
+          setup: eschemaSetup,
+          questions: [
+            {
+              slug: 'what-happens-when-a-v1-row-meets-the-v2-schema',
+              question: 'What happens when a v1 row meets the v2 schema?',
+              answer: 'It decodes: `age` is backfilled by the v1→v2 migration.',
+              snippet: `Effect.gen(function* () {
+  const decoded = yield* Story.trace(
+    User.decode({ _v: 'v1', name: 'Ada' }),
+  );
+  yield* Story.assert('age is backfilled', decoded.age === 0);
+  return decoded;
+})`,
+            },
+            {
+              slug: 'what-happens-to-a-version-that-was-never-declared',
+              question: 'What happens to a version that was never declared?',
+              answer:
+                'Decode fails with a typed error naming the unknown version.',
+              snippet: `Effect.gen(function* () {
+  const error = yield* User.decode({ _v: 'v9', name: 'Eve' }).pipe(
+    Effect.flip,
+  );
+  yield* Story.assert('the error names v9', String(error).includes('v9'));
+  return error;
+})`,
+            },
+          ],
+          source: {
+            path: 'stories/eschema/evolve.story.ts',
+            content: evolveSource,
+          },
         },
       ],
     },
     {
       title: 'Sync',
-      description: 'Mutations round-trip between client and server.',
-      markdown: `
-The sync layer pushes local mutations to the server, folds acknowledgements
-back into the local snapshot, and reconciles concurrent writes.
-`,
-      docs: [],
       groups: [],
       stories: [
         {
           id: 'std-toolkit/Sync/Round-trips a mutation',
           title: 'Round-trips a mutation',
-          description: 'Push, acknowledge, and fold back into the snapshot.',
-          markdown:
-            'A client mutation is pushed to the server, acknowledged, and folded back into the local snapshot.',
+          setup: null,
+          questions: [
+            {
+              slug: 'what-happens-after-a-mutation-is-pushed',
+              question: 'What happens after a mutation is pushed?',
+              answer:
+                'The server acknowledges it and the snapshot folds it in.',
+              snippet: `Effect.gen(function* () {
+  const snapshot = yield* Story.flow(pushAndAwaitAck(mutation));
+  yield* Story.assert('no pending mutations remain', snapshot.pending === 0);
+  return snapshot;
+})`,
+            },
+          ],
+          source: {
+            path: 'stories/sync/round-trip.story.ts',
+            content: '// …',
+          },
         },
         {
           id: 'std-toolkit/Sync/Restores after a crash',
           title: 'Restores after a crash',
-          description: 'The latest snapshot revives local state.',
-          markdown:
-            'Restoring from the latest snapshot rebuilds local state after an unclean shutdown.',
+          setup: null,
+          questions: [
+            {
+              slug: 'what-happens-on-restart-after-an-unclean-shutdown',
+              question: 'What happens on restart after an unclean shutdown?',
+              answer: 'The latest snapshot revives local state.',
+              snippet: `Effect.gen(function* () {
+  const restored = yield* restoreFromSnapshot();
+  yield* Story.assert('state is revived', restored.items.length > 0);
+  return restored;
+})`,
+            },
+          ],
+          source: {
+            path: 'stories/sync/restore.story.ts',
+            content: '// …',
+          },
         },
       ],
     },
@@ -75,114 +125,107 @@ export const storyReports: Readonly<Record<string, StoryReport>> = {
   'std-toolkit/ESchema/Evolves an entity across versions': {
     id: 'std-toolkit/ESchema/Evolves an entity across versions',
     verdict: 'passed',
-    sections: [
+    questions: [
       {
-        kind: 'trace',
-        description: 'decode a v1 payload with the latest schema',
-        trace: {
-          spans: [
-            {
-              traceId: 't1',
-              spanId: 's1',
-              parentSpanId: null,
-              name: 'decode-v1-user',
-              startTime: start,
-              endTime: start + 12,
-              status: 'success',
-              attributes: {},
-              events: [],
+        slug: 'what-happens-when-a-v1-row-meets-the-v2-schema',
+        verdict: 'passed',
+        result: { _v: 'v2', name: 'Ada', age: 0 },
+        assertions: [{ description: 'age is backfilled', passed: true }],
+        sections: [
+          {
+            kind: 'trace',
+            trace: {
+              spans: [
+                {
+                  traceId: 't1',
+                  spanId: 's1',
+                  parentSpanId: null,
+                  name: 'decode-v1-user',
+                  startTime: start,
+                  endTime: start + 12,
+                  status: 'success',
+                  attributes: {},
+                  events: [],
+                },
+                {
+                  traceId: 't1',
+                  spanId: 's2',
+                  parentSpanId: 's1',
+                  name: 'migrate v1 -> v2',
+                  startTime: start + 2,
+                  endTime: start + 9,
+                  status: 'success',
+                  attributes: {},
+                  events: [],
+                },
+              ],
+              logs: [],
+              truncated: false,
             },
-            {
-              traceId: 't1',
-              spanId: 's2',
-              parentSpanId: 's1',
-              name: 'migrate v1 -> v2',
-              startTime: start + 2,
-              endTime: start + 9,
-              status: 'success',
-              attributes: {},
-              events: [],
-            },
-          ],
-          logs: [],
-          truncated: false,
-        },
-        assertions: [
-          { description: 'the v1 row is migrated to v2', passed: true },
-          { description: 'the migration backfills age', passed: true },
+          },
         ],
       },
       {
-        kind: 'exec',
-        description: 'identity survives a re-encode round trip',
-        assertions: [
-          { description: 'encoding yields the v2 tag', passed: true },
-          { description: 'the id is unchanged', passed: true },
-        ],
-      },
-    ],
-  },
-  'std-toolkit/ESchema/Rejects an unknown version tag': {
-    id: 'std-toolkit/ESchema/Rejects an unknown version tag',
-    verdict: 'passed',
-    sections: [
-      {
-        kind: 'exec',
-        description: 'decode a payload tagged v9',
-        assertions: [
-          { description: 'decoding a v9 payload fails', passed: true },
-          { description: 'the error names the unknown version', passed: true },
-        ],
+        slug: 'what-happens-to-a-version-that-was-never-declared',
+        verdict: 'passed',
+        result: "DecodeError: unknown version 'v9'",
+        assertions: [{ description: 'the error names v9', passed: true }],
+        sections: [],
       },
     ],
   },
   'std-toolkit/Sync/Round-trips a mutation': {
     id: 'std-toolkit/Sync/Round-trips a mutation',
     verdict: 'failed',
-    sections: [
+    questions: [
       {
-        kind: 'flow',
-        description: 'push one mutation and fold back the ack',
-        flow: {
-          id: 'sync-1',
-          status: 'completed',
-          latestTimestamp: start + 40,
-          items: [
-            {
-              kind: 'message',
-              id: 'f1',
-              participantName: 'client',
-              name: 'push mutation',
-              timestamp: start,
-              severity: 'info',
-              destination: 'server',
-            },
-            {
-              kind: 'activity',
-              id: 'f2',
-              participantName: 'server',
-              name: 'apply mutation',
-              timestamp: start + 10,
-              duration: 20,
-              status: 'success',
-              traceId: 't2',
-              spanId: 's3',
-            },
-            {
-              kind: 'message',
-              id: 'f3',
-              participantName: 'server',
-              name: 'ack',
-              timestamp: start + 35,
-              severity: 'info',
-              destination: 'client',
-            },
-          ],
-          warnings: [],
-        },
+        slug: 'what-happens-after-a-mutation-is-pushed',
+        verdict: 'failed',
+        result: { pending: 1 },
         assertions: [
-          { description: 'the snapshot contains the mutation', passed: true },
           { description: 'no pending mutations remain', passed: false },
+        ],
+        sections: [
+          {
+            kind: 'flow',
+            flow: {
+              id: 'sync-1',
+              status: 'completed',
+              latestTimestamp: start + 40,
+              items: [
+                {
+                  kind: 'message',
+                  id: 'f1',
+                  participantName: 'client',
+                  name: 'push mutation',
+                  timestamp: start,
+                  severity: 'info',
+                  destination: 'server',
+                },
+                {
+                  kind: 'activity',
+                  id: 'f2',
+                  participantName: 'server',
+                  name: 'apply mutation',
+                  timestamp: start + 10,
+                  duration: 20,
+                  status: 'success',
+                  traceId: 't2',
+                  spanId: 's3',
+                },
+                {
+                  kind: 'message',
+                  id: 'f3',
+                  participantName: 'server',
+                  name: 'ack',
+                  timestamp: start + 35,
+                  severity: 'info',
+                  destination: 'client',
+                },
+              ],
+              warnings: [],
+            },
+          },
         ],
       },
     ],
@@ -190,13 +233,14 @@ export const storyReports: Readonly<Record<string, StoryReport>> = {
   'std-toolkit/Sync/Restores after a crash': {
     id: 'std-toolkit/Sync/Restores after a crash',
     verdict: 'errored',
-    sections: [
+    questions: [
       {
-        kind: 'exec',
-        description: 'restore from the latest snapshot',
-        assertions: [{ description: 'snapshot exists on disk', passed: true }],
+        slug: 'what-happens-on-restart-after-an-unclean-shutdown',
+        verdict: 'errored',
+        error: 'Error: boom\n    at restoreSnapshot (snapshot.ts:42)',
+        assertions: [],
+        sections: [],
       },
     ],
-    error: 'Error: boom\n    at restoreSnapshot (snapshot.ts:42)',
   },
 };

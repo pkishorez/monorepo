@@ -21,25 +21,36 @@ describe('getStoryTree', () => {
 
     expect(tree.title).toBe('basic');
     expect(tree.stories).toEqual([]);
-    expect(tree.docs.map((doc) => doc.id)).toEqual(['basic/about verdicts']);
-    expect(tree.docs[0]!.markdown).toContain('verdicts');
     expect(tree.groups.map((group) => group.title)).toEqual(['verdicts']);
-    expect(tree.groups[0]!.docs).toEqual([]);
     expect(tree.groups[0]!.stories.map((story) => story.id)).toEqual([
       'basic/verdicts/passing story',
       'basic/verdicts/failing story',
       'basic/verdicts/erroring story',
     ]);
-    expect(tree.groups[0]!.stories[0]!.markdown).toContain('trace');
   });
 
-  test('embeds the declared source file on the Story leaf', async () => {
+  test('extracts questions, slugs, and literal proof snippets', async () => {
     const tree = await getStoryTree(fixture('basic')).pipe(Effect.runPromise);
 
-    const [passing, failing] = tree.groups[0]!.stories;
-    expect(passing!.source?.path).toBe('stories/index.ts');
-    expect(passing!.source?.content).toContain('the answer is 42');
-    expect(failing!.source).toBeUndefined();
+    const passing = tree.groups[0]!.stories[0]!;
+    expect(passing.questions.map(({ slug }) => slug)).toEqual([
+      'what-is-the-answer',
+      'what-does-doubling-produce',
+    ]);
+    expect(passing.questions[0]!.answer).toBe('It is 42.');
+    expect(passing.questions[0]!.snippet).toContain('Story.trace(');
+    expect(passing.questions[0]!.snippet).toContain('the answer is 42');
+    expect(passing.questions[1]!.snippet).toContain('doubled');
+    expect(passing.questions[1]!.snippet).not.toContain('Story.trace(');
+  });
+
+  test('extracts the shared setup and the source file', async () => {
+    const tree = await getStoryTree(fixture('basic')).pipe(Effect.runPromise);
+
+    const passing = tree.groups[0]!.stories[0]!;
+    expect(passing.setup).toBe('const answer = 42;');
+    expect(passing.source.path).toBe('stories/index.ts');
+    expect(passing.source.content).toContain('the answer is 42');
   });
 });
 
@@ -60,32 +71,59 @@ describe('runStories', () => {
       'failed',
       'errored',
     ]);
+  });
 
-    const passing = reports[0]!;
-    expect(passing.sections).toHaveLength(1);
-    const traceSection = passing.sections[0]!;
-    expect(traceSection.kind).toBe('trace');
-    expect(traceSection.description).toBe('compute the answer');
-    expect(
-      traceSection.kind === 'trace' &&
-        traceSection.trace.spans.map((span) => span.name),
-    ).toEqual(['compute-answer']);
-    expect(traceSection.assertions).toEqual([
-      { description: 'the answer is 42', passed: true },
-    ]);
-
-    const failing = reports[1]!;
-    expect(failing.sections).toHaveLength(1);
-    expect(failing.sections[0]!.kind).toBe('exec');
-    expect(failing.sections[0]!.assertions.map(({ passed }) => passed)).toEqual(
-      [true, false],
+  test('captures the proof result, assertions, and trace per question', async () => {
+    const reports = await runStories(fixture('basic')).pipe(
+      Stream.runCollect,
+      Effect.runPromise,
     );
 
-    const erroring = reports[2]!;
-    expect(erroring.sections).toHaveLength(1);
-    expect(erroring.sections[0]!.kind).toBe('exec');
-    expect(erroring.sections[0]!.description).toBe('checks');
+    const [first, second] = reports[0]!.questions;
+    expect(first!.slug).toBe('what-is-the-answer');
+    expect(first!.verdict).toBe('passed');
+    expect(first!.result).toBe(42);
+    expect(first!.assertions).toEqual([
+      { description: 'the answer is 42', passed: true },
+    ]);
+    expect(first!.sections).toHaveLength(1);
+    expect(
+      first!.sections[0]!.kind === 'trace' &&
+        first!.sections[0]!.trace.spans.map((span) => span.name),
+    ).toEqual(['compute-answer']);
+
+    expect(second!.result).toEqual({ doubled: 84 });
+    expect(second!.sections).toEqual([]);
+  });
+
+  test('reports a failing assertion without erroring the question', async () => {
+    const reports = await runStories(fixture('basic')).pipe(
+      Stream.runCollect,
+      Effect.runPromise,
+    );
+
+    const failing = reports[1]!.questions[0]!;
+    expect(failing.verdict).toBe('failed');
+    expect(failing.result).toBe(null);
+    expect(failing.assertions.map(({ passed }) => passed)).toEqual([
+      true,
+      false,
+    ]);
+  });
+
+  test('reports a dying proof as errored with its pretty cause', async () => {
+    const reports = await runStories(fixture('basic')).pipe(
+      Stream.runCollect,
+      Effect.runPromise,
+    );
+
+    const erroring = reports[2]!.questions[0]!;
+    expect(erroring.verdict).toBe('errored');
+    expect(erroring.result).toBeUndefined();
     expect(erroring.error).toContain('boom');
+    expect(erroring.assertions).toEqual([
+      { description: 'reached before the crash', passed: true },
+    ]);
   });
 
   test('runs only the scoped subtree', async () => {
