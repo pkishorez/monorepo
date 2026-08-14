@@ -6,6 +6,20 @@
     "target": "ESNext",
     "module": "nodenext",
     "moduleResolution": "nodenext",
+    "paths": {
+      "std-toolkit/db": ["./src/db/index.ts"],
+      "std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
+      "std-toolkit/db/idb": ["./src/db/idb/index.ts"],
+      "std-toolkit/db/sqlite": ["./src/db/sqlite/index.ts"],
+      "std-toolkit/db/sqlite/better-sqlite3": [
+        "./src/db/sqlite/drivers/better-sqlite3/index.ts"
+      ],
+      "std-toolkit/db/sqlite/bun": ["./src/db/sqlite/drivers/bun/index.ts"],
+      "std-toolkit/db/sqlite/durable-object": [
+        "./src/db/sqlite/drivers/durable-object/index.ts"
+      ],
+      "std-toolkit/db/sqlite/node": ["./src/db/sqlite/drivers/node/index.ts"]
+    },
     "rootDir": ".",
     "strict": true,
     "noUncheckedIndexedAccess": true,

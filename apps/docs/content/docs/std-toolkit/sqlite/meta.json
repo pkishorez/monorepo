@@ -1,4 +1,0 @@
-{
-  "title": "sqlite",
-  "pages": ["index", "runtimes", "indexes", "differences-from-dynamodb"]
-}

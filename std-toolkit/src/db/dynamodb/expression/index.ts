@@ -1,0 +1,18 @@
+export {
+  buildExpr,
+  exprCondition,
+  exprFilter,
+  exprUpdate,
+  keyConditionExpr,
+  resolveCondition,
+  type AnyOperation,
+  type ConditionExprResult,
+  type ConditionInput,
+  type ConditionOperation,
+  type FilterExprResult,
+  type IndexDefinition,
+  type KeyConditionExprParameters,
+  type SortKeyparameter,
+  type UpdateExprResult,
+  type UpdateOps,
+} from './expression.js';

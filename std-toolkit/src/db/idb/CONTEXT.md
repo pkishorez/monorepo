@@ -1,28 +1,33 @@
 # db/idb — Ubiquitous Language
 
-The in-browser IndexedDB adapter. Mirrors the single-table topology defined in [[db]] — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table**, **Entity service** — over an IndexedDB object store. It is the browser sibling of [[sqlite]]: a sync-compatible local store, not a DynamoDB emulator. This glossary defines only where IndexedDB diverges from the shared kernel. See the root `CONTEXT-MAP.md`.
+The in-browser IndexedDB adapter. Mirrors the single-table topology defined in [[db]] — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **StdTable**, **entity surface** — over an IndexedDB object store. It is the browser sibling of [[sqlite]]: a sync-compatible local store, not a DynamoDB emulator. This glossary defines only where IndexedDB diverges from the shared kernel. See the root `CONTEXT-MAP.md`.
 
 ## Language
 
-**IdbTable**:
-A named, type-safe single-table definition within an IndexedDB database. Its name identifies the backing **Store**; the **partition key** and **sort key** together form the store's composite key path.
-
-**IdbEntity** / **IdbSingleEntity**:
-The IndexedDB **Entity service**s (keyed / singleton) for CRUD over an `IdbTable`.
+**IDB adapter table**:
+The result of `IDB.make` (`IDBTable`): the IndexedDB implementation of the shared [[db]] **StdTable contract**. Its optional physical **Store** name defaults to the StdTable's logical name; the **partition key** and **sort key** together form the Store's composite key path.
+_Avoid_: IndexedDB Table runtime (retired term), Table binding.
 
 **Record**:
-The stored row — a native structured-clone object whose `_data` field holds the **Entity** `value` as a real object (SQLite instead serializes it to a `_data` TEXT column).
+The adapter's **decoded item**: the physical representation of an **encoded item** as a native structured-clone object. It has `pk`, `sk`, `_e`, `_v`, `_u`, `_d`, and `data` at the top level. Secondary key properties use the attribute names declared by `IndexDefinition` without adapter-specific renaming.
 _Avoid_: row, document.
 
+**IndexedDB item schema**:
+The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and an IndexedDB **Record** (`itemSchema(table): Schema<DecodedItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed Records fail as parse errors. It performs no I/O.
+_Avoid_: item codec, encodeItem/decodeItem pairs.
+
 **Store**:
-The real IndexedDB object store named by `IdbTable.make(storeName)`. One database can hold multiple stores; the database is app-scoped and each store is table-scoped.
+The real IndexedDB object store selected by `IDB.make(...)` for one StdTable. One database can hold multiple stores; the database is app-scoped and each store is table-scoped.
 _Avoid_: logical name, alias, collection.
 
 **Sparse index**:
 A secondary index that simply skips **Records** missing its key fields — IndexedDB's native index behavior, matching DynamoDB's sparse-GSI semantics.
 
+**IndexedDB read consistency**:
+Primary, LSI, and GSI access patterns observe the latest committed IndexedDB state available to the transaction.
+
 **Auto-versioned setup**:
-The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing. A database name given to this adapter belongs to it; no other code may version that database.
+The setup discipline where the adapter owns the database's version number, bumping it only when a declared **Store** or **Sparse index** is missing or incompatible. The upgrade creates additive topology but does not migrate legacy Records or backfill index keys on existing Records. A database name given to this adapter belongs to it; no other code may version that database.
 _Avoid_: migration, manual upgrade.
 
 **Buffered transaction**:
@@ -33,6 +38,4 @@ _Avoid_: begin/commit/rollback, session.
 The concurrency stance for read-modify-write: the write re-checks the **Record**'s `_u` inside the **Buffered transaction** and fails if another writer (e.g. a second browser tab) got there first. The caller retries.
 _Avoid_: locking, last-write-wins.
 
-**IdbError**:
-The direct union of IndexedDB adapter failures and the shared persistence failures inherited from [[db]].
-_Avoid_: IdbDBError.
+IndexedDB failures are normalized into the shared [[db]] `DatabaseError` as an `OperationFailed` reason whose `cause` retains the browser error.

@@ -9,6 +9,8 @@
     "exactOptionalPropertyTypes": true,
     "declaration": true,
     "declarationMap": true,
+    "isolatedDeclarations": false,
+    "stripInternal": true,
     "noEmit": false,
     "skipLibCheck": true
   },

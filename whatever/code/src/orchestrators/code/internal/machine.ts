@@ -6,8 +6,8 @@ import { Db } from '../../../services/db/index.js';
 export const ensureMachineId = Effect.gen(function* () {
   const db = yield* Db;
   const { items } = yield* db.machine.query(
-    'primary',
-    { pk: {}, sk: { '>': '' } },
+    'all',
+    { pk: {}, '>': null },
     { limit: 1 },
   );
   const existing = items[0];

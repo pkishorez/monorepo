@@ -5,4 +5,4 @@ import * as NodeServices from '@effect/platform-node/NodeServices';
 
 import { cli } from './run/index.ts';
 
-cli.pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain());
+cli.pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);

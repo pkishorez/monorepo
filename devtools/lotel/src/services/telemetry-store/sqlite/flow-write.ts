@@ -1,10 +1,6 @@
-import { Effect } from 'effect';
 import type { TerminalFlowStatus } from '@pkishorez/effect-tracer/flow';
-import {
-  SQLiteDatabase,
-  type SQLiteError,
-  type SqliteEntityOp,
-} from 'std-toolkit/sqlite';
+import { Effect } from 'effect';
+import type { DatabaseError } from 'std-toolkit/db';
 import { updateFlowEntity } from '../../../domain/flow/index.js';
 import type { makeSqliteEntities } from './entities.js';
 
@@ -15,23 +11,22 @@ type FlowEntities = Pick<
 
 const CONTENDED_WRITE_RETRIES = 5;
 
-const isContendedWrite = (error: SQLiteError) =>
-  error._tag === 'ConditionFailed' ||
-  error._tag === 'ItemAlreadyExists' ||
-  error._tag === 'NoItemToUpdate';
+const isContendedWrite = (error: DatabaseError) =>
+  error.reason._tag === 'ConditionFailed' ||
+  error.reason._tag === 'ItemAlreadyExists' ||
+  error.reason._tag === 'NoItemToUpdate';
 
 /** Atomically writes one telemetry record and advances its Flow catalog entry. */
+/** @internal */
 export const writeFlowRecord = (
   entities: FlowEntities,
   options: {
     readonly flowId: string | null;
     readonly latestTimeUnixNano: string;
     readonly terminalStatus?: TerminalFlowStatus | undefined;
-    readonly recordOperation: Effect.Effect<
-      SqliteEntityOp,
-      SQLiteError,
-      SQLiteDatabase
-    >;
+    readonly recordOperation:
+      | ReturnType<ReturnType<typeof makeSqliteEntities>['spans']['insertOp']>
+      | ReturnType<ReturnType<typeof makeSqliteEntities>['logs']['insertOp']>;
   },
 ) => {
   const attempt = Effect.gen(function* () {

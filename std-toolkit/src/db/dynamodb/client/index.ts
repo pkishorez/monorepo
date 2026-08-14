@@ -1,0 +1,15 @@
+export {
+  DynamoDBClientError,
+  makeDynamoDBClient,
+  type AttributeValue,
+  type BatchWriteItemOutput,
+  type CreateTableInput,
+  type DynamoDBClient,
+  type DynamoDBClientConfig,
+  type DynamoDBCredentialProvider,
+  type DynamoDBCredentials,
+  type DynamoDBCredentialsInput,
+  type GetItemOutput,
+  type ScanOutput,
+  type UpdateItemOutput,
+} from './client.js';

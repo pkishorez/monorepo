@@ -1,4 +1,1 @@
-export {
-  makeSqliteTelemetryStore,
-  sqliteTelemetryStoreDependencies,
-} from './sqlite.js';
+export { makeSqliteTelemetryStore } from './sqlite.js';

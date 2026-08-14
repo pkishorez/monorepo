@@ -1,4 +1,0 @@
-{
-  "title": "dynamodb",
-  "pages": ["index", "setup", "indexes", "expressions", "transactions"]
-}

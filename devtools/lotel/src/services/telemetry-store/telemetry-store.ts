@@ -6,10 +6,7 @@ import type {
   UpdateCursor,
 } from '../../domain/telemetry-schema/index.js';
 import { FlowEntitySchema } from '../../domain/flow/index.js';
-import {
-  makeSqliteTelemetryStore,
-  sqliteTelemetryStoreDependencies,
-} from './sqlite/index.js';
+import { makeSqliteTelemetryStore } from './sqlite/index.js';
 
 type FlowEntity = typeof FlowEntitySchema.Type;
 
@@ -68,6 +65,4 @@ export class TelemetryStore extends Context.Service<
 >()('lotel/TelemetryStore') {}
 
 export const sqliteTelemetryStoreLayer = ({ path }: { path: string }) =>
-  Layer.effect(TelemetryStore, makeSqliteTelemetryStore).pipe(
-    Layer.provide(sqliteTelemetryStoreDependencies(path)),
-  );
+  Layer.effect(TelemetryStore, makeSqliteTelemetryStore(path));
