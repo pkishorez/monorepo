@@ -101,7 +101,7 @@ describe('layoutGraph', () => {
     });
     expect(nodes.get('api')?.data).toMatchObject({
       dimmed: true,
-      activationEnabled: false,
+      activationEnabled: true,
     });
     expect(nodes.get('application')?.data).toMatchObject({ dimmed: false });
   });

@@ -7,23 +7,16 @@ import {
   moduleViolations,
   loadFixtureModuleSource,
 } from './fixture-data';
-import { ModulesExperience } from '../../experience';
+import { LaymosShell } from '../../experience';
 
-const experience = (initialLayerId: string) => (
-  <ModulesExperience
+export default (
+  <LaymosShell
     layers={moduleLayers}
     rules={moduleRules}
     layerGraphs={moduleLayerGraphs}
     modules={modules}
     dependencies={moduleDependencies}
-    violations={moduleViolations}
-    initialLayerId={initialLayerId}
+    moduleViolations={moduleViolations}
     loadModuleSource={loadFixtureModuleSource}
   />
 );
-
-export default {
-  application: experience('application'),
-  domain: experience('domain'),
-  presentation: experience('presentation'),
-};

@@ -121,6 +121,21 @@ Module architecture with facts derived from supported source files, including
 Module kinds, membership, public entry points, dependencies, and Module
 violations.
 
+**Layers <> Modules view**:
+The single unified view of one Project's declared and observed architecture:
+Modules rendered within their Layers. Modules may be hidden to show Layers
+alone, and Layer connections may be shown or hidden, at either granularity.
+There is no separate Layers-only or Modules-only screen and no navigation
+between granularities — only these two view settings.
+_Avoid_: Layers screen, Modules screen
+
+**LayerGraph selection**:
+A focus on one LayerGraph within the Layers <> Modules view. The Layers
+referenced by the selected LayerGraph's Rules are emphasized; every other
+Layer and its Modules are de-emphasized yet remain visible and fully
+interactive. Only the selected LayerGraph's Rules are drawn or used for
+highlighting. LayerGraphs reference Layers, never other LayerGraphs.
+
 **Module source explorer**:
 A view of the included supported source files assigned to one Configured
 Module, through which a user can navigate and read that Module's source.

@@ -7,7 +7,7 @@ import {
   ResizablePanelGroup,
 } from '#components/ui/resizable';
 import { Switch } from '#components/ui/switch';
-import { ArrowLeft } from '#lib/lucide';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
@@ -17,7 +17,12 @@ import {
   layersReferencedByRules,
   type NamedLayerGraph,
 } from './layers/layer-graphs';
-import type { Layer, LayerRule } from './layers/model';
+import type {
+  Layer,
+  LayerCoverageViolation,
+  LayerRule,
+  LayerViolationPair,
+} from './layers/model';
 import { LayerScopeTree } from './layers/tree';
 import { coverageGroupId, LayerViolationsList } from './layers/violation';
 import { resolveModuleFocus } from './modules/focus';
@@ -41,6 +46,20 @@ import { ArchitectureTreeLegend } from './tree';
 import { layerIdsByBoundaryPath } from './tree/presentation';
 
 const allGraphsId = 'all';
+const layersModulesTabId = 'layers-modules';
+
+interface LayersModulesProps {
+  readonly layers: readonly Layer[];
+  readonly rules: readonly LayerRule[];
+  readonly layerGraphs?: readonly NamedLayerGraph[];
+  readonly layerViolationPairs?: readonly LayerViolationPair[];
+  readonly layerCoverageViolations?: readonly LayerCoverageViolation[];
+  readonly modules: readonly Module[];
+  readonly dependencies: readonly ModuleDependency[];
+  readonly moduleViolations?: readonly ModuleViolation[];
+  readonly loadModuleSource: LoadModuleSource;
+  readonly className?: string;
+}
 
 export function LaymosExperience({
   analysis,
@@ -52,260 +71,145 @@ export function LaymosExperience({
   readonly className?: string;
 }) {
   const model = useMemo(() => buildPresentationModel(analysis), [analysis]);
-  const [openedLayerId, setOpenedLayerId] = useState<string>();
+
+  return (
+    <LaymosShell
+      layers={model.layers}
+      rules={model.rules}
+      layerGraphs={model.layerGraphs}
+      layerViolationPairs={model.layerViolationPairs}
+      layerCoverageViolations={model.layerCoverageViolations}
+      modules={model.modules}
+      dependencies={model.moduleDependencies}
+      moduleViolations={model.moduleViolations}
+      loadModuleSource={loadModuleSource}
+      className={className}
+    />
+  );
+}
+
+export function LaymosShell({ className, ...view }: LayersModulesProps) {
+  return (
+    <Tabs
+      value={layersModulesTabId}
+      className={cn(
+        'flex min-h-0 flex-col gap-0 overflow-hidden rounded-xl border border-border bg-background shadow-sm',
+        className,
+      )}
+    >
+      <div className="border-b border-border px-4 pb-2.5 pt-2 sm:px-5">
+        <TabsList variant="line">
+          <TabsTrigger value={layersModulesTabId}>
+            {'Layers <> Modules'}
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent
+        value={layersModulesTabId}
+        className="flex min-h-0 flex-1 flex-col"
+      >
+        <LayersModulesExperience
+          {...view}
+          className="flex-1 rounded-none border-0 shadow-none"
+        />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+export function LayersModulesExperience({
+  layers,
+  rules,
+  layerGraphs = [],
+  layerViolationPairs = [],
+  layerCoverageViolations = [],
+  modules,
+  dependencies,
+  moduleViolations = [],
+  loadModuleSource,
+  className,
+}: LayersModulesProps) {
   const [activeGraphId, setActiveGraphId] = useState(allGraphsId);
+  const [showModules, setShowModules] = useState(true);
+  const [showLayerConnections, setShowLayerConnections] = useState(true);
   const [activeLayerId, setActiveLayerId] = useState<string>();
   const [hoveredLayerId, setHoveredLayerId] = useState<string>();
+  const [activeModuleId, setActiveModuleId] = useState<string>();
   const [activeViolationId, setActiveViolationId] = useState<string>();
+  const [sourceRequest, setSourceRequest] = useState<ModuleSourceOpenRequest>();
 
-  useEffect(() => {
-    const layerIds = new Set(model.layers.map(({ id }) => id));
-    const graphIds = new Set(model.layerGraphs.map(({ id }) => id));
-    const violationIds = new Set(model.layerViolationPairs.map(({ id }) => id));
-    if (model.layerCoverageViolations.length > 0) {
-      violationIds.add(coverageGroupId);
-    }
-    if (openedLayerId !== undefined && !layerIds.has(openedLayerId)) {
-      setOpenedLayerId(undefined);
-    }
-    if (activeLayerId !== undefined && !layerIds.has(activeLayerId)) {
-      setActiveLayerId(undefined);
-    }
-    if (activeGraphId !== allGraphsId && !graphIds.has(activeGraphId)) {
-      setActiveGraphId(allGraphsId);
-    }
-    if (
-      activeViolationId !== undefined &&
-      !violationIds.has(activeViolationId)
-    ) {
-      setActiveViolationId(undefined);
-    }
-  }, [activeGraphId, activeLayerId, activeViolationId, model, openedLayerId]);
-
-  if (openedLayerId !== undefined) {
-    return (
-      <ModulesExperience
-        className={className}
-        layers={model.layers}
-        rules={model.rules}
-        layerGraphs={model.layerGraphs}
-        modules={model.modules}
-        dependencies={model.moduleDependencies}
-        violations={model.moduleViolations}
-        initialLayerId={openedLayerId}
-        loadModuleSource={loadModuleSource}
-        onBack={() => setOpenedLayerId(undefined)}
-      />
-    );
-  }
-
-  const selectedGraph = model.layerGraphs.find(
-    ({ id }) => id === activeGraphId,
-  );
-  const visibleRules = selectedGraph?.rules ?? model.rules;
+  const selectedGraph = layerGraphs.find(({ id }) => id === activeGraphId);
+  const visibleRules = selectedGraph?.rules ?? rules;
   const visibleLayers =
     selectedGraph === undefined
-      ? model.layers
-      : layersReferencedByRules(model.layers, visibleRules);
+      ? layers
+      : layersReferencedByRules(layers, visibleRules);
   const visibleLayerIds = new Set(visibleLayers.map(({ id }) => id));
-  const visibleViolationPairs = model.layerViolationPairs.filter(
+  const visibleViolationPairs = layerViolationPairs.filter(
     ({ fromLayerId, toLayerId }) =>
       visibleLayerIds.has(fromLayerId) && visibleLayerIds.has(toLayerId),
   );
   const visibleCoverageViolations =
-    selectedGraph === undefined ? model.layerCoverageViolations : [];
-  const activeViolationPair = visibleViolationPairs.find(
-    ({ id }) => id === activeViolationId,
+    selectedGraph === undefined ? layerCoverageViolations : [];
+  const visibleModules =
+    selectedGraph === undefined
+      ? modules
+      : modules.filter(({ layerId }) => visibleLayerIds.has(layerId));
+  const layerIdByModuleId = new Map(
+    modules.flatMap((module) => [
+      [module.id, module.layerId] as const,
+      ...module.nested.map(({ id }) => [id, module.layerId] as const),
+    ]),
   );
-  const focus = resolveLayerFocus({
-    activeLayerId,
-    hoveredLayerId,
-    blocked: activeViolationPair !== undefined,
-  });
-  const clearFocus = () => {
-    setHoveredLayerId(undefined);
-    setActiveLayerId(undefined);
-    setActiveViolationId(undefined);
-  };
+  const visibleModuleViolations =
+    selectedGraph === undefined
+      ? moduleViolations
+      : moduleViolations.filter((violation) =>
+          violationLayerIds(violation, layerIdByModuleId).every(
+            (layerId) => layerId !== undefined && visibleLayerIds.has(layerId),
+          ),
+        );
 
-  return (
-    <div
-      className={cn(
-        'flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm',
-        className,
-      )}
-    >
-      <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-        <div className="min-w-0">
-          <h1 className="text-base font-semibold tracking-tight">
-            Project Layers
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Trace Rules, inspect Layer scopes, and review violations.
-          </p>
-        </div>
-        <select
-          aria-label="LayerGraph"
-          className="h-9 min-w-48 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-          value={activeGraphId}
-          onChange={(event) => {
-            clearFocus();
-            setActiveGraphId(event.target.value);
-          }}
-        >
-          <option value={allGraphsId}>All LayerGraphs</option>
-          {model.layerGraphs.map(({ id }) => (
-            <option key={id} value={id}>
-              {id}
-            </option>
-          ))}
-        </select>
-      </header>
-
-      <ResizablePanelGroup
-        orientation="horizontal"
-        className="min-h-[760px] flex-1"
-      >
-        <ResizablePanel defaultSize="75%" minSize="50%">
-          <section className="flex size-full min-h-0 min-w-0 flex-col">
-            <div className="flex min-h-11 items-center justify-between gap-4 border-b border-border px-4">
-              <p className="truncate text-xs text-muted-foreground">
-                {selectedGraph?.description ?? 'All direct Rules'}
-              </p>
-              <span className="shrink-0 text-[11px] text-muted-foreground">
-                Pan · zoom · select · right-click to open
-              </span>
-            </div>
-            <LayerGraph
-              className="min-h-[515px] flex-1 rounded-none border-0"
-              layers={model.layers}
-              rules={visibleRules}
-              layerGraphs={model.layerGraphs}
-              activeLayerGraphId={selectedGraph?.id}
-              activeLayerId={activeLayerId}
-              hoveredLayerId={hoveredLayerId}
-              activeViolationPair={activeViolationPair}
-              onLayerHoverChange={(id) => {
-                if (focus.hoverEnabled) setHoveredLayerId(id);
-              }}
-              onLayerActivate={(id) => {
-                setHoveredLayerId(undefined);
-                setActiveViolationId(undefined);
-                setActiveLayerId(id);
-              }}
-              onLayerOpen={(id) => {
-                clearFocus();
-                setOpenedLayerId(id);
-              }}
-              onClearFocus={clearFocus}
-            />
-          </section>
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize="25%" minSize="20%" maxSize="50%">
-          <aside className="size-full min-w-0">
-            <ResizablePanelGroup orientation="vertical" className="min-h-0">
-              <ResizablePanel defaultSize="60%" minSize="20%">
-                <section
-                  className={cn(
-                    'size-full overflow-y-auto p-4',
-                    scrollbarStyles,
-                  )}
-                >
-                  <ArchitectureTreeLegend
-                    title="Scopes"
-                    boundaryLabel="Layer"
-                  />
-                  <LayerScopeTree
-                    layers={visibleLayers}
-                    activeLayerId={
-                      activeViolationPair === undefined
-                        ? activeLayerId
-                        : undefined
-                    }
-                    onLayerActivate={setActiveLayerId}
-                  />
-                </section>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize="40%" minSize="20%">
-                <section
-                  className={cn(
-                    'size-full overflow-y-auto p-4',
-                    scrollbarStyles,
-                  )}
-                >
-                  <SectionLabel>Violations</SectionLabel>
-                  <LayerViolationsList
-                    violationPairs={visibleViolationPairs}
-                    coverageViolations={visibleCoverageViolations}
-                    activeViolationGroupId={activeViolationId}
-                    onActiveViolationGroupChange={(id) => {
-                      setHoveredLayerId(undefined);
-                      setActiveLayerId(undefined);
-                      setActiveViolationId(id);
-                    }}
-                  />
-                </section>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </aside>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </div>
-  );
-}
-
-export function ModulesExperience({
-  layers,
-  rules,
-  layerGraphs,
-  modules,
-  dependencies,
-  violations,
-  initialLayerId,
-  loadModuleSource,
-  onBack,
-  className,
-}: {
-  readonly layers: readonly Layer[];
-  readonly rules: readonly LayerRule[];
-  readonly layerGraphs?: readonly NamedLayerGraph[];
-  readonly modules: readonly Module[];
-  readonly dependencies: readonly ModuleDependency[];
-  readonly violations: readonly ModuleViolation[];
-  readonly initialLayerId: string;
-  readonly loadModuleSource: LoadModuleSource;
-  readonly onBack?: () => void;
-  readonly className?: string;
-}) {
-  const [activeLayerId, setActiveLayerId] = useState<string | undefined>(
-    initialLayerId,
-  );
-  const [showLayerConnections, setShowLayerConnections] = useState(true);
-  const [activeModuleId, setActiveModuleId] = useState<string>();
-  const [activeViolationId, setActiveViolationId] = useState<string>();
-  const [sourceRequest, setSourceRequest] = useState<ModuleSourceOpenRequest>();
-  const activeViolation = violations.find(({ id }) => id === activeViolationId);
-  const focus = resolveModuleFocus({
+  const activeViolation = showModules
+    ? visibleModuleViolations.find(({ id }) => id === activeViolationId)
+    : undefined;
+  const activeViolationPair = showModules
+    ? undefined
+    : visibleViolationPairs.find(({ id }) => id === activeViolationId);
+  const moduleFocus = resolveModuleFocus({
     modules,
     dependencies,
     focusedLayerId: activeLayerId,
     activeModuleId,
     activeViolation,
   });
+  const layerFocus = resolveLayerFocus({
+    activeLayerId,
+    hoveredLayerId,
+    blocked: activeViolationPair !== undefined,
+  });
 
   useEffect(() => {
     const layerIds = new Set(layers.map(({ id }) => id));
+    const graphIds = new Set(layerGraphs.map(({ id }) => id));
     const moduleIds = new Set(
       modules.flatMap(({ id, nested }) => [
         id,
         ...nested.map(({ id: nestedId }) => nestedId),
       ]),
     );
-    const violationIds = new Set(violations.map(({ id }) => id));
+    const violationIds = new Set([
+      ...moduleViolations.map(({ id }) => id),
+      ...layerViolationPairs.map(({ id }) => id),
+    ]);
+    if (layerCoverageViolations.length > 0) {
+      violationIds.add(coverageGroupId);
+    }
     if (activeLayerId !== undefined && !layerIds.has(activeLayerId)) {
       setActiveLayerId(undefined);
+    }
+    if (activeGraphId !== allGraphsId && !graphIds.has(activeGraphId)) {
+      setActiveGraphId(allGraphsId);
     }
     if (activeModuleId !== undefined && !moduleIds.has(activeModuleId)) {
       setActiveModuleId(undefined);
@@ -317,20 +221,52 @@ export function ModulesExperience({
       setActiveViolationId(undefined);
     }
   }, [
+    activeGraphId,
     activeLayerId,
     activeModuleId,
     activeViolationId,
+    layerCoverageViolations,
+    layerGraphs,
+    layerViolationPairs,
     layers,
     modules,
-    violations,
+    moduleViolations,
   ]);
 
   const clearFocus = () => {
+    setHoveredLayerId(undefined);
     setActiveLayerId(undefined);
     setActiveModuleId(undefined);
     setActiveViolationId(undefined);
   };
-
+  const activateLayer = (layerId: string) => {
+    setHoveredLayerId(undefined);
+    setActiveModuleId(undefined);
+    setActiveViolationId(undefined);
+    setActiveLayerId(layerId);
+  };
+  const activateModule = (moduleId: string) => {
+    setHoveredLayerId(undefined);
+    setActiveLayerId(undefined);
+    setActiveViolationId(undefined);
+    setActiveModuleId(moduleId);
+  };
+  const activateViolation = (violationId: string | undefined) => {
+    setHoveredLayerId(undefined);
+    setActiveLayerId(undefined);
+    setActiveModuleId(undefined);
+    setActiveViolationId(violationId);
+  };
+  const activateLayerGraph = (graphId: string) => {
+    clearFocus();
+    setActiveGraphId(graphId === activeGraphId ? allGraphsId : graphId);
+  };
+  const toggleShowModules = (value: boolean) => {
+    setShowModules(value);
+    setHoveredLayerId(undefined);
+    setActiveModuleId(undefined);
+    setActiveViolationId(undefined);
+  };
   const openModuleSource = (moduleId: string) => {
     const request = moduleSourceRequest(modules, moduleId);
     if (request !== undefined) setSourceRequest(request);
@@ -345,35 +281,44 @@ export function ModulesExperience({
         )}
       >
         <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-          <div className="flex min-w-0 items-center gap-3">
-            {onBack !== undefined && (
-              <button
-                type="button"
-                aria-label="Back to Layers"
-                className="grid size-8 shrink-0 place-items-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                onClick={onBack}
-              >
-                <ArrowLeft className="size-4" />
-              </button>
-            )}
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold tracking-tight">
-                All Modules
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                Select a Configured Module to reveal connections. Right-click to
-                explore its source.
-              </p>
-            </div>
+          <p className="min-w-0 text-xs text-muted-foreground">
+            Select a Layer or Module to reveal connections. Right-click a Module
+            to explore its source.
+          </p>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+              Show Modules
+              <Switch
+                size="sm"
+                checked={showModules}
+                onCheckedChange={toggleShowModules}
+              />
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+              Show Layer connections
+              <Switch
+                size="sm"
+                checked={showLayerConnections}
+                onCheckedChange={setShowLayerConnections}
+              />
+            </label>
+            <select
+              aria-label="LayerGraph"
+              className="h-9 min-w-48 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              value={activeGraphId}
+              onChange={(event) => {
+                clearFocus();
+                setActiveGraphId(event.target.value);
+              }}
+            >
+              <option value={allGraphsId}>All LayerGraphs</option>
+              {layerGraphs.map(({ id }) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </select>
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
-            Show Layer connections
-            <Switch
-              size="sm"
-              checked={showLayerConnections}
-              onCheckedChange={setShowLayerConnections}
-            />
-          </label>
         </header>
 
         <ResizablePanelGroup
@@ -382,39 +327,62 @@ export function ModulesExperience({
         >
           <ResizablePanel defaultSize="75%" minSize="50%">
             <section className="flex size-full min-h-0 min-w-0 flex-col">
-              <div className="flex min-h-11 items-center justify-end border-b border-border px-4">
-                <ModuleLegend />
+              <div className="flex min-h-11 items-center justify-between gap-4 border-b border-border px-4">
+                <p className="truncate text-xs text-muted-foreground">
+                  {selectedGraph?.description ?? 'All direct Rules'}
+                </p>
+                {showModules ? (
+                  <ModuleLegend />
+                ) : (
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    Pan · zoom · select
+                  </span>
+                )}
               </div>
-              <ModuleGraph
-                className="min-h-[515px] flex-1 rounded-none border-0"
-                layers={layers}
-                rules={rules}
-                layerGraphs={layerGraphs}
-                modules={modules}
-                dependencies={dependencies}
-                focusedLayerId={activeLayerId}
-                showLayerConnections={showLayerConnections}
-                activeModuleId={activeModuleId}
-                activeViolation={activeViolation}
-                onModuleActivate={(id) => {
-                  setActiveLayerId(undefined);
-                  setActiveViolationId(undefined);
-                  setActiveModuleId(id);
-                }}
-                onModuleOpen={openModuleSource}
-                onLayerActivate={(id) => {
-                  setActiveModuleId(undefined);
-                  setActiveViolationId(undefined);
-                  setActiveLayerId(id);
-                }}
-                onClearFocus={clearFocus}
-              />
+              {showModules ? (
+                <ModuleGraph
+                  className="min-h-[515px] flex-1 rounded-none border-0"
+                  layers={layers}
+                  rules={rules}
+                  layerGraphs={layerGraphs}
+                  activeLayerGraphId={selectedGraph?.id}
+                  modules={modules}
+                  dependencies={dependencies}
+                  focusedLayerId={activeLayerId}
+                  showLayerConnections={showLayerConnections}
+                  activeModuleId={activeModuleId}
+                  activeViolation={activeViolation}
+                  onModuleActivate={activateModule}
+                  onModuleOpen={openModuleSource}
+                  onLayerActivate={activateLayer}
+                  onLayerGraphActivate={activateLayerGraph}
+                  onClearFocus={clearFocus}
+                />
+              ) : (
+                <LayerGraph
+                  className="min-h-[515px] flex-1 rounded-none border-0"
+                  layers={layers}
+                  rules={visibleRules}
+                  layerGraphs={layerGraphs}
+                  activeLayerGraphId={selectedGraph?.id}
+                  showLayerConnections={showLayerConnections}
+                  activeLayerId={activeLayerId}
+                  hoveredLayerId={hoveredLayerId}
+                  activeViolationPair={activeViolationPair}
+                  onLayerHoverChange={(id) => {
+                    if (layerFocus.hoverEnabled) setHoveredLayerId(id);
+                  }}
+                  onLayerActivate={activateLayer}
+                  onLayerGraphActivate={activateLayerGraph}
+                  onClearFocus={clearFocus}
+                />
+              )}
             </section>
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel defaultSize="25%" minSize="20%" maxSize="50%">
             <aside className="size-full min-w-0">
-              <ResizablePanelGroup orientation="vertical">
+              <ResizablePanelGroup orientation="vertical" className="min-h-0">
                 <ResizablePanel defaultSize="60%" minSize="20%">
                   <section
                     className={cn(
@@ -422,29 +390,43 @@ export function ModulesExperience({
                       scrollbarStyles,
                     )}
                   >
-                    <ArchitectureTreeLegend
-                      title="Modules"
-                      boundaryLabel="Module"
-                    />
-                    <ModuleTree
-                      modules={modules}
-                      layerIdsByPath={layerIdsByBoundaryPath(layers)}
-                      activeLayerId={activeLayerId}
-                      activeModuleId={activeModuleId}
-                      highlightedModuleIds={focus.highlightedModuleIds}
-                      activeViolation={activeViolation}
-                      onModuleActivate={(id) => {
-                        setActiveLayerId(undefined);
-                        setActiveViolationId(undefined);
-                        setActiveModuleId(id);
-                      }}
-                      onModuleOpen={openModuleSource}
-                      onLayerActivate={(id) => {
-                        setActiveModuleId(undefined);
-                        setActiveViolationId(undefined);
-                        setActiveLayerId(id);
-                      }}
-                    />
+                    {showModules ? (
+                      <>
+                        <ArchitectureTreeLegend
+                          title="Modules"
+                          boundaryLabel="Module"
+                        />
+                        <ModuleTree
+                          modules={visibleModules}
+                          layerIdsByPath={layerIdsByBoundaryPath(visibleLayers)}
+                          activeLayerId={activeLayerId}
+                          activeModuleId={activeModuleId}
+                          highlightedModuleIds={
+                            moduleFocus.highlightedModuleIds
+                          }
+                          activeViolation={activeViolation}
+                          onModuleActivate={activateModule}
+                          onModuleOpen={openModuleSource}
+                          onLayerActivate={activateLayer}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <ArchitectureTreeLegend
+                          title="Scopes"
+                          boundaryLabel="Layer"
+                        />
+                        <LayerScopeTree
+                          layers={visibleLayers}
+                          activeLayerId={
+                            activeViolationPair === undefined
+                              ? activeLayerId
+                              : undefined
+                          }
+                          onLayerActivate={activateLayer}
+                        />
+                      </>
+                    )}
                   </section>
                 </ResizablePanel>
                 <ResizableHandle withHandle />
@@ -455,16 +437,26 @@ export function ModulesExperience({
                       scrollbarStyles,
                     )}
                   >
-                    <SectionLabel>Module violations</SectionLabel>
-                    <ModuleViolationsList
-                      violations={violations}
-                      activeViolationId={activeViolationId}
-                      onActiveViolationChange={(id) => {
-                        setActiveLayerId(undefined);
-                        setActiveModuleId(undefined);
-                        setActiveViolationId(id);
-                      }}
-                    />
+                    {showModules ? (
+                      <>
+                        <SectionLabel>Module violations</SectionLabel>
+                        <ModuleViolationsList
+                          violations={visibleModuleViolations}
+                          activeViolationId={activeViolationId}
+                          onActiveViolationChange={activateViolation}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <SectionLabel>Violations</SectionLabel>
+                        <LayerViolationsList
+                          violationPairs={visibleViolationPairs}
+                          coverageViolations={visibleCoverageViolations}
+                          activeViolationGroupId={activeViolationId}
+                          onActiveViolationGroupChange={activateViolation}
+                        />
+                      </>
+                    )}
                   </section>
                 </ResizablePanel>
               </ResizablePanelGroup>
@@ -482,6 +474,28 @@ export function ModulesExperience({
       )}
     </>
   );
+}
+
+function violationLayerIds(
+  violation: ModuleViolation,
+  layerIdByModuleId: ReadonlyMap<string, string>,
+): readonly (string | undefined)[] {
+  switch (violation.kind) {
+    case 'dependency':
+    case 'boundary':
+      return [
+        layerIdByModuleId.get(violation.fromModuleId),
+        layerIdByModuleId.get(violation.toModuleId),
+      ];
+    case 'cycle':
+      return violation.moduleIds.map((moduleId) =>
+        layerIdByModuleId.get(moduleId),
+      );
+    case 'missing-entry-point':
+      return [layerIdByModuleId.get(violation.moduleId)];
+    case 'coverage':
+      return [violation.layerId];
+  }
 }
 
 function SectionLabel({ children }: { readonly children: ReactNode }) {
