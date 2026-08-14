@@ -63,6 +63,10 @@ export const ProjectConfigSchema = Schema.Struct({
         'Canonical project-relative files or folders explicitly excluded from the analysis universe.',
     })
     .pipe(Schema.withDecodingDefaultKey(Effect.succeed<readonly string[]>([]))),
+  storiesPath: Schema.optional(Schema.String).annotate({
+    description:
+      'Canonical project-relative folder holding every Story file and the index.ts entry point exposing the Story Collection. Implicitly an Ignored path.',
+  }),
   layers: Schema.Record(Schema.String, LayerSchema)
     .annotate({
       description: 'Every Layer in the project, keyed by id.',

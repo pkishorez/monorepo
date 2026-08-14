@@ -3,41 +3,68 @@
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/tests"],
   "layers": {
-    "public-api": { "paths": ["src/index.ts"] },
-    "contract": { "paths": ["src/architecture-analysis-schema"] },
-    "cli": { "paths": ["src/cli"] },
-    "orchestrator": { "paths": ["src/orchestrator"] },
-    "domain": { "paths": ["src/domain"] },
-    "services": { "paths": ["src/services"] }
+    "public-api": {
+      "paths": ["src/index.ts"]
+    },
+    "contract": {
+      "paths": ["src/architecture-analysis-schema"]
+    },
+    "cli": {
+      "paths": ["src/cli"]
+    },
+    "orchestrator": {
+      "paths": ["src/orchestrator"]
+    },
+    "domain": {
+      "paths": ["src/domain"]
+    },
+    "services": {
+      "paths": ["src/services"]
+    },
+    "story": {
+      "paths": ["src/story"]
+    }
   },
   "modules": {
     "src/index.ts": {},
-    "src/architecture-analysis-schema": { "shared": true },
+    "src/architecture-analysis-schema": {
+      "shared": true
+    },
     "src/cli": {},
-
     "src/orchestrator/analyze-project": {},
     "src/orchestrator/inspect": {},
-    "src/orchestrator/load-project": { "shared": true },
+    "src/orchestrator/load-project": {
+      "shared": true
+    },
     "src/orchestrator/load-module-source": {},
-
     "src/domain/architecture-analysis": {
       "nested": ["layers", "modules"]
     },
-    "src/domain/file-graph": { "shared": true },
-    "src/domain/project-config": { "shared": true },
-
+    "src/domain/file-graph": {
+      "shared": true
+    },
+    "src/domain/project-config": {
+      "shared": true
+    },
     "src/services/config": {},
-    "src/services/file-cruiser": { "nested": ["oxc"] }
+    "src/services/file-cruiser": {
+      "nested": ["oxc"]
+    },
+    "src/story": {
+      "nested": ["schema"]
+    },
+    "src/orchestrator/run-stories": {}
   },
   "layerGraphs": {
     "architecture": {
       "rules": {
-        "public-api": ["orchestrator", "contract"],
+        "public-api": ["orchestrator", "contract", "story"],
         "contract": [],
-        "cli": ["orchestrator"],
-        "orchestrator": ["services", "contract"],
+        "cli": ["orchestrator", "story"],
+        "orchestrator": ["services", "contract", "story"],
         "domain": ["contract"],
-        "services": ["domain", "contract"]
+        "services": ["domain", "contract"],
+        "story": []
       }
     }
   }

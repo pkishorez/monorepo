@@ -25,7 +25,9 @@ export function loadProject(configPath: string) {
     const fileGraph = yield* cruiser.cruise(
       baseDir,
       config.sourceRoots,
-      config.ignoredPaths,
+      config.storiesPath === undefined
+        ? config.ignoredPaths
+        : [...config.ignoredPaths, config.storiesPath],
     );
     const issues = validateLoadedConfig(config, fileGraph.keys());
     if (issues.length > 0) {

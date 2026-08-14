@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { ArchitectureAnalysis } from 'laymos';
+import type { ArchitectureAnalysis, StoryTree } from 'laymos';
 
 import {
   ResizableHandle,
@@ -42,11 +42,13 @@ import {
   type ModuleSourceOpenRequest,
 } from './module-source-explorer';
 import { buildPresentationModel } from './presentation-model';
+import { StoriesDocsSite, type StoryReports } from './stories/index';
 import { ArchitectureTreeLegend } from './tree';
 import { layerIdsByBoundaryPath } from './tree/presentation';
 
 const allGraphsId = 'all';
 const layersModulesTabId = 'layers-modules';
+const storiesTabId = 'stories';
 
 interface LayersModulesProps {
   readonly layers: readonly Layer[];
@@ -58,16 +60,26 @@ interface LayersModulesProps {
   readonly dependencies: readonly ModuleDependency[];
   readonly moduleViolations?: readonly ModuleViolation[];
   readonly loadModuleSource: LoadModuleSource;
+  readonly stories?: StoriesTabProps;
   readonly className?: string;
+}
+
+interface StoriesTabProps {
+  readonly tree: StoryTree;
+  readonly reports?: StoryReports;
+  readonly running?: boolean;
+  readonly onRun?: (scope?: string) => void;
 }
 
 export function LaymosExperience({
   analysis,
   loadModuleSource,
+  stories,
   className,
 }: {
   readonly analysis: ArchitectureAnalysis;
   readonly loadModuleSource: LoadModuleSource;
+  readonly stories?: StoriesTabProps;
   readonly className?: string;
 }) {
   const model = useMemo(() => buildPresentationModel(analysis), [analysis]);
@@ -83,15 +95,22 @@ export function LaymosExperience({
       dependencies={model.moduleDependencies}
       moduleViolations={model.moduleViolations}
       loadModuleSource={loadModuleSource}
+      stories={stories}
       className={className}
     />
   );
 }
 
-export function LaymosShell({ className, ...view }: LayersModulesProps) {
+export function LaymosShell({
+  className,
+  stories,
+  ...view
+}: LayersModulesProps) {
+  const [activeTab, setActiveTab] = useState(layersModulesTabId);
   return (
     <Tabs
-      value={layersModulesTabId}
+      value={activeTab}
+      onValueChange={setActiveTab}
       className={cn(
         'flex min-h-0 flex-col gap-0 overflow-hidden rounded-xl border border-border bg-background shadow-sm',
         className,
@@ -102,6 +121,9 @@ export function LaymosShell({ className, ...view }: LayersModulesProps) {
           <TabsTrigger value={layersModulesTabId}>
             {'Layers <> Modules'}
           </TabsTrigger>
+          {stories !== undefined && (
+            <TabsTrigger value={storiesTabId}>Stories</TabsTrigger>
+          )}
         </TabsList>
       </div>
       <TabsContent
@@ -113,6 +135,14 @@ export function LaymosShell({ className, ...view }: LayersModulesProps) {
           className="flex-1 rounded-none border-0 shadow-none"
         />
       </TabsContent>
+      {stories !== undefined && (
+        <TabsContent
+          value={storiesTabId}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <StoriesDocsSite {...stories} className="min-h-0 flex-1" />
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

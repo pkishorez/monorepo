@@ -27,7 +27,7 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*", "laymos/**/*"],
+  "include": ["src/**/*", "laymos/**/*", "stories/**/*"],
   "exclude": [
     "dist",
     "node_modules",
