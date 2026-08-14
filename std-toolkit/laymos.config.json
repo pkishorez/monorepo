@@ -2,16 +2,19 @@
   "$schema": "../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [
+    "src/cli/__tests__",
     "src/core/__tests__",
     "src/db/__tests__",
     "src/db/dynamodb/__tests__",
-    "src/db/dynamodb/domain/expression/__tests__",
-    "src/db/dynamodb/play",
+    "src/db/dynamodb/expression/__tests__",
+    "src/db/dynamodb/native/__tests__",
+    "src/db/dynamodb/table/__tests__",
     "src/db/idb/__tests__",
     "src/db/sqlite/__tests__",
-    "src/db/sqlite/services/__tests__",
-    "src/db/sqlite/sql/adapters/__tests__",
-    "src/db/sqlite/play.ts",
+    "src/db/std-table/__tests__",
+    "src/db/std-table/definition/__tests__",
+    "src/db/std-table/entity/__tests__",
+    "src/db/std-table/key/__tests__",
     "src/eschema/__tests__",
     "src/eschema/play.ts",
     "src/eschema/tutorial",
@@ -20,232 +23,330 @@
     "src/tanstack-sync/composition/keyed-sync/__tests__",
     "src/tanstack-sync/domain/partition-identity/__tests__",
     "src/tanstack-sync/lifecycle/strategy-lifecycle/__tests__",
-    "src/tanstack-sync/runtime/mutation-pacing/__tests__",
-    "src/tanstack-sync/workers/cadence-repair/__tests__",
-    "src/tanstack-sync/workers/get-once/__tests__",
     "src/tanstack-sync/persistence/indexed-db-storage/__tests__",
     "src/tanstack-sync/persistence/offline-storage/__tests__",
+    "src/tanstack-sync/persistence/source-of-truth/__tests__",
+    "src/tanstack-sync/runtime/mutation-pacing/__tests__",
     "src/tanstack-sync/workers/bidirectional/__tests__",
+    "src/tanstack-sync/workers/cadence-repair/__tests__",
+    "src/tanstack-sync/workers/get-once/__tests__",
     "src/tanstack-sync/workers/new-to-old/__tests__",
-    "src/tanstack-sync/workers/old-to-new/__tests__",
-    "src/tanstack-sync/persistence/source-of-truth/__tests__"
+    "src/tanstack-sync/workers/old-to-new/__tests__"
   ],
   "layers": {
-    "eschema-barrel": {
-      "paths": ["src/eschema/index.ts"],
-      "description": "Public barrel"
+    "db.public": {
+      "paths": ["src/db/index.ts", "src/db/db.ts"],
+      "description": "Public — adapter-independent database entrypoint"
     },
-    "eschema-constructs": {
+    "std-table.table": {
+      "paths": ["src/db/std-table/table"],
+      "description": "Aggregate — StdTable builder, decoration, and transact"
+    },
+    "std-table.entity": {
+      "paths": ["src/db/std-table/entity"],
+      "description": "Surface — typed keyed and single entity operations"
+    },
+    "std-table.definition": {
+      "paths": ["src/db/std-table/definition"],
+      "description": "Model — logical table and entity definitions"
+    },
+    "std-table.snapshot": {
+      "paths": ["src/db/std-table/snapshot"],
+      "description": "Model — logical table snapshot projection"
+    },
+    "std-table.key": {
+      "paths": ["src/db/std-table/key"],
+      "description": "Model — collision-safe key encoding and storage derivation"
+    },
+    "std-table.contract": {
+      "paths": ["src/db/std-table/contract"],
+      "description": "Port — the contract every adapter implements"
+    },
+    "std-table.error": {
+      "paths": ["src/db/std-table/error"],
+      "description": "Port — public database error"
+    },
+    "dynamodb.public": {
+      "paths": ["src/db/dynamodb/index.ts", "src/db/dynamodb/dynamodb.ts"],
+      "description": "Public — barrel and adapter door"
+    },
+    "dynamodb.native": {
+      "paths": ["src/db/dynamodb/native"],
+      "description": "Native — typed DynamoDB-native operations, bypassing the port"
+    },
+    "dynamodb.table": {
+      "paths": ["src/db/dynamodb/table"],
+      "description": "Store — port implementation"
+    },
+    "dynamodb.setup": {
+      "paths": ["src/db/dynamodb/setup"],
+      "description": "Topology — physical table projection and explicit setup"
+    },
+    "dynamodb.expression": {
+      "paths": ["src/db/dynamodb/expression"],
+      "description": "Language — predicates and updates as DynamoDB expressions"
+    },
+    "dynamodb.item-schema": {
+      "paths": ["src/db/dynamodb/item-schema"],
+      "description": "Mapping — encoded items to and from attribute values"
+    },
+    "dynamodb.attribute-value": {
+      "paths": ["src/db/dynamodb/attribute-value"],
+      "description": "Encoding — values to and from DynamoDB attribute values"
+    },
+    "dynamodb.client": {
+      "paths": ["src/db/dynamodb/client"],
+      "description": "Connection — generated API execution and AWS request signing"
+    },
+    "idb.public": {
+      "paths": ["src/db/idb/index.ts", "src/db/idb/idb.ts"],
+      "description": "Public — barrel and adapter door"
+    },
+    "idb.table": {
+      "paths": ["src/db/idb/table"],
+      "description": "Store — port implementation"
+    },
+    "idb.item-schema": {
+      "paths": ["src/db/idb/item-schema"],
+      "description": "Mapping — encoded items to and from stored records"
+    },
+    "idb.database": {
+      "paths": ["src/db/idb/database"],
+      "description": "Connection — IndexedDB connection lifecycle"
+    },
+    "idb.upgrade": {
+      "paths": ["src/db/idb/upgrade"],
+      "description": "Upgrade — physical store and index schema, declared at connection-open time and therefore below the connection"
+    },
+    "sqlite.public": {
+      "paths": ["src/db/sqlite/index.ts", "src/db/sqlite/sqlite.ts"],
+      "description": "Public — barrel and adapter door"
+    },
+    "sqlite.table": {
+      "paths": ["src/db/sqlite/table"],
+      "description": "Store — port implementation"
+    },
+    "sqlite.setup": {
+      "paths": ["src/db/sqlite/setup"],
+      "description": "Topology — physical schema setup and migration"
+    },
+    "sqlite.statement": {
+      "paths": ["src/db/sqlite/statement"],
+      "description": "Language — predicates and writes as parameterized SQL statements"
+    },
+    "sqlite.item-schema": {
+      "paths": ["src/db/sqlite/item-schema"],
+      "description": "Mapping — encoded items to and from rows"
+    },
+    "sqlite.database": {
+      "paths": ["src/db/sqlite/database"],
+      "description": "Connection — SQLite database contract"
+    },
+    "sqlite.drivers": {
+      "paths": ["src/db/sqlite/drivers"],
+      "description": "Drivers — runtime-specific SQLite bindings"
+    },
+    "eschema.public": {
+      "paths": ["src/eschema/index.ts"],
+      "description": "Public — barrel"
+    },
+    "eschema.constructs": {
       "paths": [
         "src/eschema/eschema",
         "src/eschema/entity-eschema",
         "src/eschema/value-eschema"
       ],
-      "description": "Public ESchema variants and their local builders"
+      "description": "Constructs — public ESchema variants and their local builders"
     },
-    "eschema-composition": {
+    "eschema.composition": {
       "paths": ["src/eschema/schema-composition"],
-      "description": "Effect Schema composition"
+      "description": "Composition — Effect Schema composition"
     },
-    "eschema-domain": {
+    "eschema.domain": {
       "paths": ["src/eschema/domain"],
-      "description": "Evolution, field policy, runtimes, errors, and introspection"
+      "description": "Domain — evolution, field policy, runtimes, errors, and introspection"
     },
-    "snapshot-barrel": {
+    "snapshot.public": {
       "paths": ["src/snapshot/index.ts"],
-      "description": "Public barrel"
+      "description": "Public — barrel"
     },
-    "snapshot-facade": {
+    "snapshot.facade": {
       "paths": ["src/snapshot/snapshot"],
-      "description": "Public Snapshot operation composition"
+      "description": "Facade — public Snapshot operation composition"
     },
-    "snapshot-capture": {
+    "snapshot.capture": {
       "paths": ["src/snapshot/capture"],
-      "description": "ESchema and table contract capture"
+      "description": "Capture — ESchema and table contract capture"
     },
-    "snapshot-domain": {
+    "snapshot.domain": {
       "paths": ["src/snapshot/domain"],
-      "description": "Snapshot models, errors, and canonical ordering"
+      "description": "Domain — snapshot models, errors, and canonical ordering"
     },
-    "cli": {
-      "paths": ["src/cli"],
-      "description": "Command-line entrypoint and snapshot workflow"
-    },
-    "core-barrel": {
+    "core.public": {
       "paths": ["src/core/index.ts"],
-      "description": "Public barrel"
+      "description": "Public — barrel"
     },
-    "core-impl": {
+    "core.impl": {
       "paths": [
         "src/core/broadcaster.ts",
         "src/core/error.ts",
         "src/core/schema.ts",
         "src/core/ulid.ts"
       ],
-      "description": "Internal implementation"
+      "description": "Impl — internal implementation"
     },
-    "dynamodb-barrel": {
-      "paths": ["src/db/dynamodb/index.ts"],
-      "description": "Public barrel"
+    "cli": {
+      "paths": ["src/cli"],
+      "description": "CLI — command-line entrypoint and snapshot workflow"
     },
-    "dynamodb-orchestrators": {
-      "paths": ["src/db/dynamodb/orchestrators"],
-      "description": "Composition of table topology, entities, transactions, and snapshots"
-    },
-    "dynamodb-services": {
-      "paths": ["src/db/dynamodb/services"],
-      "description": "Runtime bindings and persistence capabilities"
-    },
-    "dynamodb-clients": {
-      "paths": ["src/db/dynamodb/clients"],
-      "description": "Generated API execution and AWS request signing"
-    },
-    "dynamodb-domain": {
-      "paths": ["src/db/dynamodb/domain", "src/db/dynamodb/types"],
-      "description": "Pure table identity, persistence, expressions, and attribute values"
-    },
-    "db-persistence-domain": {
-      "paths": ["src/db/domain"],
-      "description": "Shared persistence failures and entity registration"
-    },
-    "idb-barrel": {
-      "paths": ["src/db/idb/index.ts"],
-      "description": "Public barrel"
-    },
-    "idb-orchestrators": {
-      "paths": ["src/db/idb/orchestrators"],
-      "description": "Public table composition"
-    },
-    "idb-services": {
-      "paths": ["src/db/idb/services"],
-      "description": "Private database, table, and entity capabilities"
-    },
-    "idb-clients": {
-      "paths": ["src/db/idb/clients"],
-      "description": "Browser IndexedDB implementation and layer wiring"
-    },
-    "idb-domain": {
-      "paths": ["src/db/idb/domain"],
-      "description": "Pure IndexedDB persistence derivation"
-    },
-    "sqlite-barrel": {
-      "paths": ["src/db/sqlite/index.ts"],
-      "description": "Public barrel"
-    },
-    "sqlite-services": {
-      "paths": ["src/db/sqlite/services"],
-      "description": "Entity/command surface"
-    },
-    "sqlite-orchestrators": {
-      "paths": ["src/db/sqlite/orchestrators"],
-      "description": "Public table composition"
-    },
-    "sqlite-clients": {
-      "paths": ["src/db/sqlite/clients"],
-      "description": "Native SQLite client contract"
-    },
-    "sqlite-domain": {
-      "paths": ["src/db/sqlite/domain"],
-      "description": "Pure SQL and entity persistence derivation"
-    },
-    "sqlite-adapters": {
-      "paths": ["src/db/sqlite/sql/adapters"],
-      "description": "Runtime-specific SQLite bindings"
-    },
-    "sync-public": {
+    "tanstack-sync.public": {
       "paths": [
         "src/tanstack-sync/index.ts",
         "src/tanstack-sync/tanstack-sync.ts"
       ],
-      "description": "Public facade and collection factory"
+      "description": "Public — barrel, facade, and collection factory"
     },
-    "sync-composition": {
+    "tanstack-sync.composition": {
       "paths": ["src/tanstack-sync/composition"],
-      "description": "Keyed hybrid and single-item collection composition"
+      "description": "Composition — keyed hybrid and single-item collection composition"
     },
-    "sync-lifecycle": {
+    "tanstack-sync.lifecycle": {
       "paths": ["src/tanstack-sync/lifecycle"],
-      "description": "Total, partition, singleton, and strategy lifecycles"
+      "description": "Lifecycle — total, partition, singleton, and strategy lifecycles"
     },
-    "sync-workers": {
+    "tanstack-sync.workers": {
       "paths": ["src/tanstack-sync/workers"],
-      "description": "Independent sync and repair workers"
+      "description": "Workers — independent sync and repair workers"
     },
-    "sync-runtime": {
+    "tanstack-sync.runtime": {
       "paths": ["src/tanstack-sync/runtime"],
-      "description": "Typed TanStack and Effect runtime capabilities"
+      "description": "Runtime — typed TanStack and Effect runtime capabilities"
     },
-    "sync-persistence": {
+    "tanstack-sync.persistence": {
       "paths": ["src/tanstack-sync/persistence"],
-      "description": "Offline storage, server truth, and strategy progress"
+      "description": "Persistence — offline storage, server truth, and strategy progress"
     },
-    "sync-domain": {
+    "tanstack-sync.domain": {
       "paths": ["src/tanstack-sync/domain"],
-      "description": "Pure sync policies, identities, state, and errors"
+      "description": "Domain — pure sync policies, identities, state, and errors"
     }
   },
   "modules": {
-    "src/cli": {},
-    "src/core/broadcaster.ts": {},
-    "src/core/error.ts": {},
-    "src/core/index.ts": {},
-    "src/core/schema.ts": { "shared": true },
-    "src/core/ulid.ts": {},
-    "src/db/dynamodb/clients/dynamodb-client": {},
-    "src/db/dynamodb/domain/attribute-value": { "shared": true },
-    "src/db/dynamodb/domain/client-error": {},
-    "src/db/dynamodb/domain/dynamodb-error": {},
-    "src/db/dynamodb/domain/entity-persistence": {},
-    "src/db/dynamodb/domain/expression": {},
-    "src/db/dynamodb/domain/table-identity": { "shared": true },
+    "src/db/index.ts": {},
+    "src/db/db.ts": {
+      "shared": true
+    },
+    "src/db/std-table/table": {},
+    "src/db/std-table/entity": {},
+    "src/db/std-table/definition": {},
+    "src/db/std-table/snapshot": {},
+    "src/db/std-table/key": {},
+    "src/db/std-table/contract": {},
+    "src/db/std-table/error": {},
     "src/db/dynamodb/index.ts": {},
-    "src/db/dynamodb/orchestrators/dynamo-table": {},
-    "src/db/dynamodb/services/dynamo-entity": { "shared": true },
-    "src/db/dynamodb/services/dynamo-single-entity": { "shared": true },
-    "src/db/dynamodb/services/dynamo-table": {},
-    "src/db/dynamodb/services/dynamodb": { "shared": true },
-    "src/db/dynamodb/types": { "shared": true },
-    "src/db/domain/persistence-error": { "shared": true },
-    "src/db/idb/clients/idb-client": {},
-    "src/db/idb/domain/entity-persistence": {},
-    "src/db/idb/domain/idb-error": {},
+    "src/db/dynamodb/dynamodb.ts": {
+      "shared": true
+    },
+    "src/db/dynamodb/native": {},
+    "src/db/dynamodb/table": {},
+    "src/db/dynamodb/setup": {},
+    "src/db/dynamodb/expression": {},
+    "src/db/dynamodb/item-schema": {},
+    "src/db/dynamodb/attribute-value": {},
+    "src/db/dynamodb/client": {},
     "src/db/idb/index.ts": {},
-    "src/db/idb/orchestrators/idb-table": {},
-    "src/db/idb/services/idb-database": { "shared": true },
-    "src/db/idb/services/idb-entity": { "shared": true },
-    "src/db/idb/services/idb-single-entity": { "shared": true },
-    "src/db/idb/services/idb-table": {},
+    "src/db/idb/idb.ts": {
+      "shared": true
+    },
+    "src/db/idb/table": {},
+    "src/db/idb/item-schema": {},
+    "src/db/idb/database": {},
+    "src/db/idb/upgrade": {},
     "src/db/sqlite/index.ts": {},
-    "src/db/sqlite/clients/sqlite-client": {},
-    "src/db/sqlite/domain/entity-persistence": {},
-    "src/db/sqlite/domain/sql-statement": {},
-    "src/db/sqlite/domain/sqlite-error": {},
-    "src/db/sqlite/orchestrators/sqlite-table": {},
-    "src/db/sqlite/services/sqlite-database": { "shared": true },
-    "src/db/sqlite/services/sqlite-entity": { "shared": true },
-    "src/db/sqlite/services/sqlite-single-entity": { "shared": true },
-    "src/db/sqlite/services/sqlite-table": {},
-    "src/db/sqlite/sql/adapters/better-sqlite3": {},
-    "src/db/sqlite/sql/adapters/bun": {},
-    "src/db/sqlite/sql/adapters/durable-object": {},
-    "src/db/sqlite/sql/adapters/node": {},
-    "src/eschema/domain/eschema-error": { "shared": true },
-    "src/eschema/domain/introspection": { "shared": true },
-    "src/eschema/domain/object-schema-runtime": {},
-    "src/eschema/domain/schema-model": { "shared": true },
-    "src/eschema/entity-eschema": {},
-    "src/eschema/eschema": { "shared": true },
+    "src/db/sqlite/sqlite.ts": {
+      "shared": true
+    },
+    "src/db/sqlite/table": {},
+    "src/db/sqlite/setup": {},
+    "src/db/sqlite/statement": {},
+    "src/db/sqlite/item-schema": {},
+    "src/db/sqlite/database": {},
     "src/eschema/index.ts": {},
-    "src/eschema/schema-composition": {},
+    "src/eschema/eschema": {
+      "shared": true
+    },
+    "src/eschema/entity-eschema": {},
     "src/eschema/value-eschema": {},
-    "src/snapshot/capture/eschema-capture": { "shared": true },
-    "src/snapshot/capture/table-entity-registry": {},
-    "src/snapshot/capture/table-capture": { "shared": true },
-    "src/snapshot/domain": {},
+    "src/eschema/schema-composition": {},
     "src/snapshot/index.ts": {},
     "src/snapshot/snapshot": {},
+    "src/snapshot/domain": {},
+    "src/core/index.ts": {},
+    "src/core/broadcaster.ts": {},
+    "src/core/error.ts": {},
+    "src/core/schema.ts": {
+      "shared": true
+    },
+    "src/core/ulid.ts": {},
+    "src/cli": {},
+    "src/tanstack-sync/index.ts": {},
+    "src/tanstack-sync/tanstack-sync.ts": {
+      "shared": true
+    },
+    "src/db/sqlite/drivers/node": {},
+    "src/db/sqlite/drivers/bun": {},
+    "src/db/sqlite/drivers/better-sqlite3": {},
+    "src/db/sqlite/drivers/durable-object": {},
+    "src/eschema/domain/eschema-error": {
+      "shared": true
+    },
+    "src/eschema/domain/introspection": {
+      "shared": true
+    },
+    "src/eschema/domain/object-schema-runtime": {},
+    "src/eschema/domain/schema-model": {
+      "shared": true
+    },
+    "src/snapshot/capture/eschema-capture": {
+      "shared": true
+    },
+    "src/snapshot/capture/table-entity-registry": {},
+    "src/snapshot/capture/table-capture": {
+      "shared": true
+    },
     "src/tanstack-sync/composition/keyed-sync": {},
     "src/tanstack-sync/composition/single-item-sync": {},
+    "src/tanstack-sync/lifecycle/partition-sync": {},
+    "src/tanstack-sync/lifecycle/single-item-lifecycle": {},
+    "src/tanstack-sync/lifecycle/strategy-lifecycle": {
+      "shared": true
+    },
+    "src/tanstack-sync/lifecycle/sync-execution": {},
+    "src/tanstack-sync/workers/bidirectional": {},
+    "src/tanstack-sync/workers/cadence-repair": {},
+    "src/tanstack-sync/workers/get-once": {},
+    "src/tanstack-sync/workers/new-to-old": {},
+    "src/tanstack-sync/workers/old-to-new": {},
+    "src/tanstack-sync/runtime/collection-model": {
+      "shared": true
+    },
+    "src/tanstack-sync/runtime/collection-projection": {},
+    "src/tanstack-sync/runtime/effect-runner": {
+      "shared": true
+    },
+    "src/tanstack-sync/runtime/mutation-pacing": {},
+    "src/tanstack-sync/runtime/pending-mutations": {},
+    "src/tanstack-sync/runtime/strategy-runtime": {},
+    "src/tanstack-sync/runtime/sync-registry": {},
+    "src/tanstack-sync/runtime/sync-flow": {
+      "shared": true
+    },
+    "src/tanstack-sync/persistence/indexed-db-storage": {},
+    "src/tanstack-sync/persistence/offline-storage": {
+      "shared": true
+    },
+    "src/tanstack-sync/persistence/source-of-truth": {},
+    "src/tanstack-sync/persistence/sync-state": {},
     "src/tanstack-sync/domain/cadence-policy": {},
     "src/tanstack-sync/domain/entity-convergence": {},
     "src/tanstack-sync/domain/entity-validation": {},
@@ -253,152 +354,113 @@
     "src/tanstack-sync/domain/slice-coverage": {},
     "src/tanstack-sync/domain/strategy-state": {},
     "src/tanstack-sync/domain/sync-error": {},
-    "src/tanstack-sync/domain/sync-event": { "shared": true },
-    "src/tanstack-sync/index.ts": {},
-    "src/tanstack-sync/lifecycle/partition-sync": {},
-    "src/tanstack-sync/lifecycle/single-item-lifecycle": {},
-    "src/tanstack-sync/lifecycle/strategy-lifecycle": { "shared": true },
-    "src/tanstack-sync/lifecycle/sync-execution": {},
-    "src/tanstack-sync/persistence/indexed-db-storage": {},
-    "src/tanstack-sync/persistence/offline-storage": { "shared": true },
-    "src/tanstack-sync/persistence/source-of-truth": {},
-    "src/tanstack-sync/persistence/sync-state": {},
-    "src/tanstack-sync/runtime/collection-model": { "shared": true },
-    "src/tanstack-sync/runtime/collection-projection": {},
-    "src/tanstack-sync/runtime/effect-runner": { "shared": true },
-    "src/tanstack-sync/runtime/mutation-pacing": {},
-    "src/tanstack-sync/runtime/pending-mutations": {},
-    "src/tanstack-sync/runtime/strategy-runtime": {},
-    "src/tanstack-sync/runtime/sync-registry": {},
-    "src/tanstack-sync/runtime/sync-flow": { "shared": true },
-    "src/tanstack-sync/tanstack-sync.ts": { "shared": true },
-    "src/tanstack-sync/workers/bidirectional": {},
-    "src/tanstack-sync/workers/cadence-repair": {},
-    "src/tanstack-sync/workers/get-once": {},
-    "src/tanstack-sync/workers/new-to-old": {},
-    "src/tanstack-sync/workers/old-to-new": {}
+    "src/tanstack-sync/domain/sync-event": {
+      "shared": true
+    }
   },
   "layerGraphs": {
+    "std-table": {
+      "description": "The logical table: public entrypoint, aggregate, entity surface, model, and port",
+      "rules": {
+        "db.public": ["std-table.table"],
+        "std-table.table": ["std-table.entity"],
+        "std-table.entity": [
+          "core.public",
+          "std-table.definition",
+          "std-table.error",
+          "std-table.key"
+        ],
+        "std-table.definition": ["std-table.snapshot"],
+        "std-table.snapshot": ["eschema.public", "snapshot.capture"],
+        "std-table.key": ["std-table.contract"]
+      }
+    },
+    "dynamodb": {
+      "description": "DynamoDB adapter: public door down through store, topology, language, mapping, encoding, and connection",
+      "rules": {
+        "dynamodb.public": ["dynamodb.native", "dynamodb.table"],
+        "dynamodb.native": [
+          "core.public",
+          "dynamodb.expression",
+          "dynamodb.item-schema",
+          "dynamodb.setup",
+          "std-table.key"
+        ],
+        "dynamodb.table": [
+          "dynamodb.client",
+          "dynamodb.expression",
+          "dynamodb.item-schema"
+        ],
+        "dynamodb.setup": ["dynamodb.client", "std-table.definition"],
+        "dynamodb.expression": ["dynamodb.attribute-value"],
+        "dynamodb.item-schema": [
+          "dynamodb.attribute-value",
+          "std-table.contract",
+          "std-table.definition"
+        ]
+      }
+    },
+    "idb": {
+      "description": "IndexedDB adapter: public door down through store, mapping, connection, and open-time upgrade",
+      "rules": {
+        "idb.public": ["idb.table"],
+        "idb.table": ["idb.database", "idb.item-schema"],
+        "idb.item-schema": ["std-table.contract", "std-table.definition"],
+        "idb.database": ["idb.upgrade"],
+        "idb.upgrade": ["std-table.definition"]
+      }
+    },
+    "sqlite": {
+      "description": "SQLite adapter: public door down through store, topology, language, mapping, connection, and drivers",
+      "rules": {
+        "sqlite.public": ["sqlite.setup", "sqlite.table"],
+        "sqlite.table": ["sqlite.database", "sqlite.statement"],
+        "sqlite.setup": ["sqlite.database", "sqlite.statement"],
+        "sqlite.statement": ["sqlite.item-schema"],
+        "sqlite.item-schema": ["std-table.contract", "std-table.definition"],
+        "sqlite.database": ["sqlite.item-schema"],
+        "sqlite.drivers": ["sqlite.database"]
+      }
+    },
     "eschema": {
       "description": "ESchema entrypoint, constructs, composition, and domain",
       "rules": {
-        "eschema-barrel": [
-          "eschema-constructs",
-          "eschema-composition",
-          "eschema-domain"
-        ],
-        "eschema-constructs": ["eschema-domain"],
-        "eschema-composition": ["eschema-domain"]
+        "eschema.public": ["eschema.composition", "eschema.constructs"],
+        "eschema.constructs": ["eschema.domain"],
+        "eschema.composition": ["eschema.domain"]
       }
     },
     "snapshot": {
       "description": "Snapshot facade, capture, domain, and one-way ESchema integration",
       "rules": {
-        "snapshot-barrel": ["snapshot-facade", "snapshot-domain"],
-        "snapshot-facade": [
-          "snapshot-capture",
-          "snapshot-domain",
-          "eschema-domain",
-          "eschema-constructs"
-        ],
-        "snapshot-capture": ["snapshot-domain", "eschema-domain"],
-        "snapshot-domain": []
+        "snapshot.public": ["snapshot.facade"],
+        "snapshot.facade": ["eschema.constructs", "snapshot.capture"],
+        "snapshot.capture": ["eschema.domain", "snapshot.domain"]
       }
     },
     "core": {
       "description": "Core utilities and their schema dependency",
       "rules": {
-        "core-barrel": ["core-impl"],
-        "core-impl": ["eschema-barrel"]
+        "core.public": ["core.impl"],
+        "core.impl": ["eschema.public"]
       }
     },
     "cli": {
       "description": "Command-line access to semantic snapshots",
       "rules": {
-        "cli": ["snapshot-barrel"]
-      }
-    },
-    "dynamodb": {
-      "description": "DynamoDB entrypoint, orchestration, runtime services, clients, and pure domain",
-      "rules": {
-        "dynamodb-barrel": [
-          "dynamodb-orchestrators",
-          "dynamodb-services",
-          "dynamodb-clients",
-          "dynamodb-domain"
-        ],
-        "dynamodb-orchestrators": [
-          "dynamodb-services",
-          "dynamodb-domain",
-          "core-barrel",
-          "snapshot-barrel"
-        ],
-        "dynamodb-services": [
-          "dynamodb-clients",
-          "dynamodb-domain",
-          "db-persistence-domain",
-          "core-barrel",
-          "snapshot-barrel",
-          "snapshot-capture"
-        ],
-        "dynamodb-clients": ["dynamodb-domain"],
-        "dynamodb-domain": ["db-persistence-domain", "core-barrel"]
-      }
-    },
-    "idb": {
-      "description": "IndexedDB services, browser wiring, and storage internals",
-      "rules": {
-        "idb-barrel": ["idb-orchestrators", "idb-clients", "idb-services"],
-        "idb-orchestrators": ["idb-services", "core-barrel"],
-        "idb-services": [
-          "idb-domain",
-          "db-persistence-domain",
-          "core-barrel",
-          "snapshot-barrel",
-          "snapshot-capture"
-        ],
-        "idb-clients": ["idb-services"],
-        "idb-domain": ["db-persistence-domain", "core-barrel"]
-      }
-    },
-    "sqlite": {
-      "description": "SQLite services, SQL adapters, and storage internals",
-      "rules": {
-        "sqlite-barrel": ["sqlite-orchestrators", "sqlite-services"],
-        "sqlite-orchestrators": ["sqlite-services", "core-barrel"],
-        "sqlite-services": [
-          "sqlite-clients",
-          "sqlite-domain",
-          "db-persistence-domain",
-          "core-barrel",
-          "snapshot-barrel",
-          "snapshot-capture"
-        ],
-        "sqlite-clients": [],
-        "sqlite-domain": ["db-persistence-domain", "core-barrel"],
-        "sqlite-adapters": ["sqlite-clients", "sqlite-services"]
+        "cli": ["snapshot.public"]
       }
     },
     "tanstack-sync": {
       "description": "Acyclic TanStack Sync domain, persistence, runtime, worker, lifecycle, composition, and facade layers",
       "rules": {
-        "sync-public": ["sync-composition", "sync-workers"],
-        "sync-composition": ["sync-lifecycle", "sync-workers"],
-        "sync-lifecycle": [
-          "sync-workers",
-          "sync-runtime",
-          "sync-domain",
-          "core-barrel"
-        ],
-        "sync-workers": ["sync-runtime", "sync-domain", "core-barrel"],
-        "sync-runtime": [
-          "sync-persistence",
-          "sync-domain",
-          "core-barrel",
-          "eschema-barrel"
-        ],
-        "sync-persistence": ["sync-domain", "core-barrel", "eschema-barrel"],
-        "sync-domain": ["core-barrel"]
+        "tanstack-sync.public": ["tanstack-sync.composition"],
+        "tanstack-sync.composition": ["tanstack-sync.lifecycle"],
+        "tanstack-sync.lifecycle": ["tanstack-sync.workers"],
+        "tanstack-sync.workers": ["tanstack-sync.runtime"],
+        "tanstack-sync.runtime": ["tanstack-sync.persistence"],
+        "tanstack-sync.persistence": ["tanstack-sync.domain"],
+        "tanstack-sync.domain": ["core.public"]
       }
     }
   }

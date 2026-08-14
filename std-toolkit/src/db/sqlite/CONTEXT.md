@@ -1,26 +1,28 @@
 # db/sqlite — Ubiquitous Language
 
-The SQLite adapter. Mirrors the single-table topology defined in [[db]] — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table**, **Entity service** — over a SQLite table. This glossary defines only where SQLite diverges from that shared kernel. See the root `CONTEXT-MAP.md`.
+The SQLite adapter. Mirrors the single-table topology defined in [[db]] — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **StdTable**, **entity surface** — over a SQLite table. This glossary defines only where SQLite diverges from that shared kernel. See the root `CONTEXT-MAP.md`.
 
 ## Language
 
-**SQLiteTable**:
-A named, type-safe single-table definition within a SQLite database. Its name identifies the physical SQLite table; the **partition key** is the PRIMARY KEY column (TEXT), and the **sort key** is the RANGE column (TEXT).
+**SQLite adapter table**:
+The result of `SQLite.make` (`SQLiteTable`): the SQLite implementation of the shared [[db]] **StdTable contract**. Its optional physical table name defaults to the StdTable's logical name; the **partition key** is the PRIMARY KEY column (TEXT), and the **sort key** is the RANGE column (TEXT).
+_Avoid_: SQLite Table runtime (retired term), Table binding.
 
-**SQLiteEntity** / **SQLiteSingleEntity**:
-The SQLite **Entity service**s (keyed / singleton) for CRUD over a `SQLiteTable`.
+**SQLite row**:
+The adapter's **decoded item**: the physical representation of an **encoded item**. The configured primary and secondary key attributes are `TEXT` columns, `_e`, `_v`, `_u`, and `_d` are top-level metadata columns, and `data` holds the JSON-encoded Entity value. Secondary columns use the attribute names declared by `IndexDefinition` without adapter-specific renaming.
 
-**`_data` column**:
-The TEXT column holding the JSON-serialized **Entity** `value`. SQLite's storage form of the domain data (DynamoDB instead stores attributes natively).
-_Avoid_: payload column, blob.
+**SQLite item schema**:
+The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and a **SQLite row** (`itemSchema(table): Schema<DecodedItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed rows fail as parse errors. It performs no SQL construction or I/O.
+_Avoid_: item codec, encodeItem/decodeItem pairs.
 
 **SortKeyCondition**:
 The range operators for querying within an **item collection** — `<`, `<=`, `>`, `>=`, `=`, `between`, `beginsWith` — paired with a pk value as `KeyConditionParameters`.
 
-**adapter** / **runtime adapter**:
-The environment-specific SQLite binding behind the service. Each **runtime adapter** targets one JS runtime: `node` (async) and `better-sqlite3` (sync) for Node, `bun` for Bun, `do` for Cloudflare Durable Objects.
-_Avoid_: driver, backend.
+**SQLite read consistency**:
+Primary, LSI, and GSI access patterns observe the latest committed SQLite state.
 
-**SQLiteError**:
-The direct union of SQLite adapter failures and the shared persistence failures inherited from [[db]].
-_Avoid_: SqliteDBError.
+**driver**:
+The platform binding implementing the `SQLiteDriver` interface beneath this adapter. Drivers target Node, better-sqlite3, Bun, or Cloudflare Durable Objects.
+_Avoid_: adapter, backend, database runtime.
+
+SQLite driver failures are normalized into the shared [[db]] `DatabaseError` as an `OperationFailed` reason whose `cause` retains the driver error.

@@ -23,6 +23,38 @@
     "std-toolkit": "bin/std-toolkit.mjs"
   },
   "exports": {
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "default": "./dist/db/index.js"
+    },
+    "./db/dynamodb": {
+      "types": "./dist/db/dynamodb/index.d.ts",
+      "default": "./dist/db/dynamodb/index.js"
+    },
+    "./db/idb": {
+      "types": "./dist/db/idb/index.d.ts",
+      "default": "./dist/db/idb/index.js"
+    },
+    "./db/sqlite": {
+      "types": "./dist/db/sqlite/index.d.ts",
+      "default": "./dist/db/sqlite/index.js"
+    },
+    "./db/sqlite/better-sqlite3": {
+      "types": "./dist/db/sqlite/drivers/better-sqlite3/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/better-sqlite3/index.js"
+    },
+    "./db/sqlite/bun": {
+      "types": "./dist/db/sqlite/drivers/bun/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/bun/index.js"
+    },
+    "./db/sqlite/durable-object": {
+      "types": "./dist/db/sqlite/drivers/durable-object/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/durable-object/index.js"
+    },
+    "./db/sqlite/node": {
+      "types": "./dist/db/sqlite/drivers/node/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/node/index.js"
+    },
     "./core": {
       "types": "./dist/core/index.d.ts",
       "default": "./dist/core/index.js"
@@ -34,38 +66,6 @@
     "./snapshot": {
       "types": "./dist/snapshot/index.d.ts",
       "default": "./dist/snapshot/index.js"
-    },
-    "./dynamodb": {
-      "types": "./dist/db/dynamodb/index.d.ts",
-      "default": "./dist/db/dynamodb/index.js"
-    },
-    "./dynamodb/client": {
-      "types": "./dist/db/dynamodb/clients/dynamodb-client/index.d.ts",
-      "default": "./dist/db/dynamodb/clients/dynamodb-client/index.js"
-    },
-    "./idb": {
-      "types": "./dist/db/idb/index.d.ts",
-      "default": "./dist/db/idb/index.js"
-    },
-    "./sqlite": {
-      "types": "./dist/db/sqlite/index.d.ts",
-      "default": "./dist/db/sqlite/index.js"
-    },
-    "./sqlite/adapters/do": {
-      "types": "./dist/db/sqlite/sql/adapters/durable-object/index.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/durable-object/index.js"
-    },
-    "./sqlite/adapters/better-sqlite3": {
-      "types": "./dist/db/sqlite/sql/adapters/better-sqlite3/index.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/better-sqlite3/index.js"
-    },
-    "./sqlite/adapters/bun": {
-      "types": "./dist/db/sqlite/sql/adapters/bun/index.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/bun/index.js"
-    },
-    "./sqlite/adapters/node": {
-      "types": "./dist/db/sqlite/sql/adapters/node/index.d.ts",
-      "default": "./dist/db/sqlite/sql/adapters/node/index.js"
     },
     "./tanstack-sync": {
       "types": "./dist/tanstack-sync/index.d.ts",
@@ -96,8 +96,7 @@
     "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
     "lint:tsc": "tsc",
-    "sqlite:play": "bun src/db/sqlite/play.ts",
-    "test": "vitest run",
+    "test": "DYNAMODB_LOCAL_ENDPOINT=http://localhost:8090 REQUIRE_DYNAMODB_LOCAL=true vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -1,10 +1,10 @@
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import envPaths from 'env-paths';
 import { Context, Effect, Layer } from 'effect';
-import { SQLiteTable } from 'std-toolkit/sqlite';
-import { nodeSqliteLayer } from 'std-toolkit/sqlite/adapters/node';
+import { StdTable } from 'std-toolkit/db';
+import { SQLite, type SQLiteTable } from 'std-toolkit/db/sqlite';
+import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { MachineSchema } from '../../domain/machine/index.js';
 import { MessageSchema } from '../../domain/message/index.js';
 import { RunSchema } from '../../domain/run/index.js';
@@ -18,79 +18,103 @@ export const DEFAULT_DB_PATH = join(
 export const DEFAULT_TABLE_NAME = 'code_data';
 
 export interface DbOptions {
-  dbPath?: string;
-  tableName?: string;
-  database?: DatabaseSync;
-  closeDatabase?: boolean;
+  readonly dbPath?: string;
+  readonly tableName?: string;
 }
 
-const ensureDbParent = (dbPath: string) => {
-  if (dbPath === ':memory:') return;
-  mkdirSync(dirname(dbPath), { recursive: true });
+const table = StdTable.make('code')
+  .primary('pk', 'sk')
+  .gsi('machine-primary', 'machinePk', 'machineSk')
+  .build();
+const machine = table
+  .entity(MachineSchema)
+  .primary()
+  .index('machine-primary', 'all', { pk: [] })
+  .build();
+const thread = table.entity(ThreadSchema).primary().build();
+const run = table
+  .entity(RunSchema)
+  .primary({ pk: ['threadId'] })
+  .build();
+const message = table
+  .entity(MessageSchema)
+  .primary({ pk: ['threadId'] })
+  .build();
+
+const makeDatabaseService = (configured: SQLiteTable<'code'>) => {
+  const provideTable = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.provide(effect, configured.layer);
+  return {
+    table: {
+      transact: (operations: Parameters<typeof table.transact>[0]) =>
+        provideTable(table.transact(operations)).pipe(
+          Effect.withSpan('code.db.transaction', {
+            attributes: { 'db.operation_count': operations.length },
+          }),
+        ),
+    },
+    machine: {
+      ...machine,
+      get: (...args: Parameters<typeof machine.get>) =>
+        provideTable(machine.get(...args)),
+      insert: (...args: Parameters<typeof machine.insert>) =>
+        provideTable(machine.insert(...args)),
+      query: (...args: Parameters<typeof machine.query>) =>
+        provideTable(machine.query(...args)),
+    },
+    thread: {
+      ...thread,
+      get: (...args: Parameters<typeof thread.get>) =>
+        provideTable(thread.get(...args)),
+      insertOp: (...args: Parameters<typeof thread.insertOp>) =>
+        provideTable(thread.insertOp(...args)),
+      getAndUpdateOp: (...args: Parameters<typeof thread.getAndUpdateOp>) =>
+        provideTable(thread.getAndUpdateOp(...args)),
+    },
+    run: {
+      ...run,
+      get: (...args: Parameters<typeof run.get>) =>
+        provideTable(run.get(...args)),
+      insertOp: (...args: Parameters<typeof run.insertOp>) =>
+        provideTable(run.insertOp(...args)),
+      getAndUpdateOp: (...args: Parameters<typeof run.getAndUpdateOp>) =>
+        provideTable(run.getAndUpdateOp(...args)),
+    },
+    message: {
+      ...message,
+      insertOp: (...args: Parameters<typeof message.insertOp>) =>
+        provideTable(message.insertOp(...args)),
+    },
+  };
 };
 
-const makeDatabase = (options: DbOptions) =>
-  Effect.acquireRelease(
-    Effect.sync(() => {
-      if (options.database) return options.database;
-      const dbPath = options.dbPath ?? DEFAULT_DB_PATH;
-      ensureDbParent(dbPath);
-      return new DatabaseSync(dbPath);
-    }),
-    (database) =>
-      Effect.sync(() => {
-        const shouldClose = options.database
-          ? options.closeDatabase === true
-          : options.closeDatabase !== false;
-        if (shouldClose) database.close();
-      }),
-  );
+type DatabaseService = ReturnType<typeof makeDatabaseService>;
 
-const makeDbEffect = (tableName: string) =>
-  Effect.gen(function* () {
-    const table = SQLiteTable.make(tableName).primary('pk', 'sk').build();
-    const machine = table.entity(MachineSchema).primary().build();
-    const thread = table.entity(ThreadSchema).primary().build();
-    const run = table
-      .entity(RunSchema)
-      .primary({ pk: ['threadId'] })
-      .build();
-    const message = table
-      .entity(MessageSchema)
-      .primary({ pk: ['threadId'] })
-      .build();
+/** @internal */
+export class Db extends Context.Service<Db, DatabaseService>()('code/Db') {}
 
-    yield* table.setup();
-    return {
-      table: {
-        transact: (ops: Parameters<typeof table.transact>[0]) =>
-          table.transact(ops).pipe(
-            Effect.withSpan('code.db.transaction', {
-              attributes: { 'db.operation_count': ops.length },
-            }),
-          ),
-      },
-      machine,
-      thread,
-      run,
-      message,
-    };
-  });
-
-export class Db extends Context.Service<
-  Db,
-  Effect.Success<ReturnType<typeof makeDbEffect>>
->()('code/Db') {}
-
+/** @internal */
 export const makeDbLayer = (options: DbOptions = {}) => {
+  const dbPath = options.dbPath ?? DEFAULT_DB_PATH;
   const tableName = options.tableName ?? DEFAULT_TABLE_NAME;
-  const sqliteLayer = Layer.unwrap(
-    makeDatabase(options).pipe(
-      Effect.map((database) => nodeSqliteLayer(database)),
-    ),
-  );
-
-  return Layer.effect(Db, makeDbEffect(tableName)).pipe(
-    Layer.provideMerge(sqliteLayer),
+  return Layer.unwrap(
+    Effect.gen(function* () {
+      const database = yield* Effect.acquireRelease(
+        Effect.sync(() => {
+          if (dbPath !== ':memory:')
+            mkdirSync(dirname(dbPath), { recursive: true });
+          return makeNodeSQLite({ path: dbPath });
+        }),
+        (driver) => Effect.sync(() => driver.close?.()),
+      );
+      const configured = SQLite.make(table, { database, tableName });
+      const service = configured.setup.pipe(
+        Effect.mapError(
+          (cause) => new Error('Failed to set up code database', { cause }),
+        ),
+        Effect.as(makeDatabaseService(configured)),
+      );
+      return Layer.effect(Db, service).pipe(Layer.provide(configured.layer));
+    }),
   );
 };

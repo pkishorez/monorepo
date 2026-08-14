@@ -1,4 +1,7 @@
-# Guidelines
+# Effect TS
 
-- Files: kebab-case only (no PascalCase or camelCase)
-- Comments: only when absolutely necessary; code should be self-explanatory. Exception: JSDoc comments for functions, classes, and complex data structures.
+Before writing any Effect code, first read `node_modules/effect/AGENTS.md`
+**completely**, and follow the links in the file when required.
+
+If you need to learn more about particular Effect apis and concepts that the
+guide doesn't cover, search through the source code in `node_modules/effect/src`.

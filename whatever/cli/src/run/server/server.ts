@@ -1,7 +1,12 @@
 import { createServer } from 'node:http';
 import { Layer } from 'effect';
 import { HttpRouter } from 'effect/unstable/http';
-import { RpcServer } from 'effect/unstable/rpc';
+import {
+  Rpc,
+  RpcGroup,
+  RpcSerialization,
+  RpcServer,
+} from 'effect/unstable/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
 import { makeWhateverHandlers } from '@pkishorez/code';
 import {
@@ -12,6 +17,26 @@ import { makeTelemetryLayer } from '@pkishorez/effect-tracer/telemetry';
 
 import { CorsMiddlewareLive } from './cors.ts';
 
+type WhateverRpc = RpcGroup.Rpcs<typeof WhateverRpcs>;
+
+const makeRpcRouteLive = (dbPath: string) =>
+  (
+    RpcServer.layerHttp<WhateverRpc>({
+      group: WhateverRpcs,
+      path: '/rpc',
+      protocol: 'websocket',
+    }) as Layer.Layer<
+      never,
+      never,
+      | HttpRouter.HttpRouter
+      | Rpc.ToHandler<WhateverRpc>
+      | RpcSerialization.RpcSerialization
+    >
+  ).pipe(
+    Layer.provide(makeWhateverHandlers({ dbPath })),
+    Layer.provide(WhateverRpcSerialization),
+  );
+
 export const makeServerLive = (options: {
   host: string;
   port: number;
@@ -19,17 +44,7 @@ export const makeServerLive = (options: {
   telemetryUrl: string;
 }) =>
   HttpRouter.serve(
-    Layer.mergeAll(
-      RpcServer.layerHttp({
-        group: WhateverRpcs,
-        path: '/rpc',
-        protocol: 'websocket',
-      }).pipe(
-        Layer.provide(makeWhateverHandlers({ dbPath: options.db })),
-        Layer.provide(WhateverRpcSerialization),
-      ),
-      CorsMiddlewareLive,
-    ),
+    Layer.mergeAll(makeRpcRouteLive(options.db), CorsMiddlewareLive),
   ).pipe(
     Layer.provide(
       NodeHttpServer.layer(createServer, {

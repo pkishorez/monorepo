@@ -1,30 +1,18 @@
-# std-toolkit/sqlite
+# SQLite
 
-SQLite table and entity services built on Effect, with runtime adapters for multiple environments.
-
-## Subpaths
+Define StdTables and entities once with `std-toolkit/db`, then realize each StdTable on a reusable SQLite database over a driver.
 
 ```ts
-import { SQLiteTable, SQLiteError } from 'std-toolkit/sqlite';
-import { ... } from 'std-toolkit/sqlite/adapters/better-sqlite3'; // Node.js (sync)
-import { ... } from 'std-toolkit/sqlite/adapters/node';           // Node.js (async)
-import { ... } from 'std-toolkit/sqlite/adapters/bun';            // Bun runtime
-import { ... } from 'std-toolkit/sqlite/adapters/do';             // Cloudflare Durable Objects
+import { Effect } from 'effect';
+import { StdTable } from 'std-toolkit/db';
+import { SQLite } from 'std-toolkit/db/sqlite';
+import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+
+const people = StdTable.make('people').primary('pk', 'sk').build();
+const database = makeNodeSQLite({ path: './application.sqlite' });
+const peopleSqlite = SQLite.make(people, { database });
+
+await Effect.runPromise(peopleSqlite.setup);
 ```
 
-## Key exports
-
-**Services**
-
-- `SQLiteTable` — the single-table topology; entities are defined from it via `table.entity(eschema)` / `table.singleEntity(eschema)` and it coordinates `setup()` and `transact()`
-- `table.snapshot()` — synchronously captures the table's storage topology, registered entities, ESchema histories, and index derivations without connecting to SQLite. See the [shared snapshot workflow](../../eschema/README.md#semantic-contract-snapshots).
-
-**Transactions**
-
-- `table.transact(ops)` takes op descriptors produced by `entity.insertOp(...)` / `entity.getAndUpdateOp(...)` / `entity.deleteOp(...)` / `entity.restoreOp(...)` / `singleEntity.getAndUpdateOp(...)` — which validate, migrate, and derive keys up front — and applies them all in one database transaction. Each op re-checks its condition inside the transaction (`insert`: row must not exist; `update`: stored `_u` must equal the op's `expectedU`, unless built with `lastWriteWins: true`); any violation rolls the whole batch back with `conditionFailed`. Ops from an entity of a different table are rejected at runtime. Broadcasts fire only after commit, in op order. See `src/db/docs/adr/0001-buffered-transact-ops-only.md` for why this is the only transaction model.
-
-`SQLiteTable.make(tableName)` owns the real SQLite table name. Adapter layers are database-scoped, so multiple tables in one file or connection share the same layer.
-
-## Adapters
-
-Each adapter subpath exports a one-step layer constructor for its environment. Install only the adapter you use; separate subpaths avoid bundling unused bindings.
+Setup is explicit. Providing `peopleSqlite.layer` never changes the physical schema. Other driver entrypoints are `std-toolkit/db/sqlite/bun`, `std-toolkit/db/sqlite/better-sqlite3`, and `std-toolkit/db/sqlite/durable-object`.

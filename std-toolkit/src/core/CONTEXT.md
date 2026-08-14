@@ -30,5 +30,5 @@ The outbound hook for confirmed entity writes. Adapters call `broadcast` with th
 _Avoid_: EventBus, emitter, channel.
 
 **StdToolkitError**:
-The base error type all toolkit operations extend.
-_Avoid_: ToolkitError, BaseError.
+The union of context-level toolkit errors such as [[db]] `DatabaseError`, `ESchemaError`, and `SnapshotError`. It is a type-level umbrella, not a base class.
+_Avoid_: ToolkitError, BaseError, shared error superclass.
