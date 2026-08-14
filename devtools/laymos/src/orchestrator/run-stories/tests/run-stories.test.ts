@@ -21,13 +21,25 @@ describe('getStoryTree', () => {
 
     expect(tree.title).toBe('basic');
     expect(tree.stories).toEqual([]);
+    expect(tree.docs.map((doc) => doc.id)).toEqual(['basic/about verdicts']);
+    expect(tree.docs[0]!.markdown).toContain('verdicts');
     expect(tree.groups.map((group) => group.title)).toEqual(['verdicts']);
+    expect(tree.groups[0]!.docs).toEqual([]);
     expect(tree.groups[0]!.stories.map((story) => story.id)).toEqual([
       'basic/verdicts/passing story',
       'basic/verdicts/failing story',
       'basic/verdicts/erroring story',
     ]);
     expect(tree.groups[0]!.stories[0]!.markdown).toContain('trace');
+  });
+
+  test('embeds the declared source file on the Story leaf', async () => {
+    const tree = await getStoryTree(fixture('basic')).pipe(Effect.runPromise);
+
+    const [passing, failing] = tree.groups[0]!.stories;
+    expect(passing!.source?.path).toBe('stories/index.ts');
+    expect(passing!.source?.content).toContain('the answer is 42');
+    expect(failing!.source).toBeUndefined();
   });
 });
 

@@ -1,4 +1,6 @@
-import { dirname, join, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { Cause, Effect, Stream } from 'effect';
 import { NodeServices } from '@effect/platform-node';
@@ -6,15 +8,18 @@ import { tsImport } from 'tsx/esm/api';
 
 import {
   isStory,
+  isStoryDoc,
   isStoryGroup,
   StoryContext,
   type Story,
   type StoryGroup,
 } from '../../story/index.js';
 import type {
+  StoryDocLeaf,
   StoryLeaf,
   StoryReport,
   StorySection,
+  StorySource,
   StoryTree,
   StoryTreeGroup,
 } from '../../story/schema/index.js';
@@ -91,7 +96,9 @@ function loadRoot(configPath: string) {
         cause: null,
       });
     }
-    return yield* indexGroup(root, [root.title], entryPoint);
+    return yield* indexGroup(root, [root.title], entryPoint, {
+      projectRoot: dirname(absoluteConfigPath),
+    });
   }).pipe(
     Effect.provide(ConfigServiceLive),
     Effect.provide(NodeServices.layer),
@@ -102,45 +109,69 @@ function indexGroup(
   group: StoryGroup,
   path: readonly string[],
   entryPoint: string,
+  options: { readonly projectRoot: string },
 ): Effect.Effect<
   { tree: StoryTreeGroup; stories: readonly IndexedStory[] },
   StoriesError
 > {
   return Effect.gen(function* () {
     yield* checkUniqueTitles(group.children, path, entryPoint);
-    if (group.children.every(isStory)) {
-      const leaves: StoryLeaf[] = [];
-      const stories: IndexedStory[] = [];
-      for (const story of group.children) {
-        const id = [...path, story.title].join('/');
+    const docs: StoryDocLeaf[] = [];
+    const groups: StoryTreeGroup[] = [];
+    const leaves: StoryLeaf[] = [];
+    const stories: IndexedStory[] = [];
+    for (const child of group.children) {
+      const id = [...path, child.title].join('/');
+      if (isStory(child)) {
+        const source = yield* loadStorySource(child, options.projectRoot);
         leaves.push({
           id,
-          title: story.title,
-          description: story.description,
-          markdown: story.markdown,
+          title: child.title,
+          description: child.description,
+          markdown: child.markdown,
+          ...(source === undefined ? {} : { source }),
         });
-        stories.push({ id, story });
+        stories.push({ id, story: child });
+      } else if (isStoryDoc(child)) {
+        docs.push({
+          id,
+          title: child.title,
+          description: child.description,
+          markdown: child.markdown,
+        });
+      } else {
+        const indexed = yield* indexGroup(
+          child,
+          [...path, child.title],
+          entryPoint,
+          options,
+        );
+        groups.push(indexed.tree);
+        stories.push(...indexed.stories);
       }
-      return {
-        tree: { ...groupDocs(group), groups: [], stories: leaves },
-        stories,
-      };
-    }
-    const groups: StoryTreeGroup[] = [];
-    const stories: IndexedStory[] = [];
-    for (const child of group.children as readonly StoryGroup[]) {
-      const indexed = yield* indexGroup(
-        child,
-        [...path, child.title],
-        entryPoint,
-      );
-      groups.push(indexed.tree);
-      stories.push(...indexed.stories);
     }
     return {
-      tree: { ...groupDocs(group), groups, stories: [] },
+      tree: { ...groupDocs(group), docs, groups, stories: leaves },
       stories,
     };
+  });
+}
+
+function loadStorySource(
+  story: Story,
+  projectRoot: string,
+): Effect.Effect<StorySource | undefined, StoriesError> {
+  if (story.sourceUrl === undefined) return Effect.succeed(undefined);
+  return Effect.try({
+    try: () => {
+      const filePath = fileURLToPath(story.sourceUrl!);
+      return {
+        path: relative(projectRoot, filePath),
+        content: readFileSync(filePath, 'utf8'),
+      };
+    },
+    catch: (cause) =>
+      new StoriesError({ reason: 'load', path: story.sourceUrl!, cause }),
   });
 }
 
@@ -153,7 +184,7 @@ function groupDocs(group: StoryGroup) {
 }
 
 function checkUniqueTitles(
-  children: readonly (Story | StoryGroup)[],
+  children: StoryGroup['children'],
   path: readonly string[],
   entryPoint: string,
 ): Effect.Effect<void, StoriesError> {
