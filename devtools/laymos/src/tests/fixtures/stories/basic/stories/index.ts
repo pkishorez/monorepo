@@ -3,6 +3,7 @@ import { Story } from '../../../../../story/index.js';
 
 const passing = Story.make({
   title: 'passing story',
+  sourceUrl: import.meta.url,
   description: 'Holds its assertions.',
   markdown: 'Captures a trace and holds its assertions.',
   run: Effect.gen(function* () {
@@ -40,6 +41,11 @@ export default Story.group({
   description: 'Fixture package exercising every verdict.',
   markdown: 'A root group with one subgroup per verdict scenario.',
   children: [
+    Story.doc({
+      title: 'about verdicts',
+      description: 'What each verdict means.',
+      markdown: 'Passing, failing, and erroring verdicts explained.',
+    }),
     Story.group({
       title: 'verdicts',
       description: 'One story per verdict.',

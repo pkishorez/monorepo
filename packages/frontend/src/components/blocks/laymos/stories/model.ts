@@ -49,6 +49,7 @@ export function runSummary(
 }
 
 export type StoryLeaf = StoryTree['stories'][number];
+export type StoryDocLeaf = StoryTree['docs'][number];
 
 export type TreeNode =
   | {
@@ -56,6 +57,12 @@ export type TreeNode =
       readonly id: string;
       readonly group: StoryTree;
       readonly parentId?: string;
+    }
+  | {
+      readonly kind: 'doc';
+      readonly id: string;
+      readonly doc: StoryDocLeaf;
+      readonly parentId: string;
     }
   | {
       readonly kind: 'story';
@@ -68,6 +75,9 @@ export function indexTree(tree: StoryTree): ReadonlyMap<string, TreeNode> {
   const nodes = new Map<string, TreeNode>();
   const walk = (group: StoryTree, id: string, parentId?: string) => {
     nodes.set(id, { kind: 'group', id, group, parentId });
+    for (const doc of group.docs) {
+      nodes.set(doc.id, { kind: 'doc', id: doc.id, doc, parentId: id });
+    }
     for (const story of group.stories) {
       nodes.set(story.id, { kind: 'story', id: story.id, story, parentId: id });
     }

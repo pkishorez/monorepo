@@ -12,6 +12,7 @@ capture state, and sync flows move changes between peers.
 
 The groups below walk through each capability with executable stories.
 `,
+  docs: [],
   groups: [
     {
       title: 'ESchema',
@@ -21,6 +22,7 @@ The groups below walk through each capability with executable stories.
 step records how to migrate the previous version forward, so decoding any
 historical payload yields the latest shape.
 `,
+      docs: [],
       groups: [],
       stories: [
         {
@@ -46,6 +48,7 @@ historical payload yields the latest shape.
 The sync layer pushes local mutations to the server, folds acknowledgements
 back into the local snapshot, and reconciles concurrent writes.
 `,
+      docs: [],
       groups: [],
       stories: [
         {

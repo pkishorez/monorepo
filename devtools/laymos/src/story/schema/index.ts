@@ -17,12 +17,16 @@ export type {
   StoryVerdict,
 } from './story-report-schema.js';
 export {
+  StoryDocLeafSchema,
   StoryLeafSchema,
+  StorySourceSchema,
   StoryTreeGroupSchema,
   StoryTreeSchema,
 } from './story-tree-schema.js';
 export type {
+  StoryDocLeaf,
   StoryLeaf,
+  StorySource,
   StoryTree,
   StoryTreeGroup,
 } from './story-tree-schema.js';

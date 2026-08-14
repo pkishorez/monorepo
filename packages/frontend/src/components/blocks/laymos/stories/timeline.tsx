@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
 import { ChevronDown } from 'lucide-react';
 import type { StoryReport } from 'laymos';
@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 
 import { FlowSwimlane } from '../../flow-swimlane/index';
 import { attachCapturedLogs, TraceViewer } from '../../otel-trace-viewer/index';
+import { SourceViewer } from '../../source-viewer/index';
 import { cn } from '#lib/utils';
 
 type StorySection = StoryReport['sections'][number];
@@ -74,13 +75,34 @@ export function Markdown({
   readonly className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        'prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed',
-        className,
-      )}
-    >
-      <ReactMarkdown>{children}</ReactMarkdown>
+    <div className={cn('prose dark:prose-invert max-w-none', className)}>
+      <ReactMarkdown
+        components={{
+          pre: ({ children }) => <>{children}</>,
+          code: MarkdownCode,
+        }}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function MarkdownCode({ className, children }: ComponentProps<'code'>) {
+  const language = /language-(\w+)/.exec(className ?? '')?.[1];
+  if (language === undefined) {
+    return <code className={className}>{children}</code>;
+  }
+  return (
+    <div className="not-prose my-3">
+      <SourceViewer
+        filePath={`snippet.${language}`}
+        content={String(children).replace(/\n$/, '')}
+        autoHeight
+        showHeader={false}
+        showLineNumbers={false}
+        className="rounded-lg border border-border"
+      />
     </div>
   );
 }

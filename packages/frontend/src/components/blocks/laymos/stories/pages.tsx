@@ -1,9 +1,17 @@
+import { useState, type ReactNode } from 'react';
+import { FileText, Maximize2 } from 'lucide-react';
 import type { StoryTree } from 'laymos';
 
+import { SourceViewer } from '../../source-viewer/index';
+import { Button } from '#components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '#components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
+import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
 import {
   groupVerdict,
+  type StoryDocLeaf,
   type StoryLeaf,
   type StoryReports,
   type TreeNode,
@@ -12,52 +20,85 @@ import {
   Markdown,
   StatusIcon,
   StoryReportBody,
+  VerdictDot,
   type Verdict,
 } from './timeline';
 
 export function NodePage({
   node,
   reports,
+  running,
+  onRun,
   onSelect,
 }: {
   readonly node: TreeNode;
   readonly reports?: StoryReports;
+  readonly running?: boolean;
+  readonly onRun?: (scope?: string) => void;
   readonly onSelect: (id: string) => void;
 }) {
-  return node.kind === 'group' ? (
-    <GroupPage
-      id={node.id}
-      group={node.group}
-      reports={reports}
-      onSelect={onSelect}
-    />
-  ) : (
-    <StoryPage story={node.story} reports={reports} />
-  );
+  switch (node.kind) {
+    case 'group':
+      return (
+        <GroupPage
+          id={node.id}
+          group={node.group}
+          reports={reports}
+          running={running}
+          onRun={onRun}
+          onSelect={onSelect}
+        />
+      );
+    case 'doc':
+      return <DocPage doc={node.doc} />;
+    case 'story':
+      return (
+        <StoryPage
+          story={node.story}
+          reports={reports}
+          running={running}
+          onRun={onRun}
+        />
+      );
+  }
 }
 
 function GroupPage({
   id,
   group,
   reports,
+  running,
+  onRun,
   onSelect,
 }: {
   readonly id: string;
   readonly group: StoryTree;
   readonly reports?: StoryReports;
+  readonly running?: boolean;
+  readonly onRun?: (scope?: string) => void;
   readonly onSelect: (id: string) => void;
 }) {
+  const [dialogStory, setDialogStory] = useState<StoryLeaf | null>(null);
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PageHeading
         title={group.title}
         description={group.description}
         verdict={groupVerdict(group, reports)}
       />
-      <Markdown className="text-foreground/80">{group.markdown}</Markdown>
-      <div className="flex flex-col gap-2.5">
+      <Markdown>{group.markdown}</Markdown>
+      <div className="overflow-hidden rounded-lg border border-border">
+        {group.docs.map((doc) => (
+          <ChildRow
+            key={doc.id}
+            title={doc.title}
+            description={doc.description}
+            doc
+            onOpen={() => onSelect(doc.id)}
+          />
+        ))}
         {group.groups.map((child) => (
-          <ChildCard
+          <ChildRow
             key={child.title}
             title={child.title}
             description={child.description}
@@ -67,15 +108,25 @@ function GroupPage({
           />
         ))}
         {group.stories.map((story) => (
-          <ChildCard
+          <ChildRow
             key={story.id}
             title={story.title}
             description={story.description}
             verdict={reports?.[story.id]?.verdict}
             onOpen={() => onSelect(story.id)}
+            onOpenDialog={() => setDialogStory(story)}
           />
         ))}
       </div>
+      {dialogStory !== null && (
+        <StoryDialog
+          story={dialogStory}
+          reports={reports}
+          running={running}
+          onRun={onRun}
+          onClose={() => setDialogStory(null)}
+        />
+      )}
     </div>
   );
 }
@@ -87,7 +138,60 @@ function countStories(group: StoryTree): number {
   );
 }
 
+function DocPage({ doc }: { readonly doc: StoryDocLeaf }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeading title={doc.title} description={doc.description} />
+      <Markdown>{doc.markdown}</Markdown>
+    </div>
+  );
+}
+
 function StoryPage({
+  story,
+  reports,
+  running,
+  onRun,
+}: {
+  readonly story: StoryLeaf;
+  readonly reports?: StoryReports;
+  readonly running?: boolean;
+  readonly onRun?: (scope?: string) => void;
+}) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const report = reports?.[story.id];
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeading
+        title={story.title}
+        description={story.description}
+        verdict={report?.verdict}
+        actions={
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => setDialogOpen(true)}
+            title="Open in dialog"
+          >
+            <Maximize2 className="size-3.5" />
+          </Button>
+        }
+      />
+      <StoryBody story={story} reports={reports} />
+      {dialogOpen && (
+        <StoryDialog
+          story={story}
+          reports={reports}
+          running={running}
+          onRun={onRun}
+          onClose={() => setDialogOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function StoryBody({
   story,
   reports,
 }: {
@@ -96,15 +200,108 @@ function StoryPage({
 }) {
   const report = reports?.[story.id];
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeading
-        title={story.title}
-        description={story.description}
-        verdict={report?.verdict}
-      />
-      <Markdown className="text-foreground/80">{story.markdown}</Markdown>
+    <div className="flex flex-col gap-5">
+      {story.source === undefined ? (
+        <Markdown>{story.markdown}</Markdown>
+      ) : (
+        <Tabs defaultValue="story" className="gap-4">
+          <TabsList
+            variant="line"
+            className="w-full justify-start border-b border-border/60"
+          >
+            <TabsTrigger value="story" className="flex-none px-1">
+              Story
+            </TabsTrigger>
+            <TabsTrigger value="code" className="flex-none px-1">
+              Code
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="story">
+            <Markdown>{story.markdown}</Markdown>
+          </TabsContent>
+          <TabsContent value="code">
+            <StorySource source={story.source} />
+          </TabsContent>
+        </Tabs>
+      )}
       {report !== undefined && <StoryReportBody report={report} />}
     </div>
+  );
+}
+
+function StorySource({
+  source,
+}: {
+  readonly source: NonNullable<StoryLeaf['source']>;
+}) {
+  const [showMarkdown, setShowMarkdown] = useState(false);
+  const condensed = collapseMarkdownFields(source.content);
+  const collapsible = condensed !== source.content;
+  return (
+    <SourceViewer
+      filePath={source.path}
+      content={showMarkdown || !collapsible ? source.content : condensed}
+      autoHeight
+      className="rounded-lg border border-border"
+      actions={
+        collapsible ? (
+          <button
+            type="button"
+            onClick={() => setShowMarkdown((value) => !value)}
+            className="rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            {showMarkdown ? 'Hide markdown' : 'Show markdown'}
+          </button>
+        ) : undefined
+      }
+    />
+  );
+}
+
+function collapseMarkdownFields(content: string): string {
+  return content.replace(/markdown: `(?:\\.|[^`\\])*`/g, "markdown: '…'");
+}
+
+function StoryDialog({
+  story,
+  reports,
+  running,
+  onRun,
+  onClose,
+}: {
+  readonly story: StoryLeaf;
+  readonly reports?: StoryReports;
+  readonly running?: boolean;
+  readonly onRun?: (scope?: string) => void;
+  readonly onClose: () => void;
+}) {
+  const report = reports?.[story.id];
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="flex max-h-[85vh] w-[min(92vw,64rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[64rem]">
+        <div className="flex items-center gap-2.5 border-b border-border px-5 py-3 pr-14">
+          <StatusIcon verdict={report?.verdict} />
+          <DialogTitle className="min-w-0 flex-1 truncate text-sm font-semibold">
+            {story.title}
+          </DialogTitle>
+          {onRun !== undefined && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onRun(story.id)}
+              disabled={running === true}
+            >
+              Run
+            </Button>
+          )}
+        </div>
+        <div
+          className={cn('flex-1 overflow-y-auto px-5 py-4', scrollbarStyles)}
+        >
+          <StoryBody story={story} reports={reports} />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -112,63 +309,82 @@ function PageHeading({
   title,
   description,
   verdict,
+  actions,
 }: {
   readonly title: string;
   readonly description: string;
   readonly verdict?: Verdict;
+  readonly actions?: ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-1.5 border-b border-border/60 pb-4">
+    <header className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2.5">
-        <h2 className="text-xl font-semibold leading-tight tracking-tight">
+        {verdict !== undefined && <VerdictDot verdict={verdict} />}
+        <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold leading-tight tracking-tight">
           {title}
-        </h2>
-        {verdict !== undefined && <StatusIcon verdict={verdict} />}
+        </h1>
+        {actions}
       </div>
-      <p className="text-sm leading-relaxed text-muted-foreground">
+      <p className="text-[15px] leading-relaxed text-muted-foreground">
         {description}
       </p>
     </header>
   );
 }
 
-function ChildCard({
+function ChildRow({
   title,
   description,
   verdict,
+  doc = false,
   count,
   onOpen,
+  onOpenDialog,
 }: {
   readonly title: string;
   readonly description: string;
   readonly verdict?: Verdict;
+  readonly doc?: boolean;
   readonly count?: number;
   readonly onOpen: () => void;
+  readonly onOpenDialog?: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={cn(
-        'group flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3.5 text-left shadow-sm',
-        'transition-colors hover:border-primary/40 hover:bg-accent/40',
-      )}
-    >
-      <StatusIcon verdict={verdict} />
-      <span className="flex min-w-0 flex-1 flex-col gap-1">
-        <span className="text-sm font-medium leading-snug">{title}</span>
-        <span className="truncate text-xs leading-relaxed text-muted-foreground">
+    <div className="group flex items-center border-b border-border/60 transition-colors last:border-b-0 hover:bg-accent/40">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="flex min-w-0 flex-1 items-baseline gap-2.5 px-3.5 py-2.5 text-left"
+      >
+        <span className="shrink-0 self-center">
+          {doc ? (
+            <FileText className="size-3.5 text-muted-foreground/70" />
+          ) : (
+            <VerdictDot verdict={verdict} />
+          )}
+        </span>
+        <span className="shrink-0 text-sm font-medium leading-snug">
+          {title}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs leading-snug text-muted-foreground">
           {description}
         </span>
-      </span>
-      {count !== undefined && (
-        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-          {count} stor{count === 1 ? 'y' : 'ies'}
-        </span>
+        {count !== undefined && (
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">
+            {count}
+          </span>
+        )}
+      </button>
+      {onOpenDialog !== undefined && (
+        <button
+          type="button"
+          onClick={onOpenDialog}
+          title="Open in dialog"
+          className="mr-2 rounded-md p-1.5 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+        >
+          <Maximize2 className="size-3.5" />
+        </button>
       )}
-      <span className="shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5">
-        ›
-      </span>
-    </button>
+    </div>
   );
 }

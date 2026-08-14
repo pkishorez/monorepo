@@ -94,6 +94,7 @@
     "dynamodb:local": "docker run --rm -p 8090:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -sharedDb -inMemory",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "stories": "laymos stories",
     "lint:laymos": "laymos lint",
     "lint:tsc": "tsc",
     "test": "DYNAMODB_LOCAL_ENDPOINT=http://localhost:8090 REQUIRE_DYNAMODB_LOCAL=true vitest run",
