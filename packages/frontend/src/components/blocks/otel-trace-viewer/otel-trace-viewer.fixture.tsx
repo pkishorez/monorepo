@@ -214,6 +214,7 @@ const overlappingSpans: OtelSpan[] = [
     endTime: 1800,
     status: 'success',
     attributes: {
+      narrative: 'Handle a checkout request for a gold-tier customer',
       'http.request.method': 'POST',
       'http.route': '/checkout',
       'http.response.status_code': 207,
@@ -236,6 +237,7 @@ const overlappingSpans: OtelSpan[] = [
     endTime: 430,
     status: 'success',
     attributes: {
+      narrative: 'Verify who is checking out',
       'auth.provider': 'oauth2',
       'enduser.id': 'customer-418',
       'resource.service.name': 'identity-service',
@@ -259,6 +261,7 @@ const overlappingSpans: OtelSpan[] = [
     endTime: 860,
     status: 'success',
     attributes: {
+      narrative: 'Load the products sitting in the cart',
       'db.system': 'postgresql',
       'db.namespace': 'catalog',
       'resource.service.name': 'catalog-service',
@@ -282,6 +285,7 @@ const overlappingSpans: OtelSpan[] = [
     endTime: 760,
     status: 'unset',
     attributes: {
+      narrative: 'Check that every cart item is in stock',
       'inventory.region': 'ap-south-1',
       'otel.status.description': 'Completed with inventory warnings',
       'resource.service.name': 'inventory-service',
@@ -308,6 +312,7 @@ const overlappingSpans: OtelSpan[] = [
     endTime: 1050,
     status: 'error',
     attributes: {
+      narrative: 'Compute cross-sell recommendations for the cart',
       'error.type': 'InferenceTimeout',
       'resource.service.name': 'recommendation-service',
       'retry.count': 1,
@@ -348,7 +353,11 @@ const overlappingSpans: OtelSpan[] = [
     startTime: 1080,
     endTime: 1480,
     status: 'success',
-    attributes: { 'response.format': 'json', 'result.items': 7 },
+    attributes: {
+      narrative: 'Assemble the checkout response',
+      'response.format': 'json',
+      'result.items': 7,
+    },
     events: [
       fixtureLog('render.started', 1090, 'TRACE', 'Response rendering started'),
     ],
@@ -362,6 +371,7 @@ const overlappingSpans: OtelSpan[] = [
     endTime: 1770,
     status: 'success',
     attributes: {
+      narrative: 'Send the response back to the customer',
       'http.response.status_code': 207,
       'network.protocol.version': '2',
     },
@@ -504,6 +514,7 @@ const overlappingSpans: OtelSpan[] = [
     endTime: 1000,
     status: 'error',
     attributes: {
+      narrative: 'Run the cross-sell model across its GPU shards',
       'ml.model.name': 'cross-sell-v4',
       'error.type': 'DeadlineExceeded',
     },
@@ -525,7 +536,10 @@ const overlappingSpans: OtelSpan[] = [
     startTime: 1005,
     endTime: 1038,
     status: 'success',
-    attributes: { 'fallback.strategy': 'top-sellers' },
+    attributes: {
+      narrative: 'Fall back to the static top-sellers list',
+      'fallback.strategy': 'top-sellers',
+    },
     events: [],
   },
   {
@@ -748,6 +762,15 @@ export default {
       <TraceViewer
         className="h-[640px]"
         defaultView="parallel"
+        spans={overlappingSpans}
+      />
+    </div>
+  ),
+  'viewer-narrative': (
+    <div className="min-h-screen bg-muted/30 p-6">
+      <TraceViewer
+        className="h-[640px]"
+        defaultView="narrative"
         spans={overlappingSpans}
       />
     </div>

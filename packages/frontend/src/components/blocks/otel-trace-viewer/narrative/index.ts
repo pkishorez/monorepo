@@ -1,0 +1,1 @@
+export { Narrative } from './narrative';

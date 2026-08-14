@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FocusIcon } from 'lucide-react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { FocusIcon, MessageSquareTextIcon } from 'lucide-react';
 
 import { Button } from '#components/ui/button';
-import { AnimatePresence, motion } from '#lib/motion';
 import { cn } from '#lib/utils';
 
 import type { OtelEvent, OtelSpan, SpanNode } from '../trace-model';
@@ -13,12 +12,12 @@ import {
 } from '../trace-model';
 import { useElementWidth } from '../use-element-width';
 import { GanttHeader } from './gantt-header';
+import { GanttLogRow } from './gantt-log-row';
 import { GanttRow } from './gantt-row';
 import {
   BAR_COL_INSET,
   BAR_MIN_WIDTH_PX,
   buildGanttRows,
-  defaultCollapsedSpanIds,
   MAX_NAME_COL_WIDTH,
   MIN_NAME_COL_WIDTH,
   NAME_COL_WIDTH,
@@ -32,8 +31,6 @@ interface GanttProps {
   onFocusPathChange?: (focusPath: boolean) => void;
   nameColWidth?: number;
   onNameColWidthChange?: (next: number) => void;
-  inlineLogSpanIds?: ReadonlySet<string>;
-  onToggleInlineLogs?: (span: OtelSpan) => void;
   selectedLog?: OtelEvent | null;
   hoveredLog?: OtelEvent | null;
   onLogClick?: (span: OtelSpan, event: OtelEvent) => void;
@@ -65,37 +62,19 @@ export function Gantt({
   trace,
   selectedSpanId,
   onSpanClick,
-  focusPath = true,
+  focusPath = false,
   onFocusPathChange,
   nameColWidth = NAME_COL_WIDTH,
   onNameColWidthChange,
-  inlineLogSpanIds = new Set(),
-  onToggleInlineLogs,
   selectedLog = null,
   hoveredLog = null,
   onLogClick,
   onLogHover,
 }: GanttProps) {
-  // Running traces can discover deeper spans after the waterfall mounts. Add
-  // only newly discovered branches to the collapsed defaults so a user's
-  // explicit expand/collapse choices remain untouched.
-  const collapsibleIds = useMemo(
-    () => defaultCollapsedSpanIds(trace.roots),
-    [trace.roots],
-  );
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
-    () => collapsibleIds,
+    () => new Set(),
   );
-  const knownCollapsibleIds = useRef(collapsibleIds);
-
-  useEffect(() => {
-    const newlyDiscovered = [...collapsibleIds].filter(
-      (spanId) => !knownCollapsibleIds.current.has(spanId),
-    );
-    knownCollapsibleIds.current = collapsibleIds;
-    if (newlyDiscovered.length === 0) return;
-    setCollapsed((current) => new Set([...current, ...newlyDiscovered]));
-  }, [collapsibleIds]);
+  const [showLogs, setShowLogs] = useState(true);
 
   const toggleCollapse = useCallback((spanId: string) => {
     setCollapsed((prev) => {
@@ -123,6 +102,30 @@ export function Gantt({
         for (const descendantId of descendantIds) {
           if (collapseAll) next.add(descendantId);
           else next.delete(descendantId);
+        }
+        return next;
+      });
+    },
+    [trace.roots],
+  );
+
+  const toggleImmediateChildren = useCallback(
+    (spanId: string) => {
+      const path = findSpanPath(trace.roots, spanId);
+      const node = path?.at(-1);
+      if (!path || !node || node.children.length === 0) return;
+      const isRoot = path.length === 1;
+
+      setCollapsed((current) => {
+        const next = new Set(current);
+        if (!isRoot && !current.has(spanId)) {
+          next.add(spanId);
+          return next;
+        }
+        // Reveal immediate children with their own branches collapsed.
+        next.delete(spanId);
+        for (const child of node.children) {
+          if (child.children.length > 0) next.add(child.span.spanId);
         }
         return next;
       });
@@ -166,8 +169,9 @@ export function Gantt({
   }, [trace]);
 
   const rows = useMemo(
-    () => buildGanttRows(trace.roots, traceStart, traceEnd, collapsed),
-    [trace.roots, traceStart, traceEnd, collapsed],
+    () =>
+      buildGanttRows(trace.roots, traceStart, traceEnd, collapsed, showLogs),
+    [trace.roots, traceStart, traceEnd, collapsed, showLogs],
   );
   const highlightedSpanIds = useMemo(() => {
     if (!focusPath || !selectedSpanId) return null;
@@ -214,6 +218,21 @@ export function Gantt({
           >
             <FocusIcon />
           </Button>
+          <Button
+            aria-label={showLogs ? 'Hide logs' : 'Show logs'}
+            aria-pressed={showLogs}
+            className={cn(
+              'ml-1 text-muted-foreground',
+              showLogs && 'bg-muted text-foreground',
+            )}
+            onClick={() => setShowLogs((current) => !current)}
+            size="icon-xs"
+            title={showLogs ? 'Hide logs' : 'Show logs'}
+            type="button"
+            variant="ghost"
+          >
+            <MessageSquareTextIcon />
+          </Button>
           {onNameColWidthChange && (
             <div
               className="absolute inset-y-0 right-0 z-20 w-1 translate-x-1/2 cursor-col-resize bg-transparent transition-colors hover:bg-primary/20"
@@ -226,42 +245,49 @@ export function Gantt({
         </div>
       </div>
 
-      <AnimatePresence initial={false} mode="popLayout">
-        {rows.map((row) => (
-          <motion.div
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            initial={{ opacity: 0, y: -4 }}
+      {rows.map((row, index) =>
+        row.kind === 'span' ? (
+          <GanttRow
             key={row.span.spanId}
-            layout="position"
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-          >
-            <GanttRow
-              row={row}
-              selected={selectedSpanId === row.span.spanId}
-              dimmed={
-                highlightedSpanIds !== null &&
-                !highlightedSpanIds.has(row.span.spanId)
+            row={row}
+            selected={selectedSpanId === row.span.spanId}
+            dimmed={
+              highlightedSpanIds !== null &&
+              !highlightedSpanIds.has(row.span.spanId)
+            }
+            minWidthPct={minWidthPct}
+            onClick={() => {
+              if (selectedSpanId === row.span.spanId && row.hasChildren) {
+                if (row.depth === 0) toggleRootDescendants(row.span.spanId);
+                else toggleCollapse(row.span.spanId);
               }
-              minWidthPct={minWidthPct}
-              onClick={() => {
-                if (selectedSpanId === row.span.spanId && row.hasChildren) {
-                  if (row.depth === 0) toggleRootDescendants(row.span.spanId);
-                  else toggleCollapse(row.span.spanId);
-                }
-                onSpanClick(row.span);
-              }}
-              onToggleInlineLogs={() => onToggleInlineLogs?.(row.span)}
-              nameColWidth={nameColWidth}
-              showLogs={inlineLogSpanIds.has(row.span.spanId)}
-              selectedLog={selectedLog}
-              hoveredLog={hoveredLog}
-              onLogClick={(event) => onLogClick?.(row.span, event)}
-              onLogHover={onLogHover}
-            />
-          </motion.div>
-        ))}
-      </AnimatePresence>
+              onSpanClick(row.span);
+            }}
+            onToggleChildren={() => toggleImmediateChildren(row.span.spanId)}
+            logsVisible={showLogs}
+            nameColWidth={nameColWidth}
+            selectedLog={selectedLog}
+            hoveredLog={hoveredLog}
+          />
+        ) : (
+          <GanttLogRow
+            key={`${row.span.spanId}:log:${row.event.timestamp}:${row.event.name}:${index}`}
+            event={row.event}
+            span={row.span}
+            depth={row.depth}
+            dimmed={
+              highlightedSpanIds !== null &&
+              !highlightedSpanIds.has(row.span.spanId)
+            }
+            nameColWidth={nameColWidth}
+            onClick={() => onLogClick?.(row.span, row.event)}
+            onHoverChange={(hovered) =>
+              onLogHover?.(hovered ? row.event : null)
+            }
+            selected={selectedLog === row.event}
+          />
+        ),
+      )}
     </div>
   );
 }

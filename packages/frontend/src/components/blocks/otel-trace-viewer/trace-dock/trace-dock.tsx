@@ -7,17 +7,13 @@ import { cn } from '#lib/utils';
 
 import { StatusDot } from '../status';
 import { Gantt } from '../gantt/gantt';
+import { Narrative } from '../narrative';
 import { ParallelTimeline } from '../parallel-timeline';
 import { LogSpanDetail } from '../span-detail/log-span-detail';
 import { OverlapSpanSummary } from '../span-detail/overlap-span-summary';
 import { SpanDetail } from '../span-detail/span-detail';
 import type { OtelEvent, OtelSpan } from '../trace-model';
-import {
-  collectSpans,
-  formatDuration,
-  isLog,
-  type TraceGroup,
-} from '../trace-model';
+import { collectSpans, formatDuration, type TraceGroup } from '../trace-model';
 import type { TraceView } from '../trace-view';
 
 export type TraceDockSettings = {
@@ -66,10 +62,7 @@ export function TraceDock({
     readonly event: OtelEvent;
   } | null>(null);
   const [hoveredLog, setHoveredLog] = useState<OtelEvent | null>(null);
-  const [inlineLogSpanIds, setInlineLogSpanIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const [focusWaterfallPath, setFocusWaterfallPath] = useState(true);
+  const [focusWaterfallPath, setFocusWaterfallPath] = useState(false);
   const highlightedOverlapSpanIds = useMemo(
     () =>
       choosingOverlap && overlapCandidates
@@ -101,7 +94,6 @@ export function TraceDock({
     setHoveredOverlapSpanId(null);
     setSelectedLog(null);
     setHoveredLog(null);
-    setInlineLogSpanIds(new Set());
   }, [trace.traceId, view]);
 
   const onSidebarDividerMouseDown = useCallback(
@@ -135,7 +127,7 @@ export function TraceDock({
     setSelectedLog(null);
     setHoveredLog(null);
     if (
-      view !== 'waterfall' &&
+      view === 'parallel' &&
       !sidebarAlwaysOpen &&
       settings.sidebarOpen &&
       settings.selectedSpanId === span.spanId
@@ -148,18 +140,6 @@ export function TraceDock({
         selectedSpanId: span.spanId,
       });
     }
-  }
-
-  function toggleInlineLogs(span: OtelSpan) {
-    if (!span.events.some(isLog)) return;
-    setSelectedLog(null);
-    setHoveredLog(null);
-    setInlineLogSpanIds((current) => {
-      const next = new Set(current);
-      if (next.has(span.spanId)) next.delete(span.spanId);
-      else next.add(span.spanId);
-      return next;
-    });
   }
 
   function handleOverlapClick(spans: readonly OtelSpan[]) {
@@ -251,8 +231,6 @@ export function TraceDock({
               onSpanClick={handleSpanClick}
               focusPath={focusWaterfallPath}
               onFocusPathChange={setFocusWaterfallPath}
-              inlineLogSpanIds={inlineLogSpanIds}
-              onToggleInlineLogs={toggleInlineLogs}
               selectedLog={selectedLog?.event ?? null}
               hoveredLog={hoveredLog}
               onLogClick={selectLog}
@@ -262,7 +240,7 @@ export function TraceDock({
                 onSettingsChange({ ...settings, nameColWidth: next })
               }
             />
-          ) : (
+          ) : view === 'parallel' ? (
             <ParallelTimeline
               trace={trace}
               selectedSpanId={
@@ -278,6 +256,14 @@ export function TraceDock({
                 setHoveredOverlapSpanId(span?.spanId ?? null)
               }
               onOverlapSelect={selectOverlap}
+            />
+          ) : (
+            <Narrative
+              trace={trace}
+              selectedSpanId={selectedSpan?.spanId ?? null}
+              onSpanClick={handleSpanClick}
+              selectedLog={selectedLog?.event ?? null}
+              onLogClick={selectLog}
             />
           )}
         </div>
@@ -301,7 +287,7 @@ export function TraceDock({
               <div className={cn('h-full overflow-y-auto', scrollbarStyles)}>
                 {choosingOverlap && overlapCandidates ? (
                   <OverlapSpanSummary spans={overlapCandidates} />
-                ) : selectedLog && view === 'waterfall' ? (
+                ) : selectedLog && view !== 'parallel' ? (
                   <LogSpanDetail
                     event={selectedLog.event}
                     span={selectedLog.span}
