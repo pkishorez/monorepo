@@ -29,6 +29,7 @@
     "@changesets/changelog-github": "catalog:",
     "@changesets/cli": "catalog:",
     "del-cli": "catalog:",
+    "laymos": "workspace:*",
     "syncpack": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:"

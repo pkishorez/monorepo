@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { ArchitectureAnalysis } from 'laymos';
+import type { ArchitectureAnalysis, StoryReport, StoryTree } from 'laymos';
 
 import { LaymosExperience } from './experience';
 import { LayerDetails as LayerDetailsView } from './layers/details';
@@ -23,6 +23,12 @@ interface AnalysisProps {
 
 interface LaymosProps extends AnalysisProps {
   readonly loadModuleSource: LoadModuleSource;
+  readonly stories?: {
+    readonly tree: StoryTree;
+    readonly reports?: Readonly<Record<string, StoryReport>>;
+    readonly running?: boolean;
+    readonly onRun?: (scope?: string) => void;
+  };
 }
 
 interface LayerGraphProps extends AnalysisProps, LayerInteraction {
@@ -32,11 +38,17 @@ interface LayerGraphProps extends AnalysisProps, LayerInteraction {
   readonly ariaLabel?: string;
 }
 
-export function Laymos({ analysis, loadModuleSource, className }: LaymosProps) {
+export function Laymos({
+  analysis,
+  loadModuleSource,
+  stories,
+  className,
+}: LaymosProps) {
   return (
     <LaymosExperience
       analysis={analysis}
       loadModuleSource={loadModuleSource}
+      stories={stories}
       className={className}
     />
   );

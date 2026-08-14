@@ -32,6 +32,17 @@
         "type": "string"
       }
     },
+    "storiesPath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Canonical project-relative folder holding every Story file and the index.ts entry point exposing the Story Collection. Implicitly an Ignored path."
+    },
     "layers": {
       "type": "object",
       "additionalProperties": {

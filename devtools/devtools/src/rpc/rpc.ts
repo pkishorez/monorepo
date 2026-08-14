@@ -6,6 +6,7 @@ import {
   ConfigValidationIssueSchema,
   ModuleSourceSnapshotSchema,
 } from 'laymos/architecture-analysis-schema';
+import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
 
 export class InvalidProjectPath extends Schema.TaggedErrorClass<InvalidProjectPath>(
   'InvalidProjectPath',
@@ -49,6 +50,19 @@ export class ModuleSourceReadError extends Schema.TaggedErrorClass<ModuleSourceR
   message: Schema.String,
 }) {}
 
+export class StoriesUnavailableError extends Schema.TaggedErrorClass<StoriesUnavailableError>(
+  'StoriesUnavailableError',
+)('StoriesUnavailableError', {
+  reason: Schema.Literals([
+    'no-stories-path',
+    'load',
+    'invalid-root',
+    'duplicate-title',
+    'unknown-scope',
+  ]),
+  path: Schema.String,
+}) {}
+
 const AnalyzeLaymosProjectError = Schema.Union([
   InvalidProjectPath,
   ConfigReadError,
@@ -56,6 +70,15 @@ const AnalyzeLaymosProjectError = Schema.Union([
   ConfigSchemaError,
   ConfigValidationError,
   SourceAnalysisError,
+]);
+
+const LaymosStoriesError = Schema.Union([
+  InvalidProjectPath,
+  ConfigReadError,
+  ConfigParseError,
+  ConfigSchemaError,
+  ConfigValidationError,
+  StoriesUnavailableError,
 ]);
 
 const GetLaymosModuleSourceError = Schema.Union([
@@ -79,6 +102,20 @@ export const DevtoolsToolRpc = RpcGroup.make(
     payload: { projectPath: Schema.String, modulePath: Schema.String },
     success: ModuleSourceSnapshotSchema,
     error: GetLaymosModuleSourceError,
+  }),
+  Rpc.make('GetLaymosStories', {
+    payload: { projectPath: Schema.String },
+    success: StoryTreeSchema,
+    error: LaymosStoriesError,
+  }),
+  Rpc.make('RunLaymosStories', {
+    payload: {
+      projectPath: Schema.String,
+      scope: Schema.optional(Schema.String),
+    },
+    success: StoryReportSchema,
+    error: LaymosStoriesError,
+    stream: true,
   }),
 );
 

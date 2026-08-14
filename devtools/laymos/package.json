@@ -19,6 +19,16 @@
       "types": "./dist/architecture-analysis-schema/index.d.ts",
       "import": "./dist/architecture-analysis-schema/index.js",
       "default": "./dist/architecture-analysis-schema/index.js"
+    },
+    "./story": {
+      "types": "./dist/story/index.d.ts",
+      "import": "./dist/story/index.js",
+      "default": "./dist/story/index.js"
+    },
+    "./story/schema": {
+      "types": "./dist/story/schema/index.d.ts",
+      "import": "./dist/story/schema/index.js",
+      "default": "./dist/story/schema/index.js"
     }
   },
   "bin": {
@@ -44,11 +54,13 @@
     "@effect/platform-node": "catalog:",
     "oxc-parser": "catalog:",
     "oxc-resolver": "catalog:",
+    "tsx": "catalog:",
     "yoctocolors": "catalog:"
   },
   "devDependencies": {
-    "@typescript/native": "catalog:",
+    "@pkishorez/effect-tracer": "workspace:*",
     "@types/node": "catalog:",
+    "@typescript/native": "catalog:",
     "effect": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:typescript6",

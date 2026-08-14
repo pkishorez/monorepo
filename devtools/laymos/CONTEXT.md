@@ -5,7 +5,71 @@ state, merged. Definitions only; no implementation detail.
 
 ## Language
 
-_Being redefined from scratch. Story is deferred to a later session._
+_Being redefined from scratch._
+
+**Story**:
+A named, executable narrative of one behavior of the Project's code — a leaf
+of the Story tree. A Story carries a one-line description shown inline in
+listings, a detailed markdown page, and an executable program whose run
+captures Story artifacts and Story assertions.
+
+**Story Group**:
+A documentation node of the Story tree. It carries a title and one-line
+description shown inline in listings plus a detailed markdown page, and holds
+either subgroups or Stories — never both. Groups have no verdict of their
+own; any rollup is derived from descendant Story reports.
+
+**Story tree**:
+A Project's whole documentation-plus-Stories hierarchy, rooted at the Story
+Group the Stories path's entry point exposes. Loading it is metadata-only: no
+Story executes. Sibling titles must be unique.
+
+**Story id**:
+A Story's identity within the Story tree: the titles on the path from the
+root to the Story. Story reports attach to the tree by Story id.
+
+**Story artifact**:
+A trace or a flow (a flow being a collection of traces) captured during a
+Story run through the Story utilities. Every artifact anchors its own Story
+section.
+
+**Story section**:
+One described step of a Story run: a trace, a flow, or a generic execution,
+together with the Story assertions that verify it. Sections are ordered and
+give a Story report its structure; every Story assertion belongs to exactly
+one section.
+
+**Story assertion**:
+A mandatory description paired with a boolean condition, declared inside a
+Story's program and recorded when the run reaches it, attaching to the most
+recent Story section. Assertion outcomes decide the Story's verdict: passed
+when all held, failed when any was false, errored when the program died
+before finishing.
+
+**Story context**:
+The service the Story runner injects into every Story run. It receives every
+captured Story artifact and Story assertion outcome and yields the Story
+report. Story utilities are the only way Stories talk to it.
+
+**Story report**:
+The structured record of one Story run, attached to the Story tree by Story
+id: the verdict plus the ordered Story sections the run recorded.
+
+**Stories path**:
+A configured project-relative folder holding all Story files and their single
+entry point that exposes the Project's Story tree. It is implicitly an
+Ignored path: package-level Stories are exempt from architectural enforcement.
+
+**Stories view**:
+The Stories tab beside the Layers <> Modules view. It renders the Story tree
+as navigable documentation the moment it loads, and attaches Story reports to
+their Stories as a Stories run streams them in.
+
+**Stories run**:
+Executing Stories sequentially, depth-first, yielding one Story report per
+Story as it completes. A run covers the whole Story tree or one scoped
+subtree — a Story Group or a single Story. Rerunning replaces exactly the
+Story reports the run covers.
 
 **Project**:
 The analysis universe anchored by one Config. All configured paths are

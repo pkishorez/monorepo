@@ -3,6 +3,7 @@ import { Command, Flag } from 'effect/unstable/cli';
 
 import { makeInspectCommand } from './inspect/index.js';
 import { makeLintCommand } from './lint/index.js';
+import { makeStoriesCommand } from './stories/index.js';
 
 const rootCommand = Command.make('laymos', {}, () => Effect.void).pipe(
   Command.withSharedFlags({
@@ -21,6 +22,7 @@ export const cli = rootCommand.pipe(
   Command.withSubcommands([
     makeInspectCommand(configPath),
     makeLintCommand(configPath),
+    makeStoriesCommand(configPath),
   ]),
   Command.run({ version: '0.0.1' }),
 );

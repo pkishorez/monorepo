@@ -60,7 +60,6 @@
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "effect": "catalog:",
-    "laymos": "workspace:*",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

@@ -8,4 +8,5 @@ export {
   ModuleSourceNotFoundError,
   ModuleSourceReadError,
   SourceAnalysisError,
+  StoriesUnavailableError,
 } from './rpc.js';
