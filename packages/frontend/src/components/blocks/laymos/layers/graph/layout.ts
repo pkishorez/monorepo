@@ -55,6 +55,7 @@ export interface GraphHeaderNodeData extends Record<string, unknown> {
   readonly description?: string;
   readonly dimmed: boolean;
   readonly active: boolean;
+  readonly activatable: boolean;
 }
 
 export type LayerGraphNode = Node<LayerNodeData, 'layer'>;
@@ -67,6 +68,8 @@ interface GraphLayoutInput extends LayerInteraction {
   readonly rules: readonly LayerRule[];
   readonly layerGraphs?: readonly NamedLayerGraph[];
   readonly activeLayerGraphId?: string;
+  readonly showLayerConnections?: boolean;
+  readonly onLayerGraphActivate?: (graphId: string) => void;
   readonly activeViolationPair?: LayerViolationPair;
 }
 
@@ -154,11 +157,11 @@ export function layoutGraph(input: GraphLayoutInput): {
       focusable: false,
       draggable: false,
       zIndex: 4,
-      style: { pointerEvents: 'none' },
       data: {
         label: group.id,
         dimmed,
         active: input.activeLayerGraphId === group.id,
+        activatable: input.onLayerGraphActivate !== undefined,
         ...(group.description === undefined
           ? {}
           : { description: group.description }),
@@ -197,8 +200,8 @@ export function layoutGraph(input: GraphLayoutInput): {
           focus.focusedLayerId !== layer.id &&
           focus.highlightedLayerIds.has(layer.id),
         dimmed:
-          outsideSelectedGraph ||
-          (hasFocus && !focus.highlightedLayerIds.has(layer.id)),
+          (outsideSelectedGraph || hasFocus) &&
+          !focus.highlightedLayerIds.has(layer.id),
         softlyDimmed:
           focus.hoveredRelatedLayerId !== undefined &&
           focus.highlightedLayerIds.has(layer.id) &&
@@ -206,10 +209,9 @@ export function layoutGraph(input: GraphLayoutInput): {
           layer.id !== focus.hoveredRelatedLayerId,
         violation: violationLayerIds.has(layer.id),
         shared: graphIds.length > 1,
-        hoverEnabled: interaction.hoverEnabled && !outsideSelectedGraph,
-        activationEnabled:
-          interaction.activationEnabled && !outsideSelectedGraph,
-        openEnabled: input.onLayerOpen !== undefined && !outsideSelectedGraph,
+        hoverEnabled: interaction.hoverEnabled,
+        activationEnabled: interaction.activationEnabled,
+        openEnabled: input.onLayerOpen !== undefined,
         targetHandles:
           graphIds.length < 2
             ? []
@@ -261,8 +263,10 @@ export function layoutGraph(input: GraphLayoutInput): {
       );
   });
 
+  const visibleConfiguredEdges =
+    input.showLayerConnections === false ? [] : configuredEdges;
   edges.push(
-    ...configuredEdges.map((edge): Edge => {
+    ...visibleConfiguredEdges.map((edge): Edge => {
       const id = ruleId(edge.fromLayerId, edge.toLayerId);
       const highlighted = focus.highlightedRuleIds.has(id);
       const emphasized = focus.emphasizedRuleIds.has(id);

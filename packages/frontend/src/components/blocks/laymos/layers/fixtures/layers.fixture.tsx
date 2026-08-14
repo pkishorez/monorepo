@@ -12,21 +12,11 @@ import { LayerGraph } from '../graph';
 import { layersReferencedByRules } from '../layer-graphs';
 import { LayerScopeTree } from '../tree';
 import { LayerViolationsList } from '../violation';
-import {
-  complexModuleDependencies,
-  complexModules,
-} from '../../modules/fixtures/complex-fixture-data';
-import { loadFixtureModuleSource } from '../../modules/fixtures/fixture-data';
-import { ModulesExperience } from '../../experience';
 import { ArchitectureTreeLegend } from '../../tree';
 
 const allGraphsId = 'all';
 
 function LayersExperience() {
-  const [openedLayerId, setOpenedLayerId] = useFixtureInput<string | null>(
-    'opened layer',
-    null,
-  );
   const [activeGraphId, setActiveGraphId] = useFixtureInput(
     'layer graph',
     allGraphsId,
@@ -94,23 +84,6 @@ function LayersExperience() {
     setActiveViolationGroupId(groupId ?? null);
   };
 
-  if (openedLayerId !== null) {
-    return (
-      <ModulesExperience
-        key={openedLayerId}
-        layers={complexLayers}
-        rules={complexRules}
-        layerGraphs={complexLayerGraphs}
-        modules={complexModules}
-        dependencies={complexModuleDependencies}
-        violations={[]}
-        initialLayerId={openedLayerId}
-        loadModuleSource={loadFixtureModuleSource}
-        onBack={() => setOpenedLayerId(null)}
-      />
-    );
-  }
-
   return (
     <main className="min-h-screen bg-muted/20 p-3 sm:p-5">
       <div className="mx-auto max-w-[1600px] overflow-hidden rounded-xl border border-border bg-background shadow-sm">
@@ -155,7 +128,7 @@ function LayersExperience() {
                   'All direct rules across three independent LayerGraphs.'}
               </p>
               <span className="shrink-0 text-[11px] text-muted-foreground">
-                Pan · zoom · select · right-click to open
+                Pan · zoom · select
               </span>
             </div>
             <LayerGraph
@@ -169,10 +142,6 @@ function LayersExperience() {
               activeViolationPair={activeViolationPair}
               onLayerHoverChange={hoverLayer}
               onLayerActivate={activateLayer}
-              onLayerOpen={(layerId) => {
-                clearFocus();
-                setOpenedLayerId(layerId);
-              }}
               onClearFocus={clearFocus}
             />
           </section>

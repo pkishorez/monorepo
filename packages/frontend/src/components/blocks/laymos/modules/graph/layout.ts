@@ -42,12 +42,14 @@ const layerOffsetY = 84;
 
 interface GraphCallbacks {
   readonly onModuleActivate?: (moduleId: string) => void;
+  readonly onLayerGraphActivate?: (graphId: string) => void;
 }
 
 export interface ModuleGraphLayoutInput extends GraphCallbacks {
   readonly layers: readonly Layer[];
   readonly rules: readonly LayerRule[];
   readonly layerGraphs?: readonly NamedLayerGraph[];
+  readonly activeLayerGraphId?: string;
   readonly modules: readonly Module[];
   readonly dependencies: readonly ModuleDependency[];
   readonly focusedLayerId?: string;
@@ -67,11 +69,16 @@ interface LayerNodeData extends Record<string, unknown> {
   readonly targetHandles: readonly { id: string; offset: number }[];
 }
 
-interface GraphLaneNodeData extends Record<string, unknown> {}
+interface GraphLaneNodeData extends Record<string, unknown> {
+  readonly dimmed: boolean;
+}
 
 interface GraphHeaderNodeData extends Record<string, unknown> {
   readonly label: string;
   readonly description?: string;
+  readonly dimmed: boolean;
+  readonly active: boolean;
+  readonly activatable: boolean;
 }
 
 interface ModuleNodeData extends Record<string, unknown> {
@@ -187,15 +194,30 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
   const laneHeight = graphLaneHeight(layerPositions);
   const hasFocus =
     input.activeModuleId !== undefined || input.activeViolation !== undefined;
+  const activeLayerGraphId = input.activeLayerGraphId;
+  const selectedGraphLayerIds =
+    activeLayerGraphId === undefined
+      ? undefined
+      : new Set(
+          groups.find(({ id }) => id === activeLayerGraphId)?.layerIds ?? [],
+        );
+  const selectedGraphEdges =
+    activeLayerGraphId === undefined
+      ? configuredLayerEdges
+      : configuredLayerEdges.filter(({ graphIds }) =>
+          graphIds.includes(activeLayerGraphId),
+        );
   const focusedLayerIds = directlyConnectedLayerIds(
     input.focusedLayerId,
-    configuredLayerEdges,
+    selectedGraphEdges,
   );
   const hover = resolveModuleHover(input, focus);
   const nodes: ModuleGraphNode[] = [];
 
   for (const group of groups) {
     const lane = laneById.get(group.id)!;
+    const laneDimmed =
+      activeLayerGraphId !== undefined && activeLayerGraphId !== group.id;
     nodes.push({
       id: `module-graph-lane:${group.id}`,
       type: 'module-graph-lane',
@@ -207,7 +229,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
       focusable: false,
       zIndex: -1,
       style: { pointerEvents: 'none' },
-      data: {},
+      data: { dimmed: laneDimmed },
     });
     nodes.push({
       id: `module-graph-header:${group.id}`,
@@ -222,9 +244,11 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
       selectable: false,
       focusable: false,
       zIndex: 3,
-      style: { pointerEvents: 'none' },
       data: {
         label: group.id,
+        dimmed: laneDimmed,
+        active: activeLayerGraphId === group.id,
+        activatable: input.onLayerGraphActivate !== undefined,
         ...(group.description === undefined
           ? {}
           : { description: group.description }),
@@ -246,9 +270,14 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
         input.modules.find((module) => module.id === moduleId)?.layerId ===
         layer.id,
     );
+    const outsideSelectedGraph =
+      selectedGraphLayerIds !== undefined &&
+      !selectedGraphLayerIds.has(layer.id);
     const dimmed = hasFocus
       ? !layerHighlighted && coverageViolation === undefined
-      : input.focusedLayerId !== undefined && !focusedLayerIds.has(layer.id);
+      : input.focusedLayerId !== undefined
+        ? !focusedLayerIds.has(layer.id)
+        : outsideSelectedGraph;
 
     nodes.push({
       id: layer.id,
@@ -511,7 +540,13 @@ function layerEdges(
             stroke: 'var(--muted-foreground)',
             strokeWidth: 1,
             strokeDasharray: '3 5',
-            opacity: hasFocus || input.focusedLayerId !== undefined ? 0 : 0.3,
+            opacity:
+              hasFocus || input.focusedLayerId !== undefined
+                ? 0
+                : input.activeLayerGraphId === undefined ||
+                    input.activeLayerGraphId === group.id
+                  ? 0.3
+                  : 0.06,
             pointerEvents: 'none',
           },
           zIndex: 0,
@@ -521,9 +556,13 @@ function layerEdges(
   if (!input.showLayerConnections) return membershipEdges;
 
   const configured = configuredEdges.map((edge): Edge => {
+    const outsideSelectedGraph =
+      input.activeLayerGraphId !== undefined &&
+      !edge.graphIds.includes(input.activeLayerGraphId);
     const focused =
-      input.focusedLayerId === edge.fromLayerId ||
-      input.focusedLayerId === edge.toLayerId;
+      !outsideSelectedGraph &&
+      (input.focusedLayerId === edge.fromLayerId ||
+        input.focusedLayerId === edge.toLayerId);
     const hidden = hasFocus || (input.focusedLayerId !== undefined && !focused);
     const graphId = edge.graphIds.length === 1 ? edge.graphIds[0] : undefined;
     return {
@@ -547,7 +586,11 @@ function layerEdges(
           ? 'var(--primary)'
           : 'color-mix(in oklab, var(--muted-foreground) 55%, var(--background))',
         strokeWidth: focused ? 2 : 1.25,
-        ...(hidden ? { opacity: 0 } : {}),
+        ...(hidden
+          ? { opacity: 0 }
+          : outsideSelectedGraph
+            ? { opacity: 0.05 }
+            : {}),
         pointerEvents: 'none',
       },
       zIndex: 1,

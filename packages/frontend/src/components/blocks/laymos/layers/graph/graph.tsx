@@ -36,6 +36,8 @@ interface LayerGraphProps extends LayerInteraction {
   readonly rules: readonly LayerRule[];
   readonly layerGraphs?: readonly NamedLayerGraph[];
   readonly activeLayerGraphId?: string;
+  readonly showLayerConnections?: boolean;
+  readonly onLayerGraphActivate?: (graphId: string) => void;
   readonly activeViolationPair?: LayerViolationPair;
   readonly onClearFocus?: () => void;
   readonly className?: string;
@@ -96,6 +98,10 @@ function GraphCanvas(props: LayerGraphProps) {
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
         onNodeClick={(_, node) => {
+          if (node.type === 'graph-header') {
+            props.onLayerGraphActivate?.(node.id.slice('graph:'.length));
+            return;
+          }
           if (node.type !== 'layer') return;
           if (!node.data.activationEnabled) return;
           node.data.onHoverChange?.(undefined);
@@ -154,6 +160,7 @@ function GraphHeader({ data }: NodeProps<GraphHeaderNode>) {
           'flex h-full w-full flex-col justify-center rounded-md border border-border bg-background/95 px-3 shadow-sm transition-all',
           data.active && 'border-primary/70 bg-primary/5 text-foreground',
           data.dimmed && 'opacity-25',
+          data.activatable && 'cursor-pointer hover:border-primary/60',
         )}
         title={data.description}
       >

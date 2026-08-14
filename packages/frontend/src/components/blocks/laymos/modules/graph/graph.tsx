@@ -40,6 +40,7 @@ interface ModuleGraphProps {
   readonly layers: readonly Layer[];
   readonly rules: readonly LayerRule[];
   readonly layerGraphs?: readonly NamedLayerGraph[];
+  readonly activeLayerGraphId?: string;
   readonly modules: readonly Module[];
   readonly dependencies: readonly ModuleDependency[];
   readonly focusedLayerId?: string;
@@ -49,6 +50,7 @@ interface ModuleGraphProps {
   readonly onModuleActivate?: (moduleId: string) => void;
   readonly onModuleOpen?: (moduleId: string) => void;
   readonly onLayerActivate?: (layerId: string) => void;
+  readonly onLayerGraphActivate?: (graphId: string) => void;
   readonly onClearFocus?: () => void;
   readonly className?: string;
 }
@@ -115,6 +117,12 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
         proOptions={{ hideAttribution: true }}
         onNodeClick={(event, node) => {
           setHoveredModuleId(undefined);
+          if (node.type === 'module-graph-header') {
+            props.onLayerGraphActivate?.(
+              node.id.slice('module-graph-header:'.length),
+            );
+            return;
+          }
           const nestedModuleId = (event.target as Element)
             .closest('.react-flow__node-nested-module')
             ?.getAttribute('data-id');
@@ -214,10 +222,13 @@ function LayerContainer({ data }: NodeProps<LayerContainerNode>) {
   );
 }
 
-function GraphLane(_: NodeProps<GraphLaneNode>) {
+function GraphLane({ data }: NodeProps<GraphLaneNode>) {
   return (
     <div
-      className="h-full w-full rounded-xl border border-border/70 bg-card/20"
+      className={cn(
+        'h-full w-full rounded-xl border border-border/70 bg-card/20 transition-opacity',
+        data.dimmed && 'opacity-20',
+      )}
       aria-hidden
     />
   );
@@ -233,7 +244,12 @@ function GraphHeader({ data }: NodeProps<GraphHeaderNode>) {
         className="!size-1 !border-0 !bg-transparent"
       />
       <div
-        className="flex h-full w-full flex-col justify-center rounded-md border border-border bg-background/95 px-3 shadow-sm"
+        className={cn(
+          'flex h-full w-full flex-col justify-center rounded-md border border-border bg-background/95 px-3 shadow-sm transition-all',
+          data.active && 'border-primary/70 bg-primary/5 text-foreground',
+          data.dimmed && 'opacity-25',
+          data.activatable && 'cursor-pointer hover:border-primary/60',
+        )}
         title={data.description}
       >
         <span className="truncate text-xs font-bold uppercase tracking-wider">

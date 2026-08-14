@@ -7,17 +7,16 @@ import {
   moduleViolations,
   loadFixtureModuleSource,
 } from './fixture-data';
-import { ModulesExperience } from '../../experience';
+import { LaymosShell } from '../../experience';
 
 export default (
-  <ModulesExperience
+  <LaymosShell
     layers={moduleLayers}
     rules={moduleRules}
     layerGraphs={moduleLayerGraphs}
     modules={modules}
     dependencies={moduleDependencies}
-    violations={moduleViolations}
-    initialLayerId="application"
+    moduleViolations={moduleViolations}
     loadModuleSource={loadFixtureModuleSource}
   />
 );
