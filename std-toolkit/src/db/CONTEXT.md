@@ -21,7 +21,7 @@ The typed Effect service, identified by a StdTable's unique logical name, throug
 _Avoid_: Table binding, attachment, mutable binding, global registration, object-identity binding.
 
 **Adapter**:
-A database implementation of the **StdTable contract**: DynamoDB, SQLite, or IDB (brand-faithful casing). Each adapter may also expose **adapter-native operations** beyond the contract. One adapter never imports another.
+A database implementation of the **StdTable contract**: DynamoDB, SQLite, IDB, or Memory (brand-faithful casing). Each adapter may also expose **adapter-native operations** beyond the contract. One adapter never imports another.
 _Avoid_: backend, engine, database plugin.
 
 **Driver**:
@@ -29,11 +29,11 @@ A platform binding beneath the SQLite adapter (node, bun, better-sqlite3, durabl
 _Avoid_: database runtime, environment adapter.
 
 **Adapter config**:
-The adapter-specific information needed to reach a database, such as DynamoDB client settings, a SQLite driver and file, or an IndexedDB database name (`DynamoDBConfig`, `SQLiteConfig`, `IDBConfig`). It is separate from the adapter-independent **StdTable** and its physical-name mapping.
+The adapter-specific information needed to reach a database, such as DynamoDB client settings, a SQLite driver and file, or an IndexedDB database name (`DynamoDBConfig`, `SQLiteConfig`, `IDBConfig`). Memory needs no adapter config. Adapter config is separate from the adapter-independent **StdTable** and its physical-name mapping.
 _Avoid_: Adapter configuration (long form), table definition, shared database configuration.
 
 **Adapter table**:
-The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTable`, `IDBTable`: the StdTable realized on one database. It closes over one StdTable's physical configuration and exposes its typed `layer` plus adapter-specific capabilities such as executable setup or an infrastructure definition.
+The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTable`, `IDBTable` — or the config-free `Memory.make(stdTable)` result, `MemoryTable`: the StdTable realized on one database. It closes over one StdTable's physical configuration when the adapter has any and exposes its typed `layer` plus adapter-specific capabilities such as executable setup or an infrastructure definition.
 _Avoid_: Configured adapter (retired term), instance, storage, public binding.
 
 **Adapter setup**:
@@ -156,3 +156,11 @@ A **transact op** submitted to a different **StdTable** from the one whose **ent
 
 **Duplicate transaction target**:
 Two or more **transact ops** in one batch that address the same **partition key** and **sort key**. The batch is rejected before writing.
+
+**Parity story**:
+An executable story whose proof runs one program against every **Adapter** through the parity harness and asserts identical results. Parity stories prove the **StdTable surface**; they never showcase a single adapter.
+_Avoid_: cross-adapter test, shared story.
+
+**Adapter-native story**:
+An executable story that showcases one **Adapter**'s native capability — an **adapter-native operation**, or behavior only that database exhibits, such as IndexedDB's auto-versioned setup or the SQLite driver seam. Its answer must state why the capability is not portable; a capability every adapter could honor belongs in the **StdTable surface** and a **parity story** instead.
+_Avoid_: adapter-specific story, divergence test.
