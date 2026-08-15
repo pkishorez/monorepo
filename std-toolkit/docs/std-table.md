@@ -28,10 +28,19 @@ The endpoint is `DYNAMODB_LOCAL_ENDPOINT`, defaulting to
 `http://localhost:8090`. Nothing is skipped when it is missing — the DynamoDB
 half of every question fails loudly instead.
 
-## What the stories deliberately leave out
+The `Std Table` group has siblings under `Database`: the `DynamoDB`,
+`IndexedDB`, and `SQLite` groups hold **adapter-native stories** — proofs that
+run on one backend only and showcase what makes it worth choosing: DynamoDB's
+native operations and raw-client escape hatch, IndexedDB's auto-versioned
+setup and multi-tab behavior, SQLite's driver seam. Each of those stories
+states in its answer why the capability is not portable; anything every
+backend could honor belongs in the parity suite instead.
+
+## What the parity stories deliberately leave out
 
 Three things are true of the abstraction but cannot be proved by a story that
-runs identically everywhere.
+runs identically everywhere. The first stays prose; the other two now have
+adapter-native stories.
 
 **Read consistency is not portable.** SQLite and IndexedDB always read the
 latest committed write. Real DynamoDB does too for primary-key reads, but its
@@ -43,15 +52,18 @@ reads if you need read-your-writes through an index.
 **Some operations exist on only one backend.** DynamoDB can update an item in
 place with a native expression, read consistently on demand, and batch-insert;
 those live under `std-toolkit/db/dynamodb` and bypass the portable contract by
-design. The portable path is `getAndUpdate`, which reads, applies your change,
-and writes back conditionally on the row's update stamp — see
+design — the `DynamoDB` story group proves each one. The portable path is
+`getAndUpdate`, which reads, applies your change, and writes back
+conditionally on the row's update stamp — see
 `docs/adr/0002-portable-get-and-update.md`.
 
 **Transactions are buffered, never interactive.** You build operations
 (`insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp`) and commit them with
 `table.transact`. There is no "open a transaction, run arbitrary reads and
 writes inside it" API on any adapter, because DynamoDB cannot offer one — see
-`docs/adr/0001-buffered-transact-ops-only.md`.
+`docs/adr/0001-buffered-transact-ops-only.md`. How the buffered guard reaches
+a SQLite driver as data is proved in the `SQLite` group's "Write your own
+driver" story.
 
 ## Where to read more
 

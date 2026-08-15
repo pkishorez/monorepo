@@ -13,6 +13,15 @@ of the Story tree. A Story carries a one-line description shown inline in
 listings, a detailed markdown page, and an executable program whose run
 captures Story artifacts and Story assertions.
 
+**Story question**:
+One question-and-answer unit of a Story: a reader-facing question, its prose
+answer, and a proof. A Story holds an ordered list of these.
+
+**Proof**:
+The executable program attached to one Story question. Running it records
+Story sections and Story assertions, and those assertions decide the
+question's verdict.
+
 **Story Group**:
 A documentation node of the Story tree. It carries a title and one-line
 description shown inline in listings plus a detailed markdown page, and holds
