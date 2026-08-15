@@ -153,12 +153,16 @@ export const buildMutationHandlers = <
           string,
           (changes: Partial<TItem>) => Transaction<Partial<TItem>>
         >();
+        // The pacer is cached per key, so `commit` reads the row from here rather
+        // than closing over the row seen on the first call for that key.
+        const rows = new Map<string, CollectionItem<TItem>>();
         return (
           key: string,
           current: CollectionItem<TItem>,
           changes: Partial<TItem>,
           optimistic: (key: string, changes: Partial<TItem>) => void,
         ): Transaction<Partial<TItem>> => {
+          rows.set(key, current);
           let paced = mutate.get(key);
           if (!paced) {
             paced = buildPacedUpdate<Partial<TItem>>({
@@ -169,7 +173,7 @@ export const buildMutationHandlers = <
                 await runMutation(
                   key,
                   'update',
-                  onUpdate(buildUpdatePayload(current, updates)),
+                  onUpdate(buildUpdatePayload(rows.get(key)!, updates)),
                 );
               },
             });

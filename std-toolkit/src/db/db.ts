@@ -9,4 +9,6 @@ export type { StdTableService } from './std-table/contract/index.js';
 export {
   DatabaseError,
   type DatabaseErrorReason,
+  type TransactOperation,
+  type TransactOutcome,
 } from './std-table/error/index.js';

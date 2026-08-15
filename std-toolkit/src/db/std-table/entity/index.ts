@@ -4,6 +4,8 @@ export {
   failReason,
   makeKeyedEntity,
   makeSingleEntity,
+  type AnyTransactOp,
+  type CheckOp,
   type EntityKey,
   type EntityValue,
   type InsertValue,

@@ -1,6 +1,7 @@
 import { Effect, Schema } from 'effect';
 import {
   ConditionFailure,
+  conditionFailed,
   OperationFailure,
   type ConditionalPut,
 } from '../../std-table/contract/index.js';
@@ -32,7 +33,7 @@ export const writeItem = (
           statement.expectedChanges === undefined ||
           result.changes === statement.expectedChanges
             ? Effect.void
-            : Effect.fail(new ConditionFailure()),
+            : Effect.fail(conditionFailed()),
         ),
         Effect.mapError((cause) =>
           cause instanceof ConditionFailure

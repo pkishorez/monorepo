@@ -55,6 +55,7 @@ import { tombstonesAndTies } from './database/std-table/pagination/tombstones-an
 import { secondaryPatterns } from './database/std-table/access-patterns-and-indexes/secondary-patterns.story.js';
 import { sparseIndexes } from './database/std-table/access-patterns-and-indexes/sparse-indexes.story.js';
 import { atomicWrites } from './database/std-table/transactions/atomic-writes.story.js';
+import { checkOps } from './database/std-table/transactions/check-ops.story.js';
 import { transactionLimits } from './database/std-table/transactions/transaction-limits.story.js';
 import { staleOps } from './database/std-table/transactions/stale-ops.story.js';
 import { olderRows } from './database/std-table/evolving-data-in-place/older-rows.story.js';
@@ -66,6 +67,7 @@ import { aUserUpdatedSomeTimeBack } from './tanstack-sync/catching-up/a-user-upd
 import { editsKeepFlowing } from './tanstack-sync/staying-current/edits-keep-flowing.story.js';
 import { oneListAtATime } from './tanstack-sync/syncing-on-demand/one-list-at-a-time.story.js';
 import { crossCollection } from './tanstack-sync/optimistic-transactions/cross-collection.story.js';
+import { issue1 } from './tanstack-sync/issue-1/issue-1.story.js';
 
 import { batchInsert } from './database/dynamodb/batch-insert.story.js';
 import { nativeUpdates } from './database/dynamodb/native-updates.story.js';
@@ -118,7 +120,12 @@ export default Story.group('std-toolkit', [
         secondaryPatterns,
         sparseIndexes,
       ]),
-      Story.group('Transactions', [atomicWrites, transactionLimits, staleOps]),
+      Story.group('Transactions', [
+        atomicWrites,
+        transactionLimits,
+        staleOps,
+        checkOps,
+      ]),
       Story.group('Evolving data in place', [olderRows, unreadableRows]),
     ]),
     Story.group('DynamoDB', [
@@ -138,6 +145,7 @@ export default Story.group('std-toolkit', [
     Story.group('Staying current', [editsKeepFlowing]),
     Story.group('Syncing on demand', [oneListAtATime]),
     Story.group('Optimistic transactions', [crossCollection]),
+    Story.group('Issues', [issue1]),
   ]),
   Story.group('Evolving Schema', [
     Story.group('Defining evolutions', [

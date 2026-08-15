@@ -131,10 +131,18 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
     return tracked;
   };
 
+  // TanStack DB defaults to a five-minute GC, and it arms one shared ref'd timer
+  // for the longest gcTime in play — long enough to hold a Node process open.
+  const defaultGcTime = 10_000;
+
   const mergeOptions = <TItem extends object>(
     options?: StdCollectionOptions<TItem>,
   ): StdCollectionOptions<TItem> =>
-    ({ ...defaults?.options, ...options }) as StdCollectionOptions<TItem>;
+    ({
+      gcTime: defaultGcTime,
+      ...defaults?.options,
+      ...options,
+    }) as StdCollectionOptions<TItem>;
 
   const sync = <S extends AnyEntityESchema>(config: SyncConfig<S, R>) => {
     assertActive();

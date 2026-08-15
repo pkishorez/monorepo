@@ -1,6 +1,7 @@
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import type {
-  PutCondition,
+  EncodedKey,
+  ItemCondition,
   QueryRequest,
 } from '../../std-table/contract/index.js';
 import type { SQLiteRow, SQLiteValue } from '../item-schema/index.js';
@@ -24,7 +25,7 @@ const makeWriteStatement = (
   tableName: string,
   table: SQLiteTable,
   row: SQLiteRow,
-  condition: PutCondition | undefined,
+  condition: ItemCondition | undefined,
 ) => {
   const names = Object.keys(row);
   const values: SQLiteValue[] = Object.values(row);
@@ -34,14 +35,15 @@ const makeWriteStatement = (
   const conflict = `ON CONFLICT(${quoteIdentifier(table.primary.pk)}, ${quoteIdentifier(table.primary.sk)})${conflictClause(names, table.primary, condition)}`;
 
   // A bare upsert would resurrect a row deleted since it was read, so guard on existence.
-  if (condition?.kind === 'updated') {
+  if (condition?.kind === 'updated' || condition?.kind === 'exists') {
+    const version = condition.kind === 'updated' ? ' AND _u = ?' : '';
     return {
-      sql: `INSERT INTO ${quoted} (${columns}) SELECT ${placeholders} WHERE EXISTS (SELECT 1 FROM ${quoted} WHERE ${quoteIdentifier(table.primary.pk)} = ? AND ${quoteIdentifier(table.primary.sk)} = ? AND _u = ?) ${conflict}`,
+      sql: `INSERT INTO ${quoted} (${columns}) SELECT ${placeholders} WHERE EXISTS (SELECT 1 FROM ${quoted} WHERE ${quoteIdentifier(table.primary.pk)} = ? AND ${quoteIdentifier(table.primary.sk)} = ?${version}) ${conflict}`,
       parameters: [
         ...values,
         row[table.primary.pk] ?? null,
         row[table.primary.sk] ?? null,
-        condition.value,
+        ...(condition.kind === 'updated' ? [condition.value] : []),
       ],
       expectedChanges: 1,
     };
@@ -51,6 +53,29 @@ const makeWriteStatement = (
     sql: `INSERT INTO ${quoted} (${columns}) VALUES (${placeholders}) ${conflict}`,
     parameters: values,
     ...(condition === undefined ? {} : { expectedChanges: 1 }),
+  };
+};
+
+// A no-op self-update makes `changes` report the condition result, so a check
+// needs no statement kind the drivers do not already run.
+const makeCheckStatement = (
+  tableName: string,
+  table: SQLiteTable,
+  key: EncodedKey,
+  condition: ItemCondition,
+) => {
+  const where = `${quoteIdentifier(table.primary.pk)} = ? AND ${quoteIdentifier(table.primary.sk)} = ?`;
+  const sql = `UPDATE ${quoteIdentifier(tableName)} SET _u = _u WHERE ${where}`;
+  if (condition.kind === 'updated')
+    return {
+      sql: `${sql} AND _u = ?`,
+      parameters: [key.pk, key.sk, condition.value],
+      expectedChanges: 1,
+    };
+  return {
+    sql,
+    parameters: [key.pk, key.sk],
+    expectedChanges: condition.kind === 'exists' ? 1 : 0,
   };
 };
 
@@ -154,6 +179,7 @@ const makeCreateIndexStatements = (tableName: string, table: SQLiteTable) =>
 
 export const Statement = {
   addColumn: makeAddColumnStatement,
+  check: makeCheckStatement,
   createIndexes: makeCreateIndexStatements,
   createTable: makeCreateTableStatement,
   deleteAll: makeDeleteAllStatement,

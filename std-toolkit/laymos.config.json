@@ -36,127 +36,127 @@
   "layers": {
     "db.public": {
       "paths": ["src/db/index.ts", "src/db/db.ts"],
-      "description": "Public \u2014 adapter-independent database entrypoint"
+      "description": "Public — adapter-independent database entrypoint"
     },
     "std-table.table": {
       "paths": ["src/db/std-table/table"],
-      "description": "Aggregate \u2014 StdTable builder, decoration, and transact"
+      "description": "Aggregate — StdTable builder, decoration, and transact"
     },
     "std-table.entity": {
       "paths": ["src/db/std-table/entity"],
-      "description": "Surface \u2014 typed keyed and single entity operations"
+      "description": "Surface — typed keyed and single entity operations"
     },
     "std-table.definition": {
       "paths": ["src/db/std-table/definition"],
-      "description": "Model \u2014 logical table and entity definitions"
+      "description": "Model — logical table and entity definitions"
     },
     "std-table.snapshot": {
       "paths": ["src/db/std-table/snapshot"],
-      "description": "Model \u2014 logical table snapshot projection"
+      "description": "Model — logical table snapshot projection"
     },
     "std-table.key": {
       "paths": ["src/db/std-table/key"],
-      "description": "Model \u2014 collision-safe key encoding and storage derivation"
+      "description": "Model — collision-safe key encoding and storage derivation"
     },
     "std-table.contract": {
       "paths": ["src/db/std-table/contract"],
-      "description": "Port \u2014 the contract every adapter implements"
+      "description": "Port — the contract every adapter implements"
     },
     "std-table.error": {
       "paths": ["src/db/std-table/error"],
-      "description": "Port \u2014 public database error"
+      "description": "Port — public database error"
     },
     "dynamodb.public": {
       "paths": ["src/db/dynamodb/index.ts", "src/db/dynamodb/dynamodb.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public — barrel and adapter door"
     },
     "dynamodb.native": {
       "paths": ["src/db/dynamodb/native"],
-      "description": "Native \u2014 typed DynamoDB-native operations, bypassing the port"
+      "description": "Native — typed DynamoDB-native operations, bypassing the port"
     },
     "dynamodb.table": {
       "paths": ["src/db/dynamodb/table"],
-      "description": "Store \u2014 port implementation"
+      "description": "Store — port implementation"
     },
     "dynamodb.setup": {
       "paths": ["src/db/dynamodb/setup"],
-      "description": "Topology \u2014 physical table projection and explicit setup"
+      "description": "Topology — physical table projection and explicit setup"
     },
     "dynamodb.expression": {
       "paths": ["src/db/dynamodb/expression"],
-      "description": "Language \u2014 predicates and updates as DynamoDB expressions"
+      "description": "Language — predicates and updates as DynamoDB expressions"
     },
     "dynamodb.item-schema": {
       "paths": ["src/db/dynamodb/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from attribute values"
+      "description": "Mapping — encoded items to and from attribute values"
     },
     "dynamodb.attribute-value": {
       "paths": ["src/db/dynamodb/attribute-value"],
-      "description": "Encoding \u2014 values to and from DynamoDB attribute values"
+      "description": "Encoding — values to and from DynamoDB attribute values"
     },
     "dynamodb.client": {
       "paths": ["src/db/dynamodb/client"],
-      "description": "Connection \u2014 generated API execution and AWS request signing"
+      "description": "Connection — generated API execution and AWS request signing"
     },
     "idb.public": {
       "paths": ["src/db/idb/index.ts", "src/db/idb/idb.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public — barrel and adapter door"
     },
     "idb.table": {
       "paths": ["src/db/idb/table"],
-      "description": "Store \u2014 port implementation"
+      "description": "Store — port implementation"
     },
     "idb.item-schema": {
       "paths": ["src/db/idb/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from stored records"
+      "description": "Mapping — encoded items to and from stored records"
     },
     "idb.database": {
       "paths": ["src/db/idb/database"],
-      "description": "Connection \u2014 IndexedDB connection lifecycle"
+      "description": "Connection — IndexedDB connection lifecycle"
     },
     "idb.upgrade": {
       "paths": ["src/db/idb/upgrade"],
-      "description": "Upgrade \u2014 physical store and index schema, declared at connection-open time and therefore below the connection"
+      "description": "Upgrade — physical store and index schema, declared at connection-open time and therefore below the connection"
     },
     "memory.public": {
       "paths": ["src/db/memory/index.ts", "src/db/memory/memory.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public — barrel and adapter door"
     },
     "memory.table": {
       "paths": ["src/db/memory/table"],
-      "description": "Store \u2014 in-memory port implementation"
+      "description": "Store — in-memory port implementation"
     },
     "sqlite.public": {
       "paths": ["src/db/sqlite/index.ts", "src/db/sqlite/sqlite.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public — barrel and adapter door"
     },
     "sqlite.table": {
       "paths": ["src/db/sqlite/table"],
-      "description": "Store \u2014 port implementation"
+      "description": "Store — port implementation"
     },
     "sqlite.setup": {
       "paths": ["src/db/sqlite/setup"],
-      "description": "Topology \u2014 physical schema setup and migration"
+      "description": "Topology — physical schema setup and migration"
     },
     "sqlite.statement": {
       "paths": ["src/db/sqlite/statement"],
-      "description": "Language \u2014 predicates and writes as parameterized SQL statements"
+      "description": "Language — predicates and writes as parameterized SQL statements"
     },
     "sqlite.item-schema": {
       "paths": ["src/db/sqlite/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from rows"
+      "description": "Mapping — encoded items to and from rows"
     },
     "sqlite.database": {
       "paths": ["src/db/sqlite/database"],
-      "description": "Connection \u2014 SQLite database contract"
+      "description": "Connection — SQLite database contract"
     },
     "sqlite.drivers": {
       "paths": ["src/db/sqlite/drivers"],
-      "description": "Drivers \u2014 runtime-specific SQLite bindings"
+      "description": "Drivers — runtime-specific SQLite bindings"
     },
     "eschema.public": {
       "paths": ["src/eschema/index.ts"],
-      "description": "Public \u2014 barrel"
+      "description": "Public — barrel"
     },
     "eschema.constructs": {
       "paths": [
@@ -164,35 +164,35 @@
         "src/eschema/entity-eschema",
         "src/eschema/value-eschema"
       ],
-      "description": "Constructs \u2014 public ESchema variants and their local builders"
+      "description": "Constructs — public ESchema variants and their local builders"
     },
     "eschema.composition": {
       "paths": ["src/eschema/schema-composition"],
-      "description": "Composition \u2014 Effect Schema composition"
+      "description": "Composition — Effect Schema composition"
     },
     "eschema.domain": {
       "paths": ["src/eschema/domain"],
-      "description": "Domain \u2014 evolution, field policy, runtimes, errors, and introspection"
+      "description": "Domain — evolution, field policy, runtimes, errors, and introspection"
     },
     "snapshot.public": {
       "paths": ["src/snapshot/index.ts"],
-      "description": "Public \u2014 barrel"
+      "description": "Public — barrel"
     },
     "snapshot.facade": {
       "paths": ["src/snapshot/snapshot"],
-      "description": "Facade \u2014 public Snapshot operation composition"
+      "description": "Facade — public Snapshot operation composition"
     },
     "snapshot.capture": {
       "paths": ["src/snapshot/capture"],
-      "description": "Capture \u2014 ESchema and table contract capture"
+      "description": "Capture — ESchema and table contract capture"
     },
     "snapshot.domain": {
       "paths": ["src/snapshot/domain"],
-      "description": "Domain \u2014 snapshot models, errors, and canonical ordering"
+      "description": "Domain — snapshot models, errors, and canonical ordering"
     },
     "core.public": {
       "paths": ["src/core/index.ts"],
-      "description": "Public \u2014 barrel"
+      "description": "Public — barrel"
     },
     "core.impl": {
       "paths": [
@@ -201,42 +201,42 @@
         "src/core/schema.ts",
         "src/core/ulid.ts"
       ],
-      "description": "Impl \u2014 internal implementation"
+      "description": "Impl — internal implementation"
     },
     "cli": {
       "paths": ["src/cli"],
-      "description": "CLI \u2014 command-line entrypoint and snapshot workflow"
+      "description": "CLI — command-line entrypoint and snapshot workflow"
     },
     "tanstack-sync.public": {
       "paths": [
         "src/tanstack-sync/index.ts",
         "src/tanstack-sync/tanstack-sync.ts"
       ],
-      "description": "Public \u2014 barrel, facade, and collection factory"
+      "description": "Public — barrel, facade, and collection factory"
     },
     "tanstack-sync.composition": {
       "paths": ["src/tanstack-sync/composition"],
-      "description": "Composition \u2014 keyed hybrid and single-item collection composition"
+      "description": "Composition — keyed hybrid and single-item collection composition"
     },
     "tanstack-sync.lifecycle": {
       "paths": ["src/tanstack-sync/lifecycle"],
-      "description": "Lifecycle \u2014 total, partition, singleton, and strategy lifecycles"
+      "description": "Lifecycle — total, partition, singleton, and strategy lifecycles"
     },
     "tanstack-sync.workers": {
       "paths": ["src/tanstack-sync/workers"],
-      "description": "Workers \u2014 independent sync and repair workers"
+      "description": "Workers — independent sync and repair workers"
     },
     "tanstack-sync.runtime": {
       "paths": ["src/tanstack-sync/runtime"],
-      "description": "Runtime \u2014 typed TanStack and Effect runtime capabilities"
+      "description": "Runtime — typed TanStack and Effect runtime capabilities"
     },
     "tanstack-sync.persistence": {
       "paths": ["src/tanstack-sync/persistence"],
-      "description": "Persistence \u2014 offline storage, server truth, and strategy progress"
+      "description": "Persistence — offline storage, server truth, and strategy progress"
     },
     "tanstack-sync.domain": {
       "paths": ["src/tanstack-sync/domain"],
-      "description": "Domain \u2014 pure sync policies, identities, state, and errors"
+      "description": "Domain — pure sync policies, identities, state, and errors"
     }
   },
   "modules": {
@@ -299,7 +299,9 @@
       "kind": "shared"
     },
     "src/core/ulid.ts": {},
-    "src/cli": { "kind": "entry" },
+    "src/cli": {
+      "kind": "entry"
+    },
     "src/tanstack-sync/index.ts": {},
     "src/tanstack-sync/tanstack-sync.ts": {
       "kind": "shared"
@@ -378,7 +380,8 @@
         ],
         "std-table.definition": ["std-table.snapshot"],
         "std-table.snapshot": ["eschema.public", "snapshot.capture"],
-        "std-table.key": ["std-table.contract"]
+        "std-table.key": ["std-table.contract"],
+        "std-table.error": ["std-table.contract"]
       }
     },
     "dynamodb": {

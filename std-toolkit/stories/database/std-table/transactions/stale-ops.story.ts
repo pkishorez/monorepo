@@ -5,6 +5,12 @@ import { agree, note, parity, reasonOf, table } from '../../support.js';
 
 const key = { noteId: 'n1', notebook: 'work' };
 
+const statuses = (error: unknown): readonly string[] =>
+  (
+    (error as { reason?: { operations?: readonly { status: string }[] } })
+      .reason?.operations ?? []
+  ).map((operation) => operation.status);
+
 const draft = (noteId: string) => ({
   noteId,
   notebook: 'work',
@@ -18,7 +24,7 @@ export const staleOps = Story.make({
   questions: [
     Story.question('What happens if the row changed after the op was built?', {
       answer:
-        'The batch fails with `ConditionFailed` and nothing is written — a buffered op carries the version it read and refuses to overwrite a newer one.',
+        'The batch fails with `TransactFailed` and nothing is written — a buffered op carries the version it read and refuses to overwrite a newer one. The failure names every operation in the batch, so you can see which one refused: the stale op is `failed` while its sibling `passed` and was rolled back with it.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -35,6 +41,7 @@ export const staleOps = Story.make({
             const other = yield* note.get({ noteId: 'n2', notebook: 'work' });
             return {
               reason: reasonOf(error),
+              statuses: statuses(error),
               status: current?.value.status ?? null,
               siblingWritten: other !== null,
             };
@@ -42,9 +49,14 @@ export const staleOps = Story.make({
         );
         yield* Story.assert(
           'the stale op is refused and the newer value survives',
-          results.sqlite.reason === 'ConditionFailed' &&
+          results.sqlite.reason === 'TransactFailed' &&
             results.sqlite.status === 'newer' &&
             results.sqlite.siblingWritten === false,
+        );
+        yield* Story.assert(
+          'the failure points at the stale op, not its sibling',
+          results.sqlite.statuses[1] === 'failed' &&
+            results.sqlite.statuses[0] !== 'failed',
         );
         yield* Story.assert('every adapter agrees', agree(results));
         return results;

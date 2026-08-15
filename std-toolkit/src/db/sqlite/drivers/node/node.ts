@@ -46,7 +46,7 @@ export const makeNodeSQLite = (
         try: () => {
           database.exec('BEGIN IMMEDIATE');
           try {
-            for (const statement of statements) {
+            for (const [index, statement] of statements.entries()) {
               const result = database
                 .prepare(statement.sql)
                 .run(...(statement.parameters ?? []));
@@ -54,7 +54,7 @@ export const makeNodeSQLite = (
                 statement.expectedChanges !== undefined &&
                 Number(result.changes) !== statement.expectedChanges
               )
-                throw new SQLiteChangesMismatch();
+                throw new SQLiteChangesMismatch(index);
             }
             database.exec('COMMIT');
           } catch (cause) {

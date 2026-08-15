@@ -15,6 +15,7 @@ import {
   type TableTopologyBuilder as DefinitionTopologyBuilder,
 } from '../definition/index.js';
 import type {
+  AnyTransactOp,
   KeyedBuilderStart,
   SingleBuilder,
   TableEffect,
@@ -37,13 +38,17 @@ export interface StdTable<
     schema: S,
   ): KeyedBuilderStart<Name, S, Lsis, Gsis>;
   singleEntity<S extends AnyUnkeyedESchema>(schema: S): SingleBuilder<Name, S>;
-  transact<const Ops extends readonly TransactOp<Name>[]>(
+  transact<const Ops extends readonly AnyTransactOp<Name>[]>(
     ops: Ops,
   ): TableEffect<
     {
-      readonly [K in keyof Ops]: Ops[K] extends TransactOp<Name, infer T>
-        ? EntityType<T> | SingleEntityType<T>
-        : never;
+      readonly [K in keyof Ops]: Ops[K] extends {
+        readonly operationKind: 'checkOp';
+      }
+        ? null
+        : Ops[K] extends TransactOp<Name, infer T>
+          ? EntityType<T> | SingleEntityType<T>
+          : never;
     },
     Name
   >;

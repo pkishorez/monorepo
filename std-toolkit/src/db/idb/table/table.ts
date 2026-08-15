@@ -1,11 +1,16 @@
 import { Effect, Schema } from 'effect';
-import type { StdTableContract } from '../../std-table/contract/index.js';
+import {
+  checkFailed,
+  conditionFailed,
+  transactItemKey,
+  type StdTableContract,
+} from '../../std-table/contract/index.js';
 import type { IDBConnection } from '../database/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import { queryItems } from './query.js';
 import { nativeFailure, requestPromise } from './request.js';
 import { transactionPromise } from './transaction.js';
-import { checkCondition, writeFailure } from './write.js';
+import { storedConditionHolds, writeFailure } from './write.js';
 import { decodeKey, itemSchema } from '../item-schema/index.js';
 
 const abortQuietly = (transaction: IDBTransaction) => {
@@ -49,7 +54,8 @@ export const makeTableContract = (
           const connection = await database.open();
           const transaction = connection.transaction(storeName, 'readwrite');
           const store = transaction.objectStore(storeName);
-          await checkCondition(store, write);
+          if (!(await storedConditionHolds(store, write.item, write.condition)))
+            throw conditionFailed();
           store.put(decodeItem(write.item));
           await transactionPromise(transaction);
         },
@@ -62,9 +68,16 @@ export const makeTableContract = (
           const transaction = connection.transaction(storeName, 'readwrite');
           const store = transaction.objectStore(storeName);
           try {
-            for (const write of writes) {
-              await checkCondition(store, write);
-              store.put(decodeItem(write.item));
+            for (const [index, write] of writes.entries()) {
+              if (
+                !(await storedConditionHolds(
+                  store,
+                  transactItemKey(write),
+                  write.condition,
+                ))
+              )
+                throw checkFailed(writes.length, index, write.condition);
+              if (write.kind === 'put') store.put(decodeItem(write.item));
             }
           } catch (cause) {
             abortQuietly(transaction);

@@ -1,37 +1,44 @@
 import { Effect, Schema } from 'effect';
 import type {
   ConditionalPut,
-  PutCondition,
+  ItemCondition,
+  TransactCheck,
+  TransactItem,
 } from '../../std-table/contract/index.js';
-import type { DynamoDBClient } from '../client/index.js';
+import type { DynamoDBClient, TransactWriteItem } from '../client/index.js';
 import { buildExpr, exprCondition } from '../expression/index.js';
 import type { ItemSchema } from '../item-schema/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
-import { contractFailure } from './failure.js';
+import { decodeKey } from '../item-schema/index.js';
+import { contractFailure, transactFailure } from './failure.js';
 
 type DynamoTable = Pick<
   TableDefinition,
   'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
 
-const conditionExpr = (
-  table: DynamoTable,
-  condition: PutCondition | undefined,
-) => {
-  if (condition?.kind === 'not-exists') {
+const conditionExpr = (table: DynamoTable, condition: ItemCondition) => {
+  if (condition.kind === 'not-exists') {
     return buildExpr({
       condition: exprCondition(($) => $.attributeNotExists(table.primary.pk)),
     });
   }
-  if (condition?.kind === 'updated') {
+  if (condition.kind === 'exists') {
     return buildExpr({
-      condition: exprCondition<{ readonly _u: string }>(($) =>
-        $.cond('_u', '=', condition.value),
-      ),
+      condition: exprCondition(($) => $.attributeExists(table.primary.pk)),
     });
   }
-  return {};
+  return buildExpr({
+    condition: exprCondition<{ readonly _u: string }>(($) =>
+      $.cond('_u', '=', condition.value),
+    ),
+  });
 };
+
+const maybeConditionExpr = (
+  table: DynamoTable,
+  condition: ItemCondition | undefined,
+) => (condition === undefined ? {} : conditionExpr(table, condition));
 
 const writeInput = (
   table: DynamoTable,
@@ -45,7 +52,7 @@ const writeInput = (
         try: () => ({
           TableName: tableName,
           Item: item,
-          ...conditionExpr(table, request.condition),
+          ...maybeConditionExpr(table, request.condition),
         }),
         catch: contractFailure,
       }),
@@ -65,21 +72,39 @@ export const writeItem = (
     Effect.mapError(contractFailure),
   );
 
+const checkInput = (
+  table: DynamoTable,
+  tableName: string,
+  request: TransactCheck,
+) =>
+  Effect.try({
+    try: () => ({
+      TableName: tableName,
+      Key: decodeKey(table, request.key),
+      ...conditionExpr(table, request.condition),
+    }),
+    catch: contractFailure,
+  });
+
 export const transactWriteItems = (
   client: DynamoDBClient,
   table: DynamoTable,
   tableName: string,
   schema: ItemSchema,
-  requests: readonly ConditionalPut[],
+  requests: readonly TransactItem[],
 ) =>
   Effect.forEach(requests, (request) =>
-    writeInput(table, tableName, schema, request).pipe(
-      Effect.map((input) => ({ Put: input })),
-    ),
+    request.kind === 'check'
+      ? checkInput(table, tableName, request).pipe(
+          Effect.map((input): TransactWriteItem => ({ ConditionCheck: input })),
+        )
+      : writeInput(table, tableName, schema, request).pipe(
+          Effect.map((input): TransactWriteItem => ({ Put: input })),
+        ),
   ).pipe(
     Effect.flatMap((TransactItems) =>
       client.transactWriteItems({ TransactItems }),
     ),
     Effect.asVoid,
-    Effect.mapError(contractFailure),
+    Effect.mapError((cause) => transactFailure(requests, cause)),
   );

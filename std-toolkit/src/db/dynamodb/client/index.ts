@@ -11,5 +11,6 @@ export {
   type DynamoDBCredentialsInput,
   type GetItemOutput,
   type ScanOutput,
+  type TransactWriteItem,
   type UpdateItemOutput,
 } from './client.js';
