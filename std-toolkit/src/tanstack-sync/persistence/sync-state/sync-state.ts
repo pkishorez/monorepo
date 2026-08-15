@@ -1,46 +1,75 @@
 import { Effect, Schema } from 'effect';
-import type { OfflineStorageGroup } from '../offline-storage/index.js';
+import type { DatabaseError } from '../../../db/index.js';
 import {
   storageError,
   type WriteError,
 } from '../../domain/sync-error/index.js';
 import type { StrategyStateSpec } from '../../domain/strategy-state/index.js';
+import {
+  storedSyncStateEntity,
+  type StoredSyncStateValue,
+  type SyncPersistence,
+} from '../sync-persistence-table/index.js';
+
+const persistenceError = (reason: string) => (cause: DatabaseError) =>
+  storageError(reason, cause);
 
 export const makeSyncStateStore = <TState = unknown>(args: {
   schemaName: string;
   strategyName: string;
-  group: OfflineStorageGroup;
+  persistence: SyncPersistence;
   state: StrategyStateSpec<TState>;
 }): {
   get: (key: string) => Effect.Effect<TState, WriteError>;
   set: (key: string, state: TState) => Effect.Effect<void, WriteError>;
 } => {
-  type StoredStrategyState = {
-    strategy: string;
-    value: unknown;
-  };
-
-  const isStoredStrategyState = (
-    value: unknown,
-  ): value is StoredStrategyState => {
-    if (value == null || typeof value !== 'object') return false;
-    const candidate = value as Record<string, unknown>;
-    return typeof candidate.strategy === 'string' && 'value' in candidate;
-  };
-
+  const storageKey = (key: string) => ({
+    collection: args.schemaName,
+    key,
+  });
   const emptyState = (): TState => structuredClone(args.state.empty);
 
-  const putStoredState = (key: string, value: unknown) =>
-    args.group
-      .put<StoredStrategyState>(key, {
+  const putStoredState = (
+    key: string,
+    value: unknown,
+  ): Effect.Effect<void, WriteError> => {
+    const stored: StoredSyncStateValue = {
+      collection: args.schemaName,
+      key,
+      strategy: args.strategyName,
+      value: value as {} | null,
+    };
+    const update = () =>
+      args.persistence.provide(
+        storedSyncStateEntity.getAndUpdate(
+          storageKey(key),
+          { strategy: stored.strategy, value: stored.value },
+          { lastWriteWins: true },
+        ),
+        {
+          collection: args.schemaName,
+          operation: 'update',
+          record: 'sync-state',
+          strategy: args.strategyName,
+        },
+      );
+    return args.persistence
+      .provide(storedSyncStateEntity.insert(stored), {
+        collection: args.schemaName,
+        operation: 'insert',
+        record: 'sync-state',
         strategy: args.strategyName,
-        value,
       })
       .pipe(
-        Effect.mapError((cause) =>
-          storageError('failed to write Sync State', cause),
+        Effect.catch((error) =>
+          error.reason._tag === 'ItemAlreadyExists'
+            ? update()
+            : Effect.fail(error),
         ),
+        Effect.asVoid,
+        Effect.mapError(persistenceError('failed to write Sync State')),
       );
+  };
 
   const reset = (
     key: string,
@@ -56,32 +85,25 @@ export const makeSyncStateStore = <TState = unknown>(args: {
   return {
     get: (key) =>
       Effect.gen(function* () {
-        const stored = yield* args.group
-          .get<unknown>(key)
-          .pipe(
-            Effect.mapError((cause) =>
-              storageError('failed to read Sync State', cause),
-            ),
-          );
+        const stored = yield* args.persistence
+          .provide(storedSyncStateEntity.get(storageKey(key)), {
+            collection: args.schemaName,
+            operation: 'get',
+            record: 'sync-state',
+            strategy: args.strategyName,
+          })
+          .pipe(Effect.mapError(persistenceError('failed to read Sync State')));
 
         if (stored == null) return emptyState();
-
-        if (!isStoredStrategyState(stored)) {
+        if (stored.value.strategy !== args.strategyName) {
           return yield* reset(
             key,
-            `[tanstack-sync] reset legacy sync state for "${args.schemaName}" strategy "${args.strategyName}" because it was missing the Stored Sync State wrapper (strategy/value)`,
+            `[tanstack-sync] reset sync state for "${args.schemaName}" because stored strategy "${stored.value.strategy}" does not match current strategy "${args.strategyName}"`,
           );
         }
 
-        if (stored.strategy !== args.strategyName) {
-          return yield* reset(
-            key,
-            `[tanstack-sync] reset sync state for "${args.schemaName}" because stored strategy "${stored.strategy}" does not match current strategy "${args.strategyName}"`,
-          );
-        }
-
-        const decoded = Schema.decodeUnknownEffect(args.state.schema)(
-          stored.value,
+        return yield* Schema.decodeUnknownEffect(args.state.schema)(
+          stored.value.value,
         ).pipe(
           Effect.catch(() =>
             reset(
@@ -90,7 +112,6 @@ export const makeSyncStateStore = <TState = unknown>(args: {
             ),
           ),
         );
-        return yield* decoded;
       }),
     set: putStoredState,
   };

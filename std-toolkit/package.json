@@ -79,10 +79,6 @@
     "./tanstack-sync/paced": {
       "types": "./dist/tanstack-sync/runtime/mutation-pacing/index.d.ts",
       "default": "./dist/tanstack-sync/runtime/mutation-pacing/index.js"
-    },
-    "./tanstack-sync/offline-storage/idb": {
-      "types": "./dist/tanstack-sync/persistence/indexed-db-storage/index.d.ts",
-      "default": "./dist/tanstack-sync/persistence/indexed-db-storage/index.js"
     }
   },
   "files": [

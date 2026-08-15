@@ -82,7 +82,17 @@ For keyed collections, it is one entity namespace per collection (not per partit
 
 SoT is **fully detached from Sync State**. There is no derivation between them — the engine never reads SoT to compute a cursor or high-water mark. A strategy that needs a cursor stores it in its own Sync State.
 
-SoT can use the default memory backend or a configured Offline Storage backend. When Offline Storage is durable, SoT remains available across reloads.
+SoT is recorded in the **Sync Persistence Table**. Its default Memory realization lasts only for the life of the sync instance; a durable realization keeps SoT available across reloads.
+
+A **Stored Source Entity** is the Sync Persistence Table entity that records one remote entity:
+
+```
+{ collection: string, key: string, value: unknown, meta: EntityMeta }
+```
+
+`value` is the opaque value received from the server and later handed to TanStack DB. tanstack-sync does not add an encoding or decoding boundary around it. `meta` is the remote Entity Meta used for convergence; the Stored Source Entity's own database metadata is separate and has no sync meaning.
+
+TanStack Sync alone decides whether and what to persist. Requests such as `persist: true`, the Convergence Rule, client stamping, and retry policy are resolved before or around table operations; the Sync Persistence Table and its adapter attach no sync meaning to stored values.
 
 **What writes to SoT:**
 
@@ -99,24 +109,26 @@ SoT can use the default memory backend or a configured Offline Storage backend. 
 
 SoT can be written while the TanStack collection is unmounted. If callbacks are absent, projection is deferred. On mount, the engine projects current SoT into the collection.
 
-Server-truth writes are atomic. A batch either succeeds as a whole or fails through `WriteError`. Stale valid entities are no-ops, not failures. Writes for one collection are serialized by a one-permit semaphore so concurrent total, partition, mutation, and registry deliveries cannot interleave their read-compare-write decisions.
+Server-truth convergence is atomic per entity. A batch is validated before writing, and duplicate keys collapse to the entity with the newest remote `_u`. A batch may partially land if persistence fails; successful entity writes are safe to retry. Stale valid entities are no-ops, not failures.
 
 ### Collection Projection
 
 The TanStack DB write side of the engine. It translates SoT state into insert/update/delete messages for the collection callbacks.
 
-Projection is ephemeral. On reload it clears. When durable Offline Storage is configured, the collection is rebuilt from persisted SoT.
+Projection is ephemeral. On reload it clears. When the Sync Persistence Table is durable, the collection is rebuilt from persisted SoT.
 
 ### Sync State
 
 Serializable per-strategy, per-partition data stored by the engine and interpreted by the strategy. Persisted Sync State is wrapped as a **Stored Sync State** and decoded through that strategy's state schema before a strategy sees it.
 
-A **Stored Sync State** is the on-disk wrapper the engine writes to Offline Storage for one strategy partition:
+A **Stored Sync State** is the separate Sync Persistence Table entity that the engine records for one strategy partition:
 
 ```
-{ strategy: string, value: unknown }
+{ collection: string, key: string, strategy: string, value: unknown }
 ```
 
+- `collection` — the owning collection's schema name.
+- `key` — the partition identity, such as the global partition or a serialized partition field/value pair.
 - `strategy` — the owning strategy name. On read, a mismatch resets the slot to the strategy's empty state.
 - `value` — the opaque strategy-owned Sync State.
 
@@ -134,15 +146,22 @@ The engine owns storage mechanics; the strategy owns meaning. If the stored stra
 
 Runtime resources such as fibers, subscriptions, abort controllers, semaphores, and callbacks are not Sync State.
 
-### Offline Storage
+### Sync Persistence Table
 
-Optional durable local storage for engine-owned Source of Truth and Sync State.
+The sync-wide local table that holds engine-owned Source of Truth and Sync State as two separate entity definitions. Its complete table definition is public so an application can create an adapter layer for it; the entity definitions remain engine-owned.
 
-Offline Storage is not Collection Projection. It may support offline-capable behavior, but it does not by itself define mutation queuing, conflict policy, or network behavior.
+Each `createStdSync()` uses an isolated Memory realization by default. An application may override it with any compatible StdTable adapter layer, including IndexedDB, SQLite, or a remote adapter. Two sync instances that share an adapter layer and collection schema names intentionally share persistence: a Stored Source Entity is identified by collection schema name and record key.
 
-An Offline Storage Group is a named key-value space inside Offline Storage. Source of Truth uses one group per collection, keyed by entity id or singleton key. Sync State uses one group per collection, keyed by partition identity such as the global partition (internal key `GLOBAL_PARTITION_KEY = '__total__'`) or a serialized partition field/value pair.
+The table's primary access patterns cover all persistence reads:
 
-_Avoid_: Cache.
+- Stored Source Entity — get by collection and entity key; enumerate by collection.
+- Stored Sync State — get by collection and partition key.
+
+No secondary access pattern is part of the model.
+
+The Sync Persistence Table is not Collection Projection. Durability does not by itself define mutation queuing, conflict policy, or network behavior. Whether individual collections can opt out of the sync-wide persistence policy is deliberately outside the current model.
+
+_Avoid_: Offline Storage, Offline Storage Group, cache.
 
 ### Sync Lifecycle
 
@@ -189,6 +208,8 @@ The `collection` participant records initialization, readiness, cleanup, mutatio
 Lifecycle boundaries and subscriber counts are Flow logs or messages. Each supervised strategy attempt is a Flow activity. Nested API, Sync State, and SoT spans remain available through that activity's trace. After each non-empty strategy or Cadence Repair delivery, the worker logs `receivedCount` and `storedCount`; `storedCount` is the number of live upserts and tombstones accepted by SoT convergence. Custom strategies receive only `log` and `withSpan` through `StrategyContext.flow`; lifecycle remains the only owner of messages.
 
 Collection start, cleanup, and initialization failure are non-terminal events. Strategy and Cadence Repair failures remain local to their participant because supervision retries them. If Effect telemetry is not configured for export, these spans and logs have no external exporter; std-sync has no separate tracing switch.
+
+The Collection Flow id is observable from outside through `collection.utils`. An outside observer with the id may join the Flow as its own participant; the engine neither knows nor cares which external participants share its Flow.
 
 The strategy contract is a single method `run(ctx): Effect<void, unknown, Scope | R>`, where `R` is the optional application runtime environment. A strategy does **not** catch failures from `writeServerTruth` — it lets `WriteError` surface. The engine owns the recovery policy: on any `run` failure it reports a structured event and restarts `run` from the top on a fixed 2-second spaced schedule. Because a restart re-reads Sync State, a drain resumes from its last cursor. `run` may complete early (a pull that drains) or stay alive (a subscription); completion is **not** teardown. Teardown happens only when the engine closes the partition scope, which also interrupts the retry loop. Cleanup is the strategy's own `Effect.addFinalizer` registered on that scope; the engine never knows what is being torn down. Strategies expose **no public utils** — there is no `utils.sync`. A partitioned collection can hold heterogeneous per-partition strategies, so no single strategy-specific util surface can be type-safe. `collection.utils` is engine-owned and generic only (`schema`, `writeUpsert`, `pacedUpdate`, and pending-mutation inspection).
 
@@ -290,7 +311,7 @@ utils.subscribePending(listener);
 
 ### Registry
 
-The router for broadcast messages. `registry()` returns `process(message)`, which routes each entity by `_e` to the collection that owns that entity type in the same `createStdSync()` instance.
+The fire-and-forget router for Broadcasts within one std-sync instance. Delivery is detached from the Sync Lifecycle: shutdown neither waits for nor guarantees completion of an outstanding delivery.
 
 Because entity ownership is disjoint, each `_e` has at most one target collection.
 
@@ -318,7 +339,7 @@ The factory. One call per app or feature scope. Returns `sync`, `collection`, `s
 
 `sync` is the unified keyed-collection method. One collection declares `sync.total`, `sync.partitions`, or both. Total sync runs the **global partition** at collection start. Each typed partition factory is activated by a matching `loadSubset`. Both coexist in one engine sharing one SoT; convergence dedupes overlap. The runtime routes each live query: matching partition field → that partition's strategy; no match → covered by total sync, or reported as an `UnservedQuery` event when no total sync exists.
 
-The public surface of the main barrel includes `createStdSync`, `syncStrategy`, `singleItemSyncStrategy`, `paceStrategy`, runtime/config/strategy types, structured sync-event types, and storage types. The `std-toolkit/tanstack-sync/paced` subpath additionally exports the raw `coalesceStrategy` primitive. Collection config and utility types primarily flow through schema and runtime inference.
+The main barrel exposes the collection factory, built-in strategy namespaces, pace strategies, the Sync Persistence Table, wrapper configuration types, custom-strategy contracts, and structured sync-event types. Nested worker configuration, runtime, flow, partition-map, repair, and persistence-layer types remain inferred rather than becoming separate public names. The `std-toolkit/tanstack-sync/paced` subpath additionally exports the raw `coalesceStrategy` primitive.
 
 ### Effect Runtime
 
@@ -339,6 +360,18 @@ The object returned by `createStdSync`.
 ### Pace Strategy
 
 A distinct axis from a **sync strategy**. A _pace strategy_ controls **when** `pacedUpdate`'s optimistic mutations are committed to the server, not how data is pulled into the SoT. It plugs into TanStack DB's `createPacedMutations`. Built-in pacers are `debounce`, `throttle`, and `queue`; std-sync adds `coalesce`. Exposed two ways: the raw reusable primitive `coalesceStrategy()` (drop into any `createPacedMutations`), exported from the **`std-toolkit/tanstack-sync/paced` subpath** (not the main barrel), and the collection-level namespace `paceStrategy` (`paceStrategy.coalesce()`, `paceStrategy.debounce(...)`, ...) selected via the `updatePacing?` field on `sync`.
+
+### Sync Story
+
+A story about tanstack-sync. Its assertion is **convergence** — after a scripted sequence of participant actions, the Collection's state matches the database's. The captured Collection Flow is the story's narrative, not its assertion; flow shape is never asserted.
+
+### Simulation
+
+The scripted world a Sync Story runs in. A deterministic script drives **participants** (the same term as Collection Flow lanes — _Avoid_: actor) against a StdTable playing the server. Story-side participants such as the **user** join the Collection Flow through its observable id, so scripted actions and engine sync work appear as lanes in one Flow. Scripts are sequential today; the model permits controlled interleaving later.
+
+A Simulation runs on **real time** — there is no simulated clock (TanStack DB reads the system clock directly, so a substitute time source cannot be truthful). Determinism comes from awaiting convergence, never from fixed sleeps. "Updated some time back" means an older `_u`, which ULID ordering provides; a story that needs a literal past timestamp backdates the `Ulid` factory while seeding history, at the data level.
+
+_Avoid_: Simulated Time, fake clock.
 
 ### Coalesce (pace strategy)
 

@@ -24,8 +24,6 @@
     "src/tanstack-sync/composition/keyed-sync/__tests__",
     "src/tanstack-sync/domain/partition-identity/__tests__",
     "src/tanstack-sync/lifecycle/strategy-lifecycle/__tests__",
-    "src/tanstack-sync/persistence/indexed-db-storage/__tests__",
-    "src/tanstack-sync/persistence/offline-storage/__tests__",
     "src/tanstack-sync/persistence/source-of-truth/__tests__",
     "src/tanstack-sync/runtime/mutation-pacing/__tests__",
     "src/tanstack-sync/workers/bidirectional/__tests__",
@@ -352,8 +350,7 @@
     "src/tanstack-sync/runtime/sync-flow": {
       "kind": "shared"
     },
-    "src/tanstack-sync/persistence/indexed-db-storage": {},
-    "src/tanstack-sync/persistence/offline-storage": {
+    "src/tanstack-sync/persistence/sync-persistence-table": {
       "kind": "shared"
     },
     "src/tanstack-sync/persistence/source-of-truth": {},
@@ -470,12 +467,12 @@
     "tanstack-sync": {
       "description": "Acyclic TanStack Sync domain, persistence, runtime, worker, lifecycle, composition, and facade layers",
       "rules": {
-        "tanstack-sync.public": ["tanstack-sync.composition"],
+        "tanstack-sync.public": ["memory.public", "tanstack-sync.composition"],
         "tanstack-sync.composition": ["tanstack-sync.lifecycle"],
         "tanstack-sync.lifecycle": ["tanstack-sync.workers"],
         "tanstack-sync.workers": ["tanstack-sync.runtime"],
         "tanstack-sync.runtime": ["tanstack-sync.persistence"],
-        "tanstack-sync.persistence": ["tanstack-sync.domain"],
+        "tanstack-sync.persistence": ["db.public", "tanstack-sync.domain"],
         "tanstack-sync.domain": ["core.public"]
       }
     }
