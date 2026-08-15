@@ -2,11 +2,12 @@
   "name": "std-toolkit",
   "version": "0.0.2",
   "private": false,
-  "description": "Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, DynamoDB/SQLite adapters, and TanStack DB integration",
+  "description": "Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration",
   "keywords": [
     "dynamodb",
     "effect",
     "indexeddb",
+    "in-memory",
     "schema",
     "single table design",
     "sqlite",
@@ -34,6 +35,10 @@
     "./db/idb": {
       "types": "./dist/db/idb/index.d.ts",
       "default": "./dist/db/idb/index.js"
+    },
+    "./db/memory": {
+      "types": "./dist/db/memory/index.d.ts",
+      "default": "./dist/db/memory/index.js"
     },
     "./db/sqlite": {
       "types": "./dist/db/sqlite/index.d.ts",

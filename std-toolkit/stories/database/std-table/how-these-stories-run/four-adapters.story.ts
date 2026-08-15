@@ -9,26 +9,26 @@ import {
   parity,
 } from '../../support.js';
 
-export const threeRealBackends = Story.make({
-  title: 'Three real backends',
+export const fourAdapters = Story.make({
+  title: 'Four adapters',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Which databases does every proof actually run against?', {
+    Story.question('Which databases does every proof run against?', {
       answer:
-        'All three at once — DynamoDB Local over HTTP, a real IndexedDB implementation, and an in-memory SQLite database — and `parity` returns what each one produced.',
+        'All four at once — DynamoDB Local over HTTP, IndexedDB, Memory, and an in-memory SQLite database — and `parity` returns what each Adapter produced.',
       proof: Effect.gen(function* () {
         const results = yield* parity(Effect.succeed('same everywhere'));
         yield* Story.assert(
-          'every adapter ran the same program',
+          'every Adapter ran the same program',
           JSON.stringify(Object.keys(results)) === JSON.stringify(adapterNames),
         );
-        yield* Story.assert('every adapter agrees', agree(results));
+        yield* Story.assert('every Adapter agrees', agree(results));
         return { ...results, dynamodbEndpoint };
       }),
     }),
-    Story.question('Why do the three results match down to the update stamp?', {
+    Story.question('Why do the four results match down to the update stamp?', {
       answer:
-        'Each run gets the same deterministic update-stamp sequence instead of real ULIDs, so a whole stored entity — metadata included — can be compared across adapters.',
+        'Each run gets the same deterministic update-stamp sequence instead of real ULIDs, so a whole stored Entity — Entity Meta included — can be compared across Adapters.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -51,7 +51,7 @@ export const threeRealBackends = Story.make({
           'stamps advance one step at a time',
           results.sqlite[0] !== results.sqlite[1],
         );
-        yield* Story.assert('every adapter agrees', agree(results));
+        yield* Story.assert('every Adapter agrees', agree(results));
         return results;
       }),
     }),

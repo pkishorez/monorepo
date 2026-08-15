@@ -1,6 +1,7 @@
 import { StdTable, type TableDefinition } from 'std-toolkit/db';
 import type { DynamoDBConfig } from 'std-toolkit/db/dynamodb';
 import type { IDBConfig } from 'std-toolkit/db/idb';
+import { Memory, type MemoryTable } from 'std-toolkit/db/memory';
 import type { SQLiteConfig } from 'std-toolkit/db/sqlite';
 import type {
   BetterSQLite3Config,
@@ -22,6 +23,7 @@ import type {
 const people = StdTable.make('people').primary('pk', 'sk').build();
 
 const definition: TableDefinition<'people'> = people;
+const memory: MemoryTable<'people'> = Memory.make(people);
 
 type PackageEntrypoints =
   | BetterSQLite3Config
@@ -36,4 +38,4 @@ type PackageEntrypoints =
   | NodeSQLiteDriver
   | SQLiteConfig;
 
-export { definition, type PackageEntrypoints };
+export { definition, memory, type PackageEntrypoints };

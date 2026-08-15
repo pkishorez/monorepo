@@ -1,6 +1,6 @@
 # std-toolkit
 
-Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, DynamoDB/SQLite adapters, and TanStack DB integration.
+Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration.
 
 ## Install
 
@@ -26,6 +26,7 @@ npm install @tanstack/react-db react   # required by tanstack-sync
 | [`std-toolkit/db/dynamodb`](src/db/dynamodb/README.md)                      | DynamoDB binding, setup, expression builder, and native operations                |
 | [`std-toolkit/db/sqlite`](src/db/sqlite/README.md)                          | SQLite binding and setup with separate environment driver entrypoints             |
 | [`std-toolkit/db/idb`](src/db/idb/README.md)                                | IndexedDB binding and explicit Store setup                                        |
+| [`std-toolkit/db/memory`](src/db/memory/README.md)                          | Dependency-free, ephemeral Memory adapter for any JavaScript runtime              |
 | [`std-toolkit/tanstack-sync`](src/tanstack-sync/README.md)                  | TanStack DB sync engine with paced writes and IndexedDB offline storage           |
 
 ## Requirements

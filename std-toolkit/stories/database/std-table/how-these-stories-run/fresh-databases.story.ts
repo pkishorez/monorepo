@@ -16,7 +16,7 @@ export const freshDatabases = Story.make({
   questions: [
     Story.question('What happens to the databases a question creates?', {
       answer:
-        'They are destroyed when the proof finishes — the DynamoDB table is deleted, the IndexedDB database is dropped, and the SQLite connection is closed — so the next proof starts empty.',
+        'They are released when the proof finishes — the DynamoDB table is deleted, the IndexedDB database is dropped, the Memory adapter table becomes unreachable, and the SQLite connection is closed — so the next proof starts empty.',
       proof: Effect.gen(function* () {
         yield* parity(note.insert(seed));
         const results = yield* parity(
