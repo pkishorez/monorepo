@@ -3,7 +3,10 @@ import type { TableDefinition } from '../../std-table/definition/index.js';
 import {
   ConditionFailure,
   OperationFailure,
-  type ConditionalPut,
+  checkFailed,
+  conditionFailed,
+  conditionHolds,
+  transactItemKey,
   type EncodedItem,
   type EncodedKey,
   type JsonObject,
@@ -97,20 +100,6 @@ const comparePosition = (
   compare(entry.item.pk, startAfter.pk) ||
   compare(entry.item.sk, startAfter.sk);
 
-const assertCondition = (
-  items: ReadonlyMap<string, EncodedItem>,
-  request: ConditionalPut,
-): void => {
-  const current = items.get(target(request.item));
-  if (request.condition?.kind === 'not-exists' && current !== undefined)
-    throw new ConditionFailure();
-  if (
-    request.condition?.kind === 'updated' &&
-    current?.meta._u !== request.condition.value
-  )
-    throw new ConditionFailure();
-};
-
 const writeFailure = (cause: unknown) =>
   cause instanceof ConditionFailure ? cause : new OperationFailure({ cause });
 
@@ -129,7 +118,13 @@ export const makeTableContract = (
   writeItem: (request) =>
     Effect.try({
       try: () => {
-        assertCondition(items, request);
+        if (
+          !conditionHolds(
+            request.condition,
+            items.get(target(request.item))?.meta,
+          )
+        )
+          throw conditionFailed();
         items.set(target(request.item), cloneItem(request.item));
       },
       catch: writeFailure,
@@ -138,9 +133,16 @@ export const makeTableContract = (
     Effect.try({
       try: () => {
         const pending = new Map(items);
-        for (const request of requests) {
-          assertCondition(pending, request);
-          pending.set(target(request.item), cloneItem(request.item));
+        for (const [index, request] of requests.entries()) {
+          if (
+            !conditionHolds(
+              request.condition,
+              pending.get(target(transactItemKey(request)))?.meta,
+            )
+          )
+            throw checkFailed(requests.length, index, request.condition);
+          if (request.kind === 'put')
+            pending.set(target(request.item), cloneItem(request.item));
         }
         items.clear();
         for (const [key, item] of pending) items.set(key, item);

@@ -46,5 +46,6 @@ export type {
   CreateTableInput,
   GetItemOutput,
   ScanOutput,
+  TransactWriteItem,
   UpdateItemOutput,
 } from './generated/types.js';

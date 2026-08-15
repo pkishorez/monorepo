@@ -13,7 +13,7 @@ The adapter-independent single-table abstraction and aggregate of its entity sur
 _Avoid_: Table (bare, for the abstraction), EntityRegistry, EntityManager, store registry, portable table.
 
 **StdTable contract**:
-The minimal storage obligation every adapter fulfills to make a StdTable complete: item-level reads, conditional puts, queries, atomic writes, hard deletes, and query positions over **encoded items** (`StdTableContract`). The kernel implements all StdTable surface semantics once, including generating Entity Meta `_u` with core `nextUlid`; adapters only translate storage primitives, physical values, query positions, atomic writes, and adapter failures. Adapters store the supplied `_u` and do not generate versions.
+The minimal storage obligation every adapter fulfills to make a StdTable complete: item-level reads, conditional puts, **item checks**, queries, atomic writes, hard deletes, and query positions over **encoded items** (`StdTableContract`). The kernel implements all StdTable surface semantics once, including generating Entity Meta `_u` with core `nextUlid`; adapters only translate storage primitives, physical values, query positions, atomic writes, and adapter failures. Adapters store the supplied `_u` and do not generate versions.
 _Avoid_: Table runtime, runtime, port, binding, adapter Entity service, duplicated portable implementation.
 
 **StdTable service**:
@@ -53,8 +53,12 @@ The single two-way Effect Schema each adapter defines between the portable and n
 _Avoid_: item codec, encodeItem/decodeItem pairs, manual shape checks.
 
 **Conditional put**:
-The one write shape in the **StdTable contract**: a full **encoded item**, optionally guarded by a `PutCondition` (`not-exists` for inserts, a version match for optimistic concurrency). Adapters never merge — they only put whole items.
+The one write shape in the **StdTable contract**: a full **encoded item**, optionally guarded by an **item condition**. Adapters never merge — they only put whole items.
 _Avoid_: WriteRequest, partial update (at the contract), upsert.
+
+**Item condition**:
+The single assertion vocabulary about one item, shared by a **conditional put** and a **check op** (`ItemCondition`): `not-exists`, `exists`, or `updated` — a match on a known `_u`. Existence is physical, so a tombstoned item exists. Conditions never inspect `data`: an adapter-independent predicate over domain values would mean DynamoDB condition expressions on one side and in-process JavaScript comparison on the other, and the two disagree on missing attributes and coercion. `_u` is the portable predicate — it asserts that nothing the caller read has moved.
+_Avoid_: PutCondition (retired term), CheckCondition, predicate, filter expression.
 
 **Topology compatibility baseline**:
 The DynamoDB-compatible structural limits enforced by every **StdTable**, so each logical definition can be implemented by DynamoDB, SQLite, IndexedDB, or Memory. Limits that depend on physical runtime state remain adapter-specific checks.
@@ -147,22 +151,30 @@ The portable read-modify-write on an **entity surface** (`getAndUpdate` / `getAn
 _Avoid_: getUpdate, modify, RMW (spell out **get-and-update**).
 
 **Transact op**:
-A deferred write produced by an **entity surface** ahead of any transaction (`TransactOp`) — `insertOp`, `getAndUpdateOp`, `deleteOp`, or `restoreOp`. Building an op validates, encodes, and captures the optimistic-concurrency expectation; it performs no write until **transact** supplies the `_u` assigned at commit time.
-_Avoid_: PortableTransactionOp.
+A deferred participant in a **transact**, produced by an **entity surface** ahead of any transaction (`TransactOp`) — `insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp`, or a **check op**. Building an op validates, encodes, and captures the optimistic-concurrency expectation; a writing op performs no write until **transact** supplies the `_u` assigned at commit time.
+_Avoid_: PortableTransactionOp, deferred write (a check op writes nothing).
+
+**Check op**:
+The non-writing **transact op** kind: an assertion about one item that must hold for the batch to commit, expressed in the same vocabulary as a **conditional put** — the item is unchanged since a known `_u`, exists, or does not exist. It contributes nothing to write and yields `null` in the **transact** result at its position, so results stay positionally aligned with the ops given. Entity surfaces build them from an entity or key alone — `unchangedOp`, `existsOp`, `notExistsOp` — with no read of their own; a single entity offers `unchangedOp` only.
+_Avoid_: ConditionCheck (in the StdTable surface), assertion, precondition, guard op.
 
 **Reset (single entity)**:
 Single entities are never deleted — `reset()` writes the default value back as a real record, so `get` and broadcasts agree on the same `_u`.
 _Avoid_: delete (retired single-entity term).
 
 **Transact**:
-The **StdTable**'s atomic application of at most 100 **transact ops** — all apply or none do. The shared limit follows the DynamoDB compatibility baseline and is enforced by every adapter before writing. Change broadcasts fire only after a successful commit. This is the only transaction vocabulary in the kernel; adapters do not expose interactive (read-inside) transactions.
+The **StdTable**'s atomic application of at most 100 **transact ops** — all apply or none do. A batch may be **check ops** only, asserting a set of facts together without writing. The shared limit follows the DynamoDB compatibility baseline and is enforced by every adapter before writing. Change broadcasts fire only after a successful commit. This is the only transaction vocabulary in the kernel; adapters do not expose interactive (read-inside) transactions.
 _Avoid_: transaction(effect) (retired sqlite term), interactive transaction.
 
 **Foreign transact op**:
 A **transact op** submitted to a different **StdTable** from the one whose **entity surface** produced it. The batch is rejected before writing.
 
 **Duplicate transaction target**:
-Two or more **transact ops** in one batch that address the same **partition key** and **sort key**. The batch is rejected before writing.
+Two or more **transact ops** in one batch that address the same **partition key** and **sort key**, including a **check op** on an item another op writes. The batch is rejected before writing. The guard is a portability guarantee rather than a correctness one: DynamoDB rejects a repeated target outright while the other adapters would apply both silently, so without it the same program would commit on three adapters and fail on one. Guard an item you write through that write's own **item condition**.
+
+**Transact outcome**:
+The per-operation account a failed **transact** returns (`TransactFailed`, carrying one `TransactOutcome` per submitted op, in order): the entity, its key, the operation kind, the op itself, and a status of `passed`, `failed`, or `not-evaluated`. No status is ever "success" — a failed transact writes nothing, and `passed` means only that an op's condition held. `not-evaluated` is a real divergence rather than a gap: DynamoDB evaluates every item and may report several failures at once, while SQLite, IDB, and Memory stop at the first, so everything after it was never checked. `ConditionFailed` remains the reason for single-item writes, where one condition needs no report.
+_Avoid_: success/ok status, failing index, cancellation reasons (adapter term).
 
 **Parity story**:
 An executable story whose proof runs one program against every **Adapter** through the parity harness and asserts identical results. Parity stories prove the **StdTable surface**; they never showcase a single adapter.

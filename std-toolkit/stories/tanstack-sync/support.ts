@@ -128,12 +128,12 @@ export type BackendEntity<E extends AnyEntity> = {
 
 export type CollectionDefinition<E extends AnyEntity> = {
   readonly entity: E;
-  readonly configure: (context: {
-    readonly backend: BackendEntity<E>;
-  }) => Omit<
+  readonly configure: (context: { readonly backend: BackendEntity<E> }) => Omit<
     SyncConfig<E['schema']>,
     'schema' | 'onInsert' | 'onUpdate' | 'onDelete'
-  >;
+  > & {
+    readonly onUpdate?: SyncConfig<E['schema']>['onUpdate'];
+  };
 };
 
 type AnyDefinition = {
@@ -525,6 +525,10 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   const app = createStdSync<never>({
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
+    // TanStack DB arms a single shared, ref'd GC timer for the longest gcTime in
+    // play, so the default five minutes would hold the story process open long
+    // after the last Story finished.
+    options: { gcTime: 1 },
   });
   const collections = new Map<string, Collection<any, string, any>>();
   const collectionDefinitions = new Map<object, AnyDefinition>();
@@ -553,8 +557,10 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
       ...configured,
       schema: entity.schema,
       onInsert: (value: any) => backend.insert(value),
-      onUpdate: ({ current, updates }: { current: any; updates: any }) =>
-        backend.update(keyFrom(entity, current), updates),
+      onUpdate:
+        configured.onUpdate ??
+        (({ current, updates }: { current: any; updates: any }) =>
+          backend.update(keyFrom(entity, current), updates)),
       onDelete: ({ current }: { current: any }) =>
         backend.remove(keyFrom(entity, current)),
     } as never);

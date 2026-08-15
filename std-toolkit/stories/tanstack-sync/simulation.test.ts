@@ -3,6 +3,7 @@ import { StoryContext, type Story } from 'laymos/story';
 import { describe, expect, it } from 'vitest';
 import { aUserUpdatedSomeTimeBack } from './catching-up/a-user-updated-some-time-back.story.js';
 import { aSimulatedWorld } from './how-these-stories-run/a-simulated-world.story.js';
+import { issue1 } from './issue-1/issue-1.story.js';
 import { crossCollection } from './optimistic-transactions/cross-collection.story.js';
 import { oneListAtATime } from './syncing-on-demand/one-list-at-a-time.story.js';
 import { editsKeepFlowing } from './staying-current/edits-keep-flowing.story.js';
@@ -15,6 +16,7 @@ const stories: readonly Story[] = [
   editsKeepFlowing,
   oneListAtATime,
   crossCollection,
+  issue1,
 ];
 
 describe('TanStack Sync story simulation', () => {

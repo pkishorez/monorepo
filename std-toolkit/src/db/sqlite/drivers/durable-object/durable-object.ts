@@ -58,13 +58,13 @@ export const makeDurableObjectSQLite = (
       Effect.try({
         try: () =>
           storage.transactionSync(() => {
-            for (const statement of statements) {
+            for (const [index, statement] of statements.entries()) {
               const result = execute(statement.sql, statement.parameters);
               if (
                 statement.expectedChanges !== undefined &&
                 result.changes !== statement.expectedChanges
               )
-                throw new SQLiteChangesMismatch();
+                throw new SQLiteChangesMismatch(index);
             }
           }),
         catch: (cause) => cause,

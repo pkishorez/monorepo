@@ -52,14 +52,63 @@ export const EncodedItemSchema: Schema.Codec<EncodedItem> = Schema.Struct({
   keys: Schema.Record(Schema.String, Schema.String),
 });
 
-export type PutCondition =
+export type ItemCondition =
   | { readonly kind: 'not-exists' }
+  | { readonly kind: 'exists' }
   | { readonly kind: 'updated'; readonly value: string };
 
 export interface ConditionalPut {
   readonly item: EncodedItem;
-  readonly condition?: PutCondition;
+  readonly condition?: ItemCondition;
 }
+
+export interface TransactPut extends ConditionalPut {
+  readonly kind: 'put';
+}
+
+export interface TransactCheck {
+  readonly kind: 'check';
+  readonly key: EncodedKey;
+  readonly condition: ItemCondition;
+}
+
+export type TransactItem = TransactPut | TransactCheck;
+
+export const transactItemKey = (item: TransactItem): EncodedKey =>
+  item.kind === 'put' ? item.item : item.key;
+
+export type ItemOutcomeStatus = 'passed' | 'failed' | 'not-evaluated';
+
+export interface ItemOutcome {
+  readonly status: ItemOutcomeStatus;
+  readonly detail?: string;
+}
+
+export const conditionHolds = (
+  condition: ItemCondition | undefined,
+  current: { readonly _u: string } | undefined,
+): boolean => {
+  if (condition === undefined) return true;
+  if (condition.kind === 'not-exists') return current === undefined;
+  if (condition.kind === 'exists') return current !== undefined;
+  return current?._u === condition.value;
+};
+
+export const itemOutcomes = (
+  total: number,
+  failedIndex: number,
+  detail?: string,
+): readonly ItemOutcome[] =>
+  Array.from({ length: total }, (_, index) =>
+    index < failedIndex
+      ? { status: 'passed' as const }
+      : index === failedIndex
+        ? {
+            status: 'failed' as const,
+            ...(detail === undefined ? {} : { detail }),
+          }
+        : { status: 'not-evaluated' as const },
+  );
 
 export interface QueryPosition {
   readonly pk: string;
@@ -90,9 +139,22 @@ export interface QueryResult {
   readonly hasMore: boolean;
 }
 
-export class ConditionFailure extends Data.TaggedError(
-  'ConditionFailure',
-)<{}> {}
+export class ConditionFailure extends Data.TaggedError('ConditionFailure')<{
+  readonly outcomes?: readonly ItemOutcome[];
+}> {}
+
+/** A single-item write failing its condition: one condition needs no report. */
+export const conditionFailed = () => new ConditionFailure({});
+
+/** A transacted item failing its condition at `index`, with every op's status. */
+export const checkFailed = (
+  total: number,
+  index: number,
+  condition: ItemCondition | undefined,
+) =>
+  new ConditionFailure({
+    outcomes: itemOutcomes(total, index, condition?.kind),
+  });
 export class OperationFailure extends Data.TaggedError('OperationFailure')<{
   readonly cause: unknown;
 }> {}
@@ -110,7 +172,7 @@ export interface StdTableContract {
     put: ConditionalPut,
   ) => Effect.Effect<void, ContractFailure>;
   readonly transactWriteItems: (
-    puts: readonly ConditionalPut[],
+    items: readonly TransactItem[],
   ) => Effect.Effect<void, ContractFailure>;
   readonly hardDeleteItem: (
     key: EncodedKey,

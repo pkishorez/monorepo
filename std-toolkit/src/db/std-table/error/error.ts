@@ -1,4 +1,5 @@
 import { Data } from 'effect';
+import type { ItemOutcomeStatus } from '../contract/index.js';
 
 export class ItemAlreadyExists extends Data.TaggedError('ItemAlreadyExists')<{
   readonly entity: string;
@@ -31,6 +32,26 @@ export class DecodeFailed extends Data.TaggedError('DecodeFailed')<{
   readonly entity: string;
   readonly cause: Error;
 }> {}
+// Structural stand-in for the submitted op: `error` sits below `entity`, so it
+// cannot name `AnyTransactOp` without a cycle. The op itself is passed through,
+// so reference identity with what the caller handed to `transact` holds.
+export interface TransactOperation {
+  readonly tableName: string;
+  readonly entityName: string;
+  readonly key: { readonly pk: string; readonly sk: string };
+  readonly target: string;
+  readonly operationKind: string;
+}
+
+export interface TransactOutcome {
+  readonly status: ItemOutcomeStatus;
+  readonly detail?: string;
+  readonly op: TransactOperation;
+}
+
+export class TransactFailed extends Data.TaggedError('TransactFailed')<{
+  readonly operations: readonly TransactOutcome[];
+}> {}
 export class OperationFailed extends Data.TaggedError('OperationFailed')<{
   readonly operation: string;
   readonly cause: unknown;
@@ -45,6 +66,7 @@ export type DatabaseErrorReason =
   | TransactionTooLarge
   | DuplicateTransactionTarget
   | ForeignTransactionItem
+  | TransactFailed
   | DecodeFailed
   | OperationFailed;
 

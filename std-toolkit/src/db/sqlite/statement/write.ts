@@ -1,10 +1,10 @@
-import type { PutCondition } from '../../std-table/contract/index.js';
+import type { ItemCondition } from '../../std-table/contract/index.js';
 import { quoteIdentifier } from './identifier.js';
 
 export const conflictClause = (
   names: readonly string[],
   primary: { readonly pk: string; readonly sk: string },
-  condition: PutCondition | undefined,
+  condition: ItemCondition | undefined,
 ) => {
   if (condition?.kind === 'not-exists') return ' DO NOTHING';
 

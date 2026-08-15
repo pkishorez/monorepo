@@ -8,7 +8,7 @@ import {
   type EncodedItem,
 } from '../contract/index.js';
 import type { SingleEntityDefinition } from '../definition/index.js';
-import type { SingleEntity, TransactOp } from './entity.js';
+import type { CheckOp, SingleEntity, TransactOp } from './entity.js';
 import { broadcast, dbError, failReason } from './effects.js';
 import { decode, encode, singleKey } from './storage.js';
 
@@ -64,10 +64,13 @@ export const makeSingleEntity = <
       };
       return {
         tableName: definition.table.logicalName,
+        entityName: definition.name,
+        key,
         target: `${key.pk}\0${key.sk}`,
         operationKind: 'singleUpdateOp',
         apply: (version: string) => ({
           write: {
+            kind: 'put',
             item: { ...item, meta: { ...item.meta, _u: version } },
             condition: lastWriteWins
               ? undefined
@@ -178,6 +181,27 @@ export const makeSingleEntity = <
           options?.lastWriteWins,
         );
       }),
+    unchangedOp: (entity: SingleEntityType<ESchemaType<S>>) =>
+      Effect.sync(
+        (): CheckOp<Name> => ({
+          tableName: definition.table.logicalName,
+          entityName: definition.name,
+          key,
+          target: `${key.pk}\0${key.sk}`,
+          operationKind: 'checkOp',
+          apply: () => ({
+            write: {
+              kind: 'check',
+              key,
+              condition:
+                entity.meta._u === ''
+                  ? { kind: 'not-exists' }
+                  : { kind: 'updated', value: entity.meta._u },
+            },
+            entity: null,
+          }),
+        }),
+      ),
     reset: () => replace(definition.defaultValue),
   };
 };

@@ -13,7 +13,11 @@ export interface SQLiteStatement {
   readonly expectedChanges?: number;
 }
 
-export class SQLiteChangesMismatch extends Error {}
+export class SQLiteChangesMismatch extends Error {
+  constructor(readonly index: number) {
+    super(`SQLite statement ${index} changed an unexpected number of rows`);
+  }
+}
 
 export interface SQLiteDriver {
   readonly run: (

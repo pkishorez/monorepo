@@ -8,4 +8,6 @@ export {
   type SingleEntityDefinition,
   type StdTableService,
   type TableDefinition,
+  type TransactOperation,
+  type TransactOutcome,
 } from './db.js';

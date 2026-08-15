@@ -2,9 +2,12 @@ import { Effect, Layer } from 'effect';
 import {
   ConditionFailure,
   OperationFailure,
+  checkFailed,
+  conditionFailed,
+  conditionHolds,
   contractLayer,
+  transactItemKey,
   type QueryRequest,
-  type ConditionalPut,
   type EncodedKey,
   type EncodedItem,
   type StdTableContract,
@@ -24,22 +27,6 @@ const matchesSort = (sortKey: string, sort: QueryRequest['sort']): boolean => {
   if (sort.operator === '<=') return sortKey <= sort.value;
   if (sort.operator === '>') return sortKey > sort.value;
   return sortKey >= sort.value;
-};
-
-const assertCondition = (
-  items: ReadonlyMap<string, EncodedItem>,
-  request: ConditionalPut,
-): void => {
-  const current = items.get(target(request.item));
-  if (request.condition?.kind === 'not-exists' && current !== undefined) {
-    throw new ConditionFailure();
-  }
-  if (
-    request.condition?.kind === 'updated' &&
-    current?.meta._u !== request.condition.value
-  ) {
-    throw new ConditionFailure();
-  }
 };
 
 interface TopologySource {
@@ -88,7 +75,13 @@ export const makeDeterministicContract = <Name extends string>(
     writeItem: (request) =>
       Effect.try({
         try: () => {
-          assertCondition(items, request);
+          if (
+            !conditionHolds(
+              request.condition,
+              items.get(target(request.item))?.meta,
+            )
+          )
+            throw conditionFailed();
           items.set(target(request.item), request.item);
         },
         catch: (cause) =>
@@ -100,9 +93,16 @@ export const makeDeterministicContract = <Name extends string>(
       Effect.try({
         try: () => {
           const pending = new Map(items);
-          for (const request of requests) {
-            assertCondition(pending, request);
-            pending.set(target(request.item), request.item);
+          for (const [index, request] of requests.entries()) {
+            if (
+              !conditionHolds(
+                request.condition,
+                pending.get(target(transactItemKey(request)))?.meta,
+              )
+            )
+              throw checkFailed(requests.length, index, request.condition);
+            if (request.kind === 'put')
+              pending.set(target(request.item), request.item);
           }
           items.clear();
           for (const [key, item] of pending) items.set(key, item);

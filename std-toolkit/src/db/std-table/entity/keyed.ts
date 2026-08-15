@@ -12,8 +12,8 @@ import {
   ConditionFailure,
   type JsonObject,
   type ContractFailure,
-  type ConditionalPut,
   type EncodedItem,
+  type ItemCondition,
 } from '../contract/index.js';
 import type {
   AccessPatternMap,
@@ -22,6 +22,7 @@ import type {
 import { queryEntity } from './query.js';
 import { broadcast, dbError, failReason } from './effects.js';
 import type {
+  CheckOp,
   EntityKey,
   EntityValue,
   InsertValue,
@@ -74,9 +75,11 @@ export const makeKeyedEntity = <
     item: EncodedItem,
     value: EntityValue<S>,
     operationKind: TransactOp<Name>['operationKind'],
-    condition?: ConditionalPut['condition'],
+    condition?: ItemCondition,
   ): TransactOp<Name, EntityValue<S>> => ({
     tableName: definition.table.logicalName,
+    entityName: definition.name,
+    key: { pk: item.pk, sk: item.sk },
     target: `${item.pk}\0${item.sk}`,
     operationKind,
     apply: (version) => {
@@ -87,6 +90,7 @@ export const makeKeyedEntity = <
       };
       return {
         write: {
+          kind: 'put',
           item: next,
           ...(condition === undefined ? {} : { condition }),
         },
@@ -172,6 +176,21 @@ export const makeKeyedEntity = <
         kind,
         options,
       );
+    });
+  const checkOp = (value: JsonObject, condition: ItemCondition) =>
+    Effect.sync((): CheckOp<Name> => {
+      const key = derivedKey(definition, value);
+      return {
+        tableName: definition.table.logicalName,
+        entityName: definition.name,
+        key,
+        target: `${key.pk}\0${key.sk}`,
+        operationKind: 'checkOp',
+        apply: () => ({
+          write: { kind: 'check', key, condition },
+          entity: null,
+        }),
+      };
     });
   const commit = (operation: string, op: TransactOp<Name, EntityValue<S>>) =>
     Effect.gen(function* () {
@@ -259,6 +278,15 @@ export const makeKeyedEntity = <
     restore: (key: EntityKey<S, Pk>) => tombstone(key, false),
     restoreOp: (key: EntityKey<S, Pk>, options?: { lastWriteWins?: boolean }) =>
       updateOp(key, {}, 'restoreOp', options),
+    unchangedOp: (entity: EntityType<EntityValue<S>>) =>
+      checkOp(entity.value as object as JsonObject, {
+        kind: 'updated',
+        value: entity.meta._u,
+      }),
+    existsOp: (key: EntityKey<S, Pk>) =>
+      checkOp(key as object as JsonObject, { kind: 'exists' }),
+    notExistsOp: (key: EntityKey<S, Pk>) =>
+      checkOp(key as object as JsonObject, { kind: 'not-exists' }),
     hardDelete: (
       key: EntityKey<S, Pk>,
       _confirmation: 'I KNOW WHAT I AM DOING',

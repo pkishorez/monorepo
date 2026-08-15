@@ -6,7 +6,12 @@ import type {
   ESchemaType,
 } from '../../../eschema/index.js';
 import type { DatabaseError } from '../error/index.js';
-import type { ConditionalPut, StdTableService } from '../contract/index.js';
+import type {
+  EncodedKey,
+  StdTableService,
+  TransactCheck,
+  TransactPut,
+} from '../contract/index.js';
 import type {
   AccessPatternDefinition,
   AccessPatternMap,
@@ -42,12 +47,17 @@ export type UpdateInput<S extends AnyEntityESchema> =
   | UpdateValue<S>
   | ((current: EntityValue<S>) => UpdateValue<S> | null);
 
+interface TransactTarget<Name extends string> {
+  readonly tableName: Name;
+  readonly entityName: string;
+  readonly key: EncodedKey;
+  readonly target: string;
+}
+
 export interface TransactOp<
   Name extends string = string,
   T extends object = object,
-> {
-  readonly tableName: Name;
-  readonly target: string;
+> extends TransactTarget<Name> {
   readonly operationKind:
     | 'insertOp'
     | 'updateOp'
@@ -55,10 +65,25 @@ export interface TransactOp<
     | 'restoreOp'
     | 'singleUpdateOp';
   readonly apply: (version: string) => {
-    readonly write: ConditionalPut;
+    readonly write: TransactPut;
     readonly entity: EntityType<T> | SingleEntityType<T>;
   };
 }
+
+export interface CheckOp<
+  Name extends string = string,
+> extends TransactTarget<Name> {
+  readonly operationKind: 'checkOp';
+  readonly apply: () => {
+    readonly write: TransactCheck;
+    readonly entity: null;
+  };
+}
+
+export type AnyTransactOp<
+  Name extends string = string,
+  T extends object = object,
+> = TransactOp<Name, T> | CheckOp<Name>;
 
 export type SortCondition<Sk> =
   | { readonly '=': Sk }
@@ -120,6 +145,11 @@ export interface KeyedEntity<
     key: EntityKey<S, Pk>,
     options?: { readonly lastWriteWins?: boolean },
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
+  unchangedOp(
+    entity: EntityType<EntityValue<S>>,
+  ): TableEffect<CheckOp<Name>, Name>;
+  existsOp(key: EntityKey<S, Pk>): TableEffect<CheckOp<Name>, Name>;
+  notExistsOp(key: EntityKey<S, Pk>): TableEffect<CheckOp<Name>, Name>;
   hardDelete(
     key: EntityKey<S, Pk>,
     confirmation: 'I KNOW WHAT I AM DOING',
@@ -156,6 +186,9 @@ export interface SingleEntity<
       | ((current: ESchemaType<S>) => Partial<ESchemaType<S>>),
     options?: { readonly lastWriteWins?: boolean },
   ): TableEffect<TransactOp<Name, ESchemaType<S>>, Name>;
+  unchangedOp(
+    entity: SingleEntityType<ESchemaType<S>>,
+  ): TableEffect<CheckOp<Name>, Name>;
   reset(): TableEffect<SingleEntityType<ESchemaType<S>>, Name>;
 }
 

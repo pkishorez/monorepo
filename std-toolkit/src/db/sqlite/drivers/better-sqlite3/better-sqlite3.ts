@@ -35,7 +35,7 @@ export const makeBetterSQLite3 = (
       Effect.try({
         try: () =>
           database.transaction(() => {
-            for (const statement of statements) {
+            for (const [index, statement] of statements.entries()) {
               const result = database
                 .prepare(statement.sql)
                 .run(...(statement.parameters ?? []));
@@ -43,7 +43,7 @@ export const makeBetterSQLite3 = (
                 statement.expectedChanges !== undefined &&
                 result.changes !== statement.expectedChanges
               )
-                throw new SQLiteChangesMismatch();
+                throw new SQLiteChangesMismatch(index);
             }
           })(),
         catch: (cause) => cause,

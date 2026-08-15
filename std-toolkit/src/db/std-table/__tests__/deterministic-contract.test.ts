@@ -22,7 +22,7 @@ describe('portable optimistic retry', () => {
         request: Parameters<typeof deterministic.contract.writeItem>[0],
       ) =>
         request.condition?.kind === 'updated' && conflicts++ === 0
-          ? Effect.fail(new ConditionFailure())
+          ? Effect.fail(new ConditionFailure({}))
           : deterministic.contract.writeItem(request),
     };
 

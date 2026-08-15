@@ -9,6 +9,9 @@ export {
   NoItemToUpdate,
   OperationFailed,
   PrimaryKeyUpdateNotSupported,
+  TransactFailed,
   TransactionTooLarge,
   type DatabaseErrorReason,
+  type TransactOperation,
+  type TransactOutcome,
 } from './error.js';

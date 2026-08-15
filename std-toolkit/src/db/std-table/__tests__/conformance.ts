@@ -101,6 +101,11 @@ export const runConformanceSuite = (
       ),
     );
 
+  const required = <T>(value: T | null): T => {
+    expect(value).not.toBeNull();
+    return value as T;
+  };
+
   describe(`portable conformance: ${adapter.name}`, () => {
     it('inserts, reads, updates, tombstones, restores, and hard deletes', async () => {
       await run(
@@ -370,7 +375,7 @@ export const runConformanceSuite = (
             .pipe(Effect.result);
           expect(staleResult).toMatchObject({
             _tag: 'Failure',
-            failure: { reason: { _tag: 'ConditionFailed' } },
+            failure: { reason: { _tag: 'TransactFailed' } },
           });
           expect(
             yield* item.get({ itemId: 'fresh', category: 'a' }),
@@ -426,6 +431,151 @@ export const runConformanceSuite = (
           Effect.provide(Layer.merge(adapter.makeLayer(), broadcaster)),
           Effect.provideService(Ulid, deterministicUlid),
         ),
+      );
+    });
+
+    it('commits behind a passing check and rolls back every write behind a failing one', async () => {
+      await run(
+        Effect.gen(function* () {
+          const guard = yield* item.insert({
+            itemId: 'guard',
+            category: 'a',
+            label: 'guard',
+            value: 1,
+          });
+          const written = yield* item.insertOp({
+            itemId: 'written',
+            category: 'a',
+            label: 'written',
+            value: 1,
+          });
+          expect(
+            yield* conformanceTable.transact([
+              written,
+              yield* item.unchangedOp(guard),
+            ]),
+          ).toEqual([
+            expect.objectContaining({ value: expect.anything() }),
+            null,
+          ]);
+          expect(
+            yield* item.get({ itemId: 'written', category: 'a' }),
+          ).not.toBeNull();
+
+          yield* item.getAndUpdate(
+            { itemId: 'guard', category: 'a' },
+            {
+              value: 2,
+            },
+          );
+          const blocked = yield* item.insertOp({
+            itemId: 'blocked',
+            category: 'a',
+            label: 'blocked',
+            value: 1,
+          });
+          const stale = yield* conformanceTable
+            .transact([blocked, yield* item.unchangedOp(guard)])
+            .pipe(Effect.result);
+          expect(stale._tag).toBe('Failure');
+          expect(
+            yield* item.get({ itemId: 'blocked', category: 'a' }),
+          ).toBeNull();
+
+          const current = required(
+            yield* item.get({ itemId: 'guard', category: 'a' }),
+          );
+          yield* item.delete({ itemId: 'guard', category: 'a' });
+          const afterDelete = yield* conformanceTable
+            .transact([yield* item.unchangedOp(current)])
+            .pipe(Effect.result);
+          expect(afterDelete._tag).toBe('Failure');
+          expect(
+            yield* conformanceTable.transact([
+              yield* item.existsOp({ itemId: 'guard', category: 'a' }),
+            ]),
+          ).toEqual([null]);
+        }),
+      );
+    });
+
+    it('reports every operation when a transacted check fails', async () => {
+      await run(
+        Effect.gen(function* () {
+          const first = yield* item.insert({
+            itemId: 'first',
+            category: 'a',
+            label: 'first',
+            value: 1,
+          });
+          const second = yield* item.insert({
+            itemId: 'second',
+            category: 'a',
+            label: 'second',
+            value: 1,
+          });
+          yield* item.getAndUpdate(
+            { itemId: 'second', category: 'a' },
+            {
+              value: 9,
+            },
+          );
+
+          const write = yield* item.insertOp({
+            itemId: 'third',
+            category: 'a',
+            label: 'third',
+            value: 1,
+          });
+          const failed = yield* conformanceTable
+            .transact([
+              yield* item.unchangedOp(first),
+              yield* item.unchangedOp(second),
+              write,
+            ])
+            .pipe(Effect.result);
+          expect(failed._tag).toBe('Failure');
+          if (failed._tag === 'Failure') {
+            const reason = failed.failure.reason;
+            expect(reason._tag).toBe('TransactFailed');
+            if (reason._tag === 'TransactFailed') {
+              expect(
+                reason.operations.map((entry) => entry.op.operationKind),
+              ).toEqual(['checkOp', 'checkOp', 'insertOp']);
+              expect(
+                reason.operations.map((entry) => entry.op.entityName),
+              ).toEqual(['Item', 'Item', 'Item']);
+              expect(reason.operations[1]?.status).toBe('failed');
+              expect(reason.operations[2]?.op).toBe(write);
+            }
+          }
+          expect(
+            yield* item.get({ itemId: 'third', category: 'a' }),
+          ).toBeNull();
+
+          const refreshed = required(
+            yield* item.get({ itemId: 'second', category: 'a' }),
+          );
+          expect(
+            yield* conformanceTable.transact([
+              yield* item.unchangedOp(first),
+              yield* item.unchangedOp(refreshed),
+              yield* item.notExistsOp({ itemId: 'absent', category: 'a' }),
+            ]),
+          ).toEqual([null, null, null]);
+
+          const update = yield* item.getAndUpdateOp(
+            { itemId: 'first', category: 'a' },
+            { value: 5 },
+          );
+          const duplicate = yield* conformanceTable
+            .transact([update, yield* item.unchangedOp(first)])
+            .pipe(Effect.result);
+          expect(duplicate).toMatchObject({
+            _tag: 'Failure',
+            failure: { reason: { _tag: 'DuplicateTransactionTarget' } },
+          });
+        }),
       );
     });
 
@@ -567,7 +717,7 @@ export const runConformanceSuite = (
             .pipe(Effect.result);
           expect(staleResult).toMatchObject({
             _tag: 'Failure',
-            failure: { reason: { _tag: 'ConditionFailed' } },
+            failure: { reason: { _tag: 'TransactFailed' } },
           });
           expect((yield* config.get()).value.count).toBe(4);
 

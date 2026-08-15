@@ -6,11 +6,17 @@ import type {
   ESchemaType,
 } from '../../../eschema/index.js';
 import {
+  DatabaseError,
   DuplicateTransactionTarget,
   ForeignTransactionItem,
+  TransactFailed,
   TransactionTooLarge,
 } from '../error/index.js';
-import { StdTableService, type ContractFailure } from '../contract/index.js';
+import {
+  ConditionFailure,
+  StdTableService,
+  type ContractFailure,
+} from '../contract/index.js';
 import type {
   KeyedEntityDefinition,
   TableDefinition as DefinitionTableDefinition,
@@ -21,7 +27,7 @@ import {
   failReason,
   makeKeyedEntity,
   makeSingleEntity,
-  type TransactOp,
+  type AnyTransactOp,
 } from '../entity/index.js';
 import type { StdTable } from './table.js';
 
@@ -41,6 +47,26 @@ interface AnyEntityBuilder {
     readonly [string]
   >;
 }
+
+const transactFailed = (
+  ops: readonly AnyTransactOp<string>[],
+  failure: ContractFailure,
+) => {
+  if (!(failure instanceof ConditionFailure))
+    return dbError('transact', failure);
+  return new DatabaseError({
+    reason: new TransactFailed({
+      operations: ops.map((op, index) => {
+        const outcome = failure.outcomes?.[index];
+        return {
+          status: outcome?.status ?? 'not-evaluated',
+          ...(outcome?.detail === undefined ? {} : { detail: outcome.detail }),
+          op,
+        };
+      }),
+    }),
+  });
+};
 
 const decorateEntityBuilder = (
   builder: AnyEntityBuilder,
@@ -75,7 +101,7 @@ export const decorateTable = <Name extends string>(
         },
       };
     },
-    transact(ops: readonly TransactOp<Name>[]) {
+    transact(ops: readonly AnyTransactOp<Name>[]) {
       return Effect.gen(function* () {
         if (ops.length === 0) return [] as never;
         if (ops.length > 100)
@@ -100,18 +126,21 @@ export const decorateTable = <Name extends string>(
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;
         const applied = [];
-        for (const op of ops) {
-          const version = yield* nextUlid;
-          applied.push(op.apply(version));
-        }
+        for (const op of ops)
+          applied.push(
+            op.operationKind === 'checkOp'
+              ? op.apply()
+              : op.apply(yield* nextUlid),
+          );
         yield* contract
           .transactWriteItems(applied.map(({ write }) => write))
           .pipe(
             Effect.mapError((error) =>
-              dbError('transact', error as ContractFailure),
+              transactFailed(ops, error as ContractFailure),
             ),
           );
-        for (const item of applied) yield* broadcast(item.entity);
+        for (const item of applied)
+          if (item.entity !== null) yield* broadcast(item.entity);
         return applied.map(({ entity }) => entity) as never;
       });
     },

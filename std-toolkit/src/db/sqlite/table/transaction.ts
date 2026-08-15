@@ -1,9 +1,9 @@
 import { Effect, Schema } from 'effect';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import {
-  ConditionFailure,
   OperationFailure,
-  type ConditionalPut,
+  checkFailed,
+  type TransactItem,
 } from '../../std-table/contract/index.js';
 import { SQLiteChangesMismatch, type SQLiteDriver } from '../database/index.js';
 import { Statement } from '../statement/index.js';
@@ -19,19 +19,27 @@ export const writeTransaction = (
   table: SQLiteTable,
   tableName: string,
   schema: ItemSchema,
-  requests: readonly ConditionalPut[],
+  requests: readonly TransactItem[],
 ) =>
   Effect.forEach(requests, (request) =>
-    Schema.decodeEffect(schema)(request.item).pipe(
-      Effect.map((row) =>
-        Statement.write(tableName, table, row, request.condition),
-      ),
-    ),
+    request.kind === 'check'
+      ? Effect.succeed(
+          Statement.check(tableName, table, request.key, request.condition),
+        )
+      : Schema.decodeEffect(schema)(request.item).pipe(
+          Effect.map((row) =>
+            Statement.write(tableName, table, row, request.condition),
+          ),
+        ),
   ).pipe(
     Effect.flatMap((statements) => database.transaction(statements)),
     Effect.mapError((cause) =>
       cause instanceof SQLiteChangesMismatch
-        ? new ConditionFailure()
+        ? checkFailed(
+            requests.length,
+            cause.index,
+            requests[cause.index]?.condition,
+          )
         : new OperationFailure({ cause }),
     ),
   );

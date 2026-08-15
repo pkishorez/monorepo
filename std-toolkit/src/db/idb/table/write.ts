@@ -1,24 +1,22 @@
 import {
   ConditionFailure,
-  type ConditionalPut,
+  conditionHolds,
+  type EncodedKey,
+  type ItemCondition,
 } from '../../std-table/contract/index.js';
 import { decodeKey } from '../item-schema/index.js';
 import { nativeFailure, requestPromise } from './request.js';
 
-export const checkCondition = async (
+export const storedConditionHolds = async (
   store: IDBObjectStore,
-  request: ConditionalPut,
+  key: EncodedKey,
+  condition: ItemCondition | undefined,
 ) => {
-  const current = (await requestPromise(store.get(decodeKey(request.item)))) as
-    | { readonly _u?: unknown }
+  if (condition === undefined) return true;
+  const current = (await requestPromise(store.get(decodeKey(key)))) as
+    | { readonly _u: string }
     | undefined;
-  if (request.condition?.kind === 'not-exists' && current !== undefined)
-    throw new ConditionFailure();
-  if (
-    request.condition?.kind === 'updated' &&
-    current?._u !== request.condition.value
-  )
-    throw new ConditionFailure();
+  return conditionHolds(condition, current);
 };
 
 export const writeFailure = (cause: unknown) =>
