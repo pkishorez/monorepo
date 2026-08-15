@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
+import type { RecordedFlow } from './model';
 import { flowHeaderHeight, flowRowGap, type FlowLayout } from './layout';
 
 type RecordedFlowActivity = Extract<
@@ -35,6 +35,17 @@ const activityColor: Record<FlowActivityStatus, string> = {
 
 const messageColor = 'var(--color-primary)';
 
+type ActivationOutcome = RecordedFlow['activations'][number]['outcome'];
+
+const activationColor: Record<NonNullable<ActivationOutcome>, string> = {
+  completed: 'var(--color-positive)',
+  failed: 'var(--color-destructive)',
+  interrupted: 'var(--color-amber-500)',
+};
+
+const railWidth = 9;
+const openRailColor = 'var(--color-primary)';
+
 const formatDuration = (milliseconds: number) => {
   if (milliseconds < 0.001) return `${Math.round(milliseconds * 1_000_000)} ns`;
   if (milliseconds < 1) return `${Math.round(milliseconds * 1_000)} µs`;
@@ -61,14 +72,17 @@ export function FlowCanvas({
 }) {
   const markerId = useId().replaceAll(':', '');
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
-  const { height, items, laneX, participants, width } = layout;
-  const terminalIndex = items.findIndex(
-    (item) => item.kind === 'local-event' && item.status !== undefined,
-  );
-  const laneEndY =
-    terminalIndex === -1
-      ? height - 22
-      : flowHeaderHeight + terminalIndex * flowRowGap + flowRowGap / 2;
+  const {
+    activations,
+    height,
+    items,
+    laneEndY,
+    laneX,
+    participants,
+    replyLatency,
+    silentParticipants,
+    width,
+  } = layout;
 
   return (
     <svg
@@ -95,6 +109,7 @@ export function FlowCanvas({
 
       {participants.map((participant) => {
         const x = laneX.get(participant)!;
+        const silent = silentParticipants.has(participant);
         return (
           <g key={participant}>
             <rect
@@ -104,14 +119,21 @@ export function FlowCanvas({
               height={42}
               rx={9}
               fill="var(--color-muted)"
-              stroke="var(--color-border)"
+              stroke={
+                silent ? 'var(--color-destructive)' : 'var(--color-border)'
+              }
+              strokeDasharray={silent ? '4 3' : undefined}
             />
             <foreignObject x={x - 86} y={20} width={172} height={26}>
               <div
                 className="truncate text-center text-[13px] leading-[26px] font-semibold text-foreground"
-                title={participant}
+                title={
+                  silent
+                    ? `${participant} — receives Messages but records nothing`
+                    : participant
+                }
               >
-                {participant}
+                {silent ? `⚠ ${participant}` : participant}
               </div>
             </foreignObject>
             <line
@@ -123,6 +145,52 @@ export function FlowCanvas({
               strokeOpacity={0.5}
               strokeDasharray="5 5"
             />
+          </g>
+        );
+      })}
+
+      {activations.map((activation, index) => {
+        const x = laneX.get(activation.participantName)!;
+        const color = activation.outcome
+          ? activationColor[activation.outcome]
+          : openRailColor;
+        const gradientId = `${markerId}-rail-${index}`;
+        return (
+          <g
+            key={`${activation.participantName}-${activation.startY}`}
+            data-flow-activation={activation.outcome ?? 'open'}
+          >
+            {activation.open && (
+              <defs>
+                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.85} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+            )}
+            <rect
+              x={x - railWidth / 2}
+              y={activation.startY}
+              width={railWidth}
+              height={Math.max(2, activation.endY - activation.startY)}
+              rx={railWidth / 2}
+              fill={activation.open ? `url(#${gradientId})` : color}
+              fillOpacity={activation.open ? 1 : 0.85}
+            >
+              <title>
+                {`${activation.name} — ${activation.outcome ?? 'still active'}`}
+              </title>
+            </rect>
+            {!activation.open && (
+              <rect
+                x={x - railWidth}
+                y={activation.endY - 2}
+                width={railWidth * 2}
+                height={4}
+                rx={2}
+                fill={color}
+              />
+            )}
           </g>
         );
       })}
@@ -142,6 +210,7 @@ export function FlowCanvas({
 
         if (item.kind === 'message') {
           const activate = () => onItemClick?.(item);
+          const latency = replyLatency.get(item.id);
           const destinationX = laneX.get(item.destination)!;
           const messageWidth = Math.min(
             messageMaxWidth,
@@ -205,8 +274,20 @@ export function FlowCanvas({
                 y2={y}
                 stroke={messageColor}
                 strokeWidth={1.5}
+                strokeDasharray={item.replyTo === undefined ? undefined : '6 4'}
                 markerEnd={`url(#${markerId}-arrow)`}
               />
+              {latency !== undefined && (
+                <text
+                  x={(x + destinationX) / 2}
+                  y={y - messageHeight / 2 - 6}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fill="var(--color-muted-foreground)"
+                >
+                  {`↩ ${formatDuration(latency)}`}
+                </text>
+              )}
               <rect
                 x={messageX}
                 y={y - messageHeight / 2}
@@ -332,15 +413,165 @@ export function FlowCanvas({
           );
         }
 
-        const terminalColor =
-          item.status === 'completed'
-            ? 'var(--color-positive)'
-            : item.status === 'failed'
-              ? 'var(--color-destructive)'
-              : item.status === 'cancelled'
-                ? 'var(--color-muted-foreground)'
-                : undefined;
-        const color = terminalColor ?? eventColor[item.severity];
+        if (
+          item.kind === 'activation-start' ||
+          item.kind === 'activation-end'
+        ) {
+          const boundaryColor =
+            item.kind === 'activation-end'
+              ? activationColor[item.outcome]
+              : openRailColor;
+          const activate = () => onItemClick?.(item);
+          return (
+            <g
+              key={item.id}
+              data-flow-item={item.kind}
+              data-selected={selected || undefined}
+              role={onItemClick ? 'button' : undefined}
+              tabIndex={onItemClick ? 0 : undefined}
+              aria-label={onItemClick ? `Open ${label}` : undefined}
+              onClick={activate}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') activate();
+              }}
+              onMouseEnter={() => {
+                if (!selected) setHoveredItemId(item.id);
+              }}
+              onMouseLeave={() => setHoveredItemId(null)}
+              style={{
+                cursor: onItemClick ? 'pointer' : 'default',
+                outline: 'none',
+              }}
+            >
+              <rect
+                x={0}
+                y={y - flowRowGap / 2}
+                width={width}
+                height={flowRowGap}
+                fill={
+                  hovered && !selected
+                    ? 'color-mix(in oklab, var(--color-primary) 3%, transparent)'
+                    : 'transparent'
+                }
+                style={{ transition: 'fill 120ms ease-out' }}
+              />
+              {selected && (
+                <rect
+                  x={x - localEventWidth / 2 - 7}
+                  y={y - 19}
+                  width={localEventWidth + 14}
+                  height={38}
+                  rx={13}
+                  fill="color-mix(in oklab, var(--color-primary) 22%, transparent)"
+                  stroke="var(--color-primary)"
+                  strokeWidth={4}
+                  style={{
+                    filter: 'drop-shadow(0 0 7px var(--color-primary))',
+                  }}
+                />
+              )}
+              <rect
+                x={x - localEventWidth / 2}
+                y={y - 12}
+                width={localEventWidth}
+                height={24}
+                rx={4}
+                fill={`color-mix(in oklab, ${boundaryColor} 14%, var(--color-card))`}
+                stroke={boundaryColor}
+                strokeWidth={selected ? 2.5 : 1.5}
+              />
+              <foreignObject
+                x={x - localEventWidth / 2 + 8}
+                y={y - 11}
+                width={localEventWidth - 16}
+                height={22}
+              >
+                <div
+                  className="truncate text-center text-[11px] leading-[22px] font-semibold tracking-wide uppercase"
+                  style={{ color: boundaryColor }}
+                  title={label}
+                >
+                  {item.kind === 'activation-start'
+                    ? `▸ ${label}`
+                    : `■ ${label}`}
+                </div>
+              </foreignObject>
+            </g>
+          );
+        }
+
+        if (item.kind === 'state') {
+          const keys = Object.entries(item.state);
+          const chip =
+            keys
+              .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+              .join('  ·  ') || 'State';
+          const activate = () => onItemClick?.(item);
+          return (
+            <g
+              key={item.id}
+              data-flow-item="state"
+              data-selected={selected || undefined}
+              role={onItemClick ? 'button' : undefined}
+              tabIndex={onItemClick ? 0 : undefined}
+              aria-label={onItemClick ? `Open ${chip}` : undefined}
+              onClick={activate}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') activate();
+              }}
+              onMouseEnter={() => {
+                if (!selected) setHoveredItemId(item.id);
+              }}
+              onMouseLeave={() => setHoveredItemId(null)}
+              style={{
+                cursor: onItemClick ? 'pointer' : 'default',
+                outline: 'none',
+              }}
+            >
+              <rect
+                x={0}
+                y={y - flowRowGap / 2}
+                width={width}
+                height={flowRowGap}
+                fill={
+                  hovered && !selected
+                    ? 'color-mix(in oklab, var(--color-primary) 3%, transparent)'
+                    : 'transparent'
+                }
+                style={{ transition: 'fill 120ms ease-out' }}
+              />
+              <rect
+                x={x - localEventWidth / 2}
+                y={y - 11}
+                width={localEventWidth}
+                height={22}
+                rx={11}
+                fill="var(--color-muted)"
+                stroke={
+                  selected ? 'var(--color-primary)' : 'var(--color-border)'
+                }
+                strokeWidth={selected ? 2.5 : 1}
+              />
+              <foreignObject
+                x={x - localEventWidth / 2 + 9}
+                y={y - 10}
+                width={localEventWidth - 18}
+                height={20}
+              >
+                <div
+                  className="truncate text-center font-mono text-[10px] leading-[20px] text-muted-foreground"
+                  title={Object.entries(item.merged)
+                    .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+                    .join('\n')}
+                >
+                  {chip}
+                </div>
+              </foreignObject>
+            </g>
+          );
+        }
+
+        const color = eventColor[item.severity];
         const activate = () =>
           onItemClick?.(selectedMember ?? item.members[0]!);
 
@@ -348,7 +579,6 @@ export function FlowCanvas({
           <g
             key={item.id}
             data-flow-item="local-event"
-            data-flow-terminal={item.status ?? undefined}
             data-selected={selected || undefined}
             role={onItemClick ? 'button' : undefined}
             tabIndex={onItemClick ? 0 : undefined}
@@ -404,15 +634,9 @@ export function FlowCanvas({
               fill={
                 selected
                   ? 'color-mix(in oklab, var(--color-primary) 18%, var(--color-card))'
-                  : terminalColor
-                    ? `color-mix(in oklab, ${terminalColor} 7%, var(--color-card))`
-                    : 'var(--color-card)'
+                  : 'var(--color-card)'
               }
-              stroke={
-                selected
-                  ? 'var(--color-primary)'
-                  : (terminalColor ?? 'var(--color-border)')
-              }
+              stroke={selected ? 'var(--color-primary)' : 'var(--color-border)'}
               strokeWidth={selected ? 2.5 : 1}
             />
             <foreignObject

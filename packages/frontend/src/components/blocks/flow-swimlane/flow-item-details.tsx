@@ -1,4 +1,4 @@
-import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
+import type { RecordedFlow } from './model';
 import { XIcon } from 'lucide-react';
 
 import { JsonTree } from '../otel-trace-viewer/index';
@@ -7,17 +7,23 @@ import { cn } from '#lib/utils';
 
 type RecordedFlowItem = RecordedFlow['items'][number];
 
-const kindStyles = {
+const kindStyles: Record<RecordedFlowItem['kind'], string> = {
   activity: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  'activation-end': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  'activation-start': 'bg-primary/10 text-primary',
   'local-event': 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
   message: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-} as const;
+  state: 'bg-muted text-muted-foreground',
+};
 
-const kindLabels = {
+const kindLabels: Record<RecordedFlowItem['kind'], string> = {
   activity: 'activity',
+  'activation-end': 'activation end',
+  'activation-start': 'activation start',
   'local-event': 'event',
   message: 'message',
-} as const;
+  state: 'state',
+};
 
 const statusColor: Record<string, string> = {
   error: 'text-destructive',
@@ -25,6 +31,12 @@ const statusColor: Record<string, string> = {
   running: 'text-primary',
   success: 'text-positive',
   unset: 'text-muted-foreground',
+};
+
+const outcomeColor: Record<string, string> = {
+  completed: 'text-positive',
+  failed: 'text-destructive',
+  interrupted: 'text-amber-600 dark:text-amber-500',
 };
 
 const severityDot: Record<string, string> = {
@@ -126,7 +138,7 @@ export function FlowItemDetails({
                 </dd>
               </>
             )}
-            {item.kind !== 'message' && item.status !== undefined && (
+            {item.kind === 'activity' && (
               <>
                 <dt className="text-muted-foreground">Status</dt>
                 <dd
@@ -136,6 +148,27 @@ export function FlowItemDetails({
                   )}
                 >
                   {item.status}
+                </dd>
+              </>
+            )}
+            {item.kind === 'activation-end' && (
+              <>
+                <dt className="text-muted-foreground">Outcome</dt>
+                <dd
+                  className={cn(
+                    'font-mono capitalize',
+                    outcomeColor[item.outcome],
+                  )}
+                >
+                  {item.outcome}
+                </dd>
+              </>
+            )}
+            {item.kind === 'message' && item.replyTo !== undefined && (
+              <>
+                <dt className="text-muted-foreground">Replies to</dt>
+                <dd className="truncate font-mono" title={item.replyTo}>
+                  {item.replyTo}
                 </dd>
               </>
             )}
@@ -163,14 +196,28 @@ export function FlowItemDetails({
               </>
             )}
           </dl>
-          {item.kind !== 'message' && item.status === 'interrupted' && (
-            <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              Stopped by lifecycle teardown — not a failure.
-            </p>
-          )}
+          {(item.kind === 'activity' || item.kind === 'activation-end') &&
+            (item.kind === 'activity'
+              ? item.status === 'interrupted'
+              : item.outcome === 'interrupted') && (
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                Stopped by lifecycle teardown — not a failure.
+              </p>
+            )}
         </div>
 
-        {hasAttributes && (
+        {item.kind === 'state' && (
+          <div>
+            <SectionLabel>Published</SectionLabel>
+            <JsonTree value={item.state} />
+            <div className="mt-6">
+              <SectionLabel>Participant state here</SectionLabel>
+              <JsonTree value={item.merged} />
+            </div>
+          </div>
+        )}
+
+        {hasAttributes && item.kind !== 'state' && (
           <div>
             <SectionLabel>Attributes</SectionLabel>
             <JsonTree value={attributes} />

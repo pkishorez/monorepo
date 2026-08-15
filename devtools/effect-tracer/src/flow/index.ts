@@ -1,11 +1,12 @@
 export {
+  Activation,
   flowAttributePrefix,
   flowAttributes,
-  flowItemTypes,
-  flowStatuses,
   initFlow,
-  isTerminalFlowStatus,
-  type RecordedFlow,
-  type RecordedFlowActivityLog,
-  type TerminalFlowStatus,
+  projectFlow,
+  type ActivationRef,
+  type MessageToken,
+  RecordedFlowSchema,
+  type FlowObservation,
+  type RecordedFlowAttributeValue,
 } from './flow.js';

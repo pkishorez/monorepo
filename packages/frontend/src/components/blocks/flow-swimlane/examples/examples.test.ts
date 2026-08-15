@@ -23,6 +23,17 @@ describe('Flow examples', () => {
     expect(
       flows.some((flow) => flow?.items.some((item) => item.kind === 'message')),
     ).toBe(true);
-    expect(flows.map((flow) => flow?.status)).toContain('failed');
+    expect(
+      flows.flatMap((flow) => flow?.activations ?? []).map((a) => a.outcome),
+    ).toContain('failed');
+    expect(flows.every((flow) => flow?.activations.length === 1)).toBe(true);
+    expect(
+      flows.some((flow) =>
+        flow?.items.some((item) => item.kind === 'message' && item.replyTo),
+      ),
+    ).toBe(true);
+    expect(
+      flows.some((flow) => flow?.items.some((item) => item.kind === 'state')),
+    ).toBe(true);
   });
 });

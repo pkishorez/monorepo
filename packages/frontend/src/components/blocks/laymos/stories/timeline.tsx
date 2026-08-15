@@ -1,18 +1,23 @@
 import { useState, type ComponentProps } from 'react';
-import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
-import { Maximize2, X } from 'lucide-react';
+import { ChevronDown, Maximize2, X } from 'lucide-react';
 import type { StoryReport } from 'laymos';
 import ReactMarkdown from 'react-markdown';
 
 import { FlowItemDetails, FlowSwimlane } from '../../flow-swimlane/index';
 import { attachCapturedLogs, TraceViewer } from '../../otel-trace-viewer/index';
 import { SourceViewer } from '../../source-viewer/index';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '#components/ui/collapsible';
 import { Dialog, DialogContent, DialogTitle } from '#components/ui/dialog';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
 export type QuestionReport = StoryReport['questions'][number];
 type QuestionSection = QuestionReport['sections'][number];
+type RecordedFlow = Extract<QuestionSection, { kind: 'flow' }>['flow'];
 
 export type Verdict = StoryReport['verdict'];
 
@@ -164,19 +169,33 @@ function ResultBlock({
 }: {
   readonly result: NonNullable<QuestionReport['result']> | null;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="overflow-hidden rounded-lg border border-border">
-      <div className="border-b border-border/60 bg-muted/30 px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        result
-      </div>
-      <SourceViewer
-        filePath="result.json"
-        content={JSON.stringify(result, null, 2)}
-        autoHeight
-        showHeader={false}
-        showLineNumbers={false}
-      />
-    </div>
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="overflow-hidden rounded-lg border border-border"
+    >
+      <CollapsibleTrigger className="group flex w-full items-center gap-2 bg-muted/30 px-3 py-1.5 text-left font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+        <span className="flex-1">result</span>
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            'size-3.5 shrink-0 transition-transform',
+            open && 'rotate-180',
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t border-border/60">
+        <SourceViewer
+          filePath="result.json"
+          content={JSON.stringify(result, null, 2)}
+          autoHeight
+          showHeader={false}
+          showLineNumbers={false}
+        />
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

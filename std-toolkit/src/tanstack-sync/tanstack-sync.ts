@@ -7,6 +7,7 @@ import { buildRegistry, makeTracker } from './runtime/sync-registry/index.js';
 import { buildPartitioned } from './composition/keyed-sync/index.js';
 import { buildSingleItem } from './composition/single-item-sync/index.js';
 import type {
+  DeletePayload,
   StdCollectionOptions,
   UpdatePayload,
 } from './runtime/collection-model/index.js';
@@ -26,6 +27,7 @@ import {
 } from './persistence/sync-persistence-table/index.js';
 import type { CadenceConfig } from './domain/cadence-policy/index.js';
 import type { SyncReporter } from './domain/sync-event/index.js';
+import type { FlowPlacement } from './runtime/sync-flow/index.js';
 import {
   makeEffectRunner,
   type EffectRuntime,
@@ -64,7 +66,9 @@ export type SyncConfig<S extends AnyEntityESchema, R = never> = {
   onUpdate?: (
     payload: UpdatePayload<S['Type'], S>,
   ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
-  onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  onDelete?: (
+    payload: DeletePayload<S['Type']>,
+  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
 };
 
@@ -96,6 +100,7 @@ export type StdSyncDefaults<R = never> = {
   cadence?: CadenceConfig;
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
+  flow?: FlowPlacement;
 };
 
 const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
@@ -144,6 +149,7 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
       ...(defaults?.cadence ? { defaultCadence: defaults.cadence } : {}),
       runner,
       report,
+      ...(defaults?.flow ? { flowPlacement: defaults.flow } : {}),
     });
     return { ...mergeOptions(options), ...built };
   };
@@ -161,6 +167,7 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
       options: mergeOptions(options),
       runner,
       report,
+      ...(defaults?.flow ? { flowPlacement: defaults.flow } : {}),
     });
   };
 
@@ -221,6 +228,8 @@ type CreateStdSync = {
 
 export const createStdSync = makeStdSync as CreateStdSync;
 
+export type { EffectRuntime } from './runtime/effect-runner/index.js';
+export type { FlowPlacement } from './runtime/sync-flow/index.js';
 export type { SyncEvent } from './domain/sync-event/index.js';
 export type { SyncReporter } from './domain/sync-event/index.js';
 export type {

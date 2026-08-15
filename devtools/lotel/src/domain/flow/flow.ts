@@ -1,26 +1,18 @@
 import { Schema } from 'effect';
-import {
-  flowStatuses,
-  type RecordedFlow,
-  type TerminalFlowStatus,
-} from '@pkishorez/effect-tracer/flow';
+import { RecordedFlowSchema as SharedRecordedFlowSchema } from '@pkishorez/effect-tracer/flow';
 import { EntitySchema, type EntityType } from 'std-toolkit/core';
-import { EntityESchema, fromType } from 'std-toolkit/eschema';
+import { EntityESchema } from 'std-toolkit/eschema';
 import type { LogRecord, SpanRecord } from '../telemetry-schema/index.js';
-import { readFlowIdentity, readTerminalStatus } from './attributes.js';
-import { advanceFlow } from './lifecycle.js';
+import { readFlowIdentity } from './attributes.js';
 import { projectStoredFlow } from './projection.js';
-
-export const FlowStatusSchema = Schema.Literals(flowStatuses);
 
 export const FlowEntitySchema = EntityESchema.make('Flow', 'flowId', {
   latestTimeUnixNano: Schema.String,
-  status: FlowStatusSchema,
 }).build();
 
 export type FlowEntity = typeof FlowEntitySchema.Type;
 
-export const RecordedFlowSchema = fromType<RecordedFlow>();
+export const RecordedFlowSchema = SharedRecordedFlowSchema;
 
 export const FlowListSchema = Schema.Struct({
   items: Schema.Array(EntitySchema(FlowEntitySchema)),
@@ -45,21 +37,29 @@ export const prepareFlowLog = (record: LogRecord) => ({
   latestTimeUnixNano: timeString(
     record.log.timeUnixNano ?? record.log.observedTimeUnixNano,
   ),
-  terminalStatus: readTerminalStatus(record.log.attributes),
 });
+
+const compareTime = (left: string, right: string) => {
+  try {
+    const leftTime = BigInt(left);
+    const rightTime = BigInt(right);
+    return leftTime < rightTime ? -1 : leftTime > rightTime ? 1 : 0;
+  } catch {
+    return left.localeCompare(right);
+  }
+};
 
 export const updateFlowEntity = (
   flowId: string,
   latestTimeUnixNano: string,
-  terminalStatus: TerminalFlowStatus | undefined,
   current?: FlowEntity,
-) =>
-  advanceFlow(
-    flowId,
-    latestTimeUnixNano,
-    terminalStatus,
-    current,
-  ) as FlowEntity;
+): FlowEntity => ({
+  flowId,
+  latestTimeUnixNano:
+    current && compareTime(current.latestTimeUnixNano, latestTimeUnixNano) > 0
+      ? current.latestTimeUnixNano
+      : latestTimeUnixNano,
+});
 
 export const makeRecordedFlow = (
   flow: EntityType<FlowEntity>,

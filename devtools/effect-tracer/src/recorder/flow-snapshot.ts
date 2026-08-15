@@ -1,21 +1,22 @@
+import {
+  flowAttributePrefix,
+  flowAttributes,
+  projectFlow,
+  RecordedFlowSchema,
+  type FlowObservation,
+  type RecordedFlowAttributeValue,
+} from '../flow/index.js';
 import type {
   CapturedLog,
   CapturedSpan,
   CapturedTrace,
   TraceValue,
 } from './recorder.js';
-import {
-  flowAttributePrefix,
-  flowAttributes,
-  flowItemTypes,
-  isTerminalFlowStatus,
-  type RecordedFlow,
-  type RecordedFlowActivityLog,
-} from '../flow/index.js';
 
-type RecordedFlowItem = RecordedFlow['items'][number];
-type RecordedFlowStatus = RecordedFlow['status'];
-type RecordedFlowWarning = RecordedFlow['warnings'][number];
+type RecordedFlow = typeof RecordedFlowSchema.Type;
+type RecordedFlowActivityLog = NonNullable<
+  Extract<FlowObservation, { source: 'span' }>['logs']
+>[number];
 
 const text = (value: TraceValue | undefined) =>
   typeof value === 'string'
@@ -41,49 +42,53 @@ const severity = (level: CapturedLog['level']) => {
 
 const displayAttributes = (
   record: Readonly<Record<string, TraceValue>>,
-): Readonly<Record<string, TraceValue>> | undefined => {
+): Readonly<Record<string, RecordedFlowAttributeValue>> | undefined => {
   const entries = Object.entries(record)
     .filter(([key]) => !key.startsWith('flow.'))
-    .map(([key, value]) => [
-      key.startsWith(flowAttributePrefix)
-        ? key.slice(flowAttributePrefix.length)
-        : key,
-      value,
-    ]);
+    .map(
+      ([key, value]) =>
+        [
+          key.startsWith(flowAttributePrefix)
+            ? key.slice(flowAttributePrefix.length)
+            : key,
+          value,
+        ] as const,
+    );
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 };
 
-const terminalStatus = (
-  value: TraceValue | undefined,
-): Exclude<RecordedFlowStatus, 'active'> | undefined =>
-  isTerminalFlowStatus(value) ? value : undefined;
+const stateAttributes = (
+  record: Readonly<Record<string, TraceValue>>,
+): Readonly<Record<string, RecordedFlowAttributeValue>> =>
+  Object.fromEntries(
+    Object.entries(record).flatMap(([key, value]) =>
+      key.startsWith(flowAttributePrefix)
+        ? [[key.slice(flowAttributePrefix.length), value] as const]
+        : [],
+    ),
+  );
 
-const activity = (
+const activityObservation = (
   span: CapturedSpan,
-  flow: string,
-  warnings: RecordedFlowWarning[],
+  flowId: string,
+  order: string,
   nestedLogs: (spanId: string) => readonly RecordedFlowActivityLog[],
-): RecordedFlowItem | null => {
-  if (span.attributes[flowAttributes.id] !== flow) return null;
+): FlowObservation | null => {
+  if (span.attributes[flowAttributes.id] !== flowId) return null;
   const participant = span.attributes[flowAttributes.participantName];
-  if (typeof participant !== 'string' || participant.length === 0) {
-    warnings.push({
-      recordType: 'span',
-      recordId: `${span.traceId}:${span.spanId}`,
-      message: 'Flow Span is missing flow.participant.name.',
-    });
-    return null;
-  }
   const attributes = displayAttributes(span.attributes);
   const logs = nestedLogs(span.spanId);
   return {
-    kind: 'activity',
-    id: `${span.traceId}:${span.spanId}`,
-    participantName: participant,
+    source: 'span',
+    recordId: `${span.traceId}:${span.spanId}`,
+    ...(typeof participant === 'string' && participant.length > 0
+      ? { participantName: participant }
+      : {}),
     name: span.name,
+    timestamp: span.startTime,
+    order,
     ...(attributes ? { attributes } : {}),
     ...(logs.length > 0 ? { logs } : {}),
-    timestamp: span.startTime,
     duration:
       span.endTime === null ? null : Math.max(0, span.endTime - span.startTime),
     status: span.status,
@@ -92,51 +97,38 @@ const activity = (
   };
 };
 
-const event = (
+const eventObservation = (
   log: CapturedLog,
-  flow: string,
-  warnings: RecordedFlowWarning[],
-): RecordedFlowItem | null => {
-  if (log.annotations[flowAttributes.id] !== flow) return null;
+  flowId: string,
+  order: string,
+): FlowObservation | null => {
+  if (log.annotations[flowAttributes.id] !== flowId) return null;
   const participant = log.annotations[flowAttributes.participantName];
-  if (typeof participant !== 'string' || participant.length === 0) {
-    warnings.push({
-      recordType: 'log',
-      recordId: log.id,
-      message: 'Flow Log Record is missing flow.participant.name.',
-    });
-    return null;
-  }
   const attributes = displayAttributes(log.annotations);
-  const common = {
-    id: log.id,
-    participantName: participant,
-    name: text(log.message) || 'Event',
-    ...(attributes ? { attributes } : {}),
-    timestamp: log.timestamp,
-    severity: severity(log.level),
-  };
-  if (log.annotations[flowAttributes.itemType] !== flowItemTypes.message) {
-    const status = terminalStatus(log.annotations[flowAttributes.status]);
-    return {
-      kind: 'local-event',
-      ...common,
-      ...(status ? { status } : {}),
-    };
-  }
+  const itemType = log.annotations[flowAttributes.itemType];
+  const activationOutcome = log.annotations[flowAttributes.activationOutcome];
   const destination = log.annotations[flowAttributes.messageTo];
-  if (typeof destination !== 'string' || destination.length === 0) {
-    warnings.push({
-      recordType: 'log',
-      recordId: common.id,
-      message: 'Flow Message is missing flow.message.to.',
-    });
-    return null;
-  }
-  return { kind: 'message', destination, ...common };
+  const messageId = log.annotations[flowAttributes.messageId];
+  const replyTo = log.annotations[flowAttributes.messageReplyTo];
+  return {
+    source: 'log',
+    recordId: log.id,
+    ...(typeof participant === 'string' && participant.length > 0
+      ? { participantName: participant }
+      : {}),
+    name: text(log.message) || 'Event',
+    timestamp: log.timestamp,
+    order,
+    ...(attributes ? { attributes } : {}),
+    severity: severity(log.level),
+    ...(typeof itemType === 'string' ? { itemType } : {}),
+    ...(typeof activationOutcome === 'string' ? { activationOutcome } : {}),
+    ...(typeof destination === 'string' ? { destination } : {}),
+    ...(typeof messageId === 'string' ? { messageId } : {}),
+    ...(typeof replyTo === 'string' ? { replyTo } : {}),
+    state: stateAttributes(log.annotations),
+  };
 };
-
-const itemTimestamp = (item: RecordedFlowItem) => item.timestamp;
 
 export const recordedFlowIds = (trace: CapturedTrace) => [
   ...new Set(
@@ -149,11 +141,12 @@ export const recordedFlowIds = (trace: CapturedTrace) => [
   ),
 ];
 
+const observationOrder = (index: number) => index.toString().padStart(12, '0');
+
 export const projectRecordedFlow = (
   trace: CapturedTrace,
   id: string,
 ): RecordedFlow | null => {
-  const warnings: RecordedFlowWarning[] = [];
   const childrenOf = new Map<string, CapturedSpan[]>();
   for (const span of trace.spans) {
     if (span.parentSpanId === null) continue;
@@ -161,6 +154,7 @@ export const projectRecordedFlow = (
     children.push(span);
     childrenOf.set(span.parentSpanId, children);
   }
+
   const plainLogsBySpan = new Map<string, CapturedLog[]>();
   for (const log of trace.logs) {
     if (log.spanId === null) continue;
@@ -169,12 +163,12 @@ export const projectRecordedFlow = (
     logs.push(log);
     plainLogsBySpan.set(log.spanId, logs);
   }
+
   const nestedLogs = (spanId: string): readonly RecordedFlowActivityLog[] => {
     const collected: CapturedLog[] = [];
     const visit = (current: string) => {
       collected.push(...(plainLogsBySpan.get(current) ?? []));
       for (const child of childrenOf.get(current) ?? []) {
-        // A nested flow activity owns its own subtree.
         if (typeof child.attributes[flowAttributes.id] === 'string') continue;
         visit(child.spanId);
       }
@@ -192,31 +186,25 @@ export const projectRecordedFlow = (
         };
       });
   };
-  const items = [
-    ...trace.spans.map((span) => activity(span, id, warnings, nestedLogs)),
-    ...trace.logs.map((log) => event(log, id, warnings)),
-  ]
-    .filter((item) => item !== null)
-    .sort((left, right) => itemTimestamp(left) - itemTimestamp(right));
-  if (items.length === 0 && warnings.length === 0) return null;
 
-  let status: RecordedFlowStatus = 'active';
-  for (const log of trace.logs) {
-    if (log.annotations[flowAttributes.id] !== id) continue;
-    const terminal = terminalStatus(log.annotations[flowAttributes.status]);
-    if (terminal) {
-      status = terminal;
-      break;
-    }
-  }
+  const observations = [
+    ...trace.spans.map((span, index) =>
+      activityObservation(span, id, observationOrder(index), nestedLogs),
+    ),
+    ...trace.logs.map((log, index) =>
+      eventObservation(log, id, observationOrder(trace.spans.length + index)),
+    ),
+  ].filter((observation) => observation !== null);
+  if (observations.length === 0) return null;
+
+  const projected = projectFlow({ id, latestTimestamp: 0, observations });
   const latestTimestamp = Math.max(
     0,
-    ...items.map((item) =>
+    ...projected.items.map((item) =>
       item.kind === 'activity' && item.duration !== null
         ? item.timestamp + item.duration
         : item.timestamp,
     ),
   );
-
-  return { id, status, latestTimestamp, items, warnings };
+  return { ...projected, latestTimestamp };
 };

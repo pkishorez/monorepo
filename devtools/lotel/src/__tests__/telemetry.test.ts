@@ -161,7 +161,7 @@ describe('lotel', () => {
                 spanId: null,
                 log: {
                   timeUnixNano: '300',
-                  body: { stringValue: 'Call completed' },
+                  body: { stringValue: 'Activation completed' },
                   attributes: [
                     {
                       key: 'flow.id',
@@ -173,10 +173,10 @@ describe('lotel', () => {
                     },
                     {
                       key: 'flow.item.type',
-                      value: { stringValue: 'local-event' },
+                      value: { stringValue: 'activation-end' },
                     },
                     {
-                      key: 'flow.status',
+                      key: 'flow.activation.outcome',
                       value: { stringValue: 'completed' },
                     },
                   ],
@@ -191,25 +191,19 @@ describe('lotel', () => {
       ),
     );
 
-    expect(flow).toMatchObject({
-      id: 'call-123',
-      latestTimestamp: 0.0003,
-      status: 'completed',
-    });
+    expect(flow).toMatchObject({ id: 'call-123', latestTimestamp: 0.0003 });
     expect(flow.items.map(({ kind, name }) => [kind, name])).toEqual([
       ['activity', 'Create offer'],
       ['message', 'Offer ready'],
       ['activity', 'Forward offer'],
-      ['local-event', 'Call completed'],
+      ['activation-end', 'Activation completed'],
     ]);
-    expect(flow.items.at(-1)).toMatchObject({
-      kind: 'local-event',
-      status: 'completed',
-    });
-    expect(flow.warnings).toEqual([]);
+    expect(flow.warnings.map(({ message }) => message)).toEqual([
+      'Activation ended while none was open.',
+    ]);
   });
 
-  it('keeps the first terminal Flow status and warns about invalid Flow items', async () => {
+  it('warns about invalid Flow items', async () => {
     const flow = await run(
       withClient((client) =>
         Effect.gen(function* () {
@@ -224,10 +218,6 @@ describe('lotel', () => {
                     {
                       key: 'flow.id',
                       value: { stringValue: 'invalid-flow' },
-                    },
-                    {
-                      key: 'flow.status',
-                      value: { stringValue: 'failed' },
                     },
                   ],
                 },
@@ -247,10 +237,6 @@ describe('lotel', () => {
                       key: 'flow.participant.name',
                       value: { stringValue: 'server' },
                     },
-                    {
-                      key: 'flow.status',
-                      value: { stringValue: 'completed' },
-                    },
                   ],
                 },
                 context: {},
@@ -262,7 +248,6 @@ describe('lotel', () => {
       ),
     );
 
-    expect(flow.status).toBe('failed');
     expect(flow.latestTimestamp).toBe(0.00002);
     expect(flow.items).toHaveLength(1);
     expect(flow.warnings).toHaveLength(1);

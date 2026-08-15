@@ -4,6 +4,8 @@ export {
   singleItemSyncStrategy,
   syncPersistenceTable,
   syncStrategy,
+  type EffectRuntime,
+  type FlowPlacement,
   type PartitionedStrategy,
   type SingleItemStrategy,
   type SingleItemSyncConfig,

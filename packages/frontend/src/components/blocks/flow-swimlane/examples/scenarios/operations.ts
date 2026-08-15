@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { initFlow } from '@pkishorez/effect-tracer/flow';
+import { Activation, initFlow } from '@pkishorez/effect-tracer/flow';
 import type { FlowScenario } from './scenarios';
 
 const fileUpload = (): FlowScenario => ({
@@ -9,24 +9,21 @@ const fileUpload = (): FlowScenario => ({
     const browser = initFlow({
       id: 'upload-701',
       participantName: 'browser',
-      participants: ['upload-api'] as const,
     });
     const api = initFlow({
       id: 'upload-701',
       participantName: 'upload-api',
-      participants: ['object-storage', 'scanner', 'browser'] as const,
     });
     const storage = initFlow({
       id: 'upload-701',
       participantName: 'object-storage',
-      participants: ['scanner'] as const,
     });
     const scanner = initFlow({
       id: 'upload-701',
       participantName: 'scanner',
-      participants: ['upload-api'] as const,
     });
     return Effect.gen(function* () {
+      const activation = yield* api.activation.start('Upload');
       yield* Effect.sleep('3 millis').pipe(browser.withSpan('Read file'));
       yield* browser.send('upload-api', 'Start multipart upload');
       yield* Effect.sleep('4 millis').pipe(api.withSpan('Stream chunks'));
@@ -36,7 +33,7 @@ const fileUpload = (): FlowScenario => ({
       yield* scanner.log('No threats detected');
       yield* scanner.send('upload-api', 'File approved');
       yield* api.send('browser', 'Upload available');
-      yield* api.end('completed', { message: 'Upload processed' });
+      yield* activation.end(Activation.completed());
     });
   },
 });
@@ -48,12 +45,10 @@ const retryDeadLetter = (): FlowScenario => ({
     const scheduler = initFlow({
       id: 'job-retry-702',
       participantName: 'scheduler',
-      participants: ['worker'] as const,
     });
     const worker = initFlow({
       id: 'job-retry-702',
       participantName: 'worker',
-      participants: ['scheduler', 'dead-letter-queue'] as const,
     });
     const deadLetter = initFlow({
       id: 'job-retry-702',
@@ -65,6 +60,7 @@ const retryDeadLetter = (): FlowScenario => ({
         Effect.ignore,
       );
     return Effect.gen(function* () {
+      const activation = yield* worker.activation.start('Job execution');
       yield* scheduler.send('worker', 'Execute report job');
       yield* failAttempt('Attempt 1');
       yield* worker.send('scheduler', 'Retry requested');
@@ -76,7 +72,7 @@ const retryDeadLetter = (): FlowScenario => ({
       yield* failAttempt('Attempt 3');
       yield* worker.send('dead-letter-queue', 'Quarantine failed job');
       yield* deadLetter.log('Job retained for inspection', { level: 'error' });
-      yield* worker.end('failed', { message: 'Retries exhausted' });
+      yield* activation.end(Activation.failed('scenario failed'));
     });
   },
 });
@@ -88,24 +84,21 @@ const iotAlert = (): FlowScenario => ({
     const sensor = initFlow({
       id: 'iot-alert-703',
       participantName: 'temperature-sensor',
-      participants: ['message-broker'] as const,
     });
     const broker = initFlow({
       id: 'iot-alert-703',
       participantName: 'message-broker',
-      participants: ['rules-engine'] as const,
     });
     const rules = initFlow({
       id: 'iot-alert-703',
       participantName: 'rules-engine',
-      participants: ['on-call'] as const,
     });
     const onCall = initFlow({
       id: 'iot-alert-703',
       participantName: 'on-call',
-      participants: ['rules-engine'] as const,
     });
     return Effect.gen(function* () {
+      const activation = yield* rules.activation.start('Alert window');
       yield* Effect.sleep('2 millis').pipe(
         sensor.withSpan('Sample temperature'),
       );
@@ -117,7 +110,7 @@ const iotAlert = (): FlowScenario => ({
       yield* rules.send('on-call', 'Page critical alert');
       yield* onCall.log('Alert acknowledged');
       yield* onCall.send('rules-engine', 'Cooling system inspected');
-      yield* rules.end('completed', { message: 'Alert resolved' });
+      yield* activation.end(Activation.completed());
     });
   },
 });
@@ -129,24 +122,21 @@ const sagaCompensation = (): FlowScenario => ({
     const coordinator = initFlow({
       id: 'saga-704',
       participantName: 'saga-coordinator',
-      participants: ['orders', 'payments', 'inventory'] as const,
     });
     const orders = initFlow({
       id: 'saga-704',
       participantName: 'orders',
-      participants: ['saga-coordinator'] as const,
     });
     const payments = initFlow({
       id: 'saga-704',
       participantName: 'payments',
-      participants: ['saga-coordinator'] as const,
     });
     const inventory = initFlow({
       id: 'saga-704',
       participantName: 'inventory',
-      participants: ['saga-coordinator'] as const,
     });
     return Effect.gen(function* () {
+      const activation = yield* coordinator.activation.start('Saga');
       yield* coordinator.send('orders', 'Create pending order');
       yield* Effect.sleep('2 millis').pipe(orders.withSpan('Create order'));
       yield* orders.send('saga-coordinator', 'Order created');
@@ -164,7 +154,7 @@ const sagaCompensation = (): FlowScenario => ({
       yield* Effect.sleep('2 millis').pipe(payments.withSpan('Refund funds'));
       yield* coordinator.send('orders', 'Cancel pending order');
       yield* orders.log('Order cancelled');
-      yield* coordinator.end('failed', { message: 'Saga compensated' });
+      yield* activation.end(Activation.failed('scenario failed'));
     });
   },
 });

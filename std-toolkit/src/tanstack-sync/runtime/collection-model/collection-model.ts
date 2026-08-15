@@ -51,16 +51,19 @@ export type StdCollectionOptions<TItem extends object> = Omit<
 >;
 
 /**
- * Payload for a keyed update: the entity's id field plus a partial set of value
- * updates (the id field itself excluded from the updatable fields).
+ * Payload for a keyed update: the complete value before the mutation plus the
+ * partial updates (the id field itself excluded from the updatable fields).
  */
 export type UpdatePayload<
   TItem extends object,
   TSchema extends AnyEntityESchema,
 > = {
-  [K in ESchemaIdField<TSchema>]: string;
-} & {
+  current: TItem;
   updates: Partial<Omit<TItem, ESchemaIdField<TSchema>>>;
+};
+
+export type DeletePayload<TItem extends object> = {
+  current: TItem;
 };
 
 export type UpdateChanges<
@@ -68,10 +71,27 @@ export type UpdateChanges<
   TSchema extends AnyEntityESchema,
 > = UpdatePayload<TItem, TSchema>['updates'];
 
+export const stripMeta = <TItem extends object>(
+  item: CollectionItem<TItem>,
+): TItem => {
+  const {
+    _meta: _ignoredMeta,
+    $synced: _ignoredSynced,
+    $origin: _ignoredOrigin,
+    ...value
+  } = item;
+  return value as TItem;
+};
+
 export const stripMetaPartial = <TItem extends object>(
   item: Partial<CollectionItem<TItem>>,
 ): Partial<TItem> => {
-  const { _meta: _ignored, ...value } = item;
+  const {
+    _meta: _ignoredMeta,
+    $synced: _ignoredSynced,
+    $origin: _ignoredOrigin,
+    ...value
+  } = item;
   return value as Partial<TItem>;
 };
 

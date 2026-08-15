@@ -135,7 +135,6 @@ export const makeSqliteTelemetryStore = (path: string) =>
               {
                 flowId: indexed.flowId,
                 latestTimeUnixNano: prepared.latestTimeUnixNano,
-                terminalStatus: prepared.terminalStatus,
                 recordOperation: logs.insertOp(indexed),
               },
             ),

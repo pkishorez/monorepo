@@ -1,6 +1,6 @@
 # Model Flows with OpenTelemetry records
 
-**Status:** accepted
+**Status:** accepted (amended by ADR-0003)
 
 A Flow is application-defined correlation across Participants and can include
 work from any number of independent Traces. Activities are recorded as Span
@@ -17,14 +17,14 @@ Flow-specific read model for the swim-lane view.
 ## Consequences
 
 - A Flow contains three visible item types: Activities, Local Events, and
-  Messages.
+  Messages. ADR-0003 adds Activation boundaries and Participant State.
 - Flow Spans are not nested. Ordinary descendant Spans remain available as
   Activity drill-down detail.
 - Flow Log Records are independent of Flow Spans. Local Events appear in one
   Participant lane, and Messages appear between Participant lanes.
-- The Flow Entity stores only the Flow ID, latest Flow Item time, and terminal
-  lifecycle status. Counts and Flow Items are derived from Span Records and Log
-  Records.
+- The Flow Entity stores only the Flow ID and latest Flow Item time. Counts and
+  Flow Items are derived from Span Records and Log Records. (ADR-0003 removed
+  the terminal lifecycle status this originally also stored.)
 - Invalid Flow metadata does not invalidate the underlying OpenTelemetry record.
 - Applications author Flow records through the standalone
   `@pkishorez/effect-tracer/flow` module. `initFlow` requires the Flow ID and

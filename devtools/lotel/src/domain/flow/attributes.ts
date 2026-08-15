@@ -1,8 +1,4 @@
-import {
-  flowAttributes,
-  isTerminalFlowStatus,
-  type TerminalFlowStatus,
-} from '@pkishorez/effect-tracer/flow';
+import { flowAttributes } from '@pkishorez/effect-tracer/flow';
 import type { KeyValue } from '../telemetry-schema/index.js';
 
 export const readFlowAttribute = (
@@ -19,10 +15,3 @@ export const readFlowIdentity = (attributes: KeyValue[] | undefined) => ({
   flowId: readFlowAttribute(attributes, 'id') ?? null,
   participantName: readFlowAttribute(attributes, 'participantName') ?? null,
 });
-
-export const readTerminalStatus = (
-  attributes: KeyValue[] | undefined,
-): TerminalFlowStatus | undefined => {
-  const status = readFlowAttribute(attributes, 'status');
-  return isTerminalFlowStatus(status) ? status : undefined;
-};

@@ -95,6 +95,13 @@ _Avoid_: String-coerced field, delimiter-joined key.
 The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided.
 _Avoid_: Entity service (retired term), adapter-specific Entity wrappers, PortableKeyedEntity.
 
+**Entity key**:
+The logical identity accepted by a keyed **entity surface**: the entity's primary partition components plus its ESchema id field. It is derived into the encoded partition and sort keys internally rather than exposing those physical values to callers.
+_Avoid_: Physical key, encoded key, pk/sk pair.
+
+**Entity key immutability**:
+Fields composing an **entity key** cannot change during an update. Moving a value to a different identity is an explicit delete followed by an insert.
+
 **Portable value**:
 An ESchema-encoded JSON-compatible value accepted by every adapter: null, boolean, number, string, arrays, and objects composed from the same values. Adapter-native value types are outside the **StdTable surface**.
 _Avoid_: Structured-clone value, DynamoDB-native value.

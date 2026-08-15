@@ -1,4 +1,7 @@
 import { Schema } from 'effect';
+import { RecordedFlowSchema } from '@pkishorez/effect-tracer/flow';
+
+export { RecordedFlowSchema };
 
 const JsonValueSchema: Schema.Codec<JsonValue> = Schema.Union([
   Schema.String,
@@ -63,86 +66,6 @@ export const CapturedTraceSchema = Schema.Struct({
   title: 'Captured Trace',
   description:
     "A Story artifact: every span and log recorded while a Story's traced region ran.",
-});
-
-const FlowSeveritySchema = Schema.Literals([
-  'debug',
-  'error',
-  'info',
-  'warning',
-]);
-
-const FlowItemAttributesSchema = Schema.optional(
-  Schema.Record(Schema.String, JsonValueSchema),
-);
-
-const RecordedFlowActivityLogSchema = Schema.Struct({
-  timestamp: Schema.Number,
-  severity: FlowSeveritySchema,
-  message: Schema.String,
-  attributes: FlowItemAttributesSchema,
-});
-
-const RecordedFlowActivitySchema = Schema.Struct({
-  kind: Schema.Literal('activity'),
-  id: Schema.String,
-  participantName: Schema.String,
-  name: Schema.String,
-  attributes: FlowItemAttributesSchema,
-  timestamp: Schema.Number,
-  duration: Schema.NullOr(Schema.Number),
-  status: SpanStatusSchema,
-  traceId: Schema.String,
-  spanId: Schema.String,
-  logs: Schema.optional(Schema.Array(RecordedFlowActivityLogSchema)),
-});
-
-const RecordedFlowLocalEventSchema = Schema.Struct({
-  kind: Schema.Literal('local-event'),
-  id: Schema.String,
-  participantName: Schema.String,
-  name: Schema.String,
-  attributes: FlowItemAttributesSchema,
-  timestamp: Schema.Number,
-  severity: FlowSeveritySchema,
-  status: Schema.optional(
-    Schema.Literals(['cancelled', 'completed', 'failed']),
-  ),
-});
-
-const RecordedFlowMessageSchema = Schema.Struct({
-  kind: Schema.Literal('message'),
-  id: Schema.String,
-  participantName: Schema.String,
-  name: Schema.String,
-  attributes: FlowItemAttributesSchema,
-  timestamp: Schema.Number,
-  severity: FlowSeveritySchema,
-  destination: Schema.String,
-});
-
-const RecordedFlowWarningSchema = Schema.Struct({
-  recordType: Schema.Literals(['log', 'span']),
-  recordId: Schema.String,
-  message: Schema.String,
-});
-
-export const RecordedFlowSchema = Schema.Struct({
-  id: Schema.String,
-  status: Schema.Literals(['active', 'cancelled', 'completed', 'failed']),
-  latestTimestamp: Schema.Number,
-  items: Schema.Array(
-    Schema.Union([
-      RecordedFlowActivitySchema,
-      RecordedFlowLocalEventSchema,
-      RecordedFlowMessageSchema,
-    ]),
-  ),
-  warnings: Schema.Array(RecordedFlowWarningSchema),
-}).annotate({
-  title: 'Recorded Flow',
-  description:
-    "A Story artifact: one Flow derived from the spans and logs recorded while a Story's flow region ran.",
 });
 
 export const StoryAssertionSchema = Schema.Struct({

@@ -201,7 +201,6 @@ export const storyReports: Readonly<Record<string, StoryReport>> = {
             kind: 'flow',
             flow: {
               id: 'sync-1',
-              status: 'completed',
               latestTimestamp: start + 40,
               items: [
                 {
@@ -212,6 +211,7 @@ export const storyReports: Readonly<Record<string, StoryReport>> = {
                   timestamp: start,
                   severity: 'info',
                   destination: 'server',
+                  messageId: 'm1',
                 },
                 {
                   kind: 'activity',
@@ -232,6 +232,19 @@ export const storyReports: Readonly<Record<string, StoryReport>> = {
                   timestamp: start + 35,
                   severity: 'info',
                   destination: 'client',
+                  messageId: 'm2',
+                  replyTo: 'm1',
+                },
+              ],
+              activations: [
+                {
+                  participantName: 'server',
+                  name: 'Handle mutation',
+                  startItemId: 'f2',
+                  endItemId: 'f3',
+                  startTimestamp: start + 10,
+                  endTimestamp: start + 35,
+                  outcome: 'completed',
                 },
               ],
               warnings: [],

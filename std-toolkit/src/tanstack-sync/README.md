@@ -45,8 +45,8 @@ const tasks = std.collection({
   },
   updatePacing: paceStrategy.coalesce({ wait: 50 }),
   onInsert: (task) => api.createTask(task),
-  onUpdate: ({ id, updates }) => api.updateTask(id, updates),
-  onDelete: (id) => api.deleteTask(id),
+  onUpdate: ({ current, updates }) => api.updateTask(current, updates),
+  onDelete: ({ current }) => api.deleteTask(current),
 });
 ```
 
@@ -170,7 +170,15 @@ and persistence spans are linked as nested trace work. Every non-empty strategy
 or Cadence Repair delivery logs how many entities were received and how many the
 SoT accepted after convergence.
 
-Custom strategies can add high-level activities and events through `ctx.flow`:
+Every participant with a real lifecycle records an **Activation** — the window
+in which it is alive. The collection lane is activated from `sync(callbacks)` to
+cleanup, each strategy for its supervised run, and each partition for one
+`0 -> 1 -> 0` subscribe cycle on its stable lane. A lane can be activated any
+number of times but never twice at once, and the swim lane draws each Activation
+as a solid rail whose end cap is coloured by its outcome.
+
+Custom strategies can add high-level activities, events, and state through
+`ctx.flow`:
 
 ```typescript
 run: (ctx) =>
@@ -181,8 +189,13 @@ run: (ctx) =>
         attributes: { entityCount: page.length },
       }),
     ),
+    Effect.tap((page) => ctx.flow.state({ lastPageSize: page.length })),
   );
 ```
+
+`ctx.flow.state` publishes part of the participant's state; keys merge forward,
+so a strategy can emit only what changed and the viewer can read the complete
+state at any later point. A `null` value clears a key.
 
 ## Single-item sync
 
