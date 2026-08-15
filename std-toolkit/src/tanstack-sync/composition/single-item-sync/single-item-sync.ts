@@ -4,7 +4,7 @@ import type {
   SyncConfig,
   Transaction,
 } from '@tanstack/react-db';
-import { Effect } from 'effect';
+import { Effect, Exit, Scope } from 'effect';
 import type { EntityType, SingleEntityType } from '../../../core/index.js';
 import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
@@ -25,10 +25,7 @@ import type {
 } from '../../runtime/collection-model/index.js';
 import { buildMutationHandlers } from './mutations.js';
 import type { PaceStrategyFactory } from '../../runtime/mutation-pacing/index.js';
-import {
-  offlineStorageGroupName,
-  type OfflineStorage,
-} from '../../persistence/offline-storage/index.js';
+import type { SyncPersistence } from '../../persistence/sync-persistence-table/index.js';
 import type { EffectRunner } from '../../runtime/effect-runner/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { startSingleItemLifecycle } from '../../lifecycle/single-item-lifecycle/index.js';
@@ -71,7 +68,9 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       updates: Partial<S['Type']>;
     }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
-    offlineStorage: OfflineStorage;
+    persistence: SyncPersistence;
+    assertActive: () => void;
+    trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
     runner: EffectRunner<R>;
     report: SyncReporter<R>;
   },
@@ -80,12 +79,9 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   const { schema, strategy, options, onUpdate, updatePacing } = config;
   const flow = makeCollectionFlow(schema.name, config.runner.runSync(nextUlid));
-  const sotGroup = config.offlineStorage.group(
-    offlineStorageGroupName.sourceOfTruth(schema.name),
-  );
   const sot = makeSourceOfTruth<TItem>({
     schema,
-    group: sotGroup,
+    persistence: config.persistence,
     keyOf: () => SINGLETON_KEY,
   });
   const readCurrent = sot
@@ -95,13 +91,10 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
         entity == null || entity.meta._d ? [] : [entity],
       ),
     );
-  const syncStateGroup = config.offlineStorage.group(
-    offlineStorageGroupName.syncState(schema.name),
-  );
   const stateStore = makeSyncStateStore({
     schemaName: schema.name,
     strategyName: strategy.name,
-    group: syncStateGroup,
+    persistence: config.persistence,
     state: strategy.state,
   });
 
@@ -118,8 +111,9 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   const writeServerTruth = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
-  ): Effect.Effect<void, WriteError> =>
-    Effect.gen(function* () {
+  ): Effect.Effect<void, WriteError> => {
+    config.assertActive();
+    return Effect.gen(function* () {
       const accepted = yield* sot.write(entities);
       project(accepted);
       if (syncFlow && entities.length > 0) {
@@ -138,6 +132,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
         },
       }),
     );
+  };
 
   const projectOnly = (
     entities: EntityType<TItem>[],
@@ -163,6 +158,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   const sync: SyncConfig<CollectionItem<TItem>, string>['sync'] = (
     callbacks,
   ) => {
+    config.assertActive();
     const strategyFlow = flow.participant(
       singleItemParticipantName(strategy.name),
     );
@@ -176,80 +172,101 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     collectionUpdate = (updater) =>
       callbacks.collection.update(schema.name, updater);
 
-    const run = config.runner.runPromise(
-      Effect.catch(
-        Effect.gen(function* () {
-          const entities = yield* readCurrent.pipe(
-            flow.collection.withSpan('Source of Truth hydration', {
-              attributes: { collection: schema.name },
-            }),
-          );
-          local.projectAll(entities);
-          callbacks.markReady();
-          yield* flow.collection.log('Collection ready', {
-            attributes: {
-              collection: schema.name,
-              entityCount: entities.length,
-            },
-          });
-          yield* flow.collection.send(
-            strategyFlow.name,
-            'Single-item sync start',
-          );
+    let active = true;
+    let mounted: { close: Effect.Effect<void> } | null = null;
+    const initializationScope = config.runner.runSync(Scope.make());
+    config.runner.runSync(
+      Effect.forkIn(
+        Effect.catch(
+          Effect.gen(function* () {
+            const entities = yield* readCurrent.pipe(
+              flow.collection.withSpan('Source of Truth hydration', {
+                attributes: { collection: schema.name },
+              }),
+            );
+            const ready = yield* Effect.sync(() => {
+              if (!active) return false;
+              local.projectAll(entities);
+              callbacks.markReady();
+              return true;
+            });
+            if (!ready) return;
+            yield* flow.collection.log('Collection ready', {
+              attributes: {
+                collection: schema.name,
+                entityCount: entities.length,
+              },
+            });
+            yield* flow.collection.send(
+              strategyFlow.name,
+              'Single-item sync start',
+            );
 
-          return yield* startSingleItemLifecycle({
-            strategy,
-            flow: strategyFlow,
-            makeContext: (scope, workerFlow) => ({
-              flow: workerFlow,
-              writeServerTruth: (entities) =>
-                writeServerTruth(entities, workerFlow),
-              getState: stateStore.get(SINGLE_STATE_KEY),
-              setState: (state) => stateStore.set(SINGLE_STATE_KEY, state),
-              scope,
-            }),
-            onError: (error) =>
-              config.report({
-                _tag: 'StrategyFailed',
-                collection: schema.name,
-                partitionKey: SINGLE_STATE_KEY,
-                strategy: strategy.name,
-                cause: error,
+            yield* startSingleItemLifecycle({
+              strategy,
+              flow: strategyFlow,
+              makeContext: (scope, workerFlow) => ({
+                flow: workerFlow,
+                writeServerTruth: (entities) =>
+                  writeServerTruth(entities, workerFlow),
+                getState: stateStore.get(SINGLE_STATE_KEY),
+                setState: (state) => stateStore.set(SINGLE_STATE_KEY, state),
+                scope,
               }),
-            onDefect: (cause) =>
-              config.report({
-                _tag: 'StrategyDefect',
-                collection: schema.name,
-                partitionKey: SINGLE_STATE_KEY,
-                strategy: strategy.name,
-                cause,
-              }),
-          });
-        }).pipe(
-          Effect.tapError((error) =>
-            config
-              .report({
-                _tag: 'InitializationFailed',
-                collection: schema.name,
-                cause: error,
-              })
-              .pipe(
-                Effect.andThen(
-                  flow.collection.log('Collection init failure', {
-                    attributes: { cause: String(error) },
-                    level: 'error',
-                  }),
-                ),
+              onError: (error) =>
+                config.report({
+                  _tag: 'StrategyFailed',
+                  collection: schema.name,
+                  partitionKey: SINGLE_STATE_KEY,
+                  strategy: strategy.name,
+                  cause: error,
+                }),
+              onDefect: (cause) =>
+                config.report({
+                  _tag: 'StrategyDefect',
+                  collection: schema.name,
+                  partitionKey: SINGLE_STATE_KEY,
+                  strategy: strategy.name,
+                  cause,
+                }),
+            }).pipe(
+              Effect.flatMap((lifecycle) =>
+                Effect.sync(() => {
+                  mounted = lifecycle;
+                }),
               ),
+              Effect.uninterruptible,
+            );
+          }).pipe(
+            Effect.tapError((error) =>
+              config
+                .report({
+                  _tag: 'InitializationFailed',
+                  collection: schema.name,
+                  cause: error,
+                })
+                .pipe(
+                  Effect.andThen(
+                    flow.collection.log('Collection init failure', {
+                      attributes: { cause: String(error) },
+                      level: 'error',
+                    }),
+                  ),
+                ),
+            ),
           ),
+          () => Effect.void,
         ),
-        () => Effect.succeed(null),
+        initializationScope,
       ),
     );
 
     return {
-      cleanup: async () => {
-        const mounted = await run;
+      cleanup: config.trackCleanup(async () => {
+        active = false;
+        await config.runner.runPromise(
+          Scope.close(initializationScope, Exit.void),
+        );
         if (mounted) {
           await config.runner.runPromise(
             flow.collection.send(strategyFlow.name, 'Single-item sync stop'),
@@ -263,7 +280,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
             attributes: { collection: schema.name },
           }),
         );
-      },
+      }),
     };
   };
 
@@ -278,12 +295,14 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       schema: () => schema,
       writeServerTruth,
       onUpdate: handlers.onUpdate,
-      pacedUpdate: (changes: Partial<TItem>) =>
-        handlers.pacedUpdate(changes, (next) => {
+      pacedUpdate: (changes: Partial<TItem>) => {
+        config.assertActive();
+        return handlers.pacedUpdate(changes, (next) => {
           collectionUpdate?.((draft) => {
             Object.assign(draft, next);
           });
-        }),
+        });
+      },
       pendingCount: handlers.pendingCount,
       subscribePending: handlers.subscribePending,
     },

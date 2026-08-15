@@ -6,7 +6,11 @@ import { noStrategyState } from '../../../domain/strategy-state/index.js';
 import { createStdSync } from '../../../tanstack-sync.js';
 import type { EffectRuntime } from '../../../runtime/effect-runner/index.js';
 import type { EntityType } from '../../../../core/index.js';
-import type { OfflineStorage } from '../../../persistence/offline-storage/index.js';
+import {
+  contractLayer,
+  type StdTableContract,
+} from '../../../../db/std-table/contract/index.js';
+import { syncPersistenceTable } from '../../../persistence/sync-persistence-table/index.js';
 
 const schema = EntityESchema.make('Comment', 'id', {
   postId: Schema.String,
@@ -26,19 +30,23 @@ const subset = {
 
 describe('collection flow tracing', () => {
   it('cancels Source of Truth hydration during cleanup', async () => {
-    const storage: OfflineStorage = {
-      group: () => ({
-        get: () => Effect.succeed(null),
-        getAll: () => Effect.never,
-        put: () => Effect.void,
-        putMany: () => Effect.void,
-        delete: () => Effect.void,
-        clear: () => Effect.void,
-      }),
-      clear: () => Effect.void,
+    const never = () => Effect.never;
+    const contract: StdTableContract = {
+      getItem: never,
+      queryItems: never,
+      writeItem: never,
+      transactWriteItems: never,
+      hardDeleteItem: never,
+      hardDeleteEntityItems: never,
+      hardDeleteAllItems: never,
     };
     const strategyRuns: string[] = [];
-    const built = createStdSync({ offlineStorage: storage }).sync({
+    const built = createStdSync({
+      persistenceLayer: contractLayer(
+        syncPersistenceTable.logicalName,
+        contract,
+      ),
+    }).sync({
       schema,
       sync: {
         total: {
@@ -172,6 +180,37 @@ describe('collection flow tracing', () => {
     expect(flow.warnings).toEqual([]);
     expect(
       recorder.snapshot().spans.every((span) => span.endTime !== null),
+    ).toBe(true);
+    const persistenceSpans = recorder
+      .snapshot()
+      .spans.filter((span) => span.name === 'tanstack-sync.persistence');
+    expect(persistenceSpans).not.toHaveLength(0);
+    expect(persistenceSpans).toContainEqual(
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          'db.system.name': 'std-table',
+          'db.namespace': 'tanstack-sync-persistence',
+          'db.operation.name': 'insert',
+          'tanstack-sync.collection': 'Comment',
+          'tanstack-sync.persistence.record': 'source-of-truth',
+        }),
+      }),
+    );
+    const writeSpanIds = new Set(
+      recorder
+        .snapshot()
+        .spans.filter(
+          (span) => span.name === 'tanstack-sync.write-server-truth',
+        )
+        .map((span) => span.spanId),
+    );
+    expect(
+      persistenceSpans.some(
+        (span) =>
+          span.attributes['db.operation.name'] === 'insert' &&
+          span.parentSpanId !== null &&
+          writeSpanIds.has(span.parentSpanId),
+      ),
     ).toBe(true);
 
     const participants = new Set(

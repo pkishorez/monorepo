@@ -2,27 +2,32 @@
 
 Effect-based synchronization for TanStack DB. Keyed collections may run total
 sync, on-demand partition sync, or both. Every path converges through one local
-Source of Truth (SoT), with optional IndexedDB persistence.
+Source of Truth (SoT), persisted through a shared StdTable.
 
 ## Setup
 
 ```typescript
 import { createCollection } from '@tanstack/react-db';
+import { Effect } from 'effect';
+import { IDB } from 'std-toolkit/db/idb';
 import {
   createStdSync,
   paceStrategy,
   singleItemSyncStrategy,
+  syncPersistenceTable,
   syncStrategy,
 } from 'std-toolkit/tanstack-sync';
-import { idbStorage } from 'std-toolkit/tanstack-sync/offline-storage/idb';
 
-const std = createStdSync({
-  offlineStorage: idbStorage({ name: 'app-sync', version: 1 }),
-});
+const database = IDB.database({ databaseName: 'app' });
+const persistence = IDB.make(syncPersistenceTable, { database });
+await Effect.runPromise(persistence.setup);
+
+const std = createStdSync({ persistenceLayer: persistence.layer });
 ```
 
 Use `std.collection(config)` when you want std-sync to create the TanStack
-collection. `createCollection(std.sync(config))` is also supported.
+collection. `createCollection(std.sync(config))` is also supported. Call
+`await std.dispose()` when the sync instance is no longer needed.
 
 ## Total sync
 
@@ -193,12 +198,13 @@ const settings = std.singleItemCollection({
 });
 ```
 
-## Offline storage
+## Persistence
 
-Root storage is inherited by every collection. Set `offlineStorage: false` on a
-collection to use isolated in-memory storage. Offline storage backs both SoT and
-strategy progress; it is not merely a hydration cache. Write failures surface as
-`WriteError.Storage`.
+Each sync instance uses an isolated Memory adapter by default. Supplying a
+`persistenceLayer` replaces it globally for that instance; any adapter layer
+created for `syncPersistenceTable` is accepted, including IndexedDB and SQLite.
+The table stores both SoT and strategy progress. Write failures surface as
+`WriteError.Storage` while adapter-specific errors remain internal.
 
 Tombstones remain in SoT. Persisted strategy state is tagged with its strategy
 name and decoded with that strategy's schema. A name mismatch or invalid state is
@@ -227,3 +233,10 @@ registry.process({ values: serverEntities, persist: true });
 
 `persist: true` writes SoT and projects accepted changes. `persist: false` only
 projects to a mounted collection. Neither mode advances strategy progress.
+Registry delivery is fire-and-forget: `process` returns immediately, failures
+are reported through `onEvent`, and `dispose` does not wait for delivery.
+
+Collection cleanup stops collection-owned sync work but does not close
+persistence. `std.dispose()` closes the persistence runtime owned by that
+std-sync instance; outstanding registry deliveries are not part of that
+shutdown boundary.

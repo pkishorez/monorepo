@@ -82,28 +82,33 @@ export const buildRegistry = <R>(
       const route = persist ? handle.writeServerTruth : handle.projectOnly;
       const flow = handle.flow();
       const delivery = route(entities);
-      void runner.runPromise(
-        (flow
-          ? delivery.pipe(
-              flow.collection.withSpan('Registry Delivery', {
-                attributes: {
-                  collection: type,
-                  entityCount: entities.length,
-                  persist,
-                },
+      void runner
+        .runPromise(
+          (flow
+            ? delivery.pipe(
+                flow.collection.withSpan('Registry Delivery', {
+                  attributes: {
+                    collection: type,
+                    entityCount: entities.length,
+                    persist,
+                  },
+                }),
+              )
+            : delivery
+          ).pipe(
+            Effect.catch((cause) =>
+              report({
+                _tag: 'RegistryWriteFailed',
+                collection: type,
+                cause,
               }),
-            )
-          : delivery
-        ).pipe(
-          Effect.catch((cause) =>
-            report({
-              _tag: 'RegistryWriteFailed',
-              collection: type,
-              cause,
-            }),
+            ),
+            Effect.catchCause((cause) =>
+              Effect.logError('[std-sync] registry delivery defect', cause),
+            ),
           ),
-        ),
-      );
+        )
+        .catch(() => undefined);
     }
   },
 });

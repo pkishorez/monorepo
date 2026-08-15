@@ -1,0 +1,3 @@
+# Use StdTable for TanStack Sync persistence
+
+TanStack Sync will replace its sync-specific Offline Storage abstraction and Memory/IndexedDB adapters with one public Sync Persistence Table containing separate Stored Source Entity and Stored Sync State definitions. `createStdSync()` owns an isolated Memory layer by default, while an application may supply any compatible StdTable adapter layer for sync-wide persistence; this keeps persistence adapter-agnostic and removes duplicate storage machinery. TanStack Sync remains the sole owner of convergence, persist decisions, retries, projection, and state validation—the table only stores the values it receives. This is a breaking change with no migration from the old IndexedDB format and no per-collection persistence override.

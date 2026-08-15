@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import { createCollection } from '@tanstack/react-db';
+import { Memory } from '../db/memory/index.js';
 import type { EntityType, SingleEntityType } from '../core/index.js';
 import type { AnyEntityESchema, AnyUnkeyedESchema } from '../eschema/index.js';
 import { buildRegistry, makeTracker } from './runtime/sync-registry/index.js';
@@ -19,11 +20,10 @@ import {
   type PaceStrategyFactory,
 } from './runtime/mutation-pacing/index.js';
 import {
-  resolveCollectionOfflineStorage,
-  resolveRootOfflineStorage,
-  type OfflineStorage,
-  type OfflineStorageSetting,
-} from './persistence/offline-storage/index.js';
+  makeSyncPersistence,
+  syncPersistenceTable,
+  type SyncPersistenceLayer,
+} from './persistence/sync-persistence-table/index.js';
 import type { CadenceConfig } from './domain/cadence-policy/index.js';
 import type { SyncReporter } from './domain/sync-event/index.js';
 import {
@@ -44,7 +44,7 @@ export const paceStrategy = mutationPaceStrategy;
  * workers keep independent progress while converging through one Source of Truth.
  * Omit `sync` for a storage-only collection fed by `writeUpsert` or broadcasts.
  */
-export type SyncShape<S extends AnyEntityESchema, R = never> =
+type SyncShape<S extends AnyEntityESchema, R = never> =
   | {
       total: PartitionEntry<S['Type'], R, any>;
       partitions?: PartitionMap<S, R>;
@@ -66,7 +66,6 @@ export type SyncConfig<S extends AnyEntityESchema, R = never> = {
   ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
   onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
-  offlineStorage?: OfflineStorageSetting;
 };
 
 /** Config for the `singleItemSync` method (collection-level lifecycle, no partitions). */
@@ -82,7 +81,6 @@ export type SingleItemSyncConfig<
     updates: Partial<S['Type']>;
   }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
-  offlineStorage?: OfflineStorageSetting;
 };
 
 /**
@@ -94,7 +92,7 @@ export type SingleItemSyncConfig<
  */
 export type StdSyncDefaults<R = never> = {
   options?: StdCollectionOptions<object>;
-  offlineStorage?: OfflineStorage | false;
+  persistenceLayer?: SyncPersistenceLayer;
   cadence?: CadenceConfig;
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
@@ -105,29 +103,44 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
   const report: SyncReporter<R> =
     defaults?.onEvent ?? ((event) => Effect.logError(event));
   const tracker = makeTracker();
-  const rootOfflineStorage = resolveRootOfflineStorage(
-    defaults?.offlineStorage,
+  const persistence = makeSyncPersistence(
+    defaults?.persistenceLayer ?? Memory.make(syncPersistenceTable).layer,
   );
+  const cleanups = new Set<() => Promise<void>>();
+  let disposed = false;
+  let disposePromise: Promise<void> | null = null;
+
+  const assertActive = (): void => {
+    if (disposed) throw new Error('[tanstack-sync] instance is disposed');
+  };
+
+  const trackCleanup = (
+    cleanup: () => Promise<void>,
+  ): (() => Promise<void>) => {
+    let running: Promise<void> | null = null;
+    const tracked = (): Promise<void> => {
+      running ??= cleanup().finally(() => cleanups.delete(tracked));
+      return running;
+    };
+    cleanups.add(tracked);
+    return tracked;
+  };
 
   const mergeOptions = <TItem extends object>(
     options?: StdCollectionOptions<TItem>,
   ): StdCollectionOptions<TItem> =>
     ({ ...defaults?.options, ...options }) as StdCollectionOptions<TItem>;
 
-  const resolveOfflineStorage = (override?: OfflineStorageSetting) =>
-    resolveCollectionOfflineStorage({
-      inherited: rootOfflineStorage,
-      override,
-    });
-
   const sync = <S extends AnyEntityESchema>(config: SyncConfig<S, R>) => {
-    const { sync: syncField, options, offlineStorage, ...rest } = config;
-    const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
+    assertActive();
+    const { sync: syncField, options, ...rest } = config;
     const built = buildPartitioned(tracker, {
       ...rest,
       ...(syncField?.total ? { total: syncField.total } : {}),
       ...(syncField?.partitions ? { partitions: syncField.partitions } : {}),
-      offlineStorage: collectionOfflineStorage,
+      persistence,
+      assertActive,
+      trackCleanup,
       ...(defaults?.cadence ? { defaultCadence: defaults.cadence } : {}),
       runner,
       report,
@@ -138,15 +151,38 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
   const singleItemSync = <S extends AnyUnkeyedESchema, TState>(
     config: SingleItemSyncConfig<S, R, TState>,
   ) => {
-    const { options, offlineStorage, ...rest } = config;
-    const collectionOfflineStorage = resolveOfflineStorage(offlineStorage);
+    assertActive();
+    const { options, ...rest } = config;
     return buildSingleItem(tracker, {
       ...rest,
-      offlineStorage: collectionOfflineStorage,
+      persistence,
+      assertActive,
+      trackCleanup,
       options: mergeOptions(options),
       runner,
       report,
     });
+  };
+
+  const dispose = (): Promise<void> => {
+    if (disposePromise) return disposePromise;
+    disposed = true;
+    disposePromise = (async () => {
+      const results = await Promise.allSettled(
+        [...cleanups].map((cleanup) => cleanup()),
+      );
+      await persistence.dispose();
+      const failures = results.flatMap((result) =>
+        result.status === 'rejected' ? [result.reason] : [],
+      );
+      if (failures.length > 0) {
+        throw new AggregateError(
+          failures,
+          '[tanstack-sync] failed to clean up active collections',
+        );
+      }
+    })();
+    return disposePromise;
   };
 
   return {
@@ -160,7 +196,17 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
     ) => {
       return createCollection(singleItemSync(config));
     },
-    registry: () => buildRegistry(tracker, runner, report),
+    registry: () => {
+      assertActive();
+      const registry = buildRegistry(tracker, runner, report);
+      return {
+        process: (message: unknown): void => {
+          assertActive();
+          registry.process(message);
+        },
+      };
+    },
+    dispose,
   };
 };
 
@@ -175,22 +221,11 @@ type CreateStdSync = {
 
 export const createStdSync = makeStdSync as CreateStdSync;
 
-export type { ForwardFetch } from './runtime/collection-model/index.js';
-export type { CadenceConfig } from './domain/cadence-policy/index.js';
 export type { SyncEvent } from './domain/sync-event/index.js';
 export type { SyncReporter } from './domain/sync-event/index.js';
-export type { EffectRuntime } from './runtime/effect-runner/index.js';
-export type { StrategyFlow } from './runtime/sync-flow/index.js';
-export type { OldToNewConfig } from './workers/old-to-new/index.js';
-export type { NewToOldConfig } from './workers/new-to-old/index.js';
-export type { BidirectionalConfig } from './workers/bidirectional/index.js';
-export type { GetOnceConfig } from './workers/get-once/index.js';
 export type {
-  PartitionEntry,
-  PartitionMap,
   PartitionedStrategy,
-  RepairConfig,
   SingleItemStrategy,
   StrategyContext,
 } from './runtime/strategy-runtime/index.js';
-export type { OfflineStorage } from './persistence/offline-storage/index.js';
+export { syncPersistenceTable } from './persistence/sync-persistence-table/index.js';

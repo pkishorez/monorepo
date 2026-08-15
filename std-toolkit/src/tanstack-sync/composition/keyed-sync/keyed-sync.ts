@@ -32,10 +32,7 @@ import type {
   StrategyContext,
 } from '../../runtime/strategy-runtime/index.js';
 import type { PaceStrategyFactory } from '../../runtime/mutation-pacing/index.js';
-import {
-  offlineStorageGroupName,
-  type OfflineStorage,
-} from '../../persistence/offline-storage/index.js';
+import type { SyncPersistence } from '../../persistence/sync-persistence-table/index.js';
 import {
   makeEffectRunner,
   type EffectRunner,
@@ -80,7 +77,9 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
     onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
-    offlineStorage: OfflineStorage;
+    persistence: SyncPersistence;
+    assertActive: () => void;
+    trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
     defaultCadence?: CadenceConfig;
     runner?: EffectRunner<R>;
     report: SyncReporter<R>;
@@ -120,13 +119,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     makePartitionLifecycle(partitionFields),
   );
 
-  const sotGroup = config.offlineStorage.group(
-    offlineStorageGroupName.sourceOfTruth(schema.name),
-  );
-  const sot = makeSourceOfTruth<TItem>({ schema, group: sotGroup });
-  const syncStateGroup = config.offlineStorage.group(
-    offlineStorageGroupName.syncState(schema.name),
-  );
+  const sot = makeSourceOfTruth<TItem>({
+    schema,
+    persistence: config.persistence,
+  });
   const pending = runner.runSync(makePendingTracker);
   let projector: Projector<TItem> | null = null;
   let collectionUpdate:
@@ -137,8 +133,9 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   const writeServerTruth = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
-  ): Effect.Effect<void, WriteError> =>
-    sot.write(entities).pipe(
+  ): Effect.Effect<void, WriteError> => {
+    config.assertActive();
+    return sot.write(entities).pipe(
       Effect.tap((accepted) => Effect.sync(() => projector?.project(accepted))),
       Effect.tap((accepted) =>
         syncFlow && entities.length > 0
@@ -159,6 +156,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         },
       }),
     );
+  };
 
   const projectOnly = (entities: EntityType<TItem>[]): Effect.Effect<void> =>
     Effect.sync(() => projector?.projectEntities(entities));
@@ -178,7 +176,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     const stateStore = makeSyncStateStore({
       schemaName: schema.name,
       strategyName: strat.name,
-      group: syncStateGroup,
+      persistence: config.persistence,
       state: strat.state,
     });
     return {
@@ -217,8 +215,9 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       const batch = toArray(entities);
       return writeServerTruth(batch);
     },
-    pacedUpdate: (key, changes) =>
-      handlers.pacedUpdate(
+    pacedUpdate: (key, changes) => {
+      config.assertActive();
+      return handlers.pacedUpdate(
         key,
         changes,
         (key: string, changes: Partial<TItem>): void => {
@@ -226,7 +225,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
             Object.assign(draft, changes);
           });
         },
-      ),
+      );
+    },
     pendingCount: handlers.pendingCount,
     subscribePending: handlers.subscribePending,
   };
@@ -252,6 +252,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     ...(partitionFields.length > 0 && { syncMode: 'on-demand' as const }),
     sync: {
       sync: (callbacks) => {
+        config.assertActive();
         runner.runSync(
           flow.collection.log('Collection start', {
             attributes: { collection: schema.name },
@@ -403,7 +404,11 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           );
         };
 
-        return { cleanup, loadSubset, unloadSubset };
+        return {
+          cleanup: config.trackCleanup(cleanup),
+          loadSubset,
+          unloadSubset,
+        };
       },
     },
     onInsert: handlers.onInsert,
