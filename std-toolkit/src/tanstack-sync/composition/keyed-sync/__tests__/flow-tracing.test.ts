@@ -223,7 +223,7 @@ describe('collection flow tracing', () => {
         attributes: expect.objectContaining({
           'db.system.name': 'std-table',
           'db.namespace': 'tanstack-sync-persistence',
-          'db.operation.name': 'insert',
+          'db.operation.name': 'transact',
           'tanstack-sync.collection': 'Comment',
           'tanstack-sync.persistence.record': 'source-of-truth',
         }),
@@ -240,7 +240,7 @@ describe('collection flow tracing', () => {
     expect(
       persistenceSpans.some(
         (span) =>
-          span.attributes['db.operation.name'] === 'insert' &&
+          span.attributes['db.operation.name'] === 'transact' &&
           span.parentSpanId !== null &&
           writeSpanIds.has(span.parentSpanId),
       ),

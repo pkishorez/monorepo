@@ -68,6 +68,7 @@ import { editsKeepFlowing } from './tanstack-sync/staying-current/edits-keep-flo
 import { oneListAtATime } from './tanstack-sync/syncing-on-demand/one-list-at-a-time.story.js';
 import { crossCollection } from './tanstack-sync/optimistic-transactions/cross-collection.story.js';
 import { issue1 } from './tanstack-sync/issue-1/issue-1.story.js';
+import { oneBrowserManyTabs } from './tanstack-sync/two-tabs/one-browser-many-tabs.story.js';
 
 import { batchInsert } from './database/dynamodb/batch-insert.story.js';
 import { nativeUpdates } from './database/dynamodb/native-updates.story.js';
@@ -145,6 +146,7 @@ export default Story.group('std-toolkit', [
     Story.group('Staying current', [editsKeepFlowing]),
     Story.group('Syncing on demand', [oneListAtATime]),
     Story.group('Optimistic transactions', [crossCollection]),
+    Story.group('Many tabs', [oneBrowserManyTabs]),
     Story.group('Issues', [issue1]),
   ]),
   Story.group('Evolving Schema', [

@@ -4,6 +4,8 @@ export {
   singleItemSyncStrategy,
   syncPersistenceTable,
   syncStrategy,
+  type ChangeNoticeChannel,
+  type ChannelFactory,
   type EffectRuntime,
   type FlowPlacement,
   type PartitionedStrategy,
@@ -13,5 +15,6 @@ export {
   type StrategyContext,
   type SyncConfig,
   type SyncEvent,
+  type SyncPersistenceLayer,
   type SyncReporter,
 } from './tanstack-sync.js';

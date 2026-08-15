@@ -84,17 +84,17 @@ The per-Collection server-confirmed state owned by one Browser's sync engine. It
 
 For keyed collections, it is one entity namespace per collection (not per partition). For single-item collections, it is the singleton equivalent.
 
-SoT is **fully detached from Sync State**. There is no derivation between them — the engine never reads SoT to compute a cursor or high-water mark. A strategy that needs a cursor stores it in its own Sync State.
+SoT is **fully detached from Sync State**. There is no derivation between them — the engine never reads SoT to compute a sync cursor or high-water mark. A strategy that needs a cursor stores it in its own Sync State. A **Projection Position** is read from SoT, but it is a projection cursor, not Sync State.
 
 SoT is recorded in the **Sync Persistence Table**. Its default Memory realization lasts only for the life of the sync instance; a durable realization keeps SoT available across reloads.
 
 A **Stored Source Entity** is the Sync Persistence Table entity that records one remote entity:
 
 ```
-{ collection: string, key: string, value: unknown, meta: EntityMeta }
+{ collection: string, key: string, seq: string, value: unknown, meta: EntityMeta }
 ```
 
-`value` is the opaque value received from the server and later handed to TanStack DB. tanstack-sync does not add an encoding or decoding boundary around it. `meta` is the remote Entity Meta used for convergence; the Stored Source Entity's own database metadata is separate and has no sync meaning.
+`seq` is the entity's **Projection Sequence**. `value` is the opaque value received from the server and later handed to TanStack DB. tanstack-sync does not add an encoding or decoding boundary around it. `meta` is the remote Entity Meta used for convergence; the Stored Source Entity's own database metadata is separate and has no sync meaning.
 
 TanStack Sync alone decides whether and what to persist. Requests such as `persist: true`, the Convergence Rule, client stamping, and retry policy are resolved before or around table operations; the Sync Persistence Table and its adapter attach no sync meaning to stored values.
 
@@ -119,7 +119,23 @@ Server-truth convergence is atomic per entity. A batch is validated before writi
 
 The TanStack DB write side of the engine. It translates SoT state into insert/update/delete messages for the collection callbacks.
 
-Projection is ephemeral. On reload it clears. When the Sync Persistence Table is durable, the collection is rebuilt from persisted SoT.
+Projection is ephemeral. On reload it clears. When the Sync Persistence Table is durable, the collection is rebuilt from persisted SoT by advancing from the beginning of the **Projection Sequence**.
+
+Projection has one path. Mount, strategy results, mutation results, and another tab's writes all reach a collection by advancing its **Projection Position**; none of them projects entities directly.
+
+### Projection Sequence
+
+The monotonic ULID the engine assigns a **Stored Source Entity** on every accepted write. It records local arrival order — when this device stored the entity — and is unrelated to `_u`, which records authoring order. A backfill strategy writes entities whose `_u` is older than everything already stored; their Projection Sequence is still the newest.
+
+Only an accepted write assigns a new Projection Sequence. A write the **Convergence Rule** skips leaves it untouched, because nothing changed for anyone to observe.
+
+### Projection Position
+
+How far through a collection's **Projection Sequence** one mounted collection has already projected. Everything after it has not yet reached that collection.
+
+A Projection Position belongs to a single mounted collection, is held in memory, and is rebuilt from the beginning on mount. It is not **Sync State**: Sync State records what this device fetched from the server, is persisted, and is shared by every collection sharing the Sync Persistence Table; a Projection Position records what one collection has displayed and never outlives it.
+
+Advancing a Projection Position is idempotent. Replaying a range already covered re-projects entities that are already present, which changes nothing.
 
 ### Sync State
 
@@ -158,10 +174,10 @@ Each `createStdSync()` uses an isolated Memory realization by default. An applic
 
 The table's primary access patterns cover all persistence reads:
 
-- Stored Source Entity — get by collection and entity key; enumerate by collection.
+- Stored Source Entity — get by collection and entity key; enumerate by collection in **Projection Sequence** order.
 - Stored Sync State — get by collection and partition key.
 
-No secondary access pattern is part of the model.
+Projection Sequence order is the model's only secondary access pattern.
 
 The Sync Persistence Table is not Collection Projection. Durability does not by itself define mutation queuing, conflict policy, or network behavior. Whether individual collections can opt out of the sync-wide persistence policy is deliberately outside the current model.
 
@@ -332,6 +348,16 @@ The transport is the caller's concern. The message shape is the sync engine's co
 `persist: true` treats the broadcast as server truth and writes SoT + collection.  
 `persist: false` projects only to the mounted collection.  
 Neither mode touches Sync State.
+
+`persist: false` is tab-local by definition. Nothing about it is stored, so it carries no **Projection Sequence** and cannot reach another tab. A preview that crossed tabs would leave behind a row that no store could later correct or remove.
+
+### Change Notice
+
+What a collection emits after writing SoT, telling the same collection in every other tab that its **Projection Position** is behind. It names the collection and carries no entities; each receiver reads its own delta from the Sync Persistence Table.
+
+A Change Notice is not a **Broadcast**. A Broadcast carries entities into the engine from outside it; a Change Notice carries nothing and travels only between collections sharing one Sync Persistence Table.
+
+A missed Change Notice costs freshness, never correctness — the next notice, or the next mount, advances the same Projection Position over the same range.
 
 ### Tracker
 

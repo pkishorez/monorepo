@@ -22,7 +22,11 @@ import { Memory } from 'std-toolkit/db/memory';
 import { EntityESchema, type AnyEntityESchema } from 'std-toolkit/eschema';
 import {
   createStdSync,
+  syncPersistenceTable,
+  type ChangeNoticeChannel,
+  type ChannelFactory,
   type EffectRuntime,
+  type SyncPersistenceLayer,
   type SyncConfig,
 } from 'std-toolkit/tanstack-sync';
 
@@ -34,6 +38,7 @@ import {
  * - `backend.insert/update/remove('CollectionName', ...)`
  * - `browser('alice').insert/update/remove('CollectionName', ...)`
  * - `browser('alice').mount({ name, query })` and `.unmount(liveQuery)`
+ * - `browser('alice').tab('second')` for another tab on the same storage
  * - `browser('alice').transact(label, ({ collection }) => ...)`
  * - `backend.holdNextWrite` for deterministic optimistic success or failure
  * - `browser('alice').disconnect` and `.reconnect`
@@ -182,9 +187,46 @@ type SimulationConfig<D extends readonly AnyDefinition[]> = {
   readonly collections: D;
 };
 
+type Tab<D extends readonly AnyDefinition[]> = ReturnType<
+  typeof makeBrowser<D>
+>;
+
+type BrowserWithTabs<D extends readonly AnyDefinition[]> = Tab<D> & {
+  tab(name: string): Tab<D>;
+};
+
+type Device<D extends readonly AnyDefinition[]> = {
+  readonly connection: Connection;
+  readonly persistenceLayer: SyncPersistenceLayer;
+  readonly noticeChannel: ChannelFactory;
+  readonly tabs: Map<string, Tab<D>>;
+};
+
+const MAIN_TAB = 'main';
+
+// Stands in for BroadcastChannel: same name, delivered to every peer but the sender.
+const makeChannelHub = (): ChannelFactory => {
+  const named = new Map<string, Set<ChangeNoticeChannel>>();
+  return (name) => {
+    const peers = named.get(name) ?? new Set<ChangeNoticeChannel>();
+    named.set(name, peers);
+    const channel: ChangeNoticeChannel = {
+      onmessage: null,
+      postMessage: (data) => {
+        for (const peer of peers) {
+          if (peer !== channel) peer.onmessage?.({ data });
+        }
+      },
+      close: () => peers.delete(channel),
+    };
+    peers.add(channel);
+    return channel;
+  };
+};
+
 type SimulationWorld<D extends readonly AnyDefinition[]> = {
   readonly backend: ReturnType<typeof makeBackend<D>>;
-  browser(name: string): ReturnType<typeof makeBrowser<D>>;
+  browser(name: string): BrowserWithTabs<D>;
   concurrent<const Effects extends readonly Effect.Effect<any, any, any>[]>(
     ...effects: Effects
   ): Effect.Effect<
@@ -509,22 +551,24 @@ const makeBackend = <const D extends readonly AnyDefinition[]>(options: {
 
 const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   readonly name: string;
+  readonly label: string;
   readonly definitions: D;
   readonly backend: ReturnType<typeof makeBackend<D>>;
   readonly flowId: string;
   readonly runtime: EffectRuntime<never>;
   readonly disposeLiveQueries: Set<() => Promise<void>>;
+  readonly connection: Connection;
+  readonly persistenceLayer: SyncPersistenceLayer;
+  readonly noticeChannel: ChannelFactory;
 }) => {
-  const connection: Connection = {
-    browser: options.name,
-    online: true,
-    disconnectListeners: new Set(),
-  };
-  const prefix = `browser:${options.name}`;
+  const connection = options.connection;
+  const prefix = `browser:${options.label}`;
   const lane = initFlow({ id: options.flowId, participantName: prefix });
   const app = createStdSync<never>({
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
+    persistenceLayer: options.persistenceLayer,
+    notices: { scope: options.name, channel: options.noticeChannel },
     // TanStack DB arms a single shared, ref'd GC timer for the longest gcTime in
     // play, so the default five minutes would hold the story process open long
     // after the last Story finished.
@@ -543,7 +587,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
     if (existing) return existing;
     const created = initFlow({
       id: options.flowId,
-      participantName: `query:${options.name}/${name}`,
+      participantName: `query:${options.label}/${name}`,
     });
     queryLanes.set(name, created);
     return created;
@@ -590,6 +634,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
 
   const browser = {
     name: options.name,
+    label: options.label,
     app,
     collection: getCollection,
     insert<N extends Names<D>>(name: N, value: InsertOf<EntityAt<D, N>>) {
@@ -632,7 +677,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
           yield* lane.send(query.participantName, 'Mount live query');
           const activation = yield* query.activation.start('Mounted');
           const liveQuery = createLiveQueryCollection({
-            id: `${options.name}/${mount.name}`,
+            id: `${options.label}/${mount.name}`,
             query: mount.query as never,
             startSync: true,
             gcTime: 1,
@@ -797,22 +842,49 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
       layer: memory.layer,
       flowId,
     });
-    const browsers = new Map<string, ReturnType<typeof makeBrowser<D>>>();
+    const devices = new Map<string, Device<D>>();
+    const openDevice = (name: string): Device<D> => {
+      const existing = devices.get(name);
+      if (existing) return existing;
+      const created: Device<D> = {
+        connection: {
+          browser: name,
+          online: true,
+          disconnectListeners: new Set(),
+        },
+        persistenceLayer: Memory.make(syncPersistenceTable).layer,
+        noticeChannel: makeChannelHub(),
+        tabs: new Map(),
+      };
+      devices.set(name, created);
+      return created;
+    };
+    const openTab = (name: string, tabName: string): Tab<D> => {
+      const device = openDevice(name);
+      const existing = device.tabs.get(tabName);
+      if (existing) return existing;
+      const created = makeBrowser({
+        name,
+        label: tabName === MAIN_TAB ? name : `${name}#${tabName}`,
+        definitions: config.collections,
+        backend,
+        flowId,
+        runtime,
+        disposeLiveQueries: liveQueries,
+        connection: device.connection,
+        persistenceLayer: device.persistenceLayer,
+        noticeChannel: device.noticeChannel,
+      });
+      device.tabs.set(tabName, created);
+      return created;
+    };
     const world: SimulationWorld<D> = {
       backend,
       browser(name) {
-        const existing = browsers.get(name);
-        if (existing) return existing;
-        const created = makeBrowser({
-          name,
-          definitions: config.collections,
-          backend,
-          flowId,
-          runtime,
-          disposeLiveQueries: liveQueries,
+        const main = openTab(name, MAIN_TAB);
+        return Object.assign(main, {
+          tab: (tabName: string) => openTab(name, tabName),
         });
-        browsers.set(name, created);
-        return created;
       },
       concurrent: (...effects) =>
         Effect.all(effects, { concurrency: 'unbounded' }) as never,
@@ -826,7 +898,9 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
           );
           yield* Effect.promise(() =>
             Promise.allSettled(
-              [...browsers.values()].map((browser) => browser.app.dispose()),
+              [...devices.values()].flatMap((device) =>
+                [...device.tabs.values()].map((tab) => tab.app.dispose()),
+              ),
             ),
           );
           for (const flow of recorder.snapshotFlows()) {

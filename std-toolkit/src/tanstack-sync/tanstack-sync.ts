@@ -28,6 +28,7 @@ import {
 import type { CadenceConfig } from './domain/cadence-policy/index.js';
 import type { SyncReporter } from './domain/sync-event/index.js';
 import type { FlowPlacement } from './runtime/sync-flow/index.js';
+import type { ChannelFactory } from './runtime/change-notice/index.js';
 import {
   makeEffectRunner,
   type EffectRuntime,
@@ -101,6 +102,7 @@ export type StdSyncDefaults<R = never> = {
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
   flow?: FlowPlacement;
+  notices?: { scope?: string; channel?: ChannelFactory };
 };
 
 const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
@@ -111,6 +113,7 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
   const persistence = makeSyncPersistence(
     defaults?.persistenceLayer ?? Memory.make(syncPersistenceTable).layer,
   );
+  const noticeScope = defaults?.notices?.scope ?? 'tanstack-sync-persistence';
   const cleanups = new Set<() => Promise<void>>();
   let disposed = false;
   let disposePromise: Promise<void> | null = null;
@@ -158,6 +161,10 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
       runner,
       report,
       ...(defaults?.flow ? { flowPlacement: defaults.flow } : {}),
+      noticeScope,
+      ...(defaults?.notices?.channel
+        ? { noticeChannel: defaults.notices.channel }
+        : {}),
     });
     return { ...mergeOptions(options), ...built };
   };
@@ -172,6 +179,10 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
       persistence,
       assertActive,
       trackCleanup,
+      noticeScope,
+      ...(defaults?.notices?.channel
+        ? { noticeChannel: defaults.notices.channel }
+        : {}),
       options: mergeOptions(options),
       runner,
       report,
@@ -238,6 +249,10 @@ export const createStdSync = makeStdSync as CreateStdSync;
 
 export type { EffectRuntime } from './runtime/effect-runner/index.js';
 export type { FlowPlacement } from './runtime/sync-flow/index.js';
+export type {
+  ChangeNoticeChannel,
+  ChannelFactory,
+} from './runtime/change-notice/index.js';
 export type { SyncEvent } from './domain/sync-event/index.js';
 export type { SyncReporter } from './domain/sync-event/index.js';
 export type {
@@ -246,3 +261,4 @@ export type {
   StrategyContext,
 } from './runtime/strategy-runtime/index.js';
 export { syncPersistenceTable } from './persistence/sync-persistence-table/index.js';
+export type { SyncPersistenceLayer } from './persistence/sync-persistence-table/index.js';

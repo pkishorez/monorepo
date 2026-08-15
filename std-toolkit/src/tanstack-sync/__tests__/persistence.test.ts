@@ -143,7 +143,8 @@ describe('TanStack Sync persistence', () => {
     const contract: StdTableContract = {
       getItem: () => Effect.succeed(null),
       queryItems: () => Effect.succeed({ items: [], hasMore: false }),
-      writeItem: () =>
+      writeItem: () => Effect.void,
+      transactWriteItems: () =>
         Effect.sync(() => {
           probe.started = true;
         }).pipe(
@@ -154,7 +155,6 @@ describe('TanStack Sync persistence', () => {
             }),
           ),
         ),
-      transactWriteItems: () => Effect.void,
       hardDeleteItem: () => Effect.void,
       hardDeleteEntityItems: () => Effect.succeed(0),
       hardDeleteAllItems: () => Effect.succeed(0),
@@ -215,7 +215,7 @@ describe('TanStack Sync persistence', () => {
     const mounted = mount(second.sync({ schema: todoSchema }));
     await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
     expect(mounted.writes).toContainEqual({
-      type: 'insert',
+      type: 'update',
       value: {
         id: 'todo-1',
         listId: 'inbox',
@@ -256,7 +256,7 @@ describe('TanStack Sync persistence', () => {
     );
     await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
     expect(mounted.writes).toContainEqual({
-      type: 'insert',
+      type: 'update',
       value: {
         theme: 'dark',
         _meta: expect.objectContaining({ _e: 'Settings', _u: '1' }),

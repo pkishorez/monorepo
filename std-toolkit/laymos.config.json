@@ -341,6 +341,7 @@
     "src/tanstack-sync/runtime/collection-model": {
       "kind": "shared"
     },
+    "src/tanstack-sync/runtime/change-notice": {},
     "src/tanstack-sync/runtime/collection-projection": {},
     "src/tanstack-sync/runtime/effect-runner": {
       "kind": "shared"

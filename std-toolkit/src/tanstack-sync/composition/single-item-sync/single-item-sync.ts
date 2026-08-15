@@ -4,10 +4,14 @@ import type {
   SyncConfig,
   Transaction,
 } from '@tanstack/react-db';
-import { Effect, Exit, Scope } from 'effect';
+import { Effect, Exit, Scope, TxSemaphore } from 'effect';
 import type { EntityType, SingleEntityType } from '../../../core/index.js';
 import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
+import {
+  makeChangeNotice,
+  type ChannelFactory,
+} from '../../runtime/change-notice/index.js';
 import {
   makeSourceOfTruth,
   type Accepted,
@@ -78,6 +82,8 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     runner: EffectRunner<R>;
     report: SyncReporter<R>;
     flowPlacement?: FlowPlacement;
+    noticeScope: string;
+    noticeChannel?: ChannelFactory;
   },
 ): SingleItemResult<S['Type'], S> => {
   type TItem = S['Type'];
@@ -93,19 +99,13 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     persistence: config.persistence,
     keyOf: () => SINGLETON_KEY,
   });
-  const readCurrent = sot
-    .get(SINGLETON_KEY)
-    .pipe(
-      Effect.map((entity) =>
-        entity == null || entity.meta._d ? [] : [entity],
-      ),
-    );
   const stateStore = makeSyncStateStore({
     schemaName: schema.name,
     strategyName: strategy.name,
     persistence: config.persistence,
     state: strategy.state,
   });
+  const advancePermit = config.runner.runSync(TxSemaphore.make(1));
 
   type Projector = ReturnType<typeof makeCollectionProjector<TItem>>;
   let projector: Projector | null = null;
@@ -114,9 +114,33 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     | ((updater: (draft: CollectionItem<TItem>) => void) => Transaction)
     | null = null;
 
+  let position: string | null = null;
+
   const project = (accepted: Accepted<TItem>): void => {
     if (projector) projector.project(accepted);
   };
+
+  const advance = (): Effect.Effect<number, WriteError> =>
+    TxSemaphore.withPermit(
+      advancePermit,
+      Effect.gen(function* () {
+        if (projector === null) return 0;
+        const delta = yield* sot.since(position);
+        position = delta.position;
+        yield* Effect.sync(() => projector?.projectEntities(delta.entities));
+        return delta.entities.length;
+      }),
+    );
+
+  const notice = makeChangeNotice({
+    scope: config.noticeScope,
+    collection: schema.name,
+    onNotice: () => {
+      void config.runner.runPromise(advance().pipe(Effect.ignore));
+    },
+    channel: config.noticeChannel,
+  });
+  config.trackCleanup(async () => notice.close());
 
   const writeServerTruth = (
     entities: EntityType<TItem>[],
@@ -124,8 +148,15 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   ): Effect.Effect<void, WriteError> => {
     config.assertActive();
     return Effect.gen(function* () {
+      if (entities.some((entity) => entity.meta._d)) {
+        return yield* Effect.fail<WriteError>({
+          _tag: 'Invalid',
+          reason: `single-item collection '${schema.name}' cannot be deleted`,
+        });
+      }
       const accepted = yield* sot.write(entities);
-      project(accepted);
+      yield* advance();
+      notice.notify();
       if (syncFlow && entities.length > 0) {
         yield* syncFlow.log('Source of Truth write', {
           attributes: {
@@ -182,6 +213,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     );
     const local = makeCollectionProjector<TItem>(callbacks);
     projector = local;
+    position = null;
     collectionUpdate = (updater) =>
       callbacks.collection.update(schema.name, updater);
 
@@ -192,14 +224,13 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       Effect.forkIn(
         Effect.catch(
           Effect.gen(function* () {
-            const entities = yield* readCurrent.pipe(
+            const projected = yield* advance().pipe(
               flow.collection.withSpan('Source of Truth hydration', {
                 attributes: { collection: schema.name },
               }),
             );
             const ready = yield* Effect.sync(() => {
               if (!active) return false;
-              local.projectAll(entities);
               callbacks.markReady();
               return true;
             });
@@ -207,10 +238,10 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
             yield* flow.collection.log('Collection ready', {
               attributes: {
                 collection: schema.name,
-                entityCount: entities.length,
+                entityCount: projected,
               },
             });
-            yield* flow.collection.state({ projectedRows: entities.length });
+            yield* flow.collection.state({ projectedRows: projected });
             yield* flow.collection.send(
               strategyFlow.name,
               'Single-item sync start',
