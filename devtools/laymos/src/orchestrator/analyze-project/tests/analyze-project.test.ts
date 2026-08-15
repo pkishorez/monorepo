@@ -39,6 +39,7 @@ describe('analyzeProject', () => {
         toFile: 'src/shared/internal.ts',
         toModule: 'src/shared',
       },
+      { kind: 'unused-shared', module: 'src/shared' },
     ]);
   });
 

@@ -122,10 +122,17 @@ export function Gantt({
           next.add(spanId);
           return next;
         }
-        // Reveal immediate children with their own branches collapsed.
+        // Reveal immediate children with their own branches collapsed. Roots
+        // are never collapsed themselves, so their toggle flips the branches.
+        const branches = node.children.filter(
+          (child) => child.children.length > 0,
+        );
+        const collapseBranches =
+          !isRoot || branches.some((child) => !current.has(child.span.spanId));
         next.delete(spanId);
-        for (const child of node.children) {
-          if (child.children.length > 0) next.add(child.span.spanId);
+        for (const child of branches) {
+          if (collapseBranches) next.add(child.span.spanId);
+          else next.delete(child.span.spanId);
         }
         return next;
       });

@@ -27,16 +27,15 @@ acyclic. A layer with no outgoing rule is a valid, intentional leaf.
 
 A **Module** is a self-contained source boundary backed by a supported source
 file or directory. A **Configured Module** is an explicit, disjoint boundary
-within one Layer, and every included file belongs to one. A File Module is its
-own public entry point. A Directory Module without an `index.ts`, Shared status,
-or nested public entry points is an **Unexposed Module**: it may depend on other
-Modules but cannot be consumed by them. List an exact directory path in
-`nested` to expose its `index.ts` as another public entry point into the same
-Directory Module.
+within one Layer, and every included file belongs to one. Its `kind` is Normal
+by default. Marking it `shared` lets peers in the same Layer import it; Layer
+Rules still decide cross-Layer access. An Entry Module may depend on other
+Modules but cannot be imported by one.
 
-Configured Modules in the same Layer cannot depend on one another by default.
-Marking one `shared` allows every peer to import its public entry points.
-Cross-Layer dependencies use LayerGraph permission.
+A Normal or Shared File Module is its own public entry point. A Normal or Shared
+Directory Module requires a root `index.ts`. List an exact directory path in
+`subpaths` to add another public `index.ts` for tree shaking. Entry Modules
+follow their host's file convention and cannot declare Subpaths.
 
 ```json
 {
@@ -49,10 +48,9 @@ Cross-Layer dependencies use LayerGraph permission.
     "infra": { "paths": ["src/infra"] }
   },
   "modules": {
-    "src/app": {},
+    "src/app": { "kind": "entry" },
     "src/domain/orders": {},
-    "src/domain/constants.ts": { "shared": true },
-    "src/domain/shared": { "shared": true, "nested": ["events"] },
+    "src/domain/catalog": { "kind": "shared", "subpaths": ["events"] },
     "src/infra": {}
   },
   "layerGraphs": {
@@ -137,8 +135,10 @@ const module = await Effect.runPromise(
 laymos [--config <path>] lint
 laymos [--config <path>] lint layers
 laymos [--config <path>] lint modules
-laymos [--config <path>] inspect file <file-path> [--recursive]
-laymos [--config <path>] inspect module <module-path>
+laymos [--config <path>] inspect project [--json]
+laymos [--config <path>] inspect layer <layer-name> [--json]
+laymos [--config <path>] inspect file <file-path> [--recursive] [--json]
+laymos [--config <path>] inspect module <module-path> [--json]
 ```
 
 `lint` checks every architectural rule; `lint layers` checks Layer coverage,
@@ -153,12 +153,13 @@ and dependencies as a colored path tree. Direct dependencies are yellow; with
 source files can be inspected. Included files with missing Layer or Module
 membership remain inspectable and show a coverage warning.
 
-`inspect module` accepts an exact configured Module path. It prints the
-Module's Layer, kind, Shared and exposure status, public entry points, and one
-colored path tree containing its direct dependents in cyan and direct
-dependencies in yellow. If the selected Module participates in a dependency
-cycle, inspection stops and directs the user to `lint modules`. Other
-architecture violations remain visible with a warning.
+`inspect project` summarizes the whole architecture. `inspect layer` accepts an
+exact Layer name and reports its paths, allowed Layer links, Modules, Shared
+count, and violations. `inspect module` accepts an exact configured Module path
+and prints its configured kind, source shape, observed kind, public entry
+points, and dependency tree. Add `--json` to any inspect command for stable tool
+output. If the selected Module participates in a dependency cycle, inspection
+stops and directs the user to `lint modules`.
 
 The active inspection target is green in both trees. All commands use
 `sourceRoots` and `ignoredPaths` from the config. Config paths default to

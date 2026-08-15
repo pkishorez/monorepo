@@ -523,6 +523,8 @@ function violationLayerIds(
       );
     case 'missing-entry-point':
       return [layerIdByModuleId.get(violation.moduleId)];
+    case 'unused-shared':
+      return [layerIdByModuleId.get(violation.moduleId)];
     case 'coverage':
       return [violation.layerId];
   }

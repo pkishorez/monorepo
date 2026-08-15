@@ -9,9 +9,9 @@
     }
   },
   "modules": {
-    "src/flow": { "shared": true },
+    "src/flow": { "kind": "shared" },
     "src/recorder": {},
-    "src/telemetry": { "nested": ["dev-telemetry"] }
+    "src/telemetry": { "subpaths": ["dev-telemetry"] }
   },
   "layerGraphs": {}
 }

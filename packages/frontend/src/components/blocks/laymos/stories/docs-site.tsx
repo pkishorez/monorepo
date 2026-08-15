@@ -48,21 +48,21 @@ export function StoriesDocsSite({
   const [expandedChapterId, setExpandedChapterId] = useState<
     string | undefined
   >();
-  let selectedChapterId: string | undefined;
-  if (selected?.kind === 'group' && isChapter(selected.group)) {
-    selectedChapterId = selected.id;
-  } else if (selected?.kind === 'story') {
-    const parent = nodes.get(selected.parentId);
-    if (parent?.kind === 'group' && isChapter(parent.group)) {
-      selectedChapterId = parent.id;
-    }
-  }
+  const selectedChapterId = chapterIdOf(nodes, selected);
 
   useEffect(() => {
     if (selectedChapterId !== undefined) {
       setExpandedChapterId(selectedChapterId);
     }
   }, [selectedChapterId]);
+
+  // Selecting a row also reopens its chapter, which the effect above misses
+  // when the same row is clicked again after collapsing it.
+  const selectNode = (id: string) => {
+    setSelectedId(id);
+    const chapterId = chapterIdOf(nodes, nodes.get(id));
+    if (chapterId !== undefined) setExpandedChapterId(chapterId);
+  };
 
   return (
     <div className={cn('flex min-h-0 flex-col', className)}>
@@ -120,7 +120,7 @@ export function StoriesDocsSite({
               selectedId={selected?.id}
               expandedChapterId={expandedChapterId}
               onExpandedChapterChange={setExpandedChapterId}
-              onSelect={setSelectedId}
+              onSelect={selectNode}
             />
           </nav>
         </ResizablePanel>
@@ -139,7 +139,7 @@ export function StoriesDocsSite({
                   reports={reports}
                   running={running}
                   onRun={onRun}
-                  onSelect={setSelectedId}
+                  onSelect={selectNode}
                   focusStoryId={focusStoryId}
                 />
               </div>
@@ -149,6 +149,19 @@ export function StoriesDocsSite({
       </ResizablePanelGroup>
     </div>
   );
+}
+
+function chapterIdOf(
+  nodes: ReturnType<typeof indexTree>,
+  node: ReturnType<ReturnType<typeof indexTree>['get']>,
+): string | undefined {
+  if (node?.kind === 'group')
+    return isChapter(node.group) ? node.id : undefined;
+  if (node?.kind !== 'story') return undefined;
+  const parent = nodes.get(node.parentId);
+  return parent?.kind === 'group' && isChapter(parent.group)
+    ? parent.id
+    : undefined;
 }
 
 function SidebarGroup({

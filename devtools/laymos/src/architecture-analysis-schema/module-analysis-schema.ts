@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
 
 export const ModuleDefinitionSchema = Schema.Struct({
-  shared: Schema.Boolean,
-  nested: Schema.Array(Schema.String),
+  kind: Schema.Literals(['normal', 'shared', 'entry']),
+  subpaths: Schema.Array(Schema.String),
 });
 
 export type ModuleDefinition = typeof ModuleDefinitionSchema.Type;
@@ -25,21 +25,30 @@ export const ModuleDependencySchema = Schema.Struct({
 
 export type ModuleDependency = typeof ModuleDependencySchema.Type;
 
-export const ModuleKindSchema = Schema.Literals([
+export const ModuleKindSchema = Schema.Literals(['normal', 'shared', 'entry']);
+
+export type ModuleKind = typeof ModuleKindSchema.Type;
+
+export const ModuleShapeSchema = Schema.Literals(['file', 'directory']);
+
+export type ModuleShape = typeof ModuleShapeSchema.Type;
+
+export const ObservedModuleKindSchema = Schema.Literals([
   'regular',
   'root',
   'terminal',
   'isolated',
 ]);
 
-export type ModuleKind = typeof ModuleKindSchema.Type;
+export type ObservedModuleKind = typeof ObservedModuleKindSchema.Type;
 
 export const AnalyzedModuleSchema = Schema.Struct({
   path: Schema.String,
   layer: Schema.String,
-  shared: Schema.Boolean,
-  nested: Schema.Array(Schema.String),
   kind: ModuleKindSchema,
+  shape: ModuleShapeSchema,
+  observedKind: ObservedModuleKindSchema,
+  subpaths: Schema.Array(Schema.String),
 });
 
 export type AnalyzedModule = typeof AnalyzedModuleSchema.Type;
@@ -63,6 +72,10 @@ export const ModuleViolationSchema = Schema.Union([
     kind: Schema.Literal('cycle'),
     modules: Schema.Array(Schema.String),
   }),
+  Schema.Struct({
+    kind: Schema.Literal('unused-shared'),
+    module: Schema.String,
+  }),
 ]);
 
 export type ModuleViolation = typeof ModuleViolationSchema.Type;
@@ -70,7 +83,6 @@ export type ModuleViolation = typeof ModuleViolationSchema.Type;
 export const ModuleAnalysisSchema = Schema.Struct({
   modules: Schema.Array(AnalyzedModuleSchema),
   membership: Schema.ReadonlyMap(Schema.String, Schema.String),
-  unexposedModules: Schema.ReadonlySet(Schema.String),
   entryPoints: Schema.ReadonlySet(Schema.String),
   dependencies: Schema.Array(ModuleDependencySchema),
   violations: Schema.Array(ModuleViolationSchema),

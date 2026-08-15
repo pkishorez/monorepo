@@ -66,12 +66,12 @@ export function buildPresentationModel(
     modules: analysis.moduleAnalysis.modules.map((module) => ({
       id: module.path,
       layerId: module.layer,
-      shared: module.shared,
-      kind: module.kind,
-      ...(analysis.moduleAnalysis.unexposedModules.has(module.path)
-        ? { unexposed: true }
-        : {}),
-      nested: module.nested.map((path) => ({
+      shared: module.kind === 'shared',
+      kind: module.observedKind,
+      configuredKind: module.kind,
+      shape: module.shape,
+      ...(module.kind === 'entry' ? { unexposed: true } : {}),
+      nested: module.subpaths.map((path) => ({
         id: `${module.path}/${path}`,
         path,
       })),
@@ -120,6 +120,12 @@ export function buildPresentationModel(
             id,
             kind: violation.kind,
             moduleIds: violation.modules,
+          };
+        case 'unused-shared':
+          return {
+            id,
+            kind: violation.kind,
+            moduleId: violation.module,
           };
       }
     }),

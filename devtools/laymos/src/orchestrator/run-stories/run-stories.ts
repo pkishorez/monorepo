@@ -31,7 +31,11 @@ import {
   ConfigService,
   ConfigServiceLive,
 } from '../../services/config/index.js';
-import { extractSnippets } from './extract-snippets.js';
+import {
+  extractSnippets,
+  storySnippets,
+  type StorySnippets,
+} from './extract-snippets.js';
 import { StoriesError } from './errors.js';
 
 interface IndexedStory {
@@ -133,7 +137,11 @@ function indexGroup(
       if (isStory(child)) {
         const source = yield* loadStorySource(child, options.projectRoot);
         const snippets = extractSnippets(source.path, source.content);
-        const questions = yield* indexQuestions(child, source, snippets);
+        const questions = yield* indexQuestions(
+          child,
+          source,
+          storySnippets(snippets, child.title),
+        );
         leaves.push({
           id,
           title: child.title,
@@ -164,7 +172,7 @@ function indexGroup(
 function indexQuestions(
   story: Story,
   source: StorySource,
-  snippets: ReturnType<typeof extractSnippets>,
+  snippets: StorySnippets,
 ): Effect.Effect<readonly QuestionLeaf[], StoriesError> {
   return Effect.gen(function* () {
     const seen = new Set<string>();
@@ -329,7 +337,7 @@ function runQuestion(
   });
 }
 
-function toJsonValue(value: unknown, seen = new Set<object>()): JsonValue {
+function toJsonValue(value: unknown, ancestors = new Set<object>()): JsonValue {
   if (value === null || value === undefined) return null;
   switch (typeof value) {
     case 'string':
@@ -344,22 +352,31 @@ function toJsonValue(value: unknown, seen = new Set<object>()): JsonValue {
       return String(value);
   }
   const object = value as object;
-  if (seen.has(object)) return '[circular]';
-  seen.add(object);
+  if (ancestors.has(object)) return '[circular]';
+  ancestors.add(object);
+  const json = toJsonObject(object, ancestors);
+  ancestors.delete(object);
+  return json;
+}
+
+function toJsonObject(object: object, ancestors: Set<object>): JsonValue {
   if (Array.isArray(object)) {
-    return object.map((item) => toJsonValue(item, seen));
+    return object.map((item) => toJsonValue(item, ancestors));
   }
   if (object instanceof Date) return object.toISOString();
   if (object instanceof Map) {
     return [...object.entries()].map(([key, item]) => [
-      toJsonValue(key, seen),
-      toJsonValue(item, seen),
+      toJsonValue(key, ancestors),
+      toJsonValue(item, ancestors),
     ]);
   }
   if (object instanceof Set) {
-    return [...object.values()].map((item) => toJsonValue(item, seen));
+    return [...object.values()].map((item) => toJsonValue(item, ancestors));
   }
   return Object.fromEntries(
-    Object.entries(object).map(([key, item]) => [key, toJsonValue(item, seen)]),
+    Object.entries(object).map(([key, item]) => [
+      key,
+      toJsonValue(item, ancestors),
+    ]),
   );
 }

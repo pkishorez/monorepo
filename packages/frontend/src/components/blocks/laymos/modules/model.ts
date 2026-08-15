@@ -1,3 +1,5 @@
+export type ConfiguredModuleKind = 'normal' | 'shared' | 'entry';
+export type ModuleShape = 'file' | 'directory';
 export type ModuleKind = 'regular' | 'root' | 'terminal' | 'isolated';
 
 export interface NestedModule {
@@ -10,6 +12,8 @@ export interface Module {
   readonly layerId: string;
   readonly shared: boolean;
   readonly kind: ModuleKind;
+  readonly configuredKind?: ConfiguredModuleKind;
+  readonly shape?: ModuleShape;
   readonly unexposed?: boolean;
   readonly nested: readonly NestedModule[];
 }
@@ -35,6 +39,11 @@ export type ModuleViolation =
       readonly id: string;
       readonly kind: 'cycle';
       readonly moduleIds: readonly string[];
+    }
+  | {
+      readonly id: string;
+      readonly kind: 'unused-shared';
+      readonly moduleId: string;
     }
   | {
       readonly id: string;

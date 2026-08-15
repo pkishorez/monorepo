@@ -3,7 +3,8 @@ import type {
   AnalyzedModule,
   ModuleDefinition,
   ModuleDependency,
-  ModuleKind,
+  ModuleShape,
+  ObservedModuleKind,
 } from './modules.js';
 
 export function describeModules(
@@ -16,9 +17,10 @@ export function describeModules(
   return Object.entries(modules).map(([path, definition]) => ({
     path,
     layer: findLayer(path, layers),
-    shared: definition.shared,
-    nested: definition.nested,
-    kind: moduleKind(incoming.has(path), outgoing.has(path)),
+    kind: definition.kind,
+    shape: moduleShape(path),
+    observedKind: observedModuleKind(incoming.has(path), outgoing.has(path)),
+    subpaths: definition.subpaths,
   }));
 }
 
@@ -35,7 +37,14 @@ function contains(parent: string, child: string): boolean {
   return parent === '.' || child === parent || child.startsWith(`${parent}/`);
 }
 
-function moduleKind(incoming: boolean, outgoing: boolean): ModuleKind {
+function moduleShape(path: string): ModuleShape {
+  return /\.(?:[cm]?[jt]sx?)$/.test(path) ? 'file' : 'directory';
+}
+
+function observedModuleKind(
+  incoming: boolean,
+  outgoing: boolean,
+): ObservedModuleKind {
   if (incoming && outgoing) return 'regular';
   if (outgoing) return 'root';
   if (incoming) return 'terminal';

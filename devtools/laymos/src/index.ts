@@ -19,12 +19,16 @@ export {
   InspectionTargetNotFound,
   ModuleInspectionCycle,
   inspectFile,
+  inspectLayer,
   inspectModule,
+  inspectProject,
 } from './orchestrator/inspect/index.js';
 export type {
   FileInspection,
   FileInspectionOptions,
+  LayerInspection,
   ModuleInspection,
+  ProjectInspection,
 } from './orchestrator/inspect/index.js';
 // Analysis callers distinguish Config loading and validation failures.
 export { ConfigError } from './services/config/index.js';

@@ -47,8 +47,7 @@ describe('loadProject', () => {
       issues: [
         {
           kind: 'module',
-          message:
-            'File Module src/button.ts cannot expose nested public entry points',
+          message: 'File Module src/button.ts cannot expose Subpaths',
         },
       ],
     });

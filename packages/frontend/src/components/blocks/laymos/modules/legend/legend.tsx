@@ -22,8 +22,8 @@ const items = [
     icon: CircleDotDashed,
   },
   {
-    label: 'Unexposed',
-    description: 'No public entry point',
+    label: 'Entry',
+    description: 'Host-started and unavailable to other Modules',
     icon: Info,
   },
 ] as const;

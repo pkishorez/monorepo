@@ -42,13 +42,13 @@ describe('loadModuleSource', () => {
     });
   });
 
-  test('loads a File Module as its own entry point', async () => {
+  test('loads an Entry File Module without a public entry point', async () => {
     const snapshot = await loadModuleSource(
       laymosConfigPath,
       'src/index.ts',
     ).pipe(Effect.runPromise);
 
-    expect(snapshot.entryPoint).toBe('src/index.ts');
+    expect(snapshot.entryPoint).toBeUndefined();
     expect(snapshot.files.map(({ path }) => path)).toEqual(['src/index.ts']);
   });
 });

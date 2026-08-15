@@ -27,12 +27,12 @@ export function validateLoadedConfig(
   const knownFiles = new Set(files);
   return Object.entries(config.modules).flatMap(([path, definition]) => {
     if (knownFiles.has(path)) {
-      return definition.nested.length === 0
+      return definition.subpaths.length === 0
         ? []
         : [
             {
               kind: 'module' as const,
-              message: `File Module ${path} cannot expose nested public entry points`,
+              message: `File Module ${path} cannot expose Subpaths`,
             },
           ];
     }

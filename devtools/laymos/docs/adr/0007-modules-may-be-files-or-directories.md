@@ -1,5 +1,8 @@
 # Modules may be files or directories
 
+ADR-0010 supersedes the `shared` field name while retaining File Modules and
+their public-door behavior for Normal and Shared kinds.
+
 Laymos accepts an explicitly configured supported source file as a File Module
 and an explicitly configured directory as a Directory Module. A File Module is
 its own public entry point, cannot expose nested public entry points, and uses

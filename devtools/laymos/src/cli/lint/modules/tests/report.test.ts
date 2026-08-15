@@ -10,13 +10,39 @@ function plain(rendered: string): string {
 
 describe('renderModuleReport', () => {
   test('renders a clean result', () => {
-    expect(plain(renderModuleReport({ violations: [] }))).toBe(
-      '✓ No Module violations',
+    expect(
+      plain(
+        renderModuleReport({
+          modules: [
+            {
+              path: 'src/app',
+              layer: 'app',
+              kind: 'entry',
+              shape: 'directory',
+              observedKind: 'isolated',
+              subpaths: [],
+            },
+          ],
+          violations: [],
+        }),
+      ),
+    ).toBe(
+      'Modules: 1 (0 Normal, 0 Shared, 1 Entry)\nShared by Layer: none\n✓ No Module violations',
     );
   });
 
   test('groups every Module violation kind', () => {
     const rendered = renderModuleReport({
+      modules: [
+        {
+          path: 'src/shared',
+          layer: 'domain',
+          kind: 'shared',
+          shape: 'directory',
+          observedKind: 'isolated',
+          subpaths: [],
+        },
+      ],
       violations: [
         { kind: 'coverage', file: 'src/loose.ts' },
         {
@@ -39,6 +65,7 @@ describe('renderModuleReport', () => {
           toModule: 'src/shared',
         },
         { kind: 'cycle', modules: ['src/a', 'src/b'] },
+        { kind: 'unused-shared', module: 'src/shared' },
       ],
     });
 
@@ -52,6 +79,7 @@ describe('renderModuleReport', () => {
     expect(plain(rendered)).toContain(
       'Module cycles\n  ✕ src/a → src/b → src/a',
     );
-    expect(plain(rendered)).toContain('5 violations');
+    expect(plain(rendered)).toContain('unused Shared Modules\n  ✕ src/shared');
+    expect(plain(rendered)).toContain('6 violations');
   });
 });

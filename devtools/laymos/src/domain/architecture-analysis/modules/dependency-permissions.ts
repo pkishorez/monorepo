@@ -16,11 +16,16 @@ export function importPermission(
   const toLayer = context.layerContext.membership.get(toFile);
   if (fromLayer === undefined || toLayer === undefined) return 'layer-denied';
   if (fromLayer !== toLayer) {
-    return context.layerContext.allowedDependencies.get(fromLayer)?.has(toLayer)
-      ? 'permitted'
-      : 'layer-denied';
+    if (
+      !context.layerContext.allowedDependencies.get(fromLayer)?.has(toLayer)
+    ) {
+      return 'layer-denied';
+    }
+    return context.modules[toModule]?.kind === 'entry'
+      ? 'module-denied'
+      : 'permitted';
   }
-  return context.modules[toModule]?.shared === true
+  return context.modules[toModule]?.kind === 'shared'
     ? 'permitted'
     : 'module-denied';
 }

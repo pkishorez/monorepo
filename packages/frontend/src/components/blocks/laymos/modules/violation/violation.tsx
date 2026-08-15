@@ -104,6 +104,8 @@ function violationIcon(violation: ModuleViolation) {
       return RefreshCw;
     case 'missing-entry-point':
       return CircleAlert;
+    case 'unused-shared':
+      return CircleAlert;
     case 'coverage':
       return FileQuestion;
   }
@@ -119,6 +121,8 @@ function violationTitle(violation: ModuleViolation): string {
       return 'Module cycle';
     case 'missing-entry-point':
       return 'Missing Module entry point';
+    case 'unused-shared':
+      return 'Unused Shared Module';
     case 'coverage':
       return 'Unassigned file';
   }
@@ -143,6 +147,8 @@ function violationDescription(violation: ModuleViolation) {
       );
     case 'missing-entry-point':
       return <span className="truncate">{violation.path}</span>;
+    case 'unused-shared':
+      return <span className="truncate">{violation.moduleId}</span>;
     case 'coverage':
       return <span className="truncate">{violation.file}</span>;
   }

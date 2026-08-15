@@ -3,7 +3,12 @@ import { fileURLToPath } from 'node:url';
 import { Effect } from 'effect';
 import { describe, expect, test } from 'vitest';
 
-import { inspectFile, inspectModule } from '../index.js';
+import {
+  inspectFile,
+  inspectLayer,
+  inspectModule,
+  inspectProject,
+} from '../index.js';
 
 function moduleScenario(name: string): string {
   return fileURLToPath(
@@ -82,10 +87,12 @@ describe('inspectModule', () => {
       'src/shared',
     ).pipe(Effect.runPromise);
 
-    expect(feature.module.kind).toBe('root');
+    expect(feature.module.kind).toBe('normal');
+    expect(feature.module.observedKind).toBe('root');
     expect(feature.dependencies).toEqual(['src/shared']);
     expect(feature.dependents).toEqual([]);
-    expect(shared.module.kind).toBe('terminal');
+    expect(shared.module.kind).toBe('shared');
+    expect(shared.module.observedKind).toBe('terminal');
     expect(shared.dependents).toEqual(['src/feature']);
     expect(shared.dependencies).toEqual([]);
     expect(shared.publicEntryPoints).toEqual([
@@ -104,6 +111,15 @@ describe('inspectModule', () => {
     expect(inspection.hasViolations).toBe(true);
   });
 
+  test('reports an unused Shared Module as having violations', async () => {
+    const inspection = await inspectModule(
+      moduleScenario('unused-shared'),
+      'src/shared',
+    ).pipe(Effect.runPromise);
+
+    expect(inspection.hasViolations).toBe(true);
+  });
+
   test('rejects a Module that participates in a cycle', async () => {
     const error = await inspectModule(moduleScenario('cycle'), 'src/a').pipe(
       Effect.flip,
@@ -111,5 +127,77 @@ describe('inspectModule', () => {
     );
 
     expect(error._tag).toBe('ModuleInspectionCycle');
+  });
+});
+
+describe('inspectProject', () => {
+  test('returns the canonical Architecture Analysis', async () => {
+    const inspection = await inspectProject(moduleScenario('valid')).pipe(
+      Effect.runPromise,
+    );
+
+    expect(inspection.config.layers).toHaveProperty('app');
+    expect(inspection.moduleAnalysis.modules).toHaveLength(2);
+  });
+});
+
+describe('inspectLayer', () => {
+  test('shows one Layer and its Modules', async () => {
+    const inspection = await inspectLayer(moduleScenario('valid'), 'app').pipe(
+      Effect.runPromise,
+    );
+
+    expect(inspection.id).toBe('app');
+    expect(inspection.modules.map(({ path }) => path)).toEqual([
+      'src/feature',
+      'src/shared',
+    ]);
+    expect(inspection.sharedCount).toBe(1);
+    expect(inspection.moduleViolations).toEqual([]);
+  });
+
+  test('includes Module coverage findings in the Layer', async () => {
+    const inspection = await inspectLayer(
+      moduleScenario('coverage'),
+      'app',
+    ).pipe(Effect.runPromise);
+
+    expect(inspection.moduleViolations).toContainEqual({
+      kind: 'coverage',
+      file: 'src/loose.ts',
+    });
+  });
+
+  test('includes unused Shared Module findings in the Layer', async () => {
+    const inspection = await inspectLayer(
+      moduleScenario('unused-shared'),
+      'app',
+    ).pipe(Effect.runPromise);
+
+    expect(inspection.moduleViolations).toContainEqual({
+      kind: 'unused-shared',
+      module: 'src/shared',
+    });
+  });
+
+  test('reports a Layer without configured Modules', async () => {
+    const inspection = await inspectLayer(
+      layerScenario('no-modules'),
+      'empty',
+    ).pipe(Effect.runPromise);
+
+    expect(inspection.hasNoModules).toBe(true);
+  });
+
+  test('rejects an unknown Layer', async () => {
+    const error = await inspectLayer(moduleScenario('valid'), 'missing').pipe(
+      Effect.flip,
+      Effect.runPromise,
+    );
+
+    expect(error._tag).toBe('InspectionTargetNotFound');
+    if (error._tag === 'InspectionTargetNotFound') {
+      expect(error.targetKind).toBe('layer');
+    }
   });
 });

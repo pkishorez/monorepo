@@ -1,4 +1,4 @@
-/** Consumers use this nested door to analyze configured Modules. */
+/** Consumers use this Subpath to analyze configured Modules. */
 export { analyzeModules } from './modules.js';
 /** Renderers use this to consume Module analysis without changing it. */
 export type { ModuleAnalysis } from '../../../architecture-analysis-schema/index.js';
@@ -6,6 +6,8 @@ export type { ModuleAnalysis } from '../../../architecture-analysis-schema/index
 export type {
   AnalyzedModule,
   ModuleKind,
+  ModuleShape,
+  ObservedModuleKind,
 } from '../../../architecture-analysis-schema/index.js';
 /** Renderers use this to identify the public door used by a valid dependency. */
 export type { ModuleDependency } from '../../../architecture-analysis-schema/index.js';

@@ -3,6 +3,9 @@
 ADR-0007 supersedes this decision only where it rejects or defers File Modules.
 Its remaining directory-boundary decisions still apply.
 
+ADR-0010 supersedes the inferred Unexposed, `shared`, and `nested` configuration
+rules. Its remaining membership and dependency-boundary decisions still apply.
+
 Laymos requires a non-empty, path-keyed set of Configured Modules without
 changing Layer or LayerGraph declarations. A Module is any directory that
 follows the deep-module convention and can contain Modules recursively. A

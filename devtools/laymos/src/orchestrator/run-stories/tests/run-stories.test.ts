@@ -62,6 +62,16 @@ describe('getStoryTree', () => {
     }
   });
 
+  test('keeps each story in a shared file on its own proof snippets', async () => {
+    const tree = await getStoryTree(fixture('shared-file')).pipe(
+      Effect.runPromise,
+    );
+
+    const [first, second] = tree.stories;
+    expect(first!.questions[0]!.snippet).toContain('first proof ran');
+    expect(second!.questions[0]!.snippet).toContain('second proof ran');
+  });
+
   test('leaves support null when the stories tree has no support file', async () => {
     const tree = await getStoryTree(fixture('no-support')).pipe(
       Effect.runPromise,
@@ -141,6 +151,18 @@ describe('runStories', () => {
     expect(erroring.assertions).toEqual([
       { description: 'reached before the crash', passed: true },
     ]);
+  });
+
+  test('renders a repeated reference in a result instead of marking it circular', async () => {
+    const reports = await runStories(fixture('shared-file')).pipe(
+      Stream.runCollect,
+      Effect.runPromise,
+    );
+
+    expect(reports[1]!.questions[0]!.result).toEqual({
+      written: { id: 'a' },
+      read: { id: 'a' },
+    });
   });
 
   test('runs only the scoped subtree', async () => {

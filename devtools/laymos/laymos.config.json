@@ -26,32 +26,28 @@
     }
   },
   "modules": {
-    "src/index.ts": {},
-    "src/architecture-analysis-schema": {
-      "shared": true
-    },
-    "src/cli": {},
-    "src/orchestrator/analyze-project": {},
+    "src/index.ts": { "kind": "entry" },
+    "src/architecture-analysis-schema": {},
+    "src/cli": { "kind": "entry" },
+    "src/orchestrator/analyze-project": { "kind": "shared" },
     "src/orchestrator/inspect": {},
     "src/orchestrator/load-project": {
-      "shared": true
+      "kind": "shared"
     },
     "src/orchestrator/load-module-source": {},
     "src/domain/architecture-analysis": {
-      "nested": ["layers", "modules"]
+      "subpaths": ["layers", "modules"]
     },
     "src/domain/file-graph": {
-      "shared": true
+      "kind": "shared"
     },
     "src/domain/project-config": {
-      "shared": true
+      "kind": "shared"
     },
     "src/services/config": {},
-    "src/services/file-cruiser": {
-      "nested": ["oxc"]
-    },
+    "src/services/file-cruiser": {},
     "src/story": {
-      "nested": ["schema"]
+      "subpaths": ["schema"]
     },
     "src/orchestrator/run-stories": {}
   },

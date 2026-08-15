@@ -1,8 +1,9 @@
 import type { Config, ConfigValidationIssue } from '../../project-config.js';
 import { findContainmentIssues } from './containment.js';
-import { findNestedIssues } from './nested.js';
+import { findAllSharedLayerIssues } from './kinds.js';
 import { findModuleOverlaps } from './overlaps.js';
 import { findModulePathIssues } from './paths.js';
+import { findSubpathIssues } from './subpaths.js';
 
 export function validateModules(
   config: Config,
@@ -12,6 +13,7 @@ export function validateModules(
   return [
     ...findModuleOverlaps(config.modules),
     ...findContainmentIssues(config),
-    ...findNestedIssues(config),
+    ...findSubpathIssues(config),
+    ...findAllSharedLayerIssues(config),
   ];
 }

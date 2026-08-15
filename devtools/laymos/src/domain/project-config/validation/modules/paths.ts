@@ -13,11 +13,11 @@ export function findModulePathIssues(
         message: `Module key must be a canonical project-relative file or directory: ${JSON.stringify(root)}`,
       });
     }
-    definition.nested.forEach((path, index) => {
+    definition.subpaths.forEach((path, index) => {
       if (isCanonical(path, false)) return;
       issues.push({
         kind: 'path',
-        message: `modules.${root}.nested[${index}] must be a canonical relative directory: ${JSON.stringify(path)}`,
+        message: `modules.${root}.subpaths[${index}] must be a canonical relative directory: ${JSON.stringify(path)}`,
       });
     });
     return issues;

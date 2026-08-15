@@ -235,7 +235,7 @@
   "modules": {
     "src/db/index.ts": {},
     "src/db/db.ts": {
-      "shared": true
+      "kind": "shared"
     },
     "src/db/std-table/table": {},
     "src/db/std-table/entity": {},
@@ -246,7 +246,7 @@
     "src/db/std-table/error": {},
     "src/db/dynamodb/index.ts": {},
     "src/db/dynamodb/dynamodb.ts": {
-      "shared": true
+      "kind": "shared"
     },
     "src/db/dynamodb/native": {},
     "src/db/dynamodb/table": {},
@@ -257,7 +257,7 @@
     "src/db/dynamodb/client": {},
     "src/db/idb/index.ts": {},
     "src/db/idb/idb.ts": {
-      "shared": true
+      "kind": "shared"
     },
     "src/db/idb/table": {},
     "src/db/idb/item-schema": {},
@@ -265,7 +265,7 @@
     "src/db/idb/upgrade": {},
     "src/db/sqlite/index.ts": {},
     "src/db/sqlite/sqlite.ts": {
-      "shared": true
+      "kind": "shared"
     },
     "src/db/sqlite/table": {},
     "src/db/sqlite/setup": {},
@@ -273,9 +273,7 @@
     "src/db/sqlite/item-schema": {},
     "src/db/sqlite/database": {},
     "src/eschema/index.ts": {},
-    "src/eschema/eschema": {
-      "shared": true
-    },
+    "src/eschema/eschema": {},
     "src/eschema/entity-eschema": {},
     "src/eschema/value-eschema": {},
     "src/eschema/schema-composition": {},
@@ -286,41 +284,39 @@
     "src/core/broadcaster.ts": {},
     "src/core/error.ts": {},
     "src/core/schema.ts": {
-      "shared": true
+      "kind": "shared"
     },
     "src/core/ulid.ts": {},
-    "src/cli": {},
+    "src/cli": { "kind": "entry" },
     "src/tanstack-sync/index.ts": {},
     "src/tanstack-sync/tanstack-sync.ts": {
-      "shared": true
+      "kind": "shared"
     },
     "src/db/sqlite/drivers/node": {},
     "src/db/sqlite/drivers/bun": {},
     "src/db/sqlite/drivers/better-sqlite3": {},
     "src/db/sqlite/drivers/durable-object": {},
     "src/eschema/domain/eschema-error": {
-      "shared": true
+      "kind": "shared"
     },
     "src/eschema/domain/introspection": {
-      "shared": true
+      "kind": "shared"
     },
     "src/eschema/domain/object-schema-runtime": {},
     "src/eschema/domain/schema-model": {
-      "shared": true
+      "kind": "shared"
     },
     "src/snapshot/capture/eschema-capture": {
-      "shared": true
+      "kind": "shared"
     },
     "src/snapshot/capture/table-entity-registry": {},
-    "src/snapshot/capture/table-capture": {
-      "shared": true
-    },
+    "src/snapshot/capture/table-capture": {},
     "src/tanstack-sync/composition/keyed-sync": {},
     "src/tanstack-sync/composition/single-item-sync": {},
     "src/tanstack-sync/lifecycle/partition-sync": {},
     "src/tanstack-sync/lifecycle/single-item-lifecycle": {},
     "src/tanstack-sync/lifecycle/strategy-lifecycle": {
-      "shared": true
+      "kind": "shared"
     },
     "src/tanstack-sync/lifecycle/sync-execution": {},
     "src/tanstack-sync/workers/bidirectional": {},
@@ -329,22 +325,22 @@
     "src/tanstack-sync/workers/new-to-old": {},
     "src/tanstack-sync/workers/old-to-new": {},
     "src/tanstack-sync/runtime/collection-model": {
-      "shared": true
+      "kind": "shared"
     },
     "src/tanstack-sync/runtime/collection-projection": {},
     "src/tanstack-sync/runtime/effect-runner": {
-      "shared": true
+      "kind": "shared"
     },
     "src/tanstack-sync/runtime/mutation-pacing": {},
     "src/tanstack-sync/runtime/pending-mutations": {},
     "src/tanstack-sync/runtime/strategy-runtime": {},
     "src/tanstack-sync/runtime/sync-registry": {},
     "src/tanstack-sync/runtime/sync-flow": {
-      "shared": true
+      "kind": "shared"
     },
     "src/tanstack-sync/persistence/indexed-db-storage": {},
     "src/tanstack-sync/persistence/offline-storage": {
-      "shared": true
+      "kind": "shared"
     },
     "src/tanstack-sync/persistence/source-of-truth": {},
     "src/tanstack-sync/persistence/sync-state": {},
@@ -355,9 +351,7 @@
     "src/tanstack-sync/domain/slice-coverage": {},
     "src/tanstack-sync/domain/strategy-state": {},
     "src/tanstack-sync/domain/sync-error": {},
-    "src/tanstack-sync/domain/sync-event": {
-      "shared": true
-    }
+    "src/tanstack-sync/domain/sync-event": {}
   },
   "layerGraphs": {
     "std-table": {

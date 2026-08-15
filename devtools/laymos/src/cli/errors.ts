@@ -19,8 +19,11 @@ export function renderOperationalError(error: unknown): string {
     return `Could not analyze source files beneath: ${error.baseDir}`;
   }
   if (error instanceof InspectionTargetNotFound) {
-    return error.targetKind === 'file'
-      ? `File is not an included supported source file: ${error.target}`
+    if (error.targetKind === 'file') {
+      return `File is not an included supported source file: ${error.target}`;
+    }
+    return error.targetKind === 'layer'
+      ? `Layer not found: ${error.target}`
       : `Configured Module not found: ${error.target}`;
   }
   if (error instanceof ModuleInspectionCycle) {

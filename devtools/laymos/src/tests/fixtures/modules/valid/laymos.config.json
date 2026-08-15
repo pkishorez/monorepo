@@ -4,7 +4,7 @@
   "layers": { "app": { "paths": ["src"] } },
   "modules": {
     "src/feature": {},
-    "src/shared": { "shared": true, "nested": ["public"] }
+    "src/shared": { "kind": "shared", "subpaths": ["public"] }
   },
   "layerGraphs": {}
 }
