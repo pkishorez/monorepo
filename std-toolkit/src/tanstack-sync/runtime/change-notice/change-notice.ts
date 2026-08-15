@@ -8,7 +8,7 @@ export type ChannelFactory = (name: string) => ChangeNoticeChannel;
 
 export type ChangeNotice = {
   notify: () => void;
-  close: () => void;
+  close: () => Promise<void>;
 };
 
 const globalFactory = (): ChannelFactory | null => {
@@ -23,14 +23,17 @@ const globalFactory = (): ChannelFactory | null => {
 export const makeChangeNotice = (args: {
   scope: string;
   collection: string;
-  onNotice: () => void;
+  onNotice: () => Promise<void>;
   channel?: ChannelFactory | undefined;
 }): ChangeNotice => {
   const factory = args.channel ?? globalFactory();
-  if (factory === null) return { notify: () => {}, close: () => {} };
+  if (factory === null) {
+    return { notify: () => {}, close: () => Promise.resolve() };
+  }
 
   const channel = factory(`${args.scope}:${args.collection}`);
   let scheduled: ReturnType<typeof setTimeout> | null = null;
+  let pending = Promise.resolve();
   let closed = false;
 
   // Coalesced on receive: a burst of notices advances one Projection Position once.
@@ -38,7 +41,9 @@ export const makeChangeNotice = (args: {
     if (closed || scheduled !== null) return;
     scheduled = setTimeout(() => {
       scheduled = null;
-      if (!closed) args.onNotice();
+      if (!closed) {
+        pending = pending.then(args.onNotice).catch(() => undefined);
+      }
     }, 0);
   };
 
@@ -51,6 +56,7 @@ export const makeChangeNotice = (args: {
       if (scheduled !== null) clearTimeout(scheduled);
       channel.onmessage = null;
       channel.close();
+      return pending;
     },
   };
 };
