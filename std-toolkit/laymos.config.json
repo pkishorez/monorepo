@@ -10,6 +10,7 @@
     "src/db/dynamodb/native/__tests__",
     "src/db/dynamodb/table/__tests__",
     "src/db/idb/__tests__",
+    "src/db/memory/__tests__",
     "src/db/sqlite/__tests__",
     "src/db/std-table/__tests__",
     "src/db/std-table/definition/__tests__",
@@ -118,6 +119,14 @@
     "idb.upgrade": {
       "paths": ["src/db/idb/upgrade"],
       "description": "Upgrade \u2014 physical store and index schema, declared at connection-open time and therefore below the connection"
+    },
+    "memory.public": {
+      "paths": ["src/db/memory/index.ts", "src/db/memory/memory.ts"],
+      "description": "Public \u2014 barrel and adapter door"
+    },
+    "memory.table": {
+      "paths": ["src/db/memory/table"],
+      "description": "Store \u2014 in-memory port implementation"
     },
     "sqlite.public": {
       "paths": ["src/db/sqlite/index.ts", "src/db/sqlite/sqlite.ts"],
@@ -263,6 +272,11 @@
     "src/db/idb/item-schema": {},
     "src/db/idb/database": {},
     "src/db/idb/upgrade": {},
+    "src/db/memory/index.ts": {},
+    "src/db/memory/memory.ts": {
+      "kind": "shared"
+    },
+    "src/db/memory/table": {},
     "src/db/sqlite/index.ts": {},
     "src/db/sqlite/sqlite.ts": {
       "kind": "shared"
@@ -403,6 +417,13 @@
         "idb.item-schema": ["std-table.contract", "std-table.definition"],
         "idb.database": ["idb.upgrade"],
         "idb.upgrade": ["std-table.definition"]
+      }
+    },
+    "memory": {
+      "description": "Memory adapter: public door over an in-memory store",
+      "rules": {
+        "memory.public": ["memory.table"],
+        "memory.table": ["std-table.contract", "std-table.definition"]
       }
     },
     "sqlite": {

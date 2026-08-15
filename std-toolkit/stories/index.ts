@@ -28,8 +28,9 @@ import { totalMigrations } from './evolving-schema/gotchas-and-best-practices/to
 import { pureMigrations } from './evolving-schema/gotchas-and-best-practices/pure-migrations.story.js';
 import { makePartialValidates } from './evolving-schema/gotchas-and-best-practices/make-partial.story.js';
 
-import { threeRealBackends } from './database/std-table/how-these-stories-run/three-real-backends.story.js';
+import { fourAdapters } from './database/std-table/how-these-stories-run/four-adapters.story.js';
 import { freshDatabases } from './database/std-table/how-these-stories-run/fresh-databases.story.js';
+import { layerSelection } from './database/std-table/how-these-stories-run/layer-selection.story.js';
 import { theSharedTable } from './database/std-table/how-these-stories-run/the-shared-table.story.js';
 import { shapeOfATable } from './database/std-table/defining-a-table/shape-of-a-table.story.js';
 import { reservedNames } from './database/std-table/defining-a-table/reserved-names.story.js';
@@ -73,8 +74,9 @@ export default Story.group('std-toolkit', [
   Story.group('Database', [
     Story.group('Std Table', [
       Story.group('How these stories run', [
-        threeRealBackends,
+        fourAdapters,
         freshDatabases,
+        layerSelection,
         theSharedTable,
       ]),
       Story.group('Defining a table', [

@@ -57,7 +57,7 @@ The one write shape in the **StdTable contract**: a full **encoded item**, optio
 _Avoid_: WriteRequest, partial update (at the contract), upsert.
 
 **Topology compatibility baseline**:
-The DynamoDB-compatible structural limits enforced by every **StdTable**, so each logical definition can be implemented by DynamoDB, SQLite, or IndexedDB. Limits that depend on physical runtime state remain adapter-specific checks.
+The DynamoDB-compatible structural limits enforced by every **StdTable**, so each logical definition can be implemented by DynamoDB, SQLite, IndexedDB, or Memory. Limits that depend on physical runtime state remain adapter-specific checks.
 _Avoid_: Adapter-unbounded topology.
 
 **Partition key (pk)**:
