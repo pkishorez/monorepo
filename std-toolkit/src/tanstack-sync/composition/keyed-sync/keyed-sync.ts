@@ -1,4 +1,4 @@
-import { Effect, Exit, Scope } from 'effect';
+import { Effect, Exit, Scope, TxSemaphore } from 'effect';
 import type {
   CadenceConfig,
   SyncCollection,
@@ -14,6 +14,10 @@ import { makeSourceOfTruth } from '../../persistence/source-of-truth/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
+import {
+  makeChangeNotice,
+  type ChannelFactory,
+} from '../../runtime/change-notice/index.js';
 import type {
   CollectionItem,
   DeletePayload,
@@ -91,6 +95,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     runner?: EffectRunner<R>;
     report: SyncReporter<R>;
     flowPlacement?: FlowPlacement;
+    noticeScope: string;
+    noticeChannel?: ChannelFactory;
   },
 ): CollectionConfig<
   CollectionItem<S['Type']>,
@@ -136,6 +142,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     persistence: config.persistence,
   });
   const pending = runner.runSync(makePendingTracker);
+  const advancePermit = runner.runSync(TxSemaphore.make(1));
   let projector: Projector<TItem> | null = null;
   let collectionUpdate:
     | ((key: string, updater: (draft: TCollItem) => void) => Transaction)
@@ -143,13 +150,43 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   // The native collection is needed by per-partition cadence loops.
   let nativeCollection: SyncCollection<TItem> | null = null;
   let collectionActivation: ActivationRef | null = null;
+  let position: string | null = null;
+
+  const advance = (
+    options: { readonly seeding: boolean } = { seeding: false },
+  ): Effect.Effect<number, WriteError> =>
+    TxSemaphore.withPermit(
+      advancePermit,
+      Effect.gen(function* () {
+        if (projector === null) return 0;
+        const delta = yield* sot.since(position);
+        position = delta.position;
+        const entities = options.seeding
+          ? delta.entities.filter((entity) => !entity.meta._d)
+          : delta.entities;
+        yield* Effect.sync(() => projector?.projectEntities(entities));
+        return entities.length;
+      }),
+    );
+
+  const notice = makeChangeNotice({
+    scope: config.noticeScope,
+    collection: schema.name,
+    onNotice: () => {
+      void runner.runPromise(advance().pipe(Effect.ignore));
+    },
+    channel: config.noticeChannel,
+  });
+  config.trackCleanup(async () => notice.close());
+
   const writeServerTruth = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
   ): Effect.Effect<void, WriteError> => {
     config.assertActive();
     return sot.write(entities).pipe(
-      Effect.tap((accepted) => Effect.sync(() => projector?.project(accepted))),
+      Effect.tap(() => advance()),
+      Effect.tap(() => Effect.sync(() => notice.notify())),
       Effect.tap((accepted) =>
         syncFlow && entities.length > 0
           ? syncFlow.log('Source of Truth write', {
@@ -285,6 +322,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           }),
         );
         projector = makeCollectionProjector<TItem>(callbacks, { deleteKeyOf });
+        position = null;
         collectionUpdate = (key, updater) =>
           callbacks.collection.update(key, updater);
 
@@ -301,14 +339,13 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         runner.runSync(
           Effect.forkIn(
             Effect.gen(function* () {
-              const all = yield* sot.getAll().pipe(
+              const projected = yield* advance({ seeding: true }).pipe(
                 flow.collection.withSpan('Source of Truth hydration', {
                   attributes: { collection: schema.name },
                 }),
               );
               const ready = yield* Effect.sync(() => {
                 if (!active) return false;
-                projector?.projectAll(all);
                 callbacks.markReady();
                 return true;
               });
@@ -316,10 +353,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               yield* flow.collection.log('Collection ready', {
                 attributes: {
                   collection: schema.name,
-                  entityCount: all.length,
+                  entityCount: projected,
                 },
               });
-              yield* flow.collection.state({ projectedRows: all.length });
+              yield* flow.collection.state({ projectedRows: projected });
               if (config.total) {
                 yield* execution
                   .start(GLOBAL_PARTITION_KEY, config.total, flow)

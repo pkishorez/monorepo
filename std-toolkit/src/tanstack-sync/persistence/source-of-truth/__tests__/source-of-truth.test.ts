@@ -65,7 +65,7 @@ describe('Source of Truth over StdTable', () => {
       expect(result.upserts[0]!.meta._c).toBe(result.upserts[1]!.meta._c);
       expect(result.upserts[0]!.meta._c).toBeGreaterThanOrEqual(before);
       expect(result.upserts[0]!.meta._c).toBeLessThanOrEqual(after);
-      expect((yield* sot.getAll()).map((item) => item.meta._c)).toEqual([
+      expect((yield* sot.since(null)).entities.map((i) => i.meta._c)).toEqual([
         result.upserts[0]!.meta._c,
         result.upserts[0]!.meta._c,
       ]);
@@ -114,6 +114,28 @@ describe('Source of Truth over StdTable', () => {
       }),
   );
 
+  itEffect('allocates projection positions through the durable cursor', () =>
+    Effect.gen(function* () {
+      const { sot } = makeSot();
+      yield* Effect.all(
+        [
+          sot.write([entity('a', 'Alpha', '1')]),
+          sot.write([entity('b', 'Beta', '1')]),
+        ],
+        { concurrency: 'unbounded' },
+      );
+
+      const first = yield* sot.since(null);
+      expect(first.entities).toHaveLength(2);
+      expect(first.position).toBe('00000000000000000000000000000002');
+
+      yield* sot.write([entity('c', 'Gamma', '1')]);
+      const next = yield* sot.since(first.position);
+      expect(next.entities.map((item) => item.value.id)).toEqual(['c']);
+      expect(next.position).toBe('00000000000000000000000000000003');
+    }),
+  );
+
   itEffect('validates the complete batch before writing any entity', () =>
     Effect.gen(function* () {
       const { sot } = makeSot();
@@ -123,7 +145,7 @@ describe('Source of Truth over StdTable', () => {
       } as unknown as EntityType<Item>;
 
       yield* sot.write([entity('a', 'Alpha', '1'), invalid]).pipe(Effect.flip);
-      expect(yield* sot.getAll()).toEqual([]);
+      expect((yield* sot.since(null)).entities).toEqual([]);
     }),
   );
 

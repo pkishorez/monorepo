@@ -19,7 +19,6 @@ type SyncCallbacks<T extends object> = Parameters<
 type Projector<TItem> = {
   project: (accepted: Accepted<TItem>) => void;
   projectEntities: (entities: EntityType<TItem>[]) => void;
-  projectAll: (entities: EntityType<TItem>[]) => void;
 };
 
 type ProjectorOptions<TItem> = {
@@ -28,10 +27,9 @@ type ProjectorOptions<TItem> = {
 
 /**
  * Builds the per-mount projector that turns accepted deltas into TanStack
- * insert/update/delete writes, and backfills the collection from retained SoT on
- * mount. Translation hoists an entity's `value` fields to the top level and nests
- * its meta under `_meta`. The collection derives live row keys via its own `getKey`;
- * tombstone deletes carry keys from `deleteKeyOf`.
+ * update/delete writes. Translation hoists an entity's `value` fields to the top
+ * level and nests its meta under `_meta`. The collection derives live row keys via
+ * its own `getKey`; tombstone deletes carry keys from `deleteKeyOf`.
  */
 export const makeCollectionProjector = <TItem>(
   callbacks: SyncCallbacks<CollectionItem<TItem>>,
@@ -42,15 +40,6 @@ export const makeCollectionProjector = <TItem>(
       ...(entity.value as object),
       _meta: entity.meta,
     }) as CollectionItem<TItem>;
-
-  const insertEntities = (entities: EntityType<TItem>[]): void => {
-    if (entities.length === 0) return;
-    callbacks.begin();
-    for (const entity of entities) {
-      callbacks.write({ type: 'insert', value: toItem(entity) });
-    }
-    callbacks.commit();
-  };
 
   const project = (accepted: Accepted<TItem>): void => {
     if (accepted.upserts.length === 0 && accepted.tombstoned.length === 0) {
@@ -81,6 +70,5 @@ export const makeCollectionProjector = <TItem>(
       }
       project({ upserts, tombstoned });
     },
-    projectAll: insertEntities,
   };
 };

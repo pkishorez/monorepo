@@ -9,7 +9,9 @@ import {
 } from '../../domain/sync-error/index.js';
 import { isEntity } from '../../domain/entity-validation/index.js';
 import {
+  storedSourceCursorEntity,
   storedSourceEntity,
+  syncPersistenceTable,
   type StoredSourceValue,
   type SyncPersistence,
 } from '../sync-persistence-table/index.js';
@@ -19,11 +21,16 @@ export type Accepted<TItem> = {
   tombstoned: string[];
 };
 
+export type Delta<TItem> = {
+  entities: EntityType<TItem>[];
+  position: string | null;
+};
+
 export type SourceOfTruth<TItem> = {
   write: (
     entities: EntityType<TItem>[],
   ) => Effect.Effect<Accepted<TItem>, WriteError>;
-  getAll: () => Effect.Effect<EntityType<TItem>[], WriteError>;
+  since: (position: string | null) => Effect.Effect<Delta<TItem>, WriteError>;
   get: (id: string) => Effect.Effect<EntityType<TItem> | null, WriteError>;
 };
 
@@ -34,6 +41,14 @@ const storedEntity = <TItem>(stored: StoredSourceValue): EntityType<TItem> => ({
 
 const persistenceError = (reason: string) => (cause: DatabaseError) =>
   storageError(reason, cause);
+
+const CURSOR_KEY = 'source';
+const SEQUENCE_WIDTH = 32;
+
+const nextSequence = (position: string | null): string =>
+  (position === null ? 1n : BigInt(position) + 1n)
+    .toString()
+    .padStart(SEQUENCE_WIDTH, '0');
 
 export const makeSourceOfTruth = <TItem>(args: {
   persistence: SyncPersistence;
@@ -55,83 +70,109 @@ export const makeSourceOfTruth = <TItem>(args: {
 
   const key = (id: string) => ({ collection, key: id });
 
-  const updateExisting = (
-    id: string,
-    incoming: EntityType<TItem>,
-    clientNow: number,
-  ): Effect.Effect<EntityType<TItem> | null, DatabaseError> => {
-    let accepted: EntityType<TItem> | null = null;
-    return args.persistence
-      .provide(
-        storedSourceEntity.getAndUpdate(
-          key(id),
-          (stored) => {
-            const current = storedEntity<TItem>(stored);
-            if (converge(current, incoming) === 'skip') {
-              if (
-                !current.meta._d &&
-                incoming.meta._s != null &&
-                incoming.meta._s !== current.meta._s
-              ) {
-                accepted = {
-                  ...current,
-                  meta: {
-                    ...current.meta,
-                    _s: incoming.meta._s,
-                    _c: clientNow,
-                  },
-                };
-                return {
-                  value: accepted.value as {} | null,
-                  meta: accepted.meta,
-                };
-              }
-              accepted = null;
-              return null;
-            }
-            accepted = {
-              ...incoming,
-              meta: { ...incoming.meta, _c: clientNow },
-            };
-            return {
-              value: accepted.value as {} | null,
-              meta: accepted.meta,
-            };
-          },
-          { retries: 10 },
-        ),
-        { collection, operation: 'update', record: 'source-of-truth' },
-      )
-      .pipe(Effect.map(() => accepted));
-  };
-
   const writeOne = (
     id: string,
     incoming: EntityType<TItem>,
     clientNow: number,
   ): Effect.Effect<EntityType<TItem> | null, DatabaseError> => {
-    const stamped: EntityType<TItem> = {
-      ...incoming,
-      meta: { ...incoming.meta, _c: clientNow },
-    };
-    return args.persistence
-      .provide(
-        storedSourceEntity.insert({
+    const attempt = (
+      retries: number,
+    ): Effect.Effect<EntityType<TItem> | null, DatabaseError> =>
+      Effect.gen(function* () {
+        const cursorKey = { collection, key: CURSOR_KEY };
+        const cursor = yield* storedSourceCursorEntity.get(cursorKey);
+        let assigned: string | null = null;
+        let cursorOp;
+        if (cursor === null) {
+          assigned = nextSequence(null);
+          cursorOp = yield* storedSourceCursorEntity.insertOp({
+            ...cursorKey,
+            position: assigned,
+          });
+        } else {
+          cursorOp = yield* storedSourceCursorEntity.getAndUpdateOp(
+            cursorKey,
+            (latest) => {
+              assigned = nextSequence(latest.position);
+              return { position: assigned };
+            },
+          );
+        }
+        if (assigned === null) {
+          return yield* Effect.die(
+            new Error(
+              `Projection Sequence was not assigned for '${collection}'`,
+            ),
+          );
+        }
+        const seq: string = assigned;
+
+        const currentStored = yield* storedSourceEntity.get(key(id));
+        let accepted: EntityType<TItem> | null = null;
+        const sourceOp =
+          currentStored === null
+            ? yield* storedSourceEntity.insertOp({
+                collection,
+                key: id,
+                seq,
+                value: incoming.value as {} | null,
+                meta: { ...incoming.meta, _c: clientNow },
+              })
+            : yield* storedSourceEntity.getAndUpdateOp(key(id), (stored) => {
+                const current = storedEntity<TItem>(stored);
+                if (converge(current, incoming) !== 'skip') {
+                  accepted = {
+                    ...incoming,
+                    meta: { ...incoming.meta, _c: clientNow },
+                  };
+                } else if (
+                  !current.meta._d &&
+                  incoming.meta._s != null &&
+                  incoming.meta._s !== current.meta._s
+                ) {
+                  accepted = {
+                    ...current,
+                    meta: {
+                      ...current.meta,
+                      _s: incoming.meta._s,
+                      _c: clientNow,
+                    },
+                  };
+                }
+                return accepted === null
+                  ? {}
+                  : {
+                      seq,
+                      value: accepted.value as {} | null,
+                      meta: accepted.meta,
+                    };
+              });
+
+        if (currentStored === null) {
+          accepted = {
+            ...incoming,
+            meta: { ...incoming.meta, _c: clientNow },
+          };
+        }
+        if (accepted === null) return null;
+
+        const result = yield* syncPersistenceTable
+          .transact([cursorOp, sourceOp])
+          .pipe(Effect.result);
+        if (result._tag === 'Success') return accepted;
+        if (retries > 0 && result.failure.reason._tag === 'TransactFailed') {
+          return yield* attempt(retries - 1);
+        }
+        return yield* Effect.fail(result.failure);
+      }).pipe((effect) =>
+        args.persistence.provide(effect, {
           collection,
-          key: id,
-          value: stamped.value as {} | null,
-          meta: stamped.meta,
+          operation: 'transact',
+          record: 'source-of-truth',
         }),
-        { collection, operation: 'insert', record: 'source-of-truth' },
-      )
-      .pipe(
-        Effect.as(stamped),
-        Effect.catch((error) =>
-          error.reason._tag === 'ItemAlreadyExists'
-            ? updateExisting(id, incoming, clientNow)
-            : Effect.fail(error),
-        ),
       );
+
+    return attempt(10);
   };
 
   return {
@@ -203,30 +244,32 @@ export const makeSourceOfTruth = <TItem>(args: {
         }
         return { upserts, tombstoned };
       }),
-    getAll: () =>
+    since: (position) =>
       Effect.gen(function* () {
         const entities: EntityType<TItem>[] = [];
+        let latest = position;
         let after: EntityType<StoredSourceValue> | undefined;
         let hasMore = true;
         while (hasMore) {
           const page = yield* args.persistence.provide(
             storedSourceEntity.query(
-              'primary',
-              { pk: { collection }, '>': null },
+              'bySequence',
+              position === null
+                ? { pk: { collection }, '>': null }
+                : { pk: { collection }, '>': { seq: position } },
               { limit: 100, ...(after === undefined ? {} : { after }) },
             ),
             { collection, operation: 'query', record: 'source-of-truth' },
           );
           for (const item of page.items) {
-            if (!item.value.meta._d) {
-              entities.push(storedEntity<TItem>(item.value));
-            }
+            entities.push(storedEntity<TItem>(item.value));
+            latest = item.value.seq;
           }
           hasMore = page.hasMore;
           after = page.items.at(-1);
           if (after === undefined) break;
         }
-        return entities;
+        return { entities, position: latest };
       }).pipe(
         Effect.mapError(
           persistenceError('failed to read Source of Truth entities'),

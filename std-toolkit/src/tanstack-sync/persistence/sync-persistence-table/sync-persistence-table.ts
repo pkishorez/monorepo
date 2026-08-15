@@ -11,6 +11,7 @@ const storedSourceSchema = EntityESchema.make(
   'key',
   {
     collection: Schema.String,
+    seq: Schema.String,
     value: fromType<OpaqueValue>(),
     meta: MetaSchema,
   },
@@ -26,12 +27,28 @@ const storedSyncStateSchema = EntityESchema.make(
   },
 ).build();
 
+const storedSourceCursorSchema = EntityESchema.make(
+  'TanStackSyncStoredSourceCursor',
+  'key',
+  {
+    collection: Schema.String,
+    position: Schema.String,
+  },
+).build();
+
 export const syncPersistenceTable = StdTable.make(TABLE_NAME)
   .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
   .build();
 
 export const storedSourceEntity = syncPersistenceTable
   .entity(storedSourceSchema)
+  .primary({ pk: ['collection'] })
+  .index('LSI1', 'bySequence', { sk: ['seq'] })
+  .build();
+
+export const storedSourceCursorEntity = syncPersistenceTable
+  .entity(storedSourceCursorSchema)
   .primary({ pk: ['collection'] })
   .build();
 
@@ -41,6 +58,7 @@ export const storedSyncStateEntity = syncPersistenceTable
   .build();
 
 export type StoredSourceValue = typeof storedSourceSchema.Type;
+export type StoredSourceCursorValue = typeof storedSourceCursorSchema.Type;
 export type StoredSyncStateValue = typeof storedSyncStateSchema.Type;
 export type SyncPersistenceLayer = Layer.Layer<
   StdTableService<typeof TABLE_NAME>
@@ -51,7 +69,7 @@ export type SyncPersistence = {
     effect: Effect.Effect<A, E, StdTableService<typeof TABLE_NAME>>,
     details: {
       readonly collection: string;
-      readonly operation: 'get' | 'insert' | 'query' | 'update';
+      readonly operation: 'get' | 'insert' | 'query' | 'transact' | 'update';
       readonly record: 'source-of-truth' | 'sync-state';
       readonly strategy?: string;
     },

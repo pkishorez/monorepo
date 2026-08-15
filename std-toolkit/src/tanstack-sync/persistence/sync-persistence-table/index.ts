@@ -1,8 +1,10 @@
 export {
   makeSyncPersistence,
+  storedSourceCursorEntity,
   storedSourceEntity,
   storedSyncStateEntity,
   syncPersistenceTable,
+  type StoredSourceCursorValue,
   type StoredSourceValue,
   type StoredSyncStateValue,
   type SyncPersistence,

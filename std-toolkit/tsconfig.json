@@ -7,6 +7,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
+      "std-toolkit/tanstack-sync": ["./src/tanstack-sync/index.ts"],
       "std-toolkit/db": ["./src/db/index.ts"],
       "std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
       "std-toolkit/db/idb": ["./src/db/idb/index.ts"],

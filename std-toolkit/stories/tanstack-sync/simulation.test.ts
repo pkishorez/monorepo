@@ -7,6 +7,7 @@ import { issue1 } from './issue-1/issue-1.story.js';
 import { crossCollection } from './optimistic-transactions/cross-collection.story.js';
 import { oneListAtATime } from './syncing-on-demand/one-list-at-a-time.story.js';
 import { editsKeepFlowing } from './staying-current/edits-keep-flowing.story.js';
+import { oneBrowserManyTabs } from './two-tabs/one-browser-many-tabs.story.js';
 import { fromDatabaseToCollection } from './wiring-a-collection/from-database-to-collection.story.js';
 
 const stories: readonly Story[] = [
@@ -16,6 +17,7 @@ const stories: readonly Story[] = [
   editsKeepFlowing,
   oneListAtATime,
   crossCollection,
+  oneBrowserManyTabs,
   issue1,
 ];
 
