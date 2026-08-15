@@ -2,7 +2,6 @@ export {
   FlowEntitySchema,
   FlowListSchema,
   FlowNotFound,
-  FlowStatusSchema,
   RecordedFlowSchema,
   makeRecordedFlow,
   prepareFlowLog,

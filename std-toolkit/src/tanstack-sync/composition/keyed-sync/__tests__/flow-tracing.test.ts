@@ -119,7 +119,13 @@ describe('collection flow tracing', () => {
             Effect.andThen(Effect.never),
           ),
     });
-    const built = createStdSync({ runtime }).sync({
+    const built = createStdSync({
+      runtime,
+      flow: {
+        id: 'tanstack-sync-story::test',
+        participantPrefix: 'browser:alice',
+      },
+    }).sync({
       schema,
       sync: {
         total: { strategy: strategy('global-worker', true) },
@@ -168,16 +174,43 @@ describe('collection flow tracing', () => {
     );
     mounted.unloadSubset(subset);
     mounted.unloadSubset(subset);
+    // Refcount is back to 0. Reactivating must reuse the same lane and open a
+    // second Activation on it rather than minting a new participant.
+    mounted.loadSubset(subset);
+    await vi.waitFor(() =>
+      expect(
+        recorder
+          .snapshotFlows()[0]
+          ?.items.filter((item) => item.name === 'Custom strategy working'),
+      ).toHaveLength(3),
+    );
+    mounted.unloadSubset(subset);
     await mounted.cleanup();
 
     const flows = recorder.snapshotFlows();
     expect(flows).toHaveLength(1);
     const flow = flows[0]!;
-    expect(flow.id).toMatch(
-      /^std-collection::Comment::[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
-    );
-    expect(flow.status).toBe('active');
+    expect(flow.id).toBe('tanstack-sync-story::test');
+    expect(flow.id).toBe(built.utils.flowId());
     expect(flow.warnings).toEqual([]);
+    const partitionLanes = new Set(
+      flow.activations
+        .filter(({ name }) => name === 'Partition active')
+        .map(({ participantName }) => participantName),
+    );
+    expect(
+      flow.activations.map(({ name, outcome }) => [name, outcome]),
+    ).toEqual([
+      ['Collection lifecycle', 'completed'],
+      ['Sync lifecycle', 'completed'],
+      ['Partition active', 'completed'],
+      ['Partition active', 'completed'],
+    ]);
+    // Two Activations, one lane.
+    expect(partitionLanes.size).toBe(1);
+    expect(flow.activations.every(({ endItemId }) => endItemId !== null)).toBe(
+      true,
+    );
     expect(
       recorder.snapshot().spans.every((span) => span.endTime !== null),
     ).toBe(true);
@@ -218,9 +251,9 @@ describe('collection flow tracing', () => {
     );
     expect(participants).toEqual(
       new Set([
-        'collection',
-        'global-sync::global-worker',
-        'partition-sync::postId=string:"post-1"::partition-worker',
+        'browser:alice/collection:Comment',
+        'browser:alice/collection:Comment/global-sync::global-worker',
+        'browser:alice/collection:Comment/partition-sync::postId=string:"post-1"::partition-worker',
       ]),
     );
     expect(
@@ -228,7 +261,7 @@ describe('collection flow tracing', () => {
         (item) =>
           item.kind === 'message' && item.name === 'Partition subscribe',
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     const syncWrites = recorder
       .snapshot()
       .logs.filter((log) => log.message === 'Source of Truth write');
@@ -250,8 +283,8 @@ describe('collection flow tracing', () => {
       ),
     ).toEqual(
       new Set([
-        'global-sync::global-worker',
-        'partition-sync::postId=string:"post-1"::partition-worker',
+        'browser:alice/collection:Comment/global-sync::global-worker',
+        'browser:alice/collection:Comment/partition-sync::postId=string:"post-1"::partition-worker',
       ]),
     );
   });
@@ -289,12 +322,20 @@ describe('collection flow tracing', () => {
 
     const flows = recorder.snapshotFlows();
     expect(flows).toHaveLength(1);
-    expect(flows[0]?.status).toBe('active');
+    expect(flows[0]?.id).toMatch(
+      /^std-collection::Comment::[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
     expect(
       flows[0]?.items.filter((item) => item.name === 'Collection start'),
     ).toHaveLength(2);
     expect(
       flows[0]?.items.filter((item) => item.name === 'Collection cleanup'),
     ).toHaveLength(2);
+    // One stable lane, two Activations — the case the lane brightness exists for.
+    expect(flows[0]?.activations).toMatchObject([
+      { participantName: 'collection', outcome: 'completed' },
+      { participantName: 'collection', outcome: 'completed' },
+    ]);
+    expect(flows[0]?.warnings).toEqual([]);
   });
 });

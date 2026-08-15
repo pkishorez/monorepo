@@ -31,8 +31,11 @@ import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { startSingleItemLifecycle } from '../../lifecycle/single-item-lifecycle/index.js';
 import { nextUlid } from '../../../core/index.js';
 import {
+  Activation,
   makeCollectionFlow,
   singleItemParticipantName,
+  type ActivationRef,
+  type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
 
@@ -46,6 +49,7 @@ export type SingleItemResult<
   SingleResult & {
     utils: {
       schema: () => S;
+      flowId: () => string;
       writeServerTruth: (
         entities: EntityType<TItem>[],
       ) => Effect.Effect<void, WriteError>;
@@ -73,12 +77,17 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
     runner: EffectRunner<R>;
     report: SyncReporter<R>;
+    flowPlacement?: FlowPlacement;
   },
 ): SingleItemResult<S['Type'], S> => {
   type TItem = S['Type'];
 
   const { schema, strategy, options, onUpdate, updatePacing } = config;
-  const flow = makeCollectionFlow(schema.name, config.runner.runSync(nextUlid));
+  const flow = makeCollectionFlow(
+    schema.name,
+    config.runner.runSync(nextUlid),
+    config.flowPlacement,
+  );
   const sot = makeSourceOfTruth<TItem>({
     schema,
     persistence: config.persistence,
@@ -100,6 +109,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   type Projector = ReturnType<typeof makeCollectionProjector<TItem>>;
   let projector: Projector | null = null;
+  let collectionActivation: ActivationRef | null = null;
   let collectionUpdate:
     | ((updater: (draft: CollectionItem<TItem>) => void) => Transaction)
     | null = null;
@@ -162,6 +172,9 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     const strategyFlow = flow.participant(
       singleItemParticipantName(strategy.name),
     );
+    collectionActivation = config.runner.runSync(
+      flow.collection.activation.start('Collection lifecycle'),
+    );
     config.runner.runSync(
       flow.collection.log('Collection start', {
         attributes: { collection: schema.name },
@@ -197,6 +210,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
                 entityCount: entities.length,
               },
             });
+            yield* flow.collection.state({ projectedRows: entities.length });
             yield* flow.collection.send(
               strategyFlow.name,
               'Single-item sync start',
@@ -280,6 +294,12 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
             attributes: { collection: schema.name },
           }),
         );
+        if (collectionActivation) {
+          await config.runner.runPromise(
+            collectionActivation.end(Activation.completed()),
+          );
+          collectionActivation = null;
+        }
       }),
     };
   };
@@ -293,6 +313,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     onUpdate: handlers.onUpdate,
     utils: {
       schema: () => schema,
+      flowId: () => flow.id,
       writeServerTruth,
       onUpdate: handlers.onUpdate,
       pacedUpdate: (changes: Partial<TItem>) => {

@@ -1,5 +1,6 @@
 import {
   Cause,
+  Clock,
   Effect,
   Exit,
   Logger,
@@ -7,8 +8,10 @@ import {
   References,
   Tracer,
 } from 'effect';
-import type { RecordedFlow } from '../flow/index.js';
+import { RecordedFlowSchema } from '../flow/index.js';
 import { projectRecordedFlow, recordedFlowIds } from './flow-snapshot.js';
+
+type RecordedFlow = typeof RecordedFlowSchema.Type;
 
 const DEFAULT_MAX_SPANS = 2_000;
 
@@ -185,7 +188,12 @@ export function makeTraceRecorder(
     const log: CapturedLog = {
       id: `log-${logSequence++}`,
       spanId: logOptions.fiber.currentSpan?.spanId ?? null,
-      timestamp: logOptions.date.getTime(),
+      // The tracer stamps spans from Clock's nanosecond source while
+      // `logOptions.date` comes from `Date.now()`. Mixing them lets a log sort
+      // before the span it was written inside, so read the same clock here.
+      timestamp: nanosToMillis(
+        logOptions.fiber.getRef(Clock.Clock).currentTimeNanosUnsafe(),
+      ),
       level,
       message: toValue(
         Array.isArray(logOptions.message) && logOptions.message.length === 1

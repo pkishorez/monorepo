@@ -16,6 +16,7 @@ import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
 import type {
   CollectionItem,
+  DeletePayload,
   UpdateChanges,
   UpdatePayload,
 } from '../../runtime/collection-model/index.js';
@@ -40,8 +41,11 @@ import {
 import { makeSyncExecution } from '../../lifecycle/sync-execution/index.js';
 import { nextUlid } from '../../../core/index.js';
 import {
+  Activation,
   makeCollectionFlow,
   partitionParticipantName,
+  type ActivationRef,
+  type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
 
@@ -49,6 +53,7 @@ type Projector<TItem> = ReturnType<typeof makeCollectionProjector<TItem>>;
 
 export type EngineUtils<S extends AnyEntityESchema> = {
   schema: () => S;
+  flowId: () => string;
   writeUpsert: (
     entities: EntityType<S['Type']> | EntityType<S['Type']>[],
   ) => Effect.Effect<void, WriteError>;
@@ -75,7 +80,9 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     onUpdate?: (
       payload: UpdatePayload<S['Type'], S>,
     ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
-    onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+    onDelete?: (
+      payload: DeletePayload<S['Type']>,
+    ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
     persistence: SyncPersistence;
     assertActive: () => void;
@@ -83,6 +90,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     defaultCadence?: CadenceConfig;
     runner?: EffectRunner<R>;
     report: SyncReporter<R>;
+    flowPlacement?: FlowPlacement;
   },
 ): CollectionConfig<
   CollectionItem<S['Type']>,
@@ -97,7 +105,11 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
 
   const { schema } = config;
   const runner = config.runner ?? makeEffectRunner<R>(undefined);
-  const flow = makeCollectionFlow(schema.name, runner.runSync(nextUlid));
+  const flow = makeCollectionFlow(
+    schema.name,
+    runner.runSync(nextUlid),
+    config.flowPlacement,
+  );
   const partitionFields = Object.keys(config.partitions ?? {});
   const resolvePartitionEntry = (
     field: string,
@@ -130,6 +142,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     | null = null;
   // The native collection is needed by per-partition cadence loops.
   let nativeCollection: SyncCollection<TItem> | null = null;
+  let collectionActivation: ActivationRef | null = null;
   const writeServerTruth = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
@@ -211,14 +224,24 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
 
   const utils: EngineUtils<S> = {
     schema: () => schema,
+    flowId: () => flow.id,
     writeUpsert: (entities) => {
       const batch = toArray(entities);
       return writeServerTruth(batch);
     },
     pacedUpdate: (key, changes) => {
       config.assertActive();
+      const currentRow = nativeCollection
+        ? [...nativeCollection.values()].find(
+            (item) => String(item[schema.idField]) === key,
+          )
+        : undefined;
+      if (!currentRow) {
+        throw new Error(`Cannot pace update for missing key "${key}"`);
+      }
       return handlers.pacedUpdate(
         key,
+        currentRow,
         changes,
         (key: string, changes: Partial<TItem>): void => {
           collectionUpdate?.(key, (draft) => {
@@ -253,6 +276,9 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     sync: {
       sync: (callbacks) => {
         config.assertActive();
+        collectionActivation = runner.runSync(
+          flow.collection.activation.start('Collection lifecycle'),
+        );
         runner.runSync(
           flow.collection.log('Collection start', {
             attributes: { collection: schema.name },
@@ -293,6 +319,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
                   entityCount: all.length,
                 },
               });
+              yield* flow.collection.state({ projectedRows: all.length });
               if (config.total) {
                 yield* execution
                   .start(GLOBAL_PARTITION_KEY, config.total, flow)
@@ -312,6 +339,11 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
                         attributes: { cause: String(error) },
                         level: 'error',
                       }),
+                    ),
+                    Effect.andThen(
+                      collectionActivation === null
+                        ? Effect.void
+                        : collectionActivation.end(Activation.failed(error)),
                     ),
                   ),
               ),
@@ -342,14 +374,20 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               { field: r.field, value: r.partitionValue },
               entry.strategy.name,
             );
-            partitionParticipants.set(r.partitionKey, participantName);
+            const qualifiedParticipantName =
+              flow.participant(participantName).name;
+            partitionParticipants.set(r.partitionKey, qualifiedParticipantName);
             runner.runSync(
-              flow.collection.send(participantName, 'Partition subscribe', {
-                attributes: {
-                  partitionKey: r.partitionKey,
-                  subscriberCount: r.subscriberCount,
+              flow.collection.send(
+                qualifiedParticipantName,
+                'Partition subscribe',
+                {
+                  attributes: {
+                    partitionKey: r.partitionKey,
+                    subscriberCount: r.subscriberCount,
+                  },
                 },
-              }),
+              ),
             );
             runner.runSync(
               execution.start(r.partitionKey, entry, flow, {
@@ -402,6 +440,12 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               attributes: { collection: schema.name },
             }),
           );
+          if (collectionActivation) {
+            await runner.runPromise(
+              collectionActivation.end(Activation.completed()),
+            );
+            collectionActivation = null;
+          }
         };
 
         return {

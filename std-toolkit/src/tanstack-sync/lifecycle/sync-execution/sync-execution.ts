@@ -15,11 +15,14 @@ import { superviseStrategy } from '../strategy-lifecycle/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { PartitionValue } from '../../domain/partition-identity/index.js';
 import {
+  Activation,
   cadenceParticipantName,
   globalParticipantName,
   partitionParticipantName,
+  type ActivationRef,
   type CollectionFlow,
   type FlowParticipant,
+  type MessageToken,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
 
@@ -57,7 +60,11 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
         scope: Scope.Closeable;
         flow: CollectionFlow;
         strategy: FlowParticipant;
-        cadence?: FlowParticipant;
+        strategyActivation: ActivationRef;
+        strategyToken: MessageToken;
+        cadence?: FlowParticipant | undefined;
+        cadenceActivation?: ActivationRef | undefined;
+        cadenceToken?: MessageToken | undefined;
       }
     >();
 
@@ -69,27 +76,23 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
         yield* active.flow.collection.send(active.strategy.name, 'Sync stop', {
           attributes: { partitionKey },
         });
-        yield* active.strategy.log('Sync cleanup', {
-          attributes: { partitionKey },
-        });
         if (active.cadence) {
           yield* active.flow.collection.send(
             active.cadence.name,
             'Cadence stop',
             { attributes: { partitionKey } },
           );
-          yield* active.cadence.log('Cadence cleanup', {
-            attributes: { partitionKey },
-          });
         }
         yield* Scope.close(active.scope, Exit.void);
-        yield* active.strategy.log('Sync end', {
+        yield* active.strategy.reply(active.strategyToken, 'Sync ended', {
           attributes: { partitionKey },
         });
-        if (active.cadence) {
-          yield* active.cadence.log('Cadence end', {
+        yield* active.strategyActivation.end(Activation.completed());
+        if (active.cadence && active.cadenceActivation && active.cadenceToken) {
+          yield* active.cadence.reply(active.cadenceToken, 'Cadence ended', {
             attributes: { partitionKey },
           });
+          yield* active.cadenceActivation.end(Activation.completed());
         }
       });
 
@@ -118,10 +121,14 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
             : {}),
         };
 
-        yield* flow.collection.send(strategyFlow.name, 'Sync start', {
-          attributes,
-        });
-        yield* strategyFlow.log('Sync start', { attributes });
+        const strategyToken = yield* flow.collection.send(
+          strategyFlow.name,
+          'Sync start',
+          { attributes },
+        );
+        const strategyActivation = yield* strategyFlow.activation.start(
+          partition ? 'Partition active' : 'Sync lifecycle',
+        );
 
         const strategyRun = superviseStrategy({
           run: (attemptScope) =>
@@ -181,12 +188,17 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
         const cadence = repair?.cadence ?? args.defaultCadence;
         const collection = args.collection();
         let cadenceFlow: FlowParticipant | undefined;
+        let cadenceActivation: ActivationRef | undefined;
+        let cadenceToken: MessageToken | undefined;
         if (repair && cadence && collection) {
           cadenceFlow = flow.participant(cadenceParticipantName(partition));
-          yield* flow.collection.send(cadenceFlow.name, 'Cadence start', {
-            attributes,
-          });
-          yield* cadenceFlow.log('Cadence start', { attributes });
+          cadenceToken = yield* flow.collection.send(
+            cadenceFlow.name,
+            'Cadence start',
+            { attributes },
+          );
+          cadenceActivation =
+            yield* cadenceFlow.activation.start('Cadence repair');
           const cadenceRun = superviseStrategy({
             run: () =>
               runCadenceSync({
@@ -236,7 +248,11 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
           scope: ownerScope,
           flow,
           strategy: strategyFlow,
-          ...(cadenceFlow ? { cadence: cadenceFlow } : {}),
+          strategyActivation,
+          strategyToken,
+          ...(cadenceFlow
+            ? { cadence: cadenceFlow, cadenceActivation, cadenceToken }
+            : {}),
         });
       });
 

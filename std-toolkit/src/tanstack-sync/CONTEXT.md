@@ -49,9 +49,13 @@ The rule applies to strategy results, mutation results, persisted manual writes,
 
 ### Collection
 
-A TanStack DB in-memory projection of one entity type. It holds Items visible to the UI. It is not the source of truth.
+A named TanStack DB in-memory projection of one entity type. It holds Items visible to the UI but is not the source of truth.
 
 The collection may contain rows from partitions that are no longer active. Partition unload stops sync work; it does not remove projected rows.
+
+### Collection Name
+
+The owning schema's `name`, used as the canonical identity of a Collection. A Browser may own at most one Collection with a given Collection Name; operations in another Browser reach it through Backend sync rather than direct mutation.
 
 ### Sync Shape
 
@@ -76,7 +80,7 @@ A partition is not a collection-retention boundary. Rows loaded by inactive part
 
 ### Source of Truth (SoT)
 
-The per-collection server-confirmed state owned by the engine.
+The per-Collection server-confirmed state owned by one Browser's sync engine. It is authoritative for that Collection; the Backend remains authoritative for the application data represented in a Simulation.
 
 For keyed collections, it is one entity namespace per collection (not per partition). For single-item collections, it is the singleton equivalent.
 
@@ -201,11 +205,11 @@ type StrategyContext<TItem, TState> = {
 
 ### Collection Flow
 
-The Effect Tracer Flow for one Collection instance. It is created with the Collection configuration and has id `std-collection::<schema-name>::<ulid>`. TanStack DB starting `sync(callbacks)` and later running cleanup are events inside the same Flow. A later start of the same Collection reuses that Flow. std-sync never emits a terminal Flow status; the Flow stays active for the full lifetime of the Collection object.
+The Effect Tracer Flow for one Collection instance. It is created with the Collection configuration and has id `std-collection::<schema-name>::<ulid>`. TanStack DB starting `sync(callbacks)` and later running cleanup bound one **Activation** of the `collection` participant; a later start of the same Collection reuses the Flow and opens a new Activation. A Flow has no terminal status — lifecycle is carried by Activations, never by the Flow.
 
 The `collection` participant records initialization, readiness, cleanup, mutations, Registry deliveries, and control messages. A global strategy has one worker participant. Each logical Partition has one stable worker participant across repeated `0→1→0` Sync Lifecycles, so multiple subscribers and later reactivation remain in the same lane. Cadence Repair and Single Item Sync use their own worker participants. SoT is nested work inside the calling participant, not a participant of its own.
 
-Lifecycle boundaries and subscriber counts are Flow logs or messages. Each supervised strategy attempt is a Flow activity. Nested API, Sync State, and SoT spans remain available through that activity's trace. After each non-empty strategy or Cadence Repair delivery, the worker logs `receivedCount` and `storedCount`; `storedCount` is the number of live upserts and tombstones accepted by SoT convergence. Custom strategies receive only `log` and `withSpan` through `StrategyContext.flow`; lifecycle remains the only owner of messages.
+Every participant with a real lifecycle records it as an **Activation**: the collection across start-to-cleanup, each strategy and Cadence Repair across its supervised run, and each Partition across one refcount `0 -> 1 -> 0` cycle on its stable lane. Supervised retries stay inside one Activation — between attempts the participant is sleeping, not deactivated — so an Activation that ends `failed` means supervision gave up. Lifecycle boundaries and subscriber counts are Flow logs or messages. Each supervised strategy attempt is a Flow activity. Nested API, Sync State, and SoT spans remain available through that activity's trace. After each non-empty strategy or Cadence Repair delivery, the worker logs `receivedCount` and `storedCount`; `storedCount` is the number of live upserts and tombstones accepted by SoT convergence. Custom strategies receive only `log`, `state`, and `withSpan` through `StrategyContext.flow`; lifecycle remains the only owner of messages, Replies, and Activations.
 
 Collection start, cleanup, and initialization failure are non-terminal events. Strategy and Cadence Repair failures remain local to their participant because supervision retries them. If Effect telemetry is not configured for export, these spans and logs have no external exporter; std-sync has no separate tracing switch.
 
@@ -363,11 +367,49 @@ A distinct axis from a **sync strategy**. A _pace strategy_ controls **when** `p
 
 ### Sync Story
 
-A story about tanstack-sync. Its assertion is **convergence** — after a scripted sequence of participant actions, the Collection's state matches the database's. The captured Collection Flow is the story's narrative, not its assertion; flow shape is never asserted.
+A user journey that explains tanstack-sync through a scripted conversation between Simulation participants. A Sync Story may assert visible query results, Collection state, lifecycle behavior, or eventual agreement with the Backend; convergence is not its only possible assertion.
 
 ### Simulation
 
-The scripted world a Sync Story runs in. A deterministic script drives **participants** (the same term as Collection Flow lanes — _Avoid_: actor) against a StdTable playing the server. Story-side participants such as the **user** join the Collection Flow through its observable id, so scripted actions and engine sync work appear as lanes in one Flow. Scripts are sequential today; the model permits controlled interleaving later.
+The generic, type-safe scripted world a Sync Story runs in. A deterministic script drives named **participants** (the same term as Collection Flow lanes — _Avoid_: actor) whose actions and messages form the story's narrative; domain fixtures such as Todos configure the world without defining its mechanics.
+
+### Simulation Flow
+
+The single Flow shared by every participant in one Sync Story. Qualified participant names keep multiple Browsers, Live Queries, Collections, and Sync Workers distinct while preserving one chronological conversation.
+
+### Backend
+
+The single authoritative application-side participant in a Simulation. It owns durable application data and exposes the operations and change feeds through which Browsers and Sync Workers communicate with that data.
+
+_Avoid_: Server, Backend Store, database.
+
+### Browser
+
+One independent client runtime through which a user interacts with the application. A Simulation may contain multiple named Browsers, each owning its own Sync Store, Collections, Sync Workers, and any number of Live Queries.
+
+_Avoid_: User, client.
+
+### Browser Connection
+
+The communication path between one Browser and the Backend. Disconnecting it isolates that Browser without taking the Backend or other Browsers offline; disconnected mutations fail unless the application supplies a real offline queue.
+
+### Live Query
+
+A Browser-owned TanStack DB reactive Collection created by mounting a query over one or more source Collections. A Simulation may contain multiple named Live Queries whose independent subscriptions can activate and deactivate sync work.
+
+_Avoid_: Subscription, mounted collection.
+
+### Optimistic Action
+
+A Browser operation that groups one or more Collection mutations in a TanStack DB optimistic transaction before persisting them through the Backend. It settles only after the Backend-confirmed Entities have returned to the acting Browser's Source of Truth; failure rolls back the optimistic Collection state.
+
+### Direct Mutation
+
+A single Browser insert, update, or remove performed through one Collection's mutation callback. It is distinct from an Optimistic Action, which supplies one transaction-level Backend operation for mutations spanning one or more Collections.
+
+### Sync Worker
+
+A strategy runtime that carries Backend changes into a Collection's engine-owned state. A Simulation may contain multiple Sync Workers, including independent workers for active Partitions.
 
 A Simulation runs on **real time** — there is no simulated clock (TanStack DB reads the system clock directly, so a substitute time source cannot be truthful). Determinism comes from awaiting convergence, never from fixed sleeps. "Updated some time back" means an older `_u`, which ULID ordering provides; a story that needs a literal past timestamp backdates the `Ulid` factory while seeding history, at the data level.
 

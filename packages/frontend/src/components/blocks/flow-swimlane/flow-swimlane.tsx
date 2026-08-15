@@ -1,4 +1,4 @@
-import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
+import type { RecordedFlow } from './model';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { FlowCanvas } from './flow-canvas';
 import { makeFlowLayout } from './layout';
@@ -24,7 +24,7 @@ export function FlowSwimlane({
   onItemClick,
   onActivityClick,
 }: FlowSwimlaneProps) {
-  const layout = makeFlowLayout(flow.items);
+  const layout = makeFlowLayout(flow);
 
   return (
     <div

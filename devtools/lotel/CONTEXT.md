@@ -52,28 +52,22 @@ A correlated occurrence of work across Participants, composed of all or parts
 of one or more Traces and related Log Records.
 _Avoid_: Conversation, Interaction, Sequence, Long-running Trace, Session.
 
-**Flow End**:
-An Event that explicitly changes a Flow from active to completed, failed, or
-cancelled. Inactivity does not end a Flow.
-_Avoid_: Inferred completion.
-
-**Flow Status**:
-The lifecycle state of a Flow: active, completed, failed, or cancelled.
-Completed, failed, and cancelled are terminal.
-
 **Flow Entity**:
-The stored catalog entry for a Flow. It contains the Flow ID, latest Flow Item
-time, and Flow Status.
+The stored catalog entry for a Flow. It contains the Flow ID and latest Flow
+Item time. A Flow has no lifecycle state of its own: it is a correlation scope,
+not a state machine, and it never completes. Lifecycle belongs to Activations.
 
 **Recorded Flow**:
-The read model derived from recorded Flow Spans and Flow Log Records. Effect
+The read model derived from recorded Flow Spans and Flow Log Records, including
+each Participant's Activations paired from their Start and End records. Effect
 Tracer's `flow` module owns its contract, recorders expose it through
 `snapshotFlow` and `snapshotFlows`, and lotel's `GetFlow` returns the same model
 from stored telemetry.
 
 **Participant**:
 A distinct party that performs activity in a Flow and occupies one
-swim lane.
+swim lane. A Participant exists for the whole Flow; it is alive only during its
+Activations.
 _Avoid_: Actor.
 
 **Participant Name**:
@@ -89,13 +83,40 @@ Participant, records one Activity, and appears as one node in the Flow view.
 Its ordinary descendant Spans are drill-down detail. Flow Spans are not nested.
 
 **Flow Item**:
-One Activity, Local Event, or Message in a Flow. Flow Items have a chronological
-order.
+One Activity, Local Event, Message, Activation Start, Activation End, or
+Participant State record in a Flow. Flow Items have a chronological order.
+
+**Activation**:
+One continuous window during which a Participant is alive in a Flow, bounded by
+an Activation Start and an Activation End. A Participant may have any number of
+Activations over a Flow's life, but at most one open at a time; a second Start
+before an End, or an End with no open Activation, is a warning. A Participant
+that records no Activation is not dormant — it simply declines to state its
+lifecycle, and its swim lane renders as if Activations did not exist.
+_Avoid_: Participant lifetime, session, episode.
+
+**Activation Outcome**:
+Why an Activation ended: completed, failed, or interrupted. A failed outcome
+carries its cause as an ordinary attribute. Outcome describes the Activation
+only; supervision may restart the work, so a failed Activation does not mean
+the Flow or the Participant failed.
+
+**Participant State**:
+A partial, keyed snapshot a Participant publishes about itself at a point in a
+Flow, such as a stored row count or a covered-range list. Successive snapshots
+merge forward per key, so a Participant may publish only what changed, and the
+merged value is readable at any later point. State belongs to the Participant,
+not to an Activation: it survives the gap between Activations.
 
 **Message**:
 A Flow Log Record that records information sent from one Participant to one or
 more other Participants. It appears as an arrow between their swim lanes.
 Sending does not imply receipt or processing.
+
+**Reply**:
+A Message that identifies the Message it answers. It closes a round trip, so
+the elapsed time between the two is meaningful. Sending a Message never implies
+a Reply.
 
 **Log Record**:
 One log event together with the Resource and Instrumentation Scope that produced
@@ -103,7 +124,8 @@ it. A Log Record can identify a Trace and Span but remains distinct from both.
 
 **Flow Log Record**:
 A Log Record that identifies a Flow and Participant. It appears independently
-of Flow Spans as either a Local Event or Message.
+of Flow Spans as a Local Event, a Message, an Activation boundary, or a
+Participant State record.
 
 **Local Event**:
 A Flow Log Record that conveys information about its Participant. Its severity

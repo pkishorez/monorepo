@@ -2,7 +2,7 @@ import { Effect } from 'effect';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
-import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
+import type { RecordedFlow } from './model';
 import { FlowSwimlane } from './flow-swimlane';
 import { flowScenarios } from './examples/scenarios';
 
@@ -18,7 +18,8 @@ describe('FlowSwimlane', () => {
     expect(markup).toContain('data-flow-item="activity"');
     expect(markup).toContain('data-flow-item="local-event"');
     expect(markup).toContain('data-flow-item="message"');
-    expect(markup).toContain('data-flow-terminal="completed"');
+    expect(markup).toContain('data-flow-activation="completed"');
+    expect(markup).toContain('data-flow-item="activation-start"');
     expect(markup).toContain('client-a');
     expect(markup).toContain('signaling-server');
     expect(markup).toContain('client-b');
@@ -45,8 +46,8 @@ describe('FlowSwimlane', () => {
   it('selects a consolidated summary by any member ID', () => {
     const flow: RecordedFlow = {
       id: 'sync-flow',
-      status: 'active',
       latestTimestamp: 2,
+      activations: [],
       warnings: [],
       items: [
         {

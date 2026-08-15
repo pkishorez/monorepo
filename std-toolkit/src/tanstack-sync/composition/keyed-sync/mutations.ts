@@ -10,6 +10,7 @@ import type { AnyEntityESchema } from '../../../eschema/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type {
   CollectionItem,
+  DeletePayload,
   UpdatePayload,
 } from '../../runtime/collection-model/index.js';
 import {
@@ -17,17 +18,13 @@ import {
   coalesceStrategy,
   type PaceStrategyFactory,
 } from '../../runtime/mutation-pacing/index.js';
-import { stripMetaPartial } from '../../runtime/collection-model/index.js';
+import {
+  stripMeta,
+  stripMetaPartial,
+} from '../../runtime/collection-model/index.js';
 import type { EffectRunner } from '../../runtime/effect-runner/index.js';
 import type { PendingTracker } from '../../runtime/pending-mutations/index.js';
 import type { CollectionFlow } from '../../runtime/sync-flow/index.js';
-
-const stripMeta = <TItem extends object>(
-  item: CollectionItem<TItem>,
-): TItem => {
-  const { _meta: _ignored, ...value } = item;
-  return value as TItem;
-};
 
 /**
  * Builds the TanStack mutation handlers for a partitioned collection. Each handler
@@ -52,7 +49,9 @@ export const buildMutationHandlers = <
   onUpdate?: (
     payload: UpdatePayload<S['Type'], S>,
   ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
-  onDelete?: (id: string) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  onDelete?: (
+    payload: DeletePayload<S['Type']>,
+  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
   pending: PendingTracker;
   runner: EffectRunner<R>;
@@ -72,8 +71,6 @@ export const buildMutationHandlers = <
     runner,
     flow,
   } = args;
-
-  const idField = schema.idField as string;
 
   const runMutation = async (
     key: string,
@@ -106,10 +103,10 @@ export const buildMutationHandlers = <
   };
 
   const buildUpdatePayload = (
-    key: string,
+    current: CollectionItem<TItem>,
     updates: Partial<TItem>,
   ): UpdatePayload<TItem, S> =>
-    ({ [idField]: key, updates }) as unknown as UpdatePayload<TItem, S>;
+    ({ current: stripMeta(current), updates }) as UpdatePayload<TItem, S>;
 
   const insertHandler = onInsert
     ? async ({
@@ -131,7 +128,7 @@ export const buildMutationHandlers = <
         await runMutation(
           key,
           'update',
-          onUpdate(buildUpdatePayload(key, updates)),
+          onUpdate(buildUpdatePayload(mutation.original, updates)),
         );
       }
     : undefined;
@@ -140,8 +137,13 @@ export const buildMutationHandlers = <
     ? async ({
         transaction,
       }: DeleteMutationFnParams<TCollItem, string>): Promise<void> => {
-        const key = String(transaction.mutations[0]!.key);
-        await runMutation(key, 'delete', onDelete(key));
+        const mutation = transaction.mutations[0]!;
+        const key = String(mutation.key);
+        await runMutation(
+          key,
+          'delete',
+          onDelete({ current: stripMeta(mutation.original) }),
+        );
       }
     : undefined;
 
@@ -153,6 +155,7 @@ export const buildMutationHandlers = <
         >();
         return (
           key: string,
+          current: CollectionItem<TItem>,
           changes: Partial<TItem>,
           optimistic: (key: string, changes: Partial<TItem>) => void,
         ): Transaction<Partial<TItem>> => {
@@ -166,7 +169,7 @@ export const buildMutationHandlers = <
                 await runMutation(
                   key,
                   'update',
-                  onUpdate(buildUpdatePayload(key, updates)),
+                  onUpdate(buildUpdatePayload(current, updates)),
                 );
               },
             });

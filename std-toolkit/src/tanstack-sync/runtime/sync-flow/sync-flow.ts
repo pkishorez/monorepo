@@ -1,6 +1,13 @@
-import { initFlow } from '@pkishorez/effect-tracer/flow';
+import {
+  initFlow,
+  type ActivationRef,
+  type MessageToken,
+  type RecordedFlowAttributeValue,
+} from '@pkishorez/effect-tracer/flow';
 import type { Effect } from 'effect';
 import type { PartitionValue } from '../../domain/partition-identity/index.js';
+
+export type ActivationOutcome = Parameters<ActivationRef['end']>[0];
 
 type FlowLogOptions = {
   readonly attributes?: Readonly<Record<string, unknown>>;
@@ -9,6 +16,10 @@ type FlowLogOptions = {
 
 export type StrategyFlow = {
   log: (message: unknown, options?: FlowLogOptions) => Effect.Effect<void>;
+  /** Publishes part of this participant's state; keys merge forward. */
+  state: (
+    patch: Readonly<Record<string, RecordedFlowAttributeValue>>,
+  ) => Effect.Effect<void>;
   withSpan: (
     name: string,
     options?: {
@@ -23,7 +34,20 @@ export type FlowParticipant = StrategyFlow & {
     participantName: string,
     message: unknown,
     options?: FlowLogOptions,
+  ) => Effect.Effect<MessageToken>;
+  reply: (
+    token: MessageToken,
+    message: unknown,
+    options?: FlowLogOptions,
   ) => Effect.Effect<void>;
+  /** Opens this participant's Activation; the ref is the only way to close it. */
+  activation: {
+    start: (name?: unknown) => Effect.Effect<ActivationRef>;
+  };
+  /** Runs the effect inside one Activation whose outcome follows its Exit. */
+  activated: (
+    name: string,
+  ) => <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
 };
 
 export type CollectionFlow = {
@@ -32,27 +56,47 @@ export type CollectionFlow = {
   participant: (name: string) => FlowParticipant;
 };
 
+export type FlowPlacement = {
+  readonly id: string;
+  readonly participantPrefix: string;
+};
+
 const participant = (id: string, name: string): FlowParticipant => {
   const flow = initFlow({ id, participantName: name });
   return {
     name,
+    activated: (activationName) => flow.activated({ name: activationName }),
+    activation: { start: flow.activation.start },
     log: flow.log,
-    withSpan: flow.withSpan,
+    reply: flow.reply,
     send: flow.send,
+    state: flow.state,
+    withSpan: flow.withSpan,
   };
 };
 
 export const makeCollectionFlow = (
   schemaName: string,
   lifecycleId: string,
+  placement?: FlowPlacement,
 ): CollectionFlow => {
-  const id = `std-collection::${schemaName}::${lifecycleId}`;
+  const id = placement?.id ?? `std-collection::${schemaName}::${lifecycleId}`;
+  const collectionName = placement
+    ? `${placement.participantPrefix}/collection:${schemaName}`
+    : 'collection';
+  const qualify = (name: string) =>
+    placement && name !== 'collection'
+      ? `${collectionName}/${name}`
+      : name === 'collection'
+        ? collectionName
+        : name;
   const participants = new Map<string, FlowParticipant>();
   const getParticipant = (name: string) => {
-    const existing = participants.get(name);
+    const qualified = qualify(name);
+    const existing = participants.get(qualified);
     if (existing) return existing;
-    const created = participant(id, name);
-    participants.set(name, created);
+    const created = participant(id, qualified);
+    participants.set(qualified, created);
     return created;
   };
   const collection = getParticipant('collection');

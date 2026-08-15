@@ -4,7 +4,10 @@ import type {
   StrategyContext,
 } from '../../runtime/strategy-runtime/index.js';
 import { superviseStrategy } from '../strategy-lifecycle/index.js';
-import type { FlowParticipant } from '../../runtime/sync-flow/index.js';
+import {
+  Activation,
+  type FlowParticipant,
+} from '../../runtime/sync-flow/index.js';
 
 export const startSingleItemLifecycle = <
   TItem extends object,
@@ -22,6 +25,7 @@ export const startSingleItemLifecycle = <
 }): Effect.Effect<{ close: Effect.Effect<void> }, never, R> =>
   Effect.gen(function* () {
     const scope = yield* Scope.make();
+    const activation = yield* args.flow.activation.start('Sync lifecycle');
     yield* args.flow.log('Single-item sync start', {
       attributes: { strategy: args.strategy.name },
     });
@@ -54,10 +58,9 @@ export const startSingleItemLifecycle = <
     const fiber = yield* Effect.forkIn(guarded, scope);
     return {
       close: Effect.gen(function* () {
-        yield* args.flow.log('Single-item sync cleanup');
         yield* Fiber.interrupt(fiber);
         yield* Scope.close(scope, Exit.void);
-        yield* args.flow.log('Single-item sync end');
+        yield* activation.end(Activation.completed());
       }),
     };
   });

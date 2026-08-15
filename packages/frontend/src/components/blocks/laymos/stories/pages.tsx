@@ -153,6 +153,7 @@ function ChapterPage({
       {group.stories.map((story) => (
         <StorySection key={story.id} story={story} reports={reports} />
       ))}
+      <QuestionsEndSpacer />
     </div>
   );
 }
@@ -190,6 +191,7 @@ function StorySection({
         reports={reports}
         anchorPrefix={storyAnchor(story)}
       />
+      <QuestionsEndSpacer />
       {sourceOpen && (
         <SourceDialog
           source={story.source}
@@ -461,9 +463,20 @@ function StoryDialog({
             reports={reports}
             anchorPrefix={`${storyAnchor(story)}--dialog`}
           />
+          <QuestionsEndSpacer />
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function QuestionsEndSpacer() {
+  return (
+    <div
+      aria-hidden="true"
+      data-slot="questions-end-spacer"
+      className="h-[400px] shrink-0"
+    />
   );
 }
 

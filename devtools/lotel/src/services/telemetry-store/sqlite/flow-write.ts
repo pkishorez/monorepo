@@ -1,4 +1,3 @@
-import type { TerminalFlowStatus } from '@pkishorez/effect-tracer/flow';
 import { Effect } from 'effect';
 import type { DatabaseError } from 'std-toolkit/db';
 import { updateFlowEntity } from '../../../domain/flow/index.js';
@@ -23,7 +22,6 @@ export const writeFlowRecord = (
   options: {
     readonly flowId: string | null;
     readonly latestTimeUnixNano: string;
-    readonly terminalStatus?: TerminalFlowStatus | undefined;
     readonly recordOperation:
       | ReturnType<ReturnType<typeof makeSqliteEntities>['spans']['insertOp']>
       | ReturnType<ReturnType<typeof makeSqliteEntities>['logs']['insertOp']>;
@@ -40,19 +38,10 @@ export const writeFlowRecord = (
     const existing = yield* entities.flows.get({ flowId });
     const flowOperation = existing
       ? yield* entities.flows.getAndUpdateOp({ flowId }, (current) =>
-          updateFlowEntity(
-            flowId,
-            options.latestTimeUnixNano,
-            options.terminalStatus,
-            current,
-          ),
+          updateFlowEntity(flowId, options.latestTimeUnixNano, current),
         )
       : yield* entities.flows.insertOp(
-          updateFlowEntity(
-            flowId,
-            options.latestTimeUnixNano,
-            options.terminalStatus,
-          ),
+          updateFlowEntity(flowId, options.latestTimeUnixNano),
         );
 
     yield* entities.table.transact([recordOperation, flowOperation]);

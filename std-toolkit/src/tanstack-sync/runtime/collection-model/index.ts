@@ -1,7 +1,9 @@
 export {
+  stripMeta,
   stripMetaPartial,
   toEntity,
   type CollectionItem,
+  type DeletePayload,
   type ForwardFetch,
   type StdCollectionOptions,
   type UpdateChanges,

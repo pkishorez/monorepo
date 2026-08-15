@@ -60,6 +60,13 @@ import { staleOps } from './database/std-table/transactions/stale-ops.story.js';
 import { olderRows } from './database/std-table/evolving-data-in-place/older-rows.story.js';
 import { unreadableRows } from './database/std-table/evolving-data-in-place/unreadable-rows.story.js';
 
+import { aSimulatedWorld } from './tanstack-sync/how-these-stories-run/a-simulated-world.story.js';
+import { fromDatabaseToCollection } from './tanstack-sync/wiring-a-collection/from-database-to-collection.story.js';
+import { aUserUpdatedSomeTimeBack } from './tanstack-sync/catching-up/a-user-updated-some-time-back.story.js';
+import { editsKeepFlowing } from './tanstack-sync/staying-current/edits-keep-flowing.story.js';
+import { oneListAtATime } from './tanstack-sync/syncing-on-demand/one-list-at-a-time.story.js';
+import { crossCollection } from './tanstack-sync/optimistic-transactions/cross-collection.story.js';
+
 import { batchInsert } from './database/dynamodb/batch-insert.story.js';
 import { nativeUpdates } from './database/dynamodb/native-updates.story.js';
 import { consistentReads } from './database/dynamodb/consistent-reads.story.js';
@@ -123,6 +130,14 @@ export default Story.group('std-toolkit', [
     ]),
     Story.group('IndexedDB', [autoVersionedSetup, livingInTheBrowser]),
     Story.group('SQLite', [fourDriversOneTable, writeYourOwnDriver]),
+  ]),
+  Story.group('TanStack Sync', [
+    Story.group('How these stories run', [aSimulatedWorld]),
+    Story.group('Wiring a collection', [fromDatabaseToCollection]),
+    Story.group('Catching up', [aUserUpdatedSomeTimeBack]),
+    Story.group('Staying current', [editsKeepFlowing]),
+    Story.group('Syncing on demand', [oneListAtATime]),
+    Story.group('Optimistic transactions', [crossCollection]),
   ]),
   Story.group('Evolving Schema', [
     Story.group('Defining evolutions', [

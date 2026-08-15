@@ -2,46 +2,43 @@ import { Deferred, Effect, Fiber } from 'effect';
 import { describe, expect, it } from 'vitest';
 
 import { makeTraceRecorder } from './recorder.js';
-import type { CapturedSpan } from './recorder.js';
-import { initFlow } from '../flow/flow.js';
+import type { CapturedSpan, TraceRecorder } from './recorder.js';
+import { Activation, initFlow } from '../flow/flow.js';
 
 const names = (spans: readonly CapturedSpan[]) => spans.map(({ name }) => name);
 
+const token = (flow: ReturnType<TraceRecorder['snapshotFlow']>) =>
+  flow?.items.find(
+    (item) => item.kind === 'message' && item.destination === 'server',
+  )?.messageId;
+
 describe('makeTraceRecorder', () => {
-  it('exposes recorded Flow activities, events, messages, and status', async () => {
+  it('exposes recorded Flow activities, events, messages, and Activations', async () => {
     const recorder = makeTraceRecorder();
-    const client = initFlow({
-      id: 'call-123',
-      participantName: 'client-a',
-      participants: ['server'] as const,
-    });
-    const server = initFlow({
-      id: 'call-123',
-      participantName: 'server',
-      participants: ['client-a'] as const,
-    });
+    const client = initFlow({ id: 'call-123', participantName: 'client-a' });
+    const server = initFlow({ id: 'call-123', participantName: 'server' });
 
     await Effect.runPromise(
       recorder.instrument(
         Effect.gen(function* () {
+          const activation = yield* server.activation.start('Session');
           yield* Effect.sleep('1 millis').pipe(client.withSpan('Create offer'));
           yield* client.log('Offer ready');
-          yield* client.send('server', { type: 'offer' });
+          const token = yield* client.send('server', { type: 'offer' });
           yield* Effect.sleep('1 millis').pipe(server.withSpan('Accept offer'));
-          yield* server.end('completed');
+          yield* server.reply(token, 'Offer accepted');
+          yield* activation.end(Activation.completed());
         }),
       ),
     );
 
     const flow = recorder.snapshotFlow('call-123');
-    expect(flow?.status).toBe('completed');
-    expect(flow?.items).toHaveLength(5);
     expect(flow?.items.filter(({ kind }) => kind === 'activity')).toHaveLength(
       2,
     );
     expect(
       flow?.items.filter(({ kind }) => kind === 'local-event'),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(flow?.items).toContainEqual(
       expect.objectContaining({
         kind: 'activity',
@@ -52,10 +49,21 @@ describe('makeTraceRecorder', () => {
     expect(flow?.items).toContainEqual(
       expect.objectContaining({ kind: 'message', destination: 'server' }),
     );
-    expect(flow?.items.at(-1)).toMatchObject({
-      kind: 'local-event',
-      status: 'completed',
-    });
+    expect(flow?.items).toContainEqual(
+      expect.objectContaining({
+        kind: 'message',
+        destination: 'client-a',
+        replyTo: token(flow),
+      }),
+    );
+    expect(flow?.activations).toEqual([
+      expect.objectContaining({
+        participantName: 'server',
+        name: 'Session',
+        outcome: 'completed',
+      }),
+    ]);
+    expect(flow?.warnings).toEqual([]);
     expect(recorder.snapshotFlows()).toHaveLength(1);
   });
 
