@@ -23,6 +23,11 @@ export const evolvesAnEntity = Story.make({
   questions: [/* … */],
 });`;
 
+const supportSource = `import { ESchema } from 'std-toolkit/eschema';
+
+export const decodeAll = (schema, rows) =>
+  Effect.forEach(rows, (row) => schema.decode(row));`;
+
 export const storyTree: StoryTree = {
   title: 'std-toolkit',
   groups: [
@@ -65,6 +70,10 @@ export const storyTree: StoryTree = {
             path: 'stories/eschema/evolve.story.ts',
             content: evolveSource,
           },
+          support: {
+            path: 'stories/eschema/support.ts',
+            content: supportSource,
+          },
         },
       ],
     },
@@ -93,6 +102,7 @@ export const storyTree: StoryTree = {
             path: 'stories/sync/round-trip.story.ts',
             content: '// …',
           },
+          support: null,
         },
         {
           id: 'std-toolkit/Sync/Restores after a crash',
@@ -114,6 +124,7 @@ export const storyTree: StoryTree = {
             path: 'stories/sync/restore.story.ts',
             content: '// …',
           },
+          support: null,
         },
       ],
     },

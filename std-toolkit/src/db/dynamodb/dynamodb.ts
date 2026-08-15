@@ -1,4 +1,4 @@
-import { Layer } from 'effect';
+import { Effect, Layer } from 'effect';
 import type { TableDefinition } from '../std-table/definition/index.js';
 import {
   contractLayer,
@@ -16,7 +16,11 @@ import {
   type DynamoTableService,
 } from './native/index.js';
 import { makeTableContract } from './table/index.js';
-import { getTableDefinition, setupDynamoTable } from './setup/index.js';
+import {
+  DynamoDBNativeError,
+  getTableDefinition,
+  setupDynamoTable,
+} from './setup/index.js';
 
 export interface DynamoDBConfig {
   readonly tableName: string;
@@ -34,6 +38,7 @@ export interface DynamoDBTable<Name extends string = string> {
   readonly tableName: string;
   readonly layer: Layer.Layer<StdTableService<Name> | DynamoTableService<Name>>;
   readonly setup: ReturnType<typeof setupDynamoTable>;
+  readonly teardown: Effect.Effect<void, DynamoDBNativeError>;
 }
 
 const make = <Name extends string>(
@@ -49,6 +54,12 @@ const make = <Name extends string>(
       makeNativeService(table.logicalName, client, config.tableName),
     ),
     setup: setupDynamoTable(client, table, config.tableName),
+    teardown: client.deleteTable({ TableName: config.tableName }).pipe(
+      Effect.asVoid,
+      Effect.mapError(
+        (cause) => new DynamoDBNativeError({ operation: 'teardown', cause }),
+      ),
+    ),
   };
 };
 

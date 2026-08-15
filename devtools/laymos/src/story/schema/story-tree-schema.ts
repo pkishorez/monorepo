@@ -6,7 +6,7 @@ export const StorySourceSchema = Schema.Struct({
 }).annotate({
   title: 'Story Source',
   description:
-    "The full text of the file a Story was authored in, resolved from the Story's declared sourceUrl.",
+    'The full text of a project file backing a Story: the file the Story was authored in, or the support file its proofs import.',
 });
 
 export const QuestionLeafSchema = Schema.Struct({
@@ -26,10 +26,11 @@ export const StoryLeafSchema = Schema.Struct({
   setup: Schema.NullOr(Schema.String),
   questions: Schema.Array(QuestionLeafSchema),
   source: StorySourceSchema,
+  support: Schema.NullOr(StorySourceSchema),
 }).annotate({
   title: 'Story Leaf',
   description:
-    'One Story in the Story tree: its derived id, the shared setup snippet, and its Questions in authored order. Never carries results.',
+    'One Story in the Story tree: its derived id, the shared setup snippet, its Questions in authored order, and the support file its proofs import. Never carries results.',
 });
 
 export interface StoryTreeGroup {

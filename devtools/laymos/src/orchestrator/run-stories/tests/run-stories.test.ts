@@ -52,6 +52,23 @@ describe('getStoryTree', () => {
     expect(passing.source.path).toBe('stories/index.ts');
     expect(passing.source.content).toContain('the answer is 42');
   });
+
+  test('resolves the support file every Story in the directory shares', async () => {
+    const tree = await getStoryTree(fixture('basic')).pipe(Effect.runPromise);
+
+    for (const story of tree.groups[0]!.stories) {
+      expect(story.support?.path).toBe('stories/support.ts');
+      expect(story.support?.content).toContain('export const double');
+    }
+  });
+
+  test('leaves support null when the stories tree has no support file', async () => {
+    const tree = await getStoryTree(fixture('no-support')).pipe(
+      Effect.runPromise,
+    );
+
+    expect(tree.stories[0]!.support).toBeNull();
+  });
 });
 
 describe('runStories', () => {

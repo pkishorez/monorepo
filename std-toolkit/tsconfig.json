@@ -21,6 +21,7 @@
       "std-toolkit/db/sqlite/node": ["./src/db/sqlite/drivers/node/index.ts"]
     },
     "rootDir": ".",
+    "isolatedModules": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
