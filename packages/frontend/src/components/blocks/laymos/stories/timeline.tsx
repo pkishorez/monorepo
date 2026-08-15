@@ -1,12 +1,14 @@
 import { useState, type ComponentProps } from 'react';
 import type { RecordedFlow } from '@pkishorez/effect-tracer/flow';
-import { ChevronDown } from 'lucide-react';
+import { Maximize2, X } from 'lucide-react';
 import type { StoryReport } from 'laymos';
 import ReactMarkdown from 'react-markdown';
 
-import { FlowSwimlane } from '../../flow-swimlane/index';
+import { FlowItemDetails, FlowSwimlane } from '../../flow-swimlane/index';
 import { attachCapturedLogs, TraceViewer } from '../../otel-trace-viewer/index';
 import { SourceViewer } from '../../source-viewer/index';
+import { Dialog, DialogContent, DialogTitle } from '#components/ui/dialog';
+import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
 export type QuestionReport = StoryReport['questions'][number];
@@ -183,13 +185,101 @@ const artifactStyles = {
   flow: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
 } as const;
 
+function FlowArtifactBody({ flow }: { readonly flow: RecordedFlow }) {
+  const [selected, setSelected] = useState<
+    RecordedFlow['items'][number] | null
+  >(null);
+  return (
+    <div className="flex min-h-0 flex-1">
+      <FlowSwimlane
+        flow={flow}
+        className="min-w-0 flex-1"
+        selectedItemId={selected?.id ?? null}
+        onItemClick={(item) =>
+          setSelected((current) => (current?.id === item.id ? null : item))
+        }
+      />
+      <div
+        className={cn('w-96 shrink-0 overflow-y-auto', scrollbarStyles)}
+        style={{ borderLeft: '1px solid var(--color-border)' }}
+      >
+        {selected ? (
+          <FlowItemDetails item={selected} onClose={() => setSelected(null)} />
+        ) : (
+          <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
+            Select a flow item to inspect its attributes
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ArtifactDialog({
+  section,
+  onClose,
+}: {
+  readonly section: QuestionSection;
+  readonly onClose: () => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex h-[92vh] max-h-[92vh] w-[min(96vw,110rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[110rem]"
+      >
+        <div className="flex items-center gap-2.5 border-b border-border px-5 py-3">
+          <span
+            className={cn(
+              'rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider',
+              artifactStyles[section.kind],
+            )}
+          >
+            {section.kind}
+          </span>
+          <DialogTitle className="min-w-0 flex-1 truncate text-sm font-semibold">
+            {section.kind === 'flow' ? section.flow.id : 'Captured trace'}
+          </DialogTitle>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close dialog"
+            className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+        {section.kind === 'flow' ? (
+          <FlowArtifactBody flow={section.flow as RecordedFlow} />
+        ) : (
+          <div
+            className={cn('min-h-0 flex-1 overflow-y-auto', scrollbarStyles)}
+          >
+            <TraceViewer
+              spans={attachCapturedLogs(
+                section.trace.spans,
+                section.trace.logs,
+              )}
+            />
+            {section.trace.truncated && (
+              <div className="px-3.5 py-1.5 text-xs text-muted-foreground">
+                trace truncated
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ArtifactCard({ section }: { readonly section: QuestionSection }) {
   const [open, setOpen] = useState(false);
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-card">
       <button
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => setOpen(true)}
         className="flex w-full items-center gap-2.5 bg-muted/30 px-3.5 py-2 text-left transition-colors hover:bg-muted/60"
       >
         <span
@@ -205,29 +295,10 @@ function ArtifactCard({ section }: { readonly section: QuestionSection }) {
             ? `${section.trace.spans.length} span${section.trace.spans.length === 1 ? '' : 's'}`
             : `${section.flow.items.length} item${section.flow.items.length === 1 ? '' : 's'}`}
         </span>
-        <ChevronDown
-          className={cn(
-            'size-4 shrink-0 text-muted-foreground transition-transform',
-            open && 'rotate-180',
-          )}
-        />
+        <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
       </button>
-      {open && section.kind === 'flow' && (
-        <div className="border-t border-border/60">
-          <FlowSwimlane flow={section.flow as RecordedFlow} />
-        </div>
-      )}
-      {open && section.kind === 'trace' && (
-        <div className="border-t border-border/60">
-          <TraceViewer
-            spans={attachCapturedLogs(section.trace.spans, section.trace.logs)}
-          />
-          {section.trace.truncated && (
-            <div className="px-3.5 py-1.5 text-xs text-muted-foreground">
-              trace truncated
-            </div>
-          )}
-        </div>
+      {open && (
+        <ArtifactDialog section={section} onClose={() => setOpen(false)} />
       )}
     </section>
   );

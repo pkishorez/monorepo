@@ -6,5 +6,6 @@ export {
   initFlow,
   isTerminalFlowStatus,
   type RecordedFlow,
+  type RecordedFlowActivityLog,
   type TerminalFlowStatus,
 } from './flow.js';

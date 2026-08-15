@@ -1,4 +1,12 @@
-import { Effect, Exit, Logger, Option, References, Tracer } from 'effect';
+import {
+  Cause,
+  Effect,
+  Exit,
+  Logger,
+  Option,
+  References,
+  Tracer,
+} from 'effect';
 import type { RecordedFlow } from '../flow/index.js';
 import { projectRecordedFlow, recordedFlowIds } from './flow-snapshot.js';
 
@@ -275,7 +283,9 @@ function normalizeSpan(
       ? 'running'
       : Exit.isSuccess(status.exit)
         ? 'success'
-        : 'error',
+        : Cause.hasInterruptsOnly(status.exit.cause)
+          ? 'interrupted'
+          : 'error',
     attributes: Object.fromEntries(
       [...span.attributes].map(([key, value]) => [key, toValue(value)]),
     ),
