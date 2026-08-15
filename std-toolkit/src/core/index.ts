@@ -1,10 +1,5 @@
-export {
-  EntityType,
-  SingleEntityType,
-  MetaSchema,
-  EntitySchema,
-  SingleEntitySchema,
-} from './schema.js';
+export { MetaSchema, EntitySchema, SingleEntitySchema } from './schema.js';
+export type { EntityType, SingleEntityType } from './schema.js';
 
 export { StdToolkitError } from './error.js';
 

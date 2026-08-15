@@ -186,7 +186,10 @@ function StorySection({
         anchorPrefix={storyAnchor(story)}
       />
       {sourceOpen && (
-        <SourceDialog story={story} onClose={() => setSourceOpen(false)} />
+        <SourceDialog
+          source={story.source}
+          onClose={() => setSourceOpen(false)}
+        />
       )}
     </section>
   );
@@ -234,7 +237,10 @@ function StoryPage({
       />
       <StoryBody story={story} reports={reports} />
       {sourceOpen && (
-        <SourceDialog story={story} onClose={() => setSourceOpen(false)} />
+        <SourceDialog
+          source={story.source}
+          onClose={() => setSourceOpen(false)}
+        />
       )}
       {dialogOpen && (
         <StoryDialog
@@ -258,19 +264,37 @@ function StoryBody({
   readonly reports?: StoryReports;
   readonly anchorPrefix?: string;
 }) {
+  const [supportOpen, setSupportOpen] = useState(false);
   const report = reports?.[story.id];
   const questionReports = new Map<string, QuestionReport>(
     (report?.questions ?? []).map((question) => [question.slug, question]),
   );
+  const support = story.support;
   return (
     <div className="flex flex-col gap-4">
-      {story.setup !== null && (
+      {(story.setup !== null || support !== null) && (
         <div className="flex flex-col gap-1.5">
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            setup
-          </span>
-          <CodeSnippet code={story.setup} />
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              setup
+            </span>
+            {support !== null && (
+              <button
+                type="button"
+                onClick={() => setSupportOpen(true)}
+                title={`View ${support.path}`}
+                className="inline-flex items-center gap-1 rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <FileCode2 className="size-3" />
+                {fileName(support.path)}
+              </button>
+            )}
+          </div>
+          {story.setup !== null && <CodeSnippet code={story.setup} />}
         </div>
+      )}
+      {support !== null && supportOpen && (
+        <SourceDialog source={support} onClose={() => setSupportOpen(false)} />
       )}
       {story.questions.map((question, index) => (
         <QuestionBlock
@@ -335,10 +359,10 @@ function QuestionBlock({
 }
 
 function SourceDialog({
-  story,
+  source,
   onClose,
 }: {
-  readonly story: StoryLeaf;
+  readonly source: StoryLeaf['source'];
   readonly onClose: () => void;
 }) {
   return (
@@ -346,13 +370,13 @@ function SourceDialog({
       <DialogContent className="flex max-h-[85vh] w-[min(92vw,64rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[64rem]">
         <div className="flex items-center gap-2.5 border-b border-border px-5 py-3 pr-14">
           <DialogTitle className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {story.source.path}
+            {source.path}
           </DialogTitle>
         </div>
         <div className={cn('flex-1 overflow-y-auto', scrollbarStyles)}>
           <SourceViewer
-            filePath={story.source.path}
-            content={story.source.content}
+            filePath={source.path}
+            content={source.content}
             autoHeight
             showHeader={false}
           />
@@ -360,6 +384,10 @@ function SourceDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function fileName(path: string): string {
+  return path.split('/').at(-1) ?? path;
 }
 
 function StoryDialog({

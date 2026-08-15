@@ -1,5 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Cause, Effect, Exit, Stream } from 'effect';
@@ -82,11 +82,8 @@ function loadRoot(configPath: string) {
         cause: null,
       });
     }
-    const entryPoint = join(
-      dirname(absoluteConfigPath),
-      config.storiesPath,
-      'index.ts',
-    );
+    const storiesRoot = join(dirname(absoluteConfigPath), config.storiesPath);
+    const entryPoint = join(storiesRoot, 'index.ts');
     const barrel = yield* Effect.tryPromise({
       try: () => tsImport(entryPoint, import.meta.url),
       catch: (cause) =>
@@ -102,6 +99,8 @@ function loadRoot(configPath: string) {
     }
     return yield* indexGroup(root, [root.title], entryPoint, {
       projectRoot: dirname(absoluteConfigPath),
+      storiesRoot,
+      supportCache: new Map(),
     });
   }).pipe(
     Effect.provide(ConfigServiceLive),
@@ -109,11 +108,17 @@ function loadRoot(configPath: string) {
   );
 }
 
+interface IndexOptions {
+  readonly projectRoot: string;
+  readonly storiesRoot: string;
+  readonly supportCache: Map<string, StorySource | null>;
+}
+
 function indexGroup(
   group: StoryGroup,
   path: readonly string[],
   entryPoint: string,
-  options: { readonly projectRoot: string },
+  options: IndexOptions,
 ): Effect.Effect<
   { tree: StoryTreeGroup; stories: readonly IndexedStory[] },
   StoriesError
@@ -135,6 +140,7 @@ function indexGroup(
           setup: snippets.setup,
           questions,
           source,
+          support: resolveSupport(child, options),
         });
         stories.push({ id, story: child });
       } else {
@@ -208,6 +214,45 @@ function loadStorySource(
     catch: (cause) =>
       new StoriesError({ reason: 'load', path: story.sourceUrl, cause }),
   });
+}
+
+const SUPPORT_FILE = 'support.ts';
+
+function resolveSupport(
+  story: Story,
+  options: IndexOptions,
+): StorySource | null {
+  const { projectRoot, storiesRoot, supportCache } = options;
+  let directory: string;
+  try {
+    directory = dirname(fileURLToPath(story.sourceUrl));
+  } catch {
+    return null;
+  }
+  const root = resolve(storiesRoot);
+  const visited: string[] = [];
+  let found: StorySource | null = null;
+  while (directory === root || directory.startsWith(`${root}${sep}`)) {
+    const cached = supportCache.get(directory);
+    if (cached !== undefined) {
+      found = cached;
+      break;
+    }
+    visited.push(directory);
+    const candidate = join(directory, SUPPORT_FILE);
+    if (existsSync(candidate)) {
+      found = {
+        path: relative(projectRoot, candidate),
+        content: readFileSync(candidate, 'utf8'),
+      };
+      break;
+    }
+    directory = dirname(directory);
+  }
+  for (const cachedDirectory of visited) {
+    supportCache.set(cachedDirectory, found);
+  }
+  return found;
 }
 
 function checkUniqueTitles(

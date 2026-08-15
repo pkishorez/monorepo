@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import { Story } from '../../../../../story/index.js';
+import { double } from './support.js';
 
 const answer = 42;
 
@@ -20,7 +21,7 @@ const passing = Story.make({
     Story.question('What does doubling produce?', {
       answer: 'Twice the answer.',
       proof: Effect.gen(function* () {
-        const doubled = answer * 2;
+        const doubled = double(answer);
         yield* Story.assert('doubling holds', doubled === 84);
         return { doubled };
       }),

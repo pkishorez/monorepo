@@ -60,6 +60,14 @@ A configured project-relative folder holding all Story files and their single
 entry point that exposes the Project's Story tree. It is implicitly an
 Ignored path: package-level Stories are exempt from architectural enforcement.
 
+**Support file**:
+A file named `support.ts` beneath the Stories path, holding the harness a
+Story's proofs import: fixtures, layers, and helpers that would otherwise be
+retyped in every Story file. A Story resolves the nearest one at or above its
+own folder, so a Story Group shares one; a Story with none carries no support.
+It is read as part of the Story tree and shown beside the Story's setup, so a
+reader can see the code its proofs stand on.
+
 **Stories view**:
 The Stories tab beside the Layers <> Modules view. It renders the Story tree
 as navigable documentation the moment it loads, and attaches Story reports to

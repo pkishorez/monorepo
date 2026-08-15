@@ -1,0 +1,7 @@
+{
+  "sourceRoots": ["src"],
+  "layers": { "app": { "paths": ["src"] } },
+  "modules": { "src/app.ts": {} },
+  "layerGraphs": {},
+  "storiesPath": "stories"
+}
