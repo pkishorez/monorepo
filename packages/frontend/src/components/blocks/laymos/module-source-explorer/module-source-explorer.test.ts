@@ -25,7 +25,7 @@ describe('moduleSourceRequest', () => {
     });
   });
 
-  test('opens a nested public entry point in its owning Module', () => {
+  test('opens a Subpath in its owning Module', () => {
     expect(moduleSourceRequest(modules, 'src/domain/orders/events')).toEqual({
       modulePath: 'src/domain/orders',
       initialFilePath: 'src/domain/orders/events/index.ts',

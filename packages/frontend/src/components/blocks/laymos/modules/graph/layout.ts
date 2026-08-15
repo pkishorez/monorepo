@@ -85,6 +85,8 @@ interface ModuleNodeData extends Record<string, unknown> {
   readonly label: string;
   readonly shared: boolean;
   readonly kind: ModuleKind;
+  readonly configuredKind: NonNullable<Module['configuredKind']>;
+  readonly shape: NonNullable<Module['shape']>;
   readonly unexposed: boolean;
   readonly focused: boolean;
   readonly related: boolean;
@@ -407,6 +409,8 @@ function moduleNode(
       label,
       shared: placement.module.shared,
       kind: placement.module.kind,
+      configuredKind: placement.module.configuredKind ?? 'normal',
+      shape: placement.module.shape ?? 'directory',
       unexposed: placement.module.unexposed ?? false,
       focused,
       related,
@@ -720,6 +724,7 @@ function violationEdges(
         );
     }
     case 'missing-entry-point':
+    case 'unused-shared':
     case 'coverage':
       return [];
   }

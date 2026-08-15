@@ -31,21 +31,19 @@
   },
   "modules": {
     "src/components/blocks/file-tree": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/blocks/flow-swimlane": {
-      "shared": true
+      "kind": "shared"
     },
-    "src/components/blocks/json": {
-      "shared": true
-    },
+    "src/components/blocks/json": {},
     "src/components/blocks/laymos": {},
     "src/components/blocks/otel-trace-viewer": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/blocks/sequence": {},
     "src/components/blocks/source-viewer": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/blocks/state-machine-visualizer": {},
     "src/components/blocks/swim-lane": {},
@@ -58,7 +56,7 @@
     "src/components/ui/breadcrumb.tsx": {},
     "src/components/ui/button-group.tsx": {},
     "src/components/ui/button.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/calendar.tsx": {},
     "src/components/ui/card.tsx": {},
@@ -70,12 +68,12 @@
     "src/components/ui/command.tsx": {},
     "src/components/ui/context-menu.tsx": {},
     "src/components/ui/dialog.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/direction.tsx": {},
     "src/components/ui/drawer.tsx": {},
     "src/components/ui/dropdown-menu.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/empty.tsx": {},
     "src/components/ui/field.tsx": {},
@@ -83,16 +81,16 @@
     "src/components/ui/google-button.tsx": {},
     "src/components/ui/hover-card.tsx": {},
     "src/components/ui/input-group.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/input-otp.tsx": {},
     "src/components/ui/input.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/item.tsx": {},
     "src/components/ui/kbd.tsx": {},
     "src/components/ui/label.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/menubar.tsx": {},
     "src/components/ui/message-scroller.tsx": {},
@@ -105,18 +103,18 @@
     "src/components/ui/radio-group.tsx": {},
     "src/components/ui/resizable.tsx": {},
     "src/components/ui/scroll-area.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/select.tsx": {},
     "src/components/ui/separator.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/sheet.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/sidebar.tsx": {},
     "src/components/ui/skeleton.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/slider.tsx": {},
     "src/components/ui/sonner.tsx": {},
@@ -125,14 +123,14 @@
     "src/components/ui/table.tsx": {},
     "src/components/ui/tabs.tsx": {},
     "src/components/ui/textarea.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/toggle-group.tsx": {},
     "src/components/ui/toggle.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/components/ui/tooltip.tsx": {
-      "shared": true
+      "kind": "shared"
     },
     "src/form": {},
     "src/hooks/use-mobile.ts": {},
@@ -142,7 +140,7 @@
     "src/lib/scrollStyles.ts": {},
     "src/lib/shadow-dom.tsx": {},
     "src/lib/utils.ts": {
-      "shared": true
+      "kind": "shared"
     }
   },
   "layerGraphs": {

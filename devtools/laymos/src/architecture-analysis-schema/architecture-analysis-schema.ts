@@ -13,7 +13,9 @@ import {
   type ModuleDefinition,
   type ModuleDependency,
   type ModuleKind,
+  type ModuleShape,
   type ModuleViolation,
+  type ObservedModuleKind,
 } from './module-analysis-schema.js';
 import {
   ConfigValidationIssueSchema,
@@ -47,5 +49,7 @@ export type {
   ModuleDefinition,
   ModuleDependency,
   ModuleKind,
+  ModuleShape,
   ModuleViolation,
+  ObservedModuleKind,
 };

@@ -1,9 +1,14 @@
 import { parseSync } from 'oxc-parser';
 
-export interface ExtractedSnippets {
-  readonly setup: string | null;
+export interface StorySnippets {
+  readonly title: string | undefined;
   readonly proofs: ReadonlyMap<string, string>;
   readonly orderedProofs: readonly string[];
+}
+
+export interface ExtractedSnippets {
+  readonly setup: string | null;
+  readonly stories: readonly StorySnippets[];
 }
 
 interface AstNode {
@@ -11,6 +16,12 @@ interface AstNode {
   readonly start: number;
   readonly end: number;
   readonly [key: string]: unknown;
+}
+
+interface SnippetBucket {
+  readonly title: string | undefined;
+  readonly proofs: Map<string, string>;
+  readonly orderedProofs: string[];
 }
 
 export function extractSnippets(
@@ -27,42 +38,86 @@ export function extractSnippets(
     if (containsStoryCall(statement)) continue;
     setupParts.push(source.slice(statement.start, statement.end));
   }
-  const proofs = new Map<string, string>();
-  const orderedProofs: string[] = [];
-  for (const call of collectQuestionCalls(program.body)) {
-    const proof = questionProofSource(call, source);
-    if (proof === undefined) continue;
-    orderedProofs.push(proof);
-    const question = questionLiteral(call);
-    if (question !== undefined) proofs.set(question, proof);
-  }
+  const unscoped = newBucket(undefined);
+  const scoped: SnippetBucket[] = [];
+  collectProofs(program.body, source, unscoped, scoped);
+  const stories = [
+    ...scoped,
+    ...(unscoped.orderedProofs.length === 0 ? [] : [unscoped]),
+  ];
   return {
     setup: setupParts.length === 0 ? null : setupParts.join('\n\n'),
-    proofs,
-    orderedProofs,
+    stories,
   };
 }
 
-function collectQuestionCalls(roots: readonly AstNode[]): AstNode[] {
-  const calls: AstNode[] = [];
-  const visit = (node: unknown): void => {
-    if (Array.isArray(node)) {
-      for (const item of node) visit(item);
-      return;
-    }
-    if (typeof node !== 'object' || node === null) return;
-    const ast = node as AstNode;
-    if (typeof ast.type === 'string' && isQuestionCall(ast)) calls.push(ast);
-    for (const [key, value] of Object.entries(ast)) {
-      if (key === 'type' || key === 'start' || key === 'end') continue;
-      visit(value);
-    }
-  };
-  visit(roots);
-  return calls;
+export function storySnippets(
+  extracted: ExtractedSnippets,
+  title: string,
+): StorySnippets {
+  const matches = extracted.stories.filter((story) => story.title === title);
+  if (matches.length === 1) return matches[0]!;
+  return mergeSnippets(matches.length > 1 ? matches : extracted.stories);
 }
 
-function isQuestionCall(node: AstNode): boolean {
+function mergeSnippets(stories: readonly StorySnippets[]): StorySnippets {
+  const merged = newBucket(undefined);
+  for (const story of stories) {
+    merged.orderedProofs.push(...story.orderedProofs);
+    for (const [question, proof] of story.proofs) {
+      merged.proofs.set(question, proof);
+    }
+  }
+  return merged;
+}
+
+function newBucket(title: string | undefined): SnippetBucket {
+  return { title, proofs: new Map(), orderedProofs: [] };
+}
+
+function collectProofs(
+  node: unknown,
+  source: string,
+  bucket: SnippetBucket,
+  stories: SnippetBucket[],
+): void {
+  if (Array.isArray(node)) {
+    for (const item of node) collectProofs(item, source, bucket, stories);
+    return;
+  }
+  if (typeof node !== 'object' || node === null) return;
+  const ast = node as AstNode;
+  if (typeof ast.type !== 'string') return;
+  let target = bucket;
+  if (isStoryCall(ast, 'make')) {
+    target = newBucket(storyTitle(ast));
+    stories.push(target);
+  } else if (isStoryCall(ast, 'question')) {
+    const proof = questionProofSource(ast, source);
+    if (proof !== undefined) {
+      target.orderedProofs.push(proof);
+      const question = questionLiteral(ast);
+      if (question !== undefined) target.proofs.set(question, proof);
+    }
+  }
+  for (const [key, value] of Object.entries(ast)) {
+    if (key === 'type' || key === 'start' || key === 'end') continue;
+    collectProofs(value, source, target, stories);
+  }
+}
+
+function storyTitle(call: AstNode): string | undefined {
+  const argument = (call.arguments as AstNode[] | undefined)?.[0];
+  if (argument?.type !== 'ObjectExpression') return undefined;
+  for (const property of (argument.properties as AstNode[] | undefined) ?? []) {
+    if (property.type !== 'Property') continue;
+    if (propertyName(property) !== 'title') continue;
+    return stringLiteral(property.value as AstNode | undefined);
+  }
+  return undefined;
+}
+
+function isStoryCall(node: AstNode, method: string): boolean {
   if (node.type !== 'CallExpression') return false;
   const callee = node.callee as AstNode | undefined;
   if (callee?.type !== 'MemberExpression') return false;
@@ -72,8 +127,33 @@ function isQuestionCall(node: AstNode): boolean {
     object?.type === 'Identifier' &&
     (object as { name?: string }).name === 'Story' &&
     property?.type === 'Identifier' &&
-    (property as { name?: string }).name === 'question'
+    (property as { name?: string }).name === method
   );
+}
+
+function propertyName(property: AstNode): string | undefined {
+  const key = property.key as AstNode | undefined;
+  if (key?.type === 'Identifier') return (key as { name?: string }).name;
+  if (key?.type === 'Literal')
+    return String((key as { value?: unknown }).value);
+  return undefined;
+}
+
+function stringLiteral(node: AstNode | undefined): string | undefined {
+  if (node?.type === 'Literal') {
+    const value = (node as { value?: unknown }).value;
+    return typeof value === 'string' ? value : undefined;
+  }
+  if (node?.type === 'TemplateLiteral') {
+    const quasis = node.quasis as
+      | { cooked?: string | null; value?: { cooked?: string | null } }[]
+      | undefined;
+    if (quasis?.length === 1) {
+      const cooked = quasis[0]?.value?.cooked ?? quasis[0]?.cooked;
+      return typeof cooked === 'string' ? cooked : undefined;
+    }
+  }
+  return undefined;
 }
 
 function containsStoryCall(statement: AstNode): boolean {
@@ -104,21 +184,7 @@ function containsStoryCall(statement: AstNode): boolean {
 }
 
 function questionLiteral(call: AstNode): string | undefined {
-  const argument = (call.arguments as AstNode[] | undefined)?.[0];
-  if (argument?.type === 'Literal') {
-    const value = (argument as { value?: unknown }).value;
-    return typeof value === 'string' ? value : undefined;
-  }
-  if (argument?.type === 'TemplateLiteral') {
-    const quasis = argument.quasis as
-      | { cooked?: string | null; value?: { cooked?: string | null } }[]
-      | undefined;
-    if (quasis?.length === 1) {
-      const cooked = quasis[0]?.value?.cooked ?? quasis[0]?.cooked;
-      return typeof cooked === 'string' ? cooked : undefined;
-    }
-  }
-  return undefined;
+  return stringLiteral((call.arguments as AstNode[] | undefined)?.[0]);
 }
 
 function questionProofSource(
@@ -129,14 +195,7 @@ function questionProofSource(
   if (options?.type !== 'ObjectExpression') return undefined;
   for (const property of (options.properties as AstNode[] | undefined) ?? []) {
     if (property.type !== 'Property') continue;
-    const key = property.key as AstNode | undefined;
-    const name =
-      key?.type === 'Identifier'
-        ? (key as { name?: string }).name
-        : key?.type === 'Literal'
-          ? String((key as { value?: unknown }).value)
-          : undefined;
-    if (name !== 'proof') continue;
+    if (propertyName(property) !== 'proof') continue;
     const value = property.value as AstNode | undefined;
     if (value === undefined) return undefined;
     return dedent(source.slice(value.start, value.end));

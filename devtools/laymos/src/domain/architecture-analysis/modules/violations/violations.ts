@@ -5,6 +5,7 @@ import {
 import { findCoverageViolations } from './coverage.js';
 import { findCycleViolations } from './cycles.js';
 import { findEntryPointViolations } from './entry-points.js';
+import { findUnusedSharedViolations } from './unused-shared.js';
 import type { ModuleAnalysisContext, ModuleViolation } from '../modules.js';
 
 interface ModuleFindings {
@@ -22,6 +23,7 @@ export function findModuleViolations(
       ...findCoverageViolations(context),
       ...findEntryPointViolations(context),
       ...imports.violations,
+      ...findUnusedSharedViolations(context, imports.edges),
       ...findCycleViolations(imports.edges),
     ],
   };

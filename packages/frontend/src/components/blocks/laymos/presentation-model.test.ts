@@ -11,7 +11,7 @@ const analysis: ArchitectureAnalysis = {
       app: { paths: ['src/app'], description: 'Application' },
     },
     modules: {
-      'src/app': { shared: false, nested: ['public'] },
+      'src/app': { kind: 'normal', subpaths: ['public'] },
     },
     layerGraphs: {
       architecture: { rules: { app: [] } },
@@ -32,16 +32,16 @@ const analysis: ArchitectureAnalysis = {
       {
         path: 'src/app',
         layer: 'app',
-        shared: false,
-        nested: ['public'],
-        kind: 'isolated',
+        kind: 'normal',
+        shape: 'directory',
+        observedKind: 'isolated',
+        subpaths: ['public'],
       },
     ],
     membership: new Map([
       ['src/app/index.ts', 'src/app'],
       ['src/app/public/index.ts', 'src/app'],
     ]),
-    unexposedModules: new Set(),
     entryPoints: new Set(['src/app/index.ts', 'src/app/public/index.ts']),
     dependencies: [],
     violations: [],

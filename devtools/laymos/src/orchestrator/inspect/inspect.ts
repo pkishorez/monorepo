@@ -4,6 +4,8 @@ import { NodeServices } from '@effect/platform-node';
 import type {
   AnalyzedModule,
   ArchitectureAnalysis,
+  ForbiddenImport,
+  LayerDefinition,
   ModuleViolation,
 } from '../../architecture-analysis-schema/index.js';
 import { analyzeArchitecture } from '../../domain/architecture-analysis/index.js';
@@ -15,13 +17,14 @@ import {
 } from '../../domain/file-graph/index.js';
 import { ConfigServiceLive } from '../../services/config/index.js';
 import { CruiserLive } from '../../services/file-cruiser/index.js';
+import { analyzeProject } from '../analyze-project/index.js';
 import { loadProject } from '../load-project/index.js';
 
 export class InspectionTargetNotFound extends Data.TaggedError(
   'InspectionTargetNotFound',
 )<{
   readonly target: string;
-  readonly targetKind: 'file' | 'module';
+  readonly targetKind: 'file' | 'layer' | 'module';
 }> {}
 
 export class ModuleInspectionCycle extends Data.TaggedError(
@@ -42,11 +45,79 @@ export interface FileInspection {
 
 export interface ModuleInspection {
   readonly module: AnalyzedModule;
-  readonly exposure: 'exposed' | 'unexposed';
   readonly publicEntryPoints: readonly string[];
   readonly dependents: readonly string[];
   readonly dependencies: readonly string[];
   readonly hasViolations: boolean;
+}
+
+export type ProjectInspection = ArchitectureAnalysis;
+
+export interface LayerInspection {
+  readonly id: string;
+  readonly definition: LayerDefinition;
+  readonly files: readonly string[];
+  readonly allowedDependencies: readonly string[];
+  readonly allowedDependents: readonly string[];
+  readonly modules: readonly AnalyzedModule[];
+  readonly sharedCount: number;
+  readonly hasNoModules: boolean;
+  readonly layerViolations: readonly ForbiddenImport[];
+  readonly moduleViolations: readonly ModuleViolation[];
+}
+
+export function inspectProject(configPath: string) {
+  return analyzeProject(configPath);
+}
+
+export function inspectLayer(configPath: string, target: string) {
+  return inspectProject(configPath).pipe(
+    Effect.flatMap((analysis) => {
+      const definition = analysis.config.layers[target];
+      if (definition === undefined) {
+        return new InspectionTargetNotFound({
+          target,
+          targetKind: 'layer',
+        });
+      }
+      const modules = analysis.moduleAnalysis.modules.filter(
+        ({ layer }) => layer === target,
+      );
+      const modulePaths = new Set(modules.map(({ path }) => path));
+      return Effect.succeed({
+        id: target,
+        definition,
+        files: [...analysis.layerAnalysis.membership]
+          .filter(([, layer]) => layer === target)
+          .map(([file]) => file)
+          .sort(),
+        allowedDependencies: [
+          ...(analysis.layerAnalysis.allowedDependencies.get(target) ?? []),
+        ].sort(),
+        allowedDependents: [...analysis.layerAnalysis.allowedDependencies]
+          .filter(([, dependencies]) => dependencies.has(target))
+          .map(([layer]) => layer)
+          .sort(),
+        modules,
+        sharedCount: modules.filter(({ kind }) => kind === 'shared').length,
+        hasNoModules:
+          analysis.layerAnalysis.layersWithoutModules.includes(target),
+        layerViolations: analysis.layerAnalysis.forbiddenImports.filter(
+          ({ fromLayer, toLayer }) =>
+            fromLayer === target || toLayer === target,
+        ),
+        moduleViolations: analysis.moduleAnalysis.violations.filter(
+          (violation) =>
+            (violation.kind === 'coverage' &&
+              analysis.layerAnalysis.membership.get(violation.file) ===
+                target) ||
+            [...modulePaths].some((module) =>
+              violationInvolvesModule(violation, module),
+            ),
+        ),
+      } satisfies LayerInspection);
+    }),
+  );
 }
 
 export function inspectFile(
@@ -122,9 +193,6 @@ function buildModuleInspection(
   const dependencies = analysis.moduleAnalysis.dependencies;
   return {
     module,
-    exposure: analysis.moduleAnalysis.unexposedModules.has(target)
-      ? 'unexposed'
-      : 'exposed',
     publicEntryPoints: [...analysis.moduleAnalysis.entryPoints]
       .filter(
         (entryPoint) =>
@@ -182,7 +250,10 @@ function violationInvolvesModule(
   violation: ModuleViolation,
   target: string,
 ): boolean {
-  if (violation.kind === 'missing-entry-point') {
+  if (
+    violation.kind === 'missing-entry-point' ||
+    violation.kind === 'unused-shared'
+  ) {
     return violation.module === target;
   }
   if (violation.kind === 'dependency' || violation.kind === 'boundary') {

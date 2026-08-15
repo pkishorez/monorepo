@@ -299,9 +299,14 @@ function ConfiguredModule({ data }: NodeProps<ConfiguredModuleNode>) {
         <span className="min-w-0 flex-1 truncate text-xs font-semibold">
           {data.label}
         </span>
-        {data.shared && (
+        {data.configuredKind !== 'normal' && (
           <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
-            Shared
+            {data.configuredKind}
+          </span>
+        )}
+        {data.shape === 'file' && (
+          <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+            File
           </span>
         )}
         {Marker !== undefined && (
@@ -313,7 +318,7 @@ function ConfiguredModule({ data }: NodeProps<ConfiguredModuleNode>) {
         {data.unexposed && (
           <Info
             className="size-3.5 shrink-0 text-muted-foreground"
-            aria-label="Unexposed Module"
+            aria-label="Entry Module"
           />
         )}
       </button>

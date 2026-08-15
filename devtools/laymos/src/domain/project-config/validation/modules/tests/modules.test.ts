@@ -8,7 +8,7 @@ function config(overrides: Partial<Config> = {}): Config {
     sourceRoots: ['src'],
     ignoredPaths: [],
     layers: { app: { paths: ['src'] } },
-    modules: { 'src/app': { shared: false, nested: [] } },
+    modules: { 'src/app': { kind: 'normal', subpaths: [] } },
     layerGraphs: {},
     ...overrides,
   };
@@ -20,8 +20,8 @@ describe('validateModules', () => {
       validateModules(
         config({
           modules: {
-            'src/app': { shared: false, nested: ['public'] },
-            'src/shared': { shared: true, nested: [] },
+            'src/app': { kind: 'normal', subpaths: ['public'] },
+            'src/shared': { kind: 'shared', subpaths: [] },
           },
         }),
       ),
@@ -32,8 +32,8 @@ describe('validateModules', () => {
     const issues = validateModules(
       config({
         modules: {
-          'src/app': { shared: false, nested: [] },
-          'src/app/child': { shared: false, nested: [] },
+          'src/app': { kind: 'normal', subpaths: [] },
+          'src/app/child': { kind: 'normal', subpaths: [] },
         },
       }),
     );
@@ -43,13 +43,42 @@ describe('validateModules', () => {
     );
   });
 
+  test('rejects a Layer containing only Shared Modules', () => {
+    const issues = validateModules(
+      config({
+        modules: {
+          'src/a': { kind: 'shared', subpaths: [] },
+          'src/b': { kind: 'shared', subpaths: [] },
+        },
+      }),
+    );
+
+    expect(issues.map(({ message }) => message)).toContain(
+      'Layer app cannot contain only Shared Modules',
+    );
+  });
+
+  test('rejects Subpaths on Entry Modules', () => {
+    const issues = validateModules(
+      config({
+        modules: {
+          'src/app': { kind: 'entry', subpaths: ['public'] },
+        },
+      }),
+    );
+
+    expect(issues.map(({ message }) => message)).toContain(
+      'Entry Module src/app cannot expose Subpaths',
+    );
+  });
+
   test('rejects Modules outside Layer scopes or wholly ignored', () => {
     const issues = validateModules(
       config({
         ignoredPaths: ['src/generated'],
         modules: {
-          outside: { shared: false, nested: [] },
-          'src/generated/client': { shared: false, nested: [] },
+          outside: { kind: 'normal', subpaths: [] },
+          'src/generated/client': { kind: 'normal', subpaths: [] },
         },
       }),
     );
@@ -60,11 +89,11 @@ describe('validateModules', () => {
     ]);
   });
 
-  test('rejects invalid, duplicate, and wholly ignored nested paths', () => {
+  test('rejects invalid, duplicate, and wholly ignored Subpaths', () => {
     const pathIssues = validateModules(
       config({
         modules: {
-          'src/app': { shared: false, nested: ['../outside'] },
+          'src/app': { kind: 'normal', subpaths: ['../outside'] },
         },
       }),
     );
@@ -75,24 +104,24 @@ describe('validateModules', () => {
         ignoredPaths: ['src/app/generated'],
         modules: {
           'src/app': {
-            shared: false,
-            nested: ['public', 'public', 'generated'],
+            kind: 'normal',
+            subpaths: ['public', 'public', 'generated'],
           },
         },
       }),
     );
     expect(semanticIssues.map(({ message }) => message)).toEqual([
-      'Module src/app contains duplicate nested path public',
-      'Nested public entry point src/app/generated is wholly ignored',
+      'Module src/app contains duplicate Subpath public',
+      'Subpath src/app/generated is wholly ignored',
     ]);
   });
 
   test('validates Module paths against the analysis universe', () => {
     const loaded = config({
       modules: {
-        'src/button.tsx': { shared: true, nested: [] },
-        'src/dialog.tsx': { shared: false, nested: ['public'] },
-        'src/missing': { shared: false, nested: [] },
+        'src/button.tsx': { kind: 'shared', subpaths: [] },
+        'src/dialog.tsx': { kind: 'normal', subpaths: ['public'] },
+        'src/missing': { kind: 'normal', subpaths: [] },
       },
     });
 
@@ -101,8 +130,7 @@ describe('validateModules', () => {
     ).toEqual([
       {
         kind: 'module',
-        message:
-          'File Module src/dialog.tsx cannot expose nested public entry points',
+        message: 'File Module src/dialog.tsx cannot expose Subpaths',
       },
       {
         kind: 'module',

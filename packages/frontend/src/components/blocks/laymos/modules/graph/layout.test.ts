@@ -155,7 +155,7 @@ describe('layoutModuleGraph', () => {
     ).toBe(0);
   });
 
-  test('routes a dependency to its exact nested public entry point', () => {
+  test('routes a dependency to its exact Subpath', () => {
     const layout = layoutModuleGraph({
       layers,
       rules: [{ fromLayerId: 'application', toLayerIds: ['domain'] }],

@@ -3,7 +3,7 @@
   "layers": { "app": { "paths": ["src"] } },
   "modules": {
     "src/feature": {},
-    "src/shared": { "shared": true }
+    "src/shared": { "kind": "shared" }
   },
   "layerGraphs": {}
 }

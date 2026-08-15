@@ -28,7 +28,7 @@ describe('analyzeModules', () => {
         ['src/unassigned.ts', ['src/a/internal.ts']],
         ['src/a/internal.ts', []],
       ],
-      { 'src/a': { shared: false, nested: [] } },
+      { 'src/a': { kind: 'normal', subpaths: [] } },
     );
 
     expect(result.violations).toEqual([
@@ -38,7 +38,7 @@ describe('analyzeModules', () => {
 
   test('reports missing entry points when a Module declares exposure', () => {
     const result = analyze([['src/a/a.ts', []]], {
-      'src/a': { shared: false, nested: ['public'] },
+      'src/a': { kind: 'normal', subpaths: ['public'] },
     });
 
     expect(result.violations).toEqual([
@@ -55,20 +55,20 @@ describe('analyzeModules', () => {
     ]);
   });
 
-  test('classifies a Module without index.ts as unexposed', () => {
+  test('lets an Entry Module omit index.ts', () => {
     const result = analyze([['src/cli/cli.ts', []]], {
-      'src/cli': { shared: false, nested: [] },
+      'src/cli': { kind: 'entry', subpaths: [] },
     });
 
-    expect(result.unexposedModules).toEqual(new Set(['src/cli']));
     expect(result.entryPoints).toEqual(new Set());
     expect(result.modules).toEqual([
       {
         path: 'src/cli',
         layer: 'app',
-        shared: false,
-        nested: [],
-        kind: 'isolated',
+        kind: 'entry',
+        shape: 'directory',
+        observedKind: 'isolated',
+        subpaths: [],
       },
     ]);
     expect(result.violations).toEqual([]);
@@ -76,20 +76,70 @@ describe('analyzeModules', () => {
 
   test('requires an entry point when a Module is Shared', () => {
     const result = analyze([['src/shared/internal.ts', []]], {
-      'src/shared': { shared: true, nested: [] },
+      'src/shared': { kind: 'shared', subpaths: [] },
     });
 
-    expect(result.unexposedModules).toEqual(new Set());
     expect(result.violations).toEqual([
       {
         kind: 'missing-entry-point',
         module: 'src/shared',
         path: 'src/shared/index.ts',
       },
+      { kind: 'unused-shared', module: 'src/shared' },
     ]);
   });
 
-  test('prevents a permitted cross-Layer dependency from consuming an Unexposed Module', () => {
+  test('reports a Shared Module with no same-Layer dependent', () => {
+    const result = analyze(
+      [
+        ['src/app/index.ts', []],
+        ['src/shared/index.ts', []],
+      ],
+      {
+        'src/app': { kind: 'normal', subpaths: [] },
+        'src/shared': { kind: 'shared', subpaths: [] },
+      },
+    );
+
+    expect(result.violations).toContainEqual({
+      kind: 'unused-shared',
+      module: 'src/shared',
+    });
+  });
+
+  test('allows a permitted cross-Layer dependency to a Shared Module without counting it as peer use', () => {
+    const graph: FileGraph = new Map([
+      ['src/app/index.ts', ['src/domain/index.ts']],
+      ['src/domain/index.ts', []],
+      ['src/domain/peer.ts', []],
+    ]);
+    const result = analyzeModules(
+      graph,
+      {
+        'src/app': { kind: 'normal', subpaths: [] },
+        'src/domain': { kind: 'shared', subpaths: [] },
+        'src/domain/peer.ts': { kind: 'normal', subpaths: [] },
+      },
+      buildLayerContext(
+        graph.keys(),
+        {
+          app: { paths: ['src/app'] },
+          domain: { paths: ['src/domain'] },
+        },
+        { app: ['domain'] },
+      ),
+      {
+        app: { paths: ['src/app'] },
+        domain: { paths: ['src/domain'] },
+      },
+    );
+
+    expect(result.violations).toEqual([
+      { kind: 'unused-shared', module: 'src/domain' },
+    ]);
+  });
+
+  test('prevents a permitted cross-Layer dependency from consuming an Entry Module', () => {
     const graph: FileGraph = new Map([
       ['src/app/index.ts', ['src/cli/cli.ts']],
       ['src/cli/cli.ts', []],
@@ -97,8 +147,8 @@ describe('analyzeModules', () => {
     const result = analyzeModules(
       graph,
       {
-        'src/app': { shared: false, nested: [] },
-        'src/cli': { shared: false, nested: [] },
+        'src/app': { kind: 'normal', subpaths: [] },
+        'src/cli': { kind: 'entry', subpaths: [] },
       },
       buildLayerContext(
         graph.keys(),
@@ -116,7 +166,7 @@ describe('analyzeModules', () => {
 
     expect(result.violations).toEqual([
       {
-        kind: 'boundary',
+        kind: 'dependency',
         fromFile: 'src/app/index.ts',
         fromModule: 'src/app',
         toFile: 'src/cli/cli.ts',
@@ -126,9 +176,11 @@ describe('analyzeModules', () => {
     expect(result.dependencies).toEqual([
       { fromModule: 'src/app', toModule: 'src/cli' },
     ]);
-    expect(result.modules.map(({ path, kind }) => ({ path, kind }))).toEqual([
-      { path: 'src/app', kind: 'root' },
-      { path: 'src/cli', kind: 'terminal' },
+    expect(
+      result.modules.map(({ path, observedKind }) => ({ path, observedKind })),
+    ).toEqual([
+      { path: 'src/app', observedKind: 'root' },
+      { path: 'src/cli', observedKind: 'terminal' },
     ]);
   });
 
@@ -138,7 +190,7 @@ describe('analyzeModules', () => {
         ['src/a/index.ts', ['src/a/internal.ts']],
         ['src/a/internal.ts', []],
       ],
-      { 'src/a': { shared: false, nested: [] } },
+      { 'src/a': { kind: 'normal', subpaths: [] } },
     );
 
     expect(result.violations).toEqual([]);
@@ -151,8 +203,8 @@ describe('analyzeModules', () => {
         ['src/button.tsx', []],
       ],
       {
-        'src/card.tsx': { shared: false, nested: [] },
-        'src/button.tsx': { shared: true, nested: [] },
+        'src/card.tsx': { kind: 'normal', subpaths: [] },
+        'src/button.tsx': { kind: 'shared', subpaths: [] },
       },
     );
 
@@ -166,14 +218,16 @@ describe('analyzeModules', () => {
         toEntryPoint: 'src/button.tsx',
       },
     ]);
-    expect(result.modules.map(({ path, kind }) => ({ path, kind }))).toEqual([
-      { path: 'src/card.tsx', kind: 'root' },
-      { path: 'src/button.tsx', kind: 'terminal' },
+    expect(
+      result.modules.map(({ path, observedKind }) => ({ path, observedKind })),
+    ).toEqual([
+      { path: 'src/card.tsx', observedKind: 'root' },
+      { path: 'src/button.tsx', observedKind: 'terminal' },
     ]);
     expect(result.violations).toEqual([]);
   });
 
-  test('infers Module kind independently from Shared status', () => {
+  test('infers observed kind independently from configured kind', () => {
     const result = analyze(
       [
         ['src/a/index.ts', ['src/b/index.ts']],
@@ -182,10 +236,10 @@ describe('analyzeModules', () => {
         ['src/d/index.ts', []],
       ],
       {
-        'src/a': { shared: true, nested: [] },
-        'src/b': { shared: true, nested: [] },
-        'src/c': { shared: true, nested: [] },
-        'src/d': { shared: false, nested: [] },
+        'src/a': { kind: 'normal', subpaths: [] },
+        'src/b': { kind: 'shared', subpaths: [] },
+        'src/c': { kind: 'shared', subpaths: [] },
+        'src/d': { kind: 'normal', subpaths: [] },
       },
     );
 
@@ -193,30 +247,34 @@ describe('analyzeModules', () => {
       {
         path: 'src/a',
         layer: 'app',
-        shared: true,
-        nested: [],
-        kind: 'root',
+        kind: 'normal',
+        shape: 'directory',
+        observedKind: 'root',
+        subpaths: [],
       },
       {
         path: 'src/b',
         layer: 'app',
-        shared: true,
-        nested: [],
-        kind: 'regular',
+        kind: 'shared',
+        shape: 'directory',
+        observedKind: 'regular',
+        subpaths: [],
       },
       {
         path: 'src/c',
         layer: 'app',
-        shared: true,
-        nested: [],
-        kind: 'terminal',
+        kind: 'shared',
+        shape: 'directory',
+        observedKind: 'terminal',
+        subpaths: [],
       },
       {
         path: 'src/d',
         layer: 'app',
-        shared: false,
-        nested: [],
-        kind: 'isolated',
+        kind: 'normal',
+        shape: 'directory',
+        observedKind: 'isolated',
+        subpaths: [],
       },
     ]);
   });
@@ -228,7 +286,7 @@ describe('analyzeModules', () => {
     ]);
     const result = analyzeModules(
       graph,
-      { '.': { shared: false, nested: [] } },
+      { '.': { kind: 'normal', subpaths: [] } },
       buildLayerContext(graph.keys(), { app: { paths: ['.'] } }, {}),
       { app: { paths: ['.'] } },
     );
@@ -244,8 +302,8 @@ describe('analyzeModules', () => {
         ['src/b/internal.ts', []],
       ],
       {
-        'src/a': { shared: false, nested: [] },
-        'src/b': { shared: false, nested: [] },
+        'src/a': { kind: 'normal', subpaths: [] },
+        'src/b': { kind: 'normal', subpaths: [] },
       },
     );
 
@@ -260,7 +318,7 @@ describe('analyzeModules', () => {
     ]);
   });
 
-  test('allows the root and configured nested doors of a Shared Module', () => {
+  test('allows the root and configured Subpaths of a Shared Module', () => {
     const result = analyze(
       [
         ['src/a/index.ts', ['src/b/index.ts', 'src/b/public/index.ts']],
@@ -269,8 +327,8 @@ describe('analyzeModules', () => {
         ['src/b/public/index.ts', []],
       ],
       {
-        'src/a': { shared: false, nested: [] },
-        'src/b': { shared: true, nested: ['public'] },
+        'src/a': { kind: 'normal', subpaths: [] },
+        'src/b': { kind: 'shared', subpaths: ['public'] },
       },
     );
 
@@ -301,8 +359,8 @@ describe('analyzeModules', () => {
         ['src/b/internal.ts', []],
       ],
       {
-        'src/a': { shared: false, nested: [] },
-        'src/b': { shared: true, nested: [] },
+        'src/a': { kind: 'normal', subpaths: [] },
+        'src/b': { kind: 'shared', subpaths: [] },
       },
     );
 
@@ -314,6 +372,7 @@ describe('analyzeModules', () => {
         toFile: 'src/b/internal.ts',
         toModule: 'src/b',
       },
+      { kind: 'unused-shared', module: 'src/b' },
     ]);
   });
 
@@ -326,8 +385,8 @@ describe('analyzeModules', () => {
     const result = analyzeModules(
       graph,
       {
-        'src/app': { shared: false, nested: [] },
-        'src/domain': { shared: false, nested: [] },
+        'src/app': { kind: 'normal', subpaths: [] },
+        'src/domain': { kind: 'normal', subpaths: [] },
       },
       buildLayerContext(
         graph.keys(),
@@ -353,8 +412,8 @@ describe('analyzeModules', () => {
         ['src/b/index.ts', ['src/a/index.ts']],
       ],
       {
-        'src/a': { shared: true, nested: [] },
-        'src/b': { shared: true, nested: [] },
+        'src/a': { kind: 'shared', subpaths: [] },
+        'src/b': { kind: 'shared', subpaths: [] },
       },
     );
 

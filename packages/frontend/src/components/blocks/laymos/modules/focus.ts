@@ -105,6 +105,8 @@ function violationModuleIds(violation: ModuleViolation): ReadonlySet<string> {
       return new Set(violation.moduleIds);
     case 'missing-entry-point':
       return new Set([violation.moduleId]);
+    case 'unused-shared':
+      return new Set([violation.moduleId]);
     case 'coverage':
       return new Set();
   }

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import type { FileGraph } from '../../../file-graph/index.js';
 import { analyzeLayers } from '../index.js';
 
-const moduleDefinition = { shared: false, nested: [] };
+const moduleDefinition = { kind: 'normal', subpaths: [] } as const;
 
 describe('analyzeLayers', () => {
   test('allows same-Layer and transitively permitted imports', () => {

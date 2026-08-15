@@ -76,8 +76,8 @@ describe('ConfigService', () => {
       description: 'Application',
     });
     expect(config.modules).toEqual({
-      'src/app': { shared: false, nested: [] },
-      'src/domain': { shared: false, nested: [] },
+      'src/app': { kind: 'normal', subpaths: [] },
+      'src/domain': { kind: 'normal', subpaths: [] },
     });
     expect(config.layerGraphs.architecture?.rules).toEqual({
       app: ['domain'],

@@ -14,7 +14,7 @@ const snapshot: ModuleSourceSnapshot = {
 };
 
 describe('initialSourceFile', () => {
-  test('prefers the requested nested public entry point', () => {
+  test('prefers the requested Subpath', () => {
     expect(initialSourceFile(snapshot, 'src/shared/public/index.ts')).toBe(
       'src/shared/public/index.ts',
     );
@@ -24,7 +24,7 @@ describe('initialSourceFile', () => {
     expect(initialSourceFile(snapshot)).toBe('src/shared/index.ts');
   });
 
-  test('falls back to the first file for an Unexposed Module', () => {
+  test('falls back to the first file for an Entry Module', () => {
     expect(initialSourceFile({ ...snapshot, entryPoint: undefined })).toBe(
       'src/shared/index.ts',
     );

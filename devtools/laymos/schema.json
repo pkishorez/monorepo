@@ -91,13 +91,18 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "shared": {
-            "type": "boolean",
-            "description": "Allows every other Configured Module in the same Layer to depend on this Configured Module. A Shared Directory Module requires its root index.ts."
+          "kind": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "shared",
+              "entry"
+            ],
+            "description": "Configured access rule. Normal is the default. Shared adds same-Layer access. Entry Modules cannot be depended on by another Module."
           },
-          "nested": {
+          "subpaths": {
             "type": "array",
-            "description": "Exact paths whose index.ts files are nested public entry points into this Directory Module. A non-empty list also requires the root index.ts. File Modules cannot use this field.",
+            "description": "Exact paths whose index.ts files are extra public doors for tree shaking. Entry and File Modules cannot use this field.",
             "items": {
               "type": "string"
             }
@@ -105,7 +110,7 @@
         },
         "additionalProperties": false,
         "title": "Module",
-        "description": "A Configured Module keyed by its canonical project-relative source file or directory. A File Module is its own public entry point. A Directory Module without index.ts, Shared status, or nested public entry points is Unexposed and cannot be consumed."
+        "description": "A Configured Module keyed by its canonical project-relative source file or directory. Normal and Shared Modules expose public doors; Entry Modules cannot be depended on."
       },
       "description": "Every Configured Module, keyed by canonical project-relative source file or directory.",
       "allOf": [

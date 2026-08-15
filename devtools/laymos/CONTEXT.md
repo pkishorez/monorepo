@@ -87,6 +87,10 @@ relative to the folder that contains that Config.
 The declared Source roots, Ignored paths, Layers, Configured Modules, and
 LayerGraphs for one Project.
 
+**Target architecture**:
+The intended dependency and encapsulation policy that a Config enforces.
+Observed imports are evidence to inspect, not permissions to preserve.
+
 **Config validation issue**:
 An invalid or contradictory declaration in a Config that prevents an
 Architecture Analysis. Unlike a Layer or Module violation, it is not a finding
@@ -105,12 +109,10 @@ Ignoring is the intentional way to exempt supported files beneath a Source
 root from Layer and Module membership and architectural enforcement.
 
 **Layer**:
-A named, configured group of literal, canonical project-relative files and
-folders. A folder includes its entire subtree. Layers partition the analysis
-universe: every included supported file belongs to exactly one Layer, and no
-file may belong to more than one Layer. Their declared Layer scopes may not
-overlap within one Layer or across different Layers, even where a scope is
-ignored, empty, or contains no supported files.
+A dependency-policy cohort: source with one architectural role and therefore
+one set of cross-Layer dependency permissions. Layers partition the analysis
+universe; folder names, team ownership, and visualization alone do not define
+one.
 
 **Layer scope**:
 A configured canonical project-relative file or folder assigned to a Layer. A
@@ -119,20 +121,25 @@ or more non-overlapping scopes.
 _Avoid_: Layer folder, Layer file tree
 
 **Module**:
-A self-contained source boundary backed by either a directory or one supported
-source file. Its identity is its canonical configured file or directory path.
+An encapsulation boundary around one cohesive responsibility whose internals
+change together and whose consumers use deliberate public entry points. A
+Module is backed by either a directory or one supported source file.
+
+**Module independence**:
+The intended relationship between Configured Modules in one Layer: each owns
+its responsibility without depending on its peers. An exceptional common
+capability that cannot belong to one peer may become a Shared Module.
 
 **Directory Module**:
-A Module backed by a directory. It may expose a minimal interface and contain
-nested public entry points at any depth.
+A Module backed by a directory. A Normal or Shared Directory Module exposes a
+minimal root `index.ts` and may add tree-shaking Subpaths; an Entry Directory
+Module follows its host's file convention and exposes no Module entry point.
 
 **File Module**:
 A Module backed by one supported source file. Its file is always its public
-entry point; it cannot be Unexposed or expose nested public entry points. Being
-a File Module grants no dependency permission: Shared status and Layer Rules
-apply as they do to Directory Modules. It owns no companion files; a File
-Module with private companion files is promoted to a Directory Module, while
-independent companion files are explicitly configured or ignored.
+entry point when Normal or Shared and is host-owned when Entry. It cannot expose
+Subpaths or own companion files; a File Module with private companion files is
+promoted to a Directory Module.
 
 **Configured Module**:
 A Module explicitly listed in `modules` that forms one disjoint membership and
@@ -140,19 +147,32 @@ dependency boundary within a Layer. Every included file belongs to one
 Configured Module. Its path must identify an included supported source file or
 a directory that contains included supported source files.
 
-**Module public entry point**:
-The source file that exposes a Module to other Configured Modules: a File
-Module's own file, a Directory Module's root `index.ts`, or one of its nested
-public entry points. An Unexposed Module has no public entry point.
-
-**Unexposed Module**:
-A Directory Module without an `index.ts` that cannot be depended on by other
-Modules. It is valid with zero observed dependents, making it Root or Isolated,
-and it cannot be Shared or expose nested public entry points.
-
 **Module kind**:
-A Module's position in the observed Module dependency graph: Regular, Root,
-Terminal, or Isolated. Shared status is independent of Module kind.
+A Configured Module's declared access rule: Normal, Shared, or Entry. Normal is
+the default.
+
+**Module shape**:
+The source form backing a Module: File or Directory.
+
+**Normal Module**:
+A Module available through its public entry points to permitted consumers in
+other Layers. Its peers in the same Layer remain independent from it.
+
+**Module public entry point**:
+The smallest stable contract through which a Module exposes itself to other
+Configured Modules: a Normal or Shared File Module's own file, a Normal or
+Shared Directory Module's root `index.ts`, or one of its Subpaths.
+
+**Entry Module**:
+A host-started Module, such as a CLI or framework entry, that may depend on
+other Modules but cannot be depended on by any Module. It may be file- or
+directory-backed, follows its host's file convention, and has no Subpaths.
+_Avoid_: Unexposed Module
+
+**Observed Module kind**:
+A Module's position in the observed dependency graph: Regular, Root, Terminal,
+or Isolated. It describes imports found in source, not the configured Module
+kind.
 
 **Regular Module**:
 A Module with both dependencies and dependents.
@@ -167,11 +187,11 @@ A Module with dependents and no dependencies.
 **Isolated Module**:
 A Module with no dependencies or dependents.
 
-**Nested public entry point**:
-An explicitly exposed `index.ts` at an exact path inside a Directory Module.
-It is another public door into the same Configured Module, not a separate
-Module, membership boundary, or dependency policy.
-_Avoid_: Nested Module, submodule
+**Subpath**:
+An extra public `index.ts` at an exact path inside a Normal or Shared Directory
+Module, added only for a proven tree-shaking need. It is another door into the
+same Module, not a child Module or a new dependency policy.
+_Avoid_: Nested public entry point, Nested Module, submodule
 
 **Module internal dependency**:
 An import within one Configured Module. It may target any internal file without
@@ -190,8 +210,8 @@ _Avoid_: Architecture Snapshot
 **Module analysis**:
 The part of an Architecture Analysis that combines the declared Configured
 Module architecture with facts derived from supported source files, including
-Module kinds, membership, public entry points, dependencies, and Module
-violations.
+Module kind, shape, observed kind, membership, public entry points,
+dependencies, and Module violations.
 
 **Layers <> Modules view**:
 The single unified view of one Project's declared and observed architecture:
@@ -225,9 +245,9 @@ an Ignored path. Its Layer dependencies remain enforceable, but Module-level
 dependency checks involving it are deferred until it has Module membership.
 
 **Missing Module Entry Point**:
-An expected public entry point whose `index.ts` is absent. Unexposed Modules
-and undeclared nested directories intentionally have no public entry point, so
-neither violates this rule.
+An expected public entry point that is absent: a Normal or Shared Directory
+Module's root `index.ts`, or a configured Subpath's `index.ts`. Entry Modules
+intentionally have no Module public entry point.
 _Avoid_: Module entry-point violation, module with no entry point
 
 **Module cycle violation**:
@@ -237,9 +257,10 @@ cross-Module dependencies participate; LayerGraph acyclicity prevents such a
 cycle from crossing Layers.
 
 **Module dependency violation**:
-A direct dependency between two Modules in the same Layer whose target is not
-a Shared Module. It is reported only after Layer permission has been
-established and takes precedence over checking the target's public boundary.
+A direct dependency whose target kind does not permit the source: same-Layer
+dependencies require a Shared target, while Entry targets permit none. A
+cross-Layer dependency to a Normal or Shared target uses Layer permission. This
+violation takes precedence over checking the target's public boundary.
 
 **Module boundary violation**:
 An otherwise permitted dependency from one Module to an internal file of
@@ -247,13 +268,11 @@ another Module rather than an eligible public entry point. Layer and Module
 permission failures take precedence over this violation.
 
 **Shared Module**:
-A Module that every other Module in the same Layer may depend on. Shared status
-grants inbound access only; it gives the Shared Module no additional permission
-to depend on its peers and has no effect on cross-Layer permissions. Shared
-status represents a genuine Layer-wide capability and declared exposure intent,
-not internal decomposition of another Module. A Shared Directory Module without
-its public entry point remains Shared and produces a Missing Module Entry Point
-rather than a Config validation issue.
+An exceptional Layer-wide capability extracted when otherwise independent
+Modules genuinely need common functionality that none of them should own.
+Every other Module in the same Layer may depend on it. Shared kind has no effect
+on cross-Layer permission, which remains governed by Layer Rules. A Shared
+Module with no same-Layer dependents is a Module violation.
 
 **LayerGraph**:
 A named, configured set of Rules representing one responsibility (e.g. core

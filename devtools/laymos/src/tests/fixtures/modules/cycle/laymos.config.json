@@ -2,8 +2,9 @@
   "sourceRoots": ["src"],
   "layers": { "app": { "paths": ["src"] } },
   "modules": {
-    "src/a": { "shared": true },
-    "src/b": { "shared": true }
+    "src/a": { "kind": "shared" },
+    "src/b": { "kind": "shared" },
+    "src/root.ts": {}
   },
   "layerGraphs": {}
 }

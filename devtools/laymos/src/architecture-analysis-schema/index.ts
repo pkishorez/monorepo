@@ -19,7 +19,9 @@ export type {
   ModuleDefinition,
   ModuleDependency,
   ModuleKind,
+  ModuleShape,
   ModuleViolation,
+  ObservedModuleKind,
 } from './architecture-analysis-schema.js';
 export {
   ModuleSourceFileSchema,

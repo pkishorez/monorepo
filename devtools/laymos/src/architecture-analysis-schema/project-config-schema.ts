@@ -30,20 +30,22 @@ const LayerGraphSchema = Schema.Struct({
 });
 
 const ModuleSchema = Schema.Struct({
-  shared: Schema.Boolean.annotate({
-    description:
-      'Allows every other Configured Module in the same Layer to depend on this Configured Module. A Shared Directory Module requires its root index.ts.',
-  }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
-  nested: Schema.Array(Schema.String)
+  kind: Schema.Literals(['normal', 'shared', 'entry'])
     .annotate({
       description:
-        'Exact paths whose index.ts files are nested public entry points into this Directory Module. A non-empty list also requires the root index.ts. File Modules cannot use this field.',
+        'Configured access rule. Normal is the default. Shared adds same-Layer access. Entry Modules cannot be depended on by another Module.',
+    })
+    .pipe(Schema.withDecodingDefaultKey(Effect.succeed('normal' as const))),
+  subpaths: Schema.Array(Schema.String)
+    .annotate({
+      description:
+        'Exact paths whose index.ts files are extra public doors for tree shaking. Entry and File Modules cannot use this field.',
     })
     .pipe(Schema.withDecodingDefaultKey(Effect.succeed<readonly string[]>([]))),
 }).annotate({
   title: 'Module',
   description:
-    'A Configured Module keyed by its canonical project-relative source file or directory. A File Module is its own public entry point. A Directory Module without index.ts, Shared status, or nested public entry points is Unexposed and cannot be consumed.',
+    'A Configured Module keyed by its canonical project-relative source file or directory. Normal and Shared Modules expose public doors; Entry Modules cannot be depended on.',
 });
 
 export const ProjectConfigSchema = Schema.Struct({

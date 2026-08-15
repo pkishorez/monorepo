@@ -235,7 +235,11 @@ function StoryPage({
           </>
         }
       />
-      <StoryBody story={story} reports={reports} />
+      <StoryBody
+        story={story}
+        reports={reports}
+        anchorPrefix={storyAnchor(story)}
+      />
       {sourceOpen && (
         <SourceDialog
           source={story.source}
@@ -426,7 +430,11 @@ function StoryDialog({
         <div
           className={cn('flex-1 overflow-y-auto px-5 py-4', scrollbarStyles)}
         >
-          <StoryBody story={story} reports={reports} />
+          <StoryBody
+            story={story}
+            reports={reports}
+            anchorPrefix={`${storyAnchor(story)}--dialog`}
+          />
         </div>
       </DialogContent>
     </Dialog>

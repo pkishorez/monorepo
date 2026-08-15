@@ -18,8 +18,9 @@ export function renderModuleInspection(inspection: ModuleInspection): string {
     `Module:   ${inspection.module.path}`,
     `Layer:    ${inspection.module.layer}`,
     `Kind:     ${inspection.module.kind}`,
-    `Shared:   ${inspection.module.shared ? 'yes' : 'no'}`,
-    `Exposure: ${inspection.exposure}`,
+    `Shape:    ${inspection.module.shape}`,
+    `Observed: ${inspection.module.observedKind}`,
+    `Subpaths: ${inspection.module.subpaths.length}`,
     'Public entry points:',
     ...(inspection.publicEntryPoints.length === 0
       ? ['  none']

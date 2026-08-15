@@ -2,25 +2,31 @@ import { posix } from 'node:path';
 
 import type { Config, ConfigValidationIssue } from '../../project-config.js';
 
-export function findNestedIssues(
+export function findSubpathIssues(
   config: Config,
 ): readonly ConfigValidationIssue[] {
   return Object.entries(config.modules).flatMap(([root, definition]) => {
     const issues: ConfigValidationIssue[] = [];
+    if (definition.kind === 'entry' && definition.subpaths.length > 0) {
+      issues.push({
+        kind: 'module',
+        message: `Entry Module ${root} cannot expose Subpaths`,
+      });
+    }
     const seen = new Set<string>();
-    for (const nested of definition.nested) {
-      const path = posix.join(root, nested);
-      if (seen.has(nested)) {
+    for (const subpath of definition.subpaths) {
+      const path = posix.join(root, subpath);
+      if (seen.has(subpath)) {
         issues.push({
           kind: 'module',
-          message: `Module ${root} contains duplicate nested path ${nested}`,
+          message: `Module ${root} contains duplicate Subpath ${subpath}`,
         });
       }
-      seen.add(nested);
+      seen.add(subpath);
       if (config.ignoredPaths.some((ignored) => contains(ignored, path))) {
         issues.push({
           kind: 'module',
-          message: `Nested public entry point ${path} is wholly ignored`,
+          message: `Subpath ${path} is wholly ignored`,
         });
       }
       const otherRoot = Object.keys(config.modules).find(
@@ -29,7 +35,7 @@ export function findNestedIssues(
       if (otherRoot !== undefined) {
         issues.push({
           kind: 'module',
-          message: `Nested public entry point ${path} points into Module ${otherRoot}`,
+          message: `Subpath ${path} points into Module ${otherRoot}`,
         });
       }
     }

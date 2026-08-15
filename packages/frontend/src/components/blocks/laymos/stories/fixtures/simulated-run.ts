@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { StoryReport, StoryTree } from 'laymos';
 
 import { storyIds, type StoryReports } from '../model';
@@ -11,10 +11,15 @@ export function useSimulatedRun(
   const [running, setRunning] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const onRun = (scope?: string) => {
+  const clearTimers = () => {
     for (const timer of timers.current) clearTimeout(timer);
     timers.current = [];
-    setRunning(true);
+  };
+
+  useEffect(() => clearTimers, []);
+
+  const onRun = (scope?: string) => {
+    clearTimers();
     const ids = storyIds(tree).filter(
       (id) => scope === undefined || id === scope || id.startsWith(`${scope}/`),
     );
@@ -25,6 +30,11 @@ export function useSimulatedRun(
             Object.entries(previous ?? {}).filter(([id]) => !ids.includes(id)),
           ),
     );
+    if (ids.length === 0) {
+      setRunning(false);
+      return;
+    }
+    setRunning(true);
     ids.forEach((id, index) => {
       timers.current.push(
         setTimeout(
