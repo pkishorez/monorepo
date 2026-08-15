@@ -172,12 +172,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   const notice = makeChangeNotice({
     scope: config.noticeScope,
     collection: schema.name,
-    onNotice: () => {
-      void runner.runPromise(advance().pipe(Effect.ignore));
-    },
+    onNotice: () => runner.runPromise(advance().pipe(Effect.ignore)),
     channel: config.noticeChannel,
   });
-  config.trackCleanup(async () => notice.close());
+  config.trackCleanup(() => notice.close());
 
   const writeServerTruth = (
     entities: EntityType<TItem>[],
