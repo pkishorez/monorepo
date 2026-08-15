@@ -27,6 +27,7 @@ const eventColor: Record<RecordedFlowSeverity, string> = {
 
 const activityColor: Record<FlowActivityStatus, string> = {
   error: 'var(--color-destructive)',
+  interrupted: 'var(--color-amber-500)',
   running: 'var(--color-primary)',
   success: 'var(--color-positive)',
   unset: 'var(--color-border)',

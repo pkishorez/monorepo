@@ -1,5 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { FileCode2, Link as LinkIcon, Maximize2 } from 'lucide-react';
+import {
+  ChevronDown,
+  FileCode2,
+  Link as LinkIcon,
+  Maximize2,
+} from 'lucide-react';
 import type { StoryTree } from 'laymos';
 
 import { SourceViewer } from '../../source-viewer/index';
@@ -300,10 +305,9 @@ function StoryBody({
       {support !== null && supportOpen && (
         <SourceDialog source={support} onClose={() => setSupportOpen(false)} />
       )}
-      {story.questions.map((question, index) => (
+      {story.questions.map((question) => (
         <QuestionBlock
           key={question.slug}
-          index={index}
           question={question}
           report={questionReports.get(question.slug)}
           anchorPrefix={anchorPrefix}
@@ -314,12 +318,10 @@ function StoryBody({
 }
 
 function QuestionBlock({
-  index,
   question,
   report,
   anchorPrefix,
 }: {
-  readonly index: number;
   readonly question: StoryLeaf['questions'][number];
   readonly report?: QuestionReport;
   readonly anchorPrefix?: string;
@@ -328,36 +330,60 @@ function QuestionBlock({
     anchorPrefix === undefined
       ? question.slug
       : `${anchorPrefix}--${question.slug}`;
+  const [open, setOpen] = useState(
+    () =>
+      typeof window !== 'undefined' && window.location.hash === `#${anchor}`,
+  );
   return (
     <section
       id={anchor}
       className="scroll-mt-4 overflow-hidden rounded-xl border border-border bg-card"
     >
-      <header className="group flex items-start gap-2.5 border-b border-border/60 bg-muted/30 px-4 py-3">
-        <span className="mt-0.5 shrink-0 font-mono text-[11px] font-semibold tabular-nums leading-5 text-muted-foreground/60">
-          {String(index + 1).padStart(2, '0')}
-        </span>
+      <header
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((value) => !value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setOpen((value) => !value);
+          }
+        }}
+        className={cn(
+          'group flex cursor-pointer items-start gap-3 bg-muted/30 px-5 py-4 transition-colors hover:bg-muted/50',
+          open && 'border-b border-border/60',
+        )}
+      >
         <StatusIcon verdict={report?.verdict} className="mt-0.5" />
         <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold leading-snug">
+          <Markdown className="prose-p:my-0 prose-headings:my-0 text-[15px] font-semibold leading-snug text-foreground">
             {question.question}
-          </h2>
-          <Markdown className="prose-p:my-0 mt-1 text-sm leading-relaxed text-muted-foreground">
+          </Markdown>
+          <Markdown className="prose-p:my-1 prose-ol:my-1.5 prose-ol:pl-4 prose-ul:my-1.5 prose-ul:pl-4 prose-li:my-0.5 prose-strong:text-foreground/80 mt-2 text-sm leading-relaxed text-muted-foreground">
             {question.answer}
           </Markdown>
         </div>
         <a
           href={`#${anchor}`}
           title="Link to this question"
-          className="mt-0.5 text-muted-foreground/50 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+          onClick={(event) => event.stopPropagation()}
+          className="mt-1 text-muted-foreground/50 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
         >
           <LinkIcon className="size-3.5" />
         </a>
+        <ChevronDown
+          className={cn(
+            'mt-1 size-4 shrink-0 text-muted-foreground/60 transition-transform',
+            open && 'rotate-180',
+          )}
+        />
       </header>
-      <div className="flex flex-col gap-2.5 px-4 py-3.5">
-        <CodeSnippet code={question.snippet} />
-        {report !== undefined && <QuestionProof report={report} />}
-      </div>
+      {open && (
+        <div className="flex flex-col gap-3 px-5 py-4">
+          <CodeSnippet code={question.snippet} />
+          {report !== undefined && <QuestionProof report={report} />}
+        </div>
+      )}
     </section>
   );
 }

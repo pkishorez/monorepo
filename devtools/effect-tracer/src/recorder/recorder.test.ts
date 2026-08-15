@@ -97,6 +97,44 @@ describe('makeTraceRecorder', () => {
     expect(span?.endTime).not.toBeNull();
   });
 
+  it('attaches nested plain logs to their Flow activity', async () => {
+    const recorder = makeTraceRecorder();
+    const flow = initFlow({ id: 'probe', participantName: 'worker' });
+
+    await Effect.runPromise(
+      recorder.instrument(
+        flow.withSpan('Doing work')(
+          Effect.log('direct detail').pipe(
+            Effect.andThen(
+              Effect.logWarning('nested detail').pipe(
+                Effect.withSpan('plain-span'),
+              ),
+            ),
+            Effect.andThen(
+              flow.withSpan('Inner activity')(Effect.log('owned elsewhere')),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const [recorded] = recorder.snapshotFlows();
+    const activities = (recorded?.items ?? []).filter(
+      (item) => item.kind === 'activity',
+    );
+    const outer = activities.find(({ name }) => name === 'Doing work');
+    const inner = activities.find(({ name }) => name === 'Inner activity');
+    expect(
+      outer?.logs?.map(({ message, severity }) => [message, severity]),
+    ).toEqual([
+      ['direct detail', 'info'],
+      ['nested detail', 'warning'],
+    ]);
+    expect(inner?.logs?.map(({ message }) => message)).toEqual([
+      'owned elsewhere',
+    ]);
+  });
+
   it('marks a failed span as an error', async () => {
     const recorder = makeTraceRecorder();
 
@@ -119,7 +157,7 @@ describe('makeTraceRecorder', () => {
 
     const [span] = recorder.snapshot().spans;
     expect(span?.name).toBe('forever');
-    expect(span?.status).toBe('error');
+    expect(span?.status).toBe('interrupted');
     expect(span?.endTime).not.toBeNull();
   });
 

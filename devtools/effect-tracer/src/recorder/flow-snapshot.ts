@@ -5,10 +5,12 @@ import type {
   TraceValue,
 } from './recorder.js';
 import {
+  flowAttributePrefix,
   flowAttributes,
   flowItemTypes,
   isTerminalFlowStatus,
   type RecordedFlow,
+  type RecordedFlowActivityLog,
 } from '../flow/index.js';
 
 type RecordedFlowItem = RecordedFlow['items'][number];
@@ -37,6 +39,20 @@ const severity = (level: CapturedLog['level']) => {
   }
 };
 
+const displayAttributes = (
+  record: Readonly<Record<string, TraceValue>>,
+): Readonly<Record<string, TraceValue>> | undefined => {
+  const entries = Object.entries(record)
+    .filter(([key]) => !key.startsWith('flow.'))
+    .map(([key, value]) => [
+      key.startsWith(flowAttributePrefix)
+        ? key.slice(flowAttributePrefix.length)
+        : key,
+      value,
+    ]);
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+};
+
 const terminalStatus = (
   value: TraceValue | undefined,
 ): Exclude<RecordedFlowStatus, 'active'> | undefined =>
@@ -46,6 +62,7 @@ const activity = (
   span: CapturedSpan,
   flow: string,
   warnings: RecordedFlowWarning[],
+  nestedLogs: (spanId: string) => readonly RecordedFlowActivityLog[],
 ): RecordedFlowItem | null => {
   if (span.attributes[flowAttributes.id] !== flow) return null;
   const participant = span.attributes[flowAttributes.participantName];
@@ -57,11 +74,15 @@ const activity = (
     });
     return null;
   }
+  const attributes = displayAttributes(span.attributes);
+  const logs = nestedLogs(span.spanId);
   return {
     kind: 'activity',
     id: `${span.traceId}:${span.spanId}`,
     participantName: participant,
     name: span.name,
+    ...(attributes ? { attributes } : {}),
+    ...(logs.length > 0 ? { logs } : {}),
     timestamp: span.startTime,
     duration:
       span.endTime === null ? null : Math.max(0, span.endTime - span.startTime),
@@ -86,10 +107,12 @@ const event = (
     });
     return null;
   }
+  const attributes = displayAttributes(log.annotations);
   const common = {
     id: log.id,
     participantName: participant,
     name: text(log.message) || 'Event',
+    ...(attributes ? { attributes } : {}),
     timestamp: log.timestamp,
     severity: severity(log.level),
   };
@@ -131,8 +154,46 @@ export const projectRecordedFlow = (
   id: string,
 ): RecordedFlow | null => {
   const warnings: RecordedFlowWarning[] = [];
+  const childrenOf = new Map<string, CapturedSpan[]>();
+  for (const span of trace.spans) {
+    if (span.parentSpanId === null) continue;
+    const children = childrenOf.get(span.parentSpanId) ?? [];
+    children.push(span);
+    childrenOf.set(span.parentSpanId, children);
+  }
+  const plainLogsBySpan = new Map<string, CapturedLog[]>();
+  for (const log of trace.logs) {
+    if (log.spanId === null) continue;
+    if (log.annotations[flowAttributes.id] !== undefined) continue;
+    const logs = plainLogsBySpan.get(log.spanId) ?? [];
+    logs.push(log);
+    plainLogsBySpan.set(log.spanId, logs);
+  }
+  const nestedLogs = (spanId: string): readonly RecordedFlowActivityLog[] => {
+    const collected: CapturedLog[] = [];
+    const visit = (current: string) => {
+      collected.push(...(plainLogsBySpan.get(current) ?? []));
+      for (const child of childrenOf.get(current) ?? []) {
+        // A nested flow activity owns its own subtree.
+        if (typeof child.attributes[flowAttributes.id] === 'string') continue;
+        visit(child.spanId);
+      }
+    };
+    visit(spanId);
+    return collected
+      .sort((left, right) => left.timestamp - right.timestamp)
+      .map((log) => {
+        const attributes = displayAttributes(log.annotations);
+        return {
+          timestamp: log.timestamp,
+          severity: severity(log.level),
+          message: text(log.message) || 'Log',
+          ...(attributes ? { attributes } : {}),
+        };
+      });
+  };
   const items = [
-    ...trace.spans.map((span) => activity(span, id, warnings)),
+    ...trace.spans.map((span) => activity(span, id, warnings, nestedLogs)),
     ...trace.logs.map((log) => event(log, id, warnings)),
   ]
     .filter((item) => item !== null)

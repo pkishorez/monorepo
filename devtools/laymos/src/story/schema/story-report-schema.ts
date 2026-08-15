@@ -22,6 +22,7 @@ export type JsonValue =
 
 const SpanStatusSchema = Schema.Literals([
   'error',
+  'interrupted',
   'running',
   'success',
   'unset',
@@ -71,16 +72,29 @@ const FlowSeveritySchema = Schema.Literals([
   'warning',
 ]);
 
+const FlowItemAttributesSchema = Schema.optional(
+  Schema.Record(Schema.String, JsonValueSchema),
+);
+
+const RecordedFlowActivityLogSchema = Schema.Struct({
+  timestamp: Schema.Number,
+  severity: FlowSeveritySchema,
+  message: Schema.String,
+  attributes: FlowItemAttributesSchema,
+});
+
 const RecordedFlowActivitySchema = Schema.Struct({
   kind: Schema.Literal('activity'),
   id: Schema.String,
   participantName: Schema.String,
   name: Schema.String,
+  attributes: FlowItemAttributesSchema,
   timestamp: Schema.Number,
   duration: Schema.NullOr(Schema.Number),
   status: SpanStatusSchema,
   traceId: Schema.String,
   spanId: Schema.String,
+  logs: Schema.optional(Schema.Array(RecordedFlowActivityLogSchema)),
 });
 
 const RecordedFlowLocalEventSchema = Schema.Struct({
@@ -88,6 +102,7 @@ const RecordedFlowLocalEventSchema = Schema.Struct({
   id: Schema.String,
   participantName: Schema.String,
   name: Schema.String,
+  attributes: FlowItemAttributesSchema,
   timestamp: Schema.Number,
   severity: FlowSeveritySchema,
   status: Schema.optional(
@@ -100,6 +115,7 @@ const RecordedFlowMessageSchema = Schema.Struct({
   id: Schema.String,
   participantName: Schema.String,
   name: Schema.String,
+  attributes: FlowItemAttributesSchema,
   timestamp: Schema.Number,
   severity: FlowSeveritySchema,
   destination: Schema.String,

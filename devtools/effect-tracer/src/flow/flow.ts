@@ -140,6 +140,7 @@ export type {
   FlowStatus,
   RecordedFlow,
   RecordedFlowActivity,
+  RecordedFlowActivityLog,
   RecordedFlowItem,
   RecordedFlowLocalEvent,
   RecordedFlowMessage,

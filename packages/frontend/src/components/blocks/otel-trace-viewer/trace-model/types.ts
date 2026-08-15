@@ -1,4 +1,9 @@
-export type OtelStatus = 'success' | 'error' | 'running' | 'unset';
+export type OtelStatus =
+  | 'success'
+  | 'error'
+  | 'interrupted'
+  | 'running'
+  | 'unset';
 
 export interface OtelEvent {
   readonly name: string;
