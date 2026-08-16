@@ -27,6 +27,7 @@
     "src/sync/lifecycle/strategy-lifecycle/__tests__",
     "src/sync/persistence/sync-replica/__tests__",
     "src/sync/runtime/mutation-pacing/__tests__",
+    "src/sync/runtime/leadership/__tests__",
     "src/sync/workers/bidirectional/__tests__",
     "src/sync/workers/cadence-repair/__tests__",
     "src/sync/workers/get-once/__tests__",
@@ -345,6 +346,9 @@
       "kind": "shared"
     },
     "src/sync/runtime/mutation-pacing": {},
+    "src/sync/runtime/leadership": {
+      "subpaths": ["in-memory", "web-locks"]
+    },
     "src/sync/runtime/pending-mutations": {},
     "src/sync/runtime/strategy-runtime": {},
     "src/sync/runtime/sync-registry": {},

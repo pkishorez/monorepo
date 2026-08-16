@@ -8,12 +8,18 @@ import {
   Activation,
   type FlowParticipant,
 } from '../../runtime/sync-flow/index.js';
+import type {
+  Leadership,
+  LeadershipIdentity,
+} from '../../runtime/leadership/index.js';
 
 export const startSingleItemLifecycle = <
   TItem extends object,
   TState,
   R,
 >(args: {
+  leadership: Leadership;
+  identity: LeadershipIdentity;
   strategy: SingleItemStrategy<TItem, TState, R>;
   flow: FlowParticipant;
   makeContext: (
@@ -30,6 +36,8 @@ export const startSingleItemLifecycle = <
       attributes: { strategy: args.strategy.name },
     });
     const guarded = superviseStrategy({
+      leadership: args.leadership,
+      identity: args.identity,
       run: (attemptScope) =>
         args.strategy.run(args.makeContext(attemptScope, args.flow)).pipe(
           args.flow.withSpan('Strategy attempt', {

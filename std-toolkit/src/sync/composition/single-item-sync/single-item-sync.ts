@@ -39,6 +39,10 @@ import {
   makePeerSync,
   type PeerChannelFactory,
 } from '../../runtime/peer-sync/index.js';
+import {
+  leadershipIdentity,
+  type Leadership,
+} from '../../runtime/leadership/index.js';
 
 const SINGLETON_KEY = '__singleton__';
 const SINGLE_STATE_KEY = '__single__';
@@ -74,6 +78,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
     store: SyncStore;
+    leadership: Leadership;
     collectionName: string;
     assertActive: () => void;
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
@@ -260,6 +265,12 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
             );
 
             yield* startSingleItemLifecycle({
+              leadership: config.leadership,
+              identity: leadershipIdentity({
+                collectionName,
+                partitionKey: SINGLE_STATE_KEY,
+                role: { _tag: 'Strategy', name: strategy.name },
+              }),
               strategy,
               flow: strategyFlow,
               makeContext: (scope, workerFlow) => ({
