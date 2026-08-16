@@ -1,0 +1,108 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Opt through the accident-guard in apps/docs/alchemy.run.ts — deployed
+      # stages refuse to reconcile without it.
+      ALLOW_DEPLOY: 'true'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # `prod` binds docs.kishore.app; each PR gets its own pr<N> stage on
+      # pr<N>-docs.kishore.app, destroyed when the PR closes.
+      - name: Compute stage
+        id: stage
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            stage="pr${{ github.event.number }}"
+            docs_host="pr${{ github.event.number }}-docs.kishore.app"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            stage="prod"
+            docs_host="docs.kishore.app"
+          else
+            echo "::error::Unexpected ref '${{ github.ref }}' — only main and pull_request events are supported." >&2
+            exit 1
+          fi
+          {
+            echo "stage=$stage"
+            echo "docs_url=https://$docs_host"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Workspace packages the docs site consumes export source, but building
+      # the workspace mirrors test.yml and keeps dist-consuming deps working.
+      - name: Build
+        run: pnpm build
+
+      # Bootstrap is idempotent (adopts an existing state store), so it's safe
+      # on every deploy.
+      - name: Bootstrap Alchemy state store
+        run: pnpm -C apps/docs exec alchemy cloudflare bootstrap
+
+      - name: Deploy docs
+        id: deploy_docs
+        run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes
+        env:
+          STAGE: ${{ steps.stage.outputs.stage }}
+
+      - name: State tree
+        if: always()
+        run: pnpm -C apps/docs exec alchemy state tree || true
+
+      - name: Job summary
+        if: always()
+        env:
+          STAGE: ${{ steps.stage.outputs.stage }}
+          DOCS_URL: ${{ steps.stage.outputs.docs_url }}
+          DOCS_OUTCOME: ${{ steps.deploy_docs.outcome }}
+        run: |
+          icon() {
+            case "$1" in
+              success) echo "✅ deployed" ;;
+              failure) echo "❌ failed" ;;
+              *) echo "$1" ;;
+            esac
+          }
+          {
+            echo "## Deploy — \`$STAGE\`"
+            echo ""
+            echo "| App | Status | URL |"
+            echo "| --- | --- | --- |"
+            echo "| docs | $(icon "$DOCS_OUTCOME") | $DOCS_URL |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  cleanup:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    uses: ./.github/workflows/cleanup.yml
+    with:
+      stage: pr${{ github.event.number }}
+    secrets: inherit
