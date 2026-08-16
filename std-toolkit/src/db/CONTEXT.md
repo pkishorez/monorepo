@@ -66,7 +66,7 @@ _Avoid_: Adapter-unbounded topology.
 
 **Partition key (pk)**:
 The distribution key. All rows sharing a pk value live together as one **item collection**.
-_Avoid_: hash key (within this context use **partition key**). Note: unrelated to tanstack-sync's **Partition** lifecycle concept — see the root map's collision note.
+_Avoid_: hash key (within this context use **partition key**). Note: unrelated to sync's **Partition** lifecycle concept — see the root map's collision note.
 
 **Item collection**:
 The set of rows sharing one **partition key** value — i.e. a single **partition** in the storage sense. The unit a query over a pk returns.

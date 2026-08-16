@@ -61,14 +61,14 @@ import { staleOps } from './database/std-table/transactions/stale-ops.story.js';
 import { olderRows } from './database/std-table/evolving-data-in-place/older-rows.story.js';
 import { unreadableRows } from './database/std-table/evolving-data-in-place/unreadable-rows.story.js';
 
-import { aSimulatedWorld } from './tanstack-sync/how-these-stories-run/a-simulated-world.story.js';
-import { fromDatabaseToCollection } from './tanstack-sync/wiring-a-collection/from-database-to-collection.story.js';
-import { aUserUpdatedSomeTimeBack } from './tanstack-sync/catching-up/a-user-updated-some-time-back.story.js';
-import { editsKeepFlowing } from './tanstack-sync/staying-current/edits-keep-flowing.story.js';
-import { oneListAtATime } from './tanstack-sync/syncing-on-demand/one-list-at-a-time.story.js';
-import { crossCollection } from './tanstack-sync/optimistic-transactions/cross-collection.story.js';
-import { issue1 } from './tanstack-sync/issue-1/issue-1.story.js';
-import { oneBrowserManyTabs } from './tanstack-sync/two-tabs/one-browser-many-tabs.story.js';
+import { aSimulatedWorld } from './sync/how-these-stories-run/a-simulated-world.story.js';
+import { fromDatabaseToCollection } from './sync/wiring-a-collection/from-database-to-collection.story.js';
+import { aUserUpdatedSomeTimeBack } from './sync/catching-up/a-user-updated-some-time-back.story.js';
+import { editsKeepFlowing } from './sync/staying-current/edits-keep-flowing.story.js';
+import { oneListAtATime } from './sync/syncing-on-demand/one-list-at-a-time.story.js';
+import { crossCollection } from './sync/optimistic-transactions/cross-collection.story.js';
+import { issue1 } from './sync/issue-1/issue-1.story.js';
+import { oneBrowserManyTabs } from './sync/two-tabs/one-browser-many-tabs.story.js';
 
 import { batchInsert } from './database/dynamodb/batch-insert.story.js';
 import { nativeUpdates } from './database/dynamodb/native-updates.story.js';
@@ -139,7 +139,7 @@ export default Story.group('std-toolkit', [
     Story.group('IndexedDB', [autoVersionedSetup, livingInTheBrowser]),
     Story.group('SQLite', [fourDriversOneTable, writeYourOwnDriver]),
   ]),
-  Story.group('TanStack Sync', [
+  Story.group('Sync', [
     Story.group('How these stories run', [aSimulatedWorld]),
     Story.group('Wiring a collection', [fromDatabaseToCollection]),
     Story.group('Catching up', [aUserUpdatedSomeTimeBack]),

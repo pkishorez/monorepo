@@ -14,7 +14,7 @@ export default defineConfig({
     globals: true,
     include: [
       'src/**/__tests__/**/*.test.ts',
-      'stories/tanstack-sync/simulation.test.ts',
+      'stories/sync/simulation.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', '**/*.bun.test.ts'],
   },

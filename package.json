@@ -22,6 +22,7 @@
     "syncpack:update": "syncpack update --interactive --target minor",
     "syncpack:update:latest": "syncpack update --interactive --target latest",
     "test": "vp run -r test",
+    "stories": "vp run -r stories",
     "updates": "npx -y npm-check-updates -iws",
     "version": "changeset version"
   },

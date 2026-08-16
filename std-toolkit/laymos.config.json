@@ -20,17 +20,17 @@
     "src/eschema/play.ts",
     "src/eschema/tutorial",
     "src/snapshot/__tests__",
-    "src/tanstack-sync/__tests__",
-    "src/tanstack-sync/composition/keyed-sync/__tests__",
-    "src/tanstack-sync/domain/partition-identity/__tests__",
-    "src/tanstack-sync/lifecycle/strategy-lifecycle/__tests__",
-    "src/tanstack-sync/persistence/source-of-truth/__tests__",
-    "src/tanstack-sync/runtime/mutation-pacing/__tests__",
-    "src/tanstack-sync/workers/bidirectional/__tests__",
-    "src/tanstack-sync/workers/cadence-repair/__tests__",
-    "src/tanstack-sync/workers/get-once/__tests__",
-    "src/tanstack-sync/workers/new-to-old/__tests__",
-    "src/tanstack-sync/workers/old-to-new/__tests__"
+    "src/sync/__tests__",
+    "src/sync/composition/keyed-sync/__tests__",
+    "src/sync/domain/partition-identity/__tests__",
+    "src/sync/lifecycle/strategy-lifecycle/__tests__",
+    "src/sync/persistence/source-of-truth/__tests__",
+    "src/sync/runtime/mutation-pacing/__tests__",
+    "src/sync/workers/bidirectional/__tests__",
+    "src/sync/workers/cadence-repair/__tests__",
+    "src/sync/workers/get-once/__tests__",
+    "src/sync/workers/new-to-old/__tests__",
+    "src/sync/workers/old-to-new/__tests__"
   ],
   "storiesPath": "stories",
   "layers": {
@@ -207,35 +207,32 @@
       "paths": ["src/cli"],
       "description": "CLI — command-line entrypoint and snapshot workflow"
     },
-    "tanstack-sync.public": {
-      "paths": [
-        "src/tanstack-sync/index.ts",
-        "src/tanstack-sync/tanstack-sync.ts"
-      ],
+    "sync.public": {
+      "paths": ["src/sync/index.ts", "src/sync/sync.ts"],
       "description": "Public — barrel, facade, and collection factory"
     },
-    "tanstack-sync.composition": {
-      "paths": ["src/tanstack-sync/composition"],
+    "sync.composition": {
+      "paths": ["src/sync/composition"],
       "description": "Composition — keyed hybrid and single-item collection composition"
     },
-    "tanstack-sync.lifecycle": {
-      "paths": ["src/tanstack-sync/lifecycle"],
+    "sync.lifecycle": {
+      "paths": ["src/sync/lifecycle"],
       "description": "Lifecycle — total, partition, singleton, and strategy lifecycles"
     },
-    "tanstack-sync.workers": {
-      "paths": ["src/tanstack-sync/workers"],
+    "sync.workers": {
+      "paths": ["src/sync/workers"],
       "description": "Workers — independent sync and repair workers"
     },
-    "tanstack-sync.runtime": {
-      "paths": ["src/tanstack-sync/runtime"],
+    "sync.runtime": {
+      "paths": ["src/sync/runtime"],
       "description": "Runtime — typed TanStack and Effect runtime capabilities"
     },
-    "tanstack-sync.persistence": {
-      "paths": ["src/tanstack-sync/persistence"],
+    "sync.persistence": {
+      "paths": ["src/sync/persistence"],
       "description": "Persistence — offline storage, server truth, and strategy progress"
     },
-    "tanstack-sync.domain": {
-      "paths": ["src/tanstack-sync/domain"],
+    "sync.domain": {
+      "paths": ["src/sync/domain"],
       "description": "Domain — pure sync policies, identities, state, and errors"
     }
   },
@@ -302,8 +299,8 @@
     "src/cli": {
       "kind": "entry"
     },
-    "src/tanstack-sync/index.ts": {},
-    "src/tanstack-sync/tanstack-sync.ts": {
+    "src/sync/index.ts": {},
+    "src/sync/sync.ts": {
       "kind": "shared"
     },
     "src/db/sqlite/drivers/node": {},
@@ -325,47 +322,47 @@
     },
     "src/snapshot/capture/table-entity-registry": {},
     "src/snapshot/capture/table-capture": {},
-    "src/tanstack-sync/composition/keyed-sync": {},
-    "src/tanstack-sync/composition/single-item-sync": {},
-    "src/tanstack-sync/lifecycle/partition-sync": {},
-    "src/tanstack-sync/lifecycle/single-item-lifecycle": {},
-    "src/tanstack-sync/lifecycle/strategy-lifecycle": {
+    "src/sync/composition/keyed-sync": {},
+    "src/sync/composition/single-item-sync": {},
+    "src/sync/lifecycle/partition-sync": {},
+    "src/sync/lifecycle/single-item-lifecycle": {},
+    "src/sync/lifecycle/strategy-lifecycle": {
       "kind": "shared"
     },
-    "src/tanstack-sync/lifecycle/sync-execution": {},
-    "src/tanstack-sync/workers/bidirectional": {},
-    "src/tanstack-sync/workers/cadence-repair": {},
-    "src/tanstack-sync/workers/get-once": {},
-    "src/tanstack-sync/workers/new-to-old": {},
-    "src/tanstack-sync/workers/old-to-new": {},
-    "src/tanstack-sync/runtime/collection-model": {
+    "src/sync/lifecycle/sync-execution": {},
+    "src/sync/workers/bidirectional": {},
+    "src/sync/workers/cadence-repair": {},
+    "src/sync/workers/get-once": {},
+    "src/sync/workers/new-to-old": {},
+    "src/sync/workers/old-to-new": {},
+    "src/sync/runtime/collection-model": {
       "kind": "shared"
     },
-    "src/tanstack-sync/runtime/change-notice": {},
-    "src/tanstack-sync/runtime/collection-projection": {},
-    "src/tanstack-sync/runtime/effect-runner": {
+    "src/sync/runtime/change-notice": {},
+    "src/sync/runtime/collection-projection": {},
+    "src/sync/runtime/effect-runner": {
       "kind": "shared"
     },
-    "src/tanstack-sync/runtime/mutation-pacing": {},
-    "src/tanstack-sync/runtime/pending-mutations": {},
-    "src/tanstack-sync/runtime/strategy-runtime": {},
-    "src/tanstack-sync/runtime/sync-registry": {},
-    "src/tanstack-sync/runtime/sync-flow": {
+    "src/sync/runtime/mutation-pacing": {},
+    "src/sync/runtime/pending-mutations": {},
+    "src/sync/runtime/strategy-runtime": {},
+    "src/sync/runtime/sync-registry": {},
+    "src/sync/runtime/sync-flow": {
       "kind": "shared"
     },
-    "src/tanstack-sync/persistence/sync-persistence-table": {
+    "src/sync/persistence/sync-persistence-table": {
       "kind": "shared"
     },
-    "src/tanstack-sync/persistence/source-of-truth": {},
-    "src/tanstack-sync/persistence/sync-state": {},
-    "src/tanstack-sync/domain/cadence-policy": {},
-    "src/tanstack-sync/domain/entity-convergence": {},
-    "src/tanstack-sync/domain/entity-validation": {},
-    "src/tanstack-sync/domain/partition-identity": {},
-    "src/tanstack-sync/domain/slice-coverage": {},
-    "src/tanstack-sync/domain/strategy-state": {},
-    "src/tanstack-sync/domain/sync-error": {},
-    "src/tanstack-sync/domain/sync-event": {}
+    "src/sync/persistence/source-of-truth": {},
+    "src/sync/persistence/sync-state": {},
+    "src/sync/domain/cadence-policy": {},
+    "src/sync/domain/entity-convergence": {},
+    "src/sync/domain/entity-validation": {},
+    "src/sync/domain/partition-identity": {},
+    "src/sync/domain/slice-coverage": {},
+    "src/sync/domain/strategy-state": {},
+    "src/sync/domain/sync-error": {},
+    "src/sync/domain/sync-event": {}
   },
   "layerGraphs": {
     "std-table": {
@@ -468,16 +465,16 @@
         "cli": ["snapshot.public"]
       }
     },
-    "tanstack-sync": {
-      "description": "Acyclic TanStack Sync domain, persistence, runtime, worker, lifecycle, composition, and facade layers",
+    "sync": {
+      "description": "Acyclic Sync domain, persistence, runtime, worker, lifecycle, composition, and facade layers",
       "rules": {
-        "tanstack-sync.public": ["memory.public", "tanstack-sync.composition"],
-        "tanstack-sync.composition": ["tanstack-sync.lifecycle"],
-        "tanstack-sync.lifecycle": ["tanstack-sync.workers"],
-        "tanstack-sync.workers": ["tanstack-sync.runtime"],
-        "tanstack-sync.runtime": ["tanstack-sync.persistence"],
-        "tanstack-sync.persistence": ["db.public", "tanstack-sync.domain"],
-        "tanstack-sync.domain": ["core.public"]
+        "sync.public": ["memory.public", "sync.composition"],
+        "sync.composition": ["sync.lifecycle"],
+        "sync.lifecycle": ["sync.workers"],
+        "sync.workers": ["sync.runtime"],
+        "sync.runtime": ["sync.persistence"],
+        "sync.persistence": ["db.public", "sync.domain"],
+        "sync.domain": ["core.public"]
       }
     }
   }
