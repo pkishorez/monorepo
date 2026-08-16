@@ -50,8 +50,8 @@ type FakeCollection = SyncCollection<Item> & {
 };
 
 // Holds mutable rows keyed by id and serves them via `values()` — the only read
-// surface the repair loop uses. `applyWrite` upserts server truth so a repaired
-// suspect actually clears, mirroring the real source-of-truth write-back.
+// surface the repair loop uses. `applyWrite` updates the Sync Replica so a
+// repaired suspect actually clears, mirroring real replica convergence.
 const makeFakeCollection = (opts: {
   subscriberCount: number;
   entities: EntityType<Item>[];
@@ -103,7 +103,7 @@ const writeFor = (collection: FakeCollection) => {
   const batches: EntityType<Item>[][] = [];
   return {
     batches,
-    writeServerTruth: (entities: EntityType<Item>[]) =>
+    applyToSyncReplica: (entities: EntityType<Item>[]) =>
       Effect.sync(() => {
         batches.push(entities);
         collection.applyWrite(entities);
@@ -152,7 +152,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [suspect, predecessor],
         });
-        const { batches, writeServerTruth } = writeFor(collection);
+        const { batches, applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -160,7 +160,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -190,7 +190,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth: writeFor(collection).writeServerTruth,
+                applyToSyncReplica: writeFor(collection).applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -218,7 +218,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [suspect],
         });
-        const { batches, writeServerTruth } = writeFor(collection);
+        const { batches, applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -226,7 +226,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: { ...defaultConfig, readiness: 10_000 },
               }),
             );
@@ -251,7 +251,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [makeEntity(uAt(100_000))],
         });
-        const { batches, writeServerTruth } = writeFor(collection);
+        const { batches, applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -259,7 +259,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -280,7 +280,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [makeEntity(uStr, { _s: uTime(uStr)! + 20_000 })],
         });
-        const { writeServerTruth } = writeFor(collection);
+        const { applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -288,7 +288,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -312,7 +312,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [suspect],
         });
-        const { batches, writeServerTruth } = writeFor(collection);
+        const { batches, applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -320,7 +320,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: { ...defaultConfig, readiness: 10_000 },
               }),
             );
@@ -352,7 +352,7 @@ describe('Sync', () => {
           subscriberCount: 0,
           entities: [suspect],
         });
-        const { writeServerTruth } = writeFor(collection);
+        const { applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -360,7 +360,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -391,7 +391,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [suspect],
         });
-        const { writeServerTruth } = writeFor(collection);
+        const { applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -399,7 +399,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -425,7 +425,7 @@ describe('Sync', () => {
         });
 
         let attempts = 0;
-        const writeServerTruth = (entities: EntityType<Item>[]) => {
+        const applyToSyncReplica = (entities: EntityType<Item>[]) => {
           attempts += 1;
           if (attempts === 1) {
             return Effect.fail({
@@ -442,7 +442,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }).pipe(Effect.retry(Schedule.recurs(1))),
             );
@@ -469,7 +469,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [suspect],
         });
-        const { batches, writeServerTruth } = writeFor(collection);
+        const { batches, applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -477,7 +477,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -500,7 +500,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [suspect],
         });
-        const { writeServerTruth } = writeFor(collection);
+        const { applyToSyncReplica } = writeFor(collection);
 
         const exit = await runWithTestClock(
           Effect.gen(function* () {
@@ -508,7 +508,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 config: defaultConfig,
               }),
             );
@@ -548,7 +548,7 @@ describe('Sync', () => {
           subscriberCount: 1,
           entities: [suspect, samePartitionPredecessor, otherPartition],
         });
-        const { batches, writeServerTruth } = writeFor(collection);
+        const { batches, applyToSyncReplica } = writeFor(collection);
 
         await runWithTestClock(
           Effect.gen(function* () {
@@ -556,7 +556,7 @@ describe('Sync', () => {
               runCadenceSync({
                 collection,
                 fetchFrom,
-                writeServerTruth,
+                applyToSyncReplica,
                 partition: { field: 'p', value: 'A' },
                 config: defaultConfig,
               }),

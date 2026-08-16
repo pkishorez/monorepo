@@ -12,10 +12,7 @@ import {
   makeChangeNotice,
   type ChannelFactory,
 } from '../../runtime/change-notice/index.js';
-import {
-  makeSourceOfTruth,
-  type Accepted,
-} from '../../persistence/source-of-truth/index.js';
+import { makeSyncReplica } from '../../persistence/sync-replica/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type {
   CollectionHandle,
@@ -29,7 +26,7 @@ import type {
 } from '../../runtime/collection-model/index.js';
 import { buildMutationHandlers } from './mutations.js';
 import type { PaceStrategyFactory } from '../../runtime/mutation-pacing/index.js';
-import type { SyncPersistence } from '../../persistence/sync-persistence-table/index.js';
+import type { SyncStore } from '../../persistence/sync-store/index.js';
 import type { EffectRunner } from '../../runtime/effect-runner/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { startSingleItemLifecycle } from '../../lifecycle/single-item-lifecycle/index.js';
@@ -54,9 +51,9 @@ export type SingleItemResult<
     utils: {
       schema: () => S;
       flowId: () => string;
-      writeServerTruth: (
+      applyToSyncReplica: (
         entities: EntityType<TItem>[],
-      ) => Effect.Effect<void, WriteError>;
+      ) => Effect.Effect<EntityType<TItem>[], WriteError>;
       onUpdate?: NonNullable<
         ReturnType<typeof buildMutationHandlers<TItem>>['onUpdate']
       >;
@@ -76,7 +73,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       updates: Partial<S['Type']>;
     }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
-    persistence: SyncPersistence;
+    store: SyncStore;
     collectionName: string;
     assertActive: () => void;
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
@@ -96,16 +93,16 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     config.runner.runSync(nextUlid),
     config.flowPlacement,
   );
-  const sot = makeSourceOfTruth<TItem>({
+  const replica = makeSyncReplica<TItem>({
     schema,
-    persistence: config.persistence,
+    store: config.store,
     collectionName,
     keyOf: () => SINGLETON_KEY,
   });
   const stateStore = makeSyncStateStore({
     schemaName: collectionName,
     strategyName: strategy.name,
-    persistence: config.persistence,
+    store: config.store,
     state: strategy.state,
   });
   const advancePermit = config.runner.runSync(TxSemaphore.make(1));
@@ -119,16 +116,12 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   let position: string | null = null;
 
-  const project = (accepted: Accepted<TItem>): void => {
-    if (projector) projector.project(accepted);
-  };
-
   const advance = (): Effect.Effect<number, WriteError> =>
     TxSemaphore.withPermit(
       advancePermit,
       Effect.gen(function* () {
         if (projector === null) return 0;
-        const delta = yield* sot.since(position);
+        const delta = yield* replica.since(position);
         position = delta.position;
         yield* Effect.sync(() => projector?.projectEntities(delta.entities));
         return delta.entities.length;
@@ -143,10 +136,10 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   });
   config.trackCleanup(() => notice.close());
 
-  const writeServerTruth = (
+  const applyToSyncReplica = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
-  ): Effect.Effect<void, WriteError> => {
+  ): Effect.Effect<EntityType<TItem>[], WriteError> => {
     config.assertActive();
     return Effect.gen(function* () {
       if (entities.some((entity) => entity.meta._d)) {
@@ -155,19 +148,20 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
           reason: `single-item collection '${schema.name}' cannot be deleted`,
         });
       }
-      const accepted = yield* sot.write(entities);
+      const accepted = yield* replica.applyToSyncReplica(entities);
       yield* advance();
       notice.notify();
       if (syncFlow && entities.length > 0) {
-        yield* syncFlow.log('Source of Truth write', {
+        yield* syncFlow.log('Sync Replica write', {
           attributes: {
             receivedCount: entities.length,
-            storedCount: accepted.upserts.length + accepted.tombstoned.length,
+            storedCount: accepted.length,
           },
         });
       }
+      return accepted;
     }).pipe(
-      Effect.withSpan('sync.write-server-truth', {
+      Effect.withSpan('sync.apply-to-sync-replica', {
         attributes: {
           entity: collectionName,
           entityCount: entities.length,
@@ -179,12 +173,13 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   const projectOnly = (
     entities: EntityType<TItem>[],
   ): Effect.Effect<void, WriteError> =>
-    Effect.sync(() => project({ upserts: entities, tombstoned: [] }));
+    Effect.sync(() => projector?.projectEntities(entities));
 
   const handle: CollectionHandle = {
     schemaName: schema.name,
     collectionName,
-    writeServerTruth: writeServerTruth as CollectionHandle['writeServerTruth'],
+    applyToSyncReplica: (entities) =>
+      applyToSyncReplica(entities as EntityType<TItem>[]).pipe(Effect.asVoid),
     projectOnly: projectOnly as CollectionHandle['projectOnly'],
     flow: () => flow,
   };
@@ -192,7 +187,8 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   const handlers = buildMutationHandlers<TItem, R>({
     collectionName,
-    writeServerTruth,
+    applyToSyncReplica: (entities) =>
+      applyToSyncReplica(entities).pipe(Effect.asVoid),
     onUpdate,
     updatePacing,
     runner: config.runner,
@@ -228,7 +224,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
         Effect.catch(
           Effect.gen(function* () {
             const projected = yield* advance().pipe(
-              flow.collection.withSpan('Source of Truth hydration', {
+              flow.collection.withSpan('Sync Replica hydration', {
                 attributes: { collection: collectionName },
               }),
             );
@@ -255,8 +251,8 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
               flow: strategyFlow,
               makeContext: (scope, workerFlow) => ({
                 flow: workerFlow,
-                writeServerTruth: (entities) =>
-                  writeServerTruth(entities, workerFlow),
+                applyToSyncReplica: (entities) =>
+                  applyToSyncReplica(entities, workerFlow).pipe(Effect.asVoid),
                 getState: stateStore.get(SINGLE_STATE_KEY),
                 setState: (state) => stateStore.set(SINGLE_STATE_KEY, state),
                 scope,
@@ -349,7 +345,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     utils: {
       schema: () => schema,
       flowId: () => flow.id,
-      writeServerTruth,
+      applyToSyncReplica,
       onUpdate: handlers.onUpdate,
       pacedUpdate: (changes: Partial<TItem>) => {
         config.assertActive();

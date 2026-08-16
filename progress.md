@@ -5,16 +5,16 @@ This file is the live handoff for the work defined in `execute.md`. Update it du
 ## Overall Status
 
 - State: In progress
-- Current task: Task 3 — persistence concepts and convergence APIs
-- Next action: Record Task 2's commit hash, then implement Task 3
+- Current task: Task 4 — Peer Sync deep module
+- Next action: Record Task 3's commit hash, then replace Change Notice with Peer Sync
 
 ## Task Tracker
 
 | Task                                                    | Status      | Commit                                   | Checks                                        |
 | ------------------------------------------------------- | ----------- | ---------------------------------------- | --------------------------------------------- |
 | 1. Establish the `sync` context and package paths       | Complete    | 18adf8cb058070b35cd725f8f7eed72627e22cd7 | Focused tests, lint/TypeScript/Laymos, build  |
-| 2. Add names, qualified collection names, and addresses | Complete    | —                                        | 104 sync tests, lint/TypeScript/Laymos, build |
-| 3. Rename persistence concepts and APIs                 | Not started | —                                        | —                                             |
+| 2. Add names, qualified collection names, and addresses | Complete    | ca0db797aa68c30b7d38a7201b2f89417ec07179 | 104 sync tests, lint/TypeScript/Laymos, build |
+| 3. Rename persistence concepts and APIs                 | Complete    | —                                        | 105 sync tests, lint/TypeScript/Laymos, build |
 | 4. Build the Peer Sync deep module                      | Not started | —                                        | —                                             |
 | 5. Integrate Peer Sync with replica convergence         | Not started | —                                        | —                                             |
 | 6. Finish events, documentation, and stories            | Not started | —                                        | —                                             |
@@ -26,33 +26,34 @@ Use only these statuses: `Not started`, `In progress`, `Blocked`, `Complete`.
 
 ### Scope
 
-Task 3 renames persistence concepts and APIs and changes accepted convergence results to contain complete accepted Entities, including tombstones.
+Task 4 replaces Change Notice with the Peer Sync deep module and its testable channel contract.
 
 ### Work Completed
 
-- Task 2 recorded predecessor commit `18adf8cb058070b35cd725f8f7eed72627e22cd7`.
-- `createStdSync` now requires and normalizes `name`; collection registration rejects normalized collisions.
-- Qualified Collection Names drive TanStack collection IDs, persistence keys, change-notice channels, flow addresses, and structured event labels while backend `_e` routing retains the original schema name.
-- The pure `domain/sync-address` deep module constructs normalized Sync, Collection, partition, and strategy display addresses without replacing typed partition identity.
+- Task 2 recorded predecessor commit `ca0db797aa68c30b7d38a7201b2f89417ec07179`.
+- `source-of-truth` and `sync-persistence-table` are now the `sync-replica` and `sync-store` deep modules, with renamed stored schemas, records, spans, and public `storeLayer` configuration.
+- `applyToSyncReplica` is the convergence operation used by strategies, cadence repair, mutations, registry persistence, keyed sync, single-item sync, and manual writes.
+- Accepted convergence results are complete Entities, including tombstones; stale valid entities return an empty accepted result.
 
 ### Checks Run
 
-- `pnpm --filter std-toolkit exec vitest run src/sync stories/sync/simulation.test.ts` — passed, 18 files and 104 tests.
+- `pnpm --filter std-toolkit exec vitest run src/sync stories/sync/simulation.test.ts` — passed, 18 files and 105 tests.
 - `pnpm --filter std-toolkit lint` — passed; formatting/lint, TypeScript, and Laymos all clean, with no layer or module violations.
 - `pnpm --filter std-toolkit build` — passed.
 
 ### Remaining Work
 
-- Record Task 2's commit hash in the Task 3 commit.
-- Complete Tasks 3–7 in order.
+- Record Task 3's commit hash in the Task 4 commit.
+- Complete Tasks 4–7 in order.
 
 ## Decisions and Discoveries
 
 Append facts learned during implementation that affect later tasks. Do not repeat the settled requirements from `execute.md`.
 
 - The workspace uses `effect@4.0.0-beta.102`, but no `node_modules/effect/AGENTS.md` exists anywhere in the repository.
-- Source of Truth now accepts a separate qualified storage collection name while validating Entity `_e` against the schema's original name; Task 3 should preserve this split during the Sync Replica rename.
+- Sync Replica accepts a separate qualified storage collection name while validating Entity `_e` against the schema's original name.
 - Change-notice channels now use the qualified Collection Name directly; Task 4 can consume the same name when replacing them with Peer Sync.
+- Public `applyToSyncReplica` returns only complete entities accepted by convergence, which Task 5 can broadcast directly; internal strategy and registry adapters intentionally discard that result.
 
 ## Blockers
 

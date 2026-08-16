@@ -2,7 +2,7 @@
 
 Effect-based synchronization for TanStack DB. Keyed collections may run total
 sync, on-demand partition sync, or both. Every path converges through one local
-Source of Truth (SoT), persisted through a shared StdTable.
+Sync Replica (Sync Replica), persisted through a shared StdTable.
 
 ## Setup
 
@@ -14,17 +14,17 @@ import {
   createStdSync,
   paceStrategy,
   singleItemSyncStrategy,
-  syncPersistenceTable,
+  syncStore,
   syncStrategy,
 } from 'std-toolkit/sync';
 
 const database = IDB.database({ databaseName: 'app' });
-const persistence = IDB.make(syncPersistenceTable, { database });
-await Effect.runPromise(persistence.setup);
+const store = IDB.make(syncStore, { database });
+await Effect.runPromise(store.setup);
 
 const std = createStdSync({
   name: 'acme-production',
-  persistenceLayer: persistence.layer,
+  storeLayer: store.layer,
 });
 ```
 
@@ -78,7 +78,7 @@ const comments = std.collection({
 
 Total and partition workers can run together. For example, all comments can load
 in the background while the selected post's comments are fetched immediately.
-They keep separate progress but write through the same SoT, so overlap is
+They keep separate progress but write through the same Sync Replica, so overlap is
 deduplicated by entity id and `_u` convergence.
 
 ```typescript
@@ -171,7 +171,7 @@ Single Item Sync. Repeated subscribers to the same Partition share its lane and
 produce subscriber-count messages. Strategies run inside a Flow activity so API
 and persistence spans are linked as nested trace work. Every non-empty strategy
 or Cadence Repair delivery logs how many entities were received and how many the
-SoT accepted after convergence.
+Sync Replica accepted after convergence.
 
 Every participant with a real lifecycle records an **Activation** — the window
 in which it is alive. The collection lane is activated from `sync(callbacks)` to
@@ -217,12 +217,12 @@ const settings = std.singleItemCollection({
 ## Persistence
 
 Each sync instance uses an isolated Memory adapter by default. Supplying a
-`persistenceLayer` replaces it globally for that instance; any adapter layer
-created for `syncPersistenceTable` is accepted, including IndexedDB and SQLite.
-The table stores both SoT and strategy progress. Write failures surface as
+`storeLayer` replaces it globally for that instance; any adapter layer
+created for `syncStore` is accepted, including IndexedDB and SQLite.
+The table stores both Sync Replica and strategy progress. Write failures surface as
 `WriteError.Storage` while adapter-specific errors remain internal.
 
-Tombstones remain in SoT. Persisted strategy state is tagged with its strategy
+Tombstones remain in Sync Replica. Persisted strategy state is tagged with its strategy
 name and decoded with that strategy's schema. A name mismatch or invalid state is
 reset to the strategy's empty state.
 
@@ -232,13 +232,13 @@ Keyed collections expose typed engine utilities:
 
 ```typescript
 tasks.utils.schema();
-tasks.utils.writeUpsert(entityOrEntities);
+tasks.utils.applyToSyncReplica(entityOrEntities);
 tasks.utils.pacedUpdate(taskId, { status: 'done' });
 tasks.utils.pendingCount(taskId);
 tasks.utils.subscribePending(listener);
 ```
 
-`writeUpsert` returns an Effect and uses the same convergence path as worker and
+`applyToSyncReplica` returns an Effect and uses the same convergence path as worker and
 mutation results. The registry routes broadcasts among collections owned by one
 std-sync instance:
 
@@ -247,7 +247,7 @@ const registry = std.registry();
 registry.process({ values: serverEntities, persist: true });
 ```
 
-`persist: true` writes SoT and projects accepted changes. `persist: false` only
+`persist: true` writes Sync Replica and projects accepted changes. `persist: false` only
 projects to a mounted collection. Neither mode advances strategy progress.
 Registry delivery is fire-and-forget: `process` returns immediately, failures
 are reported through `onEvent`, and `dispose` does not wait for delivery.

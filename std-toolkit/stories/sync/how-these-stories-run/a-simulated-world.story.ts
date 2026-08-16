@@ -30,7 +30,7 @@ export const aSimulatedWorld = Story.make({
   questions: [
     Story.question('Who is talking in these stories?', {
       answer:
-        'One Backend and any number of Browsers share one conversation. Each Browser owns its own Collections, Live Queries, Source of Truth, and Sync Workers.\n\n' +
+        'One Backend and any number of Browsers share one conversation. Each Browser owns its own Collections, Live Queries, Sync Replica, and Sync Workers.\n\n' +
         'This story mounts Alice’s inbox query, writes one todo at the Backend, and observes it through the real live-query subscription. The flow uses one story id, so Backend, Browser, query, Collection, and worker activity appear together.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {

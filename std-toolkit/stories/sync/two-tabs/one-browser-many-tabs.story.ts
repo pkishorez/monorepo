@@ -50,7 +50,7 @@ export const oneBrowserManyTabs = Story.make({
   questions: [
     Story.question('Alice opens a second tab. What does it show?', {
       answer:
-        'Everything the first tab already synced. Both tabs share one Source of Truth, so the second tab hydrates by advancing its Projection Position from the beginning of the Projection Sequence — it never asks the Backend for a thing.',
+        'Everything the first tab already synced. Both tabs share one Sync Replica, so the second tab hydrates by advancing its Projection Position from the beginning of the Projection Sequence — it never asks the Backend for a thing.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -73,7 +73,7 @@ export const oneBrowserManyTabs = Story.make({
     }),
     Story.question('Alice adds a todo in one tab. Does the other tab see it?', {
       answer:
-        'Yes. Only the tab that made the mutation writes the Source of Truth — the sibling tab never fetches this row, because both tabs share one sync cursor and it has already moved past. The writing tab emits a Change Notice, and the sibling advances its own Projection Position onto the row it never asked for.',
+        'Yes. Only the tab that made the mutation writes the Sync Replica — the sibling tab never fetches this row, because both tabs share one sync cursor and it has already moved past. The writing tab emits a Change Notice, and the sibling advances its own Projection Position onto the row it never asked for.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -96,7 +96,7 @@ export const oneBrowserManyTabs = Story.make({
     }),
     Story.question('Alice edits a todo in one tab. Does the other follow?', {
       answer:
-        'Yes. The edit stays optimistic in the tab that made it until the Backend confirms. The confirmed entity then lands in the shared Source of Truth, and a Change Notice carries the other tab forward — the other tab does no fetching of its own.',
+        'Yes. The edit stays optimistic in the tab that made it until the Backend confirms. The confirmed entity then lands in the shared Sync Replica, and a Change Notice carries the other tab forward — the other tab does no fetching of its own.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -152,7 +152,7 @@ export const oneBrowserManyTabs = Story.make({
     ),
     Story.question('Alice closes a tab. Does the other tab notice?', {
       answer:
-        'Only in that the closed tab stops listening. A Projection Position lives and dies with its mount, and nothing about it is shared — so the surviving tab keeps advancing exactly as before, and a reopened tab rebuilds from the Source of Truth.',
+        'Only in that the closed tab stops listening. A Projection Position lives and dies with its mount, and nothing about it is shared — so the surviving tab keeps advancing exactly as before, and a reopened tab rebuilds from the Sync Replica.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');

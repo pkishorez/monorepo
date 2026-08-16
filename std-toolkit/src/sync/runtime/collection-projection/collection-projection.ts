@@ -1,6 +1,5 @@
 import type { SyncConfig } from '@tanstack/react-db';
 import type { EntityType } from '../../../core/index.js';
-import type { Accepted } from '../../persistence/source-of-truth/index.js';
 import type { CollectionItem } from '../collection-model/index.js';
 
 /**
@@ -17,7 +16,6 @@ type SyncCallbacks<T extends object> = Parameters<
  * callbacks in hand; the instance's existence is the mounted state.
  */
 type Projector<TItem> = {
-  project: (accepted: Accepted<TItem>) => void;
   projectEntities: (entities: EntityType<TItem>[]) => void;
 };
 
@@ -41,34 +39,21 @@ export const makeCollectionProjector = <TItem>(
       _meta: entity.meta,
     }) as CollectionItem<TItem>;
 
-  const project = (accepted: Accepted<TItem>): void => {
-    if (accepted.upserts.length === 0 && accepted.tombstoned.length === 0) {
-      return;
-    }
+  const projectEntities = (entities: EntityType<TItem>[]): void => {
+    if (entities.length === 0) return;
     callbacks.begin();
-    for (const entity of accepted.upserts) {
-      callbacks.write({ type: 'update', value: toItem(entity) });
-    }
-    for (const key of accepted.tombstoned) {
-      callbacks.write({ type: 'delete', key });
+    for (const entity of entities) {
+      if (entity.meta._d) {
+        const key = options.deleteKeyOf?.(entity) ?? null;
+        if (key != null) callbacks.write({ type: 'delete', key });
+      } else {
+        callbacks.write({ type: 'update', value: toItem(entity) });
+      }
     }
     callbacks.commit();
   };
 
   return {
-    project,
-    projectEntities: (entities) => {
-      const upserts: EntityType<TItem>[] = [];
-      const tombstoned: string[] = [];
-      for (const entity of entities) {
-        if (entity.meta._d) {
-          const key = options.deleteKeyOf?.(entity) ?? null;
-          if (key != null) tombstoned.push(key);
-        } else {
-          upserts.push(entity);
-        }
-      }
-      project({ upserts, tombstoned });
-    },
+    projectEntities,
   };
 };

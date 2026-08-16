@@ -9,12 +9,12 @@ import {
   contractLayer,
   type EncodedItem,
 } from '../../db/std-table/contract/index.js';
-import { createStdSync, syncPersistenceTable } from '../sync.js';
+import { createStdSync, syncStore } from '../sync.js';
 import type {
   ChangeNoticeChannel,
   ChannelFactory,
 } from '../runtime/change-notice/index.js';
-import type { SyncPersistenceLayer } from '../persistence/sync-persistence-table/index.js';
+import type { SyncStoreLayer } from '../persistence/sync-store/index.js';
 
 type Todo = { id: string; listId: string; title: string };
 
@@ -88,10 +88,10 @@ const mount = (collection: {
   return { ...mounted, subscription };
 };
 
-const openTab = (layer: SyncPersistenceLayer, channel: ChannelFactory) => {
+const openTab = (layer: SyncStoreLayer, channel: ChannelFactory) => {
   const std = createStdSync({
     name: 'cross-tab',
-    persistenceLayer: layer,
+    storeLayer: layer,
     notices: { scope: 'test', channel },
   });
   const collection = std.sync({ schema: todoSchema });
@@ -101,7 +101,7 @@ const openTab = (layer: SyncPersistenceLayer, channel: ChannelFactory) => {
 describe('cross-tab projection', () => {
   it('serializes hydration and write projection advances', async () => {
     const items = new Map<string, EncodedItem>();
-    const base = makeTableContract(syncPersistenceTable, items);
+    const base = makeTableContract(syncStore, items);
     let releaseHydration: () => void = () => undefined;
     const hydrationGate = new Promise<void>((resolve) => {
       releaseHydration = resolve;
@@ -109,7 +109,7 @@ describe('cross-tab projection', () => {
     let queries = 0;
     let activeQueries = 0;
     let maximumActiveQueries = 0;
-    const layer = contractLayer(syncPersistenceTable.logicalName, {
+    const layer = contractLayer(syncStore.logicalName, {
       ...base,
       queryItems: (request) =>
         Effect.gen(function* () {
@@ -131,7 +131,7 @@ describe('cross-tab projection', () => {
     await vi.waitFor(() => expect(activeQueries).toBe(1));
 
     const write = Effect.runPromise(
-      tab.collection.utils.writeUpsert(
+      tab.collection.utils.applyToSyncReplica(
         entity({ id: 'todo-1', listId: 'inbox', title: 'new' }, '1'),
       ),
     );
@@ -147,15 +147,15 @@ describe('cross-tab projection', () => {
     await tab.std.dispose();
   });
 
-  it('projects another tab’s write without writing SoT twice', async () => {
-    const memory = Memory.make(syncPersistenceTable);
+  it('projects another tab’s write without writing Sync Replica twice', async () => {
+    const memory = Memory.make(syncStore);
     const channel = makeChannelHub();
     const a = openTab(memory.layer, channel);
     const b = openTab(memory.layer, channel);
     await vi.waitFor(() => expect(b.mounted.probe.readyCount).toBe(1));
 
     await Effect.runPromise(
-      a.collection.utils.writeUpsert(
+      a.collection.utils.applyToSyncReplica(
         entity({ id: 'todo-1', listId: 'inbox', title: 'from A' }, '1'),
       ),
     );
@@ -179,11 +179,11 @@ describe('cross-tab projection', () => {
   });
 
   it('notifies another tab when the writing collection is unmounted', async () => {
-    const memory = Memory.make(syncPersistenceTable);
+    const memory = Memory.make(syncStore);
     const channel = makeChannelHub();
     const writerStd = createStdSync({
       name: 'cross-tab',
-      persistenceLayer: memory.layer,
+      storeLayer: memory.layer,
       notices: { scope: 'test', channel },
     });
     const writer = writerStd.sync({ schema: todoSchema });
@@ -191,7 +191,7 @@ describe('cross-tab projection', () => {
     await vi.waitFor(() => expect(reader.mounted.probe.readyCount).toBe(1));
 
     await Effect.runPromise(
-      writer.utils.writeUpsert(
+      writer.utils.applyToSyncReplica(
         entity({ id: 'todo-1', listId: 'inbox', title: 'background' }, '1'),
       ),
     );
@@ -214,18 +214,20 @@ describe('cross-tab projection', () => {
   });
 
   it('projects a tombstone from another tab as a delete', async () => {
-    const memory = Memory.make(syncPersistenceTable);
+    const memory = Memory.make(syncStore);
     const channel = makeChannelHub();
     const a = openTab(memory.layer, channel);
     const b = openTab(memory.layer, channel);
     await vi.waitFor(() => expect(b.mounted.probe.readyCount).toBe(1));
 
     const todo = { id: 'todo-1', listId: 'inbox', title: 'doomed' };
-    await Effect.runPromise(a.collection.utils.writeUpsert(entity(todo, '1')));
+    await Effect.runPromise(
+      a.collection.utils.applyToSyncReplica(entity(todo, '1')),
+    );
     await vi.waitFor(() => expect(b.mounted.writes.length).toBeGreaterThan(0));
 
     await Effect.runPromise(
-      a.collection.utils.writeUpsert(tombstone(todo, '2')),
+      a.collection.utils.applyToSyncReplica(tombstone(todo, '2')),
     );
 
     await vi.waitFor(() =>
@@ -242,13 +244,15 @@ describe('cross-tab projection', () => {
   });
 
   it('does not project a tombstone that predates the mount', async () => {
-    const memory = Memory.make(syncPersistenceTable);
+    const memory = Memory.make(syncStore);
     const channel = makeChannelHub();
     const a = openTab(memory.layer, channel);
     const todo = { id: 'todo-1', listId: 'inbox', title: 'gone' };
-    await Effect.runPromise(a.collection.utils.writeUpsert(entity(todo, '1')));
     await Effect.runPromise(
-      a.collection.utils.writeUpsert(tombstone(todo, '2')),
+      a.collection.utils.applyToSyncReplica(entity(todo, '1')),
+    );
+    await Effect.runPromise(
+      a.collection.utils.applyToSyncReplica(tombstone(todo, '2')),
     );
 
     const b = openTab(memory.layer, channel);
@@ -262,14 +266,14 @@ describe('cross-tab projection', () => {
   });
 
   it('replays idempotently when a tab rescans the same range', async () => {
-    const memory = Memory.make(syncPersistenceTable);
+    const memory = Memory.make(syncStore);
     const channel = makeChannelHub();
     const a = openTab(memory.layer, channel);
     const b = openTab(memory.layer, channel);
     await vi.waitFor(() => expect(b.mounted.probe.readyCount).toBe(1));
 
     await Effect.runPromise(
-      a.collection.utils.writeUpsert(
+      a.collection.utils.applyToSyncReplica(
         entity({ id: 'todo-1', listId: 'inbox', title: 'once' }, '1'),
       ),
     );
@@ -277,7 +281,7 @@ describe('cross-tab projection', () => {
 
     // A second notice with nothing new behind it must project nothing.
     await Effect.runPromise(
-      a.collection.utils.writeUpsert(
+      a.collection.utils.applyToSyncReplica(
         entity({ id: 'todo-1', listId: 'inbox', title: 'stale' }, '0'),
       ),
     );

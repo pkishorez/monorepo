@@ -10,7 +10,7 @@ import {
   contractLayer,
   type StdTableContract,
 } from '../../../../db/std-table/contract/index.js';
-import { syncPersistenceTable } from '../../../persistence/sync-persistence-table/index.js';
+import { syncStore } from '../../../persistence/sync-store/index.js';
 
 const schema = EntityESchema.make('Comment', 'id', {
   postId: Schema.String,
@@ -29,7 +29,7 @@ const subset = {
 };
 
 describe('collection flow tracing', () => {
-  it('cancels Source of Truth hydration during cleanup', async () => {
+  it('cancels Sync Replica hydration during cleanup', async () => {
     const never = () => Effect.never;
     const contract: StdTableContract = {
       getItem: never,
@@ -43,10 +43,7 @@ describe('collection flow tracing', () => {
     const strategyRuns: string[] = [];
     const built = createStdSync({
       name: 'comments',
-      persistenceLayer: contractLayer(
-        syncPersistenceTable.logicalName,
-        contract,
-      ),
+      storeLayer: contractLayer(syncStore.logicalName, contract),
     }).sync({
       schema,
       sync: {
@@ -103,7 +100,7 @@ describe('collection flow tracing', () => {
       state: noStrategyState(),
       run: (ctx: {
         flow: { log: (message: unknown) => Effect.Effect<void> };
-        writeServerTruth: (
+        applyToSyncReplica: (
           entities: EntityType<typeof schema.Type>[],
         ) => Effect.Effect<void, unknown>;
       }) =>
@@ -113,8 +110,8 @@ describe('collection flow tracing', () => {
             Effect.andThen(
               writes
                 ? ctx
-                    .writeServerTruth([entity])
-                    .pipe(Effect.andThen(ctx.writeServerTruth([entity])))
+                    .applyToSyncReplica([entity])
+                    .pipe(Effect.andThen(ctx.applyToSyncReplica([entity])))
                 : Effect.void,
             ),
             Effect.andThen(Effect.never),
@@ -171,7 +168,7 @@ describe('collection flow tracing', () => {
       expect(
         recorder
           .snapshot()
-          .logs.filter((log) => log.message === 'Source of Truth write'),
+          .logs.filter((log) => log.message === 'Sync Replica write'),
       ).toHaveLength(2),
     );
     mounted.unloadSubset(subset);
@@ -218,23 +215,23 @@ describe('collection flow tracing', () => {
     ).toBe(true);
     const persistenceSpans = recorder
       .snapshot()
-      .spans.filter((span) => span.name === 'sync.persistence');
+      .spans.filter((span) => span.name === 'sync.store');
     expect(persistenceSpans).not.toHaveLength(0);
     expect(persistenceSpans).toContainEqual(
       expect.objectContaining({
         attributes: expect.objectContaining({
           'db.system.name': 'std-table',
-          'db.namespace': 'sync-persistence',
+          'db.namespace': 'sync-store',
           'db.operation.name': 'transact',
           'sync.collection': 'comments.comment',
-          'sync.persistence.record': 'source-of-truth',
+          'sync.store.record': 'sync-replica',
         }),
       }),
     );
     const writeSpanIds = new Set(
       recorder
         .snapshot()
-        .spans.filter((span) => span.name === 'sync.write-server-truth')
+        .spans.filter((span) => span.name === 'sync.apply-to-sync-replica')
         .map((span) => span.spanId),
     );
     expect(
@@ -264,7 +261,7 @@ describe('collection flow tracing', () => {
     ).toHaveLength(3);
     const syncWrites = recorder
       .snapshot()
-      .logs.filter((log) => log.message === 'Source of Truth write');
+      .logs.filter((log) => log.message === 'Sync Replica write');
     expect(syncWrites).toHaveLength(2);
     expect(syncWrites.map((log) => log.annotations.storedCount).sort()).toEqual(
       [0, 1],

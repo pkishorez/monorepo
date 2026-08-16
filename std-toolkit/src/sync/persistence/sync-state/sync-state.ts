@@ -8,16 +8,16 @@ import type { StrategyStateSpec } from '../../domain/strategy-state/index.js';
 import {
   storedSyncStateEntity,
   type StoredSyncStateValue,
-  type SyncPersistence,
-} from '../sync-persistence-table/index.js';
+  type SyncStore,
+} from '../sync-store/index.js';
 
-const persistenceError = (reason: string) => (cause: DatabaseError) =>
+const storeError = (reason: string) => (cause: DatabaseError) =>
   storageError(reason, cause);
 
 export const makeSyncStateStore = <TState = unknown>(args: {
   schemaName: string;
   strategyName: string;
-  persistence: SyncPersistence;
+  store: SyncStore;
   state: StrategyStateSpec<TState>;
 }): {
   get: (key: string) => Effect.Effect<TState, WriteError>;
@@ -40,7 +40,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
       value: value as {} | null,
     };
     const update = () =>
-      args.persistence.provide(
+      args.store.provide(
         storedSyncStateEntity.getAndUpdate(
           storageKey(key),
           { strategy: stored.strategy, value: stored.value },
@@ -53,7 +53,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
           strategy: args.strategyName,
         },
       );
-    return args.persistence
+    return args.store
       .provide(storedSyncStateEntity.insert(stored), {
         collection: args.schemaName,
         operation: 'insert',
@@ -67,7 +67,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
             : Effect.fail(error),
         ),
         Effect.asVoid,
-        Effect.mapError(persistenceError('failed to write Sync State')),
+        Effect.mapError(storeError('failed to write Sync State')),
       );
   };
 
@@ -85,14 +85,14 @@ export const makeSyncStateStore = <TState = unknown>(args: {
   return {
     get: (key) =>
       Effect.gen(function* () {
-        const stored = yield* args.persistence
+        const stored = yield* args.store
           .provide(storedSyncStateEntity.get(storageKey(key)), {
             collection: args.schemaName,
             operation: 'get',
             record: 'sync-state',
             strategy: args.strategyName,
           })
-          .pipe(Effect.mapError(persistenceError('failed to read Sync State')));
+          .pipe(Effect.mapError(storeError('failed to read Sync State')));
 
         if (stored == null) return emptyState();
         if (stored.value.strategy !== args.strategyName) {

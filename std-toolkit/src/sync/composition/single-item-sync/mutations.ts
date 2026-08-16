@@ -22,14 +22,14 @@ const SINGLE_KEY = '__single__';
 /**
  * Builds the single-item mutation handlers. There is no insert or delete: a
  * single-item record has collection-level lifecycle only. `onUpdate` runs the user
- * Effect and flushes the returned server entity through `writeServerTruth`.
+ * Effect and flushes the returned server entity through `applyToSyncReplica`.
  * `pacedUpdate` paces optimistic updates through a single in-flight gate (default
  * `coalesce`), applying the optimistic row via the supplied `optimistic` callback
  * and flushing the confirmed entity. Mutation results never touch sync-state.
  */
 export const buildMutationHandlers = <TItem extends object, R = never>(args: {
   collectionName: string;
-  writeServerTruth: (
+  applyToSyncReplica: (
     entities: EntityType<TItem>[],
   ) => Effect.Effect<void, WriteError>;
   onUpdate?:
@@ -42,7 +42,7 @@ export const buildMutationHandlers = <TItem extends object, R = never>(args: {
   flow: () => CollectionFlow | null;
 }) => {
   type TCollItem = CollectionItem<TItem>;
-  const { writeServerTruth, onUpdate, updatePacing, runner, flow } = args;
+  const { applyToSyncReplica, onUpdate, updatePacing, runner, flow } = args;
 
   const pending = runner.runSync(makePendingTracker);
 
@@ -51,7 +51,7 @@ export const buildMutationHandlers = <TItem extends object, R = never>(args: {
     try {
       const mutation = Effect.gen(function* () {
         const result = yield* onUpdate!({ updates });
-        yield* writeServerTruth([toEntity(result)]);
+        yield* applyToSyncReplica([toEntity(result)]);
       });
       const activeFlow = flow();
       await runner.runPromise(

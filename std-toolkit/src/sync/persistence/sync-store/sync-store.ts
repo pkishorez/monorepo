@@ -3,32 +3,24 @@ import { MetaSchema } from '../../../core/index.js';
 import { EntityESchema, fromType } from '../../../eschema/index.js';
 import { StdTable, type StdTableService } from '../../../db/index.js';
 
-const TABLE_NAME = 'sync-persistence';
+const TABLE_NAME = 'sync-store';
 type OpaqueValue = {} | null;
 
-const storedSourceSchema = EntityESchema.make(
-  'TanStackSyncStoredSource',
-  'key',
-  {
-    collection: Schema.String,
-    seq: Schema.String,
-    value: fromType<OpaqueValue>(),
-    meta: MetaSchema,
-  },
-).build();
+const storedReplicaSchema = EntityESchema.make('SyncStoredReplica', 'key', {
+  collection: Schema.String,
+  seq: Schema.String,
+  value: fromType<OpaqueValue>(),
+  meta: MetaSchema,
+}).build();
 
-const storedSyncStateSchema = EntityESchema.make(
-  'TanStackSyncStoredState',
-  'key',
-  {
-    collection: Schema.String,
-    strategy: Schema.String,
-    value: fromType<OpaqueValue>(),
-  },
-).build();
+const storedSyncStateSchema = EntityESchema.make('SyncStoredState', 'key', {
+  collection: Schema.String,
+  strategy: Schema.String,
+  value: fromType<OpaqueValue>(),
+}).build();
 
-const storedSourceCursorSchema = EntityESchema.make(
-  'TanStackSyncStoredSourceCursor',
+const storedReplicaCursorSchema = EntityESchema.make(
+  'SyncStoredReplicaCursor',
   'key',
   {
     collection: Schema.String,
@@ -36,63 +28,58 @@ const storedSourceCursorSchema = EntityESchema.make(
   },
 ).build();
 
-export const syncPersistenceTable = StdTable.make(TABLE_NAME)
+export const syncStore = StdTable.make(TABLE_NAME)
   .primary('pk', 'sk')
   .lsi('LSI1', 'LSI1SK')
   .build();
 
-export const storedSourceEntity = syncPersistenceTable
-  .entity(storedSourceSchema)
+export const storedReplicaEntity = syncStore
+  .entity(storedReplicaSchema)
   .primary({ pk: ['collection'] })
   .index('LSI1', 'bySequence', { sk: ['seq'] })
   .build();
 
-export const storedSourceCursorEntity = syncPersistenceTable
-  .entity(storedSourceCursorSchema)
+export const storedReplicaCursorEntity = syncStore
+  .entity(storedReplicaCursorSchema)
   .primary({ pk: ['collection'] })
   .build();
 
-export const storedSyncStateEntity = syncPersistenceTable
+export const storedSyncStateEntity = syncStore
   .entity(storedSyncStateSchema)
   .primary({ pk: ['collection'] })
   .build();
 
-export type StoredSourceValue = typeof storedSourceSchema.Type;
-export type StoredSourceCursorValue = typeof storedSourceCursorSchema.Type;
+export type StoredReplicaValue = typeof storedReplicaSchema.Type;
 export type StoredSyncStateValue = typeof storedSyncStateSchema.Type;
-export type SyncPersistenceLayer = Layer.Layer<
-  StdTableService<typeof TABLE_NAME>
->;
+export type SyncStoreLayer = Layer.Layer<StdTableService<typeof TABLE_NAME>>;
 
-export type SyncPersistence = {
+export type SyncStore = {
   provide: <A, E>(
     effect: Effect.Effect<A, E, StdTableService<typeof TABLE_NAME>>,
     details: {
       readonly collection: string;
       readonly operation: 'get' | 'insert' | 'query' | 'transact' | 'update';
-      readonly record: 'source-of-truth' | 'sync-state';
+      readonly record: 'sync-replica' | 'sync-state';
       readonly strategy?: string;
     },
   ) => Effect.Effect<A, E>;
   dispose: () => Promise<void>;
 };
 
-export const makeSyncPersistence = (
-  layer: SyncPersistenceLayer,
-): SyncPersistence => {
+export const makeSyncStore = (layer: SyncStoreLayer): SyncStore => {
   const runtime = ManagedRuntime.make(layer);
   return {
     provide: (effect, details) =>
       runtime.contextEffect.pipe(
         Effect.flatMap((context) => Effect.provide(effect, context)),
-        Effect.withSpan('sync.persistence', {
+        Effect.withSpan('sync.store', {
           kind: 'client',
           attributes: {
             'db.system.name': 'std-table',
             'db.namespace': TABLE_NAME,
             'db.operation.name': details.operation,
             'sync.collection': details.collection,
-            'sync.persistence.record': details.record,
+            'sync.store.record': details.record,
             ...(details.strategy === undefined
               ? {}
               : { 'sync.strategy': details.strategy }),

@@ -2,7 +2,7 @@ export {
   createStdSync,
   paceStrategy,
   singleItemSyncStrategy,
-  syncPersistenceTable,
+  syncStore,
   syncStrategy,
   type ChangeNoticeChannel,
   type ChannelFactory,
@@ -15,6 +15,6 @@ export {
   type StrategyContext,
   type SyncConfig,
   type SyncEvent,
-  type SyncPersistenceLayer,
+  type SyncStoreLayer,
   type SyncReporter,
 } from './sync.js';

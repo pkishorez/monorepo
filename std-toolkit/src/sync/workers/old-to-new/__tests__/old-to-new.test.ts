@@ -39,7 +39,7 @@ describe('old-to-new', () => {
           const scope = yield* Effect.scope;
           yield* strategy.run({
             flow,
-            writeServerTruth: () =>
+            applyToSyncReplica: () =>
               Effect.sync(() => {
                 events.push('write');
               }),

@@ -9,7 +9,7 @@ import type { CollectionFlow } from '../sync-flow/index.js';
 export type CollectionHandle = {
   schemaName: string;
   collectionName: string;
-  writeServerTruth: (
+  applyToSyncReplica: (
     entities: EntityType<unknown>[],
   ) => Effect.Effect<void, WriteError>;
   projectOnly: (
@@ -41,7 +41,7 @@ export const makeTracker = (): Tracker => {
 /**
  * Builds the broadcast router over a tracker. `process` validates the message
  * shape (explicit `persist`), groups incoming entities by `meta._e`, looks up the
- * owning collection handle, and routes each group to `writeServerTruth` (persist)
+ * owning collection handle, and routes each group to `applyToSyncReplica` (persist)
  * or `projectOnly` (preview). Entities whose `_e` no collection owns are silently
  * ignored. The registry never touches strategy sync-state.
  */
@@ -80,7 +80,7 @@ export const buildRegistry = <R>(
     for (const [type, entities] of groups) {
       const handle = tracker.lookup(type);
       if (!handle) continue;
-      const route = persist ? handle.writeServerTruth : handle.projectOnly;
+      const route = persist ? handle.applyToSyncReplica : handle.projectOnly;
       const flow = handle.flow();
       const delivery = route(entities);
       void runner

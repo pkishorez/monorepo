@@ -102,7 +102,7 @@ export const newToOld = <TItem extends object, R = never>(
           Effect.gen(function* () {
             if (batch.length === 0) return;
             sawRecord = true;
-            yield* ctx.writeServerTruth(batch);
+            yield* ctx.applyToSyncReplica(batch);
             const batchTop = newestOf(batch);
             const batchFloor = oldestOf(batch);
             yield* commit(addRange(batchFloor, previousFloor ?? batchTop));
@@ -129,7 +129,7 @@ export const newToOld = <TItem extends object, R = never>(
         yield* Stream.runForEach(newerStream, (batch) =>
           Effect.gen(function* () {
             if (batch.length === 0) return;
-            yield* ctx.writeServerTruth(batch);
+            yield* ctx.applyToSyncReplica(batch);
             const high = newestOf(batch);
             yield* commit(addRange(tailAnchor ?? oldestOf(batch), high));
             tailAnchor = high;

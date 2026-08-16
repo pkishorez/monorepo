@@ -85,12 +85,12 @@ export const bidirectional = <TItem extends object, R = never>(
         );
 
         if (latest.length > 0) {
-          yield* ctx.writeServerTruth(latest);
+          yield* ctx.applyToSyncReplica(latest);
           freshTop = newestOf(latest);
           yield* commit(addRange(oldestOf(latest), freshTop));
         }
         if (oldest.length > 0) {
-          yield* ctx.writeServerTruth(oldest);
+          yield* ctx.applyToSyncReplica(oldest);
           yield* commit(addRange(oldestOf(oldest), newestOf(oldest)));
         }
       }
@@ -106,7 +106,7 @@ export const bidirectional = <TItem extends object, R = never>(
           if (top === null) return;
           const batch = yield* config.fetchOlder({ cursor: top.low });
           if (batch.length === 0) return;
-          yield* ctx.writeServerTruth(batch);
+          yield* ctx.applyToSyncReplica(batch);
           yield* commit(addRange(oldestOf(batch), top.low));
         }
       });
@@ -119,7 +119,7 @@ export const bidirectional = <TItem extends object, R = never>(
           if (bottom === null) return;
           const batch = yield* config.fetchNewer({ cursor: bottom.high });
           if (batch.length === 0) return;
-          yield* ctx.writeServerTruth(batch);
+          yield* ctx.applyToSyncReplica(batch);
           yield* commit(addRange(bottom.high, newestOf(batch)));
         }
       });
@@ -135,7 +135,7 @@ export const bidirectional = <TItem extends object, R = never>(
         yield* Stream.runForEach(stream, (batch) =>
           Effect.gen(function* () {
             if (batch.length === 0) return;
-            yield* ctx.writeServerTruth(batch);
+            yield* ctx.applyToSyncReplica(batch);
             const high = newestOf(batch);
             yield* commit(addRange(tailAnchor ?? oldestOf(batch), high));
             tailAnchor = high;
