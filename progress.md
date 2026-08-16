@@ -1,66 +1,85 @@
-# Local Database Adapter Refactor
+# Sync Replica and Peer Sync Refactor Progress
 
-## Goal
+This file is the live handoff for the work defined in `execute.md`. Update it during every task. Keep entries factual and concise; do not mark a task complete until its completion criteria and checks pass.
 
-Restructure SQLite and IndexedDB into adapter-local deep modules aligned with DynamoDB's dependency direction, while introducing database-scoped runtimes and shared persistence errors.
+## Overall Status
 
-## Progress
+- State: In progress
+- Current task: Task 2 — names, qualified collection names, and addresses
+- Next action: Record Task 1's commit hash, then implement Task 2
 
-- [x] Architecture brainstorming and terminology decisions
-- [x] Local database runtime ADR
-- [x] Baseline verification
-- [x] Shared persistence error module
-- [x] DynamoDB shared-error migration
-- [x] SQLite deep-module refactor
-- [x] IndexedDB deep-module refactor
-- [x] Public conformance and export cleanup
-- [x] README and architecture documentation updates
-- [x] Full formatting, type-check, build, and test verification
+## Task Tracker
 
-## Decisions
+| Task                                                    | Status      | Commit | Checks                                       |
+| ------------------------------------------------------- | ----------- | ------ | -------------------------------------------- |
+| 1. Establish the `sync` context and package paths       | Complete    | —      | Focused tests, lint/TypeScript/Laymos, build |
+| 2. Add names, qualified collection names, and addresses | Not started | —      | —                                            |
+| 3. Rename persistence concepts and APIs                 | Not started | —      | —                                            |
+| 4. Build the Peer Sync deep module                      | Not started | —      | —                                            |
+| 5. Integrate Peer Sync with replica convergence         | Not started | —      | —                                            |
+| 6. Finish events, documentation, and stories            | Not started | —      | —                                            |
+| 7. Final verification and cleanup                       | Not started | —      | —                                            |
 
-- SQLite and IndexedDB implementations remain adapter-local.
-- Local runtimes are database-scoped; table definitions own physical table/store names.
-- Native clients are thin and internal; public layer construction remains one step.
-- Raw table CRUD is private; runtime service types remain publicly nameable because public Effect signatures depend on them.
-- Shared persistence failures use common tagged classes and normalized payloads.
-- SQLite is refactored before IndexedDB.
-- Existing engine-specific behavior is preserved unless explicitly agreed otherwise.
+Use only these statuses: `Not started`, `In progress`, `Blocked`, `Complete`.
 
-## Current Work
+## Current Task
 
-Complete. SQLite and IndexedDB now use database-scoped runtimes and real deep entity modules without DynamoDB's logical-name machinery.
+### Scope
 
-## Completed Implementation
+Task 2 requires a stable normalized Sync name, qualified Collection names, and display-only Sync Addresses while preserving exact typed partition identities.
 
-- SQLite layers are database-scoped; `SQLiteTable.make(tableName)` owns the real table name.
-- IndexedDB layers are database-scoped; `IdbTable.make(storeName)` owns the real object-store name.
-- Local table orchestrators expose entity operations, setup, snapshots, transactions, and explicit administrative cleanup while raw row operations stay private.
-- SQLite and IndexedDB entity implementations return factory-composed immutable service objects rather than public class instances.
-- Shared semantic persistence failures are reused by DynamoDB, SQLite, and IndexedDB.
-- SQLite's Effect runtime and transaction types are publicly nameable so downstream declaration builds remain portable; native client construction stays adapter-owned.
-- Migrated Lotel and Whatever Code to database-scoped SQLite layers and physical table names.
-- Restored `dangerouslyRemoveAllItems` as an explicit administrative table capability used by downstream cleanup workflows.
-- Foreign transaction items and duplicate transaction targets are typed failures across local adapters.
-- IndexedDB setup supports multiple stores sharing one database runtime and concurrent version convergence.
-- Package exports no longer expose the IndexedDB internal source tree.
-- Adapter layer graphs have no violations, and both local service dependency cycles were removed.
-- Removed shallow read/mutation binder modules; public capability selection now lives directly in each entity composition point.
-- Split keyed and single-entity services into real builder, context/index, reader, writer, and transaction capabilities; named modules are now small composition roots.
-- Verified that no shallow `.bind` capability wrappers or local logical table/store aliases remain.
+### Work Completed
 
-## Verification
+- Task 1 renamed the source context and public implementation to `src/sync` and `sync.ts`.
+- Public exports and TypeScript aliases now use `std-toolkit/sync` and `std-toolkit/sync/paced`, with no compatibility aliases.
+- Stories, tests, telemetry identifiers, and Laymos paths/layers now use the Sync context name.
 
-- `vp check`: clean, no warnings
-- `tsc`: clean
-- `tsc -p tsconfig.build.json`: clean
-- `vitest run`: 59 files passed, 775 tests passed, 1 todo
-- Recursive workspace tests: all 82 test files passed, 891 tests passed, 1 todo
-- Recursive workspace build: all 10 build targets passed, including docs prerender
-- Recursive workspace formatting, Syncpack, and TypeScript checks: clean
-- `laymos lint`: no layer violations and no SQLite/IndexedDB module cycles; 41 pre-existing violations remain in ESchema, snapshot, and TanStack Sync (baseline was 53)
+### Checks Run
 
-## Risks and Follow-ups
+- `pnpm --filter std-toolkit exec vitest run src/sync stories/sync/simulation.test.ts` — passed, 16 files and 89 tests.
+- `pnpm --filter std-toolkit lint` — passed; formatting/lint, TypeScript, and Laymos all clean, with no layer or module violations.
+- `pnpm --filter std-toolkit build` — passed.
 
-- Package export changes are intentionally breaking and are documented in the adapter READMEs.
-- The 41 remaining Laymos findings are outside this refactor in ESchema, snapshot, and TanStack Sync.
+### Remaining Work
+
+- Record Task 1's commit hash in the Task 2 commit.
+- Complete Tasks 2–7 in order.
+
+## Decisions and Discoveries
+
+Append facts learned during implementation that affect later tasks. Do not repeat the settled requirements from `execute.md`.
+
+- The workspace uses `effect@4.0.0-beta.102`, but no `node_modules/effect/AGENTS.md` exists anywhere in the repository.
+
+## Blockers
+
+Record the exact failing command, missing dependency, or external requirement and what is needed to continue.
+
+- None.
+
+## Deviations
+
+Record any necessary departure from `execute.md`, why it was necessary, and its effect on public behavior. Do not silently change the plan.
+
+- The user explicitly overrode the missing `node_modules/effect/AGENTS.md` prerequisite and directed execution to continue using established repository practices. Task 1 changed no Effect behavior.
+
+## Final Verification
+
+- [ ] `pnpm --filter std-toolkit lint`
+- [ ] `pnpm --filter std-toolkit build`
+- [ ] `pnpm --filter std-toolkit stories`
+- [ ] `pnpm --filter std-toolkit test`
+- [ ] Sync-specific Memory and IndexedDB peer tests
+- [ ] Search for stale public paths and terminology
+- [ ] Review generated public declarations
+
+## Handoff Notes
+
+At the end of each task:
+
+1. Replace the Current Task details with the next task.
+2. Add the completed task's commit hash and check summary to the tracker.
+3. Preserve useful discoveries and unresolved blockers.
+4. Leave the worktree free of uncommitted task changes; unrelated user changes may remain.
+
+When all tasks are complete, replace Overall Status with `Complete` and summarize any external checks that could not run.

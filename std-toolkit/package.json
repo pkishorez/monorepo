@@ -72,13 +72,13 @@
       "types": "./dist/snapshot/index.d.ts",
       "default": "./dist/snapshot/index.js"
     },
-    "./tanstack-sync": {
-      "types": "./dist/tanstack-sync/index.d.ts",
-      "default": "./dist/tanstack-sync/index.js"
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
     },
-    "./tanstack-sync/paced": {
-      "types": "./dist/tanstack-sync/runtime/mutation-pacing/index.d.ts",
-      "default": "./dist/tanstack-sync/runtime/mutation-pacing/index.js"
+    "./sync/paced": {
+      "types": "./dist/sync/runtime/mutation-pacing/index.d.ts",
+      "default": "./dist/sync/runtime/mutation-pacing/index.js"
     }
   },
   "files": [

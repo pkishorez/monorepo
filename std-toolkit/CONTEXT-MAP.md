@@ -12,18 +12,18 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
   - [db/sqlite](./src/db/sqlite/CONTEXT.md) — SQLite adapter specifics.
   - [db/idb](./src/db/idb/CONTEXT.md) — in-browser IndexedDB adapter specifics.
   - [db/memory](./src/db/memory/CONTEXT.md) — ephemeral, runtime-independent Memory adapter specifics.
-- [tanstack-sync](./src/tanstack-sync/CONTEXT.md) — the TanStack DB sync engine, strategies, and paced writes.
+- [sync](./src/sync/CONTEXT.md) — the sync engine, its TanStack DB integration, strategies, and paced writes.
 
 ## Relationships
 
-- **core** is the shared kernel for the whole toolkit. eschema, db (dynamodb/sqlite), and tanstack-sync all speak its **Entity** / **Entity Meta** vocabulary.
+- **core** is the shared kernel for the whole toolkit. eschema, db (dynamodb/sqlite), and sync all speak its **Entity** / **Entity Meta** vocabulary.
 - **eschema → core**: core's `_v` field is an eschema **version**; core's `EntitySchema` wraps an eschema schema.
 - **snapshot → eschema**: snapshot consumes ESchema structural introspection to produce **ESchema snapshots**; eschema does not depend on snapshot.
 - **db → core, eschema**: the adapters persist core **Entities** whose `value` is validated by an eschema schema.
 - **db → snapshot**: database tables provide topology and registered-entity source data to snapshot and expose `table.snapshot()` as their capture surface.
 - **db (dynamodb ↔ sqlite ↔ idb ↔ memory)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite, idb, and memory mirror dynamodb's topology and each child context records only its divergences.
-- **tanstack-sync → core**: consumes core **Entities** from the wire; interprets `_u` for convergence and `_s`/`_c` for cadence.
+- **sync → core**: consumes core **Entities** from the wire; interprets `_u` for convergence and `_s`/`_c` for cadence.
 
 ## Term collisions (same word, different context)
 
-- **Partition** — in [db](./src/db/CONTEXT.md) it is a physical single-table slice (an **item collection** sharing one **partition key**). In [tanstack-sync](./src/tanstack-sync/CONTEXT.md) it is a sync-lifecycle window (a refcounted `loadSubset` boundary). Unrelated concepts; each is correct inside its own context.
+- **Partition** — in [db](./src/db/CONTEXT.md) it is a physical single-table slice (an **item collection** sharing one **partition key**). In [sync](./src/sync/CONTEXT.md) it is a sync-lifecycle window (a refcounted `loadSubset` boundary). Unrelated concepts; each is correct inside its own context.

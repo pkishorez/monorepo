@@ -1,6 +1,6 @@
 # core — Ubiquitous Language
 
-The shared spine of std-toolkit. Defines the **Entity** model and metadata vocabulary that every other context (eschema, db, tanstack-sync) speaks. core owns these terms; other contexts reference them rather than redefining them. See the root `CONTEXT-MAP.md`.
+The shared spine of std-toolkit. Defines the **Entity** model and metadata vocabulary that every other context (eschema, db, sync) speaks. core owns these terms; other contexts reference them rather than redefining them. See the root `CONTEXT-MAP.md`.
 
 ## Language
 

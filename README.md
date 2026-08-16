@@ -39,15 +39,15 @@ These packages share a fixed Changesets version and are released together.
 is a published package containing a set of composable modules for
 database-agnostic single-table design:
 
-| Entry point                 | Purpose                                                                                |
-| --------------------------- | -------------------------------------------------------------------------------------- |
-| `std-toolkit/core`          | Shared entity, metadata, broadcasting, and error primitives.                           |
-| `std-toolkit/eschema`       | Versioned, self-migrating schemas built on Effect Schema, including the `eschema` CLI. |
-| `std-toolkit/db`            | Portable Table and Entity definitions and operations.                                  |
-| `std-toolkit/db/dynamodb`   | DynamoDB binding, setup, expressions, and native operations.                           |
-| `std-toolkit/db/sqlite`     | SQLite binding and setup, with separate runtime driver entrypoints.                    |
-| `std-toolkit/db/idb`        | IndexedDB binding and explicit Store setup.                                            |
-| `std-toolkit/tanstack-sync` | TanStack DB synchronization with paced writes and IndexedDB offline storage.           |
+| Entry point               | Purpose                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| `std-toolkit/core`        | Shared entity, metadata, broadcasting, and error primitives.                           |
+| `std-toolkit/eschema`     | Versioned, self-migrating schemas built on Effect Schema, including the `eschema` CLI. |
+| `std-toolkit/db`          | Portable Table and Entity definitions and operations.                                  |
+| `std-toolkit/db/dynamodb` | DynamoDB binding, setup, expressions, and native operations.                           |
+| `std-toolkit/db/sqlite`   | SQLite binding and setup, with separate runtime driver entrypoints.                    |
+| `std-toolkit/db/idb`      | IndexedDB binding and explicit Store setup.                                            |
+| `std-toolkit/sync`        | TanStack DB synchronization with paced writes and IndexedDB offline storage.           |
 
 See the [std-toolkit README](./std-toolkit/README.md) for installation and
 entry-point documentation.
