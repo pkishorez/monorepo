@@ -2,43 +2,37 @@
 '@pkishorez/effect-tracer': patch
 ---
 
-Initial release. `@pkishorez/effect-tracer` captures Effect spans and logs
-in-process and exports telemetry over OTLP/HTTP, without depending on a
-telemetry server.
+Initial release. Capture Effect spans and logs in your own process, and export
+telemetry over OTLP/HTTP — without running a telemetry server.
 
-It was extracted out of `@pkishorez/lotel`, whose `@pkishorez/lotel/trace`
-subpath is removed in the same release. The recorder never used anything from
-lotel's server and lotel never used the recorder, so pulling it out lets
-consumers capture Effect spans on their own, and it removes the
-`std-toolkit -> laymos -> lotel -> std-toolkit` workspace cycle that made build
-ordering non-deterministic.
+It was extracted from `@pkishorez/lotel`, where it sat at
+`@pkishorez/lotel/trace`. The recorder never used lotel's server and lotel never
+used the recorder, so separating them lets you record Effect spans on their own.
 
-```diff
--import { makeTraceRecorder } from '@pkishorez/lotel/trace';
-+import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+**`@pkishorez/effect-tracer/recorder`** — record in-process. `instrument` installs
+a Tracer and Logger for the duration of an effect; the snapshots read back what
+was captured.
+
+```ts
+const recorder = makeTraceRecorder();
+await Effect.runPromise(recorder.instrument(program));
+recorder.snapshot();
 ```
 
-Four entrypoints:
+Tune with `maxSpans` (default 2000), `formatValue`, and the `onSpanEnd` /
+`onLog` / `onTruncated` callbacks for streaming.
 
-- `@pkishorez/effect-tracer/recorder` — `makeTraceRecorder`. `instrument(effect)`
-  installs a Tracer and Logger so every span and log inside is captured;
-  `snapshot()`, `snapshotFlow(id)`, and `snapshotFlows()` read them back.
-  Options: `maxSpans` (default 2000), the `onSpanEnd` / `onLog` / `onTruncated`
-  streaming callbacks, and `formatValue`.
-- `@pkishorez/effect-tracer/flow` — model correlated work across participants.
-  `initFlow`, `Activation`, `flowAttributes`, and `flowAttributePrefix` emit
-  activations, messages, replies, local events, and state as OTel span
-  attributes under `flow.*` and `flowattr.*`; `projectFlow` and
-  `RecordedFlowSchema` project recorded spans and logs back into a swim-lane
-  `RecordedFlow`.
-- `@pkishorez/effect-tracer/telemetry` — `makeTelemetryLayer`, one Effect
-  `Layer` exporting traces, logs, and metrics over OTLP/HTTP via the
-  OpenTelemetry SDK, with `endpoint` (default `http://localhost:14400`),
-  `serviceName`, `serviceVersion`, and per-signal toggles.
-- `@pkishorez/effect-tracer/telemetry/dev-telemetry` — `makeDevTelemetryLayer`,
-  the same job for local development built on `effect/unstable/observability`
-  and `FetchHttpClient` instead of the OpenTelemetry SDK. Exports immediately
-  rather than batching, adds `retries`, `requestTimeout`, and `shutdownTimeout`,
-  and stamps `deployment.environment: local`.
+**`@pkishorez/effect-tracer/flow`** — model correlated work across participants.
+Activations, messages, replies, and state are emitted as OTel span attributes
+under `flow.*`, so any OTLP backend carries them, and `projectFlow` turns
+recorded spans and logs back into a swim-lane `RecordedFlow`.
 
-Requires `effect@^4.0.0-beta.102` as a peer dependency.
+**`@pkishorez/effect-tracer/telemetry`** — `makeTelemetryLayer` exports traces,
+logs, and metrics over OTLP/HTTP through the OpenTelemetry SDK, with per-signal
+toggles.
+
+**`@pkishorez/effect-tracer/telemetry/dev-telemetry`** — the same job for local
+development, built on `effect/unstable/observability` instead of the OTel SDK.
+Exports immediately rather than batching, so spans appear as they happen.
+
+Requires `effect@^4.0.0-beta.102`.

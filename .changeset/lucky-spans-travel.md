@@ -2,46 +2,38 @@
 '@pkishorez/lotel': patch
 ---
 
-Reshape lotel into a layered telemetry library: domain contracts, an
-orchestrator composing the RPC and OTLP/HTTP surfaces, and a replaceable
-telemetry store service.
+This release replaces lotel's API wholesale.
 
-**Breaking:** the `./domain` and `./client` subpath exports are gone. The
-surface is now `.` (`LotelRpc`, `LotelRpcLive`, `LotelOtlpHttpGroup`,
-`LotelOtlpHttpLive`, `sqliteTelemetryStoreLayer`), `@pkishorez/lotel/rpc` (the
-`LotelRpc` group alone, for frontends), `@pkishorez/lotel/telemetry` (span, log,
-and trace schemas and errors), `@pkishorez/lotel/flow` (flow schemas and
-projection), and `@pkishorez/lotel/sqlite`
-(`sqliteTelemetryStoreLayer({ path })`).
+**lotel is a library you host, not a server you run.** There's no `lotel`
+binary; you compose its layers into your own process, the way
+`@pkishorez/devtools` does:
 
-**Breaking:** the `lotel` binary is removed. lotel no longer runs its own
-server — host its `LotelOtlpHttpLive` and `LotelRpcLive` layers in your own
-process, as `@pkishorez/devtools` does.
+```ts
+import {
+  LotelOtlpHttpLive,
+  LotelRpcLive,
+  sqliteTelemetryStoreLayer,
+} from '@pkishorez/lotel';
+```
 
-**Breaking:** metrics are no longer supported. `MetricRecordSchema`,
-`queryMetrics`, and the `/v1/metrics` ingest endpoint are gone; OTLP ingest is
-`/v1/traces` and `/v1/logs`. The old `TraceRecordSchema`, `LogRecordSchema`,
-`clearTelemetry`, `queryTraces`, and `queryLogs` exports and the `LotelApi` /
-`LotelGroup` / `Db` / `makeDbLayer` HTTP-API surface are replaced by the
-`LotelRpc` group.
+`LotelOtlpHttpLive` ingests OTLP over `/v1/traces` and `/v1/logs`.
+`LotelRpcLive` serves the query surface. Storage sits behind a `TelemetryStore`
+service, so `sqliteTelemetryStoreLayer({ path })` is one implementation you can
+swap rather than something the domain depends on.
 
-**Breaking:** the `@pkishorez/lotel/trace` subpath is removed. Import
-`makeTraceRecorder` from `@pkishorez/effect-tracer/recorder` instead.
+**One typed RPC surface.** `SaveSpans`, `InsertLogs`, `ListSpans`, `ListLogs`,
+`ListFlows`, `GetTrace`, `GetFlow`, and `ClearTelemetry`, failing with
+`TraceNotFound`, `FlowNotFound`, or `LotelRpcError`. Frontends import the group
+alone from `@pkishorez/lotel/rpc` so they don't pull in the implementation.
 
-Add the `LotelRpc` procedures `SaveSpans`, `InsertLogs`, `ListSpans`,
-`ListLogs`, `ListFlows`, `GetTrace`, `GetFlow`, and `ClearTelemetry`, with
-`TraceNotFound`, `FlowNotFound`, and `LotelRpcError` as typed failures.
+**Flows show correlated work across participants.** Spans and logs carrying
+`@pkishorez/effect-tracer`'s flow attributes are indexed into a `Flow` as they
+arrive, listed with `ListFlows`, and projected into a swim-lane `RecordedFlow`
+with `GetFlow`.
 
-Add Flows: correlated work recorded across participants. Spans and logs carrying
-the `@pkishorez/effect-tracer` flow attributes are indexed into a `Flow` entity
-as they are ingested, listed via `ListFlows`, and projected into a swim-lane
-`RecordedFlow` via `GetFlow`.
+Schemas live at `@pkishorez/lotel/telemetry` and `@pkishorez/lotel/flow`; the
+SQLite store at `@pkishorez/lotel/sqlite`. The trace recorder that used to sit
+at `@pkishorez/lotel/trace` is now its own package,
+`@pkishorez/effect-tracer/recorder`. Metrics are no longer collected.
 
-Storage moves behind the `TelemetryStore` service, so the SQLite adapter is one
-implementation rather than a hard dependency of the domain.
-
-Dependencies: add `@pkishorez/effect-tracer` for the flow contract and schemas,
-keep `std-toolkit`, and drop `@effect/platform-node`, which is no longer needed
-now that lotel does not own a server process.
-
-Add a README.
+Adds a README.
