@@ -52,13 +52,13 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@pkishorez/effect-tracer": "workspace:*",
     "oxc-parser": "catalog:",
     "oxc-resolver": "catalog:",
     "tsx": "catalog:",
     "yoctocolors": "catalog:"
   },
   "devDependencies": {
-    "@pkishorez/effect-tracer": "workspace:*",
     "@types/node": "catalog:",
     "@typescript/native": "catalog:",
     "effect": "catalog:",
