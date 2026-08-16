@@ -2,34 +2,25 @@
 '@pkishorez/devtools': patch
 ---
 
-Rebuild the DevTools RPC surface around Laymos architecture analysis and lotel
-telemetry.
+This release replaces the DevTools RPC surface wholesale.
 
-**Breaking:** the `@pkishorez/devtools/report` subpath export is removed;
-`./rpc` is the only export.
+`DevtoolsRpc` is now the tool procedures merged with lotel's `LotelRpc`, served
+from the single `@pkishorez/devtools/rpc` export.
 
-**Breaking:** `RunLaymos`, `RunAllStories`, `RunStory`, `RunStoryGroup`,
-`DiscoverStories`, `QueryTraces`, `QueryLogs`, `QueryMetrics`, and the catch-all
-`DevtoolsRpcError` are gone. `DevtoolsRpc` is now `DevtoolsToolRpc` merged with
-lotel's `LotelRpc`.
+**Architecture tools.** `AnalyzeLaymosProject` returns typed layer and module
+analysis for a project path, `GetLaymosModuleSource` returns a module's source
+snapshot with file navigation, `GetLaymosStories` returns the story tree, and
+the streaming `RunLaymosStories` runs it — optionally scoped — reporting
+per-story progress as it goes.
 
-Add the tool procedures `AnalyzeLaymosProject` (typed layer and module analysis
-for a project path), `GetLaymosModuleSource` (module source snapshot with file
-navigation), `GetLaymosStories` (the story tree), and the streaming
-`RunLaymosStories` (optionally scoped, with per-story progress).
+**Telemetry** comes straight from `@pkishorez/lotel/rpc`: `SaveSpans`,
+`InsertLogs`, `ListSpans`, `ListLogs`, `ListFlows`, `GetTrace`, `GetFlow`, and
+`ClearTelemetry`. The `devtools get-trace <trace-id>` subcommand is backed by
+`GetTrace`. OTLP ingest is `/v1/traces` and `/v1/logs`; metrics are no longer
+collected.
 
-Replace the single opaque error with tagged failures: `InvalidProjectPath`,
-`ConfigReadError`, `ConfigParseError`, `ConfigSchemaError`,
-`ConfigValidationError`, `SourceAnalysisError`, `ModuleSourceNotFoundError`,
-`ModuleSourceReadError`, and `StoriesUnavailableError`.
-
-Telemetry procedures now come straight from `@pkishorez/lotel/rpc` —
-`SaveSpans`, `InsertLogs`, `ListSpans`, `ListLogs`, `ListFlows`, `GetTrace`,
-`GetFlow`, and `ClearTelemetry` — and the `devtools get-trace <trace-id>`
-subcommand is backed by lotel's `GetTrace`, reporting `TraceNotFound` and
-`LotelRpcError` on stderr.
-
-**Breaking:** the server no longer exposes `/v1/metrics`; OTLP ingest is
-`/v1/traces` and `/v1/logs`.
-
-Drop the `jiti` dependency.
+**Failures are tagged**, so callers can tell a bad path from a bad config from a
+failed analysis: `InvalidProjectPath`, `ConfigReadError`, `ConfigParseError`,
+`ConfigSchemaError`, `ConfigValidationError`, `SourceAnalysisError`,
+`ModuleSourceNotFoundError`, `ModuleSourceReadError`, and
+`StoriesUnavailableError`.

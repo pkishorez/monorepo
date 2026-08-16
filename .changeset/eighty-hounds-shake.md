@@ -2,64 +2,55 @@
 'laymos': patch
 ---
 
-Rebuild Laymos around a JSON config, a unified Layer and Module analysis, and
-executable Stories.
+This release rebuilds Laymos wholesale.
 
-**Breaking:** declare architecture in `laymos.config.json` instead of
-`laymos.config.ts`; `defineConfig` is removed. The config carries `sourceRoots`,
-`ignoredPaths`, `storiesPath`, `layers`, `modules`, and `layerGraphs`, and every
-project-relative path resolves from the config file's own directory. `--config`
-defaults to `./laymos.config.json`. The package ships `schema.json`, so
-`"$schema": "https://unpkg.com/laymos/schema.json"` gives editors autocomplete
-and validation with no package dependency.
+**Architecture lives in `laymos.config.json`.** The package ships `schema.json`,
+so `"$schema": "https://unpkg.com/laymos/schema.json"` gives you autocomplete
+and validation in the editor with no package dependency. Paths resolve relative
+to the config file.
 
-Configure Modules by canonical project-relative file or directory. `kind` is
-`"normal" | "shared" | "entry"` and defaults to `normal` when omitted.
-`subpaths` lists exact directories whose `index.ts` becomes an extra public door
-for tree shaking; Entry and File Modules cannot declare them. `layerGraphs`
-groups named rule sets that map a layer id to the layer ids it may directly
-depend on — default-deny, transitive across all graphs combined, and required to
-stay acyclic. A layer with no outgoing rule is a valid leaf.
+Declare `layers`, then `modules` keyed by canonical path. A module's `kind` is
+`normal` (the default), `shared`, or `entry`, and `subpaths` names directories
+whose `index.ts` becomes an extra public door for tree shaking. `layerGraphs`
+groups named rule sets mapping each layer to the layers it may depend on —
+default-deny, transitive, and required to stay acyclic.
 
-**Breaking:** the story authoring API is replaced. `story`, `storyGroup`,
-`step`, `decision`, and `functionBlock` are gone. `laymos/story` now exports
-`Story` (`Story.make`, `Story.question`, `Story.group`, `Story.assert`,
-`Story.trace`, `Story.flow`), `StoryContext`, `isStory`, and `isStoryGroup`. A
-Story is a title plus questions, each carrying an `answer` and an Effect
-`proof`; `Story.trace` and `Story.flow` attach recorded Effect traces and flows
-to the report.
+**Three commands.**
 
-**Breaking:** the `laymos/node` and `laymos/report` subpaths are removed. Root
-`laymos` exports `analyzeProject`, `loadModuleSource`, `inspectProject`,
-`inspectLayer`, `inspectFile`, `inspectModule`, `getStoryTree`, `planStories`,
-and `runStories`, plus `ConfigError`, `CruiseError`, `StoriesError`,
-`InspectionTargetNotFound`, `ModuleInspectionCycle`, `ModuleSourceNotFound`, and
-`ModuleSourceReadError`. Browser-safe contracts move to the new
-`laymos/architecture-analysis-schema` (`ArchitectureAnalysisSchema`,
-`ModuleSourceSnapshotSchema`) and `laymos/story/schema` (`StoryReportSchema`,
-`StoryTreeSchema`, `CapturedTraceSchema`, `RecordedFlowSchema`,
-`slugifyQuestion`).
+```sh
+laymos lint              # every rule; or `lint layers` / `lint modules`
+laymos inspect module src/db    # also: project | layer <name> | file <path>
+laymos stories -c 16     # run the Story tree concurrently
+```
 
-The command tree is `lint`, `inspect`, and `stories`:
+`lint modules` covers entry points, public boundaries, cycles, and unused Shared
+Modules, and prints Normal/Shared/Entry totals. Every `inspect` subcommand takes
+`--json` for stable tool output, and `inspect module` reports the configured
+kind, the source shape, and the observed kind separately. Exit codes: `1` for
+violations, `2` for a bad config or failed analysis.
 
-- `laymos lint` checks every rule. `lint layers` checks layer coverage,
-  configured Module presence, and dependencies. `lint modules` checks coverage,
-  entry points, dependencies, public boundaries, cycles, and unused Shared
-  Modules, and prints kind totals.
-- `laymos inspect project | layer <name> | file <path> [--recursive] | module <path>`,
-  each with `--json` for stable tool output. `inspect module` prints the
-  configured kind, source shape, and observed kind separately, along with public
-  entry points and a dependency tree; it aborts on a cycle and points at
-  `lint modules`.
-- `laymos stories [--concurrency|-c <n>]` (default 16) runs the whole Story tree
-  concurrently with a live TTY progress line and a per-question verdict tree.
+**Stories are executable questions.** A Story is a title plus questions, each
+with an `answer` and an Effect `proof`:
 
-Exit codes are `1` for violations and `2` for an invalid config or a failed
-analysis. `bin` is now `bin/laymos.mjs` (was `dist/cli/cli.js`), so the binary
-links without a prior build.
+```ts
+Story.make('Sync', [
+  Story.question('Does a write reach the server?', {
+    answer: 'Yes, once the batch flushes.',
+    proof: Effect.gen(function* () { ... }),
+  }),
+]);
+```
 
-Dependency extraction is rebuilt on `oxc-parser` and `oxc-resolver` behind a
-`file-cruiser` service; `skott` and `jiti` are gone and `tsx` loads story files.
-`@pkishorez/effect-tracer` moves to `dependencies` — `laymos/story` imports it
-at runtime, so declaring it as a devDependency shipped a broken install. The
-`effect` peer range moves to `^4.0.0-beta.102`.
+`Story.group` nests them, and `Story.trace` and `Story.flow` attach recorded
+Effect traces and flows to the report. `laymos stories` runs the whole tree
+concurrently with a live progress line and a per-question verdict tree.
+
+**Exports.** `laymos` gives you `analyzeProject`, `loadModuleSource`,
+`inspectProject`, `inspectLayer`, `inspectFile`, `inspectModule`,
+`getStoryTree`, `planStories`, and `runStories`, plus the tagged errors. Browser
+and RPC code takes contracts from `laymos/architecture-analysis-schema` and
+`laymos/story/schema` without pulling in Node.
+
+Dependency extraction now runs on `oxc-parser` and `oxc-resolver`. `bin` is
+`bin/laymos.mjs`, so the binary links without a prior build. Requires
+`effect@^4.0.0-beta.102`.
