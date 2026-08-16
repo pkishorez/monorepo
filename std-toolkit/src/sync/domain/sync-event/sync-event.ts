@@ -23,7 +23,19 @@ export type SyncEvent =
     }
   | { _tag: 'InitializationFailed'; collection: string; cause: unknown }
   | { _tag: 'UnservedQuery'; collection: string }
-  | { _tag: 'RegistryWriteFailed'; collection: string; cause: unknown };
+  | { _tag: 'RegistryWriteFailed'; collection: string; cause: unknown }
+  | {
+      _tag: 'PeerSyncFailed';
+      collection: string;
+      phase:
+        | 'broadcast'
+        | 'channel-creation'
+        | 'cleanup'
+        | 'decode'
+        | 'receive'
+        | 'subscription';
+      cause: unknown;
+    };
 
 export type SyncReporter<R = never> = (
   event: SyncEvent,

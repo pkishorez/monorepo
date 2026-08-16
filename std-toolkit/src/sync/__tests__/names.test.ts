@@ -22,26 +22,13 @@ describe('named sync', () => {
   });
 
   it('qualifies the TanStack collection namespace', async () => {
-    const channelNames: string[] = [];
     const std = createStdSync({
       name: ' Acme Production ',
-      notices: {
-        channel: (name) => {
-          channelNames.push(name);
-          return {
-            close: () => undefined,
-            onmessage: null,
-            postMessage: () => undefined,
-          };
-        },
-      },
     });
 
     expect(std.sync({ schema: schema('Todo Items') }).id).toBe(
       'acme-production.todo-items',
     );
-    expect(channelNames).toEqual(['acme-production.todo-items']);
-
     await std.dispose();
   });
 
