@@ -135,7 +135,7 @@ describe('peer sync', () => {
     );
     expect(harness.sent).toEqual([]);
     expect(harness.events).toContainEqual(
-      expect.objectContaining({ _tag: 'PeerSyncFailed', phase: 'broadcast' }),
+      expect.objectContaining({ _tag: 'PeerSyncFailed', phase: 'send' }),
     );
     await harness.peer.close();
   });
@@ -264,7 +264,7 @@ describe('peer sync', () => {
     await expect(harness.peer.close()).resolves.toBeUndefined();
     expect(harness.events).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ phase: 'broadcast' }),
+        expect.objectContaining({ phase: 'send' }),
         expect.objectContaining({ phase: 'receive' }),
         expect.objectContaining({ phase: 'cleanup' }),
       ]),

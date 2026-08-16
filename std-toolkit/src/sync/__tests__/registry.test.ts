@@ -15,7 +15,7 @@ describe('Sync', () => {
         const registry = createStdSync({ name: 'registry' }).registry();
 
         expect(() => registry.process(message as never)).toThrow(
-          '[std-sync] registry.process requires { values: Entity[]; persist: boolean }.',
+          '[sync] registry.process requires { values: Entity[]; persist: boolean }.',
         );
       });
 
@@ -36,7 +36,7 @@ describe('Sync', () => {
             persist: true,
           }),
         ).toThrow(
-          '[std-sync] registry.process requires { values: Entity[]; persist: boolean }.',
+          '[sync] registry.process requires { values: Entity[]; persist: boolean }.',
         );
       });
     });

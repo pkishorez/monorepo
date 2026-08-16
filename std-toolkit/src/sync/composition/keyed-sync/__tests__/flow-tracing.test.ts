@@ -215,7 +215,7 @@ describe('collection flow tracing', () => {
     ).toBe(true);
     const persistenceSpans = recorder
       .snapshot()
-      .spans.filter((span) => span.name === 'sync.store');
+      .spans.filter((span) => span.name === 'sync.sync-store');
     expect(persistenceSpans).not.toHaveLength(0);
     expect(persistenceSpans).toContainEqual(
       expect.objectContaining({

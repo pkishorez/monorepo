@@ -24,7 +24,7 @@ export type PaceStrategyFactory = () => BaseStrategy;
  * *when* `pacedUpdate`'s optimistic mutations are committed to the server. Each entry
  * takes the strategy's options and returns a factory: the engine instantiates one
  * strategy per in-flight gate (per key for keyed `sync`, once for `singleItemSync`),
- * so gates never leak across keys. `coalesce` is std-sync's own single-flight pacer;
+ * so gates never leak across keys. `coalesce` is Sync's own single-flight pacer;
  * the rest re-expose TanStack DB's built-ins.
  */
 export const paceStrategy = {

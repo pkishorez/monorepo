@@ -23,6 +23,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 - **db → snapshot**: database tables provide topology and registered-entity source data to snapshot and expose `table.snapshot()` as their capture surface.
 - **db (dynamodb ↔ sqlite ↔ idb ↔ memory)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite, idb, and memory mirror dynamodb's topology and each child context records only its divergences.
 - **sync → core**: consumes core **Entities** from the wire; interprets `_u` for convergence and `_s`/`_c` for cadence.
+- **sync → db**: realizes its **Sync Store** through a compatible database adapter; Memory versus IndexedDB changes durability, not Peer Sync behavior.
 
 ## Term collisions (same word, different context)
 

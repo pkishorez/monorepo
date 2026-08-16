@@ -23,12 +23,12 @@ export type SyncEvent =
     }
   | { _tag: 'InitializationFailed'; collection: string; cause: unknown }
   | { _tag: 'UnservedQuery'; collection: string }
-  | { _tag: 'RegistryWriteFailed'; collection: string; cause: unknown }
+  | { _tag: 'RegistryDeliveryFailed'; collection: string; cause: unknown }
   | {
       _tag: 'PeerSyncFailed';
       collection: string;
       phase:
-        | 'broadcast'
+        | 'send'
         | 'channel-creation'
         | 'cleanup'
         | 'decode'

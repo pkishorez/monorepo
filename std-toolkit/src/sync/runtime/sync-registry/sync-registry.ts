@@ -39,11 +39,12 @@ export const makeTracker = (): Tracker => {
 };
 
 /**
- * Builds the broadcast router over a tracker. `process` validates the message
- * shape (explicit `persist`), groups incoming entities by `meta._e`, looks up the
- * owning collection handle, and routes each group to `applyToSyncReplica` (persist)
- * or `projectOnly` (preview). Entities whose `_e` no collection owns are silently
- * ignored. The registry never touches strategy sync-state.
+ * Builds the Registry Broadcast router over a tracker. `process` validates the
+ * message shape (explicit `persist`), groups incoming entities by `meta._e`,
+ * looks up the owning Collection, and routes each group to
+ * `applyToSyncReplica` (persist) or `projectOnly` (preview). Entities whose
+ * `_e` no Collection owns are silently ignored. Registry Broadcast delivery
+ * never touches Sync State.
  */
 export const buildRegistry = <R>(
   tracker: Tracker,
@@ -61,7 +62,7 @@ export const buildRegistry = <R>(
       !message.values.every(isEntity)
     ) {
       throw new Error(
-        '[std-sync] registry.process requires { values: Entity[]; persist: boolean }.',
+        '[sync] registry.process requires { values: Entity[]; persist: boolean }.',
       );
     }
 
@@ -87,7 +88,7 @@ export const buildRegistry = <R>(
         .runPromise(
           (flow
             ? delivery.pipe(
-                flow.collection.withSpan('Registry Delivery', {
+                flow.collection.withSpan('Registry Broadcast Delivery', {
                   attributes: {
                     collection: handle.collectionName,
                     entityCount: entities.length,
@@ -99,13 +100,16 @@ export const buildRegistry = <R>(
           ).pipe(
             Effect.catch((cause) =>
               report({
-                _tag: 'RegistryWriteFailed',
+                _tag: 'RegistryDeliveryFailed',
                 collection: handle.collectionName,
                 cause,
               }),
             ),
             Effect.catchCause((cause) =>
-              Effect.logError('[std-sync] registry delivery defect', cause),
+              Effect.logError(
+                '[sync] Registry Broadcast delivery defect',
+                cause,
+              ),
             ),
           ),
         )

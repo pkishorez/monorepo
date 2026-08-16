@@ -380,7 +380,7 @@ describe('Peer Sync replica integration', () => {
       } as never),
     ).resolves.toBeUndefined();
     expect(events).toContainEqual(
-      expect.objectContaining({ _tag: 'PeerSyncFailed', phase: 'broadcast' }),
+      expect.objectContaining({ _tag: 'PeerSyncFailed', phase: 'send' }),
     );
 
     await std.dispose();
