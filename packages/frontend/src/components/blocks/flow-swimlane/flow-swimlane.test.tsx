@@ -43,7 +43,7 @@ describe('FlowSwimlane', () => {
     expect(markup).toContain('log entry');
   });
 
-  it('selects a consolidated summary by any member ID', () => {
+  it('selects an expanded contiguous step by its own ID', () => {
     const flow: RecordedFlow = {
       id: 'sync-flow',
       latestTimestamp: 2,
@@ -78,6 +78,37 @@ describe('FlowSwimlane', () => {
     );
 
     expect(markup).toContain('data-selected="true"');
-    expect(markup).toContain('Source of Truth write ×2');
+    expect(markup).toContain('Source of Truth write');
+    expect(markup).not.toContain('data-flow-item="summary"');
+  });
+
+  it('renders every Participant Path segment in a sticky wrapping header', () => {
+    const flow: RecordedFlow = {
+      id: 'hierarchy',
+      latestTimestamp: 1,
+      activations: [],
+      warnings: [],
+      items: [
+        {
+          kind: 'local-event',
+          id: 'event',
+          participantName:
+            'browser:alice/comments.comment/a-very-long-worker-name-that-must-wrap',
+          name: 'Ready',
+          timestamp: 1,
+          severity: 'info',
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(<FlowSwimlane flow={flow} />);
+
+    expect(markup).toContain('data-flow-header="true"');
+    expect(markup).toContain('sticky top-0');
+    expect(markup).toContain('browser:alice');
+    expect(markup).toContain('comments.comment');
+    expect(markup).toContain('a-very-long-worker-name-that-must-wrap');
+    expect(markup).toContain('whitespace-normal');
+    expect(markup).toContain('grid-template-columns:113px 260px 113px');
   });
 });

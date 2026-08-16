@@ -39,8 +39,8 @@ describe('makeFlowLayout', () => {
     expect(layout.items.map(({ id }) => id)).toEqual(['message', 'event']);
   });
 
-  it('consolidates consecutive SoT write events within each participant lane', () => {
-    const syncWrite = 'Source of Truth write';
+  it('summarizes every globally adjacent run from one Participant', () => {
+    const syncWrite = 'Replica write';
     const layout = makeFlowLayout(
       flowOf([
         {
@@ -53,17 +53,25 @@ describe('makeFlowLayout', () => {
         },
         {
           kind: 'local-event',
-          id: 'partition',
-          participantName: 'partition',
+          id: 'second',
+          participantName: 'global',
           name: syncWrite,
           timestamp: 2,
           severity: 'info',
         },
         {
           kind: 'local-event',
-          id: 'second',
+          id: 'middle',
           participantName: 'global',
-          name: syncWrite,
+          name: 'Merge',
+          timestamp: 2.5,
+          severity: 'info',
+        },
+        {
+          kind: 'local-event',
+          id: 'partition',
+          participantName: 'partition',
+          name: 'Ready',
           timestamp: 3,
           severity: 'info',
         },
@@ -84,12 +92,13 @@ describe('makeFlowLayout', () => {
           severity: 'info',
         },
       ]),
+      { collapsedSummaryIds: new Set(['first']) },
     );
 
     expect(
       layout.items.map(({ id, repeatCount }) => [id, repeatCount]),
     ).toEqual([
-      ['first', 2],
+      ['first', 3],
       ['partition', 1],
       ['ready', 1],
       ['third', 1],
@@ -97,6 +106,65 @@ describe('makeFlowLayout', () => {
     expect(layout.items[0]?.members.map(({ id }) => id)).toEqual([
       'first',
       'second',
+      'middle',
+    ]);
+  });
+
+  it('removes hidden Participant activity and Messages involving it', () => {
+    const flow: RecordedFlow = {
+      id: 'hidden-flow',
+      latestTimestamp: 3,
+      warnings: [],
+      activations: [
+        {
+          participantName: 'browser/tab',
+          name: 'Tab lifecycle',
+          startItemId: 'tab-event',
+          startTimestamp: 3,
+          endItemId: null,
+          endTimestamp: null,
+          outcome: null,
+        },
+      ],
+      items: [
+        {
+          kind: 'local-event',
+          id: 'backend-event',
+          participantName: 'backend',
+          name: 'Ready',
+          timestamp: 1,
+          severity: 'info',
+        },
+        {
+          kind: 'message',
+          id: 'message',
+          participantName: 'backend',
+          destination: 'browser/tab',
+          messageId: 'm1',
+          name: 'Deliver',
+          timestamp: 2,
+          severity: 'info',
+        },
+        {
+          kind: 'local-event',
+          id: 'tab-event',
+          participantName: 'browser/tab',
+          name: 'Received',
+          timestamp: 3,
+          severity: 'info',
+        },
+      ],
+    };
+
+    const layout = makeFlowLayout(flow, {
+      hiddenPaths: new Set(['browser']),
+    });
+
+    expect(layout.items.map(({ id }) => id)).toEqual(['backend-event']);
+    expect(layout.activations).toEqual([]);
+    expect(layout.hierarchy.columns).toMatchObject([
+      { kind: 'participant', participantName: 'backend' },
+      { kind: 'marker', marker: 'hidden', participantCount: 1 },
     ]);
   });
 });
