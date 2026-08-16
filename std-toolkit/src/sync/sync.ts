@@ -41,6 +41,12 @@ import {
   qualifyCollectionName,
 } from './domain/sync-address/index.js';
 import type { PeerChannelFactory } from './runtime/peer-sync/index.js';
+import {
+  makeLeadership,
+  type LeadershipLayer,
+} from './runtime/leadership/index.js';
+
+export type { LeadershipLayer } from './runtime/leadership/index.js';
 
 export const syncStrategy = { oldToNew, newToOld, bidirectional };
 export const singleItemSyncStrategy = { getOnce };
@@ -108,6 +114,7 @@ export type StdSyncDefaults<R = never> = {
   onEvent?: SyncReporter<R>;
   flow?: FlowPlacement;
   peerSync?: false | { channel: PeerChannelFactory };
+  leadershipLayer?: LeadershipLayer;
 };
 
 const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
@@ -120,6 +127,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
   const store = makeSyncStore(
     defaults.storeLayer ?? Memory.make(syncStore).layer,
   );
+  const leadership = makeLeadership(defaults.leadershipLayer);
   const cleanups = new Set<() => Promise<void>>();
   let disposed = false;
   let disposePromise: Promise<void> | null = null;
@@ -168,6 +176,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       ...(syncField?.total ? { total: syncField.total } : {}),
       ...(syncField?.partitions ? { partitions: syncField.partitions } : {}),
       store,
+      leadership,
       collectionName,
       assertActive,
       trackCleanup,
@@ -199,6 +208,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
     return buildSingleItem(tracker, {
       ...rest,
       store,
+      leadership,
       collectionName,
       assertActive,
       trackCleanup,
@@ -221,8 +231,11 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       const results = await Promise.allSettled(
         [...cleanups].map((cleanup) => cleanup()),
       );
-      await store.dispose();
-      const failures = results.flatMap((result) =>
+      const disposals = await Promise.allSettled([
+        leadership.dispose(),
+        store.dispose(),
+      ]);
+      const failures = [...results, ...disposals].flatMap((result) =>
         result.status === 'rejected' ? [result.reason] : [],
       );
       if (failures.length > 0) {

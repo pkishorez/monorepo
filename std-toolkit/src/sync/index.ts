@@ -8,6 +8,7 @@ export {
   type PeerChannelFactory,
   type EffectRuntime,
   type FlowPlacement,
+  type LeadershipLayer,
   type PartitionedStrategy,
   type SingleItemStrategy,
   type SingleItemSyncConfig,

@@ -25,6 +25,10 @@ import {
   type MessageToken,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
+import {
+  leadershipIdentity,
+  type Leadership,
+} from '../../runtime/leadership/index.js';
 
 export type SyncExecution<TItem extends object, R> = {
   start: (
@@ -39,6 +43,7 @@ export type SyncExecution<TItem extends object, R> = {
 
 export const makeSyncExecution = <TItem extends object, R>(args: {
   collectionName: string;
+  leadership: Leadership;
   defaultCadence?: CadenceConfig;
   collection: () => SyncCollection<TItem> | null;
   makeContext: <TState>(
@@ -131,6 +136,12 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
         );
 
         const strategyRun = superviseStrategy({
+          leadership: args.leadership,
+          identity: leadershipIdentity({
+            collectionName: args.collectionName,
+            partitionKey,
+            role: { _tag: 'Strategy', name: entry.strategy.name },
+          }),
           run: (attemptScope) =>
             entry.strategy
               .run(
@@ -200,6 +211,12 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
           cadenceActivation =
             yield* cadenceFlow.activation.start('Cadence repair');
           const cadenceRun = superviseStrategy({
+            leadership: args.leadership,
+            identity: leadershipIdentity({
+              collectionName: args.collectionName,
+              partitionKey,
+              role: { _tag: 'CadenceRepair' },
+            }),
             run: () =>
               runCadenceSync({
                 collection,

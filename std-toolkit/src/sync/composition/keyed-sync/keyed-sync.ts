@@ -52,6 +52,7 @@ import {
   makePeerSync,
   type PeerChannelFactory,
 } from '../../runtime/peer-sync/index.js';
+import type { Leadership } from '../../runtime/leadership/index.js';
 
 type Projector<TItem> = ReturnType<typeof makeCollectionProjector<TItem>>;
 
@@ -89,6 +90,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
     store: SyncStore;
+    leadership: Leadership;
     collectionName: string;
     assertActive: () => void;
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
@@ -244,6 +246,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         : {}),
       collection: () => nativeCollection,
       collectionName,
+      leadership: config.leadership,
       makeContext: buildCtx,
       applyToSyncReplica: (entities, strategyFlow) =>
         applyToSyncReplica(entities, strategyFlow).pipe(Effect.asVoid),
