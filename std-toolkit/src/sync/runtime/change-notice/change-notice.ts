@@ -31,7 +31,7 @@ export const makeChangeNotice = (args: {
     return { notify: () => {}, close: () => Promise.resolve() };
   }
 
-  const channel = factory(`${args.scope}:${args.collection}`);
+  const channel = factory(args.collection);
   let scheduled: ReturnType<typeof setTimeout> | null = null;
   let pending = Promise.resolve();
   let closed = false;

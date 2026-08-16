@@ -8,6 +8,7 @@ import type { CollectionFlow } from '../sync-flow/index.js';
 
 export type CollectionHandle = {
   schemaName: string;
+  collectionName: string;
   writeServerTruth: (
     entities: EntityType<unknown>[],
   ) => Effect.Effect<void, WriteError>;
@@ -88,7 +89,7 @@ export const buildRegistry = <R>(
             ? delivery.pipe(
                 flow.collection.withSpan('Registry Delivery', {
                   attributes: {
-                    collection: type,
+                    collection: handle.collectionName,
                     entityCount: entities.length,
                     persist,
                   },
@@ -99,7 +100,7 @@ export const buildRegistry = <R>(
             Effect.catch((cause) =>
               report({
                 _tag: 'RegistryWriteFailed',
-                collection: type,
+                collection: handle.collectionName,
                 cause,
               }),
             ),

@@ -28,6 +28,7 @@ const SINGLE_KEY = '__single__';
  * and flushing the confirmed entity. Mutation results never touch sync-state.
  */
 export const buildMutationHandlers = <TItem extends object, R = never>(args: {
+  collectionName: string;
   writeServerTruth: (
     entities: EntityType<TItem>[],
   ) => Effect.Effect<void, WriteError>;
@@ -57,7 +58,10 @@ export const buildMutationHandlers = <TItem extends object, R = never>(args: {
         activeFlow
           ? mutation.pipe(
               activeFlow.collection.withSpan('Collection Mutation', {
-                attributes: { operation: 'update' },
+                attributes: {
+                  collection: args.collectionName,
+                  operation: 'update',
+                },
               }),
             )
           : mutation,

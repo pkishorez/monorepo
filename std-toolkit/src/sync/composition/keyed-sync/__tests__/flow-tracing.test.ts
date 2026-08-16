@@ -42,6 +42,7 @@ describe('collection flow tracing', () => {
     };
     const strategyRuns: string[] = [];
     const built = createStdSync({
+      name: 'comments',
       persistenceLayer: contractLayer(
         syncPersistenceTable.logicalName,
         contract,
@@ -120,6 +121,7 @@ describe('collection flow tracing', () => {
           ),
     });
     const built = createStdSync({
+      name: 'comments',
       runtime,
       flow: {
         id: 'sync-story::test',
@@ -224,7 +226,7 @@ describe('collection flow tracing', () => {
           'db.system.name': 'std-table',
           'db.namespace': 'sync-persistence',
           'db.operation.name': 'transact',
-          'sync.collection': 'Comment',
+          'sync.collection': 'comments.comment',
           'sync.persistence.record': 'source-of-truth',
         }),
       }),
@@ -249,9 +251,9 @@ describe('collection flow tracing', () => {
     );
     expect(participants).toEqual(
       new Set([
-        'browser:alice/collection:Comment',
-        'browser:alice/collection:Comment/global-sync::global-worker',
-        'browser:alice/collection:Comment/partition-sync::postId=string:"post-1"::partition-worker',
+        'browser:alice/comments.comment',
+        'browser:alice/comments.comment{global}.global-worker',
+        'browser:alice/comments.comment{postid=post-1}.partition-worker',
       ]),
     );
     expect(
@@ -281,8 +283,8 @@ describe('collection flow tracing', () => {
       ),
     ).toEqual(
       new Set([
-        'browser:alice/collection:Comment/global-sync::global-worker',
-        'browser:alice/collection:Comment/partition-sync::postId=string:"post-1"::partition-worker',
+        'browser:alice/comments.comment{global}.global-worker',
+        'browser:alice/comments.comment{postid=post-1}.partition-worker',
       ]),
     );
   });
@@ -295,7 +297,7 @@ describe('collection flow tracing', () => {
       runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
         Effect.runPromise(recorder.instrument(effect)),
     } satisfies EffectRuntime<never>;
-    const built = createStdSync({ runtime }).sync({ schema });
+    const built = createStdSync({ name: 'comments', runtime }).sync({ schema });
 
     for (let lifecycle = 0; lifecycle < 2; lifecycle += 1) {
       const probe = { readyCount: 0 };
@@ -321,7 +323,7 @@ describe('collection flow tracing', () => {
     const flows = recorder.snapshotFlows();
     expect(flows).toHaveLength(1);
     expect(flows[0]?.id).toMatch(
-      /^std-collection::Comment::[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+      /^comments\.comment::[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
     );
     expect(
       flows[0]?.items.filter((item) => item.name === 'Collection start'),
@@ -331,8 +333,8 @@ describe('collection flow tracing', () => {
     ).toHaveLength(2);
     // One stable lane, two Activations — the case the lane brightness exists for.
     expect(flows[0]?.activations).toMatchObject([
-      { participantName: 'collection', outcome: 'completed' },
-      { participantName: 'collection', outcome: 'completed' },
+      { participantName: 'comments.comment', outcome: 'completed' },
+      { participantName: 'comments.comment', outcome: 'completed' },
     ]);
     expect(flows[0]?.warnings).toEqual([]);
   });

@@ -37,6 +37,10 @@ import { oldToNew } from './workers/old-to-new/index.js';
 import { newToOld } from './workers/new-to-old/index.js';
 import { bidirectional } from './workers/bidirectional/index.js';
 import { getOnce } from './workers/get-once/index.js';
+import {
+  normalizeSyncName,
+  qualifyCollectionName,
+} from './domain/sync-address/index.js';
 
 export const syncStrategy = { oldToNew, newToOld, bidirectional };
 export const singleItemSyncStrategy = { getOnce };
@@ -92,10 +96,11 @@ export type SingleItemSyncConfig<
  * Creates one std-sync instance: a shared tracker behind `sync` (keyed,
  * partitioned), `singleItemSync` (singleton), and `registry` (the broadcast
  * router). Optional `defaults.options` are merged into every collection's options,
- * with per-collection options winning. Duplicate `schema.name` registration throws
- * via the tracker, enforcing disjoint per-collection ownership.
+ * with per-collection options winning. Schema names are normalized and qualified
+ * by the required Sync name; duplicate normalized collection names throw.
  */
 export type StdSyncDefaults<R = never> = {
+  name: string;
   options?: StdCollectionOptions<object>;
   persistenceLayer?: SyncPersistenceLayer;
   cadence?: CadenceConfig;
@@ -105,15 +110,17 @@ export type StdSyncDefaults<R = never> = {
   notices?: { scope?: string; channel?: ChannelFactory };
 };
 
-const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
-  const runner = makeEffectRunner(defaults?.runtime);
+const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
+  const name = normalizeSyncName(defaults.name);
+  const collectionNames = new Set<string>();
+  const runner = makeEffectRunner(defaults.runtime);
   const report: SyncReporter<R> =
-    defaults?.onEvent ?? ((event) => Effect.logError(event));
+    defaults.onEvent ?? ((event) => Effect.logError(event));
   const tracker = makeTracker();
   const persistence = makeSyncPersistence(
-    defaults?.persistenceLayer ?? Memory.make(syncPersistenceTable).layer,
+    defaults.persistenceLayer ?? Memory.make(syncPersistenceTable).layer,
   );
-  const noticeScope = defaults?.notices?.scope ?? 'sync-persistence';
+  const noticeScope = defaults.notices?.scope ?? name;
   const cleanups = new Set<() => Promise<void>>();
   let disposed = false;
   let disposePromise: Promise<void> | null = null;
@@ -143,26 +150,34 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
   ): StdCollectionOptions<TItem> =>
     ({
       gcTime: defaultGcTime,
-      ...defaults?.options,
+      ...defaults.options,
       ...options,
     }) as StdCollectionOptions<TItem>;
 
   const sync = <S extends AnyEntityESchema>(config: SyncConfig<S, R>) => {
     assertActive();
+    const collectionName = qualifyCollectionName(name, config.schema.name);
+    if (collectionNames.has(collectionName)) {
+      throw new Error(
+        `[sync] collection name "${collectionName}" is already registered`,
+      );
+    }
+    collectionNames.add(collectionName);
     const { sync: syncField, options, ...rest } = config;
     const built = buildPartitioned(tracker, {
       ...rest,
       ...(syncField?.total ? { total: syncField.total } : {}),
       ...(syncField?.partitions ? { partitions: syncField.partitions } : {}),
       persistence,
+      collectionName,
       assertActive,
       trackCleanup,
-      ...(defaults?.cadence ? { defaultCadence: defaults.cadence } : {}),
+      ...(defaults.cadence ? { defaultCadence: defaults.cadence } : {}),
       runner,
       report,
-      ...(defaults?.flow ? { flowPlacement: defaults.flow } : {}),
+      ...(defaults.flow ? { flowPlacement: defaults.flow } : {}),
       noticeScope,
-      ...(defaults?.notices?.channel
+      ...(defaults.notices?.channel
         ? { noticeChannel: defaults.notices.channel }
         : {}),
     });
@@ -173,20 +188,28 @@ const makeStdSync = <R>(defaults?: StdSyncDefaults<R>) => {
     config: SingleItemSyncConfig<S, R, TState>,
   ) => {
     assertActive();
+    const collectionName = qualifyCollectionName(name, config.schema.name);
+    if (collectionNames.has(collectionName)) {
+      throw new Error(
+        `[sync] collection name "${collectionName}" is already registered`,
+      );
+    }
+    collectionNames.add(collectionName);
     const { options, ...rest } = config;
     return buildSingleItem(tracker, {
       ...rest,
       persistence,
+      collectionName,
       assertActive,
       trackCleanup,
       noticeScope,
-      ...(defaults?.notices?.channel
+      ...(defaults.notices?.channel
         ? { noticeChannel: defaults.notices.channel }
         : {}),
       options: mergeOptions(options),
       runner,
       report,
-      ...(defaults?.flow ? { flowPlacement: defaults.flow } : {}),
+      ...(defaults.flow ? { flowPlacement: defaults.flow } : {}),
     });
   };
 
@@ -241,7 +264,7 @@ type CreateStdSync = {
     defaults: StdSyncDefaults<R> & { runtime: EffectRuntime<R> },
   ): ReturnType<typeof makeStdSync<R>>;
   (
-    defaults?: StdSyncDefaults<never> & { runtime?: never },
+    defaults: StdSyncDefaults<never> & { runtime?: never },
   ): ReturnType<typeof makeStdSync<never>>;
 };
 

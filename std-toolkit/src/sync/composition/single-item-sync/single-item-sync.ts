@@ -77,6 +77,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
     persistence: SyncPersistence;
+    collectionName: string;
     assertActive: () => void;
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
     runner: EffectRunner<R>;
@@ -89,18 +90,20 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   type TItem = S['Type'];
 
   const { schema, strategy, options, onUpdate, updatePacing } = config;
+  const { collectionName } = config;
   const flow = makeCollectionFlow(
-    schema.name,
+    collectionName,
     config.runner.runSync(nextUlid),
     config.flowPlacement,
   );
   const sot = makeSourceOfTruth<TItem>({
     schema,
     persistence: config.persistence,
+    collectionName,
     keyOf: () => SINGLETON_KEY,
   });
   const stateStore = makeSyncStateStore({
-    schemaName: schema.name,
+    schemaName: collectionName,
     strategyName: strategy.name,
     persistence: config.persistence,
     state: strategy.state,
@@ -134,7 +137,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   const notice = makeChangeNotice({
     scope: config.noticeScope,
-    collection: schema.name,
+    collection: collectionName,
     onNotice: () => config.runner.runPromise(advance().pipe(Effect.ignore)),
     channel: config.noticeChannel,
   });
@@ -166,7 +169,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     }).pipe(
       Effect.withSpan('sync.write-server-truth', {
         attributes: {
-          entity: schema.name,
+          entity: collectionName,
           entityCount: entities.length,
         },
       }),
@@ -180,6 +183,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   const handle: CollectionHandle = {
     schemaName: schema.name,
+    collectionName,
     writeServerTruth: writeServerTruth as CollectionHandle['writeServerTruth'],
     projectOnly: projectOnly as CollectionHandle['projectOnly'],
     flow: () => flow,
@@ -187,6 +191,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   tracker.register(handle);
 
   const handlers = buildMutationHandlers<TItem, R>({
+    collectionName,
     writeServerTruth,
     onUpdate,
     updatePacing,
@@ -206,7 +211,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     );
     config.runner.runSync(
       flow.collection.log('Collection start', {
-        attributes: { collection: schema.name },
+        attributes: { collection: collectionName },
       }),
     );
     const local = makeCollectionProjector<TItem>(callbacks);
@@ -224,7 +229,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
           Effect.gen(function* () {
             const projected = yield* advance().pipe(
               flow.collection.withSpan('Source of Truth hydration', {
-                attributes: { collection: schema.name },
+                attributes: { collection: collectionName },
               }),
             );
             const ready = yield* Effect.sync(() => {
@@ -235,7 +240,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
             if (!ready) return;
             yield* flow.collection.log('Collection ready', {
               attributes: {
-                collection: schema.name,
+                collection: collectionName,
                 entityCount: projected,
               },
             });
@@ -259,7 +264,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
               onError: (error) =>
                 config.report({
                   _tag: 'StrategyFailed',
-                  collection: schema.name,
+                  collection: collectionName,
                   partitionKey: SINGLE_STATE_KEY,
                   strategy: strategy.name,
                   cause: error,
@@ -267,7 +272,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
               onDefect: (cause) =>
                 config.report({
                   _tag: 'StrategyDefect',
-                  collection: schema.name,
+                  collection: collectionName,
                   partitionKey: SINGLE_STATE_KEY,
                   strategy: strategy.name,
                   cause,
@@ -285,7 +290,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
               config
                 .report({
                   _tag: 'InitializationFailed',
-                  collection: schema.name,
+                  collection: collectionName,
                   cause: error,
                 })
                 .pipe(
@@ -320,7 +325,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
         collectionUpdate = null;
         await config.runner.runPromise(
           flow.collection.log('Collection cleanup', {
-            attributes: { collection: schema.name },
+            attributes: { collection: collectionName },
           }),
         );
         if (collectionActivation) {
@@ -334,6 +339,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   };
 
   return {
+    id: collectionName,
     ...(options as object),
     rowUpdateMode: 'full',
     singleResult: true,

@@ -22,7 +22,10 @@ const database = IDB.database({ databaseName: 'app' });
 const persistence = IDB.make(syncPersistenceTable, { database });
 await Effect.runPromise(persistence.setup);
 
-const std = createStdSync({ persistenceLayer: persistence.layer });
+const std = createStdSync({
+  name: 'acme-production',
+  persistenceLayer: persistence.layer,
+});
 ```
 
 Use `std.collection(config)` when you want std-sync to create the TanStack
@@ -129,7 +132,7 @@ runtime it falls back to `Effect.runSync` and `Effect.runPromise`.
 import { Effect, ManagedRuntime } from 'effect';
 
 const runtime = ManagedRuntime.make(AppLayer);
-const std = createStdSync({ runtime });
+const std = createStdSync({ name: 'tasks', runtime });
 
 const tasks = std.collection({
   schema: TaskSchema,

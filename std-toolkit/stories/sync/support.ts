@@ -565,6 +565,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   const prefix = `browser:${options.label}`;
   const lane = initFlow({ id: options.flowId, participantName: prefix });
   const app = createStdSync<never>({
+    name: options.name,
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
     persistenceLayer: options.persistenceLayer,

@@ -40,6 +40,7 @@ export const buildMutationHandlers = <
   R = never,
 >(args: {
   schema: S;
+  collectionName: string;
   writeServerTruth: (
     entities: EntityType<S['Type']>[],
   ) => Effect.Effect<void, WriteError>;
@@ -61,7 +62,6 @@ export const buildMutationHandlers = <
   type TCollItem = CollectionItem<TItem>;
 
   const {
-    schema,
     writeServerTruth,
     onInsert,
     onUpdate,
@@ -89,7 +89,7 @@ export const buildMutationHandlers = <
           ? mutation.pipe(
               activeFlow.collection.withSpan('Collection Mutation', {
                 attributes: {
-                  collection: schema.name,
+                  collection: args.collectionName,
                   entityKey: key,
                   operation,
                 },

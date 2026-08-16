@@ -54,11 +54,13 @@ export const makeSourceOfTruth = <TItem>(args: {
   persistence: SyncPersistence;
   schema?: AnyESchema & { readonly idField?: string };
   entityName?: string;
+  collectionName?: string;
   keyOf?: (value: TItem) => string | null;
 }): SourceOfTruth<TItem> => {
   const isValue = args.schema ? Schema.is(args.schema.schema) : null;
-  const collection = args.schema?.name ?? args.entityName;
-  if (!collection) throw new Error('Source of Truth requires an entity name');
+  const entityName = args.schema?.name ?? args.entityName;
+  if (!entityName) throw new Error('Source of Truth requires an entity name');
+  const collection = args.collectionName ?? entityName;
 
   const idOf = (entity: EntityType<TItem>): string | null => {
     if (args.keyOf) return args.keyOf(entity.value);
@@ -189,17 +191,17 @@ export const makeSourceOfTruth = <TItem>(args: {
               reason: 'entity is missing value or a well-formed meta',
             });
           }
-          if (entity.meta._e !== collection) {
+          if (entity.meta._e !== entityName) {
             return yield* Effect.fail<WriteError>({
               _tag: 'WrongEntity',
-              expected: collection,
+              expected: entityName,
               received: entity.meta._e,
             });
           }
           if (isValue && !isValue(entity.value)) {
             return yield* Effect.fail<WriteError>({
               _tag: 'Invalid',
-              reason: `entity value does not match schema "${collection}"`,
+              reason: `entity value does not match schema "${entityName}"`,
             });
           }
           const id = idOf(entity);

@@ -23,6 +23,7 @@
     "src/sync/__tests__",
     "src/sync/composition/keyed-sync/__tests__",
     "src/sync/domain/partition-identity/__tests__",
+    "src/sync/domain/sync-address/__tests__",
     "src/sync/lifecycle/strategy-lifecycle/__tests__",
     "src/sync/persistence/source-of-truth/__tests__",
     "src/sync/runtime/mutation-pacing/__tests__",
@@ -362,7 +363,8 @@
     "src/sync/domain/slice-coverage": {},
     "src/sync/domain/strategy-state": {},
     "src/sync/domain/sync-error": {},
-    "src/sync/domain/sync-event": {}
+    "src/sync/domain/sync-event": {},
+    "src/sync/domain/sync-address": {}
   },
   "layerGraphs": {
     "std-table": {
