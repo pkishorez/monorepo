@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ChevronDown,
   FileCode2,
@@ -16,7 +16,6 @@ import { cn } from '#lib/utils';
 import {
   countQuestions,
   groupVerdict,
-  isChapter,
   storyAnchor,
   type StoryLeaf,
   type StoryReports,
@@ -38,24 +37,16 @@ export function NodePage({
   running,
   onRun,
   onSelect,
-  focusStoryId,
 }: {
   readonly node: TreeNode;
   readonly reports?: StoryReports;
   readonly running?: boolean;
   readonly onRun?: (scope?: string) => void;
   readonly onSelect: (id: string) => void;
-  readonly focusStoryId?: string;
 }) {
   switch (node.kind) {
     case 'group':
-      return isChapter(node.group) ? (
-        <ChapterPage
-          group={node.group}
-          reports={reports}
-          focusStoryId={focusStoryId}
-        />
-      ) : (
+      return (
         <GroupPage
           id={node.id}
           group={node.group}
@@ -127,78 +118,6 @@ function GroupPage({
         />
       )}
     </div>
-  );
-}
-
-function ChapterPage({
-  group,
-  reports,
-  focusStoryId,
-}: {
-  readonly group: StoryTree;
-  readonly reports?: StoryReports;
-  readonly focusStoryId?: string;
-}) {
-  useEffect(() => {
-    if (focusStoryId === undefined) return;
-    const story = group.stories.find(({ id }) => id === focusStoryId);
-    if (story === undefined) return;
-    document
-      .getElementById(storyAnchor(story))
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [focusStoryId, group]);
-  return (
-    <div className="flex flex-col gap-10">
-      <PageHeading title={group.title} verdict={groupVerdict(group, reports)} />
-      {group.stories.map((story) => (
-        <StorySection key={story.id} story={story} reports={reports} />
-      ))}
-      <QuestionsEndSpacer />
-    </div>
-  );
-}
-
-function StorySection({
-  story,
-  reports,
-}: {
-  readonly story: StoryLeaf;
-  readonly reports?: StoryReports;
-}) {
-  const [sourceOpen, setSourceOpen] = useState(false);
-  const report = reports?.[story.id];
-  return (
-    <section
-      id={storyAnchor(story)}
-      className="flex scroll-mt-4 flex-col gap-4"
-    >
-      <header className="flex items-center gap-2.5 border-b border-border/60 pb-2">
-        <VerdictDot verdict={report?.verdict} />
-        <h2 className="min-w-0 flex-1 truncate text-lg font-semibold leading-snug">
-          {story.title}
-        </h2>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          onClick={() => setSourceOpen(true)}
-          title="View source"
-        >
-          <FileCode2 className="size-3.5" />
-        </Button>
-      </header>
-      <StoryBody
-        story={story}
-        reports={reports}
-        anchorPrefix={storyAnchor(story)}
-      />
-      <QuestionsEndSpacer />
-      {sourceOpen && (
-        <SourceDialog
-          source={story.source}
-          onClose={() => setSourceOpen(false)}
-        />
-      )}
-    </section>
   );
 }
 

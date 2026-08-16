@@ -34,15 +34,6 @@ export function StoriesDocsSite({
   const nodes = useMemo(() => indexTree(tree), [tree]);
   const [selectedId, setSelectedId] = useState(tree.title);
   const selected = nodes.get(selectedId) ?? nodes.get(tree.title);
-  let displayed = selected;
-  let focusStoryId: string | undefined;
-  if (selected?.kind === 'story') {
-    const parent = nodes.get(selected.parentId);
-    if (parent?.kind === 'group' && isChapter(parent.group)) {
-      displayed = parent;
-      focusStoryId = selected.id;
-    }
-  }
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedChapterId, setExpandedChapterId] = useState<
@@ -132,15 +123,14 @@ export function StoriesDocsSite({
               scrollbarStyles,
             )}
           >
-            {displayed !== undefined && (
+            {selected !== undefined && (
               <div className="mx-auto max-w-3xl">
                 <NodePage
-                  node={displayed}
+                  node={selected}
                   reports={reports}
                   running={running}
                   onRun={onRun}
                   onSelect={selectNode}
-                  focusStoryId={focusStoryId}
                 />
               </div>
             )}
