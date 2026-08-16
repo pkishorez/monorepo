@@ -41,8 +41,14 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Wait for DynamoDB Local
         run: timeout 30s bash -c 'until curl --silent --output /dev/null http://localhost:8090; do sleep 1; done'
 
       - name: Test
         run: pnpm test
+
+      - name: Stories
+        run: pnpm stories

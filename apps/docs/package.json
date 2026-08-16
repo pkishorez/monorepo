@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "fumadocs-mdx && tsc --noEmit",
     "postinstall": "fumadocs-mdx",
-    "deploy": "vite build && wrangler deploy"
+    "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
   "dependencies": {
     "@fontsource-variable/inter": "catalog:",
@@ -25,16 +25,17 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/mdx": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "nitro": "catalog:",
+    "alchemy": "catalog:",
+    "effect": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "wrangler": "catalog:"
+    "vite": "catalog:"
   }
 }

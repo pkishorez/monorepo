@@ -1,0 +1,75 @@
+name: Cleanup
+
+on:
+  workflow_call:
+    inputs:
+      stage:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage to destroy (e.g. pr3)'
+        required: true
+        type: string
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Destroy also evaluates apps/docs/alchemy.run.ts, whose accident-guard
+      # refuses deployed stages without this opt-in.
+      ALLOW_DEPLOY: 'true'
+    steps:
+      - name: Guard against prod teardown
+        run: |
+          if [ "${{ inputs.stage }}" = "prod" ]; then
+            echo "Refusing to destroy the '${{ inputs.stage }}' stage." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Destroy docs preview
+        id: destroy
+        continue-on-error: true
+        run: pnpm -C apps/docs exec alchemy destroy --stage "${{ inputs.stage }}" --yes
+
+      - name: Force-clear orphaned state on destroy failure
+        if: steps.destroy.outcome == 'failure'
+        run: |
+          echo "::warning::alchemy destroy failed for stage '${{ inputs.stage }}' — force-clearing alchemy state so the stage does not linger. Some cloud resources may need manual cleanup."
+          pnpm -C apps/docs exec alchemy state clear Docs "${{ inputs.stage }}" --stage "${{ inputs.stage }}" --yes
+
+      - name: Fail if destroy failed
+        if: steps.destroy.outcome == 'failure'
+        run: exit 1
+
+      - name: Job summary
+        if: always()
+        env:
+          STAGE: ${{ inputs.stage }}
+          DESTROY_OUTCOME: ${{ steps.destroy.outcome }}
+        run: |
+          {
+            echo "## Cleanup — \`$STAGE\`"
+            echo ""
+            echo "| App | Status |"
+            echo "| --- | --- |"
+            echo "| docs | $([ "$DESTROY_OUTCOME" = "success" ] && echo "🗑️ destroyed" || echo "❌ destroy failed (state force-cleared)") |"
+          } >> "$GITHUB_STEP_SUMMARY"
