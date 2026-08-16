@@ -35,6 +35,10 @@ import {
   type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
+import {
+  makePeerSync,
+  type PeerChannelFactory,
+} from '../../runtime/peer-sync/index.js';
 
 const SINGLETON_KEY = '__singleton__';
 const SINGLE_STATE_KEY = '__single__';
@@ -75,6 +79,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
     runner: EffectRunner<R>;
     report: SyncReporter<R>;
+    peerChannel?: PeerChannelFactory | null;
     flowPlacement?: FlowPlacement;
   },
 ): SingleItemResult<S['Type'], S> => {
@@ -109,6 +114,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     | null = null;
 
   let position: string | null = null;
+  let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
 
   const advance = (): Effect.Effect<number, WriteError> =>
     TxSemaphore.withPermit(
@@ -125,6 +131,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   const applyToSyncReplica = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
+    options: { readonly propagate: boolean } = { propagate: true },
   ): Effect.Effect<EntityType<TItem>[], WriteError> => {
     config.assertActive();
     return Effect.gen(function* () {
@@ -136,6 +143,13 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       }
       const accepted = yield* replica.applyToSyncReplica(entities);
       yield* advance();
+      if (options.propagate && accepted.length > 0 && peerSync !== null) {
+        yield* Effect.promise(() =>
+          peerSync!.broadcast(
+            accepted as [EntityType<TItem>, ...EntityType<TItem>[]],
+          ),
+        );
+      }
       if (syncFlow && entities.length > 0) {
         yield* syncFlow.log('Sync Replica write', {
           attributes: {
@@ -169,6 +183,20 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     flow: () => flow,
   };
   tracker.register(handle);
+
+  const peer = makePeerSync<TItem, R>({
+    collectionName,
+    schema,
+    runner: config.runner,
+    report: config.report,
+    apply: (entities, options) =>
+      applyToSyncReplica(entities, undefined, options).pipe(Effect.asVoid),
+    ...(config.peerChannel === undefined
+      ? {}
+      : { channel: config.peerChannel }),
+  });
+  peerSync = peer;
+  config.trackCleanup(() => peer.close());
 
   const handlers = buildMutationHandlers<TItem, R>({
     collectionName,

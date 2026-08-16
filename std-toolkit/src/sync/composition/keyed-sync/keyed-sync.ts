@@ -48,6 +48,10 @@ import {
   type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
+import {
+  makePeerSync,
+  type PeerChannelFactory,
+} from '../../runtime/peer-sync/index.js';
 
 type Projector<TItem> = ReturnType<typeof makeCollectionProjector<TItem>>;
 
@@ -91,6 +95,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     defaultCadence?: CadenceConfig;
     runner?: EffectRunner<R>;
     report: SyncReporter<R>;
+    peerChannel?: PeerChannelFactory | null;
     flowPlacement?: FlowPlacement;
   },
 ): CollectionConfig<
@@ -146,6 +151,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   let nativeCollection: SyncCollection<TItem> | null = null;
   let collectionActivation: ActivationRef | null = null;
   let position: string | null = null;
+  let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
 
   const advance = (
     options: { readonly seeding: boolean } = { seeding: false },
@@ -167,10 +173,20 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   const applyToSyncReplica = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
+    options: { readonly propagate: boolean } = { propagate: true },
   ): Effect.Effect<EntityType<TItem>[], WriteError> => {
     config.assertActive();
     return replica.applyToSyncReplica(entities).pipe(
       Effect.tap(() => advance()),
+      Effect.tap((accepted) =>
+        options.propagate && accepted.length > 0 && peerSync !== null
+          ? Effect.promise(() =>
+              peerSync!.broadcast(
+                accepted as [EntityType<TItem>, ...EntityType<TItem>[]],
+              ),
+            )
+          : Effect.void,
+      ),
       Effect.tap((accepted) =>
         syncFlow && entities.length > 0
           ? syncFlow.log('Sync Replica write', {
@@ -286,6 +302,20 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     ) => Effect.Effect<void, WriteError>,
     flow: () => flow,
   });
+
+  const peer = makePeerSync<TItem, R>({
+    collectionName,
+    schema,
+    runner,
+    report: config.report,
+    apply: (entities, options) =>
+      applyToSyncReplica(entities, undefined, options).pipe(Effect.asVoid),
+    ...(config.peerChannel === undefined
+      ? {}
+      : { channel: config.peerChannel }),
+  });
+  peerSync = peer;
+  config.trackCleanup(() => peer.close());
 
   return {
     id: collectionName,
