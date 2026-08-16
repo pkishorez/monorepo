@@ -69,6 +69,9 @@ import { oneListAtATime } from './sync/syncing-on-demand/one-list-at-a-time.stor
 import { crossCollection } from './sync/optimistic-transactions/cross-collection.story.js';
 import { issue1 } from './sync/issue-1/issue-1.story.js';
 import { oneBrowserManyTabs } from './sync/two-tabs/one-browser-many-tabs.story.js';
+import { oneReaderManyTabs } from './sync/leadership/one-reader-many-tabs.story.js';
+import { yieldingLeadership } from './sync/leadership/yielding-leadership.story.js';
+import { leadershipIsNotACache } from './sync/leadership/leadership-is-not-a-cache.story.js';
 
 import { batchInsert } from './database/dynamodb/batch-insert.story.js';
 import { nativeUpdates } from './database/dynamodb/native-updates.story.js';
@@ -147,6 +150,11 @@ export default Story.group('std-toolkit', [
     Story.group('Syncing on demand', [oneListAtATime]),
     Story.group('Optimistic transactions', [crossCollection]),
     Story.group('Many tabs', [oneBrowserManyTabs]),
+    Story.group('Leadership', [
+      oneReaderManyTabs,
+      yieldingLeadership,
+      leadershipIsNotACache,
+    ]),
     Story.group('Issues', [issue1]),
   ]),
   Story.group('Evolving Schema', [

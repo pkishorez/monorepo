@@ -89,11 +89,7 @@ export const makeCollectionFlow = (
     ? `${placement.participantPrefix}/${collectionAddress}`
     : collectionAddress;
   const qualify = (name: string) =>
-    placement && name !== 'collection'
-      ? `${placement.participantPrefix}/${collectionAddress}${name}`
-      : name === 'collection'
-        ? collectionName
-        : `${collectionAddress}${name}`;
+    name === 'collection' ? collectionName : `${collectionName}/${name}`;
   const participants = new Map<string, FlowParticipant>();
   const getParticipant = (name: string) => {
     const qualified = qualify(name);

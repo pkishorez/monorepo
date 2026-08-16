@@ -5,5 +5,6 @@ export {
   type Leadership,
   type LeadershipIdentity,
   type LeadershipLayer,
+  type LeadershipObserver,
   type LeadershipRole,
 } from './leadership.js';

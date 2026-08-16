@@ -1,7 +1,11 @@
 import { Effect, Layer } from 'effect';
-import { LeadershipService, type LeadershipIdentity } from '../leadership.js';
+import {
+  LeadershipService,
+  type LeadershipIdentity,
+  type LeadershipObserver,
+} from '../leadership.js';
 
-type BrowserLockManager = {
+export type BrowserLockManager = {
   request: (
     name: string,
     options: { readonly mode: 'exclusive'; readonly signal: AbortSignal },
@@ -9,7 +13,7 @@ type BrowserLockManager = {
   ) => Promise<unknown>;
 };
 
-type BrowserDocument = {
+export type BrowserDocument = {
   readonly visibilityState: string;
   addEventListener: (type: string, listener: () => void) => void;
   removeEventListener: (type: string, listener: () => void) => void;
@@ -18,6 +22,11 @@ type BrowserDocument = {
 type BrowserGlobals = {
   readonly navigator?: { readonly locks?: BrowserLockManager };
   readonly document?: BrowserDocument;
+};
+
+export type WebLockLeadershipEnvironment = {
+  readonly locks: BrowserLockManager;
+  readonly document: BrowserDocument;
 };
 
 export type WebLockLeadershipOptions = {
@@ -137,6 +146,7 @@ const runWithLifecycle = <A, E, R>(
   releaseWhen: 'hidden' | 'frozen',
   identity: LeadershipIdentity,
   effect: Effect.Effect<A, E, R>,
+  observer: LeadershipObserver,
 ): Effect.Effect<A, E, R> =>
   Effect.acquireUseRelease(
     Effect.sync(() => makeLifecycleGate(document, releaseWhen)),
@@ -150,7 +160,17 @@ const runWithLifecycle = <A, E, R>(
           return gate.waitFor(true).pipe(Effect.andThen(loop));
         }
 
-        const completed = withWebLock(locks, identity, effect).pipe(
+        const completed = observer.requested.pipe(
+          Effect.andThen(
+            withWebLock(
+              locks,
+              identity,
+              observer.acquired.pipe(
+                Effect.andThen(effect),
+                Effect.ensuring(observer.released),
+              ),
+            ),
+          ),
           Effect.map((value): Outcome => ({ _tag: 'Completed', value })),
         );
         const yielded = gate
@@ -168,6 +188,31 @@ const runWithLifecycle = <A, E, R>(
     (gate) => Effect.sync(gate.close),
   );
 
+/** @internal Story and test seam; deliberately omitted from the public barrel. */
+export const webLockLeadershipWithEnvironment = (
+  environment: WebLockLeadershipEnvironment,
+  options: WebLockLeadershipOptions = {},
+) => {
+  const releaseWhen = options.releaseWhen ?? 'hidden';
+  const unobserved: LeadershipObserver = {
+    requested: Effect.void,
+    acquired: Effect.void,
+    released: Effect.void,
+  };
+
+  return Layer.succeed(LeadershipService, {
+    run: (identity, effect, observer = unobserved) =>
+      runWithLifecycle(
+        environment.locks,
+        environment.document,
+        releaseWhen,
+        identity,
+        effect,
+        observer,
+      ),
+  });
+};
+
 export const webLockLeadership = (options: WebLockLeadershipOptions = {}) => {
   const globals = globalThis as unknown as BrowserGlobals;
   const locks = globals.navigator?.locks;
@@ -177,10 +222,5 @@ export const webLockLeadership = (options: WebLockLeadershipOptions = {}) => {
       '[sync] Web Lock Leadership requires navigator.locks and document',
     );
   }
-  const releaseWhen = options.releaseWhen ?? 'hidden';
-
-  return Layer.succeed(LeadershipService, {
-    run: (identity, effect) =>
-      runWithLifecycle(locks, document, releaseWhen, identity, effect),
-  });
+  return webLockLeadershipWithEnvironment({ locks, document }, options);
 };

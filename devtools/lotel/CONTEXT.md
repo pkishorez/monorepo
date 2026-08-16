@@ -71,7 +71,43 @@ Activations.
 _Avoid_: Actor.
 
 **Participant Name**:
-The name that identifies and labels one Participant's swim lane within a Flow.
+The slash-separated Participant Path that identifies one Participant within a
+Flow. Dots and other punctuation inside a path segment remain part of that
+segment's name.
+
+**Participant Path**:
+The ordered names from the outermost Participant Group to one Participant,
+written with `/` between segments. Every prefix is a Participant Group, and a
+path may identify both a Participant and a group containing descendants.
+_Avoid_: Dotted participant name.
+
+**Participant Group**:
+A shared Participant Path prefix that relates Participants in a Flow. Groups
+form a hierarchy for organizing a Flow view; they are not additional parties
+in the recorded work.
+
+**Collapsed Participant Group**:
+A Participant Group whose descendant Participants and Flow Items are omitted
+from the Flow view. Its own Participant remains when one exists; otherwise a
+compact group marker preserves the ability to expand it.
+_Avoid_: Aggregate participant.
+
+**Hidden Participant**:
+A Participant lane deliberately omitted from a Flow view together with its
+Flow Items, Activations, and Messages involving it. Descendant Participant
+lanes remain visible; a parent Participant's own activity behaves as their
+sibling. A compact marker preserves the ability to restore the lane.
+
+**Hidden Participant Subtree**:
+A Participant Path deliberately omitted together with every Participant lane
+beneath it. A compact marker preserves the ability to restore the subtree.
+
+**Step Summary**:
+One expandable Flow Step representing three or more globally adjacent Flow
+Items recorded by the same Participant. Messages are never members and always
+break a potential summary run. The view is expanded by default. A collapsed
+summary preserves its first and last items and reports how many lie between
+them. While expanded its member items are individually navigable.
 
 **Activity**:
 One named unit of work performed by one Participant as part of a Flow. An
@@ -85,6 +121,10 @@ Its ordinary descendant Spans are drill-down detail. Flow Spans are not nested.
 **Flow Item**:
 One Activity, Local Event, Message, Activation Start, Activation End, or
 Participant State record in a Flow. Flow Items have a chronological order.
+
+**Flow Step**:
+One currently visible navigable row in a Flow view. A Flow Step is either one
+Flow Item or a collapsed Step Summary.
 
 **Activation**:
 One continuous window during which a Participant is alive in a Flow, bounded by

@@ -142,6 +142,7 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
             partitionKey,
             role: { _tag: 'Strategy', name: entry.strategy.name },
           }),
+          flow: strategyFlow,
           run: (attemptScope) =>
             entry.strategy
               .run(
@@ -217,6 +218,7 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
               partitionKey,
               role: { _tag: 'CadenceRepair' },
             }),
+            flow: cadenceFlow,
             run: () =>
               runCadenceSync({
                 collection,

@@ -12,10 +12,7 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    include: [
-      'src/**/__tests__/**/*.test.ts',
-      'stories/sync/simulation.test.ts',
-    ],
+    include: ['src/**/__tests__/**/*.test.ts', 'stories/sync/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/*.bun.test.ts'],
   },
 });

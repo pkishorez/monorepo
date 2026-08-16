@@ -24,9 +24,15 @@ import {
   createStdSync,
   syncStore,
   type EffectRuntime,
+  type LeadershipLayer,
   type SyncStoreLayer,
   type SyncConfig,
 } from 'std-toolkit/sync';
+import { inMemoryLeadership } from 'std-toolkit/sync/leadership/in-memory';
+import {
+  makeSimulatedBrowserPlatform,
+  type SimulatedDocument,
+} from './simulated-browser.js';
 
 // Public simulation DSL
 
@@ -40,6 +46,7 @@ import {
  * - `browser('alice').transact(label, ({ collection }) => ...)`
  * - `backend.holdNextWrite` for deterministic optimistic success or failure
  * - `browser('alice').disconnect` and `.reconnect`
+ * - `browser('alice').hide/show/freeze/resume/close`
  * - `liveQuery.shows(rows)` and `.eventuallyShows(rows)`
  */
 export const Simulation = {
@@ -54,6 +61,21 @@ export const Simulation = {
       run<A, E>(script: SimulationScript<D, A, E>) {
         return runSimulation(config, script);
       },
+    };
+  },
+
+  inMemory(): SimulationLeadershipConfig {
+    return { _tag: 'InMemory' };
+  },
+
+  webLocks(
+    options: {
+      readonly releaseWhen?: 'hidden' | 'frozen';
+    } = {},
+  ): SimulationLeadershipConfig {
+    return {
+      _tag: 'WebLocks',
+      releaseWhen: options.releaseWhen ?? 'hidden',
     };
   },
 };
@@ -183,7 +205,15 @@ export type TransactionHandle = {
 type SimulationConfig<D extends readonly AnyDefinition[]> = {
   readonly table: StdTable;
   readonly collections: D;
+  readonly leadership?: SimulationLeadershipConfig;
 };
+
+type SimulationLeadershipConfig =
+  | { readonly _tag: 'InMemory' }
+  | {
+      readonly _tag: 'WebLocks';
+      readonly releaseWhen: 'hidden' | 'frozen';
+    };
 
 type Tab<D extends readonly AnyDefinition[]> = ReturnType<
   typeof makeBrowser<D>
@@ -536,6 +566,9 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   readonly disposeLiveQueries: Set<() => Promise<void>>;
   readonly connection: Connection;
   readonly storeLayer: SyncStoreLayer;
+  readonly leadershipLayer?: LeadershipLayer;
+  readonly document?: SimulatedDocument;
+  readonly onClose: () => void;
 }) => {
   const connection = options.connection;
   const prefix = `browser:${options.label}`;
@@ -545,6 +578,9 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
     storeLayer: options.storeLayer,
+    ...(options.leadershipLayer
+      ? { leadershipLayer: options.leadershipLayer }
+      : {}),
     // TanStack DB arms a single shared, ref'd GC timer for the longest gcTime in
     // play, so the default five minutes would hold the story process open long
     // after the last Story finished.
@@ -554,8 +590,17 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   const collectionDefinitions = new Map<object, AnyDefinition>();
   const mounts = new WeakMap<
     object,
-    { subscription: CollectionSubscription; activation: ActivationRef }
+    {
+      subscription: CollectionSubscription;
+      activation: ActivationRef;
+      dispose: () => Promise<void>;
+    }
   >();
+  const ownLiveQueries = new Set<() => Promise<void>>();
+  let closed = false;
+  const assertOpen = () => {
+    if (closed) throw new Error(`Tab "${options.label}" is closed`);
+  };
   // One stable lane per named Live Query; each mount is one Activation on it.
   const queryLanes = new Map<string, ReturnType<typeof initFlow>>();
   const queryLane = (name: string) => {
@@ -589,6 +634,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   }
 
   const getCollection = <N extends Names<D>>(name: N) => {
+    assertOpen();
     const found = collections.get(name);
     if (!found) throw new Error(`Unknown Collection "${name}"`);
     return found as BrowserCollection<EntityAt<D, N>>;
@@ -647,6 +693,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
       readonly name: string;
       readonly query: (query: InitialQueryBuilder) => Q;
     }): Effect.Effect<StoryLiveQuery<QueryResult<Q>>, unknown, StoryContext> {
+      assertOpen();
       const query = queryLane(mount.name);
       return lane.withSpan(`Mount ${mount.name}`)(
         Effect.gen(function* () {
@@ -659,7 +706,8 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
             gcTime: 1,
           }) as StoryLiveQuery<QueryResult<Q>>;
           const subscription = liveQuery.subscribeChanges(() => undefined);
-          mounts.set(liveQuery, { activation, subscription });
+          const dispose = () => liveQuery.cleanup();
+          mounts.set(liveQuery, { activation, subscription, dispose });
           Object.assign(liveQuery, {
             shows: (expected: readonly ExpectedRow<QueryResult<Q>>[]) =>
               Story.assert(
@@ -677,7 +725,8 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
                 );
               }),
           });
-          options.disposeLiveQueries.add(() => liveQuery.cleanup());
+          ownLiveQueries.add(dispose);
+          options.disposeLiveQueries.add(dispose);
           return liveQuery;
         }),
       );
@@ -708,6 +757,8 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
             }),
           );
           yield* mounted.activation.end(Activation.completed());
+          ownLiveQueries.delete(mounted.dispose);
+          options.disposeLiveQueries.delete(mounted.dispose);
         }),
       );
     },
@@ -765,6 +816,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
     },
     disconnect: lane.withSpan('Disconnect')(
       Effect.sync(() => {
+        assertOpen();
         if (!connection.online) return;
         connection.online = false;
         for (const listener of connection.disconnectListeners) listener();
@@ -772,7 +824,60 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
     ),
     reconnect: lane.withSpan('Reconnect')(
       Effect.sync(() => {
+        assertOpen();
         connection.online = true;
+      }),
+    ),
+    hide: lane.withSpan('Hide tab')(
+      Effect.sync(() => {
+        assertOpen();
+        if (!options.document) {
+          throw new Error('Tab lifecycle requires Web Lock Leadership');
+        }
+        options.document.hide();
+      }),
+    ),
+    show: lane.withSpan('Show tab')(
+      Effect.sync(() => {
+        assertOpen();
+        if (!options.document) {
+          throw new Error('Tab lifecycle requires Web Lock Leadership');
+        }
+        options.document.show();
+      }),
+    ),
+    freeze: lane.withSpan('Freeze tab')(
+      Effect.sync(() => {
+        assertOpen();
+        if (!options.document) {
+          throw new Error('Tab lifecycle requires Web Lock Leadership');
+        }
+        options.document.freeze();
+      }),
+    ),
+    resume: lane.withSpan('Resume tab')(
+      Effect.sync(() => {
+        assertOpen();
+        if (!options.document) {
+          throw new Error('Tab lifecycle requires Web Lock Leadership');
+        }
+        options.document.resume();
+      }),
+    ),
+    close: lane.withSpan('Close tab')(
+      Effect.gen(function* () {
+        if (closed) return;
+        closed = true;
+        options.document?.close();
+        const disposals = [...ownLiveQueries];
+        ownLiveQueries.clear();
+        for (const dispose of disposals)
+          options.disposeLiveQueries.delete(dispose);
+        yield* Effect.promise(() =>
+          Promise.allSettled(disposals.map((dispose) => dispose())),
+        );
+        yield* Effect.promise(() => app.dispose());
+        options.onClose();
       }),
     ),
   };
@@ -818,6 +923,14 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
       layer: memory.layer,
       flowId,
     });
+    const inMemoryLayer =
+      config.leadership?._tag === 'InMemory' ? inMemoryLeadership() : undefined;
+    const browserPlatform =
+      config.leadership?._tag === 'WebLocks'
+        ? makeSimulatedBrowserPlatform({
+            releaseWhen: config.leadership.releaseWhen,
+          })
+        : undefined;
     const devices = new Map<string, Device<D>>();
     const openDevice = (name: string): Device<D> => {
       const existing = devices.get(name);
@@ -837,10 +950,13 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
       const device = openDevice(name);
       const existing = device.tabs.get(tabName);
       if (existing) return existing;
-      const created = makeBrowser({
+      const label = tabName === MAIN_TAB ? name : `${name}#${tabName}`;
+      const simulated = browserPlatform?.openTab(label);
+      let created!: Tab<D>;
+      created = makeBrowser({
         name,
         syncName: flowId,
-        label: tabName === MAIN_TAB ? name : `${name}#${tabName}`,
+        label,
         definitions: config.collections,
         backend,
         flowId,
@@ -848,6 +964,19 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
         disposeLiveQueries: liveQueries,
         connection: device.connection,
         storeLayer: Memory.make(syncStore).layer,
+        ...(simulated
+          ? {
+              leadershipLayer: simulated.leadershipLayer,
+              document: simulated.document,
+            }
+          : inMemoryLayer
+            ? { leadershipLayer: inMemoryLayer }
+            : {}),
+        onClose: () => {
+          if (device.tabs.get(tabName) === created) {
+            device.tabs.delete(tabName);
+          }
+        },
       });
       device.tabs.set(tabName, created);
       return created;

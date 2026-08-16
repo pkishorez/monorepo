@@ -10,10 +10,17 @@ export type LeadershipRole =
   | { readonly _tag: 'Strategy'; readonly name: string }
   | { readonly _tag: 'CadenceRepair' };
 
+export type LeadershipObserver = {
+  readonly requested: Effect.Effect<void>;
+  readonly acquired: Effect.Effect<void>;
+  readonly released: Effect.Effect<void>;
+};
+
 type LeadershipServiceShape = {
   run: <A, E, R>(
     identity: LeadershipIdentity,
     effect: Effect.Effect<A, E, R>,
+    observer?: LeadershipObserver,
   ) => Effect.Effect<A, E, R>;
 };
 
@@ -52,10 +59,14 @@ export const makeLeadership = (
 
   const runtime = ManagedRuntime.make(layer);
   return {
-    run: (identity, effect) =>
+    run: (identity, effect, observer) =>
       runtime.contextEffect.pipe(
         Effect.flatMap((context) =>
-          Context.get(context, LeadershipService).run(identity, effect),
+          Context.get(context, LeadershipService).run(
+            identity,
+            effect,
+            observer,
+          ),
         ),
       ),
     dispose: () => runtime.dispose(),

@@ -10,6 +10,9 @@ import { oneListAtATime } from './syncing-on-demand/one-list-at-a-time.story.js'
 import { editsKeepFlowing } from './staying-current/edits-keep-flowing.story.js';
 import { oneBrowserManyTabs } from './two-tabs/one-browser-many-tabs.story.js';
 import { fromDatabaseToCollection } from './wiring-a-collection/from-database-to-collection.story.js';
+import { oneReaderManyTabs } from './leadership/one-reader-many-tabs.story.js';
+import { yieldingLeadership } from './leadership/yielding-leadership.story.js';
+import { leadershipIsNotACache } from './leadership/leadership-is-not-a-cache.story.js';
 
 const stories: readonly Story[] = [
   aSimulatedWorld,
@@ -20,6 +23,9 @@ const stories: readonly Story[] = [
   crossCollection,
   peerSyncModel,
   oneBrowserManyTabs,
+  oneReaderManyTabs,
+  yieldingLeadership,
+  leadershipIsNotACache,
   issue1,
 ];
 
