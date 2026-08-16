@@ -38,6 +38,7 @@ export const startSingleItemLifecycle = <
     const guarded = superviseStrategy({
       leadership: args.leadership,
       identity: args.identity,
+      flow: args.flow,
       run: (attemptScope) =>
         args.strategy.run(args.makeContext(attemptScope, args.flow)).pipe(
           args.flow.withSpan('Strategy attempt', {

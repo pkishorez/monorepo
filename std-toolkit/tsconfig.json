@@ -8,6 +8,12 @@
     "moduleResolution": "nodenext",
     "paths": {
       "std-toolkit/sync": ["./src/sync/index.ts"],
+      "std-toolkit/sync/leadership/in-memory": [
+        "./src/sync/runtime/leadership/in-memory/index.ts"
+      ],
+      "std-toolkit/sync/leadership/web-locks": [
+        "./src/sync/runtime/leadership/web-locks/index.ts"
+      ],
       "std-toolkit/db": ["./src/db/index.ts"],
       "std-toolkit/db/dynamodb": ["./src/db/dynamodb/index.ts"],
       "std-toolkit/db/idb": ["./src/db/idb/index.ts"],

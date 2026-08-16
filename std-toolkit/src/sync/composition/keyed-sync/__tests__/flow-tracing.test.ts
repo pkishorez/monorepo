@@ -249,8 +249,8 @@ describe('collection flow tracing', () => {
     expect(participants).toEqual(
       new Set([
         'browser:alice/comments.comment',
-        'browser:alice/comments.comment{global}.global-worker',
-        'browser:alice/comments.comment{postid=post-1}.partition-worker',
+        'browser:alice/comments.comment/{global}.global-worker',
+        'browser:alice/comments.comment/{postid=post-1}.partition-worker',
       ]),
     );
     expect(
@@ -280,8 +280,8 @@ describe('collection flow tracing', () => {
       ),
     ).toEqual(
       new Set([
-        'browser:alice/comments.comment{global}.global-worker',
-        'browser:alice/comments.comment{postid=post-1}.partition-worker',
+        'browser:alice/comments.comment/{global}.global-worker',
+        'browser:alice/comments.comment/{postid=post-1}.partition-worker',
       ]),
     );
   });

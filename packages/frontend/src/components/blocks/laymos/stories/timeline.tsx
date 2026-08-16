@@ -214,9 +214,7 @@ function FlowArtifactBody({ flow }: { readonly flow: RecordedFlow }) {
         flow={flow}
         className="min-w-0 flex-1"
         selectedItemId={selected?.id ?? null}
-        onItemClick={(item) =>
-          setSelected((current) => (current?.id === item.id ? null : item))
-        }
+        onSelectionChange={setSelected}
       />
       <div
         className={cn('w-96 shrink-0 overflow-y-auto', scrollbarStyles)}

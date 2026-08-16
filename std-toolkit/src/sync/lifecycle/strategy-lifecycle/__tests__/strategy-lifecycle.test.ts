@@ -6,6 +6,8 @@ import {
   leadershipIdentity,
   makeLeadership,
 } from '../../../runtime/leadership/index.js';
+import { inMemoryLeadership } from '../../../runtime/leadership/in-memory/index.js';
+import type { StrategyFlow } from '../../../runtime/sync-flow/index.js';
 
 const identity = leadershipIdentity({
   collectionName: 'test.items',
@@ -14,6 +16,54 @@ const identity = leadershipIdentity({
 });
 
 describe('strategy lifecycle', () => {
+  it('records Leadership transitions on the strategy participant', async () => {
+    const messages: string[] = [];
+    const states: string[] = [];
+    const flow: StrategyFlow = {
+      log: (message) =>
+        Effect.sync(() => {
+          messages.push(String(message));
+        }),
+      state: (patch) =>
+        Effect.sync(() => {
+          states.push(String(patch.leadership));
+        }),
+      withSpan: () => (effect) => effect,
+    };
+    const leadership = makeLeadership(inMemoryLeadership());
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fiber = yield* Effect.forkChild(
+            superviseStrategy({
+              leadership,
+              identity,
+              flow,
+              run: () => Effect.void,
+              onError: () => Effect.void,
+            }),
+          );
+          yield* Effect.yieldNow;
+          expect(messages).toEqual([
+            'Leadership requested',
+            'Leadership acquired',
+          ]);
+          expect(states).toEqual(['waiting', 'leading']);
+          yield* Fiber.interrupt(fiber);
+          expect(messages).toEqual([
+            'Leadership requested',
+            'Leadership acquired',
+            'Leadership released',
+          ]);
+          expect(states).toEqual(['waiting', 'leading', 'released']);
+        }),
+      ),
+    );
+
+    await leadership.dispose();
+  });
+
   it('closes each failed attempt before retrying in a fresh scope', async () => {
     let attempts = 0;
     let finalizers = 0;

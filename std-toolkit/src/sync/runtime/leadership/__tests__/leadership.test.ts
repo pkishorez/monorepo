@@ -234,6 +234,11 @@ describe('Web Lock Leadership', () => {
     await Effect.runPromise(Fiber.interrupt(fiber));
     await vi.waitFor(() => expect(locks.releases).toBe(2));
     await coordinator.dispose();
+    expect(
+      [...document.listeners.values()].every(
+        (listeners) => listeners.size === 0,
+      ),
+    ).toBe(true);
   });
 
   it('stays eligible while hidden and releases when frozen', async () => {
@@ -258,5 +263,10 @@ describe('Web Lock Leadership', () => {
     await vi.waitFor(() => expect(attempts).toBe(2));
     await Effect.runPromise(Fiber.interrupt(fiber));
     await coordinator.dispose();
+    expect(
+      [...document.listeners.values()].every(
+        (listeners) => listeners.size === 0,
+      ),
+    ).toBe(true);
   });
 });

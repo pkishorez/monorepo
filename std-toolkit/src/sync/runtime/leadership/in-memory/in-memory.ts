@@ -1,5 +1,5 @@
 import { Effect, Layer, Semaphore } from 'effect';
-import { LeadershipService } from '../leadership.js';
+import { LeadershipService, type LeadershipObserver } from '../leadership.js';
 
 type Entry = {
   readonly semaphore: Semaphore.Semaphore;
@@ -8,9 +8,14 @@ type Entry = {
 
 export const inMemoryLeadership = () => {
   const entries = new Map<string, Entry>();
+  const unobserved: LeadershipObserver = {
+    requested: Effect.void,
+    acquired: Effect.void,
+    released: Effect.void,
+  };
 
   return Layer.succeed(LeadershipService, {
-    run: (identity, effect) =>
+    run: (identity, effect, observer = unobserved) =>
       Effect.acquireUseRelease(
         Effect.sync(() => {
           const current = entries.get(identity);
@@ -25,7 +30,17 @@ export const inMemoryLeadership = () => {
           entries.set(identity, created);
           return created;
         }),
-        (entry) => entry.semaphore.withPermit(effect),
+        (entry) =>
+          observer.requested.pipe(
+            Effect.andThen(
+              entry.semaphore.withPermit(
+                observer.acquired.pipe(
+                  Effect.andThen(effect),
+                  Effect.ensuring(observer.released),
+                ),
+              ),
+            ),
+          ),
         (entry) =>
           Effect.sync(() => {
             entry.references -= 1;
