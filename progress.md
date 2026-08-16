@@ -4,51 +4,53 @@ This file is the live handoff for the work defined in `execute.md`. Update it du
 
 ## Overall Status
 
-- State: In progress
-- Current task: Task 7 — Final verification and cleanup
-- Next action: Record Task 6's commit hash, then run final stale-language and declaration checks
+- State: Complete
+- Current task: None
+- Next action: Run the two DynamoDB-dependent package checks when DynamoDB Local is available
 
 ## Task Tracker
 
-| Task                                                    | Status      | Commit                                   | Checks                                        |
-| ------------------------------------------------------- | ----------- | ---------------------------------------- | --------------------------------------------- |
-| 1. Establish the `sync` context and package paths       | Complete    | 18adf8cb058070b35cd725f8f7eed72627e22cd7 | Focused tests, lint/TypeScript/Laymos, build  |
-| 2. Add names, qualified collection names, and addresses | Complete    | ca0db797aa68c30b7d38a7201b2f89417ec07179 | 104 sync tests, lint/TypeScript/Laymos, build |
-| 3. Rename persistence concepts and APIs                 | Complete    | 551a16af58728a3207a0965f3ae958f75da53ec7 | 105 sync tests, lint/TypeScript/Laymos, build |
-| 4. Build the Peer Sync deep module                      | Complete    | 340d981eec728eb5639256d77ea57bc7cd75b0e1 | 88 sync tests, lint/TypeScript/Laymos, build  |
-| 5. Integrate Peer Sync with replica convergence         | Complete    | c716f963284ef0dfdd2e16ccdf66ca107ef8c562 | 117 sync/story tests, lint/Laymos, build      |
-| 6. Finish events, documentation, and stories            | Complete    | —                                        | 28 Sync stories, focused tests, lint/build    |
-| 7. Final verification and cleanup                       | Not started | —                                        | —                                             |
+| Task                                                    | Status   | Commit                                   | Checks                                        |
+| ------------------------------------------------------- | -------- | ---------------------------------------- | --------------------------------------------- |
+| 1. Establish the `sync` context and package paths       | Complete | 18adf8cb058070b35cd725f8f7eed72627e22cd7 | Focused tests, lint/TypeScript/Laymos, build  |
+| 2. Add names, qualified collection names, and addresses | Complete | ca0db797aa68c30b7d38a7201b2f89417ec07179 | 104 sync tests, lint/TypeScript/Laymos, build |
+| 3. Rename persistence concepts and APIs                 | Complete | 551a16af58728a3207a0965f3ae958f75da53ec7 | 105 sync tests, lint/TypeScript/Laymos, build |
+| 4. Build the Peer Sync deep module                      | Complete | 340d981eec728eb5639256d77ea57bc7cd75b0e1 | 88 sync tests, lint/TypeScript/Laymos, build  |
+| 5. Integrate Peer Sync with replica convergence         | Complete | c716f963284ef0dfdd2e16ccdf66ca107ef8c562 | 117 sync/story tests, lint/Laymos, build      |
+| 6. Finish events, documentation, and stories            | Complete | 64966bdba2f1befaf38a518bcd8a3dc51dc20819 | 28 Sync stories, focused tests, lint/build    |
+| 7. Final verification and cleanup                       | Complete | Recorded in final report                 | 94 Sync tests, 28 Sync stories, lint/build    |
 
 Use only these statuses: `Not started`, `In progress`, `Blocked`, `Complete`.
 
-## Current Task
+## Final Summary
 
 ### Scope
 
-Task 7 performs the final stale-language, declaration, and package verification.
+All seven tasks are complete. The only unavailable verification is the
+DynamoDB-dependent portion of the package story and test commands.
 
 ### Work Completed
 
-- Task 5 recorded predecessor commit `c716f963284ef0dfdd2e16ccdf66ca107ef8c562`.
-- Sync Events now distinguish Peer Sync `send` failures from Registry Broadcast delivery failures; Sync Store and Registry spans/logs use the settled language.
-- The Sync glossary is concise domain language, the context map records the Sync Store relationship, and the Sync README explains replica ownership, durability, Peer Sync, Registry Broadcasts, and observability.
-- Context-local ADR 0001 records the entity envelope, one-channel-per-Collection, freshness-only, display-address, and no-alias decisions.
-- The Peer Sync story covers separate Memory replicas, immediate versus bounded polling delivery, backend repair, independent IndexedDB durability, and disabled-peer convergence.
-- Concurrent stories now derive one unique Std Sync Name per simulated Backend dataset, preventing Peer Channels from leaking between unrelated story runs.
+- Task 6 recorded predecessor commit `64966bdba2f1befaf38a518bcd8a3dc51dc20819`.
+- Source, config, stories, Laymos, and package exports contain no obsolete Sync paths or runtime terminology. Historical ADRs that retain old language are explicitly marked superseded.
+- The build now removes `dist` before emitting declarations, preventing deleted `tanstack-sync`, change-notice, Source-of-Truth, and Sync Persistence Table artifacts from being packaged after an incremental refactor.
+- The rebuilt public declarations expose `createStdSync`, the Sync API, `syncStore`/`SyncStoreLayer`, and `PeerChannel`/`PeerChannelFactory`. They do not expose the default BroadcastChannel adapter, peer codec/envelope, admission state, or private storage records and schemas.
+- Both `std-toolkit/sync` and `std-toolkit/sync/paced` resolve through the package export map; no old package export remains.
 
 ### Checks Run
 
-- `pnpm --filter std-toolkit exec vitest run stories/sync/simulation.test.ts` — passed, 1 file and 28 Sync story questions, including all five Peer Sync model scenarios.
-- `pnpm --filter std-toolkit exec vitest run src/sync/runtime/peer-sync/__tests__/peer-sync.test.ts src/sync/__tests__/peer-integration.test.ts src/sync/__tests__/registry.test.ts src/sync/composition/keyed-sync/__tests__/flow-tracing.test.ts` — passed, 4 files and 29 focused tests.
-- `pnpm --filter std-toolkit stories` — all Sync stories passed after isolating simulated Backend namespaces; the package command ended with 31 unrelated DynamoDB story errors because no DynamoDB Local service is reachable.
 - `pnpm --filter std-toolkit lint` — passed; all 459 files formatted, 417 files lint-clean, TypeScript clean, and no Laymos violations.
-- `pnpm --filter std-toolkit build` — passed.
+- `pnpm --filter std-toolkit build` — passed from a clean `dist` and emitted no obsolete declaration paths.
+- `pnpm --filter std-toolkit exec vitest run src/sync/runtime/peer-sync/__tests__/peer-sync.test.ts src/sync/__tests__/peer-integration.test.ts` — passed, 2 files and 19 focused Peer Sync tests covering Memory and IndexedDB.
+- `pnpm --filter std-toolkit exec vitest run src/sync` — passed, 17 files and 94 Sync tests.
+- `pnpm --filter std-toolkit exec vitest run stories/sync/simulation.test.ts` — passed, 1 file and 28 Sync story questions.
+- `pnpm --filter std-toolkit stories` — all 28 Sync story questions passed; the package command ended with the expected 31 unrelated DynamoDB-backed story errors because DynamoDB Local is unreachable (`45` stories passed, `31` errored).
+- `pnpm --filter std-toolkit test` — all available tests passed (`75` files and `595` tests); the command ended with 16 failures in `src/db/dynamodb/__tests__/dynamodb-conformance.test.ts` because DynamoDB Local at `localhost:8090` is unreachable.
+- `pnpm --filter std-toolkit exec node --input-type=module -e "await Promise.all([import('std-toolkit/sync'), import('std-toolkit/sync/paced')])"` — passed.
 
 ### Remaining Work
 
-- Record Task 6's commit hash in the Task 7 commit.
-- Run Task 7's full stale-term, declaration, test, and package verification.
+- None in the Sync refactor. Re-run the documented external-service-dependent checks when DynamoDB Local is available.
 
 ## Decisions and Discoveries
 
@@ -65,14 +67,18 @@ Append facts learned during implementation that affect later tasks. Do not repea
 - Default `BroadcastChannel` is sufficient for the Node story simulator; its Memory tabs no longer share a store layer.
 - The story runner executes separate stories concurrently, so a Browser label is not a safe Std Sync Name; the simulation now uses its unique Backend-story flow id as the shared dataset namespace.
 - `laymos stories` runs DynamoDB-backed database stories as well as Sync stories and requires a reachable DynamoDB Local service for a complete package pass.
+- TypeScript does not remove outputs for deleted source files, so the package build now cleans `dist` before emitting publishable artifacts.
 
 ## Blockers
 
 Record the exact failing command, missing dependency, or external requirement and what is needed to continue.
 
 - A complete package-level `pnpm --filter std-toolkit stories` pass requires a
-  reachable DynamoDB Local service. The command currently reports 31 errors in
-  unrelated DynamoDB-backed database stories; all Sync stories pass.
+  reachable DynamoDB Local service. The command reports 31 errors in unrelated
+  DynamoDB-backed database stories; all 28 Sync story questions pass.
+- A complete package-level `pnpm --filter std-toolkit test` pass requires a
+  reachable DynamoDB Local service at `localhost:8090`. The command reports 16
+  failures in the DynamoDB conformance file; the other 595 tests pass.
 
 ## Deviations
 
@@ -82,13 +88,13 @@ Record any necessary departure from `execute.md`, why it was necessary, and its 
 
 ## Final Verification
 
-- [ ] `pnpm --filter std-toolkit lint`
-- [ ] `pnpm --filter std-toolkit build`
-- [ ] `pnpm --filter std-toolkit stories`
-- [ ] `pnpm --filter std-toolkit test`
-- [ ] Sync-specific Memory and IndexedDB peer tests
-- [ ] Search for stale public paths and terminology
-- [ ] Review generated public declarations
+- [x] `pnpm --filter std-toolkit lint`
+- [x] `pnpm --filter std-toolkit build`
+- [x] `pnpm --filter std-toolkit stories` attempted; Sync passed, DynamoDB-dependent stories externally blocked
+- [x] `pnpm --filter std-toolkit test` attempted; available tests passed, DynamoDB conformance externally blocked
+- [x] Sync-specific Memory and IndexedDB peer tests
+- [x] Search for stale public paths and terminology
+- [x] Review generated public declarations
 
 ## Handoff Notes
 
