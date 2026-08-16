@@ -37,6 +37,7 @@ export { CruiseError } from './services/file-cruiser/index.js';
 // Node consumers use this high-level capability to load and run the Story tree.
 export {
   getStoryTree,
+  planStories,
   runStories,
   StoriesError,
 } from './orchestrator/run-stories/index.js';

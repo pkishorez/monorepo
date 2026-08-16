@@ -49,29 +49,68 @@ export function getStoryTree(
   return Effect.map(loadRoot(configPath), ({ tree }) => tree);
 }
 
+export interface RunStoriesOptions {
+  readonly scope?: string | undefined;
+  readonly concurrency?: number | undefined;
+}
+
+export interface StoriesRun {
+  readonly total: number;
+  readonly reports: Stream.Stream<StoryReport>;
+}
+
+const DEFAULT_CONCURRENCY = 16;
+
+export function planStories(
+  configPath: string,
+  options?: RunStoriesOptions,
+): Effect.Effect<StoriesRun, ConfigError | StoriesError> {
+  return Effect.gen(function* () {
+    const { stories } = yield* loadRoot(configPath);
+    const planned = yield* scopeStories(stories, options?.scope);
+    return {
+      total: planned.length,
+      reports: runEachStory(
+        planned,
+        options?.concurrency ?? DEFAULT_CONCURRENCY,
+      ),
+    };
+  });
+}
+
 export function runStories(
   configPath: string,
-  options?: { readonly scope?: string | undefined },
+  options?: RunStoriesOptions,
 ): Stream.Stream<StoryReport, ConfigError | StoriesError> {
-  const scope = options?.scope;
-  return Stream.fromArrayEffect(
-    Effect.flatMap(loadRoot(configPath), ({ stories }) => {
-      if (scope === undefined) return Effect.succeed(stories);
-      const scoped = stories.filter(
-        ({ id }) => id === scope || id.startsWith(`${scope}/`),
-      );
-      if (scoped.length === 0) {
-        return Effect.fail(
-          new StoriesError({
-            reason: 'unknown-scope',
-            path: scope,
-            cause: null,
-          }),
-        );
-      }
-      return Effect.succeed(scoped);
-    }),
-  ).pipe(Stream.mapEffect(runStory));
+  return Stream.unwrap(
+    Effect.map(planStories(configPath, options), ({ reports }) => reports),
+  );
+}
+
+function runEachStory(
+  stories: readonly IndexedStory[],
+  concurrency: number,
+): Stream.Stream<StoryReport> {
+  // Ordered concurrent mapping needs three slots; anything less runs one at a time.
+  return Stream.fromArray(stories).pipe(
+    Stream.mapEffect(runStory, concurrency >= 3 ? { concurrency } : undefined),
+  );
+}
+
+function scopeStories(
+  stories: readonly IndexedStory[],
+  scope: string | undefined,
+): Effect.Effect<readonly IndexedStory[], StoriesError> {
+  if (scope === undefined) return Effect.succeed(stories);
+  const scoped = stories.filter(
+    ({ id }) => id === scope || id.startsWith(`${scope}/`),
+  );
+  if (scoped.length === 0) {
+    return Effect.fail(
+      new StoriesError({ reason: 'unknown-scope', path: scope, cause: null }),
+    );
+  }
+  return Effect.succeed(scoped);
 }
 
 function loadRoot(configPath: string) {
