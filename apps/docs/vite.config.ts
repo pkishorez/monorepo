@@ -11,19 +11,10 @@ export default defineConfig({
   plugins: [
     mdx(),
     tailwindcss(),
-    tanstackStart({
-      prerender: {
-        enabled: true,
-        crawlLinks: true,
-      },
-      pages: [
-        { path: '/api/search' },
-        { path: '/api/source' },
-        { path: '/api/blog' },
-        { path: '/docs' },
-        { path: '/blog' },
-      ],
-    }),
+    // No prerender: pages SSR on the Worker at request time. Prerendering
+    // crashes silently inside the Cloudflare Vite plugin's workerd runtime
+    // during `alchemy deploy` (works under plain node `vite build`).
+    tanstackStart(),
     react(),
   ],
   resolve: {
