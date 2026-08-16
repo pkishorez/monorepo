@@ -20,8 +20,13 @@ const simulation = Simulation.make({
           sync: {
             total: {
               strategy: syncStrategy.oldToNew<Todo>({
-                fetch: ({ cursor }) =>
-                  inbox.pageNewer(cursor, 10).pipe(Effect.map((p) => [...p])),
+                source: ({ paginated }) =>
+                  paginated({
+                    fetch: ({ cursor }) =>
+                      inbox
+                        .pageNewer(cursor, 10)
+                        .pipe(Effect.map((p) => [...p])),
+                  }),
               }),
             },
           },

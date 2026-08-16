@@ -25,8 +25,8 @@ const simulation = Simulation.make({
               const source = todoSource(backend, value);
               return {
                 strategy: syncStrategy.oldToNew<Todo>({
-                  stream: ({ cursor }) =>
-                    Effect.succeed(source.changes(cursor)),
+                  source: ({ live }) =>
+                    live({ open: ({ cursor }) => source.changes(cursor) }),
                 }),
               };
             },

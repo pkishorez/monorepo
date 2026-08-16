@@ -61,17 +61,25 @@ const drive = async (opts: {
   };
 
   const strategy = bidirectional<Item>({
-    fetchNewer: ({ cursor }) =>
-      Effect.sync(() => newerPage(cursor as EntityType<Item> | null)),
-    fetchOlder: ({ cursor }) =>
-      Effect.sync(() => olderPage(cursor as EntityType<Item> | null)),
-    subscribeNewer: ({ cursor }) =>
-      Effect.sync(() => {
-        const newer =
-          cursor === null
-            ? sorted
-            : sorted.filter((e) => uOf(e) > uOf(cursor as EntityType<Item>));
-        return Stream.fromIterable(newer.length === 0 ? [] : [newer]);
+    newer: ({ paginated }) =>
+      paginated({
+        fetch: ({ cursor }) =>
+          Effect.sync(() => newerPage(cursor as EntityType<Item> | null)),
+      }),
+    older: ({ paginated }) =>
+      paginated({
+        fetch: ({ cursor }) =>
+          Effect.sync(() => olderPage(cursor as EntityType<Item> | null)),
+      }),
+    tail: ({ live }) =>
+      live({
+        open: ({ cursor }) => {
+          const newer =
+            cursor === null
+              ? sorted
+              : sorted.filter((e) => uOf(e) > uOf(cursor as EntityType<Item>));
+          return Stream.fromIterable(newer.length === 0 ? [] : [newer]);
+        },
       }),
   });
 
@@ -138,10 +146,12 @@ describe('Sync', () => {
           ].map((page) => page.map((u) => entity(u, u)));
 
           const strategy = bidirectional<Item>({
-            fetchNewer: () => Effect.sync(() => []),
-            fetchOlder: () => Effect.sync(() => []),
-            subscribeNewer: () =>
-              Effect.sync(() => Stream.fromIterable(batches)),
+            newer: ({ paginated }) =>
+              paginated({ fetch: () => Effect.succeed([]) }),
+            older: ({ paginated }) =>
+              paginated({ fetch: () => Effect.succeed([]) }),
+            tail: ({ live }) =>
+              live({ open: () => Stream.fromIterable(batches) }),
           });
 
           await Effect.runPromise(Effect.scoped(strategy.run(ctx)));

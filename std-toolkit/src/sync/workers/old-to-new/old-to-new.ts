@@ -4,37 +4,23 @@ import type {
   PartitionedStrategy,
   StrategyContext,
 } from '../../runtime/strategy-runtime/index.js';
-import type { ForwardFetch } from '../../runtime/collection-model/index.js';
+import {
+  openPartitionedSource,
+  partitionedSources,
+  type ForwardSourceBuilder,
+} from '../../runtime/sync-source/index.js';
+import { newestOf } from '../../domain/slice-coverage/index.js';
 import { OldToNewStateSchema, type OldToNewState } from './state.js';
 
-type Cursor<TItem> = { cursor: EntityType<TItem> | null };
-
-/**
- * Streaming source: given the last cursor, resolves an `Effect` that yields a
- * `Stream` of oldest-first batches. The strategy drains the stream, writing each
- * batch and advancing the cursor; a finite stream ends the run, an open one keeps
- * the strategy alive as a subscription.
- */
-export type OldToNewConfig<TItem, R = never> =
-  | { fetch: ForwardFetch<TItem, R, unknown>; stream?: never }
-  | {
-      fetch?: never;
-      stream: (
-        ctx: Cursor<TItem>,
-      ) => Effect.Effect<
-        Stream.Stream<EntityType<TItem>[], unknown, R>,
-        unknown,
-        R
-      >;
-    };
+export type OldToNewConfig<TItem, R = never> = {
+  source: ForwardSourceBuilder<TItem, R>;
+};
 
 /**
  * Oldest-to-newest drain strategy. Reads the resume cursor from sync-state, then
- * either polls `config.fetch` batch-by-batch (stopping on an empty batch) or
- * drains `config.stream` (staying alive while the stream is open). Each non-empty
- * batch is written through the engine's `applyToSyncReplica` and the cursor advanced
- * to its newest entity. `WriteError` from `applyToSyncReplica` is not caught — it
- * surfaces so the engine can restart the run, resuming from the persisted cursor.
+ * drains a contextual paginated, polling, or live source. Each non-empty batch
+ * is written through the engine's `applyToSyncReplica` and the cursor advances
+ * to its newest Entity.
  */
 export const oldToNew = <TItem extends object, R = never>(
   config: OldToNewConfig<TItem, R>,
@@ -44,33 +30,23 @@ export const oldToNew = <TItem extends object, R = never>(
     schema: OldToNewStateSchema,
     empty: { cursor: null },
   },
-  run: (ctx: StrategyContext<TItem, OldToNewState>) =>
-    Effect.gen(function* () {
-      const writeBatch = (batch: EntityType<TItem>[]) =>
+  run: (ctx: StrategyContext<TItem, OldToNewState>) => {
+    const source = config.source(partitionedSources);
+    return Effect.gen(function* () {
+      const cursor = (yield* ctx.getState).cursor as EntityType<TItem> | null;
+      const stream = openPartitionedSource(source, {
+        cursor,
+        nextCursor: (batch) => newestOf([...batch]),
+      });
+
+      yield* Stream.runForEach(stream, (batch) =>
         Effect.gen(function* () {
-          if (batch.length === 0) return;
-          yield* ctx.applyToSyncReplica(batch);
-          const newest = batch[batch.length - 1]!;
-          yield* ctx.setState({ cursor: newest } satisfies OldToNewState);
-        });
-
-      const readCursor = Effect.map(
-        ctx.getState,
-        (state) => state.cursor as EntityType<TItem> | null,
+          yield* ctx.applyToSyncReplica([...batch]);
+          yield* ctx.setState({
+            cursor: newestOf([...batch]),
+          } satisfies OldToNewState);
+        }),
       );
-
-      if (config.stream) {
-        const cursor = yield* readCursor;
-        const stream = yield* config.stream({ cursor });
-        yield* Stream.runForEach(stream, writeBatch);
-        return;
-      }
-
-      while (true) {
-        const cursor = yield* readCursor;
-        const batch = yield* config.fetch({ cursor });
-        if (batch.length === 0) return;
-        yield* writeBatch(batch);
-      }
-    }),
+    });
+  },
 });

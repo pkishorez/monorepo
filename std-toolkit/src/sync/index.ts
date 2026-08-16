@@ -1,7 +1,6 @@
 export {
   createStdSync,
   paceStrategy,
-  singleItemSyncStrategy,
   syncStore,
   syncStrategy,
   type PeerChannel,

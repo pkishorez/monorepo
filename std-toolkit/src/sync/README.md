@@ -21,12 +21,11 @@ never enter Peer Sync.
 
 ```typescript
 import { createCollection } from '@tanstack/react-db';
-import { Effect } from 'effect';
+import { Effect, Schedule } from 'effect';
 import { IDB } from 'std-toolkit/db/idb';
 import {
   createStdSync,
   paceStrategy,
-  singleItemSyncStrategy,
   syncStore,
   syncStrategy,
 } from 'std-toolkit/sync';
@@ -50,6 +49,22 @@ Use `std.collection(config)` when you want Sync to create the TanStack
 collection. `createCollection(std.sync(config))` is also supported. Call
 `await std.dispose()` when the sync instance is no longer needed.
 
+## Sources
+
+Every strategy reads through a source builder — `paginated`, `poll`, and `live`
+for partitioned strategies, `once`, `poll`, and `subscribe` for single items.
+
+`cursor` is **exclusive**: given a cursor, return entities strictly beyond it,
+never the cursor entity itself. A `paginated` source pages until `fetch` returns
+an empty batch, so an inclusive backend would re-serve the boundary entity
+forever. Sync stops paging when the cursor stops advancing, but the last page is
+then fetched twice — filter with `<` / `>`, not `<=` / `>=`. `cursor` is `null`
+on the first fetch, meaning "start from the end".
+
+Replacing the old `subscribeOlder` / `subscribeNewer` config: those resumed
+_from and including_ the cursor. Tighten the comparison when porting them to
+`paginated`.
+
 ## Total sync
 
 Total sync eventually loads the complete entity set.
@@ -60,7 +75,10 @@ const tasks = std.collection({
   sync: {
     total: {
       strategy: syncStrategy.oldToNew({
-        fetch: ({ cursor }) => api.getTasks({ cursor }),
+        source: ({ paginated }) =>
+          paginated({
+            fetch: ({ cursor }) => api.getTasks({ cursor }),
+          }),
       }),
     },
   },
@@ -84,7 +102,10 @@ const comments = std.collection({
     partitions: {
       postId: (postId) => ({
         strategy: syncStrategy.oldToNew({
-          fetch: ({ cursor }) => api.getComments({ postId, cursor }),
+          source: ({ paginated }) =>
+            paginated({
+              fetch: ({ cursor }) => api.getComments({ postId, cursor }),
+            }),
         }),
       }),
     },
@@ -105,13 +126,17 @@ const comments = std.collection({
   sync: {
     total: {
       strategy: syncStrategy.oldToNew({
-        fetch: ({ cursor }) => api.getAllComments({ cursor }),
+        source: ({ paginated }) =>
+          paginated({ fetch: ({ cursor }) => api.getAllComments({ cursor }) }),
       }),
     },
     partitions: {
       postId: (postId) => ({
         strategy: syncStrategy.oldToNew({
-          fetch: ({ cursor }) => api.getComments({ postId, cursor }),
+          source: ({ paginated }) =>
+            paginated({
+              fetch: ({ cursor }) => api.getComments({ postId, cursor }),
+            }),
         }),
       }),
     },
@@ -130,7 +155,9 @@ postId: (postId) => {
   const fetchForward = ({ cursor }) => api.getComments({ postId, cursor });
 
   return {
-    strategy: syncStrategy.oldToNew({ fetch: fetchForward }),
+    strategy: syncStrategy.oldToNew({
+      source: ({ paginated }) => paginated({ fetch: fetchForward }),
+    }),
     repair: {
       fetchFrom: fetchForward,
       cadence: { window: 5_000, readiness: 10_000, pollDelay: 2_000 },
@@ -157,10 +184,13 @@ const tasks = std.collection({
   sync: {
     total: {
       strategy: syncStrategy.oldToNew({
-        fetch: ({ cursor }) =>
-          Effect.gen(function* () {
-            const api = yield* TaskApi;
-            return yield* api.getTasks({ cursor });
+        source: ({ paginated }) =>
+          paginated({
+            fetch: ({ cursor }) =>
+              Effect.gen(function* () {
+                const api = yield* TaskApi;
+                return yield* api.getTasks({ cursor });
+              }),
           }),
       }),
     },
@@ -227,11 +257,22 @@ Use `singleItemSync` or `singleItemCollection` for a record with no id field.
 ```typescript
 const settings = std.singleItemCollection({
   schema: SettingsSchema,
-  strategy: singleItemSyncStrategy.getOnce({
-    get: () => api.getSettings(),
-  }),
+  source: ({ once }) => once({ fetch: () => api.getSettings() }),
   onUpdate: ({ updates }) => api.saveSettings(updates),
 });
+```
+
+Use `poll` for scheduled snapshots or `subscribe` for a Stream that emits the
+current complete value and later replacements.
+
+```typescript
+source: ({ poll }) =>
+  poll({
+    fetch: () => api.getSettings(),
+    schedule: Schedule.spaced('5 seconds'),
+  });
+
+source: ({ subscribe }) => subscribe({ open: () => api.settingsStream() });
 ```
 
 ## Sync Store and durability

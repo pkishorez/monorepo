@@ -21,18 +21,24 @@ const simulation = Simulation.make({
           sync: {
             total: {
               strategy: syncStrategy.bidirectional<Todo>({
-                fetchNewer: ({ cursor }) =>
-                  Effect.suspend(() => {
-                    counters.fetches += 1;
-                    return inbox.pageNewer(cursor, 2);
-                  }).pipe(Effect.map((page) => [...page])),
-                fetchOlder: ({ cursor }) =>
-                  Effect.suspend(() => {
-                    counters.fetches += 1;
-                    return inbox.pageOlder(cursor, 2);
-                  }).pipe(Effect.map((page) => [...page])),
-                subscribeNewer: ({ cursor }) =>
-                  Effect.succeed(inbox.changes(cursor)),
+                newer: ({ paginated }) =>
+                  paginated({
+                    fetch: ({ cursor }) =>
+                      Effect.suspend(() => {
+                        counters.fetches += 1;
+                        return inbox.pageNewer(cursor, 2);
+                      }).pipe(Effect.map((page) => [...page])),
+                  }),
+                older: ({ paginated }) =>
+                  paginated({
+                    fetch: ({ cursor }) =>
+                      Effect.suspend(() => {
+                        counters.fetches += 1;
+                        return inbox.pageOlder(cursor, 2);
+                      }).pipe(Effect.map((page) => [...page])),
+                  }),
+                tail: ({ live }) =>
+                  live({ open: ({ cursor }) => inbox.changes(cursor) }),
               }),
             },
           },

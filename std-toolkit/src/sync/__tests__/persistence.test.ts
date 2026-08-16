@@ -106,6 +106,36 @@ const failingLayer = () => {
 };
 
 describe('Sync persistence', () => {
+  it('runs a contextual single-item source through the public facade', async () => {
+    const std = createStdSync({ name: 'single-item-source' });
+    const mounted = mount(
+      std.singleItemSync({
+        schema: settingsSchema,
+        source: ({ once }) =>
+          once({
+            fetch: () =>
+              Effect.succeed({
+                value: { theme: 'dark' },
+                meta: { _e: 'Settings', _v: 'v1', _u: '1' },
+              }),
+          }),
+      }),
+    );
+
+    await vi.waitFor(() =>
+      expect(mounted.writes).toContainEqual({
+        type: 'update',
+        value: {
+          theme: 'dark',
+          _meta: expect.objectContaining({ _e: 'Settings', _u: '1' }),
+        },
+      }),
+    );
+
+    await mounted.subscription.cleanup();
+    await std.dispose();
+  });
+
   it('cancels stalled single-item hydration during disposal', async () => {
     const never = () => Effect.never;
     const contract: StdTableContract = {

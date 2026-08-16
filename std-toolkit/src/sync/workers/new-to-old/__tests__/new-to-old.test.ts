@@ -53,28 +53,31 @@ const drive = async (opts: {
   };
 
   const strategy = newToOld<Item>({
-    subscribeOlder: ({ cursor }) =>
-      Effect.sync(() => {
-        olderCursors.push(
-          cursor === null ? null : uOf(cursor as EntityType<Item>),
-        );
-        const pool =
-          cursor === null
-            ? sorted
-            : sorted.filter((e) => uOf(e) <= uOf(cursor as EntityType<Item>));
-        const pages: EntityType<Item>[][] = [];
-        for (let end = pool.length; end > 0; end -= opts.pageSize) {
-          pages.push(pool.slice(Math.max(0, end - opts.pageSize), end));
-        }
-        return Stream.fromIterable(pages);
+    backfill: ({ paginated }) =>
+      paginated({
+        fetch: ({ cursor }) =>
+          Effect.sync(() => {
+            olderCursors.push(
+              cursor === null ? null : uOf(cursor as EntityType<Item>),
+            );
+            const pool =
+              cursor === null
+                ? sorted
+                : sorted.filter(
+                    (e) => uOf(e) < uOf(cursor as EntityType<Item>),
+                  );
+            return pool.slice(Math.max(0, pool.length - opts.pageSize));
+          }),
       }),
-    subscribeNewer: ({ cursor }) =>
-      Effect.sync(() => {
-        const newer =
-          cursor === null
-            ? sorted
-            : sorted.filter((e) => uOf(e) > uOf(cursor as EntityType<Item>));
-        return Stream.fromIterable(newer.length === 0 ? [] : [newer]);
+    tail: ({ live }) =>
+      live({
+        open: ({ cursor }) => {
+          const newer =
+            cursor === null
+              ? sorted
+              : sorted.filter((e) => uOf(e) > uOf(cursor as EntityType<Item>));
+          return Stream.fromIterable(newer.length === 0 ? [] : [newer]);
+        },
       }),
   });
 
@@ -125,9 +128,10 @@ describe('Sync', () => {
           ].map((page) => page.map((u) => entity(u, u)));
 
           const strategy = newToOld<Item>({
-            subscribeOlder: () => Effect.sync(() => Stream.empty),
-            subscribeNewer: () =>
-              Effect.sync(() => Stream.fromIterable(batches)),
+            backfill: ({ paginated }) =>
+              paginated({ fetch: () => Effect.succeed([]) }),
+            tail: ({ live }) =>
+              live({ open: () => Stream.fromIterable(batches) }),
           });
 
           await Effect.runPromise(Effect.scoped(strategy.run(ctx)));
@@ -171,7 +175,7 @@ describe('Sync', () => {
           expect(new Set(next.written.map((e) => e.value.id))).toEqual(
             new Set(dataset.map((e) => e.value.id)),
           );
-          expect(next.olderCursors).toEqual([null]);
+          expect(next.olderCursors).toEqual([null, 'u03', 'u01']);
         });
 
         it('normalizes a legacy empty reachedOldest state before backfilling', async () => {
@@ -193,7 +197,7 @@ describe('Sync', () => {
           expect(new Set(next.written.map((e) => e.value.id))).toEqual(
             new Set(dataset.map((e) => e.value.id)),
           );
-          expect(next.olderCursors).toEqual([null]);
+          expect(next.olderCursors).toEqual([null, 'u03', 'u01']);
         });
 
         it('resumes a warm session, fills the top gap, and never re-probes the floor', async () => {

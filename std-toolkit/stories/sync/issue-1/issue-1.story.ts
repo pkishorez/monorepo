@@ -34,12 +34,22 @@ const simulation = Simulation.make({
           sync: {
             total: {
               strategy: syncStrategy.bidirectional<Todo>({
-                fetchNewer: ({ cursor }) =>
-                  inbox.pageNewer(cursor, 10).pipe(Effect.map((p) => [...p])),
-                fetchOlder: ({ cursor }) =>
-                  inbox.pageOlder(cursor, 10).pipe(Effect.map((p) => [...p])),
-                subscribeNewer: ({ cursor }) =>
-                  Effect.succeed(inbox.changes(cursor)),
+                newer: ({ paginated }) =>
+                  paginated({
+                    fetch: ({ cursor }) =>
+                      inbox
+                        .pageNewer(cursor, 10)
+                        .pipe(Effect.map((p) => [...p])),
+                  }),
+                older: ({ paginated }) =>
+                  paginated({
+                    fetch: ({ cursor }) =>
+                      inbox
+                        .pageOlder(cursor, 10)
+                        .pipe(Effect.map((p) => [...p])),
+                  }),
+                tail: ({ live }) =>
+                  live({ open: ({ cursor }) => inbox.changes(cursor) }),
               }),
             },
           },

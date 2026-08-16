@@ -35,7 +35,10 @@ import {
 import { oldToNew } from './workers/old-to-new/index.js';
 import { newToOld } from './workers/new-to-old/index.js';
 import { bidirectional } from './workers/bidirectional/index.js';
-import { getOnce } from './workers/get-once/index.js';
+import {
+  singleItemSourceStrategy,
+  type SingleItemSourceConfig,
+} from './workers/single-item-source/index.js';
 import {
   normalizeSyncName,
   qualifyCollectionName,
@@ -49,7 +52,6 @@ import {
 export type { LeadershipLayer } from './runtime/leadership/index.js';
 
 export const syncStrategy = { oldToNew, newToOld, bidirectional };
-export const singleItemSyncStrategy = { getOnce };
 export const paceStrategy = mutationPaceStrategy;
 
 /**
@@ -84,19 +86,30 @@ export type SyncConfig<S extends AnyEntityESchema, R = never> = {
 };
 
 /** Config for the `singleItemSync` method (collection-level lifecycle, no partitions). */
-export type SingleItemSyncConfig<
-  S extends AnyUnkeyedESchema,
-  R = never,
-  TState = unknown,
-> = {
+type SingleItemSyncBase<S extends AnyUnkeyedESchema, R = never> = {
   schema: S;
-  strategy: SingleItemStrategy<S['Type'], TState, R>;
   options?: StdCollectionOptions<S['Type']>;
   onUpdate?: (payload: {
     updates: Partial<S['Type']>;
   }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
 };
+
+export type SingleItemSyncConfig<
+  S extends AnyUnkeyedESchema,
+  R = never,
+  TState = unknown,
+> = SingleItemSyncBase<S, R> &
+  (
+    | {
+        source: SingleItemSourceConfig<S['Type'], R>['source'];
+        strategy?: never;
+      }
+    | {
+        source?: never;
+        strategy: SingleItemStrategy<S['Type'], TState, R>;
+      }
+  );
 
 /**
  * Creates one Std Sync instance: a shared tracker behind `sync` (keyed,
@@ -204,9 +217,20 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       );
     }
     collectionNames.add(collectionName);
-    const { options, ...rest } = config;
+    const { options } = config;
+    const strategy: SingleItemStrategy<S['Type'], any, R> = config.source
+      ? singleItemSourceStrategy({ source: config.source })
+      : config.strategy;
+    if (!strategy) {
+      throw new Error(
+        `[sync] collection "${collectionName}" needs either a source or a strategy`,
+      );
+    }
     return buildSingleItem(tracker, {
-      ...rest,
+      schema: config.schema,
+      strategy,
+      ...(config.onUpdate ? { onUpdate: config.onUpdate } : {}),
+      ...(config.updatePacing ? { updatePacing: config.updatePacing } : {}),
       store,
       leadership,
       collectionName,

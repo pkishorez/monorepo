@@ -20,7 +20,8 @@ const simulation = Simulation.make({
           sync: {
             total: {
               strategy: syncStrategy.oldToNew<Todo>({
-                stream: ({ cursor }) => Effect.succeed(inbox.changes(cursor)),
+                source: ({ live }) =>
+                  live({ open: ({ cursor }) => inbox.changes(cursor) }),
               }),
             },
           },
