@@ -5,8 +5,8 @@ This file is the live handoff for the work defined in `execute.md`. Update it du
 ## Overall Status
 
 - State: In progress
-- Current task: Task 5 — Peer Sync replica convergence
-- Next action: Record Task 4's commit hash, then integrate one Peer Sync per Collection
+- Current task: Task 6 — Events, documentation, and stories
+- Next action: Record Task 5's commit hash, then finish the event and explanatory language
 
 ## Task Tracker
 
@@ -15,8 +15,8 @@ This file is the live handoff for the work defined in `execute.md`. Update it du
 | 1. Establish the `sync` context and package paths       | Complete    | 18adf8cb058070b35cd725f8f7eed72627e22cd7 | Focused tests, lint/TypeScript/Laymos, build  |
 | 2. Add names, qualified collection names, and addresses | Complete    | ca0db797aa68c30b7d38a7201b2f89417ec07179 | 104 sync tests, lint/TypeScript/Laymos, build |
 | 3. Rename persistence concepts and APIs                 | Complete    | 551a16af58728a3207a0965f3ae958f75da53ec7 | 105 sync tests, lint/TypeScript/Laymos, build |
-| 4. Build the Peer Sync deep module                      | Complete    | —                                        | 88 sync tests, lint/TypeScript/Laymos, build  |
-| 5. Integrate Peer Sync with replica convergence         | Not started | —                                        | —                                             |
+| 4. Build the Peer Sync deep module                      | Complete    | 340d981eec728eb5639256d77ea57bc7cd75b0e1 | 88 sync tests, lint/TypeScript/Laymos, build  |
+| 5. Integrate Peer Sync with replica convergence         | Complete    | —                                        | 117 sync/story tests, lint/Laymos, build      |
 | 6. Finish events, documentation, and stories            | Not started | —                                        | —                                             |
 | 7. Final verification and cleanup                       | Not started | —                                        | —                                             |
 
@@ -26,27 +26,28 @@ Use only these statuses: `Not started`, `In progress`, `Blocked`, `Complete`.
 
 ### Scope
 
-Task 5 integrates Peer Sync with replica convergence for keyed and single-item Collections.
+Task 6 completes structured event language, documentation, stories, and the ADR.
 
 ### Work Completed
 
-- Task 3 recorded predecessor commit `551a16af58728a3207a0965f3ae958f75da53ec7`.
-- `runtime/peer-sync` now owns collection-specific envelope validation, best-effort transport, serialized inbound application with propagation disabled, and draining cleanup.
-- The raw public customization surface is `PeerChannel` and `PeerChannelFactory`; the default BroadcastChannel adapter and message codec remain private.
-- Change Notice and its public `notices` configuration are removed. Composition intentionally has no peer wiring until Task 5.
+- Task 4 recorded predecessor commit `340d981eec728eb5639256d77ea57bc7cd75b0e1`.
+- `createStdSync` now enables Peer Sync by default and accepts `peerSync: false` or `peerSync: { channel }`.
+- Every keyed and single-item Collection starts one Peer Sync subscription when registered and closes it only with the owning Std Sync.
+- Local convergence advances the mounted projection and broadcasts only non-empty accepted results. Inbound convergence explicitly disables propagation and still advances after a shared-store no-op.
+- The story simulator now gives every Memory-backed tab its own store layer, so its two-tab convergence exercises Peer Sync.
 
 ### Checks Run
 
-- `pnpm --filter std-toolkit exec vitest run src/sync/runtime/peer-sync/__tests__/peer-sync.test.ts` — passed, 1 file and 13 tests.
-- `pnpm --filter std-toolkit exec vitest run src/sync` — passed, 16 files and 88 tests.
-- `pnpm --filter std-toolkit lint` — passed; formatting/lint, TypeScript, and Laymos all clean, with no layer or module violations.
+- `pnpm --filter std-toolkit exec vitest run src/sync/__tests__/peer-integration.test.ts` — passed, 1 file and 6 tests, including separate Memory stores and shared IndexedDB.
+- `pnpm --filter std-toolkit exec vitest run src/sync/__tests__/peer-integration.test.ts src/sync/runtime/peer-sync/__tests__/peer-sync.test.ts stories/sync/simulation.test.ts` — passed, 3 files and 42 tests.
+- `pnpm --filter std-toolkit exec vitest run src/sync stories/sync/simulation.test.ts` — passed, 18 files and 117 tests; all four prior two-tab timeouts are resolved.
+- `pnpm --filter std-toolkit lint` — passed; all 457 files formatted, 416 files lint-clean, TypeScript clean, and no Laymos violations.
 - `pnpm --filter std-toolkit build` — passed.
-- `pnpm --filter std-toolkit exec vitest run src/sync stories/sync/simulation.test.ts` — 16 files and 107 tests passed; 4 existing two-tab story questions timed out because Task 4 removes Change Notice before Task 5 installs entity propagation.
 
 ### Remaining Work
 
-- Record Task 4's commit hash in the Task 5 commit.
-- Integrate Peer Sync per Collection, restore the simulation's in-process peer channel using the new transport contract, and complete Tasks 5–7 in order.
+- Record Task 5's commit hash in the Task 6 commit.
+- Complete the event terminology, ADR, docs, and final story explanation, then run Task 7 verification.
 
 ## Decisions and Discoveries
 
@@ -58,7 +59,9 @@ Append facts learned during implementation that affect later tasks. Do not repea
 - Public `applyToSyncReplica` returns only complete entities accepted by convergence, which Task 5 can broadcast directly; internal strategy and registry adapters intentionally discard that result.
 - Peer Sync initialization is asynchronous but returns its orchestrator immediately, allowing Collection registration to remain synchronous in Task 5.
 - `makePeerSync` passes `{ propagate: false }` to inbound application and drains messages admitted before `close()` while blocking later admission.
-- The four two-tab simulation questions depend on the removed Change Notice path and remain expected failures until Task 5 wires entity propagation.
+- One convergence wrapper in each Collection composition now serves strategies, mutations, manual writes, persisted registry delivery, and peers; optimistic changes and `persist: false` projection bypass it.
+- A peer receipt always advances projection after convergence, even when a shared IndexedDB adapter means the sender's committed entity makes the receiver write a no-op.
+- Default `BroadcastChannel` is sufficient for the Node story simulator; its Memory tabs no longer share a store layer.
 
 ## Blockers
 

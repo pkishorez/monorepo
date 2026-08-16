@@ -40,6 +40,7 @@ import {
   normalizeSyncName,
   qualifyCollectionName,
 } from './domain/sync-address/index.js';
+import type { PeerChannelFactory } from './runtime/peer-sync/index.js';
 
 export const syncStrategy = { oldToNew, newToOld, bidirectional };
 export const singleItemSyncStrategy = { getOnce };
@@ -106,6 +107,7 @@ export type StdSyncDefaults<R = never> = {
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
   flow?: FlowPlacement;
+  peerSync?: false | { channel: PeerChannelFactory };
 };
 
 const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
@@ -172,6 +174,11 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       ...(defaults.cadence ? { defaultCadence: defaults.cadence } : {}),
       runner,
       report,
+      ...(defaults.peerSync === false
+        ? { peerChannel: null }
+        : defaults.peerSync
+          ? { peerChannel: defaults.peerSync.channel }
+          : {}),
       ...(defaults.flow ? { flowPlacement: defaults.flow } : {}),
     });
     return { ...mergeOptions(options), ...built };
@@ -198,6 +205,11 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       options: mergeOptions(options),
       runner,
       report,
+      ...(defaults.peerSync === false
+        ? { peerChannel: null }
+        : defaults.peerSync
+          ? { peerChannel: defaults.peerSync.channel }
+          : {}),
       ...(defaults.flow ? { flowPlacement: defaults.flow } : {}),
     });
   };

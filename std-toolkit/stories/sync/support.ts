@@ -195,7 +195,6 @@ type BrowserWithTabs<D extends readonly AnyDefinition[]> = Tab<D> & {
 
 type Device<D extends readonly AnyDefinition[]> = {
   readonly connection: Connection;
-  readonly storeLayer: SyncStoreLayer;
   readonly tabs: Map<string, Tab<D>>;
 };
 
@@ -828,7 +827,6 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
           online: true,
           disconnectListeners: new Set(),
         },
-        storeLayer: Memory.make(syncStore).layer,
         tabs: new Map(),
       };
       devices.set(name, created);
@@ -847,7 +845,7 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
         runtime,
         disposeLiveQueries: liveQueries,
         connection: device.connection,
-        storeLayer: device.storeLayer,
+        storeLayer: Memory.make(syncStore).layer,
       });
       device.tabs.set(tabName, created);
       return created;
