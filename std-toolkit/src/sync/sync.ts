@@ -28,7 +28,6 @@ import {
 import type { CadenceConfig } from './domain/cadence-policy/index.js';
 import type { SyncReporter } from './domain/sync-event/index.js';
 import type { FlowPlacement } from './runtime/sync-flow/index.js';
-import type { ChannelFactory } from './runtime/change-notice/index.js';
 import {
   makeEffectRunner,
   type EffectRuntime,
@@ -107,7 +106,6 @@ export type StdSyncDefaults<R = never> = {
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
   flow?: FlowPlacement;
-  notices?: { scope?: string; channel?: ChannelFactory };
 };
 
 const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
@@ -120,7 +118,6 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
   const store = makeSyncStore(
     defaults.storeLayer ?? Memory.make(syncStore).layer,
   );
-  const noticeScope = defaults.notices?.scope ?? name;
   const cleanups = new Set<() => Promise<void>>();
   let disposed = false;
   let disposePromise: Promise<void> | null = null;
@@ -176,10 +173,6 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       runner,
       report,
       ...(defaults.flow ? { flowPlacement: defaults.flow } : {}),
-      noticeScope,
-      ...(defaults.notices?.channel
-        ? { noticeChannel: defaults.notices.channel }
-        : {}),
     });
     return { ...mergeOptions(options), ...built };
   };
@@ -202,10 +195,6 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       collectionName,
       assertActive,
       trackCleanup,
-      noticeScope,
-      ...(defaults.notices?.channel
-        ? { noticeChannel: defaults.notices.channel }
-        : {}),
       options: mergeOptions(options),
       runner,
       report,
@@ -273,9 +262,9 @@ export const createStdSync = makeStdSync as CreateStdSync;
 export type { EffectRuntime } from './runtime/effect-runner/index.js';
 export type { FlowPlacement } from './runtime/sync-flow/index.js';
 export type {
-  ChangeNoticeChannel,
-  ChannelFactory,
-} from './runtime/change-notice/index.js';
+  PeerChannel,
+  PeerChannelFactory,
+} from './runtime/peer-sync/index.js';
 export type { SyncEvent } from './domain/sync-event/index.js';
 export type { SyncReporter } from './domain/sync-event/index.js';
 export type {

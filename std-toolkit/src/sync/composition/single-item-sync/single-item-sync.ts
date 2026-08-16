@@ -8,10 +8,6 @@ import { Effect, Exit, Scope, TxSemaphore } from 'effect';
 import type { EntityType, SingleEntityType } from '../../../core/index.js';
 import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
-import {
-  makeChangeNotice,
-  type ChannelFactory,
-} from '../../runtime/change-notice/index.js';
 import { makeSyncReplica } from '../../persistence/sync-replica/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type {
@@ -80,8 +76,6 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     runner: EffectRunner<R>;
     report: SyncReporter<R>;
     flowPlacement?: FlowPlacement;
-    noticeScope: string;
-    noticeChannel?: ChannelFactory;
   },
 ): SingleItemResult<S['Type'], S> => {
   type TItem = S['Type'];
@@ -128,14 +122,6 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       }),
     );
 
-  const notice = makeChangeNotice({
-    scope: config.noticeScope,
-    collection: collectionName,
-    onNotice: () => config.runner.runPromise(advance().pipe(Effect.ignore)),
-    channel: config.noticeChannel,
-  });
-  config.trackCleanup(() => notice.close());
-
   const applyToSyncReplica = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
@@ -150,7 +136,6 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       }
       const accepted = yield* replica.applyToSyncReplica(entities);
       yield* advance();
-      notice.notify();
       if (syncFlow && entities.length > 0) {
         yield* syncFlow.log('Sync Replica write', {
           attributes: {

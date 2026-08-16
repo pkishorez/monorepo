@@ -339,7 +339,7 @@
     "src/sync/runtime/collection-model": {
       "kind": "shared"
     },
-    "src/sync/runtime/change-notice": {},
+    "src/sync/runtime/peer-sync": {},
     "src/sync/runtime/collection-projection": {},
     "src/sync/runtime/effect-runner": {
       "kind": "shared"

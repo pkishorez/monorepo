@@ -14,10 +14,6 @@ import { makeSyncReplica } from '../../persistence/sync-replica/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
-import {
-  makeChangeNotice,
-  type ChannelFactory,
-} from '../../runtime/change-notice/index.js';
 import type {
   CollectionItem,
   DeletePayload,
@@ -96,8 +92,6 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     runner?: EffectRunner<R>;
     report: SyncReporter<R>;
     flowPlacement?: FlowPlacement;
-    noticeScope: string;
-    noticeChannel?: ChannelFactory;
   },
 ): CollectionConfig<
   CollectionItem<S['Type']>,
@@ -170,14 +164,6 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       }),
     );
 
-  const notice = makeChangeNotice({
-    scope: config.noticeScope,
-    collection: collectionName,
-    onNotice: () => runner.runPromise(advance().pipe(Effect.ignore)),
-    channel: config.noticeChannel,
-  });
-  config.trackCleanup(() => notice.close());
-
   const applyToSyncReplica = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
@@ -185,7 +171,6 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     config.assertActive();
     return replica.applyToSyncReplica(entities).pipe(
       Effect.tap(() => advance()),
-      Effect.tap(() => Effect.sync(() => notice.notify())),
       Effect.tap((accepted) =>
         syncFlow && entities.length > 0
           ? syncFlow.log('Sync Replica write', {

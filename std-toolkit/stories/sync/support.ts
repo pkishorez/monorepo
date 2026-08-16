@@ -23,8 +23,6 @@ import { EntityESchema, type AnyEntityESchema } from 'std-toolkit/eschema';
 import {
   createStdSync,
   syncStore,
-  type ChangeNoticeChannel,
-  type ChannelFactory,
   type EffectRuntime,
   type SyncStoreLayer,
   type SyncConfig,
@@ -198,31 +196,10 @@ type BrowserWithTabs<D extends readonly AnyDefinition[]> = Tab<D> & {
 type Device<D extends readonly AnyDefinition[]> = {
   readonly connection: Connection;
   readonly storeLayer: SyncStoreLayer;
-  readonly noticeChannel: ChannelFactory;
   readonly tabs: Map<string, Tab<D>>;
 };
 
 const MAIN_TAB = 'main';
-
-// Stands in for BroadcastChannel: same name, delivered to every peer but the sender.
-const makeChannelHub = (): ChannelFactory => {
-  const named = new Map<string, Set<ChangeNoticeChannel>>();
-  return (name) => {
-    const peers = named.get(name) ?? new Set<ChangeNoticeChannel>();
-    named.set(name, peers);
-    const channel: ChangeNoticeChannel = {
-      onmessage: null,
-      postMessage: (data) => {
-        for (const peer of peers) {
-          if (peer !== channel) peer.onmessage?.({ data });
-        }
-      },
-      close: () => peers.delete(channel),
-    };
-    peers.add(channel);
-    return channel;
-  };
-};
 
 type SimulationWorld<D extends readonly AnyDefinition[]> = {
   readonly backend: ReturnType<typeof makeBackend<D>>;
@@ -559,7 +536,6 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   readonly disposeLiveQueries: Set<() => Promise<void>>;
   readonly connection: Connection;
   readonly storeLayer: SyncStoreLayer;
-  readonly noticeChannel: ChannelFactory;
 }) => {
   const connection = options.connection;
   const prefix = `browser:${options.label}`;
@@ -569,7 +545,6 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
     storeLayer: options.storeLayer,
-    notices: { scope: options.name, channel: options.noticeChannel },
     // TanStack DB arms a single shared, ref'd GC timer for the longest gcTime in
     // play, so the default five minutes would hold the story process open long
     // after the last Story finished.
@@ -854,7 +829,6 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
           disconnectListeners: new Set(),
         },
         storeLayer: Memory.make(syncStore).layer,
-        noticeChannel: makeChannelHub(),
         tabs: new Map(),
       };
       devices.set(name, created);
@@ -874,7 +848,6 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
         disposeLiveQueries: liveQueries,
         connection: device.connection,
         storeLayer: device.storeLayer,
-        noticeChannel: device.noticeChannel,
       });
       device.tabs.set(tabName, created);
       return created;
