@@ -1,10 +1,9 @@
+import { makeFlowSteps } from './event-summary';
 import type { RecordedFlow } from './model';
+import { makeParticipantHierarchy } from './participant-hierarchy';
 
 type RecordedFlowItem = RecordedFlow['items'][number];
-export type FlowLayoutItem = RecordedFlowItem & {
-  readonly members: readonly RecordedFlowItem[];
-  readonly repeatCount: number;
-};
+export type FlowLayoutItem = ReturnType<typeof makeFlowSteps>[number];
 
 /** One Participant's Activation placed in row space. */
 export type FlowLayoutActivation = {
@@ -16,62 +15,75 @@ export type FlowLayoutActivation = {
   readonly open: boolean;
 };
 
-const laneWidth = 260;
-const sidePadding = 140;
-export const flowHeaderHeight = 74;
+const minimumWidth = 520;
+const minimumSidePadding = 24;
+export const flowCanvasTopPadding = 24;
 export const flowRowGap = 88;
 
-const syncWriteEvent = 'Source of Truth write';
-
-const consolidateSyncWrites = (
-  items: readonly RecordedFlowItem[],
-): FlowLayoutItem[] => {
-  const consolidated: FlowLayoutItem[] = [];
-  const openSummary = new Map<string, number>();
-
-  for (const item of items) {
-    if (item.kind === 'local-event' && item.name === syncWriteEvent) {
-      const existingIndex = openSummary.get(item.participantName);
-      if (existingIndex !== undefined) {
-        const existing = consolidated[existingIndex]!;
-        consolidated[existingIndex] = {
-          ...existing,
-          members: [...existing.members, item],
-          repeatCount: existing.repeatCount + 1,
-        };
-        continue;
-      }
-      openSummary.set(item.participantName, consolidated.length);
-    } else {
-      openSummary.delete(item.participantName);
-    }
-    consolidated.push({ ...item, members: [item], repeatCount: 1 });
-  }
-
-  return consolidated;
-};
-
 const rowY = (index: number) =>
-  flowHeaderHeight + index * flowRowGap + flowRowGap / 2;
+  flowCanvasTopPadding + index * flowRowGap + flowRowGap / 2;
 
-/** Positions Flow items at equal ordinal steps rather than elapsed-time scale. */
-export const makeFlowLayout = (flow: RecordedFlow) => {
-  const items = consolidateSyncWrites(
-    flow.items.toSorted((left, right) => left.timestamp - right.timestamp),
-  );
-  const participants = [
-    ...new Set(
-      items.flatMap((item) => [
-        item.participantName,
-        ...(item.kind === 'message' ? [item.destination] : []),
-      ]),
-    ),
-  ];
-  const laneX = new Map(
-    participants.map((participant, index) => [
-      participant,
-      sidePadding + index * laneWidth,
+const orderedParticipantNames = (items: readonly RecordedFlowItem[]) => [
+  ...new Set(
+    items.flatMap((item) => [
+      item.participantName,
+      ...(item.kind === 'message' ? [item.destination] : []),
     ]),
+  ),
+];
+
+/** Positions visible Flow Steps at equal ordinal steps rather than elapsed time. */
+export const makeFlowLayout = (
+  flow: RecordedFlow,
+  options: {
+    readonly hiddenPaths?: ReadonlySet<string>;
+    readonly hiddenParticipantNames?: ReadonlySet<string>;
+    readonly collapsedPaths?: ReadonlySet<string>;
+    readonly collapsedSummaryIds?: ReadonlySet<string>;
+  } = {},
+) => {
+  const chronologicalItems = flow.items.toSorted(
+    (left, right) => left.timestamp - right.timestamp,
+  );
+  const hierarchy = makeParticipantHierarchy(
+    orderedParticipantNames(chronologicalItems),
+    options,
+  );
+  const visibleItems = chronologicalItems.filter((item) => {
+    if (!hierarchy.visibleParticipants.has(item.participantName)) return false;
+    return (
+      item.kind !== 'message' ||
+      hierarchy.visibleParticipants.has(item.destination)
+    );
+  });
+  const items = makeFlowSteps(
+    visibleItems,
+    options.collapsedSummaryIds ?? new Set<string>(),
+  );
+
+  const columnWidth = hierarchy.columns.reduce(
+    (total, column) => total + column.width,
+    0,
+  );
+  const sidePadding = Math.max(
+    minimumSidePadding,
+    (minimumWidth - columnWidth) / 2,
+  );
+  const columnLeft = new Map<string, number>();
+  const columnX = new Map<string, number>();
+  let cursor = sidePadding;
+  for (const column of hierarchy.columns) {
+    columnLeft.set(column.key, cursor);
+    columnX.set(column.key, cursor + column.width / 2);
+    cursor += column.width;
+  }
+  const width = Math.max(minimumWidth, columnWidth + sidePadding * 2);
+  const laneX = new Map(
+    hierarchy.columns.flatMap((column) =>
+      column.kind === 'participant'
+        ? [[column.participantName, columnX.get(column.key)!] as const]
+        : [],
+    ),
   );
 
   const rowByItemId = new Map(
@@ -79,11 +91,15 @@ export const makeFlowLayout = (flow: RecordedFlow) => {
       item.members.map(({ id }) => [id, index] as const),
     ),
   );
-  const height = flowHeaderHeight + Math.max(1, items.length) * flowRowGap + 42;
+  const height =
+    flowCanvasTopPadding + Math.max(1, items.length) * flowRowGap + 42;
   const laneEndY = height - 22;
 
   const activations: FlowLayoutActivation[] = flow.activations.flatMap(
     (activation) => {
+      if (!hierarchy.visibleParticipants.has(activation.participantName)) {
+        return [];
+      }
       const startRow = rowByItemId.get(activation.startItemId);
       if (startRow === undefined) return [];
       const endRow =
@@ -112,7 +128,7 @@ export const makeFlowLayout = (flow: RecordedFlow) => {
     ),
   );
   const replyLatency = new Map(
-    flow.items.flatMap((item) => {
+    items.flatMap((item) => {
       if (item.kind !== 'message' || item.replyTo === undefined) return [];
       const sent = timestampByMessageId.get(item.replyTo);
       return sent === undefined
@@ -123,25 +139,40 @@ export const makeFlowLayout = (flow: RecordedFlow) => {
 
   /** Participants that only ever receive Messages and record nothing. */
   const silentParticipants = new Set(
-    participants.filter(
+    [...hierarchy.visibleParticipants].filter(
       (participant) =>
         !items.some((item) => item.participantName === participant),
     ),
   );
 
+  const itemCenters = new Map(
+    items.flatMap((item, index) => {
+      const sourceX = laneX.get(item.participantName)!;
+      const x =
+        item.kind === 'message'
+          ? (sourceX + laneX.get(item.destination)!) / 2
+          : sourceX;
+      const center = { x, y: rowY(index) };
+      return item.members.map(({ id }) => [id, center] as const);
+    }),
+  );
+
   return {
     activations,
+    columnLeft,
+    columnX,
+    height,
+    hierarchy,
+    itemCenters,
     items,
     laneEndY,
     laneX,
-    participants,
+    participants: [...hierarchy.visibleParticipants],
     replyLatency,
+    rowByItemId,
+    sidePadding,
     silentParticipants,
-    width: Math.max(
-      520,
-      sidePadding * 2 + Math.max(0, participants.length - 1) * laneWidth,
-    ),
-    height,
+    width,
   };
 };
 
