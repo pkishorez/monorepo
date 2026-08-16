@@ -70,6 +70,12 @@ progress and not Sync State.
 A worker policy that obtains backend-confirmed Entities and owns the Sync State
 needed to resume its work.
 
+**Sync Source**:
+A reusable description of one Backend delivery mode, normalized for consumption
+by Sync. It does not own cursor meaning, Sync State, or the surrounding Collection
+or Partition lifecycle.
+_Avoid_: Sync Strategy, subscription callback.
+
 **Leadership**:
 Exclusive ownership by one Sync participant of one backend-reading role while
 equivalent participants remain dormant and eligible for takeover.

@@ -116,16 +116,21 @@ const openTab = (options: {
     sync: {
       total: {
         strategy: syncStrategy.oldToNew<Todo>({
-          stream: ({ cursor }) =>
-            Effect.gen(function* () {
-              const beforeRead = options.beforeRead;
-              if (beforeRead) {
-                yield* Effect.promise(() => beforeRead);
-              }
-              options.counters.readers += 1;
-              return Stream.fromIterable(
-                cursor === null ? [[entity] as EntityType<Todo>[]] : [],
-              );
+          source: ({ live }) =>
+            live({
+              open: ({ cursor }) =>
+                Stream.unwrap(
+                  Effect.gen(function* () {
+                    const beforeRead = options.beforeRead;
+                    if (beforeRead) {
+                      yield* Effect.promise(() => beforeRead);
+                    }
+                    options.counters.readers += 1;
+                    return Stream.fromIterable(
+                      cursor === null ? [[entity] as EntityType<Todo>[]] : [],
+                    );
+                  }),
+                ),
             }),
         }),
       },

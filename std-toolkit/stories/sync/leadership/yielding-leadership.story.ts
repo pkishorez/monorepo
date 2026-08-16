@@ -1,5 +1,5 @@
 import { eq } from '@tanstack/react-db';
-import { Duration, Effect } from 'effect';
+import { Duration, Effect, Stream } from 'effect';
 import { Story } from 'laymos/story';
 import { syncStrategy } from 'std-toolkit/sync';
 import {
@@ -48,10 +48,15 @@ const makeSimulation = (releaseWhen: 'hidden' | 'frozen') => {
                 const inbox = todoSource(backend, String(listId));
                 return {
                   strategy: syncStrategy.oldToNew<Todo>({
-                    stream: ({ cursor }) =>
-                      Effect.sync(() => {
-                        counters.acquisitions += 1;
-                        return inbox.changes(cursor);
+                    source: ({ live }) =>
+                      live({
+                        open: ({ cursor }) =>
+                          Stream.unwrap(
+                            Effect.sync(() => {
+                              counters.acquisitions += 1;
+                              return inbox.changes(cursor);
+                            }),
+                          ),
                       }),
                   }),
                 };

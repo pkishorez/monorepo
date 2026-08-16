@@ -1,5 +1,5 @@
 import { eq } from '@tanstack/react-db';
-import { Duration, Effect } from 'effect';
+import { Duration, Effect, Stream } from 'effect';
 import { Story } from 'laymos/story';
 import { syncStrategy } from 'std-toolkit/sync';
 import {
@@ -47,10 +47,15 @@ const makeTotalSimulation = (leadership: boolean) => {
             sync: {
               total: {
                 strategy: syncStrategy.oldToNew<Todo>({
-                  stream: ({ cursor }) =>
-                    Effect.sync(() => {
-                      counters.readers += 1;
-                      return inbox.changes(cursor);
+                  source: ({ live }) =>
+                    live({
+                      open: ({ cursor }) =>
+                        Stream.unwrap(
+                          Effect.sync(() => {
+                            counters.readers += 1;
+                            return inbox.changes(cursor);
+                          }),
+                        ),
                     }),
                 }),
               },
@@ -82,10 +87,15 @@ const partitions = (() => {
                 const source = todoSource(backend, value);
                 return {
                   strategy: syncStrategy.oldToNew<Todo>({
-                    stream: ({ cursor }) =>
-                      Effect.sync(() => {
-                        activated.push(value);
-                        return source.changes(cursor);
+                    source: ({ live }) =>
+                      live({
+                        open: ({ cursor }) =>
+                          Stream.unwrap(
+                            Effect.sync(() => {
+                              activated.push(value);
+                              return source.changes(cursor);
+                            }),
+                          ),
                       }),
                   }),
                 };

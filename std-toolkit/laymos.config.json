@@ -30,7 +30,7 @@
     "src/sync/runtime/leadership/__tests__",
     "src/sync/workers/bidirectional/__tests__",
     "src/sync/workers/cadence-repair/__tests__",
-    "src/sync/workers/get-once/__tests__",
+    "src/sync/workers/single-item-source/__tests__",
     "src/sync/workers/new-to-old/__tests__",
     "src/sync/workers/old-to-new/__tests__"
   ],
@@ -334,7 +334,7 @@
     "src/sync/lifecycle/sync-execution": {},
     "src/sync/workers/bidirectional": {},
     "src/sync/workers/cadence-repair": {},
-    "src/sync/workers/get-once": {},
+    "src/sync/workers/single-item-source": {},
     "src/sync/workers/new-to-old": {},
     "src/sync/workers/old-to-new": {},
     "src/sync/runtime/collection-model": {
@@ -351,6 +351,7 @@
     },
     "src/sync/runtime/pending-mutations": {},
     "src/sync/runtime/strategy-runtime": {},
+    "src/sync/runtime/sync-source": {},
     "src/sync/runtime/sync-registry": {},
     "src/sync/runtime/sync-flow": {
       "kind": "shared"

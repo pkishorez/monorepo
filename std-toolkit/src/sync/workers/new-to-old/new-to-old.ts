@@ -1,9 +1,14 @@
 import { Deferred, Effect, Stream, SynchronizedRef } from 'effect';
-import type { EntityType } from '../../../core/index.js';
 import type {
   PartitionedStrategy,
   StrategyContext,
 } from '../../runtime/strategy-runtime/index.js';
+import {
+  openPartitionedSource,
+  partitionedSources,
+  type LiveSourceBuilder,
+  type PaginatedSourceBuilder,
+} from '../../runtime/sync-source/index.js';
 import {
   makeSlice,
   newestOf,
@@ -15,30 +20,9 @@ import {
 } from '../../domain/slice-coverage/index.js';
 import { NewToOldStateSchema, type NewToOldState } from './state.js';
 
-type CursorCtx<TItem> = { cursor: Cursor<TItem> | null };
-
-/**
- * Newest-first source split across two streams. `subscribeOlder` is finite,
- * descends toward the oldest record, and completes when the floor is reached.
- * A non-null older cursor resumes from and including that cursor. `subscribeNewer`
- * is live, starts strictly after the supplied cursor, catches up missed records,
- * and then stays open.
- */
 export type NewToOldConfig<TItem, R = never> = {
-  subscribeOlder: (
-    ctx: CursorCtx<TItem>,
-  ) => Effect.Effect<
-    Stream.Stream<EntityType<TItem>[], unknown, R>,
-    unknown,
-    R
-  >;
-  subscribeNewer: (
-    ctx: CursorCtx<TItem>,
-  ) => Effect.Effect<
-    Stream.Stream<EntityType<TItem>[], unknown, R>,
-    unknown,
-    R
-  >;
+  backfill: PaginatedSourceBuilder<TItem, R>;
+  tail: LiveSourceBuilder<TItem, R>;
 };
 
 const topReachesFloor = (state: NewToOldState): boolean =>
@@ -52,8 +36,12 @@ export const newToOld = <TItem extends object, R = never>(
     schema: NewToOldStateSchema,
     empty: { slices: [], reachedOldest: false },
   },
-  run: (ctx: StrategyContext<TItem, NewToOldState>) =>
-    Effect.gen(function* () {
+  run: (ctx: StrategyContext<TItem, NewToOldState>) => {
+    const backfill = config.backfill({
+      paginated: partitionedSources.paginated,
+    });
+    const tail = config.tail({ live: partitionedSources.live });
+    return Effect.gen(function* () {
       const initial = yield* ctx.getState;
       const stateRef = yield* SynchronizedRef.make(initial);
 
@@ -91,8 +79,9 @@ export const newToOld = <TItem extends object, R = never>(
       const runBackfill = Effect.gen(function* () {
         if (rangeAlreadyComplete) return;
 
-        const olderStream = yield* config.subscribeOlder({
+        const olderStream = openPartitionedSource(backfill, {
           cursor: topAtStart?.low ?? null,
+          nextCursor: (batch) => oldestOf([...batch]),
         });
         let sawRecord = topAtStart !== null;
         let sharedTop = topAtStart !== null;
@@ -100,11 +89,10 @@ export const newToOld = <TItem extends object, R = never>(
 
         yield* Stream.runForEach(olderStream, (batch) =>
           Effect.gen(function* () {
-            if (batch.length === 0) return;
             sawRecord = true;
-            yield* ctx.applyToSyncReplica(batch);
-            const batchTop = newestOf(batch);
-            const batchFloor = oldestOf(batch);
+            yield* ctx.applyToSyncReplica([...batch]);
+            const batchTop = newestOf([...batch]);
+            const batchFloor = oldestOf([...batch]);
             yield* commit(addRange(batchFloor, previousFloor ?? batchTop));
             previousFloor = batchFloor;
             if (!sharedTop) {
@@ -120,7 +108,10 @@ export const newToOld = <TItem extends object, R = never>(
 
       const runLiveTail = Effect.gen(function* () {
         const top = yield* Deferred.await(topReady);
-        const newerStream = yield* config.subscribeNewer({ cursor: top });
+        const newerStream = openPartitionedSource(tail, {
+          cursor: top,
+          nextCursor: (batch) => newestOf([...batch]),
+        });
         // Advance the anchor to each batch's newest cursor so successive tail
         // batches stay contiguous and `reconcile` collapses them into one slice.
         // Without this, an empty backfill (`top === null`) makes every batch a
@@ -128,10 +119,9 @@ export const newToOld = <TItem extends object, R = never>(
         let tailAnchor: Cursor<TItem> | null = top;
         yield* Stream.runForEach(newerStream, (batch) =>
           Effect.gen(function* () {
-            if (batch.length === 0) return;
-            yield* ctx.applyToSyncReplica(batch);
-            const high = newestOf(batch);
-            yield* commit(addRange(tailAnchor ?? oldestOf(batch), high));
+            yield* ctx.applyToSyncReplica([...batch]);
+            const high = newestOf([...batch]);
+            yield* commit(addRange(tailAnchor ?? oldestOf([...batch]), high));
             tailAnchor = high;
           }),
         );
@@ -140,5 +130,6 @@ export const newToOld = <TItem extends object, R = never>(
       yield* Effect.all([runBackfill, runLiveTail], {
         concurrency: 'unbounded',
       });
-    }),
+    });
+  },
 });

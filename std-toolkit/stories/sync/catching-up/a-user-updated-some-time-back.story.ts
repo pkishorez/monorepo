@@ -22,17 +22,22 @@ const simulation = Simulation.make({
           sync: {
             total: {
               strategy: syncStrategy.oldToNew<Todo>({
-                fetch: ({ cursor }) =>
-                  inbox.pageNewer(cursor, 2).pipe(
-                    Effect.tap((page: readonly TodoEntity[]) =>
-                      Effect.sync(() => {
-                        if (page.length > 0) {
-                          batches.push(page.map((entity) => entity.meta._u));
-                        }
-                      }),
-                    ),
-                    Effect.map((page) => [...page]),
-                  ),
+                source: ({ paginated }) =>
+                  paginated({
+                    fetch: ({ cursor }) =>
+                      inbox.pageNewer(cursor, 2).pipe(
+                        Effect.tap((page: readonly TodoEntity[]) =>
+                          Effect.sync(() => {
+                            if (page.length > 0) {
+                              batches.push(
+                                page.map((entity) => entity.meta._u),
+                              );
+                            }
+                          }),
+                        ),
+                        Effect.map((page) => [...page]),
+                      ),
+                  }),
               }),
             },
           },
