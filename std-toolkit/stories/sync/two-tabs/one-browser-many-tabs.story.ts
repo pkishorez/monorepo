@@ -50,7 +50,7 @@ export const oneBrowserManyTabs = Story.make({
   questions: [
     Story.question('Alice opens a second tab. What does it show?', {
       answer:
-        'Everything the first tab already synced. Both tabs share one Sync Replica, so the second tab hydrates by advancing its Projection Position from the beginning of the Projection Sequence — it never asks the Backend for a thing.',
+        'The Backend-confirmed rows. The new tab owns a new Memory Sync Replica, so backend sync fills that replica and its TanStack DB Collection Projection. Peer Sync is a live-tab shortcut, not startup authority.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -73,7 +73,7 @@ export const oneBrowserManyTabs = Story.make({
     }),
     Story.question('Alice adds a todo in one tab. Does the other tab see it?', {
       answer:
-        'Yes. Only the tab that made the mutation writes the Sync Replica — the sibling tab never fetches this row, because both tabs share one sync cursor and it has already moved past. The writing tab emits a Change Notice, and the sibling advances its own Projection Position onto the row it never asked for.',
+        'Yes. After the Backend confirms the mutation, the writing tab accepts the complete Entity into its Sync Replica. Peer Sync sends that Entity to the matching qualified Collection, where the sibling converges its separate Memory replica and advances its projection immediately.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -96,7 +96,7 @@ export const oneBrowserManyTabs = Story.make({
     }),
     Story.question('Alice edits a todo in one tab. Does the other follow?', {
       answer:
-        'Yes. The edit stays optimistic in the tab that made it until the Backend confirms. The confirmed entity then lands in the shared Sync Replica, and a Change Notice carries the other tab forward — the other tab does no fetching of its own.',
+        'Yes. The edit stays optimistic and tab-local until the Backend confirms it. The accepted Entity then enters Peer Sync, and the sibling applies normal convergence without relaying the delivery.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -126,7 +126,7 @@ export const oneBrowserManyTabs = Story.make({
       'Alice removes a todo in one tab. Does it vanish in the other?',
       {
         answer:
-          'Yes. The removal is stored as a tombstone, and a tombstone travels the same path as any other write — the other tab advances onto it and projects a delete.',
+          'Yes. The removal is stored as a confirmed tombstone, and Peer Sync carries it like any other accepted Entity. The receiving replica retains the tombstone while its projection removes the row.',
         proof: simulation.run(({ browser }) =>
           Effect.gen(function* () {
             const alice = browser('alice');
@@ -152,7 +152,7 @@ export const oneBrowserManyTabs = Story.make({
     ),
     Story.question('Alice closes a tab. Does the other tab notice?', {
       answer:
-        'Only in that the closed tab stops listening. A Projection Position lives and dies with its mount, and nothing about it is shared — so the surviving tab keeps advancing exactly as before, and a reopened tab rebuilds from the Sync Replica.',
+        'Unmounting the query does not stop the Collection-owned Peer Channel. The tab keeps accepting confirmed Entities into its own Sync Replica, and a later mount advances its new Projection Position over them. Disposing the Std Sync is what closes Peer Sync.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');

@@ -36,7 +36,7 @@ import {
  * - `backend.insert/update/remove('CollectionName', ...)`
  * - `browser('alice').insert/update/remove('CollectionName', ...)`
  * - `browser('alice').mount({ name, query })` and `.unmount(liveQuery)`
- * - `browser('alice').tab('second')` for another tab on the same storage
+ * - `browser('alice').tab('second')` for another tab with its own Sync Replica
  * - `browser('alice').transact(label, ({ collection }) => ...)`
  * - `backend.holdNextWrite` for deterministic optimistic success or failure
  * - `browser('alice').disconnect` and `.reconnect`
@@ -527,6 +527,7 @@ const makeBackend = <const D extends readonly AnyDefinition[]>(options: {
 
 const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   readonly name: string;
+  readonly syncName: string;
   readonly label: string;
   readonly definitions: D;
   readonly backend: ReturnType<typeof makeBackend<D>>;
@@ -540,7 +541,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   const prefix = `browser:${options.label}`;
   const lane = initFlow({ id: options.flowId, participantName: prefix });
   const app = createStdSync<never>({
-    name: options.name,
+    name: options.syncName,
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
     storeLayer: options.storeLayer,
@@ -838,6 +839,7 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
       if (existing) return existing;
       const created = makeBrowser({
         name,
+        syncName: flowId,
         label: tabName === MAIN_TAB ? name : `${name}#${tabName}`,
         definitions: config.collections,
         backend,

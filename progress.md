@@ -5,8 +5,8 @@ This file is the live handoff for the work defined in `execute.md`. Update it du
 ## Overall Status
 
 - State: In progress
-- Current task: Task 6 — Events, documentation, and stories
-- Next action: Record Task 5's commit hash, then finish the event and explanatory language
+- Current task: Task 7 — Final verification and cleanup
+- Next action: Record Task 6's commit hash, then run final stale-language and declaration checks
 
 ## Task Tracker
 
@@ -16,8 +16,8 @@ This file is the live handoff for the work defined in `execute.md`. Update it du
 | 2. Add names, qualified collection names, and addresses | Complete    | ca0db797aa68c30b7d38a7201b2f89417ec07179 | 104 sync tests, lint/TypeScript/Laymos, build |
 | 3. Rename persistence concepts and APIs                 | Complete    | 551a16af58728a3207a0965f3ae958f75da53ec7 | 105 sync tests, lint/TypeScript/Laymos, build |
 | 4. Build the Peer Sync deep module                      | Complete    | 340d981eec728eb5639256d77ea57bc7cd75b0e1 | 88 sync tests, lint/TypeScript/Laymos, build  |
-| 5. Integrate Peer Sync with replica convergence         | Complete    | —                                        | 117 sync/story tests, lint/Laymos, build      |
-| 6. Finish events, documentation, and stories            | Not started | —                                        | —                                             |
+| 5. Integrate Peer Sync with replica convergence         | Complete    | c716f963284ef0dfdd2e16ccdf66ca107ef8c562 | 117 sync/story tests, lint/Laymos, build      |
+| 6. Finish events, documentation, and stories            | Complete    | —                                        | 28 Sync stories, focused tests, lint/build    |
 | 7. Final verification and cleanup                       | Not started | —                                        | —                                             |
 
 Use only these statuses: `Not started`, `In progress`, `Blocked`, `Complete`.
@@ -26,28 +26,29 @@ Use only these statuses: `Not started`, `In progress`, `Blocked`, `Complete`.
 
 ### Scope
 
-Task 6 completes structured event language, documentation, stories, and the ADR.
+Task 7 performs the final stale-language, declaration, and package verification.
 
 ### Work Completed
 
-- Task 4 recorded predecessor commit `340d981eec728eb5639256d77ea57bc7cd75b0e1`.
-- `createStdSync` now enables Peer Sync by default and accepts `peerSync: false` or `peerSync: { channel }`.
-- Every keyed and single-item Collection starts one Peer Sync subscription when registered and closes it only with the owning Std Sync.
-- Local convergence advances the mounted projection and broadcasts only non-empty accepted results. Inbound convergence explicitly disables propagation and still advances after a shared-store no-op.
-- The story simulator now gives every Memory-backed tab its own store layer, so its two-tab convergence exercises Peer Sync.
+- Task 5 recorded predecessor commit `c716f963284ef0dfdd2e16ccdf66ca107ef8c562`.
+- Sync Events now distinguish Peer Sync `send` failures from Registry Broadcast delivery failures; Sync Store and Registry spans/logs use the settled language.
+- The Sync glossary is concise domain language, the context map records the Sync Store relationship, and the Sync README explains replica ownership, durability, Peer Sync, Registry Broadcasts, and observability.
+- Context-local ADR 0001 records the entity envelope, one-channel-per-Collection, freshness-only, display-address, and no-alias decisions.
+- The Peer Sync story covers separate Memory replicas, immediate versus bounded polling delivery, backend repair, independent IndexedDB durability, and disabled-peer convergence.
+- Concurrent stories now derive one unique Std Sync Name per simulated Backend dataset, preventing Peer Channels from leaking between unrelated story runs.
 
 ### Checks Run
 
-- `pnpm --filter std-toolkit exec vitest run src/sync/__tests__/peer-integration.test.ts` — passed, 1 file and 6 tests, including separate Memory stores and shared IndexedDB.
-- `pnpm --filter std-toolkit exec vitest run src/sync/__tests__/peer-integration.test.ts src/sync/runtime/peer-sync/__tests__/peer-sync.test.ts stories/sync/simulation.test.ts` — passed, 3 files and 42 tests.
-- `pnpm --filter std-toolkit exec vitest run src/sync stories/sync/simulation.test.ts` — passed, 18 files and 117 tests; all four prior two-tab timeouts are resolved.
-- `pnpm --filter std-toolkit lint` — passed; all 457 files formatted, 416 files lint-clean, TypeScript clean, and no Laymos violations.
+- `pnpm --filter std-toolkit exec vitest run stories/sync/simulation.test.ts` — passed, 1 file and 28 Sync story questions, including all five Peer Sync model scenarios.
+- `pnpm --filter std-toolkit exec vitest run src/sync/runtime/peer-sync/__tests__/peer-sync.test.ts src/sync/__tests__/peer-integration.test.ts src/sync/__tests__/registry.test.ts src/sync/composition/keyed-sync/__tests__/flow-tracing.test.ts` — passed, 4 files and 29 focused tests.
+- `pnpm --filter std-toolkit stories` — all Sync stories passed after isolating simulated Backend namespaces; the package command ended with 31 unrelated DynamoDB story errors because no DynamoDB Local service is reachable.
+- `pnpm --filter std-toolkit lint` — passed; all 459 files formatted, 417 files lint-clean, TypeScript clean, and no Laymos violations.
 - `pnpm --filter std-toolkit build` — passed.
 
 ### Remaining Work
 
-- Record Task 5's commit hash in the Task 6 commit.
-- Complete the event terminology, ADR, docs, and final story explanation, then run Task 7 verification.
+- Record Task 6's commit hash in the Task 7 commit.
+- Run Task 7's full stale-term, declaration, test, and package verification.
 
 ## Decisions and Discoveries
 
@@ -62,12 +63,16 @@ Append facts learned during implementation that affect later tasks. Do not repea
 - One convergence wrapper in each Collection composition now serves strategies, mutations, manual writes, persisted registry delivery, and peers; optimistic changes and `persist: false` projection bypass it.
 - A peer receipt always advances projection after convergence, even when a shared IndexedDB adapter means the sender's committed entity makes the receiver write a no-op.
 - Default `BroadcastChannel` is sufficient for the Node story simulator; its Memory tabs no longer share a store layer.
+- The story runner executes separate stories concurrently, so a Browser label is not a safe Std Sync Name; the simulation now uses its unique Backend-story flow id as the shared dataset namespace.
+- `laymos stories` runs DynamoDB-backed database stories as well as Sync stories and requires a reachable DynamoDB Local service for a complete package pass.
 
 ## Blockers
 
 Record the exact failing command, missing dependency, or external requirement and what is needed to continue.
 
-- None.
+- A complete package-level `pnpm --filter std-toolkit stories` pass requires a
+  reachable DynamoDB Local service. The command currently reports 31 errors in
+  unrelated DynamoDB-backed database stories; all Sync stories pass.
 
 ## Deviations
 

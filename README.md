@@ -47,7 +47,7 @@ database-agnostic single-table design:
 | `std-toolkit/db/dynamodb` | DynamoDB binding, setup, expressions, and native operations.                           |
 | `std-toolkit/db/sqlite`   | SQLite binding and setup, with separate runtime driver entrypoints.                    |
 | `std-toolkit/db/idb`      | IndexedDB binding and explicit Store setup.                                            |
-| `std-toolkit/sync`        | TanStack DB synchronization with paced writes and IndexedDB offline storage.           |
+| `std-toolkit/sync`        | TanStack DB synchronization with local replicas, paced writes, and Peer Sync.          |
 
 See the [std-toolkit README](./std-toolkit/README.md) for installation and
 entry-point documentation.

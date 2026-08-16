@@ -1,510 +1,127 @@
-# sync — Ubiquitous Language
+# Sync
 
-> Shared toolkit-wide terms (**Entity**, **Entity Meta**, **SingleEntity**, **Broadcaster**, **StdToolkitError**) are defined by [[core]]. This glossary defines only sync's own vocabulary and how it interprets the shared spine. See the root `CONTEXT-MAP.md`.
+Sync keeps TanStack DB Collections fresh from an authoritative Backend while
+preserving enough client state to converge safely. Shared Entity vocabulary is
+defined by [core](../core/CONTEXT.md).
 
-Sync is tied to TanStack DB. TanStack Collections are its Collection Projection boundary; sync does not define a frontend-neutral adapter model.
+## Language
 
-## Core concepts
+**Sync**:
+The bounded context that connects backend-confirmed Entities to TanStack DB
+Collections. It includes replication, projection, strategies, and Peer Sync.
+_Avoid_: TanStack Sync, generic frontend sync.
 
-### Entity
+**Backend**:
+The authoritative source of Entities. Client replicas and projections may be
+temporarily fresher or staler, but they do not replace its authority.
+_Avoid_: Source of Truth, server truth.
 
-The server/wire form of a record — `{ value, meta }`, defined by [[core]]. sync consumes entities; it does not redefine their shape.
+**Std Sync**:
+One named Sync runtime created for a Backend dataset or feature scope.
 
-What this context adds on top of the core definition:
+**Name**:
+A normalized readable label used within a Sync namespace. Inputs that normalize
+to the same Name in one namespace conflict.
 
-- `_e` — within a `createStdSync()` instance, must equal the owning collection's `schema.name` (see **Entity Ownership**).
-- `_v` — schema version, passed through by the sync engine.
-- `_u` — interpreted as the **convergence** key: higher lexicographic value wins (see **Convergence Rule**).
-- `_d` — deletion flag; a `true` value is a tombstone.
-- `_s` / `_c` — read by **Cadence Sync**: `_s` detects freshly-delivered rows, and the `_c − _s` gap is the clock skew it corrects for when judging readiness.
+**Std Sync Name**:
+The stable normalized Name that identifies a Std Sync namespace.
 
-Users do not author Entity Meta during normal collection mutations. Server APIs return entities; the sync engine consumes them.
+**Collection Name**:
+A schema Name qualified by its Std Sync Name, such as
+`acme-production.todo-items`. It identifies one Collection within a Sync
+namespace; the original schema name remains the Entity's `_e` identity.
 
-### Item
+**Entity Ownership**:
+The rule that one Entity `_e` belongs to exactly one Collection in a Std Sync.
 
-The TanStack DB form of an entity. All `value` fields are hoisted to the top level, and Entity Meta is nested under `_meta`.
+**Collection**:
+The Sync-owned boundary for one Entity type and its TanStack DB Collection
+Projection, Sync Replica, Sync State, and Peer Channel.
 
-```
-Entity  ->  Item
-{ value: { id, name }, meta: { _e, _v, _u, _d } }
--> { id, name, _meta?: { _e, _v, _u, _d }, $synced, $origin }
-```
-
-TanStack DB adds computed sync annotations such as `$synced` and `$origin` on reads. They are not persisted and are not part of the domain model.
-
-### Entity Ownership
-
-Within one `createStdSync()` instance, an entity type may belong to exactly one collection. Entity identity is `schema.name`.
-
-A tracker registration for an already-owned `schema.name` is a configuration error. Incoming entities with `meta._e` that does not match the target collection's `schema.name` are wrong-entity inputs.
-
-### Convergence Rule
-
-The rule for server-truth writes:
-
-- Newer `_u` overwrites older `_u`.
-- Older `_u` is a successful no-op.
-- A newer `_d: true` tombstone wins and removes the visible collection row.
-- Tombstones remain in the Sync Replica.
-
-The rule applies to strategy results, mutation results, persisted manual writes, and persisted broadcasts.
-
-### Collection
-
-A named TanStack DB in-memory projection of one entity type. It holds Items visible to the UI but is not the Sync Replica.
-
-The collection may contain rows from partitions that are no longer active. Partition unload stops sync work; it does not remove projected rows.
-
-### Name
-
-A readable label derived from input text. Name normalization decomposes accented characters, removes combining marks, lowercases the input, replaces each run outside `a-z` and `0-9` with `-`, and removes `-` from both ends. Names do not need to be parsed back into their source text.
-
-Only an empty result is an invalid Name. Names are not exact typed identities; if two inputs normalize to the same Name inside one namespace, registration fails as a duplicate.
-
-### Std Sync Name
-
-The required, stable Name of one logical Std Sync. Every Browser that represents the same Backend dataset uses the same Std Sync Name; a different dataset uses a different name.
-
-The Std Sync Name namespaces the Sync Replica, Sync State, Peer Channel, and all Collection Names owned by that Std Sync.
-
-### Collection Name
-
-The owning schema's normalized Name, qualified by its Std Sync Name with `.`. For example, Collection `Todo Items` in Std Sync `Acme Production` has the qualified Collection Name `acme-production.todo-items`.
-
-A Browser may own at most one Collection with a given qualified Collection Name. The unqualified schema name remains the Entity's Backend identity.
-
-### Sync Address
-
-A readable label generated from the Names and values that locate part of a Sync. It uses `.` between namespace segments and braces for a Partition qualifier:
-
-```
-a
-a.b
-a.b{global}
-a.b{x=hello-world}
-a.b{x=hello-world}.old-to-new
-```
-
-A Sync Address is for display and observability. It is not parsed and is not an exact storage or map key. The engine keeps the exact typed identity separately, so lossy Name normalization cannot merge distinct Partition values.
-
-### Sync Shape
-
-Two public methods:
-
-- **sync** — a keyed collection. Declares an optional **global** strategy, optional on-demand **partitions**, or both as **Hybrid Sync**. All paths converge through one shared Sync Replica.
-- **singleItemSync** — holds exactly one record with no id field. Separate strategy family.
-
-### Hybrid Sync
-
-A keyed sync shape where background global coverage and on-demand partition acceleration coexist. The global path eventually covers the whole set; an active partition prioritizes the subset needed now so the user does not wait for the global backlog.
-
-_Avoid_: Total versus partitioned sync, priority sync.
-
-### Partition
-
-A sync lifecycle boundary for a partitioned `sync` collection, scoped to one `partitionField = value`.
-
-Partitions are activated by TanStack DB `loadSubset(options)` and deactivated by `unloadSubset(options)`. The engine refcounts matching subsets. Refcount `0 -> 1` starts the partition strategy runtime; refcount `1 -> 0` stops it.
-
-A partition is not a collection-retention boundary. Rows loaded by inactive partitions can remain projected in the collection.
-
-### Sync Replica
-
-The client-side set of backend-confirmed entities known to a sync engine. The Backend remains authoritative; the replica is a convergent local copy used to build a Collection Projection.
-
-The replica may use Memory or durable storage. That choice controls whether it survives reload; it does not define whether confirmed entities can propagate between live tabs.
-
+**Collection Projection**:
+The ephemeral TanStack DB view built from a Sync Replica and exposed to queries.
 _Avoid_: Sync Replica, cache.
 
-For keyed collections, it is one entity namespace per collection (not per partition). For single-item collections, it is the singleton equivalent.
-
-The Sync Replica is **fully detached from Sync State**. There is no derivation between them — the engine never reads the replica to compute a sync cursor or high-water mark. A strategy that needs a cursor stores it in its own Sync State. A **Projection Position** is read from the replica, but it is a projection cursor, not Sync State.
-
-The replica is recorded in the **Sync Store**. Its default Memory realization lasts only for the life of the sync instance; a durable realization keeps the replica available across reloads.
-
-A **Stored Replica Entity** is the Sync Store entity that records one remote entity:
-
-```
-{ collection: string, key: string, seq: string, value: unknown, meta: EntityMeta }
-```
-
-`seq` is the entity's **Projection Sequence**. `value` is the opaque value received from the server and later handed to TanStack DB. sync does not add an encoding or decoding boundary around it. `meta` is the remote Entity Meta used for convergence; the Stored Replica Entity's own database metadata is separate and has no sync meaning.
-
-Sync alone decides whether and what to persist. Requests such as `persist: true`, the Convergence Rule, client stamping, and retry policy are resolved before or around store operations; the Sync Store and its adapter attach no sync meaning to stored values.
-
-**What writes to the Sync Replica:**
-
-- Strategy results through the internal server-truth writer.
-- Mutation results after the server returns a confirmed entity.
-- Manual writes with `persist: true`.
-- Broadcasts with `persist: true`.
-
-**What does not write to the Sync Replica:**
-
-- Optimistic mutation state before server confirmation.
-- Manual writes with `persist: false`.
-- Broadcasts with `persist: false`.
-
-The replica can be written while the TanStack collection is unmounted. If callbacks are absent, projection is deferred. On mount, the engine projects the current replica into the collection.
-
-Sync Replica convergence is atomic per entity. A batch is validated before writing, and duplicate keys collapse to the entity with the newest remote `_u`. A batch may partially land if persistence fails; successful entity writes are safe to retry. Stale valid entities are no-ops, not failures.
-
-### Collection Projection
-
-The TanStack DB write side of the engine. It translates Sync Replica state into insert/update/delete messages for the collection callbacks.
-
-Projection is ephemeral. On reload it clears. When the Sync Store is durable, the collection is rebuilt from the persisted replica by advancing from the beginning of the **Projection Sequence**.
-
-Projection has one path. Mount, strategy results, mutation results, and another tab's writes all reach a collection by advancing its **Projection Position**; none of them projects entities directly.
-
-### Projection Sequence
-
-The monotonic ULID the engine assigns a **Stored Replica Entity** on every accepted write. It records local arrival order — when this device stored the entity — and is unrelated to `_u`, which records authoring order. A backfill strategy writes entities whose `_u` is older than everything already stored; their Projection Sequence is still the newest.
-
-Only an accepted write assigns a new Projection Sequence. A write the **Convergence Rule** skips leaves it untouched, because nothing changed for anyone to observe.
-
-### Projection Position
-
-How far through a collection's **Projection Sequence** one mounted collection has already projected. Everything after it has not yet reached that collection.
-
-A Projection Position belongs to a single mounted collection, is held in memory, and is rebuilt from the beginning on mount. It is not **Sync State**: Sync State records what this device fetched from the server, is persisted, and is shared by every collection sharing the Sync Store; a Projection Position records what one collection has displayed and never outlives it.
-
-Advancing a Projection Position is idempotent. Replaying a range already covered re-projects entities that are already present, which changes nothing.
-
-### Sync State
-
-Serializable per-strategy, per-partition data stored by the engine and interpreted by the strategy. Persisted Sync State is wrapped as a **Stored Sync State** and decoded through that strategy's state schema before a strategy sees it.
-
-A **Stored Sync State** is the separate Sync Store entity that the engine records for one strategy partition:
-
-```
-{ collection: string, key: string, strategy: string, value: unknown }
-```
-
-- `collection` — the owning collection's schema name.
-- `key` — the partition identity, such as the global partition or a serialized partition field/value pair.
-- `strategy` — the owning strategy name. On read, a mismatch resets the slot to the strategy's empty state.
-- `value` — the opaque strategy-owned Sync State.
-
-It shares no vocabulary with **Entity**: it carries strategy bookkeeping, never replica data. (The internal identifier `StoredStrategyState` refers to this wrapper; "envelope" is retired as a glossary term.)
-
-Examples:
-
-- `OldToNew` may track a high-water mark.
-- `NewToOld` tracks a list of covered `_u` slices plus a `reachedOldest` flag.
-- A polling single-item strategy may not need any state.
-
-Sync State is one serializable slot per strategy partition. It is fully detached from the Sync Replica — neither is derived from the other. The strategy is responsible for ordering: it first applies items to the Sync Replica, then advances its own Sync State.
-
-The engine owns storage mechanics; the strategy owns meaning. If the stored strategy name does not match the current strategy, or the stored state fails the current strategy schema, the engine logs a warning, resets that slot to the strategy's empty state, and continues. Sync State is affected only by strategy-owned sync operations. Registry writes, mutation results, and manual persisted writes never advance it.
-
-Runtime resources such as fibers, subscriptions, abort controllers, semaphores, and callbacks are not Sync State.
-
-### Sync Store
-
-The sync-wide local table that holds the engine-owned Sync Replica and Sync State as two separate entity definitions. Its complete table definition is public so an application can create an adapter layer for it; the entity definitions remain engine-owned.
-
-Each `createStdSync()` uses an isolated Memory realization by default. An application may override it through `storeLayer` with any compatible StdTable adapter layer, including IndexedDB, SQLite, or a remote adapter. Two sync instances that share an adapter layer and qualified Collection Names intentionally share storage: a Stored Replica Entity is identified by qualified Collection Name and record key.
-
-The table's primary access patterns cover all persistence reads:
-
-- Stored Replica Entity — get by collection and entity key; enumerate by collection in **Projection Sequence** order.
-- Stored Sync State — get by collection and partition key.
-
-Projection Sequence order is the model's only secondary access pattern.
-
-The Sync Store is not Collection Projection. Durability does not by itself define mutation queuing, conflict policy, or network behavior. Whether individual collections can opt out of the sync-wide persistence policy is deliberately outside the current model.
-
-_Avoid_: Offline Storage, Offline Storage Group, cache.
-
-### Sync Lifecycle
-
-The active runtime window in which a strategy may perform work.
-
-For a global keyed strategy, the global partition starts when collection sync starts and stops when collection cleanup runs.
-
-For a partitioned `sync` collection, each partition starts and stops through TanStack DB's `loadSubset` / `unloadSubset` lifecycle.
-
-For `singleItemSync`, lifecycle is collection-level: start on sync start, stop on cleanup.
-
-### Cursor
-
-An opaque boundary marker handed to the user's `fetch` closure. Concretely it is the boundary **entity** (`Cursor<TItem> = EntityType<TItem>`), not a bare `_u` string.
-
-The strategy reads `_u` only for ordering and boundary comparison. "How to fetch relative to this cursor" — and any tie-breaking needed to keep `_u` a strict total order — is the source closure's concern. The meaning of `{ cursor: null }` is documented by each worker/source contract.
-
-### Sync Strategy
-
-The pluggable unit that decides how data flows from the server into the engine.
-
-A strategy is **partition-blind**. Its constructor receives exactly the sources its algorithm consumes, usually through closures that capture a partition value. The running strategy has no concept of partitions, partition values, or lifecycle mechanics.
-
-A strategy does not own the Sync Replica. At lifecycle start the engine calls `run(ctx)` with a `StrategyContext`:
-
-```ts
-type StrategyContext<TItem, TState> = {
-  flow: StrategyFlow; // log and withSpan for this strategy participant
-  applyToSyncReplica: (entities) => Effect.Effect<Entity[], WriteError>;
-  getState: Effect.Effect<TState>; // decoded state for this strategy partition
-  setState: (state: TState) => Effect.Effect<void>; // routed to this partition's slot
-  scope: Scope.Scope; // for subscriptions/fibers
-};
-```
-
-`StrategyContext` carries no fetch source and **no partition value**. Sources belong to the strategy constructor; the partition value lives only in those user closures and the engine's per-partition runtime map.
-
-### Collection Flow
-
-The Effect Tracer Flow for one Collection instance. It is created with the Collection configuration and has id `std-collection::<schema-name>::<ulid>`. TanStack DB starting `sync(callbacks)` and later running cleanup bound one **Activation** of the `collection` participant; a later start of the same Collection reuses the Flow and opens a new Activation. A Flow has no terminal status — lifecycle is carried by Activations, never by the Flow.
-
-The `collection` participant records initialization, readiness, cleanup, mutations, Registry deliveries, and control messages. A global strategy has one worker participant. Each logical Partition has one stable worker participant across repeated `0→1→0` Sync Lifecycles, so multiple subscribers and later reactivation remain in the same lane. Cadence Repair and Single Item Sync use their own worker participants. Sync Replica work is nested inside the calling participant, not a participant of its own.
-
-Every participant with a real lifecycle records it as an **Activation**: the collection across start-to-cleanup, each strategy and Cadence Repair across its supervised run, and each Partition across one refcount `0 -> 1 -> 0` cycle on its stable lane. Supervised retries stay inside one Activation — between attempts the participant is sleeping, not deactivated — so an Activation that ends `failed` means supervision gave up. Lifecycle boundaries and subscriber counts are Flow logs or messages. Each supervised strategy attempt is a Flow activity. Nested API, Sync State, and Sync Replica spans remain available through that activity's trace. After each non-empty strategy or Cadence Repair delivery, the worker logs `receivedCount` and `storedCount`; `storedCount` is the number of live upserts and tombstones accepted by replica convergence. Custom strategies receive only `log`, `state`, and `withSpan` through `StrategyContext.flow`; lifecycle remains the only owner of messages, Replies, and Activations.
-
-Collection start, cleanup, and initialization failure are non-terminal events. Strategy and Cadence Repair failures remain local to their participant because supervision retries them. If Effect telemetry is not configured for export, these spans and logs have no external exporter; sync has no separate tracing switch.
-
-The Collection Flow id is observable from outside through `collection.utils`. An outside observer with the id may join the Flow as its own participant; the engine neither knows nor cares which external participants share its Flow.
-
-The strategy contract is a single method `run(ctx): Effect<void, unknown, Scope | R>`, where `R` is the optional application runtime environment. A strategy does **not** catch failures from `applyToSyncReplica` — it lets `WriteError` surface. The engine owns the recovery policy: on any `run` failure it reports a structured event and restarts `run` from the top on a fixed 2-second spaced schedule. Because a restart re-reads Sync State, a drain resumes from its last cursor. `run` may complete early (a pull that drains) or stay alive (a subscription); completion is **not** teardown. Teardown happens only when the engine closes the partition scope, which also interrupts the retry loop. Cleanup is the strategy's own `Effect.addFinalizer` registered on that scope; the engine never knows what is being torn down. Strategies expose **no public utils** — there is no `utils.sync`. A partitioned collection can hold heterogeneous per-partition strategies, so no single strategy-specific util surface can be type-safe. `collection.utils` is engine-owned and generic only (`schema`, `applyToSyncReplica`, `pacedUpdate`, and pending-mutation inspection).
-
-**Strategy binding per shape:**
-
-- Total keyed sync — `sync.total` is one entry containing a strategy and optional repair capability.
-- Partition sync — each entry in `sync.partitions` is a factory `(partitionValue) => { strategy, repair? }`. The engine calls it on partition refcount `0→1`; strategy and repair sources capture the value while the strategy stays partition-blind.
-- Hybrid sync — `sync.total` and `sync.partitions` coexist. Their progress slots and lifecycles are independent; their entity writes share one Sync Replica.
-
-**Partitioned strategy family**:
-
-- **OldToNew** — fetches from older records toward newer records.
-- **NewToOld** — newest-first delivery with a live tail. Exists to escape `OldToNew`'s limitation: with a large backlog, `OldToNew` blocks the newest records behind a full replay of the backlog. `NewToOld` makes the newest records visible **immediately** and pushes the bulk fill into the background. It runs two activities under the strategy scope:
-  - **Live tail** (`subscribeNewer`, a stream): waits for the backfill's first available top and then streams strictly newer batches.
-  - **Backfill** (`subscribeOlder`, a finite stream): resumes from the saved top slice's low boundary, or from `null` on a cold start, and drains toward the absolute bottom.
-
-  Covered state is a **persisted list of disjoint `_u` ranges (slices)** plus a single collection-level `reachedOldest` flag:
-
-  ```ts
-  type Slice = { low: Cursor; high: Cursor }; // boundary entities at the lowest & highest _u of a contiguous loaded range
-  type NewToOldState = { slices: Slice[]; reachedOldest: boolean };
-  ```
-
-  - A **slice** is a contiguous loaded range whose `low`/`high` are the boundary **entities** at the oldest and newest `_u` of the range. Slice ordering and overlap are computed by comparing those entities' `_u`.
-  - **Reconcile** runs on every batch (live-tail push and backfill pull alike): extend the touched slice, then merge any slices that overlap or touch, keeping the list disjoint and minimal. Overlap is detected by `_u` comparison — the strategy reads `_u` to sort batches and compare boundaries; the cursor is opaque only as to _how to fetch older from it_. Exact no-overlap adjacency is undetectable but harmless: backfill overlaps into the next slice on its next page and merges then.
-  - **`reachedOldest`** is a property of the whole sync, not of a slice. It becomes true only after the lowest material slice has been proven to reach the absolute floor. An empty collection leaves `reachedOldest: false` because there is no bottom slice to anchor future gaps. The Upward Migration invariant guarantees the oldest record never moves, so once a material floor is proven, the flag is true forever. Every later session is then **pure gap-filling above the floor** — backfill stops as soon as its frontier merges into the bottom-most slice and never probes below the floor again.
-    **Run shape.** Backfill and live-tail fibers run together. Backfill publishes its first available top through a `Deferred`; the live tail waits for that anchor before subscribing. Both share the slice state through a `SynchronizedRef` and persist reconciled updates atomically. On restart, backfill resumes from the saved top slice's low boundary and the live tail anchors at its saved high boundary.
-
-  A large reload gap produces genuinely disjoint slices (old region + fresh top slice) with a real gap that backfill grinds through later; if the data did not grow, the fresh latest slice overlaps the saved top slice and reconcile collapses them, so no spurious gap. Relies on the **Upward Migration invariant** below to keep covered ranges trustworthy across reloads.
-
-- **Bidirectional** — newest-first delivery (like `NewToOld`) plus a second backfill frontier ascending from the absolute oldest record. Exists to make the **oldest** records visible immediately too, instead of only after the downward backfill grinds through the whole backlog. Coverage converges on a single gap closed from **both ends**. It runs three activities under the strategy scope:
-  - **Live tail** (`subscribeNewer`, a stream): anchors at the session's fresh top, streams forward live, stays open.
-  - **Downward frontier** (`fetchOlder`, a cursor pull): `{ cursor: null }` resolves the **newest page**; a non-null cursor resolves the page strictly **older** than it. Descends from the top slice's low.
-  - **Upward frontier** (`fetchNewer`, a cursor pull): `{ cursor: null }` resolves the **oldest page**; a non-null cursor resolves the page strictly **newer** than it; an empty batch means the frontier has caught up. Ascends from the bottom slice's high.
-
-  A cold session seeds the newest page with `fetchOlder({ cursor: null })` and the oldest page with `fetchNewer({ cursor: null })` before starting the three fibers. A warm session resumes directly from persisted slices and anchors the live tail at the saved top.
-
-  Covered state is the same disjoint `_u` slice list as `NewToOld`, **minus** `reachedOldest`:
-
-  ```ts
-  type BidirectionalState = { slices: Slice[] };
-  ```
-
-  `reachedOldest` is dropped because the upward frontier anchors the true floor on page one of every session, so "have we reached the oldest" is always yes — a constant flag carries no information.
-  - **Termination** is **single-slice collapse**: when the slice list reduces to one contiguous range, both anchors are covered and the gap is closed. The downward frontier marches from the top slice's `low` (swallowing middle gaps as it descends); the upward frontier marches from the bottom slice's `high` (swallowing middle gaps as it rises). Whichever reconciles the closing batch produces `slices.length === 1`; the other observes it on its next loop and exits. A warm resume whose gap is already closed starts, both pulls see one slice, exit immediately, and only the live tail keeps running.
-  - **Empty collection**: a frontier whose **seed page is empty** exits immediately. With a genuinely empty dataset neither pull has anything to do, `slices` stays empty (never reaches one slice — harmless), and the live tail parks waiting for the first arrival. So a frontier stops when `slices` collapses to one **or** its seed page is empty.
-
-#### Upward Migration invariant (`_u` ordering)
-
-`_u` is a global monotonic update key: an update moves a record strictly above every existing `_u` (toward "now"). Records therefore migrate **only upward**, never downward into a historical interval.
-
-Consequence: a `_u` interval, once fully drained, is **permanently complete** — it can only _shed_ records (they get edited and jump to the top, where a later pass re-fetches them and convergence dedupes by id) and can **never gain** a record it did not already see. This is what lets `NewToOld` snapshot frozen `_u` boundary values and trust that "covered" stays covered across sessions, without needing a separate creation key.
-
-The cursor handed to the user's fetch closure is **opaque** (the boundary entity, as in `OldToNew`); the strategy never interprets it. "Fetch older records than this cursor" and any tie-breaking to keep `_u` a strict total order are the closure's concern. The strategy assumes `_u` is strictly unique per entity and only records the `[oldest, newest]` `_u` range of each returned batch.
-
-**Single-item strategy family**:
-
-- **GetOnce** — fetches once on lifecycle start.
-
-### Cadence Sync
-
-A drift-repair loop that runs **in parallel** with a partition's Sync Strategy, forked under the same partition scope. It does not pull new history; it re-confirms recently-delivered rows so the strategy's covered ranges do not silently drift.
-
-Each pass scans the partition's projected rows (narrowed to `field = value`) for **suspects** — rows delivered so close to their own `_u` that sibling records at the same `_u` may still have been in flight (`_s − uTime(_u) < window`). Once the oldest suspect has aged past `readiness` (adjusting for the `_c − _s` clock skew), it re-fetches from the suspect's predecessor anchor and applies the result through `applyToSyncReplica`. That `_u` is repaired at most once during the active Cadence Repair run, even when the server returns the same suspect unchanged. Every repair waits `pollDelay` before the next scan, preventing a tight repair loop.
-
-Cadence Sync **only writes the Sync Replica**; it never reads or advances Sync State — it owns no cursor and claims no forward progress. It is an explicit per-entry `repair` capability containing `fetchFrom` and an optional cadence override. A declared repair inherits `cadence` from `createStdSync` when it omits its own policy. Omitting `repair` disables repair even when a default exists. Config is `{ window, readiness, pollDelay, debug? }`.
-
-_Avoid_: Cadence Sync Strategy (it is not a Sync Strategy), polling.
-
-### Mutations (`onInsert` / `onUpdate` / `onDelete`)
-
-Thin API call wrappers configured per collection.
-
-Flow:
-
-1. TanStack DB handles optimistic mutation state and rollback.
-2. The engine extracts the mutation payload.
-3. The user-supplied Effect calls the server.
-4. The server returns a confirmed entity.
-5. The engine applies that entity through `applyToSyncReplica`.
-
-`onDelete` returns a tombstone entity with `_d: true`, not `void`.
-
-Mutation results do not touch Sync State.
-
-### Utils
-
-The public utility surface is a flat set of engine-owned functions.
-
-```ts
-utils.schema();
-utils.applyToSyncReplica(entityOrEntities);
-utils.pacedUpdate(key, changes);
-utils.pendingCount(key);
-utils.subscribePending(listener);
-```
-
-`utils.applyToSyncReplica(entityOrEntities)` returns the complete accepted Entities, including tombstones, and applies them through Sync Replica convergence. Stale valid Entities are successful no-ops and are omitted from the result.
-
-### Registry
-
-The fire-and-forget router for Broadcasts within one Sync instance. Delivery is detached from the Sync Lifecycle: shutdown neither waits for nor guarantees completion of an outstanding delivery.
-
-Because entity ownership is disjoint, each `_e` has at most one target collection.
-
-### Broadcast
-
-A message containing one or more entities:
-
-```
-{ values: Entity[], persist: boolean }
-```
-
-The transport is the caller's concern. The message shape is the sync engine's concern.
-
-`persist: true` treats the broadcast as confirmed data and writes the Sync Replica + collection.
-`persist: false` projects only to the mounted collection.
-Neither mode touches Sync State.
-
-`persist: false` is tab-local by definition. Nothing about it is stored, so it carries no **Projection Sequence** and cannot reach another tab. A preview that crossed tabs would leave behind a row that no store could later correct or remove.
-
-### Peer Fast Path
-
-Best-effort delivery of backend-confirmed entities from one live tab to other same-origin tabs. Each receiver sends those entities through the same **Convergence Rule** as backend sync, regardless of whether its Sync Replica uses Memory or durable storage.
-
-Each Collection owns one Peer Channel named by its qualified Collection Name, such as `a.b`. The Collection subscribes when it registers with its Std Sync and unsubscribes when that Std Sync is disposed.
-
-The Peer Subscription does not follow Collection Projection mounting. An unmounted Collection continues to apply peer entities to its Sync Replica; a later mount advances its Projection Position over those entities.
-
-A sender delivers only entities accepted by its own Convergence Rule. Stale inputs and unchanged duplicates do not enter the Peer Fast Path.
-
-A receiver applies the entities to its own Sync Replica without relaying them again. BroadcastChannel already delivers directly to every listening peer.
-
-The Peer Fast Path improves freshness but never establishes correctness. A missed delivery is repaired by backend sync; a newly opened tab hydrates from durable storage or fetches from the Backend.
-
-The Peer Fast Path starts automatically when a peer channel is available and may be explicitly disabled. Failure to send or receive through it never fails the originating mutation or sync operation; the engine reports the failure and relies on backend sync for repair.
-
-Optimistic state is never sent through the Peer Fast Path. It becomes eligible only after the Backend confirms it.
-
-A Peer Fast Path delivery is not a Registry **Broadcast**. The former is engine-owned propagation of confirmed entities between peer tabs; the latter is caller-owned ingress into one sync instance.
-
-### Peer Message
-
-The versioned wire value carried by one Collection's Peer Channel:
-
-```
-{ version: 1, entities: Entity[] }
-```
-
-Its collection-specific Schema validates the complete envelope, every Entity value and Entity Meta block, and the owning Entity type tag. A valid Peer Message contains at least one Entity. Invalid messages are reported and ignored.
-
-### Peer Sync
-
-The collection-owned capability that implements the Peer Fast Path. It owns the Peer Message Schema, encodes outbound accepted Entities, decodes inbound unknown values, serializes inbound application, and owns Peer Channel subscription and cleanup.
-
-`PeerChannel` exposes broadcast and subscription operations rather than a mutable event handler. `PeerChannelFactory` lets an application replace the default browser BroadcastChannel adapter without taking ownership of message validation or Collection delivery.
-
-The public `peerSync` option configures this capability for every Collection in one Std Sync. `peerSync: false` disables it; `peerSync: { channel: customPeerChannelFactory }` replaces its channel transport.
-
-### Tracker
-
-Internal structure that remembers which collections a `createStdSync()` instance created. It enforces unique ownership by `schema.name` and is used by the registry for routing.
-
-### createStdSync
-
-The factory. `createStdSync({ name, storeLayer })` creates one named Std Sync per Backend dataset or feature scope. It returns `sync`, `collection`, `singleItemSync`, `singleItemCollection`, and `registry`.
-
-`sync` is the unified keyed-collection method. One collection declares `sync.total`, `sync.partitions`, or both. Total sync runs the **global partition** at collection start. Each typed partition factory is activated by a matching `loadSubset`. Both coexist in one engine sharing one Sync Replica; convergence dedupes overlap. The runtime routes each live query: matching partition field → that partition's strategy; no match → covered by total sync, or reported as an `UnservedQuery` event when no total sync exists.
-
-The main barrel exposes the collection factory, built-in strategy namespaces, pace strategies, the Sync Store, wrapper configuration types, custom-strategy contracts, and structured sync-event types. Nested worker configuration, runtime, flow, partition-map, repair, and store-layer types remain inferred rather than becoming separate public names. The `std-toolkit/sync/paced` subpath additionally exports the raw `coalesceStrategy` primitive.
-
-### Effect Runtime
-
-An optional `ManagedRuntime` supplied to `createStdSync`. Strategies, fetches, and mutation callbacks may require its environment `R`. At TanStack DB's synchronous and promise boundaries, sync executes Effects through the supplied runtime's `runSync` or `runPromise`. When no runtime is supplied, the public API fixes `R` to `never` and uses the corresponding global Effect runner. This prevents declaring service-requiring callbacks without also providing their runtime. Imperative execution is centralized in the shared **Effect Runner** runtime module.
-
-### Sync Event
-
-A structured operational fact reported through the Effect-valued `onEvent` callback. Events cover strategy and cadence failures, initialization failures, unserved queries, and registry write failures. They replace the former Inspector: observability consumes explicit events without adding inspection metadata to persisted domain state or coupling the sync engine to a UI model.
-
-### Layer Graph
-
-The enforceable dependency structure for sync: **domain → persistence → runtime → workers → lifecycle → composition → public**. Lifecycle owns running scopes, retries, cadence fibers, and shutdown; composition joins lifecycle with TanStack callbacks, projection, persistence, and mutation handlers. Modules in one layer are independent unless their Laymos entry is explicitly marked `shared`. Every folder module is a deep module with a narrow `index.ts` door and a matching implementation file.
-
-### StdSync
-
-The object returned by `createStdSync`.
-
-### Pace Strategy
-
-A distinct axis from a **sync strategy**. A _pace strategy_ controls **when** `pacedUpdate`'s optimistic mutations are committed to the server, not how data is pulled into the Sync Replica. It plugs into TanStack DB's `createPacedMutations`. Built-in pacers are `debounce`, `throttle`, and `queue`; sync adds `coalesce`. Exposed two ways: the raw reusable primitive `coalesceStrategy()` (drop into any `createPacedMutations`), exported from the **`std-toolkit/sync/paced` subpath** (not the main barrel), and the collection-level namespace `paceStrategy` (`paceStrategy.coalesce()`, `paceStrategy.debounce(...)`, ...) selected via the `updatePacing?` field on `sync`.
-
-### Sync Story
-
-A user journey that explains sync through a scripted conversation between Simulation participants. A Sync Story may assert visible query results, Collection state, lifecycle behavior, or eventual agreement with the Backend; convergence is not its only possible assertion.
-
-### Simulation
-
-The generic, type-safe scripted world a Sync Story runs in. A deterministic script drives named **participants** (the same term as Collection Flow lanes — _Avoid_: actor) whose actions and messages form the story's narrative; domain fixtures such as Todos configure the world without defining its mechanics.
-
-### Simulation Flow
-
-The single Flow shared by every participant in one Sync Story. Qualified participant names keep multiple Browsers, Live Queries, Collections, and Sync Workers distinct while preserving one chronological conversation.
-
-### Backend
-
-The single authoritative application-side participant in a Simulation. It owns durable application data and exposes the operations and change feeds through which Browsers and Sync Workers communicate with that data.
-
-_Avoid_: Server, Backend Store, database.
-
-### Browser
-
-One independent client runtime through which a user interacts with the application. A Simulation may contain multiple named Browsers, each owning its own Sync Store, Collections, Sync Workers, and any number of Live Queries.
-
-_Avoid_: User, client.
-
-### Browser Connection
-
-The communication path between one Browser and the Backend. Disconnecting it isolates that Browser without taking the Backend or other Browsers offline; disconnected mutations fail unless the application supplies a real offline queue.
-
-### Live Query
-
-A Browser-owned TanStack DB reactive Collection created by mounting a query over one or more source Collections. A Simulation may contain multiple named Live Queries whose independent subscriptions can activate and deactivate sync work.
-
-_Avoid_: Subscription, mounted collection.
-
-### Optimistic Action
-
-A Browser operation that groups one or more Collection mutations in a TanStack DB optimistic transaction before persisting them through the Backend. It settles only after the Backend-confirmed Entities have returned to the acting Browser's Sync Replica; failure rolls back the optimistic Collection state.
-
-### Direct Mutation
-
-A single Browser insert, update, or remove performed through one Collection's mutation callback. It is distinct from an Optimistic Action, which supplies one transaction-level Backend operation for mutations spanning one or more Collections.
-
-### Sync Worker
-
-A strategy runtime that carries Backend changes into a Collection's engine-owned state. A Simulation may contain multiple Sync Workers, including independent workers for active Partitions.
-
-A Simulation runs on **real time** — there is no simulated clock (TanStack DB reads the system clock directly, so a substitute time source cannot be truthful). Determinism comes from awaiting convergence, never from fixed sleeps. "Updated some time back" means an older `_u`, which ULID ordering provides; a story that needs a literal past timestamp backdates the `Ulid` factory while seeding history, at the data level.
-
-_Avoid_: Simulated Time, fake clock.
-
-### Coalesce (pace strategy)
-
-Single-flight with trailing coalescence. The first `pacedUpdate` for a key fires its request immediately (leading edge). While that request is in flight, every further `pacedUpdate` for the same key is merged (coalesced) into one pending mutation. The moment the in-flight request resolves, that merged mutation fires as a single request — repeating until quiet. Paced by request completion, **not** by a timer (unlike `debounce`/`throttle`). `coalesceStrategy({ wait? })` takes an optional `wait` (default `0`): a cooldown gap measured **from request completion**, not from user input. The leading-edge first call always fires immediately regardless of `wait`. On **success**, if a coalesced backlog exists, the merged trailing mutation fires after the `wait` gap (immediately when `wait` is `0`); an empty backlog fires nothing; on **failure** the in-flight gate clears but the coalesced backlog is retained, so the next `pacedUpdate` fires it leading-edge. The pacer never retries or backs off — that stays in the user's Effect.
+**Sync Replica**:
+The client-side set of backend-confirmed Entities known to one Collection. It is
+a convergent local copy, never the authority.
+_Avoid_: Source of Truth, cache.
+
+**Sync Store**:
+The storage boundary containing Sync Replicas and Sync State. A Memory or
+durable realization changes persistence across reloads, not peer freshness.
+_Avoid_: Sync Persistence Table, offline cache.
+
+**Sync State**:
+Strategy-owned progress used to resume backend synchronization. It is separate
+from the Sync Replica and is not advanced by mutations, Registry Broadcasts, or
+Peer Sync.
+_Avoid_: Sync Replica cursor.
+
+**Convergence Rule**:
+The rule that accepts a newer Entity `_u`, treats an older or duplicate Entity
+as a successful no-op, and retains accepted tombstones in the Sync Replica.
+
+**Projection Position**:
+A Collection Projection's local position in its Sync Replica. It is not backend
+progress and not Sync State.
+
+**Sync Strategy**:
+A worker policy that obtains backend-confirmed Entities and owns the Sync State
+needed to resume its work.
+
+**Partition**:
+A ref-counted Sync lifecycle window for one keyed subset. It is unrelated to a
+database partition and does not define Collection retention.
+
+**Hybrid Sync**:
+A keyed Sync where global coverage and active Partition acceleration converge
+through the same Sync Replica.
+_Avoid_: Total versus partitioned sync, priority sync.
+
+**Cadence Repair**:
+A bounded recheck of recently delivered Entities that repairs timing drift
+without owning backend progress.
+_Avoid_: Cadence Sync Strategy.
+
+**Sync Address**:
+A readable observability label for a Sync, Collection, Partition, or strategy,
+such as `a.b{x=hello-world}.old-to-new`. It is lossy, never parsed, and never a
+storage or map identity.
+_Avoid_: Storage key, partition identity.
+
+**Registry**:
+The in-process router that delivers Registry Broadcasts to Collections owned by
+one Std Sync.
+
+**Registry Broadcast**:
+Caller-owned ingress of Entities into one Std Sync. Persisted delivery converges
+through the Sync Replica; projection-only delivery remains local to that tab.
+_Avoid_: Peer Sync message.
+
+**Peer Sync**:
+Best-effort same-origin delivery of accepted, backend-confirmed Entities between
+live tabs. It improves freshness while backend synchronization remains the
+correctness and repair mechanism.
+_Avoid_: Change Notice, authoritative sync, Peer Fast Path.
+
+**Peer Channel**:
+The transport owned by one qualified Collection Name through which Peer
+Messages are sent and received.
+
+**Peer Message**:
+A versioned non-empty envelope of complete confirmed Entities for one
+Collection. Receivers validate it and apply the normal Convergence Rule without
+relaying it.
+
+**Optimistic Entity**:
+A provisional Collection value awaiting Backend confirmation. It is neither
+stored in the Sync Replica nor sent through Peer Sync.
+
+**Sync Event**:
+A structured operational fact reported by Sync, including lifecycle, Registry
+Broadcast, and best-effort Peer Sync failures.
+
+**Sync Story**:
+An executable user journey that explains Sync through named simulation
+participants and assertions.

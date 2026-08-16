@@ -27,7 +27,7 @@ npm install @tanstack/react-db react   # required by sync
 | [`std-toolkit/db/sqlite`](src/db/sqlite/README.md)                          | SQLite binding and setup with separate environment driver entrypoints             |
 | [`std-toolkit/db/idb`](src/db/idb/README.md)                                | IndexedDB binding and explicit Store setup                                        |
 | [`std-toolkit/db/memory`](src/db/memory/README.md)                          | Dependency-free, ephemeral Memory adapter for any JavaScript runtime              |
-| [`std-toolkit/sync`](src/sync/README.md)                                    | TanStack DB sync engine with paced writes and IndexedDB offline storage           |
+| [`std-toolkit/sync`](src/sync/README.md)                                    | TanStack DB sync with local replicas, paced writes, and best-effort Peer Sync     |
 
 ## Requirements
 

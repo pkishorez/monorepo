@@ -93,7 +93,7 @@ export type SingleItemSyncConfig<
 };
 
 /**
- * Creates one std-sync instance: a shared tracker behind `sync` (keyed,
+ * Creates one Std Sync instance: a shared tracker behind `sync` (keyed,
  * partitioned), `singleItemSync` (singleton), and `registry` (the broadcast
  * router). Optional `defaults.options` are merged into every collection's options,
  * with per-collection options winning. Schema names are normalized and qualified

@@ -29,7 +29,7 @@ import type { CollectionFlow } from '../../runtime/sync-flow/index.js';
 /**
  * Builds the TanStack mutation handlers for a partitioned collection. Each handler
  * extracts the payload from the transaction, runs the user Effect, and flushes the
- * returned server entity through `applyToSyncReplica`; `onDelete` flushes the
+ * returned backend-confirmed Entity through `applyToSyncReplica`; `onDelete` flushes the
  * tombstone the user Effect returns. `pacedUpdate` paces optimistic updates per key via
  * `buildPacedUpdate` (default `coalesce`), applying the optimistic row through the
  * engine-supplied `optimistic` callback and flushing the confirmed entity through

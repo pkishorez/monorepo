@@ -22,7 +22,8 @@ const SINGLE_KEY = '__single__';
 /**
  * Builds the single-item mutation handlers. There is no insert or delete: a
  * single-item record has collection-level lifecycle only. `onUpdate` runs the user
- * Effect and flushes the returned server entity through `applyToSyncReplica`.
+ * Effect and flushes the returned backend-confirmed Entity through
+ * `applyToSyncReplica`.
  * `pacedUpdate` paces optimistic updates through a single in-flight gate (default
  * `coalesce`), applying the optimistic row via the supplied `optimistic` callback
  * and flushing the confirmed entity. Mutation results never touch sync-state.

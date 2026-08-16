@@ -5,6 +5,7 @@ import { aUserUpdatedSomeTimeBack } from './catching-up/a-user-updated-some-time
 import { aSimulatedWorld } from './how-these-stories-run/a-simulated-world.story.js';
 import { issue1 } from './issue-1/issue-1.story.js';
 import { crossCollection } from './optimistic-transactions/cross-collection.story.js';
+import { peerSyncModel } from './peer-sync/peer-sync-model.story.js';
 import { oneListAtATime } from './syncing-on-demand/one-list-at-a-time.story.js';
 import { editsKeepFlowing } from './staying-current/edits-keep-flowing.story.js';
 import { oneBrowserManyTabs } from './two-tabs/one-browser-many-tabs.story.js';
@@ -17,6 +18,7 @@ const stories: readonly Story[] = [
   editsKeepFlowing,
   oneListAtATime,
   crossCollection,
+  peerSyncModel,
   oneBrowserManyTabs,
   issue1,
 ];

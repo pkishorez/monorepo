@@ -72,7 +72,7 @@ export const makeSyncStore = (layer: SyncStoreLayer): SyncStore => {
     provide: (effect, details) =>
       runtime.contextEffect.pipe(
         Effect.flatMap((context) => Effect.provide(effect, context)),
-        Effect.withSpan('sync.store', {
+        Effect.withSpan('sync.sync-store', {
           kind: 'client',
           attributes: {
             'db.system.name': 'std-table',

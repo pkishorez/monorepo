@@ -2,7 +2,20 @@
 
 Effect-based synchronization for TanStack DB. Keyed collections may run total
 sync, on-demand partition sync, or both. Every path converges through one local
-Sync Replica (Sync Replica), persisted through a shared StdTable.
+Sync Replica, persisted through a Sync Store.
+
+## Mental model
+
+Each tab owns a Sync Replica and a TanStack DB Collection Projection. The
+Backend is authoritative. Backend push or polling makes each replica eventually
+correct; the projection makes that replica visible to TanStack queries.
+
+Peer Sync is a same-origin freshness shortcut. After a tab accepts a
+backend-confirmed Entity, it sends the complete Entity to the matching Collection
+in other live tabs. Receivers apply the normal convergence rule to their own
+replicas and advance mounted projections. A missed message is harmless: backend
+sync repairs it. Optimistic values and Registry Broadcasts with `persist: false`
+never enter Peer Sync.
 
 ## Setup
 
@@ -28,7 +41,12 @@ const std = createStdSync({
 });
 ```
 
-Use `std.collection(config)` when you want std-sync to create the TanStack
+`name` is normalized and qualifies every Collection Name. All tabs connected to
+the same Backend dataset must use the same stable name. The qualified Collection
+Name identifies its Sync Store namespace and its one Peer Channel; the schema's
+original name remains the Entity `_e` identity.
+
+Use `std.collection(config)` when you want Sync to create the TanStack
 collection. `createCollection(std.sync(config))` is also supported. Call
 `await std.dispose()` when the sync instance is no longer needed.
 
@@ -124,7 +142,7 @@ postId: (postId) => {
 ## Effect runtime
 
 All user callbacks and internal fallible or asynchronous operations are Effects.
-Pass a `ManagedRuntime` when those Effects require services. std-sync uses its
+Pass a `ManagedRuntime` when those Effects require services. Sync uses its
 `runSync` and `runPromise` methods at TanStack's imperative boundaries. Without a
 runtime it falls back to `Effect.runSync` and `Effect.runPromise`.
 
@@ -154,15 +172,17 @@ The runtime environment is inferred across strategies, fetches, and mutation
 callbacks, including `onEvent`. A required service that is absent from the
 supplied runtime is a type error.
 
-`onEvent` receives structured Effects for lifecycle failures, initialization
-failures, unserved queries, and registry write failures. When omitted, events use
-Effect's logger.
+`onEvent` receives structured Events for lifecycle failures, initialization
+failures, unserved queries, Registry Broadcast delivery, and Peer Sync phases.
+Peer Sync reports `channel-creation`, `subscription`, `send`, `decode`, `receive`,
+and `cleanup` failures without failing sync or mutation work. When omitted,
+Events use Effect's logger.
 
 ## Flow tracing
 
 Every Collection instance owns one Effect Tracer Flow with an id shaped as
-`std-collection::<schema-name>::<ulid>`. The same Flow remains active across
-Collection starts, cleanup, and later restarts; std-sync never ends it. Effect
+`<qualified-collection-name>::<ulid>`. The same Flow remains active across
+Collection starts, cleanup, and later restarts; Sync never ends it. Effect
 telemetry configuration decides whether that Flow is exported.
 
 The Flow has a `collection` lane, one global worker lane, one stable lane for each
@@ -214,19 +234,48 @@ const settings = std.singleItemCollection({
 });
 ```
 
-## Persistence
+## Sync Store and durability
 
 Each sync instance uses an isolated Memory adapter by default. Supplying a
 `storeLayer` replaces it globally for that instance; any adapter layer
-created for `syncStore` is accepted, including IndexedDB and SQLite.
-The table stores both Sync Replica and strategy progress. Write failures surface as
+created for `syncStore` is accepted, including IndexedDB and SQLite. The Sync
+Store holds both the Sync Replica and Sync State. Write failures surface as
 `WriteError.Storage` while adapter-specific errors remain internal.
 
-Tombstones remain in Sync Replica. Persisted strategy state is tagged with its strategy
+Tombstones remain in the Sync Replica. Persisted Sync State is tagged with its strategy
 name and decoded with that strategy's schema. A name mismatch or invalid state is
 reset to the strategy's empty state.
 
-## Utilities and registry
+Memory versus IndexedDB is a durability choice only. Both use Peer Sync when it
+is available. IndexedDB can rebuild a Collection after reload; it does not make
+another live tab's projection fresh without Peer Sync or backend delivery.
+
+## Peer Sync
+
+Peer Sync is enabled by default when `BroadcastChannel` is available. One Peer
+Channel belongs to each qualified Collection, so messages never need routing by
+a lossy display address. Disable the shortcut for the whole Std Sync or supply a
+custom transport:
+
+```typescript
+const pollingOnly = createStdSync({ name: 'acme-production', peerSync: false });
+
+const custom = createStdSync({
+  name: 'acme-production',
+  peerSync: { channel: customPeerChannelFactory },
+});
+```
+
+The custom `PeerChannelFactory` receives the qualified Collection Name. Its
+channel broadcasts unknown messages and subscribes a handler; Sync owns envelope
+validation, serialized application, convergence, and cleanup. Closing a Std Sync
+drains already-admitted deliveries.
+
+See [ADR 0001](./docs/adr/0001-peer-sync-is-a-freshness-path.md) for why Peer
+Sync carries complete Entities, uses one channel per qualified Collection, and
+remains separate from storage identity and backend authority.
+
+## Utilities and Registry Broadcasts
 
 Keyed collections expose typed engine utilities:
 
@@ -238,21 +287,23 @@ tasks.utils.pendingCount(taskId);
 tasks.utils.subscribePending(listener);
 ```
 
-`applyToSyncReplica` returns an Effect and uses the same convergence path as worker and
-mutation results. The registry routes broadcasts among collections owned by one
-std-sync instance:
+`applyToSyncReplica` returns an Effect and uses the same convergence path as
+worker and mutation results. The Registry routes caller-owned Registry Broadcasts
+among Collections owned by one Std Sync:
 
 ```typescript
 const registry = std.registry();
 registry.process({ values: serverEntities, persist: true });
 ```
 
-`persist: true` writes Sync Replica and projects accepted changes. `persist: false` only
-projects to a mounted collection. Neither mode advances strategy progress.
-Registry delivery is fire-and-forget: `process` returns immediately, failures
-are reported through `onEvent`, and `dispose` does not wait for delivery.
+`persist: true` writes the Sync Replica and projects accepted changes.
+`persist: false` only projects to a mounted Collection and remains tab-local.
+Neither mode advances Sync State. Registry Broadcast delivery is
+fire-and-forget: `process` returns immediately, failures are reported through
+`onEvent`, and `dispose` does not wait for delivery. Registry Broadcast and Peer
+Sync are separate code paths and contracts.
 
 Collection cleanup stops collection-owned sync work but does not close
-persistence. `std.dispose()` closes the persistence runtime owned by that
-std-sync instance; outstanding registry deliveries are not part of that
+persistence. `std.dispose()` closes the Sync Store runtime owned by that Std
+Sync; outstanding Registry Broadcast deliveries are not part of that
 shutdown boundary.

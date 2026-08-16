@@ -47,7 +47,7 @@ export const makePeerSync = <TItem, R = never>(args: {
 
   const report = async (
     phase:
-      | 'broadcast'
+      | 'send'
       | 'channel-creation'
       | 'cleanup'
       | 'decode'
@@ -132,7 +132,7 @@ export const makePeerSync = <TItem, R = never>(args: {
           await runOperation(channel.broadcast(message), args.runner);
         }
       } catch (cause) {
-        await report('broadcast', cause);
+        await report('send', cause);
       }
     },
     close: async (): Promise<void> => {
