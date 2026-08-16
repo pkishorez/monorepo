@@ -32,8 +32,8 @@ export type OldToNewConfig<TItem, R = never> =
  * Oldest-to-newest drain strategy. Reads the resume cursor from sync-state, then
  * either polls `config.fetch` batch-by-batch (stopping on an empty batch) or
  * drains `config.stream` (staying alive while the stream is open). Each non-empty
- * batch is written through the engine's `writeServerTruth` and the cursor advanced
- * to its newest entity. `WriteError` from `writeServerTruth` is not caught — it
+ * batch is written through the engine's `applyToSyncReplica` and the cursor advanced
+ * to its newest entity. `WriteError` from `applyToSyncReplica` is not caught — it
  * surfaces so the engine can restart the run, resuming from the persisted cursor.
  */
 export const oldToNew = <TItem extends object, R = never>(
@@ -49,7 +49,7 @@ export const oldToNew = <TItem extends object, R = never>(
       const writeBatch = (batch: EntityType<TItem>[]) =>
         Effect.gen(function* () {
           if (batch.length === 0) return;
-          yield* ctx.writeServerTruth(batch);
+          yield* ctx.applyToSyncReplica(batch);
           const newest = batch[batch.length - 1]!;
           yield* ctx.setState({ cursor: newest } satisfies OldToNewState);
         });

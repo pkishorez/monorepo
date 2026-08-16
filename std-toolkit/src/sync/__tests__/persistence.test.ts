@@ -10,7 +10,7 @@ import {
   type StdTableContract,
 } from '../../db/std-table/contract/index.js';
 import { describe, expect, it, vi } from 'vitest';
-import { createStdSync, syncPersistenceTable } from '../sync.js';
+import { createStdSync, syncStore } from '../sync.js';
 import { noStrategyState } from '../domain/strategy-state/index.js';
 
 type Todo = { id: string; listId: string; title: string };
@@ -102,7 +102,7 @@ const failingLayer = () => {
     hardDeleteEntityItems: failure,
     hardDeleteAllItems: failure,
   };
-  return contractLayer(syncPersistenceTable.logicalName, contract);
+  return contractLayer(syncStore.logicalName, contract);
 };
 
 describe('Sync persistence', () => {
@@ -119,10 +119,7 @@ describe('Sync persistence', () => {
     };
     const std = createStdSync({
       name: 'persistence',
-      persistenceLayer: contractLayer(
-        syncPersistenceTable.logicalName,
-        contract,
-      ),
+      storeLayer: contractLayer(syncStore.logicalName, contract),
     });
     const mounted = mount(
       std.singleItemSync({
@@ -162,10 +159,7 @@ describe('Sync persistence', () => {
     };
     const std = createStdSync({
       name: 'persistence',
-      persistenceLayer: contractLayer(
-        syncPersistenceTable.logicalName,
-        contract,
-      ),
+      storeLayer: contractLayer(syncStore.logicalName, contract),
     });
     std.sync({ schema: todoSchema });
     std.registry().process({
@@ -187,7 +181,7 @@ describe('Sync persistence', () => {
     const first = createStdSync({ name: 'isolated' });
     const firstCollection = first.sync({ schema: todoSchema });
     await Effect.runPromise(
-      firstCollection.utils.writeUpsert(
+      firstCollection.utils.applyToSyncReplica(
         entity({ id: 'todo-1', listId: 'inbox', title: 'first' }, '1'),
       ),
     );
@@ -202,15 +196,15 @@ describe('Sync persistence', () => {
     await second.dispose();
   });
 
-  it('shares Source of Truth through a supplied adapter layer', async () => {
-    const memory = Memory.make(syncPersistenceTable);
+  it('shares Sync Replica through a supplied adapter layer', async () => {
+    const memory = Memory.make(syncStore);
     const first = createStdSync({
       name: 'shared',
-      persistenceLayer: memory.layer,
+      storeLayer: memory.layer,
     });
     const firstCollection = first.sync({ schema: todoSchema });
     await Effect.runPromise(
-      firstCollection.utils.writeUpsert(
+      firstCollection.utils.applyToSyncReplica(
         entity({ id: 'todo-1', listId: 'inbox', title: 'shared' }, '1'),
       ),
     );
@@ -218,7 +212,7 @@ describe('Sync persistence', () => {
 
     const second = createStdSync({
       name: 'shared',
-      persistenceLayer: memory.layer,
+      storeLayer: memory.layer,
     });
     const mounted = mount(second.sync({ schema: todoSchema }));
     await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
@@ -236,23 +230,23 @@ describe('Sync persistence', () => {
     await second.dispose();
   });
 
-  it('persists singleton Source of Truth through the StdTable IDB adapter', async () => {
+  it('persists singleton Sync Replica through the StdTable IDB adapter', async () => {
     const database = IDB.database({
       databaseName: `sync-${crypto.randomUUID()}`,
     });
-    const adapter = IDB.make(syncPersistenceTable, { database });
+    const adapter = IDB.make(syncStore, { database });
     await Effect.runPromise(adapter.setup);
 
     const first = createStdSync({
       name: 'settings',
-      persistenceLayer: adapter.layer,
+      storeLayer: adapter.layer,
     });
     const firstCollection = first.singleItemSync({
       schema: settingsSchema,
       strategy: noopSingleStrategy,
     });
     await Effect.runPromise(
-      firstCollection.utils.writeServerTruth([
+      firstCollection.utils.applyToSyncReplica([
         settingsEntity({ theme: 'dark' }, '1'),
       ]),
     );
@@ -260,7 +254,7 @@ describe('Sync persistence', () => {
 
     const second = createStdSync({
       name: 'settings',
-      persistenceLayer: adapter.layer,
+      storeLayer: adapter.layer,
     });
     const mounted = mount(
       second.singleItemSync({
@@ -282,10 +276,10 @@ describe('Sync persistence', () => {
   });
 
   it('resumes strategy state through a shared layer', async () => {
-    const memory = Memory.make(syncPersistenceTable);
+    const memory = Memory.make(syncStore);
     const first = createStdSync({
       name: 'strategy-state',
-      persistenceLayer: memory.layer,
+      storeLayer: memory.layer,
     });
     const saved = { value: false };
     const firstMount = mount(
@@ -313,7 +307,7 @@ describe('Sync persistence', () => {
     const observed: unknown[] = [];
     const second = createStdSync({
       name: 'strategy-state',
-      persistenceLayer: memory.layer,
+      storeLayer: memory.layer,
     });
     const secondMount = mount(
       second.singleItemSync({
@@ -341,18 +335,20 @@ describe('Sync persistence', () => {
   it('maps adapter write failures to WriteError.Storage', async () => {
     const std = createStdSync({
       name: 'failing',
-      persistenceLayer: failingLayer(),
+      storeLayer: failingLayer(),
     });
     const collection = std.sync({ schema: todoSchema });
     const error = await Effect.runPromise(
       collection.utils
-        .writeUpsert(entity({ id: 'todo-1', listId: 'inbox', title: 'A' }, '1'))
+        .applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'A' }, '1'),
+        )
         .pipe(Effect.flip),
     );
 
     expect(error).toMatchObject({
       _tag: 'Storage',
-      reason: 'failed to write Source of Truth entities',
+      reason: 'failed to apply Sync Replica entities',
     });
     await std.dispose();
   });
@@ -361,7 +357,7 @@ describe('Sync persistence', () => {
     const events: unknown[] = [];
     const std = createStdSync({
       name: 'failing',
-      persistenceLayer: failingLayer(),
+      storeLayer: failingLayer(),
       onEvent: (event) => Effect.sync(() => events.push(event)),
     });
     const mounted = mount(std.sync({ schema: todoSchema }));
@@ -391,7 +387,7 @@ describe('Sync persistence', () => {
     );
     expect(() => std.registry()).toThrow('instance is disposed');
     expect(() =>
-      collection.utils.writeUpsert(
+      collection.utils.applyToSyncReplica(
         entity({ id: 'late', listId: 'inbox', title: 'late' }, '1'),
       ),
     ).toThrow('instance is disposed');

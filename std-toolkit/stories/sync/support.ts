@@ -22,11 +22,11 @@ import { Memory } from 'std-toolkit/db/memory';
 import { EntityESchema, type AnyEntityESchema } from 'std-toolkit/eschema';
 import {
   createStdSync,
-  syncPersistenceTable,
+  syncStore,
   type ChangeNoticeChannel,
   type ChannelFactory,
   type EffectRuntime,
-  type SyncPersistenceLayer,
+  type SyncStoreLayer,
   type SyncConfig,
 } from 'std-toolkit/sync';
 
@@ -197,7 +197,7 @@ type BrowserWithTabs<D extends readonly AnyDefinition[]> = Tab<D> & {
 
 type Device<D extends readonly AnyDefinition[]> = {
   readonly connection: Connection;
-  readonly persistenceLayer: SyncPersistenceLayer;
+  readonly storeLayer: SyncStoreLayer;
   readonly noticeChannel: ChannelFactory;
   readonly tabs: Map<string, Tab<D>>;
 };
@@ -558,7 +558,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   readonly runtime: EffectRuntime<never>;
   readonly disposeLiveQueries: Set<() => Promise<void>>;
   readonly connection: Connection;
-  readonly persistenceLayer: SyncPersistenceLayer;
+  readonly storeLayer: SyncStoreLayer;
   readonly noticeChannel: ChannelFactory;
 }) => {
   const connection = options.connection;
@@ -568,7 +568,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
     name: options.name,
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
-    persistenceLayer: options.persistenceLayer,
+    storeLayer: options.storeLayer,
     notices: { scope: options.name, channel: options.noticeChannel },
     // TanStack DB arms a single shared, ref'd GC timer for the longest gcTime in
     // play, so the default five minutes would hold the story process open long
@@ -769,7 +769,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
               await Promise.all(
                 [...grouped].map(([collection, entities]) =>
                   options.runtime.runPromise(
-                    collection.utils.writeUpsert(entities),
+                    collection.utils.applyToSyncReplica(entities),
                   ),
                 ),
               );
@@ -853,7 +853,7 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
           online: true,
           disconnectListeners: new Set(),
         },
-        persistenceLayer: Memory.make(syncPersistenceTable).layer,
+        storeLayer: Memory.make(syncStore).layer,
         noticeChannel: makeChannelHub(),
         tabs: new Map(),
       };
@@ -873,7 +873,7 @@ const runSimulation = <const D extends readonly AnyDefinition[], A, E>(
         runtime,
         disposeLiveQueries: liveQueries,
         connection: device.connection,
-        persistenceLayer: device.persistenceLayer,
+        storeLayer: device.storeLayer,
         noticeChannel: device.noticeChannel,
       });
       device.tabs.set(tabName, created);

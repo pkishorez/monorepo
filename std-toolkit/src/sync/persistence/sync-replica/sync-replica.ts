@@ -9,40 +9,37 @@ import {
 } from '../../domain/sync-error/index.js';
 import { isEntity } from '../../domain/entity-validation/index.js';
 import {
-  storedSourceCursorEntity,
-  storedSourceEntity,
-  syncPersistenceTable,
-  type StoredSourceValue,
-  type SyncPersistence,
-} from '../sync-persistence-table/index.js';
+  storedReplicaCursorEntity,
+  storedReplicaEntity,
+  syncStore,
+  type StoredReplicaValue,
+  type SyncStore,
+} from '../sync-store/index.js';
 
-export type Accepted<TItem> = {
-  upserts: EntityType<TItem>[];
-  tombstoned: string[];
-};
-
-export type Delta<TItem> = {
+type Delta<TItem> = {
   entities: EntityType<TItem>[];
   position: string | null;
 };
 
-export type SourceOfTruth<TItem> = {
-  write: (
+type SyncReplica<TItem> = {
+  applyToSyncReplica: (
     entities: EntityType<TItem>[],
-  ) => Effect.Effect<Accepted<TItem>, WriteError>;
+  ) => Effect.Effect<EntityType<TItem>[], WriteError>;
   since: (position: string | null) => Effect.Effect<Delta<TItem>, WriteError>;
   get: (id: string) => Effect.Effect<EntityType<TItem> | null, WriteError>;
 };
 
-const storedEntity = <TItem>(stored: StoredSourceValue): EntityType<TItem> => ({
+const storedEntity = <TItem>(
+  stored: StoredReplicaValue,
+): EntityType<TItem> => ({
   value: stored.value as TItem,
   meta: stored.meta,
 });
 
-const persistenceError = (reason: string) => (cause: DatabaseError) =>
+const storeError = (reason: string) => (cause: DatabaseError) =>
   storageError(reason, cause);
 
-const CURSOR_KEY = 'source';
+const CURSOR_KEY = 'replica';
 const SEQUENCE_WIDTH = 32;
 
 const nextSequence = (position: string | null): string =>
@@ -50,16 +47,16 @@ const nextSequence = (position: string | null): string =>
     .toString()
     .padStart(SEQUENCE_WIDTH, '0');
 
-export const makeSourceOfTruth = <TItem>(args: {
-  persistence: SyncPersistence;
+export const makeSyncReplica = <TItem>(args: {
+  store: SyncStore;
   schema?: AnyESchema & { readonly idField?: string };
   entityName?: string;
   collectionName?: string;
   keyOf?: (value: TItem) => string | null;
-}): SourceOfTruth<TItem> => {
+}): SyncReplica<TItem> => {
   const isValue = args.schema ? Schema.is(args.schema.schema) : null;
   const entityName = args.schema?.name ?? args.entityName;
-  if (!entityName) throw new Error('Source of Truth requires an entity name');
+  if (!entityName) throw new Error('Sync Replica requires an entity name');
   const collection = args.collectionName ?? entityName;
 
   const idOf = (entity: EntityType<TItem>): string | null => {
@@ -82,17 +79,17 @@ export const makeSourceOfTruth = <TItem>(args: {
     ): Effect.Effect<EntityType<TItem> | null, DatabaseError> =>
       Effect.gen(function* () {
         const cursorKey = { collection, key: CURSOR_KEY };
-        const cursor = yield* storedSourceCursorEntity.get(cursorKey);
+        const cursor = yield* storedReplicaCursorEntity.get(cursorKey);
         let assigned: string | null = null;
         let cursorOp;
         if (cursor === null) {
           assigned = nextSequence(null);
-          cursorOp = yield* storedSourceCursorEntity.insertOp({
+          cursorOp = yield* storedReplicaCursorEntity.insertOp({
             ...cursorKey,
             position: assigned,
           });
         } else {
-          cursorOp = yield* storedSourceCursorEntity.getAndUpdateOp(
+          cursorOp = yield* storedReplicaCursorEntity.getAndUpdateOp(
             cursorKey,
             (latest) => {
               assigned = nextSequence(latest.position);
@@ -109,18 +106,18 @@ export const makeSourceOfTruth = <TItem>(args: {
         }
         const seq: string = assigned;
 
-        const currentStored = yield* storedSourceEntity.get(key(id));
+        const currentStored = yield* storedReplicaEntity.get(key(id));
         let accepted: EntityType<TItem> | null = null;
-        const sourceOp =
+        const replicaOp =
           currentStored === null
-            ? yield* storedSourceEntity.insertOp({
+            ? yield* storedReplicaEntity.insertOp({
                 collection,
                 key: id,
                 seq,
                 value: incoming.value as {} | null,
                 meta: { ...incoming.meta, _c: clientNow },
               })
-            : yield* storedSourceEntity.getAndUpdateOp(key(id), (stored) => {
+            : yield* storedReplicaEntity.getAndUpdateOp(key(id), (stored) => {
                 const current = storedEntity<TItem>(stored);
                 if (converge(current, incoming) !== 'skip') {
                   accepted = {
@@ -158,8 +155,8 @@ export const makeSourceOfTruth = <TItem>(args: {
         }
         if (accepted === null) return null;
 
-        const result = yield* syncPersistenceTable
-          .transact([cursorOp, sourceOp])
+        const result = yield* syncStore
+          .transact([cursorOp, replicaOp])
           .pipe(Effect.result);
         if (result._tag === 'Success') return accepted;
         if (retries > 0 && result.failure.reason._tag === 'TransactFailed') {
@@ -167,10 +164,10 @@ export const makeSourceOfTruth = <TItem>(args: {
         }
         return yield* Effect.fail(result.failure);
       }).pipe((effect) =>
-        args.persistence.provide(effect, {
+        args.store.provide(effect, {
           collection,
           operation: 'transact',
-          record: 'source-of-truth',
+          record: 'sync-replica',
         }),
       );
 
@@ -178,7 +175,7 @@ export const makeSourceOfTruth = <TItem>(args: {
   };
 
   return {
-    write: (entities) =>
+    applyToSyncReplica: (entities) =>
       Effect.gen(function* () {
         const validated: Array<{
           id: string;
@@ -232,36 +229,34 @@ export const makeSourceOfTruth = <TItem>(args: {
         }
 
         const clientNow = yield* Clock.currentTimeMillis;
-        const upserts: EntityType<TItem>[] = [];
-        const tombstoned: string[] = [];
+        const acceptedEntities: EntityType<TItem>[] = [];
         for (const [id, entity] of newest) {
           const accepted = yield* writeOne(id, entity, clientNow).pipe(
             Effect.mapError(
-              persistenceError('failed to write Source of Truth entities'),
+              storeError('failed to apply Sync Replica entities'),
             ),
           );
           if (accepted === null) continue;
-          if (accepted.meta._d) tombstoned.push(id);
-          else upserts.push(accepted);
+          acceptedEntities.push(accepted);
         }
-        return { upserts, tombstoned };
+        return acceptedEntities;
       }),
     since: (position) =>
       Effect.gen(function* () {
         const entities: EntityType<TItem>[] = [];
         let latest = position;
-        let after: EntityType<StoredSourceValue> | undefined;
+        let after: EntityType<StoredReplicaValue> | undefined;
         let hasMore = true;
         while (hasMore) {
-          const page = yield* args.persistence.provide(
-            storedSourceEntity.query(
+          const page = yield* args.store.provide(
+            storedReplicaEntity.query(
               'bySequence',
               position === null
                 ? { pk: { collection }, '>': null }
                 : { pk: { collection }, '>': { seq: position } },
               { limit: 100, ...(after === undefined ? {} : { after }) },
             ),
-            { collection, operation: 'query', record: 'source-of-truth' },
+            { collection, operation: 'query', record: 'sync-replica' },
           );
           for (const item of page.items) {
             entities.push(storedEntity<TItem>(item.value));
@@ -273,24 +268,20 @@ export const makeSourceOfTruth = <TItem>(args: {
         }
         return { entities, position: latest };
       }).pipe(
-        Effect.mapError(
-          persistenceError('failed to read Source of Truth entities'),
-        ),
+        Effect.mapError(storeError('failed to read Sync Replica entities')),
       ),
     get: (id) =>
-      args.persistence
-        .provide(storedSourceEntity.get(key(id)), {
+      args.store
+        .provide(storedReplicaEntity.get(key(id)), {
           collection,
           operation: 'get',
-          record: 'source-of-truth',
+          record: 'sync-replica',
         })
         .pipe(
           Effect.map((stored) =>
             stored === null ? null : storedEntity<TItem>(stored.value),
           ),
-          Effect.mapError(
-            persistenceError('failed to read Source of Truth entity'),
-          ),
+          Effect.mapError(storeError('failed to read Sync Replica entity')),
         ),
   };
 };

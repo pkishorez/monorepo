@@ -15,7 +15,7 @@ import type { StrategyFlow } from '../sync-flow/index.js';
  */
 export type StrategyContext<TItem, TState = unknown> = {
   flow: StrategyFlow;
-  writeServerTruth: (
+  applyToSyncReplica: (
     entities: EntityType<TItem>[],
   ) => Effect.Effect<void, WriteError>;
   getState: Effect.Effect<TState, WriteError>;
@@ -26,7 +26,7 @@ export type StrategyContext<TItem, TState = unknown> = {
 /**
  * A partitioned sync strategy. `run` may complete early (a finished drain) or stay
  * alive (a subscription). Its error channel is `WriteError`: the strategy does NOT
- * catch `writeServerTruth` failures — the engine owns reporting and restart.
+ * catch `applyToSyncReplica` failures — the engine owns reporting and restart.
  */
 export type PartitionedStrategy<
   TItem extends object,

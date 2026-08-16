@@ -101,15 +101,15 @@ describe('hybrid sync', () => {
     await runtime.dispose();
   });
 
-  it('converges overlapping total and partition results through one SoT', async () => {
+  it('converges overlapping total and partition results through one Sync Replica', async () => {
     const worker = (name: string, result: EntityType<Todo>) => ({
       name,
       state: noStrategyState(),
       run: (ctx: {
-        writeServerTruth: (
+        applyToSyncReplica: (
           entities: EntityType<Todo>[],
         ) => Effect.Effect<void, unknown>;
-      }) => ctx.writeServerTruth([result]),
+      }) => ctx.applyToSyncReplica([result]),
     });
     const collection = createStdSync({ name: 'hybrid' }).sync({
       schema,

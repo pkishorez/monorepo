@@ -51,7 +51,7 @@ The rule applies to strategy results, mutation results, persisted manual writes,
 
 ### Collection
 
-A named TanStack DB in-memory projection of one entity type. It holds Items visible to the UI but is not the source of truth.
+A named TanStack DB in-memory projection of one entity type. It holds Items visible to the UI but is not the Sync Replica.
 
 The collection may contain rows from partitions that are no longer active. Partition unload stops sync work; it does not remove projected rows.
 
@@ -114,7 +114,7 @@ The client-side set of backend-confirmed entities known to a sync engine. The Ba
 
 The replica may use Memory or durable storage. That choice controls whether it survives reload; it does not define whether confirmed entities can propagate between live tabs.
 
-_Avoid_: Source of Truth, cache.
+_Avoid_: Sync Replica, cache.
 
 For keyed collections, it is one entity namespace per collection (not per partition). For single-item collections, it is the singleton equivalent.
 
@@ -122,13 +122,13 @@ The Sync Replica is **fully detached from Sync State**. There is no derivation b
 
 The replica is recorded in the **Sync Store**. Its default Memory realization lasts only for the life of the sync instance; a durable realization keeps the replica available across reloads.
 
-A **Stored Source Entity** is the Sync Store entity that records one remote entity:
+A **Stored Replica Entity** is the Sync Store entity that records one remote entity:
 
 ```
 { collection: string, key: string, seq: string, value: unknown, meta: EntityMeta }
 ```
 
-`seq` is the entity's **Projection Sequence**. `value` is the opaque value received from the server and later handed to TanStack DB. sync does not add an encoding or decoding boundary around it. `meta` is the remote Entity Meta used for convergence; the Stored Source Entity's own database metadata is separate and has no sync meaning.
+`seq` is the entity's **Projection Sequence**. `value` is the opaque value received from the server and later handed to TanStack DB. sync does not add an encoding or decoding boundary around it. `meta` is the remote Entity Meta used for convergence; the Stored Replica Entity's own database metadata is separate and has no sync meaning.
 
 Sync alone decides whether and what to persist. Requests such as `persist: true`, the Convergence Rule, client stamping, and retry policy are resolved before or around store operations; the Sync Store and its adapter attach no sync meaning to stored values.
 
@@ -147,7 +147,7 @@ Sync alone decides whether and what to persist. Requests such as `persist: true`
 
 The replica can be written while the TanStack collection is unmounted. If callbacks are absent, projection is deferred. On mount, the engine projects the current replica into the collection.
 
-Server-truth convergence is atomic per entity. A batch is validated before writing, and duplicate keys collapse to the entity with the newest remote `_u`. A batch may partially land if persistence fails; successful entity writes are safe to retry. Stale valid entities are no-ops, not failures.
+Sync Replica convergence is atomic per entity. A batch is validated before writing, and duplicate keys collapse to the entity with the newest remote `_u`. A batch may partially land if persistence fails; successful entity writes are safe to retry. Stale valid entities are no-ops, not failures.
 
 ### Collection Projection
 
@@ -159,7 +159,7 @@ Projection has one path. Mount, strategy results, mutation results, and another 
 
 ### Projection Sequence
 
-The monotonic ULID the engine assigns a **Stored Source Entity** on every accepted write. It records local arrival order — when this device stored the entity — and is unrelated to `_u`, which records authoring order. A backfill strategy writes entities whose `_u` is older than everything already stored; their Projection Sequence is still the newest.
+The monotonic ULID the engine assigns a **Stored Replica Entity** on every accepted write. It records local arrival order — when this device stored the entity — and is unrelated to `_u`, which records authoring order. A backfill strategy writes entities whose `_u` is older than everything already stored; their Projection Sequence is still the newest.
 
 Only an accepted write assigns a new Projection Sequence. A write the **Convergence Rule** skips leaves it untouched, because nothing changed for anyone to observe.
 
@@ -186,7 +186,7 @@ A **Stored Sync State** is the separate Sync Store entity that the engine record
 - `strategy` — the owning strategy name. On read, a mismatch resets the slot to the strategy's empty state.
 - `value` — the opaque strategy-owned Sync State.
 
-It shares no vocabulary with **Entity**: it carries strategy bookkeeping, never server truth. (The internal identifier `StoredStrategyState` refers to this wrapper; "envelope" is retired as a glossary term.)
+It shares no vocabulary with **Entity**: it carries strategy bookkeeping, never replica data. (The internal identifier `StoredStrategyState` refers to this wrapper; "envelope" is retired as a glossary term.)
 
 Examples:
 
@@ -204,11 +204,11 @@ Runtime resources such as fibers, subscriptions, abort controllers, semaphores, 
 
 The sync-wide local table that holds the engine-owned Sync Replica and Sync State as two separate entity definitions. Its complete table definition is public so an application can create an adapter layer for it; the entity definitions remain engine-owned.
 
-Each `createStdSync()` uses an isolated Memory realization by default. An application may override it through `storeLayer` with any compatible StdTable adapter layer, including IndexedDB, SQLite, or a remote adapter. Two sync instances that share an adapter layer and qualified Collection Names intentionally share persistence: a Stored Source Entity is identified by qualified Collection Name and record key.
+Each `createStdSync()` uses an isolated Memory realization by default. An application may override it through `storeLayer` with any compatible StdTable adapter layer, including IndexedDB, SQLite, or a remote adapter. Two sync instances that share an adapter layer and qualified Collection Names intentionally share storage: a Stored Replica Entity is identified by qualified Collection Name and record key.
 
 The table's primary access patterns cover all persistence reads:
 
-- Stored Source Entity — get by collection and entity key; enumerate by collection in **Projection Sequence** order.
+- Stored Replica Entity — get by collection and entity key; enumerate by collection in **Projection Sequence** order.
 - Stored Sync State — get by collection and partition key.
 
 Projection Sequence order is the model's only secondary access pattern.
@@ -244,7 +244,7 @@ A strategy does not own the Sync Replica. At lifecycle start the engine calls `r
 ```ts
 type StrategyContext<TItem, TState> = {
   flow: StrategyFlow; // log and withSpan for this strategy participant
-  applyToSyncReplica: (entities) => Effect.Effect<void, WriteError>;
+  applyToSyncReplica: (entities) => Effect.Effect<Entity[], WriteError>;
   getState: Effect.Effect<TState>; // decoded state for this strategy partition
   setState: (state: TState) => Effect.Effect<void>; // routed to this partition's slot
   scope: Scope.Scope; // for subscriptions/fibers
@@ -361,7 +361,7 @@ utils.pendingCount(key);
 utils.subscribePending(listener);
 ```
 
-`utils.applyToSyncReplica(entityOrEntities)` returns `Effect.Effect<void, WriteError>` and applies backend-confirmed Entities through Sync Replica convergence.
+`utils.applyToSyncReplica(entityOrEntities)` returns the complete accepted Entities, including tombstones, and applies them through Sync Replica convergence. Stale valid Entities are successful no-ops and are omitted from the result.
 
 ### Registry
 
@@ -379,7 +379,7 @@ A message containing one or more entities:
 
 The transport is the caller's concern. The message shape is the sync engine's concern.
 
-`persist: true` treats the broadcast as server truth and writes the Sync Replica + collection.
+`persist: true` treats the broadcast as confirmed data and writes the Sync Replica + collection.
 `persist: false` projects only to the mounted collection.
 Neither mode touches Sync State.
 

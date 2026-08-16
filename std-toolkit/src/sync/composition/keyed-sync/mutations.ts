@@ -29,11 +29,11 @@ import type { CollectionFlow } from '../../runtime/sync-flow/index.js';
 /**
  * Builds the TanStack mutation handlers for a partitioned collection. Each handler
  * extracts the payload from the transaction, runs the user Effect, and flushes the
- * returned server entity through `writeServerTruth`; `onDelete` flushes the
+ * returned server entity through `applyToSyncReplica`; `onDelete` flushes the
  * tombstone the user Effect returns. `pacedUpdate` paces optimistic updates per key via
  * `buildPacedUpdate` (default `coalesce`), applying the optimistic row through the
  * engine-supplied `optimistic` callback and flushing the confirmed entity through
- * `writeServerTruth`. Mutation results never touch sync-state.
+ * `applyToSyncReplica`. Mutation results never touch sync-state.
  */
 export const buildMutationHandlers = <
   S extends AnyEntityESchema,
@@ -41,7 +41,7 @@ export const buildMutationHandlers = <
 >(args: {
   schema: S;
   collectionName: string;
-  writeServerTruth: (
+  applyToSyncReplica: (
     entities: EntityType<S['Type']>[],
   ) => Effect.Effect<void, WriteError>;
   onInsert?: (
@@ -62,7 +62,7 @@ export const buildMutationHandlers = <
   type TCollItem = CollectionItem<TItem>;
 
   const {
-    writeServerTruth,
+    applyToSyncReplica,
     onInsert,
     onUpdate,
     onDelete,
@@ -81,7 +81,7 @@ export const buildMutationHandlers = <
     try {
       const mutation = Effect.gen(function* () {
         const result = yield* effect;
-        yield* writeServerTruth([result]);
+        yield* applyToSyncReplica([result]);
       });
       const activeFlow = flow();
       await runner.runPromise(

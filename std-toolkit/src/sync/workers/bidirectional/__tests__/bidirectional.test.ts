@@ -48,7 +48,7 @@ const drive = async (opts: {
 
   const ctx: StrategyContext<Item, BidirectionalState> = {
     flow,
-    writeServerTruth: (entities) =>
+    applyToSyncReplica: (entities) =>
       Effect.sync(() => {
         written.push(...(entities as EntityType<Item>[]));
       }),
@@ -116,7 +116,7 @@ describe('Sync', () => {
           let state: BidirectionalState = { slices: [] };
           const ctx: StrategyContext<Item, BidirectionalState> = {
             flow,
-            writeServerTruth: (entities) =>
+            applyToSyncReplica: (entities) =>
               Effect.sync(() => {
                 written.push(...(entities as EntityType<Item>[]));
               }),

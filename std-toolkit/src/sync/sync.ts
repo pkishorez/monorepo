@@ -21,10 +21,10 @@ import {
   type PaceStrategyFactory,
 } from './runtime/mutation-pacing/index.js';
 import {
-  makeSyncPersistence,
-  syncPersistenceTable,
-  type SyncPersistenceLayer,
-} from './persistence/sync-persistence-table/index.js';
+  makeSyncStore,
+  syncStore,
+  type SyncStoreLayer,
+} from './persistence/sync-store/index.js';
 import type { CadenceConfig } from './domain/cadence-policy/index.js';
 import type { SyncReporter } from './domain/sync-event/index.js';
 import type { FlowPlacement } from './runtime/sync-flow/index.js';
@@ -48,8 +48,8 @@ export const paceStrategy = mutationPaceStrategy;
 
 /**
  * Config for keyed total, partitioned, or hybrid sync. Total and partition
- * workers keep independent progress while converging through one Source of Truth.
- * Omit `sync` for a storage-only collection fed by `writeUpsert` or broadcasts.
+ * workers keep independent progress while converging through one Sync Replica.
+ * Omit `sync` for a storage-only collection fed by `applyToSyncReplica` or broadcasts.
  */
 type SyncShape<S extends AnyEntityESchema, R = never> =
   | {
@@ -102,7 +102,7 @@ export type SingleItemSyncConfig<
 export type StdSyncDefaults<R = never> = {
   name: string;
   options?: StdCollectionOptions<object>;
-  persistenceLayer?: SyncPersistenceLayer;
+  storeLayer?: SyncStoreLayer;
   cadence?: CadenceConfig;
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
@@ -117,8 +117,8 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
   const report: SyncReporter<R> =
     defaults.onEvent ?? ((event) => Effect.logError(event));
   const tracker = makeTracker();
-  const persistence = makeSyncPersistence(
-    defaults.persistenceLayer ?? Memory.make(syncPersistenceTable).layer,
+  const store = makeSyncStore(
+    defaults.storeLayer ?? Memory.make(syncStore).layer,
   );
   const noticeScope = defaults.notices?.scope ?? name;
   const cleanups = new Set<() => Promise<void>>();
@@ -168,7 +168,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       ...rest,
       ...(syncField?.total ? { total: syncField.total } : {}),
       ...(syncField?.partitions ? { partitions: syncField.partitions } : {}),
-      persistence,
+      store,
       collectionName,
       assertActive,
       trackCleanup,
@@ -198,7 +198,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
     const { options, ...rest } = config;
     return buildSingleItem(tracker, {
       ...rest,
-      persistence,
+      store,
       collectionName,
       assertActive,
       trackCleanup,
@@ -220,7 +220,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       const results = await Promise.allSettled(
         [...cleanups].map((cleanup) => cleanup()),
       );
-      await persistence.dispose();
+      await store.dispose();
       const failures = results.flatMap((result) =>
         result.status === 'rejected' ? [result.reason] : [],
       );
@@ -283,5 +283,5 @@ export type {
   SingleItemStrategy,
   StrategyContext,
 } from './runtime/strategy-runtime/index.js';
-export { syncPersistenceTable } from './persistence/sync-persistence-table/index.js';
-export type { SyncPersistenceLayer } from './persistence/sync-persistence-table/index.js';
+export { syncStore } from './persistence/sync-store/index.js';
+export type { SyncStoreLayer } from './persistence/sync-store/index.js';

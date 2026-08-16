@@ -10,7 +10,7 @@ import type {
 } from '@tanstack/react-db';
 import type { EntityType } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
-import { makeSourceOfTruth } from '../../persistence/source-of-truth/index.js';
+import { makeSyncReplica } from '../../persistence/sync-replica/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
@@ -37,7 +37,7 @@ import type {
   StrategyContext,
 } from '../../runtime/strategy-runtime/index.js';
 import type { PaceStrategyFactory } from '../../runtime/mutation-pacing/index.js';
-import type { SyncPersistence } from '../../persistence/sync-persistence-table/index.js';
+import type { SyncStore } from '../../persistence/sync-store/index.js';
 import {
   makeEffectRunner,
   type EffectRunner,
@@ -58,9 +58,9 @@ type Projector<TItem> = ReturnType<typeof makeCollectionProjector<TItem>>;
 export type EngineUtils<S extends AnyEntityESchema> = {
   schema: () => S;
   flowId: () => string;
-  writeUpsert: (
+  applyToSyncReplica: (
     entities: EntityType<S['Type']> | EntityType<S['Type']>[],
-  ) => Effect.Effect<void, WriteError>;
+  ) => Effect.Effect<EntityType<S['Type']>[], WriteError>;
   pacedUpdate: (
     key: string,
     changes: UpdateChanges<S['Type'], S>,
@@ -88,7 +88,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       payload: DeletePayload<S['Type']>,
     ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
-    persistence: SyncPersistence;
+    store: SyncStore;
     collectionName: string;
     assertActive: () => void;
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
@@ -137,9 +137,9 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     makePartitionLifecycle(partitionFields),
   );
 
-  const sot = makeSourceOfTruth<TItem>({
+  const replica = makeSyncReplica<TItem>({
     schema,
-    persistence: config.persistence,
+    store: config.store,
     collectionName,
   });
   const pending = runner.runSync(makePendingTracker);
@@ -160,7 +160,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       advancePermit,
       Effect.gen(function* () {
         if (projector === null) return 0;
-        const delta = yield* sot.since(position);
+        const delta = yield* replica.since(position);
         position = delta.position;
         const entities = options.seeding
           ? delta.entities.filter((entity) => !entity.meta._d)
@@ -178,27 +178,25 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   });
   config.trackCleanup(() => notice.close());
 
-  const writeServerTruth = (
+  const applyToSyncReplica = (
     entities: EntityType<TItem>[],
     syncFlow?: StrategyFlow,
-  ): Effect.Effect<void, WriteError> => {
+  ): Effect.Effect<EntityType<TItem>[], WriteError> => {
     config.assertActive();
-    return sot.write(entities).pipe(
+    return replica.applyToSyncReplica(entities).pipe(
       Effect.tap(() => advance()),
       Effect.tap(() => Effect.sync(() => notice.notify())),
       Effect.tap((accepted) =>
         syncFlow && entities.length > 0
-          ? syncFlow.log('Source of Truth write', {
+          ? syncFlow.log('Sync Replica write', {
               attributes: {
                 receivedCount: entities.length,
-                storedCount:
-                  accepted.upserts.length + accepted.tombstoned.length,
+                storedCount: accepted.length,
               },
             })
           : Effect.void,
       ),
-      Effect.asVoid,
-      Effect.withSpan('sync.write-server-truth', {
+      Effect.withSpan('sync.apply-to-sync-replica', {
         attributes: {
           entity: collectionName,
           entityCount: entities.length,
@@ -225,12 +223,13 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     const stateStore = makeSyncStateStore({
       schemaName: collectionName,
       strategyName: strat.name,
-      persistence: config.persistence,
+      store: config.store,
       state: strat.state,
     });
     return {
       flow,
-      writeServerTruth: (entities) => writeServerTruth(entities, flow),
+      applyToSyncReplica: (entities) =>
+        applyToSyncReplica(entities, flow).pipe(Effect.asVoid),
       getState: stateStore.get(key),
       setState: (state) => stateStore.set(key, state),
       scope,
@@ -245,14 +244,16 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       collection: () => nativeCollection,
       collectionName,
       makeContext: buildCtx,
-      writeServerTruth,
+      applyToSyncReplica: (entities, strategyFlow) =>
+        applyToSyncReplica(entities, strategyFlow).pipe(Effect.asVoid),
       report: config.report,
     }),
   );
 
   const handlers = buildMutationHandlers<S, R>({
     ...config,
-    writeServerTruth,
+    applyToSyncReplica: (entities) =>
+      applyToSyncReplica(entities).pipe(Effect.asVoid),
     pending,
     runner,
     flow: () => flow,
@@ -261,9 +262,9 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   const utils: EngineUtils<S> = {
     schema: () => schema,
     flowId: () => flow.id,
-    writeUpsert: (entities) => {
+    applyToSyncReplica: (entities) => {
       const batch = toArray(entities);
-      return writeServerTruth(batch);
+      return applyToSyncReplica(batch);
     },
     pacedUpdate: (key, changes) => {
       config.assertActive();
@@ -293,9 +294,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   tracker.register({
     schemaName: schema.name,
     collectionName,
-    writeServerTruth: writeServerTruth as (
-      entities: EntityType<unknown>[],
-    ) => Effect.Effect<void, WriteError>,
+    applyToSyncReplica: (entities) =>
+      applyToSyncReplica(entities as EntityType<TItem>[]).pipe(Effect.asVoid),
     projectOnly: projectOnly as (
       entities: EntityType<unknown>[],
     ) => Effect.Effect<void, WriteError>,
@@ -341,7 +341,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           Effect.forkIn(
             Effect.gen(function* () {
               const projected = yield* advance({ seeding: true }).pipe(
-                flow.collection.withSpan('Source of Truth hydration', {
+                flow.collection.withSpan('Sync Replica hydration', {
                   attributes: { collection: collectionName },
                 }),
               );

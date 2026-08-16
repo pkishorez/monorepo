@@ -47,7 +47,7 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
     strategy: PartitionedStrategy<TItem, TState, R>,
     flow: StrategyFlow,
   ) => StrategyContext<TItem, TState>;
-  writeServerTruth: (
+  applyToSyncReplica: (
     entities: EntityType<TItem>[],
     flow?: StrategyFlow,
   ) => Effect.Effect<void, WriteError>;
@@ -204,8 +204,8 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
               runCadenceSync({
                 collection,
                 fetchFrom: (cursor) => repair.fetchFrom({ cursor }),
-                writeServerTruth: (entities) =>
-                  args.writeServerTruth(entities, cadenceFlow),
+                applyToSyncReplica: (entities) =>
+                  args.applyToSyncReplica(entities, cadenceFlow),
                 partition,
                 config: cadence,
               }).pipe(cadenceFlow!.withSpan('Cadence attempt', { attributes })),

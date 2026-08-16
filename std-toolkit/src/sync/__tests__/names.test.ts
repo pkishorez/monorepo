@@ -2,8 +2,8 @@ import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema } from '../../eschema/index.js';
 import { Memory } from '../../db/memory/index.js';
-import { createStdSync, syncPersistenceTable } from '../sync.js';
-import { storedSourceEntity } from '../persistence/sync-persistence-table/index.js';
+import { createStdSync, syncStore } from '../sync.js';
+import { storedReplicaEntity } from '../persistence/sync-store/index.js';
 
 const schema = (name: string) =>
   EntityESchema.make(name, 'id', { title: Schema.String }).build();
@@ -57,14 +57,14 @@ describe('named sync', () => {
   });
 
   it('uses qualified storage namespaces without changing backend entity identity', async () => {
-    const persistence = Memory.make(syncPersistenceTable);
+    const persistence = Memory.make(syncStore);
     const first = createStdSync({
       name: 'Dataset A',
-      persistenceLayer: persistence.layer,
+      storeLayer: persistence.layer,
     });
     const second = createStdSync({
       name: 'Dataset B',
-      persistenceLayer: persistence.layer,
+      storeLayer: persistence.layer,
     });
     const firstCollection = first.sync({ schema: schema('Todo') });
     const secondCollection = second.sync({ schema: schema('Todo') });
@@ -74,25 +74,25 @@ describe('named sync', () => {
     } as const;
 
     await expect(
-      Effect.runPromise(firstCollection.utils.writeUpsert(entity)),
-    ).resolves.toBeUndefined();
+      Effect.runPromise(firstCollection.utils.applyToSyncReplica(entity)),
+    ).resolves.toHaveLength(1);
     await expect(
       Effect.runPromise(
-        storedSourceEntity
+        storedReplicaEntity
           .get({ collection: 'dataset-a.todo', key: '1' })
           .pipe(Effect.provide(persistence.layer)),
       ),
     ).resolves.not.toBeNull();
     await expect(
       Effect.runPromise(
-        storedSourceEntity
+        storedReplicaEntity
           .get({ collection: 'dataset-b.todo', key: '1' })
           .pipe(Effect.provide(persistence.layer)),
       ),
     ).resolves.toBeNull();
     await expect(
       Effect.runPromise(
-        secondCollection.utils.writeUpsert({
+        secondCollection.utils.applyToSyncReplica({
           ...entity,
           meta: { ...entity.meta, _e: 'dataset-b.todo' },
         }),

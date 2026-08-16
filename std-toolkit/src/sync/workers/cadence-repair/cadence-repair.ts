@@ -45,7 +45,7 @@ export type CadenceSyncDeps<T, E, R = never> = {
   fetchFrom: (
     anchor: EntityType<T> | null,
   ) => Effect.Effect<EntityType<T>[], E, R>;
-  writeServerTruth: (
+  applyToSyncReplica: (
     entities: EntityType<T>[],
   ) => Effect.Effect<void, WriteError>;
   // Restricts the repair scope to a single partition: only rows whose flat
@@ -162,7 +162,7 @@ export const runCadenceSync = <T, E, R = never>(
 ): Effect.Effect<void, WriteError, R> =>
   Effect.scoped(
     Effect.gen(function* () {
-      const { collection, fetchFrom, writeServerTruth, partition, config } =
+      const { collection, fetchFrom, applyToSyncReplica, partition, config } =
         deps;
       const repaired = new Set<string>();
 
@@ -247,7 +247,7 @@ export const runCadenceSync = <T, E, R = never>(
             (e) => ({ _tag: 'Invalid', reason: String(e) }) as WriteError,
           ),
         );
-        yield* writeServerTruth(results);
+        yield* applyToSyncReplica(results);
         repaired.add(suspect.meta._u);
         yield* dbg('repair:wrote', { fetched: results.length });
         yield* Effect.sleep(config.pollDelay);

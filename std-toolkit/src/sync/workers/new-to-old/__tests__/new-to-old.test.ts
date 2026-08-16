@@ -40,7 +40,7 @@ const drive = async (opts: {
 
   const ctx: StrategyContext<Item, NewToOldState> = {
     flow,
-    writeServerTruth: (entities) =>
+    applyToSyncReplica: (entities) =>
       Effect.sync(() => {
         written.push(...(entities as EntityType<Item>[]));
       }),
@@ -106,7 +106,7 @@ describe('Sync', () => {
           let state: NewToOldState = { slices: [], reachedOldest: false };
           const ctx: StrategyContext<Item, NewToOldState> = {
             flow,
-            writeServerTruth: (entities) =>
+            applyToSyncReplica: (entities) =>
               Effect.sync(() => {
                 written.push(...(entities as EntityType<Item>[]));
               }),

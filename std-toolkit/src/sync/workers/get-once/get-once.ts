@@ -9,8 +9,8 @@ import { noStrategyState } from '../../domain/strategy-state/index.js';
 
 /**
  * One-shot fetch strategy for the single-item family. Fetches the record once via
- * `config.get`, writes it through the engine's `writeServerTruth`, then completes.
- * `WriteError` from `writeServerTruth` is not caught — it surfaces so the engine can
+ * `config.get`, writes it through the engine's `applyToSyncReplica`, then completes.
+ * `WriteError` from `applyToSyncReplica` is not caught — it surfaces so the engine can
  * restart the run.
  */
 export type GetOnceConfig<TItem, R = never> = {
@@ -25,6 +25,6 @@ export const getOnce = <TItem extends object, R = never>(
   run: (ctx: StrategyContext<TItem, null>) =>
     Effect.gen(function* () {
       const entity = yield* config.get();
-      yield* ctx.writeServerTruth([toEntity(entity)]);
+      yield* ctx.applyToSyncReplica([toEntity(entity)]);
     }),
 });

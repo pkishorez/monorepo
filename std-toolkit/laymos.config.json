@@ -25,7 +25,7 @@
     "src/sync/domain/partition-identity/__tests__",
     "src/sync/domain/sync-address/__tests__",
     "src/sync/lifecycle/strategy-lifecycle/__tests__",
-    "src/sync/persistence/source-of-truth/__tests__",
+    "src/sync/persistence/sync-replica/__tests__",
     "src/sync/runtime/mutation-pacing/__tests__",
     "src/sync/workers/bidirectional/__tests__",
     "src/sync/workers/cadence-repair/__tests__",
@@ -230,7 +230,7 @@
     },
     "sync.persistence": {
       "paths": ["src/sync/persistence"],
-      "description": "Persistence — offline storage, server truth, and strategy progress"
+      "description": "Persistence — Sync Replica, Sync Store, and strategy progress"
     },
     "sync.domain": {
       "paths": ["src/sync/domain"],
@@ -351,10 +351,10 @@
     "src/sync/runtime/sync-flow": {
       "kind": "shared"
     },
-    "src/sync/persistence/sync-persistence-table": {
+    "src/sync/persistence/sync-store": {
       "kind": "shared"
     },
-    "src/sync/persistence/source-of-truth": {},
+    "src/sync/persistence/sync-replica": {},
     "src/sync/persistence/sync-state": {},
     "src/sync/domain/cadence-policy": {},
     "src/sync/domain/entity-convergence": {},

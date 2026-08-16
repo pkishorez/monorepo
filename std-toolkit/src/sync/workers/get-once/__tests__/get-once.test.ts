@@ -15,7 +15,7 @@ const flow = {
 };
 
 describe('get-once', () => {
-  it('fetches and writes the singleton as server truth', async () => {
+  it('fetches and applies the singleton to the Sync Replica', async () => {
     const written: EntityType<Settings>[][] = [];
     const strategy = getOnce<Settings>({
       get: () =>
@@ -31,7 +31,7 @@ describe('get-once', () => {
           const scope = yield* Effect.scope;
           yield* strategy.run({
             flow,
-            writeServerTruth: (entities) =>
+            applyToSyncReplica: (entities) =>
               Effect.sync(() => {
                 written.push(entities);
               }),

@@ -36,7 +36,7 @@ export const fromDatabaseToCollection = Story.make({
   questions: [
     Story.question('The Backend creates a todo. What does the Browser see?', {
       answer:
-        'The Backend persists the entity, the Sync Worker delivers it into the Browser’s Source of Truth, the Collection projects it, and the mounted Live Query shows it.',
+        'The Backend persists the entity, the Sync Worker delivers it into the Browser’s Sync Replica, the Collection projects it, and the mounted Live Query shows it.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -58,7 +58,7 @@ export const fromDatabaseToCollection = Story.make({
     }),
     Story.question('Can the Browser create the todo instead?', {
       answer:
-        'Yes. Alice inserts into her named Todo Collection. TanStack DB applies the optimistic row, Std Sync persists the intent through the Backend, and the confirmed entity replaces it in Alice’s Source of Truth.',
+        'Yes. Alice inserts into her named Todo Collection. TanStack DB applies the optimistic row, Std Sync persists the intent through the Backend, and the confirmed entity replaces it in Alice’s Sync Replica.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -80,7 +80,7 @@ export const fromDatabaseToCollection = Story.make({
     }),
     Story.question('The Browser updates a todo. Does it reach the Backend?', {
       answer:
-        'Yes. Alice mutates her named Todo Collection. Std Sync sends the direct mutation to the Backend and writes the confirmed entity into Alice’s Source of Truth.',
+        'Yes. Alice mutates her named Todo Collection. Std Sync sends the direct mutation to the Backend and writes the confirmed entity into Alice’s Sync Replica.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -108,7 +108,7 @@ export const fromDatabaseToCollection = Story.make({
     }),
     Story.question('The Browser removes a todo. What remains?', {
       answer:
-        'The Backend and Browser Source of Truth retain a tombstone, while the mounted Live Query no longer shows the row.',
+        'The Backend and Browser Sync Replica retain a tombstone, while the mounted Live Query no longer shows the row.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
