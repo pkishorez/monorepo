@@ -77,7 +77,7 @@ describe('hybrid sync', () => {
           probe.record(name);
         }),
     });
-    const collection = createStdSync({ runtime }).sync({
+    const collection = createStdSync({ name: 'hybrid', runtime }).sync({
       schema,
       sync: {
         total: {
@@ -111,7 +111,7 @@ describe('hybrid sync', () => {
         ) => Effect.Effect<void, unknown>;
       }) => ctx.writeServerTruth([result]),
     });
-    const collection = createStdSync().sync({
+    const collection = createStdSync({ name: 'hybrid' }).sync({
       schema,
       sync: {
         total: {

@@ -12,7 +12,7 @@ describe('Sync', () => {
         { values: [], persist: 'yes' },
         { values: {}, persist: true },
       ])('rejects an invalid broadcast message: %j', (message) => {
-        const registry = createStdSync().registry();
+        const registry = createStdSync({ name: 'registry' }).registry();
 
         expect(() => registry.process(message as never)).toThrow(
           '[std-sync] registry.process requires { values: Entity[]; persist: boolean }.',
@@ -20,7 +20,7 @@ describe('Sync', () => {
       });
 
       it('accepts an empty broadcast', () => {
-        const registry = createStdSync().registry();
+        const registry = createStdSync({ name: 'registry' }).registry();
 
         expect(() =>
           registry.process({ values: [], persist: false }),
@@ -28,7 +28,7 @@ describe('Sync', () => {
       });
 
       it('rejects a malformed entity in a broadcast', () => {
-        const registry = createStdSync().registry();
+        const registry = createStdSync({ name: 'registry' }).registry();
 
         expect(() =>
           registry.process({

@@ -118,6 +118,7 @@ describe('Sync persistence', () => {
       hardDeleteAllItems: never,
     };
     const std = createStdSync({
+      name: 'persistence',
       persistenceLayer: contractLayer(
         syncPersistenceTable.logicalName,
         contract,
@@ -160,6 +161,7 @@ describe('Sync persistence', () => {
       hardDeleteAllItems: () => Effect.succeed(0),
     };
     const std = createStdSync({
+      name: 'persistence',
       persistenceLayer: contractLayer(
         syncPersistenceTable.logicalName,
         contract,
@@ -182,7 +184,7 @@ describe('Sync persistence', () => {
   });
 
   it('uses isolated Memory persistence by default', async () => {
-    const first = createStdSync();
+    const first = createStdSync({ name: 'isolated' });
     const firstCollection = first.sync({ schema: todoSchema });
     await Effect.runPromise(
       firstCollection.utils.writeUpsert(
@@ -190,7 +192,7 @@ describe('Sync persistence', () => {
       ),
     );
 
-    const second = createStdSync();
+    const second = createStdSync({ name: 'isolated' });
     const mounted = mount(second.sync({ schema: todoSchema }));
     await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
     expect(mounted.writes).toEqual([]);
@@ -202,7 +204,10 @@ describe('Sync persistence', () => {
 
   it('shares Source of Truth through a supplied adapter layer', async () => {
     const memory = Memory.make(syncPersistenceTable);
-    const first = createStdSync({ persistenceLayer: memory.layer });
+    const first = createStdSync({
+      name: 'shared',
+      persistenceLayer: memory.layer,
+    });
     const firstCollection = first.sync({ schema: todoSchema });
     await Effect.runPromise(
       firstCollection.utils.writeUpsert(
@@ -211,7 +216,10 @@ describe('Sync persistence', () => {
     );
     await first.dispose();
 
-    const second = createStdSync({ persistenceLayer: memory.layer });
+    const second = createStdSync({
+      name: 'shared',
+      persistenceLayer: memory.layer,
+    });
     const mounted = mount(second.sync({ schema: todoSchema }));
     await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
     expect(mounted.writes).toContainEqual({
@@ -235,7 +243,10 @@ describe('Sync persistence', () => {
     const adapter = IDB.make(syncPersistenceTable, { database });
     await Effect.runPromise(adapter.setup);
 
-    const first = createStdSync({ persistenceLayer: adapter.layer });
+    const first = createStdSync({
+      name: 'settings',
+      persistenceLayer: adapter.layer,
+    });
     const firstCollection = first.singleItemSync({
       schema: settingsSchema,
       strategy: noopSingleStrategy,
@@ -247,7 +258,10 @@ describe('Sync persistence', () => {
     );
     await first.dispose();
 
-    const second = createStdSync({ persistenceLayer: adapter.layer });
+    const second = createStdSync({
+      name: 'settings',
+      persistenceLayer: adapter.layer,
+    });
     const mounted = mount(
       second.singleItemSync({
         schema: settingsSchema,
@@ -269,7 +283,10 @@ describe('Sync persistence', () => {
 
   it('resumes strategy state through a shared layer', async () => {
     const memory = Memory.make(syncPersistenceTable);
-    const first = createStdSync({ persistenceLayer: memory.layer });
+    const first = createStdSync({
+      name: 'strategy-state',
+      persistenceLayer: memory.layer,
+    });
     const saved = { value: false };
     const firstMount = mount(
       first.singleItemSync({
@@ -294,7 +311,10 @@ describe('Sync persistence', () => {
     await first.dispose();
 
     const observed: unknown[] = [];
-    const second = createStdSync({ persistenceLayer: memory.layer });
+    const second = createStdSync({
+      name: 'strategy-state',
+      persistenceLayer: memory.layer,
+    });
     const secondMount = mount(
       second.singleItemSync({
         schema: settingsSchema,
@@ -319,7 +339,10 @@ describe('Sync persistence', () => {
   });
 
   it('maps adapter write failures to WriteError.Storage', async () => {
-    const std = createStdSync({ persistenceLayer: failingLayer() });
+    const std = createStdSync({
+      name: 'failing',
+      persistenceLayer: failingLayer(),
+    });
     const collection = std.sync({ schema: todoSchema });
     const error = await Effect.runPromise(
       collection.utils
@@ -337,6 +360,7 @@ describe('Sync persistence', () => {
   it('does not mark ready when adapter hydration fails', async () => {
     const events: unknown[] = [];
     const std = createStdSync({
+      name: 'failing',
       persistenceLayer: failingLayer(),
       onEvent: (event) => Effect.sync(() => events.push(event)),
     });
@@ -345,7 +369,7 @@ describe('Sync persistence', () => {
     await vi.waitFor(() => expect(events).toHaveLength(1));
     expect(events).toContainEqual({
       _tag: 'InitializationFailed',
-      collection: 'Todo',
+      collection: 'failing.todo',
       cause: expect.objectContaining({ _tag: 'Storage' }),
     });
     expect(mounted.probe.readyCount).toBe(0);
@@ -355,7 +379,7 @@ describe('Sync persistence', () => {
   });
 
   it('disposes active collection lifecycles and rejects later use', async () => {
-    const std = createStdSync();
+    const std = createStdSync({ name: 'lifecycle' });
     const collection = std.sync({ schema: todoSchema });
     const mounted = mount(collection);
     await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));

@@ -6,6 +6,10 @@ import {
 } from '@pkishorez/effect-tracer/flow';
 import type { Effect } from 'effect';
 import type { PartitionValue } from '../../domain/partition-identity/index.js';
+import {
+  partitionSyncAddress,
+  strategySyncAddress,
+} from '../../domain/sync-address/index.js';
 
 export type ActivationOutcome = Parameters<ActivationRef['end']>[0];
 
@@ -76,20 +80,20 @@ const participant = (id: string, name: string): FlowParticipant => {
 };
 
 export const makeCollectionFlow = (
-  schemaName: string,
+  collectionAddress: string,
   lifecycleId: string,
   placement?: FlowPlacement,
 ): CollectionFlow => {
-  const id = placement?.id ?? `std-collection::${schemaName}::${lifecycleId}`;
+  const id = placement?.id ?? `${collectionAddress}::${lifecycleId}`;
   const collectionName = placement
-    ? `${placement.participantPrefix}/collection:${schemaName}`
-    : 'collection';
+    ? `${placement.participantPrefix}/${collectionAddress}`
+    : collectionAddress;
   const qualify = (name: string) =>
     placement && name !== 'collection'
-      ? `${collectionName}/${name}`
+      ? `${placement.participantPrefix}/${collectionAddress}${name}`
       : name === 'collection'
         ? collectionName
-        : name;
+        : `${collectionAddress}${name}`;
   const participants = new Map<string, FlowParticipant>();
   const getParticipant = (name: string) => {
     const qualified = qualify(name);
@@ -108,24 +112,21 @@ export const makeCollectionFlow = (
   };
 };
 
-const partitionLabel = (partition: { field: string; value: PartitionValue }) =>
-  `${partition.field}=${typeof partition.value}:${JSON.stringify(partition.value)}`;
-
 export const globalParticipantName = (strategyName: string) =>
-  `global-sync::${strategyName}`;
+  strategySyncAddress('{global}', strategyName);
 
 export const partitionParticipantName = (
   partition: { field: string; value: PartitionValue },
   strategyName: string,
-) => `partition-sync::${partitionLabel(partition)}::${strategyName}`;
+) => strategySyncAddress(partitionSyncAddress('', partition), strategyName);
 
 export const cadenceParticipantName = (partition?: {
   field: string;
   value: PartitionValue;
 }) =>
   partition
-    ? `cadence-repair::${partitionLabel(partition)}`
-    : 'cadence-repair::global';
+    ? strategySyncAddress(partitionSyncAddress('', partition), 'cadence-repair')
+    : strategySyncAddress('{global}', 'cadence-repair');
 
 export const singleItemParticipantName = (strategyName: string) =>
-  `single-item-sync::${strategyName}`;
+  strategySyncAddress('{global}', strategyName);

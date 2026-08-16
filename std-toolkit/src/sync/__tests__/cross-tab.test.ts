@@ -90,6 +90,7 @@ const mount = (collection: {
 
 const openTab = (layer: SyncPersistenceLayer, channel: ChannelFactory) => {
   const std = createStdSync({
+    name: 'cross-tab',
     persistenceLayer: layer,
     notices: { scope: 'test', channel },
   });
@@ -181,6 +182,7 @@ describe('cross-tab projection', () => {
     const memory = Memory.make(syncPersistenceTable);
     const channel = makeChannelHub();
     const writerStd = createStdSync({
+      name: 'cross-tab',
       persistenceLayer: memory.layer,
       notices: { scope: 'test', channel },
     });

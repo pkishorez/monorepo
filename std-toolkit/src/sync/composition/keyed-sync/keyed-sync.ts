@@ -89,6 +89,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
     persistence: SyncPersistence;
+    collectionName: string;
     assertActive: () => void;
     trackCleanup: (cleanup: () => Promise<void>) => () => Promise<void>;
     defaultCadence?: CadenceConfig;
@@ -110,9 +111,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   type TCollItem = CollectionItem<TItem>;
 
   const { schema } = config;
+  const { collectionName } = config;
   const runner = config.runner ?? makeEffectRunner<R>(undefined);
   const flow = makeCollectionFlow(
-    schema.name,
+    collectionName,
     runner.runSync(nextUlid),
     config.flowPlacement,
   );
@@ -138,6 +140,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   const sot = makeSourceOfTruth<TItem>({
     schema,
     persistence: config.persistence,
+    collectionName,
   });
   const pending = runner.runSync(makePendingTracker);
   const advancePermit = runner.runSync(TxSemaphore.make(1));
@@ -169,7 +172,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
 
   const notice = makeChangeNotice({
     scope: config.noticeScope,
-    collection: schema.name,
+    collection: collectionName,
     onNotice: () => runner.runPromise(advance().pipe(Effect.ignore)),
     channel: config.noticeChannel,
   });
@@ -197,7 +200,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       Effect.asVoid,
       Effect.withSpan('sync.write-server-truth', {
         attributes: {
-          entity: schema.name,
+          entity: collectionName,
           entityCount: entities.length,
         },
       }),
@@ -220,7 +223,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     flow: StrategyFlow,
   ): StrategyContext<TItem, TState> => {
     const stateStore = makeSyncStateStore({
-      schemaName: schema.name,
+      schemaName: collectionName,
       strategyName: strat.name,
       persistence: config.persistence,
       state: strat.state,
@@ -240,7 +243,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         ? { defaultCadence: config.defaultCadence }
         : {}),
       collection: () => nativeCollection,
-      collectionName: schema.name,
+      collectionName,
       makeContext: buildCtx,
       writeServerTruth,
       report: config.report,
@@ -289,6 +292,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
 
   tracker.register({
     schemaName: schema.name,
+    collectionName,
     writeServerTruth: writeServerTruth as (
       entities: EntityType<unknown>[],
     ) => Effect.Effect<void, WriteError>,
@@ -299,6 +303,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   });
 
   return {
+    id: collectionName,
     getKey: (item) => String((item as Record<string, unknown>)[schema.idField]),
     rowUpdateMode: 'full',
     // Partitioned collections require on-demand mode so TanStack DB calls loadSubset
@@ -314,7 +319,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         );
         runner.runSync(
           flow.collection.log('Collection start', {
-            attributes: { collection: schema.name },
+            attributes: { collection: collectionName },
           }),
         );
         projector = makeCollectionProjector<TItem>(callbacks, { deleteKeyOf });
@@ -337,7 +342,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
             Effect.gen(function* () {
               const projected = yield* advance({ seeding: true }).pipe(
                 flow.collection.withSpan('Source of Truth hydration', {
-                  attributes: { collection: schema.name },
+                  attributes: { collection: collectionName },
                 }),
               );
               const ready = yield* Effect.sync(() => {
@@ -348,7 +353,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               if (!ready) return;
               yield* flow.collection.log('Collection ready', {
                 attributes: {
-                  collection: schema.name,
+                  collection: collectionName,
                   entityCount: projected,
                 },
               });
@@ -363,7 +368,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
                 config
                   .report({
                     _tag: 'InitializationFailed',
-                    collection: schema.name,
+                    collection: collectionName,
                     cause: error,
                   })
                   .pipe(
@@ -395,7 +400,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               void runner.runPromise(
                 config.report({
                   _tag: 'UnservedQuery',
-                  collection: schema.name,
+                  collection: collectionName,
                 }),
               );
             }
@@ -470,7 +475,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           nativeCollection = null;
           await runner.runPromise(
             flow.collection.log('Collection cleanup', {
-              attributes: { collection: schema.name },
+              attributes: { collection: collectionName },
             }),
           );
           if (collectionActivation) {
