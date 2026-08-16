@@ -1,14 +1,27 @@
 import { Console, Effect, Stream } from 'effect';
-import { Command } from 'effect/unstable/cli';
+import { Command, Flag } from 'effect/unstable/cli';
 
-import { runStories } from '../../orchestrator/run-stories/index.js';
+import { planStories } from '../../orchestrator/run-stories/index.js';
 import type { StoryReport } from '../../story/schema/index.js';
+import { startProgress } from './progress.js';
+import { renderStoryReports, renderSummary } from './report.js';
+
+const concurrencyFlag = Flag.integer('concurrency').pipe(
+  Flag.withAlias('c'),
+  Flag.withDefault(16),
+  Flag.withDescription('How many Stories run at once.'),
+);
 
 export function makeStoriesCommand<R>(
   configPath: Effect.Effect<string, never, R>,
 ) {
-  return Command.make('stories', {}, () =>
-    configPath.pipe(Effect.flatMap(runAllStories)),
+  return Command.make(
+    'stories',
+    { concurrency: concurrencyFlag },
+    ({ concurrency }) =>
+      configPath.pipe(
+        Effect.flatMap((path) => runAllStories(path, concurrency)),
+      ),
   ).pipe(
     Command.withDescription(
       'Run every Story in the Story tree and report each verdict.',
@@ -16,53 +29,34 @@ export function makeStoriesCommand<R>(
   );
 }
 
-function runAllStories(configPath: string) {
+function runAllStories(configPath: string, concurrency: number) {
   return Effect.gen(function* () {
-    let allPassed = true;
-    yield* runStories(configPath).pipe(
-      Stream.runForEach((report) =>
-        Effect.gen(function* () {
-          if (report.verdict !== 'passed') allPassed = false;
-          yield* Console.log(renderReport(report));
-        }),
-      ),
-    );
-    if (!allPassed) {
+    const { total, reports } = yield* planStories(configPath, { concurrency });
+    const collected = yield* collectReports(reports, total);
+    yield* Console.log(renderStoryReports(collected));
+    yield* Console.log(`\n${renderSummary(collected, total)}`);
+    if (collected.some((report) => report.verdict !== 'passed')) {
       process.exitCode = 1;
     }
   });
 }
 
-const verdictMarks = {
-  passed: '✓',
-  failed: '✗',
-  errored: '!',
-} as const;
-
-function renderReport(report: StoryReport): string {
-  const depth = report.id.split('/').length - 1;
-  const pad = '  '.repeat(depth);
-  const title = report.id.split('/').at(-1) ?? report.id;
-  const lines = [
-    `${pad}${verdictMarks[report.verdict]} ${title} — ${report.verdict} (${report.questions.length} question${report.questions.length === 1 ? '' : 's'})`,
-  ];
-  for (const question of report.questions) {
-    lines.push(`${pad}  ${verdictMarks[question.verdict]} ${question.slug}`);
-    for (const assertion of question.assertions) {
-      lines.push(
-        `${pad}    ${assertion.passed ? '✓' : '✗'} ${assertion.description}`,
-      );
-    }
-    if (question.error !== undefined) {
-      lines.push(indent(question.error, `${pad}    `));
-    }
-  }
-  return lines.join('\n');
-}
-
-function indent(text: string, pad: string): string {
-  return text
-    .split('\n')
-    .map((line) => `${pad}${line}`)
-    .join('\n');
+function collectReports(
+  reports: Stream.Stream<StoryReport>,
+  total: number,
+): Effect.Effect<readonly StoryReport[]> {
+  return Effect.suspend(() => {
+    const collected: StoryReport[] = [];
+    const progress = startProgress(total);
+    return reports.pipe(
+      Stream.runForEach((report) =>
+        Effect.sync(() => {
+          collected.push(report);
+          progress.record(report.verdict);
+        }),
+      ),
+      Effect.ensuring(Effect.sync(progress.stop)),
+      Effect.as(collected),
+    );
+  });
 }
