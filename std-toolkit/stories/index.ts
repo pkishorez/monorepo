@@ -58,6 +58,7 @@ import { atomicWrites } from './database/std-table/transactions/atomic-writes.st
 import { checkOps } from './database/std-table/transactions/check-ops.story.js';
 import { transactionLimits } from './database/std-table/transactions/transaction-limits.story.js';
 import { staleOps } from './database/std-table/transactions/stale-ops.story.js';
+import { refusingAnUpdate } from './database/std-table/transactions/refusing-an-update.story.js';
 import { olderRows } from './database/std-table/evolving-data-in-place/older-rows.story.js';
 import { unreadableRows } from './database/std-table/evolving-data-in-place/unreadable-rows.story.js';
 
@@ -129,6 +130,7 @@ export default Story.group('std-toolkit', [
         transactionLimits,
         staleOps,
         checkOps,
+        refusingAnUpdate,
       ]),
       Story.group('Evolving data in place', [olderRows, unreadableRows]),
     ]),

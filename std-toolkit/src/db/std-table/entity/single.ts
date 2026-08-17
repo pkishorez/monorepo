@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { nextUlid, type SingleEntityType } from '../../../core/index.js';
 import type { AnyUnkeyedESchema, ESchemaType } from '../../../eschema/index.js';
-import { NoItemToUpdate } from '../error/index.js';
+import { NoItemToUpdate, UpdateRefused } from '../error/index.js';
 import {
   StdTableService,
   type ContractFailure,
@@ -173,7 +173,7 @@ export const makeSingleEntity = <
           typeof input === 'function' ? input(current.value) : input;
         if (partial === null)
           return yield* failReason(
-            new NoItemToUpdate({ entity: definition.name }),
+            new UpdateRefused({ entity: definition.name }),
           );
         return yield* makeOp(
           { ...current.value, ...partial },

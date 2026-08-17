@@ -1,4 +1,5 @@
-import type { Schema, SchemaAST, SchemaTransformation } from 'effect';
+import { SchemaAST } from 'effect';
+import type { Schema, SchemaTransformation } from 'effect';
 
 export type ESchemaKind = 'struct' | 'entity' | 'value';
 
@@ -23,6 +24,30 @@ const eschemas = new WeakMap<object, () => ESchemaIntrospection>();
 const inspected = new WeakMap<object, ESchemaIntrospection>();
 const compositions = new WeakMap<object, ESchemaCompositionIntrospection>();
 const compositionPlumbing = new WeakSet<object>();
+
+const isEncodedStringAst = (ast: SchemaAST.AST): boolean => {
+  if (SchemaAST.isString(ast) || SchemaAST.isTemplateLiteral(ast)) return true;
+  if (SchemaAST.isLiteral(ast)) return typeof ast.literal === 'string';
+  if (SchemaAST.isEnum(ast)) {
+    return (
+      ast.enums.length > 0 &&
+      ast.enums.every(([, value]) => typeof value === 'string')
+    );
+  }
+  if (SchemaAST.isUnion(ast)) {
+    return (
+      ast.types.some((member) => isEncodedStringAst(member)) &&
+      ast.types.every(
+        (member) => isEncodedStringAst(member) || SchemaAST.isNull(member),
+      )
+    );
+  }
+  return false;
+};
+
+export function isEncodedStringSchema(schema: Schema.Top): boolean {
+  return isEncodedStringAst(SchemaAST.toEncoded(schema.ast));
+}
 
 export function registerESchemaIntrospection(
   eschema: object,

@@ -834,6 +834,9 @@ importers:
 
   std-toolkit:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.102(effect@4.0.0-beta.102)(ioredis@5.11.1(supports-color@10.2.2))
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../devtools/effect-tracer
@@ -859,9 +862,6 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20260723.1
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-beta.102(effect@4.0.0-beta.102)(ioredis@5.11.1(supports-color@10.2.2))
       '@tanstack/query-db-collection':
         specifier: 'catalog:'
         version: 1.2.0(@tanstack/query-core@5.101.4)(typescript@7.0.2)

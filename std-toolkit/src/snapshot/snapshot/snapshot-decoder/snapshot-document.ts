@@ -1,101 +1,54 @@
 import { Effect, Schema } from 'effect';
-import { ESchema } from '../../../eschema/eschema/index.js';
-import type { ESchemaSnapshot, TableSnapshot } from '../../domain/index.js';
-import { SnapshotDecodeError } from '../../domain/index.js';
+import {
+  ESchemaSnapshotSchema,
+  SnapshotDecodeError,
+  SnapshotFormatRetired,
+  TableSnapshotSchema,
+} from '../../domain/index.js';
+import type { ContractSnapshot } from '../../domain/index.js';
 
-const markerSchema = Schema.Struct({
-  path: Schema.String,
-  kind: Schema.String,
-  message: Schema.String,
-});
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const transformationSchema = Schema.Struct({
-  path: Schema.String,
-  name: Schema.String,
-});
+export const describeDecodeFailure = (cause: unknown): string =>
+  cause instanceof Error ? cause.message : String(cause);
 
-const versionSchema = Schema.Struct({
-  version: Schema.String,
-  encoded: Schema.Json,
-  decoded: Schema.Json,
-  transformations: Schema.Array(transformationSchema),
-  unverifiable: Schema.Array(markerSchema),
-});
-
-const definitionSchema = Schema.Struct({
-  identity: Schema.String,
-  kind: Schema.Literals(['struct', 'value', 'entity']),
-  idField: Schema.NullOr(Schema.String),
-  versions: Schema.Array(versionSchema),
-});
-
-const derivationSchema = Schema.Struct({
-  pk: Schema.Array(Schema.String),
-  sk: Schema.Array(Schema.String),
-});
-
-const secondaryDerivationSchema = Schema.Struct({
-  name: Schema.String,
-  physicalIndex: Schema.String,
-  ...derivationSchema.fields,
-});
-
-const tableSnapshotV1Schema = Schema.Struct({
-  _v: Schema.Literal('v1'),
-  kind: Schema.Literal('table'),
-  adapter: Schema.Literals(['dynamodb', 'sqlite', 'idb']),
-  primaryIndex: Schema.Struct({
-    pk: Schema.String,
-    sk: Schema.String,
-  }),
-  secondaryIndexes: Schema.Array(
-    Schema.Struct({
-      name: Schema.String,
-      kind: Schema.Literals(['gsi', 'lsi', 'secondary', 'sparse']),
-      pk: Schema.String,
-      sk: Schema.String,
-    }),
-  ),
-  entities: Schema.Array(
-    Schema.Struct({
-      name: Schema.String,
-      kind: Schema.Literals(['keyed', 'singleton']),
-      idField: Schema.NullOr(Schema.String),
-      schema: Schema.String,
-      primaryDerivation: derivationSchema,
-      secondaryDerivations: Schema.Array(secondaryDerivationSchema),
-    }),
-  ),
-  schemas: Schema.Array(definitionSchema),
-});
-
-const snapshotDocumentV1 = ESchema.make('SnapshotDocument', {
-  kind: Schema.Literal('eschema'),
-  root: Schema.String,
-  schemas: Schema.Array(definitionSchema),
-}).build();
-
-/** Decodes the v1 snapshot document through its internal ESchema. */
-export function decodeSnapshotDocumentV1(
+export const retiredTableSnapshot = (
   input: unknown,
-): Effect.Effect<ESchemaSnapshot, SnapshotDecodeError> {
-  return snapshotDocumentV1.decode(input).pipe(
-    Effect.map(
-      (snapshot) => ({ ...snapshot, _v: 'v1' }) as unknown as ESchemaSnapshot,
-    ),
-    Effect.mapError(
-      (cause) => new SnapshotDecodeError('Malformed ESchema snapshot', cause),
-    ),
-  );
-}
+): SnapshotFormatRetired | null => {
+  if (!isRecord(input) || input.kind !== 'table') return null;
+  if (
+    input._v === undefined ||
+    input._v === TableSnapshotSchema.fields._v.literal
+  )
+    return null;
+  return new SnapshotFormatRetired(input._v);
+};
 
-/** Decodes a v1 table snapshot document. */
-export function decodeTableSnapshotV1(
+export function decodeSnapshotDocument(
   input: unknown,
-): Effect.Effect<TableSnapshot, SnapshotDecodeError> {
-  return Schema.decodeUnknownEffect(tableSnapshotV1Schema)(input).pipe(
+): Effect.Effect<ContractSnapshot, SnapshotDecodeError> {
+  const retired = retiredTableSnapshot(input);
+  if (retired !== null) return Effect.fail(retired);
+  const kind = isRecord(input) ? input.kind : undefined;
+  if (kind !== 'eschema' && kind !== 'table') {
+    return Effect.fail(
+      new SnapshotDecodeError(
+        `Malformed snapshot: expected kind "eschema" or "table", got ${JSON.stringify(kind)}`,
+      ),
+    );
+  }
+  const decode: Effect.Effect<ContractSnapshot, Schema.SchemaError> =
+    kind === 'eschema'
+      ? Schema.decodeUnknownEffect(ESchemaSnapshotSchema)(input)
+      : Schema.decodeUnknownEffect(TableSnapshotSchema)(input);
+  return decode.pipe(
     Effect.mapError(
-      (cause) => new SnapshotDecodeError('Malformed table snapshot', cause),
+      (cause) =>
+        new SnapshotDecodeError(
+          `Malformed snapshot: ${describeDecodeFailure(cause)}`,
+          cause,
+        ),
     ),
   );
 }

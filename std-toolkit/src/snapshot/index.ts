@@ -1,7 +1,11 @@
 export { Snapshot } from './snapshot/index.js';
 export {
+  ContractSnapshotSchema,
+  ESchemaSnapshotSchema,
   SnapshotDecodeError,
+  SnapshotFormatRetired,
   SnapshotIdentityConflict,
+  TableSnapshotSchema,
 } from './domain/index.js';
 export type {
   ContractSnapshot,
@@ -11,8 +15,9 @@ export type {
   SnapshotClassification,
   SnapshotDiagnostic,
   SnapshotTransformation,
+  TableAccessPatternSnapshot,
   TableEntitySnapshot,
-  TableEntitySnapshotSource,
   TableIndexSnapshot,
   TableSnapshot,
+  TableTopologySnapshot,
 } from './domain/index.js';

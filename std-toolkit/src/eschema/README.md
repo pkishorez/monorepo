@@ -79,18 +79,20 @@ export default table.snapshot();
 Approve the first contract, then verify it locally and in CI:
 
 ```sh
-std-toolkit snapshot -u
-std-toolkit snapshot
+std-toolkit snapshot approve   # write the baseline
+std-toolkit snapshot verify    # check against it
+std-toolkit snapshot view      # print the contract in full
 ```
 
 The command loads the TypeScript entry through Jiti and keeps the approved
-contract in `std-toolkit.snapshot.json`. Drift exits with status 1 and prints
-breaking, backfill, unverifiable, and safe changes. The snapshot is updated
-only with `-u` or `--update`; commit the JSON file so Git retains its history.
+contract in `std-toolkit.snapshot.json`. `verify` exits with status 1 on drift
+and prints only the breaking, backfill, unverifiable, and safe changes — run
+`view` for the full contract. The baseline is written only by `approve`; commit
+the JSON file so Git retains its history.
 
 ```yaml
 # GitHub Actions
-- run: pnpm std-toolkit snapshot
+- run: pnpm std-toolkit snapshot verify
 ```
 
 ## Key exports

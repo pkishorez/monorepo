@@ -11,7 +11,13 @@ import type {
   TableSnapshot,
 } from '../../snapshot/index.js';
 import { Snapshot } from '../../snapshot/index.js';
-import { runSnapshotCommand } from '../snapshot-command.js';
+import { Effect } from 'effect';
+import * as NodeServices from '@effect/platform-node/NodeServices';
+import {
+  approveSnapshot,
+  verifySnapshot,
+  viewSnapshot,
+} from '../snapshot/index.js';
 
 const directories: string[] = [];
 
@@ -108,15 +114,18 @@ const customTransformedUser = EntityESchema.make('User', 'id', {
 }).build();
 
 function entity(
-  secondaryDerivations: TableEntitySnapshot['secondaryDerivations'] = [],
+  patterns: readonly TableEntitySnapshot['accessPatterns'][number][] = [],
 ): TableEntitySnapshot {
   return {
     name: 'User',
     kind: 'keyed',
-    idField: 'id',
     schema: 'User',
-    primaryDerivation: { pk: ['email'], sk: ['id'] },
-    secondaryDerivations,
+    idField: 'id',
+    primary: { pk: ['email'], sk: ['id'] },
+    accessPatterns: [
+      ...patterns,
+      { name: 'primary', kind: 'primary', pk: ['email'], sk: ['id'] },
+    ],
   };
 }
 
@@ -125,7 +134,6 @@ function index(
 ): TableIndexSnapshot {
   return {
     name: 'GSI1',
-    kind: 'gsi',
     pk: 'gsi1pk',
     sk: 'gsi1sk',
     ...overrides,
@@ -133,18 +141,21 @@ function index(
 }
 
 function table(options?: {
-  readonly adapter?: TableSnapshot['adapter'];
-  readonly primaryIndex?: TableSnapshot['primaryIndex'];
-  readonly secondaryIndexes?: TableSnapshot['secondaryIndexes'];
+  readonly logicalName?: string;
+  readonly primary?: TableSnapshot['topology']['primary'];
+  readonly globalSecondaryIndexes?: readonly TableIndexSnapshot[];
   readonly entities?: TableSnapshot['entities'];
   readonly schemas?: readonly ESchemaDefinition[];
 }): TableSnapshot {
   return {
-    _v: 'v1',
+    _v: 'v2',
     kind: 'table',
-    adapter: options?.adapter ?? 'dynamodb',
-    primaryIndex: options?.primaryIndex ?? { pk: 'pk', sk: 'sk' },
-    secondaryIndexes: options?.secondaryIndexes ?? [],
+    logicalName: options?.logicalName ?? 'app',
+    topology: {
+      primary: options?.primary ?? { pk: 'pk', sk: 'sk' },
+      localSecondaryIndexes: [],
+      globalSecondaryIndexes: options?.globalSecondaryIndexes ?? [],
+    },
     entities: options?.entities ?? [entity()],
     schemas: options?.schemas ?? Snapshot.capture(userV1).schemas,
   };
@@ -157,7 +168,8 @@ function emptyTable(): TableSnapshot {
 const indexedEntity = entity([
   {
     name: 'byEmail',
-    physicalIndex: 'GSI1',
+    kind: 'gsi',
+    index: 'GSI1',
     pk: ['email'],
     sk: ['id'],
   },
@@ -168,7 +180,7 @@ interface Scenario {
   readonly baseline?: TableSnapshot;
   readonly current: TableSnapshot;
   readonly exitCode: number;
-  readonly update?: boolean;
+  readonly mode?: 'verify' | 'approve' | 'view';
 }
 
 const scenarios: readonly Scenario[] = [
@@ -187,7 +199,7 @@ const scenarios: readonly Scenario[] = [
     name: 'new-table-approved',
     current: table(),
     exitCode: 0,
-    update: true,
+    mode: 'approve',
   },
   {
     name: 'entity-added',
@@ -204,14 +216,14 @@ const scenarios: readonly Scenario[] = [
   {
     name: 'primary-index-changed',
     baseline: table(),
-    current: table({ primaryIndex: { pk: 'partitionKey', sk: 'sortKey' } }),
+    current: table({ primary: { pk: 'partitionKey', sk: 'sortKey' } }),
     exitCode: 1,
   },
   {
     name: 'secondary-index-added',
     baseline: table(),
     current: table({
-      secondaryIndexes: [index()],
+      globalSecondaryIndexes: [index()],
       entities: [indexedEntity],
     }),
     exitCode: 1,
@@ -219,11 +231,11 @@ const scenarios: readonly Scenario[] = [
   {
     name: 'secondary-index-changed',
     baseline: table({
-      secondaryIndexes: [index()],
+      globalSecondaryIndexes: [index()],
       entities: [indexedEntity],
     }),
     current: table({
-      secondaryIndexes: [index({ pk: 'nextGsiPk', sk: 'nextGsiSk' })],
+      globalSecondaryIndexes: [index({ pk: 'nextGsiPk', sk: 'nextGsiSk' })],
       entities: [indexedEntity],
     }),
     exitCode: 1,
@@ -231,20 +243,20 @@ const scenarios: readonly Scenario[] = [
   {
     name: 'secondary-index-change-approved',
     baseline: table({
-      secondaryIndexes: [index()],
+      globalSecondaryIndexes: [index()],
       entities: [indexedEntity],
     }),
     current: table({
-      secondaryIndexes: [index({ pk: 'nextGsiPk', sk: 'nextGsiSk' })],
+      globalSecondaryIndexes: [index({ pk: 'nextGsiPk', sk: 'nextGsiSk' })],
       entities: [indexedEntity],
     }),
     exitCode: 0,
-    update: true,
+    mode: 'approve',
   },
   {
     name: 'secondary-index-removed',
     baseline: table({
-      secondaryIndexes: [index()],
+      globalSecondaryIndexes: [index()],
       entities: [indexedEntity],
     }),
     current: table(),
@@ -269,10 +281,16 @@ const scenarios: readonly Scenario[] = [
     exitCode: 1,
   },
   {
-    name: 'adapter-changed',
+    name: 'table-renamed',
     baseline: table(),
-    current: table({ adapter: 'sqlite' }),
+    current: table({ logicalName: 'legacy' }),
     exitCode: 1,
+  },
+  {
+    name: 'view-table',
+    current: table(),
+    exitCode: 0,
+    mode: 'view',
   },
   {
     name: 'unverifiable-transform-warning',
@@ -285,6 +303,23 @@ const scenarios: readonly Scenario[] = [
     exitCode: 0,
   },
 ];
+
+function expectedFirstLine(scenario: Scenario): string {
+  if (scenario.mode === 'view') {
+    return '╭─ DATABASE CONTRACT ────────────────────────────╮';
+  }
+  if (scenario.mode === 'approve') {
+    return scenario.baseline === undefined
+      ? '✓ Approved snapshot written to std-toolkit.snapshot.json'
+      : '✓ Approved snapshot updated: std-toolkit.snapshot.json';
+  }
+  if (scenario.baseline === undefined) {
+    return 'No approved snapshot found: std-toolkit.snapshot.json';
+  }
+  return scenario.exitCode === 0
+    ? '✓ Database contract matches the approved snapshot'
+    : '╭─ DATABASE CONTRACT CHANGED ────────────────────╮';
+}
 
 async function runScenario(
   scenario: Scenario,
@@ -301,13 +336,16 @@ async function runScenario(
       `${JSON.stringify(scenario.baseline, null, 2)}\n`,
     );
   }
-  const output: string[] = [];
-  const exitCode = await runSnapshotCommand({
-    cwd,
-    update: scenario.update ?? false,
-    write: (value) => output.push(value),
-  });
-  return { exitCode, output: `${output.join('\n')}\n` };
+  const command =
+    scenario.mode === 'approve'
+      ? approveSnapshot
+      : scenario.mode === 'view'
+        ? viewSnapshot
+        : verifySnapshot;
+  const { exitCode, output } = await Effect.runPromise(
+    command(cwd).pipe(Effect.provide(NodeServices.layer)),
+  );
+  return { exitCode, output: `${output}\n` };
 }
 
 afterEach(async () => {
@@ -323,17 +361,7 @@ describe('snapshot CLI scenario transcripts', () => {
     it(scenario.name, async () => {
       const result = await runScenario(scenario);
       expect(result.exitCode).toBe(scenario.exitCode);
-      expect(result.output.split('\n')[0]).toBe(
-        scenario.update === true
-          ? scenario.baseline === undefined
-            ? '✓ Approved snapshot written to std-toolkit.snapshot.json'
-            : '✓ Approved snapshot updated: std-toolkit.snapshot.json'
-          : scenario.baseline === undefined
-            ? 'No approved snapshot found: std-toolkit.snapshot.json'
-            : scenario.exitCode === 0
-              ? '✓ Database contract matches the approved snapshot'
-              : '╭─ DATABASE CONTRACT CHANGED ────────────────────╮',
-      );
+      expect(result.output.split('\n')[0]).toBe(expectedFirstLine(scenario));
       await expect(result.output).toMatchFileSnapshot(
         join(
           import.meta.dirname,

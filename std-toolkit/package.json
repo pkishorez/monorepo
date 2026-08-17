@@ -2,7 +2,7 @@
   "name": "std-toolkit",
   "version": "0.0.2",
   "private": false,
-  "description": "Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration",
+  "description": "Single-table design toolkit \u2014 database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration",
   "keywords": [
     "dynamodb",
     "effect",
@@ -110,6 +110,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@effect/platform-node": "catalog:",
     "@pkishorez/effect-tracer": "workspace:*",
     "@standard-schema/spec": "catalog:",
     "aws4fetch": "catalog:",
@@ -119,7 +120,6 @@
     "ulidx": "catalog:"
   },
   "devDependencies": {
-    "@effect/platform-node": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@tanstack/query-db-collection": "catalog:",
     "@tanstack/react-db": "catalog:",

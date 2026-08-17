@@ -35,29 +35,6 @@ BREAKING
     │ Identity │ id     │
     └──────────┴────────┘
 
-╭─ DATABASE CONTRACT ────────────────────────────╮
-│ Table: dynamodb                                │
-╰────────────────────────────────────────────────╯
-
-PRIMARY INDEX
-
-┌───────────────┬───────────┐
-│ Key           │ Attribute │
-├───────────────┼───────────┤
-│ Partition key │ pk        │
-│ Sort key      │ sk        │
-└───────────────┴───────────┘
-
-SECONDARY INDEXES
-
-None
-
-ENTITIES
-
-None
-
-Snapshot was not updated.
-
 Review the changes, then approve them with:
 
-  std-toolkit snapshot -u
+  std-toolkit snapshot approve

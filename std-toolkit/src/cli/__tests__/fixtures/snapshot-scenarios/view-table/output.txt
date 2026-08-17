@@ -1,27 +1,5 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 1 unverifiable                                 │
-╰────────────────────────────────────────────────╯
-
-┌────────────────┬─────────────────────────────────────────────────┬──────────┬────────┐
-│ Status         │ Change                                          │ Before   │ After  │
-├────────────────┼─────────────────────────────────────────────────┼──────────┼────────┤
-│ ? UNVERIFIABLE │ Cannot compare dynamodb table with sqlite table │ dynamodb │ sqlite │
-└────────────────┴─────────────────────────────────────────────────┴──────────┴────────┘
-
-UNVERIFIABLE
-
-  Cannot compare dynamodb table with sqlite table
-  /adapter
-
-  ┌────────┬──────────┐
-  │        │ Value    │
-  ├────────┼──────────┤
-  │ Before │ dynamodb │
-  │ After  │ sqlite   │
-  └────────┴──────────┘
-
 ╭─ DATABASE CONTRACT ────────────────────────────╮
-│ Table: sqlite                                  │
+│ Table: app                                     │
 ╰────────────────────────────────────────────────╯
 
 PRIMARY INDEX
@@ -45,6 +23,14 @@ ENTITIES
 │ User │ keyed │ User   │ id       │ email      │ id         │
 └──────┴───────┴────────┴──────────┴────────────┴────────────┘
 
+ACCESS PATTERNS
+
+┌────────┬─────────┬─────────┬───────┬───────────┬───────────┐
+│ Entity │ Name    │ Kind    │ Index │ PK source │ SK source │
+├────────┼─────────┼─────────┼───────┼───────────┼───────────┤
+│ User   │ primary │ primary │ —     │ email     │ id        │
+└────────┴─────────┴─────────┴───────┴───────────┴───────────┘
+
 SCHEMAS
 
 User · entity · identity: id
@@ -58,9 +44,3 @@ User · entity · identity: id
       ├─ email: string
       ├─ id: string
       └─ profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
-
-Snapshot was not updated.
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot -u

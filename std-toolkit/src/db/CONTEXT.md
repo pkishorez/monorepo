@@ -147,7 +147,7 @@ The single `=`, `<`, `<=`, `>`, `>=`, `between`, or `beginsWith` condition in an
 _Avoid_: Cursor, pagination token, per-field comparison.
 
 **Get-and-update**:
-The portable read-modify-write on an **entity surface** (`getAndUpdate` / `getAndUpdateOp`): read the current entity, derive a partial from it (plain partial or `current => partial` callback), and write back guarded on the `_u` that was read. The guarded, retrying counterpart to adapter-native update surfaces.
+The portable read-modify-write on an **entity surface** (`getAndUpdate` / `getAndUpdateOp`): read the current entity, derive a partial from it (plain partial or `current => partial` callback), and write back guarded on the `_u` that was read. The guarded, retrying counterpart to adapter-native update surfaces. A callback returning `null` means the rule vetoed the write: `getAndUpdate` skips silently and returns the row unchanged, while `getAndUpdateOp` fails with `UpdateRefused` so the surrounding **transact** is never submitted.
 _Avoid_: getUpdate, modify, RMW (spell out **get-and-update**).
 
 **Transact op**:

@@ -23,14 +23,13 @@ describe('snapshot rendering', () => {
   it('renders ordered changes for review', () => {
     const rendered = Snapshot.renderChanges([
       {
-        path: '/secondaryIndexes/GSI2',
+        path: '/topology/globalSecondaryIndexes/GSI2',
         scope: 'index',
         kind: 'secondary-index-added',
         classification: 'requires-backfill',
-        message: 'Added secondary index GSI2',
+        message: 'Added global secondary index GSI2',
         after: {
           name: 'GSI2',
-          kind: 'gsi',
           pk: 'gsi2pk',
           sk: 'gsi2sk',
         },
@@ -56,17 +55,20 @@ describe('snapshot rendering', () => {
       ESchema.make('Item', { value: Schema.String }).build(),
     );
     const table: TableSnapshot = {
-      _v: 'v1',
+      _v: 'v2',
       kind: 'table',
-      adapter: 'dynamodb',
-      primaryIndex: { pk: 'pk', sk: 'sk' },
-      secondaryIndexes: [],
+      logicalName: 'app',
+      topology: {
+        primary: { pk: 'pk', sk: 'sk' },
+        localSecondaryIndexes: [],
+        globalSecondaryIndexes: [],
+      },
       entities: [],
       schemas: eschema.schemas,
     };
 
     expect(Snapshot.render(eschema)).toContain('ESchema root: Item');
-    expect(Snapshot.render(table)).toContain('Table: dynamodb');
+    expect(Snapshot.render(table)).toContain('Table: app');
     expect(Snapshot.render(table)).toContain('SCHEMAS');
   });
 });

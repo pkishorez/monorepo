@@ -16,6 +16,9 @@ export class PrimaryKeyUpdateNotSupported extends Data.TaggedError(
 export class ConditionFailed extends Data.TaggedError('ConditionFailed')<{
   readonly entity: string;
 }> {}
+export class UpdateRefused extends Data.TaggedError('UpdateRefused')<{
+  readonly entity: string;
+}> {}
 export class InvalidQuery extends Data.TaggedError('InvalidQuery')<{
   readonly message: string;
 }> {}
@@ -62,6 +65,7 @@ export type DatabaseErrorReason =
   | NoItemToUpdate
   | PrimaryKeyUpdateNotSupported
   | ConditionFailed
+  | UpdateRefused
   | InvalidQuery
   | TransactionTooLarge
   | DuplicateTransactionTarget

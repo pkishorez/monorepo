@@ -6,6 +6,7 @@ import {
   ItemAlreadyExists,
   NoItemToUpdate,
   PrimaryKeyUpdateNotSupported,
+  UpdateRefused,
 } from '../error/index.js';
 import {
   StdTableService,
@@ -170,9 +171,13 @@ export const makeKeyedEntity = <
             ? update(existing.value as EntityValue<S>)
             : update
           : {};
+      if (partial === null)
+        return yield* failReason(
+          new UpdateRefused({ entity: definition.name }),
+        );
       return yield* buildUpdateOp(
         existing as EntityType<EntityValue<S>>,
-        partial ?? {},
+        partial,
         kind,
         options,
       );

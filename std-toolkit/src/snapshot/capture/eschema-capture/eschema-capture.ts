@@ -130,6 +130,7 @@ function canonicalize(
   const output: Record<string, unknown> = {};
   for (const key of Object.keys(value).sort()) {
     if (presentationKeys.has(key)) continue;
+    if (value[key] === undefined) continue;
     const next = canonicalize(value[key], references);
     if (key === 'annotations' && isRecord(next)) {
       const annotations = Object.fromEntries(
@@ -179,12 +180,12 @@ function sanitizeRepresentation(value: unknown): unknown {
 function representation(
   schema: Schema.Top,
   references: ReadonlyMap<string, string>,
-): unknown {
+): Schema.Json {
   const document = sanitizeRepresentation(
     SchemaRepresentation.toRepresentation(schema.ast),
   ) as SchemaRepresentation.Document;
   const json = SchemaRepresentation.toJson(document);
-  return canonicalize(json, references);
+  return canonicalize(json, references) as Schema.Json;
 }
 
 function walkAst(

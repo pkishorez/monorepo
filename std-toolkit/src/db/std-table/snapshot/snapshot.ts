@@ -3,53 +3,22 @@ import type {
   AnyUnkeyedESchema,
 } from '../../../eschema/index.js';
 import { buildESchemaDefinitions } from '../../../snapshot/capture/eschema-capture/index.js';
-import type { ESchemaDefinition } from '../../../snapshot/domain/index.js';
+import type {
+  TableAccessPatternSnapshot,
+  TableEntitySnapshot,
+  TableIndexSnapshot,
+  TableSnapshot,
+} from '../../../snapshot/domain/index.js';
 
-interface SnapshotIndex {
-  readonly name: string;
-  readonly pk: string;
-  readonly sk: string;
-}
-
-export interface LogicalTableSnapshot {
-  readonly _v: 'v1';
-  readonly kind: 'table';
-  readonly logicalName: string;
-  readonly topology: {
-    readonly primary: { readonly pk: string; readonly sk: string };
-    readonly localSecondaryIndexes: readonly SnapshotIndex[];
-    readonly globalSecondaryIndexes: readonly SnapshotIndex[];
-  };
-  readonly entities: readonly LogicalEntitySnapshot[];
-  readonly schemas: readonly ESchemaDefinition[];
-}
-
-export interface LogicalEntitySnapshot {
-  readonly name: string;
-  readonly kind: 'keyed' | 'single';
-  readonly schema: string;
-  readonly idField: string | null;
-  readonly primary: {
-    readonly pk: readonly string[];
-    readonly sk: readonly string[];
-  };
-  readonly accessPatterns: readonly (SnapshotAccessPattern & {
-    readonly name: string;
-  })[];
-}
-
-export interface SnapshotAccessPattern {
-  readonly index?: string | undefined;
-  readonly kind: 'primary' | 'lsi' | 'gsi';
-  readonly pk: readonly string[];
-  readonly sk: readonly string[];
-}
+export type LogicalTableSnapshot = TableSnapshot;
+export type LogicalEntitySnapshot = TableEntitySnapshot;
+export type SnapshotAccessPattern = Omit<TableAccessPatternSnapshot, 'name'>;
 
 interface TableSource {
   readonly logicalName: string;
   readonly primary: { readonly pk: string; readonly sk: string };
-  readonly localSecondaryIndexes: Readonly<Record<string, SnapshotIndex>>;
-  readonly globalSecondaryIndexes: Readonly<Record<string, SnapshotIndex>>;
+  readonly localSecondaryIndexes: Readonly<Record<string, TableIndexSnapshot>>;
+  readonly globalSecondaryIndexes: Readonly<Record<string, TableIndexSnapshot>>;
 }
 
 interface KeyedEntitySource {
@@ -100,20 +69,22 @@ export const createLogicalTableSnapshot = (
           sk: [...entity.primary.sk],
         },
         accessPatterns: Object.entries(entity.accessPatterns)
-          .map(([name, pattern]): SnapshotAccessPattern & { name: string } => ({
-            name,
-            index: pattern.index,
-            kind: pattern.kind,
-            pk: [...pattern.pk],
-            sk: [...pattern.sk],
-          }))
+          .map(
+            ([name, pattern]): TableAccessPatternSnapshot => ({
+              name,
+              index: pattern.index,
+              kind: pattern.kind,
+              pk: [...pattern.pk],
+              sk: [...pattern.sk],
+            }),
+          )
           .sort((left, right) => compare(left.name, right.name)),
       };
     })
     .sort((left, right) => compare(left.name, right.name));
 
   return {
-    _v: 'v1',
+    _v: 'v2',
     kind: 'table',
     logicalName: table.logicalName,
     topology: {
