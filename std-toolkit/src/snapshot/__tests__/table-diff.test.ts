@@ -9,25 +9,30 @@ const schema = EntityESchema.make('User', 'id', {
 
 function table(): TableSnapshot {
   return {
-    _v: 'v1',
+    _v: 'v2',
     kind: 'table',
-    adapter: 'dynamodb',
-    primaryIndex: { pk: 'pk', sk: 'sk' },
-    secondaryIndexes: [{ name: 'GSI1', kind: 'gsi', pk: 'gpk', sk: 'gsk' }],
+    logicalName: 'app',
+    topology: {
+      primary: { pk: 'pk', sk: 'sk' },
+      localSecondaryIndexes: [],
+      globalSecondaryIndexes: [{ name: 'GSI1', pk: 'gpk', sk: 'gsk' }],
+    },
     entities: [
       {
         name: 'User',
         kind: 'keyed',
-        idField: 'id',
         schema: 'User',
-        primaryDerivation: { pk: ['email'], sk: ['id'] },
-        secondaryDerivations: [
+        idField: 'id',
+        primary: { pk: ['email'], sk: ['id'] },
+        accessPatterns: [
           {
             name: 'byEmail',
-            physicalIndex: 'GSI1',
+            kind: 'gsi',
+            index: 'GSI1',
             pk: ['email'],
             sk: ['_u'],
           },
+          { name: 'primary', kind: 'primary', pk: ['email'], sk: ['id'] },
         ],
       },
     ],
@@ -43,7 +48,7 @@ describe('table snapshot diff', () => {
   it('returns no changes for identical tables and sorts changes deterministically', () => {
     expect(Snapshot.diff(table(), clone())).toEqual([]);
     const current = clone() as any;
-    current.primaryIndex.pk = 'nextPk';
+    current.topology.primary.pk = 'nextPk';
     current.entities[0].idField = 'nextId';
     const changes = Snapshot.diff(table(), current);
     expect(changes.map(({ path }) => path)).toEqual(
@@ -56,10 +61,10 @@ describe('table snapshot diff', () => {
 
   it('classifies primary topology and retained entity identity changes as breaking', () => {
     for (const mutate of [
-      (value: any) => (value.primaryIndex.sk = 'nextSk'),
+      (value: any) => (value.topology.primary.sk = 'nextSk'),
       (value: any) => (value.entities[0].idField = 'userId'),
-      (value: any) => (value.entities[0].kind = 'singleton'),
-      (value: any) => (value.entities[0].primaryDerivation.pk = ['id']),
+      (value: any) => (value.entities[0].kind = 'single'),
+      (value: any) => (value.entities[0].primary.pk = ['id']),
     ]) {
       const current = clone() as any;
       mutate(current);
@@ -88,9 +93,8 @@ describe('table snapshot diff', () => {
 
   it('classifies secondary physical index add, change, and remove', () => {
     const added = clone() as any;
-    added.secondaryIndexes.push({
+    added.topology.globalSecondaryIndexes.push({
       name: 'GSI2',
-      kind: 'gsi',
       pk: 'x',
       sk: 'y',
     });
@@ -100,14 +104,17 @@ describe('table snapshot diff', () => {
     });
 
     const changed = clone() as any;
-    changed.secondaryIndexes[0].sk = 'next';
+    changed.topology.globalSecondaryIndexes[0].sk = 'next';
     expect(Snapshot.diff(table(), changed)[0]).toMatchObject({
       classification: 'requires-backfill',
     });
 
     const removed = clone() as any;
-    removed.secondaryIndexes = [];
-    removed.entities[0].secondaryDerivations = [];
+    removed.topology.globalSecondaryIndexes = [];
+    removed.entities[0].accessPatterns =
+      removed.entities[0].accessPatterns.filter(
+        ({ kind }: { kind: string }) => kind === 'primary',
+      );
     expect(
       Snapshot.diff(table(), removed).find(
         ({ kind }) => kind === 'secondary-index-removed',
@@ -115,12 +122,30 @@ describe('table snapshot diff', () => {
     ).toMatchObject({ classification: 'safe' });
   });
 
+  it('classifies local secondary index add and remove', () => {
+    const added = clone() as any;
+    added.topology.localSecondaryIndexes.push({
+      name: 'LSI1',
+      pk: 'pk',
+      sk: 'lsk',
+    });
+    expect(Snapshot.diff(table(), added)[0]).toMatchObject({
+      kind: 'secondary-index-added',
+      classification: 'requires-backfill',
+      path: '/topology/localSecondaryIndexes/LSI1',
+    });
+    expect(Snapshot.diff(added, table())[0]).toMatchObject({
+      kind: 'secondary-index-removed',
+      classification: 'safe',
+    });
+  });
+
   it('classifies entity add/remove and treats rename as remove plus add', () => {
     const added = clone() as any;
     added.entities.push({
       ...added.entities[0],
       name: 'Admin',
-      secondaryDerivations: [],
+      accessPatterns: [],
     });
     expect(
       Snapshot.diff(table(), added).find(({ kind }) => kind === 'entity-added'),
@@ -144,57 +169,70 @@ describe('table snapshot diff', () => {
     ).toEqual(['breaking', 'safe']);
   });
 
-  it('classifies secondary entity derivation add/change/move/remove/rename', () => {
+  it('classifies access pattern add/change/move/remove/rename', () => {
     const added = clone() as any;
-    added.entities[0].secondaryDerivations.push({
+    added.entities[0].accessPatterns.push({
       name: 'timeline',
-      physicalIndex: 'GSI1',
+      kind: 'gsi',
+      index: 'GSI1',
       pk: ['id'],
       sk: ['_u'],
     });
     expect(
       Snapshot.diff(table(), added).find(
-        ({ kind }) => kind === 'entity-index-added',
+        ({ kind }) => kind === 'access-pattern-added',
       ),
     ).toMatchObject({ classification: 'requires-backfill' });
 
     for (const mutate of [
-      (value: any) => (value.entities[0].secondaryDerivations[0].pk = ['id']),
-      (value: any) =>
-        (value.entities[0].secondaryDerivations[0].physicalIndex = 'GSI2'),
+      (value: any) => (value.entities[0].accessPatterns[0].pk = ['id']),
+      (value: any) => (value.entities[0].accessPatterns[0].index = 'GSI2'),
     ]) {
       const current = clone() as any;
       if (String(mutate).includes('GSI2'))
-        current.secondaryIndexes.push({
+        current.topology.globalSecondaryIndexes.push({
           name: 'GSI2',
-          kind: 'gsi',
           pk: 'x',
           sk: 'y',
         });
       mutate(current);
       expect(
         Snapshot.diff(table(), current).find(({ kind }) =>
-          kind.startsWith('entity-index-'),
+          kind.startsWith('access-pattern-'),
         ),
       ).toMatchObject({ classification: 'requires-backfill' });
     }
 
     const removed = clone() as any;
-    removed.entities[0].secondaryDerivations = [];
+    removed.entities[0].accessPatterns =
+      removed.entities[0].accessPatterns.filter(
+        ({ kind }: { kind: string }) => kind === 'primary',
+      );
     expect(
       Snapshot.diff(table(), removed).find(
-        ({ kind }) => kind === 'entity-index-removed',
+        ({ kind }) => kind === 'access-pattern-removed',
       ),
     ).toMatchObject({ classification: 'safe' });
 
     const renamed = clone() as any;
-    renamed.entities[0].secondaryDerivations[0].name = 'byAddress';
+    renamed.entities[0].accessPatterns[0].name = 'byAddress';
     expect(
       Snapshot.diff(table(), renamed)
-        .filter(({ kind }) => kind.startsWith('entity-index-'))
+        .filter(({ kind }) => kind.startsWith('access-pattern-'))
         .map(({ classification }) => classification)
         .sort(),
     ).toEqual(['requires-backfill', 'safe']);
+  });
+
+  it('classifies a primary access pattern change as breaking', () => {
+    const current = clone() as any;
+    current.entities[0].primary.sk = ['email'];
+    current.entities[0].accessPatterns[1].sk = ['email'];
+    expect(
+      Snapshot.diff(table(), current).map(
+        ({ classification }) => classification,
+      ),
+    ).toEqual(['breaking', 'breaking']);
   });
 
   it('delegates ESchema append, edit, delete, and nested transitive changes', () => {
@@ -256,38 +294,62 @@ describe('table snapshot diff', () => {
     ).toMatchObject({ classification: 'safe' });
   });
 
-  it('stops at adapter mismatch and rejects invalid references', async () => {
+  it('reports a rename alongside the remaining changes', () => {
     const other = clone() as any;
-    other.adapter = 'sqlite';
-    other.primaryIndex.pk = 'different';
+    other.logicalName = 'legacy';
+    other.topology.primary.pk = 'different';
     expect(Snapshot.diff(table(), other)).toEqual([
       expect.objectContaining({
-        kind: 'adapter-changed',
-        classification: 'unverifiable',
+        kind: 'table-renamed',
+        classification: 'breaking',
+      }),
+      expect.objectContaining({
+        kind: 'primary-index-pk-changed',
+        classification: 'breaking',
       }),
     ]);
+  });
 
+  it('rejects invalid references with a described cause', async () => {
     const danglingSchema = clone() as any;
     danglingSchema.entities[0].schema = 'Missing';
     await expect(
       Effect.runPromise(Snapshot.decode(danglingSchema)),
-    ).rejects.toBeInstanceOf(SnapshotDecodeError);
+    ).rejects.toThrow(/Dangling entity schema ref: Missing/);
     expect(() => Snapshot.diff(table(), danglingSchema)).toThrow(
       SnapshotDecodeError,
     );
 
     const danglingIndex = clone() as any;
-    danglingIndex.entities[0].secondaryDerivations[0].physicalIndex = 'Missing';
+    danglingIndex.entities[0].accessPatterns[0].index = 'Missing';
     await expect(
       Effect.runPromise(Snapshot.decode(danglingIndex)),
     ).rejects.toBeInstanceOf(SnapshotDecodeError);
+
+    const crossKindIndex = clone() as any;
+    crossKindIndex.topology.localSecondaryIndexes = [
+      { name: 'LSI1', pk: 'pk', sk: 'lsk' },
+    ];
+    crossKindIndex.entities[0].accessPatterns[0].kind = 'lsi';
+    crossKindIndex.entities[0].accessPatterns[0].index = 'GSI1';
+    await expect(
+      Effect.runPromise(Snapshot.decode(crossKindIndex)),
+    ).rejects.toThrow(/Dangling lsi index ref: GSI1/);
+
+    const legacy = { ...clone(), _v: 'v1' };
+    await expect(Effect.runPromise(Snapshot.decode(legacy))).rejects.toThrow(
+      /retired "v1" format/,
+    );
   });
 
   it('rejects malformed nested table fields', async () => {
     for (const malformed of [
       {
         ...clone(),
-        secondaryIndexes: [{ name: 'GSI1', kind: 'bogus', pk: 1, sk: null }],
+        topology: {
+          ...clone().topology,
+          globalSecondaryIndexes: [{ name: 'GSI1', pk: 1, sk: null }],
+        },
       },
       {
         ...clone(),
@@ -298,7 +360,7 @@ describe('table snapshot diff', () => {
         entities: [
           {
             ...clone().entities[0],
-            primaryDerivation: { pk: ['email'], sk: [1] },
+            primary: { pk: ['email'], sk: [1] },
           },
         ],
       },

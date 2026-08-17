@@ -3,6 +3,7 @@ import type {
   ESchemaSnapshot,
   SnapshotChange,
   TableEntitySnapshot,
+  TableIndexSnapshot,
   TableSnapshot,
 } from '../../domain/index.js';
 import { compareStrings, stableStringify } from '../../domain/index.js';
@@ -239,10 +240,6 @@ function entityPath(name: string): string {
   return `/entities/${escapePointer(name)}`;
 }
 
-function indexPath(name: string): string {
-  return `/secondaryIndexes/${escapePointer(name)}`;
-}
-
 function addFieldChanges(
   changes: SnapshotChange[],
   base: string,
@@ -279,27 +276,25 @@ function diffEntity(
     'entity',
     before as unknown as Record<string, unknown>,
     after as unknown as Record<string, unknown>,
-    ['kind', 'idField', 'schema', 'primaryDerivation'],
+    ['kind', 'idField', 'schema', 'primary'],
     'breaking',
     'entity',
   );
-  const prior = new Map(
-    before.secondaryDerivations.map((item) => [item.name, item]),
-  );
+  const prior = new Map(before.accessPatterns.map((item) => [item.name, item]));
   const current = new Map(
-    after.secondaryDerivations.map((item) => [item.name, item]),
+    after.accessPatterns.map((item) => [item.name, item]),
   );
-  for (const derivation of after.secondaryDerivations) {
-    const old = prior.get(derivation.name);
-    const path = `${base}/secondaryDerivations/${escapePointer(derivation.name)}`;
+  for (const pattern of after.accessPatterns) {
+    const old = prior.get(pattern.name);
+    const path = `${base}/accessPatterns/${escapePointer(pattern.name)}`;
     if (old === undefined) {
       changes.push({
         path,
         scope: 'index',
-        kind: 'entity-index-added',
+        kind: 'access-pattern-added',
         classification: 'requires-backfill',
-        message: `Added entity index ${after.name}/${derivation.name}`,
-        after: derivation,
+        message: `Added access pattern ${after.name}/${pattern.name}`,
+        after: pattern,
       });
     } else {
       addFieldChanges(
@@ -307,62 +302,41 @@ function diffEntity(
         path,
         'index',
         old as unknown as Record<string, unknown>,
-        derivation as unknown as Record<string, unknown>,
-        ['physicalIndex', 'pk', 'sk'],
-        'requires-backfill',
-        'entity-index',
+        pattern as unknown as Record<string, unknown>,
+        ['kind', 'index', 'pk', 'sk'],
+        pattern.kind === 'primary' && old.kind === 'primary'
+          ? 'breaking'
+          : 'requires-backfill',
+        'access-pattern',
       );
     }
   }
-  for (const derivation of before.secondaryDerivations) {
-    if (!current.has(derivation.name)) {
+  for (const pattern of before.accessPatterns) {
+    if (!current.has(pattern.name)) {
       changes.push({
-        path: `${base}/secondaryDerivations/${escapePointer(derivation.name)}`,
+        path: `${base}/accessPatterns/${escapePointer(pattern.name)}`,
         scope: 'index',
-        kind: 'entity-index-removed',
+        kind: 'access-pattern-removed',
         classification: 'safe',
-        message: `Removed entity index ${before.name}/${derivation.name}`,
-        before: derivation,
+        message: `Removed access pattern ${before.name}/${pattern.name}`,
+        before: pattern,
       });
     }
   }
 }
 
-function diffTable(
-  previous: TableSnapshot,
-  current: TableSnapshot,
-): SnapshotChange[] {
-  if (previous.adapter !== current.adapter) {
-    return [
-      {
-        path: '/adapter',
-        scope: 'table',
-        kind: 'adapter-changed',
-        classification: 'unverifiable',
-        message: `Cannot compare ${previous.adapter} table with ${current.adapter} table`,
-        before: previous.adapter,
-        after: current.adapter,
-      },
-    ];
-  }
-  const changes: SnapshotChange[] = [];
-  addFieldChanges(
-    changes,
-    '/primaryIndex',
-    'index',
-    previous.primaryIndex as Record<string, unknown>,
-    current.primaryIndex as Record<string, unknown>,
-    ['pk', 'sk'],
-    'breaking',
-    'primary-index',
-  );
-  const priorIndexes = new Map(
-    previous.secondaryIndexes.map((item) => [item.name, item]),
-  );
-  const currentIndexes = new Map(
-    current.secondaryIndexes.map((item) => [item.name, item]),
-  );
-  for (const index of current.secondaryIndexes) {
+function diffSecondaryIndexes(
+  changes: SnapshotChange[],
+  segment: 'localSecondaryIndexes' | 'globalSecondaryIndexes',
+  previous: readonly TableIndexSnapshot[],
+  current: readonly TableIndexSnapshot[],
+): void {
+  const label = segment === 'localSecondaryIndexes' ? 'local' : 'global';
+  const indexPath = (name: string): string =>
+    `/topology/${segment}/${escapePointer(name)}`;
+  const priorIndexes = new Map(previous.map((item) => [item.name, item]));
+  const currentIndexes = new Map(current.map((item) => [item.name, item]));
+  for (const index of current) {
     const old = priorIndexes.get(index.name);
     const path = indexPath(index.name);
     if (old === undefined) {
@@ -371,7 +345,7 @@ function diffTable(
         scope: 'index',
         kind: 'secondary-index-added',
         classification: 'requires-backfill',
-        message: `Added secondary index ${index.name}`,
+        message: `Added ${label} secondary index ${index.name}`,
         after: index,
       });
     } else {
@@ -381,24 +355,64 @@ function diffTable(
         'index',
         old as unknown as Record<string, unknown>,
         index as unknown as Record<string, unknown>,
-        ['kind', 'pk', 'sk'],
+        ['pk', 'sk'],
         'requires-backfill',
         'secondary-index',
       );
     }
   }
-  for (const index of previous.secondaryIndexes) {
+  for (const index of previous) {
     if (!currentIndexes.has(index.name)) {
       changes.push({
         path: indexPath(index.name),
         scope: 'index',
         kind: 'secondary-index-removed',
         classification: 'safe',
-        message: `Removed secondary index ${index.name}`,
+        message: `Removed ${label} secondary index ${index.name}`,
         before: index,
       });
     }
   }
+}
+
+function diffTable(
+  previous: TableSnapshot,
+  current: TableSnapshot,
+): SnapshotChange[] {
+  const changes: SnapshotChange[] = [];
+  if (previous.logicalName !== current.logicalName) {
+    changes.push({
+      path: '/logicalName',
+      scope: 'table',
+      kind: 'table-renamed',
+      classification: 'breaking',
+      message: `Renamed table ${previous.logicalName} to ${current.logicalName}`,
+      before: previous.logicalName,
+      after: current.logicalName,
+    });
+  }
+  addFieldChanges(
+    changes,
+    '/topology/primary',
+    'index',
+    previous.topology.primary as Record<string, unknown>,
+    current.topology.primary as Record<string, unknown>,
+    ['pk', 'sk'],
+    'breaking',
+    'primary-index',
+  );
+  diffSecondaryIndexes(
+    changes,
+    'localSecondaryIndexes',
+    previous.topology.localSecondaryIndexes,
+    current.topology.localSecondaryIndexes,
+  );
+  diffSecondaryIndexes(
+    changes,
+    'globalSecondaryIndexes',
+    previous.topology.globalSecondaryIndexes,
+    current.topology.globalSecondaryIndexes,
+  );
   const priorEntities = new Map(
     previous.entities.map((item) => [item.name, item]),
   );

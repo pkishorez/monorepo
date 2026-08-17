@@ -3,6 +3,7 @@ import type {
   AnyUnkeyedESchema,
   ESchemaType,
 } from '../../../eschema/index.js';
+import { isEncodedStringSchema } from '../../../eschema/domain/introspection/index.js';
 import type {
   AccessPatternMap,
   KeyedEntityBuilderStart,
@@ -17,44 +18,14 @@ import type {
 
 export type RegisteredEntity = KeyedEntityDefinition | SingleEntityDefinition;
 
-const encodedStringDescriptor = (value: unknown): boolean => {
-  if (typeof value !== 'object' || value === null) return false;
-  const descriptor = value as Record<string, unknown>;
-  if (descriptor.type === 'string') return true;
-  if (
-    Array.isArray(descriptor.enum) &&
-    descriptor.enum.length > 0 &&
-    descriptor.enum.every((item) => typeof item === 'string')
-  ) {
-    return true;
-  }
-  for (const union of ['anyOf', 'oneOf'] as const) {
-    const alternatives = descriptor[union];
-    if (
-      Array.isArray(alternatives) &&
-      alternatives.length > 0 &&
-      alternatives.every(
-        (alternative) =>
-          encodedStringDescriptor(alternative) ||
-          (typeof alternative === 'object' &&
-            alternative !== null &&
-            (alternative as Record<string, unknown>).type === 'null'),
-      )
-    ) {
-      return true;
-    }
-  }
-  return false;
-};
-
 const assertComponents = (
   schema: AnyEntityESchema,
   components: readonly string[],
 ): void => {
-  const properties = schema.getDescriptor().properties;
   for (const component of components) {
     if (component === '_u') continue;
-    if (!encodedStringDescriptor(properties[component])) {
+    const field = schema.fields[component];
+    if (field === undefined || !isEncodedStringSchema(field)) {
       throw new Error(`Index component "${component}" must encode to a string`);
     }
   }

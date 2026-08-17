@@ -235,33 +235,38 @@ export function renderSnapshot(snapshot: ContractSnapshot): string {
     ].join('\n');
   }
 
+  const secondaryIndexes = [
+    ...snapshot.topology.localSecondaryIndexes.map((index) => ({
+      ...index,
+      kind: 'lsi',
+    })),
+    ...snapshot.topology.globalSecondaryIndexes.map((index) => ({
+      ...index,
+      kind: 'gsi',
+    })),
+  ];
   const lines = [
-    ...titleBox('DATABASE CONTRACT', `Table: ${snapshot.adapter}`),
+    ...titleBox('DATABASE CONTRACT', `Table: ${snapshot.logicalName}`),
     '',
     section('Primary index'),
     '',
     ...table(
       ['Key', 'Attribute'],
       [
-        ['Partition key', snapshot.primaryIndex.pk],
-        ['Sort key', snapshot.primaryIndex.sk],
+        ['Partition key', snapshot.topology.primary.pk],
+        ['Sort key', snapshot.topology.primary.sk],
       ],
     ),
     '',
     section('Secondary indexes'),
     '',
   ];
-  if (snapshot.secondaryIndexes.length === 0) lines.push('None');
+  if (secondaryIndexes.length === 0) lines.push('None');
   else
     lines.push(
       ...table(
         ['Name', 'Kind', 'Partition key', 'Sort key'],
-        snapshot.secondaryIndexes.map(({ name, kind, pk, sk }) => [
-          name,
-          kind,
-          pk,
-          sk,
-        ]),
+        secondaryIndexes.map(({ name, kind, pk, sk }) => [name, kind, pk, sk]),
       ),
     );
 
@@ -276,29 +281,30 @@ export function renderSnapshot(snapshot: ContractSnapshot): string {
           entity.kind,
           entity.schema,
           entity.idField ?? '—',
-          entity.primaryDerivation.pk.join(', ') || '—',
-          entity.primaryDerivation.sk.join(', ') || '—',
+          entity.primary.pk.join(', ') || '—',
+          entity.primary.sk.join(', ') || '—',
         ]),
       ),
     );
 
-  const entityIndexes = snapshot.entities.flatMap((entity) =>
-    entity.secondaryDerivations.map((derivation) => [
+  const accessPatterns = snapshot.entities.flatMap((entity) =>
+    entity.accessPatterns.map((pattern) => [
       entity.name,
-      derivation.name,
-      derivation.physicalIndex,
-      derivation.pk.join(', ') || '—',
-      derivation.sk.join(', ') || '—',
+      pattern.name,
+      pattern.kind,
+      pattern.index ?? '—',
+      pattern.pk.join(', ') || '—',
+      pattern.sk.join(', ') || '—',
     ]),
   );
-  if (entityIndexes.length > 0) {
+  if (accessPatterns.length > 0) {
     lines.push(
       '',
-      section('Entity indexes'),
+      section('Access patterns'),
       '',
       ...table(
-        ['Entity', 'Name', 'Physical', 'PK source', 'SK source'],
-        entityIndexes,
+        ['Entity', 'Name', 'Kind', 'Index', 'PK source', 'SK source'],
+        accessPatterns,
       ),
     );
   }
@@ -353,7 +359,7 @@ function summaryValue(
 const detailLabels: Readonly<Record<string, string>> = {
   name: 'Name',
   kind: 'Kind',
-  physicalIndex: 'Physical index',
+  index: 'Index',
   pk: 'Partition key',
   sk: 'Sort key',
   schema: 'Schema',

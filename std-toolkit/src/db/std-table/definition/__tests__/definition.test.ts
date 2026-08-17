@@ -1,6 +1,11 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { ESchema, EntityESchema, toSchema } from '../../../../eschema/index.js';
+import {
+  ESchema,
+  EntityESchema,
+  id,
+  toSchema,
+} from '../../../../eschema/index.js';
 import { SnapshotIdentityConflict } from '../../../../snapshot/index.js';
 import { Table } from '../index.js';
 
@@ -87,7 +92,7 @@ describe('portable Table definition', () => {
     const snapshot = makeSnapshot(false, 'light');
     expect(snapshot).toEqual(makeSnapshot(true, 'dark'));
     expect(snapshot).toMatchObject({
-      _v: 'v1',
+      _v: 'v2',
       kind: 'table',
       logicalName: 'people',
       topology: {
@@ -235,6 +240,32 @@ describe('portable Table definition', () => {
       table
         .entity(invalid)
         .primary({ pk: ['encodedCount'] })
+        .build(),
+    ).not.toThrow();
+  });
+
+  it('accepts nullable string index components', () => {
+    const nullable = EntityESchema.make('Nullable', 'id', {
+      label: Schema.NullOr(Schema.String),
+    }).build();
+
+    expect(() =>
+      makeTable()
+        .entity(nullable)
+        .primary({ pk: ['label'] })
+        .build(),
+    ).not.toThrow();
+  });
+
+  it('accepts identifier-annotated string components behind $defs refs', () => {
+    const annotated = EntityESchema.make('Annotated', 'id', {
+      threadId: id('ThreadId'),
+    }).build();
+
+    expect(() =>
+      makeTable()
+        .entity(annotated)
+        .primary({ pk: ['threadId'] })
         .build(),
     ).not.toThrow();
   });

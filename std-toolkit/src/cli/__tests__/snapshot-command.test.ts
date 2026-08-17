@@ -2,7 +2,9 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { runSnapshotCommand } from '../snapshot-command.js';
+import { Effect } from 'effect';
+import * as NodeServices from '@effect/platform-node/NodeServices';
+import { approveSnapshot, verifySnapshot } from '../snapshot/index.js';
 
 const directories: string[] = [];
 
@@ -44,13 +46,11 @@ async function run(
   cwd: string,
   update: boolean,
 ): Promise<{ readonly exitCode: number; readonly output: string }> {
-  const output: string[] = [];
-  const exitCode = await runSnapshotCommand({
-    cwd,
-    update,
-    write: (value) => output.push(value),
-  });
-  return { exitCode, output: output.join('\n') };
+  return Effect.runPromise(
+    (update ? approveSnapshot(cwd) : verifySnapshot(cwd)).pipe(
+      Effect.provide(NodeServices.layer),
+    ),
+  );
 }
 
 afterEach(async () => {
@@ -98,7 +98,8 @@ describe('std-toolkit snapshot command', () => {
     expect(drift).toMatchObject({ exitCode: 1 });
     expect(drift.output).toContain('DATABASE CONTRACT CHANGED');
     expect(drift.output).toContain('✕ BREAKING');
-    expect(drift.output).toContain('Snapshot was not updated');
+    expect(drift.output).toContain('std-toolkit snapshot approve');
+    expect(drift.output).not.toContain('DATABASE CONTRACT\n');
     expect(
       JSON.parse(
         await readFile(join(cwd, 'std-toolkit.snapshot.json'), 'utf8'),

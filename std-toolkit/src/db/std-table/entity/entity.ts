@@ -132,7 +132,7 @@ export interface KeyedEntity<
   ): TableEffect<EntityType<EntityValue<S>>, Name>;
   getAndUpdateOp(
     key: EntityKey<S, Pk>,
-    update: Exclude<UpdateInput<S>, (current: EntityValue<S>) => null>,
+    update: UpdateInput<S>,
     options?: { readonly lastWriteWins?: boolean },
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
   delete(key: EntityKey<S, Pk>): TableEffect<EntityType<EntityValue<S>>, Name>;
@@ -183,7 +183,7 @@ export interface SingleEntity<
   getAndUpdateOp(
     update:
       | Partial<ESchemaType<S>>
-      | ((current: ESchemaType<S>) => Partial<ESchemaType<S>>),
+      | ((current: ESchemaType<S>) => Partial<ESchemaType<S>> | null),
     options?: { readonly lastWriteWins?: boolean },
   ): TableEffect<TransactOp<Name, ESchemaType<S>>, Name>;
   unchangedOp(

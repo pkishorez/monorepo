@@ -1,6 +1,7 @@
 export {
   inspectESchema,
   inspectESchemaComposition,
+  isEncodedStringSchema,
   isESchemaCompositionPlumbing,
   registerESchemaComposition,
   registerESchemaIntrospection,

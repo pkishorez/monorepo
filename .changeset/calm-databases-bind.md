@@ -40,11 +40,14 @@ one refused and why.
 **Schemas carry their own name.** `ESchema.make('User', { ... })` — the name is
 the schema's snapshot identity, must be non-empty, and must be unique across
 composed schemas. `toSchema(schema)` derives its identifier from that name.
-Snapshots move to `std-toolkit/snapshot`, with `std-toolkit snapshot` verifying
-and approving a single-file baseline. Optional fields are rejected at the type
-level; model absence as `null` with `Schema.NullOr`. DynamoDB indexes are
-classified by how you declare them — `.gsi(...)` is always global, `.lsi(...)`
-always local.
+Snapshots move to `std-toolkit/snapshot`, kept as a single-file baseline and
+driven by three commands: `std-toolkit snapshot verify` reports only what
+drifted and exits 1, `snapshot approve` writes the baseline, and `snapshot view`
+prints the contract in full. The CLI runs on Effect's command runtime, so
+`--help`, `--version`, shell completions, and a `--cwd` flag come with it.
+Optional fields are rejected at the type level; model absence as `null` with
+`Schema.NullOr`. DynamoDB indexes are classified by how you declare them —
+`.gsi(...)` is always global, `.lsi(...)` always local.
 
 **Sync persists to any table and converges across tabs.** Pass any
 `StdTable`-backed layer as `createStdSync({ persistenceLayer })`, built from the

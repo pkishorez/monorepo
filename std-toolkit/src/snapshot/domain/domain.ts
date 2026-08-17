@@ -1,110 +1,276 @@
-export type SnapshotClassification =
-  | 'safe'
-  | 'requires-backfill'
-  | 'breaking'
-  | 'unverifiable';
+import { Schema } from 'effect';
 
-export type SnapshotScope =
-  | 'snapshot'
-  | 'eschema'
-  | 'table'
-  | 'entity'
-  | 'index';
+export const SnapshotClassificationSchema = Schema.Literals([
+  'safe',
+  'requires-backfill',
+  'breaking',
+  'unverifiable',
+]);
+export type SnapshotClassification = typeof SnapshotClassificationSchema.Type;
 
-export interface SnapshotMarker {
-  readonly path: string;
-  readonly kind: string;
-  readonly message: string;
-}
+export const SnapshotScopeSchema = Schema.Literals([
+  'snapshot',
+  'eschema',
+  'table',
+  'entity',
+  'index',
+]);
+export type SnapshotScope = typeof SnapshotScopeSchema.Type;
 
-export interface SnapshotTransformation {
-  readonly path: string;
-  readonly name: string;
-}
+export const SnapshotMarkerSchema = Schema.Struct({
+  path: Schema.String,
+  kind: Schema.String,
+  message: Schema.String,
+});
+export type SnapshotMarker = typeof SnapshotMarkerSchema.Type;
 
-export interface ESchemaVersion {
-  readonly version: string;
-  readonly encoded: unknown;
-  readonly decoded: unknown;
-  readonly transformations: readonly SnapshotTransformation[];
-  readonly unverifiable: readonly SnapshotMarker[];
-}
+export const SnapshotTransformationSchema = Schema.Struct({
+  path: Schema.String,
+  name: Schema.String,
+});
+export type SnapshotTransformation = typeof SnapshotTransformationSchema.Type;
 
-export interface ESchemaDefinition {
-  readonly identity: string;
-  readonly kind: 'struct' | 'value' | 'entity';
-  readonly idField: string | null;
-  readonly versions: readonly ESchemaVersion[];
-}
+export const ESchemaVersionSchema = Schema.Struct({
+  version: Schema.String,
+  encoded: Schema.Json,
+  decoded: Schema.Json,
+  transformations: Schema.Array(SnapshotTransformationSchema),
+  unverifiable: Schema.Array(SnapshotMarkerSchema),
+});
+export type ESchemaVersion = typeof ESchemaVersionSchema.Type;
 
-export interface ESchemaSnapshot {
-  readonly _v: 'v1';
-  readonly kind: 'eschema';
-  readonly root: string;
-  readonly schemas: readonly ESchemaDefinition[];
-}
+export const ESchemaDefinitionSchema = Schema.Struct({
+  identity: Schema.String,
+  kind: Schema.Literals(['struct', 'value', 'entity']),
+  idField: Schema.NullOr(Schema.String),
+  versions: Schema.Array(ESchemaVersionSchema),
+});
+export type ESchemaDefinition = typeof ESchemaDefinitionSchema.Type;
 
-export interface TableSnapshot {
-  readonly _v: 'v1';
-  readonly kind: 'table';
-  readonly adapter: 'dynamodb' | 'sqlite' | 'idb';
-  readonly logicalName?: string;
-  readonly primaryIndex: {
-    readonly pk: string;
-    readonly sk: string;
-  };
-  readonly secondaryIndexes: readonly TableIndexSnapshot[];
-  readonly entities: readonly TableEntitySnapshot[];
-  readonly schemas: readonly ESchemaDefinition[];
-}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-export interface TableIndexSnapshot {
-  readonly name: string;
-  readonly kind: 'gsi' | 'lsi' | 'secondary' | 'sparse';
-  readonly pk: string;
-  readonly sk: string;
-}
+const ESchemaReferenceSchema = Schema.Struct({
+  _tag: Schema.Literal('ESchemaRef'),
+  identity: Schema.String,
+});
+const isESchemaReference = Schema.is(ESchemaReferenceSchema);
 
-export interface TableEntityDerivationSnapshot {
-  readonly pk: readonly string[];
-  readonly sk: readonly string[];
-}
+const referencesIn = (
+  value: unknown,
+  output = new Set<string>(),
+): Set<string> => {
+  if (Array.isArray(value)) {
+    value.forEach((item) => referencesIn(item, output));
+  } else if (isRecord(value)) {
+    if (isESchemaReference(value)) output.add(value.identity);
+    Object.values(value).forEach((item) => referencesIn(item, output));
+  }
+  return output;
+};
 
-export interface TableEntitySecondaryDerivationSnapshot extends TableEntityDerivationSnapshot {
-  readonly name: string;
-  readonly physicalIndex: string;
-}
+const eschemaDefinitionIssues = (
+  schemas: readonly ESchemaDefinition[],
+): readonly Schema.FilterIssue[] => {
+  const issues: Schema.FilterIssue[] = [];
+  const identities = new Set<string>();
+  schemas.forEach((definition, definitionIndex) => {
+    if (identities.has(definition.identity)) {
+      issues.push({
+        path: ['schemas', definitionIndex, 'identity'],
+        issue: `Duplicate ESchema identity: ${definition.identity}`,
+      });
+    }
+    identities.add(definition.identity);
+    definition.versions.forEach((version, versionIndex) => {
+      if (version.version !== `v${versionIndex + 1}`) {
+        issues.push({
+          path: ['schemas', definitionIndex, 'versions', versionIndex],
+          issue: `Non-contiguous or malformed version history: ${definition.identity}`,
+        });
+      }
+    });
+  });
+  schemas.forEach((definition, definitionIndex) => {
+    definition.versions.forEach((version, versionIndex) => {
+      for (const reference of referencesIn([
+        version.encoded,
+        version.decoded,
+      ])) {
+        if (!identities.has(reference)) {
+          issues.push({
+            path: ['schemas', definitionIndex, 'versions', versionIndex],
+            issue: `Dangling ESchemaRef: ${reference}`,
+          });
+        }
+      }
+    });
+  });
+  return issues;
+};
 
-export interface TableEntitySnapshot {
-  readonly name: string;
-  readonly kind: 'keyed' | 'singleton';
-  readonly idField: string | null;
-  readonly schema: string;
-  readonly primaryDerivation: TableEntityDerivationSnapshot;
-  readonly secondaryDerivations: readonly TableEntitySecondaryDerivationSnapshot[];
-}
+export const ESchemaSnapshotSchema = Schema.Struct({
+  _v: Schema.Literal('v1'),
+  kind: Schema.Literal('eschema'),
+  root: Schema.String,
+  schemas: Schema.Array(ESchemaDefinitionSchema),
+}).check(
+  Schema.makeFilter((snapshot) => {
+    const issues = [...eschemaDefinitionIssues(snapshot.schemas)];
+    if (!snapshot.schemas.some(({ identity }) => identity === snapshot.root)) {
+      issues.push({
+        path: ['root'],
+        issue: `Missing root ESchema: ${snapshot.root}`,
+      });
+    }
+    return issues;
+  }),
+);
+export type ESchemaSnapshot = typeof ESchemaSnapshotSchema.Type;
 
-export interface TableEntitySnapshotSource extends TableEntitySnapshot {
-  readonly eschema: object;
-}
+export const TableIndexSnapshotSchema = Schema.Struct({
+  name: Schema.String,
+  pk: Schema.String,
+  sk: Schema.String,
+});
+export type TableIndexSnapshot = typeof TableIndexSnapshotSchema.Type;
 
-export type ContractSnapshot = ESchemaSnapshot | TableSnapshot;
+export const TableTopologySnapshotSchema = Schema.Struct({
+  primary: Schema.Struct({ pk: Schema.String, sk: Schema.String }),
+  localSecondaryIndexes: Schema.Array(TableIndexSnapshotSchema),
+  globalSecondaryIndexes: Schema.Array(TableIndexSnapshotSchema),
+});
+export type TableTopologySnapshot = typeof TableTopologySnapshotSchema.Type;
 
-export interface SnapshotDiagnostic {
-  readonly path: string;
-  readonly kind: string;
-  readonly message: string;
-}
+export const TableEntityDerivationSnapshotSchema = Schema.Struct({
+  pk: Schema.Array(Schema.String),
+  sk: Schema.Array(Schema.String),
+});
+export type TableEntityDerivationSnapshot =
+  typeof TableEntityDerivationSnapshotSchema.Type;
 
-export interface SnapshotChange {
-  readonly path: string;
-  readonly scope: SnapshotScope;
-  readonly kind: string;
-  readonly classification: SnapshotClassification;
-  readonly message: string;
-  readonly before?: unknown;
-  readonly after?: unknown;
-}
+export const TableAccessPatternSnapshotSchema = Schema.Struct({
+  name: Schema.String,
+  kind: Schema.Literals(['primary', 'lsi', 'gsi']),
+  index: Schema.optional(Schema.String),
+  ...TableEntityDerivationSnapshotSchema.fields,
+});
+export type TableAccessPatternSnapshot =
+  typeof TableAccessPatternSnapshotSchema.Type;
+
+export const TableEntitySnapshotSchema = Schema.Struct({
+  name: Schema.String,
+  kind: Schema.Literals(['keyed', 'single']),
+  schema: Schema.String,
+  idField: Schema.NullOr(Schema.String),
+  primary: TableEntityDerivationSnapshotSchema,
+  accessPatterns: Schema.Array(TableAccessPatternSnapshotSchema),
+});
+export type TableEntitySnapshot = typeof TableEntitySnapshotSchema.Type;
+
+const TableSnapshotShape = Schema.Struct({
+  _v: Schema.Literal('v2'),
+  kind: Schema.Literal('table'),
+  logicalName: Schema.String,
+  topology: TableTopologySnapshotSchema,
+  entities: Schema.Array(TableEntitySnapshotSchema),
+  schemas: Schema.Array(ESchemaDefinitionSchema),
+});
+
+export const TableSnapshotSchema = TableSnapshotShape.check(
+  Schema.makeFilter((snapshot) => {
+    const issues = [...eschemaDefinitionIssues(snapshot.schemas)];
+    const schemas = new Set(snapshot.schemas.map(({ identity }) => identity));
+    const indexes = new Set<string>();
+    const indexesByKind = {
+      lsi: new Set<string>(),
+      gsi: new Set<string>(),
+    };
+    const allIndexes = [
+      ...snapshot.topology.localSecondaryIndexes.map(
+        (index) => ['lsi', index] as const,
+      ),
+      ...snapshot.topology.globalSecondaryIndexes.map(
+        (index) => ['gsi', index] as const,
+      ),
+    ];
+    allIndexes.forEach(([kind, index]) => {
+      if (indexes.has(index.name)) {
+        issues.push(`Duplicate table index: ${index.name}`);
+      }
+      indexes.add(index.name);
+      indexesByKind[kind].add(index.name);
+    });
+    const entities = new Set<string>();
+    snapshot.entities.forEach((entity, entityIndex) => {
+      if (entities.has(entity.name)) {
+        issues.push(`Duplicate table entity: ${entity.name}`);
+      }
+      entities.add(entity.name);
+      if (!schemas.has(entity.schema)) {
+        issues.push({
+          path: ['entities', entityIndex, 'schema'],
+          issue: `Dangling entity schema ref: ${entity.schema}`,
+        });
+      }
+      const patterns = new Set<string>();
+      entity.accessPatterns.forEach((pattern, patternIndex) => {
+        if (patterns.has(pattern.name)) {
+          issues.push(
+            `Duplicate access pattern: ${entity.name}/${pattern.name}`,
+          );
+        }
+        patterns.add(pattern.name);
+        if (pattern.kind !== 'primary') {
+          const path = [
+            'entities',
+            entityIndex,
+            'accessPatterns',
+            patternIndex,
+            'index',
+          ];
+          if (pattern.index === undefined) {
+            issues.push({
+              path,
+              issue: `Access pattern ${entity.name}/${pattern.name} must name a ${pattern.kind} index`,
+            });
+          } else if (!indexesByKind[pattern.kind].has(pattern.index)) {
+            issues.push({
+              path,
+              issue: `Dangling ${pattern.kind} index ref: ${pattern.index}`,
+            });
+          }
+        }
+      });
+    });
+    return issues;
+  }),
+);
+export type TableSnapshot = typeof TableSnapshotSchema.Type;
+
+export const ContractSnapshotSchema = Schema.Union([
+  ESchemaSnapshotSchema,
+  TableSnapshotSchema,
+]);
+export type ContractSnapshot = typeof ContractSnapshotSchema.Type;
+
+export const SnapshotDiagnosticSchema = Schema.Struct({
+  path: Schema.String,
+  kind: Schema.String,
+  message: Schema.String,
+});
+export type SnapshotDiagnostic = typeof SnapshotDiagnosticSchema.Type;
+
+export const SnapshotChangeSchema = Schema.Struct({
+  path: Schema.String,
+  scope: SnapshotScopeSchema,
+  kind: Schema.String,
+  classification: SnapshotClassificationSchema,
+  message: Schema.String,
+  before: Schema.optional(Schema.Unknown),
+  after: Schema.optional(Schema.Unknown),
+});
+export type SnapshotChange = typeof SnapshotChangeSchema.Type;
 
 export class SnapshotDecodeError extends Error {
   readonly _tag = 'SnapshotDecodeError';
@@ -115,6 +281,15 @@ export class SnapshotDecodeError extends Error {
   ) {
     super(message);
     this.name = 'SnapshotDecodeError';
+  }
+}
+
+export class SnapshotFormatRetired extends SnapshotDecodeError {
+  constructor(readonly version: unknown) {
+    super(
+      `Table snapshot uses the retired ${JSON.stringify(version)} format; re-approve the baseline with \`std-toolkit snapshot approve\``,
+    );
+    this.name = 'SnapshotFormatRetired';
   }
 }
 

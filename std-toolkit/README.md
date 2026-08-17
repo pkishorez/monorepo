@@ -39,9 +39,11 @@ Default-export a schema or table snapshot from `std-toolkit.snapshot.ts`, then
 approve and verify the committed `std-toolkit.snapshot.json` baseline:
 
 ```sh
-std-toolkit snapshot -u
-std-toolkit snapshot
+std-toolkit snapshot approve   # write the baseline
+std-toolkit snapshot verify    # check against it
+std-toolkit snapshot view      # print the contract in full
 ```
 
-The verification command exits with status 1 when the declared storage
-contract drifts, making the same command suitable for GitHub Actions.
+`verify` reports only what changed and exits with status 1 when the declared
+storage contract drifts, making it suitable for GitHub Actions. It is also what
+bare `std-toolkit snapshot` runs.
