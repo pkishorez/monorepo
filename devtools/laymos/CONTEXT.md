@@ -93,8 +93,8 @@ The analysis universe anchored by one Config. All configured paths are
 relative to the folder that contains that Config.
 
 **Config**:
-The declared Source roots, Ignored paths, Layers, Configured Modules, and
-LayerGraphs for one Project.
+The declared Source roots, Ignored paths, optional Stories path, Layers,
+Configured Modules, Module Graphs, and LayerGraphs for one Project.
 
 **Target architecture**:
 The intended dependency and encapsulation policy that a Config enforces.
@@ -130,9 +130,29 @@ or more non-overlapping scopes.
 _Avoid_: Layer folder, Layer file tree
 
 **Module**:
-An encapsulation boundary around one cohesive responsibility whose internals
-change together and whose consumers use deliberate public entry points. A
-Module is backed by either a directory or one supported source file.
+An encapsulation boundary around one coherent capability and the design
+decisions it hides. Its stable door says what callers can do; its interior
+changes together without making callers learn how the promise is fulfilled.
+
+**Deep Module**:
+A Module that absorbs substantially more complexity than its door exposes. A
+narrow door is insufficient when the interior remains tangled or unreadable.
+
+**Module execution story**:
+The top-to-bottom account in a Directory Module's `<name>.ts` that fulfils its
+door by coordinating a few named collaborators. Each collaborator is another
+zoom level, so understanding one branch never requires sibling internals.
+
+**Module focus budget**:
+The default limit of two or three concepts a reader must hold at one orchestration
+level. A coordinator exceeding the budget groups related work behind a named
+internal capability rather than presenting every detail at once.
+
+**Orchestrator**:
+A relative Module role that fulfils a broader capability by coordinating lower
+capabilities. It owns the workflow's sequencing, failure, and state policy while
+delegating the work each lower Module promises; it is not a configured kind or
+a mandatory Layer.
 
 **Module independence**:
 The intended relationship between Configured Modules in one Layer: each owns
@@ -142,9 +162,9 @@ that genuinely form one capability with an interior become a Module Graph,
 where their connections are declared as Module Graph Rules instead.
 
 **Directory Module**:
-A Module backed by a directory. It exposes a minimal root `index.ts` exactly
-when it is Shared or exposed; a Directory Module importable by nobody needs no
-door and follows its host's file convention.
+A Module backed by a directory. It has a minimal root `index.ts` when it is
+Shared, exposed, or a Module Graph member. A free-form Directory Module
+importable by nobody needs no door and follows its host's file convention.
 
 **File Module**:
 A Module backed by one supported source file. Its file is its public entry point
@@ -179,7 +199,8 @@ is also Shared.
 **Module public entry point**:
 The smallest stable contract through which a Module exposes itself to other
 Configured Modules: a File Module's own file, or a Directory Module's root
-`index.ts`. A Module has one, and has it exactly when it is Shared or exposed.
+`index.ts`. Shared and exposed Modules have one; every Module Graph member also
+has one so permitted peers use its door without making it externally exposed.
 
 **Intentional root**:
 A host-started Module, such as a CLI or framework entry, that may depend on
@@ -210,9 +231,11 @@ A Module with no dependencies or dependents.
 **Module Graph**:
 A named, bounded set of Configured Modules inside one Layer, rooted at a
 directory, whose connections are declared as Module Graph Rules. It describes
-one capability too large for a single Module: several members stay private,
-one or more are exposed as its doors. A Module Graph is not itself a Module,
-owns no files directly, and cannot contain another Module Graph.
+one capability too large for a single Module. Normally one facade is exposed
+and every private member lies on its dependency story; several doors are an
+exception for independently consumed variants of the same capability. A Module
+Graph is not itself a Module, owns no files directly, and cannot contain another
+Module Graph.
 _Avoid_: treating a Module Graph as a view of a LayerGraph. Unlike a LayerGraph
 it is a disjoint unit whose Rules are never unioned with any other Graph's, are
 not transitive, and are checked for cycles on their own.
@@ -233,7 +256,7 @@ edges, and the Rules of one Graph must be acyclic.
 **Module Graph import law**:
 What a member may depend on: members of its own Module Graph where a Rule
 permits, free-form Shared Modules in its Layer, and exposed Modules in Layers it
-may reach. Never a member of another Module Graph.
+may reach. Never a member of another Module Graph in the same Layer.
 
 **Module internal dependency**:
 An import within one Configured Module. It may target any internal file without
@@ -364,7 +387,8 @@ A direct dependency whose target's visibility does not permit the source:
 same-Layer dependencies require a Shared target, cross-Layer dependencies
 require an exposed target and Layer permission, and a target that is neither
 permits none. Between members of one Module Graph a declared Rule is required
-instead; a dependency into another Module Graph's member is never permitted.
+instead; a dependency into another Module Graph's member in the same Layer is
+never permitted. Cross-Layer access follows exposure and Layer permission.
 This violation takes precedence over checking the target's public boundary.
 
 **Module boundary violation**:
