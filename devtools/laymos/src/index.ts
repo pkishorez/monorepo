@@ -44,3 +44,28 @@ export {
 // RPC transports use this browser-safe runtime contract for Story reports.
 export { StoryReportSchema, StoryTreeSchema } from './story/schema/index.js';
 export type { StoryReport, StoryTree } from './story/schema/index.js';
+// Node consumers use this high-level capability to report what a Base ref changed.
+export {
+  loadChangeSet,
+  loadFileDiff,
+} from './orchestrator/load-changes/index.js';
+// Change set callers distinguish a missing repository from a failed git command.
+export { GitError } from './services/git/index.js';
+// RPC transports use this browser-safe runtime contract for Change sets.
+export {
+  ChangedPathSchema,
+  ChangeSetSchema,
+  ChangeStatusSchema,
+  DiffHunkSchema,
+  DiffLineSchema,
+  FileDiffSchema,
+} from './change-set-schema/index.js';
+// Renderers name the change decoration they apply to an Architecture Analysis.
+export type {
+  ChangedPath,
+  ChangeSet,
+  ChangeStatus,
+  DiffHunk,
+  DiffLine,
+  FileDiff,
+} from './change-set-schema/index.js';

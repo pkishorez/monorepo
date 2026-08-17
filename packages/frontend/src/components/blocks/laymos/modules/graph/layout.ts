@@ -61,6 +61,7 @@ export interface ModuleGraphLayoutInput extends GraphCallbacks {
 
 interface LayerNodeData extends Record<string, unknown> {
   readonly label: string;
+  readonly changeStatus?: Module['changeStatus'];
   readonly focused: boolean;
   readonly dimmed: boolean;
   readonly softlyDimmed: boolean;
@@ -83,6 +84,7 @@ interface GraphHeaderNodeData extends Record<string, unknown> {
 
 interface ModuleNodeData extends Record<string, unknown> {
   readonly label: string;
+  readonly changeStatus?: Module['changeStatus'];
   readonly shared: boolean;
   readonly kind: ModuleKind;
   readonly configuredKind: NonNullable<Module['configuredKind']>;
@@ -292,6 +294,9 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
       focusable: false,
       data: {
         label: layer.id,
+        ...(layer.changeStatus === undefined
+          ? {}
+          : { changeStatus: layer.changeStatus }),
         focused: layer.id === input.focusedLayerId,
         dimmed,
         softlyDimmed:
@@ -407,6 +412,9 @@ function moduleNode(
     zIndex: 2,
     data: {
       label,
+      ...(placement.module.changeStatus === undefined
+        ? {}
+        : { changeStatus: placement.module.changeStatus }),
       shared: placement.module.shared,
       kind: placement.module.kind,
       configuredKind: placement.module.configuredKind ?? 'normal',

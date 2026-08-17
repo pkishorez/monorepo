@@ -6,6 +6,7 @@ export interface LayerScope {
 export interface Layer {
   readonly id: string;
   readonly description?: string;
+  readonly changeStatus?: 'added' | 'modified';
   readonly scopes: readonly LayerScope[];
 }
 

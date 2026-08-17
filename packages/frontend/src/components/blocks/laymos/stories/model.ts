@@ -5,6 +5,7 @@ export type StoryReports = Readonly<Record<string, StoryReport>>;
 export interface StoriesViewProps {
   readonly tree: StoryTree;
   readonly reports?: StoryReports;
+  readonly changedPaths?: ReadonlyMap<string, 'added' | 'modified'>;
   readonly running?: boolean;
   readonly onRun?: (scope?: string) => void;
   readonly className?: string;
@@ -95,4 +96,41 @@ export function indexTree(tree: StoryTree): ReadonlyMap<string, TreeNode> {
   };
   walk(tree, tree.title);
   return nodes;
+}
+
+export type StoryChange =
+  | { readonly status: 'added' }
+  | { readonly status: 'modified'; readonly supportOnly: boolean };
+
+export type ChangedPaths = ReadonlyMap<string, 'added' | 'modified'>;
+
+export function storyChange(
+  story: StoryLeaf,
+  changed: ChangedPaths,
+): StoryChange | undefined {
+  const own = changed.get(story.source.path);
+  if (own === 'added') return { status: 'added' };
+  if (own === 'modified') return { status: 'modified', supportOnly: false };
+  const support =
+    story.support === null ? undefined : changed.get(story.support.path);
+  return support === undefined
+    ? undefined
+    : { status: 'modified', supportOnly: true };
+}
+
+export function groupChange(
+  group: StoryTree,
+  changed: ChangedPaths,
+): StoryChange | undefined {
+  const changes = storyLeaves(group).map((story) =>
+    storyChange(story, changed),
+  );
+  if (changes.every((change) => change === undefined)) return undefined;
+  return changes.every((change) => change?.status === 'added')
+    ? { status: 'added' }
+    : { status: 'modified', supportOnly: false };
+}
+
+function storyLeaves(group: StoryTree): readonly StoryLeaf[] {
+  return [...group.stories, ...group.groups.flatMap(storyLeaves)];
 }

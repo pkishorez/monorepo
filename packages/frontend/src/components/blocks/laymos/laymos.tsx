@@ -1,5 +1,10 @@
 import { useMemo } from 'react';
-import type { ArchitectureAnalysis, StoryReport, StoryTree } from 'laymos';
+import type {
+  ArchitectureAnalysis,
+  ChangeSet,
+  StoryReport,
+  StoryTree,
+} from 'laymos';
 
 import { LaymosExperience } from './experience';
 import { LayerDetails as LayerDetailsView } from './layers/details';
@@ -12,7 +17,7 @@ import { ModuleGraph as ModuleGraphView } from './modules/graph';
 import { ModuleLegend } from './modules/legend';
 import { ModuleTree as ModuleTreeView } from './modules/tree';
 import { ModuleViolationsList as ModuleViolationsListView } from './modules/violation';
-import type { LoadModuleSource } from './module-source-explorer';
+import type { LoadFileDiff, LoadModuleSource } from './module-source-explorer';
 import { buildPresentationModel } from './presentation-model';
 import { layerIdsByBoundaryPath } from './tree/presentation';
 
@@ -23,6 +28,8 @@ interface AnalysisProps {
 
 interface LaymosProps extends AnalysisProps {
   readonly loadModuleSource: LoadModuleSource;
+  readonly changes?: ChangeSet;
+  readonly loadFileDiff?: LoadFileDiff;
   readonly stories?: {
     readonly tree: StoryTree;
     readonly reports?: Readonly<Record<string, StoryReport>>;
@@ -41,6 +48,8 @@ interface LayerGraphProps extends AnalysisProps, LayerInteraction {
 export function Laymos({
   analysis,
   loadModuleSource,
+  changes,
+  loadFileDiff,
   stories,
   className,
 }: LaymosProps) {
@@ -48,6 +57,8 @@ export function Laymos({
     <LaymosExperience
       analysis={analysis}
       loadModuleSource={loadModuleSource}
+      changes={changes}
+      loadFileDiff={loadFileDiff}
       stories={stories}
       className={className}
     />
@@ -263,7 +274,7 @@ export function ModuleViolationsList({
 }
 
 export { ModuleLegend };
-export type { LoadModuleSource } from './module-source-explorer';
+export type { LoadFileDiff, LoadModuleSource } from './module-source-explorer';
 
 function useModel(analysis: ArchitectureAnalysis) {
   return useMemo(() => buildPresentationModel(analysis), [analysis]);

@@ -20,24 +20,33 @@ export function graphGroups(input: {
   readonly layerGraphs?: readonly NamedLayerGraph[];
 }): readonly GraphGroup[] {
   const configured = input.layerGraphs ?? [];
+  const visibleLayerIds = new Set(input.layers.map(({ id }) => id));
   if (configured.length === 0) {
     return [
       group(
         'layers',
         undefined,
-        input.rules,
+        visibleRules(input.rules, visibleLayerIds),
         input.layers.map(({ id }) => id),
       ),
     ];
   }
 
-  const groups = configured.map((graph) =>
-    group(
-      graph.id,
-      graph.description,
-      graph.rules,
-      referencedLayerIds(graph.rules),
-    ),
+  const groups = ownedGroups(
+    configured
+      .map((graph) => {
+        const rules = visibleRules(graph.rules, visibleLayerIds);
+        return group(
+          graph.id,
+          graph.description,
+          rules,
+          referencedLayerIds(graph.rules).filter((id) =>
+            visibleLayerIds.has(id),
+          ),
+        );
+      })
+      // A LayerGraph none of whose Layers are visible would draw an empty lane.
+      .filter(({ layerIds }) => layerIds.length > 0),
   );
   const assigned = new Set(groups.flatMap(({ layerIds }) => layerIds));
   const unassigned = input.layers
@@ -46,6 +55,33 @@ export function graphGroups(input: {
   return unassigned.length === 0
     ? groups
     : [...groups, group('other-layers', undefined, [], unassigned)];
+}
+
+// A LayerGraph earns a lane only by owning a Layer no other lane references.
+// One that is left holding nothing but Layers spanning its neighbours draws a
+// lane with no content of its own.
+function ownedGroups(groups: readonly GraphGroup[]): readonly GraphGroup[] {
+  const referenceCounts = new Map<string, number>();
+  for (const { layerIds } of groups) {
+    for (const layerId of layerIds) {
+      referenceCounts.set(layerId, (referenceCounts.get(layerId) ?? 0) + 1);
+    }
+  }
+  const owning = groups.filter(({ layerIds }) =>
+    layerIds.some((layerId) => referenceCounts.get(layerId) === 1),
+  );
+  return owning.length === 0 ? groups : owning;
+}
+
+function visibleRules(
+  rules: readonly LayerRule[],
+  visibleLayerIds: ReadonlySet<string>,
+): readonly LayerRule[] {
+  return rules.flatMap((rule) => {
+    if (!visibleLayerIds.has(rule.fromLayerId)) return [];
+    const toLayerIds = rule.toLayerIds.filter((id) => visibleLayerIds.has(id));
+    return toLayerIds.length === 0 ? [] : [{ ...rule, toLayerIds }];
+  });
 }
 
 function group(

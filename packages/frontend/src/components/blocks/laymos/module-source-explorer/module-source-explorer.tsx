@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Effect } from 'effect';
-import type { ModuleSourceSnapshot } from 'laymos';
+import type { ChangeStatus, FileDiff, ModuleSourceSnapshot } from 'laymos';
 import { useComponentLifecycle } from 'use-effect-ts';
 
-import { FileTree, expandTo } from '../../file-tree';
-import { SourceViewer } from '../../source-viewer';
+import { DiffViewer } from '../../diff-viewer';
+import { FileTree, expandAll, expandTo } from '../../file-tree';
+import { SourceViewer, type SourceViewerLine } from '../../source-viewer';
 import { Button } from '#components/ui/button';
 import {
   Dialog,
@@ -19,7 +20,7 @@ import {
   ResizablePanelGroup,
 } from '#components/ui/resizable';
 import { Spinner } from '#components/ui/spinner';
-import { RefreshCw } from '#lib/lucide';
+import { ChevronsDownUp, ChevronsUpDown, RefreshCw } from '#lib/lucide';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
@@ -30,6 +31,12 @@ import type { Module } from '../modules/model';
 export type LoadModuleSource = (
   modulePath: string,
 ) => Effect.Effect<ModuleSourceSnapshot, unknown, never>;
+
+export type LoadFileDiff = (
+  path: string,
+) => Effect.Effect<FileDiff, unknown, never>;
+
+export type ChangedPaths = ReadonlyMap<string, ChangeStatus>;
 
 export interface ModuleSourceOpenRequest {
   readonly modulePath: string;
@@ -55,6 +62,8 @@ export function moduleSourceRequest(
   return undefined;
 }
 
+type UnchangedMode = 'show' | 'dim' | 'hide';
+
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'failure'; readonly message: string }
@@ -63,10 +72,14 @@ type LoadState =
 export function ModuleSourceExplorer({
   request,
   loadModuleSource,
+  loadFileDiff,
+  changedPaths,
   onClose,
 }: {
   readonly request: ModuleSourceOpenRequest;
   readonly loadModuleSource: LoadModuleSource;
+  readonly loadFileDiff?: LoadFileDiff;
+  readonly changedPaths?: ChangedPaths;
   readonly onClose: () => void;
 }) {
   const [reload, setReload] = useState(0);
@@ -124,6 +137,8 @@ export function ModuleSourceExplorer({
             key={reload}
             snapshot={state.snapshot}
             initialFilePath={request.initialFilePath}
+            loadFileDiff={loadFileDiff}
+            changedPaths={changedPaths}
           />
         )}
       </DialogContent>
@@ -174,9 +189,13 @@ function FailureState({
 function SnapshotView({
   snapshot,
   initialFilePath,
+  loadFileDiff,
+  changedPaths,
 }: {
   readonly snapshot: ModuleSourceSnapshot;
   readonly initialFilePath?: string;
+  readonly loadFileDiff?: LoadFileDiff;
+  readonly changedPaths?: ChangedPaths;
 }) {
   const tree = buildSnapshotTree(snapshot);
   const initialPath = initialSourceFile(snapshot, initialFilePath);
@@ -188,6 +207,23 @@ function SnapshotView({
   const [expanded, setExpanded] = useState(() =>
     initialTreePath === undefined ? [] : expandTo(tree.paths, initialTreePath),
   );
+  const folderStatus = useMemo(
+    () => statusByTreePath(tree.treePathBySourcePath, changedPaths),
+    [tree.treePathBySourcePath, changedPaths],
+  );
+  const [unchanged, setUnchanged] = useState<UnchangedMode>('show');
+  const hasChanges = folderStatus.size > 0;
+  const visiblePaths = useMemo(
+    () =>
+      hasChanges && unchanged === 'hide'
+        ? tree.paths.filter((treePath) => folderStatus.has(treePath))
+        : tree.paths,
+    [tree.paths, folderStatus, hasChanges, unchanged],
+  );
+  const allExpanded = useMemo(() => {
+    const folders = expandAll(visiblePaths);
+    return folders.length > 0 && folders.every((f) => expanded.includes(f));
+  }, [visiblePaths, expanded]);
   const selected = snapshot.files.find(({ path }) => path === selectedPath);
   const selectedTreePath =
     selectedPath === undefined
@@ -199,20 +235,73 @@ function SnapshotView({
       <ResizablePanel defaultSize="24%" minSize="15%" maxSize="45%">
         <nav
           aria-label="Module source files"
-          className={cn('size-full overflow-y-auto p-3', scrollbarStyles)}
+          className="flex size-full min-h-0 flex-col"
         >
-          <FileTree
-            files={tree.paths}
-            expanded={expanded}
-            onExpandedChange={setExpanded}
-            highlightedPaths={
-              selectedTreePath === undefined ? [] : [selectedTreePath]
-            }
-            onPathClick={(treePath) => {
-              const sourcePath = tree.sourcePathByTreePath.get(treePath);
-              if (sourcePath !== undefined) setSelectedPath(sourcePath);
-            }}
-          />
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={
+                allExpanded ? 'Collapse all folders' : 'Expand all folders'
+              }
+              title={
+                allExpanded ? 'Collapse all folders' : 'Expand all folders'
+              }
+              onClick={() =>
+                setExpanded(allExpanded ? [] : expandAll(visiblePaths))
+              }
+            >
+              {allExpanded ? (
+                <ChevronsDownUp className="size-3.5" />
+              ) : (
+                <ChevronsUpDown className="size-3.5" />
+              )}
+            </Button>
+            {hasChanges && (
+              <select
+                aria-label="Unchanged files"
+                className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                value={unchanged}
+                onChange={(event) =>
+                  setUnchanged(event.target.value as UnchangedMode)
+                }
+              >
+                <option value="show">Show unchanged</option>
+                <option value="dim">Dim unchanged</option>
+                <option value="hide">Hide unchanged</option>
+              </select>
+            )}
+          </div>
+          <div
+            className={cn(
+              'min-h-0 flex-1 overflow-y-auto p-3',
+              scrollbarStyles,
+            )}
+          >
+            <FileTree
+              files={visiblePaths}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              highlightedPaths={
+                selectedTreePath === undefined ? [] : [selectedTreePath]
+              }
+              iconClassNameForPath={(treePath) =>
+                changeAccent(folderStatus.get(treePath))
+              }
+              classNameForPath={(treePath) =>
+                folderStatus.has(treePath)
+                  ? 'font-medium'
+                  : hasChanges && unchanged === 'dim'
+                    ? 'opacity-40'
+                    : undefined
+              }
+              onPathClick={(treePath) => {
+                const sourcePath = tree.sourcePathByTreePath.get(treePath);
+                if (sourcePath !== undefined) setSelectedPath(sourcePath);
+              }}
+            />
+          </div>
         </nav>
       </ResizablePanel>
       <ResizableHandle withHandle />
@@ -222,15 +311,104 @@ function SnapshotView({
             No source files
           </div>
         ) : (
-          <SourceViewer
-            filePath={selected.path}
-            content={selected.content}
-            className="size-full"
+          <FileView
+            key={selected.path}
+            file={selected}
+            status={changedPaths?.get(selected.path)}
+            loadFileDiff={loadFileDiff}
           />
         )}
       </ResizablePanel>
     </ResizablePanelGroup>
   );
+}
+
+function FileView({
+  file,
+  status,
+  loadFileDiff,
+}: {
+  readonly file: ModuleSourceSnapshot['files'][number];
+  readonly status?: ChangeStatus;
+  readonly loadFileDiff?: LoadFileDiff;
+}) {
+  const [diff, setDiff] = useState<FileDiff>();
+  const showDiff = status === 'modified' && loadFileDiff !== undefined;
+
+  useComponentLifecycle(
+    showDiff
+      ? loadFileDiff(file.path).pipe(
+          Effect.match({
+            onFailure: () => setDiff(undefined),
+            onSuccess: setDiff,
+          }),
+        )
+      : Effect.sync(() => setDiff(undefined)),
+    { deps: [file.path, showDiff] },
+  );
+
+  if (showDiff) {
+    return diff === undefined ? (
+      <LoadingState />
+    ) : (
+      <DiffViewer
+        diff={diff}
+        fallbackContent={file.content}
+        className="size-full"
+      />
+    );
+  }
+
+  return (
+    <SourceViewer
+      filePath={file.path}
+      content={file.content}
+      lineStatuses={status === 'added' ? addedLines(file.content) : undefined}
+      className="size-full"
+    />
+  );
+}
+
+// A folder inherits the strongest status beneath it: added only when nothing
+// under it is merely modified.
+function statusByTreePath(
+  treePathBySourcePath: ReadonlyMap<string, string>,
+  changedPaths: ChangedPaths | undefined,
+): ReadonlyMap<string, ChangeStatus> {
+  const statuses = new Map<string, ChangeStatus>();
+  if (changedPaths === undefined) return statuses;
+  for (const [sourcePath, treePath] of treePathBySourcePath) {
+    const status = changedPaths.get(sourcePath);
+    if (status === undefined) continue;
+    const segments = treePath.split('/');
+    for (let depth = segments.length; depth > 0; depth -= 1) {
+      const ancestor = segments.slice(0, depth).join('/');
+      statuses.set(
+        ancestor,
+        statuses.get(ancestor) === 'modified' || status === 'modified'
+          ? 'modified'
+          : 'added',
+      );
+    }
+  }
+  return statuses;
+}
+
+function addedLines(content: string): readonly SourceViewerLine[] {
+  return content
+    .split('\n')
+    .map((_, index) => ({ status: 'add' as const, number: index + 1 }));
+}
+
+function changeAccent(status: ChangeStatus | undefined): string | undefined {
+  switch (status) {
+    case 'added':
+      return 'text-emerald-500';
+    case 'modified':
+      return 'text-amber-500';
+    default:
+      return undefined;
+  }
 }
 
 function failureMessage(error: unknown): string {

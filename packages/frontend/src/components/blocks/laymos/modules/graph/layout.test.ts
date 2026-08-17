@@ -91,6 +91,30 @@ describe('layoutModuleGraph', () => {
     ).toBe(true);
   });
 
+  test('lays out a filtered subset of a configured LayerGraph', () => {
+    const layout = layoutModuleGraph({
+      layers: [layers[0]!],
+      rules: [{ fromLayerId: 'application', toLayerIds: ['domain'] }],
+      layerGraphs: [
+        {
+          id: 'application-architecture',
+          rules: [{ fromLayerId: 'application', toLayerIds: ['domain'] }],
+        },
+      ],
+      modules: [modules[0]],
+      dependencies,
+      showLayerConnections: true,
+    });
+
+    expect(layout.nodes.some(({ id }) => id === 'application')).toBe(true);
+    expect(layout.nodes.some(({ id }) => id === 'domain')).toBe(false);
+    expect(
+      layout.edges.some(({ source, target }) =>
+        [source, target].includes('domain'),
+      ),
+    ).toBe(false);
+  });
+
   test('keeps Layer positions stable when connections are revealed', () => {
     const baseline = layoutModuleGraph({
       layers,

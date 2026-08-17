@@ -28,11 +28,17 @@ export interface SourceViewerSection {
   readonly range: SourceViewerRange;
 }
 
+export interface SourceViewerLine {
+  readonly status: 'add' | 'remove' | 'context' | 'meta' | 'empty';
+  readonly number?: number;
+}
+
 export interface SourceViewerProps {
   readonly filePath: string;
   readonly content: string;
   readonly range?: SourceViewerRange | null;
   readonly sections?: readonly SourceViewerSection[];
+  readonly lineStatuses?: readonly SourceViewerLine[];
   readonly onSectionClick?: (sectionId: string) => void;
   readonly scrollRequestId?: number;
   readonly wrap?: boolean;
@@ -150,6 +156,7 @@ export function SourceViewer({
   content,
   range,
   sections = [],
+  lineStatuses,
   onSectionClick,
   scrollRequestId,
   wrap = false,
@@ -168,6 +175,7 @@ export function SourceViewer({
     readonly content: string;
     readonly language: SourceLanguage;
     readonly lineOffset: number;
+    readonly lineStatuses: readonly SourceViewerLine[] | undefined;
     readonly html: string;
   } | null>(null);
   const language = useMemo(() => {
@@ -177,7 +185,8 @@ export function SourceViewer({
   const html =
     rendered?.content === content &&
     rendered.language === language &&
-    rendered.lineOffset === lineOffset
+    rendered.lineOffset === lineOffset &&
+    rendered.lineStatuses === lineStatuses
       ? rendered.html
       : '';
 
@@ -198,18 +207,30 @@ export function SourceViewer({
               line(node, line) {
                 node.properties['data-line'] = line + lineOffset;
                 this.addClassToHast(node, 'source-line');
+                const status = lineStatuses?.[line - 1];
+                if (status === undefined) return;
+                node.properties['data-line-number'] = status.number ?? '';
+                this.addClassToHast(node, `source-line-${status.status}`);
               },
             },
           ],
         });
       })
       .then((next) => {
-        if (active) setRendered({ content, language, lineOffset, html: next });
+        if (active) {
+          setRendered({
+            content,
+            language,
+            lineOffset,
+            lineStatuses,
+            html: next,
+          });
+        }
       });
     return () => {
       active = false;
     };
-  }, [content, language, lineOffset]);
+  }, [content, language, lineOffset, lineStatuses]);
 
   useLayoutEffect(() => {
     if (!html) return;
@@ -377,7 +398,8 @@ export function SourceViewer({
         ref={viewportRef}
         style={{ counterReset: `line ${lineOffset}` }}
         className={cn(
-          'source-viewer min-h-0 flex-1 bg-background font-mono text-[13px] [&_.shiki]:bg-transparent! [&_.shiki]:py-3 [&_code]:flex [&_code]:flex-col [&_.source-line]:relative [&_.source-line]:box-border [&_.source-line]:block [&_.source-line]:min-h-[1.375rem] [&_.source-line]:border-s-2 [&_.source-line]:border-transparent [&_.source-line]:pe-6 [&_.source-line]:leading-[1.375rem] [&_.source-line]:transition-colors [&_.source-line]:duration-100 [&_.source-line-section]:cursor-pointer [&_.source-line-focused]:cursor-pointer',
+          'source-viewer',
+          'min-h-0 flex-1 bg-background font-mono text-[13px] [&_.shiki]:bg-transparent! [&_.shiki]:py-3 [&_code]:flex [&_code]:flex-col [&_.source-line]:relative [&_.source-line]:box-border [&_.source-line]:block [&_.source-line]:min-h-[1.375rem] [&_.source-line]:border-s-2 [&_.source-line]:border-transparent [&_.source-line]:pe-6 [&_.source-line]:leading-[1.375rem] [&_.source-line]:transition-colors [&_.source-line]:duration-100 [&_.source-line-section]:cursor-pointer [&_.source-line-focused]:cursor-pointer',
           autoHeight
             ? 'overflow-visible [&_.shiki]:min-h-0'
             : cn(
@@ -385,11 +407,23 @@ export function SourceViewer({
                 scrollbarStyles,
               ),
           showLineNumbers
-            ? '[&_.source-line]:ps-14 [&_.source-line]:[counter-increment:line] [&_.source-line]:before:absolute [&_.source-line]:before:start-0 [&_.source-line]:before:w-11 [&_.source-line]:before:pe-3 [&_.source-line]:before:text-end [&_.source-line]:before:text-[11px] [&_.source-line]:before:text-muted-foreground/35 [&_.source-line]:before:content-[counter(line)]'
+            ? cn(
+                '[&_.source-line]:ps-14 [&_.source-line]:before:absolute [&_.source-line]:before:start-0 [&_.source-line]:before:w-11 [&_.source-line]:before:pe-3 [&_.source-line]:before:text-end [&_.source-line]:before:text-[11px] [&_.source-line]:before:text-muted-foreground/35',
+                lineStatuses === undefined
+                  ? '[&_.source-line]:[counter-increment:line] [&_.source-line]:before:content-[counter(line)]'
+                  : '[&_.source-line]:before:content-[attr(data-line-number)]',
+              )
             : '[&_.source-line]:ps-4',
           wrap
             ? 'overflow-x-hidden [&_.shiki]:w-full [&_.shiki]:min-w-0 [&_code]:w-full [&_.source-line]:break-words [&_.source-line]:whitespace-pre-wrap'
-            : 'overflow-x-auto [&_.shiki]:min-w-max',
+            : cn(
+                // Lines must span the scrollable width, not the visible width,
+                // or their backgrounds stop short once scrolled sideways.
+                '[&_.shiki]:min-w-max [&_code]:w-max [&_code]:min-w-full',
+                // autoHeight hands scrolling to the parent, so it must not also
+                // scroll here: a nested overflow-x forces overflow-y to scroll.
+                !autoHeight && 'overflow-x-auto',
+              ),
         )}
         onClick={(event) => handleSectionClick(event.target)}
         onPointerMove={(event) =>

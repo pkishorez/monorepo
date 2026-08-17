@@ -17,7 +17,11 @@ import {
   groupVerdict,
   indexTree,
   isChapter,
+  groupChange,
+  storyChange,
+  type ChangedPaths,
   type StoriesViewProps,
+  type StoryChange,
   type StoryReports,
 } from './model';
 import { NodePage } from './pages';
@@ -27,6 +31,7 @@ import { VerdictDot } from './timeline';
 export function StoriesDocsSite({
   tree,
   reports,
+  changedPaths,
   running,
   onRun,
   className,
@@ -108,6 +113,7 @@ export function StoriesDocsSite({
               group={tree}
               depth={0}
               reports={reports}
+              changedPaths={changedPaths}
               selectedId={selected?.id}
               expandedChapterId={expandedChapterId}
               onExpandedChapterChange={setExpandedChapterId}
@@ -159,6 +165,7 @@ function SidebarGroup({
   group,
   depth,
   reports,
+  changedPaths,
   selectedId,
   expandedChapterId,
   onExpandedChapterChange,
@@ -168,6 +175,7 @@ function SidebarGroup({
   readonly group: StoryTree;
   readonly depth: number;
   readonly reports?: StoryReports;
+  readonly changedPaths?: ChangedPaths;
   readonly selectedId?: string;
   readonly expandedChapterId?: string;
   readonly onExpandedChapterChange: (id: string | undefined) => void;
@@ -188,6 +196,11 @@ function SidebarGroup({
         label={group.title}
         depth={depth}
         verdict={groupVerdict(group, reports)}
+        change={
+          changedPaths === undefined
+            ? undefined
+            : groupChange(group, changedPaths)
+        }
         count={isChapter(group) ? countQuestions(group) : undefined}
         selected={selectedId === id}
         emphasized
@@ -220,6 +233,11 @@ function SidebarGroup({
             label={story.title}
             depth={depth + 1}
             verdict={reports?.[story.id]?.verdict}
+            change={
+              changedPaths === undefined
+                ? undefined
+                : storyChange(story, changedPaths)
+            }
             selected={selectedId === story.id}
             leaf
             onSelect={() => onSelect(story.id)}
@@ -233,6 +251,7 @@ function SidebarGroup({
             group={child}
             depth={depth + 1}
             reports={reports}
+            changedPaths={changedPaths}
             selectedId={selectedId}
             expandedChapterId={expandedChapterId}
             onExpandedChapterChange={onExpandedChapterChange}
@@ -247,6 +266,7 @@ function SidebarRow({
   label,
   depth,
   verdict,
+  change,
   count,
   selected,
   leaf = false,
@@ -257,6 +277,7 @@ function SidebarRow({
   readonly label: string;
   readonly depth: number;
   readonly verdict?: 'passed' | 'failed' | 'errored';
+  readonly change?: StoryChange;
   readonly count?: number;
   readonly selected: boolean;
   readonly leaf?: boolean;
@@ -294,11 +315,34 @@ function SidebarRow({
       </span>
       <VerdictDot verdict={verdict} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
+      {change !== undefined && <ChangeBadge change={change} />}
       {count !== undefined && (
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground/60">
           {count}
         </span>
       )}
     </button>
+  );
+}
+
+function ChangeBadge({ change }: { readonly change: StoryChange }) {
+  const label =
+    change.status === 'added'
+      ? 'Added'
+      : change.supportOnly
+        ? 'Support changed'
+        : 'Modified';
+  return (
+    <span
+      title={label}
+      className={cn(
+        'shrink-0 rounded-sm px-1 py-px text-[10px] font-medium uppercase tracking-wide',
+        change.status === 'added'
+          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+      )}
+    >
+      {change.status === 'added' ? 'new' : change.supportOnly ? 'sup' : 'mod'}
+    </span>
   );
 }

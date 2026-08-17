@@ -21,6 +21,7 @@ import {
 } from '#lib/lucide';
 import { cn } from '#lib/utils';
 
+import { ChangeBadge, changeSurfaceClass } from '../../change-presentation';
 import { graphIdentity } from '../../graph-engine';
 import type { NamedLayerGraph } from '../../layers/layer-graphs';
 import type { Layer, LayerRule } from '../../layers/model';
@@ -180,6 +181,7 @@ function LayerContainer({ data }: NodeProps<LayerContainerNode>) {
     <section
       className={cn(
         'h-full w-full cursor-pointer rounded-xl border border-border bg-muted/20 shadow-sm',
+        changeSurfaceClass(data.changeStatus),
         data.focused && 'border-primary/50 bg-primary/[0.025]',
         data.dimmed && 'opacity-15',
         data.softlyDimmed && 'opacity-15',
@@ -213,6 +215,9 @@ function LayerContainer({ data }: NodeProps<LayerContainerNode>) {
         <div className="flex min-w-0 items-center gap-2">
           <Layers3 className="size-4 shrink-0 text-muted-foreground" />
           <span className="truncate text-sm font-semibold">{data.label}</span>
+          {data.changeStatus !== undefined && (
+            <ChangeBadge status={data.changeStatus} />
+          )}
           <span className="text-[11px] tabular-nums text-muted-foreground">
             {data.moduleCount}
           </span>
@@ -273,6 +278,7 @@ function ConfiguredModule({ data }: NodeProps<ConfiguredModuleNode>) {
         'h-full w-full rounded-lg border bg-card shadow-sm',
         data.shared ? 'border-sky-500/50 bg-sky-500/[0.07]' : 'border-border',
         data.unexposed && 'border-dashed border-muted-foreground/60',
+        changeSurfaceClass(data.changeStatus),
         data.related && 'border-primary/60',
         data.focused &&
           'border-[3px] border-primary ring-2 ring-primary/25 shadow-md',
@@ -299,6 +305,9 @@ function ConfiguredModule({ data }: NodeProps<ConfiguredModuleNode>) {
         <span className="min-w-0 flex-1 truncate text-xs font-semibold">
           {data.label}
         </span>
+        {data.changeStatus !== undefined && (
+          <ChangeBadge status={data.changeStatus} />
+        )}
         {data.configuredKind !== 'normal' && (
           <span className="rounded bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300">
             {data.configuredKind}

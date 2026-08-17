@@ -1,4 +1,6 @@
-import type { ArchitectureAnalysis } from 'laymos';
+import type { ArchitectureAnalysis, ChangeSet } from 'laymos';
+
+import { indexChanges, type ChangeIndex } from './changes';
 
 import type { NamedLayerGraph } from './layers/layer-graphs';
 import { combineLayerGraphRules } from './layers/layer-graphs';
@@ -22,11 +24,15 @@ export interface LaymosPresentationModel {
   readonly modules: readonly Module[];
   readonly moduleDependencies: readonly ModuleDependency[];
   readonly moduleViolations: readonly ModuleViolation[];
+  readonly changes?: ChangeIndex;
 }
 
 export function buildPresentationModel(
   analysis: ArchitectureAnalysis,
+  changeSet?: ChangeSet,
 ): LaymosPresentationModel {
+  const changes =
+    changeSet === undefined ? undefined : indexChanges(analysis, changeSet);
   const modulePaths = new Set(
     analysis.moduleAnalysis.modules.map(({ path }) => path),
   );
@@ -36,6 +42,7 @@ export function buildPresentationModel(
       ...(definition.description === undefined
         ? {}
         : { description: definition.description }),
+      ...changeStatusOf(changes?.layers, id),
       scopes: definition.paths.map((path) => ({
         path,
         fileCount: countScopeFiles(analysis.layerAnalysis.membership, id, path),
@@ -56,6 +63,7 @@ export function buildPresentationModel(
   );
 
   return {
+    ...(changes === undefined ? {} : { changes }),
     layers,
     layerGraphs,
     rules: combineLayerGraphRules(layerGraphs),
@@ -66,6 +74,7 @@ export function buildPresentationModel(
     modules: analysis.moduleAnalysis.modules.map((module) => ({
       id: module.path,
       layerId: module.layer,
+      ...changeStatusOf(changes?.modules, module.path),
       shared: module.kind === 'shared',
       kind: module.observedKind,
       configuredKind: module.kind,
@@ -176,4 +185,12 @@ function entryPointId(path: string, modulePaths: ReadonlySet<string>): string {
   return !modulePaths.has(path) && path.endsWith(suffix)
     ? path.slice(0, -suffix.length)
     : path;
+}
+
+function changeStatusOf(
+  statuses: ReadonlyMap<string, 'added' | 'modified'> | undefined,
+  id: string,
+): { readonly changeStatus?: 'added' | 'modified' } {
+  const changeStatus = statuses?.get(id);
+  return changeStatus === undefined ? {} : { changeStatus };
 }

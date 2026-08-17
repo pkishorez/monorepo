@@ -20,6 +20,11 @@
       "import": "./dist/architecture-analysis-schema/index.js",
       "default": "./dist/architecture-analysis-schema/index.js"
     },
+    "./change-set-schema": {
+      "types": "./dist/change-set-schema/index.d.ts",
+      "import": "./dist/change-set-schema/index.js",
+      "default": "./dist/change-set-schema/index.js"
+    },
     "./story": {
       "types": "./dist/story/index.d.ts",
       "import": "./dist/story/index.js",
