@@ -1,7 +1,8 @@
 import { FileIcon, FolderIcon } from '#lib/lucide';
 import { cn } from '#lib/utils';
 
-import type { Module, ModuleViolation } from '../model';
+import { ChangeBadge, changeEdgeClass } from '../../change-presentation';
+import type { ChangeStatus, Module, ModuleViolation } from '../model';
 import {
   architectureTreeBoundary,
   architectureTreeBoundaryIcon,
@@ -48,10 +49,16 @@ export function ModuleTree({
   className,
 }: ModuleTreeProps) {
   const violationModuleIds = modulesForViolation(activeViolation);
+  const changeStatusByModuleId = new Map(
+    modules.flatMap(({ id, changeStatus }) =>
+      changeStatus === undefined ? [] : [[id, changeStatus] as const],
+    ),
+  );
   return (
     <div className={className} aria-label="Project Modules">
       <ModuleNodes
         nodes={buildModuleTree(modules)}
+        changeStatusByModuleId={changeStatusByModuleId}
         layerIdsByPath={layerIdsByPath}
         activeLayerId={activeLayerId}
         activeModuleId={activeModuleId}
@@ -73,11 +80,13 @@ function ModuleNodes({
   activeModuleId,
   highlightedModuleIds,
   violationModuleIds,
+  changeStatusByModuleId,
   onLayerActivate,
   onModuleActivate,
   onModuleOpen,
 }: {
   readonly nodes: readonly ModuleTreeNode[];
+  readonly changeStatusByModuleId: ReadonlyMap<string, ChangeStatus>;
   readonly layerIdsByPath: ReadonlyMap<string, string>;
   readonly depth?: number;
   readonly activeLayerId?: string;
@@ -119,6 +128,10 @@ function ModuleNodes({
               : dimmed
                 ? 'dimmed'
                 : 'neutral';
+        const changeStatus =
+          node.moduleId === undefined
+            ? undefined
+            : changeStatusByModuleId.get(node.moduleId);
         const Icon =
           node.children.length > 0 || !node.name.includes('.')
             ? FolderIcon
@@ -134,6 +147,7 @@ function ModuleNodes({
                 isLayer && architectureTreeBoundaryKind('layer'),
                 isModule && architectureTreeBoundaryKind('module'),
                 (isLayer || isModule) && architectureTreeBoundaryState(state),
+                changeEdgeClass(changeStatus),
               )}
               style={{
                 paddingInlineStart: architectureTreeIndent(depth),
@@ -167,6 +181,9 @@ function ModuleNodes({
                 </span>
               )}
               <span className="truncate">{node.name}</span>
+              {changeStatus !== undefined && (
+                <ChangeBadge status={changeStatus} className="ms-auto" />
+              )}
             </button>
             {node.children.length > 0 && (
               <div className="relative">
@@ -179,6 +196,7 @@ function ModuleNodes({
                 />
                 <ModuleNodes
                   nodes={node.children}
+                  changeStatusByModuleId={changeStatusByModuleId}
                   layerIdsByPath={layerIdsByPath}
                   depth={depth + 1}
                   activeLayerId={activeLayerId}

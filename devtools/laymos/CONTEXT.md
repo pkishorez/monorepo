@@ -361,3 +361,42 @@ A Configured Module that directly depends on the inspected Configured Module.
 
 **Module dependency** (in an Inspection):
 A Configured Module that the inspected Configured Module directly depends on.
+
+**Base ref**:
+The git revision a Change set is measured against. `HEAD` yields the Project's
+uncommitted changes; a branch resolves to its merge-base with the working tree
+so unrelated commits on that branch are not attributed to the current work.
+
+**Change set**:
+The added and modified paths between a Base ref and the working tree, resolved
+relative to the Config's folder. Deletions and renames are outside it by
+choice: a rename reads as an addition, and a path that only disappeared leaves
+no trace. It decorates an Architecture Analysis and never alters the analysis
+universe — Source roots and Ignored paths still decide membership, exactly as
+when no Change set is present. It is unfiltered: it carries every changed path
+beneath the Config's folder, and each consumer selects the paths it cares
+about.
+
+**Change status**:
+One path's standing in a Change set: added or modified.
+
+**Module change status**:
+A Configured Module's derived standing in a Change set: added when every file
+it owns is added, modified when any file it owns is added or modified, and
+otherwise unchanged. A Module whose only change is a deleted file reads as
+unchanged, because a Change set does not carry deletions.
+
+**Story change status**:
+A Story's derived standing in a Change set, resolved through the file backing
+it: added when its Story file is added, modified when its Story file or the
+Support file its proofs import is modified, and otherwise unchanged. A support
+change is recorded as such, so a reader can tell a Story's own edit from an
+edit beneath it. Resolution is per file, so Stories sharing one file share one
+status. A Story Group is added when every descendant Story is added and
+modified when any descendant Story changed.
+
+**Diff hunk**:
+One contiguous changed region of a modified path between a Base ref and the
+working tree, carrying its lines already classified as context, added, or
+removed and numbered in the side of the file each belongs to. Hunks are parsed
+where git runs, so renderers never read patch text.

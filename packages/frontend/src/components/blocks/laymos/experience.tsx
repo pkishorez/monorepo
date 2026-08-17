@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { ArchitectureAnalysis, StoryTree } from 'laymos';
+import type { ArchitectureAnalysis, ChangeSet, StoryTree } from 'laymos';
 
 import {
   ResizableHandle,
@@ -38,13 +38,17 @@ import { ModuleViolationsList } from './modules/violation';
 import {
   ModuleSourceExplorer,
   moduleSourceRequest,
+  type LoadFileDiff,
   type LoadModuleSource,
   type ModuleSourceOpenRequest,
 } from './module-source-explorer';
+import { changedPathsUnder, type ChangeIndex } from './changes';
 import { buildPresentationModel } from './presentation-model';
 import { StoriesDocsSite, type StoryReports } from './stories/index';
 import { ArchitectureTreeLegend } from './tree';
 import { layerIdsByBoundaryPath } from './tree/presentation';
+
+type ChangeScope = 'changed' | 'all';
 
 const allGraphsId = 'all';
 const layersModulesTabId = 'layers-modules';
@@ -60,6 +64,8 @@ interface LayersModulesProps {
   readonly dependencies: readonly ModuleDependency[];
   readonly moduleViolations?: readonly ModuleViolation[];
   readonly loadModuleSource: LoadModuleSource;
+  readonly loadFileDiff?: LoadFileDiff;
+  readonly changes?: ChangeIndex;
   readonly stories?: StoriesTabProps;
   readonly className?: string;
 }
@@ -74,18 +80,27 @@ interface StoriesTabProps {
 export function LaymosExperience({
   analysis,
   loadModuleSource,
+  loadFileDiff,
+  changes,
   stories,
   className,
 }: {
   readonly analysis: ArchitectureAnalysis;
   readonly loadModuleSource: LoadModuleSource;
+  readonly loadFileDiff?: LoadFileDiff;
+  readonly changes?: ChangeSet;
   readonly stories?: StoriesTabProps;
   readonly className?: string;
 }) {
-  const model = useMemo(() => buildPresentationModel(analysis), [analysis]);
+  const model = useMemo(
+    () => buildPresentationModel(analysis, changes),
+    [analysis, changes],
+  );
 
   return (
     <LaymosShell
+      changes={model.changes}
+      loadFileDiff={loadFileDiff}
       layers={model.layers}
       rules={model.rules}
       layerGraphs={model.layerGraphs}
@@ -106,6 +121,7 @@ export function LaymosShell({
   stories,
   ...view
 }: LayersModulesProps) {
+  const { changes } = view;
   const [activeTab, setActiveTab] = useState(layersModulesTabId);
   return (
     <Tabs
@@ -140,7 +156,11 @@ export function LaymosShell({
           value={storiesTabId}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <StoriesDocsSite {...stories} className="min-h-0 flex-1" />
+          <StoriesDocsSite
+            {...stories}
+            changedPaths={changes?.files}
+            className="min-h-0 flex-1"
+          />
         </TabsContent>
       )}
     </Tabs>
@@ -148,19 +168,44 @@ export function LaymosShell({
 }
 
 export function LayersModulesExperience({
-  layers,
+  layers: allLayers,
   rules,
-  layerGraphs = [],
+  layerGraphs: allLayerGraphs = [],
   layerViolationPairs = [],
   layerCoverageViolations = [],
-  modules,
+  modules: allModules,
   dependencies,
   moduleViolations = [],
   loadModuleSource,
+  loadFileDiff,
+  changes,
   className,
 }: LayersModulesProps) {
   const [activeGraphId, setActiveGraphId] = useState(allGraphsId);
   const [showModules, setShowModules] = useState(true);
+  const [changeScope, setChangeScope] = useState<ChangeScope>('changed');
+  const changesOnly = changes !== undefined && changeScope === 'changed';
+  const modules = changesOnly
+    ? allModules.filter(({ changeStatus }) => changeStatus !== undefined)
+    : allModules;
+  const changedLayerIds = new Set(modules.map(({ layerId }) => layerId));
+  const layers = changesOnly
+    ? allLayers.filter(
+        ({ id, changeStatus }) =>
+          changedLayerIds.has(id) || changeStatus !== undefined,
+      )
+    : allLayers;
+  const visibleLayerIdSet = new Set(layers.map(({ id }) => id));
+  // A LayerGraph whose Layers are all unchanged has nothing to show.
+  const layerGraphs = changesOnly
+    ? allLayerGraphs.filter(({ rules: graphRules }) =>
+        graphRules.some(
+          ({ fromLayerId, toLayerIds }) =>
+            visibleLayerIdSet.has(fromLayerId) ||
+            toLayerIds.some((id) => visibleLayerIdSet.has(id)),
+        ),
+      )
+    : allLayerGraphs;
   const [showLayerConnections, setShowLayerConnections] = useState(true);
   const [activeLayerId, setActiveLayerId] = useState<string>();
   const [hoveredLayerId, setHoveredLayerId] = useState<string>();
@@ -332,6 +377,22 @@ export function LayersModulesExperience({
                 onCheckedChange={setShowLayerConnections}
               />
             </label>
+            {changes !== undefined && (
+              <select
+                aria-label="Change scope"
+                className="h-9 min-w-56 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                value={changeScope}
+                onChange={(event) => {
+                  clearFocus();
+                  setChangeScope(event.target.value as ChangeScope);
+                }}
+              >
+                <option value="changed">
+                  {`Changes since ${changes.baseRef}`}
+                </option>
+                <option value="all">Include unchanged</option>
+              </select>
+            )}
             <select
               aria-label="LayerGraph"
               className="h-9 min-w-48 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -499,6 +560,12 @@ export function LayersModulesExperience({
           key={`${sourceRequest.modulePath}:${sourceRequest.initialFilePath ?? ''}`}
           request={sourceRequest}
           loadModuleSource={loadModuleSource}
+          loadFileDiff={loadFileDiff}
+          changedPaths={
+            changes === undefined
+              ? undefined
+              : changedPathsUnder(changes, sourceRequest.modulePath)
+          }
           onClose={() => setSourceRequest(undefined)}
         />
       )}

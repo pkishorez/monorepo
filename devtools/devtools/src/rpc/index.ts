@@ -4,6 +4,7 @@ export {
   ConfigSchemaError,
   ConfigValidationError,
   DevtoolsRpc,
+  GitUnavailableError,
   InvalidProjectPath,
   ModuleSourceNotFoundError,
   ModuleSourceReadError,

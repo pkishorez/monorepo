@@ -7,9 +7,12 @@ export interface NestedModule {
   readonly path: string;
 }
 
+export type ChangeStatus = 'added' | 'modified';
+
 export interface Module {
   readonly id: string;
   readonly layerId: string;
+  readonly changeStatus?: ChangeStatus;
   readonly shared: boolean;
   readonly kind: ModuleKind;
   readonly configuredKind?: ConfiguredModuleKind;

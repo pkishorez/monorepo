@@ -16,4 +16,4 @@ export { ModuleLegend } from './laymos';
 export { ModuleTree } from './laymos';
 // Consumers use this focused view to inspect Module violations.
 export { ModuleViolationsList } from './laymos';
-export type { LoadModuleSource } from './laymos';
+export type { LoadFileDiff, LoadModuleSource } from './laymos';

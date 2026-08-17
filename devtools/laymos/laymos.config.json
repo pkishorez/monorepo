@@ -7,7 +7,7 @@
       "paths": ["src/index.ts"]
     },
     "contract": {
-      "paths": ["src/architecture-analysis-schema"]
+      "paths": ["src/architecture-analysis-schema", "src/change-set-schema"]
     },
     "cli": {
       "paths": ["src/cli"]
@@ -28,6 +28,7 @@
   "modules": {
     "src/index.ts": { "kind": "entry" },
     "src/architecture-analysis-schema": {},
+    "src/change-set-schema": {},
     "src/cli": { "kind": "entry" },
     "src/orchestrator/analyze-project": { "kind": "shared" },
     "src/orchestrator/inspect": {},
@@ -35,6 +36,7 @@
       "kind": "shared"
     },
     "src/orchestrator/load-module-source": {},
+    "src/orchestrator/load-changes": {},
     "src/domain/architecture-analysis": {
       "subpaths": ["layers", "modules"]
     },
@@ -46,6 +48,7 @@
     },
     "src/services/config": {},
     "src/services/file-cruiser": {},
+    "src/services/git": {},
     "src/story": {
       "subpaths": ["schema"]
     },

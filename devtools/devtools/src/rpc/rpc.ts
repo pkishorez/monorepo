@@ -6,6 +6,7 @@ import {
   ConfigValidationIssueSchema,
   ModuleSourceSnapshotSchema,
 } from 'laymos/architecture-analysis-schema';
+import { ChangeSetSchema, FileDiffSchema } from 'laymos/change-set-schema';
 import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
 
 export class InvalidProjectPath extends Schema.TaggedErrorClass<InvalidProjectPath>(
@@ -65,6 +66,17 @@ export class StoriesUnavailableError extends Schema.TaggedErrorClass<StoriesUnav
   path: Schema.String,
 }) {}
 
+export class GitUnavailableError extends Schema.TaggedErrorClass<GitUnavailableError>(
+  'GitUnavailableError',
+)('GitUnavailableError', {
+  reason: Schema.Literals(['not-a-repo', 'unknown-ref', 'command-failed']),
+}) {}
+
+const LaymosChangesError = Schema.Union([
+  InvalidProjectPath,
+  GitUnavailableError,
+]);
+
 const AnalyzeLaymosProjectError = Schema.Union([
   InvalidProjectPath,
   ConfigReadError,
@@ -104,6 +116,23 @@ export const DevtoolsToolRpc = RpcGroup.make(
     payload: { projectPath: Schema.String, modulePath: Schema.String },
     success: ModuleSourceSnapshotSchema,
     error: GetLaymosModuleSourceError,
+  }),
+  Rpc.make('GetLaymosChanges', {
+    payload: {
+      projectPath: Schema.String,
+      baseRef: Schema.optional(Schema.String),
+    },
+    success: ChangeSetSchema,
+    error: LaymosChangesError,
+  }),
+  Rpc.make('GetLaymosFileDiff', {
+    payload: {
+      projectPath: Schema.String,
+      path: Schema.String,
+      baseRef: Schema.optional(Schema.String),
+    },
+    success: FileDiffSchema,
+    error: LaymosChangesError,
   }),
   Rpc.make('GetLaymosStories', {
     payload: { projectPath: Schema.String },

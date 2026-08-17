@@ -30,6 +30,9 @@
     }
   },
   "modules": {
+    "src/components/blocks/diff-viewer": {
+      "kind": "shared"
+    },
     "src/components/blocks/file-tree": {
       "kind": "shared"
     },
