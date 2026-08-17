@@ -1,12 +1,22 @@
 {
   "sourceRoots": ["src"],
   "layers": {
-    "feature-a": { "paths": ["src/feature-a"] },
-    "feature-b": { "paths": ["src/feature-b"] }
-  },
-  "modules": {
-    "src/feature-a": {},
-    "src/feature-b": {}
+    "feature-a": {
+      "paths": ["src/feature-a"],
+      "modules": {
+        "src/feature-a": {
+          "exposed": true
+        }
+      }
+    },
+    "feature-b": {
+      "paths": ["src/feature-b"],
+      "modules": {
+        "src/feature-b": {
+          "exposed": true
+        }
+      }
+    }
   },
   "layerGraphs": {}
 }

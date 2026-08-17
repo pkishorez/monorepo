@@ -9,10 +9,11 @@ import {
 import {
   ModuleAnalysisSchema,
   type AnalyzedModule,
+  type AnalyzedModuleGraph,
   type ModuleAnalysis,
   type ModuleDefinition,
   type ModuleDependency,
-  type ModuleKind,
+  type ModuleGraphDefinition,
   type ModuleShape,
   type ModuleViolation,
   type ObservedModuleKind,
@@ -22,6 +23,8 @@ import {
   ProjectConfigSchema,
   type Config,
   type ConfigValidationIssue,
+  type ModuleConfig,
+  type ModuleGraphConfig,
 } from './project-config-schema.js';
 
 export const ArchitectureAnalysisSchema = Schema.Struct({
@@ -40,15 +43,18 @@ export {
 };
 export type {
   AnalyzedModule,
+  AnalyzedModuleGraph,
   Config,
   ConfigValidationIssue,
   ForbiddenImport,
   LayerAnalysis,
   LayerDefinition,
   ModuleAnalysis,
+  ModuleConfig,
   ModuleDefinition,
   ModuleDependency,
-  ModuleKind,
+  ModuleGraphConfig,
+  ModuleGraphDefinition,
   ModuleShape,
   ModuleViolation,
   ObservedModuleKind,

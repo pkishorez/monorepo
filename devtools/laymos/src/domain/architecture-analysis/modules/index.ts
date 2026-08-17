@@ -5,7 +5,7 @@ export type { ModuleAnalysis } from '../../../architecture-analysis-schema/index
 /** Renderers use this as the complete analyzed description of one Module. */
 export type {
   AnalyzedModule,
-  ModuleKind,
+  AnalyzedModuleGraph,
   ModuleShape,
   ObservedModuleKind,
 } from '../../../architecture-analysis-schema/index.js';

@@ -1,11 +1,5 @@
-export type ConfiguredModuleKind = 'normal' | 'shared' | 'entry';
 export type ModuleShape = 'file' | 'directory';
 export type ModuleKind = 'regular' | 'root' | 'terminal' | 'isolated';
-
-export interface NestedModule {
-  readonly id: string;
-  readonly path: string;
-}
 
 export type ChangeStatus = 'added' | 'modified';
 
@@ -14,17 +8,33 @@ export interface Module {
   readonly layerId: string;
   readonly changeStatus?: ChangeStatus;
   readonly shared: boolean;
+  readonly exposed: boolean;
   readonly kind: ModuleKind;
-  readonly configuredKind?: ConfiguredModuleKind;
   readonly shape?: ModuleShape;
-  readonly unexposed?: boolean;
-  readonly nested: readonly NestedModule[];
+  // Set when this Module is a member of a Module Graph.
+  readonly graphId?: string;
+  readonly member?: string;
+}
+
+export interface ModuleGraphRule {
+  readonly fromModuleId: string;
+  readonly toModuleId: string;
+}
+
+export interface ModuleGraph {
+  readonly id: string;
+  readonly layerId: string;
+  readonly path: string;
+  readonly description?: string;
+  readonly memberIds: readonly string[];
+  readonly rules: readonly ModuleGraphRule[];
 }
 
 export interface ModuleDependency {
   readonly fromModuleId: string;
   readonly toModuleId: string;
   readonly toEntryPointId: string;
+  readonly permitted: boolean;
 }
 
 interface ModuleImportViolation {
@@ -50,9 +60,20 @@ export type ModuleViolation =
     }
   | {
       readonly id: string;
+      readonly kind: 'dead-module';
+      readonly moduleId: string;
+    }
+  | {
+      readonly id: string;
+      readonly kind: 'graph-coverage';
+      readonly graphId: string;
+      readonly layerId: string;
+      readonly file: string;
+    }
+  | {
+      readonly id: string;
       readonly kind: 'missing-entry-point';
       readonly moduleId: string;
-      readonly entryPointId: string;
       readonly path: string;
     }
   | {

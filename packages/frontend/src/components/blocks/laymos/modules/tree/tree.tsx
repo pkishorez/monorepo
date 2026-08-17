@@ -1,7 +1,7 @@
 import { FileIcon, FolderIcon } from '#lib/lucide';
 import { cn } from '#lib/utils';
 
-import { ChangeBadge, changeEdgeClass } from '../../change-presentation';
+import { ChangeBadge } from '../../change-presentation';
 import type { ChangeStatus, Module, ModuleViolation } from '../model';
 import {
   architectureTreeBoundary,
@@ -9,8 +9,6 @@ import {
   architectureTreeBoundaryKind,
   architectureTreeBoundaryState,
   architectureTreeBranch,
-  architectureTreeGuide,
-  architectureTreeGuideIndent,
   architectureTreeIndent,
   architectureTreeList,
   architectureTreeSelectedStyle,
@@ -147,12 +145,11 @@ function ModuleNodes({
                 isLayer && architectureTreeBoundaryKind('layer'),
                 isModule && architectureTreeBoundaryKind('module'),
                 (isLayer || isModule) && architectureTreeBoundaryState(state),
-                changeEdgeClass(changeStatus),
               )}
               style={{
                 paddingInlineStart: architectureTreeIndent(depth),
                 ...(state === 'selected'
-                  ? architectureTreeSelectedStyle(isModule ? 'module' : 'layer')
+                  ? architectureTreeSelectedStyle()
                   : {}),
               }}
               onClick={() => {
@@ -186,14 +183,7 @@ function ModuleNodes({
               )}
             </button>
             {node.children.length > 0 && (
-              <div className="relative">
-                <span
-                  aria-hidden
-                  className={architectureTreeGuide}
-                  style={{
-                    insetInlineStart: architectureTreeGuideIndent(depth),
-                  }}
-                />
+              <div>
                 <ModuleNodes
                   nodes={node.children}
                   changeStatusByModuleId={changeStatusByModuleId}
@@ -226,27 +216,22 @@ function buildModuleTree(
     children: Map<string, MutableNode>;
   }
   const roots = new Map<string, MutableNode>();
-  const entries = modules.flatMap((module) => [
-    { path: module.id, moduleId: module.id },
-    ...module.nested.map((nested) => ({
-      path: nested.id,
-      moduleId: nested.id,
-    })),
-  ]);
+  const entries = modules.map((module) => ({
+    path: module.id,
+    moduleId: module.id,
+  }));
 
   for (const entry of entries) {
     const parts = entry.path.split('/');
     let children = roots;
     let path = '';
-    parts.forEach((name, index) => {
+    parts.forEach((name: string, index: number) => {
       path = path === '' ? name : `${path}/${name}`;
-      const node =
-        children.get(name) ??
-        ({
-          name,
-          path,
-          children: new Map<string, MutableNode>(),
-        } satisfies MutableNode);
+      const node: MutableNode = children.get(name) ?? {
+        name,
+        path,
+        children: new Map<string, MutableNode>(),
+      };
       if (index === parts.length - 1) node.moduleId = entry.moduleId;
       children.set(name, node);
       children = node.children;
@@ -274,10 +259,11 @@ function modulesForViolation(violation?: ModuleViolation): ReadonlySet<string> {
     case 'cycle':
       return new Set(violation.moduleIds);
     case 'missing-entry-point':
-      return new Set([violation.entryPointId]);
     case 'unused-shared':
+    case 'dead-module':
       return new Set([violation.moduleId]);
     case 'coverage':
+    case 'graph-coverage':
       return new Set();
   }
 }

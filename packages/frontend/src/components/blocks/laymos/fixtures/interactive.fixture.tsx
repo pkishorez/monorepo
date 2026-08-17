@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   complexCoverageViolations,
   complexLayerGraphs,
@@ -12,7 +14,7 @@ import {
 import { loadFixtureModuleSource } from '../modules/fixtures/fixture-data';
 import { storyReports, storyTree } from '../stories/fixtures/fixture-data';
 import { useSimulatedRun } from '../stories/fixtures/simulated-run';
-import { LaymosShell } from '../experience';
+import { defaultGitOptions, LaymosShell, type GitOptions } from '../experience';
 import {
   fixtureChangeIndex,
   loadFixtureFileDiff,
@@ -25,6 +27,7 @@ const changedLayers = withLayerChangeStatus(complexLayers, changedModules);
 
 function Interactive() {
   const run = useSimulatedRun(storyTree, storyReports);
+  const [gitOptions, setGitOptions] = useState<GitOptions>(defaultGitOptions);
   return (
     <LaymosShell
       className="mx-auto max-w-[1600px]"
@@ -37,7 +40,10 @@ function Interactive() {
       dependencies={complexModuleDependencies}
       loadModuleSource={loadFixtureModuleSource}
       loadFileDiff={loadFixtureFileDiff}
-      changes={fixtureChangeIndex}
+      changes={gitOptions.showChanges ? fixtureChangeIndex : undefined}
+      gitAvailable
+      gitOptions={gitOptions}
+      onGitOptionsChange={setGitOptions}
       stories={{
         tree: storyTree,
         reports: run.reports,

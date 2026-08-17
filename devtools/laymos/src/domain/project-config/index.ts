@@ -12,3 +12,7 @@ export { validateConfig } from './project-config.js';
 export { validateLoadedConfig } from './project-config.js';
 // The package schema command publishes the domain-owned Config contract.
 export { projectConfigJsonSchema } from './project-config.js';
+// Analysis resolves the nested Layer declaration into flat Modules and Graphs.
+export { resolveConfig } from './project-config.js';
+// Analysis consumers name the resolved shape when threading it through.
+export type { ResolvedConfig } from './project-config.js';

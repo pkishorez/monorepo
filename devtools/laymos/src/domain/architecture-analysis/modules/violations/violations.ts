@@ -3,6 +3,8 @@ import {
   type ImportFindings,
 } from './boundaries.js';
 import { findCoverageViolations } from './coverage.js';
+import { findDeadModuleViolations } from './dead-modules.js';
+import { findGraphCoverageViolations } from './graph-coverage.js';
 import { findCycleViolations } from './cycles.js';
 import { findEntryPointViolations } from './entry-points.js';
 import { findUnusedSharedViolations } from './unused-shared.js';
@@ -21,9 +23,11 @@ export function findModuleViolations(
     dependencies: imports.dependencies,
     violations: [
       ...findCoverageViolations(context),
+      ...findGraphCoverageViolations(context),
       ...findEntryPointViolations(context),
       ...imports.violations,
       ...findUnusedSharedViolations(context, imports.edges),
+      ...findDeadModuleViolations(context, imports.edges),
       ...findCycleViolations(imports.edges),
     ],
   };

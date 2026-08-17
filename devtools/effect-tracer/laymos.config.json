@@ -1,17 +1,41 @@
 {
   "$schema": "../laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": [],
+  "ignoredPaths": ["src/telemetry/telemetry.test.ts"],
   "layers": {
     "tracing": {
       "paths": ["src"],
-      "description": "Effect tracing, recording, and telemetry export"
+      "description": "Effect tracing, recording, and telemetry export",
+      "modules": {
+        "src/flow": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/recorder": {
+          "exposed": true
+        }
+      },
+      "moduleGraphs": {
+        "telemetry": {
+          "description": "Exports traces, either to OTLP or to the dev viewer.",
+          "path": "src/telemetry",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "telemetry.ts": {},
+            "otlp.ts": {},
+            "dev-telemetry": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "index.ts": ["telemetry.ts"],
+            "telemetry.ts": ["otlp.ts"]
+          }
+        }
+      }
     }
-  },
-  "modules": {
-    "src/flow": { "kind": "shared" },
-    "src/recorder": {},
-    "src/telemetry": { "subpaths": ["dev-telemetry"] }
   },
   "layerGraphs": {}
 }

@@ -25,10 +25,7 @@ export function resolveModuleFocus(input: ModuleFocusInput): ModuleFocus {
     const highlightedModuleIds = violationModuleIds(input.activeViolation);
     return {
       highlightedModuleIds,
-      highlightedEntryPointIds:
-        input.activeViolation.kind === 'missing-entry-point'
-          ? new Set([input.activeViolation.entryPointId])
-          : new Set(),
+      highlightedEntryPointIds: new Set(),
       visibleLayerIds: allLayerIds,
       dependencies: [],
       violation: input.activeViolation,
@@ -54,17 +51,12 @@ export function resolveModuleFocus(input: ModuleFocusInput): ModuleFocus {
     };
   }
 
-  const selectedDependencies = selected.nested
-    ? input.dependencies.filter(
-        ({ toEntryPointId }) => toEntryPointId === input.activeModuleId,
-      )
-    : input.dependencies.filter(
-        ({ fromModuleId, toModuleId }) =>
-          fromModuleId === selected.module.id ||
-          toModuleId === selected.module.id,
-      );
+  const selectedDependencies = input.dependencies.filter(
+    ({ fromModuleId, toModuleId }) =>
+      fromModuleId === selected.id || toModuleId === selected.id,
+  );
   const highlightedModuleIds = new Set([
-    selected.module.id,
+    selected.id,
     ...selectedDependencies.flatMap(({ fromModuleId, toModuleId }) => [
       fromModuleId,
       toModuleId,
@@ -75,7 +67,7 @@ export function resolveModuleFocus(input: ModuleFocusInput): ModuleFocus {
   );
 
   return {
-    selectedModuleId: selected.module.id,
+    selectedModuleId: selected.id,
     selectedEntryPointId: input.activeModuleId,
     highlightedModuleIds,
     highlightedEntryPointIds,
@@ -87,13 +79,8 @@ export function resolveModuleFocus(input: ModuleFocusInput): ModuleFocus {
 function findSelectedModule(
   modules: readonly Module[],
   id: string,
-): { readonly module: Module; readonly nested: boolean } | undefined {
-  const configured = modules.find((module) => module.id === id);
-  if (configured !== undefined) return { module: configured, nested: false };
-  const parent = modules.find((module) =>
-    module.nested.some((nested) => nested.id === id),
-  );
-  return parent === undefined ? undefined : { module: parent, nested: true };
+): Module | undefined {
+  return modules.find((module) => module.id === id);
 }
 
 function violationModuleIds(violation: ModuleViolation): ReadonlySet<string> {
@@ -106,8 +93,10 @@ function violationModuleIds(violation: ModuleViolation): ReadonlySet<string> {
     case 'missing-entry-point':
       return new Set([violation.moduleId]);
     case 'unused-shared':
+    case 'dead-module':
       return new Set([violation.moduleId]);
     case 'coverage':
+    case 'graph-coverage':
       return new Set();
   }
 }

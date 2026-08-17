@@ -9,6 +9,7 @@ export {
 /** Renderers and analyzers share these browser-safe data shapes. */
 export type {
   AnalyzedModule,
+  AnalyzedModuleGraph,
   ArchitectureAnalysis,
   Config,
   ConfigValidationIssue,
@@ -16,9 +17,11 @@ export type {
   LayerAnalysis,
   LayerDefinition,
   ModuleAnalysis,
+  ModuleConfig,
   ModuleDefinition,
   ModuleDependency,
-  ModuleKind,
+  ModuleGraphConfig,
+  ModuleGraphDefinition,
   ModuleShape,
   ModuleViolation,
   ObservedModuleKind,

@@ -40,10 +40,7 @@ describe('inspectFile', () => {
       layer: 'app',
       module: 'src/feature',
       role: 'public-entry-point',
-      dependencies: [
-        { path: 'src/shared/index.ts', kind: 'direct' },
-        { path: 'src/shared/public/index.ts', kind: 'direct' },
-      ],
+      dependencies: [{ path: 'src/shared/index.ts', kind: 'direct' }],
       recursive: false,
       hasCoverageViolation: false,
     });
@@ -87,18 +84,16 @@ describe('inspectModule', () => {
       'src/shared',
     ).pipe(Effect.runPromise);
 
-    expect(feature.module.kind).toBe('normal');
+    expect(feature.module.shared).toBe(false);
+    expect(feature.module.exposed).toBe(true);
     expect(feature.module.observedKind).toBe('root');
     expect(feature.dependencies).toEqual(['src/shared']);
     expect(feature.dependents).toEqual([]);
-    expect(shared.module.kind).toBe('shared');
+    expect(shared.module.shared).toBe(true);
     expect(shared.module.observedKind).toBe('terminal');
     expect(shared.dependents).toEqual(['src/feature']);
     expect(shared.dependencies).toEqual([]);
-    expect(shared.publicEntryPoints).toEqual([
-      'src/shared/index.ts',
-      'src/shared/public/index.ts',
-    ]);
+    expect(shared.publicEntryPoints).toEqual(['src/shared/index.ts']);
   });
 
   test('shows observed dependencies that have violations', async () => {

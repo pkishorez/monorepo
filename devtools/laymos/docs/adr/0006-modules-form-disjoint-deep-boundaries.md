@@ -6,6 +6,9 @@ Its remaining directory-boundary decisions still apply.
 ADR-0010 supersedes the inferred Unexposed, `shared`, and `nested` configuration
 rules. Its remaining membership and dependency-boundary decisions still apply.
 
+ADR-0013 adds Module Graphs. Configured Module roots stay disjoint and
+un-nested: a Module Graph is a bounded set of Modules, never a Module itself.
+
 Laymos requires a non-empty, path-keyed set of Configured Modules without
 changing Layer or LayerGraph declarations. A Module is any directory that
 follows the deep-module convention and can contain Modules recursively. A

@@ -50,7 +50,7 @@ describe('graphGroups', () => {
     expect(actual[0]?.layerIds).toEqual(['e2e']);
   });
 
-  test('drops a LayerGraph left holding only a Layer that spans its neighbours', () => {
+  test('drops a LayerGraph that hosts nothing', () => {
     const shared = [
       {
         id: 'std-table',
@@ -73,6 +73,7 @@ describe('graphGroups', () => {
     });
 
     expect(actual.map(({ id }) => id)).toEqual(['std-table']);
+    expect(actual[0]?.layerIds).toEqual(['entity', 'definition']);
   });
 
   test('keeps a LayerGraph that owns a Layer of its own', () => {
@@ -100,7 +101,7 @@ describe('graphGroups', () => {
     expect(actual.map(({ id }) => id)).toEqual(['std-table', 'dynamodb']);
   });
 
-  test('keeps every LayerGraph when none of them owns a Layer alone', () => {
+  test('drops a LayerGraph whose Rules are all declared elsewhere too', () => {
     const shared = [
       {
         id: 'one',
@@ -118,7 +119,7 @@ describe('graphGroups', () => {
       layerGraphs: shared,
     });
 
-    expect(actual.map(({ id }) => id)).toEqual(['one', 'two']);
+    expect(actual.map(({ id }) => id)).toEqual(['one']);
   });
 
   test('still groups Layers no LayerGraph references', () => {

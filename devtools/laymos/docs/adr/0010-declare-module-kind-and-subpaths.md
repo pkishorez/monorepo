@@ -1,5 +1,8 @@
 # Declare Module kind and Subpaths
 
+ADR-0012 supersedes the `kind` and `subpaths` decisions. Its remaining
+shape and observed-kind decisions still apply.
+
 Laymos will declare each Configured Module as Normal, Shared, or Entry, with
 Normal as the default. Shared adds same-Layer access while Layer Rules remain
 the sole cross-Layer policy; Entry Modules may depend outward but cannot be

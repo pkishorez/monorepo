@@ -146,9 +146,7 @@ function ScopeRow({
           data-layer-id={layerId}
           style={{
             paddingInlineStart: indentation,
-            ...(state === 'selected'
-              ? architectureTreeSelectedStyle('layer')
-              : {}),
+            ...(state === 'selected' ? architectureTreeSelectedStyle() : {}),
           }}
           className={cn(
             layerRow,

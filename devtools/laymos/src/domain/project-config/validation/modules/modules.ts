@@ -1,19 +1,19 @@
 import type { Config, ConfigValidationIssue } from '../../project-config.js';
-import { findContainmentIssues } from './containment.js';
-import { findAllSharedLayerIssues } from './kinds.js';
+import { resolveConfig } from '../../resolve.js';
+import { findModuleGraphIssues } from './graphs.js';
 import { findModuleOverlaps } from './overlaps.js';
 import { findModulePathIssues } from './paths.js';
-import { findSubpathIssues } from './subpaths.js';
+import { findScopeIssues } from './scopes.js';
 
 export function validateModules(
   config: Config,
 ): readonly ConfigValidationIssue[] {
-  const pathIssues = findModulePathIssues(config.modules);
+  const pathIssues = findModulePathIssues(config);
   if (pathIssues.length > 0) return pathIssues;
+  const resolved = resolveConfig(config);
   return [
-    ...findModuleOverlaps(config.modules),
-    ...findContainmentIssues(config),
-    ...findSubpathIssues(config),
-    ...findAllSharedLayerIssues(config),
+    ...findModuleOverlaps(resolved),
+    ...findScopeIssues(config, resolved),
+    ...findModuleGraphIssues(config, resolved),
   ];
 }

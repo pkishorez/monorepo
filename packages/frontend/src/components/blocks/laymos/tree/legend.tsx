@@ -1,12 +1,11 @@
 import { FolderIcon } from '#lib/lucide';
 
-import { architectureTreeSelectedStyle } from './presentation';
-
 interface ArchitectureTreeLegendProps {
   readonly title: string;
   readonly boundaryLabel: 'Layer' | 'Module';
 }
 
+// Structure reads by weight, so the legend teaches weight rather than colour.
 export function ArchitectureTreeLegend({
   title,
   boundaryLabel,
@@ -23,37 +22,26 @@ export function ArchitectureTreeLegend({
           Folder
         </span>
         {!isLayer && (
-          <span className="flex items-center gap-1">
-            <FolderIcon className="size-3 text-emerald-600 dark:text-emerald-400" />
-            <span className="text-emerald-600 dark:text-emerald-400">
-              Layer
-            </span>
+          <span className="flex items-center gap-1 font-semibold text-foreground">
+            <FolderIcon className="size-3 text-foreground" />
+            Layer
           </span>
         )}
-        <span className="flex items-center gap-1">
+        <span
+          className={
+            isLayer
+              ? 'flex items-center gap-1 font-semibold text-foreground'
+              : 'flex items-center gap-1 text-foreground/90'
+          }
+        >
           <FolderIcon
             className={
               isLayer
-                ? 'size-3 text-emerald-600 dark:text-emerald-400'
-                : 'size-3 text-sky-700 dark:text-sky-300'
+                ? 'size-3 text-foreground'
+                : 'size-3 text-muted-foreground'
             }
           />
-          <span
-            className={
-              isLayer
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-sky-700 dark:text-sky-300'
-            }
-          >
-            {boundaryLabel}
-          </span>
-        </span>
-        <span
-          className="flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-medium text-foreground"
-          style={architectureTreeSelectedStyle(isLayer ? 'layer' : 'module')}
-        >
-          <FolderIcon className="size-3" />
-          Selected
+          {boundaryLabel}
         </span>
       </div>
     </div>

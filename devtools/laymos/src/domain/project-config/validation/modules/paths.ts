@@ -1,42 +1,31 @@
-import { posix } from 'node:path';
-
 import type { Config, ConfigValidationIssue } from '../../project-config.js';
+import { isCanonicalPath } from '../containment.js';
 
 export function findModulePathIssues(
-  modules: Config['modules'],
+  config: Config,
 ): readonly ConfigValidationIssue[] {
-  return Object.entries(modules).flatMap(([root, definition]) => {
-    const issues: ConfigValidationIssue[] = [];
-    if (!isCanonical(root, true)) {
-      issues.push({
-        kind: 'path',
-        message: `Module key must be a canonical project-relative file or directory: ${JSON.stringify(root)}`,
-      });
-    }
-    definition.subpaths.forEach((path, index) => {
-      if (isCanonical(path, false)) return;
-      issues.push({
-        kind: 'path',
-        message: `modules.${root}.subpaths[${index}] must be a canonical relative directory: ${JSON.stringify(path)}`,
-      });
-    });
-    return issues;
-  });
-}
-
-function isCanonical(path: string, allowDot: boolean): boolean {
-  if (allowDot && path === '.') return true;
-  if (
-    path.length === 0 ||
-    path === '.' ||
-    path === '..' ||
-    path.includes('\\') ||
-    path.startsWith('/') ||
-    path.endsWith('/') ||
-    path.startsWith('../') ||
-    /^[A-Za-z]:/.test(path)
-  ) {
-    return false;
-  }
-  return posix.normalize(path) === path;
+  return Object.entries(config.layers).flatMap(([layer, definition]) => [
+    ...Object.keys(definition.modules)
+      .filter((root) => !isCanonicalPath(root, true))
+      .map((root) => ({
+        kind: 'path' as const,
+        message: `layers.${layer}.modules key must be a canonical project-relative file or directory: ${JSON.stringify(root)}`,
+      })),
+    ...Object.entries(definition.moduleGraphs).flatMap(([id, graph]) => [
+      ...(isCanonicalPath(graph.path, true)
+        ? []
+        : [
+            {
+              kind: 'path' as const,
+              message: `layers.${layer}.moduleGraphs.${id}.path must be a canonical project-relative directory: ${JSON.stringify(graph.path)}`,
+            },
+          ]),
+      ...Object.keys(graph.modules)
+        .filter((member) => !isCanonicalPath(member, false))
+        .map((member) => ({
+          kind: 'path' as const,
+          message: `Module Graph ${id} member key must be a canonical path below its Graph root: ${JSON.stringify(member)}`,
+        })),
+    ]),
+  ]);
 }

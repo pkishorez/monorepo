@@ -14,12 +14,13 @@ describe('renderLayerInspection', () => {
         {
           path: 'src/domain/order',
           layer: 'domain',
-          kind: 'shared',
+          shared: true,
+          exposed: false,
           shape: 'directory',
           observedKind: 'terminal',
-          subpaths: [],
         },
       ],
+      moduleGraphs: [],
       sharedCount: 1,
       hasNoModules: false,
       layerViolations: [],
@@ -31,6 +32,7 @@ describe('renderLayerInspection', () => {
     expect(rendered).toContain(
       'src/domain/order (shared, directory, terminal)',
     );
+    expect(rendered).toContain('Module Graphs: 0');
   });
 
   test('counts a Layer without Modules as a violation', () => {
@@ -41,6 +43,7 @@ describe('renderLayerInspection', () => {
       allowedDependencies: [],
       allowedDependents: [],
       modules: [],
+      moduleGraphs: [],
       sharedCount: 0,
       hasNoModules: true,
       layerViolations: [],

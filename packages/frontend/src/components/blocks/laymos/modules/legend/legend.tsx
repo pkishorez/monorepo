@@ -1,30 +1,25 @@
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  CircleDotDashed,
-  Info,
-} from '#lib/lucide';
+import { Lock, Network, Share2 } from '#lib/lucide';
 
+// Exposed is the default on almost every Module, so only exceptions are marked.
 const items = [
   {
-    label: 'Root',
-    description: 'No incoming dependencies',
-    icon: ArrowUpFromLine,
+    label: 'Shared',
+    description: 'Peers in its own Layer may import it',
+    icon: Share2,
+    className: 'text-foreground',
   },
   {
-    label: 'Terminal',
-    description: 'No outgoing dependencies',
-    icon: ArrowDownToLine,
+    label: 'Private',
+    description: 'Nothing may import it',
+    icon: Lock,
+    className: 'text-muted-foreground/60',
   },
   {
-    label: 'Isolated',
-    description: 'No incoming or outgoing dependencies',
-    icon: CircleDotDashed,
-  },
-  {
-    label: 'Entry',
-    description: 'Host-started and unavailable to other Modules',
-    icon: Info,
+    label: 'Module Graph',
+    description:
+      'A bounded set of Modules whose Rules are the only way its members connect',
+    icon: Network,
+    className: 'text-muted-foreground',
   },
 ] as const;
 
@@ -34,23 +29,17 @@ export function ModuleLegend() {
       className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[10px] text-muted-foreground"
       aria-label="Module legend"
     >
-      {items.map(({ label, description, icon: Icon }) => (
+      <span className="text-muted-foreground/70">Unmarked: exposed</span>
+      {items.map(({ label, description, icon: Icon, className }) => (
         <span
           key={label}
           className="flex items-center gap-1"
           title={`${label}: ${description}`}
         >
-          <Icon className="size-3" />
+          <Icon className={`size-3 ${className}`} />
           {label}
         </span>
       ))}
-      <span
-        className="flex items-center gap-1"
-        title="Shared: available to peers in its Layer"
-      >
-        <span className="size-2.5 rounded-sm border border-sky-500/60 bg-sky-500/15" />
-        Shared
-      </span>
     </div>
   );
 }

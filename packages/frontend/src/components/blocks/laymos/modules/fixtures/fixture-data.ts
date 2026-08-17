@@ -1,6 +1,11 @@
 import { Effect } from 'effect';
 import type { Layer, LayerRule } from '../../layers/model';
-import type { Module, ModuleDependency, ModuleViolation } from '../model';
+import type {
+  Module,
+  ModuleDependency,
+  ModuleGraph,
+  ModuleViolation,
+} from '../model';
 
 export { layerGraphs as moduleLayerGraphs } from '../../layers/fixtures/fixture-data';
 
@@ -17,15 +22,15 @@ export const loadFixtureModuleSource = (modulePath: string) =>
         path: `${modulePath}/internal.ts`,
         content: 'export const internal = true;\n',
       },
-      ...(modulePath === 'src/domain/orders'
+      ...(modulePath === 'src/domain/orders/pricing'
         ? [
             {
-              path: `${modulePath}/events/index.ts`,
-              content: 'export const orderCreated = true;\n',
+              path: `${modulePath}/round.ts`,
+              content: 'export const round = true;\n',
             },
             {
-              path: `${modulePath}/pricing/rules/index.ts`,
-              content: 'export const pricingRule = true;\n',
+              path: `${modulePath}/tax.ts`,
+              content: 'export const tax = true;\n',
             },
           ]
         : []),
@@ -80,8 +85,8 @@ export const moduleRules: readonly LayerRule[] = [
 ];
 
 export const modules: readonly Module[] = [
-  module('src/web/routes', 'presentation', 'root', { unexposed: true }),
-  module('src/web/screens', 'presentation', 'root', { unexposed: true }),
+  module('src/web/routes', 'presentation', 'root', { exposed: false }),
+  module('src/web/screens', 'presentation', 'root', { exposed: false }),
   module('src/application/orders', 'application', 'regular'),
   module('src/application/accounts', 'application', 'regular'),
   module('src/application/shared', 'application', 'regular', { shared: true }),
@@ -89,8 +94,22 @@ export const modules: readonly Module[] = [
   module('src/application/unused-shared', 'application', 'root', {
     shared: true,
   }),
-  module('src/domain/orders', 'domain', 'regular', {
-    nested: ['events', 'pricing/rules'],
+  module('src/domain/orders/index.ts', 'domain', 'regular', {
+    graphId: 'orders',
+    member: 'index.ts',
+    exposed: true,
+  }),
+  module('src/domain/orders/pricing', 'domain', 'regular', {
+    graphId: 'orders',
+    member: 'pricing',
+  }),
+  module('src/domain/orders/events', 'domain', 'terminal', {
+    graphId: 'orders',
+    member: 'events',
+  }),
+  module('src/domain/orders/tax-table', 'domain', 'isolated', {
+    graphId: 'orders',
+    member: 'tax-table',
   }),
   module('src/domain/users', 'domain', 'terminal'),
   module('src/domain/common', 'domain', 'isolated', { shared: true }),
@@ -101,23 +120,43 @@ export const modules: readonly Module[] = [
   module('src/shared/types', 'foundation', 'terminal', { shared: true }),
 ];
 
+export const moduleGraphs: readonly ModuleGraph[] = [
+  {
+    id: 'orders',
+    layerId: 'domain',
+    path: 'src/domain/orders',
+    description: 'Prices an order and emits what changed.',
+    memberIds: [
+      'src/domain/orders/index.ts',
+      'src/domain/orders/pricing',
+      'src/domain/orders/events',
+      'src/domain/orders/tax-table',
+    ],
+    rules: [
+      {
+        fromModuleId: 'src/domain/orders/index.ts',
+        toModuleId: 'src/domain/orders/pricing',
+      },
+      {
+        fromModuleId: 'src/domain/orders/pricing',
+        toModuleId: 'src/domain/orders/events',
+      },
+    ],
+  },
+];
+
 export const moduleDependencies: readonly ModuleDependency[] = [
   dependency('src/web/routes', 'src/application/orders'),
   dependency('src/web/screens', 'src/application/accounts'),
-  dependency('src/application/orders', 'src/domain/orders'),
-  dependency(
-    'src/application/orders',
-    'src/domain/orders',
-    'src/domain/orders/events',
-  ),
+  dependency('src/application/orders', 'src/domain/orders/index.ts'),
   dependency('src/application/orders', 'src/adapters/database'),
   dependency('src/application/orders', 'src/application/shared'),
   dependency('src/application/accounts', 'src/domain/users'),
   dependency('src/application/shared', 'src/application/cache'),
   dependency('src/application/cache', 'src/application/shared'),
   dependency('src/application/unused-shared', 'src/shared/types'),
-  dependency('src/domain/orders', 'src/shared/types'),
-  dependency('src/adapters/database', 'src/domain/orders'),
+  dependency('src/domain/orders/pricing', 'src/shared/types'),
+  dependency('src/adapters/database', 'src/domain/orders/index.ts'),
   dependency('src/adapters/http', 'src/shared/errors'),
 ];
 
@@ -134,7 +173,7 @@ export const moduleViolations: readonly ModuleViolation[] = [
     id: 'routes-to-orders-internal',
     kind: 'boundary',
     fromModuleId: 'src/web/routes',
-    toModuleId: 'src/domain/orders',
+    toModuleId: 'src/domain/orders/index.ts',
     fromFile: 'src/web/routes/orders-route.ts',
     toFile: 'src/domain/orders/order.ts',
   },
@@ -146,9 +185,20 @@ export const moduleViolations: readonly ModuleViolation[] = [
   {
     id: 'missing-pricing-entry-point',
     kind: 'missing-entry-point',
-    moduleId: 'src/domain/orders',
-    entryPointId: 'src/domain/orders/pricing/rules',
-    path: 'src/domain/orders/pricing/rules/index.ts',
+    moduleId: 'src/domain/orders/pricing',
+    path: 'src/domain/orders/pricing/index.ts',
+  },
+  {
+    id: 'orders-graph-loose-file',
+    kind: 'graph-coverage',
+    graphId: 'orders',
+    layerId: 'domain',
+    file: 'src/domain/orders/legacy-rounding.ts',
+  },
+  {
+    id: 'dead-orders-tax-table',
+    kind: 'dead-module',
+    moduleId: 'src/domain/orders/tax-table',
   },
   {
     id: 'unassigned-domain-file',
@@ -164,8 +214,9 @@ function module(
   kind: Module['kind'],
   options: {
     readonly shared?: boolean;
-    readonly unexposed?: boolean;
-    readonly nested?: readonly string[];
+    readonly exposed?: boolean;
+    readonly graphId?: string;
+    readonly member?: string;
   } = {},
 ): Module {
   return {
@@ -173,11 +224,9 @@ function module(
     layerId,
     kind,
     shared: options.shared ?? false,
-    ...(options.unexposed === true ? { unexposed: true } : {}),
-    nested: (options.nested ?? []).map((path) => ({
-      id: `${id}/${path}`,
-      path,
-    })),
+    exposed: options.exposed ?? !(options.graphId !== undefined),
+    ...(options.graphId === undefined ? {} : { graphId: options.graphId }),
+    ...(options.member === undefined ? {} : { member: options.member }),
   };
 }
 
@@ -186,5 +235,5 @@ function dependency(
   toModuleId: string,
   toEntryPointId = toModuleId,
 ): ModuleDependency {
-  return { fromModuleId, toModuleId, toEntryPointId };
+  return { fromModuleId, toModuleId, toEntryPointId, permitted: true };
 }

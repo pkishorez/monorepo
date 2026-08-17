@@ -48,16 +48,152 @@ describe('layoutGraph', () => {
     );
   });
 
-  test('renders a shared layer once and stretches it across its graphs', () => {
+  test('gives every Layer one box of one width, never a lane-spanning rail', () => {
     const layout = layoutGraph(groupedInput);
-    const applicationNodes = layout.nodes.filter(
-      ({ id }) => id === 'application',
+    const layers = layout.nodes.filter(({ type }) => type === 'layer');
+
+    expect(layers.filter(({ id }) => id === 'application')).toHaveLength(1);
+    expect(new Set(layers.map(({ width }) => width))).toEqual(new Set([176]));
+  });
+
+  test('points every Rule at the one real Layer it names', () => {
+    const layout = layoutGraph(groupedInput);
+    const drawn = layout.nodes.map(({ id }) => id);
+
+    for (const edge of layout.edges.filter(({ id }) =>
+      id.startsWith('configured:'),
+    )) {
+      expect(drawn).toContain(edge.source);
+      expect(drawn).toContain(edge.target);
+    }
+    expect(
+      layout.edges
+        .filter(({ id }) => id.startsWith('configured:'))
+        .map(({ id }) => id),
+    ).toEqual([
+      'configured:web->application',
+      'configured:application->domain',
+      'configured:api->application',
+    ]);
+  });
+
+  test('dashes a Rule that leaves its lane and draws it once', () => {
+    const layout = layoutGraph(groupedInput);
+    const dashed = layout.edges.filter(
+      ({ id, style }) =>
+        id.startsWith('configured:') && style?.strokeDasharray !== undefined,
     );
 
-    expect(applicationNodes).toHaveLength(1);
-    expect(applicationNodes[0]?.width).toBeGreaterThan(176);
-    expect(applicationNodes[0]?.data).toMatchObject({ shared: true });
-    expect(applicationNodes[0]?.data.targetHandles).toHaveLength(2);
+    expect(dashed.map(({ id }) => id)).toEqual(['configured:api->application']);
+  });
+
+  test('keeps a selected LayerGraph lit together with what it reaches', () => {
+    const layout = layoutGraph({
+      ...groupedInput,
+      activeLayerGraphId: 'api-architecture',
+    });
+    const layers = new Map(
+      layout.nodes
+        .filter(({ type }) => type === 'layer')
+        .map((node) => [node.id, node.data]),
+    );
+
+    expect(layers.get('api')).toMatchObject({ dimmed: false });
+    expect(layers.get('application')).toMatchObject({
+      dimmed: false,
+      related: true,
+    });
+    expect(layers.get('domain')).toMatchObject({
+      dimmed: false,
+      related: true,
+    });
+    expect(layers.get('web')).toMatchObject({ dimmed: true });
+    expect(
+      layout.edges
+        .filter(({ id }) => id.startsWith('configured:'))
+        .filter(({ style }) => style?.opacity === 1)
+        .map(({ id }) => id),
+    ).toEqual([
+      'configured:application->domain',
+      'configured:api->application',
+    ]);
+  });
+
+  test('isolates a LayerGraph down to itself and what it depends on', () => {
+    const isolated = layoutGraph({
+      ...groupedInput,
+      activeLayerGraphId: 'api-architecture',
+      isolatedLayerGraphId: 'api-architecture',
+    });
+    expect(
+      isolated.nodes
+        .filter(({ type }) => type === 'lane')
+        .map(({ id }) => id.slice('lane:'.length)),
+    ).toEqual(['web-architecture', 'api-architecture']);
+    expect(
+      isolated.nodes.filter(({ type }) => type === 'layer').map(({ id }) => id),
+    ).toEqual(['api', 'application', 'domain']);
+  });
+
+  test('drops a LayerGraph the isolated one does not depend on', () => {
+    const withReporting = {
+      ...groupedInput,
+      layers: [...groupedInput.layers, { id: 'reporting', scopes: [] }],
+      layerGraphs: [
+        ...groupedInput.layerGraphs,
+        {
+          id: 'reporting-architecture',
+          rules: [{ fromLayerId: 'reporting', toLayerIds: ['domain'] }],
+        },
+      ],
+    };
+    const lanes = ({ nodes }: ReturnType<typeof layoutGraph>) =>
+      nodes.filter(({ type }) => type === 'lane').length;
+
+    expect(lanes(layoutGraph(withReporting))).toBe(3);
+    expect(
+      lanes(
+        layoutGraph({
+          ...withReporting,
+          activeLayerGraphId: 'api-architecture',
+          isolatedLayerGraphId: 'api-architecture',
+        }),
+      ),
+    ).toBe(2);
+  });
+
+  test('dims nothing it kept, and marks the dependencies as related', () => {
+    const isolated = layoutGraph({
+      ...groupedInput,
+      activeLayerGraphId: 'api-architecture',
+      isolatedLayerGraphId: 'api-architecture',
+    });
+    const layers = new Map(
+      isolated.nodes
+        .filter(({ type }) => type === 'layer')
+        .map((node) => [node.id, node.data]),
+    );
+
+    expect([...layers.values()].every(({ dimmed }) => dimmed === false)).toBe(
+      true,
+    );
+    expect(layers.get('api')).toMatchObject({ related: false });
+    expect(layers.get('application')).toMatchObject({ related: true });
+    expect(layers.get('domain')).toMatchObject({ related: true });
+  });
+
+  test('lands an isolated Rule on the real Layer', () => {
+    const isolated = layoutGraph({
+      ...groupedInput,
+      activeLayerGraphId: 'api-architecture',
+      isolatedLayerGraphId: 'api-architecture',
+    });
+
+    expect(
+      isolated.edges
+        .filter(({ id }) => id.startsWith('configured:'))
+        .map(({ source, target }) => `${source}->${target}`),
+    ).toEqual(['application->domain', 'api->application']);
   });
 
   test('uses only configured rules and passive orthogonal connectors', () => {

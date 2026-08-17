@@ -2,9 +2,9 @@ import { MarkerType, Position, type Edge, type Node } from '@xyflow/react';
 
 import {
   computeLayerRanks,
+  computeRanks,
   flattenRules,
   graphGroups,
-  graphMemberships,
   mergeConfiguredLayerEdges,
   type ConfiguredLayerEdge,
   type GraphGroup,
@@ -19,14 +19,28 @@ import {
 import type {
   Module,
   ModuleDependency,
+  ModuleGraph,
   ModuleKind,
   ModuleViolation,
 } from '../model';
 
 const moduleWidth = 184;
 const moduleHeaderHeight = 58;
-const nestedHeight = 38;
-const nestedGap = 8;
+const bandHeaderHeight = 30;
+const bandPadding = 12;
+const memberRankGap = 44;
+
+// Paint order. Edges sit below Module boxes so a line crossing the canvas is
+// occluded by whatever it passes, and only a line that stops at a box connects
+// to it. Violation edges stay on top: they are the thing being inspected.
+const zLane = 0;
+const zLayerEdge = 1;
+const zLayer = 2;
+const zBand = 3;
+const zEdge = 4;
+const zModule = 5;
+const zGraphHeader = 6;
+const zViolationEdge = 7;
 const layerHeaderHeight = 52;
 const layerPadding = 18;
 const moduleGap = 16;
@@ -50,10 +64,13 @@ export interface ModuleGraphLayoutInput extends GraphCallbacks {
   readonly rules: readonly LayerRule[];
   readonly layerGraphs?: readonly NamedLayerGraph[];
   readonly activeLayerGraphId?: string;
+  readonly isolatedLayerGraphId?: string;
   readonly modules: readonly Module[];
+  readonly moduleGraphs?: readonly ModuleGraph[];
   readonly dependencies: readonly ModuleDependency[];
   readonly focusedLayerId?: string;
   readonly showLayerConnections: boolean;
+  readonly showModuleConnections?: boolean;
   readonly activeModuleId?: string;
   readonly hoveredModuleId?: string;
   readonly activeViolation?: ModuleViolation;
@@ -66,8 +83,6 @@ interface LayerNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly softlyDimmed: boolean;
   readonly moduleCount: number;
-  readonly sharedAcrossGraphs: boolean;
-  readonly targetHandles: readonly { id: string; offset: number }[];
 }
 
 interface GraphLaneNodeData extends Record<string, unknown> {
@@ -86,27 +101,24 @@ interface ModuleNodeData extends Record<string, unknown> {
   readonly label: string;
   readonly changeStatus?: Module['changeStatus'];
   readonly shared: boolean;
+  readonly exposed: boolean;
   readonly kind: ModuleKind;
-  readonly configuredKind: NonNullable<Module['configuredKind']>;
   readonly shape: NonNullable<Module['shape']>;
-  readonly unexposed: boolean;
+  readonly member: boolean;
   readonly focused: boolean;
   readonly related: boolean;
   readonly dimmed: boolean;
   readonly softlyDimmed: boolean;
   readonly violation: boolean;
-  readonly nestedCount: number;
   readonly onActivate?: (moduleId: string) => void;
 }
 
-interface NestedNodeData extends Record<string, unknown> {
+interface ModuleBandNodeData extends Record<string, unknown> {
   readonly label: string;
-  readonly focused: boolean;
-  readonly related: boolean;
+  readonly description?: string;
+  readonly memberCount: number;
   readonly dimmed: boolean;
-  readonly softlyDimmed: boolean;
   readonly violation: boolean;
-  readonly onActivate?: (moduleId: string) => void;
 }
 
 interface UnassignedNodeData extends Record<string, unknown> {
@@ -117,14 +129,14 @@ export type LayerContainerNode = Node<LayerNodeData, 'module-layer'>;
 export type GraphLaneNode = Node<GraphLaneNodeData, 'module-graph-lane'>;
 export type GraphHeaderNode = Node<GraphHeaderNodeData, 'module-graph-header'>;
 export type ConfiguredModuleNode = Node<ModuleNodeData, 'module'>;
-export type NestedModuleNode = Node<NestedNodeData, 'nested-module'>;
+export type ModuleBandNode = Node<ModuleBandNodeData, 'module-band'>;
 export type UnassignedFileNode = Node<UnassignedNodeData, 'unassigned-file'>;
 export type ModuleGraphNode =
   | GraphLaneNode
   | GraphHeaderNode
   | LayerContainerNode
+  | ModuleBandNode
   | ConfiguredModuleNode
-  | NestedModuleNode
   | UnassignedFileNode;
 
 interface ModulePlacement {
@@ -134,11 +146,20 @@ interface ModulePlacement {
   readonly height: number;
 }
 
+interface BandPlacement {
+  readonly graph: ModuleGraph;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 interface LayerGeometry {
   readonly width: number;
   readonly height: number;
   readonly contentOffset: number;
   readonly modules: readonly ModulePlacement[];
+  readonly bands: readonly BandPlacement[];
 }
 
 interface GraphLane {
@@ -168,6 +189,10 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
       layer.id,
       packModules(
         input.modules.filter((module) => module.layerId === layer.id),
+        (input.moduleGraphs ?? []).filter(
+          (graph) => graph.layerId === layer.id,
+        ),
+        input.dependencies,
       ),
     ]),
   );
@@ -181,16 +206,14 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
     }
   }
   const groups = graphGroups(input);
-  const memberships = graphMemberships(groups);
   const configuredLayerEdges = mergeConfiguredLayerEdges(groups);
   const ranks = computeLayerRanks(input.layers, configuredLayerEdges);
   const geometry = equalizeLayerHeights(input.layers, ranks, packedGeometry);
-  const lanes = computeGraphLanes(groups, memberships, ranks, geometry);
+  const lanes = computeGraphLanes(groups, ranks, geometry);
   const laneById = new Map(lanes.map((lane) => [lane.id, lane]));
   const layerPositions = layoutLayers(
     input.layers,
     groups,
-    memberships,
     ranks,
     geometry,
     laneById,
@@ -202,9 +225,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
   const selectedGraphLayerIds =
     activeLayerGraphId === undefined
       ? undefined
-      : new Set(
-          groups.find(({ id }) => id === activeLayerGraphId)?.layerIds ?? [],
-        );
+      : selectionScope(groups, activeLayerGraphId);
   const selectedGraphEdges =
     activeLayerGraphId === undefined
       ? configuredLayerEdges
@@ -231,7 +252,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
       draggable: false,
       selectable: false,
       focusable: false,
-      zIndex: -1,
+      zIndex: zLane,
       style: { pointerEvents: 'none' },
       data: { dimmed: laneDimmed },
     });
@@ -247,7 +268,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
       draggable: false,
       selectable: false,
       focusable: false,
-      zIndex: 3,
+      zIndex: zGraphHeader,
       data: {
         label: group.id,
         dimmed: laneDimmed,
@@ -262,8 +283,10 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
 
   for (const layer of input.layers) {
     const base = geometry.get(layer.id)!;
-    const position = layerPositions.get(layer.id)!;
-    const graphIds = memberships.get(layer.id) ?? [];
+    // Isolation places only the Layers it keeps, so an unplaced Layer is one
+    // this view is deliberately not drawing.
+    const position = layerPositions.get(layer.id);
+    if (position === undefined) continue;
     const coverageViolation =
       input.activeViolation?.kind === 'coverage' &&
       input.activeViolation.layerId === layer.id
@@ -292,6 +315,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
       draggable: false,
       selectable: false,
       focusable: false,
+      zIndex: zLayer,
       data: {
         label: layer.id,
         ...(layer.changeStatus === undefined
@@ -302,24 +326,40 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
         softlyDimmed:
           hover !== undefined && !dimmed && !hover.layerIds.has(layer.id),
         moduleCount: base.modules.length,
-        sharedAcrossGraphs: graphIds.length > 1,
-        targetHandles:
-          graphIds.length < 2
-            ? []
-            : graphIds.flatMap((graphId) => {
-                const lane = laneById.get(graphId);
-                return lane === undefined
-                  ? []
-                  : [
-                      {
-                        id: `layer-target:${graphId}`,
-                        offset:
-                          ((lane.center - position.x) / position.width) * 100,
-                      },
-                    ];
-              }),
       },
     });
+
+    for (const band of base.bands) {
+      const memberIds = new Set(band.graph.memberIds);
+      nodes.push({
+        id: `module-band:${band.graph.id}`,
+        type: 'module-band',
+        parentId: layer.id,
+        extent: 'parent',
+        position: { x: band.x + position.contentOffsetX, y: band.y },
+        width: band.width,
+        height: band.height,
+        draggable: false,
+        selectable: false,
+        focusable: false,
+        zIndex: zBand,
+        style: { pointerEvents: 'none' },
+        data: {
+          label: band.graph.id,
+          ...(band.graph.description === undefined
+            ? {}
+            : { description: band.graph.description }),
+          memberCount: band.graph.memberIds.length,
+          dimmed:
+            dimmed ||
+            (hasFocus &&
+              ![...focus.highlightedModuleIds].some((id) => memberIds.has(id))),
+          violation:
+            focus.violation?.kind === 'graph-coverage' &&
+            focus.violation.graphId === band.graph.id,
+        },
+      });
+    }
 
     for (const placement of base.modules) {
       nodes.push(
@@ -327,18 +367,6 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
           placement,
           layer.id,
           labels.get(placement.module.id) ?? placement.module.id,
-          focus,
-          hasFocus,
-          dimmed,
-          hover,
-          position.contentOffsetX,
-          input.onModuleActivate,
-        ),
-      );
-      nodes.push(
-        ...nestedNodes(
-          placement,
-          layer.id,
           focus,
           hasFocus,
           dimmed,
@@ -373,12 +401,26 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
     }
   }
 
+  // Isolation drops whole Layers and their Modules, and an Edge pointing at a
+  // Node that is no longer drawn breaks the canvas.
+  const hidden = new Set(
+    input.layers
+      .filter(({ id }) => !layerPositions.has(id))
+      .flatMap((layer) => [
+        layer.id,
+        ...input.modules
+          .filter((module) => module.layerId === layer.id)
+          .map(({ id }) => id),
+      ]),
+  );
   return {
     nodes,
     edges: [
-      ...layerEdges(input, groups, memberships, configuredLayerEdges, hasFocus),
+      ...layerEdges(input, groups, configuredLayerEdges, hasFocus),
       ...graphEdges(input, focus, nodes),
-    ],
+    ].filter(
+      ({ source, target }) => !hidden.has(source) && !hidden.has(target),
+    ),
     focus,
   };
 }
@@ -409,17 +451,17 @@ function moduleNode(
     draggable: false,
     selectable: false,
     focusable: false,
-    zIndex: 2,
+    zIndex: zModule,
     data: {
       label,
       ...(placement.module.changeStatus === undefined
         ? {}
         : { changeStatus: placement.module.changeStatus }),
       shared: placement.module.shared,
+      exposed: placement.module.exposed,
       kind: placement.module.kind,
-      configuredKind: placement.module.configuredKind ?? 'normal',
       shape: placement.module.shape ?? 'directory',
-      unexposed: placement.module.unexposed ?? false,
+      member: placement.module.graphId !== undefined,
       focused,
       related,
       dimmed: layerDimmed || (hasFocus && !related),
@@ -431,64 +473,9 @@ function moduleNode(
       violation:
         focus.violation !== undefined &&
         focus.highlightedModuleIds.has(placement.module.id),
-      nestedCount: placement.module.nested.length,
       onActivate,
     },
   };
-}
-
-function nestedNodes(
-  placement: ModulePlacement,
-  layerId: string,
-  focus: ModuleFocus,
-  hasFocus: boolean,
-  layerDimmed: boolean,
-  hover: ModuleHover | undefined,
-  contentOffsetX: number,
-  onActivate?: (moduleId: string) => void,
-): readonly NestedModuleNode[] {
-  return placement.module.nested.map((nested, index) => {
-    const focused = focus.selectedEntryPointId === nested.id;
-    const related = focus.highlightedEntryPointIds.has(nested.id);
-    return {
-      id: nested.id,
-      type: 'nested-module',
-      parentId: layerId,
-      extent: 'parent',
-      position: {
-        x: placement.x + contentOffsetX + 12,
-        y:
-          placement.y + moduleHeaderHeight + index * (nestedHeight + nestedGap),
-      },
-      width: moduleWidth - 24,
-      height: nestedHeight,
-      targetPosition: Position.Left,
-      draggable: false,
-      selectable: false,
-      focusable: false,
-      zIndex: 3,
-      data: {
-        label: nested.path,
-        focused,
-        related,
-        dimmed:
-          layerDimmed ||
-          (hasFocus &&
-            !focused &&
-            !related &&
-            !focus.highlightedModuleIds.has(placement.module.id)),
-        softlyDimmed:
-          hover !== undefined &&
-          related &&
-          !hover.entryPointIds.has(nested.id) &&
-          !focused,
-        violation:
-          focus.violation?.kind === 'missing-entry-point' &&
-          focus.violation.entryPointId === nested.id,
-        onActivate,
-      },
-    };
-  });
 }
 
 function graphEdges(
@@ -501,28 +488,127 @@ function graphEdges(
   }
 
   const hover = resolveModuleHover(input, focus);
-  return focus.dependencies.map((dependency) => {
-    const emphasized =
-      hover === undefined ||
-      hover.dependencyIds.has(moduleDependencyId(dependency));
-    return {
-      id: moduleDependencyId(dependency),
-      source: dependency.fromModuleId,
-      target: dependency.toEntryPointId,
-      markerEnd: { type: MarkerType.ArrowClosed },
-      selectable: false,
-      focusable: false,
-      ...(emphasized ? {} : { className: 'opacity-0' }),
-      style: { stroke: 'var(--primary)', strokeWidth: 2 },
-      zIndex: 4,
-    };
-  });
+  return [
+    ...moduleGraphRuleEdges(input, focus),
+    ...intraLayerRankEdges(input, focus),
+    ...focus.dependencies.map((dependency) => {
+      const emphasized =
+        hover === undefined ||
+        hover.dependencyIds.has(moduleDependencyId(dependency));
+      return {
+        id: moduleDependencyId(dependency),
+        source: dependency.fromModuleId,
+        target: dependency.toEntryPointId,
+        type: 'smoothstep',
+        markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--primary)' },
+        selectable: false,
+        focusable: false,
+        ...(emphasized ? {} : { className: 'opacity-0' }),
+        style: { stroke: 'var(--primary)', strokeWidth: 2 },
+        zIndex: zEdge,
+      };
+    }),
+  ];
+}
+
+// Declared Module Graph Rules are the Graph's shape, so they stay drawn even
+// when a Module is selected — dimmed when the selection is elsewhere.
+function moduleGraphRuleEdges(
+  input: ModuleGraphLayoutInput,
+  focus: ModuleFocus,
+): readonly Edge[] {
+  const hasFocus =
+    focus.selectedModuleId !== undefined || focus.violation !== undefined;
+  return (input.moduleGraphs ?? []).flatMap((graph) =>
+    graph.rules.flatMap((rule): readonly Edge[] => {
+      const involved =
+        focus.highlightedModuleIds.has(rule.fromModuleId) &&
+        focus.highlightedModuleIds.has(rule.toModuleId);
+      if (input.showModuleConnections === false && !involved) return [];
+      return [
+        {
+          id: `module-rule:${rule.fromModuleId}->${rule.toModuleId}`,
+          source: rule.fromModuleId,
+          target: rule.toModuleId,
+          type: 'smoothstep',
+          markerEnd: { type: MarkerType.ArrowClosed },
+          selectable: false,
+          focusable: false,
+          interactionWidth: 0,
+          className: 'pointer-events-none',
+          style: {
+            stroke: involved ? 'var(--primary)' : 'var(--muted-foreground)',
+            strokeWidth: involved ? 2 : 1.5,
+            strokeDasharray: '4 4',
+            opacity: hasFocus && !involved ? 0.12 : 0.55,
+          },
+          zIndex: zEdge,
+        },
+      ];
+    }),
+  );
+}
+
+// The rank stack alone cannot say why one box is below another: a wrapped rank
+// looks the same as a real dependency. These draw the imports that put it there.
+function intraLayerRankEdges(
+  input: ModuleGraphLayoutInput,
+  focus: ModuleFocus,
+): readonly Edge[] {
+  const hasFocus =
+    focus.selectedModuleId !== undefined || focus.violation !== undefined;
+  const layerOf = new Map(
+    input.modules.map(({ id, layerId }) => [id, layerId]),
+  );
+  const graphOf = new Map(
+    input.modules.map(({ id, graphId }) => [id, graphId]),
+  );
+  const drawn = new Set<string>();
+  return input.dependencies.flatMap(
+    ({ fromModuleId, toModuleId, permitted }): readonly Edge[] => {
+      const id = `module-rank:${fromModuleId}->${toModuleId}`;
+      const graph = graphOf.get(fromModuleId);
+      if (
+        !permitted ||
+        drawn.has(id) ||
+        layerOf.get(fromModuleId) === undefined ||
+        layerOf.get(fromModuleId) !== layerOf.get(toModuleId) ||
+        // A declared Module Graph Rule already draws this pair.
+        (graph !== undefined && graph === graphOf.get(toModuleId))
+      ) {
+        return [];
+      }
+      drawn.add(id);
+      const involved =
+        focus.highlightedModuleIds.has(fromModuleId) &&
+        focus.highlightedModuleIds.has(toModuleId);
+      if (input.showModuleConnections === false && !involved) return [];
+      return [
+        {
+          id,
+          source: fromModuleId,
+          target: toModuleId,
+          type: 'smoothstep',
+          markerEnd: { type: MarkerType.ArrowClosed },
+          selectable: false,
+          focusable: false,
+          interactionWidth: 0,
+          className: 'pointer-events-none',
+          style: {
+            stroke: involved ? 'var(--primary)' : 'var(--muted-foreground)',
+            strokeWidth: involved ? 2 : 1.5,
+            opacity: hasFocus && !involved ? 0.12 : 0.45,
+          },
+          zIndex: zEdge,
+        },
+      ];
+    },
+  );
 }
 
 function layerEdges(
   input: ModuleGraphLayoutInput,
   groups: readonly GraphGroup[],
-  memberships: ReadonlyMap<string, readonly string[]>,
   configuredEdges: readonly ConfiguredLayerEdge[],
   hasFocus: boolean,
 ): readonly Edge[] {
@@ -538,10 +624,7 @@ function layerEdges(
           source: `module-graph-header:${group.id}`,
           target: layerId,
           sourceHandle: 'graph-source-bottom',
-          targetHandle:
-            (memberships.get(layerId)?.length ?? 0) > 1
-              ? `layer-target:${group.id}`
-              : 'layer-target-top',
+          targetHandle: 'layer-target-top',
           type: 'smoothstep',
           markerEnd: undefined,
           interactionWidth: 0,
@@ -561,7 +644,7 @@ function layerEdges(
                   : 0.06,
             pointerEvents: 'none',
           },
-          zIndex: 0,
+          zIndex: zLayerEdge,
         }),
       );
   });
@@ -576,17 +659,12 @@ function layerEdges(
       (input.focusedLayerId === edge.fromLayerId ||
         input.focusedLayerId === edge.toLayerId);
     const hidden = hasFocus || (input.focusedLayerId !== undefined && !focused);
-    const graphId = edge.graphIds.length === 1 ? edge.graphIds[0] : undefined;
     return {
       id: `module-layer:${edge.graphIds.join('+')}:${edge.fromLayerId}->${edge.toLayerId}`,
       source: edge.fromLayerId,
       target: edge.toLayerId,
       sourceHandle: 'layer-source-bottom',
-      targetHandle:
-        graphId !== undefined &&
-        (memberships.get(edge.toLayerId)?.length ?? 0) > 1
-          ? `layer-target:${graphId}`
-          : 'layer-target-top',
+      targetHandle: 'layer-target-top',
       type: 'smoothstep',
       markerEnd: { type: MarkerType.ArrowClosed },
       interactionWidth: 0,
@@ -605,7 +683,7 @@ function layerEdges(
             : {}),
         pointerEvents: 'none',
       },
-      zIndex: 1,
+      zIndex: zLayerEdge,
     };
   });
   return [...membershipEdges, ...configured];
@@ -699,8 +777,9 @@ function violationEdges(
     markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--destructive)' },
     selectable: false,
     focusable: false,
+    type: 'smoothstep',
     style: { stroke: 'var(--destructive)', strokeWidth: 2.5 },
-    zIndex: 5,
+    zIndex: zViolationEdge,
   });
 
   switch (violation.kind) {
@@ -733,54 +812,254 @@ function violationEdges(
     }
     case 'missing-entry-point':
     case 'unused-shared':
+    case 'dead-module':
     case 'coverage':
+    case 'graph-coverage':
       return [];
   }
 }
 
-function packModules(modules: readonly Module[]): LayerGeometry {
-  if (modules.length === 0) {
-    return { width: 240, height: 120, contentOffset: 0, modules: [] };
+type PackItem =
+  | { readonly kind: 'module'; readonly module: Module }
+  | {
+      readonly kind: 'band';
+      readonly graph: ModuleGraph;
+      readonly width: number;
+      readonly height: number;
+      readonly members: readonly ModulePlacement[];
+    };
+
+interface Flow {
+  readonly placements: readonly ModulePlacement[];
+  readonly bands: readonly BandPlacement[];
+  readonly width: number;
+  readonly height: number;
+}
+
+function packModules(
+  modules: readonly Module[],
+  graphs: readonly ModuleGraph[],
+  dependencies: readonly ModuleDependency[],
+): LayerGeometry {
+  const items: PackItem[] = [
+    ...modules
+      .filter(({ graphId }) => graphId === undefined)
+      .map((module) => ({ kind: 'module' as const, module })),
+    ...graphs.flatMap((graph) => {
+      const band = bandItem(
+        graph,
+        modules.filter(({ graphId }) => graphId === graph.id),
+      );
+      return band === undefined ? [] : [band];
+    }),
+  ];
+  if (items.length === 0) {
+    return {
+      width: 240,
+      height: 120,
+      contentOffset: 0,
+      modules: [],
+      bands: [],
+    };
   }
 
-  const columns = Math.ceil(Math.sqrt(modules.length));
-  const rows = Array.from(
-    { length: Math.ceil(modules.length / columns) },
-    (_, row) => modules.slice(row * columns, (row + 1) * columns),
+  const laid = squareFlow(
+    rankItems(items, intraLayerEdges(items, dependencies)),
+    layerPadding,
+    layerHeaderHeight + layerPadding,
   );
-  const rowHeights = rows.map((row) =>
-    Math.max(...row.map((module) => configuredModuleHeight(module))),
-  );
-  const placements: ModulePlacement[] = [];
-  let y = layerHeaderHeight + layerPadding;
-
-  rows.forEach((row, rowIndex) => {
-    row.forEach((module, columnIndex) => {
-      placements.push({
-        module,
-        x: layerPadding + columnIndex * (moduleWidth + moduleGap),
-        y,
-        height: configuredModuleHeight(module),
-      });
-    });
-    y += rowHeights[rowIndex]! + moduleGap;
-  });
-
   return {
-    width: layerPadding * 2 + columns * moduleWidth + (columns - 1) * moduleGap,
-    height: y - moduleGap + layerPadding,
+    width: laid.width + layerPadding * 2,
+    height: layerHeaderHeight + layerPadding * 2 + laid.height,
     contentOffset: 0,
-    modules: placements,
+    modules: laid.placements,
+    bands: laid.bands,
   };
 }
 
-function configuredModuleHeight(module: Module): number {
-  return (
-    moduleHeaderHeight +
-    module.nested.length * nestedHeight +
-    Math.max(0, module.nested.length - 1) * nestedGap +
-    (module.nested.length === 0 ? 0 : 12)
+function bandItem(
+  graph: ModuleGraph,
+  members: readonly Module[],
+): PackItem | undefined {
+  if (members.length === 0) return undefined;
+  const memberIds = new Set(members.map(({ id }) => id));
+  const laid = squareFlow(
+    rankItems(
+      members.map((module) => ({ kind: 'module' as const, module })),
+      graph.rules
+        .filter(
+          ({ fromModuleId, toModuleId }) =>
+            memberIds.has(fromModuleId) && memberIds.has(toModuleId),
+        )
+        .map(
+          ({ fromModuleId, toModuleId }) => [fromModuleId, toModuleId] as const,
+        ),
+    ),
+    bandPadding,
+    bandHeaderHeight + bandPadding,
   );
+  return {
+    kind: 'band',
+    graph,
+    width: laid.width + bandPadding * 2,
+    height: bandHeaderHeight + bandPadding * 2 + laid.height,
+    members: laid.placements,
+  };
+}
+
+// A Module Graph member never reaches outside its own Graph within the Layer,
+// so a band takes the rank its members' imports of free-form Shared Modules give
+// it. A violating import ranks nothing: it would draw an illegal arrangement as
+// though it were the intended shape.
+function intraLayerEdges(
+  items: readonly PackItem[],
+  dependencies: readonly ModuleDependency[],
+): readonly (readonly [string, string])[] {
+  const owner = new Map<string, string>();
+  for (const item of items) {
+    if (item.kind === 'module') {
+      owner.set(item.module.id, item.module.id);
+      continue;
+    }
+    for (const memberId of item.graph.memberIds)
+      owner.set(memberId, itemId(item));
+  }
+  return dependencies.flatMap(({ fromModuleId, toModuleId, permitted }) => {
+    const from = owner.get(fromModuleId);
+    const to = owner.get(toModuleId);
+    return !permitted || from === undefined || to === undefined || from === to
+      ? []
+      : [[from, to] as const];
+  });
+}
+
+function itemId(item: PackItem): string {
+  return item.kind === 'module' ? item.module.id : `band:${item.graph.id}`;
+}
+
+function itemWidth(item: PackItem): number {
+  return item.kind === 'module' ? moduleWidth : item.width;
+}
+
+function itemHeight(item: PackItem): number {
+  return item.kind === 'module' ? moduleHeaderHeight : item.height;
+}
+
+function rankItems(
+  items: readonly PackItem[],
+  edges: readonly (readonly [string, string])[],
+): readonly (readonly PackItem[])[] {
+  const ranks = computeRanks(items.map(itemId), edges);
+  const rows = new Map<number, PackItem[]>();
+  for (const item of items) {
+    const rank = ranks.get(itemId(item)) ?? 0;
+    rows.set(rank, [...(rows.get(rank) ?? []), item]);
+  }
+  return [...rows.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([, row]) => row);
+}
+
+// The ranks decide the height, so the width is the only thing left to choose.
+// The columns that make the Layer nearest to a square win: a block twice as wide
+// as it is tall costs more canvas than the rows it saves.
+function squareFlow(
+  ranks: readonly (readonly PackItem[])[],
+  originX: number,
+  originY: number,
+): Flow {
+  const widest = Math.max(
+    1,
+    ...ranks.map(
+      (rank) => rank.filter((item) => item.kind === 'module').length,
+    ),
+  );
+  let best = flow(ranks, widest, originX, originY);
+  let bestRatio = aspect(best);
+  for (let columns = 1; columns < widest; columns += 1) {
+    const candidate = flow(ranks, columns, originX, originY);
+    const ratio = aspect(candidate);
+    if (ratio < bestRatio) {
+      bestRatio = ratio;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+function aspect({ width, height }: Flow): number {
+  if (width === 0 || height === 0) return Infinity;
+  return Math.max(width, height) / Math.min(width, height);
+}
+
+function flow(
+  ranks: readonly (readonly PackItem[])[],
+  columns: number,
+  originX: number,
+  originY: number,
+): Flow {
+  const lines: { items: readonly PackItem[]; gapBefore: number }[] = [];
+  for (const rank of ranks) {
+    const rows: (readonly PackItem[])[] = [];
+    const modules = rank
+      .flatMap((item) => (item.kind === 'module' ? [item] : []))
+      .sort((left, right) => left.module.id.localeCompare(right.module.id));
+    for (let at = 0; at < modules.length; at += columns) {
+      rows.push(modules.slice(at, at + columns));
+    }
+    // A band carries its own header and border, so a Module box tucked beside
+    // one would read as being inside it.
+    for (const band of rank
+      .flatMap((item) => (item.kind === 'band' ? [item] : []))
+      .sort((left, right) => left.graph.id.localeCompare(right.graph.id))) {
+      rows.push([band]);
+    }
+    rows.forEach((items, index) =>
+      lines.push({
+        items,
+        gapBefore:
+          lines.length === 0 ? 0 : index === 0 ? memberRankGap : moduleGap,
+      }),
+    );
+  }
+
+  const lineWidth = (items: readonly PackItem[]): number =>
+    items.reduce((total, item) => total + itemWidth(item), 0) +
+    Math.max(0, items.length - 1) * moduleGap;
+  const width = Math.max(0, ...lines.map(({ items }) => lineWidth(items)));
+  const placements: ModulePlacement[] = [];
+  const bands: BandPlacement[] = [];
+  let y = originY;
+
+  for (const line of lines) {
+    y += line.gapBefore;
+    let x = originX + (width - lineWidth(line.items)) / 2;
+    for (const item of line.items) {
+      if (item.kind === 'module') {
+        placements.push({
+          module: item.module,
+          x,
+          y,
+          height: moduleHeaderHeight,
+        });
+      } else {
+        bands.push({
+          graph: item.graph,
+          x,
+          y,
+          width: item.width,
+          height: item.height,
+        });
+        for (const member of item.members) {
+          placements.push({ ...member, x: x + member.x, y: y + member.y });
+        }
+      }
+      x += itemWidth(item) + moduleGap;
+    }
+    y += Math.max(...line.items.map(itemHeight));
+  }
+
+  return { placements, bands, width, height: y - originY };
 }
 
 function equalizeLayerHeights(
@@ -820,9 +1099,21 @@ function equalizeLayerHeights(
   );
 }
 
+// Selecting a LayerGraph keeps the Layers it reaches lit too, so its
+// dependencies stay visible instead of dimming into the lanes that host them.
+function selectionScope(
+  groups: readonly GraphGroup[],
+  activeLayerGraphId: string,
+): ReadonlySet<string> {
+  const group = groups.find(({ id }) => id === activeLayerGraphId);
+  return new Set([
+    ...(group?.layerIds ?? []),
+    ...(group?.reachedLayerIds ?? []),
+  ]);
+}
+
 function computeGraphLanes(
   groups: readonly GraphGroup[],
-  memberships: ReadonlyMap<string, readonly string[]>,
   ranks: ReadonlyMap<string, number>,
   geometry: ReadonlyMap<string, LayerGeometry>,
 ): readonly GraphLane[] {
@@ -830,7 +1121,6 @@ function computeGraphLanes(
   return groups.map((group) => {
     const widthsByRank = new Map<number, number[]>();
     for (const layerId of group.layerIds) {
-      if ((memberships.get(layerId)?.length ?? 0) > 1) continue;
       const rank = ranks.get(layerId) ?? 0;
       const widths = widthsByRank.get(rank) ?? [];
       widths.push(geometry.get(layerId)?.width ?? 240);
@@ -859,7 +1149,6 @@ function computeGraphLanes(
 function layoutLayers(
   layers: readonly Layer[],
   groups: readonly GraphGroup[],
-  memberships: ReadonlyMap<string, readonly string[]>,
   ranks: ReadonlyMap<string, number>,
   geometry: ReadonlyMap<string, LayerGeometry>,
   laneById: ReadonlyMap<string, GraphLane>,
@@ -869,7 +1158,6 @@ function layoutLayers(
     const lane = laneById.get(group.id)!;
     const byRank = new Map<number, string[]>();
     for (const layerId of group.layerIds) {
-      if ((memberships.get(layerId)?.length ?? 0) > 1) continue;
       const rank = ranks.get(layerId) ?? 0;
       const siblings = byRank.get(rank) ?? [];
       siblings.push(layerId);
@@ -895,26 +1183,6 @@ function layoutLayers(
         nextX += base.width + layerGap;
       }
     }
-  }
-
-  for (const layer of layers) {
-    const graphIds = memberships.get(layer.id) ?? [];
-    if (graphIds.length < 2) continue;
-    const memberLanes = graphIds.flatMap((id) => {
-      const lane = laneById.get(id);
-      return lane === undefined ? [] : [lane];
-    });
-    const base = geometry.get(layer.id)!;
-    const left = Math.min(...memberLanes.map(({ center }) => center));
-    const right = Math.max(...memberLanes.map(({ center }) => center));
-    const width = right - left + base.width;
-    positions.set(layer.id, {
-      x: left - base.width / 2,
-      y: layerOffsetY + (ranks.get(layer.id) ?? 0) * (base.height + rankGap),
-      width,
-      height: base.height,
-      contentOffsetX: (width - base.width) / 2,
-    });
   }
 
   let nextRankY = layerOffsetY;

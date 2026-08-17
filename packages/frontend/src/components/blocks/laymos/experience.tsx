@@ -2,11 +2,27 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { ArchitectureAnalysis, ChangeSet, StoryTree } from 'laymos';
 
 import {
+  ChevronDown,
+  GitBranch,
+  Network,
+  SlidersHorizontal,
+} from '#lib/lucide';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#components/ui/dropdown-menu';
+import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from '#components/ui/resizable';
-import { Switch } from '#components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
@@ -30,6 +46,7 @@ import { ModuleGraph } from './modules/graph';
 import type {
   Module,
   ModuleDependency,
+  ModuleGraph as ModuleGraphModel,
   ModuleViolation,
 } from './modules/model';
 import { ModuleLegend } from './modules/legend';
@@ -43,12 +60,24 @@ import {
   type ModuleSourceOpenRequest,
 } from './module-source-explorer';
 import { changedPathsUnder, type ChangeIndex } from './changes';
+import { graphGroups } from './graph-engine';
 import { buildPresentationModel } from './presentation-model';
 import { StoriesDocsSite, type StoryReports } from './stories/index';
 import { ArchitectureTreeLegend } from './tree';
 import { layerIdsByBoundaryPath } from './tree/presentation';
 
-type ChangeScope = 'changed' | 'all';
+export interface GitOptions {
+  // Off hides the change overlay entirely, whatever git reports.
+  readonly showChanges: boolean;
+  readonly showUncommitted: boolean;
+  readonly includeUnchanged: boolean;
+}
+
+export const defaultGitOptions: GitOptions = {
+  showChanges: true,
+  showUncommitted: true,
+  includeUnchanged: false,
+};
 
 const allGraphsId = 'all';
 const layersModulesTabId = 'layers-modules';
@@ -61,11 +90,15 @@ interface LayersModulesProps {
   readonly layerViolationPairs?: readonly LayerViolationPair[];
   readonly layerCoverageViolations?: readonly LayerCoverageViolation[];
   readonly modules: readonly Module[];
+  readonly moduleGraphs?: readonly ModuleGraphModel[];
   readonly dependencies: readonly ModuleDependency[];
   readonly moduleViolations?: readonly ModuleViolation[];
   readonly loadModuleSource: LoadModuleSource;
   readonly loadFileDiff?: LoadFileDiff;
   readonly changes?: ChangeIndex;
+  readonly gitOptions?: GitOptions;
+  readonly onGitOptionsChange?: (options: GitOptions) => void;
+  readonly gitAvailable?: boolean;
   readonly stories?: StoriesTabProps;
   readonly className?: string;
 }
@@ -92,14 +125,24 @@ export function LaymosExperience({
   readonly stories?: StoriesTabProps;
   readonly className?: string;
 }) {
+  const [gitOptions, setGitOptions] = useState<GitOptions>(defaultGitOptions);
+  const visibleChanges = useMemo(() => {
+    if (changes === undefined || !gitOptions.showChanges) return undefined;
+    if (gitOptions.showUncommitted) return changes;
+    const files = changes.files.filter(({ committed }) => committed);
+    return { ...changes, files };
+  }, [changes, gitOptions.showChanges, gitOptions.showUncommitted]);
   const model = useMemo(
-    () => buildPresentationModel(analysis, changes),
-    [analysis, changes],
+    () => buildPresentationModel(analysis, visibleChanges),
+    [analysis, visibleChanges],
   );
 
   return (
     <LaymosShell
       changes={model.changes}
+      gitOptions={gitOptions}
+      onGitOptionsChange={setGitOptions}
+      gitAvailable={changes !== undefined}
       loadFileDiff={loadFileDiff}
       layers={model.layers}
       rules={model.rules}
@@ -107,6 +150,7 @@ export function LaymosExperience({
       layerViolationPairs={model.layerViolationPairs}
       layerCoverageViolations={model.layerCoverageViolations}
       modules={model.modules}
+      moduleGraphs={model.moduleGraphs}
       dependencies={model.moduleDependencies}
       moduleViolations={model.moduleViolations}
       loadModuleSource={loadModuleSource}
@@ -174,8 +218,12 @@ export function LayersModulesExperience({
   layerViolationPairs = [],
   layerCoverageViolations = [],
   modules: allModules,
+  moduleGraphs = [],
   dependencies,
   moduleViolations = [],
+  gitOptions = defaultGitOptions,
+  onGitOptionsChange,
+  gitAvailable = false,
   loadModuleSource,
   loadFileDiff,
   changes,
@@ -183,12 +231,19 @@ export function LayersModulesExperience({
 }: LayersModulesProps) {
   const [activeGraphId, setActiveGraphId] = useState(allGraphsId);
   const [showModules, setShowModules] = useState(true);
-  const [changeScope, setChangeScope] = useState<ChangeScope>('changed');
-  const changesOnly = changes !== undefined && changeScope === 'changed';
+  // A change set touching no analyzed file would otherwise empty the whole view.
+  const hasChangedModules = allModules.some(
+    ({ changeStatus }) => changeStatus !== undefined,
+  );
+  const changesOnly =
+    changes !== undefined && !gitOptions.includeUnchanged && hasChangedModules;
   const modules = changesOnly
     ? allModules.filter(({ changeStatus }) => changeStatus !== undefined)
     : allModules;
   const changedLayerIds = new Set(modules.map(({ layerId }) => layerId));
+  const visibleModuleGraphs = moduleGraphs.filter(({ memberIds }) =>
+    memberIds.some((id) => modules.some((module) => module.id === id)),
+  );
   const layers = changesOnly
     ? allLayers.filter(
         ({ id, changeStatus }) =>
@@ -207,13 +262,22 @@ export function LayersModulesExperience({
       )
     : allLayerGraphs;
   const [showLayerConnections, setShowLayerConnections] = useState(true);
+  const [showModuleConnections, setShowModuleConnections] = useState(true);
+  const [isolateGraph, setIsolateGraph] = useState(false);
   const [activeLayerId, setActiveLayerId] = useState<string>();
   const [hoveredLayerId, setHoveredLayerId] = useState<string>();
   const [activeModuleId, setActiveModuleId] = useState<string>();
   const [activeViolationId, setActiveViolationId] = useState<string>();
   const [sourceRequest, setSourceRequest] = useState<ModuleSourceOpenRequest>();
 
-  const selectedGraph = layerGraphs.find(({ id }) => id === activeGraphId);
+  // A LayerGraph every one of whose Layers is hosted elsewhere draws no lane,
+  // so offering it would be a selection with nothing to show.
+  const drawnGraphIds = graphGroups({ layers, rules, layerGraphs }).map(
+    ({ id }) => id,
+  );
+  const selectedGraph = layerGraphs.find(
+    ({ id }) => id === activeGraphId && drawnGraphIds.includes(id),
+  );
   const visibleRules = selectedGraph?.rules ?? rules;
   const visibleLayers =
     selectedGraph === undefined
@@ -230,11 +294,8 @@ export function LayersModulesExperience({
     selectedGraph === undefined
       ? modules
       : modules.filter(({ layerId }) => visibleLayerIds.has(layerId));
-  const layerIdByModuleId = new Map(
-    modules.flatMap((module) => [
-      [module.id, module.layerId] as const,
-      ...module.nested.map(({ id }) => [id, module.layerId] as const),
-    ]),
+  const layerIdByModuleId = new Map<string, string>(
+    modules.map((module) => [module.id, module.layerId] as const),
   );
   const visibleModuleViolations =
     selectedGraph === undefined
@@ -267,12 +328,7 @@ export function LayersModulesExperience({
   useEffect(() => {
     const layerIds = new Set(layers.map(({ id }) => id));
     const graphIds = new Set(layerGraphs.map(({ id }) => id));
-    const moduleIds = new Set(
-      modules.flatMap(({ id, nested }) => [
-        id,
-        ...nested.map(({ id: nestedId }) => nestedId),
-      ]),
-    );
+    const moduleIds = new Set(modules.map(({ id }) => id));
     const violationIds = new Set([
       ...moduleViolations.map(({ id }) => id),
       ...layerViolationPairs.map(({ id }) => id),
@@ -336,6 +392,10 @@ export function LayersModulesExperience({
     clearFocus();
     setActiveGraphId(graphId === activeGraphId ? allGraphsId : graphId);
   };
+  // Isolation only means anything against a selected LayerGraph, so the toggle
+  // stays flipped but has no effect while every LayerGraph is shown.
+  const isolatedLayerGraphId =
+    isolateGraph && selectedGraph !== undefined ? selectedGraph.id : undefined;
   const toggleShowModules = (value: boolean) => {
     setShowModules(value);
     setHoveredLayerId(undefined);
@@ -361,54 +421,45 @@ export function LayersModulesExperience({
             to explore its source.
           </p>
           <div className="flex flex-wrap items-center gap-4">
-            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
-              Show Modules
-              <Switch
-                size="sm"
-                checked={showModules}
-                onCheckedChange={toggleShowModules}
-              />
-            </label>
-            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
-              Show Layer connections
-              <Switch
-                size="sm"
-                checked={showLayerConnections}
-                onCheckedChange={setShowLayerConnections}
-              />
-            </label>
-            {changes !== undefined && (
-              <select
-                aria-label="Change scope"
-                className="h-9 min-w-56 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                value={changeScope}
-                onChange={(event) => {
-                  clearFocus();
-                  setChangeScope(event.target.value as ChangeScope);
-                }}
-              >
-                <option value="changed">
-                  {`Changes since ${changes.baseRef}`}
-                </option>
-                <option value="all">Include unchanged</option>
-              </select>
-            )}
-            <select
-              aria-label="LayerGraph"
-              className="h-9 min-w-48 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-              value={activeGraphId}
-              onChange={(event) => {
-                clearFocus();
-                setActiveGraphId(event.target.value);
+            <ViewOptionsMenu
+              options={{
+                showModules,
+                showLayerConnections,
+                showModuleConnections,
+                isolateGraph,
               }}
-            >
-              <option value={allGraphsId}>All LayerGraphs</option>
-              {layerGraphs.map(({ id }) => (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              ))}
-            </select>
+              isolatingGraph={isolatedLayerGraphId !== undefined}
+              onChange={(next) => {
+                if (next.showModules !== showModules) {
+                  toggleShowModules(next.showModules);
+                }
+                setShowLayerConnections(next.showLayerConnections);
+                setShowModuleConnections(next.showModuleConnections);
+                if (next.isolateGraph !== isolateGraph) {
+                  clearFocus();
+                  setIsolateGraph(next.isolateGraph);
+                }
+              }}
+            />
+            {gitAvailable && onGitOptionsChange !== undefined && (
+              <GitOptionsMenu
+                options={gitOptions}
+                baseRef={changes?.baseRef}
+                hasChangedModules={hasChangedModules}
+                onChange={(next) => {
+                  clearFocus();
+                  onGitOptionsChange(next);
+                }}
+              />
+            )}
+            <LayerGraphMenu
+              graphIds={drawnGraphIds}
+              value={activeGraphId}
+              onChange={(graphId) => {
+                clearFocus();
+                setActiveGraphId(graphId);
+              }}
+            />
           </div>
         </header>
 
@@ -437,10 +488,13 @@ export function LayersModulesExperience({
                   rules={rules}
                   layerGraphs={layerGraphs}
                   activeLayerGraphId={selectedGraph?.id}
+                  isolatedLayerGraphId={isolatedLayerGraphId}
                   modules={modules}
+                  moduleGraphs={visibleModuleGraphs}
                   dependencies={dependencies}
                   focusedLayerId={activeLayerId}
                   showLayerConnections={showLayerConnections}
+                  showModuleConnections={showModuleConnections}
                   activeModuleId={activeModuleId}
                   activeViolation={activeViolation}
                   onModuleActivate={activateModule}
@@ -456,6 +510,7 @@ export function LayersModulesExperience({
                   rules={visibleRules}
                   layerGraphs={layerGraphs}
                   activeLayerGraphId={selectedGraph?.id}
+                  isolatedLayerGraphId={isolatedLayerGraphId}
                   showLayerConnections={showLayerConnections}
                   activeLayerId={activeLayerId}
                   hoveredLayerId={hoveredLayerId}
@@ -591,10 +646,222 @@ function violationLayerIds(
     case 'missing-entry-point':
       return [layerIdByModuleId.get(violation.moduleId)];
     case 'unused-shared':
+    case 'dead-module':
       return [layerIdByModuleId.get(violation.moduleId)];
     case 'coverage':
+    case 'graph-coverage':
       return [violation.layerId];
   }
+}
+
+interface ViewOptions {
+  readonly showModules: boolean;
+  readonly showLayerConnections: boolean;
+  readonly showModuleConnections: boolean;
+  readonly isolateGraph: boolean;
+}
+
+function viewSummary(options: ViewOptions, isolating: boolean): string {
+  if (isolating) return 'Isolated LayerGraph';
+  if (!options.showModules) {
+    return options.showLayerConnections ? 'Layers only' : 'Layers, no lines';
+  }
+  const hidden = [
+    options.showLayerConnections ? undefined : 'Layer',
+    options.showModuleConnections ? undefined : 'Module',
+  ].filter((label) => label !== undefined);
+  if (hidden.length === 2) return 'Connections on select';
+  return hidden.length === 1
+    ? `No ${hidden[0]} connections`
+    : 'Everything shown';
+}
+
+function ViewOptionsMenu({
+  options,
+  isolatingGraph,
+  onChange,
+}: {
+  readonly options: ViewOptions;
+  readonly isolatingGraph: boolean;
+  readonly onChange: (options: ViewOptions) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex h-9 min-w-56 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+        <span className="flex min-w-0 items-center gap-2">
+          <SlidersHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">
+            {viewSummary(options, isolatingGraph)}
+          </span>
+        </span>
+        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Detail</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={options.showModules}
+            onCheckedChange={(showModules) =>
+              onChange({ ...options, showModules })
+            }
+          >
+            Show Modules
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Connections</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={options.showLayerConnections}
+            onCheckedChange={(showLayerConnections) =>
+              onChange({ ...options, showLayerConnections })
+            }
+          >
+            Show Layer connections
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={options.showModuleConnections}
+            disabled={!options.showModules}
+            onCheckedChange={(showModuleConnections) =>
+              onChange({ ...options, showModuleConnections })
+            }
+          >
+            Show Module connections
+          </DropdownMenuCheckboxItem>
+          <MenuNote>
+            Hidden connections still appear for whatever you select.
+          </MenuNote>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Isolate</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={options.isolateGraph}
+            onCheckedChange={(isolateGraph) =>
+              onChange({ ...options, isolateGraph })
+            }
+          >
+            Isolate LayerGraph
+          </DropdownMenuCheckboxItem>
+          <MenuNote>
+            Hides every LayerGraph the selection does not depend on, and waits
+            until you select one.
+          </MenuNote>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function MenuNote({ children }: { readonly children: ReactNode }) {
+  return (
+    <p className="px-2 pb-1.5 pt-1 text-[11px] leading-snug text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+function LayerGraphMenu({
+  graphIds,
+  value,
+  onChange,
+}: {
+  readonly graphIds: readonly string[];
+  readonly value: string;
+  readonly onChange: (graphId: string) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex h-9 min-w-56 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+        <span className="flex min-w-0 items-center gap-2">
+          <Network className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">
+            {value === allGraphsId ? 'All LayerGraphs' : value}
+          </span>
+        </span>
+        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+          <DropdownMenuLabel>LayerGraph</DropdownMenuLabel>
+          <DropdownMenuRadioItem value={allGraphsId}>
+            All LayerGraphs
+          </DropdownMenuRadioItem>
+          {graphIds.map((graphId) => (
+            <DropdownMenuRadioItem key={graphId} value={graphId}>
+              {graphId}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function GitOptionsMenu({
+  options,
+  baseRef,
+  hasChangedModules,
+  onChange,
+}: {
+  readonly options: GitOptions;
+  readonly baseRef: string | undefined;
+  readonly hasChangedModules: boolean;
+  readonly onChange: (options: GitOptions) => void;
+}) {
+  const summary = !options.showChanges
+    ? 'Git changes off'
+    : baseRef === undefined
+      ? 'No changes'
+      : hasChangedModules
+        ? `Changes since ${baseRef}`
+        : `No changes since ${baseRef}`;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex h-9 min-w-56 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+        <span className="flex min-w-0 items-center gap-2">
+          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate">{summary}</span>
+        </span>
+        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Git changes</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={options.showChanges}
+            onCheckedChange={(showChanges) =>
+              onChange({ ...options, showChanges })
+            }
+          >
+            Show git changes
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={options.showUncommitted}
+            disabled={!options.showChanges}
+            onCheckedChange={(showUncommitted) =>
+              onChange({ ...options, showUncommitted })
+            }
+          >
+            Show uncommitted changes
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Scope</DropdownMenuLabel>
+          <DropdownMenuCheckboxItem
+            checked={options.includeUnchanged}
+            disabled={!options.showChanges}
+            onCheckedChange={(includeUnchanged) =>
+              onChange({ ...options, includeUnchanged })
+            }
+          >
+            Include unchanged
+          </DropdownMenuCheckboxItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function SectionLabel({ children }: { readonly children: ReactNode }) {

@@ -1,8 +1,0 @@
-{
-  "sourceRoots": ["src"],
-  "layers": { "app": { "paths": ["src"] } },
-  "modules": {
-    "src/button.ts": { "subpaths": ["public"] }
-  },
-  "layerGraphs": {}
-}

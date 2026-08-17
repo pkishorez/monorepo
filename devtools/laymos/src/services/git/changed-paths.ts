@@ -9,27 +9,31 @@ import { requireGit, splitNul } from './run-git.js';
 
 const wholeFileContext = 1_000_000;
 
+interface ChangeOrigin {
+  status: ChangeStatus;
+  committed: boolean;
+  uncommitted: boolean;
+}
+
 export async function readChangeSet(
   baseDir: string,
   baseRef: string,
 ): Promise<ChangeSet> {
   await requireGit(baseDir, ['rev-parse', '--show-toplevel'], 'not-a-repo');
   const base = await resolveBase(baseDir, baseRef);
-  const changed = new Map<string, ChangeStatus>();
+  const changed = new Map<string, ChangeOrigin>();
 
-  const nameStatus = splitNul(
-    await requireGit(
-      baseDir,
-      ['diff', '--name-status', '--no-renames', '-z', '--relative', base],
-      'command-failed',
-    ),
-  );
-  for (let index = 0; index + 1 < nameStatus.length; index += 2) {
-    const status = trackedStatus(nameStatus[index] ?? '');
-    const path = nameStatus[index + 1];
-    if (status !== undefined && path !== undefined) changed.set(path, status);
+  // Committed work between the Base ref and HEAD. Empty when the Base ref is HEAD.
+  if (base !== 'HEAD') {
+    for (const [path, status] of await nameStatus(baseDir, [base, 'HEAD'])) {
+      record(changed, path, status, 'committed');
+    }
   }
 
+  // Uncommitted work: the working tree against HEAD, plus untracked files.
+  for (const [path, status] of await nameStatus(baseDir, ['HEAD'])) {
+    record(changed, path, status, 'uncommitted');
+  }
   const untracked = splitNul(
     await requireGit(
       baseDir,
@@ -37,12 +41,58 @@ export async function readChangeSet(
       'command-failed',
     ),
   );
-  for (const path of untracked) changed.set(path, 'added');
+  for (const path of untracked) {
+    record(changed, path, 'added', 'uncommitted');
+  }
 
   const files: ChangedPath[] = [...changed]
-    .map(([path, status]) => ({ path, status }))
+    .map(([path, origin]) => ({ path, ...origin }))
     .sort((left, right) => left.path.localeCompare(right.path));
   return { baseRef: base, files };
+}
+
+async function nameStatus(
+  baseDir: string,
+  revisions: readonly string[],
+): Promise<readonly (readonly [string, ChangeStatus])[]> {
+  const output = splitNul(
+    await requireGit(
+      baseDir,
+      [
+        'diff',
+        '--name-status',
+        '--no-renames',
+        '-z',
+        '--relative',
+        ...revisions,
+      ],
+      'command-failed',
+    ),
+  );
+  const entries: (readonly [string, ChangeStatus])[] = [];
+  for (let index = 0; index + 1 < output.length; index += 2) {
+    const status = trackedStatus(output[index] ?? '');
+    const path = output[index + 1];
+    if (status !== undefined && path !== undefined)
+      entries.push([path, status]);
+  }
+  return entries;
+}
+
+// A path added in one origin stays added overall, however the other touched it.
+function record(
+  changed: Map<string, ChangeOrigin>,
+  path: string,
+  status: ChangeStatus,
+  origin: 'committed' | 'uncommitted',
+): void {
+  const current = changed.get(path);
+  changed.set(path, {
+    status:
+      current?.status === 'added' || status === 'added' ? 'added' : status,
+    committed: (current?.committed ?? false) || origin === 'committed',
+    uncommitted: (current?.uncommitted ?? false) || origin === 'uncommitted',
+  });
 }
 
 export async function readFileDiff(

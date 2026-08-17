@@ -26,11 +26,6 @@ export function findBoundaryAndDependencyViolations(
       const toModule = context.membership.get(toFile);
       if (toModule === undefined || toModule === fromModule) continue;
       const toEntryPoint = context.entryPoints.has(toFile) ? toFile : undefined;
-      dependencies.set(`${fromModule}\0${toModule}\0${toEntryPoint ?? ''}`, {
-        fromModule,
-        toModule,
-        ...(toEntryPoint === undefined ? {} : { toEntryPoint }),
-      });
       const classification = classifyDependency(
         context,
         fromFile,
@@ -38,6 +33,15 @@ export function findBoundaryAndDependencyViolations(
         fromModule,
         toModule,
       );
+      const key = `${fromModule}\0${toModule}\0${toEntryPoint ?? ''}`;
+      const permitted =
+        classification === 'permitted' && toEntryPoint !== undefined;
+      dependencies.set(key, {
+        fromModule,
+        toModule,
+        ...(toEntryPoint === undefined ? {} : { toEntryPoint }),
+        permitted: permitted || (dependencies.get(key)?.permitted ?? false),
+      });
       const importDetails = { fromFile, fromModule, toFile, toModule };
       if (classification === 'skip') continue;
       if (classification === 'dependency-violation') {

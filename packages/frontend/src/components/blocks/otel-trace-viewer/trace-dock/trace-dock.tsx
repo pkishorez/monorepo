@@ -6,12 +6,10 @@ import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
 import { StatusDot } from '../status';
-import { Gantt } from '../gantt/gantt';
+import { Gantt } from '../gantt';
 import { Narrative } from '../narrative';
 import { ParallelTimeline } from '../parallel-timeline';
-import { LogSpanDetail } from '../span-detail/log-span-detail';
-import { OverlapSpanSummary } from '../span-detail/overlap-span-summary';
-import { SpanDetail } from '../span-detail/span-detail';
+import { LogSpanDetail, OverlapSpanSummary, SpanDetail } from '../span-detail';
 import type { OtelEvent, OtelSpan } from '../trace-model';
 import { collectSpans, formatDuration, type TraceGroup } from '../trace-model';
 import type { TraceView } from '../trace-view';

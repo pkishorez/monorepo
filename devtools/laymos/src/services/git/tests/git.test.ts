@@ -62,6 +62,8 @@ describe('Git change set', () => {
       expect(actual.files).toContainEqual({
         path: 'fresh.ts',
         status: 'added',
+        committed: false,
+        uncommitted: true,
       });
     });
   });
@@ -75,6 +77,8 @@ describe('Git change set', () => {
       expect(actual.files).toContainEqual({
         path: 'edited.ts',
         status: 'modified',
+        committed: false,
+        uncommitted: true,
       });
     });
   });
@@ -98,6 +102,8 @@ describe('Git change set', () => {
       expect(actual.files).toContainEqual({
         path: 'renamed.ts',
         status: 'added',
+        committed: false,
+        uncommitted: true,
       });
       expect(actual.files.map(({ path }) => path)).not.toContain('kept.ts');
     });
@@ -111,7 +117,14 @@ describe('Git change set', () => {
 
       const actual = await changeSet(nested);
 
-      expect(actual.files).toEqual([{ path: 'inner.ts', status: 'added' }]);
+      expect(actual.files).toEqual([
+        {
+          path: 'inner.ts',
+          status: 'added',
+          committed: false,
+          uncommitted: true,
+        },
+      ]);
     });
   });
 
@@ -128,6 +141,10 @@ describe('Git change set', () => {
       const actual = await changeSet(dir, 'main');
 
       expect(actual.files.map(({ path }) => path)).toEqual(['edited.ts']);
+      expect(actual.files[0]).toMatchObject({
+        committed: true,
+        uncommitted: false,
+      });
     });
   });
 

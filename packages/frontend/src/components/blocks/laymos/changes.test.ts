@@ -18,7 +18,12 @@ function changeSet(
 ): ChangeSet {
   return {
     baseRef: 'HEAD',
-    files: files.map(([path, status]) => ({ path, status })),
+    files: files.map(([path, status]) => ({
+      path,
+      status,
+      committed: false,
+      uncommitted: true,
+    })),
   };
 }
 

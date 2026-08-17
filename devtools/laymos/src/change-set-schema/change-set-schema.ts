@@ -7,10 +7,12 @@ export type ChangeStatus = typeof ChangeStatusSchema.Type;
 export const ChangedPathSchema = Schema.Struct({
   path: Schema.String,
   status: ChangeStatusSchema,
+  committed: Schema.Boolean,
+  uncommitted: Schema.Boolean,
 }).annotate({
   title: 'Changed Path',
   description:
-    "One path a Base ref changed, relative to the Config's folder, and how it changed.",
+    "One path a Base ref changed, relative to the Config's folder, and how it changed. A path may carry both committed work since the Base ref and uncommitted work in the working tree.",
 });
 
 export type ChangedPath = typeof ChangedPathSchema.Type;

@@ -3,6 +3,7 @@ import {
   moduleLayerGraphs,
   moduleLayers,
   moduleRules,
+  moduleGraphs,
   modules,
   moduleViolations,
   loadFixtureModuleSource,
@@ -15,6 +16,7 @@ export default (
     rules={moduleRules}
     layerGraphs={moduleLayerGraphs}
     modules={modules}
+    moduleGraphs={moduleGraphs}
     dependencies={moduleDependencies}
     moduleViolations={moduleViolations}
     loadModuleSource={loadFixtureModuleSource}

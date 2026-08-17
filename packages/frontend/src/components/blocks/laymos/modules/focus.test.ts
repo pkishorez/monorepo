@@ -9,21 +9,21 @@ const modules: readonly Module[] = [
     layerId: 'application',
     shared: false,
     kind: 'root',
-    nested: [],
+    exposed: true,
   },
   {
     id: 'src/domain/orders',
     layerId: 'domain',
     shared: false,
     kind: 'terminal',
-    nested: [{ id: 'src/domain/orders/events', path: 'events' }],
+    exposed: true,
   },
   {
     id: 'src/domain/users',
     layerId: 'domain',
     shared: false,
     kind: 'isolated',
-    nested: [],
+    exposed: true,
   },
 ];
 
@@ -31,7 +31,8 @@ const dependencies = [
   {
     fromModuleId: 'src/app/orders',
     toModuleId: 'src/domain/orders',
-    toEntryPointId: 'src/domain/orders/events',
+    toEntryPointId: 'src/domain/orders',
+    permitted: true,
   },
 ] as const;
 
@@ -50,12 +51,12 @@ describe('resolveModuleFocus', () => {
     );
   });
 
-  test('nested selection shows only inbound use of that public door', () => {
+  test('selecting the target module keeps its inbound dependency', () => {
     const focus = resolveModuleFocus({
       modules,
       dependencies,
       focusedLayerId: 'domain',
-      activeModuleId: 'src/domain/orders/events',
+      activeModuleId: 'src/domain/orders',
     });
 
     expect(focus.dependencies).toEqual(dependencies);

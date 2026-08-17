@@ -15,11 +15,14 @@ describe('renderModuleInspection', () => {
         module: {
           path: 'src/domain/orders',
           layer: 'domain',
-          kind: 'normal',
+          shared: false,
+          exposed: true,
           shape: 'directory',
           observedKind: 'regular',
-          subpaths: ['events'],
+          graph: 'orders',
+          member: 'orders',
         },
+        graphRules: ['shared'],
         publicEntryPoints: [
           'src/domain/orders/index.ts',
           'src/domain/orders/events/index.ts',
@@ -31,7 +34,7 @@ describe('renderModuleInspection', () => {
     );
 
     expect(rendered).toContain(
-      'Module:   src/domain/orders\nLayer:    domain\nKind:     normal\nShape:    directory\nObserved: regular\nSubpaths: 1',
+      'Module:   src/domain/orders\nLayer:    domain\nGraph:    orders\nShared:   false\nExposed:  true\nShape:    directory\nObserved: regular\nMay import: shared',
     );
     expect(rendered).toContain('■ active   ■ dependents   ■ dependencies');
     expect(rendered).toContain('├── app\n│   └── checkout');
@@ -44,11 +47,12 @@ describe('renderModuleInspection', () => {
         module: {
           path: 'src/jobs',
           layer: 'app',
-          kind: 'entry',
+          shared: false,
+          exposed: false,
           shape: 'directory',
           observedKind: 'isolated',
-          subpaths: [],
         },
+        graphRules: undefined,
         publicEntryPoints: [],
         dependents: [],
         dependencies: [],

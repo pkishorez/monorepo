@@ -1,21 +1,41 @@
 {
   "sourceRoots": ["src"],
   "layers": {
-    "application": { "paths": ["src/application"] },
-    "domain": { "paths": ["src/domain"] },
-    "infrastructure": { "paths": ["src/infrastructure"] }
-  },
-  "modules": {
-    "src/application": {},
-    "src/domain": {},
-    "src/infrastructure": {}
+    "application": {
+      "paths": ["src/application"],
+      "modules": {
+        "src/application": {
+          "exposed": true
+        }
+      }
+    },
+    "domain": {
+      "paths": ["src/domain"],
+      "modules": {
+        "src/domain": {
+          "exposed": true
+        }
+      }
+    },
+    "infrastructure": {
+      "paths": ["src/infrastructure"],
+      "modules": {
+        "src/infrastructure": {
+          "exposed": true
+        }
+      }
+    }
   },
   "layerGraphs": {
     "application": {
-      "rules": { "application": ["domain"] }
+      "rules": {
+        "application": ["domain"]
+      }
     },
     "foundation": {
-      "rules": { "domain": ["infrastructure"] }
+      "rules": {
+        "domain": ["infrastructure"]
+      }
     }
   }
 }

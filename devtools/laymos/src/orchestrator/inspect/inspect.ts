@@ -3,6 +3,7 @@ import { NodeServices } from '@effect/platform-node';
 
 import type {
   AnalyzedModule,
+  AnalyzedModuleGraph,
   ArchitectureAnalysis,
   ForbiddenImport,
   LayerDefinition,
@@ -45,6 +46,8 @@ export interface FileInspection {
 
 export interface ModuleInspection {
   readonly module: AnalyzedModule;
+  // Absent for a free-form Module; the member keys its Rules permit otherwise.
+  readonly graphRules: readonly string[] | undefined;
   readonly publicEntryPoints: readonly string[];
   readonly dependents: readonly string[];
   readonly dependencies: readonly string[];
@@ -60,6 +63,7 @@ export interface LayerInspection {
   readonly allowedDependencies: readonly string[];
   readonly allowedDependents: readonly string[];
   readonly modules: readonly AnalyzedModule[];
+  readonly moduleGraphs: readonly AnalyzedModuleGraph[];
   readonly sharedCount: number;
   readonly hasNoModules: boolean;
   readonly layerViolations: readonly ForbiddenImport[];
@@ -99,7 +103,10 @@ export function inspectLayer(configPath: string, target: string) {
           .map(([layer]) => layer)
           .sort(),
         modules,
-        sharedCount: modules.filter(({ kind }) => kind === 'shared').length,
+        moduleGraphs: analysis.moduleAnalysis.graphs.filter(
+          ({ layer }) => layer === target,
+        ),
+        sharedCount: modules.filter(({ shared }) => shared).length,
         hasNoModules:
           analysis.layerAnalysis.layersWithoutModules.includes(target),
         layerViolations: analysis.layerAnalysis.forbiddenImports.filter(
@@ -108,7 +115,8 @@ export function inspectLayer(configPath: string, target: string) {
         ),
         moduleViolations: analysis.moduleAnalysis.violations.filter(
           (violation) =>
-            (violation.kind === 'coverage' &&
+            ((violation.kind === 'coverage' ||
+              violation.kind === 'graph-coverage') &&
               analysis.layerAnalysis.membership.get(violation.file) ===
                 target) ||
             [...modulePaths].some((module) =>
@@ -193,6 +201,11 @@ function buildModuleInspection(
   const dependencies = analysis.moduleAnalysis.dependencies;
   return {
     module,
+    graphRules:
+      module.graph === undefined || module.member === undefined
+        ? undefined
+        : (analysis.moduleAnalysis.graphs.find(({ id }) => id === module.graph)
+            ?.rules[module.member] ?? []),
     publicEntryPoints: [...analysis.moduleAnalysis.entryPoints]
       .filter(
         (entryPoint) =>
@@ -252,7 +265,8 @@ function violationInvolvesModule(
 ): boolean {
   if (
     violation.kind === 'missing-entry-point' ||
-    violation.kind === 'unused-shared'
+    violation.kind === 'unused-shared' ||
+    violation.kind === 'dead-module'
   ) {
     return violation.module === target;
   }

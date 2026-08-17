@@ -1,0 +1,27 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "app": {
+      "paths": ["src"],
+      "modules": {
+        "src/common": { "shared": true }
+      },
+      "moduleGraphs": {
+        "feature": {
+          "description": "One capability split across members.",
+          "path": "src/feature",
+          "modules": {
+            "index.ts": { "exposed": true },
+            "core": {},
+            "model": {}
+          },
+          "rules": {
+            "index.ts": ["core"],
+            "core": ["model"]
+          }
+        }
+      }
+    }
+  },
+  "layerGraphs": {}
+}

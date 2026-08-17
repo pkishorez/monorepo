@@ -1,9 +1,17 @@
 {
   "sourceRoots": ["src"],
   "layers": {
-    "app": { "paths": ["src/app"] },
-    "empty": { "paths": ["src/empty"] }
+    "app": {
+      "paths": ["src/app"],
+      "modules": {
+        "src/app": {
+          "exposed": true
+        }
+      }
+    },
+    "empty": {
+      "paths": ["src/empty"]
+    }
   },
-  "modules": { "src/app": {} },
   "layerGraphs": {}
 }
