@@ -12,6 +12,7 @@ import type {
 import type {
   Module,
   ModuleDependency,
+  ModuleGraph,
   ModuleViolation,
 } from './modules/model';
 
@@ -22,6 +23,7 @@ export interface LaymosPresentationModel {
   readonly layerViolationPairs: readonly LayerViolationPair[];
   readonly layerCoverageViolations: readonly LayerCoverageViolation[];
   readonly modules: readonly Module[];
+  readonly moduleGraphs: readonly ModuleGraph[];
   readonly moduleDependencies: readonly ModuleDependency[];
   readonly moduleViolations: readonly ModuleViolation[];
   readonly changes?: ChangeIndex;
@@ -75,16 +77,34 @@ export function buildPresentationModel(
       id: module.path,
       layerId: module.layer,
       ...changeStatusOf(changes?.modules, module.path),
-      shared: module.kind === 'shared',
+      shared: module.shared,
+      exposed: module.exposed,
       kind: module.observedKind,
-      configuredKind: module.kind,
       shape: module.shape,
-      ...(module.kind === 'entry' ? { unexposed: true } : {}),
-      nested: module.subpaths.map((path) => ({
-        id: `${module.path}/${path}`,
-        path,
-      })),
+      ...(module.graph === undefined ? {} : { graphId: module.graph }),
+      ...(module.member === undefined ? {} : { member: module.member }),
     })),
+    moduleGraphs: analysis.moduleAnalysis.graphs.map((graph) => {
+      const description = Object.values(analysis.config.layers).flatMap(
+        (layer) => Object.entries(layer.moduleGraphs),
+      );
+      const declared = description.find(([id]) => id === graph.id)?.[1];
+      return {
+        id: graph.id,
+        layerId: graph.layer,
+        path: graph.path,
+        ...(declared?.description === undefined
+          ? {}
+          : { description: declared.description }),
+        memberIds: graph.members,
+        rules: Object.entries(graph.rules).flatMap(([from, targets]) =>
+          targets.map((to) => ({
+            fromModuleId: memberId(graph.path, from),
+            toModuleId: memberId(graph.path, to),
+          })),
+        ),
+      };
+    }),
     moduleDependencies: analysis.moduleAnalysis.dependencies.map(
       (dependency) => ({
         fromModuleId: dependency.fromModule,
@@ -93,6 +113,7 @@ export function buildPresentationModel(
           dependency.toEntryPoint === undefined
             ? dependency.toModule
             : entryPointId(dependency.toEntryPoint, modulePaths),
+        permitted: dependency.permitted,
       }),
     ),
     moduleViolations: analysis.moduleAnalysis.violations.map((violation) => {
@@ -111,8 +132,22 @@ export function buildPresentationModel(
             id,
             kind: violation.kind,
             moduleId: violation.module,
-            entryPointId: entryPointId(violation.path, modulePaths),
             path: violation.path,
+          };
+        case 'graph-coverage':
+          return {
+            id,
+            kind: violation.kind,
+            graphId: violation.graph,
+            file: violation.file,
+            layerId:
+              analysis.layerAnalysis.membership.get(violation.file) ?? '',
+          };
+        case 'dead-module':
+          return {
+            id,
+            kind: violation.kind,
+            moduleId: violation.module,
           };
         case 'dependency':
         case 'boundary':
@@ -177,6 +212,11 @@ function layerViolationPairs(
     });
   }
   return [...grouped.values()];
+}
+
+// Member keys are relative to their Module Graph root; ids stay absolute paths.
+function memberId(graphPath: string, member: string): string {
+  return graphPath === '.' ? member : `${graphPath}/${member}`;
 }
 
 // A File Module's path may itself end in /index.ts; its id must stay the full path.

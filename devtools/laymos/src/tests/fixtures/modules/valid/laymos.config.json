@@ -1,10 +1,19 @@
 {
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/shared/generated.ts"],
-  "layers": { "app": { "paths": ["src"] } },
-  "modules": {
-    "src/feature": {},
-    "src/shared": { "kind": "shared", "subpaths": ["public"] }
+  "layers": {
+    "app": {
+      "paths": ["src"],
+      "modules": {
+        "src/feature": {
+          "exposed": true
+        },
+        "src/shared": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    }
   },
   "layerGraphs": {}
 }

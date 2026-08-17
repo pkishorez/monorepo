@@ -2,29 +2,23 @@ import {
   complexLayers,
   complexRules,
 } from '../../layers/fixtures/complex-fixture-data';
-import type { Module, ModuleDependency, NestedModule } from '../model';
+import type { Module, ModuleDependency } from '../model';
 
 interface ModuleDetails {
   readonly shared?: boolean;
-  readonly nested?: readonly string[];
 }
 
 interface ModuleSeed {
   readonly id: string;
   readonly layerId: string;
   readonly shared: boolean;
-  readonly nested: readonly NestedModule[];
+  readonly exposed: boolean;
 }
 
 const detailsByModuleId: Readonly<Record<string, ModuleDetails>> = {
   'packages/experience/navigation': { shared: true },
   'services/commerce/workflows': { shared: true },
-  'packages/commerce/domain': {
-    nested: ['orders/events', 'catalog/pricing'],
-  },
   'packages/commerce/shared-domain': { shared: true },
-  'packages/operations/runtime': { nested: ['jobs/events'] },
-  'packages/insights/pipeline': { nested: ['transforms/events'] },
 };
 
 const moduleSeeds: readonly ModuleSeed[] = complexLayers.flatMap((layer) =>
@@ -34,10 +28,7 @@ const moduleSeeds: readonly ModuleSeed[] = complexLayers.flatMap((layer) =>
       id: scope.path,
       layerId: layer.id,
       shared: details?.shared ?? false,
-      nested: (details?.nested ?? []).map((path) => ({
-        id: `${scope.path}/${path}`,
-        path,
-      })),
+      exposed: true,
     };
   }),
 );
@@ -87,7 +78,7 @@ function dependency(
   toModuleId: string,
   toEntryPointId = toModuleId,
 ): ModuleDependency {
-  return { fromModuleId, toModuleId, toEntryPointId };
+  return { fromModuleId, toModuleId, toEntryPointId, permitted: true };
 }
 
 function topologyKind(

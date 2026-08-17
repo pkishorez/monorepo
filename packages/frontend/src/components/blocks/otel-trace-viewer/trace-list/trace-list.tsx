@@ -5,8 +5,7 @@ import { ArrowUpIcon, SearchIcon } from 'lucide-react';
 import { Button } from '#components/ui/button';
 import { Kbd } from '#components/ui/kbd';
 
-import { GanttHeader } from '../gantt/gantt-header';
-import { BAR_COL_INSET, BAR_MIN_WIDTH_PX } from '../gantt/layout';
+import { BAR_COL_INSET, BAR_MIN_WIDTH_PX, GanttHeader } from '../gantt';
 import { useElementWidth } from '../use-element-width';
 import type { TraceGroup } from '../trace-model';
 import {

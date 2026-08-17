@@ -23,12 +23,12 @@ const architectureTreeBoundaryIconBase =
 
 export const architectureTreeGuide = 'absolute inset-y-0 w-px bg-border/70';
 
-export function architectureTreeSelectedStyle(
-  kind: ArchitectureTreeBoundaryKind,
-): CSSProperties {
+// Selection reads as a calm filled row, not a saturated one: the surrounding
+// tree is monochrome, so contrast alone is enough to find it.
+export function architectureTreeSelectedStyle(): CSSProperties {
   return {
-    backgroundColor:
-      kind === 'layer' ? 'rgb(16 185 129 / 0.18)' : 'rgb(14 165 233 / 0.2)',
+    backgroundColor: 'var(--accent)',
+    color: 'var(--accent-foreground)',
   };
 }
 
@@ -63,13 +63,13 @@ export function architectureTreeBoundaryState(
   );
 }
 
+// Layer and Module are permanent structure: weight and icon separate them, not hue.
 export function architectureTreeBoundaryKind(
   kind: ArchitectureTreeBoundaryKind,
 ): string {
-  if (kind === 'layer') {
-    return 'text-emerald-600 dark:text-emerald-400';
-  }
-  return 'text-sky-700 dark:text-sky-300';
+  return kind === 'layer'
+    ? 'text-foreground font-semibold'
+    : 'text-foreground/90';
 }
 
 export function architectureTreeBoundaryIcon(
@@ -78,8 +78,7 @@ export function architectureTreeBoundaryIcon(
 ): string {
   return cn(
     architectureTreeBoundaryIconBase,
-    kind === 'layer' && 'text-emerald-600 dark:text-emerald-400',
-    kind === 'module' && 'text-sky-700 dark:text-sky-300',
+    kind === 'layer' ? 'text-foreground' : 'text-muted-foreground',
     state === 'violation' && 'text-destructive',
   );
 }

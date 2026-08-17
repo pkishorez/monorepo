@@ -1,19 +1,33 @@
 {
   "sourceRoots": ["src"],
   "layers": {
-    "app": { "paths": ["src/app"] },
-    "domain": { "paths": ["src/domain"] }
-  },
-  "modules": {
-    "src/app": {},
-    "src/domain": {}
+    "app": {
+      "paths": ["src/app"],
+      "modules": {
+        "src/app": {
+          "exposed": true
+        }
+      }
+    },
+    "domain": {
+      "paths": ["src/domain"],
+      "modules": {
+        "src/domain": {
+          "exposed": true
+        }
+      }
+    }
   },
   "layerGraphs": {
     "architecture": {
-      "rules": { "app": ["domain"] }
+      "rules": {
+        "app": ["domain"]
+      }
     },
     "reverse": {
-      "rules": { "domain": ["app"] }
+      "rules": {
+        "domain": ["app"]
+      }
     }
   }
 }

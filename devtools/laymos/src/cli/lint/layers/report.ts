@@ -1,6 +1,6 @@
 import * as colors from 'yoctocolors';
 
-import type { LayerAnalysis } from '../../../domain/architecture-analysis/layers/index.js';
+import type { LayerAnalysis } from '../../../architecture-analysis-schema/index.js';
 
 type LayerReportInput = Pick<
   LayerAnalysis,

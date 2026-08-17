@@ -137,46 +137,57 @@ Module is backed by either a directory or one supported source file.
 **Module independence**:
 The intended relationship between Configured Modules in one Layer: each owns
 its responsibility without depending on its peers. An exceptional common
-capability that cannot belong to one peer may become a Shared Module.
+capability that cannot belong to one peer may become a Shared Module. Peers
+that genuinely form one capability with an interior become a Module Graph,
+where their connections are declared as Module Graph Rules instead.
 
 **Directory Module**:
-A Module backed by a directory. A Normal or Shared Directory Module exposes a
-minimal root `index.ts` and may add tree-shaking Subpaths; an Entry Directory
-Module follows its host's file convention and exposes no Module entry point.
+A Module backed by a directory. It exposes a minimal root `index.ts` exactly
+when it is Shared or exposed; a Directory Module importable by nobody needs no
+door and follows its host's file convention.
 
 **File Module**:
-A Module backed by one supported source file. Its file is always its public
-entry point when Normal or Shared and is host-owned when Entry. It cannot expose
-Subpaths or own companion files; a File Module with private companion files is
-promoted to a Directory Module.
+A Module backed by one supported source file. Its file is its public entry point
+when it is Shared or exposed, and is host-owned otherwise. It cannot own
+companion files; a File Module with private companion files is promoted to a
+Directory Module. A File Module at a Module Graph's root is how that Graph
+offers a single facade alongside its other doors.
 
 **Configured Module**:
-A Module explicitly listed in `modules` that forms one disjoint membership and
-dependency boundary within a Layer. Every included file belongs to one
-Configured Module. Its path must identify an included supported source file or
-a directory that contains included supported source files.
+A Module explicitly declared, either free-form in its Layer or as a member of one
+Module Graph, that forms one disjoint membership and dependency boundary within
+a Layer. It is declared in exactly one of those two places. Every included file
+belongs to one Configured Module. Its path must identify an included supported
+source file or a directory that contains included supported source files.
 
-**Module kind**:
-A Configured Module's declared access rule: Normal, Shared, or Entry. Normal is
-the default.
+**Module visibility**:
+A Configured Module's declared access rule, expressed as two independent
+booleans: `shared`, meaning peers in the same Layer may import it, and
+`exposed`, meaning other Layers may import it. Both default to false, so a
+Module is importable by nobody until it says otherwise. They mean the same
+thing wherever a Module is declared.
+_Avoid_: Module kind, Normal Module, Entry Module
 
 **Module shape**:
 The source form backing a Module: File or Directory.
 
-**Normal Module**:
-A Module available through its public entry points to permitted consumers in
-other Layers. Its peers in the same Layer remain independent from it.
+**Exposed Module**:
+A Module available through its public entry point to permitted consumers in
+other Layers. Its peers in the same Layer remain independent from it unless it
+is also Shared.
 
 **Module public entry point**:
 The smallest stable contract through which a Module exposes itself to other
-Configured Modules: a Normal or Shared File Module's own file, a Normal or
-Shared Directory Module's root `index.ts`, or one of its Subpaths.
+Configured Modules: a File Module's own file, or a Directory Module's root
+`index.ts`. A Module has one, and has it exactly when it is Shared or exposed.
 
-**Entry Module**:
+**Intentional root**:
 A host-started Module, such as a CLI or framework entry, that may depend on
-other Modules but cannot be depended on by any Module. It may be file- or
-directory-backed, follows its host's file convention, and has no Subpaths.
-_Avoid_: Unexposed Module
+other Modules but is imported by none. It is neither Shared nor exposed, and is
+not declared: a Module with no importers is treated as intentional when its
+Layer has no inbound Rules in the permission union, because that is where hosts
+enter, and is reported as a Dead Module anywhere else.
+_Avoid_: Entry Module, Unexposed Module
 
 **Observed Module kind**:
 A Module's position in the observed dependency graph: Regular, Root, Terminal,
@@ -196,11 +207,33 @@ A Module with dependents and no dependencies.
 **Isolated Module**:
 A Module with no dependencies or dependents.
 
-**Subpath**:
-An extra public `index.ts` at an exact path inside a Normal or Shared Directory
-Module, added only for a proven tree-shaking need. It is another door into the
-same Module, not a child Module or a new dependency policy.
-_Avoid_: Nested public entry point, Nested Module, submodule
+**Module Graph**:
+A named, bounded set of Configured Modules inside one Layer, rooted at a
+directory, whose connections are declared as Module Graph Rules. It describes
+one capability too large for a single Module: several members stay private,
+one or more are exposed as its doors. A Module Graph is not itself a Module,
+owns no files directly, and cannot contain another Module Graph.
+_Avoid_: treating a Module Graph as a view of a LayerGraph. Unlike a LayerGraph
+it is a disjoint unit whose Rules are never unioned with any other Graph's, are
+not transitive, and are checked for cycles on their own.
+
+**Module Graph member**:
+A Configured Module declared inside a Module Graph, at a path below the Graph's
+root and keyed relative to it. A member may be exposed but never Shared, since
+sharing is Layer-wide and would let a peer bypass the Graph's Rules; a
+capability that must be shared is declared free-form in the Layer instead. A
+Module Graph declares at least two members and at least one exposed member.
+
+**Module Graph Rule**:
+A direct, declared permission between two members of one Module Graph: member X
+may depend on member Y. Rules are the only means of connection inside a Graph.
+They are not transitive, so a permitted chain grants nothing beyond its declared
+edges, and the Rules of one Graph must be acyclic.
+
+**Module Graph import law**:
+What a member may depend on: members of its own Module Graph where a Rule
+permits, free-form Shared Modules in its Layer, and exposed Modules in Layers it
+may reach. Never a member of another Module Graph.
 
 **Module internal dependency**:
 An import within one Configured Module. It may target any internal file without
@@ -219,23 +252,73 @@ _Avoid_: Architecture Snapshot
 **Module analysis**:
 The part of an Architecture Analysis that combines the declared Configured
 Module architecture with facts derived from supported source files, including
-Module kind, shape, observed kind, membership, public entry points,
-dependencies, and Module violations.
+Module visibility, shape, observed kind, Module Graph membership, public entry
+points, dependencies, and Module violations.
 
 **Layers <> Modules view**:
 The single unified view of one Project's declared and observed architecture:
-Modules rendered within their Layers. Modules may be hidden to show Layers
-alone, and Layer connections may be shown or hidden, at either granularity.
-There is no separate Layers-only or Modules-only screen and no navigation
-between granularities — only these two view settings.
+Modules rendered within their Layers. There is no separate Layers-only or
+Modules-only screen and no navigation between granularities — only View
+settings.
 _Avoid_: Layers screen, Modules screen
 
+**View settings**:
+What the Layers <> Modules view draws, chosen together rather than one control
+each: whether Modules are shown at all, whether Layer connections are drawn,
+whether Module connections are drawn, and LayerGraph isolation. They change
+drawing only, never the Config, the Rules, the Violations, or coverage. A
+setting whose subject is not selected yet stays available and simply has no
+effect; nothing is disabled for lack of a selection.
+
+**Connection visibility**:
+A View setting, held separately for Layer connections and Module connections,
+that decides whether connections are drawn while nothing is selected. Turning
+one off is a request for less standing detail, not for less information: the
+connections of whatever the user selects are still drawn, so a selection always
+answers what it depends on.
+
+**Host LayerGraph**:
+The single LayerGraph a Layer belongs to and the only place that Layer is drawn,
+derived from the Config rather than declared. It is the LayerGraph that declares the most Rules from that Layer.
+A Layer no LayerGraph declares Rules from — a leaf — is hosted by the
+LayerGraph declaring the most Rules into it. Ties break on declaration order,
+so every Layer has exactly one Host LayerGraph and is drawn in one place. A
+LayerGraph that hosts no Layer draws no lane and cannot be selected; its Rules
+are still enforced and still drawn between the Layers they name.
+_Avoid_: saying a Layer is shared between LayerGraphs, spanning it across them,
+or standing a placeholder for it in a lane that only reaches it; a Rule points
+at the one real Layer wherever that Layer is drawn.
+
 **LayerGraph selection**:
-A focus on one LayerGraph within the Layers <> Modules view. The Layers
-referenced by the selected LayerGraph's Rules are emphasized; every other
-Layer and its Modules are de-emphasized yet remain visible and fully
-interactive. Only the selected LayerGraph's Rules are drawn or used for
+A focus on one LayerGraph within the Layers <> Modules view. The Layers the
+selected LayerGraph hosts _and_ the Layers it reaches are emphasized, so its
+dependencies stay legible in the lanes that host them; every other Layer and
+its Modules are de-emphasized yet remain visible and fully interactive. Only the selected LayerGraph's Rules are drawn or used for
 highlighting. LayerGraphs reference Layers, never other LayerGraphs.
+
+**LayerGraph isolation**:
+An opt-in setting on a LayerGraph selection that hides everything the selected
+LayerGraph does not depend on. Every other LayerGraph keeps only the Layers the
+selection reaches, and a LayerGraph it reaches nothing in disappears, so the
+remaining lanes sit next to each other and the distance between a LayerGraph
+and its dependencies collapses. Nothing an isolated view still draws is
+de-emphasized, and the Layers the selection reaches are marked as its
+dependencies. _Avoid_: treating isolation as a filter on the Config or on enforcement; it
+hides drawing, never Rules, Violations, or coverage.
+
+**Layer rank stack**:
+The vertical arrangement of a Layer's contents in the Layers <> Modules view: a
+Configured Module or a Module Graph sits below everything that depends on it.
+The stack is derived from observed imports that the Config permits — a Module
+dependency violation moves nothing, because it would draw an illegal
+arrangement as though it were intended. Depth is therefore a fact about the
+Layer and cannot be compressed; width is free, so a rank wraps onto more lines
+until the Layer is as near to square as its ranks allow. A Layer whose Modules
+import nothing from each other is one rank, wrapped.
+The imports the stack is derived from are drawn, because position alone cannot
+say whether a box sits lower through a dependency or through a wrapped rank.
+_Avoid_: calling the stack a Rule, a permission, or a Module Graph; free-form
+Modules declare nothing about each other inside a Layer.
 
 **Module source explorer**:
 A view of the included supported source files assigned to one Configured
@@ -247,6 +330,16 @@ The paths and textual contents of the included supported source files assigned
 to one Configured Module at the time they are requested.
 _Avoid_: Module file tree
 
+**Module Graph coverage violation**:
+An included supported file below a Module Graph's root that belongs to no
+member. Everything under the root must be claimed, so the only files legal
+beside the member directories are those of a declared root File Module.
+
+**Dead Module violation**:
+A Module that nothing may import and nothing does: a member named in no Module
+Graph Rule and not exposed, or a free-form Module that is neither Shared nor
+exposed, has no importers, and is not an Intentional root.
+
 **Module coverage violation**:
 An included supported file that belongs to a Layer but no Module. The file must
 either be assigned to a Module or excluded from the analysis universe through
@@ -254,22 +347,25 @@ an Ignored path. Its Layer dependencies remain enforceable, but Module-level
 dependency checks involving it are deferred until it has Module membership.
 
 **Missing Module Entry Point**:
-An expected public entry point that is absent: a Normal or Shared Directory
-Module's root `index.ts`, or a configured Subpath's `index.ts`. Entry Modules
-intentionally have no Module public entry point.
+An expected public entry point that is absent: the root `index.ts` of a
+Directory Module that is Shared or exposed. A Module that is neither
+intentionally has no Module public entry point.
 _Avoid_: Module entry-point violation, module with no entry point
 
 **Module cycle violation**:
 A dependency cycle containing two or more configured Modules. Cycles wholly
 inside one Module are not Module violations. Only otherwise permitted
 cross-Module dependencies participate; LayerGraph acyclicity prevents such a
-cycle from crossing Layers.
+cycle from crossing Layers, and each Module Graph's Rules are checked for cycles
+on their own rather than unioned with any other Graph's.
 
 **Module dependency violation**:
-A direct dependency whose target kind does not permit the source: same-Layer
-dependencies require a Shared target, while Entry targets permit none. A
-cross-Layer dependency to a Normal or Shared target uses Layer permission. This
-violation takes precedence over checking the target's public boundary.
+A direct dependency whose target's visibility does not permit the source:
+same-Layer dependencies require a Shared target, cross-Layer dependencies
+require an exposed target and Layer permission, and a target that is neither
+permits none. Between members of one Module Graph a declared Rule is required
+instead; a dependency into another Module Graph's member is never permitted.
+This violation takes precedence over checking the target's public boundary.
 
 **Module boundary violation**:
 An otherwise permitted dependency from one Module to an internal file of
@@ -278,17 +374,23 @@ permission failures take precedence over this violation.
 
 **Shared Module**:
 An exceptional Layer-wide capability extracted when otherwise independent
-Modules genuinely need common functionality that none of them should own.
-Every other Module in the same Layer may depend on it. Shared kind has no effect
-on cross-Layer permission, which remains governed by Layer Rules. A Shared
-Module with no same-Layer dependents is a Module violation.
+Modules genuinely need common functionality that none of them should own. Every
+other Module in the same Layer may depend on it, including Module Graph members,
+which makes it the only common ground two Module Graphs may share. It is always
+free-form and never a Module Graph member. Sharing has no effect on cross-Layer
+permission, which remains governed by Layer Rules and the `exposed` flag. A
+Shared Module with no same-Layer dependents is a Module violation, and one whose
+dependents are all peers in its own Layer is a Module Graph waiting to be
+declared.
 
 **LayerGraph**:
 A named, configured set of Rules representing one responsibility (e.g. core
 architecture, test boundaries) — an organizational and visual grouping, not an
 enforcement boundary. A LayerGraph may reference any subset of the project's
 Layers; a Layer absent from a given LayerGraph simply has no rules declared
-under that responsibility. Enforcement never scopes to a single LayerGraph:
+under that responsibility. A LayerGraph _hosts_ the Layers it declares Rules
+from and _reaches_ the Layers it names only as Rule targets; reaching is not
+hosting, and a Layer belongs to exactly one Host LayerGraph. Enforcement never scopes to a single LayerGraph:
 the permission set actually enforced is the union of every Rule declared
 across every LayerGraph in the project. All layer operations use this union,
 not an individual LayerGraph. The union must be acyclic; a cycle makes the
@@ -379,6 +481,11 @@ about.
 
 **Change status**:
 One path's standing in a Change set: added or modified.
+
+**Change origin**:
+Where one path's change lives: committed between the Base ref and `HEAD`,
+uncommitted in the working tree, or both when a path carries each. It lets a
+reader hide uncommitted work without recomputing the Change set.
 
 **Module change status**:
 A Configured Module's derived standing in a Change set: added when every file

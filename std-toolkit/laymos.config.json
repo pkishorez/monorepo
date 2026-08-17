@@ -38,127 +38,311 @@
   "layers": {
     "db.public": {
       "paths": ["src/db/index.ts", "src/db/db.ts"],
-      "description": "Public \u2014 adapter-independent database entrypoint"
+      "description": "Public \u2014 adapter-independent database entrypoint",
+      "modules": {
+        "src/db/index.ts": {
+          "exposed": true
+        },
+        "src/db/db.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "std-table.table": {
       "paths": ["src/db/std-table/table"],
-      "description": "Aggregate \u2014 StdTable builder, decoration, and transact"
+      "description": "Aggregate \u2014 StdTable builder, decoration, and transact",
+      "modules": {
+        "src/db/std-table/table": {
+          "exposed": true
+        }
+      }
     },
     "std-table.entity": {
       "paths": ["src/db/std-table/entity"],
-      "description": "Surface \u2014 typed keyed and single entity operations"
+      "description": "Surface \u2014 typed keyed and single entity operations",
+      "modules": {
+        "src/db/std-table/entity": {
+          "exposed": true
+        }
+      }
     },
     "std-table.definition": {
       "paths": ["src/db/std-table/definition"],
-      "description": "Model \u2014 logical table and entity definitions"
+      "description": "Model \u2014 logical table and entity definitions",
+      "modules": {
+        "src/db/std-table/definition": {
+          "exposed": true
+        }
+      }
     },
     "std-table.snapshot": {
       "paths": ["src/db/std-table/snapshot"],
-      "description": "Model \u2014 logical table snapshot projection"
+      "description": "Model \u2014 logical table snapshot projection",
+      "modules": {
+        "src/db/std-table/snapshot": {
+          "exposed": true
+        }
+      }
     },
     "std-table.key": {
       "paths": ["src/db/std-table/key"],
-      "description": "Model \u2014 collision-safe key encoding and storage derivation"
+      "description": "Model \u2014 collision-safe key encoding and storage derivation",
+      "modules": {
+        "src/db/std-table/key": {
+          "exposed": true
+        }
+      }
     },
     "std-table.contract": {
       "paths": ["src/db/std-table/contract"],
-      "description": "Port \u2014 the contract every adapter implements"
+      "description": "Port \u2014 the contract every adapter implements",
+      "modules": {
+        "src/db/std-table/contract": {
+          "exposed": true
+        }
+      }
     },
     "std-table.error": {
       "paths": ["src/db/std-table/error"],
-      "description": "Port \u2014 public database error"
+      "description": "Port \u2014 public database error",
+      "modules": {
+        "src/db/std-table/error": {
+          "exposed": true
+        }
+      }
     },
     "dynamodb.public": {
       "paths": ["src/db/dynamodb/index.ts", "src/db/dynamodb/dynamodb.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public \u2014 barrel and adapter door",
+      "modules": {
+        "src/db/dynamodb/index.ts": {
+          "exposed": true
+        },
+        "src/db/dynamodb/dynamodb.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "dynamodb.native": {
       "paths": ["src/db/dynamodb/native"],
-      "description": "Native \u2014 typed DynamoDB-native operations, bypassing the port"
+      "description": "Native \u2014 typed DynamoDB-native operations, bypassing the port",
+      "modules": {
+        "src/db/dynamodb/native": {
+          "exposed": true
+        }
+      }
     },
     "dynamodb.table": {
       "paths": ["src/db/dynamodb/table"],
-      "description": "Store \u2014 port implementation"
+      "description": "Store \u2014 port implementation",
+      "modules": {
+        "src/db/dynamodb/table": {
+          "exposed": true
+        }
+      }
     },
     "dynamodb.setup": {
       "paths": ["src/db/dynamodb/setup"],
-      "description": "Topology \u2014 physical table projection and explicit setup"
+      "description": "Topology \u2014 physical table projection and explicit setup",
+      "modules": {
+        "src/db/dynamodb/setup": {
+          "exposed": true
+        }
+      }
     },
     "dynamodb.expression": {
       "paths": ["src/db/dynamodb/expression"],
-      "description": "Language \u2014 predicates and updates as DynamoDB expressions"
+      "description": "Language \u2014 predicates and updates as DynamoDB expressions",
+      "modules": {
+        "src/db/dynamodb/expression": {
+          "exposed": true
+        }
+      }
     },
     "dynamodb.item-schema": {
       "paths": ["src/db/dynamodb/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from attribute values"
+      "description": "Mapping \u2014 encoded items to and from attribute values",
+      "modules": {
+        "src/db/dynamodb/item-schema": {
+          "exposed": true
+        }
+      }
     },
     "dynamodb.attribute-value": {
       "paths": ["src/db/dynamodb/attribute-value"],
-      "description": "Encoding \u2014 values to and from DynamoDB attribute values"
+      "description": "Encoding \u2014 values to and from DynamoDB attribute values",
+      "modules": {
+        "src/db/dynamodb/attribute-value": {
+          "exposed": true
+        }
+      }
     },
     "dynamodb.client": {
       "paths": ["src/db/dynamodb/client"],
-      "description": "Connection \u2014 generated API execution and AWS request signing"
+      "description": "Connection \u2014 generated API execution and AWS request signing",
+      "modules": {
+        "src/db/dynamodb/client": {
+          "exposed": true
+        }
+      }
     },
     "idb.public": {
       "paths": ["src/db/idb/index.ts", "src/db/idb/idb.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public \u2014 barrel and adapter door",
+      "modules": {
+        "src/db/idb/index.ts": {
+          "exposed": true
+        },
+        "src/db/idb/idb.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "idb.table": {
       "paths": ["src/db/idb/table"],
-      "description": "Store \u2014 port implementation"
+      "description": "Store \u2014 port implementation",
+      "modules": {
+        "src/db/idb/table": {
+          "exposed": true
+        }
+      }
     },
     "idb.item-schema": {
       "paths": ["src/db/idb/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from stored records"
+      "description": "Mapping \u2014 encoded items to and from stored records",
+      "modules": {
+        "src/db/idb/item-schema": {
+          "exposed": true
+        }
+      }
     },
     "idb.database": {
       "paths": ["src/db/idb/database"],
-      "description": "Connection \u2014 IndexedDB connection lifecycle"
+      "description": "Connection \u2014 IndexedDB connection lifecycle",
+      "modules": {
+        "src/db/idb/database": {
+          "exposed": true
+        }
+      }
     },
     "idb.upgrade": {
       "paths": ["src/db/idb/upgrade"],
-      "description": "Upgrade \u2014 physical store and index schema, declared at connection-open time and therefore below the connection"
+      "description": "Upgrade \u2014 physical store and index schema, declared at connection-open time and therefore below the connection",
+      "modules": {
+        "src/db/idb/upgrade": {
+          "exposed": true
+        }
+      }
     },
     "memory.public": {
       "paths": ["src/db/memory/index.ts", "src/db/memory/memory.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public \u2014 barrel and adapter door",
+      "modules": {
+        "src/db/memory/index.ts": {
+          "exposed": true
+        },
+        "src/db/memory/memory.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "memory.table": {
       "paths": ["src/db/memory/table"],
-      "description": "Store \u2014 in-memory port implementation"
+      "description": "Store \u2014 in-memory port implementation",
+      "modules": {
+        "src/db/memory/table": {
+          "exposed": true
+        }
+      }
     },
     "sqlite.public": {
       "paths": ["src/db/sqlite/index.ts", "src/db/sqlite/sqlite.ts"],
-      "description": "Public \u2014 barrel and adapter door"
+      "description": "Public \u2014 barrel and adapter door",
+      "modules": {
+        "src/db/sqlite/index.ts": {
+          "exposed": true
+        },
+        "src/db/sqlite/sqlite.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "sqlite.table": {
       "paths": ["src/db/sqlite/table"],
-      "description": "Store \u2014 port implementation"
+      "description": "Store \u2014 port implementation",
+      "modules": {
+        "src/db/sqlite/table": {
+          "exposed": true
+        }
+      }
     },
     "sqlite.setup": {
       "paths": ["src/db/sqlite/setup"],
-      "description": "Topology \u2014 physical schema setup and migration"
+      "description": "Topology \u2014 physical schema setup and migration",
+      "modules": {
+        "src/db/sqlite/setup": {
+          "exposed": true
+        }
+      }
     },
     "sqlite.statement": {
       "paths": ["src/db/sqlite/statement"],
-      "description": "Language \u2014 predicates and writes as parameterized SQL statements"
+      "description": "Language \u2014 predicates and writes as parameterized SQL statements",
+      "modules": {
+        "src/db/sqlite/statement": {
+          "exposed": true
+        }
+      }
     },
     "sqlite.item-schema": {
       "paths": ["src/db/sqlite/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from rows"
+      "description": "Mapping \u2014 encoded items to and from rows",
+      "modules": {
+        "src/db/sqlite/item-schema": {
+          "exposed": true
+        }
+      }
     },
     "sqlite.database": {
       "paths": ["src/db/sqlite/database"],
-      "description": "Connection \u2014 SQLite database contract"
+      "description": "Connection \u2014 SQLite database contract",
+      "modules": {
+        "src/db/sqlite/database": {
+          "exposed": true
+        }
+      }
     },
     "sqlite.drivers": {
       "paths": ["src/db/sqlite/drivers"],
-      "description": "Drivers \u2014 runtime-specific SQLite bindings"
+      "description": "Drivers \u2014 runtime-specific SQLite bindings",
+      "modules": {
+        "src/db/sqlite/drivers/node": {
+          "exposed": true
+        },
+        "src/db/sqlite/drivers/bun": {
+          "exposed": true
+        },
+        "src/db/sqlite/drivers/better-sqlite3": {
+          "exposed": true
+        },
+        "src/db/sqlite/drivers/durable-object": {
+          "exposed": true
+        }
+      }
     },
     "eschema.public": {
       "paths": ["src/eschema/index.ts"],
-      "description": "Public \u2014 barrel"
+      "description": "Public \u2014 barrel",
+      "modules": {
+        "src/eschema/index.ts": {
+          "exposed": true
+        }
+      }
     },
     "eschema.constructs": {
       "paths": [
@@ -166,35 +350,93 @@
         "src/eschema/entity-eschema",
         "src/eschema/value-eschema"
       ],
-      "description": "Constructs \u2014 public ESchema variants and their local builders"
+      "description": "Constructs \u2014 public ESchema variants and their local builders",
+      "modules": {
+        "src/eschema/eschema": {
+          "exposed": true
+        },
+        "src/eschema/entity-eschema": {
+          "exposed": true
+        },
+        "src/eschema/value-eschema": {
+          "exposed": true
+        }
+      }
     },
     "eschema.composition": {
       "paths": ["src/eschema/schema-composition"],
-      "description": "Composition \u2014 Effect Schema composition"
+      "description": "Composition \u2014 Effect Schema composition",
+      "modules": {
+        "src/eschema/schema-composition": {
+          "exposed": true
+        }
+      }
     },
     "eschema.domain": {
       "paths": ["src/eschema/domain"],
-      "description": "Domain \u2014 evolution, field policy, runtimes, errors, and introspection"
+      "description": "Domain \u2014 evolution, field policy, runtimes, errors, and introspection",
+      "modules": {
+        "src/eschema/domain/eschema-error": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/eschema/domain/introspection": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/eschema/domain/object-schema-runtime": {
+          "exposed": true
+        },
+        "src/eschema/domain/schema-model": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "snapshot.public": {
       "paths": ["src/snapshot/index.ts"],
-      "description": "Public \u2014 barrel"
+      "description": "Public \u2014 barrel",
+      "modules": {
+        "src/snapshot/index.ts": {
+          "exposed": true
+        }
+      }
     },
     "snapshot.facade": {
       "paths": ["src/snapshot/snapshot"],
-      "description": "Facade \u2014 public Snapshot operation composition"
+      "description": "Facade \u2014 public Snapshot operation composition",
+      "modules": {
+        "src/snapshot/snapshot": {
+          "exposed": true
+        }
+      }
     },
     "snapshot.capture": {
       "paths": ["src/snapshot/capture"],
-      "description": "Capture \u2014 ESchema and table contract capture"
+      "description": "Capture \u2014 ESchema and table contract capture",
+      "modules": {
+        "src/snapshot/capture/eschema-capture": {
+          "exposed": true
+        }
+      }
     },
     "snapshot.domain": {
       "paths": ["src/snapshot/domain"],
-      "description": "Domain \u2014 snapshot models, errors, and canonical ordering"
+      "description": "Domain \u2014 snapshot models, errors, and canonical ordering",
+      "modules": {
+        "src/snapshot/domain": {
+          "exposed": true
+        }
+      }
     },
     "core.public": {
       "paths": ["src/core/index.ts"],
-      "description": "Public \u2014 barrel"
+      "description": "Public \u2014 barrel",
+      "modules": {
+        "src/core/index.ts": {
+          "exposed": true
+        }
+      }
     },
     "core.impl": {
       "paths": [
@@ -203,187 +445,237 @@
         "src/core/schema.ts",
         "src/core/ulid.ts"
       ],
-      "description": "Impl \u2014 internal implementation"
+      "description": "Impl \u2014 internal implementation",
+      "modules": {
+        "src/core/broadcaster.ts": {
+          "exposed": true
+        },
+        "src/core/error.ts": {
+          "exposed": true
+        },
+        "src/core/schema.ts": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/core/ulid.ts": {
+          "exposed": true
+        }
+      }
     },
     "cli.entry": {
       "paths": ["src/cli/cli.ts", "src/cli/run.ts"],
-      "description": "Entry \u2014 host process and the command tree it runs"
+      "description": "Entry \u2014 host process and the command tree it runs",
+      "modules": {
+        "src/cli/cli.ts": {},
+        "src/cli/run.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "cli.commands": {
       "paths": ["src/cli/snapshot"],
-      "description": "Commands \u2014 snapshot verify, approve, and view"
+      "description": "Commands \u2014 snapshot verify, approve, and view",
+      "modules": {
+        "src/cli/snapshot": {
+          "exposed": true
+        }
+      }
     },
     "cli.errors": {
       "paths": ["src/cli/errors.ts"],
-      "description": "Errors \u2014 operational failures rendered for the terminal"
+      "description": "Errors \u2014 operational failures rendered for the terminal",
+      "modules": {
+        "src/cli/errors.ts": {
+          "exposed": true
+        }
+      }
     },
     "cli.contract-files": {
       "paths": ["src/cli/contract-files"],
-      "description": "Files \u2014 the declared contract entry and the approved baseline on disk"
+      "description": "Files \u2014 the declared contract entry and the approved baseline on disk",
+      "modules": {
+        "src/cli/contract-files": {
+          "exposed": true
+        }
+      }
     },
     "sync.public": {
       "paths": ["src/sync/index.ts", "src/sync/sync.ts"],
-      "description": "Public \u2014 barrel, facade, and collection factory"
+      "description": "Public \u2014 barrel, facade, and collection factory",
+      "modules": {
+        "src/sync/index.ts": {
+          "exposed": true
+        },
+        "src/sync/sync.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
     },
     "sync.composition": {
       "paths": ["src/sync/composition"],
-      "description": "Composition \u2014 keyed hybrid and single-item collection composition"
+      "description": "Composition \u2014 keyed hybrid and single-item collection composition",
+      "modules": {
+        "src/sync/composition/keyed-sync": {
+          "exposed": true
+        },
+        "src/sync/composition/single-item-sync": {
+          "exposed": true
+        }
+      }
     },
     "sync.lifecycle": {
       "paths": ["src/sync/lifecycle"],
-      "description": "Lifecycle \u2014 total, partition, singleton, and strategy lifecycles"
+      "description": "Lifecycle \u2014 total, partition, singleton, and strategy lifecycles",
+      "modules": {
+        "src/sync/lifecycle/partition-sync": {
+          "exposed": true
+        },
+        "src/sync/lifecycle/single-item-lifecycle": {
+          "exposed": true
+        },
+        "src/sync/lifecycle/strategy-lifecycle": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/sync/lifecycle/sync-execution": {
+          "exposed": true
+        }
+      }
     },
     "sync.workers": {
       "paths": ["src/sync/workers"],
-      "description": "Workers \u2014 independent sync and repair workers"
+      "description": "Workers \u2014 independent sync and repair workers",
+      "modules": {
+        "src/sync/workers/bidirectional": {
+          "exposed": true
+        },
+        "src/sync/workers/cadence-repair": {
+          "exposed": true
+        },
+        "src/sync/workers/single-item-source": {
+          "exposed": true
+        },
+        "src/sync/workers/new-to-old": {
+          "exposed": true
+        },
+        "src/sync/workers/old-to-new": {
+          "exposed": true
+        }
+      }
     },
     "sync.runtime": {
       "paths": ["src/sync/runtime"],
-      "description": "Runtime \u2014 typed TanStack and Effect runtime capabilities"
+      "description": "Runtime \u2014 typed TanStack and Effect runtime capabilities",
+      "modules": {
+        "src/sync/runtime/collection-model": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/sync/runtime/peer-sync": {
+          "exposed": true
+        },
+        "src/sync/runtime/collection-projection": {
+          "exposed": true
+        },
+        "src/sync/runtime/effect-runner": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/sync/runtime/mutation-pacing": {
+          "exposed": true
+        },
+        "src/sync/runtime/pending-mutations": {
+          "exposed": true
+        },
+        "src/sync/runtime/strategy-runtime": {
+          "exposed": true
+        },
+        "src/sync/runtime/sync-source": {
+          "exposed": true
+        },
+        "src/sync/runtime/sync-registry": {
+          "exposed": true
+        },
+        "src/sync/runtime/sync-flow": {
+          "shared": true,
+          "exposed": true
+        }
+      },
+      "moduleGraphs": {
+        "leadership": {
+          "description": "Elects one leader, backed by an in-memory or Web Locks strategy.",
+          "path": "src/sync/runtime/leadership",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "leadership.ts": {},
+            "in-memory": {
+              "exposed": true
+            },
+            "web-locks": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "index.ts": ["leadership.ts"],
+            "in-memory": ["leadership.ts"],
+            "web-locks": ["leadership.ts"]
+          }
+        }
+      }
     },
     "sync.persistence": {
       "paths": ["src/sync/persistence"],
-      "description": "Persistence \u2014 Sync Replica, Sync Store, and strategy progress"
+      "description": "Persistence \u2014 Sync Replica, Sync Store, and strategy progress",
+      "modules": {
+        "src/sync/persistence/sync-store": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/sync/persistence/sync-replica": {
+          "exposed": true
+        },
+        "src/sync/persistence/sync-state": {
+          "exposed": true
+        }
+      }
     },
     "sync.domain": {
       "paths": ["src/sync/domain"],
-      "description": "Domain \u2014 pure sync policies, identities, state, and errors"
+      "description": "Domain \u2014 pure sync policies, identities, state, and errors",
+      "modules": {
+        "src/sync/domain/cadence-policy": {
+          "exposed": true
+        },
+        "src/sync/domain/entity-convergence": {
+          "exposed": true
+        },
+        "src/sync/domain/entity-validation": {
+          "exposed": true
+        },
+        "src/sync/domain/partition-identity": {
+          "exposed": true
+        },
+        "src/sync/domain/slice-coverage": {
+          "exposed": true
+        },
+        "src/sync/domain/strategy-state": {
+          "exposed": true
+        },
+        "src/sync/domain/sync-error": {
+          "exposed": true
+        },
+        "src/sync/domain/sync-event": {
+          "exposed": true
+        },
+        "src/sync/domain/sync-address": {
+          "exposed": true
+        }
+      }
     }
-  },
-  "modules": {
-    "src/db/index.ts": {},
-    "src/db/db.ts": {
-      "kind": "shared"
-    },
-    "src/db/std-table/table": {},
-    "src/db/std-table/entity": {},
-    "src/db/std-table/definition": {},
-    "src/db/std-table/snapshot": {},
-    "src/db/std-table/key": {},
-    "src/db/std-table/contract": {},
-    "src/db/std-table/error": {},
-    "src/db/dynamodb/index.ts": {},
-    "src/db/dynamodb/dynamodb.ts": {
-      "kind": "shared"
-    },
-    "src/db/dynamodb/native": {},
-    "src/db/dynamodb/table": {},
-    "src/db/dynamodb/setup": {},
-    "src/db/dynamodb/expression": {},
-    "src/db/dynamodb/item-schema": {},
-    "src/db/dynamodb/attribute-value": {},
-    "src/db/dynamodb/client": {},
-    "src/db/idb/index.ts": {},
-    "src/db/idb/idb.ts": {
-      "kind": "shared"
-    },
-    "src/db/idb/table": {},
-    "src/db/idb/item-schema": {},
-    "src/db/idb/database": {},
-    "src/db/idb/upgrade": {},
-    "src/db/memory/index.ts": {},
-    "src/db/memory/memory.ts": {
-      "kind": "shared"
-    },
-    "src/db/memory/table": {},
-    "src/db/sqlite/index.ts": {},
-    "src/db/sqlite/sqlite.ts": {
-      "kind": "shared"
-    },
-    "src/db/sqlite/table": {},
-    "src/db/sqlite/setup": {},
-    "src/db/sqlite/statement": {},
-    "src/db/sqlite/item-schema": {},
-    "src/db/sqlite/database": {},
-    "src/eschema/index.ts": {},
-    "src/eschema/eschema": {},
-    "src/eschema/entity-eschema": {},
-    "src/eschema/value-eschema": {},
-    "src/eschema/schema-composition": {},
-    "src/snapshot/index.ts": {},
-    "src/snapshot/snapshot": {},
-    "src/snapshot/domain": {},
-    "src/core/index.ts": {},
-    "src/core/broadcaster.ts": {},
-    "src/core/error.ts": {},
-    "src/core/schema.ts": {
-      "kind": "shared"
-    },
-    "src/core/ulid.ts": {},
-    "src/cli/cli.ts": {
-      "kind": "entry"
-    },
-    "src/cli/run.ts": {
-      "kind": "shared"
-    },
-    "src/cli/errors.ts": {},
-    "src/cli/snapshot": {},
-    "src/cli/contract-files": {},
-    "src/sync/index.ts": {},
-    "src/sync/sync.ts": {
-      "kind": "shared"
-    },
-    "src/db/sqlite/drivers/node": {},
-    "src/db/sqlite/drivers/bun": {},
-    "src/db/sqlite/drivers/better-sqlite3": {},
-    "src/db/sqlite/drivers/durable-object": {},
-    "src/eschema/domain/eschema-error": {
-      "kind": "shared"
-    },
-    "src/eschema/domain/introspection": {
-      "kind": "shared"
-    },
-    "src/eschema/domain/object-schema-runtime": {},
-    "src/eschema/domain/schema-model": {
-      "kind": "shared"
-    },
-    "src/snapshot/capture/eschema-capture": {},
-    "src/sync/composition/keyed-sync": {},
-    "src/sync/composition/single-item-sync": {},
-    "src/sync/lifecycle/partition-sync": {},
-    "src/sync/lifecycle/single-item-lifecycle": {},
-    "src/sync/lifecycle/strategy-lifecycle": {
-      "kind": "shared"
-    },
-    "src/sync/lifecycle/sync-execution": {},
-    "src/sync/workers/bidirectional": {},
-    "src/sync/workers/cadence-repair": {},
-    "src/sync/workers/single-item-source": {},
-    "src/sync/workers/new-to-old": {},
-    "src/sync/workers/old-to-new": {},
-    "src/sync/runtime/collection-model": {
-      "kind": "shared"
-    },
-    "src/sync/runtime/peer-sync": {},
-    "src/sync/runtime/collection-projection": {},
-    "src/sync/runtime/effect-runner": {
-      "kind": "shared"
-    },
-    "src/sync/runtime/mutation-pacing": {},
-    "src/sync/runtime/leadership": {
-      "subpaths": ["in-memory", "web-locks"]
-    },
-    "src/sync/runtime/pending-mutations": {},
-    "src/sync/runtime/strategy-runtime": {},
-    "src/sync/runtime/sync-source": {},
-    "src/sync/runtime/sync-registry": {},
-    "src/sync/runtime/sync-flow": {
-      "kind": "shared"
-    },
-    "src/sync/persistence/sync-store": {
-      "kind": "shared"
-    },
-    "src/sync/persistence/sync-replica": {},
-    "src/sync/persistence/sync-state": {},
-    "src/sync/domain/cadence-policy": {},
-    "src/sync/domain/entity-convergence": {},
-    "src/sync/domain/entity-validation": {},
-    "src/sync/domain/partition-identity": {},
-    "src/sync/domain/slice-coverage": {},
-    "src/sync/domain/strategy-state": {},
-    "src/sync/domain/sync-error": {},
-    "src/sync/domain/sync-event": {},
-    "src/sync/domain/sync-address": {}
   },
   "layerGraphs": {
     "std-table": {

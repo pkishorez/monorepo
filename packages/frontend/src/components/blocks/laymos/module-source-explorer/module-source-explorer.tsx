@@ -48,18 +48,7 @@ export function moduleSourceRequest(
   moduleId: string,
 ): ModuleSourceOpenRequest | undefined {
   const configured = modules.find(({ id }) => id === moduleId);
-  if (configured !== undefined) return { modulePath: configured.id };
-
-  for (const module of modules) {
-    const nested = module.nested.find(({ id }) => id === moduleId);
-    if (nested !== undefined) {
-      return {
-        modulePath: module.id,
-        initialFilePath: `${nested.id}/index.ts`,
-      };
-    }
-  }
-  return undefined;
+  return configured === undefined ? undefined : { modulePath: configured.id };
 }
 
 type UnchangedMode = 'show' | 'dim' | 'hide';

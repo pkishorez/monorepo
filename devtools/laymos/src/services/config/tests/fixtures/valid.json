@@ -2,12 +2,23 @@
   "$schema": "https://unpkg.com/laymos/schema.json",
   "sourceRoots": ["src"],
   "layers": {
-    "app": { "paths": ["src/app"], "description": "Application" },
-    "domain": { "paths": ["src/domain"] }
-  },
-  "modules": {
-    "src/app": {},
-    "src/domain": {}
+    "app": {
+      "paths": ["src/app"],
+      "description": "Application",
+      "modules": {
+        "src/app": {
+          "exposed": true
+        }
+      }
+    },
+    "domain": {
+      "paths": ["src/domain"],
+      "modules": {
+        "src/domain": {
+          "exposed": true
+        }
+      }
+    }
   },
   "layerGraphs": {
     "architecture": {

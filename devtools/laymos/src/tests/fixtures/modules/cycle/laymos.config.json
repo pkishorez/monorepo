@@ -1,10 +1,22 @@
 {
   "sourceRoots": ["src"],
-  "layers": { "app": { "paths": ["src"] } },
-  "modules": {
-    "src/a": { "kind": "shared" },
-    "src/b": { "kind": "shared" },
-    "src/root.ts": {}
+  "layers": {
+    "app": {
+      "paths": ["src"],
+      "modules": {
+        "src/a": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/b": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/root.ts": {
+          "exposed": true
+        }
+      }
+    }
   },
   "layerGraphs": {}
 }

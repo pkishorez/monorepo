@@ -1,6 +1,5 @@
 {
   "sourceRoots": ["src"],
   "layers": {},
-  "modules": { "src/app": {} },
   "layerGraphs": {}
 }

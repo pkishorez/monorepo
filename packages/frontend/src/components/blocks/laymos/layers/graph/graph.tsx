@@ -23,6 +23,7 @@ import type {
 import type { NamedLayerGraph } from '../layer-graphs';
 import { layerEmptyState } from '../presentation';
 import { graphIdentity } from '../../graph-engine';
+import { selectedNodeClass } from '../../selection-presentation';
 import {
   layoutGraph,
   type GraphHeaderNode,
@@ -36,6 +37,7 @@ interface LayerGraphProps extends LayerInteraction {
   readonly rules: readonly LayerRule[];
   readonly layerGraphs?: readonly NamedLayerGraph[];
   readonly activeLayerGraphId?: string;
+  readonly isolatedLayerGraphId?: string;
   readonly showLayerConnections?: boolean;
   readonly onLayerGraphActivate?: (graphId: string) => void;
   readonly activeViolationPair?: LayerViolationPair;
@@ -191,28 +193,15 @@ function LayerNode({ id, data }: NodeProps<LayerGraphNode>) {
       )}
     >
       <DirectionalHandles />
-      {data.targetHandles.map(({ id: handleId, offset }) => (
-        <Handle
-          key={handleId}
-          id={handleId}
-          type="target"
-          position={Position.Top}
-          className="!size-1 !border-0 !bg-transparent"
-          style={{ left: `${offset}%` }}
-        />
-      ))}
       <button
         type="button"
         disabled={!data.activationEnabled}
         className={cn(
           'nodrag nopan grid h-full w-full place-items-center rounded-lg border border-border bg-card px-4 text-sm font-semibold text-card-foreground shadow-sm outline-none transition-all',
           data.related && 'border-primary/70 bg-primary/5',
-          data.focused &&
-            'border-[3px] border-primary ring-2 ring-primary ring-offset-2 ring-offset-background shadow-lg',
+          data.focused && selectedNodeClass,
           data.violation &&
             'border-destructive bg-destructive/10 text-destructive ring-2 ring-destructive/25',
-          data.shared &&
-            'bg-[repeating-linear-gradient(135deg,transparent_0_7px,color-mix(in_oklab,var(--foreground)_5%,transparent)_7px_8px)]',
           data.activationEnabled &&
             !data.focused &&
             'cursor-pointer hover:border-primary/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',

@@ -36,7 +36,7 @@ describe('loadProject', () => {
   });
 
   test('surfaces validateLoadedConfig issues as a Config validation ConfigError', async () => {
-    const error = await run(fixture('modules/file-module-nested')).pipe(
+    const error = await run(fixture('modules/missing-module')).pipe(
       Effect.flip,
       Effect.runPromise,
     );
@@ -47,7 +47,7 @@ describe('loadProject', () => {
       issues: [
         {
           kind: 'module',
-          message: 'File Module src/button.ts cannot expose Subpaths',
+          message: 'Module src/ghost does not exist in the analysis universe',
         },
       ],
     });

@@ -7,11 +7,7 @@ import {
   TooltipTrigger,
 } from '#components/ui/tooltip';
 import { STATUS_BG, StatusDot } from '../status';
-import {
-  BAR_COL_INSET,
-  BAR_HEIGHT_PX,
-  BAR_MIN_WIDTH_PX,
-} from '../gantt/layout';
+import { BAR_COL_INSET, BAR_HEIGHT_PX, BAR_MIN_WIDTH_PX } from '../gantt';
 import type { TraceGroup } from '../trace-model';
 import { formatDuration } from '../trace-model';
 

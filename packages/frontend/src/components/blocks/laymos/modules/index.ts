@@ -7,5 +7,4 @@ export type {
   ModuleDependency,
   ModuleKind,
   ModuleViolation,
-  NestedModule,
 } from './model';

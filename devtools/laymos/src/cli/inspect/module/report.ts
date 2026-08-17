@@ -17,10 +17,14 @@ export function renderModuleInspection(inspection: ModuleInspection): string {
   const output = [
     `Module:   ${inspection.module.path}`,
     `Layer:    ${inspection.module.layer}`,
-    `Kind:     ${inspection.module.kind}`,
+    `Graph:    ${inspection.module.graph ?? 'none'}`,
+    `Shared:   ${inspection.module.shared}`,
+    `Exposed:  ${inspection.module.exposed}`,
     `Shape:    ${inspection.module.shape}`,
     `Observed: ${inspection.module.observedKind}`,
-    `Subpaths: ${inspection.module.subpaths.length}`,
+    ...(inspection.graphRules === undefined
+      ? []
+      : [`May import: ${inspection.graphRules.join(', ') || 'none'}`]),
     'Public entry points:',
     ...(inspection.publicEntryPoints.length === 0
       ? ['  none']

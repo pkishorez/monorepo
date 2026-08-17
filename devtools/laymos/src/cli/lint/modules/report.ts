@@ -7,17 +7,22 @@ import type {
 
 const headings: Readonly<Record<ModuleViolation['kind'], string>> = {
   coverage: 'unassigned files',
+  'graph-coverage': 'files below a Module Graph with no member',
   'missing-entry-point': 'missing Module entry points',
   dependency: 'forbidden Module dependencies',
   boundary: 'internal Module imports',
   cycle: 'Module cycles',
   'unused-shared': 'unused Shared Modules',
+  'dead-module': 'Modules nothing may import',
 };
 
-type ModuleReportInput = Pick<ModuleAnalysis, 'modules' | 'violations'>;
+type ModuleReportInput = Pick<
+  ModuleAnalysis,
+  'modules' | 'graphs' | 'violations'
+>;
 
 export function renderModuleReport(result: ModuleReportInput): string {
-  const summary = renderSummary(result.modules);
+  const summary = renderSummary(result.modules, result.graphs);
   if (result.violations.length === 0) {
     return [summary, colors.green('✓ No Module violations')].join('\n');
   }
@@ -36,12 +41,19 @@ export function renderModuleReport(result: ModuleReportInput): string {
   return sections.join('\n');
 }
 
-function renderSummary(modules: ModuleAnalysis['modules']): string {
-  const kinds = { normal: 0, shared: 0, entry: 0 };
+function renderSummary(
+  modules: ModuleAnalysis['modules'],
+  graphs: ModuleAnalysis['graphs'],
+): string {
   const sharedByLayer = new Map<string, number>();
+  let shared = 0;
+  let exposed = 0;
+  let members = 0;
   for (const module of modules) {
-    kinds[module.kind] += 1;
-    if (module.kind !== 'shared') continue;
+    if (module.exposed) exposed += 1;
+    if (module.graph !== undefined) members += 1;
+    if (!module.shared) continue;
+    shared += 1;
     sharedByLayer.set(module.layer, (sharedByLayer.get(module.layer) ?? 0) + 1);
   }
   const layers = [...sharedByLayer]
@@ -49,7 +61,8 @@ function renderSummary(modules: ModuleAnalysis['modules']): string {
     .map(([layer, count]) => `${layer} ${count}`)
     .join(', ');
   return [
-    `Modules: ${modules.length} (${kinds.normal} Normal, ${kinds.shared} Shared, ${kinds.entry} Entry)`,
+    `Modules: ${modules.length} (${shared} Shared, ${exposed} exposed, ${members} in a Module Graph)`,
+    `Module Graphs: ${graphs.length}`,
     `Shared by Layer: ${layers || 'none'}`,
   ].join('\n');
 }
@@ -58,6 +71,8 @@ function renderViolation(violation: ModuleViolation): string {
   switch (violation.kind) {
     case 'coverage':
       return `  ${colors.yellow('✕')} ${violation.file}`;
+    case 'graph-coverage':
+      return `  ${colors.yellow('✕')} ${violation.graph}: ${violation.file}`;
     case 'missing-entry-point':
       return `  ${colors.red('✕')} Missing Module entry point: ${violation.path}`;
     case 'dependency':
@@ -66,6 +81,7 @@ function renderViolation(violation: ModuleViolation): string {
     case 'cycle':
       return `  ${colors.red('✕')} ${violation.modules.join(' → ')} → ${violation.modules[0]}`;
     case 'unused-shared':
+    case 'dead-module':
       return `  ${colors.red('✕')} ${violation.module}`;
   }
 }

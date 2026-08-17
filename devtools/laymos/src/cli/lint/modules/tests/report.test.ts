@@ -17,17 +17,18 @@ describe('renderModuleReport', () => {
             {
               path: 'src/app',
               layer: 'app',
-              kind: 'entry',
+              shared: false,
+              exposed: false,
               shape: 'directory',
               observedKind: 'isolated',
-              subpaths: [],
             },
           ],
+          graphs: [],
           violations: [],
         }),
       ),
     ).toBe(
-      'Modules: 1 (0 Normal, 0 Shared, 1 Entry)\nShared by Layer: none\n✓ No Module violations',
+      'Modules: 1 (0 Shared, 0 exposed, 0 in a Module Graph)\nModule Graphs: 0\nShared by Layer: none\n✓ No Module violations',
     );
   });
 
@@ -37,10 +38,19 @@ describe('renderModuleReport', () => {
         {
           path: 'src/shared',
           layer: 'domain',
-          kind: 'shared',
+          shared: true,
+          exposed: false,
           shape: 'directory',
           observedKind: 'isolated',
-          subpaths: [],
+        },
+      ],
+      graphs: [
+        {
+          id: 'feature',
+          layer: 'domain',
+          path: 'src/feature',
+          members: ['src/feature/core', 'src/feature/index.ts'],
+          rules: { 'index.ts': ['core'] },
         },
       ],
       violations: [
@@ -66,6 +76,8 @@ describe('renderModuleReport', () => {
         },
         { kind: 'cycle', modules: ['src/a', 'src/b'] },
         { kind: 'unused-shared', module: 'src/shared' },
+        { kind: 'graph-coverage', graph: 'feature', file: 'src/feature/x.ts' },
+        { kind: 'dead-module', module: 'src/feature/core' },
       ],
     });
 
@@ -80,6 +92,12 @@ describe('renderModuleReport', () => {
       'Module cycles\n  ✕ src/a → src/b → src/a',
     );
     expect(plain(rendered)).toContain('unused Shared Modules\n  ✕ src/shared');
-    expect(plain(rendered)).toContain('6 violations');
+    expect(plain(rendered)).toContain(
+      'files below a Module Graph with no member\n  ✕ feature: src/feature/x.ts',
+    );
+    expect(plain(rendered)).toContain(
+      'Modules nothing may import\n  ✕ src/feature/core',
+    );
+    expect(plain(rendered)).toContain('8 violations');
   });
 });

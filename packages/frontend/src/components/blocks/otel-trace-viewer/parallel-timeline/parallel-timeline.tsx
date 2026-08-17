@@ -7,12 +7,12 @@ import {
 } from '#components/ui/popover';
 import { cn } from '#lib/utils';
 
-import { GanttHeader } from '../gantt/gantt-header';
 import {
   BAR_HEIGHT_PX,
   BAR_MIN_WIDTH_PX,
+  GanttHeader,
   ROW_HEIGHT_PX,
-} from '../gantt/layout';
+} from '../gantt';
 import { LOG_DOT_CLASS } from '../log-indicator';
 import { logDotColorClass } from '../log-severity';
 import { STATUS_BG } from '../status';

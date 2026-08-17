@@ -4,7 +4,7 @@ import {
   computeLayerRanks,
   flattenRules,
   graphGroups,
-  graphMemberships,
+  layerHosts,
   mergeConfiguredLayerEdges,
   type GraphGroup,
 } from '../../graph-engine';
@@ -25,7 +25,6 @@ const headerHeight = 44;
 const lanePadding = 32;
 const laneGap = 72;
 const siblingGap = 24;
-const rankRowGap = 20;
 const rankGap = 72;
 const layerOffsetY = 80;
 
@@ -36,11 +35,9 @@ export interface LayerNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly softlyDimmed: boolean;
   readonly violation: boolean;
-  readonly shared: boolean;
   readonly hoverEnabled: boolean;
   readonly activationEnabled: boolean;
   readonly openEnabled: boolean;
-  readonly targetHandles: readonly { id: string; offset: number }[];
   readonly onHoverChange?: (layerId: string | undefined) => void;
   readonly onActivate?: (layerId: string) => void;
   readonly onOpen?: (layerId: string) => void;
@@ -68,6 +65,7 @@ interface GraphLayoutInput extends LayerInteraction {
   readonly rules: readonly LayerRule[];
   readonly layerGraphs?: readonly NamedLayerGraph[];
   readonly activeLayerGraphId?: string;
+  readonly isolatedLayerGraphId?: string;
   readonly showLayerConnections?: boolean;
   readonly onLayerGraphActivate?: (graphId: string) => void;
   readonly activeViolationPair?: LayerViolationPair;
@@ -80,10 +78,9 @@ interface LaneLayout {
   readonly center: number;
 }
 
-interface LayerPosition {
+interface Slot {
   readonly x: number;
   readonly y: number;
-  readonly width: number;
 }
 
 export function layoutGraph(input: GraphLayoutInput): {
@@ -91,19 +88,13 @@ export function layoutGraph(input: GraphLayoutInput): {
   readonly edges: readonly Edge[];
 } {
   const groups = graphGroups(input);
-  const memberships = graphMemberships(groups);
+  const hosts = layerHosts(groups);
   const configuredEdges = mergeConfiguredLayerEdges(groups);
   const ranks = computeLayerRanks(input.layers, configuredEdges);
-  const lanes = computeLanes(groups, memberships, ranks);
+  const lanes = computeLanes(groups, ranks);
   const laneById = new Map(lanes.map((lane) => [lane.id, lane]));
-  const positions = computeLayerPositions(
-    input.layers,
-    groups,
-    memberships,
-    ranks,
-    laneById,
-  );
-  const laneHeight = computeLaneHeight(positions);
+  const slots = computeSlots(groups, ranks, laneById);
+  const laneHeight = computeLaneHeight(slots);
   const focus = resolveGraphFocus(input);
   const interaction = resolveLayerFocus({
     activeLayerId: input.activeLayerId,
@@ -120,20 +111,22 @@ export function layoutGraph(input: GraphLayoutInput): {
           input.activeViolationPair.toLayerId,
         ],
   );
-  const selectedGraphLayerIds =
-    input.activeLayerGraphId === undefined
+  const laneDimmed = (graphId: string): boolean =>
+    input.activeLayerGraphId !== undefined &&
+    input.activeLayerGraphId !== graphId;
+  // Selecting a LayerGraph asks what it is made of *and* what it leans on, so
+  // the Layers it reaches stay lit in their own lanes instead of dimming away.
+  const selected = groups.find(({ id }) => id === input.activeLayerGraphId);
+  const selectedLayerIds =
+    selected === undefined
       ? undefined
-      : new Set(
-          groups.find(({ id }) => id === input.activeLayerGraphId)?.layerIds ??
-            [],
-        );
+      : new Set([...selected.layerIds, ...selected.reachedLayerIds]);
+  const reachedBySelection = new Set(selected?.reachedLayerIds ?? []);
   const nodes: GraphNode[] = [];
 
   for (const group of groups) {
     const lane = laneById.get(group.id)!;
-    const dimmed =
-      input.activeLayerGraphId !== undefined &&
-      input.activeLayerGraphId !== group.id;
+    const dimmed = laneDimmed(group.id);
     nodes.push({
       id: `lane:${group.id}`,
       type: 'lane',
@@ -170,21 +163,13 @@ export function layoutGraph(input: GraphLayoutInput): {
   }
 
   for (const layer of input.layers) {
-    const position = positions.get(layer.id);
-    if (position === undefined) continue;
-    const graphIds = memberships.get(layer.id) ?? [];
-    const memberLanes = graphIds.flatMap((id) => {
-      const lane = laneById.get(id);
-      return lane === undefined ? [] : [lane];
-    });
-    const outsideSelectedGraph =
-      selectedGraphLayerIds !== undefined &&
-      !selectedGraphLayerIds.has(layer.id);
+    const slot = slots.get(layer.id);
+    if (slot === undefined) continue;
     nodes.push({
       id: layer.id,
       type: 'layer',
-      position: { x: position.x, y: position.y },
-      width: position.width,
+      position: slot,
+      width: layerWidth,
       height: layerHeight,
       sourcePosition: Position.Bottom,
       targetPosition: Position.Top,
@@ -196,11 +181,14 @@ export function layoutGraph(input: GraphLayoutInput): {
         label: layer.id,
         focused: focus.focusedLayerId === layer.id,
         related:
-          focus.focusedLayerId !== undefined &&
-          focus.focusedLayerId !== layer.id &&
-          focus.highlightedLayerIds.has(layer.id),
+          reachedBySelection.has(layer.id) ||
+          (focus.focusedLayerId !== undefined &&
+            focus.focusedLayerId !== layer.id &&
+            focus.highlightedLayerIds.has(layer.id)),
         dimmed:
-          (outsideSelectedGraph || hasFocus) &&
+          ((selectedLayerIds !== undefined &&
+            !selectedLayerIds.has(layer.id)) ||
+            hasFocus) &&
           !focus.highlightedLayerIds.has(layer.id),
         softlyDimmed:
           focus.hoveredRelatedLayerId !== undefined &&
@@ -208,17 +196,9 @@ export function layoutGraph(input: GraphLayoutInput): {
           layer.id !== focus.focusedLayerId &&
           layer.id !== focus.hoveredRelatedLayerId,
         violation: violationLayerIds.has(layer.id),
-        shared: graphIds.length > 1,
         hoverEnabled: interaction.hoverEnabled,
         activationEnabled: interaction.activationEnabled,
         openEnabled: input.onLayerOpen !== undefined,
-        targetHandles:
-          graphIds.length < 2
-            ? []
-            : memberLanes.map((lane) => ({
-                id: `target-${lane.id}`,
-                offset: ((lane.center - position.x) / position.width) * 100,
-              })),
         onHoverChange: input.onLayerHoverChange,
         onActivate: input.onLayerActivate,
         onOpen: input.onLayerOpen,
@@ -238,10 +218,7 @@ export function layoutGraph(input: GraphLayoutInput): {
           source: `graph:${group.id}`,
           target: layerId,
           sourceHandle: 'source-bottom',
-          targetHandle:
-            (memberships.get(layerId)?.length ?? 0) > 1
-              ? `target-${group.id}`
-              : 'target-top',
+          targetHandle: 'target-top',
           type: 'smoothstep',
           markerEnd: undefined,
           interactionWidth: 0,
@@ -263,29 +240,25 @@ export function layoutGraph(input: GraphLayoutInput): {
       );
   });
 
-  const visibleConfiguredEdges =
-    input.showLayerConnections === false ? [] : configuredEdges;
-  edges.push(
-    ...visibleConfiguredEdges.map((edge): Edge => {
-      const id = ruleId(edge.fromLayerId, edge.toLayerId);
+  // A Rule points at the one real Layer it names, wherever that Layer is drawn,
+  // so a Rule leaving its lane crosses the canvas rather than landing on a stub.
+  // Merged first: two LayerGraphs declaring the same Rule draw one line.
+  if (input.showLayerConnections !== false) {
+    for (const edge of configuredEdges) {
+      const { fromLayerId, toLayerId } = edge;
+      if (!slots.has(fromLayerId) || !slots.has(toLayerId)) continue;
+      const id = ruleId(fromLayerId, toLayerId);
       const highlighted = focus.highlightedRuleIds.has(id);
       const emphasized = focus.emphasizedRuleIds.has(id);
-      const outsideSelectedGraph =
+      const outsideSelection =
         input.activeLayerGraphId !== undefined &&
         !edge.graphIds.includes(input.activeLayerGraphId);
-      const routingGraphId =
-        edge.graphIds.length === 1 ? edge.graphIds[0] : undefined;
-      return {
-        id: `configured:${edge.graphIds.join('+')}:${edge.fromLayerId}->${edge.toLayerId}`,
-        source: edge.fromLayerId,
-        target: edge.toLayerId,
-        ...connectionHandles(
-          positions,
-          memberships,
-          edge.fromLayerId,
-          edge.toLayerId,
-          routingGraphId,
-        ),
+      const crosses = hosts.get(fromLayerId) !== hosts.get(toLayerId);
+      edges.push({
+        id: `configured:${fromLayerId}->${toLayerId}`,
+        source: fromLayerId,
+        target: toLayerId,
+        ...connectionHandles(slots, fromLayerId, toLayerId),
         type: 'smoothstep',
         markerEnd: { type: MarkerType.ArrowClosed },
         interactionWidth: 0,
@@ -295,33 +268,37 @@ export function layoutGraph(input: GraphLayoutInput): {
         style: {
           stroke: highlighted ? 'var(--primary)' : 'var(--muted-foreground)',
           strokeWidth: highlighted ? 2 : 1.25,
+          // A Rule that leaves its lane is dashed, so the eye can tell a
+          // dependency inside one responsibility from one that reaches out.
+          ...(crosses ? { strokeDasharray: '6 4' } : {}),
           opacity:
             focus.hoveredRelatedLayerId !== undefined && !emphasized
               ? 0
-              : outsideSelectedGraph
+              : outsideSelection
                 ? 0.05
                 : hasFocus && !highlighted
                   ? 0
                   : 1,
           pointerEvents: 'none',
         },
-        zIndex: 1,
-      };
-    }),
-  );
+        zIndex: crosses ? 2 : 1,
+      });
+    }
+  }
 
+  // A Violation is a dependency no Rule permits. It crosses the canvas above
+  // everything else.
   if (
     input.activeViolationPair !== undefined &&
-    positions.has(input.activeViolationPair.fromLayerId) &&
-    positions.has(input.activeViolationPair.toLayerId)
+    slots.has(input.activeViolationPair.fromLayerId) &&
+    slots.has(input.activeViolationPair.toLayerId)
   ) {
     edges.push({
       id: `violation:${input.activeViolationPair.id}`,
       source: input.activeViolationPair.fromLayerId,
       target: input.activeViolationPair.toLayerId,
       ...connectionHandles(
-        positions,
-        memberships,
+        slots,
         input.activeViolationPair.fromLayerId,
         input.activeViolationPair.toLayerId,
       ),
@@ -336,145 +313,82 @@ export function layoutGraph(input: GraphLayoutInput): {
         strokeWidth: 2.5,
         pointerEvents: 'none',
       },
-      zIndex: 2,
+      zIndex: 5,
     });
   }
 
   return { nodes, edges };
 }
 
+// A lane is as wide as its busiest rank row of hosted Layers.
 function computeLanes(
   groups: readonly GraphGroup[],
-  memberships: ReadonlyMap<string, readonly string[]>,
   ranks: ReadonlyMap<string, number>,
 ): readonly LaneLayout[] {
   let nextX = 0;
   return groups.map((graph) => {
     const counts = new Map<number, number>();
     for (const layerId of graph.layerIds) {
-      if ((memberships.get(layerId)?.length ?? 0) > 1) continue;
       const rank = ranks.get(layerId) ?? 0;
       counts.set(rank, (counts.get(rank) ?? 0) + 1);
     }
-    const maxSiblings = Math.max(1, ...counts.values());
+    const widest = Math.max(1, ...counts.values());
     const width =
-      maxSiblings * layerWidth +
-      (maxSiblings - 1) * siblingGap +
-      lanePadding * 2;
-    const lane = {
-      id: graph.id,
-      x: nextX,
-      width,
-      center: nextX + width / 2,
-    };
+      widest * layerWidth + (widest - 1) * siblingGap + lanePadding * 2;
+    const lane = { id: graph.id, x: nextX, width, center: nextX + width / 2 };
     nextX += width + laneGap;
     return lane;
   });
 }
 
-function computeLayerPositions(
-  layers: readonly Layer[],
+function computeSlots(
   groups: readonly GraphGroup[],
-  memberships: ReadonlyMap<string, readonly string[]>,
   ranks: ReadonlyMap<string, number>,
   laneById: ReadonlyMap<string, LaneLayout>,
-): ReadonlyMap<string, LayerPosition> {
-  const positions = new Map<string, LayerPosition>();
+): ReadonlyMap<string, Slot> {
+  const slots = new Map<string, Slot>();
   for (const graph of groups) {
     const lane = laneById.get(graph.id)!;
     const byRank = new Map<number, string[]>();
-    for (const layerId of graph.layerIds) {
-      if ((memberships.get(layerId)?.length ?? 0) > 1) continue;
+    const place = (layerId: string, nodeId: string): void => {
       const rank = ranks.get(layerId) ?? 0;
-      const siblings = byRank.get(rank) ?? [];
-      siblings.push(layerId);
-      byRank.set(rank, siblings);
-    }
-    for (const [rank, siblings] of byRank) {
-      siblings.forEach((layerId, index) => {
-        positions.set(layerId, {
+      const row = byRank.get(rank) ?? [];
+      row.push(nodeId);
+      byRank.set(rank, row);
+    };
+    for (const layerId of graph.layerIds) place(layerId, layerId);
+    for (const [rank, row] of byRank) {
+      row.forEach((nodeId, index) => {
+        slots.set(nodeId, {
           x:
             lane.center -
             layerWidth / 2 +
-            (index - (siblings.length - 1) / 2) * (layerWidth + siblingGap),
+            (index - (row.length - 1) / 2) * (layerWidth + siblingGap),
           y: layerOffsetY + rank * (layerHeight + rankGap),
-          width: layerWidth,
         });
       });
     }
   }
-
-  for (const layer of layers) {
-    const graphIds = memberships.get(layer.id) ?? [];
-    if (graphIds.length < 2) continue;
-    const memberLanes = graphIds.flatMap((id) => {
-      const lane = laneById.get(id);
-      return lane === undefined ? [] : [lane];
-    });
-    const left = Math.min(...memberLanes.map(({ center }) => center));
-    const right = Math.max(...memberLanes.map(({ center }) => center));
-    positions.set(layer.id, {
-      x: left - layerWidth / 2,
-      y: layerOffsetY + (ranks.get(layer.id) ?? 0) * (layerHeight + rankGap),
-      width: right - left + layerWidth,
-    });
-  }
-
-  let nextRankY = layerOffsetY;
-  const maxRank = Math.max(0, ...ranks.values());
-  for (let rank = 0; rank <= maxRank; rank += 1) {
-    const layersAtRank = layers
-      .filter((layer) => (ranks.get(layer.id) ?? 0) === rank)
-      .flatMap((layer) => {
-        const position = positions.get(layer.id);
-        return position === undefined ? [] : [{ layer, position }];
-      })
-      .sort(
-        (left, right) =>
-          left.position.x - right.position.x ||
-          right.position.width - left.position.width,
-      );
-    const rowEnds: number[] = [];
-    for (const { layer, position } of layersAtRank) {
-      let row = rowEnds.findIndex((end) => position.x >= end + siblingGap);
-      if (row === -1) row = rowEnds.length;
-      rowEnds[row] = position.x + position.width;
-      positions.set(layer.id, {
-        ...position,
-        y: nextRankY + row * (layerHeight + rankRowGap),
-      });
-    }
-    const rowCount = Math.max(1, rowEnds.length);
-    nextRankY += rowCount * layerHeight + (rowCount - 1) * rankRowGap + rankGap;
-  }
-  return positions;
+  return slots;
 }
 
-function computeLaneHeight(
-  positions: ReadonlyMap<string, LayerPosition>,
-): number {
+function computeLaneHeight(slots: ReadonlyMap<string, Slot>): number {
   return (
-    Math.max(layerOffsetY, ...[...positions.values()].map(({ y }) => y)) +
+    Math.max(layerOffsetY, ...[...slots.values()].map(({ y }) => y)) +
     layerHeight +
     36
   );
 }
 
 function connectionHandles(
-  positions: ReadonlyMap<string, LayerPosition>,
-  memberships: ReadonlyMap<string, readonly string[]>,
-  fromLayerId: string,
-  toLayerId: string,
-  graphId?: string,
+  slots: ReadonlyMap<string, Slot>,
+  sourceId: string,
+  targetId: string,
 ): { readonly sourceHandle: string; readonly targetHandle: string } {
-  const source = positions.get(fromLayerId)!;
-  const target = positions.get(toLayerId)!;
-  const deltaX = target.x + target.width / 2 - (source.x + source.width / 2);
+  const source = slots.get(sourceId)!;
+  const target = slots.get(targetId)!;
+  const deltaX = target.x - source.x;
   const deltaY = target.y - source.y;
-  const sharedTarget =
-    graphId !== undefined && (memberships.get(toLayerId)?.length ?? 0) > 1
-      ? `target-${graphId}`
-      : undefined;
 
   if (Math.abs(deltaY) < layerHeight) {
     return deltaX >= 0
@@ -485,19 +399,16 @@ function connectionHandles(
     if (deltaX > layerWidth / 3) {
       return {
         sourceHandle: 'source-bottom-right',
-        targetHandle: sharedTarget ?? 'target-top-left',
+        targetHandle: 'target-top-left',
       };
     }
     if (deltaX < -layerWidth / 3) {
       return {
         sourceHandle: 'source-bottom-left',
-        targetHandle: sharedTarget ?? 'target-top-right',
+        targetHandle: 'target-top-right',
       };
     }
-    return {
-      sourceHandle: 'source-bottom',
-      targetHandle: sharedTarget ?? 'target-top',
-    };
+    return { sourceHandle: 'source-bottom', targetHandle: 'target-top' };
   }
   if (deltaX > layerWidth / 3) {
     return { sourceHandle: 'source-right', targetHandle: 'target-left' };

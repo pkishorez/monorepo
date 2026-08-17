@@ -4,55 +4,97 @@
   "ignoredPaths": ["src/tests"],
   "layers": {
     "public-api": {
-      "paths": ["src/index.ts"]
+      "paths": ["src/index.ts"],
+      "modules": {
+        "src/index.ts": {}
+      }
     },
     "contract": {
-      "paths": ["src/architecture-analysis-schema", "src/change-set-schema"]
+      "paths": ["src/architecture-analysis-schema", "src/change-set-schema"],
+      "modules": {
+        "src/architecture-analysis-schema": { "exposed": true },
+        "src/change-set-schema": { "exposed": true }
+      }
     },
     "cli": {
-      "paths": ["src/cli"]
+      "paths": ["src/cli"],
+      "modules": {
+        "src/cli": {}
+      }
     },
     "orchestrator": {
-      "paths": ["src/orchestrator"]
+      "paths": ["src/orchestrator"],
+      "moduleGraphs": {
+        "project-orchestration": {
+          "description": "Loads a project once and derives every view of it.",
+          "path": "src/orchestrator",
+          "modules": {
+            "load-project": {},
+            "analyze-project": { "exposed": true },
+            "inspect": { "exposed": true },
+            "load-module-source": { "exposed": true },
+            "load-changes": { "exposed": true },
+            "run-stories": { "exposed": true }
+          },
+          "rules": {
+            "analyze-project": ["load-project"],
+            "inspect": ["analyze-project", "load-project"],
+            "load-module-source": ["load-project"]
+          }
+        }
+      }
     },
     "domain": {
-      "paths": ["src/domain"]
+      "paths": ["src/domain"],
+      "modules": {
+        "src/domain/file-graph": { "shared": true, "exposed": true },
+        "src/domain/project-config": { "shared": true, "exposed": true }
+      },
+      "moduleGraphs": {
+        "architecture-analysis": {
+          "description": "Derives the complete Layer and Module analysis of one project.",
+          "path": "src/domain/architecture-analysis",
+          "modules": {
+            "index.ts": { "exposed": true },
+            "architecture-analysis.ts": {},
+            "layer-rules.ts": {},
+            "layers": {},
+            "modules": { "exposed": true }
+          },
+          "rules": {
+            "index.ts": ["architecture-analysis.ts"],
+            "architecture-analysis.ts": ["layer-rules.ts", "layers", "modules"],
+            "modules": ["layers"]
+          }
+        }
+      }
     },
     "services": {
-      "paths": ["src/services"]
+      "paths": ["src/services"],
+      "modules": {
+        "src/services/config": { "exposed": true },
+        "src/services/file-cruiser": { "exposed": true },
+        "src/services/git": { "exposed": true }
+      }
     },
     "story": {
-      "paths": ["src/story"]
+      "paths": ["src/story"],
+      "moduleGraphs": {
+        "stories": {
+          "description": "Defines Stories and the contract their runs report.",
+          "path": "src/story",
+          "modules": {
+            "index.ts": { "exposed": true },
+            "schema": { "exposed": true },
+            "story.ts": {}
+          },
+          "rules": {
+            "index.ts": ["story.ts"],
+            "story.ts": ["schema"]
+          }
+        }
+      }
     }
-  },
-  "modules": {
-    "src/index.ts": { "kind": "entry" },
-    "src/architecture-analysis-schema": {},
-    "src/change-set-schema": {},
-    "src/cli": { "kind": "entry" },
-    "src/orchestrator/analyze-project": { "kind": "shared" },
-    "src/orchestrator/inspect": {},
-    "src/orchestrator/load-project": {
-      "kind": "shared"
-    },
-    "src/orchestrator/load-module-source": {},
-    "src/orchestrator/load-changes": {},
-    "src/domain/architecture-analysis": {
-      "subpaths": ["layers", "modules"]
-    },
-    "src/domain/file-graph": {
-      "kind": "shared"
-    },
-    "src/domain/project-config": {
-      "kind": "shared"
-    },
-    "src/services/config": {},
-    "src/services/file-cruiser": {},
-    "src/services/git": {},
-    "src/story": {
-      "subpaths": ["schema"]
-    },
-    "src/orchestrator/run-stories": {}
   },
   "layerGraphs": {
     "architecture": {

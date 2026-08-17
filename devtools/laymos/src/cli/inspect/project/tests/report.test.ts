@@ -8,9 +8,12 @@ describe('renderProjectInspection', () => {
       config: {
         sourceRoots: ['src'],
         ignoredPaths: [],
-        layers: { app: { paths: ['src'] } },
-        modules: {
-          'src/app': { kind: 'entry', subpaths: [] },
+        layers: {
+          app: {
+            paths: ['src'],
+            modules: { 'src/app': { shared: false, exposed: false } },
+            moduleGraphs: {},
+          },
         },
         layerGraphs: {},
       },
@@ -26,12 +29,13 @@ describe('renderProjectInspection', () => {
           {
             path: 'src/app',
             layer: 'app',
-            kind: 'entry',
+            shared: false,
+            exposed: false,
             shape: 'directory',
             observedKind: 'isolated',
-            subpaths: [],
           },
         ],
+        graphs: [],
         membership: new Map(),
         entryPoints: new Set(),
         dependencies: [],
@@ -40,7 +44,7 @@ describe('renderProjectInspection', () => {
     });
 
     expect(rendered).toBe(
-      'Layers: 1\nModules: 1 (0 Normal, 0 Shared, 1 Entry)\nLayer violations: 0\nModule violations: 0',
+      'Layers: 1\nModules: 1 (0 Shared, 0 exposed, 0 in a Module Graph)\nModule Graphs: 0\nLayer violations: 0\nModule violations: 0',
     );
   });
 });

@@ -8,10 +8,12 @@ const analysis: ArchitectureAnalysis = {
     sourceRoots: ['src'],
     ignoredPaths: [],
     layers: {
-      app: { paths: ['src/app'], description: 'Application' },
-    },
-    modules: {
-      'src/app': { kind: 'normal', subpaths: ['public'] },
+      app: {
+        paths: ['src/app'],
+        description: 'Application',
+        modules: { 'src/app': { shared: false, exposed: true } },
+        moduleGraphs: {},
+      },
     },
     layerGraphs: {
       architecture: { rules: { app: [] } },
@@ -32,12 +34,13 @@ const analysis: ArchitectureAnalysis = {
       {
         path: 'src/app',
         layer: 'app',
-        kind: 'normal',
+        shared: false,
+        exposed: true,
         shape: 'directory',
         observedKind: 'isolated',
-        subpaths: ['public'],
       },
     ],
+    graphs: [],
     membership: new Map([
       ['src/app/index.ts', 'src/app'],
       ['src/app/public/index.ts', 'src/app'],
@@ -62,7 +65,8 @@ describe('buildPresentationModel', () => {
     expect(model.modules[0]).toMatchObject({
       id: 'src/app',
       layerId: 'app',
-      nested: [{ id: 'src/app/public', path: 'public' }],
+      shared: false,
+      exposed: true,
     });
   });
 
@@ -76,6 +80,7 @@ describe('buildPresentationModel', () => {
             fromModule: 'src/app',
             toModule: 'src/app',
             toEntryPoint: 'src/app/public/index.ts',
+            permitted: true,
           },
         ],
       },
@@ -86,6 +91,7 @@ describe('buildPresentationModel', () => {
         fromModuleId: 'src/app',
         toModuleId: 'src/app',
         toEntryPointId: 'src/app/public',
+        permitted: true,
       },
     ]);
   });

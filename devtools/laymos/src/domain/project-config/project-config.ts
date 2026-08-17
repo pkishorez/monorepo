@@ -5,9 +5,12 @@ import {
   type Config,
   type ConfigValidationIssue,
 } from '../../architecture-analysis-schema/index.js';
+import { resolveConfig } from './resolve.js';
 import { validateProjectConfig } from './validation/index.js';
 
 export { ProjectConfigSchema };
+export { resolveConfig };
+export type { ResolvedConfig } from './resolve.js';
 export type { Config, ConfigValidationIssue };
 
 export function decodeProjectConfig(input: unknown) {
@@ -25,26 +28,24 @@ export function validateLoadedConfig(
   files: Iterable<string>,
 ): readonly ConfigValidationIssue[] {
   const knownFiles = new Set(files);
-  return Object.entries(config.modules).flatMap(([path, definition]) => {
-    if (knownFiles.has(path)) {
-      return definition.subpaths.length === 0
-        ? []
-        : [
-            {
-              kind: 'module' as const,
-              message: `File Module ${path} cannot expose Subpaths`,
-            },
-          ];
-    }
-    return [...knownFiles].some((file) => file.startsWith(`${path}/`))
-      ? []
-      : [
-          {
-            kind: 'module' as const,
-            message: `Module ${path} does not exist in the analysis universe`,
-          },
-        ];
-  });
+  const exists = (path: string) =>
+    knownFiles.has(path) ||
+    [...knownFiles].some((file) => file.startsWith(`${path}/`));
+  const { modules, graphs } = resolveConfig(config);
+  return [
+    ...Object.keys(modules)
+      .filter((path) => !exists(path))
+      .map((path) => ({
+        kind: 'module' as const,
+        message: `Module ${path} does not exist in the analysis universe`,
+      })),
+    ...Object.entries(graphs)
+      .filter(([, graph]) => !exists(graph.path))
+      .map(([id]) => ({
+        kind: 'module-graph' as const,
+        message: `Module Graph ${id} does not exist in the analysis universe`,
+      })),
+  ];
 }
 
 export function projectConfigJsonSchema(): Readonly<Record<string, unknown>> {
