@@ -1,1 +1,0 @@
-export { ArchitectureTreeLegend } from './legend';

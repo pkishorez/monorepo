@@ -3,6 +3,17 @@
   "sourceRoots": ["src"],
   "ignoredPaths": [
     "src/components/blocks/hello.tsx",
+    "src/components/blocks/laymos/analysis-explorer/fixtures",
+    "src/components/blocks/laymos/layer-inspection/details/fixtures",
+    "src/components/blocks/laymos/layer-inspection/fixtures",
+    "src/components/blocks/laymos/layer-inspection/graph/fixtures",
+    "src/components/blocks/laymos/layer-inspection/tree/fixtures",
+    "src/components/blocks/laymos/layer-inspection/violation/fixtures",
+    "src/components/blocks/laymos/module-inspection/fixtures",
+    "src/components/blocks/laymos/module-inspection/graph/fixtures",
+    "src/components/blocks/laymos/module-inspection/tree/fixtures",
+    "src/components/blocks/laymos/module-inspection/violation/fixtures",
+    "src/components/blocks/laymos/story-inspection/fixtures",
     "src/cosmos.decorator.tsx",
     "src/css.d.ts",
     "src/styles"
@@ -27,9 +38,6 @@
         "src/components/blocks/json": {
           "exposed": true
         },
-        "src/components/blocks/laymos": {
-          "exposed": true
-        },
         "src/components/blocks/otel-trace-viewer": {
           "shared": true,
           "exposed": true
@@ -46,6 +54,60 @@
         },
         "src/components/blocks/swim-lane": {
           "exposed": true
+        }
+      },
+      "moduleGraphs": {
+        "architecture-analysis-explorer": {
+          "description": "Lets consumers explore one Architecture Analysis through Layer, Configured Module, source, change, and Story views",
+          "path": "src/components/blocks/laymos",
+          "modules": {
+            "analysis-explorer": {
+              "exposed": true
+            },
+            "analysis-presentation": {},
+            "architecture-graph": {},
+            "architecture-tree": {},
+            "architecture-workspace": {},
+            "layer-inspection": {},
+            "module-inspection": {},
+            "module-source": {},
+            "project-changes": {},
+            "story-inspection": {}
+          },
+          "rules": {
+            "analysis-explorer": [
+              "analysis-presentation",
+              "architecture-tree",
+              "architecture-workspace",
+              "layer-inspection",
+              "module-inspection",
+              "module-source"
+            ],
+            "analysis-presentation": ["project-changes"],
+            "architecture-graph": ["analysis-presentation"],
+            "architecture-workspace": [
+              "analysis-presentation",
+              "architecture-graph",
+              "architecture-tree",
+              "layer-inspection",
+              "module-inspection",
+              "module-source",
+              "project-changes",
+              "story-inspection"
+            ],
+            "layer-inspection": [
+              "analysis-presentation",
+              "architecture-graph",
+              "architecture-tree"
+            ],
+            "module-inspection": [
+              "analysis-presentation",
+              "architecture-graph",
+              "architecture-tree",
+              "project-changes"
+            ],
+            "module-source": ["analysis-presentation"]
+          }
         }
       }
     },
