@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Effect } from 'effect';
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
-import type { RecordedFlow } from '../model';
+import type { RecordedFlow } from '../flow-presentation';
 import { FlowSwimlane } from '../flow-swimlane';
 import type { flowScenarios } from './scenarios';
 

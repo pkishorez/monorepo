@@ -6,7 +6,13 @@ import {
   Maximize2,
   Minimize2,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+} from 'react';
 
 import { Button } from '#components/ui/button';
 import {
@@ -18,17 +24,32 @@ import {
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
-import { StatusDot } from '../status';
-import { TraceDock, type TraceDockSettings } from '../trace-dock';
+import { JsonTree as JsonTreeView } from '../../json';
+import {
+  attachCapturedLogs as attachLogsFromCapture,
+  attachLogs as attachTraceLogs,
+  transformLog as normalizeLog,
+  transformSpan as normalizeSpan,
+} from '../trace-normalization';
+import { StatusDot } from '../trace-presentation';
+import { serviceColor as colorForService } from '../trace-presentation';
+import {
+  TraceDock as TraceDockView,
+  type TraceDockSettings,
+} from '../trace-dock';
+import {
+  NewTracesRow as NewTracesRowView,
+  TraceList as TraceListView,
+} from '../trace-list';
 import type { OtelSpan } from '../trace-model';
 import {
   collectSpans,
   formatDuration,
-  groupByTrace,
+  groupByTrace as groupTraceSpans,
   isLog,
   type TraceGroup,
 } from '../trace-model';
-import type { TraceView } from '../trace-view';
+import type { TraceView } from '../trace-presentation';
 
 const DEFAULT_SIDEBAR_WIDTH = 360;
 
@@ -90,7 +111,7 @@ export function TraceViewer({
   defaultView = 'waterfall',
   className,
 }: TraceViewerProps) {
-  const traces = useMemo(() => groupByTrace([...spans]), [spans]);
+  const traces = useMemo(() => groupTraceSpans([...spans]), [spans]);
   const [activeTraceId, setActiveTraceId] = useState(
     () => traces[0]?.traceId ?? null,
   );
@@ -340,7 +361,7 @@ export function TraceViewer({
                   trace.traceId !== activeTrace.traceId && 'hidden',
                 )}
               >
-                <TraceDock
+                <TraceDockView
                   trace={trace}
                   settings={settingsFor(trace)}
                   onSettingsChange={(next) => updateSettings(trace, next)}
@@ -357,4 +378,46 @@ export function TraceViewer({
       )}
     </div>
   );
+}
+
+export function TraceList(props: ComponentProps<typeof TraceListView>) {
+  return <TraceListView {...props} />;
+}
+
+export function NewTracesRow(props: ComponentProps<typeof NewTracesRowView>) {
+  return <NewTracesRowView {...props} />;
+}
+
+export function TraceDock(props: ComponentProps<typeof TraceDockView>) {
+  return <TraceDockView {...props} />;
+}
+
+export function JsonTree(props: ComponentProps<typeof JsonTreeView>) {
+  return <JsonTreeView {...props} />;
+}
+
+export function serviceColor(...args: Parameters<typeof colorForService>) {
+  return colorForService(...args);
+}
+
+export function groupByTrace(...args: Parameters<typeof groupTraceSpans>) {
+  return groupTraceSpans(...args);
+}
+
+export function attachLogs(...args: Parameters<typeof attachTraceLogs>) {
+  return attachTraceLogs(...args);
+}
+
+export function transformSpan(...args: Parameters<typeof normalizeSpan>) {
+  return normalizeSpan(...args);
+}
+
+export function transformLog(...args: Parameters<typeof normalizeLog>) {
+  return normalizeLog(...args);
+}
+
+export function attachCapturedLogs(
+  ...args: Parameters<typeof attachLogsFromCapture>
+) {
+  return attachLogsFromCapture(...args);
 }

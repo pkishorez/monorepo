@@ -1,6 +1,6 @@
 import { makeFlowExampleFixtures } from './examples';
 import { FlowSwimlane } from './flow-swimlane';
-import type { RecordedFlow } from './model';
+import type { RecordedFlow } from './flow-presentation';
 
 const hierarchyFlow: RecordedFlow = {
   id: 'participant-hierarchy',
