@@ -17,7 +17,7 @@
     "outdated": "pnpm outdated --recursive",
     "pnpm:outdated": "pnpm outdated --recursive",
     "release": "pnpm changeset publish",
-    "ci:publish": "pnpm lint && pnpm build && pnpm changeset publish",
+    "ci:publish": "pnpm build && pnpm lint && pnpm changeset publish",
     "syncpack:fix": "syncpack fix",
     "syncpack:outdated": "syncpack update --check --no-cache --target minor",
     "syncpack:update": "syncpack update --interactive --target minor",
