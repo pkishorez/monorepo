@@ -8,8 +8,8 @@ on:
         type: string
   workflow_dispatch:
     inputs:
-      stage:
-        description: 'Stage to destroy (e.g. pr3)'
+      pr:
+        description: 'PR number whose preview to destroy (e.g. 3)'
         required: true
         type: string
 
@@ -22,11 +22,17 @@ jobs:
       # Destroy also evaluates apps/docs/alchemy.run.ts, whose accident-guard
       # refuses deployed stages without this opt-in.
       ALLOW_DEPLOY: 'true'
+      # workflow_call passes a stage directly; workflow_dispatch takes a PR number.
+      STAGE: ${{ inputs.stage || format('pr{0}', inputs.pr) }}
     steps:
-      - name: Guard against prod teardown
+      - name: Validate stage
         run: |
-          if [ "${{ inputs.stage }}" = "prod" ]; then
-            echo "Refusing to destroy the '${{ inputs.stage }}' stage." >&2
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && ! echo "${{ inputs.pr }}" | grep -qE '^[0-9]+$'; then
+            echo "PR number must be numeric, got '${{ inputs.pr }}'." >&2
+            exit 1
+          fi
+          if [ "$STAGE" = "prod" ]; then
+            echo "Refusing to destroy the '$STAGE' stage." >&2
             exit 1
           fi
 
@@ -49,13 +55,13 @@ jobs:
       - name: Destroy docs preview
         id: destroy
         continue-on-error: true
-        run: pnpm -C apps/docs exec alchemy destroy --stage "${{ inputs.stage }}" --yes
+        run: pnpm -C apps/docs exec alchemy destroy --stage "$STAGE" --yes
 
       - name: Force-clear orphaned state on destroy failure
         if: steps.destroy.outcome == 'failure'
         run: |
-          echo "::warning::alchemy destroy failed for stage '${{ inputs.stage }}' — force-clearing alchemy state so the stage does not linger. Some cloud resources may need manual cleanup."
-          pnpm -C apps/docs exec alchemy state clear Docs "${{ inputs.stage }}" --stage "${{ inputs.stage }}" --yes
+          echo "::warning::alchemy destroy failed for stage '$STAGE' — force-clearing alchemy state so the stage does not linger. Some cloud resources may need manual cleanup."
+          pnpm -C apps/docs exec alchemy state clear Docs "$STAGE" --stage "$STAGE" --yes
 
       - name: Fail if destroy failed
         if: steps.destroy.outcome == 'failure'
@@ -64,7 +70,6 @@ jobs:
       - name: Job summary
         if: always()
         env:
-          STAGE: ${{ inputs.stage }}
           DESTROY_OUTCOME: ${{ steps.destroy.outcome }}
         run: |
           {
