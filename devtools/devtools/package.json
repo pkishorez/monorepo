@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@effect/platform-node-shared": "catalog:",
     "@pkishorez/lotel": "workspace:*",
     "effect": "catalog:",
     "env-paths": "catalog:",

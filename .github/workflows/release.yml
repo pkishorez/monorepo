@@ -42,18 +42,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
-
-      - name: Lint
-        run: pnpm lint
-
+      # Build and lint moved into ci:publish so they only run when there is
+      # actually something to publish; versioning and release-PR creation
+      # don't need them, and test.yml already gates every push to main.
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm run version
-          publish: pnpm run release
+          publish: pnpm run ci:publish
           title: 'chore: release packages'
           commit: 'chore: release packages'
         env:

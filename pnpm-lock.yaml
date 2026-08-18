@@ -30,6 +30,9 @@ catalogs:
     '@effect/platform-node':
       specifier: 4.0.0-beta.102
       version: 4.0.0-beta.102
+    '@effect/platform-node-shared':
+      specifier: 4.0.0-beta.102
+      version: 4.0.0-beta.102
     '@emotion/is-prop-valid':
       specifier: 1.4.0
       version: 1.4.0
@@ -446,6 +449,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-beta.102(effect@4.0.0-beta.102)(ioredis@5.11.1(supports-color@10.2.2))
+      '@effect/platform-node-shared':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.102(effect@4.0.0-beta.102)
       '@pkishorez/lotel':
         specifier: workspace:*
         version: link:../lotel
@@ -538,6 +544,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-beta.102(effect@4.0.0-beta.102)(ioredis@5.11.1(supports-color@10.2.2))
+      '@effect/platform-node-shared':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.102(effect@4.0.0-beta.102)
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../effect-tracer
@@ -837,6 +846,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-beta.102(effect@4.0.0-beta.102)(ioredis@5.11.1(supports-color@10.2.2))
+      '@effect/platform-node-shared':
+        specifier: 'catalog:'
+        version: 4.0.0-beta.102(effect@4.0.0-beta.102)
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../devtools/effect-tracer
@@ -1570,6 +1582,12 @@ packages:
         optional: true
       '@opentelemetry/sdk-trace-web':
         optional: true
+
+  '@effect/platform-node-shared@4.0.0-beta.102':
+    resolution: {integrity: sha512-gVd793I72MrkX4dXo7eYtRKfNj0RW4eMRfVEKEJI16h2+mBDCzQ+gqMrog2hSTHQnaIbvbYShNQ4TVGuRCYZeQ==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      effect: ^4.0.0-beta.102
 
   '@effect/platform-node-shared@4.0.0-beta.105':
     resolution: {integrity: sha512-UfeC8cFm4sP+XW14OO66CcOGJ8PcD102hH0kLwj8xUVL6nYIDGE/SJvlfVmFx+9OWF6rnjfXjMV6vyl6mCdhCQ==}
@@ -9140,6 +9158,15 @@ snapshots:
       '@opentelemetry/sdk-metrics': 2.9.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.9.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-node': 2.9.0(@opentelemetry/api@1.9.1)
+
+  '@effect/platform-node-shared@4.0.0-beta.102(effect@4.0.0-beta.102)':
+    dependencies:
+      '@types/ws': 8.18.1
+      effect: 4.0.0-beta.102
+      ws: 8.21.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   '@effect/platform-node-shared@4.0.0-beta.105(effect@4.0.0-beta.102)':
     dependencies:
