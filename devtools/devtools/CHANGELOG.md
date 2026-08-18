@@ -1,5 +1,14 @@
 # @pkishorez/devtools
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [[`3e4f58d`](https://github.com/pkishorez/monorepo/commit/3e4f58d500e3060b5a027f2a370e6ff0de233a5e)]:
+  - laymos@0.0.3
+  - std-toolkit@0.0.4
+  - @pkishorez/lotel@0.0.3
+
 ## 0.0.2
 
 ### Patch Changes
