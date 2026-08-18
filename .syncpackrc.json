@@ -23,7 +23,7 @@
       "policy": "semverRangeOnly"
     },
     {
-      "label": "Internal peerDependencies use workspace:^",
+      "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
         "@pkishorez/devtools",
         "@pkishorez/effect-tracer",
@@ -35,23 +35,7 @@
         "@pkishorez/code",
         "whatever"
       ],
-      "dependencyTypes": ["peer"],
-      "pinVersion": "workspace:^"
-    },
-    {
-      "label": "Internal dependencies and devDependencies use workspace:*",
-      "dependencies": [
-        "@pkishorez/devtools",
-        "@pkishorez/effect-tracer",
-        "laymos",
-        "@pkishorez/lotel",
-        "@monorepo/frontend",
-        "std-toolkit",
-        "use-effect-ts",
-        "@pkishorez/code",
-        "whatever"
-      ],
-      "dependencyTypes": ["prod", "dev"],
+      "dependencyTypes": ["prod", "dev", "peer"],
       "pinVersion": "workspace:*"
     },
     {
@@ -103,12 +87,7 @@
       "isIgnored": true
     },
     {
-      "label": "Peer dependencies use caret ranges",
-      "dependencyTypes": ["peer"],
-      "range": "^"
-    },
-    {
-      "label": "Registry dependencies use exact versions",
+      "label": "All registry dependencies, including peers, use exact versions",
       "range": ""
     }
   ],
