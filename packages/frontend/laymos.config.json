@@ -3,6 +3,8 @@
   "sourceRoots": ["src"],
   "ignoredPaths": [
     "src/components/blocks/hello.tsx",
+    "src/components/blocks/flow-swimlane/examples",
+    "src/components/blocks/flow-swimlane/flow-swimlane.fixture.tsx",
     "src/components/blocks/laymos/analysis-explorer/fixtures",
     "src/components/blocks/laymos/layer-inspection/details/fixtures",
     "src/components/blocks/laymos/layer-inspection/fixtures",
@@ -14,31 +16,33 @@
     "src/components/blocks/laymos/module-inspection/tree/fixtures",
     "src/components/blocks/laymos/module-inspection/violation/fixtures",
     "src/components/blocks/laymos/story-inspection/fixtures",
+    "src/components/blocks/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
     "src/cosmos.decorator.tsx",
     "src/css.d.ts",
     "src/styles"
   ],
   "layers": {
     "blocks": {
-      "paths": ["src/components/blocks"],
+      "paths": [
+        "src/components/blocks/diff-viewer",
+        "src/components/blocks/file-tree",
+        "src/components/blocks/flow-swimlane",
+        "src/components/blocks/json",
+        "src/components/blocks/otel-trace-viewer",
+        "src/components/blocks/sequence",
+        "src/components/blocks/source-viewer",
+        "src/components/blocks/state-machine-visualizer",
+        "src/components/blocks/swim-lane"
+      ],
       "description": "Feature-level components composed from UI primitives",
       "modules": {
         "src/components/blocks/diff-viewer": {
-          "shared": true,
           "exposed": true
         },
         "src/components/blocks/file-tree": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/blocks/flow-swimlane": {
-          "shared": true,
           "exposed": true
         },
         "src/components/blocks/json": {
-          "exposed": true
-        },
-        "src/components/blocks/otel-trace-viewer": {
           "shared": true,
           "exposed": true
         },
@@ -56,6 +60,86 @@
           "exposed": true
         }
       },
+      "moduleGraphs": {
+        "recorded-flow-explorer": {
+          "description": "Presents a Recorded Flow as an interactive hierarchical swimlane",
+          "path": "src/components/blocks/flow-swimlane",
+          "modules": {
+            "flow-swimlane": {
+              "exposed": true
+            },
+            "flow-presentation": {},
+            "flow-header": {},
+            "flow-canvas": {},
+            "flow-item-details": {}
+          },
+          "rules": {
+            "flow-swimlane": [
+              "flow-presentation",
+              "flow-header",
+              "flow-canvas",
+              "flow-item-details"
+            ],
+            "flow-header": ["flow-presentation"],
+            "flow-canvas": ["flow-presentation"],
+            "flow-item-details": ["flow-presentation"]
+          }
+        },
+        "otel-trace-explorer": {
+          "description": "Normalizes, browses, and inspects OpenTelemetry traces",
+          "path": "src/components/blocks/otel-trace-viewer",
+          "modules": {
+            "trace-viewer": {
+              "exposed": true
+            },
+            "trace-model": {},
+            "trace-normalization": {},
+            "trace-presentation": {},
+            "trace-list": {},
+            "trace-dock": {},
+            "waterfall-view": {},
+            "parallel-view": {},
+            "narrative-view": {},
+            "span-inspection": {}
+          },
+          "rules": {
+            "trace-viewer": [
+              "trace-model",
+              "trace-normalization",
+              "trace-presentation",
+              "trace-list",
+              "trace-dock"
+            ],
+            "trace-normalization": ["trace-model"],
+            "trace-presentation": ["trace-model"],
+            "trace-list": [
+              "trace-model",
+              "trace-presentation",
+              "waterfall-view"
+            ],
+            "trace-dock": [
+              "trace-model",
+              "trace-presentation",
+              "waterfall-view",
+              "parallel-view",
+              "narrative-view",
+              "span-inspection"
+            ],
+            "waterfall-view": ["trace-model", "trace-presentation"],
+            "parallel-view": [
+              "trace-model",
+              "trace-presentation",
+              "waterfall-view"
+            ],
+            "narrative-view": ["trace-model", "trace-presentation"],
+            "span-inspection": ["trace-model", "trace-presentation"]
+          }
+        }
+      }
+    },
+    "architecture-analysis": {
+      "paths": ["src/components/blocks/laymos"],
+      "description": "Architecture analysis components composed from reusable Blocks",
       "moduleGraphs": {
         "architecture-analysis-explorer": {
           "description": "Lets consumers explore one Architecture Analysis through Layer, Configured Module, source, change, and Story views",
@@ -323,6 +407,9 @@
         "src/hooks/use-mobile.ts": {
           "exposed": true
         },
+        "src/hooks/use-element-width.ts": {
+          "exposed": true
+        },
         "src/hooks/use-scroll.ts": {
           "exposed": true
         }
@@ -355,6 +442,7 @@
     "frontend": {
       "description": "Frontend component architecture",
       "rules": {
+        "architecture-analysis": ["blocks"],
         "blocks": ["ui"],
         "form": ["ui"],
         "ui": ["hooks", "lib"]

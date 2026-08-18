@@ -1,0 +1,115 @@
+import { Effect } from 'effect';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import type { RecordedFlow } from '../flow-presentation';
+import { FlowSwimlane } from './flow-swimlane';
+import { flowScenarios } from '../examples/scenarios';
+
+describe('FlowSwimlane', () => {
+  it('renders a Flow recorded from a real Effect program', async () => {
+    const scenario = flowScenarios[0]!;
+    const recorder = makeTraceRecorder({ requireFinishedSpans: true });
+    await Effect.runPromise(recorder.instrument(scenario.program()));
+    const flow = recorder.snapshotFlow(scenario.id)!;
+    const markup = renderToStaticMarkup(<FlowSwimlane flow={flow} />);
+
+    expect(markup).toContain(`data-flow-id="${scenario.id}"`);
+    expect(markup).toContain('data-flow-item="activity"');
+    expect(markup).toContain('data-flow-item="local-event"');
+    expect(markup).toContain('data-flow-item="message"');
+    expect(markup).toContain('data-flow-activation="completed"');
+    expect(markup).toContain('data-flow-item="activation-start"');
+    expect(markup).toContain('client-a');
+    expect(markup).toContain('signaling-server');
+    expect(markup).toContain('client-b');
+  });
+
+  it('makes log entries selectable and highlights the selected item', async () => {
+    const scenario = flowScenarios[0]!;
+    const recorder = makeTraceRecorder({ requireFinishedSpans: true });
+    await Effect.runPromise(recorder.instrument(scenario.program()));
+    const flow = recorder.snapshotFlow(scenario.id)!;
+    const log = flow.items.find((item) => item.kind !== 'activity')!;
+    const markup = renderToStaticMarkup(
+      <FlowSwimlane
+        flow={flow}
+        selectedItemId={log.id}
+        onItemClick={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('data-selected="true"');
+    expect(markup).toContain('log entry');
+  });
+
+  it('selects an expanded contiguous step by its own ID', () => {
+    const flow: RecordedFlow = {
+      id: 'sync-flow',
+      latestTimestamp: 2,
+      activations: [],
+      warnings: [],
+      items: [
+        {
+          kind: 'local-event',
+          id: 'first-write',
+          participantName: 'global',
+          name: 'Source of Truth write',
+          timestamp: 1,
+          severity: 'info',
+        },
+        {
+          kind: 'local-event',
+          id: 'second-write',
+          participantName: 'global',
+          name: 'Source of Truth write',
+          timestamp: 2,
+          severity: 'info',
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(
+      <FlowSwimlane
+        flow={flow}
+        selectedItemId="second-write"
+        onItemClick={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('data-selected="true"');
+    expect(markup).toContain('Source of Truth write');
+    expect(markup).not.toContain('data-flow-item="summary"');
+  });
+
+  it('renders every Participant Path segment in a compact sticky header', () => {
+    const flow: RecordedFlow = {
+      id: 'hierarchy',
+      latestTimestamp: 1,
+      activations: [],
+      warnings: [],
+      items: [
+        {
+          kind: 'local-event',
+          id: 'event',
+          participantName:
+            'browser:alice/comments.comment/a-very-long-worker-name-that-must-wrap',
+          name: 'Ready',
+          timestamp: 1,
+          severity: 'info',
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(<FlowSwimlane flow={flow} />);
+
+    expect(markup).toContain('data-flow-header="true"');
+    expect(markup).toContain('sticky top-0');
+    expect(markup).toContain('browser:alice');
+    expect(markup).toContain('comments.comment');
+    expect(markup).toContain('a-very-long-worker-name-that-must-wrap');
+    expect(markup).toContain('whitespace-nowrap');
+    expect(markup).toContain('grid-template-rows:repeat(3, 34px)');
+    expect(markup).toContain('grid-template-columns:121px 260px 121px');
+  });
+});

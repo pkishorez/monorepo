@@ -5,14 +5,18 @@ import { Button } from '#components/ui/button';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
-import { StatusDot } from '../status';
-import { Gantt } from '../gantt';
-import { Narrative } from '../narrative';
-import { ParallelTimeline } from '../parallel-timeline';
-import { LogSpanDetail, OverlapSpanSummary, SpanDetail } from '../span-detail';
+import { StatusDot } from '../trace-presentation';
+import { Gantt } from '../waterfall-view';
+import { Narrative } from '../narrative-view';
+import { ParallelTimeline } from '../parallel-view';
+import {
+  LogSpanDetail,
+  OverlapSpanSummary,
+  SpanDetail,
+} from '../span-inspection';
 import type { OtelEvent, OtelSpan } from '../trace-model';
 import { collectSpans, formatDuration, type TraceGroup } from '../trace-model';
-import type { TraceView } from '../trace-view';
+import type { TraceView } from '../trace-presentation';
 
 export type TraceDockSettings = {
   open: boolean;

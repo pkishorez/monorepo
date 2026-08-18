@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupByTrace } from './trace-group';
+import { groupByTrace } from './trace-model';
 import type { OtelSpan } from './types';
 
 const span = (

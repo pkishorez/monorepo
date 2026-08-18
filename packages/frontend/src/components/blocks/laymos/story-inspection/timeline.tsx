@@ -1,10 +1,17 @@
-import { useState, type ComponentProps } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 import { ChevronDown, Maximize2, X } from 'lucide-react';
 import type { StoryReport } from 'laymos';
 import ReactMarkdown from 'react-markdown';
 
-import { FlowItemDetails, FlowSwimlane } from '../../flow-swimlane/index';
-import { attachCapturedLogs, TraceViewer } from '../../otel-trace-viewer/index';
+import {
+  FlowItemDetails,
+  FlowSwimlane,
+  getFlowSummaryIds,
+} from '../../flow-swimlane/flow-swimlane';
+import {
+  attachCapturedLogs,
+  TraceViewer,
+} from '../../otel-trace-viewer/trace-viewer';
 import { SourceViewer } from '../../source-viewer/index';
 import {
   Collapsible,
@@ -204,29 +211,68 @@ const artifactStyles = {
   flow: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
 } as const;
 
-function FlowArtifactBody({ flow }: { readonly flow: RecordedFlow }) {
+function FlowArtifactBody({
+  flow,
+  onClose,
+}: {
+  readonly flow: RecordedFlow;
+  readonly onClose: () => void;
+}) {
   const [selected, setSelected] = useState<
     RecordedFlow['items'][number] | null
   >(null);
+  const summaryIds = useMemo(() => getFlowSummaryIds(flow), [flow]);
+  const [collapsedSummaryIds, setCollapsedSummaryIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const allSummariesCollapsed =
+    summaryIds.size > 0 &&
+    [...summaryIds].every((summaryId) => collapsedSummaryIds.has(summaryId));
   return (
     <div className="flex min-h-0 flex-1">
       <FlowSwimlane
         flow={flow}
         className="min-w-0 flex-1"
+        collapsedSummaryIds={collapsedSummaryIds}
+        onCollapsedSummaryIdsChange={setCollapsedSummaryIds}
         selectedItemId={selected?.id ?? null}
         onSelectionChange={setSelected}
       />
       <div
-        className={cn('w-96 shrink-0 overflow-y-auto', scrollbarStyles)}
+        className="flex w-96 shrink-0 flex-col"
         style={{ borderLeft: '1px solid var(--color-border)' }}
       >
-        {selected ? (
-          <FlowItemDetails item={selected} onClose={() => setSelected(null)} />
-        ) : (
-          <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
-            Select a flow item to inspect its attributes
-          </div>
-        )}
+        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-2">
+          <button
+            type="button"
+            disabled={summaryIds.size === 0}
+            onClick={() =>
+              setCollapsedSummaryIds(
+                allSummariesCollapsed ? new Set() : summaryIds,
+              )
+            }
+            className="rounded-md border border-border px-2 py-1 text-[11px] font-medium transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {allSummariesCollapsed ? 'Expand all' : 'Collapse all'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close dialog"
+            className="ml-auto shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', scrollbarStyles)}>
+          {selected ? (
+            <FlowItemDetails item={selected} />
+          ) : (
+            <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
+              Select a flow item to inspect its attributes
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -242,32 +288,17 @@ function ArtifactDialog({
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        showCloseButton={false}
+        showCloseButton={section.kind === 'trace'}
         className="flex h-[92vh] max-h-[92vh] w-[min(96vw,110rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[110rem]"
       >
-        <div className="flex items-center gap-2.5 border-b border-border px-5 py-3">
-          <span
-            className={cn(
-              'rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider',
-              artifactStyles[section.kind],
-            )}
-          >
-            {section.kind}
-          </span>
-          <DialogTitle className="min-w-0 flex-1 truncate text-sm font-semibold">
-            {section.kind === 'flow' ? section.flow.id : 'Captured trace'}
-          </DialogTitle>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close dialog"
-            className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-          >
-            <X className="size-4" />
-          </button>
-        </div>
+        <DialogTitle className="sr-only">
+          {section.kind === 'flow' ? section.flow.id : 'Captured trace'}
+        </DialogTitle>
         {section.kind === 'flow' ? (
-          <FlowArtifactBody flow={section.flow as RecordedFlow} />
+          <FlowArtifactBody
+            flow={section.flow as RecordedFlow}
+            onClose={onClose}
+          />
         ) : (
           <div
             className={cn('min-h-0 flex-1 overflow-y-auto', scrollbarStyles)}

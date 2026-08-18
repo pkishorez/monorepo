@@ -5,8 +5,12 @@ import { ArrowUpIcon, SearchIcon } from 'lucide-react';
 import { Button } from '#components/ui/button';
 import { Kbd } from '#components/ui/kbd';
 
-import { BAR_COL_INSET, BAR_MIN_WIDTH_PX, GanttHeader } from '../gantt';
-import { useElementWidth } from '../use-element-width';
+import {
+  BAR_COL_INSET,
+  BAR_MIN_WIDTH_PX,
+  GanttHeader,
+} from '../waterfall-view';
+import { useElementWidth } from '#hooks/use-element-width';
 import type { TraceGroup } from '../trace-model';
 import {
   type TraceColumn,
