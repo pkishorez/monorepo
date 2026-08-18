@@ -57,6 +57,9 @@ jobs:
         continue-on-error: true
         run: pnpm -C apps/docs exec alchemy destroy --stage "$STAGE" --yes
 
+      - name: State tree
+        run: pnpm -C apps/docs exec alchemy state tree || true
+
       - name: Force-clear orphaned state on destroy failure
         if: steps.destroy.outcome == 'failure'
         run: |
