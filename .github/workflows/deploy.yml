@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # `prod` binds docs.kishore.app; each PR gets its own pr<N> stage on
       # pr<N>-docs.kishore.app, destroyed when the PR closes.
@@ -58,24 +60,49 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Deploy only when docs or something it depends on changed: workspace
+      # packages via pnpm's changed-since filter (docs ∈ changed ∪ dependents),
+      # plus root files the graph can't attribute (this workflow, lockfile,
+      # catalogs). Unknown base (force-push, first run) deploys to be safe.
+      - name: Check docs affected
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          deploy=false
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            deploy=true
+          elif git diff --name-only "$base" HEAD | grep -qxE '\.github/workflows/deploy\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml'; then
+            deploy=true
+          elif pnpm ls -r --depth -1 --parseable --filter "...[$base]" | grep -q '/apps/docs$'; then
+            deploy=true
+          fi
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+
       # Workspace packages the docs site consumes export source, but building
       # the workspace mirrors test.yml and keeps dist-consuming deps working.
       - name: Build
+        if: steps.changes.outputs.deploy == 'true'
         run: pnpm build
 
       # Bootstrap is idempotent (adopts an existing state store), so it's safe
       # on every deploy.
       - name: Bootstrap Alchemy state store
+        if: steps.changes.outputs.deploy == 'true'
         run: pnpm -C apps/docs exec alchemy cloudflare bootstrap
 
       - name: Deploy docs
         id: deploy_docs
+        if: steps.changes.outputs.deploy == 'true'
         run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes
         env:
           STAGE: ${{ steps.stage.outputs.stage }}
 
       - name: State tree
-        if: always()
+        if: steps.changes.outputs.deploy == 'true' && always()
         run: pnpm -C apps/docs exec alchemy state tree || true
 
       - name: Job summary
@@ -89,6 +116,7 @@ jobs:
             case "$1" in
               success) echo "✅ deployed" ;;
               failure) echo "❌ failed" ;;
+              skipped) echo "⏭️ unchanged" ;;
               *) echo "$1" ;;
             esac
           }

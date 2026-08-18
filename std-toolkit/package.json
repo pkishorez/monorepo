@@ -111,6 +111,7 @@
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
+    "@effect/platform-node-shared": "catalog:",
     "@pkishorez/effect-tracer": "workspace:*",
     "@standard-schema/spec": "catalog:",
     "aws4fetch": "catalog:",
