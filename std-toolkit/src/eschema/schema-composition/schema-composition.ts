@@ -1,4 +1,4 @@
-import { Effect, Option, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { Effect, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import type {
   AnyESchema,
   AnyValueESchema,
@@ -40,9 +40,12 @@ export function toSchema(eschema: AnyESchema | AnyValueESchema): Schema.Top {
     : `ESchema_${eschema.name}`;
   const encodedSchema = eschema.schema.annotate({ identifier });
   const toIssue = (input: unknown, error: ESchemaError) =>
-    new SchemaIssue.InvalidValue(Option.some(input), {
-      message: error.message,
-    });
+    new SchemaIssue.InvalidValue(
+      {
+        message: error.message,
+      },
+      input,
+    );
   const surrogate = Schema.declare<unknown>(
     (_input: unknown): _input is unknown => true,
     {

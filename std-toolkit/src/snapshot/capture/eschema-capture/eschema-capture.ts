@@ -297,7 +297,7 @@ function inspectAst(ast: SchemaAST.AST): {
         });
       }
     }
-    if (node.context?.defaultValue !== undefined) {
+    if (node.context?.constructorDefault !== undefined) {
       const markerPath = path || '/';
       markers.set(`default:${markerPath}`, {
         path: markerPath,

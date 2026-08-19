@@ -1,10 +1,4 @@
-import {
-  Effect,
-  Option,
-  Schema,
-  SchemaIssue,
-  SchemaTransformation,
-} from 'effect';
+import { Effect, Schema, SchemaIssue, SchemaTransformation } from 'effect';
 import {
   EncodedItemSchema,
   type EncodedItem,
@@ -67,9 +61,12 @@ const toEncoded = (table: TableIndexes, record: DecodedItem): EncodedItem => {
 };
 
 const invalid = (input: unknown, cause: unknown) =>
-  new SchemaIssue.InvalidValue(Option.some(input), {
-    message: cause instanceof Error ? cause.message : String(cause),
-  });
+  new SchemaIssue.InvalidValue(
+    {
+      message: cause instanceof Error ? cause.message : String(cause),
+    },
+    input,
+  );
 
 export type ItemSchema = Schema.Codec<DecodedItem, EncodedItem>;
 

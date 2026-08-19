@@ -18,7 +18,7 @@ export const FlowListSchema = Schema.Struct({
   items: Schema.Array(EntitySchema(FlowEntitySchema)),
 });
 
-export class FlowNotFound extends Schema.TaggedErrorClass<FlowNotFound>(
+export class FlowNotFound extends Schema.TaggedError<FlowNotFound>(
   'FlowNotFound',
 )('FlowNotFound', { flowId: Schema.String }) {}
 

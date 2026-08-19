@@ -212,32 +212,30 @@ export function layoutGraph(input: GraphLayoutInput): {
     );
     return group.layerIds
       .filter((layerId) => !targets.has(layerId))
-      .map(
-        (layerId): Edge => ({
-          id: `membership:${group.id}->${layerId}`,
-          source: `graph:${group.id}`,
-          target: layerId,
-          sourceHandle: 'source-bottom',
-          targetHandle: 'target-top',
-          type: 'smoothstep',
-          markerEnd: undefined,
-          interactionWidth: 0,
-          className: 'pointer-events-none',
-          style: {
-            stroke: 'var(--muted-foreground)',
-            strokeWidth: 1,
-            strokeDasharray: '3 5',
-            opacity: hasFocus
-              ? 0
-              : input.activeLayerGraphId === undefined ||
-                  input.activeLayerGraphId === group.id
-                ? 0.3
-                : 0.06,
-            pointerEvents: 'none',
-          },
-          zIndex: 0,
-        }),
-      );
+      .map((layerId): Edge => ({
+        id: `membership:${group.id}->${layerId}`,
+        source: `graph:${group.id}`,
+        target: layerId,
+        sourceHandle: 'source-bottom',
+        targetHandle: 'target-top',
+        type: 'smoothstep',
+        markerEnd: undefined,
+        interactionWidth: 0,
+        className: 'pointer-events-none',
+        style: {
+          stroke: 'var(--muted-foreground)',
+          strokeWidth: 1,
+          strokeDasharray: '3 5',
+          opacity: hasFocus
+            ? 0
+            : input.activeLayerGraphId === undefined ||
+                input.activeLayerGraphId === group.id
+              ? 0.3
+              : 0.06,
+          pointerEvents: 'none',
+        },
+        zIndex: 0,
+      }));
   });
 
   // A Rule points at the one real Layer it names, wherever that Layer is drawn,
