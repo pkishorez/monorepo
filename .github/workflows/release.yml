@@ -47,13 +47,13 @@ jobs:
       # don't need them, and test.yml already gates every push to main.
       - name: Create Release Pull Request or Publish
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2.0.0-next.3
         with:
-          version: pnpm run version
-          publish: pnpm run ci:publish
-          title: 'chore: release packages'
-          commit: 'chore: release packages'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version-script: pnpm run version
+          publish-script: pnpm run ci:publish
+          pr-title: 'chore: release packages'
+          commit-message: 'chore: release packages'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_REGISTRY: https://registry.npmjs.org
           NPM_CONFIG_PROVENANCE: true
