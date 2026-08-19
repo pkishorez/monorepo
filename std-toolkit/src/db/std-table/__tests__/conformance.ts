@@ -434,6 +434,116 @@ export const runConformanceSuite = (
       );
     });
 
+    it('prepares a check op from a current value and rejects invalid values before transact', async () => {
+      await run(
+        Effect.gen(function* () {
+          const guardKey = { itemId: 'checked', category: 'a' };
+          yield* item.insert({
+            ...guardKey,
+            label: 'checked',
+            value: 1,
+          });
+
+          let checks = 0;
+          const check = yield* item.getAndCheckOp(guardKey, (current) => {
+            checks++;
+            return current.value === 1;
+          });
+          const write = yield* item.insertOp({
+            itemId: 'behind-check',
+            category: 'a',
+            label: 'behind-check',
+            value: 1,
+          });
+          expect(yield* conformanceTable.transact([check, write])).toEqual([
+            null,
+            expect.objectContaining({ value: expect.anything() }),
+          ]);
+          expect(checks).toBe(1);
+
+          const refused = yield* item
+            .getAndCheckOp(guardKey, () => false)
+            .pipe(Effect.result);
+          expect(refused).toMatchObject({
+            _tag: 'Failure',
+            failure: {
+              reason: { _tag: 'CheckRefused', entity: 'Item' },
+            },
+          });
+
+          const truthy = yield* item
+            .getAndCheckOp(guardKey, () => 1 as never)
+            .pipe(Effect.result);
+          expect(truthy).toMatchObject({
+            _tag: 'Failure',
+            failure: { reason: { _tag: 'CheckRefused' } },
+          });
+
+          const missing = yield* item
+            .getAndCheckOp(
+              { itemId: 'missing-check', category: 'a' },
+              () => true,
+            )
+            .pipe(Effect.result);
+          expect(missing).toMatchObject({
+            _tag: 'Failure',
+            failure: {
+              reason: { _tag: 'NoItemToCheck', entity: 'Item' },
+            },
+          });
+
+          yield* item.delete(guardKey);
+          let checkedTombstone = false;
+          const tombstoned = yield* item
+            .getAndCheckOp(guardKey, () => {
+              checkedTombstone = true;
+              return true;
+            })
+            .pipe(Effect.result);
+          expect(tombstoned).toMatchObject({
+            _tag: 'Failure',
+            failure: { reason: { _tag: 'NoItemToCheck' } },
+          });
+          expect(checkedTombstone).toBe(false);
+        }),
+      );
+    });
+
+    it('fails transact when a get-and-check entity changes after preparation', async () => {
+      await run(
+        Effect.gen(function* () {
+          const guardKey = { itemId: 'checked-stale', category: 'a' };
+          yield* item.insert({
+            ...guardKey,
+            label: 'checked-stale',
+            value: 1,
+          });
+          const check = yield* item.getAndCheckOp(
+            guardKey,
+            ({ value }) => value === 1,
+          );
+          yield* item.getAndUpdate(guardKey, { value: 2 });
+          const write = yield* item.insertOp({
+            itemId: 'blocked-by-check',
+            category: 'a',
+            label: 'blocked-by-check',
+            value: 1,
+          });
+
+          const result = yield* conformanceTable
+            .transact([check, write])
+            .pipe(Effect.result);
+          expect(result).toMatchObject({
+            _tag: 'Failure',
+            failure: { reason: { _tag: 'TransactFailed' } },
+          });
+          expect(
+            yield* item.get({ itemId: 'blocked-by-check', category: 'a' }),
+          ).toBeNull();
+        }),
+      );
+    });
+
     it('commits behind a passing check and rolls back every write behind a failing one', async () => {
       await run(
         Effect.gen(function* () {

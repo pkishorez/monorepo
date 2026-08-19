@@ -66,6 +66,37 @@ export const checkOps = Story.make({
         return results;
       }),
     }),
+    Story.question('How do you guard a batch on a business rule?', {
+      answer:
+        '`getAndCheckOp` reads a keyed row, applies your synchronous check to its domain value, and prepares an unchanged check when the result is true. A missing or tombstoned row fails with `NoItemToCheck`; a false result fails with `CheckRefused`. If the accepted row moves before commit, the transaction still fails with `TransactFailed`.',
+      proof: Effect.gen(function* () {
+        const results = yield* parity(
+          Effect.gen(function* () {
+            yield* note.insert(draft('guard'));
+            const check = yield* note.getAndCheckOp(
+              key('guard'),
+              ({ status }) => status === 'open',
+            );
+            const write = yield* note.insertOp(draft('new'));
+            const written = yield* table.transact([check, write]);
+            const refused = yield* note
+              .getAndCheckOp(key('guard'), ({ status }) => status === 'closed')
+              .pipe(Effect.flip);
+            return {
+              positions: noteIds(written),
+              refused: reasonOf(refused),
+            };
+          }),
+        );
+        yield* Story.assert(
+          'the accepted value guards the write and the refused value never becomes an op',
+          results.sqlite.positions.join() === ',new' &&
+            results.sqlite.refused === 'CheckRefused',
+        );
+        yield* Story.assert('every adapter agrees', agree(results));
+        return results;
+      }),
+    }),
     Story.question('What happens when the checked row moved?', {
       answer:
         'The batch fails with `TransactFailed` and nothing is written. The outcome report names the check op as `failed`, so you learn which assertion refused — not merely that something did.',

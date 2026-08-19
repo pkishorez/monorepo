@@ -150,6 +150,10 @@ _Avoid_: Cursor, pagination token, per-field comparison.
 The portable read-modify-write on an **entity surface** (`getAndUpdate` / `getAndUpdateOp`): read the current entity, derive a partial from it (plain partial or `current => partial` callback), and write back guarded on the `_u` that was read. The guarded, retrying counterpart to adapter-native update surfaces. A callback returning `null` means the rule vetoed the write: `getAndUpdate` skips silently and returns the row unchanged, while `getAndUpdateOp` fails with `UpdateRefused` so the surrounding **transact** is never submitted.
 _Avoid_: getUpdate, modify, RMW (spell out **get-and-update**).
 
+**Get-and-check**:
+The keyed-entity preparation of a **check op** (`getAndCheckOp`): read the current, non-tombstoned entity, accept or refuse its domain value through a synchronous business check, and guard the accepted value's `_u` in a later **transact**. An absent or tombstoned entity is `NoItemToCheck`, while a refused value is `CheckRefused`.
+_Avoid_: invariant check, getAndAssert, single-entity get-and-check.
+
 **Transact op**:
 A deferred participant in a **transact**, produced by an **entity surface** ahead of any transaction (`TransactOp`) — `insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp`, or a **check op**. Building an op validates, encodes, and captures the optimistic-concurrency expectation; a writing op performs no write until **transact** supplies the `_u` assigned at commit time.
 _Avoid_: PortableTransactionOp, deferred write (a check op writes nothing).

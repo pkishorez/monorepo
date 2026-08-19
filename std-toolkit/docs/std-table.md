@@ -58,12 +58,15 @@ conditionally on the row's update stamp — see
 `docs/adr/0002-portable-get-and-update.md`.
 
 **Transactions are buffered, never interactive.** You build operations
-(`insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp`) and commit them with
-`table.transact`. There is no "open a transaction, run arbitrary reads and
-writes inside it" API on any adapter, because DynamoDB cannot offer one — see
-`docs/adr/0001-buffered-transact-ops-only.md`. How the buffered guard reaches
-a SQLite driver as data is proved in the `SQLite` group's "Write your own
-driver" story.
+(`insertOp`, `getAndUpdateOp`, `getAndCheckOp`, `deleteOp`, `restoreOp`,
+`unchangedOp`, `existsOp`, `notExistsOp`) and commit them with `table.transact`.
+`getAndCheckOp` reads a keyed Entity, applies a synchronous business check, and
+prepares an unchanged check for the accepted value. There is no "open a
+transaction, run arbitrary reads and writes inside it" API on any adapter,
+because DynamoDB cannot offer one — see
+`docs/adr/0001-buffered-transact-ops-only.md`. How the buffered guard reaches a
+SQLite driver as data is proved in the `SQLite` group's "Write your own driver"
+story.
 
 ## Where to read more
 

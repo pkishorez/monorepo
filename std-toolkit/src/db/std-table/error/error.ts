@@ -7,6 +7,9 @@ export class ItemAlreadyExists extends Data.TaggedError('ItemAlreadyExists')<{
 export class NoItemToUpdate extends Data.TaggedError('NoItemToUpdate')<{
   readonly entity: string;
 }> {}
+export class NoItemToCheck extends Data.TaggedError('NoItemToCheck')<{
+  readonly entity: string;
+}> {}
 export class PrimaryKeyUpdateNotSupported extends Data.TaggedError(
   'PrimaryKeyUpdateNotSupported',
 )<{
@@ -17,6 +20,9 @@ export class ConditionFailed extends Data.TaggedError('ConditionFailed')<{
   readonly entity: string;
 }> {}
 export class UpdateRefused extends Data.TaggedError('UpdateRefused')<{
+  readonly entity: string;
+}> {}
+export class CheckRefused extends Data.TaggedError('CheckRefused')<{
   readonly entity: string;
 }> {}
 export class InvalidQuery extends Data.TaggedError('InvalidQuery')<{
@@ -63,9 +69,11 @@ export class OperationFailed extends Data.TaggedError('OperationFailed')<{
 export type DatabaseErrorReason =
   | ItemAlreadyExists
   | NoItemToUpdate
+  | NoItemToCheck
   | PrimaryKeyUpdateNotSupported
   | ConditionFailed
   | UpdateRefused
+  | CheckRefused
   | InvalidQuery
   | TransactionTooLarge
   | DuplicateTransactionTarget

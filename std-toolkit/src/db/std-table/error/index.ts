@@ -1,4 +1,5 @@
 export {
+  CheckRefused,
   ConditionFailed,
   DatabaseError,
   DecodeFailed,
@@ -6,6 +7,7 @@ export {
   ForeignTransactionItem,
   InvalidQuery,
   ItemAlreadyExists,
+  NoItemToCheck,
   NoItemToUpdate,
   OperationFailed,
   PrimaryKeyUpdateNotSupported,
