@@ -20,6 +20,7 @@ import {
 } from './module-analysis-schema.js';
 import {
   ConfigValidationIssueSchema,
+  ProjectConfigInputSchema,
   ProjectConfigSchema,
   type Config,
   type ConfigValidationIssue,
@@ -39,6 +40,7 @@ export {
   ConfigValidationIssueSchema,
   LayerAnalysisSchema,
   ModuleAnalysisSchema,
+  ProjectConfigInputSchema,
   ProjectConfigSchema,
 };
 export type {
