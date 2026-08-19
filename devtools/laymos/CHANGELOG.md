@@ -1,5 +1,11 @@
 # laymos
 
+## 0.0.5
+
+### Patch Changes
+
+- [`1581578`](https://github.com/pkishorez/monorepo/commit/15815780159aabe6e2f2347d0b5215338715422c) Thanks [@pkishorez](https://github.com/pkishorez)! - Fix architecture analysis serialization by separating the strict config wire schema from the defaulting author-input schema.
+
 ## 0.0.4
 
 ### Patch Changes
