@@ -1,10 +1,11 @@
 {
-  "$schema": "https://unpkg.com/@changesets/config@3.1.2/schema.json",
+  "$schema": "https://unpkg.com/@changesets/config@4.0.0/schema.json",
   "changelog": [
     "@changesets/changelog-github",
     { "repo": "pkishorez/monorepo" }
   ],
   "commit": false,
+  "format": false,
   "fixed": [["@pkishorez/devtools", "laymos", "@pkishorez/lotel"]],
   "linked": [],
   "access": "public",
