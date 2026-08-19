@@ -1,5 +1,14 @@
 # @pkishorez/lotel
 
+## 0.0.6
+
+### Patch Changes
+
+- [`66f7e10`](https://github.com/pkishorez/monorepo/commit/66f7e10cc241c31e3d204f237a8ba05fab1a060d) Thanks [@pkishorez](https://github.com/pkishorez)! - Release the synchronized toolchain against `effect@4.0.0-rc.110` with matching internal package versions.
+- Updated dependencies [[`66f7e10`](https://github.com/pkishorez/monorepo/commit/66f7e10cc241c31e3d204f237a8ba05fab1a060d)]:
+  - @pkishorez/effect-tracer@0.0.6
+  - std-toolkit@0.0.6
+
 ## 0.0.5
 
 ### Patch Changes
