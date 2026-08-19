@@ -6,7 +6,15 @@
   ],
   "commit": false,
   "format": false,
-  "fixed": [["@pkishorez/devtools", "laymos", "@pkishorez/lotel"]],
+  "fixed": [
+    [
+      "@pkishorez/effect-tracer",
+      "std-toolkit",
+      "@pkishorez/lotel",
+      "laymos",
+      "@pkishorez/devtools"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
