@@ -69,15 +69,13 @@ export const createLogicalTableSnapshot = (
           sk: [...entity.primary.sk],
         },
         accessPatterns: Object.entries(entity.accessPatterns)
-          .map(
-            ([name, pattern]): TableAccessPatternSnapshot => ({
-              name,
-              index: pattern.index,
-              kind: pattern.kind,
-              pk: [...pattern.pk],
-              sk: [...pattern.sk],
-            }),
-          )
+          .map(([name, pattern]): TableAccessPatternSnapshot => ({
+            name,
+            index: pattern.index,
+            kind: pattern.kind,
+            pk: [...pattern.pk],
+            sk: [...pattern.sk],
+          }))
           .sort((left, right) => compare(left.name, right.name)),
       };
     })

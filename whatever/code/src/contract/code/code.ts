@@ -7,7 +7,7 @@ import {
   RunStreamEventSchema,
 } from './schemas.js';
 
-export class CodeRpcError extends Schema.TaggedErrorClass<CodeRpcError>(
+export class CodeRpcError extends Schema.TaggedError<CodeRpcError>(
   'CodeRpcError',
 )('CodeRpcError', {
   code: Schema.String,

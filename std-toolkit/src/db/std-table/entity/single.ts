@@ -182,26 +182,24 @@ export const makeSingleEntity = <
         );
       }),
     unchangedOp: (entity: SingleEntityType<ESchemaType<S>>) =>
-      Effect.sync(
-        (): CheckOp<Name> => ({
-          tableName: definition.table.logicalName,
-          entityName: definition.name,
-          key,
-          target: `${key.pk}\0${key.sk}`,
-          operationKind: 'checkOp',
-          apply: () => ({
-            write: {
-              kind: 'check',
-              key,
-              condition:
-                entity.meta._u === ''
-                  ? { kind: 'not-exists' }
-                  : { kind: 'updated', value: entity.meta._u },
-            },
-            entity: null,
-          }),
+      Effect.sync((): CheckOp<Name> => ({
+        tableName: definition.table.logicalName,
+        entityName: definition.name,
+        key,
+        target: `${key.pk}\0${key.sk}`,
+        operationKind: 'checkOp',
+        apply: () => ({
+          write: {
+            kind: 'check',
+            key,
+            condition:
+              entity.meta._u === ''
+                ? { kind: 'not-exists' }
+                : { kind: 'updated', value: entity.meta._u },
+          },
+          entity: null,
         }),
-      ),
+      })),
     reset: () => replace(definition.defaultValue),
   };
 };

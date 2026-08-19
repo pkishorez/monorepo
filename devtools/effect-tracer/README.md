@@ -10,7 +10,7 @@ server.
 npm install @pkishorez/effect-tracer
 ```
 
-Requires `effect@^4.0.0-beta.102` as a peer dependency.
+Requires `effect@4.0.0-rc.110` as a peer dependency.
 
 ## `@pkishorez/effect-tracer/recorder`
 

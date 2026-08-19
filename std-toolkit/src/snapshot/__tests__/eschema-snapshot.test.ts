@@ -96,7 +96,7 @@ describe('ESchema semantic snapshots', () => {
       'Child',
       'Parent',
     ]);
-    expect(JSON.stringify(snapshot).match(/ESchemaRef/g)).toHaveLength(4);
+    expect(JSON.stringify(snapshot).match(/ESchemaRef/g)).toHaveLength(3);
 
     const first = ESchema.make('Same', { value: Schema.String }).build();
     const second = ESchema.make('Same', { value: Schema.String }).build();

@@ -109,11 +109,11 @@ export const ClearTelemetryResultSchema = Schema.Struct({
   deleted: Schema.Number,
 });
 
-export class LotelRpcError extends Schema.TaggedErrorClass<LotelRpcError>(
+export class LotelRpcError extends Schema.TaggedError<LotelRpcError>(
   'LotelRpcError',
 )('LotelRpcError', { message: Schema.String }) {}
 
-export class TraceNotFound extends Schema.TaggedErrorClass<TraceNotFound>(
+export class TraceNotFound extends Schema.TaggedError<TraceNotFound>(
   'TraceNotFound',
 )('TraceNotFound', { traceId: Schema.String }) {}
 
@@ -137,13 +137,13 @@ export const ExportLogsServiceResponseSchema = Schema.Struct({
   }),
 });
 
-export class OtlpBadRequest extends Schema.TaggedErrorClass<OtlpBadRequest>()(
+export class OtlpBadRequest extends Schema.TaggedError<OtlpBadRequest>()(
   'OtlpBadRequest',
   { message: Schema.String },
   { httpApiStatus: 400 },
 ) {}
 
-export class OtlpInternalError extends Schema.TaggedErrorClass<OtlpInternalError>()(
+export class OtlpInternalError extends Schema.TaggedError<OtlpInternalError>()(
   'OtlpInternalError',
   { message: Schema.String },
   { httpApiStatus: 500 },

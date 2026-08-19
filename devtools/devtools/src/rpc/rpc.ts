@@ -9,49 +9,49 @@ import {
 import { ChangeSetSchema, FileDiffSchema } from 'laymos/change-set-schema';
 import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
 
-export class InvalidProjectPath extends Schema.TaggedErrorClass<InvalidProjectPath>(
+export class InvalidProjectPath extends Schema.TaggedError<InvalidProjectPath>(
   'InvalidProjectPath',
 )('InvalidProjectPath', {
   reason: Schema.Literals(['relative', 'not-found', 'not-directory']),
 }) {}
 
-export class ConfigReadError extends Schema.TaggedErrorClass<ConfigReadError>(
+export class ConfigReadError extends Schema.TaggedError<ConfigReadError>(
   'ConfigReadError',
 )('ConfigReadError', { message: Schema.String }) {}
 
-export class ConfigParseError extends Schema.TaggedErrorClass<ConfigParseError>(
+export class ConfigParseError extends Schema.TaggedError<ConfigParseError>(
   'ConfigParseError',
 )('ConfigParseError', { message: Schema.String }) {}
 
-export class ConfigSchemaError extends Schema.TaggedErrorClass<ConfigSchemaError>(
+export class ConfigSchemaError extends Schema.TaggedError<ConfigSchemaError>(
   'ConfigSchemaError',
 )('ConfigSchemaError', { message: Schema.String }) {}
 
-export class ConfigValidationError extends Schema.TaggedErrorClass<ConfigValidationError>(
+export class ConfigValidationError extends Schema.TaggedError<ConfigValidationError>(
   'ConfigValidationError',
 )('ConfigValidationError', {
   issues: Schema.Array(ConfigValidationIssueSchema),
 }) {}
 
-export class SourceAnalysisError extends Schema.TaggedErrorClass<SourceAnalysisError>(
+export class SourceAnalysisError extends Schema.TaggedError<SourceAnalysisError>(
   'SourceAnalysisError',
 )('SourceAnalysisError', {
   message: Schema.String,
   baseDir: Schema.optional(Schema.String),
 }) {}
 
-export class ModuleSourceNotFoundError extends Schema.TaggedErrorClass<ModuleSourceNotFoundError>(
+export class ModuleSourceNotFoundError extends Schema.TaggedError<ModuleSourceNotFoundError>(
   'ModuleSourceNotFoundError',
 )('ModuleSourceNotFoundError', { modulePath: Schema.String }) {}
 
-export class ModuleSourceReadError extends Schema.TaggedErrorClass<ModuleSourceReadError>(
+export class ModuleSourceReadError extends Schema.TaggedError<ModuleSourceReadError>(
   'ModuleSourceReadError',
 )('ModuleSourceReadError', {
   filePath: Schema.String,
   message: Schema.String,
 }) {}
 
-export class StoriesUnavailableError extends Schema.TaggedErrorClass<StoriesUnavailableError>(
+export class StoriesUnavailableError extends Schema.TaggedError<StoriesUnavailableError>(
   'StoriesUnavailableError',
 )('StoriesUnavailableError', {
   reason: Schema.Literals([
@@ -66,7 +66,7 @@ export class StoriesUnavailableError extends Schema.TaggedErrorClass<StoriesUnav
   path: Schema.String,
 }) {}
 
-export class GitUnavailableError extends Schema.TaggedErrorClass<GitUnavailableError>(
+export class GitUnavailableError extends Schema.TaggedError<GitUnavailableError>(
   'GitUnavailableError',
 )('GitUnavailableError', {
   reason: Schema.Literals(['not-a-repo', 'unknown-ref', 'command-failed']),

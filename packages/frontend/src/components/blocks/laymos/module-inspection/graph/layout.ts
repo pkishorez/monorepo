@@ -618,35 +618,33 @@ function layerEdges(
     );
     return group.layerIds
       .filter((layerId) => !targets.has(layerId))
-      .map(
-        (layerId): Edge => ({
-          id: `module-graph-membership:${group.id}->${layerId}`,
-          source: `module-graph-header:${group.id}`,
-          target: layerId,
-          sourceHandle: 'graph-source-bottom',
-          targetHandle: 'layer-target-top',
-          type: 'smoothstep',
-          markerEnd: undefined,
-          interactionWidth: 0,
-          selectable: false,
-          focusable: false,
-          className: 'pointer-events-none',
-          style: {
-            stroke: 'var(--muted-foreground)',
-            strokeWidth: 1,
-            strokeDasharray: '3 5',
-            opacity:
-              hasFocus || input.focusedLayerId !== undefined
-                ? 0
-                : input.activeLayerGraphId === undefined ||
-                    input.activeLayerGraphId === group.id
-                  ? 0.3
-                  : 0.06,
-            pointerEvents: 'none',
-          },
-          zIndex: zLayerEdge,
-        }),
-      );
+      .map((layerId): Edge => ({
+        id: `module-graph-membership:${group.id}->${layerId}`,
+        source: `module-graph-header:${group.id}`,
+        target: layerId,
+        sourceHandle: 'graph-source-bottom',
+        targetHandle: 'layer-target-top',
+        type: 'smoothstep',
+        markerEnd: undefined,
+        interactionWidth: 0,
+        selectable: false,
+        focusable: false,
+        className: 'pointer-events-none',
+        style: {
+          stroke: 'var(--muted-foreground)',
+          strokeWidth: 1,
+          strokeDasharray: '3 5',
+          opacity:
+            hasFocus || input.focusedLayerId !== undefined
+              ? 0
+              : input.activeLayerGraphId === undefined ||
+                  input.activeLayerGraphId === group.id
+                ? 0.3
+                : 0.06,
+          pointerEvents: 'none',
+        },
+        zIndex: zLayerEdge,
+      }));
   });
   if (!input.showLayerConnections) return membershipEdges;
 

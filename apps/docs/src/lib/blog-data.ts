@@ -11,7 +11,6 @@ export const getBlogData = createIsomorphicFn()
     const { loadBlogData } = await import('./blog');
     return loadBlogData();
   })
-  .client(
-    async (): Promise<{ posts: BlogPostMeta[] }> =>
-      (await fetch('/api/blog')).json(),
+  .client(async (): Promise<{ posts: BlogPostMeta[] }> =>
+    (await fetch('/api/blog')).json(),
   );
