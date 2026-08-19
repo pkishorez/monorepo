@@ -135,6 +135,10 @@ export interface KeyedEntity<
     update: UpdateInput<S>,
     options?: { readonly lastWriteWins?: boolean },
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
+  getAndCheckOp(
+    key: EntityKey<S, Pk>,
+    check: (current: EntityValue<S>) => boolean,
+  ): TableEffect<CheckOp<Name>, Name>;
   delete(key: EntityKey<S, Pk>): TableEffect<EntityType<EntityValue<S>>, Name>;
   deleteOp(
     key: EntityKey<S, Pk>,

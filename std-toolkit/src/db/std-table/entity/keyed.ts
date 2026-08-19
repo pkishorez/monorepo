@@ -2,8 +2,10 @@ import { Effect } from 'effect';
 import { nextUlid, type EntityType } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import {
+  CheckRefused,
   DatabaseError,
   ItemAlreadyExists,
+  NoItemToCheck,
   NoItemToUpdate,
   PrimaryKeyUpdateNotSupported,
   UpdateRefused,
@@ -277,6 +279,25 @@ export const makeKeyedEntity = <
       update: UpdateInput<S>,
       options?: { lastWriteWins?: boolean },
     ) => updateOp(key, update, 'updateOp', options),
+    getAndCheckOp: (
+      key: EntityKey<S, Pk>,
+      check: (current: EntityValue<S>) => boolean,
+    ) =>
+      Effect.gen(function* () {
+        const existing = yield* read(key);
+        if (existing === null || existing.meta._d)
+          return yield* failReason(
+            new NoItemToCheck({ entity: definition.name }),
+          );
+        if (check(existing.value as EntityValue<S>) !== true)
+          return yield* failReason(
+            new CheckRefused({ entity: definition.name }),
+          );
+        return yield* checkOp(existing.value as object as JsonObject, {
+          kind: 'updated',
+          value: existing.meta._u,
+        });
+      }),
     delete: (key: EntityKey<S, Pk>) => tombstone(key, true),
     deleteOp: (key: EntityKey<S, Pk>, options?: { lastWriteWins?: boolean }) =>
       updateOp(key, {}, 'deleteOp', options),
