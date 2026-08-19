@@ -4,6 +4,7 @@ export {
   ConfigValidationIssueSchema,
   LayerAnalysisSchema,
   ModuleAnalysisSchema,
+  ProjectConfigInputSchema,
   ProjectConfigSchema,
 } from './architecture-analysis-schema.js';
 /** Renderers and analyzers share these browser-safe data shapes. */

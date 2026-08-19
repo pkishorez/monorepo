@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 
 import {
+  ProjectConfigInputSchema,
   ProjectConfigSchema,
   type Config,
   type ConfigValidationIssue,
@@ -8,13 +9,13 @@ import {
 import { resolveConfig } from './resolve.js';
 import { validateProjectConfig } from './validation/index.js';
 
-export { ProjectConfigSchema };
+export { ProjectConfigInputSchema, ProjectConfigSchema };
 export { resolveConfig };
 export type { ResolvedConfig } from './resolve.js';
 export type { Config, ConfigValidationIssue };
 
 export function decodeProjectConfig(input: unknown) {
-  return Schema.decodeUnknownEffect(ProjectConfigSchema)(input);
+  return Schema.decodeUnknownEffect(ProjectConfigInputSchema)(input);
 }
 
 export function validateConfig(
@@ -49,7 +50,7 @@ export function validateLoadedConfig(
 }
 
 export function projectConfigJsonSchema(): Readonly<Record<string, unknown>> {
-  const standard = Schema.toStandardJSONSchemaV1(ProjectConfigSchema);
+  const standard = Schema.toStandardJSONSchemaV1(ProjectConfigInputSchema);
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
     ...standard['~standard'].jsonSchema.input({ target: 'draft-07' }),

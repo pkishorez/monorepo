@@ -1,5 +1,8 @@
 // Config readers use the canonical runtime contract for a Laymos Config.
-export { ProjectConfigSchema } from './project-config.js';
+export {
+  ProjectConfigInputSchema,
+  ProjectConfigSchema,
+} from './project-config.js';
 // External analysis consumers use the decoded Config shape by name.
 export type { Config } from './project-config.js';
 // Config errors preserve semantic validation details for CLI and RPC views.
