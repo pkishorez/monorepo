@@ -25,7 +25,7 @@
     "test": "vp run -r test",
     "stories": "vp run -r stories",
     "updates": "npx -y npm-check-updates -iws",
-    "version": "changeset version"
+    "version": "changeset version && vp fmt"
   },
   "devDependencies": {
     "@changesets/changelog-github": "catalog:",
