@@ -1,5 +1,5 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
-import { Newspaper } from 'lucide-react';
+import { FlaskConical, Newspaper } from 'lucide-react';
 import { appName } from './shared';
 
 export function baseOptions(): BaseLayoutProps {
@@ -24,6 +24,12 @@ export function baseOptions(): BaseLayoutProps {
         url: '/blog',
         on: 'nav',
         icon: <Newspaper />,
+      },
+      {
+        text: 'Demos',
+        url: '/demos',
+        on: 'nav',
+        icon: <FlaskConical />,
       },
     ],
   };

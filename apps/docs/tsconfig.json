@@ -7,7 +7,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": ["vite/client", "node"],
+    "types": ["vite/client", "node", "@cloudflare/workers-types"],
     "isolatedModules": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
@@ -18,6 +18,7 @@
       "@/*": ["./src/*"],
       "collections/*": ["./.source/*"]
     },
+    "allowImportingTsExtensions": true,
     "noEmit": true
   }
 }
