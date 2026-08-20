@@ -1,5 +1,5 @@
 import { Context, Data, Effect, Layer } from 'effect';
-import type { EntityType } from 'std-toolkit/core';
+import type { DecodedEntity } from 'std-toolkit/core';
 import type {
   LogRecord,
   SpanRecord,
@@ -32,30 +32,30 @@ export interface TelemetryStoreShape {
   listSpans(
     _u: UpdateCursor,
     limit?: number,
-  ): Effect.Effect<{ items: EntityType<SpanRecord>[] }, TelemetryStoreError>;
+  ): Effect.Effect<{ items: DecodedEntity<SpanRecord>[] }, TelemetryStoreError>;
   listLogs(
     _u: UpdateCursor,
     limit?: number,
-  ): Effect.Effect<{ items: EntityType<LogRecord>[] }, TelemetryStoreError>;
+  ): Effect.Effect<{ items: DecodedEntity<LogRecord>[] }, TelemetryStoreError>;
   listFlows(
     _u: UpdateCursor,
     limit?: number,
-  ): Effect.Effect<{ items: EntityType<FlowEntity>[] }, TelemetryStoreError>;
+  ): Effect.Effect<{ items: DecodedEntity<FlowEntity>[] }, TelemetryStoreError>;
   findSpansByTrace(
     traceId: string,
-  ): Effect.Effect<EntityType<SpanRecord>[], TelemetryStoreError>;
+  ): Effect.Effect<DecodedEntity<SpanRecord>[], TelemetryStoreError>;
   findLogsByTrace(
     traceId: string,
-  ): Effect.Effect<EntityType<LogRecord>[], TelemetryStoreError>;
+  ): Effect.Effect<DecodedEntity<LogRecord>[], TelemetryStoreError>;
   findFlow(
     flowId: string,
-  ): Effect.Effect<EntityType<FlowEntity> | null, TelemetryStoreError>;
+  ): Effect.Effect<DecodedEntity<FlowEntity> | null, TelemetryStoreError>;
   findSpansByFlow(
     flowId: string,
-  ): Effect.Effect<EntityType<SpanRecord>[], TelemetryStoreError>;
+  ): Effect.Effect<DecodedEntity<SpanRecord>[], TelemetryStoreError>;
   findLogsByFlow(
     flowId: string,
-  ): Effect.Effect<EntityType<LogRecord>[], TelemetryStoreError>;
+  ): Effect.Effect<DecodedEntity<LogRecord>[], TelemetryStoreError>;
   clearTelemetry: Effect.Effect<number, TelemetryStoreError>;
 }
 

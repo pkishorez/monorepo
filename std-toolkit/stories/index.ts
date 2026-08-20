@@ -70,6 +70,7 @@ import { editsKeepFlowing } from './sync/staying-current/edits-keep-flowing.stor
 import { oneListAtATime } from './sync/syncing-on-demand/one-list-at-a-time.story.js';
 import { crossCollection } from './sync/optimistic-transactions/cross-collection.story.js';
 import { issue1 } from './sync/issue-1/issue-1.story.js';
+import { peerSyncModel } from './sync/peer-sync/peer-sync-model.story.js';
 import { oneBrowserManyTabs } from './sync/two-tabs/one-browser-many-tabs.story.js';
 import { oneReaderManyTabs } from './sync/leadership/one-reader-many-tabs.story.js';
 import { yieldingLeadership } from './sync/leadership/yielding-leadership.story.js';
@@ -154,6 +155,7 @@ export default Story.group('std-toolkit', [
     Story.group('Syncing on demand', [oneListAtATime]),
     Story.group('Optimistic transactions', [crossCollection]),
     Story.group('Many tabs', [oneBrowserManyTabs]),
+    Story.group('Peer Sync', [peerSyncModel]),
     Story.group('Leadership', [
       oneReaderManyTabs,
       yieldingLeadership,
