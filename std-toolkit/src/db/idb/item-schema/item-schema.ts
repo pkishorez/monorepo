@@ -7,7 +7,7 @@ import {
 } from '../../std-table/contract/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 
-export type DecodedItem = Record<string, unknown>;
+export type NativeItem = Record<string, unknown>;
 
 type TableIndexes = Pick<
   TableDefinition,
@@ -24,23 +24,27 @@ const indexAttributes = (table: TableIndexes) => [
 
 export const decodeKey = ({ pk, sk }: EncodedKey): [string, string] => [pk, sk];
 
-const isRecord = (value: unknown): value is DecodedItem =>
+const isRecord = (value: unknown): value is NativeItem =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const DecodedItemSchema = Schema.declare<DecodedItem>(isRecord);
+const NativeItemSchema = Schema.declare<NativeItem>(isRecord);
 
-const toDecoded = (item: EncodedItem): DecodedItem => ({
+const toDecoded = (item: EncodedItem): NativeItem => ({
   pk: item.pk,
   sk: item.sk,
   _e: item.meta._e,
-  _v: item.meta._v,
+  _v: item.data._v,
   _u: item.meta._u,
   _d: item.meta._d,
   data: item.data,
   ...item.keys,
 });
 
-const toEncoded = (table: TableIndexes, record: DecodedItem): EncodedItem => {
+const toEncoded = (table: TableIndexes, record: NativeItem): EncodedItem => {
+  const data = record.data as JsonObject;
+  if (record._v !== data._v) {
+    throw new Error('Physical _v does not match encoded data._v');
+  }
   const keys: Record<string, string> = {};
   for (const attribute of indexAttributes(table)) {
     const value = record[attribute];
@@ -51,11 +55,10 @@ const toEncoded = (table: TableIndexes, record: DecodedItem): EncodedItem => {
     sk: record.sk,
     meta: {
       _e: record._e,
-      _v: record._v,
       _u: record._u,
       _d: record._d,
     },
-    data: record.data as JsonObject,
+    data,
     keys,
   } as EncodedItem;
 };
@@ -68,19 +71,19 @@ const invalid = (input: unknown, cause: unknown) =>
     input,
   );
 
-export type ItemSchema = Schema.Codec<DecodedItem, EncodedItem>;
+export type ItemSchema = Schema.Codec<NativeItem, EncodedItem>;
 
 export const itemSchema = (table: TableIndexes): ItemSchema =>
   EncodedItemSchema.pipe(
     Schema.decodeTo(
-      DecodedItemSchema,
+      NativeItemSchema,
       SchemaTransformation.transformOrFail({
         decode: (item: EncodedItem) =>
           Effect.try({
             try: () => toDecoded(item),
             catch: (cause) => invalid(item, cause),
           }),
-        encode: (record: DecodedItem) =>
+        encode: (record: NativeItem) =>
           Effect.try({
             try: () => toEncoded(table, record),
             catch: (cause) => invalid(record, cause),

@@ -1,5 +1,5 @@
 import { Effect, Exit, Scope } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { CadenceConfig } from '../../domain/cadence-policy/index.js';
 import type {
@@ -53,7 +53,7 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
     flow: StrategyFlow,
   ) => StrategyContext<TItem, TState>;
   applyToSyncReplica: (
-    entities: EntityType<TItem>[],
+    entities: DecodedEntity<TItem>[],
     flow?: StrategyFlow,
   ) => Effect.Effect<void, WriteError>;
   report: SyncReporter<R>;

@@ -5,7 +5,7 @@ import { EntityESchema } from '../../../../eschema/index.js';
 import { noStrategyState } from '../../../domain/strategy-state/index.js';
 import { createStdSync } from '../../../sync.js';
 import type { EffectRuntime } from '../../../runtime/effect-runner/index.js';
-import type { EntityType } from '../../../../core/index.js';
+import type { DecodedEntity } from '../../../../core/index.js';
 import {
   contractLayer,
   type StdTableContract,
@@ -91,9 +91,9 @@ describe('collection flow tracing', () => {
       runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
         Effect.runPromise(recorder.instrument(effect)),
     } satisfies EffectRuntime<never>;
-    const entity: EntityType<typeof schema.Type> = {
+    const entity: DecodedEntity<typeof schema.Type> = {
       value: { id: 'comment-1', postId: 'post-1', body: 'Hello' },
-      meta: { _e: 'Comment', _v: 'v1', _u: '1', _d: false },
+      meta: { _e: 'Comment', _u: '1', _d: false },
     };
     const strategy = (name: string, writes = false) => ({
       name,
@@ -101,7 +101,7 @@ describe('collection flow tracing', () => {
       run: (ctx: {
         flow: { log: (message: unknown) => Effect.Effect<void> };
         applyToSyncReplica: (
-          entities: EntityType<typeof schema.Type>[],
+          entities: DecodedEntity<typeof schema.Type>[],
         ) => Effect.Effect<void, unknown>;
       }) =>
         ctx.flow

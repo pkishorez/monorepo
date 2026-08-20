@@ -1,5 +1,5 @@
 import type { Effect, Scope } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { StrategyStateSpec } from '../../domain/strategy-state/index.js';
 import type { CadenceConfig } from '../../domain/cadence-policy/index.js';
@@ -16,7 +16,7 @@ import type { StrategyFlow } from '../sync-flow/index.js';
 export type StrategyContext<TItem, TState = unknown> = {
   flow: StrategyFlow;
   applyToSyncReplica: (
-    entities: EntityType<TItem>[],
+    entities: DecodedEntity<TItem>[],
   ) => Effect.Effect<void, WriteError>;
   getState: Effect.Effect<TState, WriteError>;
   setState: (state: TState) => Effect.Effect<void, WriteError>;

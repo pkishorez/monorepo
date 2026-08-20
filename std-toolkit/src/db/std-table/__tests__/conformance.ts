@@ -1,6 +1,6 @@
 import { Effect, Layer, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Broadcaster, Ulid, type EntityType } from '../../../core/index.js';
+import { Broadcaster, Ulid, type DecodedEntity } from '../../../core/index.js';
 import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { encodeCompositeKey } from '../key/index.js';
 import { StdTable } from '../table/index.js';
@@ -166,7 +166,7 @@ export const runConformanceSuite = (
     });
 
     it('preserves metadata, skips no-op writes, and rejects primary key changes', async () => {
-      const broadcasts: EntityType<object>[] = [];
+      const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
       });
@@ -180,9 +180,9 @@ export const runConformanceSuite = (
           });
           expect(inserted.meta).toMatchObject({
             _e: 'Item',
-            _v: 'v1',
             _d: false,
           });
+          expect(inserted.meta).not.toHaveProperty('_v');
           expect(inserted.meta._u).not.toBe('');
 
           const beforeSkip = broadcasts.length;
@@ -245,7 +245,7 @@ export const runConformanceSuite = (
     });
 
     it('commits transaction ops atomically and broadcasts after success', async () => {
-      const broadcasts: EntityType<object>[] = [];
+      const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
       });
@@ -274,7 +274,7 @@ export const runConformanceSuite = (
     });
 
     it('rejects duplicate, oversized, and condition-failing transactions before partial writes', async () => {
-      const broadcasts: EntityType<object>[] = [];
+      const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
       });
@@ -341,7 +341,7 @@ export const runConformanceSuite = (
     });
 
     it('handles empty, stale, last-write-wins, mixed, and foreign transactions', async () => {
-      const broadcasts: EntityType<object>[] = [];
+      const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
       });
@@ -796,9 +796,9 @@ export const runConformanceSuite = (
           expect(initial.value).toEqual({ theme: 'light', count: 0 });
           expect(initial.meta).toEqual({
             _e: 'Config',
-            _v: 'v1',
             _u: '',
           });
+          expect(initial.meta).not.toHaveProperty('_v');
 
           const missingOp = yield* config
             .getAndUpdateOp({ theme: 'dark' })
@@ -1089,7 +1089,6 @@ export const runConformanceSuite = (
               category: 'a',
               label: 'legacy',
             },
-            meta: { ...stored!.meta, _v: 'v1' },
           },
           condition: { kind: 'updated', value: inserted.meta._u },
         });
@@ -1099,7 +1098,8 @@ export const runConformanceSuite = (
           category: 'a',
         });
         expect(migrated?.value.note).toBe('migrated');
-        expect(migrated?.meta._v).toBe('v1');
+        expect(migrated?.meta).not.toHaveProperty('_v');
+        expect((yield* contract.getItem(key))?.data._v).toBe('v1');
       }),
     );
   });

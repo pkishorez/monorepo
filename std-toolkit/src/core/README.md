@@ -7,7 +7,7 @@ Shared primitives used across the other std-toolkit modules.
 ```ts
 import {
   EntitySchema,
-  MetaSchema,
+  EntityMetaSchema,
   Broadcaster,
   StdToolkitError,
 } from 'std-toolkit/core';
@@ -15,11 +15,11 @@ import {
 
 ## Exports
 
-| Export                            | Description                                        |
-| --------------------------------- | -------------------------------------------------- |
-| `EntitySchema`                    | Effect Schema for a keyed entity row               |
-| `SingleEntitySchema`              | Effect Schema for a singleton entity row           |
-| `MetaSchema`                      | Structural guard schema shared by all table shapes |
-| `EntityType` / `SingleEntityType` | Type aliases for entity shapes                     |
-| `Broadcaster`                     | Outbound hook for confirmed entity writes          |
-| `StdToolkitError`                 | Base error type for the toolkit                    |
+| Export                                  | Description                                                  |
+| --------------------------------------- | ------------------------------------------------------------ |
+| `EntitySchema` / `SingleEntitySchema`   | Full entity codecs: encoded envelope ↔ latest decoded entity |
+| `EntityMetaSchema`                      | Metadata schema; version belongs to the encoded value        |
+| `DecodedEntity` / `DecodedSingleEntity` | Application-facing entity shapes without `_v`                |
+| `EncodedEntity` / `EncodedSingleEntity` | Persistence and transport shapes whose value contains `_v`   |
+| `Broadcaster`                           | Outbound hook for confirmed decoded entity writes            |
+| `StdToolkitError`                       | Base error type for the toolkit                              |

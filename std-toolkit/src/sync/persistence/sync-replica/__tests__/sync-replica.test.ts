@@ -1,9 +1,13 @@
 import { Effect, Schema } from 'effect';
-import type { EntityType } from '../../../../core/index.js';
+import type { DecodedEntity } from '../../../../core/index.js';
 import { EntityESchema } from '../../../../eschema/index.js';
 import { Memory } from '../../../../db/memory/index.js';
 import { describe, expect, it } from 'vitest';
-import { makeSyncStore, syncStore } from '../../sync-store/index.js';
+import {
+  makeSyncStore,
+  storedReplicaEntity,
+  syncStore,
+} from '../../sync-store/index.js';
 import { makeSyncReplica } from '../index.js';
 
 type Item = { id: string; name: string };
@@ -16,9 +20,9 @@ const entity = (
   id: string,
   name: string,
   updated: string,
-): EntityType<Item> => ({
+): DecodedEntity<Item> => ({
   value: { id, name },
-  meta: { _e: 'Item', _v: 'v1', _u: updated, _d: false },
+  meta: { _e: 'Item', _u: updated, _d: false },
 });
 
 const entityWithS = (
@@ -26,25 +30,24 @@ const entityWithS = (
   name: string,
   updated: string,
   settled: number,
-): EntityType<Item> => ({
+): DecodedEntity<Item> => ({
   value: { id, name },
   meta: {
     _e: 'Item',
-    _v: 'v1',
     _u: updated,
     _d: false,
     _s: settled,
   },
 });
 
-const tombstone = (id: string, updated: string): EntityType<Item> => ({
+const tombstone = (id: string, updated: string): DecodedEntity<Item> => ({
   value: { id, name: 'Deleted' },
-  meta: { _e: 'Item', _v: 'v1', _u: updated, _d: true },
+  meta: { _e: 'Item', _u: updated, _d: true },
 });
 
 const makeReplica = () => {
   const store = makeSyncStore(Memory.make(syncStore).layer);
-  return { store, replica: makeSyncReplica<Item>({ schema, store }) };
+  return { store, replica: makeSyncReplica({ schema, store }) };
 };
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E>) =>
@@ -68,6 +71,30 @@ describe('Sync Replica over StdTable', () => {
       expect(
         (yield* replica.since(null)).entities.map((i) => i.meta._c),
       ).toEqual([result[0]!.meta._c, result[0]!.meta._c]);
+    }),
+  );
+
+  itEffect('stores an encoded entity but returns a decoded entity', () =>
+    Effect.gen(function* () {
+      const { store, replica } = makeReplica();
+      const [accepted] = yield* replica.applyToSyncReplica([
+        entity('a', 'Alpha', '1'),
+      ]);
+      const stored = yield* store.provide(
+        storedReplicaEntity.get({ collection: 'Item', key: 'a' }),
+        {
+          collection: 'Item',
+          operation: 'get',
+          record: 'sync-replica',
+        },
+      );
+
+      expect(accepted?.value).toEqual({ id: 'a', name: 'Alpha' });
+      expect(accepted?.value).not.toHaveProperty('_v');
+      expect(stored?.value.entity).toMatchObject({
+        value: { _v: 'v1', id: 'a', name: 'Alpha' },
+        meta: { _e: 'Item', _u: '1', _d: false },
+      });
     }),
   );
 
@@ -145,7 +172,7 @@ describe('Sync Replica over StdTable', () => {
       const invalid = {
         ...entity('b', 'Beta', '1'),
         meta: { _e: 'Item' },
-      } as unknown as EntityType<Item>;
+      } as unknown as DecodedEntity<Item>;
 
       yield* replica
         .applyToSyncReplica([entity('a', 'Alpha', '1'), invalid])
@@ -180,6 +207,19 @@ describe('Sync Replica over StdTable', () => {
         meta: { _e: 'Item', _u: '2', _d: true },
       });
       expect(result[0]!.meta._c).toEqual(expect.any(Number));
+    }),
+  );
+
+  itEffect('fails a malformed entity instead of dying', () =>
+    Effect.gen(function* () {
+      const { replica } = makeReplica();
+
+      const result = yield* replica
+        .applyToSyncReplica([{ value: { id: 'a', name: 'Alpha' } } as never])
+        .pipe(Effect.result);
+
+      expect(result._tag).toBe('Failure');
+      expect(result._tag === 'Failure' && result.failure._tag).toBe('Invalid');
     }),
   );
 });

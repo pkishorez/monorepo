@@ -97,7 +97,7 @@ describe('IndexedDB setup', () => {
         item: {
           pk: 'person-1',
           sk: 'record',
-          meta: { _e: 'Person', _v: 'v1', _u: '1', _d: false },
+          meta: { _e: 'Person', _u: '1', _d: false },
           data: {
             _v: 'v1',
             personId: 'person-1',
@@ -423,8 +423,8 @@ describe('IndexedDB setup', () => {
     const item = (pk: string, entity: string) => ({
       pk,
       sk: 'record',
-      meta: { _e: entity, _v: '1', _u: '1', _d: false },
-      data: {},
+      meta: { _e: entity, _u: '1', _d: false },
+      data: { _v: '1' },
       keys: {},
     });
     await Effect.runPromise(
@@ -449,7 +449,7 @@ describe('IndexedDB setup', () => {
       _v: '1',
       _u: '1',
       _d: false,
-      data: {},
+      data: { _v: '1' },
     });
 
     expect(

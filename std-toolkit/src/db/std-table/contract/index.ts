@@ -13,6 +13,7 @@ export {
   type ConditionalPut,
   type ContractFailure,
   type EncodedItem,
+  type EncodedData,
   type EncodedItemMeta,
   type EncodedKey,
   type ItemCondition,

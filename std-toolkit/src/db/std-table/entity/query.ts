@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import { InvalidQuery } from '../error/index.js';
 import { deriveStorageKey, encodeCompositeKey } from '../key/index.js';
@@ -19,14 +19,14 @@ import type {
   QueryPage,
 } from './entity.js';
 import { dbError, failReason } from './effects.js';
-import { decode, encode, entityResult, fieldStrings } from './storage.js';
+import { decode, encode, fieldStrings } from './storage.js';
 
 export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
   definition: KeyedEntityDefinition<Name, S>,
   patternName: string,
   input: JsonObject,
   options?: QueryOptions<EntityValue<S>>,
-): TableEffect<QueryPage<EntityType<EntityValue<S>>>, Name> =>
+): TableEffect<QueryPage<DecodedEntity<EntityValue<S>>>, Name> =>
   Effect.gen(function* () {
     const pattern = Object.hasOwn(definition.accessPatterns, patternName)
       ? definition.accessPatterns[patternName]
@@ -109,7 +109,10 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
         options.after.value,
         definition.name,
       );
-      const data: JsonObject = { ...encoded, _u: options.after.meta._u };
+      const data: JsonObject = {
+        ...encoded.value,
+        _u: options.after.meta._u,
+      };
       const primary = deriveStorageKey(
         definition.name,
         data,
@@ -125,7 +128,7 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
     }
     const contract = (yield* StdTableService(definition.table.logicalName))
       .contract;
-    const items: EntityType<EntityValue<S>>[] = [];
+    const items: DecodedEntity<EntityValue<S>>[] = [];
     let hasMore = false;
     let exhausted = false;
     while (items.length < limit && !exhausted) {
@@ -155,8 +158,8 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
           truncated = true;
           break;
         }
-        const value = yield* decode(definition.schema, stored);
-        items.push(entityResult(stored, value as EntityValue<S>));
+        const entity = yield* decode(definition.schema, stored);
+        items.push(entity as DecodedEntity<EntityValue<S>>);
       }
       hasMore = page.hasMore || truncated;
       exhausted = !hasMore;
@@ -167,4 +170,4 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
       startAfter = next;
     }
     return { items, hasMore };
-  }) as TableEffect<QueryPage<EntityType<EntityValue<S>>>, Name>;
+  }) as TableEffect<QueryPage<DecodedEntity<EntityValue<S>>>, Name>;

@@ -12,8 +12,8 @@ import { makeTableContract } from '../table/index.js';
 const item = (sk: string, indexSort?: string): EncodedItem => ({
   pk: 'items',
   sk,
-  meta: { _e: 'item', _v: '1', _u: '1', _d: false },
-  data: { sk },
+  meta: { _e: 'item', _u: '1', _d: false },
+  data: { _v: '1', sk },
   keys: indexSort === undefined ? {} : { GSI1PK: 'group', GSI1SK: indexSort },
 });
 

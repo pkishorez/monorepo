@@ -16,8 +16,8 @@ const table = StdTable.make('items')
 const item: EncodedItem = {
   pk: 'tenant',
   sk: 'item',
-  meta: { _e: 'Item', _v: 'v2', _u: 'v2', _d: false },
-  data: { name: 'example' },
+  meta: { _e: 'Item', _u: 'v2', _d: false },
+  data: { _v: 'v2', name: 'example' },
   keys: { GSI1PK: 'group', GSI1SK: 'rank' },
 };
 

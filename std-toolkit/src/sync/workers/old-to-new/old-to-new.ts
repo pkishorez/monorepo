@@ -1,5 +1,5 @@
 import { Effect, Stream } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type {
   PartitionedStrategy,
   StrategyContext,
@@ -33,7 +33,8 @@ export const oldToNew = <TItem extends object, R = never>(
   run: (ctx: StrategyContext<TItem, OldToNewState>) => {
     const source = config.source(partitionedSources);
     return Effect.gen(function* () {
-      const cursor = (yield* ctx.getState).cursor as EntityType<TItem> | null;
+      const cursor = (yield* ctx.getState)
+        .cursor as DecodedEntity<TItem> | null;
       const stream = openPartitionedSource(source, {
         cursor,
         nextCursor: (batch) => newestOf([...batch]),

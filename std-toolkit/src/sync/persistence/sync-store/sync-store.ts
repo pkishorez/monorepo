@@ -1,5 +1,4 @@
 import { Effect, Layer, ManagedRuntime, Schema } from 'effect';
-import { MetaSchema } from '../../../core/index.js';
 import { EntityESchema, fromType } from '../../../eschema/index.js';
 import { StdTable, type StdTableService } from '../../../db/index.js';
 
@@ -9,8 +8,7 @@ type OpaqueValue = {} | null;
 const storedReplicaSchema = EntityESchema.make('SyncStoredReplica', 'key', {
   collection: Schema.String,
   seq: Schema.String,
-  value: fromType<OpaqueValue>(),
-  meta: MetaSchema,
+  entity: fromType<OpaqueValue>(),
 }).build();
 
 const storedSyncStateSchema = EntityESchema.make('SyncStoredState', 'key', {

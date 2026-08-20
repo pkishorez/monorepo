@@ -9,8 +9,8 @@ const table = StdTable.make('memory-binding').primary('pk', 'sk').build();
 const key = { pk: 'items', sk: 'one' };
 const item = (value: string): EncodedItem => ({
   ...key,
-  meta: { _e: 'Item', _v: 'v1', _u: value, _d: false },
-  data: { nested: { value } },
+  meta: { _e: 'Item', _u: value, _d: false },
+  data: { _v: 'v1', nested: { value } },
   keys: {},
 });
 

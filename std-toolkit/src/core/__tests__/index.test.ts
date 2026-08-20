@@ -1,6 +1,6 @@
 import { it, describe, expect } from 'vitest';
 import { Schema } from 'effect';
-import { MetaSchema } from '../schema.js';
+import { EntityMetaSchema } from '../entity-schema/index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -16,14 +16,13 @@ describe('Core', () => {
     );
   });
 
-  describe('MetaSchema', () => {
+  describe('EntityMetaSchema', () => {
     const baseMeta = {
-      _v: '1',
       _e: 'item',
       _d: false,
       _u: '2024-01-01T00:00:00.000Z',
     };
-    const decode = Schema.decodeUnknownSync(MetaSchema);
+    const decode = Schema.decodeUnknownSync(EntityMetaSchema);
 
     it('decodes without _s and _c', () => {
       const result = decode(baseMeta);

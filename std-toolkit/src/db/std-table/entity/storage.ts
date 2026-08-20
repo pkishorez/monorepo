@@ -1,13 +1,22 @@
 import { Effect } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import {
+  EntitySchema,
+  SingleEntitySchema,
+  type DecodedEntity,
+  type DecodedSingleEntity,
+  type EncodedEntity,
+} from '../../../core/index.js';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
-  ESchemaType,
 } from '../../../eschema/index.js';
 import { DatabaseError, DecodeFailed } from '../error/index.js';
 import { encodeCompositeKey } from '../key/index.js';
-import { type JsonObject, type EncodedItem } from '../contract/index.js';
+import {
+  type EncodedData,
+  type JsonObject,
+  type EncodedItem,
+} from '../contract/index.js';
 import { deriveStorageIndexes, deriveStorageKey } from '../key/index.js';
 import type {
   AccessPatternDefinition,
@@ -57,13 +66,18 @@ export const derivedIndexes = (
     value,
   );
 
-export const encode = <S extends AnyEntityESchema | AnyUnkeyedESchema>(
+export const encode = <S extends AnyEntityESchema>(
   schema: S,
-  value: ESchemaType<S>,
+  value: S['Type'],
   entity: string,
+  meta: DecodedEntity<S['Type']>['meta'] = {
+    _e: entity,
+    _u: '',
+    _d: false,
+  },
 ) =>
-  schema
-    .encode(value)
+  EntitySchema(schema)
+    .encode({ value, meta })
     .pipe(
       Effect.mapError(
         (cause) =>
@@ -71,43 +85,77 @@ export const encode = <S extends AnyEntityESchema | AnyUnkeyedESchema>(
       ),
     );
 
-export const decode = <S extends AnyEntityESchema | AnyUnkeyedESchema>(
+export const decode = <S extends AnyEntityESchema>(
   schema: S,
   item: EncodedItem,
 ) =>
-  schema.decode(item.data).pipe(
-    Effect.mapError(
-      (cause) =>
-        new DatabaseError({
-          reason: new DecodeFailed({ entity: schema.name, cause }),
-        }),
-    ),
-  );
+  EntitySchema(schema)
+    .decode({ value: item.data, meta: item.meta })
+    .pipe(
+      Effect.mapError(
+        (cause) =>
+          new DatabaseError({
+            reason: new DecodeFailed({ entity: schema.name, cause }),
+          }),
+      ),
+    );
+
+export const encodeSingle = <S extends AnyUnkeyedESchema>(
+  schema: S,
+  value: S['Type'],
+  entity: string,
+  meta: DecodedSingleEntity<S['Type']>['meta'] = {
+    _e: entity,
+    _u: '',
+  },
+) =>
+  SingleEntitySchema(schema)
+    .encode({ value, meta })
+    .pipe(
+      Effect.mapError(
+        (cause) =>
+          new DatabaseError({ reason: new DecodeFailed({ entity, cause }) }),
+      ),
+    );
+
+export const decodeSingle = <S extends AnyUnkeyedESchema>(
+  schema: S,
+  item: EncodedItem,
+) =>
+  SingleEntitySchema(schema)
+    .decode({
+      value: item.data,
+      meta: { _e: item.meta._e, _u: item.meta._u },
+    })
+    .pipe(
+      Effect.mapError(
+        (cause) =>
+          new DatabaseError({
+            reason: new DecodeFailed({ entity: schema.name, cause }),
+          }),
+      ),
+    );
 
 export const makeEncodedItem = (
   definition: KeyedEntityDefinition,
-  encoded: JsonObject,
-  version: string,
+  encoded: EncodedEntity<EncodedData>,
+  updated: string,
   deleted: boolean,
 ): EncodedItem => ({
-  ...derivedKey(definition, encoded),
+  ...derivedKey(definition, encoded.value),
   meta: {
     _e: definition.name,
-    _v: String(encoded._v),
-    _u: version,
+    _u: updated,
     _d: deleted,
   },
-  data: encoded,
-  keys: derivedIndexes(definition, { ...encoded, _u: version }),
+  data: encoded.value,
+  keys: derivedIndexes(definition, { ...encoded.value, _u: updated }),
 });
 
 export const entityResult = <T>(
   item: EncodedItem,
   value: T,
-): EntityType<T> => ({
-  value,
-  meta: item.meta,
-});
+): DecodedEntity<T> => ({ value, meta: item.meta });
 
 export const singleKey = (name: string) => ({
   pk: encodeCompositeKey([name]),

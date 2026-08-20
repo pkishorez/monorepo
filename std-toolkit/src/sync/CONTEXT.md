@@ -39,16 +39,19 @@ The Sync-owned boundary for one Entity type and its TanStack DB Collection
 Projection, Sync Replica, Sync State, and Peer Channel.
 
 **Collection Projection**:
-The ephemeral TanStack DB view built from a Sync Replica and exposed to queries.
+The ephemeral TanStack DB view built from accepted **DecodedEntities** in a Sync Replica as **CollectionItems** exposed to queries.
 _Avoid_: Sync Replica, cache.
 
+**CollectionItem**:
+The latest decoded value exposed by a TanStack DB Collection, validated against the latest schema and shaped for collection queries and mutations. It is projected from a **DecodedEntity** and is not itself an entity envelope.
+_Avoid_: CollectionRow, DecodedEntity, SyncEntity.
+
 **Sync Replica**:
-The client-side set of backend-confirmed Entities known to one Collection. It is
-a convergent local copy, never the authority.
+The client-side set of backend-confirmed **DecodedEntities** known to one Collection. Its Sync Store representation is encoded. It is a convergent local copy, never the authority.
 _Avoid_: Source of Truth, cache.
 
 **Sync Store**:
-The storage boundary containing Sync Replicas and Sync State. A Memory or
+The storage boundary containing encoded representations of Sync Replicas and Sync State. A Memory or
 durable realization changes persistence across reloads, not peer freshness.
 _Avoid_: Sync Persistence Table, offline cache.
 
@@ -71,9 +74,7 @@ A worker policy that obtains backend-confirmed Entities and owns the Sync State
 needed to resume its work.
 
 **Sync Source**:
-A reusable description of one Backend delivery mode, normalized for consumption
-by Sync. It does not own cursor meaning, Sync State, or the surrounding Collection
-or Partition lifecycle.
+A Sync-owned description of one Backend delivery mode, built from application-provided backend operations. It yields decoded backend-confirmed entities; its implementation owns any persistence or transport decoding behind that boundary. It does not own cursor meaning, Sync State, or the surrounding Collection or Partition lifecycle.
 _Avoid_: Sync Strategy, subscription callback.
 
 **Leadership**:
@@ -106,7 +107,7 @@ The in-process router that delivers Registry Broadcasts to Collections owned by
 one Std Sync.
 
 **Registry Broadcast**:
-Caller-owned ingress of Entities into one Std Sync. Persisted delivery converges
+Caller-owned ingress of **DecodedEntities** into one Std Sync. Persisted delivery converges
 through the Sync Replica; projection-only delivery remains local to that tab.
 _Avoid_: Peer Sync message.
 
@@ -121,13 +122,17 @@ The transport owned by one qualified Collection Name through which Peer
 Messages are sent and received.
 
 **Peer Message**:
-A versioned non-empty envelope of complete confirmed Entities for one
+A versioned non-empty envelope of complete confirmed **EncodedEntities** for one
 Collection. Receivers validate it and apply the normal Convergence Rule without
 relaying it.
 
 **Optimistic Entity**:
 A provisional Collection value awaiting Backend confirmation. It is neither
 stored in the Sync Replica nor sent through Peer Sync.
+
+**Mutation Callback**:
+The application-facing handler for a TanStack DB insert, update, or delete. It receives only decoded CollectionItems and returns a backend-confirmed **DecodedEntity**; any transport encoding belongs to the API client used by the handler.
+_Avoid_: Encoded Mutation, transport mutation.
 
 **Sync Event**:
 A structured operational fact reported by Sync, including lifecycle, Registry

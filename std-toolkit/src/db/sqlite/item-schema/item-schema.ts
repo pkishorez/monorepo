@@ -8,7 +8,7 @@ import type { TableDefinition } from '../../std-table/definition/index.js';
 
 export type SQLiteValue = string | number | bigint | Uint8Array | null;
 export type SQLiteRow = Readonly<Record<string, SQLiteValue>>;
-export type DecodedItem = SQLiteRow;
+export type NativeItem = SQLiteRow;
 
 type TableIndexes = Pick<
   TableDefinition,
@@ -34,20 +34,20 @@ const isSQLiteValue = (value: unknown): value is SQLiteValue =>
   typeof value === 'bigint' ||
   value instanceof Uint8Array;
 
-const isRow = (value: unknown): value is DecodedItem =>
+const isRow = (value: unknown): value is NativeItem =>
   typeof value === 'object' &&
   value !== null &&
   !Array.isArray(value) &&
   Object.values(value).every(isSQLiteValue);
 
-const DecodedItemSchema = Schema.declare<DecodedItem>(isRow);
+const NativeItemSchema = Schema.declare<NativeItem>(isRow);
 
-const toDecoded = (table: TableIndexes, item: EncodedItem): DecodedItem => {
+const toDecoded = (table: TableIndexes, item: EncodedItem): NativeItem => {
   const values = new Map<string, SQLiteValue>([
     [table.primary.pk, item.pk],
     [table.primary.sk, item.sk],
     ['_e', item.meta._e],
-    ['_v', item.meta._v],
+    ['_v', String(item.data._v)],
     ['_u', item.meta._u],
     ['_d', item.meta._d ? 1 : 0],
     ['data', JSON.stringify(item.data)],
@@ -57,9 +57,13 @@ const toDecoded = (table: TableIndexes, item: EncodedItem): DecodedItem => {
   return Object.fromEntries(values);
 };
 
-const toEncoded = (table: TableIndexes, row: DecodedItem): EncodedItem => {
+const toEncoded = (table: TableIndexes, row: NativeItem): EncodedItem => {
   if (typeof row.data !== 'string' || (row._d !== 0 && row._d !== 1))
     throw new Error('SQLite row does not match the storage schema');
+  const data = JSON.parse(row.data) as JsonObject;
+  if (row._v !== data._v) {
+    throw new Error('Physical _v does not match encoded data._v');
+  }
   const keys: Record<string, string> = {};
   for (const column of indexColumns(table)) {
     const value = row[column];
@@ -70,11 +74,10 @@ const toEncoded = (table: TableIndexes, row: DecodedItem): EncodedItem => {
     sk: row[table.primary.sk],
     meta: {
       _e: row._e,
-      _v: row._v,
       _u: row._u,
       _d: row._d !== 0,
     },
-    data: JSON.parse(row.data) as JsonObject,
+    data,
     keys,
   } as EncodedItem;
 };
@@ -87,19 +90,19 @@ const invalid = (input: unknown, cause: unknown) =>
     input,
   );
 
-export type ItemSchema = Schema.Codec<DecodedItem, EncodedItem>;
+export type ItemSchema = Schema.Codec<NativeItem, EncodedItem>;
 
 export const itemSchema = (table: TableIndexes): ItemSchema =>
   EncodedItemSchema.pipe(
     Schema.decodeTo(
-      DecodedItemSchema,
+      NativeItemSchema,
       SchemaTransformation.transformOrFail({
         decode: (item: EncodedItem) =>
           Effect.try({
             try: () => toDecoded(table, item),
             catch: (cause) => invalid(item, cause),
           }),
-        encode: (row: DecodedItem) =>
+        encode: (row: NativeItem) =>
           Effect.try({
             try: () => toEncoded(table, row),
             catch: (cause) => invalid(row, cause),

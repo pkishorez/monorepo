@@ -52,22 +52,27 @@ export const olderRows = Story.make({
       'What happens when you read a row that an older version of the schema wrote?',
       {
         answer:
-          'The row folds forward on read — the migration fills the new field before you see the value, while `meta._v` still reports the version the row was stored at.',
+          'The row folds forward in memory. The migration fills the new field before you see it. The DecodedEntity has no `_v`, and the read does not rewrite the stored row.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
               yield* oldArticle.insert({ ...key, title: 'Tides' });
               const stored = yield* article.get(key);
+              const oldReaderCanStillRead = yield* oldArticle
+                .get(key)
+                .pipe(Effect.as(true));
               return {
                 summary: stored?.value.summary ?? null,
-                version: stored?.meta._v ?? null,
+                decodedHasVersion: Object.hasOwn(stored?.meta ?? {}, '_v'),
+                oldReaderCanStillRead,
               };
             }),
           );
           yield* Story.assert(
-            'the migration fills the new field on a row still stamped v1',
+            'the migration fills the field without changing the stored row',
             results.sqlite.summary === 'About Tides' &&
-              results.sqlite.version === 'v1',
+              !results.sqlite.decodedHasVersion &&
+              results.sqlite.oldReaderCanStillRead,
           );
           yield* Story.assert('every adapter agrees', agree(results));
           return results;
@@ -76,7 +81,7 @@ export const olderRows = Story.make({
     ),
     Story.question('What is written back when you update a migrated row?', {
       answer:
-        'The whole row is rewritten at the latest version, so `meta._v` moves from v1 to v2 and the migration never runs on it again.',
+        'The explicit update writes the whole row at the latest encoded version. The DecodedEntity still has no `_v`.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -86,19 +91,22 @@ export const olderRows = Story.make({
               summary: 'Written by hand',
             });
             const after = yield* article.get(key);
+            const oldReader = yield* oldArticle.get(key).pipe(Effect.result);
             return {
-              before: before?.meta._v ?? null,
-              updated: updated.meta._v,
-              after: after?.meta._v ?? null,
+              beforeHasVersion: Object.hasOwn(before?.meta ?? {}, '_v'),
+              updatedHasVersion: Object.hasOwn(updated.meta, '_v'),
+              afterHasVersion: Object.hasOwn(after?.meta ?? {}, '_v'),
+              oldReaderRejectedLatest: oldReader._tag === 'Failure',
               summary: after?.value.summary ?? null,
             };
           }),
         );
         yield* Story.assert(
-          'the stored version stamp moves from v1 to v2',
-          results.sqlite.before === 'v1' &&
-            results.sqlite.updated === 'v2' &&
-            results.sqlite.after === 'v2',
+          'only the encoded row carries the new version',
+          !results.sqlite.beforeHasVersion &&
+            !results.sqlite.updatedHasVersion &&
+            !results.sqlite.afterHasVersion &&
+            results.sqlite.oldReaderRejectedLatest,
         );
         yield* Story.assert(
           'the hand-written value survives the rewrite',

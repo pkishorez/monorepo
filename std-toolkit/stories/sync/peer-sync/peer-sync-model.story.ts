@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto';
 import { IDBFactory } from 'fake-indexeddb';
 import { Duration, Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { type EntityType } from 'std-toolkit/core';
+import { type DecodedEntity } from 'std-toolkit/core';
 import { IDB } from 'std-toolkit/db/idb';
 import { Memory } from 'std-toolkit/db/memory';
 import { EntityESchema } from 'std-toolkit/eschema';
@@ -23,9 +23,9 @@ const todo = (
   id: string,
   title: string,
   updated: string,
-): EntityType<Todo> => ({
+): DecodedEntity<Todo> => ({
   value: { id, title },
-  meta: { _v: 'v1', _e: 'Todo', _d: false, _u: updated },
+  meta: { _e: 'Todo', _d: false, _u: updated },
 });
 
 const makeBus = () => {
@@ -110,7 +110,7 @@ const eventually = (predicate: () => boolean) =>
     return false;
   });
 
-const received = (writes: readonly unknown[], entity: EntityType<Todo>) =>
+const received = (writes: readonly unknown[], entity: DecodedEntity<Todo>) =>
   writes.some(
     (write) =>
       typeof write === 'object' &&

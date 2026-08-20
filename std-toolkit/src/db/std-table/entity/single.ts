@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { nextUlid, type SingleEntityType } from '../../../core/index.js';
-import type { AnyUnkeyedESchema, ESchemaType } from '../../../eschema/index.js';
+import { nextUlid, type DecodedSingleEntity } from '../../../core/index.js';
+import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { NoItemToUpdate, UpdateRefused } from '../error/index.js';
 import {
   StdTableService,
@@ -10,7 +10,7 @@ import {
 import type { SingleEntityDefinition } from '../definition/index.js';
 import type { CheckOp, SingleEntity, TransactOp } from './entity.js';
 import { broadcast, dbError, failReason } from './effects.js';
-import { decode, encode, singleKey } from './storage.js';
+import { decodeSingle, encodeSingle, singleKey } from './storage.js';
 
 export const makeSingleEntity = <
   Name extends string,
@@ -34,32 +34,30 @@ export const makeSingleEntity = <
         value: definition.defaultValue,
         meta: {
           _e: definition.name,
-          _v: definition.schema.latestVersion,
           _u: '',
         },
-      } as SingleEntityType<ESchemaType<S>>;
-    const value = yield* decode(definition.schema, item);
-    return {
-      value: value as ESchemaType<S>,
-      meta: { _e: definition.name, _v: item.meta._v, _u: item.meta._u },
-    };
+      } as DecodedSingleEntity<S['Type']>;
+    return yield* decodeSingle(definition.schema, item);
   });
   const makeOp = (
-    value: ESchemaType<S>,
-    current: SingleEntityType<ESchemaType<S>>,
+    value: S['Type'],
+    current: DecodedSingleEntity<S['Type']>,
     lastWriteWins?: boolean,
   ) =>
     Effect.gen(function* () {
-      const encoded = yield* encode(definition.schema, value, definition.name);
+      const encoded = yield* encodeSingle(
+        definition.schema,
+        value,
+        definition.name,
+      );
       const item: EncodedItem = {
         ...key,
         meta: {
           _e: definition.name,
-          _v: definition.schema.latestVersion,
           _u: '',
           _d: false,
         },
-        data: encoded,
+        data: encoded.value,
         keys: {},
       };
       return {
@@ -82,14 +80,13 @@ export const makeSingleEntity = <
             value,
             meta: {
               _e: definition.name,
-              _v: definition.schema.latestVersion,
               _u: version,
             },
           },
         }),
-      } as TransactOp<Name, ESchemaType<S>>;
+      } as TransactOp<Name, S['Type']>;
     });
-  const commit = (op: TransactOp<Name, ESchemaType<S>>) =>
+  const commit = (op: TransactOp<Name, S['Type']>) =>
     Effect.gen(function* () {
       const contract = (yield* service).contract;
       const version = yield* nextUlid;
@@ -102,12 +99,12 @@ export const makeSingleEntity = <
           ),
         );
       yield* broadcast(applied.entity);
-      return applied.entity as SingleEntityType<ESchemaType<S>>;
+      return applied.entity as DecodedSingleEntity<S['Type']>;
     });
   const updateOp = (
     update:
-      | Partial<ESchemaType<S>>
-      | ((current: ESchemaType<S>) => Partial<ESchemaType<S>> | null),
+      | Partial<S['Type']>
+      | ((current: S['Type']) => Partial<S['Type']> | null),
     options?: { lastWriteWins?: boolean },
   ) =>
     Effect.gen(function* () {
@@ -122,16 +119,13 @@ export const makeSingleEntity = <
             options?.lastWriteWins,
           );
     });
-  const replaceOp = (
-    value: ESchemaType<S>,
-    options?: { lastWriteWins?: boolean },
-  ) =>
+  const replaceOp = (value: S['Type'], options?: { lastWriteWins?: boolean }) =>
     Effect.gen(function* () {
       const current = yield* read;
       return yield* makeOp(value, current, options?.lastWriteWins);
     });
   const commitWithRetry = <E, R>(
-    prepare: Effect.Effect<TransactOp<Name, ESchemaType<S>> | null, E, R>,
+    prepare: Effect.Effect<TransactOp<Name, S['Type']> | null, E, R>,
     retries = 3,
   ) =>
     Effect.gen(function* () {
@@ -149,12 +143,12 @@ export const makeSingleEntity = <
     });
   const update = (
     input:
-      | Partial<ESchemaType<S>>
-      | ((current: ESchemaType<S>) => Partial<ESchemaType<S>> | null),
+      | Partial<S['Type']>
+      | ((current: S['Type']) => Partial<S['Type']> | null),
     options?: { retries?: number; lastWriteWins?: boolean },
   ) => commitWithRetry(updateOp(input, options), options?.retries);
   const replace = (
-    value: ESchemaType<S>,
+    value: S['Type'],
     options?: { retries?: number; lastWriteWins?: boolean },
   ) => commitWithRetry(replaceOp(value, options), options?.retries);
   return {
@@ -181,7 +175,7 @@ export const makeSingleEntity = <
           options?.lastWriteWins,
         );
       }),
-    unchangedOp: (entity: SingleEntityType<ESchemaType<S>>) =>
+    unchangedOp: (entity: DecodedSingleEntity<S['Type']>) =>
       Effect.sync((): CheckOp<Name> => ({
         tableName: definition.table.logicalName,
         entityName: definition.name,

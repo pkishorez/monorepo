@@ -1,6 +1,6 @@
 export {
   decodeKey,
   itemSchema,
-  type DecodedItem,
+  type NativeItem,
   type ItemSchema,
 } from './item-schema.js';

@@ -1,6 +1,6 @@
 # eschema — Ubiquitous Language
 
-Versioned, self-migrating schemas built on Effect Schema. An eschema knows its whole version history and folds older data forward to the latest shape on decode. It owns the **version** and **migration** vocabulary; the `_v` field on a core [[core]] **Entity Meta** is an eschema version. See the root `CONTEXT-MAP.md`.
+Versioned, self-migrating schemas built on Effect Schema. An eschema knows its whole version history and folds older data forward to the latest shape on decode. It owns the **version** and **migration** vocabulary; an encoded value carries its eschema version in `_v`. See the root `CONTEXT-MAP.md`.
 
 ## Language
 
@@ -20,7 +20,7 @@ A versioned schema for a single value (scalar, enum, union) rather than a named-
 _Avoid_: ScalarSchema, PrimitiveSchema.
 
 **version**:
-A tagged string identifier for one generation of a schema (e.g. `v1`, `v2`). The current value is stamped into core's `_v` on encode.
+A tagged string identifier for one generation of a schema (e.g. `v1`, `v2`). Encoding stamps it into the encoded value's `_v` field.
 _Avoid_: revision, generation.
 
 **approved version**:
@@ -47,7 +47,7 @@ The guarantee that the current application can decode every historical encoded v
 _Avoid_: backward compatibility, rolling-deployment compatibility.
 
 **encode**:
-Serialization. Always writes the latest **version** and stamps `_v`.
+Serialization. Always writes the latest **version** and stamps `_v`. Encoded values are intended for JSON persistence and transport, but schema authors are currently responsible for choosing JSON-serializable encoded field types.
 
 **decode**:
 Deserialization. Reads `_v`, then folds the data through **migration**s up to the current shape.

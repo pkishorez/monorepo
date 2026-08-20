@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { Effect, Schema } from 'effect';
-import type { EntityType } from '../../core/index.js';
+import type { DecodedEntity } from '../../core/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { IDB } from '../../db/idb/index.js';
 import { Memory } from '../../db/memory/index.js';
@@ -24,17 +24,17 @@ const settingsSchema = ESchema.make('Settings', {
   theme: Schema.String,
 }).build();
 
-const entity = (value: Todo, updated: string): EntityType<Todo> => ({
+const entity = (value: Todo, updated: string): DecodedEntity<Todo> => ({
   value,
-  meta: { _e: 'Todo', _v: 'v1', _u: updated, _d: false },
+  meta: { _e: 'Todo', _u: updated, _d: false },
 });
 
 const settingsEntity = (
   value: { theme: string },
   updated: string,
-): EntityType<{ theme: string }> => ({
+): DecodedEntity<{ theme: string }> => ({
   value,
-  meta: { _e: 'Settings', _v: 'v1', _u: updated, _d: false },
+  meta: { _e: 'Settings', _u: updated, _d: false },
 });
 
 const cursorState = () => ({
@@ -116,7 +116,7 @@ describe('Sync persistence', () => {
             fetch: () =>
               Effect.succeed({
                 value: { theme: 'dark' },
-                meta: { _e: 'Settings', _v: 'v1', _u: '1' },
+                meta: { _e: 'Settings', _u: '1' },
               }),
           }),
       }),

@@ -1,7 +1,10 @@
 import { Effect, Fiber, Schedule, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
-import type { EntityType, SingleEntityType } from '../../../../core/index.js';
+import type {
+  DecodedEntity,
+  DecodedSingleEntity,
+} from '../../../../core/index.js';
 import type { SingleItemStrategy } from '../../../runtime/strategy-runtime/index.js';
 import { singleItemSourceStrategy } from '../index.js';
 
@@ -19,13 +22,13 @@ const flow = {
 const settings = (
   theme: string,
   updated: string,
-): SingleEntityType<Settings> => ({
+): DecodedSingleEntity<Settings> => ({
   value: { theme },
-  meta: { _e: 'Settings', _v: 'v1', _u: updated },
+  meta: { _e: 'Settings', _u: updated },
 });
 
 const run = (strategy: SingleItemStrategy<Settings, null>) => {
-  const written: EntityType<Settings>[] = [];
+  const written: DecodedEntity<Settings>[] = [];
   const effect = Effect.scoped(
     Effect.gen(function* () {
       const scope = yield* Effect.scope;

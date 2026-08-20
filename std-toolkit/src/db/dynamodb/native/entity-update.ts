@@ -1,6 +1,11 @@
 import { Effect, Option, Schema } from 'effect';
-import { Broadcaster, nextUlid, type EntityType } from '../../../core/index.js';
-import type { AnyEntityESchema, ESchemaType } from '../../../eschema/index.js';
+import {
+  Broadcaster,
+  EntitySchema,
+  nextUlid,
+  type DecodedEntity,
+} from '../../../core/index.js';
+import type { AnyEntityESchema } from '../../../eschema/index.js';
 import {
   deriveStorageIndexes,
   encodeCompositeKey,
@@ -21,7 +26,7 @@ import {
 import {
   decodeKey,
   itemSchema,
-  type DecodedItem,
+  type NativeItem,
 } from '../item-schema/index.js';
 import { DynamoDBNativeError } from '../setup/index.js';
 import { dynamoTableService, type DynamoTableService } from './native.js';
@@ -31,15 +36,12 @@ export interface DynamoEntityUpdateInput<
   Pk extends readonly string[],
 > {
   readonly key: Readonly<
-    Pick<
-      ESchemaType<S>,
-      Extract<Pk[number] | S['idField'], keyof ESchemaType<S>>
-    >
+    Pick<S['Type'], Extract<Pk[number] | S['idField'], keyof S['Type']>>
   >;
   readonly update: (
-    operations: UpdateOps<ESchemaType<S>>,
-  ) => AnyOperation<ESchemaType<S>>[];
-  readonly condition?: ConditionOperation<ESchemaType<S>>;
+    operations: UpdateOps<S['Type']>,
+  ) => AnyOperation<S['Type']>[];
+  readonly condition?: ConditionOperation<S['Type']>;
 }
 
 interface PhysicalEntity<Value> {
@@ -166,7 +168,7 @@ export const update = <
   entity: KeyedEntityDefinition<Name, S, Pk>,
   input: DynamoEntityUpdateInput<S, Pk>,
 ): Effect.Effect<
-  EntityType<ESchemaType<S>>,
+  DecodedEntity<S['Type']>,
   DynamoDBNativeError,
   DynamoTableService<Name>
 > =>
@@ -194,17 +196,18 @@ export const update = <
       );
     }
     let existing = yield* Schema.encodeEffect(schema)(
-      physicalExisting as DecodedItem,
+      physicalExisting as NativeItem,
     ).pipe(Effect.mapError(updateError));
-    if (existing.meta._v !== entity.schema.latestVersion) {
-      const decoded = yield* entity.schema
-        .decode(existing.data)
+    const entitySchema = EntitySchema(entity.schema);
+    if (existing.data._v !== entity.schema.latestVersion) {
+      const decoded = yield* entitySchema
+        .decode({ value: existing.data, meta: existing.meta })
         .pipe(
           Effect.mapError(
             (cause) => new DynamoDBNativeError({ operation: 'update', cause }),
           ),
         );
-      const data = yield* entity.schema
+      const encoded = yield* entitySchema
         .encode(decoded)
         .pipe(
           Effect.mapError(
@@ -213,16 +216,18 @@ export const update = <
         );
       const migrated: EncodedItem = {
         ...existing,
-        data,
-        meta: { ...existing.meta, _v: entity.schema.latestVersion },
-        keys: indexKeys(entity, { ...data, _u: existing.meta._u }),
+        data: encoded.value,
+        keys: indexKeys(entity, {
+          ...encoded.value,
+          _u: existing.meta._u,
+        }),
       };
       const physicalMigrated = yield* Schema.decodeEffect(schema)(
         migrated,
       ).pipe(Effect.mapError(updateError));
       const migrationCondition = yield* tryUpdate(() =>
         buildExpr({
-          condition: exprCondition<PhysicalEntity<ESchemaType<S>>>(($) =>
+          condition: exprCondition<PhysicalEntity<S['Type']>>(($) =>
             $.cond('_u', '=', existing.meta._u),
           ),
         }),
@@ -248,7 +253,7 @@ export const update = <
       '_u',
       '_d',
     ]);
-    const paths = (items: readonly AnyOperation<ESchemaType<S>>[]): string[] =>
+    const paths = (items: readonly AnyOperation<S['Type']>[]): string[] =>
       items.flatMap((operation) =>
         Array.isArray(operation) ? paths(operation) : [String(operation.key)],
       );
@@ -280,13 +285,13 @@ export const update = <
         ),
       ]),
     );
-    const currentVersion: ConditionOperation<PhysicalEntity<ESchemaType<S>>> = {
+    const currentVersion: ConditionOperation<PhysicalEntity<S['Type']>> = {
       type: 'condition_condition',
       key: '_v',
       op: '=',
       value: entity.schema.latestVersion,
     };
-    const condition: ConditionOperation<PhysicalEntity<ESchemaType<S>>> =
+    const condition: ConditionOperation<PhysicalEntity<S['Type']>> =
       input.condition === undefined
         ? currentVersion
         : {
@@ -317,19 +322,15 @@ export const update = <
       );
     }
     const item = yield* Schema.encodeEffect(schema)(
-      physicalUpdated as DecodedItem,
+      physicalUpdated as NativeItem,
     ).pipe(Effect.mapError(updateError));
-    const value = yield* entity.schema
-      .decode(item.data)
+    const result = yield* entitySchema
+      .decode({ value: item.data, meta: item.meta })
       .pipe(
         Effect.mapError(
           (cause) => new DynamoDBNativeError({ operation: 'update', cause }),
         ),
       );
-    const result = {
-      value,
-      meta: item.meta,
-    } as EntityType<ESchemaType<S>>;
     const broadcaster = yield* Effect.serviceOption(Broadcaster).pipe(
       Effect.map(Option.getOrNull),
     );

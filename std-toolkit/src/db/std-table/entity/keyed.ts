@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { nextUlid, type EntityType } from '../../../core/index.js';
+import { nextUlid, type DecodedEntity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import {
   CheckRefused,
@@ -71,8 +71,7 @@ export const makeKeyedEntity = <
           ),
         );
       if (item === null) return null;
-      const value = yield* decode(definition.schema, item);
-      return entityResult(item, value);
+      return yield* decode(definition.schema, item);
     });
   const makeOp = (
     item: EncodedItem,
@@ -113,7 +112,7 @@ export const makeKeyedEntity = <
       );
     });
   const buildUpdateOp = (
-    existing: EntityType<EntityValue<S>>,
+    existing: DecodedEntity<EntityValue<S>>,
     partial: UpdateValue<S>,
     kind: 'updateOp' | 'deleteOp' | 'restoreOp',
     options?: { readonly lastWriteWins?: boolean },
@@ -178,7 +177,7 @@ export const makeKeyedEntity = <
           new UpdateRefused({ entity: definition.name }),
         );
       return yield* buildUpdateOp(
-        existing as EntityType<EntityValue<S>>,
+        existing as DecodedEntity<EntityValue<S>>,
         partial,
         kind,
         options,
@@ -214,7 +213,7 @@ export const makeKeyedEntity = <
         }),
       );
       yield* broadcast(applied.entity);
-      return applied.entity as EntityType<EntityValue<S>>;
+      return applied.entity as DecodedEntity<EntityValue<S>>;
     });
   const tombstone = (key: EntityKey<S, Pk>, deleted: boolean) =>
     Effect.gen(function* () {
@@ -225,7 +224,7 @@ export const makeKeyedEntity = <
         );
       if (existing.meta._d === deleted) return existing;
       const op = yield* buildUpdateOp(
-        existing as EntityType<EntityValue<S>>,
+        existing as DecodedEntity<EntityValue<S>>,
         {},
         deleted ? 'deleteOp' : 'restoreOp',
       );
@@ -260,7 +259,7 @@ export const makeKeyedEntity = <
               : update;
           if (partial === null) return existing;
           const op = yield* buildUpdateOp(
-            existing as EntityType<EntityValue<S>>,
+            existing as DecodedEntity<EntityValue<S>>,
             partial,
             'updateOp',
             options,
@@ -304,7 +303,7 @@ export const makeKeyedEntity = <
     restore: (key: EntityKey<S, Pk>) => tombstone(key, false),
     restoreOp: (key: EntityKey<S, Pk>, options?: { lastWriteWins?: boolean }) =>
       updateOp(key, {}, 'restoreOp', options),
-    unchangedOp: (entity: EntityType<EntityValue<S>>) =>
+    unchangedOp: (entity: DecodedEntity<EntityValue<S>>) =>
       checkOp(entity.value as object as JsonObject, {
         kind: 'updated',
         value: entity.meta._u,
@@ -331,7 +330,7 @@ export const makeKeyedEntity = <
               dbError('hardDelete', error as ContractFailure, definition.name),
             ),
           );
-        const deleted: EntityType<EntityValue<S>> = {
+        const deleted: DecodedEntity<EntityValue<S>> = {
           value: existing.value as EntityValue<S>,
           meta: { ...existing.meta, _d: true },
         };

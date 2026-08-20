@@ -3,7 +3,7 @@ import type { EncodedKey } from '../../std-table/contract/index.js';
 import type { DynamoDBClient } from '../client/index.js';
 import {
   decodeKey,
-  type DecodedItem,
+  type NativeItem,
   type ItemSchema,
 } from '../item-schema/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
@@ -27,7 +27,7 @@ export const getItem = (
     Effect.flatMap(({ Item }) =>
       Item === undefined
         ? Effect.succeed(null)
-        : Schema.encodeEffect(schema)(Item as DecodedItem),
+        : Schema.encodeEffect(schema)(Item as NativeItem),
     ),
     Effect.mapError(contractFailure),
   );

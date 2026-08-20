@@ -1,8 +1,8 @@
 import { Effect, Option } from 'effect';
 import {
   Broadcaster,
-  type EntityType,
-  type SingleEntityType,
+  type DecodedEntity,
+  type DecodedSingleEntity,
 } from '../../../core/index.js';
 import {
   ConditionFailed,
@@ -29,11 +29,11 @@ export const failReason = (reason: DatabaseError['reason']) =>
   Effect.fail(new DatabaseError({ reason }));
 
 export const broadcast = (
-  entity: EntityType<object> | SingleEntityType<object>,
+  entity: DecodedEntity<object> | DecodedSingleEntity<object>,
 ) =>
   Effect.gen(function* () {
     const service = yield* Effect.serviceOption(Broadcaster).pipe(
       Effect.map(Option.getOrNull),
     );
-    service?.broadcast([entity as EntityType<object>]);
+    service?.broadcast([entity as DecodedEntity<object>]);
   });

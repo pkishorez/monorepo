@@ -10,7 +10,7 @@ import type {
 } from '../client/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import { buildExpr, exprFilter } from '../expression/index.js';
-import { decodeKey, itemKey, type DecodedItem } from '../item-schema/index.js';
+import { decodeKey, itemKey, type NativeItem } from '../item-schema/index.js';
 import { contractFailure } from './failure.js';
 
 const deleteMatchingItems = (
@@ -31,7 +31,7 @@ const deleteMatchingItems = (
       });
       for (const item of page.Items ?? []) {
         const key = yield* Effect.try({
-          try: () => itemKey(table, item as DecodedItem),
+          try: () => itemKey(table, item as NativeItem),
           catch: contractFailure,
         });
         yield* client.deleteItem({ TableName: scanInput.TableName, Key: key });

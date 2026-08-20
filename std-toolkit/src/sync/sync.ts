@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { createCollection } from '@tanstack/react-db';
 import { Memory } from '../db/memory/index.js';
-import type { EntityType, SingleEntityType } from '../core/index.js';
+import type { DecodedEntity, DecodedSingleEntity } from '../core/index.js';
 import type { AnyEntityESchema, AnyUnkeyedESchema } from '../eschema/index.js';
 import { buildRegistry, makeTracker } from './runtime/sync-registry/index.js';
 import { buildPartitioned } from './composition/keyed-sync/index.js';
@@ -75,13 +75,13 @@ export type SyncConfig<S extends AnyEntityESchema, R = never> = {
   options?: StdCollectionOptions<S['Type']>;
   onInsert?: (
     item: S['Type'],
-  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
   onUpdate?: (
     payload: UpdatePayload<S['Type'], S>,
-  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
   onDelete?: (
     payload: DeletePayload<S['Type']>,
-  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
 };
 
@@ -91,7 +91,7 @@ type SingleItemSyncBase<S extends AnyUnkeyedESchema, R = never> = {
   options?: StdCollectionOptions<S['Type']>;
   onUpdate?: (payload: {
     updates: Partial<S['Type']>;
-  }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
+  }) => Effect.Effect<DecodedSingleEntity<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
 };
 

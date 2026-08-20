@@ -2,7 +2,10 @@ import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
 } from '../../../eschema/index.js';
-import type { EntityType, SingleEntityType } from '../../../core/index.js';
+import type {
+  DecodedEntity,
+  DecodedSingleEntity,
+} from '../../../core/index.js';
 import {
   Table as DefinitionTable,
   type GlobalSecondaryIndex,
@@ -47,7 +50,7 @@ export interface StdTable<
       }
         ? null
         : Ops[K] extends TransactOp<Name, infer T>
-          ? EntityType<T> | SingleEntityType<T>
+          ? DecodedEntity<T> | DecodedSingleEntity<T>
           : never;
     },
     Name
