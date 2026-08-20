@@ -1,40 +1,6 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 2 safe                                         │
-╰────────────────────────────────────────────────╯
-
-┌────────┬────────────────────┬────────┬───────┐
-│ Status │ Change             │ Before │ After │
-├────────┼────────────────────┼────────┼───────┤
-│ ✓ SAFE │ Added entity User  │ —      │ added │
-│ ✓ SAFE │ Added ESchema User │ —      │ added │
-└────────┴────────────────────┴────────┴───────┘
+FAIL  1 snapshot change needs approval
 
 SAFE
+  Entity User added
 
-  Added entity User
-  /entities/User
-
-  After
-    ┌──────────┬───────┐
-    │ Field    │ Value │
-    ├──────────┼───────┤
-    │ Name     │ User  │
-    │ Kind     │ keyed │
-    │ Schema   │ User  │
-    │ Identity │ id    │
-    └──────────┴───────┘
-
-  Added ESchema User
-  /schemas/User
-
-  After
-    ┌──────────┬────────┐
-    │ Field    │ Value  │
-    ├──────────┼────────┤
-    │ Kind     │ entity │
-    │ Identity │ id     │
-    └──────────┴────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

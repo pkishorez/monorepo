@@ -1,1 +1,6 @@
-✓ Approved snapshot updated: std-toolkit.snapshot.json
+APPROVED  1 snapshot change
+
+BACKFILL
+  Global secondary index GSI1
+    pk: "gsi1pk" → "nextGsiPk"
+    sk: "gsi1sk" → "nextGsiSk"

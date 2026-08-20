@@ -1,25 +1,7 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 1 breaking                                     │
-╰────────────────────────────────────────────────╯
-
-┌────────────┬─────────────────────────────┬────────┬────────┐
-│ Status     │ Change                      │ Before │ After  │
-├────────────┼─────────────────────────────┼────────┼────────┤
-│ ✕ BREAKING │ Renamed table app to legacy │ app    │ legacy │
-└────────────┴─────────────────────────────┴────────┴────────┘
+FAIL  1 snapshot change needs approval
 
 BREAKING
+  Table legacy
+    name: "app" → "legacy"
 
-  Renamed table app to legacy
-  /logicalName
-
-  ┌────────┬────────┐
-  │        │ Value  │
-  ├────────┼────────┤
-  │ Before │ app    │
-  │ After  │ legacy │
-  └────────┴────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

@@ -1,36 +1,8 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 2 breaking                                     │
-╰────────────────────────────────────────────────╯
-
-┌────────────┬──────────────────────────┬────────┬──────────────┐
-│ Status     │ Change                   │ Before │ After        │
-├────────────┼──────────────────────────┼────────┼──────────────┤
-│ ✕ BREAKING │ Changed primary index pk │ pk     │ partitionKey │
-│ ✕ BREAKING │ Changed primary index sk │ sk     │ sortKey      │
-└────────────┴──────────────────────────┴────────┴──────────────┘
+FAIL  1 snapshot change needs approval
 
 BREAKING
+  Primary index
+    pk: "pk" → "partitionKey"
+    sk: "sk" → "sortKey"
 
-  Changed primary index pk
-  /topology/primary/pk
-
-  ┌────────┬──────────────┐
-  │        │ Value        │
-  ├────────┼──────────────┤
-  │ Before │ pk           │
-  │ After  │ partitionKey │
-  └────────┴──────────────┘
-
-  Changed primary index sk
-  /topology/primary/sk
-
-  ┌────────┬─────────┐
-  │        │ Value   │
-  ├────────┼─────────┤
-  │ Before │ sk      │
-  │ After  │ sortKey │
-  └────────┴─────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

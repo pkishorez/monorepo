@@ -1,42 +1,7 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 2 requires-backfill                            │
-╰────────────────────────────────────────────────╯
-
-┌────────────┬───────────────────────────────────┬────────┬───────┐
-│ Status     │ Change                            │ Before │ After │
-├────────────┼───────────────────────────────────┼────────┼───────┤
-│ ◇ BACKFILL │ Added access pattern User/byEmail │ —      │ added │
-│ ◇ BACKFILL │ Added global secondary index GSI1 │ —      │ added │
-└────────────┴───────────────────────────────────┴────────┴───────┘
+FAIL  2 snapshot changes need approval
 
 BACKFILL
+  Access pattern User/byEmail added
+  Global secondary index GSI1 added
 
-  Added access pattern User/byEmail
-  /entities/User/accessPatterns/byEmail
-
-  After
-    ┌───────────────┬─────────┐
-    │ Field         │ Value   │
-    ├───────────────┼─────────┤
-    │ Name          │ byEmail │
-    │ Kind          │ gsi     │
-    │ Index         │ GSI1    │
-    │ Partition key │ email   │
-    │ Sort key      │ id      │
-    └───────────────┴─────────┘
-
-  Added global secondary index GSI1
-  /topology/globalSecondaryIndexes/GSI1
-
-  After
-    ┌───────────────┬────────┐
-    │ Field         │ Value  │
-    ├───────────────┼────────┤
-    │ Name          │ GSI1   │
-    │ Partition key │ gsi1pk │
-    │ Sort key      │ gsi1sk │
-    └───────────────┴────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

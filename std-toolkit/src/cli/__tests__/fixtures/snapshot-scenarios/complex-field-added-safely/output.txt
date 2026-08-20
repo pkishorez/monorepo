@@ -1,38 +1,6 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 1 safe                                         │
-╰────────────────────────────────────────────────╯
-
-┌────────┬────────────────────────────┬────────┬───────┐
-│ Status │ Change                     │ Before │ After │
-├────────┼────────────────────────────┼────────┼───────┤
-│ ✓ SAFE │ Added next version User v2 │ —      │ added │
-└────────┴────────────────────────────┴────────┴───────┘
+FAIL  1 snapshot change needs approval
 
 SAFE
+  User v2 added
 
-  Added next version User v2
-  /schemas/User/versions/v2
-
-  After
-    ┌─────────┬───────┐
-    │ Field   │ Value │
-    ├─────────┼───────┤
-    │ Version │ v2    │
-    └─────────┴───────┘
-
-    Encoded
-      _v: "v2"
-      email: string
-      id: string
-      preferences: { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
-      profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
-
-    Decoded
-      email: string
-      id: string
-      preferences: { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
-      profile: { address: { city: string; country: string }; displayName: string; tags: string[] }
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

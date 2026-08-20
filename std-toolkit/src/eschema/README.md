@@ -80,19 +80,18 @@ Approve the first contract, then verify it locally and in CI:
 
 ```sh
 std-toolkit snapshot approve   # write the baseline
-std-toolkit snapshot verify    # check against it
-std-toolkit snapshot view      # print the contract in full
+std-toolkit snapshot           # check against it
 ```
 
 The command loads the TypeScript entry through Jiti and keeps the approved
-contract in `std-toolkit.snapshot.json`. `verify` exits with status 1 on drift
-and prints only the breaking, backfill, unverifiable, and safe changes — run
-`view` for the full contract. The baseline is written only by `approve`; commit
-the JSON file so Git retains its history.
+contract in `std-toolkit.snapshot.json`. `snapshot` exits with status 1 on drift
+and prints only the breaking, backfill, unverifiable, and safe changes. The
+baseline is written only by `approve`; commit the JSON file so Git retains its
+history.
 
 ```yaml
 # GitHub Actions
-- run: pnpm std-toolkit snapshot verify
+- run: pnpm std-toolkit snapshot
 ```
 
 ## Key exports

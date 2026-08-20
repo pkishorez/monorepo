@@ -51,12 +51,10 @@ describe('table snapshot diff', () => {
     current.topology.primary.pk = 'nextPk';
     current.entities[0].idField = 'nextId';
     const changes = Snapshot.diff(table(), current);
-    expect(changes.map(({ path }) => path)).toEqual(
-      changes.map(({ path }) => path).toSorted(),
+    expect(changes.map(({ subject }) => subject.kind)).toEqual(
+      changes.map(({ subject }) => subject.kind).toSorted(),
     );
-    expect(
-      changes.every(({ classification }) => classification === 'breaking'),
-    ).toBe(true);
+    expect(changes.every(({ impact }) => impact === 'breaking')).toBe(true);
   });
 
   it('classifies primary topology and retained entity identity changes as breaking', () => {
@@ -69,7 +67,7 @@ describe('table snapshot diff', () => {
       const current = clone() as any;
       mutate(current);
       expect(Snapshot.diff(table(), current)).toEqual([
-        expect.objectContaining({ classification: 'breaking' }),
+        expect.objectContaining({ impact: 'breaking' }),
       ]);
     }
   });
@@ -85,8 +83,9 @@ describe('table snapshot diff', () => {
 
     expect(Snapshot.diff(before, after)).toEqual([
       expect.objectContaining({
-        kind: 'entity-schema-changed',
-        classification: 'breaking',
+        subject: expect.objectContaining({ kind: 'entity' }),
+        action: 'edited',
+        impact: 'breaking',
       }),
     ]);
   });
@@ -99,14 +98,15 @@ describe('table snapshot diff', () => {
       sk: 'y',
     });
     expect(Snapshot.diff(table(), added)[0]).toMatchObject({
-      kind: 'secondary-index-added',
-      classification: 'requires-backfill',
+      subject: { kind: 'global-secondary-index', name: 'GSI2' },
+      action: 'added',
+      impact: 'requires-backfill',
     });
 
     const changed = clone() as any;
     changed.topology.globalSecondaryIndexes[0].sk = 'next';
     expect(Snapshot.diff(table(), changed)[0]).toMatchObject({
-      classification: 'requires-backfill',
+      impact: 'requires-backfill',
     });
 
     const removed = clone() as any;
@@ -117,9 +117,9 @@ describe('table snapshot diff', () => {
       );
     expect(
       Snapshot.diff(table(), removed).find(
-        ({ kind }) => kind === 'secondary-index-removed',
+        ({ subject }) => subject.kind === 'global-secondary-index',
       ),
-    ).toMatchObject({ classification: 'safe' });
+    ).toMatchObject({ action: 'removed', impact: 'safe' });
   });
 
   it('classifies local secondary index add and remove', () => {
@@ -130,13 +130,14 @@ describe('table snapshot diff', () => {
       sk: 'lsk',
     });
     expect(Snapshot.diff(table(), added)[0]).toMatchObject({
-      kind: 'secondary-index-added',
-      classification: 'requires-backfill',
-      path: '/topology/localSecondaryIndexes/LSI1',
+      subject: { kind: 'local-secondary-index', name: 'LSI1' },
+      action: 'added',
+      impact: 'requires-backfill',
     });
     expect(Snapshot.diff(added, table())[0]).toMatchObject({
-      kind: 'secondary-index-removed',
-      classification: 'safe',
+      subject: { kind: 'local-secondary-index', name: 'LSI1' },
+      action: 'removed',
+      impact: 'safe',
     });
   });
 
@@ -148,23 +149,27 @@ describe('table snapshot diff', () => {
       accessPatterns: [],
     });
     expect(
-      Snapshot.diff(table(), added).find(({ kind }) => kind === 'entity-added'),
-    ).toMatchObject({ classification: 'safe' });
+      Snapshot.diff(table(), added).find(
+        ({ subject, action }) =>
+          subject.kind === 'entity' && action === 'added',
+      ),
+    ).toMatchObject({ impact: 'safe' });
 
     const removed = clone() as any;
     removed.entities = [];
     expect(
       Snapshot.diff(table(), removed).find(
-        ({ kind }) => kind === 'entity-removed',
+        ({ subject, action }) =>
+          subject.kind === 'entity' && action === 'removed',
       ),
-    ).toMatchObject({ classification: 'breaking' });
+    ).toMatchObject({ impact: 'breaking' });
 
     const renamed = clone() as any;
     renamed.entities[0].name = 'Account';
     expect(
       Snapshot.diff(table(), renamed)
-        .filter(({ scope }) => scope === 'entity')
-        .map(({ classification }) => classification)
+        .filter(({ subject }) => subject.kind === 'entity')
+        .map(({ impact }) => impact)
         .sort(),
     ).toEqual(['breaking', 'safe']);
   });
@@ -180,9 +185,10 @@ describe('table snapshot diff', () => {
     });
     expect(
       Snapshot.diff(table(), added).find(
-        ({ kind }) => kind === 'access-pattern-added',
+        ({ subject, action }) =>
+          subject.kind === 'access-pattern' && action === 'added',
       ),
-    ).toMatchObject({ classification: 'requires-backfill' });
+    ).toMatchObject({ impact: 'requires-backfill' });
 
     for (const mutate of [
       (value: any) => (value.entities[0].accessPatterns[0].pk = ['id']),
@@ -197,10 +203,10 @@ describe('table snapshot diff', () => {
         });
       mutate(current);
       expect(
-        Snapshot.diff(table(), current).find(({ kind }) =>
-          kind.startsWith('access-pattern-'),
+        Snapshot.diff(table(), current).find(
+          ({ subject }) => subject.kind === 'access-pattern',
         ),
-      ).toMatchObject({ classification: 'requires-backfill' });
+      ).toMatchObject({ impact: 'requires-backfill' });
     }
 
     const removed = clone() as any;
@@ -210,16 +216,17 @@ describe('table snapshot diff', () => {
       );
     expect(
       Snapshot.diff(table(), removed).find(
-        ({ kind }) => kind === 'access-pattern-removed',
+        ({ subject, action }) =>
+          subject.kind === 'access-pattern' && action === 'removed',
       ),
-    ).toMatchObject({ classification: 'safe' });
+    ).toMatchObject({ impact: 'safe' });
 
     const renamed = clone() as any;
     renamed.entities[0].accessPatterns[0].name = 'byAddress';
     expect(
       Snapshot.diff(table(), renamed)
-        .filter(({ kind }) => kind.startsWith('access-pattern-'))
-        .map(({ classification }) => classification)
+        .filter(({ subject }) => subject.kind === 'access-pattern')
+        .map(({ impact }) => impact)
         .sort(),
     ).toEqual(['requires-backfill', 'safe']);
   });
@@ -228,14 +235,12 @@ describe('table snapshot diff', () => {
     const current = clone() as any;
     current.entities[0].primary.sk = ['email'];
     current.entities[0].accessPatterns[1].sk = ['email'];
-    expect(
-      Snapshot.diff(table(), current).map(
-        ({ classification }) => classification,
-      ),
-    ).toEqual(['breaking', 'breaking']);
+    expect(Snapshot.diff(table(), current).map(({ impact }) => impact)).toEqual(
+      ['breaking', 'breaking'],
+    );
   });
 
-  it('delegates ESchema append, edit, delete, and nested transitive changes', () => {
+  it('delegates ESchema append, edit, delete, and nested changes', () => {
     const evolved = EntityESchema.make('User', 'id', { email: Schema.String })
       .evolve('v2', { active: Schema.Boolean }, (value) => ({
         ...value,
@@ -246,24 +251,27 @@ describe('table snapshot diff', () => {
     appended.schemas = Snapshot.capture(evolved).schemas;
     expect(
       Snapshot.diff(table(), appended).find(
-        ({ kind }) => kind === 'version-added',
+        ({ subject, action }) =>
+          subject.kind === 'version' && action === 'added',
       ),
-    ).toMatchObject({ classification: 'safe' });
+    ).toMatchObject({ impact: 'safe' });
 
     const edited = clone() as any;
     edited.schemas[0].versions[0].encoded = { edited: true };
     expect(Snapshot.diff(table(), edited)[0]).toMatchObject({
-      kind: 'encoded-changed',
-      classification: 'breaking',
+      subject: expect.objectContaining({ kind: 'version' }),
+      action: 'edited',
+      impact: 'breaking',
     });
 
     const deleted = structuredClone(appended);
     deleted.schemas[0].versions = deleted.schemas[0].versions.slice(0, 1);
     expect(
       Snapshot.diff(appended, deleted).find(
-        ({ kind }) => kind === 'version-deleted',
+        ({ subject, action }) =>
+          subject.kind === 'version' && action === 'removed',
       ),
-    ).toMatchObject({ classification: 'breaking' });
+    ).toMatchObject({ impact: 'breaking' });
 
     const childV1 = EntityESchema.make('Child', 'id', {
       value: Schema.String,
@@ -287,27 +295,35 @@ describe('table snapshot diff', () => {
       ...nestedBefore,
       schemas: Snapshot.capture(parent(childV2)).schemas,
     };
-    expect(
-      Snapshot.diff(nestedBefore, nestedAfter).find(
-        ({ kind }) => kind === 'transitive-version-added',
-      ),
-    ).toMatchObject({ classification: 'safe' });
+    expect(Snapshot.diff(nestedBefore, nestedAfter)).toEqual([
+      expect.objectContaining({
+        subject: expect.objectContaining({
+          kind: 'version',
+          name: 'Child',
+          version: 'v2',
+        }),
+        action: 'added',
+        impact: 'safe',
+      }),
+    ]);
   });
 
   it('reports a rename alongside the remaining changes', () => {
     const other = clone() as any;
     other.logicalName = 'legacy';
     other.topology.primary.pk = 'different';
-    expect(Snapshot.diff(table(), other)).toEqual([
-      expect.objectContaining({
-        kind: 'table-renamed',
-        classification: 'breaking',
-      }),
-      expect.objectContaining({
-        kind: 'primary-index-pk-changed',
-        classification: 'breaking',
-      }),
-    ]);
+    expect(Snapshot.diff(table(), other)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          subject: expect.objectContaining({ kind: 'table' }),
+          impact: 'breaking',
+        }),
+        expect.objectContaining({
+          subject: expect.objectContaining({ kind: 'primary-index' }),
+          impact: 'breaking',
+        }),
+      ]),
+    );
   });
 
   it('rejects invalid references with a described cause', async () => {

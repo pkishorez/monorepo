@@ -2,5 +2,9 @@ export {
   approveSnapshot,
   makeSnapshotCommand,
   verifySnapshot,
-  viewSnapshot,
 } from './snapshot.js';
+export {
+  renderSnapshotResult,
+  type SnapshotCommandResult,
+  type SnapshotOutcome,
+} from './report.js';

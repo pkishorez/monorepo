@@ -1,36 +1,8 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 2 requires-backfill                            │
-╰────────────────────────────────────────────────╯
-
-┌────────────┬────────────────────────────┬────────┬───────────┐
-│ Status     │ Change                     │ Before │ After     │
-├────────────┼────────────────────────────┼────────┼───────────┤
-│ ◇ BACKFILL │ Changed secondary index pk │ gsi1pk │ nextGsiPk │
-│ ◇ BACKFILL │ Changed secondary index sk │ gsi1sk │ nextGsiSk │
-└────────────┴────────────────────────────┴────────┴───────────┘
+FAIL  1 snapshot change needs approval
 
 BACKFILL
+  Global secondary index GSI1
+    pk: "gsi1pk" → "nextGsiPk"
+    sk: "gsi1sk" → "nextGsiSk"
 
-  Changed secondary index pk
-  /topology/globalSecondaryIndexes/GSI1/pk
-
-  ┌────────┬───────────┐
-  │        │ Value     │
-  ├────────┼───────────┤
-  │ Before │ gsi1pk    │
-  │ After  │ nextGsiPk │
-  └────────┴───────────┘
-
-  Changed secondary index sk
-  /topology/globalSecondaryIndexes/GSI1/sk
-
-  ┌────────┬───────────┐
-  │        │ Value     │
-  ├────────┼───────────┤
-  │ Before │ gsi1sk    │
-  │ After  │ nextGsiSk │
-  └────────┴───────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

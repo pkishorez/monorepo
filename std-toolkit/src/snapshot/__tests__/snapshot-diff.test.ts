@@ -4,7 +4,7 @@ import { ESchema, toSchema } from '../../eschema/index.js';
 import { Snapshot } from '../index.js';
 
 describe('Snapshot.diff', () => {
-  it('classifies next versions and transitive nested changes as safe', () => {
+  it('reports a nested next version once as safe', () => {
     const childV1 = ESchema.make('Child', { value: Schema.String }).build();
     const before = Snapshot.capture(
       ESchema.make('Parent', { child: toSchema(childV1) }).build(),
@@ -19,14 +19,19 @@ describe('Snapshot.diff', () => {
       ESchema.make('Parent', { child: toSchema(childV2) }).build(),
     );
 
-    expect(Snapshot.diff(before, after).map((item) => item.kind)).toEqual([
-      'version-added',
-      'transitive-version-added',
+    expect(Snapshot.diff(before, after)).toEqual([
+      expect.objectContaining({
+        action: 'added',
+        impact: 'safe',
+        subject: expect.objectContaining({
+          kind: 'version',
+          name: 'Child',
+          version: 'v2',
+        }),
+      }),
     ]);
     expect(
-      Snapshot.diff(before, after).every(
-        (item) => item.classification === 'safe',
-      ),
+      Snapshot.diff(before, after).every((item) => item.impact === 'safe'),
     ).toBe(true);
   });
 
@@ -40,14 +45,95 @@ describe('Snapshot.diff', () => {
     decodedEdit.schemas[0]!.versions[0]!.decoded = { changed: true };
 
     expect(Snapshot.diff(previous, encodedEdit)[0]).toMatchObject({
-      kind: 'encoded-changed',
-      classification: 'breaking',
+      action: 'edited',
+      impact: 'breaking',
+      edits: [expect.objectContaining({ side: 'encoded' })],
     });
     expect(Snapshot.diff(previous, decodedEdit)[0]).toMatchObject({
-      kind: 'decoded-changed',
-      classification: 'breaking',
+      action: 'edited',
+      impact: 'breaking',
+      edits: [expect.objectContaining({ side: 'decoded' })],
     });
   });
+
+  it('reports exact nested edits and combines matching encoded and decoded sides', () => {
+    const before = Snapshot.capture(
+      ESchema.make('Item', {
+        profile: Schema.Struct({ displayName: Schema.String }),
+      }).build(),
+    );
+    const after = Snapshot.capture(
+      ESchema.make('Item', {
+        profile: Schema.Struct({
+          displayName: Schema.NullOr(Schema.String),
+        }),
+      }).build(),
+    );
+
+    expect(Snapshot.diff(before, after)).toEqual([
+      expect.objectContaining({
+        action: 'edited',
+        impact: 'breaking',
+        edits: [
+          expect.objectContaining({
+            path: ['profile', 'displayName'],
+            side: 'encoded-and-decoded',
+          }),
+        ],
+      }),
+    ]);
+  });
+
+  it.each([
+    ['parameter', { _tag: 'StringKeyword' }, { _tag: 'SymbolKeyword' }],
+    ['type', { _tag: 'StringKeyword' }, { _tag: 'NumberKeyword' }],
+  ] as const)(
+    'reports object index signature %s edits alongside named properties',
+    (part, previous, current) => {
+      const before = Snapshot.capture(
+        ESchema.make('Item', { id: Schema.String }).build(),
+      );
+      const after = structuredClone(before);
+      for (const snapshot of [before, after]) {
+        const version = snapshot.schemas[0]!.versions[0]!;
+        for (const schema of [version.encoded, version.decoded]) {
+          const { representation } = schema as unknown as {
+            representation: { indexSignatures: unknown[] };
+          };
+          representation.indexSignatures = [
+            {
+              parameter: { _tag: 'StringKeyword' },
+              type: { _tag: 'StringKeyword' },
+            },
+          ];
+        }
+      }
+      const version = after.schemas[0]!.versions[0]!;
+      for (const schema of [version.encoded, version.decoded]) {
+        const { representation } = schema as unknown as {
+          representation: {
+            indexSignatures: Record<string, unknown>[];
+          };
+        };
+        representation.indexSignatures[0]![part] = current;
+      }
+
+      expect(Snapshot.diff(before, after)).toEqual([
+        expect.objectContaining({
+          action: 'edited',
+          impact: 'breaking',
+          edits: [
+            expect.objectContaining({
+              path: ['indexSignatures', '0', part],
+              before: previous,
+              after: current,
+              side: 'encoded-and-decoded',
+            }),
+          ],
+        }),
+      ]);
+    },
+  );
 
   it('reports approved transformation changes', () => {
     const before = Snapshot.capture(
@@ -59,8 +145,14 @@ describe('Snapshot.diff', () => {
 
     expect(Snapshot.diff(before, after)).toEqual([
       expect.objectContaining({
-        kind: 'transformations-changed',
-        classification: 'breaking',
+        action: 'edited',
+        impact: 'breaking',
+        edits: [
+          expect.objectContaining({
+            before: 'stringFromBase64String',
+            after: 'stringFromHexString',
+          }),
+        ],
       }),
     ]);
   });
@@ -81,8 +173,8 @@ describe('Snapshot.diff', () => {
 
     expect(Snapshot.diff(before, after)).toEqual([
       expect.objectContaining({
-        kind: 'transformations-changed',
-        classification: 'breaking',
+        action: 'edited',
+        impact: 'breaking',
       }),
     ]);
   });
@@ -102,9 +194,9 @@ describe('Snapshot.diff', () => {
 
     expect(Snapshot.diff(before, after)).toEqual([
       expect.objectContaining({
-        path: '/root',
-        kind: 'root-changed',
-        classification: 'breaking',
+        subject: expect.objectContaining({ kind: 'snapshot' }),
+        action: 'edited',
+        impact: 'breaking',
       }),
     ]);
   });
@@ -128,12 +220,12 @@ describe('Snapshot.diff', () => {
 
     expect(Snapshot.diff(before, after)).toEqual([
       expect.objectContaining({
-        path: '/schemas/Item/versions/v2',
-        classification: 'safe',
+        subject: expect.objectContaining({ version: 'v2' }),
+        impact: 'safe',
       }),
       expect.objectContaining({
-        path: '/schemas/Item/versions/v3',
-        classification: 'safe',
+        subject: expect.objectContaining({ version: 'v3' }),
+        impact: 'safe',
       }),
     ]);
   });
@@ -170,8 +262,9 @@ describe('Snapshot.diff', () => {
     const deleted = JSON.parse(JSON.stringify(Snapshot.capture(v2)));
     deleted.schemas[0]!.versions = deleted.schemas[0]!.versions.slice(0, 1);
     expect(Snapshot.diff(Snapshot.capture(v2), deleted)[0]).toMatchObject({
-      kind: 'version-deleted',
-      classification: 'breaking',
+      action: 'removed',
+      impact: 'breaking',
+      subject: expect.objectContaining({ kind: 'version', version: 'v2' }),
     });
   });
 

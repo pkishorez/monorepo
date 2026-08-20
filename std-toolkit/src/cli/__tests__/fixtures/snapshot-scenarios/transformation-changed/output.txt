@@ -1,25 +1,7 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 1 breaking                                     │
-╰────────────────────────────────────────────────╯
-
-┌────────────┬───────────────────────────────────────────────────────┬────────┬─────────────────┐
-│ Status     │ Change                                                │ Before │ After           │
-├────────────┼───────────────────────────────────────────────────────┼────────┼─────────────────┤
-│ ✕ BREAKING │ Changed approved transformations contract for User v1 │        │ [object Object] │
-└────────────┴───────────────────────────────────────────────────────┴────────┴─────────────────┘
+FAIL  1 snapshot change needs approval
 
 BREAKING
+  User v1
+    transformation.email: — → "stringFromBase64String"
 
-  Changed approved transformations contract for User v1
-  /schemas/User/versions/v1/transformations
-
-  ┌────────┬─────────────────┐
-  │        │ Value           │
-  ├────────┼─────────────────┤
-  │ Before │                 │
-  │ After  │ [object Object] │
-  └────────┴─────────────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

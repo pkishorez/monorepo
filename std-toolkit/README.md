@@ -40,10 +40,9 @@ approve and verify the committed `std-toolkit.snapshot.json` baseline:
 
 ```sh
 std-toolkit snapshot approve   # write the baseline
-std-toolkit snapshot verify    # check against it
-std-toolkit snapshot view      # print the contract in full
+std-toolkit snapshot           # check against it
 ```
 
-`verify` reports only what changed and exits with status 1 when the declared
-storage contract drifts, making it suitable for GitHub Actions. It is also what
-bare `std-toolkit snapshot` runs.
+`snapshot` reports only what changed and exits with status 1 when the declared
+storage contract differs from its approved baseline, making it suitable for
+GitHub Actions.

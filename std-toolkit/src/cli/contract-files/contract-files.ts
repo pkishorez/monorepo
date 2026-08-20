@@ -3,11 +3,8 @@ import { resolve } from 'node:path';
 import { Effect, FileSystem } from 'effect';
 import type { PlatformError } from 'effect';
 import { createJiti } from 'jiti';
-import { Snapshot, SnapshotFormatRetired } from '../../snapshot/index.js';
-import type {
-  ContractSnapshot,
-  SnapshotDecodeError,
-} from '../../snapshot/index.js';
+import { Snapshot, SnapshotDecodeError } from '../../snapshot/index.js';
+import type { ContractSnapshot } from '../../snapshot/index.js';
 import { ContractEntryError } from './errors.js';
 
 export { ContractEntryError };
@@ -46,7 +43,6 @@ export function loadContract(
 
 export function readBaseline(
   cwd: string,
-  options?: { readonly discardRetired?: boolean },
 ): Effect.Effect<
   ContractSnapshot | undefined,
   PlatformError.PlatformError | SnapshotDecodeError,
@@ -57,14 +53,12 @@ export function readBaseline(
     const path = resolve(cwd, baselineFileName);
     if (!(yield* fs.exists(path))) return undefined;
     const source = yield* fs.readFileString(path);
-    return yield* Snapshot.decode(JSON.parse(source) as unknown).pipe(
-      Effect.catch((error) =>
-        options?.discardRetired === true &&
-        error instanceof SnapshotFormatRetired
-          ? Effect.succeed(undefined)
-          : Effect.fail(error),
-      ),
-    );
+    const stored = yield* Effect.try({
+      try: () => JSON.parse(source) as unknown,
+      catch: (cause) =>
+        new SnapshotDecodeError('Snapshot baseline is not valid JSON', cause),
+    });
+    return yield* Snapshot.decode(stored);
   });
 }
 

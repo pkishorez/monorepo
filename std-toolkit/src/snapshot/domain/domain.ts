@@ -1,21 +1,25 @@
 import { Schema } from 'effect';
 
-export const SnapshotClassificationSchema = Schema.Literals([
+export const SnapshotImpactSchema = Schema.Literals([
   'safe',
   'requires-backfill',
   'breaking',
   'unverifiable',
 ]);
-export type SnapshotClassification = typeof SnapshotClassificationSchema.Type;
+export type SnapshotImpact = typeof SnapshotImpactSchema.Type;
 
-export const SnapshotScopeSchema = Schema.Literals([
+export const SnapshotSubjectKindSchema = Schema.Literals([
   'snapshot',
   'eschema',
+  'version',
   'table',
   'entity',
-  'index',
+  'primary-index',
+  'local-secondary-index',
+  'global-secondary-index',
+  'access-pattern',
 ]);
-export type SnapshotScope = typeof SnapshotScopeSchema.Type;
+export type SnapshotSubjectKind = typeof SnapshotSubjectKindSchema.Type;
 
 export const SnapshotMarkerSchema = Schema.Struct({
   path: Schema.String,
@@ -261,14 +265,29 @@ export const SnapshotDiagnosticSchema = Schema.Struct({
 });
 export type SnapshotDiagnostic = typeof SnapshotDiagnosticSchema.Type;
 
+export const SnapshotSubjectSchema = Schema.Struct({
+  kind: SnapshotSubjectKindSchema,
+  name: Schema.optional(Schema.String),
+  owner: Schema.optional(Schema.String),
+  version: Schema.optional(Schema.String),
+});
+export type SnapshotSubject = typeof SnapshotSubjectSchema.Type;
+
+export const SnapshotEditSchema = Schema.Struct({
+  side: Schema.optional(
+    Schema.Literals(['encoded', 'decoded', 'encoded-and-decoded', 'contract']),
+  ),
+  path: Schema.Array(Schema.String),
+  before: Schema.optional(Schema.Json),
+  after: Schema.optional(Schema.Json),
+});
+export type SnapshotEdit = typeof SnapshotEditSchema.Type;
+
 export const SnapshotChangeSchema = Schema.Struct({
-  path: Schema.String,
-  scope: SnapshotScopeSchema,
-  kind: Schema.String,
-  classification: SnapshotClassificationSchema,
-  message: Schema.String,
-  before: Schema.optional(Schema.Unknown),
-  after: Schema.optional(Schema.Unknown),
+  impact: SnapshotImpactSchema,
+  subject: SnapshotSubjectSchema,
+  action: Schema.Literals(['added', 'removed', 'edited']),
+  edits: Schema.Array(SnapshotEditSchema),
 });
 export type SnapshotChange = typeof SnapshotChangeSchema.Type;
 
@@ -287,7 +306,7 @@ export class SnapshotDecodeError extends Error {
 export class SnapshotFormatRetired extends SnapshotDecodeError {
   constructor(readonly version: unknown) {
     super(
-      `Table snapshot uses the retired ${JSON.stringify(version)} format; re-approve the baseline with \`std-toolkit snapshot approve\``,
+      `Table snapshot uses the retired ${JSON.stringify(version)} format; move or delete the baseline before approving a new one`,
     );
     this.name = 'SnapshotFormatRetired';
   }

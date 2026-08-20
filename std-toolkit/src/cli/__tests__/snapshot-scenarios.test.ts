@@ -15,8 +15,9 @@ import { Effect } from 'effect';
 import * as NodeServices from '@effect/platform-node/NodeServices';
 import {
   approveSnapshot,
+  renderSnapshotResult,
+  type SnapshotCommandResult,
   verifySnapshot,
-  viewSnapshot,
 } from '../snapshot/index.js';
 
 const directories: string[] = [];
@@ -180,7 +181,7 @@ interface Scenario {
   readonly baseline?: TableSnapshot;
   readonly current: TableSnapshot;
   readonly exitCode: number;
-  readonly mode?: 'verify' | 'approve' | 'view';
+  readonly mode?: 'verify' | 'approve';
 }
 
 const scenarios: readonly Scenario[] = [
@@ -287,12 +288,6 @@ const scenarios: readonly Scenario[] = [
     exitCode: 1,
   },
   {
-    name: 'view-table',
-    current: table(),
-    exitCode: 0,
-    mode: 'view',
-  },
-  {
     name: 'unverifiable-transform-warning',
     baseline: table({
       schemas: Snapshot.capture(customTransformedUser).schemas,
@@ -305,20 +300,19 @@ const scenarios: readonly Scenario[] = [
 ];
 
 function expectedFirstLine(scenario: Scenario): string {
-  if (scenario.mode === 'view') {
-    return '╭─ DATABASE CONTRACT ────────────────────────────╮';
-  }
   if (scenario.mode === 'approve') {
     return scenario.baseline === undefined
-      ? '✓ Approved snapshot written to std-toolkit.snapshot.json'
-      : '✓ Approved snapshot updated: std-toolkit.snapshot.json';
+      ? 'APPROVED  std-toolkit.snapshot.json'
+      : `APPROVED  ${Snapshot.diff(scenario.baseline, scenario.current).length} snapshot ${Snapshot.diff(scenario.baseline, scenario.current).length === 1 ? 'change' : 'changes'}`;
   }
   if (scenario.baseline === undefined) {
-    return 'No approved snapshot found: std-toolkit.snapshot.json';
+    return 'FAIL  No approved snapshot found';
   }
   return scenario.exitCode === 0
-    ? '✓ Database contract matches the approved snapshot'
-    : '╭─ DATABASE CONTRACT CHANGED ────────────────────╮';
+    ? scenario.name === 'unverifiable-transform-warning'
+      ? 'PASS WITH LIMITATIONS  Snapshot matches'
+      : 'PASS  Snapshot matches'
+    : `FAIL  ${Snapshot.diff(scenario.baseline, scenario.current).length} snapshot ${Snapshot.diff(scenario.baseline, scenario.current).length === 1 ? 'change needs' : 'changes need'} approval`;
 }
 
 async function runScenario(
@@ -336,15 +330,15 @@ async function runScenario(
       `${JSON.stringify(scenario.baseline, null, 2)}\n`,
     );
   }
-  const command =
+  const commandResult: SnapshotCommandResult =
     scenario.mode === 'approve'
-      ? approveSnapshot
-      : scenario.mode === 'view'
-        ? viewSnapshot
-        : verifySnapshot;
-  const { exitCode, output } = await Effect.runPromise(
-    command(cwd).pipe(Effect.provide(NodeServices.layer)),
-  );
+      ? await Effect.runPromise(
+          approveSnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
+        )
+      : await Effect.runPromise(
+          verifySnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
+        );
+  const { exitCode, output } = renderSnapshotResult(commandResult);
   return { exitCode, output: `${output}\n` };
 }
 

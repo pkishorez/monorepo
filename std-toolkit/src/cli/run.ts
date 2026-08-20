@@ -18,5 +18,5 @@ const cwd = rootCommand.pipe(Effect.map(({ cwd }) => cwd));
 
 export const cli = rootCommand.pipe(
   Command.withSubcommands([makeSnapshotCommand(cwd)]),
-  Command.run({ version: '0.0.2' }),
+  Command.run({ version: '0.0.6' }),
 );

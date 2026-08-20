@@ -1,1 +1,1 @@
-✓ Approved snapshot written to std-toolkit.snapshot.json
+APPROVED  std-toolkit.snapshot.json

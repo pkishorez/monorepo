@@ -1,5 +1,3 @@
-No approved snapshot found: std-toolkit.snapshot.json
+FAIL  No approved snapshot found
 
-Review it with `std-toolkit snapshot view`, then approve with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

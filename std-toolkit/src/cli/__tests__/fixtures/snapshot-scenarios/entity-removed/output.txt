@@ -1,40 +1,6 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 2 breaking                                     │
-╰────────────────────────────────────────────────╯
-
-┌────────────┬──────────────────────┬─────────┬─────────┐
-│ Status     │ Change               │ Before  │ After   │
-├────────────┼──────────────────────┼─────────┼─────────┤
-│ ✕ BREAKING │ Removed entity User  │ changed │ removed │
-│ ✕ BREAKING │ Deleted ESchema User │ changed │ removed │
-└────────────┴──────────────────────┴─────────┴─────────┘
+FAIL  1 snapshot change needs approval
 
 BREAKING
+  Entity User removed
 
-  Removed entity User
-  /entities/User
-
-  Before
-    ┌──────────┬───────┐
-    │ Field    │ Value │
-    ├──────────┼───────┤
-    │ Name     │ User  │
-    │ Kind     │ keyed │
-    │ Schema   │ User  │
-    │ Identity │ id    │
-    └──────────┴───────┘
-
-  Deleted ESchema User
-  /schemas/User
-
-  Before
-    ┌──────────┬────────┐
-    │ Field    │ Value  │
-    ├──────────┼────────┤
-    │ Kind     │ entity │
-    │ Identity │ id     │
-    └──────────┴────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve
