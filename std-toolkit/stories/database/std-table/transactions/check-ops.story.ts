@@ -45,6 +45,8 @@ const noteIds = (written: readonly unknown[]) =>
 
 export const checkOps = Story.make({
   title: 'Check ops',
+  description:
+    'Asserting that a row has not moved, without writing anything to it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you guard a batch on a row it does not write?', {

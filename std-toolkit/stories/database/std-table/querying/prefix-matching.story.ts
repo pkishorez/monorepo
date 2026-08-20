@@ -20,6 +20,8 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 
 export const prefixMatching = Story.make({
   title: 'Prefix matching',
+  description:
+    'Matching the start of a sort key, which is how a hierarchy is read one level at a time.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you match a prefix of a sort key?', {

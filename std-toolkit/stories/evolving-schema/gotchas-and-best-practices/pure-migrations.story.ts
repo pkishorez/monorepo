@@ -13,6 +13,8 @@ const Ticket = ESchema.make('Ticket', {
 
 export const pureMigrations = Story.make({
   title: 'Pure migrations',
+  description:
+    'The same bytes must decode to the same value on every read, replica, and day.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens when the same stored row is decoded twice?', {

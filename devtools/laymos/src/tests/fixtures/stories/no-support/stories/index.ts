@@ -3,6 +3,7 @@ import { Story } from '../../../../../story/index.js';
 
 const solo = Story.make({
   title: 'solo story',
+  description: 'A Story that resolves no support file.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens without a support file?', {
@@ -15,4 +16,8 @@ const solo = Story.make({
   ],
 });
 
-export default Story.group('no-support', [solo]);
+export default Story.group(
+  'no-support',
+  { description: 'A Stories fixture with no support file.' },
+  [solo],
+);

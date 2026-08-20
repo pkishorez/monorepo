@@ -9,6 +9,8 @@ const Contact = ESchema.make('Contact', {
 
 export const noOptionalFields = Story.make({
   title: 'No optional fields',
+  description:
+    'Absence is an explicit null, and a missing key is an error rather than a silent undefined.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -8,6 +8,8 @@ const shipped = ESchema.make('Event', {
 
 export const editingShippedVersion = Story.make({
   title: 'Editing shipped version',
+  description:
+    'Editing a version that has already shipped breaks the rows written under it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

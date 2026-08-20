@@ -32,6 +32,8 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 
 export const sparseIndexes = Story.make({
   title: 'Sparse indexes',
+  description:
+    'A row that cannot form an index key is left out of that index and stays readable everywhere else.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -85,6 +85,8 @@ const pacedUpdate = (
 
 export const issue1 = Story.make({
   title: 'Issue 1',
+  description:
+    'A regression kept runnable outside the Story tree: pacedUpdate must read the row the Browser is showing.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does the first paced update commit against?', {

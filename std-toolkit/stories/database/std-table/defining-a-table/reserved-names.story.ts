@@ -15,6 +15,7 @@ const reservedAttributes = ['_e', '_v', '_u', '_d', 'data'];
 
 export const reservedNames = Story.make({
   title: 'Reserved names',
+  description: 'Five attribute names the portable row layout keeps for itself.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which attribute names can a table not use?', {

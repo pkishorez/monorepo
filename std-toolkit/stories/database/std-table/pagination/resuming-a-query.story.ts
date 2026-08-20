@@ -17,6 +17,8 @@ const firstPage = note.query(
 
 export const resumingAQuery = Story.make({
   title: 'Resuming a query',
+  description:
+    'Continuing where the last page stopped, with no cursor to store anywhere.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you get the next page?', {

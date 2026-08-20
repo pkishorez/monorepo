@@ -63,6 +63,8 @@ const standup = {
 
 export const codecFields = Story.make({
   title: 'Codec fields',
+  description:
+    'Dates go in as dates and come back as dates; the encoding happens at the adapter and is undone on the way out.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

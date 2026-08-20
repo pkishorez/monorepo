@@ -46,6 +46,8 @@ const key = { articleId: 'a1', section: 'news' };
 
 export const olderRows = Story.make({
   title: 'Older rows',
+  description:
+    'A row written against an older schema folds forward as it is read, without rewriting storage.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

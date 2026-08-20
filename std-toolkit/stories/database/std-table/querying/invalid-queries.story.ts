@@ -5,6 +5,8 @@ import { agree, note, parity, reasonOf } from '../../support.js';
 
 export const invalidQueries = Story.make({
   title: 'Invalid queries',
+  description:
+    'A query carries exactly one sort condition — never none, never two.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens if a query gives two sort conditions?', {

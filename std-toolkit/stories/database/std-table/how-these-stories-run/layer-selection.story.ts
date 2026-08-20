@@ -7,6 +7,8 @@ const key = { noteId: 'selected', notebook: 'layers' };
 
 export const layerSelection = Story.make({
   title: 'Layer selection',
+  description:
+    'Which database a program talks to is chosen by the layer around it, not by the program.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

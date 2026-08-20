@@ -6,6 +6,8 @@ import { table } from '../support.js';
 
 export const tableDefinition = Story.make({
   title: 'Table definition for IaC',
+  description:
+    'Projecting a table into a CreateTableInput that CDK or Terraform can provision.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How does infrastructure code learn the table topology?', {

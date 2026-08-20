@@ -69,6 +69,8 @@ const seed = (
 
 export const aUserUpdatedSomeTimeBack = Story.make({
   title: 'Backend history before mount',
+  description: 'A browser that has been away finds history waiting for it.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

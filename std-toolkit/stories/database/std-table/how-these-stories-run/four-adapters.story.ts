@@ -11,6 +11,9 @@ import {
 
 export const fourAdapters = Story.make({
   title: 'Four adapters',
+  description:
+    'Every proof in this part runs on four databases at once, and all four have to agree.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which databases does every proof run against?', {

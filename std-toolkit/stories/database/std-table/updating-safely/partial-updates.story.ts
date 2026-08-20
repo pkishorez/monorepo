@@ -8,6 +8,9 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 
 export const partialUpdates = Story.make({
   title: 'Partial updates',
+  description:
+    'Change some fields and leave the rest alone, without reading the row into your own code first.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you change some fields of a row?', {

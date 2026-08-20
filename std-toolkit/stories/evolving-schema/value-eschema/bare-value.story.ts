@@ -2,44 +2,43 @@ import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { ValueESchema } from 'std-toolkit/eschema';
 
-const Count = ValueESchema.make('Count', Schema.String)
+const PerPage = ValueESchema.make('PerPage', Schema.String)
   .evolve('v2', Schema.Number, (previous) => Number(previous))
   .build();
 
 export const bareValue = Story.make({
-  title: 'Bare value',
+  title: 'Values written before any of this existed',
+  description:
+    'A setting stored as a plain value, with no envelope and no stamp, still has a way in.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when a bare legacy value with no envelope is decoded?',
+      'The notebook stored "notes per page" long before versions existed — as the bare string `"20"`. Can it still be read?',
       {
         answer:
-          "It is adopted as earliest-version data — validated against v1 and folded forward, so `'42'` becomes `42`.",
+          'Yes. A value with no envelope is adopted as earliest-version data: validated against v1, then folded forward, so `"20"` arrives as `20`.',
         proof: Effect.gen(function* () {
-          const adopted = yield* Count.decode('42');
+          const adopted = yield* PerPage.decode('20');
           yield* Story.assert(
             'the bare value was adopted as v1 and migrated',
-            adopted === 42,
+            adopted === 20,
           );
           return adopted;
         }),
       },
     ),
-    Story.question(
-      'What happens when the adopted value is written back to storage?',
-      {
-        answer:
-          'Encode produces a modern `{ _v, value }` envelope, so adopted data upgrades itself as it is read and rewritten.',
-        proof: Effect.gen(function* () {
-          const adopted = yield* Count.decode('42');
-          const reEncoded = yield* Count.encode(adopted);
-          yield* Story.assert(
-            'writing it back produces a modern envelope',
-            reEncoded._v === 'v2' && reEncoded.value === 42,
-          );
-          return reEncoded;
-        }),
-      },
-    ),
+    Story.question('And once it is written back?', {
+      answer:
+        'It comes back as a modern envelope. Legacy values upgrade themselves the first time they are read and saved.',
+      proof: Effect.gen(function* () {
+        const adopted = yield* PerPage.decode('20');
+        const stored = yield* PerPage.encode(adopted);
+        yield* Story.assert(
+          'writing it back produces a modern envelope',
+          stored._v === 'v2' && stored.value === 20,
+        );
+        return stored;
+      }),
+    }),
   ],
 });

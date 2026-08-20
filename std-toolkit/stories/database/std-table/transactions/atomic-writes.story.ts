@@ -12,6 +12,8 @@ const draft = (noteId: string) => ({
 
 export const atomicWrites = Story.make({
   title: 'Atomic writes',
+  description: 'Several writes that land together or not at all.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you commit several writes as one unit?', {

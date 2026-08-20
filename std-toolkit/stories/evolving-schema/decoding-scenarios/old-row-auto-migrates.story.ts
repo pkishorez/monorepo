@@ -1,55 +1,49 @@
-import { Effect, Schema } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { ESchema } from 'std-toolkit/eschema';
 
-const Article = ESchema.make('Article', {
-  title: Schema.String,
-})
-  .evolve('v2', { tags: Schema.Array(Schema.String) }, (previous) => ({
-    ...previous,
-    tags: [],
-  }))
-  .build();
+import { Note } from '../support.js';
 
 export const oldRowAutoMigrates = Story.make({
-  title: 'Old row auto-migrates',
+  title: 'Reading an old note',
+  description:
+    'Nothing in the app asks for a migration; reading the note is what runs it.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when a v1 row is decoded by code that only knows v2?',
+      'The app was written against the newest Note and knows nothing about older ones. How does it read a note from three versions ago?',
       {
         answer:
-          'It migrates inside `decode`: the runtime dispatches on `_v`, decodes with the v1 schema, then folds forward to the latest shape.',
+          'By calling `decode`, and nothing else. The runtime reads the stamp on the stored row, validates the row against that version, then folds it forward to the latest shape before handing it back.',
         proof: Effect.gen(function* () {
-          const article = yield* Article.decode({
+          const note = yield* Note.decode({
             _v: 'v1',
-            title: 'On computable numbers',
+            body: 'Buy milk',
+            colour: 'yellow',
           });
           yield* Story.assert(
-            'the caller sees the latest shape',
-            Array.isArray(article.tags),
+            'the caller is handed the latest shape',
+            note.text === 'Buy milk' && note.pinned === false,
           );
           yield* Story.assert(
-            'the original data is intact',
-            article.title === 'On computable numbers',
+            'nothing from the old shape leaked through',
+            !('body' in note) && !('colour' in note),
           );
-          return article;
+          return note;
         }),
       },
     ),
-    Story.question('Does the version stamp leak into the decoded value?', {
+    Story.question('Does the app ever see which version the note came from?', {
       answer:
-        'No — `_v` is a storage concern and is stripped before the value is returned.',
+        'No. The stamp is a storage concern, and decode strips it before the value reaches the caller.',
       proof: Effect.gen(function* () {
-        const article = yield* Article.decode({
+        const note = yield* Note.decode({
           _v: 'v1',
-          title: 'On computable numbers',
+          body: 'Buy milk',
+          colour: 'yellow',
         });
-        yield* Story.assert(
-          'no version stamp on the decoded value',
-          !('_v' in article),
-        );
-        return article;
+        yield* Story.assert('no version stamp on the value', !('_v' in note));
+        return note;
       }),
     }),
   ],

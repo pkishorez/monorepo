@@ -14,6 +14,9 @@ const seed = Effect.forEach(ids, (noteId) =>
 
 export const pageSize = Story.make({
   title: 'Page size',
+  description:
+    'Pages have a size whether you ask for one or not, and a flag that says whether more is left.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How many rows does a query return if you never say?', {

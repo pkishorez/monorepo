@@ -1,41 +1,43 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { ValueESchema, ESchemaError } from 'std-toolkit/eschema';
+import { ESchemaError, ValueESchema } from 'std-toolkit/eschema';
 
-const Status = ValueESchema.make('Status', Schema.String)
-  .evolve('v2', Schema.Literals(['open', 'closed']), (previous) =>
-    previous === 'done' ? 'closed' : 'open',
+const Theme = ValueESchema.make('Theme', Schema.String)
+  .evolve('v2', Schema.Literals(['light', 'dark']), (previous) =>
+    previous === 'night' ? 'dark' : 'light',
   )
   .build();
 
 export const envelopeMigrates = Story.make({
-  title: 'Envelope migrates',
+  title: 'The envelope decides which rung',
+  description:
+    'The stamp on the envelope is what picks the starting version — and an envelope is never something you nest yourself.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when a v1 envelope is decoded after v2 tightened the type to literals?',
+      "The notebook's theme was free text and is now one of two words. How does a stored theme find its way forward?",
       {
         answer:
-          "Decode dispatches on the envelope's `_v`, decodes with v1's codec, then migrates — mapping `'done'` onto the new `'closed'` literal.",
+          "By its envelope's `_v`. Decode dispatches on the stamp, reads the value with that version's codec, then runs the rungs above it.",
         proof: Effect.gen(function* () {
-          const migrated = yield* Status.decode({ _v: 'v1', value: 'done' });
+          const migrated = yield* Theme.decode({ _v: 'v1', value: 'night' });
           yield* Story.assert(
-            'the old value was mapped into the new literal set',
-            migrated === 'closed',
+            'the old theme mapped onto the new word',
+            migrated === 'dark',
           );
           return migrated;
         }),
       },
     ),
-    Story.question('What happens when a doubly-wrapped envelope is decoded?', {
+    Story.question('What if an envelope somehow ends up inside an envelope?', {
       answer:
-        'The unwrap happens once — the inner envelope is handed to the codec and fails with `Decode failed`, so envelopes are never a value you nest yourself.',
+        'It fails. The unwrap happens exactly once, so the inner envelope is handed to the codec as a value and is rejected.',
       proof: Effect.gen(function* () {
         const error = yield* Effect.flip(
-          Status.decode({ _v: 'v1', value: { _v: 'v1', value: 'done' } }),
+          Theme.decode({ _v: 'v1', value: { _v: 'v1', value: 'night' } }),
         );
         yield* Story.assert(
-          'only one layer unwraps — nesting envelopes fails',
+          'only one layer unwraps',
           error instanceof ESchemaError && error.message === 'Decode failed',
         );
         return error;

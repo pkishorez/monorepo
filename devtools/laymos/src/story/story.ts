@@ -22,20 +22,23 @@ export interface StoryQuestion {
 
 export interface Story {
   readonly title: string;
+  readonly description: string;
+  readonly spine: boolean;
   readonly sourceUrl: string;
   readonly questions: readonly StoryQuestion[];
 }
 
 export interface StoryGroup {
   readonly title: string;
+  readonly description: string;
   readonly children: readonly StoryNode[];
 }
 
 export type StoryNode = Story | StoryGroup;
 
 export const Story = {
-  make(story: Story): Story {
-    return story;
+  make(story: Omit<Story, 'spine'> & { readonly spine?: boolean }): Story {
+    return { ...story, spine: story.spine ?? false };
   },
 
   question(
@@ -48,8 +51,12 @@ export const Story = {
     return { question, answer: options.answer, proof: options.proof };
   },
 
-  group(title: string, children: readonly StoryNode[]): StoryGroup {
-    return { title, children };
+  group(
+    title: string,
+    options: { readonly description: string },
+    children: readonly StoryNode[],
+  ): StoryGroup {
+    return { title, description: options.description, children };
   },
 
   trace<A, E, R>(
@@ -101,6 +108,8 @@ export function isStory(value: unknown): value is Story {
   const story = value as Story;
   return (
     typeof story.title === 'string' &&
+    typeof story.description === 'string' &&
+    typeof story.spine === 'boolean' &&
     typeof story.sourceUrl === 'string' &&
     Array.isArray(story.questions) &&
     story.questions.every(
@@ -115,7 +124,11 @@ export function isStory(value: unknown): value is Story {
 export function isStoryGroup(value: unknown): value is StoryGroup {
   if (typeof value !== 'object' || value === null) return false;
   const group = value as StoryGroup;
-  if (typeof group.title !== 'string' || !Array.isArray(group.children)) {
+  if (
+    typeof group.title !== 'string' ||
+    typeof group.description !== 'string' ||
+    !Array.isArray(group.children)
+  ) {
     return false;
   }
   return group.children.every((child) => isStory(child) || isStoryGroup(child));

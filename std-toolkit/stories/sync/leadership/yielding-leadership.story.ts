@@ -164,6 +164,8 @@ const runDance = (simulation: LeadershipSimulation) =>
 
 export const yieldingLeadership = Story.make({
   title: 'Two tabs dance for one partition',
+  description:
+    'Hiding a tab hands leadership to a waiting one, four times over.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How does Leadership move when hidden tabs must yield?', {

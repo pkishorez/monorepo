@@ -33,6 +33,8 @@ const simulation = Simulation.make({
 
 export const fromDatabaseToCollection = Story.make({
   title: 'From Backend to Browser',
+  description: 'A todo written on the Backend appears in a mounted Live Query.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('The Backend creates a todo. What does the Browser see?', {

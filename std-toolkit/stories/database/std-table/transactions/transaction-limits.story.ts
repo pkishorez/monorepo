@@ -21,6 +21,7 @@ const jobOp = {
 
 export const transactionLimits = Story.make({
   title: 'Transaction limits',
+  description: 'One row may be touched at most once per transaction.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens if two ops target the same row?', {

@@ -61,6 +61,8 @@ const audit = {
 
 export const crossCollection = Story.make({
   title: 'Cross-collection optimistic actions',
+  description:
+    'Two collections mutated in one transaction, shown immediately and confirmed together.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

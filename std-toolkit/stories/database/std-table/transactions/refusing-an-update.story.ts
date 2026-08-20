@@ -7,6 +7,8 @@ const key = { noteId: 'n1', notebook: 'work' };
 
 export const refusingAnUpdate = Story.make({
   title: 'Refusing an update',
+  description:
+    'An invariant that fails the whole batch before any of it is submitted.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

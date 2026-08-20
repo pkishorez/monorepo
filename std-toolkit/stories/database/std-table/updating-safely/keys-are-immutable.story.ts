@@ -8,6 +8,8 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 
 export const keysAreImmutable = Story.make({
   title: 'Keys are immutable',
+  description:
+    'A row cannot change its own key; it can only be written under a new one.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -14,6 +14,8 @@ const seed = counter.insert({
 
 export const nativeUpdates = Story.make({
   title: 'Native updates',
+  description:
+    'Pushing arithmetic into the database instead of reading, changing, and writing back.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you increment a counter without reading it first?', {

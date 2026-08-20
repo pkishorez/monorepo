@@ -40,6 +40,8 @@ const recordingDriver = (inner: SQLiteDriver) => {
 
 export const writeYourOwnDriver = Story.make({
   title: 'Write your own driver',
+  description:
+    'Anything that can execute SQL can host the whole table — including a dozen-line logging wrapper.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How small is the surface a custom driver must cover?', {

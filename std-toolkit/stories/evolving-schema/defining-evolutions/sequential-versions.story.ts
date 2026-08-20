@@ -2,55 +2,89 @@ import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { ESchema } from 'std-toolkit/eschema';
 
-const Counter = ESchema.make('Counter', {
-  count: Schema.Number,
+import { Note as sharedNote, sameShape } from '../support.js';
+
+const Note = ESchema.make('Note', {
+  body: Schema.String,
+  colour: Schema.String,
 })
-  .evolve('v2', { step: Schema.Number }, (previous) => ({
+  .evolve('v2', { pinned: Schema.Boolean }, (previous) => ({
     ...previous,
-    step: 1,
+    pinned: false,
   }))
-  .evolve('v3', { label: Schema.String }, (previous) => ({
-    ...previous,
-    label: 'counter',
+  .evolve('v3', { colour: null }, ({ colour: _colour, ...rest }) => rest)
+  .evolve('v4', { body: null, text: Schema.String }, ({ body, ...rest }) => ({
+    ...rest,
+    text: body,
   }))
   .build();
 
 export const sequentialVersions = Story.make({
-  title: 'Sequential versions',
+  title: 'The whole ladder at once',
+  description:
+    'The three rungs, run end to end — and the proof that this is the Note every later Story uses.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when a v1 payload is decoded through a v1→v2→v3 chain?',
+      'The oldest note in the notebook has never been opened since it was written. What happens the first time someone reads it?',
       {
         answer:
-          'Decode folds it through every migration in order, so both steps run and the original data survives.',
+          'Every migration between its version and the latest runs, in order, in one pass. It gains `pinned`, loses `colour`, and its words move from `body` to `text`.',
         proof: Story.trace(
           Effect.gen(function* () {
-            const migrated = yield* Counter.decode({ _v: 'v1', count: 2 });
-            yield* Story.assert('the v1→v2 step ran', migrated.step === 1);
+            const migrated = yield* Note.decode({
+              _v: 'v1',
+              body: 'Buy milk',
+              colour: 'yellow',
+            });
             yield* Story.assert(
-              'the v2→v3 step ran after it',
-              migrated.label === 'counter',
+              'the v1→v2 rung ran',
+              migrated.pinned === false,
             );
             yield* Story.assert(
-              'original data survived the walk',
-              migrated.count === 2,
+              'the v2→v3 rung ran after it',
+              !('colour' in migrated),
+            );
+            yield* Story.assert(
+              'the v3→v4 rung ran last',
+              migrated.text === 'Buy milk' && !('body' in migrated),
             );
             return migrated;
           }),
         ),
       },
     ),
-    Story.question('What does the schema report as its latest version?', {
+    Story.question('Which version does the Note call its latest?', {
       answer:
-        'The end of the chain, `v3` — which is why the sequence can have no holes.',
+        'v4 — the last rung declared. That is the version every write is stamped with from now on.',
       proof: Effect.gen(function* () {
         yield* Story.assert(
-          'the schema reports the end of the chain',
-          Counter.latestVersion === 'v3',
+          'the latest version is the last rung declared',
+          Note.latestVersion === 'v4',
         );
-        return Counter.latestVersion;
+        return { latestVersion: Note.latestVersion };
       }),
     }),
+    Story.question(
+      'Is the Note built across these Stories the same Note the rest of the Stories import?',
+      {
+        answer:
+          'Yes, and this proves it rather than promising it: the ladder above and the `Note` in `support.ts` describe the same shape at the same version.',
+        proof: Effect.gen(function* () {
+          const built = Note.getDescriptor();
+          const shared = sharedNote.getDescriptor();
+          yield* Story.assert(
+            'both ladders end at the same version',
+            Note.latestVersion === sharedNote.latestVersion,
+          );
+          yield* Story.assert(
+            'both ladders describe the same shape',
+            sameShape(built, shared),
+          );
+          return { latestVersion: sharedNote.latestVersion };
+        }),
+      },
+    ),
   ],
 });

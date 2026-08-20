@@ -37,6 +37,8 @@ const program = Effect.gen(function* () {
 
 export const fourDriversOneTable = Story.make({
   title: 'Four drivers, one table',
+  description:
+    'One table shape over four SQLite runtimes, behind a three-method seam.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which runtimes can host the SQLite adapter?', {

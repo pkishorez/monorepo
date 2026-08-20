@@ -18,7 +18,9 @@ import {
   indexTree,
   isChapter,
   groupChange,
+  splitSpine,
   storyChange,
+  type StoryLeaf,
   type ChangedPaths,
   type StoriesViewProps,
   type StoryChange,
@@ -113,7 +115,7 @@ export function StoriesDocsSite({
             <SidebarGroup
               id={tree.title}
               group={tree}
-              depth={0}
+              nesting={0}
               reports={reports}
               changedPaths={changedPaths}
               selectedId={selected?.id}
@@ -165,7 +167,7 @@ function chapterIdOf(
 function SidebarGroup({
   id,
   group,
-  depth,
+  nesting,
   reports,
   changedPaths,
   selectedId,
@@ -175,7 +177,7 @@ function SidebarGroup({
 }: {
   readonly id: string;
   readonly group: StoryTree;
-  readonly depth: number;
+  readonly nesting: number;
   readonly reports?: StoryReports;
   readonly changedPaths?: ChangedPaths;
   readonly selectedId?: string;
@@ -185,6 +187,24 @@ function SidebarGroup({
 }) {
   const chapter = isChapter(group);
   const [groupOpen, setGroupOpen] = useState(true);
+  const [depthOpen, setDepthOpen] = useState(false);
+  const { spine, depth } = splitSpine(group.stories);
+  const storyRow = (story: StoryLeaf) => (
+    <SidebarRow
+      key={story.id}
+      label={story.title}
+      depth={nesting + 1}
+      verdict={reports?.[story.id]?.verdict}
+      change={
+        changedPaths === undefined
+          ? undefined
+          : storyChange(story, changedPaths)
+      }
+      selected={selectedId === story.id}
+      leaf
+      onSelect={() => onSelect(story.id)}
+    />
+  );
   const selectedInside =
     selectedId !== undefined &&
     (selectedId === id || selectedId.startsWith(`${id}/`));
@@ -196,7 +216,7 @@ function SidebarGroup({
     <div className="flex flex-col">
       <SidebarRow
         label={group.title}
-        depth={depth}
+        depth={nesting}
         verdict={groupVerdict(group, reports)}
         change={
           changedPaths === undefined
@@ -228,30 +248,26 @@ function SidebarGroup({
           </span>
         }
       />
-      {open &&
-        group.stories.map((story) => (
-          <SidebarRow
-            key={story.id}
-            label={story.title}
-            depth={depth + 1}
-            verdict={reports?.[story.id]?.verdict}
-            change={
-              changedPaths === undefined
-                ? undefined
-                : storyChange(story, changedPaths)
-            }
-            selected={selectedId === story.id}
-            leaf
-            onSelect={() => onSelect(story.id)}
-          />
-        ))}
+      {open && spine.map(storyRow)}
+      {open && depthOpen && depth.map(storyRow)}
+      {open && depth.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setDepthOpen((value) => !value)}
+          style={{ paddingLeft: `${12 + (nesting + 1) * 14}px` }}
+          className="flex w-full items-center gap-2 py-1 pr-3 text-left text-xs text-muted-foreground/70 transition-colors hover:bg-accent/50 hover:text-foreground"
+        >
+          <span className="size-4.5 shrink-0" />
+          {depthOpen ? 'Less' : `${depth.length} more`}
+        </button>
+      )}
       {open &&
         group.groups.map((child) => (
           <SidebarGroup
             key={child.title}
             id={`${id}/${child.title}`}
             group={child}
-            depth={depth + 1}
+            nesting={nesting + 1}
             reports={reports}
             changedPaths={changedPaths}
             selectedId={selectedId}

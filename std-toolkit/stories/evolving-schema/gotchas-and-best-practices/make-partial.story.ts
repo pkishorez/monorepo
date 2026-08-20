@@ -9,6 +9,8 @@ const Settings = ESchema.make('Settings', {
 
 export const makePartialValidates = Story.make({
   title: 'makePartial',
+  description:
+    'What makePartial does and, more importantly, what it does not check.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does `makePartial` do to a partial update?', {

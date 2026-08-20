@@ -20,6 +20,8 @@ const draft = (noteId: string) => ({
 
 export const staleOps = Story.make({
   title: 'Stale ops',
+  description:
+    'An op carries intent, not a snapshot, so time between building it and committing it cannot spoil it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens if the row changed after the op was built?', {

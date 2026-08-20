@@ -1,56 +1,54 @@
-import { Effect, Schema } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { ESchema } from 'std-toolkit/eschema';
 
-const Session = ESchema.make('Session', {
-  token: Schema.String,
-})
-  .evolve('v2', { device: Schema.String }, (previous) => ({
-    ...previous,
-    device: 'unknown',
-  }))
-  .build();
+import { Note } from '../support.js';
 
 export const encodeWritesLatest = Story.make({
-  title: 'Encode writes latest',
+  title: 'Writing a note back',
+  description:
+    'Every write lands at the latest version — storage only ever gains newer notes, never older ones.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What version does encode stamp on a new row?', {
+    Story.question('Someone saves a note. What version does it land at?', {
       answer:
-        'Always the latest — encode validates against the newest schema and writes `_v: "v2"`.',
+        'The latest, always. Encode validates against the newest shape and stamps `_v: "v4"`, so writing an old note back is what quietly retires its old version.',
       proof: Effect.gen(function* () {
-        const stored = yield* Session.encode({ token: 'abc', device: 'mac' });
+        const stored = yield* Note.encode({ text: 'Buy milk', pinned: false });
         yield* Story.assert(
-          'the row is stamped with the latest version',
-          stored._v === 'v2',
+          'the note is stamped at the latest version',
+          stored._v === 'v4',
         );
         return stored;
       }),
     }),
-    Story.question('What happens to extra properties on the value?', {
-      answer:
-        'They are silently dropped — the stored row contains exactly the declared shape.',
-      proof: Effect.gen(function* () {
-        const stored = yield* Session.encode({
-          token: 'abc',
-          device: 'mac',
-          debugFlag: true,
-        } as never);
-        yield* Story.assert(
-          'the extra property was silently dropped',
-          !('debugFlag' in stored),
-        );
-        return stored;
-      }),
-    }),
-    Story.question('What happens when a declared field is missing?', {
-      answer: 'Encode fails loudly with `Encode failed`.',
+    Story.question(
+      'The app tacked a scratch field onto the note before saving. What reaches storage?',
+      {
+        answer:
+          'Only the declared shape. Anything the schema does not name is dropped rather than stored.',
+        proof: Effect.gen(function* () {
+          const stored = yield* Note.encode({
+            text: 'Buy milk',
+            pinned: false,
+            draftOnly: true,
+          } as never);
+          yield* Story.assert(
+            'the undeclared field never reached storage',
+            !('draftOnly' in stored),
+          );
+          return stored;
+        }),
+      },
+    ),
+    Story.question('And if a declared field is missing?', {
+      answer: 'The write fails rather than storing a half-formed note.',
       proof: Effect.gen(function* () {
         const error = yield* Effect.flip(
-          Session.encode({ token: 'abc' } as never),
+          Note.encode({ text: 'Buy milk' } as never),
         );
         yield* Story.assert(
-          'a missing field fails loudly',
+          'an incomplete note is refused',
           error.message === 'Encode failed',
         );
         return error;

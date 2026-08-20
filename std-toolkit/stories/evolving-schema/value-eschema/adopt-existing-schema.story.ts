@@ -2,62 +2,59 @@ import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { ValueESchema } from 'std-toolkit/eschema';
 
-const Status = Schema.Literals(['active', 'archived']);
+const Status = Schema.Literals(['open', 'done']);
 
-const StatusV = ValueESchema.make('Status', Status).build();
+const NoteStatus = ValueESchema.make('NoteStatus', Status).build();
 
 export const adoptExistingSchema = Story.make({
-  title: 'Adopt existing schema',
+  title: 'Adopting a schema you already have',
+  description:
+    'Wrapping an existing schema costs nothing today and buys migrations later.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens to values stored before the schema became a ValueESchema?',
+      "The notebook already had a plain schema for a note's status. What happens to everything stored under it?",
       {
         answer:
-          'They decode unchanged — the existing schema becomes v1, and bare unstamped values are read as earliest-version data.',
+          'Nothing changes. The existing schema becomes v1, and the bare unstamped values already in storage read as v1 data.',
         proof: Effect.gen(function* () {
-          const legacy = yield* StatusV.decode('active');
+          const legacy = yield* NoteStatus.decode('open');
           yield* Story.assert(
-            'the pre-eschema value decodes as-is',
-            legacy === 'active',
+            'values stored before adoption decode as-is',
+            legacy === 'open',
           );
           return legacy;
         }),
       },
     ),
-    Story.question('What does encode write once the schema is adopted?', {
+    Story.question('What changes on the next write?', {
       answer:
-        'A stamped `{ _v, value }` envelope — new writes carry a version while old bare values stay readable.',
+        'New writes carry a stamp. Old bare values stay readable, so adoption never needs a backfill.',
       proof: Effect.gen(function* () {
-        const encoded = yield* StatusV.encode('archived');
+        const stored = yield* NoteStatus.encode('done');
         yield* Story.assert(
           'new writes are stamped at v1',
-          encoded._v === 'v1' && encoded.value === 'archived',
+          stored._v === 'v1' && stored.value === 'done',
         );
-        return encoded;
+        return stored;
       }),
     }),
-    Story.question(
-      'What happens to the old bare values when the adopted schema later evolves?',
-      {
-        answer:
-          'They fold forward from v1 like any other row, so adoption costs nothing now and buys migrations later.',
-        proof: Effect.gen(function* () {
-          const Evolved = ValueESchema.make('Status', Status)
-            .evolve(
-              'v2',
-              Schema.Literals(['ACTIVE', 'ARCHIVED']),
-              (previous) => (previous === 'active' ? 'ACTIVE' : 'ARCHIVED'),
-            )
-            .build();
-          const migrated = yield* Evolved.decode('active');
-          yield* Story.assert(
-            'the bare legacy value reaches the latest shape',
-            migrated === 'ACTIVE',
-          );
-          return migrated;
-        }),
-      },
-    ),
+    Story.question('And when the adopted schema later grows a rung?', {
+      answer:
+        'The old bare values fold forward from v1 like anything else — which is the whole point of adopting it early.',
+      proof: Effect.gen(function* () {
+        const Evolved = ValueESchema.make('NoteStatus', Status)
+          .evolve('v2', Schema.Literals(['OPEN', 'DONE']), (previous) =>
+            previous === 'open' ? 'OPEN' : 'DONE',
+          )
+          .build();
+        const migrated = yield* Evolved.decode('open');
+        yield* Story.assert(
+          'the bare legacy value reaches the latest shape',
+          migrated === 'OPEN',
+        );
+        return migrated;
+      }),
+    }),
   ],
 });

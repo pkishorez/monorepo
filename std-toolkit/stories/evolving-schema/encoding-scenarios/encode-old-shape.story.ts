@@ -1,48 +1,50 @@
-import { Effect, Schema } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { ESchema, ESchemaError } from 'std-toolkit/eschema';
+import { ESchemaError } from 'std-toolkit/eschema';
 
-const Invoice = ESchema.make('Invoice', {
-  amount: Schema.Number,
-})
-  .evolve('v2', { currency: Schema.String }, (previous) => ({
-    ...previous,
-    currency: 'USD',
-  }))
-  .build();
+import { Note } from '../support.js';
 
 export const encodeOldShape = Story.make({
-  title: 'Encode old shape',
+  title: 'Migrations only run downhill',
+  description:
+    'Decode climbs the ladder. Encode does not — it only ever speaks the latest shape.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What happens when I encode a v1-shaped value directly?', {
+    Story.question(
+      'Some old code still builds a note the v1 way. Can it save one?',
+      {
+        answer:
+          'No. Encode refuses it. Migrations run on the way out of storage, never on the way in, so encode has no rung to climb and simply rejects the shape.',
+        proof: Effect.gen(function* () {
+          const refused = yield* Effect.flip(
+            Note.encode({ body: 'Buy milk', colour: 'yellow' } as never),
+          );
+          yield* Story.assert(
+            'the old shape is refused',
+            refused instanceof ESchemaError &&
+              refused.message === 'Encode failed',
+          );
+          return refused;
+        }),
+      },
+    ),
+    Story.question('So how does that old note get saved at all?', {
       answer:
-        'Encode refuses with `Encode failed` — it only speaks the latest shape, and migrations run on decode, never encode.',
+        'Send it through storage first: decode the stored row so the ladder runs, then encode what comes back.',
       proof: Effect.gen(function* () {
-        const refused = yield* Effect.flip(
-          Invoice.encode({ amount: 100 } as never),
+        const current = yield* Note.decode({
+          _v: 'v1',
+          body: 'Buy milk',
+          colour: 'yellow',
+        });
+        const stored = yield* Note.encode(current);
+        yield* Story.assert(
+          'the round trip lands at the latest version',
+          stored._v === 'v4',
         );
         yield* Story.assert(
-          'encode refuses old shapes',
-          refused instanceof ESchemaError &&
-            refused.message === 'Encode failed',
-        );
-        return refused;
-      }),
-    }),
-    Story.question('How do I upgrade an old-shaped value so it encodes?', {
-      answer:
-        'Round-trip it — decode the stored form so the v1→v2 migration supplies the missing fields, then encode.',
-      proof: Effect.gen(function* () {
-        const current = yield* Invoice.decode({ _v: 'v1', amount: 100 });
-        const stored = yield* Invoice.encode(current);
-        yield* Story.assert(
-          'the round-trip lands at the latest version',
-          stored._v === 'v2',
-        );
-        yield* Story.assert(
-          'the migration supplied the new field',
-          stored.currency === 'USD',
+          'the words survived the whole ladder',
+          stored.text === 'Buy milk',
         );
         return stored;
       }),

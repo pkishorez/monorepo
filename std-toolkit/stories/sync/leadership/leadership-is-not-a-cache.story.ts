@@ -156,6 +156,8 @@ const close = (
 
 export const leadershipIsNotACache = Story.make({
   title: 'Leadership is not a cache',
+  description:
+    'Leadership stops a late tab repeating work; it does not hand that tab the results.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Can a late isolated Memory replica miss old data?', {

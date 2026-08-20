@@ -7,6 +7,8 @@ import { unmarshallItem } from './support.js';
 
 export const goingFullyNative = Story.make({
   title: 'Going fully native',
+  description:
+    'The bottom rung of the escape hatch: the raw client, and what portability it costs.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

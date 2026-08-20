@@ -6,6 +6,8 @@ const answer = 42;
 
 const passing = Story.make({
   title: 'passing story',
+  description: 'A Story whose questions all hold.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What is the answer?', {
@@ -31,6 +33,7 @@ const passing = Story.make({
 
 const failing = Story.make({
   title: 'failing story',
+  description: 'A Story with an assertion that does not hold.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens when an assertion does not hold?', {
@@ -46,6 +49,7 @@ const failing = Story.make({
 
 const erroring = Story.make({
   title: 'erroring story',
+  description: 'A Story whose proof dies before it finishes.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens when the proof dies?', {
@@ -58,6 +62,14 @@ const erroring = Story.make({
   ],
 });
 
-export default Story.group('basic', [
-  Story.group('verdicts', [passing, failing, erroring]),
-]);
+export default Story.group(
+  'basic',
+  { description: 'The basic Stories fixture.' },
+  [
+    Story.group(
+      'verdicts',
+      { description: 'One Story per verdict: passed, failed, and errored.' },
+      [passing, failing, erroring],
+    ),
+  ],
+);

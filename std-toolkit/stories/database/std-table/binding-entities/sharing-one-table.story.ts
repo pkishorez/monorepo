@@ -16,6 +16,7 @@ const bookmark = table
 
 export const sharingOneTable = Story.make({
   title: 'Sharing one table',
+  description: "Two entities in one table never see each other's rows.",
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

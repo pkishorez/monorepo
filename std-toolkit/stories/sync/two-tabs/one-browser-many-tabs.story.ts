@@ -51,6 +51,9 @@ const dog: Todo = {
 
 export const oneBrowserManyTabs = Story.make({
   title: 'Two Tabs, One Browser',
+  description:
+    'A second tab starts empty and is filled by the backend, not by its sibling.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Alice opens a second tab. What does it show?', {
