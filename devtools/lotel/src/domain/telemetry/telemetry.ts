@@ -1,4 +1,4 @@
-import type { EntityType } from 'std-toolkit/core';
+import type { DecodedEntity } from 'std-toolkit/core';
 import {
   ExportLogsServiceRequestSchema,
   ExportTraceServiceRequestSchema,
@@ -104,8 +104,8 @@ export const logRecordsFromRequest = (request: ExportLogsServiceRequest) => {
 
 export const makeTraceDetails = (
   traceId: string,
-  spans: EntityType<SpanRecord>[],
-  logs: EntityType<LogRecord>[],
+  spans: DecodedEntity<SpanRecord>[],
+  logs: DecodedEntity<LogRecord>[],
 ) => ({
   traceId,
   spans: [...spans].sort((left, right) => {

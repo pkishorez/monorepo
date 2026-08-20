@@ -3,7 +3,7 @@ import {
   type FlowObservation,
   type RecordedFlowAttributeValue,
 } from '@pkishorez/effect-tracer/flow';
-import type { EntityType } from 'std-toolkit/core';
+import type { DecodedEntity } from 'std-toolkit/core';
 import type { AnyValue } from '../telemetry-schema/otlp.js';
 import type {
   KeyValue,
@@ -97,7 +97,7 @@ const severity = (number: number | undefined) => {
 };
 
 export const spanObservation = (
-  record: EntityType<SpanRecord>,
+  record: DecodedEntity<SpanRecord>,
 ): FlowObservation => {
   const span = record.value.span;
   const start = unixNanosToMilliseconds(span.startTimeUnixNano);
@@ -131,7 +131,7 @@ export const spanObservation = (
 };
 
 export const logObservation = (
-  record: EntityType<LogRecord>,
+  record: DecodedEntity<LogRecord>,
 ): FlowObservation => {
   const log = record.value.log;
   const attributes = displayAttributes(log.attributes);

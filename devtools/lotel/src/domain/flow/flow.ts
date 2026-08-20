@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { RecordedFlowSchema as SharedRecordedFlowSchema } from '@pkishorez/effect-tracer/flow';
-import { EntitySchema, type EntityType } from 'std-toolkit/core';
+import { EntitySchema, type DecodedEntity } from 'std-toolkit/core';
 import { EntityESchema } from 'std-toolkit/eschema';
 import type { LogRecord, SpanRecord } from '../telemetry-schema/index.js';
 import { readFlowIdentity } from './attributes.js';
@@ -62,7 +62,7 @@ export const updateFlowEntity = (
 });
 
 export const makeRecordedFlow = (
-  flow: EntityType<FlowEntity>,
-  spans: EntityType<SpanRecord>[],
-  logs: EntityType<LogRecord>[],
+  flow: DecodedEntity<FlowEntity>,
+  spans: DecodedEntity<SpanRecord>[],
+  logs: DecodedEntity<LogRecord>[],
 ) => projectStoredFlow(flow, spans, logs);

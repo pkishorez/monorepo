@@ -1,5 +1,5 @@
 import { projectFlow } from '@pkishorez/effect-tracer/flow';
-import type { EntityType } from 'std-toolkit/core';
+import type { DecodedEntity } from 'std-toolkit/core';
 import type { LogRecord, SpanRecord } from '../telemetry-schema/index.js';
 import type { FlowEntity } from './flow.js';
 import {
@@ -9,9 +9,9 @@ import {
 } from './otlp-adapter.js';
 
 export const projectStoredFlow = (
-  flow: EntityType<FlowEntity>,
-  spans: EntityType<SpanRecord>[],
-  logs: EntityType<LogRecord>[],
+  flow: DecodedEntity<FlowEntity>,
+  spans: DecodedEntity<SpanRecord>[],
+  logs: DecodedEntity<LogRecord>[],
 ) =>
   projectFlow({
     id: flow.value.flowId,
