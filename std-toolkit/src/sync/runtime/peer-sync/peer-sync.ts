@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type { AnyESchema } from '../../../eschema/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { EffectRunner } from '../effect-runner/index.js';
@@ -31,16 +31,16 @@ const runOperation = <A, R>(
 
 export const makePeerSync = <TItem, R = never>(args: {
   collectionName: string;
-  schema: AnyESchema;
+  schema: AnyESchema & { readonly Type: TItem };
   runner: EffectRunner<R>;
   report: SyncReporter<R>;
   apply: (
-    entities: EntityType<TItem>[],
+    entities: DecodedEntity<TItem>[],
     options: PropagationDisabled,
   ) => Effect.Effect<void, unknown, R>;
   channel?: PeerChannelFactory | null;
 }) => {
-  const codec = makePeerMessageCodec<TItem>(args.schema);
+  const codec = makePeerMessageCodec(args.schema);
   let accepting = true;
   let admitted = Promise.resolve();
   let unsubscribe: (() => Promise<void>) | null = null;
@@ -79,7 +79,7 @@ export const makePeerSync = <TItem, R = never>(args: {
     }
     try {
       await args.runner.runPromise(
-        args.apply([...decoded.entities] as EntityType<TItem>[], {
+        args.apply([...decoded.entities] as DecodedEntity<TItem>[], {
           propagate: false,
         }),
       );
@@ -121,12 +121,14 @@ export const makePeerSync = <TItem, R = never>(args: {
 
   return {
     broadcast: async (
-      entities: readonly [EntityType<TItem>, ...EntityType<TItem>[]],
+      entities: readonly [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
     ): Promise<void> => {
       if (!accepting) return;
       let message: unknown;
       try {
-        message = await args.runner.runPromise(codec.encode(entities));
+        message = await args.runner.runPromise(
+          codec.encode(entities as Parameters<typeof codec.encode>[0]),
+        );
         const channel = await ready;
         if (channel !== null && accepting) {
           await runOperation(channel.broadcast(message), args.runner);

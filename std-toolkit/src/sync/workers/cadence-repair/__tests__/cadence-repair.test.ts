@@ -2,7 +2,7 @@ import { Effect, Fiber, Schedule, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { it, describe, expect } from 'vitest';
 import { ulid } from 'ulidx';
-import { uTime, type EntityType } from '../../../../core/index.js';
+import { uTime, type DecodedEntity } from '../../../../core/index.js';
 import type { CollectionItem } from '../../../runtime/collection-model/index.js';
 import type { WriteError } from '../../../domain/sync-error/index.js';
 import {
@@ -18,14 +18,13 @@ const uAt = (ms: number) => ulid(ms);
 const makeEntity = (
   u: string,
   overrides?: { _s?: number; _c?: number; id?: string; p?: string },
-): EntityType<Item> => ({
+): DecodedEntity<Item> => ({
   value: {
     id: overrides?.id ?? u,
     ...(overrides?.p != null ? { p: overrides.p } : {}),
   },
   meta: {
     _e: 'Item',
-    _v: 'v1',
     _u: u,
     _d: false,
     _s: overrides?._s,
@@ -34,7 +33,7 @@ const makeEntity = (
 });
 
 // Flat collection-row form of an entity: value fields hoisted, meta under `_meta`.
-const toRow = (e: EntityType<Item>): CollectionItem<Item> =>
+const toRow = (e: DecodedEntity<Item>): CollectionItem<Item> =>
   ({ ...e.value, _meta: e.meta }) as CollectionItem<Item>;
 
 type SubscribersChangeCb = (args: {
@@ -44,7 +43,7 @@ type SubscribersChangeCb = (args: {
 
 type FakeCollection = SyncCollection<Item> & {
   emitSubscribersChange: (prev: number, next: number) => void;
-  applyWrite: (entities: EntityType<Item>[]) => void;
+  applyWrite: (entities: DecodedEntity<Item>[]) => void;
   subscriberListenerCount: () => number;
   valuesCallCount: () => number;
 };
@@ -54,7 +53,7 @@ type FakeCollection = SyncCollection<Item> & {
 // repaired suspect actually clears, mirroring real replica convergence.
 const makeFakeCollection = (opts: {
   subscriberCount: number;
-  entities: EntityType<Item>[];
+  entities: DecodedEntity<Item>[];
 }): FakeCollection => {
   const rows = new Map<string, CollectionItem<Item>>();
   for (const e of opts.entities) rows.set(e.value.id, toRow(e));
@@ -87,11 +86,11 @@ const makeFakeCollection = (opts: {
   return collection;
 };
 
-const fetchFor = (results: EntityType<Item>[]) => {
-  const anchors: Array<EntityType<Item> | null> = [];
+const fetchFor = (results: DecodedEntity<Item>[]) => {
+  const anchors: Array<DecodedEntity<Item> | null> = [];
   return {
     anchors,
-    fetchFrom: (anchor: EntityType<Item> | null) =>
+    fetchFrom: (anchor: DecodedEntity<Item> | null) =>
       Effect.sync(() => {
         anchors.push(anchor);
         return results;
@@ -100,10 +99,10 @@ const fetchFor = (results: EntityType<Item>[]) => {
 };
 
 const writeFor = (collection: FakeCollection) => {
-  const batches: EntityType<Item>[][] = [];
+  const batches: DecodedEntity<Item>[][] = [];
   return {
     batches,
-    applyToSyncReplica: (entities: EntityType<Item>[]) =>
+    applyToSyncReplica: (entities: DecodedEntity<Item>[]) =>
       Effect.sync(() => {
         batches.push(entities);
         collection.applyWrite(entities);
@@ -425,7 +424,7 @@ describe('Sync', () => {
         });
 
         let attempts = 0;
-        const applyToSyncReplica = (entities: EntityType<Item>[]) => {
+        const applyToSyncReplica = (entities: DecodedEntity<Item>[]) => {
           attempts += 1;
           if (attempts === 1) {
             return Effect.fail({

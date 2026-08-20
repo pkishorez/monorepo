@@ -13,7 +13,7 @@ import {
   type MarshalledOutput,
 } from '../attribute-value/index.js';
 
-export type DecodedItem = MarshalledOutput;
+export type NativeItem = MarshalledOutput;
 
 type TableIndexes = Pick<
   TableDefinition,
@@ -28,13 +28,10 @@ const indexAttributeNames = (table: TableIndexes) => [
   ]),
 ];
 
-export const decodeKey = (table: TableIndexes, key: EncodedKey): DecodedItem =>
+export const decodeKey = (table: TableIndexes, key: EncodedKey): NativeItem =>
   marshall({ [table.primary.pk]: key.pk, [table.primary.sk]: key.sk });
 
-export const itemKey = (
-  table: TableIndexes,
-  item: DecodedItem,
-): DecodedItem => {
+export const itemKey = (table: TableIndexes, item: NativeItem): NativeItem => {
   const pk = item[table.primary.pk];
   const sk = item[table.primary.sk];
   if (pk === undefined || sk === undefined)
@@ -42,22 +39,26 @@ export const itemKey = (
   return { [table.primary.pk]: pk, [table.primary.sk]: sk };
 };
 
-const DecodedItemSchema = Schema.declare<DecodedItem>(isAttributeValueRecord);
+const NativeItemSchema = Schema.declare<NativeItem>(isAttributeValueRecord);
 
-const toDecoded = (table: TableIndexes, item: EncodedItem): DecodedItem =>
+const toDecoded = (table: TableIndexes, item: EncodedItem): NativeItem =>
   marshall({
     [table.primary.pk]: item.pk,
     [table.primary.sk]: item.sk,
     _e: item.meta._e,
-    _v: item.meta._v,
+    _v: item.data._v,
     _u: item.meta._u,
     _d: item.meta._d,
     data: item.data,
     ...item.keys,
   });
 
-const toEncoded = (table: TableIndexes, decoded: DecodedItem): EncodedItem => {
+const toEncoded = (table: TableIndexes, decoded: NativeItem): EncodedItem => {
   const value = unmarshall(decoded);
+  const data = value.data as JsonObject;
+  if (value._v !== data._v) {
+    throw new Error('Physical _v does not match encoded data._v');
+  }
   const keys: Record<string, string> = {};
   for (const name of indexAttributeNames(table)) {
     const attribute = value[name];
@@ -66,8 +67,8 @@ const toEncoded = (table: TableIndexes, decoded: DecodedItem): EncodedItem => {
   return {
     pk: value[table.primary.pk],
     sk: value[table.primary.sk],
-    meta: { _e: value._e, _v: value._v, _u: value._u, _d: value._d },
-    data: value.data as JsonObject,
+    meta: { _e: value._e, _u: value._u, _d: value._d },
+    data,
     keys,
   } as EncodedItem;
 };
@@ -80,19 +81,19 @@ const invalid = (input: unknown, cause: unknown) =>
     input,
   );
 
-export type ItemSchema = Schema.Codec<DecodedItem, EncodedItem>;
+export type ItemSchema = Schema.Codec<NativeItem, EncodedItem>;
 
 export const itemSchema = (table: TableIndexes): ItemSchema =>
   EncodedItemSchema.pipe(
     Schema.decodeTo(
-      DecodedItemSchema,
+      NativeItemSchema,
       SchemaTransformation.transformOrFail({
         decode: (item: EncodedItem) =>
           Effect.try({
             try: () => toDecoded(table, item),
             catch: (cause) => invalid(item, cause),
           }),
-        encode: (decoded: DecodedItem) =>
+        encode: (decoded: NativeItem) =>
           Effect.try({
             try: () => toEncoded(table, decoded),
             catch: (cause) => invalid(decoded, cause),

@@ -1,6 +1,9 @@
 import type { Transaction, UpdateMutationFnParams } from '@tanstack/react-db';
 import { Effect } from 'effect';
-import type { EntityType, SingleEntityType } from '../../../core/index.js';
+import type {
+  DecodedEntity,
+  DecodedSingleEntity,
+} from '../../../core/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { CollectionItem } from '../../runtime/collection-model/index.js';
 import {
@@ -31,12 +34,12 @@ const SINGLE_KEY = '__single__';
 export const buildMutationHandlers = <TItem extends object, R = never>(args: {
   collectionName: string;
   applyToSyncReplica: (
-    entities: EntityType<TItem>[],
+    entities: DecodedEntity<TItem>[],
   ) => Effect.Effect<void, WriteError>;
   onUpdate?:
     | ((payload: {
         updates: Partial<TItem>;
-      }) => Effect.Effect<SingleEntityType<TItem>, unknown, R>)
+      }) => Effect.Effect<DecodedSingleEntity<TItem>, unknown, R>)
     | undefined;
   updatePacing?: PaceStrategyFactory | undefined;
   runner: EffectRunner<R>;

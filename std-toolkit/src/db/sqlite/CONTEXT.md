@@ -9,10 +9,10 @@ The result of `SQLite.make` (`SQLiteTable`): the SQLite implementation of the sh
 _Avoid_: SQLite Table runtime (retired term), Table binding.
 
 **SQLite row**:
-The adapter's **decoded item**: the physical representation of an **encoded item**. The configured primary and secondary key attributes are `TEXT` columns, `_e`, `_v`, `_u`, and `_d` are top-level metadata columns, and `data` holds the JSON-encoded Entity value. Secondary columns use the attribute names declared by `IndexDefinition` without adapter-specific renaming.
+The adapter's **native item**: the physical representation of an **encoded item**. The configured primary and secondary key attributes are `TEXT` columns; `_e`, `_u`, and `_d` are top-level metadata columns; `_v` is copied from the encoded value for storage; and `data` holds that encoded value. Secondary columns use the attribute names declared by `IndexDefinition` without adapter-specific renaming.
 
 **SQLite item schema**:
-The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and a **SQLite row** (`itemSchema(table): Schema<DecodedItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed rows fail as parse errors. It performs no SQL construction or I/O.
+The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and a **SQLite row** (`itemSchema(table): Schema<NativeItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed rows fail as parse errors. It performs no SQL construction or I/O.
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
 **SortKeyCondition**:

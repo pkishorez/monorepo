@@ -16,11 +16,10 @@ const item: EncodedItem = {
   sk: 'person-1',
   meta: {
     _e: 'Person',
-    _v: 'v2',
     _u: '2026-08-13T00:00:00.000Z',
     _d: false,
   },
-  data: { email: 'person@example.com', name: 'Person' },
+  data: { _v: 'v2', email: 'person@example.com', name: 'Person' },
   keys: {
     GSI1PK: 'Person|person@example.com',
     GSI1SK: 'person-1',
@@ -35,7 +34,7 @@ describe('IndexedDB item schema', () => {
       pk: item.pk,
       sk: item.sk,
       _e: item.meta._e,
-      _v: item.meta._v,
+      _v: item.data._v,
       _u: item.meta._u,
       _d: item.meta._d,
       data: item.data,

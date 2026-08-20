@@ -17,8 +17,8 @@ const table = {
 const item = (sk: string, indexSort?: string): EncodedItem => ({
   pk: 'items',
   sk,
-  meta: { _e: 'Item', _v: 'v1', _u: sk, _d: false },
-  data: { sk },
+  meta: { _e: 'Item', _u: sk, _d: false },
+  data: { _v: 'v1', sk },
   keys: indexSort === undefined ? {} : { GSI1PK: 'group', GSI1SK: indexSort },
 });
 

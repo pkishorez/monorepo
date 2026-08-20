@@ -5,7 +5,10 @@ import type {
   Transaction,
 } from '@tanstack/react-db';
 import { Effect, Exit, Scope, TxSemaphore } from 'effect';
-import type { EntityType, SingleEntityType } from '../../../core/index.js';
+import type {
+  DecodedEntity,
+  DecodedSingleEntity,
+} from '../../../core/index.js';
 import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
 import { makeSyncReplica } from '../../persistence/sync-replica/index.js';
@@ -18,8 +21,10 @@ import type { SingleItemStrategy } from '../../runtime/strategy-runtime/index.js
 import { makeSyncStateStore } from '../../persistence/sync-state/index.js';
 import type {
   CollectionItem,
+  CollectionItemSchema,
   StdCollectionOptions,
 } from '../../runtime/collection-model/index.js';
+import { makeCollectionItemSchema } from '../../runtime/collection-model/index.js';
 import { buildMutationHandlers } from './mutations.js';
 import type { PaceStrategyFactory } from '../../runtime/mutation-pacing/index.js';
 import type { SyncStore } from '../../persistence/sync-store/index.js';
@@ -50,14 +55,15 @@ const SINGLE_STATE_KEY = '__single__';
 export type SingleItemResult<
   TItem extends object,
   S extends AnyUnkeyedESchema,
-> = CollectionConfig<CollectionItem<TItem>, string> &
+> = CollectionConfig<CollectionItem<TItem>, string, CollectionItemSchema<S>> &
   SingleResult & {
+    schema: CollectionItemSchema<S>;
     utils: {
       schema: () => S;
       flowId: () => string;
       applyToSyncReplica: (
-        entities: EntityType<TItem>[],
-      ) => Effect.Effect<EntityType<TItem>[], WriteError>;
+        entities: DecodedEntity<TItem>[],
+      ) => Effect.Effect<DecodedEntity<TItem>[], WriteError>;
       onUpdate?: NonNullable<
         ReturnType<typeof buildMutationHandlers<TItem>>['onUpdate']
       >;
@@ -75,7 +81,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     options?: StdCollectionOptions<S['Type']>;
     onUpdate?: (payload: {
       updates: Partial<S['Type']>;
-    }) => Effect.Effect<SingleEntityType<S['Type']>, unknown, R>;
+    }) => Effect.Effect<DecodedSingleEntity<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
     store: SyncStore;
     leadership: Leadership;
@@ -97,7 +103,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     config.runner.runSync(nextUlid),
     config.flowPlacement,
   );
-  const replica = makeSyncReplica<TItem>({
+  const replica = makeSyncReplica({
     schema,
     store: config.store,
     collectionName,
@@ -134,10 +140,10 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     );
 
   const applyToSyncReplica = (
-    entities: EntityType<TItem>[],
+    entities: DecodedEntity<TItem>[],
     syncFlow?: StrategyFlow,
     options: { readonly propagate: boolean } = { propagate: true },
-  ): Effect.Effect<EntityType<TItem>[], WriteError> => {
+  ): Effect.Effect<DecodedEntity<TItem>[], WriteError> => {
     config.assertActive();
     return Effect.gen(function* () {
       if (entities.some((entity) => entity.meta._d)) {
@@ -151,7 +157,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       if (options.propagate && accepted.length > 0 && peerSync !== null) {
         yield* Effect.promise(() =>
           peerSync!.broadcast(
-            accepted as [EntityType<TItem>, ...EntityType<TItem>[]],
+            accepted as [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
           ),
         );
       }
@@ -175,7 +181,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   };
 
   const projectOnly = (
-    entities: EntityType<TItem>[],
+    entities: DecodedEntity<TItem>[],
   ): Effect.Effect<void, WriteError> =>
     Effect.sync(() => projector?.projectEntities(entities));
 
@@ -183,7 +189,9 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     schemaName: schema.name,
     collectionName,
     applyToSyncReplica: (entities) =>
-      applyToSyncReplica(entities as EntityType<TItem>[]).pipe(Effect.asVoid),
+      applyToSyncReplica(entities as DecodedEntity<TItem>[]).pipe(
+        Effect.asVoid,
+      ),
     projectOnly: projectOnly as CollectionHandle['projectOnly'],
     flow: () => flow,
   };
@@ -360,6 +368,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
 
   return {
     id: collectionName,
+    schema: makeCollectionItemSchema(schema),
     ...(options as object),
     rowUpdateMode: 'full',
     singleResult: true,

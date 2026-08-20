@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
-import { MetaSchema, type EntityType } from '../../../core/index.js';
+import { EntityMetaSchema, type DecodedEntity } from '../../../core/index.js';
 
-export type Cursor<TItem> = EntityType<TItem>;
+export type Cursor<TItem> = DecodedEntity<TItem>;
 
 export type Slice<TItem> = {
   low: Cursor<TItem>;
@@ -16,7 +16,7 @@ export const makeSlice = <TItem>(
 
 const cursorSchema = Schema.Struct({
   value: Schema.Unknown,
-  meta: MetaSchema,
+  meta: EntityMetaSchema,
 });
 
 export const SliceSchema = Schema.Struct({
@@ -27,12 +27,12 @@ export const SliceSchema = Schema.Struct({
 
 export const uOf = <TItem>(entity: Cursor<TItem>): string => entity.meta._u;
 
-export const oldestOf = <TItem>(batch: EntityType<TItem>[]): Cursor<TItem> =>
+export const oldestOf = <TItem>(batch: DecodedEntity<TItem>[]): Cursor<TItem> =>
   batch.reduce((oldest, entity) =>
     uOf(entity) < uOf(oldest) ? entity : oldest,
   );
 
-export const newestOf = <TItem>(batch: EntityType<TItem>[]): Cursor<TItem> =>
+export const newestOf = <TItem>(batch: DecodedEntity<TItem>[]): Cursor<TItem> =>
   batch.reduce((newest, entity) =>
     uOf(entity) > uOf(newest) ? entity : newest,
   );

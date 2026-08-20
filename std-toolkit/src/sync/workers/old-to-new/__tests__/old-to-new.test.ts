@@ -1,7 +1,7 @@
 import { Effect, Fiber, Schedule, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
 import { describe, expect, it } from 'vitest';
-import type { EntityType } from '../../../../core/index.js';
+import type { DecodedEntity } from '../../../../core/index.js';
 import { oldToNew } from '../index.js';
 
 type Item = { id: string };
@@ -15,9 +15,9 @@ const flow = {
       effect,
 };
 
-const entity = (id: string, updated: string): EntityType<Item> => ({
+const entity = (id: string, updated: string): DecodedEntity<Item> => ({
   value: { id },
-  meta: { _e: 'Item', _v: 'v1', _u: updated, _d: false },
+  meta: { _e: 'Item', _u: updated, _d: false },
 });
 
 describe('old-to-new', () => {

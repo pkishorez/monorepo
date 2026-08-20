@@ -1,6 +1,10 @@
 import { Effect, Layer, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Broadcaster, Ulid, type EntityType } from '../../../../core/index.js';
+import {
+  Broadcaster,
+  Ulid,
+  type DecodedEntity,
+} from '../../../../core/index.js';
 import { EntityESchema } from '../../../../eschema/index.js';
 import { StdTable } from '../../../std-table/table/index.js';
 import type { DynamoDBClient } from '../../client/index.js';
@@ -11,14 +15,14 @@ import type {
   UpdateItemInput,
 } from '../../client/generated/types.js';
 import { exprCondition } from '../../expression/index.js';
-import { itemSchema, type DecodedItem } from '../../item-schema/index.js';
+import { itemSchema, type NativeItem } from '../../item-schema/index.js';
 import type { TableDefinition } from '../../../std-table/definition/index.js';
 
 type TableIndexes = Pick<
   TableDefinition,
   'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
-const encodeItem = (table: TableIndexes, item: EncodedItem): DecodedItem =>
+const encodeItem = (table: TableIndexes, item: EncodedItem): NativeItem =>
   Schema.decodeSync(itemSchema(table))(item);
 import { batchInsert, getItem, makeNativeService, update } from '../native.js';
 
@@ -56,7 +60,6 @@ const makeRecordingClient = () => {
               sk: '1:1',
               meta: {
                 _e: 'Counter',
-                _v: 'v1',
                 _u: '00000000000000000000000001',
                 _d: false,
               },
@@ -84,7 +87,6 @@ const makeRecordingClient = () => {
               sk: '1',
               meta: {
                 _e: 'Counter',
-                _v: 'v1',
                 _u: '00000000000000000000000000',
                 _d: false,
               },
@@ -129,7 +131,7 @@ describe('DynamoDB native operations', () => {
   it('translates typed update and condition expressions into UpdateItem', async () => {
     const recording = makeRecordingClient();
     const layer = makeNativeService('people', recording.client, 'people-table');
-    const broadcasts: EntityType<object>[] = [];
+    const broadcasts: DecodedEntity<object>[] = [];
     const broadcaster = Layer.succeed(Broadcaster, {
       broadcast: (entities) => broadcasts.push(...entities),
     });

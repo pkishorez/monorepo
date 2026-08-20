@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, ManagedRuntime, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { EntityType } from '../../../../core/index.js';
+import type { DecodedEntity } from '../../../../core/index.js';
 import { EntityESchema } from '../../../../eschema/index.js';
 import { noStrategyState } from '../../../domain/strategy-state/index.js';
 import { createStdSync } from '../../../sync.js';
@@ -12,9 +12,9 @@ const schema = EntityESchema.make('Todo', 'id', {
   title: Schema.String,
 }).build();
 
-const entity = (title: string, updated: string): EntityType<Todo> => ({
+const entity = (title: string, updated: string): DecodedEntity<Todo> => ({
   value: { id: 'todo-1', listId: 'inbox', title },
-  meta: { _e: 'Todo', _v: 'v1', _u: updated, _d: false },
+  meta: { _e: 'Todo', _u: updated, _d: false },
 });
 
 const subset = {
@@ -102,12 +102,12 @@ describe('hybrid sync', () => {
   });
 
   it('converges overlapping total and partition results through one Sync Replica', async () => {
-    const worker = (name: string, result: EntityType<Todo>) => ({
+    const worker = (name: string, result: DecodedEntity<Todo>) => ({
       name,
       state: noStrategyState(),
       run: (ctx: {
         applyToSyncReplica: (
-          entities: EntityType<Todo>[],
+          entities: DecodedEntity<Todo>[],
         ) => Effect.Effect<void, unknown>;
       }) => ctx.applyToSyncReplica([result]),
     });

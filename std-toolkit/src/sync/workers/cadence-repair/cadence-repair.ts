@@ -1,5 +1,5 @@
 import { Clock, Effect, Latch } from 'effect';
-import { uTime, type EntityType } from '../../../core/index.js';
+import { uTime, type DecodedEntity } from '../../../core/index.js';
 import type { CollectionItem } from '../../runtime/collection-model/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { CadenceConfig } from '../../domain/cadence-policy/index.js';
@@ -21,7 +21,7 @@ export type SyncCollection<T> = {
   values(): IterableIterator<CollectionItem<T>>;
 };
 
-type Meta<T> = EntityType<T>['meta'];
+type Meta<T> = DecodedEntity<T>['meta'];
 
 const metaOf = <T>(row: CollectionItem<T>): Meta<T> | undefined =>
   (row as { _meta?: Meta<T> })._meta;
@@ -29,7 +29,7 @@ const metaOf = <T>(row: CollectionItem<T>): Meta<T> | undefined =>
 // Reconstruct the `{ value, meta }` entity shape from a flat collection row so
 // the anchor handed to `fetchFrom` carries `meta._u`. Only `meta` is read
 // downstream, but value is preserved (minus `_meta` and runtime virtual props).
-const toEntity = <T>(row: CollectionItem<T>): EntityType<T> => {
+const toEntity = <T>(row: CollectionItem<T>): DecodedEntity<T> => {
   const {
     _meta,
     $synced: _synced,
@@ -43,10 +43,10 @@ const toEntity = <T>(row: CollectionItem<T>): EntityType<T> => {
 export type CadenceSyncDeps<T, E, R = never> = {
   collection: SyncCollection<T>;
   fetchFrom: (
-    anchor: EntityType<T> | null,
-  ) => Effect.Effect<EntityType<T>[], E, R>;
+    anchor: DecodedEntity<T> | null,
+  ) => Effect.Effect<DecodedEntity<T>[], E, R>;
   applyToSyncReplica: (
-    entities: EntityType<T>[],
+    entities: DecodedEntity<T>[],
   ) => Effect.Effect<void, WriteError>;
   // Restricts the repair scope to a single partition: only rows whose flat
   // `field` equals `value` are considered. Omitted for unpartitioned collections.
@@ -58,7 +58,7 @@ export type CadenceSyncDeps<T, E, R = never> = {
 // A row whose `_u` fits neither format is a protocol violation — surfaced via
 // `scanSuspects` so the repair loop fails instead of guessing.
 const isSuspect = <T>(
-  meta: EntityType<T>['meta'],
+  meta: DecodedEntity<T>['meta'],
   window: number,
 ): boolean | 'invalid-u' => {
   if (meta._s == null) return false;
@@ -68,7 +68,7 @@ const isSuspect = <T>(
 };
 
 const msUntilReady = <T>(
-  meta: EntityType<T>['meta'],
+  meta: DecodedEntity<T>['meta'],
   nowMs: number,
   readiness: number,
 ): number => {
@@ -86,7 +86,7 @@ const inPartition = (
   partition == null || Object.is(row[partition.field], partition.value);
 
 type SuspectScan<T> = {
-  oldest: EntityType<T> | undefined;
+  oldest: DecodedEntity<T> | undefined;
   suspectCount: number;
   scanned: number;
   invalidU: string | undefined;
@@ -138,9 +138,9 @@ const scanSuspects = <T>(
 // from this anchor so siblings that landed at the suspect's `_u` are picked up.
 const queryPredecessor = <T>(
   collection: SyncCollection<T>,
-  suspect: EntityType<T>,
+  suspect: DecodedEntity<T>,
   partition: Partition | undefined,
-): EntityType<T> | undefined => {
+): DecodedEntity<T> | undefined => {
   const suspectU = suspect.meta._u;
   let bestRow: CollectionItem<T> | undefined;
   let bestU = '';

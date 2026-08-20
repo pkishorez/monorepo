@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { EntityType } from '../../core/index.js';
+import type { DecodedEntity } from '../../core/index.js';
 import { IDB } from '../../db/idb/index.js';
 import { Memory } from '../../db/memory/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
@@ -24,17 +24,17 @@ const todo = (
   updated: string,
   title = `title ${updated}`,
   deleted = false,
-): EntityType<Todo> => ({
+): DecodedEntity<Todo> => ({
   value: { id, title },
-  meta: { _v: 'v1', _e: 'Todo', _d: deleted, _u: updated },
+  meta: { _e: 'Todo', _d: deleted, _u: updated },
 });
 
 const settings = (
   theme: string,
   updated: string,
-): EntityType<{ theme: string }> => ({
+): DecodedEntity<{ theme: string }> => ({
   value: { theme },
-  meta: { _v: 'v1', _e: 'Settings', _d: false, _u: updated },
+  meta: { _e: 'Settings', _d: false, _u: updated },
 });
 
 const noopSingleStrategy = {
@@ -122,7 +122,7 @@ const mount = (config: { sync: { sync: (callbacks: never) => unknown } }) => {
   return { ...mounted, subscription };
 };
 
-const updateFor = (entity: EntityType<unknown>) => ({
+const updateFor = (entity: DecodedEntity<unknown>) => ({
   type: 'update',
   value: expect.objectContaining({
     ...(entity.value as object),
@@ -162,7 +162,16 @@ describe('Peer Sync replica integration', () => {
       name: 'acme.todo',
       message: {
         version: 1,
-        entities: [expect.objectContaining({ value: todo('a', '2').value })],
+        entities: [
+          {
+            value: { _v: 'v1', ...todo('a', '2').value },
+            meta: expect.objectContaining({
+              _e: 'Todo',
+              _d: false,
+              _u: '2',
+            }),
+          },
+        ],
       },
     });
 
@@ -252,7 +261,7 @@ describe('Peer Sync replica integration', () => {
         .sync({ schema: EntityESchema.make('Other', 'id', {}).build() })
         .utils.applyToSyncReplica({
           value: { id: 'x' },
-          meta: { _v: 'v1', _e: 'Other', _d: false, _u: '1' },
+          meta: { _e: 'Other', _d: false, _u: '1' },
         }),
     );
     expect(bus.names).toEqual(['local.todo', 'local.other']);

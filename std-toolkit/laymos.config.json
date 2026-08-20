@@ -441,8 +441,8 @@
     "core.impl": {
       "paths": [
         "src/core/broadcaster.ts",
+        "src/core/entity-schema",
         "src/core/error.ts",
-        "src/core/schema.ts",
         "src/core/ulid.ts"
       ],
       "description": "Impl \u2014 internal implementation",
@@ -453,7 +453,7 @@
         "src/core/error.ts": {
           "exposed": true
         },
-        "src/core/schema.ts": {
+        "src/core/entity-schema": {
           "shared": true,
           "exposed": true
         },

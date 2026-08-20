@@ -15,17 +15,17 @@ export type JsonValue =
 export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
+export type EncodedData = JsonObject & { readonly _v: string };
 
 export interface EncodedItemMeta {
   readonly _e: string;
-  readonly _v: string;
   readonly _u: string;
   readonly _d: boolean;
 }
 
 export interface EncodedItem extends EncodedKey {
   readonly meta: EncodedItemMeta;
-  readonly data: JsonObject;
+  readonly data: EncodedData;
   readonly keys: Readonly<Record<string, string>>;
 }
 
@@ -34,9 +34,13 @@ export const EncodedKeySchema: Schema.Codec<EncodedKey> = Schema.Struct({
   sk: Schema.String,
 });
 
-const JsonObjectSchema = Schema.declare<JsonObject>(
-  (input): input is JsonObject =>
-    typeof input === 'object' && input !== null && !Array.isArray(input),
+const EncodedDataSchema = Schema.declare<EncodedData>(
+  (input): input is EncodedData =>
+    typeof input === 'object' &&
+    input !== null &&
+    !Array.isArray(input) &&
+    '_v' in input &&
+    typeof input._v === 'string',
 );
 
 export const EncodedItemSchema: Schema.Codec<EncodedItem> = Schema.Struct({
@@ -44,11 +48,10 @@ export const EncodedItemSchema: Schema.Codec<EncodedItem> = Schema.Struct({
   sk: Schema.String,
   meta: Schema.Struct({
     _e: Schema.String,
-    _v: Schema.String,
     _u: Schema.String,
     _d: Schema.Boolean,
   }),
-  data: JsonObjectSchema,
+  data: EncodedDataSchema,
   keys: Schema.Record(Schema.String, Schema.String),
 });
 

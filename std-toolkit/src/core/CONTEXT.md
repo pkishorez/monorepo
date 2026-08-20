@@ -4,15 +4,22 @@ The shared spine of std-toolkit. Defines the **Entity** model and metadata vocab
 
 ## Language
 
-**Entity**:
-The canonical record shape across the toolkit — `{ value, meta }`, where `value` is the domain data and `meta` is the **Entity Meta** block. The server/wire form of a record.
-_Avoid_: Row, document, record (use **Entity**).
+**DecodedEntity**:
+An entity shaped as `{ value, meta }` whose `value` is in the latest decoded domain form and therefore has no `_v` stamp. It is the working representation used by application code.
+_Avoid_: DomainEntity, runtime entity, bare Entity.
+
+**EncodedEntity**:
+An entity shaped as `{ value, meta }` whose portable encoded `value` always carries a `_v` stamp. It is an infrastructure representation used at persistence and transport boundaries, not an application working value.
+_Avoid_: WireEntity, StoredEntity, serialized entity, bare Entity.
+
+**EntitySchema**:
+The sole complete-entity schema between an **EncodedEntity** and a **DecodedEntity**. Encoding always produces the latest version; decoding accepts every known version and migrates it to the latest decoded form. Database, Sync, Peer Sync, and transport integrations use it instead of rebuilding entity conversion separately.
+_Avoid_: Entity codec, WireSchema.
 
 **Entity Meta**:
 The system metadata block attached to every entity. Fields:
 
 - `_e` — **type tag**: which entity type this is.
-- `_v` — **schema version**: the eschema [[eschema]] **version** stamped on the `value`.
 - `_u` — **update key**: a monotonic ULID string (built-in adapters) or an ISO-8601 timestamp (backends that can't adopt ULIDs); higher lexicographic value is the more recent write, so a deployment must use one format uniformly. `uTime` extracts the millisecond time from either.
 - `_d` — **deletion flag**: `true` marks the entity a tombstone.
 - `_s` — **server observation time** (optional, epoch ms): when the server recorded the entity.
@@ -22,11 +29,11 @@ How a given field is _interpreted_ (convergence, cadence, type-ownership) belong
 _Avoid_: Header, system fields, envelope.
 
 **SingleEntity**:
-The singleton form of an **Entity** — one record with no id field. Carries a reduced meta (`_v`, `_e`, `_u`).
+The singleton counterpart of a **DecodedEntity** or **EncodedEntity** — one entity with no id field. Carries reduced **Entity Meta** without deletion or observation fields.
 _Avoid_: Singleton row, single record.
 
 **Broadcaster**:
-The outbound hook for confirmed entity writes. Adapters call `broadcast` with the batch of written entities after every successful write — a single-element batch for one write, the full op list for transactions and bulk inserts. Whoever provides the layer decides where changes go. Optional — writes proceed without it.
+The application-facing outbound hook for confirmed entity writes. It receives a batch of **DecodedEntities** after every successful write — a single-element batch for one write, the full op list for transactions and bulk inserts. Whoever provides the layer decides where changes go and owns any transport encoding. Optional — writes proceed without it.
 _Avoid_: EventBus, emitter, channel.
 
 **StdToolkitError**:

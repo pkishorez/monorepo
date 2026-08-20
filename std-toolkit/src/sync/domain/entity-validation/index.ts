@@ -1,1 +1,1 @@
-export { isEntity } from './entity-validation.js';
+export { isDecodedEntity } from './entity-validation.js';

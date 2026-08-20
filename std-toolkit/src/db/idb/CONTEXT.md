@@ -9,11 +9,11 @@ The result of `IDB.make` (`IDBTable`): the IndexedDB implementation of the share
 _Avoid_: IndexedDB Table runtime (retired term), Table binding.
 
 **Record**:
-The adapter's **decoded item**: the physical representation of an **encoded item** as a native structured-clone object. It has `pk`, `sk`, `_e`, `_v`, `_u`, `_d`, and `data` at the top level. Secondary key properties use the attribute names declared by `IndexDefinition` without adapter-specific renaming.
+The adapter's **native item**: the physical representation of an **encoded item** as a structured-clone object. It has `pk`, `sk`, `_e`, `_u`, `_d`, and `data` at the top level; `_v` is copied from the encoded value for storage. Secondary key properties use the attribute names declared by `IndexDefinition` without adapter-specific renaming.
 _Avoid_: row, document.
 
 **IndexedDB item schema**:
-The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and an IndexedDB **Record** (`itemSchema(table): Schema<DecodedItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed Records fail as parse errors. It performs no I/O.
+The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and an IndexedDB **Record** (`itemSchema(table): Schema<NativeItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed Records fail as parse errors. It performs no I/O.
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
 **Store**:

@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { EntityType } from '../../../../core/index.js';
+import type { DecodedEntity } from '../../../../core/index.js';
 import { EntityESchema } from '../../../../eschema/index.js';
 import type { SyncEvent } from '../../../domain/sync-event/index.js';
 import { makeEffectRunner } from '../../effect-runner/index.js';
@@ -16,13 +16,23 @@ const schema = EntityESchema.make('Todo', 'id', {
   title: Schema.String,
 }).build();
 
-const entity = (id: string): EntityType<Todo> => ({
+const entity = (id: string): DecodedEntity<Todo> => ({
   value: { id, title: `title ${id}` },
-  meta: { _v: 'v1', _e: 'Todo', _d: false, _u: id },
+  meta: { _e: 'Todo', _d: false, _u: id },
+});
+
+const encodedEntity = (id: string) => ({
+  value: { _v: 'v1', ...entity(id).value },
+  meta: entity(id).meta,
+});
+
+const message = (...ids: string[]) => ({
+  version: 1,
+  entities: ids.map(encodedEntity),
 });
 
 const makeHarness = (options?: {
-  apply?: (entities: EntityType<Todo>[]) => Effect.Effect<void, unknown>;
+  apply?: (entities: DecodedEntity<Todo>[]) => Effect.Effect<void, unknown>;
   factory?: PeerChannelFactory | null;
 }) => {
   let receive: ((message: unknown) => void) | null = null;
@@ -73,14 +83,14 @@ const waitForSubscription = async (harness: ReturnType<typeof makeHarness>) =>
 
 describe('peer sync', () => {
   it('encodes and decodes a valid collection envelope', async () => {
-    const applied: EntityType<Todo>[][] = [];
+    const applied: DecodedEntity<Todo>[][] = [];
     const harness = makeHarness({
       apply: (entities) => Effect.sync(() => applied.push(entities)),
     });
     await harness.peer.broadcast([entity('1')]);
 
     expect(harness.names).toEqual(['acme.todo']);
-    expect(harness.sent).toEqual([{ version: 1, entities: [entity('1')] }]);
+    expect(harness.sent).toEqual([message('1')]);
     harness.deliver(harness.sent[0]);
     await vi.waitFor(() => expect(applied).toEqual([[entity('1')]]));
     await harness.peer.close();
@@ -131,7 +141,7 @@ describe('peer sync', () => {
   it('reports an empty outgoing batch without sending it', async () => {
     const harness = makeHarness();
     await harness.peer.broadcast(
-      [] as unknown as readonly [EntityType<Todo>, ...EntityType<Todo>[]],
+      [] as unknown as readonly [DecodedEntity<Todo>, ...DecodedEntity<Todo>[]],
     );
     expect(harness.sent).toEqual([]);
     expect(harness.events).toContainEqual(
@@ -159,8 +169,8 @@ describe('peer sync', () => {
         }),
     });
     await waitForSubscription(harness);
-    harness.deliver({ version: 1, entities: [entity('1')] });
-    harness.deliver({ version: 1, entities: [entity('2')] });
+    harness.deliver(message('1'));
+    harness.deliver(message('2'));
     await vi.waitFor(() => expect(active).toBe(1));
     expect(order).toEqual([]);
     releaseFirst();
@@ -183,10 +193,10 @@ describe('peer sync', () => {
         }),
     });
     await waitForSubscription(harness);
-    harness.deliver({ version: 1, entities: [entity('1')] });
-    harness.deliver({ version: 1, entities: [entity('2')] });
+    harness.deliver(message('1'));
+    harness.deliver(message('2'));
     const closing = harness.peer.close();
-    harness.deliver({ version: 1, entities: [entity('3')] });
+    harness.deliver(message('3'));
     let closed = false;
     void closing.then(() => {
       closed = true;
@@ -255,7 +265,7 @@ describe('peer sync', () => {
       apply: () => Effect.fail('application failed'),
     });
     await harness.peer.broadcast([entity('1')]);
-    subscription.receive?.({ version: 1, entities: [entity('1')] });
+    subscription.receive?.(message('1'));
     await vi.waitFor(() =>
       expect(harness.events).toContainEqual(
         expect.objectContaining({ _tag: 'PeerSyncFailed', phase: 'receive' }),

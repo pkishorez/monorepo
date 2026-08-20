@@ -41,15 +41,15 @@ An adapter-specific, explicit preparation of a physical table or store through a
 _Avoid_: Automatic setup, layer initialization.
 
 **Encoded item**:
-The portable form of one row as it crosses the **StdTable contract**: derived pk/sk, a `meta` block (`_e` entity discriminator, `_v` schema version, `_u` update ULID, `_d` tombstone flag), eschema-encoded `data`, and `keys` — derived secondary-index key strings flattened under their physical attribute names, an LSI contributing only its sort-key attribute (`EncodedItem`, with `EncodedKey` for a key pair alone). Everything about it is already encoded — values by eschema, keys by the key module — before an adapter sees it, and its flat layout mirrors the physical row so adapters translate value representations, not structure.
+The portable database form of an **EncodedEntity** as it crosses the **StdTable contract**: derived pk/sk, the entity metadata, eschema-encoded data, and derived secondary-index keys (`EncodedItem`, with `EncodedKey` for a key pair alone). Everything is encoded before an adapter sees it, and its flat layout mirrors the physical row so adapters translate native value representations, not structure.
 _Avoid_: StoredItem, stored item, row (for the portable form), indexes keyed by slot name.
 
-**Decoded item**:
-An adapter's concrete native shape for one row — a DynamoDB attribute-value record, a SQLite row, an IndexedDB stored object. Each adapter's **item schema** decodes an encoded item into it and encodes it back.
-_Avoid_: WireItem, physical item, raw row.
+**Native item**:
+An adapter's concrete physical shape for one row — a DynamoDB attribute-value record, a SQLite row, or an IndexedDB stored object. Each adapter's **item schema** converts an **encoded item** to and from this native representation.
+_Avoid_: Decoded item, DecodedItem, WireItem, raw row.
 
 **Item schema**:
-The single two-way Effect Schema each adapter defines between the portable and native forms: `Schema<DecodedItem, EncodedItem>`, constructed per table definition. Writes run the decode direction, reads the encode direction; shape validation is the schema itself, and malformed rows fail as parse errors, not thrown strings.
+The single two-way Effect Schema each adapter defines between an **encoded item** and a **native item**, constructed per table definition. Writes convert to the native representation and reads convert back to the encoded representation; malformed rows fail as parse errors, not thrown strings.
 _Avoid_: item codec, encodeItem/decodeItem pairs, manual shape checks.
 
 **Conditional put**:
@@ -96,8 +96,12 @@ An ESchema-encoded string field used to derive a physical key for an **access pa
 _Avoid_: String-coerced field, delimiter-joined key.
 
 **Entity surface**:
-The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided.
+The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). It validates and accepts latest decoded domain values and returns validated **DecodedEntities**; encoding and decoding occur before and after the **StdTable contract**. An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided.
 _Avoid_: Entity service (retired term), adapter-specific Entity wrappers, PortableKeyedEntity.
+
+**Read migration**:
+The in-memory conversion of an older **encoded item** into the latest decoded domain form during a get or query. It never rewrites storage; only a later explicit write persists the latest encoded version.
+_Avoid_: Read repair, automatic migration write-back.
 
 **Entity key**:
 The logical identity accepted by a keyed **entity surface**: the entity's primary partition components plus its ESchema id field. It is derived into the encoded partition and sort keys internally rather than exposing those physical values to callers.

@@ -17,10 +17,10 @@ The pure AWS `CreateTableInput` topology derived from a shared [[db]] **StdTable
 _Avoid_: Setup result, bound table definition.
 
 **DynamoDB item**:
-The adapter's **decoded item**: the physical representation of an **encoded item**. The configured primary and secondary key attributes, `_e`, `_v`, `_u`, `_d`, and `data` are top-level DynamoDB attributes. `data` is a map containing the encoded Entity value. Secondary attributes retain the exact names declared by `IndexDefinition`.
+The adapter's **native item**: the physical representation of an **encoded item**. The configured primary and secondary key attributes, `_e`, `_u`, `_d`, and `data` are top-level DynamoDB attributes; `_v` is copied from the encoded value for storage. `data` contains that encoded value. Secondary attributes retain the exact names declared by `IndexDefinition`.
 
 **DynamoDB item schema**:
-The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and a **DynamoDB item** (`itemSchema(table): Schema<DecodedItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed items fail as parse errors. It performs no I/O.
+The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and a **DynamoDB item** (`itemSchema(table): Schema<NativeItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed items fail as parse errors. It performs no I/O.
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
 **Create-only setup**:

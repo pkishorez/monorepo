@@ -16,7 +16,7 @@ import {
 } from '@tanstack/react-db';
 import { Cause, Duration, Effect, Queue, Schema, Stream } from 'effect';
 import { Story, StoryContext } from 'laymos/story';
-import { nextUlid, type EntityType } from 'std-toolkit/core';
+import { nextUlid, type DecodedEntity } from 'std-toolkit/core';
 import { StdTable, type KeyedEntityDefinition } from 'std-toolkit/db';
 import { Memory } from 'std-toolkit/db/memory';
 import { EntityESchema, type AnyEntityESchema } from 'std-toolkit/eschema';
@@ -89,16 +89,17 @@ type AnyEntity = KeyedEntityDefinition<
   readonly string[],
   any
 > & {
-  insert(value: any): Effect.Effect<EntityType<any>, unknown, any>;
+  insert(value: any): Effect.Effect<DecodedEntity<any>, unknown, any>;
   getAndUpdate(
     key: any,
     changes: any,
-  ): Effect.Effect<EntityType<any>, unknown, any>;
-  delete(key: any): Effect.Effect<EntityType<any>, unknown, any>;
-  query(
-    ...args: any[]
-  ): Effect.Effect<
-    { readonly items: readonly EntityType<any>[]; readonly hasMore: boolean },
+  ): Effect.Effect<DecodedEntity<any>, unknown, any>;
+  delete(key: any): Effect.Effect<DecodedEntity<any>, unknown, any>;
+  query(...args: any[]): Effect.Effect<
+    {
+      readonly items: readonly DecodedEntity<any>[];
+      readonly hasMore: boolean;
+    },
     unknown,
     any
   >;
@@ -130,12 +131,12 @@ type CollectionSubscription = ReturnType<
 
 export type BackendEntity<E extends AnyEntity> = {
   readonly name: NameOf<E>;
-  insert(value: InsertOf<E>): Effect.Effect<EntityType<ItemOf<E>>, unknown>;
+  insert(value: InsertOf<E>): Effect.Effect<DecodedEntity<ItemOf<E>>, unknown>;
   update(
     key: KeyOf<E>,
     changes: Partial<ItemOf<E>>,
-  ): Effect.Effect<EntityType<ItemOf<E>>, unknown>;
-  remove(key: KeyOf<E>): Effect.Effect<EntityType<ItemOf<E>>, unknown>;
+  ): Effect.Effect<DecodedEntity<ItemOf<E>>, unknown>;
+  remove(key: KeyOf<E>): Effect.Effect<DecodedEntity<ItemOf<E>>, unknown>;
   query(
     ...args: Parameters<E['query']>
   ): Effect.Effect<
@@ -143,12 +144,12 @@ export type BackendEntity<E extends AnyEntity> = {
     EffectError<ReturnType<E['query']>>
   >;
   changes(options: {
-    readonly cursor: EntityType<ItemOf<E>> | null;
+    readonly cursor: DecodedEntity<ItemOf<E>> | null;
     readonly catchUp: (
-      cursor: EntityType<ItemOf<E>> | null,
-    ) => Effect.Effect<readonly EntityType<ItemOf<E>>[], unknown>;
-    readonly includes?: (entity: EntityType<ItemOf<E>>) => boolean;
-  }): Stream.Stream<EntityType<ItemOf<E>>[], unknown>;
+      cursor: DecodedEntity<ItemOf<E>> | null,
+    ) => Effect.Effect<readonly DecodedEntity<ItemOf<E>>[], unknown>;
+    readonly includes?: (entity: DecodedEntity<ItemOf<E>>) => boolean;
+  }): Stream.Stream<DecodedEntity<ItemOf<E>>[], unknown>;
 };
 
 export type CollectionDefinition<E extends AnyEntity> = {
@@ -355,7 +356,10 @@ const makeBackend = <const D extends readonly AnyDefinition[]>(options: {
       definition,
     ]),
   );
-  const listeners = new Map<string, Set<(entity: EntityType<any>) => void>>();
+  const listeners = new Map<
+    string,
+    Set<(entity: DecodedEntity<any>) => void>
+  >();
   let nextWriteGate:
     | {
         readonly promise: Promise<void>;
@@ -374,7 +378,7 @@ const makeBackend = <const D extends readonly AnyDefinition[]>(options: {
     return found;
   };
 
-  const announce = (name: string, entity: EntityType<any>) =>
+  const announce = (name: string, entity: DecodedEntity<any>) =>
     Effect.sync(() => {
       for (const listener of listeners.get(name) ?? []) listener(entity);
     });
@@ -412,7 +416,7 @@ const makeBackend = <const D extends readonly AnyDefinition[]>(options: {
     insert: (value) =>
       write(entity.name, 'Insert', on(entity.insert(value)), connection).pipe(
         Effect.tap((result) => announce(entity.name, result)),
-      ) as Effect.Effect<EntityType<ItemOf<E>>, unknown>,
+      ) as Effect.Effect<DecodedEntity<ItemOf<E>>, unknown>,
     update: (key, changes) =>
       write(
         entity.name,
@@ -421,24 +425,24 @@ const makeBackend = <const D extends readonly AnyDefinition[]>(options: {
         connection,
       ).pipe(
         Effect.tap((result) => announce(entity.name, result)),
-      ) as Effect.Effect<EntityType<ItemOf<E>>, unknown>,
+      ) as Effect.Effect<DecodedEntity<ItemOf<E>>, unknown>,
     remove: (key) =>
       write(entity.name, 'Remove', on(entity.delete(key)), connection).pipe(
         Effect.tap((result) => announce(entity.name, result)),
-      ) as Effect.Effect<EntityType<ItemOf<E>>, unknown>,
+      ) as Effect.Effect<DecodedEntity<ItemOf<E>>, unknown>,
     query: (...args) =>
       checkConnection(connection).pipe(
         Effect.andThen(on(entity.query(...args))),
       ) as never,
     changes: ({ cursor, catchUp, includes = () => true }) =>
-      Stream.callback<EntityType<ItemOf<E>>[], unknown>((queue) =>
+      Stream.callback<DecodedEntity<ItemOf<E>>[], unknown>((queue) =>
         Effect.gen(function* () {
           yield* checkConnection(connection);
           const entityListeners =
             listeners.get(entity.name) ??
-            new Set<(value: EntityType<any>) => void>();
+            new Set<(value: DecodedEntity<any>) => void>();
           listeners.set(entity.name, entityListeners);
-          const listener = (changed: EntityType<ItemOf<E>>) => {
+          const listener = (changed: DecodedEntity<ItemOf<E>>) => {
             if (includes(changed)) Queue.offerUnsafe(queue, [changed]);
           };
           const disconnect = () =>
@@ -540,11 +544,11 @@ const makeBackend = <const D extends readonly AnyDefinition[]>(options: {
             options.table.transact(operations as never),
           );
           yield* Effect.forEach(
-            confirmed as readonly EntityType<any>[],
+            confirmed as readonly DecodedEntity<any>[],
             (entity) => announce(entity.meta._e, entity),
             { discard: true },
           );
-          return confirmed as readonly EntityType<any>[];
+          return confirmed as readonly DecodedEntity<any>[];
         }),
         connection,
       ),
@@ -784,7 +788,7 @@ const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
               );
               const grouped = new Map<
                 Collection<any, string, any>,
-                EntityType<any>[]
+                DecodedEntity<any>[]
               >();
               for (const entity of confirmed) {
                 const collection = collections.get(entity.meta._e)!;
@@ -1023,7 +1027,7 @@ export const TodoSchema = EntityESchema.make('Todo', 'todoId', {
 }).build();
 
 export type Todo = typeof TodoSchema.Type;
-export type TodoEntity = EntityType<Todo>;
+export type TodoEntity = DecodedEntity<Todo>;
 export type TodoKey = { todoId: string; listId: string };
 
 export const storyTable = StdTable.make('sync-stories')

@@ -5,7 +5,7 @@ import type {
   Transaction,
 } from '@tanstack/react-db';
 import { Effect } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type {
@@ -42,17 +42,17 @@ export const buildMutationHandlers = <
   schema: S;
   collectionName: string;
   applyToSyncReplica: (
-    entities: EntityType<S['Type']>[],
+    entities: DecodedEntity<S['Type']>[],
   ) => Effect.Effect<void, WriteError>;
   onInsert?: (
     item: S['Type'],
-  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
   onUpdate?: (
     payload: UpdatePayload<S['Type'], S>,
-  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
   onDelete?: (
     payload: DeletePayload<S['Type']>,
-  ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
   updatePacing?: PaceStrategyFactory;
   pending: PendingTracker;
   runner: EffectRunner<R>;
@@ -75,7 +75,7 @@ export const buildMutationHandlers = <
   const runMutation = async (
     key: string,
     operation: 'delete' | 'insert' | 'update',
-    effect: Effect.Effect<EntityType<TItem>, unknown, R>,
+    effect: Effect.Effect<DecodedEntity<TItem>, unknown, R>,
   ): Promise<void> => {
     pending.increment(key);
     try {

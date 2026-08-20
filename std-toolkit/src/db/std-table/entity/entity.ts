@@ -1,9 +1,11 @@
 import type { Effect } from 'effect';
-import type { EntityType, SingleEntityType } from '../../../core/index.js';
+import type {
+  DecodedEntity,
+  DecodedSingleEntity,
+} from '../../../core/index.js';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
-  ESchemaType,
 } from '../../../eschema/index.js';
 import type { DatabaseError } from '../error/index.js';
 import type {
@@ -28,7 +30,7 @@ export type TableEffect<A, Name extends string> = Effect.Effect<
   DatabaseError,
   StdTableService<Name>
 >;
-export type EntityValue<S extends AnyEntityESchema> = ESchemaType<S>;
+export type EntityValue<S extends AnyEntityESchema> = S['Type'];
 export type EntityKey<
   S extends AnyEntityESchema,
   Pk extends readonly string[],
@@ -36,13 +38,8 @@ export type EntityKey<
   EntityValue<S>,
   Extract<Pk[number] | S['idField'], keyof EntityValue<S>>
 >;
-export type InsertValue<S extends AnyEntityESchema> = Omit<
-  EntityValue<S>,
-  '_v'
->;
-export type UpdateValue<S extends AnyEntityESchema> = Partial<
-  Omit<EntityValue<S>, '_v'>
->;
+export type InsertValue<S extends AnyEntityESchema> = EntityValue<S>;
+export type UpdateValue<S extends AnyEntityESchema> = Partial<EntityValue<S>>;
 export type UpdateInput<S extends AnyEntityESchema> =
   | UpdateValue<S>
   | ((current: EntityValue<S>) => UpdateValue<S> | null);
@@ -66,7 +63,7 @@ export interface TransactOp<
     | 'singleUpdateOp';
   readonly apply: (version: string) => {
     readonly write: TransactPut;
-    readonly entity: EntityType<T> | SingleEntityType<T>;
+    readonly entity: DecodedEntity<T> | DecodedSingleEntity<T>;
   };
 }
 
@@ -97,7 +94,7 @@ export type SortCondition<Sk> =
 export interface QueryOptions<T = unknown> {
   readonly limit?: number;
   readonly excludeDeleted?: boolean;
-  readonly after?: EntityType<T>;
+  readonly after?: DecodedEntity<T>;
 }
 
 export interface QueryPage<T> {
@@ -120,8 +117,10 @@ export interface KeyedEntity<
   get(
     key: EntityKey<S, Pk>,
     options?: { readonly excludeDeleted?: boolean },
-  ): TableEffect<EntityType<EntityValue<S>> | null, Name>;
-  insert(value: InsertValue<S>): TableEffect<EntityType<EntityValue<S>>, Name>;
+  ): TableEffect<DecodedEntity<EntityValue<S>> | null, Name>;
+  insert(
+    value: InsertValue<S>,
+  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
   insertOp(
     value: InsertValue<S>,
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
@@ -129,7 +128,7 @@ export interface KeyedEntity<
     key: EntityKey<S, Pk>,
     update: UpdateInput<S>,
     options?: { readonly retries?: number; readonly lastWriteWins?: boolean },
-  ): TableEffect<EntityType<EntityValue<S>>, Name>;
+  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
   getAndUpdateOp(
     key: EntityKey<S, Pk>,
     update: UpdateInput<S>,
@@ -139,25 +138,29 @@ export interface KeyedEntity<
     key: EntityKey<S, Pk>,
     check: (current: EntityValue<S>) => boolean,
   ): TableEffect<CheckOp<Name>, Name>;
-  delete(key: EntityKey<S, Pk>): TableEffect<EntityType<EntityValue<S>>, Name>;
+  delete(
+    key: EntityKey<S, Pk>,
+  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
   deleteOp(
     key: EntityKey<S, Pk>,
     options?: { readonly lastWriteWins?: boolean },
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
-  restore(key: EntityKey<S, Pk>): TableEffect<EntityType<EntityValue<S>>, Name>;
+  restore(
+    key: EntityKey<S, Pk>,
+  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
   restoreOp(
     key: EntityKey<S, Pk>,
     options?: { readonly lastWriteWins?: boolean },
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
   unchangedOp(
-    entity: EntityType<EntityValue<S>>,
+    entity: DecodedEntity<EntityValue<S>>,
   ): TableEffect<CheckOp<Name>, Name>;
   existsOp(key: EntityKey<S, Pk>): TableEffect<CheckOp<Name>, Name>;
   notExistsOp(key: EntityKey<S, Pk>): TableEffect<CheckOp<Name>, Name>;
   hardDelete(
     key: EntityKey<S, Pk>,
     confirmation: 'I KNOW WHAT I AM DOING',
-  ): TableEffect<EntityType<EntityValue<S>>, Name>;
+  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
   dangerouslyRemoveAllItems(
     confirmation: 'I KNOW WHAT I AM DOING',
   ): TableEffect<{ readonly itemsDeleted: number }, Name>;
@@ -167,33 +170,31 @@ export interface KeyedEntity<
       readonly pk: Record<Patterns[Pattern]['pk'][number], string>;
     } & SortCondition<Record<Patterns[Pattern]['sk'][number], string>>,
     options?: QueryOptions<EntityValue<S>>,
-  ): TableEffect<QueryPage<EntityType<EntityValue<S>>>, Name>;
+  ): TableEffect<QueryPage<DecodedEntity<EntityValue<S>>>, Name>;
 }
 
 export interface SingleEntity<
   Name extends string,
   S extends AnyUnkeyedESchema,
 > extends SingleEntityDefinition<Name, S> {
-  get(): TableEffect<SingleEntityType<ESchemaType<S>>, Name>;
-  put(
-    value: ESchemaType<S>,
-  ): TableEffect<SingleEntityType<ESchemaType<S>>, Name>;
+  get(): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
+  put(value: S['Type']): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
   getAndUpdate(
     update:
-      | Partial<ESchemaType<S>>
-      | ((current: ESchemaType<S>) => Partial<ESchemaType<S>> | null),
+      | Partial<S['Type']>
+      | ((current: S['Type']) => Partial<S['Type']> | null),
     options?: { readonly retries?: number; readonly lastWriteWins?: boolean },
-  ): TableEffect<SingleEntityType<ESchemaType<S>>, Name>;
+  ): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
   getAndUpdateOp(
     update:
-      | Partial<ESchemaType<S>>
-      | ((current: ESchemaType<S>) => Partial<ESchemaType<S>> | null),
+      | Partial<S['Type']>
+      | ((current: S['Type']) => Partial<S['Type']> | null),
     options?: { readonly lastWriteWins?: boolean },
-  ): TableEffect<TransactOp<Name, ESchemaType<S>>, Name>;
+  ): TableEffect<TransactOp<Name, S['Type']>, Name>;
   unchangedOp(
-    entity: SingleEntityType<ESchemaType<S>>,
+    entity: DecodedSingleEntity<S['Type']>,
   ): TableEffect<CheckOp<Name>, Name>;
-  reset(): TableEffect<SingleEntityType<ESchemaType<S>>, Name>;
+  reset(): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
 }
 
 export interface KeyedBuilderStart<
@@ -255,7 +256,7 @@ export interface SingleBuilder<
   Name extends string,
   S extends AnyUnkeyedESchema,
 > {
-  default(value: ESchemaType<S>): SingleEntity<Name, S>;
+  default(value: S['Type']): SingleEntity<Name, S>;
 }
 
 export { makeKeyedEntity } from './keyed.js';

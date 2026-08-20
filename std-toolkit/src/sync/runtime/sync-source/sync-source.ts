@@ -1,11 +1,14 @@
 import { Effect, Option, Stream, type Schedule } from 'effect';
-import type { EntityType, SingleEntityType } from '../../../core/index.js';
+import type {
+  DecodedEntity,
+  DecodedSingleEntity,
+} from '../../../core/index.js';
 
-type Cursor<TItem> = EntityType<TItem> | null;
-type Batch<TItem> = ReadonlyArray<EntityType<TItem>>;
+type Cursor<TItem> = DecodedEntity<TItem> | null;
+type Batch<TItem> = ReadonlyArray<DecodedEntity<TItem>>;
 type NonEmptyBatch<TItem> = readonly [
-  EntityType<TItem>,
-  ...EntityType<TItem>[],
+  DecodedEntity<TItem>,
+  ...DecodedEntity<TItem>[],
 ];
 
 const SourceTypeId: unique symbol = Symbol.for('std-toolkit/SyncSource');
@@ -43,16 +46,16 @@ type ForwardSource<TItem, R = never> =
 type OnceSource<TItem, R = never> = {
   readonly [SourceTypeId]: true;
   readonly _tag: 'Once';
-  readonly fetch: () => Effect.Effect<SingleEntityType<TItem>, unknown, R>;
+  readonly fetch: () => Effect.Effect<DecodedSingleEntity<TItem>, unknown, R>;
 };
 
 type SingleItemPollSource<TItem, R = never> = {
   readonly [SourceTypeId]: true;
   readonly _tag: 'SingleItemPoll';
-  readonly fetch: () => Effect.Effect<SingleEntityType<TItem>, unknown, R>;
+  readonly fetch: () => Effect.Effect<DecodedSingleEntity<TItem>, unknown, R>;
   readonly schedule: Schedule.Schedule<
     unknown,
-    SingleEntityType<TItem>,
+    DecodedSingleEntity<TItem>,
     unknown,
     R
   >;
@@ -61,7 +64,7 @@ type SingleItemPollSource<TItem, R = never> = {
 type SubscriptionSource<TItem, R = never> = {
   readonly [SourceTypeId]: true;
   readonly _tag: 'Subscribe';
-  readonly open: () => Stream.Stream<SingleEntityType<TItem>, unknown, R>;
+  readonly open: () => Stream.Stream<DecodedSingleEntity<TItem>, unknown, R>;
 };
 
 type SingleItemSource<TItem, R = never> =
@@ -102,7 +105,7 @@ const live = <TItem extends object, R = never>(config: {
 });
 
 const once = <TItem extends object, R = never>(config: {
-  fetch: () => Effect.Effect<SingleEntityType<TItem>, unknown, R>;
+  fetch: () => Effect.Effect<DecodedSingleEntity<TItem>, unknown, R>;
 }): OnceSource<TItem, R> => ({
   [SourceTypeId]: true,
   _tag: 'Once',
@@ -110,8 +113,8 @@ const once = <TItem extends object, R = never>(config: {
 });
 
 const pollSingleItem = <TItem extends object, R = never>(config: {
-  fetch: () => Effect.Effect<SingleEntityType<TItem>, unknown, R>;
-  schedule: Schedule.Schedule<unknown, SingleEntityType<TItem>, unknown, R>;
+  fetch: () => Effect.Effect<DecodedSingleEntity<TItem>, unknown, R>;
+  schedule: Schedule.Schedule<unknown, DecodedSingleEntity<TItem>, unknown, R>;
 }): SingleItemPollSource<TItem, R> => ({
   [SourceTypeId]: true,
   _tag: 'SingleItemPoll',
@@ -120,7 +123,7 @@ const pollSingleItem = <TItem extends object, R = never>(config: {
 });
 
 const subscribe = <TItem extends object, R = never>(config: {
-  open: () => Stream.Stream<SingleEntityType<TItem>, unknown, R>;
+  open: () => Stream.Stream<DecodedSingleEntity<TItem>, unknown, R>;
 }): SubscriptionSource<TItem, R> => ({
   [SourceTypeId]: true,
   _tag: 'Subscribe',
@@ -154,7 +157,7 @@ export const openPartitionedSource = <TItem extends object, R = never>(
   source: ForwardSource<TItem, R>,
   input: {
     cursor: Cursor<TItem>;
-    nextCursor: (batch: NonEmptyBatch<TItem>) => EntityType<TItem>;
+    nextCursor: (batch: NonEmptyBatch<TItem>) => DecodedEntity<TItem>;
   },
 ): Stream.Stream<NonEmptyBatch<TItem>, unknown, R> => {
   if (source._tag === 'Live') {
@@ -196,7 +199,7 @@ export const openPartitionedSource = <TItem extends object, R = never>(
 
 export const openSingleItemSource = <TItem extends object, R = never>(
   source: SingleItemSource<TItem, R>,
-): Stream.Stream<SingleEntityType<TItem>, unknown, R> => {
+): Stream.Stream<DecodedSingleEntity<TItem>, unknown, R> => {
   switch (source._tag) {
     case 'Once':
       return Stream.fromEffect(Effect.suspend(source.fetch));

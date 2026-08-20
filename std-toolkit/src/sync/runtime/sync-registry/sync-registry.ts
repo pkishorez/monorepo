@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { EffectRunner } from '../effect-runner/index.js';
-import { isEntity } from '../../domain/entity-validation/index.js';
+import { isDecodedEntity } from '../../domain/entity-validation/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { CollectionFlow } from '../sync-flow/index.js';
 
@@ -10,10 +10,10 @@ export type CollectionHandle = {
   schemaName: string;
   collectionName: string;
   applyToSyncReplica: (
-    entities: EntityType<unknown>[],
+    entities: DecodedEntity<unknown>[],
   ) => Effect.Effect<void, WriteError>;
   projectOnly: (
-    entities: EntityType<unknown>[],
+    entities: DecodedEntity<unknown>[],
   ) => Effect.Effect<void, WriteError>;
   flow: () => CollectionFlow | null;
 };
@@ -59,7 +59,7 @@ export const buildRegistry = <R>(
       !Array.isArray(message.values) ||
       !('persist' in message) ||
       typeof message.persist !== 'boolean' ||
-      !message.values.every(isEntity)
+      !message.values.every(isDecodedEntity)
     ) {
       throw new Error(
         '[sync] registry.process requires { values: Entity[]; persist: boolean }.',
@@ -67,10 +67,10 @@ export const buildRegistry = <R>(
     }
 
     const { values, persist } = message as {
-      values: EntityType<unknown>[];
+      values: DecodedEntity<unknown>[];
       persist: boolean;
     };
-    const groups = new Map<string, EntityType<unknown>[]>();
+    const groups = new Map<string, DecodedEntity<unknown>[]>();
     for (const entity of values) {
       const type = entity.meta._e;
       const group = groups.get(type) ?? [];

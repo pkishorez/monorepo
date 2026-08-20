@@ -1,6 +1,6 @@
 export {
   itemSchema,
-  type DecodedItem,
+  type NativeItem,
   type ItemSchema,
   type SQLiteRow,
   type SQLiteValue,

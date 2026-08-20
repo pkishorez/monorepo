@@ -1,11 +1,14 @@
 import type { CollectionConfig, VirtualRowProps } from '@tanstack/react-db';
+import type { StandardSchemaV1 } from '@standard-schema/spec';
+import { Schema } from 'effect';
 import type { Effect } from 'effect';
 import type {
-  EntityType,
-  MetaSchema,
-  SingleEntityType,
+  DecodedEntity,
+  EntityMetaSchema,
+  DecodedSingleEntity,
 } from '../../../core/index.js';
 import type {
+  AnyESchema,
   AnyEntityESchema,
   ESchemaIdField,
 } from '../../../eschema/index.js';
@@ -15,22 +18,67 @@ import type {
  * meta nested under `_meta`, plus the runtime virtual props ($synced, $origin).
  *
  * Virtual props are added at runtime by @tanstack/db on every read, but the
- * `useLiveQuery(() => collection)` overload types `data` as the bare row type and
- * drops them. The collection is created without a StandardSchema, so input and
- * output share one row type — hence the props are declared optional, surfacing on
- * reads without being required on writes.
+ * `useLiveQuery(() => collection)` overload types `data` as the bare item type and
+ * drops them. The props are optional so they surface on reads without being
+ * required on writes. The collection schema validates this latest decoded shape.
  */
 export type CollectionItem<T> = T & {
-  _meta?: typeof MetaSchema.Type;
+  _meta?: typeof EntityMetaSchema.Type;
 } & Partial<VirtualRowProps<string>>;
+
+export type CollectionItemSchema<S extends AnyESchema> = StandardSchemaV1<
+  CollectionItem<S['Type']>,
+  CollectionItem<S['Type']>
+>;
+
+export const makeCollectionItemSchema = <S extends AnyESchema>(
+  schema: S,
+): CollectionItemSchema<S> => {
+  const isDecoded = Schema.is(Schema.toType(schema.schema));
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'std-toolkit/sync',
+      types: {
+        input: null as unknown as CollectionItem<S['Type']>,
+        output: null as unknown as CollectionItem<S['Type']>,
+      },
+      validate: (input) => {
+        if (input === null || typeof input !== 'object') {
+          return { issues: [{ message: 'CollectionItem must be an object' }] };
+        }
+        const meta = (input as { readonly _meta?: unknown })._meta;
+        if (
+          meta !== null &&
+          typeof meta === 'object' &&
+          Object.hasOwn(meta, '_v')
+        ) {
+          return {
+            issues: [{ message: 'CollectionItem meta must not contain _v' }],
+          };
+        }
+        const value = stripMeta(input);
+        return Object.hasOwn(value, '_v') || !isDecoded(value)
+          ? {
+              issues: [
+                {
+                  message: `CollectionItem does not match schema "${schema.name}"`,
+                },
+              ],
+            }
+          : { value: input };
+      },
+    },
+  };
+};
 
 /**
  * An old→new cursor fetch source. A worker or repair capability declares one
  * only when it consumes that direction.
  */
 export type ForwardFetch<T, R = never, E = never> = (ctx: {
-  cursor: EntityType<T> | null;
-}) => Effect.Effect<EntityType<T>[], E, R>;
+  cursor: DecodedEntity<T> | null;
+}) => Effect.Effect<DecodedEntity<T>[], E, R>;
 
 /**
  * Pass-through TanStack collection options, with the fields the engine owns
@@ -96,8 +144,8 @@ export const stripMetaPartial = <TItem extends object>(
 };
 
 export const toEntity = <TItem>(
-  entity: SingleEntityType<TItem>,
-): EntityType<TItem> => ({
+  entity: DecodedSingleEntity<TItem>,
+): DecodedEntity<TItem> => ({
   value: entity.value,
   meta: { ...entity.meta, _d: false },
 });

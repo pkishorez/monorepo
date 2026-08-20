@@ -352,7 +352,7 @@ describe('SQLite setup', () => {
       await Effect.runPromise(
         database.run(
           'INSERT INTO items (pk, sk, _e, _v, _u, _d, data) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          ['p', key, 'Item', 'v1', key, 0, JSON.stringify({})],
+          ['p', key, 'Item', 'v1', key, 0, JSON.stringify({ _v: 'v1' })],
         ),
       );
     }

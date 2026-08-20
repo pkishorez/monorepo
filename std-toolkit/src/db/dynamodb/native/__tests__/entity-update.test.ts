@@ -9,16 +9,16 @@ import type {
   PutItemInput,
   UpdateItemInput,
 } from '../../client/generated/types.js';
-import { itemSchema, type DecodedItem } from '../../item-schema/index.js';
+import { itemSchema, type NativeItem } from '../../item-schema/index.js';
 import type { TableDefinition } from '../../../std-table/definition/index.js';
 
 type TableIndexes = Pick<
   TableDefinition,
   'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
-const encodeItem = (table: TableIndexes, item: EncodedItem): DecodedItem =>
+const encodeItem = (table: TableIndexes, item: EncodedItem): NativeItem =>
   Schema.decodeSync(itemSchema(table))(item);
-const decodeItem = (table: TableIndexes, decoded: DecodedItem): EncodedItem =>
+const decodeItem = (table: TableIndexes, decoded: NativeItem): EncodedItem =>
   Schema.encodeSync(itemSchema(table))(decoded);
 import { makeNativeService } from '../native.js';
 import { update } from '../entity-update.js';
@@ -44,7 +44,6 @@ const oldItem: EncodedItem = {
   sk: 'one',
   meta: {
     _e: 'Counter',
-    _v: 'v1',
     _u: '00000000000000000000000001',
     _d: false,
   },
@@ -66,7 +65,7 @@ describe('DynamoDB entity update', () => {
         if (property === 'putItem') {
           return (input: PutItemInput) => {
             puts.push(input);
-            current = decodeItem(currentTable, input.Item as DecodedItem);
+            current = decodeItem(currentTable, input.Item as NativeItem);
             return Effect.succeed({});
           };
         }
@@ -98,12 +97,11 @@ describe('DynamoDB entity update', () => {
     );
 
     expect(puts).toHaveLength(1);
-    expect(
-      decodeItem(currentTable, puts[0]!.Item as DecodedItem),
-    ).toMatchObject({
-      meta: { _v: 'v2' },
-      data: { _v: 'v2', label: 'migrated' },
-    });
+    expect(decodeItem(currentTable, puts[0]!.Item as NativeItem)).toMatchObject(
+      {
+        data: { _v: 'v2', label: 'migrated' },
+      },
+    );
     expect(puts[0]).toMatchObject({
       ConditionExpression: '#cf_attr_1 = :cf_value_2',
       ExpressionAttributeNames: { '#cf_attr_1': '_u' },

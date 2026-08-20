@@ -43,7 +43,7 @@ const cloneItem = (item: EncodedItem): EncodedItem => ({
   pk: item.pk,
   sk: item.sk,
   meta: { ...item.meta },
-  data: cloneJson(item.data) as JsonObject,
+  data: cloneJson(item.data) as EncodedItem['data'],
   keys: { ...item.keys },
 });
 

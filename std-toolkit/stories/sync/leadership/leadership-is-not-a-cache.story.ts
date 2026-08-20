@@ -1,7 +1,7 @@
 import { IDBFactory } from 'fake-indexeddb';
 import { Duration, Effect, Schema, Stream } from 'effect';
 import { Story } from 'laymos/story';
-import { type EntityType } from 'std-toolkit/core';
+import { type DecodedEntity } from 'std-toolkit/core';
 import { IDB } from 'std-toolkit/db/idb';
 import { Memory } from 'std-toolkit/db/memory';
 import { EntityESchema } from 'std-toolkit/eschema';
@@ -21,9 +21,9 @@ const TodoSchema = EntityESchema.make('Todo', 'id', {
   title: Schema.String,
 }).build();
 
-const entity: EntityType<Todo> = {
+const entity: DecodedEntity<Todo> = {
   value: { id: 't1', title: 'Already fetched' },
-  meta: { _v: 'v1', _e: 'Todo', _d: false, _u: '1' },
+  meta: { _e: 'Todo', _d: false, _u: '1' },
 };
 
 const makeBus = () => {
@@ -127,7 +127,9 @@ const openTab = (options: {
                     }
                     options.counters.readers += 1;
                     return Stream.fromIterable(
-                      cursor === null ? [[entity] as EntityType<Todo>[]] : [],
+                      cursor === null
+                        ? [[entity] as DecodedEntity<Todo>[]]
+                        : [],
                     );
                   }),
                 ),

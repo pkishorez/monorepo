@@ -57,7 +57,7 @@ describe('named sync', () => {
     const secondCollection = second.sync({ schema: schema('Todo') });
     const entity = {
       value: { id: '1', title: 'from A' },
-      meta: { _e: 'Todo', _v: 'v1', _u: '1', _d: false },
+      meta: { _e: 'Todo', _u: '1', _d: false },
     } as const;
 
     await expect(

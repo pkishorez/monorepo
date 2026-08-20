@@ -17,17 +17,17 @@ npm install @tanstack/react-db react   # required by sync
 
 ## Subpaths
 
-| Subpath                                                                     | Description                                                                       |
-| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [`std-toolkit/core`](src/core/README.md)                                    | Shared primitives: `EntitySchema`, `MetaSchema`, `Broadcaster`, `StdToolkitError` |
-| [`std-toolkit/eschema`](src/eschema/README.md)                              | Versioned, self-migrating schemas built on Effect Schema                          |
-| [`std-toolkit/snapshot`](src/eschema/README.md#semantic-contract-snapshots) | Semantic contract decoding, inspection, comparison, and rendering                 |
-| `std-toolkit/db`                                                            | Portable Table and Entity definitions and operations                              |
-| [`std-toolkit/db/dynamodb`](src/db/dynamodb/README.md)                      | DynamoDB binding, setup, expression builder, and native operations                |
-| [`std-toolkit/db/sqlite`](src/db/sqlite/README.md)                          | SQLite binding and setup with separate environment driver entrypoints             |
-| [`std-toolkit/db/idb`](src/db/idb/README.md)                                | IndexedDB binding and explicit Store setup                                        |
-| [`std-toolkit/db/memory`](src/db/memory/README.md)                          | Dependency-free, ephemeral Memory adapter for any JavaScript runtime              |
-| [`std-toolkit/sync`](src/sync/README.md)                                    | TanStack DB sync with local replicas, paced writes, and best-effort Peer Sync     |
+| Subpath                                                                     | Description                                                                   |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`std-toolkit/core`](src/core/README.md)                                    | Entity codecs and shared decoded application primitives                       |
+| [`std-toolkit/eschema`](src/eschema/README.md)                              | Versioned, self-migrating schemas built on Effect Schema                      |
+| [`std-toolkit/snapshot`](src/eschema/README.md#semantic-contract-snapshots) | Semantic contract decoding, inspection, comparison, and rendering             |
+| `std-toolkit/db`                                                            | Portable Table and Entity definitions and operations                          |
+| [`std-toolkit/db/dynamodb`](src/db/dynamodb/README.md)                      | DynamoDB binding, setup, expression builder, and native operations            |
+| [`std-toolkit/db/sqlite`](src/db/sqlite/README.md)                          | SQLite binding and setup with separate environment driver entrypoints         |
+| [`std-toolkit/db/idb`](src/db/idb/README.md)                                | IndexedDB binding and explicit Store setup                                    |
+| [`std-toolkit/db/memory`](src/db/memory/README.md)                          | Dependency-free, ephemeral Memory adapter for any JavaScript runtime          |
+| [`std-toolkit/sync`](src/sync/README.md)                                    | TanStack DB sync with local replicas, paced writes, and best-effort Peer Sync |
 
 ## Requirements
 

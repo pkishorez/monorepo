@@ -16,11 +16,10 @@ const item: EncodedItem = {
   sk: 'one',
   meta: {
     _e: 'Person',
-    _v: 'v1',
     _u: '00000000000000000000000001',
     _d: false,
   },
-  data: { name: 'Person' },
+  data: { _v: 'v1', name: 'Person' },
   keys: {},
 };
 

@@ -8,7 +8,7 @@ import type {
   LoadSubsetOptions,
   Transaction,
 } from '@tanstack/react-db';
-import type { EntityType } from '../../../core/index.js';
+import type { DecodedEntity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import { makeSyncReplica } from '../../persistence/sync-replica/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
@@ -16,10 +16,12 @@ import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { makeCollectionProjector } from '../../runtime/collection-projection/index.js';
 import type {
   CollectionItem,
+  CollectionItemSchema,
   DeletePayload,
   UpdateChanges,
   UpdatePayload,
 } from '../../runtime/collection-model/index.js';
+import { makeCollectionItemSchema } from '../../runtime/collection-model/index.js';
 import type { Tracker } from '../../runtime/sync-registry/index.js';
 import { makeSyncStateStore } from '../../persistence/sync-state/index.js';
 import { makePartitionLifecycle } from '../../lifecycle/partition-sync/index.js';
@@ -60,8 +62,8 @@ export type EngineUtils<S extends AnyEntityESchema> = {
   schema: () => S;
   flowId: () => string;
   applyToSyncReplica: (
-    entities: EntityType<S['Type']> | EntityType<S['Type']>[],
-  ) => Effect.Effect<EntityType<S['Type']>[], WriteError>;
+    entities: DecodedEntity<S['Type']> | DecodedEntity<S['Type']>[],
+  ) => Effect.Effect<DecodedEntity<S['Type']>[], WriteError>;
   pacedUpdate: (
     key: string,
     changes: UpdateChanges<S['Type'], S>,
@@ -81,13 +83,13 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     partitions?: PartitionMap<S, R>;
     onInsert?: (
       item: S['Type'],
-    ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+    ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
     onUpdate?: (
       payload: UpdatePayload<S['Type'], S>,
-    ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+    ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
     onDelete?: (
       payload: DeletePayload<S['Type']>,
-    ) => Effect.Effect<EntityType<S['Type']>, unknown, R>;
+    ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
     updatePacing?: PaceStrategyFactory;
     store: SyncStore;
     leadership: Leadership;
@@ -103,9 +105,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
 ): CollectionConfig<
   CollectionItem<S['Type']>,
   string,
-  never,
+  CollectionItemSchema<S>,
   EngineUtils<S>
 > & {
+  schema: CollectionItemSchema<S>;
   utils: EngineUtils<S>;
 } => {
   type TItem = S['Type'];
@@ -138,7 +141,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     makePartitionLifecycle(partitionFields),
   );
 
-  const replica = makeSyncReplica<TItem>({
+  const replica = makeSyncReplica({
     schema,
     store: config.store,
     collectionName,
@@ -173,10 +176,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     );
 
   const applyToSyncReplica = (
-    entities: EntityType<TItem>[],
+    entities: DecodedEntity<TItem>[],
     syncFlow?: StrategyFlow,
     options: { readonly propagate: boolean } = { propagate: true },
-  ): Effect.Effect<EntityType<TItem>[], WriteError> => {
+  ): Effect.Effect<DecodedEntity<TItem>[], WriteError> => {
     config.assertActive();
     return replica.applyToSyncReplica(entities).pipe(
       Effect.tap(() => advance()),
@@ -184,7 +187,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         options.propagate && accepted.length > 0 && peerSync !== null
           ? Effect.promise(() =>
               peerSync!.broadcast(
-                accepted as [EntityType<TItem>, ...EntityType<TItem>[]],
+                accepted as [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
               ),
             )
           : Effect.void,
@@ -208,10 +211,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     );
   };
 
-  const projectOnly = (entities: EntityType<TItem>[]): Effect.Effect<void> =>
+  const projectOnly = (entities: DecodedEntity<TItem>[]): Effect.Effect<void> =>
     Effect.sync(() => projector?.projectEntities(entities));
 
-  const deleteKeyOf = (entity: EntityType<TItem>): string | null => {
+  const deleteKeyOf = (entity: DecodedEntity<TItem>): string | null => {
     const value = entity.value as Record<string, unknown>;
     const id = value[schema.idField];
     return typeof id === 'string' ? id : null;
@@ -299,9 +302,11 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     schemaName: schema.name,
     collectionName,
     applyToSyncReplica: (entities) =>
-      applyToSyncReplica(entities as EntityType<TItem>[]).pipe(Effect.asVoid),
+      applyToSyncReplica(entities as DecodedEntity<TItem>[]).pipe(
+        Effect.asVoid,
+      ),
     projectOnly: projectOnly as (
-      entities: EntityType<unknown>[],
+      entities: DecodedEntity<unknown>[],
     ) => Effect.Effect<void, WriteError>,
     flow: () => flow,
   });
@@ -322,6 +327,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
 
   return {
     id: collectionName,
+    schema: makeCollectionItemSchema(schema),
     getKey: (item) => String((item as Record<string, unknown>)[schema.idField]),
     rowUpdateMode: 'full',
     // Partitioned collections require on-demand mode so TanStack DB calls loadSubset
@@ -518,9 +524,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   } as CollectionConfig<
     CollectionItem<TItem>,
     string,
-    never,
+    CollectionItemSchema<S>,
     EngineUtils<S>
   > & {
+    schema: CollectionItemSchema<S>;
     utils: EngineUtils<S>;
   };
 };
