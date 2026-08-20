@@ -258,7 +258,7 @@ function StoryBody({
               className={cn(
                 'overflow-auto rounded-lg',
                 scrollbarStyles,
-                setupExpanded ? 'max-h-[70vh]' : 'max-h-[450px]',
+                setupExpanded ? 'max-h-[640px]' : 'max-h-[450px]',
               )}
             >
               <CodeSnippet code={story.setup} />
