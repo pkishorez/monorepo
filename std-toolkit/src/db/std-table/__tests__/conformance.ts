@@ -185,13 +185,19 @@ export const runConformanceSuite = (
           expect(inserted.meta).not.toHaveProperty('_v');
           expect(inserted.meta._u).not.toBe('');
 
-          const beforeSkip = broadcasts.length;
-          const skipped = yield* item.getAndUpdate(
-            { itemId: 'stable', category: 'a' },
-            () => null,
-          );
-          expect(skipped).toEqual(inserted);
-          expect(broadcasts).toHaveLength(beforeSkip);
+          const beforeRefusal = broadcasts.length;
+          const refused = yield* item
+            .getAndUpdate(
+              { itemId: 'stable', category: 'a' },
+              { value: 2 },
+              { check: () => false },
+            )
+            .pipe(Effect.result);
+          expect(refused).toMatchObject({
+            _tag: 'Failure',
+            failure: { reason: { _tag: 'CheckRefused' } },
+          });
+          expect(broadcasts).toHaveLength(beforeRefusal);
 
           const missing = yield* item
             .getAndUpdate({ itemId: 'missing', category: 'a' }, { value: 2 })
@@ -217,8 +223,10 @@ export const runConformanceSuite = (
             itemId: 'stable',
             category: 'a',
           });
-          expect(liveRestore).toEqual(inserted);
-          expect(broadcasts).toHaveLength(beforeSkip);
+          expect(liveRestore.value).toEqual(inserted.value);
+          expect(liveRestore.meta._d).toBe(false);
+          expect(liveRestore.meta._u).not.toBe(inserted.meta._u);
+          expect(broadcasts).toHaveLength(beforeRefusal + 1);
         }).pipe(
           Effect.provide(Layer.merge(adapter.makeLayer(), broadcaster)),
           Effect.provideService(Ulid, deterministicUlid),
@@ -356,9 +364,11 @@ export const runConformanceSuite = (
             label: 'stale',
             value: 1,
           });
-          const stale = yield* item.getAndUpdateOp(
+          // An op built before a concurrent write still commits: it reads at
+          // commit time, so the interval before `transact` cannot make it stale.
+          const held = yield* item.getAndUpdateOp(
             { itemId: 'stale', category: 'a' },
-            { value: 2 },
+            (current) => ({ value: current.value + 1 }),
           );
           yield* item.getAndUpdate(
             { itemId: 'stale', category: 'a' },
@@ -370,20 +380,39 @@ export const runConformanceSuite = (
             label: 'fresh',
             value: 1,
           });
-          const staleResult = yield* conformanceTable
-            .transact([fresh, stale])
-            .pipe(Effect.result);
-          expect(staleResult).toMatchObject({
-            _tag: 'Failure',
-            failure: { reason: { _tag: 'TransactFailed' } },
-          });
+          yield* conformanceTable.transact([fresh, held]);
+          expect(
+            (yield* item.get({ itemId: 'stale', category: 'a' }))?.value.value,
+          ).toBe(4);
           expect(
             yield* item.get({ itemId: 'fresh', category: 'a' }),
-          ).toBeNull();
+          ).not.toBeNull();
+
+          // A refused entity invariant fails the batch before any submission.
+          const refusedOp = yield* item.getAndUpdateOp(
+            { itemId: 'stale', category: 'a' },
+            { value: 5 },
+            { check: (current) => current.value === 99 },
+          );
+          const refusedBatch = yield* conformanceTable
+            .transact([refusedOp])
+            .pipe(Effect.result);
+          expect(refusedBatch).toMatchObject({
+            _tag: 'Failure',
+            failure: {
+              reason: {
+                _tag: 'TransactFailed',
+                operations: [{ status: 'refused' }],
+              },
+            },
+          });
+          expect(
+            (yield* item.get({ itemId: 'stale', category: 'a' }))?.value.value,
+          ).toBe(4);
 
           const lww = yield* item.getAndUpdateOp(
             { itemId: 'stale', category: 'a' },
-            { value: 4 },
+            { value: 6 },
             { lastWriteWins: true },
           );
           yield* item.getAndUpdate(
@@ -393,16 +422,32 @@ export const runConformanceSuite = (
           yield* conformanceTable.transact([lww]);
           expect(
             (yield* item.get({ itemId: 'stale', category: 'a' }))?.value.value,
-          ).toBe(4);
+          ).toBe(6);
 
           const deleteOp = yield* item.deleteOp({
             itemId: 'stale',
             category: 'a',
           });
           yield* conformanceTable.transact([deleteOp]);
-          expect(
-            (yield* item.get({ itemId: 'stale', category: 'a' }))?.meta._d,
-          ).toBe(true);
+          const tombstoned = yield* item.get({
+            itemId: 'stale',
+            category: 'a',
+          });
+          expect(tombstoned?.meta._d).toBe(true);
+
+          // A redundant delete writes again: every op contributes one write,
+          // so a batch stays atomic and its outcome report stays aligned.
+          const redundant = yield* item.deleteOp({
+            itemId: 'stale',
+            category: 'a',
+          });
+          const beforeRedundant = broadcasts.length;
+          yield* conformanceTable.transact([redundant]);
+          const again = yield* item.get({ itemId: 'stale', category: 'a' });
+          expect(again?.meta._d).toBe(true);
+          expect(again?.meta._u).not.toBe(tombstoned?.meta._u);
+          expect(broadcasts).toHaveLength(beforeRedundant + 1);
+
           const restoreOp = yield* item.restoreOp({
             itemId: 'stale',
             category: 'a',
@@ -416,6 +461,7 @@ export const runConformanceSuite = (
             tableName: 'portable-conformance-foreign',
             target: 'foreign',
             operationKind: 'insertOp',
+            readsCurrent: false,
             apply: () => {
               throw new Error('Foreign operations must not be applied');
             },
@@ -461,55 +507,65 @@ export const runConformanceSuite = (
           ]);
           expect(checks).toBe(1);
 
-          const refused = yield* item
-            .getAndCheckOp(guardKey, () => false)
+          const refused = yield* conformanceTable
+            .transact([yield* item.getAndCheckOp(guardKey, () => false)])
             .pipe(Effect.result);
           expect(refused).toMatchObject({
             _tag: 'Failure',
             failure: {
-              reason: { _tag: 'CheckRefused', entity: 'Item' },
+              reason: {
+                _tag: 'TransactFailed',
+                operations: [{ status: 'refused', detail: 'CheckRefused' }],
+              },
             },
           });
 
-          const truthy = yield* item
-            .getAndCheckOp(guardKey, () => 1 as never)
+          const truthy = yield* conformanceTable
+            .transact([yield* item.getAndCheckOp(guardKey, () => 1 as never)])
             .pipe(Effect.result);
           expect(truthy).toMatchObject({
             _tag: 'Failure',
-            failure: { reason: { _tag: 'CheckRefused' } },
+            failure: { reason: { operations: [{ status: 'refused' }] } },
           });
 
-          const missing = yield* item
-            .getAndCheckOp(
-              { itemId: 'missing-check', category: 'a' },
-              () => true,
-            )
+          const missing = yield* conformanceTable
+            .transact([
+              yield* item.getAndCheckOp(
+                { itemId: 'missing-check', category: 'a' },
+                () => true,
+              ),
+            ])
             .pipe(Effect.result);
           expect(missing).toMatchObject({
             _tag: 'Failure',
             failure: {
-              reason: { _tag: 'NoItemToCheck', entity: 'Item' },
+              reason: {
+                _tag: 'TransactFailed',
+                operations: [{ status: 'missing', detail: 'NoItemToCheck' }],
+              },
             },
           });
 
           yield* item.delete(guardKey);
           let checkedTombstone = false;
-          const tombstoned = yield* item
-            .getAndCheckOp(guardKey, () => {
-              checkedTombstone = true;
-              return true;
-            })
+          const tombstoned = yield* conformanceTable
+            .transact([
+              yield* item.getAndCheckOp(guardKey, () => {
+                checkedTombstone = true;
+                return true;
+              }),
+            ])
             .pipe(Effect.result);
           expect(tombstoned).toMatchObject({
             _tag: 'Failure',
-            failure: { reason: { _tag: 'NoItemToCheck' } },
+            failure: { reason: { operations: [{ status: 'missing' }] } },
           });
           expect(checkedTombstone).toBe(false);
         }),
       );
     });
 
-    it('fails transact when a get-and-check entity changes after preparation', async () => {
+    it('reads a get-and-check entity at commit time, not at preparation', async () => {
       await run(
         Effect.gen(function* () {
           const guardKey = { itemId: 'checked-stale', category: 'a' };
@@ -518,28 +574,24 @@ export const runConformanceSuite = (
             label: 'checked-stale',
             value: 1,
           });
+          // The invariant names the value transact will read, not the value
+          // that was current when the op was built.
           const check = yield* item.getAndCheckOp(
             guardKey,
-            ({ value }) => value === 1,
+            ({ value }) => value === 2,
           );
           yield* item.getAndUpdate(guardKey, { value: 2 });
           const write = yield* item.insertOp({
-            itemId: 'blocked-by-check',
+            itemId: 'behind-fresh-check',
             category: 'a',
-            label: 'blocked-by-check',
+            label: 'behind-fresh-check',
             value: 1,
           });
 
-          const result = yield* conformanceTable
-            .transact([check, write])
-            .pipe(Effect.result);
-          expect(result).toMatchObject({
-            _tag: 'Failure',
-            failure: { reason: { _tag: 'TransactFailed' } },
-          });
+          yield* conformanceTable.transact([check, write]);
           expect(
-            yield* item.get({ itemId: 'blocked-by-check', category: 'a' }),
-          ).toBeNull();
+            yield* item.get({ itemId: 'behind-fresh-check', category: 'a' }),
+          ).not.toBeNull();
         }),
       );
     });
@@ -655,7 +707,8 @@ export const runConformanceSuite = (
               expect(
                 reason.operations.map((entry) => entry.op.entityName),
               ).toEqual(['Item', 'Item', 'Item']);
-              expect(reason.operations[1]?.status).toBe('failed');
+              expect(reason.operations[0]?.status).toBe('passed');
+              expect(reason.operations[1]?.status).toBe('stale');
               expect(reason.operations[2]?.op).toBe(write);
             }
           }
@@ -800,12 +853,17 @@ export const runConformanceSuite = (
           });
           expect(initial.meta).not.toHaveProperty('_v');
 
-          const missingOp = yield* config
-            .getAndUpdateOp({ theme: 'dark' })
+          const missingOp = yield* conformanceTable
+            .transact([yield* config.getAndUpdateOp({ theme: 'dark' })])
             .pipe(Effect.result);
           expect(missingOp).toMatchObject({
             _tag: 'Failure',
-            failure: { reason: { _tag: 'NoItemToUpdate' } },
+            failure: {
+              reason: {
+                _tag: 'TransactFailed',
+                operations: [{ status: 'missing', detail: 'NoItemToUpdate' }],
+              },
+            },
           });
 
           const updated = yield* config.getAndUpdate(({ count }) => ({
@@ -813,31 +871,53 @@ export const runConformanceSuite = (
             count: count + 1,
           }));
           expect(updated.value).toEqual({ theme: 'dark', count: 1 });
-          const skipped = yield* config.getAndUpdate(() => null);
-          expect(skipped).toEqual(updated);
+          const refusedSingle = yield* config
+            .getAndUpdate({ count: 99 }, { check: () => false })
+            .pipe(Effect.result);
+          expect(refusedSingle).toMatchObject({
+            _tag: 'Failure',
+            failure: { reason: { _tag: 'CheckRefused' } },
+          });
+          expect(yield* config.get()).toEqual(updated);
 
           const op = yield* config.getAndUpdateOp({ count: 2 });
           yield* conformanceTable.transact([op]);
           expect((yield* config.get()).value.count).toBe(2);
 
-          const stale = yield* config.getAndUpdateOp({ count: 3 });
+          // A held op reads at commit time, so a concurrent write does not
+          // make it stale; an invariant is what a caller guards a decision with.
+          const held = yield* config.getAndUpdateOp(({ count }) => ({
+            count: count + 1,
+          }));
           yield* config.getAndUpdate({ count: 4 });
-          const staleResult = yield* conformanceTable
-            .transact([stale])
+          yield* conformanceTable.transact([held]);
+          expect((yield* config.get()).value.count).toBe(5);
+
+          const refusedOp = yield* config.getAndUpdateOp(
+            { count: 7 },
+            { check: ({ count }) => count === 99 },
+          );
+          const refusedBatch = yield* conformanceTable
+            .transact([refusedOp])
             .pipe(Effect.result);
-          expect(staleResult).toMatchObject({
+          expect(refusedBatch).toMatchObject({
             _tag: 'Failure',
-            failure: { reason: { _tag: 'TransactFailed' } },
+            failure: {
+              reason: {
+                _tag: 'TransactFailed',
+                operations: [{ status: 'refused' }],
+              },
+            },
           });
-          expect((yield* config.get()).value.count).toBe(4);
+          expect((yield* config.get()).value.count).toBe(5);
 
           const lww = yield* config.getAndUpdateOp(
-            { count: 5 },
+            { count: 8 },
             { lastWriteWins: true },
           );
           yield* config.getAndUpdate({ count: 6 });
           yield* conformanceTable.transact([lww]);
-          expect((yield* config.get()).value.count).toBe(5);
+          expect((yield* config.get()).value.count).toBe(8);
 
           const reset = yield* config.reset();
           expect(reset.value).toEqual({ theme: 'light', count: 0 });

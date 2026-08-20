@@ -22,6 +22,7 @@ export {
   type JsonObject,
   type JsonValue,
   type QueryPosition,
+  type ReadOptions,
   type QueryRequest,
   type QueryResult,
   type StdTableContract,

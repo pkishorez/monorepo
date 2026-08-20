@@ -1,5 +1,9 @@
 import { Effect } from 'effect';
-import { nextUlid, type DecodedEntity } from '../../../core/index.js';
+import {
+  nextUlid,
+  type DecodedEntity,
+  type EncodedEntity,
+} from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import {
   CheckRefused,
@@ -8,14 +12,15 @@ import {
   NoItemToCheck,
   NoItemToUpdate,
   PrimaryKeyUpdateNotSupported,
-  UpdateRefused,
 } from '../error/index.js';
 import {
   StdTableService,
   ConditionFailure,
   type JsonObject,
   type ContractFailure,
+  type EncodedData,
   type EncodedItem,
+  type EncodedKey,
   type ItemCondition,
 } from '../contract/index.js';
 import type {
@@ -26,6 +31,7 @@ import { queryEntity } from './query.js';
 import { broadcast, dbError, failReason } from './effects.js';
 import type {
   CheckOp,
+  EntityInvariant,
   EntityKey,
   EntityValue,
   InsertValue,
@@ -34,11 +40,11 @@ import type {
   QueryOptions,
   UpdateInput,
   UpdateValue,
+  WriteOptions,
 } from './entity.js';
 import {
   decode,
   derivedKey,
-  derivedIndexes,
   encode,
   entityResult,
   makeEncodedItem,
@@ -59,69 +65,83 @@ export const makeKeyedEntity = <
   >,
 ): KeyedEntity<Name, S, Pk, Patterns> => {
   const service = StdTableService(definition.table.logicalName);
-  const read = (key: EntityKey<S, Pk>) =>
+  const readItem = (key: EncodedKey, consistent?: boolean) =>
     Effect.gen(function* () {
-      const encodedKey = key as object as JsonObject;
       const contract = (yield* service).contract;
-      const item = yield* contract
-        .getItem(derivedKey(definition, encodedKey))
+      return yield* contract
+        .getItem(key, consistent === undefined ? undefined : { consistent })
         .pipe(
           Effect.mapError((error) =>
             dbError('get', error as ContractFailure, definition.name),
           ),
         );
-      if (item === null) return null;
-      return yield* decode(definition.schema, item);
     });
-  const makeOp = (
-    item: EncodedItem,
+  const readRaw = (key: JsonObject, consistent?: boolean) =>
+    readItem(derivedKey(definition, key), consistent);
+  const decodeCurrent = (item: EncodedItem) =>
+    decode(definition.schema, item) as Effect.Effect<
+      DecodedEntity<EntityValue<S>>,
+      DatabaseError
+    >;
+  const read = (key: EntityKey<S, Pk>) =>
+    readRaw(key as object as JsonObject).pipe(
+      Effect.flatMap((item) =>
+        item === null
+          ? Effect.succeed(null)
+          : (decodeCurrent(item) as Effect.Effect<
+              DecodedEntity<EntityValue<S>> | null,
+              DatabaseError
+            >),
+      ),
+    );
+
+  const put = (
+    encoded: EncodedEntity<EncodedData>,
     value: EntityValue<S>,
-    operationKind: TransactOp<Name>['operationKind'],
-    condition?: ItemCondition,
-  ): TransactOp<Name, EntityValue<S>> => ({
-    tableName: definition.table.logicalName,
-    entityName: definition.name,
-    key: { pk: item.pk, sk: item.sk },
-    target: `${item.pk}\0${item.sk}`,
-    operationKind,
-    apply: (version) => {
-      const next = {
-        ...item,
-        meta: { ...item.meta, _u: version },
-        keys: derivedIndexes(definition, { ...item.data, _u: version }),
-      };
-      return {
-        write: {
-          kind: 'put',
-          item: next,
-          ...(condition === undefined ? {} : { condition }),
-        },
-        entity: entityResult(next, value),
-      };
-    },
-  });
-  const insertOp = (value: InsertValue<S>) =>
-    Effect.gen(function* () {
-      const full = value as object as EntityValue<S>;
-      const encoded = yield* encode(definition.schema, full, definition.name);
-      return makeOp(
-        makeEncodedItem(definition, encoded, '', false),
-        full,
-        'insertOp',
-        { kind: 'not-exists' },
-      );
-    });
-  const buildUpdateOp = (
-    existing: DecodedEntity<EntityValue<S>>,
-    partial: UpdateValue<S>,
+    deleted: boolean,
+    version: string,
+    condition: ItemCondition | undefined,
+  ) => {
+    const item = makeEncodedItem(definition, encoded, version, deleted);
+    return {
+      write: {
+        kind: 'put' as const,
+        item,
+        ...(condition === undefined ? {} : { condition }),
+      },
+      entity: entityResult(item, value) as DecodedEntity<EntityValue<S>>,
+    };
+  };
+
+  const applyUpdate = (
     kind: 'updateOp' | 'deleteOp' | 'restoreOp',
-    options?: { readonly lastWriteWins?: boolean },
+    update: UpdateInput<S>,
+    options: WriteOptions<EntityValue<S>> | undefined,
+    current: EncodedItem | null,
+    version: string,
   ) =>
     Effect.gen(function* () {
-      const value = {
-        ...existing.value,
-        ...partial,
-      } as object as EntityValue<S>;
+      if (current === null)
+        return yield* failReason(
+          new NoItemToUpdate({ entity: definition.name }),
+        );
+      const existing = yield* decodeCurrent(current);
+      const check = options?.check;
+      if (check !== undefined && check(existing.value) !== true)
+        return yield* failReason(new CheckRefused({ entity: definition.name }));
+      const deleted =
+        kind === 'deleteOp'
+          ? true
+          : kind === 'restoreOp'
+            ? false
+            : current.meta._d;
+      const partial =
+        kind === 'updateOp'
+          ? typeof update === 'function'
+            ? update(existing.value)
+            : update
+          : ({} as UpdateValue<S>);
+      const value = { ...existing.value, ...partial } as EntityValue<S>;
       const changedPrimaryFields = [
         ...definition.primary.pk,
         ...definition.primary.sk,
@@ -130,79 +150,126 @@ export const makeKeyedEntity = <
           existing.value[field as keyof EntityValue<S>] !==
           value[field as keyof EntityValue<S>],
       );
-      if (changedPrimaryFields.length > 0) {
+      if (changedPrimaryFields.length > 0)
         return yield* failReason(
           new PrimaryKeyUpdateNotSupported({
             entity: definition.name,
             fields: changedPrimaryFields,
           }),
         );
-      }
       const encoded = yield* encode(definition.schema, value, definition.name);
-      const deleted =
-        kind === 'deleteOp'
-          ? true
-          : kind === 'restoreOp'
-            ? false
-            : existing.meta._d;
-      return makeOp(
-        makeEncodedItem(definition, encoded, '', deleted),
+      return put(
+        encoded,
         value,
-        kind,
+        deleted,
+        version,
         options?.lastWriteWins
           ? undefined
-          : { kind: 'updated', value: existing.meta._u },
+          : { kind: 'updated', value: current.meta._u },
       );
     });
-  const updateOp = (
-    key: EntityKey<S, Pk>,
-    update: UpdateInput<S>,
-    kind: 'updateOp' | 'deleteOp' | 'restoreOp',
-    options?: { readonly lastWriteWins?: boolean },
-  ) =>
+
+  const located = (key: JsonObject) => {
+    const derived = derivedKey(definition, key);
+    return { key: derived, target: `${derived.pk}\0${derived.sk}` };
+  };
+
+  const insertOp = (value: InsertValue<S>) =>
     Effect.gen(function* () {
-      const existing = yield* read(key);
-      if (existing === null)
-        return yield* failReason(
-          new NoItemToUpdate({ entity: definition.name }),
-        );
-      const partial =
-        kind === 'updateOp'
-          ? typeof update === 'function'
-            ? update(existing.value as EntityValue<S>)
-            : update
-          : {};
-      if (partial === null)
-        return yield* failReason(
-          new UpdateRefused({ entity: definition.name }),
-        );
-      return yield* buildUpdateOp(
-        existing as DecodedEntity<EntityValue<S>>,
-        partial,
-        kind,
-        options,
-      );
-    });
-  const checkOp = (value: JsonObject, condition: ItemCondition) =>
-    Effect.sync((): CheckOp<Name> => {
-      const key = derivedKey(definition, value);
+      const full = value as object as EntityValue<S>;
+      const encoded = yield* encode(definition.schema, full, definition.name);
+      const item = makeEncodedItem(definition, encoded, '', false);
       return {
         tableName: definition.table.logicalName,
         entityName: definition.name,
-        key,
-        target: `${key.pk}\0${key.sk}`,
+        key: { pk: item.pk, sk: item.sk },
+        target: `${item.pk}\0${item.sk}`,
+        readsCurrent: false,
+        operationKind: 'insertOp' as const,
+        apply: (_current: EncodedItem | null, version: string) =>
+          Effect.succeed(
+            put(encoded, full, false, version, { kind: 'not-exists' }),
+          ),
+      } as TransactOp<Name, EntityValue<S>>;
+    });
+
+  const updateOp = (
+    kind: 'updateOp' | 'deleteOp' | 'restoreOp',
+    key: EntityKey<S, Pk>,
+    update: UpdateInput<S>,
+    options?: WriteOptions<EntityValue<S>>,
+  ) =>
+    Effect.sync((): TransactOp<Name, EntityValue<S>> => ({
+      tableName: definition.table.logicalName,
+      entityName: definition.name,
+      ...located(key as object as JsonObject),
+      readsCurrent: true,
+      operationKind: kind,
+      apply: (current, version) =>
+        applyUpdate(kind, update, options, current, version),
+    }));
+
+  const conditionOp = (value: JsonObject, condition: ItemCondition) =>
+    Effect.sync((): CheckOp<Name> => {
+      const at = located(value);
+      return {
+        tableName: definition.table.logicalName,
+        entityName: definition.name,
+        ...at,
+        readsCurrent: false,
         operationKind: 'checkOp',
-        apply: () => ({
-          write: { kind: 'check', key, condition },
-          entity: null,
-        }),
+        apply: () =>
+          Effect.succeed({
+            write: { kind: 'check' as const, key: at.key, condition },
+            entity: null,
+          }),
       };
     });
-  const commit = (operation: string, op: TransactOp<Name, EntityValue<S>>) =>
+
+  const getAndCheckOp = (
+    key: EntityKey<S, Pk>,
+    check: EntityInvariant<EntityValue<S>>,
+  ) =>
+    Effect.sync((): CheckOp<Name> => {
+      const at = located(key as object as JsonObject);
+      return {
+        tableName: definition.table.logicalName,
+        entityName: definition.name,
+        ...at,
+        readsCurrent: true,
+        operationKind: 'checkOp',
+        apply: (current) =>
+          Effect.gen(function* () {
+            if (current === null || current.meta._d)
+              return yield* failReason(
+                new NoItemToCheck({ entity: definition.name }),
+              );
+            const existing = yield* decodeCurrent(current);
+            if (check(existing.value) !== true)
+              return yield* failReason(
+                new CheckRefused({ entity: definition.name }),
+              );
+            return {
+              write: {
+                kind: 'check' as const,
+                key: at.key,
+                condition: {
+                  kind: 'updated' as const,
+                  value: current.meta._u,
+                },
+              },
+              entity: null,
+            };
+          }),
+      };
+    });
+
+  const runOne = (operation: string, op: TransactOp<Name, EntityValue<S>>) =>
     Effect.gen(function* () {
-      const contract = (yield* service).contract;
+      const current = op.readsCurrent ? yield* readItem(op.key, true) : null;
       const version = yield* nextUlid;
-      const applied = op.apply(version);
+      const applied = yield* op.apply(current, version);
+      const contract = (yield* service).contract;
       yield* contract.writeItem(applied.write).pipe(
         Effect.mapError((error) => {
           if (operation === 'insert' && error instanceof ConditionFailure)
@@ -215,20 +282,22 @@ export const makeKeyedEntity = <
       yield* broadcast(applied.entity);
       return applied.entity as DecodedEntity<EntityValue<S>>;
     });
-  const tombstone = (key: EntityKey<S, Pk>, deleted: boolean) =>
+
+  const runWithRetry = (
+    operation: string,
+    op: TransactOp<Name, EntityValue<S>>,
+    retries: number,
+  ) =>
     Effect.gen(function* () {
-      const existing = yield* read(key);
-      if (existing === null)
-        return yield* failReason(
-          new NoItemToUpdate({ entity: definition.name }),
-        );
-      if (existing.meta._d === deleted) return existing;
-      const op = yield* buildUpdateOp(
-        existing as DecodedEntity<EntityValue<S>>,
-        {},
-        deleted ? 'deleteOp' : 'restoreOp',
-      );
-      return yield* commit(deleted ? 'delete' : 'restore', op);
+      for (let attempt = 0; ; attempt++) {
+        const result = yield* runOne(operation, op).pipe(Effect.result);
+        if (result._tag === 'Success') return result.success;
+        if (
+          result.failure.reason._tag !== 'ConditionFailed' ||
+          attempt >= retries
+        )
+          return yield* Effect.fail(result.failure);
+      }
     });
   const entity = {
     ...definition,
@@ -239,79 +308,47 @@ export const makeKeyedEntity = <
         ),
       ),
     insert: (value: InsertValue<S>) =>
-      insertOp(value).pipe(Effect.flatMap((op) => commit('insert', op))),
+      insertOp(value).pipe(Effect.flatMap((op) => runOne('insert', op))),
     insertOp,
     getAndUpdate: (
       key: EntityKey<S, Pk>,
       update: UpdateInput<S>,
-      options?: { retries?: number; lastWriteWins?: boolean },
+      options?: WriteOptions<EntityValue<S>> & { retries?: number },
     ) =>
-      Effect.gen(function* () {
-        for (let attempt = 0; ; attempt++) {
-          const existing = yield* read(key);
-          if (existing === null)
-            return yield* failReason(
-              new NoItemToUpdate({ entity: definition.name }),
-            );
-          const partial =
-            typeof update === 'function'
-              ? update(existing.value as EntityValue<S>)
-              : update;
-          if (partial === null) return existing;
-          const op = yield* buildUpdateOp(
-            existing as DecodedEntity<EntityValue<S>>,
-            partial,
-            'updateOp',
-            options,
-          );
-          const result = yield* commit('getAndUpdate', op).pipe(Effect.result);
-          if (result._tag === 'Success') return result.success;
-          if (
-            result.failure.reason._tag !== 'ConditionFailed' ||
-            attempt >= (options?.retries ?? 3)
-          )
-            return yield* Effect.fail(result.failure);
-        }
-      }),
+      updateOp('updateOp', key, update, options).pipe(
+        Effect.flatMap((op) =>
+          runWithRetry('getAndUpdate', op, options?.retries ?? 3),
+        ),
+      ),
     getAndUpdateOp: (
       key: EntityKey<S, Pk>,
       update: UpdateInput<S>,
-      options?: { lastWriteWins?: boolean },
-    ) => updateOp(key, update, 'updateOp', options),
-    getAndCheckOp: (
+      options?: WriteOptions<EntityValue<S>>,
+    ) => updateOp('updateOp', key, update, options),
+    getAndCheckOp,
+    delete: (key: EntityKey<S, Pk>, options?: WriteOptions<EntityValue<S>>) =>
+      updateOp('deleteOp', key, {}, options).pipe(
+        Effect.flatMap((op) => runOne('delete', op)),
+      ),
+    deleteOp: (key: EntityKey<S, Pk>, options?: WriteOptions<EntityValue<S>>) =>
+      updateOp('deleteOp', key, {}, options),
+    restore: (key: EntityKey<S, Pk>, options?: WriteOptions<EntityValue<S>>) =>
+      updateOp('restoreOp', key, {}, options).pipe(
+        Effect.flatMap((op) => runOne('restore', op)),
+      ),
+    restoreOp: (
       key: EntityKey<S, Pk>,
-      check: (current: EntityValue<S>) => boolean,
-    ) =>
-      Effect.gen(function* () {
-        const existing = yield* read(key);
-        if (existing === null || existing.meta._d)
-          return yield* failReason(
-            new NoItemToCheck({ entity: definition.name }),
-          );
-        if (check(existing.value as EntityValue<S>) !== true)
-          return yield* failReason(
-            new CheckRefused({ entity: definition.name }),
-          );
-        return yield* checkOp(existing.value as object as JsonObject, {
-          kind: 'updated',
-          value: existing.meta._u,
-        });
-      }),
-    delete: (key: EntityKey<S, Pk>) => tombstone(key, true),
-    deleteOp: (key: EntityKey<S, Pk>, options?: { lastWriteWins?: boolean }) =>
-      updateOp(key, {}, 'deleteOp', options),
-    restore: (key: EntityKey<S, Pk>) => tombstone(key, false),
-    restoreOp: (key: EntityKey<S, Pk>, options?: { lastWriteWins?: boolean }) =>
-      updateOp(key, {}, 'restoreOp', options),
+      options?: WriteOptions<EntityValue<S>>,
+    ) => updateOp('restoreOp', key, {}, options),
     unchangedOp: (entity: DecodedEntity<EntityValue<S>>) =>
-      checkOp(entity.value as object as JsonObject, {
+      conditionOp(entity.value as object as JsonObject, {
         kind: 'updated',
         value: entity.meta._u,
       }),
     existsOp: (key: EntityKey<S, Pk>) =>
-      checkOp(key as object as JsonObject, { kind: 'exists' }),
+      conditionOp(key as object as JsonObject, { kind: 'exists' }),
     notExistsOp: (key: EntityKey<S, Pk>) =>
-      checkOp(key as object as JsonObject, { kind: 'not-exists' }),
+      conditionOp(key as object as JsonObject, { kind: 'not-exists' }),
     hardDelete: (
       key: EntityKey<S, Pk>,
       _confirmation: 'I KNOW WHAT I AM DOING',

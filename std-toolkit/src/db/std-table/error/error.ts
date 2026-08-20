@@ -1,5 +1,4 @@
 import { Data } from 'effect';
-import type { ItemOutcomeStatus } from '../contract/index.js';
 
 export class ItemAlreadyExists extends Data.TaggedError('ItemAlreadyExists')<{
   readonly entity: string;
@@ -17,9 +16,6 @@ export class PrimaryKeyUpdateNotSupported extends Data.TaggedError(
   readonly fields: readonly string[];
 }> {}
 export class ConditionFailed extends Data.TaggedError('ConditionFailed')<{
-  readonly entity: string;
-}> {}
-export class UpdateRefused extends Data.TaggedError('UpdateRefused')<{
   readonly entity: string;
 }> {}
 export class CheckRefused extends Data.TaggedError('CheckRefused')<{
@@ -52,8 +48,15 @@ export interface TransactOperation {
   readonly operationKind: string;
 }
 
+export type TransactOutcomeStatus =
+  | 'passed'
+  | 'stale'
+  | 'refused'
+  | 'missing'
+  | 'not-evaluated';
+
 export interface TransactOutcome {
-  readonly status: ItemOutcomeStatus;
+  readonly status: TransactOutcomeStatus;
   readonly detail?: string;
   readonly op: TransactOperation;
 }
@@ -72,7 +75,6 @@ export type DatabaseErrorReason =
   | NoItemToCheck
   | PrimaryKeyUpdateNotSupported
   | ConditionFailed
-  | UpdateRefused
   | CheckRefused
   | InvalidQuery
   | TransactionTooLarge
