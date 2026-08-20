@@ -24,7 +24,7 @@ export const secondaryPatterns = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      "How do you query by something that isn't the primary key?",
+      'The screen wants only the open notes. The primary key cannot answer that. What does?',
       {
         answer:
           'Name a secondary access pattern instead of `primary` — `byStatus` sits on a GSI keyed by `[status, title]`, so a prefix on `status` returns just the notes in that status.',
@@ -57,7 +57,7 @@ export const secondaryPatterns = Story.make({
         }),
       },
     ),
-    Story.question('What does an LSI pattern give you?', {
+    Story.question('And reading the same notebook in a different order?', {
       answer:
         'The same partition in a different order — `byTitle` keeps the notebook as its partition key and sorts by title instead of by note id.',
       proof: Effect.gen(function* () {

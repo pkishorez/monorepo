@@ -18,7 +18,6 @@ import {
   indexTree,
   isChapter,
   groupChange,
-  splitSpine,
   storyChange,
   type StoryLeaf,
   type ChangedPaths,
@@ -187,8 +186,6 @@ function SidebarGroup({
 }) {
   const chapter = isChapter(group);
   const [groupOpen, setGroupOpen] = useState(true);
-  const [depthOpen, setDepthOpen] = useState(false);
-  const { spine, depth } = splitSpine(group.stories);
   const storyRow = (story: StoryLeaf) => (
     <SidebarRow
       key={story.id}
@@ -248,19 +245,7 @@ function SidebarGroup({
           </span>
         }
       />
-      {open && spine.map(storyRow)}
-      {open && depthOpen && depth.map(storyRow)}
-      {open && depth.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setDepthOpen((value) => !value)}
-          style={{ paddingLeft: `${12 + (nesting + 1) * 14}px` }}
-          className="flex w-full items-center gap-2 py-1 pr-3 text-left text-xs text-muted-foreground/70 transition-colors hover:bg-accent/50 hover:text-foreground"
-        >
-          <span className="size-4.5 shrink-0" />
-          {depthOpen ? 'Less' : `${depth.length} more`}
-        </button>
-      )}
+      {open && group.stories.map(storyRow)}
       {open &&
         group.groups.map((child) => (
           <SidebarGroup

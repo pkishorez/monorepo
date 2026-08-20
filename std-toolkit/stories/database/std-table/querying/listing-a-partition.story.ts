@@ -18,33 +18,36 @@ export const listingAPartition = Story.make({
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you list everything in one partition?', {
-      answer:
-        'Query the primary pattern with the unbounded condition `">=": null`, which walks the whole item collection in sort-key order.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            yield* seed;
-            const page = yield* note.query('primary', {
-              pk: { notebook: 'work' },
-              '>=': null,
-            });
-            return {
-              ids: page.items.map(({ value }) => value.noteId),
-              hasMore: page.hasMore,
-            };
-          }),
-        );
-        yield* Story.assert(
-          'the whole partition comes back in ascending sort-key order',
-          JSON.stringify(results.sqlite.ids) ===
-            JSON.stringify(['n1', 'n2', 'n3']),
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
-    Story.question('How do you list it in reverse?', {
+    Story.question(
+      'The screen opens on a notebook. How are all of its notes read?',
+      {
+        answer:
+          'Query the primary pattern with the unbounded condition `">=": null`, which walks the whole item collection in sort-key order.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              yield* seed;
+              const page = yield* note.query('primary', {
+                pk: { notebook: 'work' },
+                '>=': null,
+              });
+              return {
+                ids: page.items.map(({ value }) => value.noteId),
+                hasMore: page.hasMore,
+              };
+            }),
+          );
+          yield* Story.assert(
+            'the whole partition comes back in ascending sort-key order',
+            JSON.stringify(results.sqlite.ids) ===
+              JSON.stringify(['n1', 'n2', 'n3']),
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
+    Story.question('And newest first?', {
       answer:
         'Swap the condition to `"<=": null` — `<` and `<=` are the descending conditions, so the same partition reads back last to first.',
       proof: Effect.gen(function* () {
@@ -66,7 +69,7 @@ export const listingAPartition = Story.make({
         return results;
       }),
     }),
-    Story.question('What comes back for a partition that has nothing in it?', {
+    Story.question('What does an empty notebook return?', {
       answer:
         'An empty page — no items and `hasMore: false` — because an unknown partition is a value, not a failure.',
       proof: Effect.gen(function* () {

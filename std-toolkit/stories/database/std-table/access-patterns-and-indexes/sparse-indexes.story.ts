@@ -2,30 +2,40 @@ import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { EntityESchema } from 'std-toolkit/eschema';
 
-import { agree, parity, table } from '../../support.js';
+import { StdTable } from 'std-toolkit/db';
 
-const TagSchema = EntityESchema.make('Tag', 'tagId', {
-  workspace: Schema.String,
-  group: Schema.String,
-  label: Schema.NullOr(Schema.String),
-}).build();
+import { agree, parity } from '../../support.js';
 
-const tag = table
-  .entity(TagSchema)
-  .primary({ pk: ['workspace'] })
-  .index('GSI1', 'byGroup', { pk: ['workspace'], sk: ['group', 'label'] })
+// Its own binding over the same physical table, so the shared Note keeps the
+// index it was built with and this one can declare a nullable component.
+const table = StdTable.make('std-table-stories')
+  .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-const tags = [
-  { tagId: 't1', workspace: 'main', group: 'colour', label: 'amber' },
-  { tagId: 't2', workspace: 'main', group: 'colour', label: null },
-  { tagId: 't3', workspace: 'main', group: 'colour', label: 'blue' },
+const ReminderNote = EntityESchema.make('Note', 'noteId', {
+  notebook: Schema.String,
+  status: Schema.String,
+  dueOn: Schema.NullOr(Schema.String),
+}).build();
+
+const note = table
+  .entity(ReminderNote)
+  .primary({ pk: ['notebook'] })
+  .index('GSI1', 'byDue', { pk: ['notebook'], sk: ['status', 'dueOn'] })
+  .build();
+
+const notes = [
+  { noteId: 'n1', notebook: 'work', status: 'open', dueOn: '2026-01-05' },
+  { noteId: 'n2', notebook: 'work', status: 'open', dueOn: null },
+  { noteId: 'n3', notebook: 'work', status: 'open', dueOn: '2026-02-01' },
 ];
 
-const seed = Effect.forEach(tags, (value) => tag.insert(value));
+const seed = Effect.forEach(notes, (value) => note.insert(value));
 
-const idsOf = (page: { items: readonly { value: { tagId: string } }[] }) =>
-  page.items.map(({ value }) => value.tagId);
+const idsOf = (page: { items: readonly { value: { noteId: string } }[] }) =>
+  page.items.map(({ value }) => value.noteId);
 
 const same = (matched: readonly string[], expected: readonly string[]) =>
   JSON.stringify(matched) === JSON.stringify(expected);
@@ -37,7 +47,7 @@ export const sparseIndexes = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens to a row that has no value for an index component?',
+      'Most notes have a due date. Some have none. What happens to those in an index keyed on it?',
       {
         answer:
           'It is left out of that index entirely — the index is sparse — while the row itself stays stored and readable by its primary key.',
@@ -45,30 +55,28 @@ export const sparseIndexes = Story.make({
           const results = yield* parity(
             Effect.gen(function* () {
               yield* seed;
-              const pk = { workspace: 'main' } as const;
-              const byGroup = yield* tag.query('byGroup', { pk, '>=': null });
-              const primary = yield* tag.query('primary', { pk, '>=': null });
-              const unlabelled = yield* tag.get({
-                tagId: 't2',
-                workspace: 'main',
+              const pk = { notebook: 'work' } as const;
+              const byDue = yield* note.query('byDue', { pk, '>=': null });
+              const primary = yield* note.query('primary', { pk, '>=': null });
+              const undated = yield* note.get({
+                noteId: 'n2',
+                notebook: 'work',
               });
               return {
-                byGroup: idsOf(byGroup),
+                byDue: idsOf(byDue),
                 primary: idsOf(primary),
-                unlabelled:
-                  unlabelled === null ? 'missing' : unlabelled.value.label,
+                undated: undated === null ? 'missing' : undated.value.dueOn,
               };
             }),
           );
           const found = results.sqlite;
           yield* Story.assert(
             'the row with a null component is absent from the index',
-            same(found.byGroup, ['t1', 't3']),
+            same(found.byDue, ['n1', 'n3']),
           );
           yield* Story.assert(
             'the same row is still stored and readable by primary key',
-            same(found.primary, ['t1', 't2', 't3']) &&
-              found.unlabelled === null,
+            same(found.primary, ['n1', 'n2', 'n3']) && found.undated === null,
           );
           yield* Story.assert('every adapter agrees', agree(results));
           return results;

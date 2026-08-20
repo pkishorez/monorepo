@@ -15,15 +15,15 @@ import {
 } from 'std-toolkit/sync';
 import { inMemoryLeadership } from 'std-toolkit/sync/leadership/in-memory';
 
-type Todo = { id: string; title: string };
+type Note = { id: string; title: string };
 
-const TodoSchema = EntityESchema.make('Todo', 'id', {
+const NoteSchema = EntityESchema.make('Note', 'id', {
   title: Schema.String,
 }).build();
 
-const entity: DecodedEntity<Todo> = {
+const entity: DecodedEntity<Note> = {
   value: { id: 't1', title: 'Already fetched' },
-  meta: { _e: 'Todo', _d: false, _u: '1' },
+  meta: { _e: 'Note', _d: false, _u: '1' },
 };
 
 const makeBus = () => {
@@ -112,10 +112,10 @@ const openTab = (options: {
     peerSync: options.peerSync,
   });
   const config = app.sync({
-    schema: TodoSchema,
+    schema: NoteSchema,
     sync: {
       total: {
-        strategy: syncStrategy.oldToNew<Todo>({
+        strategy: syncStrategy.oldToNew<Note>({
           source: ({ live }) =>
             live({
               open: ({ cursor }) =>
@@ -128,7 +128,7 @@ const openTab = (options: {
                     options.counters.readers += 1;
                     return Stream.fromIterable(
                       cursor === null
-                        ? [[entity] as DecodedEntity<Todo>[]]
+                        ? [[entity] as DecodedEntity<Note>[]]
                         : [],
                     );
                   }),
@@ -186,7 +186,7 @@ export const leadershipIsNotACache = Story.make({
           peerSync: { channel: bus.factory },
           counters,
         });
-        yield* eventually(() => bus.subscribers('late-memory.todo') === 2);
+        yield* eventually(() => bus.subscribers('late-memory.note') === 2);
         yield* Effect.sleep(Duration.millis(25));
         yield* Story.assert(
           'the late isolated replica remained empty',
@@ -275,7 +275,7 @@ export const leadershipIsNotACache = Story.make({
           beforeRead,
         });
         const listening = yield* eventually(
-          () => bus.subscribers('live-peers.todo') === 2,
+          () => bus.subscribers('live-peers.note') === 2,
         );
         yield* Story.assert('both Peer Channels were listening', listening);
         release();

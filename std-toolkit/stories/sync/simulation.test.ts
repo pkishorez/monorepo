@@ -2,7 +2,7 @@ import { Effect } from 'effect';
 import { StoryContext, type Story } from 'laymos/story';
 import { describe, expect, it } from 'vitest';
 import { aUserUpdatedSomeTimeBack } from './catching-up/a-user-updated-some-time-back.story.js';
-import { aSimulatedWorld } from './how-these-stories-run/a-simulated-world.story.js';
+import { aBrowserMountsAQuery } from './building-the-simulation/a-browser-mounts-a-query.story.js';
 import { issue1 } from './tests/issue-1.story.js';
 import { crossCollection } from './optimistic-transactions/cross-collection.story.js';
 import { peerSyncModel } from './two-tabs/peer-sync-model.story.js';
@@ -15,7 +15,7 @@ import { yieldingLeadership } from './leadership/yielding-leadership.story.js';
 import { leadershipIsNotACache } from './leadership/leadership-is-not-a-cache.story.js';
 
 const stories: readonly Story[] = [
-  aSimulatedWorld,
+  aBrowserMountsAQuery,
   fromDatabaseToCollection,
   aUserUpdatedSomeTimeBack,
   editsKeepFlowing,

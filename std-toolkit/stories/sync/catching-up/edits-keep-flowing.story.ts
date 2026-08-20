@@ -4,9 +4,9 @@ import { syncStrategy } from 'std-toolkit/sync';
 import {
   Simulation,
   storyTable,
-  todoEntity,
-  todoSource,
-  type Todo,
+  noteEntity,
+  noteSource,
+  type Note,
 } from '../support.js';
 
 const counters = { fetches: 0 };
@@ -14,13 +14,13 @@ const simulation = Simulation.make({
   table: storyTable,
   collections: [
     Simulation.collection({
-      entity: todoEntity,
+      entity: noteEntity,
       configure: ({ backend }) => {
-        const inbox = todoSource(backend, 'inbox');
+        const inbox = noteSource(backend, 'inbox');
         return {
           sync: {
             total: {
-              strategy: syncStrategy.bidirectional<Todo>({
+              strategy: syncStrategy.bidirectional<Note>({
                 newer: ({ paginated }) =>
                   paginated({
                     fetch: ({ cursor }) =>
@@ -48,12 +48,12 @@ const simulation = Simulation.make({
   ] as const,
 });
 
-const history: Todo[] = [
-  { todoId: 't1', listId: 'inbox', title: 'Buy milk', done: false },
-  { todoId: 't2', listId: 'inbox', title: 'Walk dog', done: false },
-  { todoId: 't3', listId: 'inbox', title: 'Write report', done: false },
-  { todoId: 't4', listId: 'inbox', title: 'Book flights', done: false },
-  { todoId: 't5', listId: 'inbox', title: 'Call plumber', done: false },
+const history: Note[] = [
+  { noteId: 't1', notebook: 'inbox', title: 'Buy milk', pinned: false },
+  { noteId: 't2', notebook: 'inbox', title: 'Walk dog', pinned: false },
+  { noteId: 't3', notebook: 'inbox', title: 'Write report', pinned: false },
+  { noteId: 't4', notebook: 'inbox', title: 'Book flights', pinned: false },
+  { noteId: 't5', notebook: 'inbox', title: 'Call plumber', pinned: false },
 ];
 
 export const editsKeepFlowing = Story.make({
@@ -68,13 +68,13 @@ export const editsKeepFlowing = Story.make({
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           counters.fetches = 0;
-          yield* Effect.forEach(history, (todo) =>
-            backend.insert('Todo', todo),
+          yield* Effect.forEach(history, (note) =>
+            backend.insert('Note', note),
           );
           const alice = browser('alice');
           const inbox = yield* alice.mount({
             name: 'inbox',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
           yield* inbox.eventuallyShows(history);
           return inbox.toArray;
@@ -87,25 +87,25 @@ export const editsKeepFlowing = Story.make({
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           counters.fetches = 0;
-          yield* Effect.forEach(history, (todo) =>
-            backend.insert('Todo', todo),
+          yield* Effect.forEach(history, (note) =>
+            backend.insert('Note', note),
           );
           const alice = browser('alice');
           const inbox = yield* alice.mount({
             name: 'inbox',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
           yield* inbox.eventuallyShows(history);
           const fetchesAfterCatchUp = counters.fetches;
-          const updated = history.map((todo) =>
-            todo.todoId === 't3'
-              ? { ...todo, title: 'Write report (final)', done: true }
-              : todo,
+          const updated = history.map((note) =>
+            note.noteId === 't3'
+              ? { ...note, title: 'Write report (final)', pinned: true }
+              : note,
           );
           yield* backend.update(
-            'Todo',
-            { todoId: 't3', listId: 'inbox' },
-            { title: 'Write report (final)', done: true },
+            'Note',
+            { noteId: 't3', notebook: 'inbox' },
+            { title: 'Write report (final)', pinned: true },
           );
           yield* inbox.eventuallyShows(updated);
           yield* Story.assert(

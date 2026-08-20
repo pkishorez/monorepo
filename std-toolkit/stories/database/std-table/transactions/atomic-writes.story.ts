@@ -16,38 +16,41 @@ export const atomicWrites = Story.make({
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you commit several writes as one unit?', {
-      answer:
-        'Build a buffered op per write with `insertOp` and hand the whole list to `table.transact` — every row lands together.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            const ops = yield* Effect.all([
-              note.insertOp(draft('n1')),
-              note.insertOp(draft('n2')),
-              note.insertOp(draft('n3')),
-            ]);
-            const written = yield* table.transact(ops);
-            const page = yield* note.query('primary', {
-              pk: { notebook: 'work' },
-              '>=': null,
-            });
-            return {
-              written: written.length,
-              stored: page.items.map(({ value }) => value.noteId),
-            };
-          }),
-        );
-        yield* Story.assert(
-          'all three rows land in one commit',
-          results.sqlite.written === 3 &&
-            results.sqlite.stored.join() === 'n1,n2,n3',
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
-    Story.question('What happens to the rest if one op fails?', {
+    Story.question(
+      'A note is moved between notebooks, which means two writes. How do they land together?',
+      {
+        answer:
+          'Build a buffered op per write with `insertOp` and hand the whole list to `table.transact` — every row lands together.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              const ops = yield* Effect.all([
+                note.insertOp(draft('n1')),
+                note.insertOp(draft('n2')),
+                note.insertOp(draft('n3')),
+              ]);
+              const written = yield* table.transact(ops);
+              const page = yield* note.query('primary', {
+                pk: { notebook: 'work' },
+                '>=': null,
+              });
+              return {
+                written: written.length,
+                stored: page.items.map(({ value }) => value.noteId),
+              };
+            }),
+          );
+          yield* Story.assert(
+            'all three rows land in one commit',
+            results.sqlite.written === 3 &&
+              results.sqlite.stored.join() === 'n1,n2,n3',
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
+    Story.question('And if one of them is rejected?', {
       answer:
         'Nothing is written — the whole batch is rejected, so the sibling row that would have succeeded is absent afterwards.',
       proof: Effect.gen(function* () {
@@ -77,7 +80,7 @@ export const atomicWrites = Story.make({
         return results;
       }),
     }),
-    Story.question('What does an empty transaction do?', {
+    Story.question('What does a batch with nothing in it do?', {
       answer:
         'Nothing — it commits no rows and returns an empty list instead of failing.',
       proof: Effect.gen(function* () {

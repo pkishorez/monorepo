@@ -24,29 +24,32 @@ export const prefixMatching = Story.make({
     'Matching the start of a sort key, which is how a hierarchy is read one level at a time.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you match a prefix of a sort key?', {
-      answer:
-        'Use the `beginsWith` condition — it takes the same sort-key components as the other conditions and matches every row whose key starts with the value you give.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            yield* seed;
-            const page = yield* note.query('byTitle', {
-              pk: { notebook: 'work' },
-              beginsWith: { title: 'draft-' },
-            });
-            return titlesOf(page);
-          }),
-        );
-        yield* Story.assert(
-          'only the titles starting with the prefix come back, in ascending order',
-          same(results.sqlite, ['draft-one', 'draft-three', 'draft-two']),
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
-    Story.question('How does a prefix work on a compound sort key?', {
+    Story.question(
+      'The notes are keyed by a path. How is one folder of them read without reading the rest?',
+      {
+        answer:
+          'Use the `beginsWith` condition — it takes the same sort-key components as the other conditions and matches every row whose key starts with the value you give.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              yield* seed;
+              const page = yield* note.query('byTitle', {
+                pk: { notebook: 'work' },
+                beginsWith: { title: 'draft-' },
+              });
+              return titlesOf(page);
+            }),
+          );
+          yield* Story.assert(
+            'only the titles starting with the prefix come back, in ascending order',
+            same(results.sqlite, ['draft-one', 'draft-three', 'draft-two']),
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
+    Story.question('And when the sort key is built from more than one field?', {
       answer:
         'The leading components must be given in full and are matched exactly, while the last component you supply is the prefix — so `byStatus` (`[status, title]`) narrows to one status and then to titles inside it.',
       proof: Effect.gen(function* () {

@@ -62,16 +62,6 @@ export function countQuestions(group: StoryTree): number {
   );
 }
 
-export function splitSpine(stories: readonly StoryLeaf[]): {
-  readonly spine: readonly StoryLeaf[];
-  readonly depth: readonly StoryLeaf[];
-} {
-  const spine = stories.filter((story) => story.spine);
-  // A group with nothing on the spine has no depth to hide.
-  if (spine.length === 0) return { spine: stories, depth: [] };
-  return { spine, depth: stories.filter((story) => !story.spine) };
-}
-
 export function storyAnchor(story: StoryLeaf): string {
   return story.title
     .toLowerCase()

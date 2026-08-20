@@ -29,39 +29,39 @@ export type {
  * - `liveQuery.shows(rows)` and `.eventuallyShows(rows)`
  */
 
-// Todo fixture shared by the Sync stories
+// Note fixture shared by the Sync stories
 
-export const TodoSchema = EntityESchema.make('Todo', 'todoId', {
-  listId: Schema.String,
+export const NoteSchema = EntityESchema.make('Note', 'noteId', {
+  notebook: Schema.String,
   title: Schema.String,
-  done: Schema.Boolean,
+  pinned: Schema.Boolean,
 }).build();
 
-export type Todo = typeof TodoSchema.Type;
-export type TodoEntity = DecodedEntity<Todo>;
-export type TodoKey = { todoId: string; listId: string };
+export type Note = typeof NoteSchema.Type;
+export type NoteEntity = DecodedEntity<Note>;
+export type NoteKey = { noteId: string; notebook: string };
 
 export const storyTable = StdTable.make('sync-stories')
   .primary('pk', 'sk')
   .build();
 
-export const todoEntity = storyTable
-  .entity(TodoSchema)
-  .primary({ pk: ['listId'] })
+export const noteEntity = storyTable
+  .entity(NoteSchema)
+  .primary({ pk: ['notebook'] })
   .build();
 
-const byUpdateStamp = (left: TodoEntity, right: TodoEntity) =>
+const byUpdateStamp = (left: NoteEntity, right: NoteEntity) =>
   left.meta._u < right.meta._u ? -1 : 1;
 
-export const todoSource = (
-  backend: BackendEntity<typeof todoEntity>,
-  listId: string,
+export const noteSource = (
+  backend: BackendEntity<typeof noteEntity>,
+  notebook: string,
 ) => {
   const all = backend
-    .query('primary', { pk: { listId }, '>=': null })
+    .query('primary', { pk: { notebook }, '>=': null })
     .pipe(Effect.map((page) => [...page.items].sort(byUpdateStamp)));
   return {
-    pageNewer: (cursor: TodoEntity | null, limit: number) =>
+    pageNewer: (cursor: NoteEntity | null, limit: number) =>
       all.pipe(
         Effect.map((entities) =>
           entities
@@ -71,7 +71,7 @@ export const todoSource = (
             .slice(0, limit),
         ),
       ),
-    pageOlder: (cursor: TodoEntity | null, limit: number) =>
+    pageOlder: (cursor: NoteEntity | null, limit: number) =>
       all.pipe(
         Effect.map((entities) =>
           entities
@@ -81,10 +81,10 @@ export const todoSource = (
             .slice(-limit),
         ),
       ),
-    changes: (cursor: TodoEntity | null) =>
+    changes: (cursor: NoteEntity | null) =>
       backend.changes({
         cursor,
-        includes: (entity) => entity.value.listId === listId,
+        includes: (entity) => entity.value.notebook === notebook,
         catchUp: (from) =>
           all.pipe(
             Effect.map((entities) =>

@@ -12,7 +12,7 @@ export const refusingAnUpdate = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'How does a business rule veto a transaction after reading the row?',
+      'A note must not be edited after it is archived. How is that enforced at commit time, not before?',
       {
         answer:
           'Give `getAndUpdateOp` an entity invariant through `check`. Transact evaluates it against the value it reads at commit time and fails the batch before submitting anything, so sibling ops never land.',

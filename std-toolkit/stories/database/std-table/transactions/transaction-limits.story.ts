@@ -24,28 +24,34 @@ export const transactionLimits = Story.make({
   description: 'One row may be touched at most once per transaction.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What happens if two ops target the same row?', {
-      answer:
-        'The batch fails with `DuplicateTransactionTarget` before anything is written — one row may be touched at most once per transaction.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            const op = yield* note.insertOp(draft('n1'));
-            const error = yield* table.transact([op, op]).pipe(Effect.flip);
-            const stored = yield* note.get({ noteId: 'n1', notebook: 'work' });
-            return { reason: reasonOf(error), written: stored !== null };
-          }),
-        );
-        yield* Story.assert(
-          'the duplicate target is rejected and nothing is written',
-          results.sqlite.reason === 'DuplicateTransactionTarget' &&
-            results.sqlite.written === false,
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
-    Story.question('How many ops fit in one transaction?', {
+    Story.question(
+      'One batch tries to touch the same note twice. What happens?',
+      {
+        answer:
+          'The batch fails with `DuplicateTransactionTarget` before anything is written — one row may be touched at most once per transaction.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              const op = yield* note.insertOp(draft('n1'));
+              const error = yield* table.transact([op, op]).pipe(Effect.flip);
+              const stored = yield* note.get({
+                noteId: 'n1',
+                notebook: 'work',
+              });
+              return { reason: reasonOf(error), written: stored !== null };
+            }),
+          );
+          yield* Story.assert(
+            'the duplicate target is rejected and nothing is written',
+            results.sqlite.reason === 'DuplicateTransactionTarget' &&
+              results.sqlite.written === false,
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
+    Story.question('How many notes can one batch touch?', {
       answer:
         'One hundred — a batch of 100 commits, and the 101st op makes the whole batch fail with `TransactionTooLarge`.',
       proof: Effect.gen(function* () {
@@ -71,7 +77,7 @@ export const transactionLimits = Story.make({
         return results;
       }),
     }),
-    Story.question('What happens if an op belongs to a different table?', {
+    Story.question('And an op built against another table?', {
       answer:
         'The batch fails with `ForeignTransactionItem` — a transaction never spans two tables.',
       proof: Effect.gen(function* () {

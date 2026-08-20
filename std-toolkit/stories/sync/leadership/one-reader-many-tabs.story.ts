@@ -5,23 +5,23 @@ import { syncStrategy } from 'std-toolkit/sync';
 import {
   Simulation,
   storyTable,
-  todoEntity,
-  todoSource,
-  type Todo,
+  noteEntity,
+  noteSource,
+  type Note,
 } from '../support.js';
 
-const milk: Todo = {
-  todoId: 't1',
-  listId: 'inbox',
+const milk: Note = {
+  noteId: 't1',
+  notebook: 'inbox',
   title: 'Buy milk',
-  done: false,
+  pinned: false,
 };
 
-const dog: Todo = {
-  todoId: 't2',
-  listId: 'inbox',
+const dog: Note = {
+  noteId: 't2',
+  notebook: 'inbox',
   title: 'Walk dog',
-  done: false,
+  pinned: false,
 };
 
 const waitUntil = (predicate: () => boolean) =>
@@ -40,13 +40,13 @@ const makeTotalSimulation = (leadership: boolean) => {
     ...(leadership ? { leadership: Simulation.inMemory() } : {}),
     collections: [
       Simulation.collection({
-        entity: todoEntity,
+        entity: noteEntity,
         configure: ({ backend }) => {
-          const inbox = todoSource(backend, 'inbox');
+          const inbox = noteSource(backend, 'inbox');
           return {
             sync: {
               total: {
-                strategy: syncStrategy.oldToNew<Todo>({
+                strategy: syncStrategy.oldToNew<Note>({
                   source: ({ live }) =>
                     live({
                       open: ({ cursor }) =>
@@ -78,15 +78,15 @@ const partitions = (() => {
     leadership: Simulation.inMemory(),
     collections: [
       Simulation.collection({
-        entity: todoEntity,
+        entity: noteEntity,
         configure: ({ backend }) => ({
           sync: {
             partitions: {
-              listId: (listId) => {
-                const value = String(listId);
-                const source = todoSource(backend, value);
+              notebook: (notebook) => {
+                const value = String(notebook);
+                const source = noteSource(backend, value);
                 return {
-                  strategy: syncStrategy.oldToNew<Todo>({
+                  strategy: syncStrategy.oldToNew<Note>({
                     source: ({ live }) =>
                       live({
                         open: ({ cursor }) =>
@@ -118,7 +118,7 @@ type StoryTab = ReturnType<StoryBrowser['tab']>;
 const mountInbox = (tab: StoryTab, name: string) =>
   tab.mount({
     name,
-    query: (q) => q.from({ todo: tab.collection('Todo') }),
+    query: (q) => q.from({ note: tab.collection('Note') }),
   });
 
 export const oneReaderManyTabs = Story.make({
@@ -134,7 +134,7 @@ export const oneReaderManyTabs = Story.make({
         withoutLeadership.counters.readers = 0;
         yield* withoutLeadership.simulation.run(({ backend, browser }) =>
           Effect.gen(function* () {
-            yield* backend.insert('Todo', milk);
+            yield* backend.insert('Note', milk);
             const first = browser('alice');
             const second = first.tab('second');
             const left = yield* mountInbox(first, 'left');
@@ -147,7 +147,7 @@ export const oneReaderManyTabs = Story.make({
         withLeadership.counters.readers = 0;
         yield* withLeadership.simulation.run(({ backend, browser }) =>
           Effect.gen(function* () {
-            yield* backend.insert('Todo', milk);
+            yield* backend.insert('Note', milk);
             const first = browser('alice');
             const second = first.tab('second');
             const left = yield* mountInbox(first, 'left');
@@ -173,7 +173,7 @@ export const oneReaderManyTabs = Story.make({
       proof: withLeadership.simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           withLeadership.counters.readers = 0;
-          yield* backend.insert('Todo', milk);
+          yield* backend.insert('Note', milk);
           const first = browser('alice');
           const tabs = [
             first,
@@ -201,25 +201,25 @@ export const oneReaderManyTabs = Story.make({
       proof: partitions.simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           partitions.activated.length = 0;
-          const work = { ...milk, todoId: 'w1', listId: 'work' };
-          const home = { ...dog, todoId: 'h1', listId: 'home' };
-          yield* backend.insert('Todo', work);
-          yield* backend.insert('Todo', home);
+          const work = { ...milk, noteId: 'w1', notebook: 'work' };
+          const home = { ...dog, noteId: 'h1', notebook: 'home' };
+          yield* backend.insert('Note', work);
+          yield* backend.insert('Note', home);
           const first = browser('alice');
           const second = first.tab('second');
           const workQuery = yield* first.mount({
             name: 'work',
             query: (q) =>
               q
-                .from({ todo: first.collection('Todo') })
-                .where(({ todo }) => eq(todo.listId, 'work')),
+                .from({ note: first.collection('Note') })
+                .where(({ note }) => eq(note.notebook, 'work')),
           });
           const homeQuery = yield* second.mount({
             name: 'home',
             query: (q) =>
               q
-                .from({ todo: second.collection('Todo') })
-                .where(({ todo }) => eq(todo.listId, 'home')),
+                .from({ note: second.collection('Note') })
+                .where(({ note }) => eq(note.notebook, 'home')),
           });
           yield* workQuery.eventuallyShows([work]);
           yield* homeQuery.eventuallyShows([home]);
@@ -245,7 +245,7 @@ export const oneReaderManyTabs = Story.make({
             () => withLeadership.counters.readers === 1,
           );
           yield* Story.assert('one reader acquired Leadership', leaderEntered);
-          yield* second.insert('Todo', dog);
+          yield* second.insert('Note', dog);
           yield* left.eventuallyShows([dog]);
           yield* right.eventuallyShows([dog]);
           yield* Story.assert(
@@ -276,7 +276,7 @@ export const oneReaderManyTabs = Story.make({
             () => withLeadership.counters.readers === 2,
           );
           yield* Story.assert('the waiting tab took over', handedOff);
-          yield* backend.insert('Todo', dog);
+          yield* backend.insert('Note', dog);
           yield* right.eventuallyShows([dog]);
           return { readers: withLeadership.counters.readers };
         }),

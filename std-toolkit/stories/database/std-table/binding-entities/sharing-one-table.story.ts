@@ -4,13 +4,13 @@ import { EntityESchema } from 'std-toolkit/eschema';
 
 import { agree, note, parity, table } from '../../support.js';
 
-const BookmarkSchema = EntityESchema.make('Bookmark', 'bookmarkId', {
+const NotebookSchema = EntityESchema.make('Notebook', 'notebookId', {
   notebook: Schema.String,
-  url: Schema.String,
+  title: Schema.String,
 }).build();
 
-const bookmark = table
-  .entity(BookmarkSchema)
+const notebookRecord = table
+  .entity(NotebookSchema)
   .primary({ pk: ['notebook'] })
   .build();
 
@@ -20,7 +20,7 @@ export const sharingOneTable = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'How do two different entity types live in one table without colliding?',
+      'A notebook record and a note are both filed under "work". Do they collide?',
       {
         answer:
           'Every key is prefixed with its entity name, so two entities keyed on the same value occupy separate partitions and each query sees only its own rows.',
@@ -33,36 +33,36 @@ export const sharingOneTable = Story.make({
                 title: 'Draft',
                 status: 'open',
               });
-              yield* bookmark.insert({
-                bookmarkId: 'shared',
+              yield* notebookRecord.insert({
+                notebookId: 'shared',
                 notebook: 'work',
-                url: 'https://example.com',
+                title: 'Work',
               });
               const notes = yield* note.query('primary', {
                 pk: { notebook: 'work' },
                 '>=': null,
               });
-              const bookmarks = yield* bookmark.query('primary', {
+              const notebooks = yield* notebookRecord.query('primary', {
                 pk: { notebook: 'work' },
                 '>=': null,
               });
               return {
                 notes: notes.items.map(({ meta }) => meta._e),
-                bookmarks: bookmarks.items.map(({ meta }) => meta._e),
+                notebooks: notebooks.items.map(({ meta }) => meta._e),
                 titles: notes.items.map(({ value }) => value.title),
-                urls: bookmarks.items.map(({ value }) => value.url),
+                notebookTitles: notebooks.items.map(({ value }) => value.title),
               };
             }),
           );
           yield* Story.assert(
             'each query returns only its own entity type',
             results.sqlite.notes.join() === 'Note' &&
-              results.sqlite.bookmarks.join() === 'Bookmark',
+              results.sqlite.notebooks.join() === 'Notebook',
           );
           yield* Story.assert(
             'the shared id and partition value do not overwrite each other',
             results.sqlite.titles.join() === 'Draft' &&
-              results.sqlite.urls.join() === 'https://example.com',
+              results.sqlite.notebookTitles.join() === 'Work',
           );
           yield* Story.assert('every adapter agrees', agree(results));
           return results;
