@@ -45,15 +45,16 @@ const noteIds = (written: readonly unknown[]) =>
 
 export const checkOps = Story.make({
   title: 'Check ops',
-  description:
-    'Asserting that a row has not moved, without writing anything to it.',
+  description: 'Assert that a note has not changed, without writing to it.',
+  setupNote:
+    'The `note` and the `settings` from `support.ts`. This Story adds check ops to batches.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note may only be filed into a notebook that still exists. How does the batch check a note it never writes?',
+      'A note may go only into a notebook that still exists. How does a batch check a note that it does not write?',
       {
         answer:
-          'Add a check op. `unchangedOp` takes a row you already read and asserts it has not moved since — the batch commits only if that still holds. A check writes nothing, so it yields `null` at its own position and the result tuple stays one-to-one with the ops you handed in.',
+          'Add a check op. `unchangedOp` takes a row that you already read and asserts that the row has not changed. The batch commits only while that is true. A check writes nothing, so it returns null at its own position and the result list stays the same length as the op list.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -73,52 +74,55 @@ export const checkOps = Story.make({
         }),
       },
     ),
-    Story.question('And a rule about the note being written itself?', {
-      answer:
-        '`getAndCheckOp` carries an entity invariant. Building it reads nothing: `transact` reads the keyed row at commit time, applies your check to its domain value, and guards that value. A false result reports `refused`; a missing or tombstoned row reports `missing`. Either way the batch fails before anything is submitted.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            yield* note.insert(draft('guard'));
-            const check = yield* note.getAndCheckOp(
-              key('guard'),
-              ({ status }) => status === 'open',
-            );
-            const write = yield* note.insertOp(draft('new'));
-            const written = yield* table.transact([check, write]);
-            const error = yield* table
-              .transact([
-                yield* note.getAndCheckOp(
-                  key('guard'),
-                  ({ status }) => status === 'closed',
-                ),
-                yield* note.insertOp(draft('never')),
-              ])
-              .pipe(Effect.flip);
-            return {
-              positions: noteIds(written),
-              refused: reasonOf(error),
-              statuses: outcomes(error).map(({ status }) => status),
-              neverWritten: (yield* note.get(key('never'))) !== null,
-            };
-          }),
-        );
-        yield* Story.assert(
-          'the accepted value guards the write and a refused invariant stops the batch',
-          results.sqlite.positions.join() === ',new' &&
-            results.sqlite.refused === 'TransactFailed' &&
-            results.sqlite.statuses[0] === 'refused' &&
-            results.sqlite.neverWritten === false,
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
     Story.question(
-      'Someone edited that notebook a moment before the commit. Then what?',
+      'How does a batch apply a rule to the note that it does write?',
       {
         answer:
-          'The batch fails with `TransactFailed` and nothing is written. The outcome report names the check op as `failed`, so you learn which assertion refused — not merely that something did.',
+          '`getAndCheckOp` carries a condition. Building it reads nothing. `transact` reads the row at commit time, applies your condition to its value, and protects the batch with the result.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              yield* note.insert(draft('guard'));
+              const check = yield* note.getAndCheckOp(
+                key('guard'),
+                ({ status }) => status === 'open',
+              );
+              const write = yield* note.insertOp(draft('new'));
+              const written = yield* table.transact([check, write]);
+              const error = yield* table
+                .transact([
+                  yield* note.getAndCheckOp(
+                    key('guard'),
+                    ({ status }) => status === 'closed',
+                  ),
+                  yield* note.insertOp(draft('never')),
+                ])
+                .pipe(Effect.flip);
+              return {
+                positions: noteIds(written),
+                refused: reasonOf(error),
+                statuses: outcomes(error).map(({ status }) => status),
+                neverWritten: (yield* note.get(key('never'))) !== null,
+              };
+            }),
+          );
+          yield* Story.assert(
+            'the accepted value guards the write and a refused invariant stops the batch',
+            results.sqlite.positions.join() === ',new' &&
+              results.sqlite.refused === 'TransactFailed' &&
+              results.sqlite.statuses[0] === 'refused' &&
+              results.sqlite.neverWritten === false,
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
+    Story.question(
+      'Someone changed that notebook just before the commit. What happens?',
+      {
+        answer:
+          'The batch fails and nothing is written. The report names the check op as the one that failed, so you learn which assertion refused.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -148,50 +152,53 @@ export const checkOps = Story.make({
         }),
       },
     ),
-    Story.question('How is plain presence — or absence — asserted?', {
-      answer:
-        '`existsOp` and `notExistsOp` take a key rather than a row, so they need no read at all. Use `existsOp` for "the parent I am attaching to is still there" and `notExistsOp` for "nobody claimed this name while I was deciding".',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            yield* note.insert(draft('parent'));
-            const holds = yield* Effect.all([
-              note.existsOp(key('parent')),
-              note.notExistsOp(key('archived')),
-              note.insertOp(draft('child')),
-            ]);
-            const written = yield* table.transact(holds);
+    Story.question(
+      'How does a batch assert that a note is there, or is not there?',
+      {
+        answer:
+          '`existsOp` and `notExistsOp` take a key rather than a row, so they need no read. Use `existsOp` when a parent must still be there. Use `notExistsOp` when a key must still be free.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              yield* note.insert(draft('parent'));
+              const holds = yield* Effect.all([
+                note.existsOp(key('parent')),
+                note.notExistsOp(key('archived')),
+                note.insertOp(draft('child')),
+              ]);
+              const written = yield* table.transact(holds);
 
-            const missingParent = yield* note.existsOp(key('ghost'));
-            const alsoNew = yield* note.insertOp(draft('other'));
-            const error = yield* table
-              .transact([missingParent, alsoNew])
-              .pipe(Effect.flip);
-            return {
-              positions: noteIds(written),
-              reason: reasonOf(error),
-              refusedBy: refusedBy(error),
-              otherWritten: (yield* note.get(key('other'))) !== null,
-            };
-          }),
-        );
-        yield* Story.assert(
-          'both assertions hold and only the write occupies a slot',
-          results.sqlite.positions.join() === ',,child',
-        );
-        yield* Story.assert(
-          'a missing row fails `existsOp` and takes the batch with it',
-          results.sqlite.reason === 'TransactFailed' &&
-            results.sqlite.refusedBy.join() === 'checkOp' &&
-            results.sqlite.otherWritten === false,
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
+              const missingParent = yield* note.existsOp(key('ghost'));
+              const alsoNew = yield* note.insertOp(draft('other'));
+              const error = yield* table
+                .transact([missingParent, alsoNew])
+                .pipe(Effect.flip);
+              return {
+                positions: noteIds(written),
+                reason: reasonOf(error),
+                refusedBy: refusedBy(error),
+                otherWritten: (yield* note.get(key('other'))) !== null,
+              };
+            }),
+          );
+          yield* Story.assert(
+            'both assertions hold and only the write occupies a slot',
+            results.sqlite.positions.join() === ',,child',
+          );
+          yield* Story.assert(
+            'a missing row fails `existsOp` and takes the batch with it',
+            results.sqlite.reason === 'TransactFailed' &&
+              results.sqlite.refusedBy.join() === 'checkOp' &&
+              results.sqlite.otherWritten === false,
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
     Story.question('Does a deleted note still count as being there?', {
       answer:
-        'Yes. Existence is physical, not logical — a soft delete leaves a tombstone, so `existsOp` passes on it and `notExistsOp` fails. This matches what `insert` already means by "the key is taken". Reach for `unchangedOp` when you care about a delete: deleting bumps `_u`, so a stale row is caught for free.',
+        'Yes. Existence is physical, not logical. A delete leaves a marked row, so `existsOp` passes on it and `notExistsOp` fails. This matches what a write already means on the same key.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -227,7 +234,7 @@ export const checkOps = Story.make({
     }),
     Story.question('Can a batch write nothing at all?', {
       answer:
-        'Yes. A checks-only batch is a portable multi-row assertion: every condition is evaluated together, the call succeeds or fails as one, and nothing is written either way. The result is all `null`, one per check.',
+        'Yes. A batch of checks only is an assertion over several rows. Each condition runs together. The call succeeds or fails as one, and nothing is written.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -254,9 +261,9 @@ export const checkOps = Story.make({
         return results;
       }),
     }),
-    Story.question('Can a batch check a note it is also writing?', {
+    Story.question('Can a batch check a note that it also writes?', {
       answer:
-        'No — checks share the ops array with writes, so they share the duplicate-target guard too, and the batch fails with `DuplicateTransactionTarget`. Nor is the check needed: `getAndUpdateOp` already carries the `_u` it read, so the write is conditional on that row all by itself.',
+        'No. Checks share the op list with writes, so they share the rule that one row may be touched one time. The batch fails. The check is also not needed, because a write op can carry its own condition.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -284,9 +291,9 @@ export const checkOps = Story.make({
         return results;
       }),
     }),
-    Story.question('What comes back from the ops that were not checks?', {
+    Story.question('What do the ops that did not fail report?', {
       answer:
-        'The `detail` on a refused op is the condition kind on every adapter, so the reason a check failed is portable. The *status* of the ops that did not fail is not, and the report says so rather than hiding it. DynamoDB evaluates every item and can name several failures at once, so an op it cleared reads `passed`. SQLite, IndexedDB, and Memory abort at the first refusal, so everything after it reads `not-evaluated`. Only the refusing entry is portable — `passed` never means "this was written", because a failed transact writes nothing at all. A moved `_u` reports `stale`, which a retry may clear; a refused invariant reports `refused`, which no retry will.',
+        'The reason that a refused op gives is the same on each database, so you can rely on it. The status of the ops that did not fail is not the same on each database, so do not rely on that.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -327,9 +334,9 @@ export const checkOps = Story.make({
         return results;
       }),
     }),
-    Story.question('And how do the notebook settings guard themselves?', {
+    Story.question('How do the notebook settings apply a rule to themselves?', {
       answer:
-        'A single entity gets `unchangedOp` only — `existsOp` and `notExistsOp` would be meaningless for a row with one fixed key. Read it, decide, then make the batch conditional on it. A single entity you have never written reads as its default with an empty `_u`, and `unchangedOp` turns that into "still absent", so the guard is honest about a row that exists only as a default.',
+        'A single entity accepts `unchangedOp` only. `existsOp` and `notExistsOp` have no meaning for a row with one fixed key. Read the row, decide, and then build the batch.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

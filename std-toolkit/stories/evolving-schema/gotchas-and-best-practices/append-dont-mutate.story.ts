@@ -17,14 +17,16 @@ const Document = ESchema.make('Document', {
 
 export const appendDontMutate = Story.make({
   title: "Append, don't mutate",
-  description: 'Add a rung; never reach back and change one.',
+  description: 'Add a step. Do not change a step that has shipped.',
+  setupNote:
+    'One schema with three versions. Each new version is added at the end.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens to the oldest v1 row after two versions are appended?',
+      'What happens to the oldest v1 row after two more versions are added?',
       {
         answer:
-          'It still decodes — the untouched v1 shape enters the longer chain and arrives at v3 with `wordCount` backfilled.',
+          'It still decodes. The v1 shape did not change, so the row runs the longer sequence and arrives at v3.',
         proof: Effect.gen(function* () {
           const ancient = yield* Document.decode({
             _v: 'v1',
@@ -38,9 +40,9 @@ export const appendDontMutate = Story.make({
         }),
       },
     ),
-    Story.question('What happens to a mid-chain v2 row?', {
+    Story.question('What happens to a v2 row in the middle?', {
       answer:
-        'It keeps its own data and gains only the v3 fields — appending changes nothing it depends on.',
+        'It keeps its own data and gains the v3 fields only. Adding a step does not affect anything that the row depends on.',
       proof: Effect.gen(function* () {
         const middleAged = yield* Document.decode({
           _v: 'v2',
@@ -54,9 +56,9 @@ export const appendDontMutate = Story.make({
         return middleAged;
       }),
     }),
-    Story.question('Do all vintages end up at the same shape?', {
+    Story.question('Do rows from each version reach the same shape?', {
       answer:
-        'Yes — a v1, v2, and v3 row all decode to the same v3 shape with `wordCount` present.',
+        'Yes. A v1 row, a v2 row, and a v3 row all decode to the same v3 shape.',
       proof: Effect.gen(function* () {
         const ancient = yield* Document.decode({ _v: 'v1', body: 'old' });
         const middleAged = yield* Document.decode({

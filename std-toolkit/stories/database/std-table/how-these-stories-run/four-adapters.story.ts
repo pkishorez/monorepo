@@ -12,28 +12,34 @@ import {
 export const fourAdapters = Story.make({
   title: 'Four adapters',
   description:
-    'Every proof in this part runs on four databases at once, and all four have to agree.',
+    'Each proof in this part runs on four databases at the same time. All four must agree.',
   spine: true,
+  setupNote:
+    '`parity` runs one program on each of the four databases. `agree` compares the four results.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('A Story here says a note was stored. Stored where?', {
-      answer:
-        'All four at once — DynamoDB Local over HTTP, IndexedDB, Memory, and an in-memory SQLite database — and `parity` returns what each Adapter produced.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(Effect.succeed('same everywhere'));
-        yield* Story.assert(
-          'every Adapter ran the same program',
-          JSON.stringify(Object.keys(results)) === JSON.stringify(adapterNames),
-        );
-        yield* Story.assert('every Adapter agrees', agree(results));
-        return { ...results, dynamodbEndpoint };
-      }),
-    }),
     Story.question(
-      'Four different databases agreeing down to the update stamp seems too good. What makes that possible?',
+      'A Story here says that a note was stored. Where was it stored?',
       {
         answer:
-          'Each run gets the same deterministic update-stamp sequence instead of real ULIDs, so a whole stored Entity — Entity Meta included — can be compared across Adapters.',
+          'In all four at the same time: DynamoDB Local over HTTP, IndexedDB, an in-memory SQLite database, and the Memory adapter. `parity` returns what each one produced.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(Effect.succeed('same everywhere'));
+          yield* Story.assert(
+            'every Adapter ran the same program',
+            JSON.stringify(Object.keys(results)) ===
+              JSON.stringify(adapterNames),
+          );
+          yield* Story.assert('every Adapter agrees', agree(results));
+          return { ...results, dynamodbEndpoint };
+        }),
+      },
+    ),
+    Story.question(
+      'The four databases agree down to the update stamp. How is that possible?',
+      {
+        answer:
+          'Each run receives the same sequence of update stamps. The stamps are not real ULIDs. A complete stored entity, with its metadata, can therefore be compared across the four databases.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

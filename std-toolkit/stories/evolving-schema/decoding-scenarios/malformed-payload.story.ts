@@ -14,14 +14,16 @@ const Metric = ESchema.make('Metric', {
 export const malformedPayload = Story.make({
   title: 'Malformed payload',
   description:
-    'Data is validated against the version it claims before any rung runs.',
+    'Data is checked against the version that it claims before any step runs.',
+  setupNote:
+    'A Metric with one step. This Story supplies data that does not match its own version.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when the data does not match the version it claims?',
+      'What happens when the data does not match the version that it claims?',
       {
         answer:
-          'It fails with `Decode failed` before any migration runs — the payload is validated against its declared version first.',
+          'It fails before any step runs. The system checks the data against its declared version first.',
         proof: Effect.gen(function* () {
           const error = yield* Effect.flip(
             Metric.decode({ _v: 'v1', count: 'not-a-number' }),
@@ -34,9 +36,9 @@ export const malformedPayload = Story.make({
         }),
       },
     ),
-    Story.question('Does a valid payload of the same version still decode?', {
+    Story.question('Does correct data of the same version still decode?', {
       answer:
-        'Yes — a healthy v1 payload sails through and gets the v2 backfill.',
+        'Yes. Correct v1 data passes the check and then receives the v2 value.',
       proof: Effect.gen(function* () {
         const valid = yield* Metric.decode({ _v: 'v1', count: 3 });
         yield* Story.assert(

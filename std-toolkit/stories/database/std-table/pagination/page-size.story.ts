@@ -15,15 +15,17 @@ const seed = Effect.forEach(ids, (noteId) =>
 export const pageSize = Story.make({
   title: 'Page size',
   description:
-    'Pages have a size whether you ask for one or not, and a flag that says whether more is left.',
+    'A query has a page size whether you ask for one or not. It also says whether rows remain.',
   spine: true,
+  setupNote:
+    'The `note` from `support.ts`, with more notes than one page holds.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A notebook has thousands of notes and the query asked for all of them. How many arrive?',
+      'A notebook holds thousands of notes and the query asked for all of them. How many arrive?',
       {
         answer:
-          'One hundred — that is the default page size, and `hasMore` is true whenever rows are left behind.',
+          'One hundred. That is the default page size. The result also says that rows remain.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -44,9 +46,9 @@ export const pageSize = Story.make({
         }),
       },
     ),
-    Story.question('And when the screen only shows ten at a time?', {
+    Story.question('How does the query return a smaller page?', {
       answer:
-        'Pass `limit` — the query returns exactly that many rows, in sort-key order, and still reports whether more remain.',
+        'Give the query a limit. The result then holds that many rows, and it still says whether rows remain.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

@@ -86,41 +86,46 @@ const pacedUpdate = (
 export const issue1 = Story.make({
   title: 'Issue 1',
   description:
-    'A regression kept runnable outside the Story tree: pacedUpdate must read the row the Browser is showing.',
+    'A regression, kept runnable outside the Story tree. A paced update must read the note that the browser is showing.',
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. This Story uses `utils.pacedUpdate`.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What does the first paced update commit against?', {
-      answer:
-        'The row as the Browser is showing it. `utils.pacedUpdate` looks the key up in the live Collection and hands that row to the mutation as `current`.',
-      proof: simulation.run(({ backend, browser }) =>
-        Effect.gen(function* () {
-          commits.length = 0;
-          yield* backend.insert('Note', seed);
-          const alice = browser('alice');
-          const inbox = yield* alice.mount({
-            name: 'inbox',
-            query: (q) => q.from({ note: alice.collection('Note') }),
-          });
-          yield* inbox.eventuallyShows([seed]);
-
-          yield* pacedUpdate(alice.collection('Note') as never, 't1', {
-            pinned: true,
-          });
-
-          yield* Story.assert(
-            'the commit saw the row the Browser was showing',
-            commits[0]?.current.title === 'Buy milk',
-          );
-          yield* inbox.eventuallyShows([{ ...seed, pinned: true }]);
-          return commits.map((commit) => commit.current);
-        }),
-      ),
-    }),
     Story.question(
-      'After the Backend edits the same row, what does a second paced update commit against?',
+      'What does the first paced update use as its current value?',
       {
         answer:
-          'It should commit against the row the Browser is now showing — the one carrying the Backend edit. It does not: the paced updater is built once per key and cached, so its commit closure keeps the `current` row captured on the FIRST `pacedUpdate` call for that key, forever. The second commit therefore PUTs the pre-edit row and silently reverts `title` back to "Buy milk".',
+          'The note as the browser is showing it. `utils.pacedUpdate` finds the key in the live collection and gives that note to the mutation.',
+        proof: simulation.run(({ backend, browser }) =>
+          Effect.gen(function* () {
+            commits.length = 0;
+            yield* backend.insert('Note', seed);
+            const alice = browser('alice');
+            const inbox = yield* alice.mount({
+              name: 'inbox',
+              query: (q) => q.from({ note: alice.collection('Note') }),
+            });
+            yield* inbox.eventuallyShows([seed]);
+
+            yield* pacedUpdate(alice.collection('Note') as never, 't1', {
+              pinned: true,
+            });
+
+            yield* Story.assert(
+              'the commit saw the row the Browser was showing',
+              commits[0]?.current.title === 'Buy milk',
+            );
+            yield* inbox.eventuallyShows([{ ...seed, pinned: true }]);
+            return commits.map((commit) => commit.current);
+          }),
+        ),
+      },
+    ),
+    Story.question(
+      'After the backend changes the same note, what does a second paced update use?',
+      {
+        answer:
+          'It must use the note that the browser is now showing, with the change from the backend. It does not. The system builds the paced updater one time for each key and keeps it, so the old note stays in the closure.',
         proof: simulation.run(({ backend, browser }) =>
           Effect.gen(function* () {
             commits.length = 0;

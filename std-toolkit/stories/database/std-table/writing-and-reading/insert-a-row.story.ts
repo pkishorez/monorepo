@@ -6,13 +6,14 @@ import { agree, note, parity, reasonOf } from '../../support.js';
 export const insertARow = Story.make({
   title: 'Insert a row',
   description:
-    'What a write puts in the table, what it stamps on it, and what a read of a missing row gives back.',
+    'What a write puts in the table, what it adds to it, and what a read of an absent note returns.',
   spine: true,
+  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Someone writes a note. What comes back?', {
       answer:
-        'The stored entity: your value plus the metadata the table stamps on it — entity name, schema version, update stamp, and a live (not deleted) marker.',
+        'The stored entity. That is your value plus the data that the table adds: the entity name, the schema version, the update stamp, and a mark that says the note is live.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -34,10 +35,10 @@ export const insertARow = Story.make({
       }),
     }),
     Story.question(
-      'The same note is written twice — a double-tapped save button. What happens to the first one?',
+      'The same note is written two times. What happens to the first one?',
       {
         answer:
-          'The second insert fails with `ItemAlreadyExists` and leaves the stored row untouched — insert never overwrites.',
+          'The second write fails and the stored note does not change. A write never replaces a note that is already there.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -71,15 +72,18 @@ export const insertARow = Story.make({
         }),
       },
     ),
-    Story.question('And asking for a note that was never written?', {
-      answer: 'Null — a missing row is a value, not a failure.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          note.get({ noteId: 'missing', notebook: 'work' }),
-        );
-        yield* Story.assert('every adapter returns null', agree(results));
-        return results;
-      }),
-    }),
+    Story.question(
+      'What happens when the app asks for a note that was never written?',
+      {
+        answer: 'It receives null. An absent note is a value, not a failure.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            note.get({ noteId: 'missing', notebook: 'work' }),
+          );
+          yield* Story.assert('every adapter returns null', agree(results));
+          return results;
+        }),
+      },
+    ),
   ],
 });

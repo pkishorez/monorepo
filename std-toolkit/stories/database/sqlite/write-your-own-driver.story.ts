@@ -40,13 +40,14 @@ const recordingDriver = (inner: SQLiteDriver) => {
 
 export const writeYourOwnDriver = Story.make({
   title: 'Write your own driver',
-  description:
-    'Anything that can execute SQL can host the whole table — including a dozen-line logging wrapper.',
+  description: 'Anything that executes SQL can host the whole table.',
+  setupNote:
+    'A short wrapper around the node driver. It records each statement and then passes it on.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How small is the surface a custom driver must cover?', {
+    Story.question('How much must a driver of your own supply?', {
       answer:
-        'Three methods — run, all, and transaction — plus an optional close. Anything that executes SQL can host the whole StdTable: here a dozen-line wrapper decorates the node driver to record every statement, and the full entity surface runs through it unchanged. That makes the seam a natural home for logging, metrics, or retries.',
+        'Three methods: `run`, `all`, and `transaction`. A `close` method is optional. Anything that executes SQL can therefore host the whole table. This Story wraps the node driver in about twelve lines to record each statement, and the whole entity surface runs through it without a change. The seam is thus a good place for logging, metrics, or retries.',
       proof: Effect.gen(function* () {
         const { driver, recorded } = recordingDriver(
           makeNodeSQLite({ path: ':memory:' }),
@@ -81,9 +82,9 @@ export const writeYourOwnDriver = Story.make({
         return { result, observed: [...kinds] };
       }),
     }),
-    Story.question('How does optimistic concurrency reach your driver?', {
+    Story.question('How does a conditional write reach your driver?', {
       answer:
-        'As data, not callbacks. A lone conditional write goes through run(), and the adapter itself compares the change count. But inside a transact batch each statement carries expectedChanges, and your driver must roll the whole batch back when a count differs — that single number is how a lost update, where another writer got there first, becomes a rejected transaction.',
+        'As data, not as a callback. A single conditional write goes through `run`, and the adapter compares the number of changed rows itself. Inside a batch, each statement carries the number of rows that it expects, and your driver compares that number.',
       proof: Effect.gen(function* () {
         const { driver, recorded } = recordingDriver(
           makeNodeSQLite({ path: ':memory:' }),

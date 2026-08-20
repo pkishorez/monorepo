@@ -53,37 +53,42 @@ const home = {
 export const oneListAtATime = Story.make({
   title: 'One list at a time',
   description:
-    'Only the partition a mounted query actually asks for is activated.',
+    'Only the partition that a mounted query asks for becomes active.',
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. Each live query filters to one notebook.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Does mounting one partition query sync only that list?', {
+    Story.question(
+      'Does mounting a query for one notebook sync that notebook only?',
+      {
+        answer:
+          'Yes. Mounting the query subscribes to the collection. The collection sends the notebook filter down to the Note source, and only that partition becomes active.',
+        proof: simulation.run(({ backend, browser }) =>
+          Effect.gen(function* () {
+            activated.length = 0;
+            yield* backend.insert('Note', work);
+            yield* backend.insert('Note', home);
+            const alice = browser('alice');
+            const workNotes = yield* alice.mount({
+              name: 'work',
+              query: (q) =>
+                q
+                  .from({ note: alice.collection('Note') })
+                  .where(({ note }) => eq(note.notebook, 'work')),
+            });
+            yield* workNotes.eventuallyShows([work]);
+            yield* Story.assert(
+              'only work activated',
+              sameNames(activated, ['work']),
+            );
+            return { activated, rows: workNotes.toArray };
+          }),
+        ),
+      },
+    ),
+    Story.question('What happens while the live query is not mounted?', {
       answer:
-        'Yes. Mounting the work Live Query subscribes to the real query Collection, which pushes its notebook predicate into Note and activates only the work partition.',
-      proof: simulation.run(({ backend, browser }) =>
-        Effect.gen(function* () {
-          activated.length = 0;
-          yield* backend.insert('Note', work);
-          yield* backend.insert('Note', home);
-          const alice = browser('alice');
-          const workNotes = yield* alice.mount({
-            name: 'work',
-            query: (q) =>
-              q
-                .from({ note: alice.collection('Note') })
-                .where(({ note }) => eq(note.notebook, 'work')),
-          });
-          yield* workNotes.eventuallyShows([work]);
-          yield* Story.assert(
-            'only work activated',
-            sameNames(activated, ['work']),
-          );
-          return { activated, rows: workNotes.toArray };
-        }),
-      ),
-    }),
-    Story.question('What happens while the Live Query is unmounted?', {
-      answer:
-        'Unmounting unsubscribes the real live-query Collection and unloads its partition. Backend writes continue independently. Remounting creates a fresh subscription and the worker catches up from persisted Sync State.',
+        'The subscription ends and the partition unloads. The backend continues to accept writes. Mounting again makes a new subscription, and the worker reads what the tab missed.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           activated.length = 0;
@@ -117,9 +122,9 @@ export const oneListAtATime = Story.make({
         }),
       ),
     }),
-    Story.question('Can two partition queries stay mounted together?', {
+    Story.question('Can two notebook queries stay mounted together?', {
       answer:
-        'Yes. Work and home are independent Live Queries and activate independent workers inside Alice’s Note Collection.',
+        'Yes. Two notebooks are two independent live queries. They start two independent workers inside the Note collection of Alice.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           activated.length = 0;

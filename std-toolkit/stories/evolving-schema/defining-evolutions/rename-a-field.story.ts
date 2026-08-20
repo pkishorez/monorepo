@@ -20,15 +20,17 @@ const Note = ESchema.make('Note', {
 export const renameAField = Story.make({
   title: 'Body becomes text',
   description:
-    'Rung three: one field changes its name, and the words already written move across with it.',
+    'Step three. One field changes its name. The text that is already written moves with it.',
   spine: true,
+  setupNote:
+    'The Note now has three steps. v4 removes `body` and adds `text` in the same step. Its migration copies the value across.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note was written when the field was called `body`. Where did those words go?',
+      'A note was written when the field was called `body`. Where is that text now?',
       {
         answer:
-          'Into `text`. A rename is a remove and an add declared in one delta, and the migration is what carries the value between them.',
+          'It is in `text`. A rename is one remove and one add in the same step. The migration moves the value between them.',
         proof: Effect.gen(function* () {
           const migrated = yield* Note.decode({
             _v: 'v1',

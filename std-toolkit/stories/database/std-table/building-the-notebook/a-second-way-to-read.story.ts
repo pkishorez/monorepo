@@ -45,15 +45,17 @@ const titlesOf = (page: { items: readonly { value: { title: string } }[] }) =>
 export const aSecondWayToRead = Story.make({
   title: 'A second way to read',
   description:
-    'Step three: the notebook needs to be read by title and by status, so the table grows two more key slots.',
+    'Step three. The notebook must be read by title and by status, so the table gets two more key slots.',
   spine: true,
+  setupNote:
+    'The table from step two, plus two index slots. `byTitle` reuses the partition and orders by title. `byStatus` brings its own partition and orders by status and then title.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The notebook screen lists notes alphabetically, not by id. The primary key cannot answer that. What is added?',
+      'The screen lists notes in alphabetical order, not by identity. The primary key cannot do that. What is added?',
       {
         answer:
-          'A second sort order over the same notes — an LSI. It reuses the notebook as its partition and names `title` as what orders them, so a notebook can be read two ways without storing it twice.',
+          'A second order over the same notes. It reuses the notebook as its partition and names `title` as the order. One notebook can then be read two ways, and it is stored one time.',
         proof: onNotebook(
           Effect.gen(function* () {
             yield* seed;
@@ -74,9 +76,9 @@ export const aSecondWayToRead = Story.make({
         ),
       },
     ),
-    Story.question('And grouping the notebook by status?', {
+    Story.question('How does the notebook group its notes by status?', {
       answer:
-        'A GSI, which brings its own partition key as well as its own sort key. Keying it on `[status, title]` puts every note of one status together, alphabetical inside each group.',
+        'With a second index that brings its own partition key and its own sort key. Its key is `[status, title]`, so notes of one status stay together and sort by title inside that group.',
       proof: onNotebook(
         Effect.gen(function* () {
           yield* seed;

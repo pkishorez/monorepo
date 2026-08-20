@@ -1,12 +1,14 @@
 # DynamoDB
 
-What DynamoDB can do that the portable surface will not.
+These are the operations that only DynamoDB can do.
 
-These are escape hatches, and they are ordered by how much portability each one
-costs. Batch writes and native updates amortize or push work into the database.
-Consistent reads are a knob only a replicated store has. A table definition
-exists because DynamoDB tables are usually provisioned far from application
-code.
+They are in order of how much portability each one costs.
 
-The last Story is the bottom rung: the raw typed client. Anything written
-against it can never run on another adapter.
+- A batch write reduces the number of network calls.
+- A native update does arithmetic inside the database.
+- A consistent read is a control that only a replicated store has.
+- A table definition exists because infrastructure code usually creates DynamoDB
+  tables, far from the application.
+
+The last Story shows the raw client. Code that uses it cannot run on another
+adapter.

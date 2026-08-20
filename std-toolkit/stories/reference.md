@@ -1,11 +1,13 @@
 # Reference
 
-Everything the Learn path deliberately walks past.
+The Learn path is short. It leaves things out.
 
-The path is chosen to be short. That leaves out a lot that is still true and
-still worth knowing: the shapes a schema refuses, the ways to break notes
-already written, the limits a table enforces, and the things one specific
-database can do that the portable surface will not expose.
+This trunk holds what it leaves out:
 
-None of it is required to use std-toolkit. All of it is proved the same way the
-path is.
+- the shapes a schema refuses
+- the ways to break notes that are already written
+- the limits a table applies
+- the operations that only one database can do
+
+You do not need this trunk to use std-toolkit. Each Story here has a proof, the
+same as the Stories on the path.

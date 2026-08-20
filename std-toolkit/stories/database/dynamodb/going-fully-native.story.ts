@@ -7,15 +7,16 @@ import { unmarshallItem } from './support.js';
 
 export const goingFullyNative = Story.make({
   title: 'Going fully native',
-  description:
-    'The bottom rung of the escape hatch: the raw client, and what portability it costs.',
+  description: 'The raw client, and the portability that it costs.',
+  setupNote:
+    'The `table` from the DynamoDB support file, plus the raw DynamoDB client.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when even the native operations are not enough?',
+      'What do you do when the native operations are still not enough?',
       {
         answer:
-          'The escape hatch has a bottom rung: the DynamoTableService exposes the raw typed client plus the physical table name, and with marshall/unmarshall you can speak the entire DynamoDB API. Here a Scan — an operation the StdTable surface deliberately never offers — walks the physical table the portable inserts produced. Each rung down trades portability away: this program can never run on IndexedDB or SQLite.',
+          'Use the raw client. The adapter exposes the typed client and the physical table name. With them you can use the whole DynamoDB API. This Story runs a scan, which the portable surface does not offer, over the rows that the portable writes produced.',
         proof: Effect.gen(function* () {
           const result = yield* onDynamoDB(
             Effect.gen(function* () {
@@ -52,9 +53,9 @@ export const goingFullyNative = Story.make({
         }),
       },
     ),
-    Story.question('Where does the ladder start and end?', {
+    Story.question('How many levels are there?', {
       answer:
-        'Three rungs. The StdTable surface runs unchanged on every adapter; DynamoDB.update, batchInsert, and getItem keep typed entities but require DynamoDB; the DynamoTableService drops to the wire protocol. The same Effect layer provides all three at once, so a program mixes rungs freely — and its requirements record exactly how far down it reached.',
+        'Three. The portable surface runs on each adapter. The native operations keep typed entities but need DynamoDB. The raw client drops to the wire protocol. Each level down trades portability away, and code at the last level cannot run on IndexedDB or SQLite.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {

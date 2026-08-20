@@ -212,6 +212,7 @@ function StoryBody({
   readonly anchorPrefix?: string;
 }) {
   const [supportOpen, setSupportOpen] = useState(false);
+  const [setupCodeOpen, setSetupCodeOpen] = useState(false);
   const report = reports?.[story.id];
   const questionReports = new Map<string, QuestionReport>(
     (report?.questions ?? []).map((question) => [question.slug, question]),
@@ -219,12 +220,29 @@ function StoryBody({
   const support = story.support;
   return (
     <div className="flex flex-col gap-4">
-      {(story.setup !== null || support !== null) && (
-        <div className="flex flex-col gap-1.5">
+      {(story.setup !== null ||
+        story.setupNote !== null ||
+        support !== null) && (
+        <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               setup
             </span>
+            {story.setup !== null && (
+              <button
+                type="button"
+                onClick={() => setSetupCodeOpen((value) => !value)}
+                className="inline-flex items-center gap-1 rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <ChevronRight
+                  className={cn(
+                    'size-3 transition-transform',
+                    setupCodeOpen && 'rotate-90',
+                  )}
+                />
+                code
+              </button>
+            )}
             {support !== null && (
               <button
                 type="button"
@@ -237,7 +255,14 @@ function StoryBody({
               </button>
             )}
           </div>
-          {story.setup !== null && <CodeSnippet code={story.setup} />}
+          {story.setupNote !== null && (
+            <Markdown className="prose-sm text-sm leading-relaxed text-muted-foreground">
+              {story.setupNote}
+            </Markdown>
+          )}
+          {story.setup !== null && setupCodeOpen && (
+            <CodeSnippet code={story.setup} />
+          )}
         </div>
       )}
       {support !== null && supportOpen && (

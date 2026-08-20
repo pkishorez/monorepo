@@ -18,11 +18,12 @@ const Profile = ESchema.make('Profile', {
 export const totalMigrations = Story.make({
   title: 'Total migrations',
   description:
-    'A migration has to answer for every value the old version allowed.',
+    'A migration must accept each value that the old version allowed.',
+  setupNote: 'A schema that turns an optional nickname into a display name.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What happens to a v1 row with a real nickname?', {
-      answer: 'The migration carries it straight over to `displayName`.',
+    Story.question('What happens to a v1 row that has a real nickname?', {
+      answer: 'The migration copies it to the new field.',
       proof: Effect.gen(function* () {
         const named = yield* Profile.decode({ _v: 'v1', nickname: 'ada' });
         yield* Story.assert(
@@ -33,10 +34,10 @@ export const totalMigrations = Story.make({
       }),
     }),
     Story.question(
-      'What happens to the `null` nickname the v1 schema always allowed?',
+      'What happens to the null nickname that the v1 schema allowed?',
       {
         answer:
-          'The migration must map it to a valid value — here `anonymous` — because it runs on every row of its era.',
+          'The migration must map it to a valid value. It runs on each row of that version, so it cannot ignore the case.',
         proof: Effect.gen(function* () {
           const nullCase = yield* Profile.decode({ _v: 'v1', nickname: null });
           yield* Story.assert(
@@ -47,23 +48,20 @@ export const totalMigrations = Story.make({
         }),
       },
     ),
-    Story.question(
-      'What happens to the empty-string nickname nobody remembers writing?',
-      {
-        answer:
-          'A total migration covers even the forgotten case, mapping whitespace to `anonymous` instead of failing on read months later.',
-        proof: Effect.gen(function* () {
-          const emptyCase = yield* Profile.decode({
-            _v: 'v1',
-            nickname: '   ',
-          });
-          yield* Story.assert(
-            'even the forgotten case maps somewhere sensible',
-            emptyCase.displayName === 'anonymous',
-          );
-          return emptyCase;
-        }),
-      },
-    ),
+    Story.question('What happens to the empty nickname that nobody expected?', {
+      answer:
+        'A complete migration covers this case too. It maps the empty value to a valid one. If it does not, the read fails months later.',
+      proof: Effect.gen(function* () {
+        const emptyCase = yield* Profile.decode({
+          _v: 'v1',
+          nickname: '   ',
+        });
+        yield* Story.assert(
+          'even the forgotten case maps somewhere sensible',
+          emptyCase.displayName === 'anonymous',
+        );
+        return emptyCase;
+      }),
+    }),
   ],
 });

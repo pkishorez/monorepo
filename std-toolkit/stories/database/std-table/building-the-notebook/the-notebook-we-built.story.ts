@@ -30,15 +30,17 @@ const same = (left: unknown, right: unknown) =>
 export const theNotebookWeBuilt = Story.make({
   title: 'The notebook we built',
   description:
-    'Step four: proof that the table and Note assembled across these Stories are the ones every later Story imports.',
+    'Step four. This Story proves that the table and the Note built here are the ones that the other Stories use.',
   spine: true,
+  setupNote:
+    'The completed table and Note from the three Stories above, next to the ones that `support.ts` exports.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'From here on the Stories import a table and a Note from `support.ts` instead of building one. Is it the same one?',
+      'The Stories after this one import a table and a Note from `support.ts`. Is it the same pair?',
       {
         answer:
-          'Yes — and this is a proof rather than a promise. The table assembled over the last three Stories has the same key slots as the shared one, and the Note bound to it has the same partition, the same sort key, and the same two access patterns.',
+          'Yes, and this question proves it. The table built in the three Stories above has the same key attributes and the same index slots as the one in `support.ts`.',
         proof: Effect.gen(function* () {
           yield* Story.assert(
             'both tables have the same primary key attributes',
@@ -63,9 +65,9 @@ export const theNotebookWeBuilt = Story.make({
         }),
       },
     ),
-    Story.question('And the Note bound to it?', {
+    Story.question('Is the Note bound to it the same Note?', {
       answer:
-        'Same entity name, same partition, same sort key, and the same access patterns under the same names — which is what makes every Story after this one readable without opening `support.ts`.',
+        'Yes. It has the same entity name, the same partition, the same sort key, and the same access patterns. You can therefore read each Story after this one without opening `support.ts`.',
       proof: Effect.gen(function* () {
         yield* Story.assert(
           'both bind the same entity',

@@ -9,14 +9,15 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 export const hardDelete = Story.make({
   title: 'Hard delete',
   description:
-    'The one call that really removes a row, and the phrase you have to type to get it.',
+    'One operation removes a note for real. It asks you to type a phrase first.',
+  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The user asks for a note to be erased, not hidden. How is that done?',
+      'The user wants a note erased, not hidden. How is that done?',
       {
         answer:
-          "Call `hardDelete(key, 'I KNOW WHAT I AM DOING')` — the confirmation phrase is part of the type, and afterwards get returns null.",
+          'Call `hardDelete` with the key and the confirmation phrase. The phrase is part of the type, so you cannot call it by accident. A read then returns null.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -39,9 +40,9 @@ export const hardDelete = Story.make({
         }),
       },
     ),
-    Story.question('And emptying a whole notebook, or the whole table?', {
+    Story.question('How is a whole notebook emptied?', {
       answer:
-        "`entity.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING')` clears only that entity's rows and reports how many it removed, while the same call on the table clears everything.",
+        'One operation removes each row of one entity. Another removes each row of the table. Both need the same confirmation phrase.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

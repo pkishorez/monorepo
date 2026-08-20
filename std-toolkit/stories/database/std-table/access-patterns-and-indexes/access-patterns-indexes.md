@@ -2,9 +2,9 @@
 
 The same table, asked a different question.
 
-A secondary index is a second set of keys over the same rows. Naming it instead
-of `primary` in a query is the whole of the API.
+A secondary index is a second set of keys over the same rows. To use it, name it
+in the query instead of `primary`. That is the whole interface.
 
-What is worth knowing is the edge: a note that cannot form a key for an index is
-simply left out of it. The index is sparse, the note stays stored, and every
-other way of reading it still works.
+The edge is worth knowing. A note that cannot make a key for an index stays out
+of that index. The index is sparse. The note is still stored. Each other way of
+reading the note still works.

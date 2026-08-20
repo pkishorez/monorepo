@@ -8,12 +8,14 @@ import { counter, counterKey, unmarshallItem } from './support.js';
 export const consistentReads = Story.make({
   title: 'Consistent reads',
   description:
-    'Forcing a read to come from the leader replica instead of a lagging one.',
+    'Force a read to come from the leader replica instead of one that lags.',
+  setupNote:
+    'The `counter` entity from the DynamoDB support file, against DynamoDB Local.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you demand a strongly consistent read?', {
+    Story.question('How do you ask for a read that is certain to be current?', {
       answer:
-        'DynamoDB.getItem takes the physical key plus consistentRead: true, forcing DynamoDB to answer from the leader replica instead of an eventually consistent one. Read consistency is a DynamoDB-shaped concern — its data lives on distributed replicas that can lag, while IndexedDB and SQLite always read the latest committed state — so the knob exists only here.',
+        'Use the native read and ask for a consistent read. DynamoDB then answers from the leader replica rather than from one that can lag. Its data is on several replicas, so this control exists here. IndexedDB and SQLite always read the state that was last committed.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {
@@ -44,7 +46,7 @@ export const consistentReads = Story.make({
     }),
     Story.question('What shape does a native read return?', {
       answer:
-        'The physical DynamoDB item: key attributes, the meta columns, and the entity value under data — still in AttributeValue form until unmarshall converts it. No eschema decoding happens; that is the price of stepping outside the StdTable surface.',
+        'The physical DynamoDB row: the key attributes, the metadata columns, and the value under `data`. It is still in the DynamoDB wire form until you convert it. No schema decoding happens, and that is the price of using the native read.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {

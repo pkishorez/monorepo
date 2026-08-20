@@ -25,14 +25,16 @@ const Note = ESchema.make('Note', {
 export const transformedFields = Story.make({
   title: 'Fields that change shape in storage',
   description:
-    'A field stored as text but used as a number — and which side of it a migration gets to see.',
+    'A field is stored as text and used as a number. This Story shows which side a migration sees.',
+  setupNote:
+    'A Note whose `wordCount` is stored as text and decoded to a number. One step adds a `long` field that is calculated from it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      "The note's word count is stored as text. Which side does a migration see?",
+      'The word count of the note is stored as text. Which side does a migration see?',
       {
         answer:
-          'The decoded side, always. Every field decodes before any rung runs, so the migration receives a real number and can do arithmetic on it.',
+          'The decoded side, always. Each field decodes before any step runs. The migration therefore receives a number and can calculate with it.',
         proof: Effect.gen(function* () {
           const note = yield* Note.decode({
             _v: 'v1',
@@ -51,9 +53,9 @@ export const transformedFields = Story.make({
         }),
       },
     ),
-    Story.question('And what goes back to storage?', {
+    Story.question('What goes back into storage?', {
       answer:
-        'The stored representation again — every field runs its own encode on the way in, so the count is text once more.',
+        'The stored form. Each field encodes on the way in, so the count becomes text again.',
       proof: Effect.gen(function* () {
         const note = yield* Note.decode({
           _v: 'v1',

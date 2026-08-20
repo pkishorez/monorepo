@@ -6,15 +6,16 @@ import { Note } from '../support.js';
 export const oldRowAutoMigrates = Story.make({
   title: 'Reading an old note',
   description:
-    'Nothing in the app asks for a migration; reading the note is what runs it.',
+    'Nothing asks for a migration. Reading the note is what runs one.',
   spine: true,
+  setupNote: 'The completed Note from `support.ts`. Its newest version is v4.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The app was written against the newest Note and knows nothing about older ones. How does it read a note from three versions ago?',
+      'The app knows only the newest Note. How does it read a note from three versions ago?',
       {
         answer:
-          'By calling `decode`, and nothing else. The runtime reads the stamp on the stored row, validates the row against that version, then folds it forward to the latest shape before handing it back.',
+          'It calls `decode` and does nothing else. The runtime reads the stamp on the stored row. It checks the row against that version. It then runs each step above that version and returns the result.',
         proof: Effect.gen(function* () {
           const note = yield* Note.decode({
             _v: 'v1',
@@ -33,9 +34,9 @@ export const oldRowAutoMigrates = Story.make({
         }),
       },
     ),
-    Story.question('Does the app ever see which version the note came from?', {
+    Story.question('Does the app learn which version the note came from?', {
       answer:
-        'No. The stamp is a storage concern, and decode strips it before the value reaches the caller.',
+        'No. The stamp belongs to storage. `decode` removes it before the value reaches the caller.',
       proof: Effect.gen(function* () {
         const note = yield* Note.decode({
           _v: 'v1',

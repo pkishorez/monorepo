@@ -9,14 +9,15 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 export const keysAreImmutable = Story.make({
   title: 'Keys are immutable',
   description:
-    'A row cannot change its own key; it can only be written under a new one.',
+    'A note cannot change its own key. It can only be written under a new one.',
+  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Someone drags a note into a different notebook. Can the note just change its `notebook` field?',
+      'Someone moves a note into a different notebook. Can the note change its `notebook` field?',
       {
         answer:
-          'The update fails with `PrimaryKeyUpdateNotSupported` and the stored row keeps its old values — a row moves only by inserting it under the new key and deleting the old one.',
+          'No. The update fails and the stored note keeps its values. To move a note, write it under the new key and delete the old one.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

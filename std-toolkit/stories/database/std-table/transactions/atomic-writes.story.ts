@@ -12,15 +12,17 @@ const draft = (noteId: string) => ({
 
 export const atomicWrites = Story.make({
   title: 'Atomic writes',
-  description: 'Several writes that land together or not at all.',
+  description: 'Several writes that land together, or not at all.',
   spine: true,
+  setupNote:
+    'The `note` from `support.ts`. Each write is built as an op and the list goes to `transact`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note is moved between notebooks, which means two writes. How do they land together?',
+      'A note moves between notebooks, which needs two writes. How do they land together?',
       {
         answer:
-          'Build a buffered op per write with `insertOp` and hand the whole list to `table.transact` — every row lands together.',
+          'Build one op for each write and give the list to `transact`. Each row then lands together.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -50,9 +52,9 @@ export const atomicWrites = Story.make({
         }),
       },
     ),
-    Story.question('And if one of them is rejected?', {
+    Story.question('What happens when one of them is refused?', {
       answer:
-        'Nothing is written — the whole batch is rejected, so the sibling row that would have succeeded is absent afterwards.',
+        'The whole batch fails and nothing is written. The other ops do not land.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -80,9 +82,8 @@ export const atomicWrites = Story.make({
         return results;
       }),
     }),
-    Story.question('What does a batch with nothing in it do?', {
-      answer:
-        'Nothing — it commits no rows and returns an empty list instead of failing.',
+    Story.question('What does an empty batch do?', {
+      answer: 'It succeeds and writes nothing. An empty batch is not an error.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

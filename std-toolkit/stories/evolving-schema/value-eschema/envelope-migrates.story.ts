@@ -11,14 +11,15 @@ const Theme = ValueESchema.make('Theme', Schema.String)
 export const envelopeMigrates = Story.make({
   title: 'The envelope decides which rung',
   description:
-    'The stamp on the envelope is what picks the starting version — and an envelope is never something you nest yourself.',
+    'The stamp on the envelope selects the starting version. An envelope must not contain another envelope.',
+  setupNote: 'A `Theme` value. v1 is free text. v2 is one of two words.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      "The notebook's theme was free text and is now one of two words. How does a stored theme find its way forward?",
+      'The theme of the notebook was free text. It is now one of two words. How does a stored theme move forward?',
       {
         answer:
-          "By its envelope's `_v`. Decode dispatches on the stamp, reads the value with that version's codec, then runs the rungs above it.",
+          'By the `_v` on its envelope. `decode` reads the stamp, reads the value with the codec for that version, and then runs the steps above it.',
         proof: Effect.gen(function* () {
           const migrated = yield* Theme.decode({ _v: 'v1', value: 'night' });
           yield* Story.assert(
@@ -29,9 +30,9 @@ export const envelopeMigrates = Story.make({
         }),
       },
     ),
-    Story.question('What if an envelope somehow ends up inside an envelope?', {
+    Story.question('What happens when an envelope contains another envelope?', {
       answer:
-        'It fails. The unwrap happens exactly once, so the inner envelope is handed to the codec as a value and is rejected.',
+        'It fails. The system removes one envelope only. It gives the inner envelope to the codec as a value, and the codec rejects it.',
       proof: Effect.gen(function* () {
         const error = yield* Effect.flip(
           Theme.decode({ _v: 'v1', value: { _v: 'v1', value: 'night' } }),

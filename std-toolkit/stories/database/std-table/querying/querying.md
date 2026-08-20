@@ -1,10 +1,11 @@
 # Querying
 
-Reading a notebook rather than a note.
+Read a notebook, not one note.
 
-A query names an access pattern and one sort condition. The condition is how you
-say which slice of the partition you want — all of it, everything after a point,
-everything between two points, or everything starting with a prefix.
+A query names an access pattern and one sort condition. The condition selects
+the part of the partition that you want. You can select all of it. You can
+select everything after a point. You can select everything between two points.
+You can select everything that starts with a prefix.
 
-Prefix matching is the one worth dwelling on: it is how a hierarchy stored in a
-sort key gets read one level at a time.
+The prefix is the most useful. A sort key can hold a path. A prefix then reads
+one level of that path and leaves the rest.

@@ -9,13 +9,14 @@ const Settings = ESchema.make('Settings', {
 
 export const makePartialValidates = Story.make({
   title: 'makePartial',
-  description:
-    'What makePartial does and, more importantly, what it does not check.',
+  description: '`makePartial` adds a version stamp. It checks nothing.',
+  setupNote:
+    'A Settings schema. This Story calls `makePartial` rather than `encode`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does `makePartial` do to a partial update?', {
       answer:
-        'It only spreads the partial and stamps `_v` with the latest version — no validation, no encoding, unmentioned fields stay absent.',
+        'It copies the fields that you gave it and adds the newest version stamp. It does not check the value and it does not encode it. A field that you did not name stays absent.',
       proof: Effect.gen(function* () {
         const patch = Settings.makePartial({ theme: 'dark' });
         yield* Story.assert(
@@ -29,9 +30,9 @@ export const makePartialValidates = Story.make({
         return patch;
       }),
     }),
-    Story.question('What happens when you hand it an empty partial?', {
+    Story.question('What happens when you give it an empty partial?', {
       answer:
-        'It happily produces `{ _v: "v1" }` — nothing checks that the patch contains anything, so trust must come from `encode`, not `makePartial`.',
+        'It returns a value that has a stamp and nothing else. Nothing checks that the update contains a field. Use `encode` when you need that check.',
       proof: Effect.gen(function* () {
         const empty = Settings.makePartial({});
         yield* Story.assert(

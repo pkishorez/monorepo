@@ -27,14 +27,16 @@ const attempt = (build: () => unknown): string => {
 export const indexComponents = Story.make({
   title: 'Index components',
   description:
-    'Key components are built from encoded strings, so not every field can be one.',
+    'A key part is built from encoded text. Not every field can be one.',
+  setupNote:
+    'A Note with a numeric field. This Story tries to use that field as a key part.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      "What happens if an index component isn't a string-encoded field?",
+      'What happens when a key part is not a field that encodes to text?',
       {
         answer:
-          'The entity refuses to build — keys are composed from encoded strings, so a number, boolean, object or array field can never be a component.',
+          'The entity refuses to build. Keys are built from encoded text, so a number, a boolean, an object, or a list can never be a key part.',
         proof: Effect.gen(function* () {
           const messages = yield* Effect.sync(() => ({
             sortComponent: attempt(() =>
@@ -63,10 +65,10 @@ export const indexComponents = Story.make({
       },
     ),
     Story.question(
-      'What happens if two access patterns claim the same index slot, or reuse a pattern name?',
+      'What happens when two access patterns claim the same index slot, or reuse a name?',
       {
         answer:
-          'Both are refused — one entity gets at most one pattern per slot, and every pattern name on it is unique.',
+          'The entity refuses to build in both cases. One entity cannot claim a slot two times, and it cannot use one pattern name two times.',
         proof: Effect.gen(function* () {
           const messages = yield* Effect.sync(() => ({
             sameSlot: attempt(() =>

@@ -9,14 +9,16 @@ const PerPage = ValueESchema.make('PerPage', Schema.String)
 export const bareValue = Story.make({
   title: 'Values written before any of this existed',
   description:
-    'A setting stored as a plain value, with no envelope and no stamp, still has a way in.',
+    'A setting that was stored as a plain value, with no envelope and no stamp, can still be read.',
+  setupNote:
+    'A `PerPage` value. v1 is text. v2 is a number. The migration converts one to the other.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The notebook stored "notes per page" long before versions existed — as the bare string `"20"`. Can it still be read?',
+      'The notebook stored the number of notes per page as the text `"20"`, before versions existed. Can it still be read?',
       {
         answer:
-          'Yes. A value with no envelope is adopted as earliest-version data: validated against v1, then folded forward, so `"20"` arrives as `20`.',
+          'Yes. A value with no envelope is read as the first version. The system checks it against v1 and then runs the steps, so `"20"` arrives as `20`.',
         proof: Effect.gen(function* () {
           const adopted = yield* PerPage.decode('20');
           yield* Story.assert(
@@ -27,9 +29,9 @@ export const bareValue = Story.make({
         }),
       },
     ),
-    Story.question('And once it is written back?', {
+    Story.question('What happens when that value is written back?', {
       answer:
-        'It comes back as a modern envelope. Legacy values upgrade themselves the first time they are read and saved.',
+        'It comes back as an envelope. An old value therefore updates itself the first time that it is read and saved.',
       proof: Effect.gen(function* () {
         const adopted = yield* PerPage.decode('20');
         const stored = yield* PerPage.encode(adopted);

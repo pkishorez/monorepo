@@ -64,14 +64,16 @@ const standup = {
 export const codecFields = Story.make({
   title: 'Codec fields',
   description:
-    'Dates go in as dates and come back as dates; the encoding happens at the adapter and is undone on the way out.',
+    'A date goes in as a date and comes back as a date. The adapter does the conversion.',
+  setupNote:
+    'A Note whose `remindAt` is a date and whose `tags` are a list. A second binding over the same table reads the stored bytes as plain text.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
       'A note carries a reminder date and a list of tags. What shape goes in, and what comes back?',
       {
         answer:
-          'The decoded shape both times. `remindAt` goes in as a `Date` and comes back as a `Date`; `tags` goes in as an array and comes back as an array. Encoding happens on the way to the adapter and is undone on the way back.',
+          'The decoded shape both times. `remindAt` goes in as a date and comes back as a date. `tags` goes in as a list and comes back as a list. The adapter encodes the value on the way in and decodes it on the way out.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -96,9 +98,9 @@ export const codecFields = Story.make({
         }),
       },
     ),
-    Story.question('And what is actually sitting in the database?', {
+    Story.question('What is in the database?', {
       answer:
-        'The encoded shape — an ISO string and a joined string. Every adapter stores the same portable bytes, so the codec, not the database, decides the storage format.',
+        'The encoded shape. The date is a text string and the list is one joined string. Each database stores the same bytes, so the codec decides the format, not the database.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -119,9 +121,9 @@ export const codecFields = Story.make({
         return results;
       }),
     }),
-    Story.question('Where does the schema version live in all that?', {
+    Story.question('Where is the schema version?', {
       answer:
-        'On the encoded value, never on what you read. `encode` stamps `_v` alongside the encoded fields; the DecodedEntity carries neither a `_v` field nor a `_v` in its meta.',
+        'On the encoded value only. `encode` adds `_v` next to the encoded fields. The value that you read carries no `_v`, in the value or in its metadata.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -148,9 +150,9 @@ export const codecFields = Story.make({
         return results;
       }),
     }),
-    Story.question('Which side does an index key get built from?', {
+    Story.question('Which side does an index key use?', {
       answer:
-        'The encoded side. `byReminder` sorts on the stored ISO string, which is lexicographically chronological, so the index orders bookings by time — a `Date` stringified any other way would not.',
+        'The encoded side. The reminder index sorts on the stored text, and that text sorts in time order. The index therefore orders notes by time.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -180,9 +182,9 @@ export const codecFields = Story.make({
         return results;
       }),
     }),
-    Story.question('And when only one of those fields is updated?', {
+    Story.question('What happens when one of those fields is updated?', {
       answer:
-        'It makes the same round trip. You hand `getAndUpdate` a `Date`, the row is rewritten with a fresh ISO string, and the next read decodes it back.',
+        'It makes the same trip. You give `getAndUpdate` a date. The row is written again with new text. The next read decodes it back to a date.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

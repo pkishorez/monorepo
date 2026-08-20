@@ -1,13 +1,14 @@
 # Reading old notes
 
-Migrations run on the way _out_ of storage, and nowhere else.
+A migration runs when you read a note. It does not run at any other time.
 
-Nothing in the notebook ever asks for a migration. Reading a note is what runs
-one: `decode` reads the stamp on the stored row, validates the row against that
-version, and folds it forward to the latest shape before the caller sees it.
+Nothing asks for a migration. `decode` does the work:
 
-Two things follow, and these Stories prove both:
+1. It reads the version stamp on the stored row.
+2. It checks the row against that version.
+3. It runs each step above that version.
+4. It gives the result to the caller.
 
-- The caller never learns which version a note came from. The stamp is stripped.
-- A note climbs only the rungs _above_ it. A note already at the latest version
-  runs nothing at all.
+Two things follow from this. The caller does not learn which version the note
+came from, because `decode` removes the stamp. And a note only runs the steps
+above its own version. A note at the newest version runs no steps.

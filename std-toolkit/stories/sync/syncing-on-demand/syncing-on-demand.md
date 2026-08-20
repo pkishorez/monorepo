@@ -1,7 +1,7 @@
 # Syncing on demand
 
-Sync what is being looked at.
+Sync only what someone is looking at.
 
-A notebook may hold far more than one screen needs. Mounting a live query that
-filters to one list pushes that filter down, so only the partition actually
-being asked for is activated.
+A notebook can hold much more than one screen needs. A live query can filter to
+one notebook. The filter goes down to the source. Only the partition that the
+screen asks for becomes active.

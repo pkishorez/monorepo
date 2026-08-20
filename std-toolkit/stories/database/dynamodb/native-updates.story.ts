@@ -15,12 +15,14 @@ const seed = counter.insert({
 export const nativeUpdates = Story.make({
   title: 'Native updates',
   description:
-    'Pushing arithmetic into the database instead of reading, changing, and writing back.',
+    'Push arithmetic into the database instead of reading, changing, and writing back.',
+  setupNote:
+    'The `counter` entity from the DynamoDB support file, against DynamoDB Local.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you increment a counter without reading it first?', {
+    Story.question('How do you increase a counter without reading it first?', {
       answer:
-        'DynamoDB.update compiles a typed expression — here an ADD on a numeric field — that DynamoDB applies in place. The portable counterpart is getAndUpdate, which must read, modify, and write back guarded on the update stamp; only DynamoDB can push arithmetic into the database itself, so this is a DynamoDB-native operation.',
+        'Use a native update. It builds an expression that DynamoDB applies in the database. The portable operation must read the row, change it, and write it back with a guard. Only DynamoDB can do the arithmetic itself.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {
@@ -44,9 +46,9 @@ export const nativeUpdates = Story.make({
         return result;
       }),
     }),
-    Story.question('What else can an update expression do?', {
+    Story.question('What else can a native update do?', {
       answer:
-        'Append to lists and set a field only when it is absent — APPEND and if_not_exists compile into the same expression, so one round-trip does all of it atomically.',
+        'It can add to a list, and it can set a field only when the field is absent. Both compile into the same expression, so one call does all of it together.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {
@@ -72,9 +74,9 @@ export const nativeUpdates = Story.make({
         return result;
       }),
     }),
-    Story.question('Can an update refuse to apply?', {
+    Story.question('Can a native update refuse to apply?', {
       answer:
-        'Yes — attach a condition expression and DynamoDB rejects the write atomically when it does not hold, failing with DynamoDBNativeError instead of the portable DatabaseError.',
+        'Yes. Attach a condition. DynamoDB refuses the write when the condition is false, and it reports a DynamoDB error rather than the portable one.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {

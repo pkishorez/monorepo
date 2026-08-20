@@ -22,15 +22,17 @@ const Note = ESchema.make('Note', {
 export const sequentialVersions = Story.make({
   title: 'The whole ladder at once',
   description:
-    'The three rungs, run end to end — and the proof that this is the Note every later Story uses.',
+    'The three steps run together. This Story also proves that the schema you built is the one the other Stories use.',
   spine: true,
+  setupNote:
+    'The completed Note, with all three steps. The last question compares it with the `Note` that `support.ts` exports.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The oldest note in the notebook has never been opened since it was written. What happens the first time someone reads it?',
+      'The oldest note in the notebook has not been opened since it was written. What happens the first time that someone reads it?',
       {
         answer:
-          'Every migration between its version and the latest runs, in order, in one pass. It gains `pinned`, loses `colour`, and its words move from `body` to `text`.',
+          'Each step above its version runs, in order, in one pass. The note gets `pinned`. It loses `colour`. Its text moves from `body` to `text`.',
         proof: Story.trace(
           Effect.gen(function* () {
             const migrated = yield* Note.decode({
@@ -55,9 +57,9 @@ export const sequentialVersions = Story.make({
         ),
       },
     ),
-    Story.question('Which version does the Note call its latest?', {
+    Story.question('Which version does the Note call its newest?', {
       answer:
-        'v4 — the last rung declared. That is the version every write is stamped with from now on.',
+        'v4. That is the last step declared. Each write from now on carries that version.',
       proof: Effect.gen(function* () {
         yield* Story.assert(
           'the latest version is the last rung declared',
@@ -67,10 +69,10 @@ export const sequentialVersions = Story.make({
       }),
     }),
     Story.question(
-      'Is the Note built across these Stories the same Note the rest of the Stories import?',
+      'Is the Note built in these Stories the same Note that the other Stories import?',
       {
         answer:
-          'Yes, and this proves it rather than promising it: the ladder above and the `Note` in `support.ts` describe the same shape at the same version.',
+          'Yes. This question proves it. The schema above and the `Note` in `support.ts` have the same shape at the same version.',
         proof: Effect.gen(function* () {
           const built = Note.getDescriptor();
           const shared = sharedNote.getDescriptor();

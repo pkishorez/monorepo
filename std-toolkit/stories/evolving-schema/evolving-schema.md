@@ -1,21 +1,24 @@
 # Evolving Schema
 
-Part one of three.
+This is part one of three.
 
-A schema that never changes is easy. This part is about the other kind.
+A schema that never changes is easy. This part is about a schema that changes.
 
-One `Note` runs through every Story here, and it changes four times:
+One `Note` runs through each Story here. It changes four times.
 
-| Version | What changed                       |
+| Version | Change                             |
 | ------- | ---------------------------------- |
 | v1      | a note has a `body` and a `colour` |
-| v2      | notes can be `pinned`              |
-| v3      | `colour` is dropped                |
-| v4      | `body` is renamed to `text`        |
+| v2      | a note can be `pinned`             |
+| v3      | `colour` is removed                |
+| v4      | `body` becomes `text`              |
 
-Each change is a _rung_. A note written at any version climbs the rungs above it
-the moment something reads it, and arrives as the shape today's code expects.
-Nothing is rewritten in storage to make that happen.
+Each change is one step. A note keeps the version it was written at. When
+something reads the note, the note moves through each step above its version.
+It arrives in the shape that today's code expects.
 
-Start with **Defining evolutions**, which builds that ladder one rung per Story.
-Everything after it starts from the finished ladder.
+The stored data does not change. Only the value that the reader receives
+changes.
+
+Start with **Defining evolutions**. Those Stories add one step each. Every Story
+after them starts from the completed schema.

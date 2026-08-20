@@ -1,11 +1,8 @@
 # Evolving data in place
 
-Part one's ladder, now running inside a read.
+The steps from part one now run inside a read.
 
-A note written against an older schema folds forward as it comes out of the
-table. There is no migration job, no backfill, and no rewrite: the stored row is
-left exactly as it was, and the value handed to the caller is at the latest
+A note that was written against an older schema moves forward as it leaves the
+table. There is no migration job. There is no backfill. There is no rewrite. The
+stored row stays as it was. The value that the caller receives is at the newest
 version.
-
-What happens when a row _cannot_ be decoded is in **Reference → Table limits &
-failures**.

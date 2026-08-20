@@ -1,11 +1,12 @@
 # Writing & reading
 
-Putting a note in, taking it back out.
+Put a note in. Take the note out.
 
-A write returns the stored entity: your value, plus the metadata the table
-stamps alongside it — which entity it is, which schema version, when it last
-moved, and whether it is still live.
+A write returns the stored entity. That is your value plus the data that the
+table adds: which entity it is, which schema version it uses, when it last
+changed, and whether it is live.
 
-That last flag is why delete is more interesting than it sounds. A delete marks
-the note rather than removing it, which is what makes it undoable — and what
-makes the one call that really removes a note ask you to type a phrase first.
+The last item makes delete more interesting than it sounds. A delete marks the
+note. It does not remove the note. That is why a delete can be undone.
+
+One operation does remove a note. It asks you to type a phrase first.

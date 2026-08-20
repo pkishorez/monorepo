@@ -7,14 +7,15 @@ import { Note } from '../support.js';
 export const encodeOldShape = Story.make({
   title: 'Migrations only run downhill',
   description:
-    'Decode climbs the ladder. Encode does not — it only ever speaks the latest shape.',
+    '`decode` moves a note forward. `encode` does not. It accepts the newest shape only.',
+  setupNote: 'The completed Note from `support.ts`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Some old code still builds a note the v1 way. Can it save one?',
+      'Some old code still builds a note in the v1 shape. Can it save one?',
       {
         answer:
-          'No. Encode refuses it. Migrations run on the way out of storage, never on the way in, so encode has no rung to climb and simply rejects the shape.',
+          'No. `encode` refuses it. Migrations run when data leaves storage, not when it enters. `encode` has no step to run, so it rejects the shape.',
         proof: Effect.gen(function* () {
           const refused = yield* Effect.flip(
             Note.encode({ body: 'Buy milk', colour: 'yellow' } as never),
@@ -28,9 +29,9 @@ export const encodeOldShape = Story.make({
         }),
       },
     ),
-    Story.question('So how does that old note get saved at all?', {
+    Story.question('How does that note get saved?', {
       answer:
-        'Send it through storage first: decode the stored row so the ladder runs, then encode what comes back.',
+        'Read it first. `decode` runs the steps and returns the newest shape. Then `encode` that result.',
       proof: Effect.gen(function* () {
         const current = yield* Note.decode({
           _v: 'v1',

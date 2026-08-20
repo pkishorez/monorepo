@@ -13,16 +13,17 @@ const seed = Effect.forEach(notes, (value) => note.insert(value));
 
 export const listingAPartition = Story.make({
   title: 'Listing a partition',
-  description:
-    'Reading a whole notebook: the unbounded condition that walks an entire partition in order.',
+  description: 'Read a whole notebook with a condition that has no bound.',
   spine: true,
+  setupNote:
+    'The `note` from `support.ts`, with several notes in one notebook.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
       'The screen opens on a notebook. How are all of its notes read?',
       {
         answer:
-          'Query the primary pattern with the unbounded condition `">=": null`, which walks the whole item collection in sort-key order.',
+          'Query the primary pattern with a condition that has no bound. The query then reads the whole partition in sort-key order.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -47,9 +48,9 @@ export const listingAPartition = Story.make({
         }),
       },
     ),
-    Story.question('And newest first?', {
+    Story.question('How are they read with the newest first?', {
       answer:
-        'Swap the condition to `"<=": null` — `<` and `<=` are the descending conditions, so the same partition reads back last to first.',
+        'Ask the query to read backwards. The same rows come back in the opposite order.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -70,8 +71,7 @@ export const listingAPartition = Story.make({
       }),
     }),
     Story.question('What does an empty notebook return?', {
-      answer:
-        'An empty page — no items and `hasMore: false` — because an unknown partition is a value, not a failure.',
+      answer: 'An empty list. An empty partition is a value, not a failure.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

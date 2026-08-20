@@ -123,13 +123,14 @@ const mountInbox = (tab: StoryTab, name: string) =>
 
 export const oneReaderManyTabs = Story.make({
   title: 'One reader, many tabs',
-  description:
-    'Many tabs, one backend reader — but only when a leadership layer is supplied.',
+  description: 'Many tabs, one backend reader. This needs a leadership layer.',
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. `Simulation.inMemory()` supplies one shared leadership layer to each tab.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Is Leadership automatic?', {
+    Story.question('Is leadership automatic?', {
       answer:
-        'No. Without an explicitly supplied Leadership layer, every tab owns its normal backend reader. Supplying one shared In-memory Leadership layer makes matching readers compete for one identity.',
+        'No. Without a leadership layer, each tab owns its normal backend reader. Supplying one shared layer makes the matching readers compete for one identity.',
       proof: Effect.gen(function* () {
         withoutLeadership.counters.readers = 0;
         yield* withoutLeadership.simulation.run(({ backend, browser }) =>
@@ -169,7 +170,7 @@ export const oneReaderManyTabs = Story.make({
     }),
     Story.question('Do ten matching tabs share one backend reader?', {
       answer:
-        'Yes. All ten tabs use the same Std Sync name, Collection, total partition, and Strategy name. One owns that exact Leadership identity; the other nine remain waiting while Peer Sync keeps their replicas fresh.',
+        'Yes. Each of the ten tabs uses the same name, collection, partition, and strategy. One tab owns that identity. The other nine wait, and peer sync keeps them current.',
       proof: withLeadership.simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           withLeadership.counters.readers = 0;
@@ -195,9 +196,9 @@ export const oneReaderManyTabs = Story.make({
         }),
       ),
     }),
-    Story.question('Can different partitions lead independently?', {
+    Story.question('Can two notebooks lead separately?', {
       answer:
-        'Yes. Leadership is exact, not collection-wide. Work and home have different partition identities, so both readers can stay active while duplicate readers for either partition would wait.',
+        'Yes. Leadership is exact, not per collection. Two notebooks have two identities, so both readers can stay active. A second reader for either notebook would wait.',
       proof: partitions.simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           partitions.activated.length = 0;
@@ -231,9 +232,9 @@ export const oneReaderManyTabs = Story.make({
         }),
       ),
     }),
-    Story.question('Can a waiting tab still mutate data?', {
+    Story.question('Can a tab that is waiting still write?', {
       answer:
-        'Yes. Leadership wraps backend-reading roles only. A waiting tab can mutate normally; after backend confirmation, Peer Sync carries the accepted Entity to its sibling without changing reader ownership.',
+        'Yes. Leadership covers the roles that read the backend only. A waiting tab writes in the normal way. After the backend confirms the write, peer sync carries the note to the other tab.',
       proof: withLeadership.simulation.run(({ browser }) =>
         Effect.gen(function* () {
           withLeadership.counters.readers = 0;
@@ -256,9 +257,9 @@ export const oneReaderManyTabs = Story.make({
         }),
       ),
     }),
-    Story.question('Does closing the leader hand the work to a follower?', {
+    Story.question('Does closing the leader pass the work on?', {
       answer:
-        'Yes. Closing the owning tab disposes its Std Sync and releases the identity. The first waiting tab then acquires Leadership and resumes the backend stream from its own persisted Sync State.',
+        'Yes. Closing the owning tab releases the identity. The first waiting tab then takes leadership and continues the backend stream from its own stored position.',
       proof: withLeadership.simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           withLeadership.counters.readers = 0;

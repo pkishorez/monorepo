@@ -1,13 +1,16 @@
 # Migration practice
 
-Habits that keep a ladder safe to climb years later.
+Habits that keep a schema safe to use years later.
 
-Three rules, and one thing that is not a rule.
+There are three rules.
 
-**Append, never reach back.** A rung that has shipped is history.
-**Be total.** A migration must answer for every value the old version allowed.
-**Be pure.** The same bytes must decode to the same value on every read, every
-replica, and every day.
+**Add, do not change.** A step that has shipped is history.
 
-And `makePartial`, which validates nothing — worth knowing precisely because it
-looks like it does.
+**Be complete.** A migration must accept each value that the old version
+allowed.
+
+**Be pure.** The same bytes must decode to the same value on each read, on each
+replica, and on each day.
+
+There is also `makePartial`. It checks nothing. Know that, because it looks like
+it checks something.

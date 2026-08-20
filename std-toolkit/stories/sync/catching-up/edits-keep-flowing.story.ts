@@ -58,13 +58,14 @@ const history: Note[] = [
 
 export const editsKeepFlowing = Story.make({
   title: 'Edits keep flowing',
-  description:
-    'A gap is closed from both ends at once — newest first and oldest last.',
+  description: 'A gap closes from both ends at the same time.',
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. The backend writes five notes before the browser mounts.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How does bidirectional sync swallow a backlog?', {
+    Story.question('How does the browser read a large backlog?', {
       answer:
-        'The Browser mounts after five Backend writes. Bidirectional sync loads the newest and oldest edges immediately and closes the gap from both directions.',
+        'It reads from both ends. The browser mounts after five writes. The worker loads the newest notes and the oldest notes at once, and it closes the gap from both directions.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           counters.fetches = 0;
@@ -81,9 +82,9 @@ export const editsKeepFlowing = Story.make({
         }),
       ),
     }),
-    Story.question('After catch-up, does a fresh edit use the live tail?', {
+    Story.question('Does a new edit still arrive after the backlog is read?', {
       answer:
-        'Yes. The mounted query stays active. A later Backend edit arrives through the live subscription without rerunning the historical fetches.',
+        'Yes. The mounted query stays active. A later write arrives through the live subscription. The worker does not repeat the reads that it already made.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           counters.fetches = 0;

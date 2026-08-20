@@ -1,11 +1,12 @@
 # Schema rules & failures
 
-What a schema refuses, and how it refuses it.
+What a schema refuses, and how it refuses.
 
-The theme running through these is that nothing is guessed. A missing key is an
-error rather than a silent `undefined`. A stamp naming a version that was never
-declared is refused rather than approximated. Data that does not match the
-version it claims fails before any rung runs.
+One idea runs through these Stories. The system does not guess.
 
-The one exception is data written before stamps existed, which is adopted as the
-earliest version — and even that is validated against v1 before it is trusted.
+- A key that is absent is an error. It is not a silent `undefined`.
+- A stamp that names an unknown version is refused. It is not approximated.
+- Data that does not match the version it claims fails before any step runs.
+
+There is one exception. Data written before stamps existed is read as the first
+version. Even then, the system checks it against v1 before it accepts it.

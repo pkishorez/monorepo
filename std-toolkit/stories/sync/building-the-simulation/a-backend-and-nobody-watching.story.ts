@@ -77,15 +77,17 @@ const simulation = Simulation.make({
 export const aBackendAndNobodyWatching = Story.make({
   title: 'A backend, and nobody watching',
   description:
-    'Step one of four: a server with notes on it, before any browser exists.',
+    'Step one of four. A server that holds notes, before any browser exists.',
   spine: true,
+  setupNote:
+    'A table and a Note, plus one collection. Nothing in this Story opens a browser.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Before any of the sync machinery, there is a server with notes on it. What is that, here?',
+      'Before any of the sync parts, there is a server that holds notes. What is that server here?',
       {
         answer:
-          'The Backend — one table, standing in for a real server. It accepts writes and answers queries, and nothing about it knows that browsers exist. Every Story in this part starts from a Backend in some state.',
+          'It is the backend. It is one table that stands for a real server. It accepts writes and answers queries. It does not know that browsers exist. Each Story in this part starts from a backend in some state.',
         proof: simulation.run(({ backend }) =>
           Effect.gen(function* () {
             yield* backend.insert('Note', {
@@ -110,9 +112,9 @@ export const aBackendAndNobodyWatching = Story.make({
         ),
       },
     ),
-    Story.question('Does writing to it notify anyone?', {
+    Story.question('Does a write to it tell anyone?', {
       answer:
-        'There is nobody to notify. A Backend write is just a write; everything that makes it show up somewhere is added in the next three Stories.',
+        'There is nobody to tell. A write to the backend is only a write. The next three Stories add each part that makes a write appear somewhere.',
       proof: simulation.run(({ backend }) =>
         Effect.gen(function* () {
           yield* backend.insert('Note', {

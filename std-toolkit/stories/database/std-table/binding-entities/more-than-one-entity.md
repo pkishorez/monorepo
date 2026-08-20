@@ -1,12 +1,11 @@
 # More than one entity
 
-A notebook holds more than notes.
+A notebook keeps more than notes.
 
-It also holds settings — one row, always present, that a reader should never
-have to check for null. That is a _single entity_: it declares a default and
-returns it before anything has ever been written to it.
+It also keeps settings. There is one settings row and it is always there. A
+reader must never test it for null. This is a single entity. It declares a
+default value and returns that value before anyone writes to it.
 
-And once two entities share one table, the obvious worry is collision. The
-second Story here settles it: every key is prefixed with the entity it belongs
-to, so two entities keyed on the same value occupy separate partitions and
-neither query ever sees the other's rows.
+When two entities share one table, they can collide. The second Story shows that
+they do not. Each key carries the name of its entity. Two entities with the same
+key value stay in separate partitions. Neither query sees the rows of the other.

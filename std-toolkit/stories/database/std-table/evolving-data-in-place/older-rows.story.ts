@@ -47,14 +47,16 @@ const key = { noteId: 'a1', notebook: 'news' };
 export const olderRows = Story.make({
   title: 'Older rows',
   description:
-    'A row written against an older schema folds forward as it is read, without rewriting storage.',
+    'A note written against an older schema moves forward as it is read. Storage does not change.',
+  setupNote:
+    'Two bindings over one table. One uses last year schema. One uses this year schema, which has one more step.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note was written last year, before the schema grew a field. What does reading it give back today?',
+      'A note was written last year, before the schema had a field. What does a read return today?',
       {
         answer:
-          'The row folds forward in memory. The migration fills the new field before you see it. The DecodedEntity has no `_v`, and the read does not rewrite the stored row.',
+          'The note moves forward in memory. The migration adds the new field before you see it. The value carries no `_v`, and the read does not change the stored row.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -81,9 +83,9 @@ export const olderRows = Story.make({
         }),
       },
     ),
-    Story.question('And once that note is edited and saved?', {
+    Story.question('What happens after that note is edited and saved?', {
       answer:
-        'The explicit update writes the whole row at the latest encoded version. The DecodedEntity still has no `_v`.',
+        'The write stores the whole row at the newest version. The value that you read still carries no `_v`.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

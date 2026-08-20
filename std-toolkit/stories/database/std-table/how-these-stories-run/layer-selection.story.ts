@@ -8,14 +8,16 @@ const key = { noteId: 'selected', notebook: 'layers' };
 export const layerSelection = Story.make({
   title: 'Layer selection',
   description:
-    'Which database a program talks to is chosen by the layer around it, not by the program.',
+    'The layer around a program selects the database. The program does not.',
+  setupNote:
+    'Two Memory tables, supplied as two layers. The program runs inside one, then inside the other.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A program never names a database. So how does one get chosen — and can it change partway through?',
+      'A program never names a database. How is one selected, and can it change inside the program?',
       {
         answer:
-          'The nested layer selects its Adapter only inside that scope. Before and after the nested scope, operations use the outer layer again.',
+          'The layer around the program selects it. An inner scope can supply a different layer. Operations inside that scope use the inner database. Operations before and after it use the outer database.',
         proof: Effect.gen(function* () {
           const results = yield* layerParity((outer, inner) =>
             Effect.gen(function* () {

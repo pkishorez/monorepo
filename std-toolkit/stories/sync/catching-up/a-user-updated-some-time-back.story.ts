@@ -69,15 +69,17 @@ const seed = (
 
 export const aUserUpdatedSomeTimeBack = Story.make({
   title: 'Backend history before mount',
-  description: 'A browser that has been away finds history waiting for it.',
+  description: 'A browser that has been away finds the history waiting for it.',
   spine: true,
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. The backend writes before any browser opens.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'History exists before the Browser mounts. Does it catch up?',
+      'The backend has history before the browser mounts. Does the browser read it?',
       {
         answer:
-          'Yes. Backend history exists independently of any Browser. Mounting the Live Query starts the Collection and its old-to-new worker, which pages forward until the query shows the current rows.',
+          'Yes. The history of the backend does not depend on a browser. Mounting the live query starts the collection and its worker. The worker reads forward until the query shows the current notes.',
         proof: simulation.run(({ backend, browser }) =>
           Effect.gen(function* () {
             batches.length = 0;
@@ -104,9 +106,9 @@ export const aUserUpdatedSomeTimeBack = Story.make({
         ),
       },
     ),
-    Story.question('Does an old deletion stay deleted after catch-up?', {
+    Story.question('Does a note that was deleted long ago stay deleted?', {
       answer:
-        'Yes. The Backend retains the tombstone and the worker replays it, but the Live Query shows only live rows.',
+        'Yes. The backend keeps the marked row, and the worker delivers it. The live query shows live notes only.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           batches.length = 0;

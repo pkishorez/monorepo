@@ -33,13 +33,16 @@ const simulation = Simulation.make({
 
 export const fromDatabaseToCollection = Story.make({
   title: 'From Backend to Browser',
-  description: 'A note written on the Backend appears in a mounted Live Query.',
+  description:
+    'The first note that makes the complete trip, in each of the four directions.',
   spine: true,
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('The Backend creates a note. What does the Browser see?', {
+    Story.question('The backend creates a note. What does the browser see?', {
       answer:
-        'The Backend persists the entity, the Sync Worker delivers it into the Browser’s Sync Replica, the Collection projects it, and the mounted Live Query shows it.',
+        'It sees the note. The backend stores it. The worker delivers it into the copy that the browser holds. The collection projects it, and the mounted live query shows it.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -59,9 +62,9 @@ export const fromDatabaseToCollection = Story.make({
         }),
       ),
     }),
-    Story.question('Can the Browser create the note instead?', {
+    Story.question('Can the browser create the note instead?', {
       answer:
-        'Yes. Alice inserts into her named Note Collection. TanStack DB applies the optimistic row, Std Sync persists the intent through the Backend, and the confirmed entity replaces it in Alice’s Sync Replica.',
+        'Yes. Alice writes into her Note collection. The screen shows the note at once, before the backend answers. The system then sends the write to the backend, and the confirmed note replaces the one on the screen.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -81,37 +84,40 @@ export const fromDatabaseToCollection = Story.make({
         }),
       ),
     }),
-    Story.question('The Browser updates a note. Does it reach the Backend?', {
+    Story.question(
+      'The browser changes a note. Does the change reach the backend?',
+      {
+        answer:
+          'Yes. Alice changes her Note collection. The system sends the change to the backend and writes the confirmed note into her copy of the data.',
+        proof: simulation.run(({ backend, browser }) =>
+          Effect.gen(function* () {
+            const alice = browser('alice');
+            const inbox = yield* alice.mount({
+              name: 'inbox',
+              query: (q) => q.from({ note: alice.collection('Note') }),
+            });
+            const note = {
+              noteId: 't1',
+              notebook: 'inbox',
+              title: 'Buy milk',
+              pinned: false,
+            };
+            yield* backend.insert('Note', note);
+            yield* inbox.eventuallyShows([note]);
+            yield* alice.update(
+              'Note',
+              { noteId: 't1', notebook: 'inbox' },
+              { pinned: true },
+            );
+            yield* inbox.eventuallyShows([{ ...note, pinned: true }]);
+            return inbox.toArray;
+          }),
+        ),
+      },
+    ),
+    Story.question('The browser removes a note. What remains?', {
       answer:
-        'Yes. Alice mutates her named Note Collection. Std Sync sends the direct mutation to the Backend and writes the confirmed entity into Alice’s Sync Replica.',
-      proof: simulation.run(({ backend, browser }) =>
-        Effect.gen(function* () {
-          const alice = browser('alice');
-          const inbox = yield* alice.mount({
-            name: 'inbox',
-            query: (q) => q.from({ note: alice.collection('Note') }),
-          });
-          const note = {
-            noteId: 't1',
-            notebook: 'inbox',
-            title: 'Buy milk',
-            pinned: false,
-          };
-          yield* backend.insert('Note', note);
-          yield* inbox.eventuallyShows([note]);
-          yield* alice.update(
-            'Note',
-            { noteId: 't1', notebook: 'inbox' },
-            { pinned: true },
-          );
-          yield* inbox.eventuallyShows([{ ...note, pinned: true }]);
-          return inbox.toArray;
-        }),
-      ),
-    }),
-    Story.question('The Browser removes a note. What remains?', {
-      answer:
-        'The Backend and Browser Sync Replica retain a tombstone, while the mounted Live Query no longer shows the row.',
+        'A marked row remains, in the backend and in the copy that the browser holds. The mounted live query no longer shows the note.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');

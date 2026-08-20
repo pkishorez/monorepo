@@ -157,51 +157,56 @@ const close = (
 export const leadershipIsNotACache = Story.make({
   title: 'Leadership is not a cache',
   description:
-    'Leadership stops a late tab repeating work; it does not hand that tab the results.',
+    'Leadership stops a late tab from repeating work. It does not give that tab the result.',
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. One Story uses in-memory copies. Another uses a shared IndexedDB copy.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Can a late isolated Memory replica miss old data?', {
-      answer:
-        'Yes. Leadership prevents the late tab from repeating the backend reader, while its isolated Memory Sync Store starts empty. Peer Sync has no replay, so a message broadcast before that tab opened cannot hydrate it.',
-      proof: Effect.gen(function* () {
-        const bus = makeBus();
-        const leadershipLayer = inMemoryLeadership();
-        const counters = { readers: 0 };
-        const leader = openTab({
-          name: 'late-memory',
-          storeLayer: Memory.make(syncStore).layer,
-          leadershipLayer,
-          peerSync: { channel: bus.factory },
-          counters,
-        });
-        const leaderLoaded = yield* eventually(() =>
-          received(leader.projection.writes),
-        );
-        yield* Story.assert('the leader loaded the Entity', leaderLoaded);
+    Story.question(
+      'Can a late tab with its own in-memory copy miss old data?',
+      {
+        answer:
+          'Yes. Leadership stops the late tab from repeating the backend reader. Its own in-memory copy starts empty. Peer sync does not repeat old messages, so a message sent before that tab opened cannot fill it.',
+        proof: Effect.gen(function* () {
+          const bus = makeBus();
+          const leadershipLayer = inMemoryLeadership();
+          const counters = { readers: 0 };
+          const leader = openTab({
+            name: 'late-memory',
+            storeLayer: Memory.make(syncStore).layer,
+            leadershipLayer,
+            peerSync: { channel: bus.factory },
+            counters,
+          });
+          const leaderLoaded = yield* eventually(() =>
+            received(leader.projection.writes),
+          );
+          yield* Story.assert('the leader loaded the Entity', leaderLoaded);
 
-        const late = openTab({
-          name: 'late-memory',
-          storeLayer: Memory.make(syncStore).layer,
-          leadershipLayer,
-          peerSync: { channel: bus.factory },
-          counters,
-        });
-        yield* eventually(() => bus.subscribers('late-memory.note') === 2);
-        yield* Effect.sleep(Duration.millis(25));
-        yield* Story.assert(
-          'the late isolated replica remained empty',
-          !received(late.projection.writes),
-        );
-        yield* Story.assert(
-          'Leadership still kept one backend reader',
-          counters.readers === 1,
-        );
-        yield* close(leader, late);
-      }),
-    }),
-    Story.question('Does a shared IndexedDB Sync Store hydrate a late tab?', {
+          const late = openTab({
+            name: 'late-memory',
+            storeLayer: Memory.make(syncStore).layer,
+            leadershipLayer,
+            peerSync: { channel: bus.factory },
+            counters,
+          });
+          yield* eventually(() => bus.subscribers('late-memory.note') === 2);
+          yield* Effect.sleep(Duration.millis(25));
+          yield* Story.assert(
+            'the late isolated replica remained empty',
+            !received(late.projection.writes),
+          );
+          yield* Story.assert(
+            'Leadership still kept one backend reader',
+            counters.readers === 1,
+          );
+          yield* close(leader, late);
+        }),
+      },
+    ),
+    Story.question('Does a shared IndexedDB copy fill a late tab?', {
       answer:
-        'Yes. The leader persists the accepted Entity in the shared IndexedDB Sync Store. A later tab hydrates its Projection from that durable replica before waiting for Leadership, so it does not need a duplicate backend read.',
+        'Yes. The leader stores the confirmed note in the shared IndexedDB copy. A later tab fills its screen from that stored copy before it waits for leadership, so it does not start empty.',
       proof: Effect.gen(function* () {
         const indexedDB = new IDBFactory();
         const database = IDB.database({
@@ -247,9 +252,9 @@ export const leadershipIsNotACache = Story.make({
         yield* close(leader, late);
       }),
     }),
-    Story.question('Does Leadership turn Peer Sync into authority?', {
+    Story.question('Does leadership make peer sync a source of truth?', {
       answer:
-        'No. Peer Sync remains a best-effort freshness path. When both tabs are already listening, it can keep the waiting Memory replica fresh; missed history still requires durable shared state or a later backend repair.',
+        'No. Peer sync stays a best-effort speed path. When both tabs are already open, it can keep the waiting tab current. Missed history still needs shared storage or a read of the backend.',
       proof: Effect.gen(function* () {
         const bus = makeBus();
         const leadershipLayer = inMemoryLeadership();

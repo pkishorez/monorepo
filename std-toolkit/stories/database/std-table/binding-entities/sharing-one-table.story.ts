@@ -16,14 +16,16 @@ const notebookRecord = table
 
 export const sharingOneTable = Story.make({
   title: 'Sharing one table',
-  description: "Two entities in one table never see each other's rows.",
+  description: 'Two entities in one table do not see the rows of each other.',
+  setupNote:
+    'The `note` from `support.ts`, plus a second entity called Notebook bound to the same table.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A notebook record and a note are both filed under "work". Do they collide?',
+      'A notebook record and a note both use the key value work. Do they collide?',
       {
         answer:
-          'Every key is prefixed with its entity name, so two entities keyed on the same value occupy separate partitions and each query sees only its own rows.',
+          'No. Each key carries the name of its entity. Two entities with the same key value therefore stay in separate partitions, and each query returns only its own rows.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

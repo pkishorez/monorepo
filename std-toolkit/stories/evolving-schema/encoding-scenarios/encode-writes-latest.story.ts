@@ -6,13 +6,14 @@ import { Note } from '../support.js';
 export const encodeWritesLatest = Story.make({
   title: 'Writing a note back',
   description:
-    'Every write lands at the latest version — storage only ever gains newer notes, never older ones.',
+    'Each write goes in at the newest version. Storage gains new notes only.',
   spine: true,
+  setupNote: 'The completed Note from `support.ts`. Its newest version is v4.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Someone saves a note. What version does it land at?', {
+    Story.question('Someone saves a note. Which version does it get?', {
       answer:
-        'The latest, always. Encode validates against the newest shape and stamps `_v: "v4"`, so writing an old note back is what quietly retires its old version.',
+        'The newest version, always. `encode` checks the value against the newest shape and stamps it `_v: "v4"`. Saving an old note is therefore what removes its old version from storage.',
       proof: Effect.gen(function* () {
         const stored = yield* Note.encode({ text: 'Buy milk', pinned: false });
         yield* Story.assert(
@@ -23,10 +24,10 @@ export const encodeWritesLatest = Story.make({
       }),
     }),
     Story.question(
-      'The app tacked a scratch field onto the note before saving. What reaches storage?',
+      'The app added an extra field to the note before it saved it. What reaches storage?',
       {
         answer:
-          'Only the declared shape. Anything the schema does not name is dropped rather than stored.',
+          'Only the declared shape. The system removes any field that the schema does not name.',
         proof: Effect.gen(function* () {
           const stored = yield* Note.encode({
             text: 'Buy milk',
@@ -41,8 +42,9 @@ export const encodeWritesLatest = Story.make({
         }),
       },
     ),
-    Story.question('And if a declared field is missing?', {
-      answer: 'The write fails rather than storing a half-formed note.',
+    Story.question('What happens when a declared field is absent?', {
+      answer:
+        'The write fails. The system does not store a note that is not complete.',
       proof: Effect.gen(function* () {
         const error = yield* Effect.flip(
           Note.encode({ text: 'Buy milk' } as never),

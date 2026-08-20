@@ -35,6 +35,7 @@ export const StoryLeafSchema = Schema.Struct({
   description: Schema.String,
   spine: Schema.Boolean,
   page: Schema.NullOr(StoryPageSchema),
+  setupNote: Schema.NullOr(Schema.String),
   setup: Schema.NullOr(Schema.String),
   questions: Schema.Array(QuestionLeafSchema),
   source: StorySourceSchema,
@@ -42,7 +43,7 @@ export const StoryLeafSchema = Schema.Struct({
 }).annotate({
   title: 'Story Leaf',
   description:
-    'One Story in the Story tree: its derived id, its one-line description, whether it sits on the spine, its markdown page, the shared setup snippet, its Questions in authored order, and the support file its proofs import. Never carries results.',
+    'One Story in the Story tree: its derived id, its one-line description, whether it sits on the spine, its markdown page, its setup note and the shared setup snippet, its Questions in authored order, and the support file its proofs import. Never carries results.',
 });
 
 export interface StoryTreeGroup {

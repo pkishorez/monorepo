@@ -7,15 +7,17 @@ const table = StdTable.make('notebook').primary('pk', 'sk').build();
 export const aTableToPutNotesIn = Story.make({
   title: 'A table to put notes in',
   description:
-    'Step one of four: a name and two key attributes, which is a complete table.',
+    'Step one of four. A name and two key attributes make a complete table.',
   spine: true,
+  setupNote:
+    'One table, called `notebook`, with a partition key and a sort key. No index and no entity yet.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The notebook needs somewhere to keep notes. What is the least it has to declare?',
+      'The notebook needs a place to keep notes. What is the least that it must declare?',
       {
         answer:
-          'A name and two key attributes — one to say which group a row belongs to, one to order it inside that group. Nothing else is required, and no field of a Note is named yet.',
+          'A name and two key attributes. One attribute says which group a row is in. The other orders the row inside that group. Nothing else is required, and no field of a note is named yet.',
         proof: Effect.gen(function* () {
           yield* Story.assert(
             'the table knows what it is called',
@@ -39,10 +41,10 @@ export const aTableToPutNotesIn = Story.make({
       },
     ),
     Story.question(
-      'Why are the two attributes called `pk` and `sk` and not `notebook` and `noteId`?',
+      'Why are the two attributes called `pk` and `sk` instead of `notebook` and `noteId`?',
       {
         answer:
-          'Because the table does not know about notes. It holds rows addressed by two strings; which fields of which entity produce those strings is the next step.',
+          'Because the table does not know about notes. It holds rows that two strings address. The next step decides which fields produce those strings.',
         proof: Effect.gen(function* () {
           yield* Story.assert(
             'the table names attributes, not fields',

@@ -10,12 +10,14 @@ const approved = ESchema.make('Ticket', {
 export const snapshotGuard = Story.make({
   title: 'Snapshot guard',
   description:
-    'The approved snapshot is what tells a safe change from a breaking one.',
+    'An approved snapshot separates a safe change from a breaking one.',
+  setupNote:
+    'A schema and an approved snapshot of it. The diff compares the two.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How does the snapshot diff classify an honest evolution?', {
+    Story.question('How does the diff describe a correct change?', {
       answer:
-        'Appending the next version diffs as `safe` against the approved snapshot.',
+        'It reports the change as safe. Adding the next version does not affect the approved versions.',
       proof: Effect.gen(function* () {
         const evolved = ESchema.make('Ticket', {
           subject: Schema.String,
@@ -38,10 +40,10 @@ export const snapshotGuard = Story.make({
       }),
     }),
     Story.question(
-      'How does the snapshot diff classify an in-place edit of an approved version?',
+      'How does the diff describe an edit to a version that is already approved?',
       {
         answer:
-          "Editing an approved version's shape diffs as `breaking`, so CI can fail the build before it ships.",
+          'It reports the change as breaking. A build can then fail before the change ships.',
         proof: Effect.gen(function* () {
           const editedInPlace = ESchema.make('Ticket', {
             subject: Schema.String,

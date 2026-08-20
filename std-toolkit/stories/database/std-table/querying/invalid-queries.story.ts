@@ -6,12 +6,14 @@ import { agree, note, parity, reasonOf } from '../../support.js';
 export const invalidQueries = Story.make({
   title: 'Invalid queries',
   description:
-    'A query carries exactly one sort condition — never none, never two.',
+    'A query carries one sort condition. It carries no more and no less.',
+  setupNote:
+    'The `note` from `support.ts`. This Story sends queries that the system refuses.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What happens if a query gives two sort conditions?', {
+    Story.question('What happens when a query gives two sort conditions?', {
       answer:
-        'It fails with `InvalidQuery` — a query carries exactly one sort condition, never zero and never two.',
+        'The query fails and reports an invalid query. A query carries one sort condition, never none and never two.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -41,7 +43,7 @@ export const invalidQueries = Story.make({
       'What happens with an unknown access pattern, or a limit of zero?',
       {
         answer:
-          'Both fail with `InvalidQuery` before any database work happens — the pattern name must be one the entity declared, and the limit must be a positive integer.',
+          'Both fail and report an invalid query. The system refuses the query before it reads anything.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

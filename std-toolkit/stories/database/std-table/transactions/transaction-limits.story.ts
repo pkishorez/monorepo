@@ -21,39 +21,38 @@ const jobOp = {
 
 export const transactionLimits = Story.make({
   title: 'Transaction limits',
-  description: 'One row may be touched at most once per transaction.',
+  description: 'One row may be touched one time in a batch.',
+  setupNote:
+    'The `note` from `support.ts`. This Story sends batches that the system refuses.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question(
-      'One batch tries to touch the same note twice. What happens?',
-      {
-        answer:
-          'The batch fails with `DuplicateTransactionTarget` before anything is written — one row may be touched at most once per transaction.',
-        proof: Effect.gen(function* () {
-          const results = yield* parity(
-            Effect.gen(function* () {
-              const op = yield* note.insertOp(draft('n1'));
-              const error = yield* table.transact([op, op]).pipe(Effect.flip);
-              const stored = yield* note.get({
-                noteId: 'n1',
-                notebook: 'work',
-              });
-              return { reason: reasonOf(error), written: stored !== null };
-            }),
-          );
-          yield* Story.assert(
-            'the duplicate target is rejected and nothing is written',
-            results.sqlite.reason === 'DuplicateTransactionTarget' &&
-              results.sqlite.written === false,
-          );
-          yield* Story.assert('every adapter agrees', agree(results));
-          return results;
-        }),
-      },
-    ),
+    Story.question('A batch touches the same note two times. What happens?', {
+      answer:
+        'The batch fails before anything is written. One row may be touched one time in a batch.',
+      proof: Effect.gen(function* () {
+        const results = yield* parity(
+          Effect.gen(function* () {
+            const op = yield* note.insertOp(draft('n1'));
+            const error = yield* table.transact([op, op]).pipe(Effect.flip);
+            const stored = yield* note.get({
+              noteId: 'n1',
+              notebook: 'work',
+            });
+            return { reason: reasonOf(error), written: stored !== null };
+          }),
+        );
+        yield* Story.assert(
+          'the duplicate target is rejected and nothing is written',
+          results.sqlite.reason === 'DuplicateTransactionTarget' &&
+            results.sqlite.written === false,
+        );
+        yield* Story.assert('every adapter agrees', agree(results));
+        return results;
+      }),
+    }),
     Story.question('How many notes can one batch touch?', {
       answer:
-        'One hundred — a batch of 100 commits, and the 101st op makes the whole batch fail with `TransactionTooLarge`.',
+        'A fixed number. The batch fails when the op list goes past that number.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -77,28 +76,34 @@ export const transactionLimits = Story.make({
         return results;
       }),
     }),
-    Story.question('And an op built against another table?', {
-      answer:
-        'The batch fails with `ForeignTransactionItem` — a transaction never spans two tables.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            const mine = yield* note.insertOp(draft('n1'));
-            const error = yield* table
-              .transact([mine, jobOp as never])
-              .pipe(Effect.flip);
-            const stored = yield* note.get({ noteId: 'n1', notebook: 'work' });
-            return { reason: reasonOf(error), written: stored !== null };
-          }),
-        );
-        yield* Story.assert(
-          'the foreign op is refused and nothing is written',
-          results.sqlite.reason === 'ForeignTransactionItem' &&
-            results.sqlite.written === false,
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
+    Story.question(
+      'What happens to an op that was built against a different table?',
+      {
+        answer:
+          'The batch fails. Each op in a batch must belong to the same table.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              const mine = yield* note.insertOp(draft('n1'));
+              const error = yield* table
+                .transact([mine, jobOp as never])
+                .pipe(Effect.flip);
+              const stored = yield* note.get({
+                noteId: 'n1',
+                notebook: 'work',
+              });
+              return { reason: reasonOf(error), written: stored !== null };
+            }),
+          );
+          yield* Story.assert(
+            'the foreign op is refused and nothing is written',
+            results.sqlite.reason === 'ForeignTransactionItem' &&
+              results.sqlite.written === false,
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
   ],
 });
