@@ -1,1 +1,6 @@
 vp staged
+
+# Dependency policy is repo-wide, so only pay for it when a manifest moves.
+if git diff --cached --name-only | grep -qE '(^|/)package\.json$|^pnpm-workspace\.yaml$'; then
+  syncpack lint
+fi
