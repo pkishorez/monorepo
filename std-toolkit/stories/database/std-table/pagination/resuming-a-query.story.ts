@@ -18,14 +18,15 @@ const firstPage = note.query(
 export const resumingAQuery = Story.make({
   title: 'Resuming a query',
   description:
-    'Continuing where the last page stopped, with no cursor to store anywhere.',
+    'Continue where the last page stopped. There is no cursor to keep.',
+  setupNote: 'The `note` from `support.ts`, read one page at a time.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The reader scrolls to the bottom of the notebook. How does the next page get loaded?',
+      'The reader reaches the end of the page. How is the next page read?',
       {
         answer:
-          'Pass the last entity of the page you just read as `after` — there is no cursor to keep, and walking that way visits every row exactly once.',
+          'Give the query the last entity of the page that you just read. There is no cursor to keep, and this method reads each row one time.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -56,9 +57,9 @@ export const resumingAQuery = Story.make({
         }),
       },
     ),
-    Story.question('And when they keep scrolling past the last note?', {
+    Story.question('What happens at the end of the notebook?', {
       answer:
-        'You get an empty page with `hasMore` false — running off the end is a normal result, not a failure.',
+        'The result is empty and says that no rows remain. Reading past the end is not a failure.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

@@ -14,14 +14,15 @@ const original = ESchema.make('Player', {
 export const changingShippedMigration = Story.make({
   title: 'Changing shipped migration',
   description:
-    'Rewriting a migration that has already run forks history: the same bytes decode two ways.',
+    'If you rewrite a migration that has run, the same bytes decode in two ways.',
+  setupNote: 'One schema, shown with two different v1 to v2 migrations.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens to unread v1 rows when a shipped migration is rewritten?',
+      'What happens when a migration that has already run is rewritten?',
       {
         answer:
-          'History forks — byte-identical stored rows decode to `score: 0` or `score: 100` depending on whether they were read before or after the rewrite.',
+          'History divides. The same stored bytes decode to one value before the rewrite and to a different value after it.',
         proof: Effect.gen(function* () {
           const rewritten = ESchema.make('Player', {
             name: Schema.String,

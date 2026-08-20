@@ -1,8 +1,7 @@
 # Encoded & decoded values
 
-Dates go in as dates and come back as dates.
+A date goes in as a date. A date comes back as a date.
 
-Keys in a single-table design are strings, and some databases have opinions
-about what else they will store. Neither is your problem: encoding happens at
-the adapter and is undone on the way back, so the notebook works in the types it
-declared.
+Keys in this design are strings. Some databases also limit what else they
+accept. Neither limit is your problem. The adapter encodes the value on the way
+in and decodes it on the way out. Your code uses the types that it declared.

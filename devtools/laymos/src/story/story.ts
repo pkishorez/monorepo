@@ -24,6 +24,7 @@ export interface Story {
   readonly title: string;
   readonly description: string;
   readonly spine: boolean;
+  readonly setupNote: string | null;
   readonly sourceUrl: string;
   readonly questions: readonly StoryQuestion[];
 }
@@ -37,8 +38,17 @@ export interface StoryGroup {
 export type StoryNode = Story | StoryGroup;
 
 export const Story = {
-  make(story: Omit<Story, 'spine'> & { readonly spine?: boolean }): Story {
-    return { ...story, spine: story.spine ?? false };
+  make(
+    story: Omit<Story, 'spine' | 'setupNote'> & {
+      readonly spine?: boolean;
+      readonly setupNote?: string;
+    },
+  ): Story {
+    return {
+      ...story,
+      spine: story.spine ?? false,
+      setupNote: story.setupNote ?? null,
+    };
   },
 
   question(
@@ -110,6 +120,7 @@ export function isStory(value: unknown): value is Story {
     typeof story.title === 'string' &&
     typeof story.description === 'string' &&
     typeof story.spine === 'boolean' &&
+    (story.setupNote === null || typeof story.setupNote === 'string') &&
     typeof story.sourceUrl === 'string' &&
     Array.isArray(story.questions) &&
     story.questions.every(

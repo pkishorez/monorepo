@@ -136,12 +136,14 @@ const close = (
 export const peerSyncModel = Story.make({
   title: 'Peer Sync is a freshness path',
   description:
-    'Peer sync is a freshness path between live tabs, never a source of truth.',
+    'Peer sync is a speed path between open tabs. It is never a source of truth.',
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. The Stories here compare peer sync against reading the backend alone.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Do two Memory-backed tabs converge immediately?', {
+    Story.question('Do two tabs with in-memory copies agree at once?', {
       answer:
-        'Yes. Each tab owns a separate in-memory Sync Replica. After one tab accepts a Backend-confirmed Entity, Peer Sync carries that Entity to the other tab, which converges and advances its own Collection Projection.',
+        'Yes. Each tab has its own copy of the data. One tab accepts a confirmed note. Peer sync carries that note to the other tab, which then agrees and updates its screen.',
       proof: Effect.gen(function* () {
         const bus = makeBus();
         const left = openTab({
@@ -164,48 +166,51 @@ export const peerSyncModel = Story.make({
         yield* close(left, right);
       }),
     }),
-    Story.question('What changes when polling runs without Peer Sync?', {
+    Story.question(
+      'What changes when a tab reads the backend and peer sync is off?',
+      {
+        answer:
+          'Correctness does not change. Speed changes. Peer sync delivers a confirmed note at once. A tab without it stays behind until its next read of the backend applies the same note.',
+        proof: Effect.gen(function* () {
+          const bus = makeBus();
+          const peerLeft = openTab({
+            name: 'fast-path',
+            peerSync: { channel: bus.factory },
+          });
+          const peerRight = openTab({
+            name: 'fast-path',
+            peerSync: { channel: bus.factory },
+          });
+          const pollLeft = openTab({ name: 'polling-only', peerSync: false });
+          const pollRight = openTab({ name: 'polling-only', peerSync: false });
+          const entity = note('freshness', 'Compare delivery', '2');
+          yield* eventually(() => bus.subscribers('fast-path.note') === 2);
+          yield* peerLeft.config.utils.applyToSyncReplica(entity);
+          yield* pollLeft.config.utils.applyToSyncReplica(entity);
+          const peerWasImmediate = yield* eventually(() =>
+            received(peerRight.projection.writes, entity),
+          );
+          yield* Story.assert(
+            'Peer Sync used the immediate path',
+            peerWasImmediate,
+          );
+          yield* Story.assert(
+            'polling-only remained stale before its poll',
+            !received(pollRight.projection.writes, entity),
+          );
+          yield* Effect.sleep(Duration.millis(25));
+          yield* pollRight.config.utils.applyToSyncReplica(entity);
+          yield* Story.assert(
+            'the bounded backend poll converged',
+            received(pollRight.projection.writes, entity),
+          );
+          yield* close(peerLeft, peerRight, pollLeft, pollRight);
+        }),
+      },
+    ),
+    Story.question('What repairs a peer message that was lost?', {
       answer:
-        'Correctness does not change, but freshness does. Peer Sync delivers an accepted Entity immediately; polling-only tabs remain stale until the next bounded backend poll applies the same Entity.',
-      proof: Effect.gen(function* () {
-        const bus = makeBus();
-        const peerLeft = openTab({
-          name: 'fast-path',
-          peerSync: { channel: bus.factory },
-        });
-        const peerRight = openTab({
-          name: 'fast-path',
-          peerSync: { channel: bus.factory },
-        });
-        const pollLeft = openTab({ name: 'polling-only', peerSync: false });
-        const pollRight = openTab({ name: 'polling-only', peerSync: false });
-        const entity = note('freshness', 'Compare delivery', '2');
-        yield* eventually(() => bus.subscribers('fast-path.note') === 2);
-        yield* peerLeft.config.utils.applyToSyncReplica(entity);
-        yield* pollLeft.config.utils.applyToSyncReplica(entity);
-        const peerWasImmediate = yield* eventually(() =>
-          received(peerRight.projection.writes, entity),
-        );
-        yield* Story.assert(
-          'Peer Sync used the immediate path',
-          peerWasImmediate,
-        );
-        yield* Story.assert(
-          'polling-only remained stale before its poll',
-          !received(pollRight.projection.writes, entity),
-        );
-        yield* Effect.sleep(Duration.millis(25));
-        yield* pollRight.config.utils.applyToSyncReplica(entity);
-        yield* Story.assert(
-          'the bounded backend poll converged',
-          received(pollRight.projection.writes, entity),
-        );
-        yield* close(peerLeft, peerRight, pollLeft, pollRight);
-      }),
-    }),
-    Story.question('What repairs a missed peer message?', {
-      answer:
-        'Backend sync does. Peer Sync may drop a message without failing the originating work; a later backend poll or push applies the confirmed Entity through the same convergence path.',
+        'Reading the backend repairs it. Peer sync may lose a message without failing the work that started it. A later read or push from the backend applies the confirmed note through the same path.',
       proof: Effect.gen(function* () {
         const bus = makeBus();
         const left = openTab({
@@ -232,9 +237,9 @@ export const peerSyncModel = Story.make({
         yield* close(left, right);
       }),
     }),
-    Story.question('Are IndexedDB durability and peer freshness coupled?', {
+    Story.question('Are durable storage and peer freshness connected?', {
       answer:
-        'No. Memory replicas can be fresh through Peer Sync without surviving reload, while an IndexedDB replica can survive reload with Peer Sync disabled. Durability and live-tab freshness are independent choices.',
+        'No. An in-memory copy can be current through peer sync and still not survive a reload. An IndexedDB copy can survive a reload with peer sync off. The two are independent.',
       proof: Effect.gen(function* () {
         const indexedDB = new IDBFactory();
         const database = IDB.database({
@@ -269,9 +274,9 @@ export const peerSyncModel = Story.make({
         yield* close(afterReload);
       }),
     }),
-    Story.question('Does disabling Peer Sync sacrifice convergence?', {
+    Story.question('Does turning peer sync off lose agreement?', {
       answer:
-        'No. It removes only the same-origin shortcut. A later backend delivery still makes each tab converge through its own Sync Replica and Collection Projection.',
+        'No. It removes the short path only. A later delivery from the backend still makes each tab agree, through its own copy and its own screen.',
       proof: Effect.gen(function* () {
         const left = openTab({ name: 'disabled', peerSync: false });
         const right = openTab({ name: 'disabled', peerSync: false });

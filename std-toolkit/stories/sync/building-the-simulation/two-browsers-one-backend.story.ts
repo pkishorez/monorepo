@@ -90,15 +90,17 @@ const missed = {
 export const twoBrowsersOneBackend = Story.make({
   title: 'Two browsers, one backend',
   description:
-    'Step three: a second person opens the same notebook, and one of them goes offline.',
+    'Step three. A second person opens the same notebook, and one of them goes offline.',
   spine: true,
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
       'Bob opens the same notebook on his own machine. What do he and Alice share?',
       {
         answer:
-          'Only the Backend. Each Browser has its own copy of the data, its own Collections, and its own worker reading the server — so a write reaches each of them separately rather than being handed sideways.',
+          'The backend only. Each browser has its own copy of the data, its own collections, and its own worker that reads the server. A write therefore reaches each of them separately. One browser does not pass it to the other.',
         proof: simulation.run(({ backend, browser }) =>
           Effect.gen(function* () {
             const alice = browser('alice');
@@ -121,7 +123,7 @@ export const twoBrowsersOneBackend = Story.make({
     ),
     Story.question('Bob loses his connection. What happens to Alice?', {
       answer:
-        "Nothing. Only Bob pauses. Alice keeps receiving writes, Bob's screen freezes on what it had, and when he reconnects his own worker catches him up to the same state.",
+        'Nothing. Only Bob stops. Alice continues to receive writes. The screen of Bob keeps what it had. When he connects again, his own worker reads what he missed and reaches the same state.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');

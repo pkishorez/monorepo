@@ -1,17 +1,16 @@
 # Learn
 
-Three parts, in the order they depend on each other.
+There are three parts. Read them in this order.
 
-1. **Evolving Schema** — a Note gets a shape that can change without breaking
-   the notes already written.
-2. **Database** — that Note gets somewhere to live: one table shape that
-   behaves identically on four different databases.
-3. **Sync** — that table reaches the browser, and every open tab is kept
-   agreed on it.
+1. **Evolving Schema** gives a note a shape. The shape can change. Notes that
+   are already written continue to work.
+2. **Database** gives the note a place to stay. One table shape works on four
+   different databases.
+3. **Sync** sends the table to the browser. Each open tab shows the same data.
 
-Reading them out of order is possible but harder: part two's table stores part
-one's Note, and part three synchronises part two's table.
+The order is not a preference. Part two keeps the note from part one. Part three
+sends the table from part two.
 
-Each part opens by building the thing the rest of it uses, one piece per Story,
-and closes that opening arc by _proving_ that what you built is what the later
-Stories import.
+Each part starts with a group of Stories that build something. The Stories add
+one piece at a time. The last Story in the group proves that the piece you built
+is the piece the other Stories use.

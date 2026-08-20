@@ -13,27 +13,31 @@ const Ticket = ESchema.make('Ticket', {
 
 export const pureMigrations = Story.make({
   title: 'Pure migrations',
-  description:
-    'The same bytes must decode to the same value on every read, replica, and day.',
+  description: 'The same bytes must decode to the same value on each read.',
+  setupNote:
+    'A schema whose migration calculates a new field from the old value only.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What happens when the same stored row is decoded twice?', {
+    Story.question(
+      'What happens when the same stored row is decoded two times?',
+      {
+        answer:
+          'Both reads produce the same value. This is true on each read, on each replica, and on each day.',
+        proof: Effect.gen(function* () {
+          const row = { _v: 'v1', subject: 'Printer on fire' };
+          const first = yield* Ticket.decode(row);
+          const second = yield* Ticket.decode(row);
+          yield* Story.assert(
+            'two reads of the same bytes agree exactly',
+            first.fingerprint === second.fingerprint,
+          );
+          return { first, second };
+        }),
+      },
+    ),
+    Story.question('Where does the new value come from?', {
       answer:
-        'A pure migration makes both reads agree exactly — the same bytes decode to the same value on every read, replica, and day.',
-      proof: Effect.gen(function* () {
-        const row = { _v: 'v1', subject: 'Printer on fire' };
-        const first = yield* Ticket.decode(row);
-        const second = yield* Ticket.decode(row);
-        yield* Story.assert(
-          'two reads of the same bytes agree exactly',
-          first.fingerprint === second.fingerprint,
-        );
-        return { first, second };
-      }),
-    }),
-    Story.question('Where does the backfilled value come from?', {
-      answer:
-        'Only from the previous value itself — `fingerprint` is derived deterministically from `subject`, never from clocks, randomness, or IO.',
+        'From the previous value only. The migration does not use the clock, a random number, or data from outside.',
       proof: Effect.gen(function* () {
         const decoded = yield* Ticket.decode({
           _v: 'v1',

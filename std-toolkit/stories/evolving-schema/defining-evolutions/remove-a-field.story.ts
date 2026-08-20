@@ -16,15 +16,17 @@ const Note = ESchema.make('Note', {
 export const removeAField = Story.make({
   title: 'Colour is dropped',
   description:
-    'Rung two: the notebook stops colouring notes, and the colour already in storage stops surfacing.',
+    'Step two. The notebook stops colouring notes. The colour in storage stops appearing.',
   spine: true,
+  setupNote:
+    'The Note now has two steps. v2 adds `pinned`. v3 removes `colour`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Every note in storage still has a colour on it. What does the app see now that colour is gone from the schema?',
+      'Each note in storage still has a colour. The schema no longer has one. What does the app see?',
       {
         answer:
-          'No colour at all. The v2→v3 migration drops it while decoding, so code written against the latest Note never learns the field existed.',
+          'It sees no colour. The v2 to v3 migration removes the field during the read. Code written against the newest Note never learns that the field existed.',
         proof: Effect.gen(function* () {
           const migrated = yield* Note.decode({
             _v: 'v1',
@@ -43,9 +45,9 @@ export const removeAField = Story.make({
         }),
       },
     ),
-    Story.question('What gets written back when the app saves that note?', {
+    Story.question('What goes into storage when the app saves that note?', {
       answer:
-        'A v3 row with no colour on it. The old field leaves storage the first time each note is written back.',
+        'A v3 row with no colour in it. The old field leaves storage the first time that each note is saved again.',
       proof: Effect.gen(function* () {
         const migrated = yield* Note.decode({
           _v: 'v1',

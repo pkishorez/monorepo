@@ -1,11 +1,10 @@
 # SQLite
 
-One engine, four runtimes.
+DynamoDB is one HTTP API. IndexedDB is one browser API. SQLite is different. It
+is an embedded engine, and each runtime supplies it in a different way.
 
-DynamoDB is one HTTP API. IndexedDB is one browser API. SQLite is an embedded
-engine that surfaces differently in every runtime it is embedded in — so this
-adapter is the only one with a driver seam.
+This adapter therefore has a driver seam. No other adapter needs one.
 
-The seam is three methods wide: `run`, `all`, and `transaction`. That is small
-enough to implement over anything that executes SQL, which makes it a natural
-place to add logging, metrics, or retries.
+The seam has three methods: `run`, `all`, and `transaction`. Anything that
+executes SQL can supply them. That makes the seam a good place to add logging,
+metrics, or retries.

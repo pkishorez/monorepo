@@ -1,17 +1,18 @@
 # Database
 
-Part two of three.
+This is part two of three.
 
-Part one gave the Note a shape that can change. This part gives it somewhere to
-live — and the somewhere is deliberately unremarkable: **one table, with a
-partition key and a sort key**, and everything the notebook needs expressed as
-keys inside it.
+Part one gave the note a shape. This part gives the note a place to stay.
 
-The point of that constraint is portability. The same table shape runs on
-DynamoDB, IndexedDB, SQLite, and an in-memory adapter, and every proof in this
-part runs on all four at once and asserts they agree. When a Story says a query
-returns three notes, it returned three notes four times.
+The place is one table. The table has a partition key and a sort key. Nothing
+else. Everything that the notebook must do is expressed as keys in that table.
 
-Start with **How these stories run** to see the harness, then **Building the
-notebook**, which assembles the table every later Story uses — and ends by
-proving that it did.
+The limit has a purpose. The same table shape runs on DynamoDB, on IndexedDB, on
+SQLite, and on an in-memory adapter. Each proof in this part runs on all four at
+the same time. Each proof then asserts that the four results agree. When a Story
+says that a query returned three notes, the query returned three notes four
+times.
+
+Start with **How these stories run** to see the harness. Then read **Building
+the notebook**. Those Stories build the table that each later Story uses. The
+last one proves that they built it.

@@ -6,12 +6,13 @@ import { note, settings, table } from '../../support.js';
 export const theSharedTable = Story.make({
   title: 'The shared table',
   description:
-    'The one table shape every Story in this part is written against.',
+    'The one table shape that each Story in this part is written against.',
+  setupNote: 'The `table` and the `note` that `support.ts` exports.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Which table are all these notes going into?', {
+    Story.question('Which table do these notes go into?', {
       answer:
-        'One logical table with a partition key, a sort key, one local secondary index slot, and one global secondary index slot — the same shape on every backend.',
+        'One table. It has a partition key, a sort key, one local secondary index slot, and one global secondary index slot. The shape is the same on each database.',
       proof: Effect.gen(function* () {
         const shape = {
           logicalName: table.logicalName,
@@ -27,9 +28,9 @@ export const theSharedTable = Story.make({
         return shape;
       }),
     }),
-    Story.question('And what else is in there besides notes?', {
+    Story.question('What else is in that table?', {
       answer:
-        'A keyed `Note` with three access patterns and a single `Settings` record — two entity types living in one table.',
+        'The notebook settings. They are a single entity, so there is one settings row and it is always there.',
       proof: Effect.gen(function* () {
         const bound = {
           keyed: {

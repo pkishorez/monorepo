@@ -9,15 +9,16 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 export const partialUpdates = Story.make({
   title: 'Partial updates',
   description:
-    'Change some fields and leave the rest alone, without reading the row into your own code first.',
+    'Change some fields of a note. Do not read the whole note into your own code first.',
   spine: true,
+  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Someone renames a note. How does its title change without touching anything else?',
+      'Someone renames a note. How does the title change without affecting the other fields?',
       {
         answer:
-          'Hand `getAndUpdate` the key and only the fields you want to change — the rest keep their values and the update stamp `_u` moves forward.',
+          'Give `getAndUpdate` the key and only the fields that change. The other fields keep their values, and the update stamp moves forward.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -45,34 +46,31 @@ export const partialUpdates = Story.make({
         }),
       },
     ),
-    Story.question(
-      'And when the new value depends on the old one — toggling a note from open to done?',
-      {
-        answer:
-          'Pass a function instead of an object — it receives the row as stored and returns the fields to write.',
-        proof: Effect.gen(function* () {
-          const results = yield* parity(
-            Effect.gen(function* () {
-              yield* note.insert(draft);
-              const updated = yield* note.getAndUpdate(key, (current) => ({
-                title: `${current.title} (v2)`,
-              }));
-              const stored = yield* note.get(key);
-              return {
-                title: updated.value.title,
-                storedTitle: stored?.value.title ?? null,
-              };
-            }),
-          );
-          yield* Story.assert(
-            'the new title is derived from the stored one',
-            results.sqlite.title === 'Draft (v2)' &&
-              results.sqlite.storedTitle === 'Draft (v2)',
-          );
-          yield* Story.assert('every adapter agrees', agree(results));
-          return results;
-        }),
-      },
-    ),
+    Story.question('How does the new value use the old one?', {
+      answer:
+        'Give `getAndUpdate` a function instead of a value. The function receives the note that was just read and returns the fields to change.',
+      proof: Effect.gen(function* () {
+        const results = yield* parity(
+          Effect.gen(function* () {
+            yield* note.insert(draft);
+            const updated = yield* note.getAndUpdate(key, (current) => ({
+              title: `${current.title} (v2)`,
+            }));
+            const stored = yield* note.get(key);
+            return {
+              title: updated.value.title,
+              storedTitle: stored?.value.title ?? null,
+            };
+          }),
+        );
+        yield* Story.assert(
+          'the new title is derived from the stored one',
+          results.sqlite.title === 'Draft (v2)' &&
+            results.sqlite.storedTitle === 'Draft (v2)',
+        );
+        yield* Story.assert('every adapter agrees', agree(results));
+        return results;
+      }),
+    }),
   ],
 });

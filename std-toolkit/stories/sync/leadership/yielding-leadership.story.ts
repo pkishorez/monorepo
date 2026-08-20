@@ -164,53 +164,84 @@ const runDance = (simulation: LeadershipSimulation) =>
 
 export const yieldingLeadership = Story.make({
   title: 'Two tabs dance for one partition',
-  description:
-    'Hiding a tab hands leadership to a waiting one, four times over.',
+  description: 'Hiding a tab passes leadership to a tab that is waiting.',
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. `Simulation.webLocks()` supplies leadership through web locks. The release rule is `hidden` in one Story and `frozen` in the other.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How does Leadership move when hidden tabs must yield?', {
-      answer:
-        'Both tabs stay subscribed to the same inbox partition. Tab one leads while tab two waits and can still write. Each hide immediately releases the Web Lock to the already-focused waiter; showing the old leader queues it for the next handoff. The story performs four handoffs.',
-      proof: Effect.gen(function* () {
-        const result = yield* runDance(hidden);
-        yield* Story.assert(
-          'tab one acquired Leadership for the inbox partition',
-          result.firstAcquired,
-        );
-        yield* Story.assert(
-          'tab two stayed waiting while both tabs remained subscribed',
-          result.secondWaited,
-        );
-        yield* Story.assert('handoff 1 moved Leadership', result.handoffs[0]!);
-        yield* Story.assert('handoff 2 moved Leadership', result.handoffs[1]!);
-        yield* Story.assert('handoff 3 moved Leadership', result.handoffs[2]!);
-        yield* Story.assert('handoff 4 moved Leadership', result.handoffs[3]!);
-        return result;
-      }),
-    }),
-    Story.question('How does Leadership move only when tabs freeze?', {
-      answer:
-        'Both tabs stay subscribed to the same inbox partition. Hiding the leader does nothing under releaseWhen: frozen. Only freeze releases the Web Lock. Before each freeze, the other tab is resumed and focused, so it acquires Leadership immediately. The story proves this across four handoffs.',
-      proof: Effect.gen(function* () {
-        const result = yield* runDance(frozen);
-        yield* Story.assert(
-          'tab one acquired Leadership for the inbox partition',
-          result.firstAcquired,
-        );
-        yield* Story.assert(
-          'tab two stayed waiting while both tabs remained subscribed',
-          result.secondWaited,
-        );
-        yield* Story.assert(
-          'hiding alone never released Leadership',
-          result.hiddenRetainedLeadership,
-        );
-        yield* Story.assert('freeze handoff 1 completed', result.handoffs[0]!);
-        yield* Story.assert('freeze handoff 2 completed', result.handoffs[1]!);
-        yield* Story.assert('freeze handoff 3 completed', result.handoffs[2]!);
-        yield* Story.assert('freeze handoff 4 completed', result.handoffs[3]!);
-        return result;
-      }),
-    }),
+    Story.question(
+      'How does leadership move when a hidden tab must release it?',
+      {
+        answer:
+          'Both tabs watch the same notebook. Tab one leads. Tab two waits and can still write. Each hide releases the lock at once to the tab that is already in front. Showing the old leader puts it in the queue for the next handover. This Story performs four handovers.',
+        proof: Effect.gen(function* () {
+          const result = yield* runDance(hidden);
+          yield* Story.assert(
+            'tab one acquired Leadership for the inbox partition',
+            result.firstAcquired,
+          );
+          yield* Story.assert(
+            'tab two stayed waiting while both tabs remained subscribed',
+            result.secondWaited,
+          );
+          yield* Story.assert(
+            'handoff 1 moved Leadership',
+            result.handoffs[0]!,
+          );
+          yield* Story.assert(
+            'handoff 2 moved Leadership',
+            result.handoffs[1]!,
+          );
+          yield* Story.assert(
+            'handoff 3 moved Leadership',
+            result.handoffs[2]!,
+          );
+          yield* Story.assert(
+            'handoff 4 moved Leadership',
+            result.handoffs[3]!,
+          );
+          return result;
+        }),
+      },
+    ),
+    Story.question(
+      'How does leadership move when only a frozen tab releases it?',
+      {
+        answer:
+          'Both tabs watch the same notebook. Under this rule, hiding the leader does nothing. Only a freeze releases the lock. Before each freeze, the other tab is resumed so that it can take the lock.',
+        proof: Effect.gen(function* () {
+          const result = yield* runDance(frozen);
+          yield* Story.assert(
+            'tab one acquired Leadership for the inbox partition',
+            result.firstAcquired,
+          );
+          yield* Story.assert(
+            'tab two stayed waiting while both tabs remained subscribed',
+            result.secondWaited,
+          );
+          yield* Story.assert(
+            'hiding alone never released Leadership',
+            result.hiddenRetainedLeadership,
+          );
+          yield* Story.assert(
+            'freeze handoff 1 completed',
+            result.handoffs[0]!,
+          );
+          yield* Story.assert(
+            'freeze handoff 2 completed',
+            result.handoffs[1]!,
+          );
+          yield* Story.assert(
+            'freeze handoff 3 completed',
+            result.handoffs[2]!,
+          );
+          yield* Story.assert(
+            'freeze handoff 4 completed',
+            result.handoffs[3]!,
+          );
+          return result;
+        }),
+      },
+    ),
   ],
 });

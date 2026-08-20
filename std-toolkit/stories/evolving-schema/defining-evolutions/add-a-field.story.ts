@@ -15,15 +15,17 @@ const Note = ESchema.make('Note', {
 export const addAField = Story.make({
   title: 'Notes can be pinned',
   description:
-    'Rung one of the ladder: `pinned` joins the Note, and notes written before it still decode.',
+    'Step one. The Note gets a `pinned` field. Notes written before it still work.',
   spine: true,
+  setupNote:
+    'The Note at v1 has a `body` and a `colour`. One step is added. It is called v2, it adds `pinned`, and its migration sets `pinned` to false.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note was written last year, before pinning existed. What does the app see when it reads that note today?',
+      'A note was written last year. Pinning did not exist then. What does the app see when it reads that note today?',
       {
         answer:
-          'A pinned field that is false. The v1→v2 migration backfills it on the way out of storage, and the rest of the note is untouched.',
+          'It sees a `pinned` field that is false. The v1 to v2 migration adds the field as the note leaves storage. The other fields do not change.',
         proof: Effect.gen(function* () {
           const migrated = yield* Note.decode({
             _v: 'v1',
@@ -42,22 +44,25 @@ export const addAField = Story.make({
         }),
       },
     ),
-    Story.question('And a note written since pinning shipped?', {
-      answer:
-        'It skips the migration entirely — it is already at the latest version, so nothing runs.',
-      proof: Effect.gen(function* () {
-        const fresh = yield* Note.decode({
-          _v: 'v2',
-          body: 'Call Ada',
-          colour: 'blue',
-          pinned: true,
-        });
-        yield* Story.assert(
-          'the note keeps the value it was written with',
-          fresh.pinned === true,
-        );
-        return fresh;
-      }),
-    }),
+    Story.question(
+      'What does the app see when it reads a note that was written after pinning shipped?',
+      {
+        answer:
+          'It sees the value that the note was written with. The note is already at v2, so no migration runs.',
+        proof: Effect.gen(function* () {
+          const fresh = yield* Note.decode({
+            _v: 'v2',
+            body: 'Call Ada',
+            colour: 'blue',
+            pinned: true,
+          });
+          yield* Story.assert(
+            'the note keeps the value it was written with',
+            fresh.pinned === true,
+          );
+          return fresh;
+        }),
+      },
+    ),
   ],
 });

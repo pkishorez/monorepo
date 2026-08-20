@@ -6,14 +6,16 @@ import { Note } from '../support.js';
 export const migrationChain = Story.make({
   title: 'Only the rungs above you',
   description:
-    'A note is not migrated from the beginning — it is migrated from wherever it already is.',
+    'A note does not start at the first version. It starts where it already is.',
+  setupNote:
+    'The completed Note from `support.ts`. This Story reads notes that were stored at v3 and at v4.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The notebook holds notes written at every version. Does each one run the whole ladder?',
+      'The notebook holds notes from each version. Does each note run every step?',
       {
         answer:
-          'No. Decode starts at the version the note is stamped with and runs only the rungs above it, so a v3 note never reruns the rungs it already went through.',
+          'No. `decode` starts at the version on the note. It runs only the steps above that version. A v3 note therefore does not repeat the steps that it already went through.',
         proof: Story.trace(
           Effect.gen(function* () {
             const fromV3 = yield* Note.decode({
@@ -34,20 +36,23 @@ export const migrationChain = Story.make({
         ),
       },
     ),
-    Story.question('And a note already written at the latest version?', {
-      answer: 'No migration runs at all. It passes straight through.',
-      proof: Effect.gen(function* () {
-        const fromV4 = yield* Note.decode({
-          _v: 'v4',
-          text: 'Ship the release',
-          pinned: true,
-        });
-        yield* Story.assert(
-          'a latest-version note passes straight through',
-          fromV4.text === 'Ship the release' && fromV4.pinned === true,
-        );
-        return fromV4;
-      }),
-    }),
+    Story.question(
+      'What happens to a note that is already at the newest version?',
+      {
+        answer: 'No step runs. The note passes through unchanged.',
+        proof: Effect.gen(function* () {
+          const fromV4 = yield* Note.decode({
+            _v: 'v4',
+            text: 'Ship the release',
+            pinned: true,
+          });
+          yield* Story.assert(
+            'a latest-version note passes straight through',
+            fromV4.text === 'Ship the release' && fromV4.pinned === true,
+          );
+          return fromV4;
+        }),
+      },
+    ),
   ],
 });

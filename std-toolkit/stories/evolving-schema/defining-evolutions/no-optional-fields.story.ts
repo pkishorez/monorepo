@@ -10,13 +10,14 @@ const Contact = ESchema.make('Contact', {
 export const noOptionalFields = Story.make({
   title: 'No optional fields',
   description:
-    'Absence is an explicit null, and a missing key is an error rather than a silent undefined.',
+    'Absence is an explicit null. A key that is absent is an error, not a silent `undefined`.',
+  setupNote: 'A Contact whose `phone` field can hold a string or null.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'How does a `NullOr` field decode when the value is present?',
+      'How does a field that can hold null decode when the value is there?',
       {
-        answer: 'It decodes as-is.',
+        answer: 'It decodes without a change.',
         proof: Effect.gen(function* () {
           const withPhone = yield* Contact.decode({
             _v: 'v1',
@@ -31,8 +32,8 @@ export const noOptionalFields = Story.make({
         }),
       },
     ),
-    Story.question('How is absence expressed?', {
-      answer: 'As an explicit `null`, never a missing key.',
+    Story.question('How does the schema say that a value is absent?', {
+      answer: 'With an explicit `null`. It never uses an absent key.',
       proof: Effect.gen(function* () {
         const withoutPhone = yield* Contact.decode({
           _v: 'v1',
@@ -46,9 +47,9 @@ export const noOptionalFields = Story.make({
         return withoutPhone;
       }),
     }),
-    Story.question('What happens when the key is simply missing?', {
+    Story.question('What happens when the key is absent?', {
       answer:
-        'Decode fails — a missing key is an error, never a silent `undefined`.',
+        'The decode fails. The system reports an error. It does not supply a silent `undefined`.',
       proof: Effect.gen(function* () {
         const missingKey = yield* Effect.flip(
           Contact.decode({ _v: 'v1', name: 'Edsger' }),

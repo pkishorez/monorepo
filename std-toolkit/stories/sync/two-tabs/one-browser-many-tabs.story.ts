@@ -52,13 +52,15 @@ const dog: Note = {
 export const oneBrowserManyTabs = Story.make({
   title: 'Two Tabs, One Browser',
   description:
-    'A second tab starts empty and is filled by the backend, not by its sibling.',
+    'A second tab starts empty. The backend fills it, not the first tab.',
   spine: true,
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. `browser("alice").tab("second")` opens a second tab with its own copy of the data.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Alice opens a second tab. What does it show?', {
       answer:
-        'The Backend-confirmed rows. The new tab owns a new Memory Sync Replica, so backend sync fills that replica and its TanStack DB Collection Projection. Peer Sync is a live-tab shortcut, not startup authority.',
+        'It shows the notes that the backend confirmed. The new tab has a new copy of the data. The backend fills that copy, and the collection projects it. Peer sync is a path between tabs that are already open. It is not what starts a tab.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -81,7 +83,7 @@ export const oneBrowserManyTabs = Story.make({
     }),
     Story.question('Alice adds a note in one tab. Does the other tab see it?', {
       answer:
-        'Yes. After the Backend confirms the mutation, the writing tab accepts the complete Entity into its Sync Replica. Peer Sync sends that Entity to the matching qualified Collection, where the sibling converges its separate Memory replica and advances its projection immediately.',
+        'Yes. The backend confirms the write, and the writing tab accepts the confirmed note into its copy. Peer sync then sends that note to the matching collection in the other tab.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');
@@ -102,39 +104,42 @@ export const oneBrowserManyTabs = Story.make({
         }),
       ),
     }),
-    Story.question('Alice edits a note in one tab. Does the other follow?', {
-      answer:
-        'Yes. The edit stays optimistic and tab-local until the Backend confirms it. The accepted Entity then enters Peer Sync, and the sibling applies normal convergence without relaying the delivery.',
-      proof: simulation.run(({ browser }) =>
-        Effect.gen(function* () {
-          const alice = browser('alice');
-          const second = alice.tab('second');
-          const left = yield* alice.mount({
-            name: 'left',
-            query: (q) => q.from({ note: alice.collection('Note') }),
-          });
-          const right = yield* second.mount({
-            name: 'right',
-            query: (q) => q.from({ note: second.collection('Note') }),
-          });
-          yield* alice.insert('Note', milk);
-          yield* right.eventuallyShows([milk]);
-
-          yield* second.update(
-            'Note',
-            { noteId: 't1', notebook: 'inbox' },
-            { pinned: true },
-          );
-          yield* left.eventuallyShows([{ ...milk, pinned: true }]);
-          return left.toArray;
-        }),
-      ),
-    }),
     Story.question(
-      'Alice removes a note in one tab. Does it vanish in the other?',
+      'Alice changes a note in one tab. Does the other tab follow?',
       {
         answer:
-          'Yes. The removal is stored as a confirmed tombstone, and Peer Sync carries it like any other accepted Entity. The receiving replica retains the tombstone while its projection removes the row.',
+          'Yes. The change stays in the writing tab until the backend confirms it. The confirmed note then goes through peer sync, and the other tab applies it in the normal way.',
+        proof: simulation.run(({ browser }) =>
+          Effect.gen(function* () {
+            const alice = browser('alice');
+            const second = alice.tab('second');
+            const left = yield* alice.mount({
+              name: 'left',
+              query: (q) => q.from({ note: alice.collection('Note') }),
+            });
+            const right = yield* second.mount({
+              name: 'right',
+              query: (q) => q.from({ note: second.collection('Note') }),
+            });
+            yield* alice.insert('Note', milk);
+            yield* right.eventuallyShows([milk]);
+
+            yield* second.update(
+              'Note',
+              { noteId: 't1', notebook: 'inbox' },
+              { pinned: true },
+            );
+            yield* left.eventuallyShows([{ ...milk, pinned: true }]);
+            return left.toArray;
+          }),
+        ),
+      },
+    ),
+    Story.question(
+      'Alice removes a note in one tab. Does it disappear in the other?',
+      {
+        answer:
+          'Yes. The removal is stored as a confirmed marked row. Peer sync carries it in the same way as any other confirmed note. The receiving copy keeps the marked row, and its screen removes the note.',
         proof: simulation.run(({ browser }) =>
           Effect.gen(function* () {
             const alice = browser('alice');
@@ -160,7 +165,7 @@ export const oneBrowserManyTabs = Story.make({
     ),
     Story.question('Alice closes a tab. Does the other tab notice?', {
       answer:
-        'Unmounting the query does not stop the Collection-owned Peer Channel. The tab keeps accepting confirmed Entities into its own Sync Replica, and a later mount advances its new Projection Position over them. Disposing the Std Sync is what closes Peer Sync.',
+        'Unmounting the query does not stop the peer channel that the collection owns. The tab continues to accept confirmed notes into its own copy, and a later mount shows them.',
       proof: simulation.run(({ browser }) =>
         Effect.gen(function* () {
           const alice = browser('alice');

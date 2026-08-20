@@ -6,15 +6,16 @@ import { NoteEntity } from '../support.js';
 export const entityIdField = Story.make({
   title: 'The note keeps its identity',
   description:
-    'An entity names one field as its identity, and no rung of the ladder is allowed to touch it.',
+    'An entity names one field as its identity. No step may change that field.',
   spine: true,
+  setupNote: 'A `NoteEntity` whose identity field is `noteId`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note is migrated across versions. Is it still the same note afterwards?',
+      'A note moves through several versions. Is it still the same note?',
       {
         answer:
-          'Yes. The id field is added to every version automatically and no evolution may rename, drop, or retype it, so identity is the one thing the ladder cannot move.',
+          'Yes. The system adds the identity field to each version. No step may rename it, remove it, or change its type. The identity is therefore the one thing that a migration cannot move.',
         proof: Effect.gen(function* () {
           const note = yield* NoteEntity.decode({
             _v: 'v1',
@@ -35,9 +36,9 @@ export const entityIdField = Story.make({
         }),
       },
     ),
-    Story.question('And when that note is written back?', {
+    Story.question('What happens when that note is written back?', {
       answer:
-        'It is stored under the same identity at the latest version — the key the rest of the notebook references it by never moves.',
+        'It is stored under the same identity at the newest version. The key that the rest of the notebook uses does not move.',
       proof: Effect.gen(function* () {
         const note = yield* NoteEntity.decode({
           _v: 'v1',

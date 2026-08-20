@@ -28,15 +28,15 @@ const withSlots = (lsis: number, gsis: number): unknown => {
 
 export const topologyLimits = Story.make({
   title: 'Topology limits',
-  description:
-    'The table shapes that refuse to build, and why a row needs two distinct key attributes.',
+  description: 'A row needs two different key attributes to be addressable.',
+  setupNote: 'Attempts to build tables whose key attributes conflict.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens if the partition key and sort key are the same attribute?',
+      'What happens when the partition key and the sort key are the same attribute?',
       {
         answer:
-          'The table refuses to build — a row needs two distinct key attributes to be addressable.',
+          'The table refuses to build. A row needs two different key attributes to be addressable.',
         proof: Effect.gen(function* () {
           const message = yield* Effect.sync(() =>
             attempt(() => StdTable.make('limits').primary('pk', 'pk').build()),
@@ -50,9 +50,9 @@ export const topologyLimits = Story.make({
         }),
       },
     ),
-    Story.question('What happens if two indexes reuse the same attribute?', {
+    Story.question('What happens when two indexes use the same attribute?', {
       answer:
-        'The second index refuses to build — every index slot owns its key attributes outright, including the primary ones.',
+        'The table refuses to build. Each index needs its own attributes.',
       proof: Effect.gen(function* () {
         const messages = yield* Effect.sync(() => ({
           acrossIndexes: attempt(() =>
@@ -79,7 +79,7 @@ export const topologyLimits = Story.make({
     }),
     Story.question('How many index slots can one table declare?', {
       answer:
-        'Five LSI slots and twenty GSI slots — the DynamoDB-compatible ceiling every adapter honours.',
+        'A fixed number of slots. The table refuses to build when a declaration goes past that number.',
       proof: Effect.gen(function* () {
         const boundaries = yield* Effect.sync(() => ({
           fifthLsi: attempt(() => withSlots(5, 0)),

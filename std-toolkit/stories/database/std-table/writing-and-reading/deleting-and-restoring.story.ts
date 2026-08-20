@@ -9,12 +9,13 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 export const deletingAndRestoring = Story.make({
   title: 'Deleting and restoring',
   description:
-    'A delete marks the row rather than removing it, which is what makes it undoable.',
+    'A delete marks the note. It does not remove the note. That is what makes it possible to undo.',
+  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('A note is deleted. Is it gone?', {
       answer:
-        'It marks the row deleted with `meta._d` true and leaves it in the table, so a plain get still returns it.',
+        'No. The delete marks the note as deleted and leaves it in the table. A plain read still returns it.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -38,47 +39,44 @@ export const deletingAndRestoring = Story.make({
         return results;
       }),
     }),
-    Story.question(
-      'So how does the notebook screen avoid showing deleted notes?',
-      {
-        answer:
-          'Pass `excludeDeleted: true` — get returns null for a deleted row and query leaves it out of the page.',
-        proof: Effect.gen(function* () {
-          const results = yield* parity(
-            Effect.gen(function* () {
-              yield* note.insert(draft);
-              yield* note.insert({
-                noteId: 'n2',
-                notebook: 'work',
-                title: 'Second',
-                status: 'open',
-              });
-              yield* note.delete(key);
-              const hidden = yield* note.get(key, { excludeDeleted: true });
-              const page = yield* note.query(
-                'primary',
-                { pk: { notebook: 'work' }, '>=': null },
-                { excludeDeleted: true },
-              );
-              return {
-                hidden,
-                live: page.items.map((item) => item.value.noteId),
-              };
-            }),
-          );
-          yield* Story.assert(
-            'the deleted row is hidden from both get and query',
-            results.sqlite.hidden === null &&
-              JSON.stringify(results.sqlite.live) === JSON.stringify(['n2']),
-          );
-          yield* Story.assert('every adapter agrees', agree(results));
-          return results;
-        }),
-      },
-    ),
-    Story.question('And undo — how does a deleted note come back?', {
+    Story.question('How does the screen avoid showing deleted notes?', {
       answer:
-        'Call `restore`, which clears the deleted flag. Restoring a row that is already live writes it again and stamps a fresh version, because every op produces exactly one write — that is what keeps a batch atomic and its outcome report aligned.',
+        'It asks the query for live notes only. The query then leaves out the notes that are marked as deleted.',
+      proof: Effect.gen(function* () {
+        const results = yield* parity(
+          Effect.gen(function* () {
+            yield* note.insert(draft);
+            yield* note.insert({
+              noteId: 'n2',
+              notebook: 'work',
+              title: 'Second',
+              status: 'open',
+            });
+            yield* note.delete(key);
+            const hidden = yield* note.get(key, { excludeDeleted: true });
+            const page = yield* note.query(
+              'primary',
+              { pk: { notebook: 'work' }, '>=': null },
+              { excludeDeleted: true },
+            );
+            return {
+              hidden,
+              live: page.items.map((item) => item.value.noteId),
+            };
+          }),
+        );
+        yield* Story.assert(
+          'the deleted row is hidden from both get and query',
+          results.sqlite.hidden === null &&
+            JSON.stringify(results.sqlite.live) === JSON.stringify(['n2']),
+        );
+        yield* Story.assert('every adapter agrees', agree(results));
+        return results;
+      }),
+    }),
+    Story.question('How does a deleted note come back?', {
+      answer:
+        'A restore removes the mark. The note becomes live again and keeps the data that it had.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

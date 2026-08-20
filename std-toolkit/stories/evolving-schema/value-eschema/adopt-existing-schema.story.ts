@@ -9,14 +9,16 @@ const NoteStatus = ValueESchema.make('NoteStatus', Status).build();
 export const adoptExistingSchema = Story.make({
   title: 'Adopting a schema you already have',
   description:
-    'Wrapping an existing schema costs nothing today and buys migrations later.',
+    'You can wrap a schema that you already have. It costs nothing now and permits migrations later.',
+  setupNote:
+    'A plain `Status` schema, wrapped as a value. The last question wraps it again and adds one step.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      "The notebook already had a plain schema for a note's status. What happens to everything stored under it?",
+      'The notebook already had a plain schema for the status of a note. What happens to the data stored under it?',
       {
         answer:
-          'Nothing changes. The existing schema becomes v1, and the bare unstamped values already in storage read as v1 data.',
+          'Nothing changes. The schema becomes v1. The bare values already in storage read as v1 data.',
         proof: Effect.gen(function* () {
           const legacy = yield* NoteStatus.decode('open');
           yield* Story.assert(
@@ -29,7 +31,7 @@ export const adoptExistingSchema = Story.make({
     ),
     Story.question('What changes on the next write?', {
       answer:
-        'New writes carry a stamp. Old bare values stay readable, so adoption never needs a backfill.',
+        'Each new write carries a stamp. The old bare values stay readable, so this change needs no backfill.',
       proof: Effect.gen(function* () {
         const stored = yield* NoteStatus.encode('done');
         yield* Story.assert(
@@ -39,9 +41,9 @@ export const adoptExistingSchema = Story.make({
         return stored;
       }),
     }),
-    Story.question('And when the adopted schema later grows a rung?', {
+    Story.question('What happens when the schema gets a step later?', {
       answer:
-        'The old bare values fold forward from v1 like anything else — which is the whole point of adopting it early.',
+        'The old bare values move forward from v1, in the same way as any other value. That is the reason to wrap the schema early.',
       proof: Effect.gen(function* () {
         const Evolved = ValueESchema.make('NoteStatus', Status)
           .evolve('v2', Schema.Literals(['OPEN', 'DONE']), (previous) =>

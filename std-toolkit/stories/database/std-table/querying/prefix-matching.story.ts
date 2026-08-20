@@ -21,14 +21,16 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 export const prefixMatching = Story.make({
   title: 'Prefix matching',
   description:
-    'Matching the start of a sort key, which is how a hierarchy is read one level at a time.',
+    'Match the start of a sort key. This is how one level of a hierarchy is read.',
+  setupNote:
+    'The `note` from `support.ts`, with notes whose sort keys form a path.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The notes are keyed by a path. How is one folder of them read without reading the rest?',
+      'The notes are keyed by a path. How is one folder read without reading the rest?',
       {
         answer:
-          'Use the `beginsWith` condition — it takes the same sort-key components as the other conditions and matches every row whose key starts with the value you give.',
+          'Use the begins-with condition. It takes the same sort-key fields as the other conditions and returns each row whose key starts with the value that you give.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -49,36 +51,39 @@ export const prefixMatching = Story.make({
         }),
       },
     ),
-    Story.question('And when the sort key is built from more than one field?', {
-      answer:
-        'The leading components must be given in full and are matched exactly, while the last component you supply is the prefix — so `byStatus` (`[status, title]`) narrows to one status and then to titles inside it.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            yield* seed;
-            const pk = { notebook: 'work' } as const;
-            const partial = yield* note.query('byStatus', {
-              pk,
-              beginsWith: { status: 'open', title: 'draft-' },
-            });
-            const full = yield* note.query('byStatus', {
-              pk,
-              beginsWith: { status: 'open', title: 'draft-one' },
-            });
-            return { partial: titlesOf(partial), full: titlesOf(full) };
-          }),
-        );
-        yield* Story.assert(
-          'a partial last component matches inside the leading status only',
-          same(results.sqlite.partial, ['draft-one', 'draft-two']),
-        );
-        yield* Story.assert(
-          'a full last component narrows to that single row',
-          same(results.sqlite.full, ['draft-one']),
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
+    Story.question(
+      'How does a prefix work when the sort key uses more than one field?',
+      {
+        answer:
+          'It matches from the first field forward. You must supply each field of the sort key, so the prefix always describes a complete position.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              yield* seed;
+              const pk = { notebook: 'work' } as const;
+              const partial = yield* note.query('byStatus', {
+                pk,
+                beginsWith: { status: 'open', title: 'draft-' },
+              });
+              const full = yield* note.query('byStatus', {
+                pk,
+                beginsWith: { status: 'open', title: 'draft-one' },
+              });
+              return { partial: titlesOf(partial), full: titlesOf(full) };
+            }),
+          );
+          yield* Story.assert(
+            'a partial last component matches inside the leading status only',
+            same(results.sqlite.partial, ['draft-one', 'draft-two']),
+          );
+          yield* Story.assert(
+            'a full last component narrows to that single row',
+            same(results.sqlite.full, ['draft-one']),
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
   ],
 });

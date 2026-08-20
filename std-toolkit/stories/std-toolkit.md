@@ -1,20 +1,20 @@
 # std-toolkit
 
-A notebook, built three times over.
+This is a notebook. It keeps notes. Each note is in one notebook.
 
-Every Story here is about the same small application: a notebook holding notes.
-Part one gives a note a shape that is allowed to change. Part two gives it
-somewhere to live. Part three keeps every open tab agreed on what it holds.
+The Stories build that notebook three times.
 
-Two trunks sit below this page.
+- Part one gives a note a shape. The shape can change later.
+- Part two gives the note a place to stay.
+- Part three sends the note to the browser and keeps each tab in agreement.
 
-**Learn** is the path. Three parts, read front to back, each starting where the
-one before it stopped. Inside each part a handful of Stories form the main line;
-everything else is folded away until you ask for it.
+There are two trunks below this page.
 
-**Reference** is everything the path deliberately walks past — the rules, the
-refusals, the limits, and the things one specific database can do that the
-portable surface will not.
+**Learn** is the path. It has three parts. Read them in order. Each part starts
+where the part before it stops.
 
-Every answer on every page below is executable. If a Story says a note decodes,
-the proof under it ran and decoded one.
+**Reference** is the rest. It holds the rules, the failures, the limits, and the
+parts that only one database can do. You do not need it to start.
+
+Every answer below is executable. A proof runs under each answer. If a Story
+says that a note decodes, then the proof decoded one.

@@ -46,6 +46,8 @@ export const storyTree: StoryTree = {
           description: 'A v1 row meets a v2 schema and decodes.',
           spine: true,
           page: null,
+          setupNote:
+            'The User schema, evolved from v1 to v2 with a migration that backfills `age`.',
           setup: eschemaSetup,
           questions: [
             {
@@ -97,6 +99,7 @@ export const storyTree: StoryTree = {
           description: 'A pushed mutation is acknowledged and folded in.',
           spine: true,
           page: null,
+          setupNote: null,
           setup: null,
           questions: [
             {
@@ -123,6 +126,7 @@ export const storyTree: StoryTree = {
           description: 'An unclean shutdown loses nothing.',
           spine: false,
           page: null,
+          setupNote: null,
           setup: null,
           questions: [
             {

@@ -20,14 +20,16 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 export const secondaryPatterns = Story.make({
   title: 'Secondary patterns',
   description:
-    'Asking the same table a different question by naming a different access pattern.',
+    'Ask the same table a different question. Name a different access pattern.',
+  setupNote:
+    'The `note` from `support.ts`. It has two secondary patterns: `byTitle` and `byStatus`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The screen wants only the open notes. The primary key cannot answer that. What does?',
+      'The screen wants the open notes only. The primary key cannot do that. What can?',
       {
         answer:
-          'Name a secondary access pattern instead of `primary` — `byStatus` sits on a GSI keyed by `[status, title]`, so a prefix on `status` returns just the notes in that status.',
+          'A secondary pattern. `byStatus` uses a key of `[status, title]`, so the notes of one status stay together and sort by title inside that group.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -57,9 +59,9 @@ export const secondaryPatterns = Story.make({
         }),
       },
     ),
-    Story.question('And reading the same notebook in a different order?', {
+    Story.question('How is the same notebook read in a different order?', {
       answer:
-        'The same partition in a different order — `byTitle` keeps the notebook as its partition key and sorts by title instead of by note id.',
+        'Name the other secondary pattern. `byTitle` reuses the same partition and orders the notes by title.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

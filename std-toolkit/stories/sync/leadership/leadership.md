@@ -2,8 +2,11 @@
 
 Many tabs, one reader.
 
-Ten open tabs should not mean ten copies of the same backend reader. Leadership
-elects one, and these Stories cover who holds it, how hiding a tab hands it
-over, and — the one most likely to surprise — what leadership is _not_.
+Ten open tabs must not make ten copies of the same backend reader. Leadership
+selects one tab to read.
 
-It stops a late tab from repeating work. It does not hand that tab the results.
+These Stories say which tab holds it, how hiding a tab passes it on, and what
+leadership is not.
+
+Leadership stops a late tab from repeating work. It does not give that tab the
+result of the work.

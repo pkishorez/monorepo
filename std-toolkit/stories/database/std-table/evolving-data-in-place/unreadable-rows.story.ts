@@ -41,15 +41,16 @@ const key = { articleId: 'a1', section: 'news' };
 
 export const unreadableRows = Story.make({
   title: 'Unreadable rows',
-  description:
-    'Data that cannot be decoded fails at the row that holds it rather than being guessed at.',
+  description: 'Data that cannot be decoded fails at the row that holds it.',
+  setupNote:
+    'Two bindings over one table. One writes a shape that the other cannot read.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      "What happens when a stored row doesn't match the schema at all?",
+      'What happens when a stored row does not match the schema?',
       {
         answer:
-          'The read fails with `DecodeFailed` instead of handing back a half-guessed value, so bad data surfaces at the row that holds it.',
+          'The read fails and reports a decode error. It does not return a value that it guessed. The fault therefore appears at the row that holds it.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -67,9 +68,9 @@ export const unreadableRows = Story.make({
         }),
       },
     ),
-    Story.question('Does one unreadable row spoil its neighbours?', {
+    Story.question('Does one unreadable row affect the other rows?', {
       answer:
-        'The failure is confined to the row that holds the bad data — every other row in the same partition reads normally.',
+        'No. The failure stays at that row. Each other row in the same partition reads normally.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

@@ -21,14 +21,16 @@ const draft = (noteId: string) => ({
 export const staleOps = Story.make({
   title: 'Stale ops',
   description:
-    'An op carries intent, not a snapshot, so time between building it and committing it cannot spoil it.',
+    'An op carries intent, not a copy of the row. Time cannot make it wrong.',
+  setupNote:
+    'The `note` from `support.ts`. The note changes between building an op and committing it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The note changed between building the batch and committing it. Is the batch now wrong?',
+      'The note changed between building the batch and committing it. Is the batch wrong?',
       {
         answer:
-          'The batch still commits. An op carries intent only, so `transact` reads the row at commit time and applies the update to what it read. The interval between building an op and committing it cannot make it stale.',
+          'No. The batch still commits. An op carries intent only. `transact` reads the row at commit time and applies the change to what it read.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -59,54 +61,51 @@ export const staleOps = Story.make({
         }),
       },
     ),
-    Story.question(
-      'And when the decision really was made earlier and must still hold?',
-      {
-        answer:
-          'Give the op an entity invariant through `check`. Transact evaluates it against the value it reads and fails the batch before submitting anything, so the whole batch rolls back. The failure names every operation: the refusing op reports `refused`.',
-        proof: Effect.gen(function* () {
-          const results = yield* parity(
-            Effect.gen(function* () {
-              yield* note.insert(draft('n1'));
-              yield* note.getAndUpdate(key, { status: 'newer' });
-              const guarded = yield* note.getAndUpdateOp(
-                key,
-                { status: 'from-op' },
-                { check: (current) => current.status === 'open' },
-              );
-              const sibling = yield* note.insertOp(draft('n2'));
-              const error = yield* table
-                .transact([sibling, guarded])
-                .pipe(Effect.flip);
-              const current = yield* note.get(key);
-              const other = yield* note.get({ noteId: 'n2', notebook: 'work' });
-              return {
-                reason: reasonOf(error),
-                statuses: statuses(error),
-                status: current?.value.status ?? null,
-                siblingWritten: other !== null,
-              };
-            }),
-          );
-          yield* Story.assert(
-            'the refused op takes the batch with it',
-            results.sqlite.reason === 'TransactFailed' &&
-              results.sqlite.status === 'newer' &&
-              results.sqlite.siblingWritten === false,
-          );
-          yield* Story.assert(
-            'the failure points at the refusing op, not its sibling',
-            results.sqlite.statuses[1] === 'refused' &&
-              results.sqlite.statuses[0] === 'passed',
-          );
-          yield* Story.assert('every adapter agrees', agree(results));
-          return results;
-        }),
-      },
-    ),
-    Story.question('And when the write should go through regardless?', {
+    Story.question('How does a rule that was decided earlier still apply?', {
       answer:
-        'Build the op with `{ lastWriteWins: true }` — it drops the version guard, so the write lands over whatever `transact` read.',
+        'Attach a condition to the op. `transact` runs the condition against the row that it read, so the rule applies at commit time.',
+      proof: Effect.gen(function* () {
+        const results = yield* parity(
+          Effect.gen(function* () {
+            yield* note.insert(draft('n1'));
+            yield* note.getAndUpdate(key, { status: 'newer' });
+            const guarded = yield* note.getAndUpdateOp(
+              key,
+              { status: 'from-op' },
+              { check: (current) => current.status === 'open' },
+            );
+            const sibling = yield* note.insertOp(draft('n2'));
+            const error = yield* table
+              .transact([sibling, guarded])
+              .pipe(Effect.flip);
+            const current = yield* note.get(key);
+            const other = yield* note.get({ noteId: 'n2', notebook: 'work' });
+            return {
+              reason: reasonOf(error),
+              statuses: statuses(error),
+              status: current?.value.status ?? null,
+              siblingWritten: other !== null,
+            };
+          }),
+        );
+        yield* Story.assert(
+          'the refused op takes the batch with it',
+          results.sqlite.reason === 'TransactFailed' &&
+            results.sqlite.status === 'newer' &&
+            results.sqlite.siblingWritten === false,
+        );
+        yield* Story.assert(
+          'the failure points at the refusing op, not its sibling',
+          results.sqlite.statuses[1] === 'refused' &&
+            results.sqlite.statuses[0] === 'passed',
+        );
+        yield* Story.assert('every adapter agrees', agree(results));
+        return results;
+      }),
+    }),
+    Story.question('How does the write go through in any case?', {
+      answer:
+        'Build the op with no condition. `transact` then applies the change to whatever it reads.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {

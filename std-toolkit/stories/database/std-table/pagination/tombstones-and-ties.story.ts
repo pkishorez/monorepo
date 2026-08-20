@@ -15,14 +15,16 @@ const tie = (noteId: string) =>
 export const tombstonesAndTies = Story.make({
   title: 'Tombstones and ties',
   description:
-    'Deleted rows sit between live ones without eating into the page you asked for.',
+    'Deleted notes sit between live ones. They do not use the page that you asked for.',
+  setupNote:
+    'The `note` from `support.ts`, with deleted notes between the live ones.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The notebook is full of deleted notes. Does a page of ten arrive half empty?',
+      'The notebook holds many deleted notes. Does a page of ten arrive half full?',
       {
         answer:
-          'No — the limit counts the rows you actually receive, so a page comes back full of live rows even when tombstones sit between them.',
+          'No. The limit counts the rows that you receive. A page therefore comes back full of live notes, even when deleted notes sit between them.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -51,10 +53,10 @@ export const tombstonesAndTies = Story.make({
       },
     ),
     Story.question(
-      'And notes that sort identically — can paging skip or repeat one?',
+      'Can paging miss or repeat a note when two notes sort the same?',
       {
         answer:
-          'Ties break by primary key, so a one-row-at-a-time walk still sees each tied row exactly once.',
+          'No. Each note has its own position in the sort key, so no two notes sort the same. The walk therefore reads each note one time.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

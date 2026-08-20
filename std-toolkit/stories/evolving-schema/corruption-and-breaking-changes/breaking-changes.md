@@ -2,10 +2,14 @@
 
 Three ways to break notes that are already written.
 
-Two of them look harmless in a diff. Editing a version that has already shipped
-leaves the version number alone, so old notes fail against a schema that still
-claims to be theirs. Rewriting a migration that has already run forks history:
-the same bytes decode two different ways depending on when they were read.
+Two of them look safe in a diff.
 
-The third Story is the answer to both — an approved snapshot of the schema, and
-a diff that can tell a safe change from a breaking one.
+If you edit a version that has already shipped, the version number stays the
+same. Old notes then fail against a schema that still claims to be theirs.
+
+If you rewrite a migration that has already run, history divides. The same bytes
+then decode in two ways. The result depends on when the data was read.
+
+The third Story is the answer to both. It uses an approved snapshot of the
+schema. A diff against that snapshot separates a safe change from a breaking
+one.

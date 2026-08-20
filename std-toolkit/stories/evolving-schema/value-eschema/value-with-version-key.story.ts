@@ -10,14 +10,15 @@ const Imported = ValueESchema.make(
 export const valueWithVersionKey = Story.make({
   title: 'When a value already has a _v of its own',
   description:
-    'The one shape that collides with the envelope, and why writing it through encode settles it.',
+    'One shape conflicts with the envelope. Writing it through `encode` first removes the conflict.',
+  setupNote: 'An `Imported` value whose own type contains a `_v` field.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note is imported from another service, and that service stamps its own `_v`. What happens on the way in?',
+      'A note comes from another service. That service adds its own `_v`. What happens when the note is read?',
       {
         answer:
-          'It is mistaken for an envelope. Envelope detection is structural, so the imported `_v` is read as a schema version and rejected as unknown.',
+          'The system reads it as an envelope. It detects an envelope by shape, so it reads the `_v` of the other service as a schema version and refuses it as unknown.',
         proof: Effect.gen(function* () {
           const collided = yield* Effect.flip(
             Imported.decode({ _v: 'vendor-3', value: 'Buy milk' }),
@@ -31,9 +32,9 @@ export const valueWithVersionKey = Story.make({
         }),
       },
     ),
-    Story.question('What makes it unambiguous?', {
+    Story.question('How is the conflict removed?', {
       answer:
-        'Writing it through encode first. Once the value carries a real stamp of its own, the outer envelope peels exactly once and the imported `_v` rides through untouched.',
+        'Write the value through `encode` first. The value then carries a real stamp of its own. The system removes one envelope, and the `_v` of the other service passes through unchanged.',
       proof: Effect.gen(function* () {
         const stored = yield* Imported.encode({
           _v: 'vendor-3',

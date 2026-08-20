@@ -43,14 +43,16 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 export const sparseIndexes = Story.make({
   title: 'Sparse indexes',
   description:
-    'A row that cannot form an index key is left out of that index and stays readable everywhere else.',
+    'A note that cannot make an index key stays out of that index. It is still readable everywhere else.',
+  setupNote:
+    'A second Note binding over the same table. Its index key uses a field that can hold null.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Most notes have a due date. Some have none. What happens to those in an index keyed on it?',
+      'Most notes have a due date. Some have none. What happens to those notes in an index that uses the date?',
       {
         answer:
-          'It is left out of that index entirely — the index is sparse — while the row itself stays stored and readable by its primary key.',
+          'They stay out of that index. The index is sparse. The note is still stored, and a read by its primary key still returns it.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

@@ -8,12 +8,14 @@ import { counter, counterKey, unmarshallItem } from './support.js';
 export const batchInsert = Story.make({
   title: 'Batch insert',
   description:
-    'Amortizing network round-trips with BatchWriteItem — a DynamoDB-only concern.',
+    'A batch write reduces the number of network calls. Only DynamoDB needs this.',
+  setupNote:
+    'The `counter` entity from the DynamoDB support file, against DynamoDB Local.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you seed a table faster than one write at a time?', {
+    Story.question('How do you fill a table faster than one write at a time?', {
       answer:
-        'DynamoDB.batchInsert writes raw physical rows through BatchWriteItem, auto-chunked at the native 25-write limit, and reports anything DynamoDB refused as UnprocessedItems. It exists to amortize network round-trips — IndexedDB and SQLite sit in-process with nothing to amortize, so this stays a DynamoDB-native operation.',
+        'Use a batch write. It sends raw rows in groups of 25, which is the DynamoDB limit, and reports anything that DynamoDB refused. It exists to reduce network calls. IndexedDB and SQLite run in the same process and have no network calls to reduce, so this operation belongs to DynamoDB only.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {
@@ -70,9 +72,9 @@ export const batchInsert = Story.make({
         return result;
       }),
     }),
-    Story.question('What does batchInsert skip on the way in?', {
+    Story.question('What does a batch write leave out?', {
       answer:
-        'Everything the portable write path does for you: eschema validation, version stamping, conditional guards, and change broadcasts. You are writing physical rows — a malformed one lands in the table and only fails later, when a portable read tries to decode it.',
+        'Everything that the portable write path does for you: the schema check, the version stamp, the conditions, and the change messages. You write raw rows, so a row with the wrong shape reaches the table and fails later, when something reads it.',
       proof: Effect.gen(function* () {
         const result = yield* onDynamoDB(
           Effect.gen(function* () {

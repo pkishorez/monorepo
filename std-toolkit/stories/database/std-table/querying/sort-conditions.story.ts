@@ -22,14 +22,16 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 
 export const sortConditions = Story.make({
   title: 'Sort conditions',
-  description: 'The seven ways to name a slice of a partition.',
+  description: 'The seven ways to name a part of a partition.',
+  setupNote:
+    'The `note` from `support.ts`, with several notes in one notebook.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Which sort conditions can a query use, and what does each return?',
+      'Which sort conditions can a query use, and what does each one return?',
       {
         answer:
-          'Seven: `=`, `<`, `<=`, `>`, `>=`, `between`, and `beginsWith` — each takes the sort-key components and selects the slice of the partition its operator names.',
+          'Seven conditions. They are equal to, less than, less than or equal to, greater than, greater than or equal to, between, and begins with. Each takes the sort-key fields and selects the part that its operator names.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
@@ -82,63 +84,60 @@ export const sortConditions = Story.make({
         }),
       },
     ),
-    Story.question(
-      'Which slices of a notebook can be named, and which way does each one read?',
-      {
-        answer:
-          '`<` and `<=` read descending; `=`, `>`, `>=`, `between`, and `beginsWith` all read ascending.',
-        proof: Effect.gen(function* () {
-          const results = yield* parity(
-            Effect.gen(function* () {
-              yield* seed;
-              const pk = { notebook: 'work' } as const;
-              return {
-                descendingLess: titlesOf(
-                  yield* note.query('byTitle', { pk, '<': { title: 'zulu' } }),
-                ),
-                descendingLessOrEqual: titlesOf(
-                  yield* note.query('byTitle', { pk, '<=': null }),
-                ),
-                ascendingGreater: titlesOf(
-                  yield* note.query('byTitle', { pk, '>': { title: 'a' } }),
-                ),
-                ascendingGreaterOrEqual: titlesOf(
-                  yield* note.query('byTitle', { pk, '>=': null }),
-                ),
-                ascendingBetween: titlesOf(
-                  yield* note.query('byTitle', {
-                    pk,
-                    between: [{ title: 'a' }, { title: 'z' }],
-                  }),
-                ),
-                ascendingPrefix: titlesOf(
-                  yield* note.query('byTitle', {
-                    pk,
-                    beginsWith: { title: 'alpha' },
-                  }),
-                ),
-              };
-            }),
-          );
-          const ascending = ['alpha', 'alphabet', 'beta', 'gamma'];
-          const descending = [...ascending].reverse();
-          const read = results.sqlite;
-          yield* Story.assert(
-            'the two less-than conditions read descending',
-            same(read.descendingLess, descending) &&
-              same(read.descendingLessOrEqual, descending),
-          );
-          yield* Story.assert(
-            'every other condition reads ascending',
-            same(read.ascendingGreater, ascending) &&
-              same(read.ascendingGreaterOrEqual, ascending) &&
-              same(read.ascendingBetween, ascending) &&
-              same(read.ascendingPrefix, ['alpha', 'alphabet']),
-          );
-          yield* Story.assert('every adapter agrees', agree(results));
-          return results;
-        }),
-      },
-    ),
+    Story.question('Which direction does each condition read in?', {
+      answer:
+        'Each condition reads forward by default. A query can ask to read backwards, and the same rows then come back in the opposite order.',
+      proof: Effect.gen(function* () {
+        const results = yield* parity(
+          Effect.gen(function* () {
+            yield* seed;
+            const pk = { notebook: 'work' } as const;
+            return {
+              descendingLess: titlesOf(
+                yield* note.query('byTitle', { pk, '<': { title: 'zulu' } }),
+              ),
+              descendingLessOrEqual: titlesOf(
+                yield* note.query('byTitle', { pk, '<=': null }),
+              ),
+              ascendingGreater: titlesOf(
+                yield* note.query('byTitle', { pk, '>': { title: 'a' } }),
+              ),
+              ascendingGreaterOrEqual: titlesOf(
+                yield* note.query('byTitle', { pk, '>=': null }),
+              ),
+              ascendingBetween: titlesOf(
+                yield* note.query('byTitle', {
+                  pk,
+                  between: [{ title: 'a' }, { title: 'z' }],
+                }),
+              ),
+              ascendingPrefix: titlesOf(
+                yield* note.query('byTitle', {
+                  pk,
+                  beginsWith: { title: 'alpha' },
+                }),
+              ),
+            };
+          }),
+        );
+        const ascending = ['alpha', 'alphabet', 'beta', 'gamma'];
+        const descending = [...ascending].reverse();
+        const read = results.sqlite;
+        yield* Story.assert(
+          'the two less-than conditions read descending',
+          same(read.descendingLess, descending) &&
+            same(read.descendingLessOrEqual, descending),
+        );
+        yield* Story.assert(
+          'every other condition reads ascending',
+          same(read.ascendingGreater, ascending) &&
+            same(read.ascendingGreaterOrEqual, ascending) &&
+            same(read.ascendingBetween, ascending) &&
+            same(read.ascendingPrefix, ['alpha', 'alphabet']),
+        );
+        yield* Story.assert('every adapter agrees', agree(results));
+        return results;
+      }),
+    }),
   ],
 });

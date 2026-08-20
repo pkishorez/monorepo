@@ -15,12 +15,14 @@ const reservedAttributes = ['_e', '_v', '_u', '_d', 'data'];
 
 export const reservedNames = Story.make({
   title: 'Reserved names',
-  description: 'Five attribute names the portable row layout keeps for itself.',
+  description:
+    'Five attribute names belong to the row layout. A table cannot use them.',
+  setupNote: 'Attempts to build a table with names that the row layout owns.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which attribute names can a table not use?', {
       answer:
-        'The five names the portable row layout owns — `_e`, `_v`, `_u`, `_d` and `data` — are rejected wherever a key attribute is declared.',
+        'Five names. They are `_e`, `_v`, `_u`, `_d`, and `data`. The row layout owns them, so the table refuses them wherever a key attribute is declared.',
       proof: Effect.gen(function* () {
         const messages = yield* Effect.sync(() =>
           reservedAttributes.map((name) =>
@@ -40,7 +42,7 @@ export const reservedNames = Story.make({
     }),
     Story.question('Which index slot names are reserved?', {
       answer:
-        'The slot name `_entity` is reserved, so neither an LSI nor a GSI can claim it.',
+        'The slot names that the layout defines. A table cannot declare an index under a name that the layout already uses.',
       proof: Effect.gen(function* () {
         const messages = yield* Effect.sync(() => ({
           lsi: attempt(() =>

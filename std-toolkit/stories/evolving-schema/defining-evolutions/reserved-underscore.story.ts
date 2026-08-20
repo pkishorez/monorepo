@@ -6,14 +6,15 @@ import { Note } from '../support.js';
 export const reservedUnderscore = Story.make({
   title: 'The stamp you never wrote',
   description:
-    'Storage carries one field the notebook never declared, and the `_` prefix is reserved so it can never collide.',
+    'Storage holds one field that the notebook did not declare. The `_` prefix is reserved, so your fields cannot collide with it.',
+  setupNote: 'The completed Note from `support.ts`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note is saved. What is in storage that the app never put there?',
+      'A note is saved. What is in storage that the app did not put there?',
       {
         answer:
-          'The version stamp, `_v`. The whole `_` prefix is reserved for the runtime, so a field of your own can never collide with it.',
+          'The version stamp, `_v`. The whole `_` prefix belongs to the runtime. A field of your own can therefore never collide with it.',
         proof: Effect.gen(function* () {
           const stored = yield* Note.encode({
             text: 'Buy milk',
@@ -27,9 +28,9 @@ export const reservedUnderscore = Story.make({
         }),
       },
     ),
-    Story.question('Does the app ever have to deal with it?', {
+    Story.question('Does the app have to handle that field?', {
       answer:
-        'No. Decode strips the stamp back off, so it exists in storage and nowhere else.',
+        'No. `decode` removes the stamp. The stamp is in storage and nowhere else.',
       proof: Effect.gen(function* () {
         const stored = yield* Note.encode({ text: 'Buy milk', pinned: false });
         const note = yield* Note.decode(stored);

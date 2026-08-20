@@ -14,12 +14,14 @@ const Bookmark = ESchema.make('Bookmark', {
 export const missingVersionStamp = Story.make({
   title: 'Missing version stamp',
   description:
-    'Data written before any stamp existed is adopted as the earliest version.',
+    'Data written before stamps existed is read as the first version.',
+  setupNote:
+    'A Bookmark with one step. This Story reads data that carries no `_v`.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What happens when a payload has no `_v` at all?', {
+    Story.question('What happens when data has no `_v`?', {
       answer:
-        'It is adopted as the earliest version: validated against v1 and folded forward like any other v1 row.',
+        'The system reads it as the first version. It checks the data against v1 and then runs the steps above v1.',
       proof: Effect.gen(function* () {
         const adopted = yield* Bookmark.decode({
           url: 'https://effect.website',
@@ -36,10 +38,10 @@ export const missingVersionStamp = Story.make({
       }),
     }),
     Story.question(
-      'What happens when unstamped data does not match the v1 shape?',
+      'What happens when data with no stamp does not match the v1 shape?',
       {
         answer:
-          'It fails loudly with `Decode failed` rather than being guessed at.',
+          'It fails with a decode error. The system does not guess the shape.',
         proof: Effect.gen(function* () {
           const garbage = yield* Effect.flip(
             Bookmark.decode({ nonsense: true }),

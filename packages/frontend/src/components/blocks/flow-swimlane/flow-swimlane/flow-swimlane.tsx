@@ -286,7 +286,10 @@ export function FlowSwimlane({
       tabIndex={0}
       onKeyDownCapture={onKeyDownCapture}
     >
-      <div style={{ minWidth: '100%', width: layout.width }}>
+      <div
+        className="mx-auto"
+        style={{ width: Math.max(layout.width, 0), minWidth: 'min-content' }}
+      >
         <FlowHeader
           activeParticipantName={activeParticipantName}
           layout={layout}

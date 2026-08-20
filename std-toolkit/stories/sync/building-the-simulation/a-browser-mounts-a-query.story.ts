@@ -84,15 +84,17 @@ const buyMilk = {
 export const aBrowserMountsAQuery = Story.make({
   title: 'A browser mounts a query',
   description:
-    'Step two: someone opens the notebook, and a screen starts watching it.',
+    'Step two. Someone opens the notebook, and a screen starts to watch it.',
   spine: true,
+  setupNote:
+    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Alice opens the notebook. What has to exist before a note written on the server can appear on her screen?',
+      'Alice opens the notebook. What must exist before a note on the server can appear on her screen?',
       {
         answer:
-          'Three things, and this Story creates all of them: a Browser with its own copy of the data, a Collection holding the Notes inside it, and a Live Query — the thing a screen actually mounts and the thing that updates when the copy does.',
+          'Three things, and this Story makes all of them. There is a browser, which holds its own copy of the data. There is a collection, which holds the notes inside that copy. There is a live query, which a screen mounts and which updates when the copy updates.',
         proof: simulation.run(({ backend, browser }) =>
           Effect.gen(function* () {
             const alice = browser('alice');
@@ -108,29 +110,26 @@ export const aBrowserMountsAQuery = Story.make({
         ),
       },
     ),
-    Story.question(
-      'What are `shows` and `eventuallyShows` doing in that proof?',
-      {
-        answer:
-          'Asserting on the mounted Live Query. `shows` asserts what is on screen right now; `eventuallyShows` waits for it to settle, because a Backend write reaches a screen through a worker rather than instantly. Almost every Story in this part ends in one of the two.',
-        proof: simulation.run(({ backend, browser }) =>
-          Effect.gen(function* () {
-            const alice = browser('alice');
-            const inbox = yield* alice.mount({
-              name: 'inbox',
-              query: (q) => q.from({ note: alice.collection('Note') }),
-            });
-            yield* backend.insert('Note', buyMilk);
-            yield* inbox.eventuallyShows([buyMilk]);
-            yield* inbox.shows([buyMilk]);
-            yield* Story.assert(
-              'once it has settled, the immediate assertion holds too',
-              inbox.toArray.length === 1,
-            );
-            return inbox.toArray;
-          }),
-        ),
-      },
-    ),
+    Story.question('What do `shows` and `eventuallyShows` do?', {
+      answer:
+        'They assert on the mounted live query. `shows` asserts what is on the screen now. `eventuallyShows` waits for the screen to settle, because a write reaches a screen through a worker and not at once. Almost every Story in this part ends with one of the two.',
+      proof: simulation.run(({ backend, browser }) =>
+        Effect.gen(function* () {
+          const alice = browser('alice');
+          const inbox = yield* alice.mount({
+            name: 'inbox',
+            query: (q) => q.from({ note: alice.collection('Note') }),
+          });
+          yield* backend.insert('Note', buyMilk);
+          yield* inbox.eventuallyShows([buyMilk]);
+          yield* inbox.shows([buyMilk]);
+          yield* Story.assert(
+            'once it has settled, the immediate assertion holds too',
+            inbox.toArray.length === 1,
+          );
+          return inbox.toArray;
+        }),
+      ),
+    }),
   ],
 });

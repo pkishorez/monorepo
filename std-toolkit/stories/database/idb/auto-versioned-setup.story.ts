@@ -14,12 +14,14 @@ import {
 export const autoVersionedSetup = Story.make({
   title: 'Auto-versioned setup',
   description:
-    'The version number bumps only when the declared shape actually changed.',
+    'The version number increases only when the declared shape changed.',
+  setupNote:
+    'An IndexedDB database, set up two times, to show when the version changes.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Who owns the IndexedDB version number?', {
       answer:
-        'The adapter. You declare the table shape; setup inspects the live database, bumps the version only when a declared store or index is missing, and stays put when nothing changed. No other adapter has this problem — IndexedDB is the only backend whose schema can change solely inside a versionchange transaction, so the version arithmetic is IndexedDB-native by nature.',
+        'The adapter owns it. You declare the table shape. Setup reads the live database, increases the version only when a declared store or index is absent, and leaves the version alone when nothing changed. IndexedDB is the only backend whose schema can change inside a version-change transaction, so this calculation belongs to it.',
       proof: Effect.gen(function* () {
         const factory = new IDBFactory();
         const database = IDB.database({
@@ -60,9 +62,9 @@ export const autoVersionedSetup = Story.make({
         };
       }),
     }),
-    Story.question('What happens to existing rows when the topology grows?', {
+    Story.question('What happens to existing rows when the shape grows?', {
       answer:
-        'They survive untouched — the upgrade is additive and never rewrites records. But it also never backfills: a row written before the index existed carries no index keys, and IndexedDB’s native sparse behavior simply skips it. New writes populate the index; old rows appear there only after their next write.',
+        'They stay as they are. The upgrade only adds, and it never rewrites a record. It also never fills in the past. A row that was written before an index existed carries no key for that index, so the index does not list it.',
       proof: Effect.gen(function* () {
         const factory = new IDBFactory();
         const database = IDB.database({

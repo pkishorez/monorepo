@@ -39,15 +39,17 @@ const idsOf = (page: { items: readonly { value: { noteId: string } }[] }) =>
 export const whereANoteLives = Story.make({
   title: 'Where a note lives',
   description:
-    'Step two: the Note is bound to the table, and its `notebook` field decides where a note lands.',
+    'Step two. The Note is bound to the table. Its `notebook` field decides where a note goes.',
   spine: true,
+  setupNote:
+    'The table from step one, plus a Note bound to it. The partition is built from the `notebook` field. Three notes are written to an in-memory copy.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Two notes are filed under "work" and one under "home". What does binding the Note decide about where they go?',
+      'Two notes are in the notebook called work. One note is in the notebook called home. What does the binding decide?',
       {
         answer:
-          'That `notebook` is the partition. Notes sharing a notebook sit together, which is what makes reading a whole notebook one query rather than a scan of everything.',
+          'It decides that `notebook` is the partition. Notes in one notebook stay together. Reading a whole notebook is therefore one query, not a scan of everything.',
         proof: onNotebook(
           Effect.gen(function* () {
             yield* seed;
@@ -76,9 +78,9 @@ export const whereANoteLives = Story.make({
         ),
       },
     ),
-    Story.question('And what orders the notes inside one notebook?', {
+    Story.question('What orders the notes inside one notebook?', {
       answer:
-        'The id field the Note declared. An entity always sorts by its own identity, so every note has exactly one address inside its notebook.',
+        'The identity field that the Note declared. An entity always sorts by its own identity. Each note therefore has one address inside its notebook.',
       proof: onNotebook(
         Effect.gen(function* () {
           yield* seed;

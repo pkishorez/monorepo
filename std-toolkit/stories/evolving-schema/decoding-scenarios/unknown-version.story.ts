@@ -8,15 +8,15 @@ const Widget = ESchema.make('Widget', {
 
 export const unknownVersion = Story.make({
   title: 'Unknown version',
-  description:
-    'A stamp naming a version that was never declared is refused rather than guessed at.',
+  description: 'A stamp that names an unknown version is refused.',
+  setupNote: 'A Widget with one version, v1.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when `_v` names a version the schema never declared?',
+      'What happens when `_v` names a version that the schema does not have?',
       {
         answer:
-          'Decode refuses immediately with `Unknown schema version: v99` — no guessing, no coercion.',
+          'The decode fails at once. The error names the version. The system does not guess and does not convert the data.',
         proof: Effect.gen(function* () {
           const error = yield* Effect.flip(
             Widget.decode({ _v: 'v99', name: 'flux capacitor' }),

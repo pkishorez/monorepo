@@ -1,10 +1,11 @@
 # Pagination
 
-Results come in pages whether you asked for one or not.
+Results arrive in pages. This occurs whether you ask for a page or not.
 
-Every query has a page size and returns a flag saying whether rows were left
-behind. Resuming needs no cursor and no server state — you hand back the last
-entity of the page you just read, and the walk continues from there.
+Each query has a page size. Each result says whether rows remain.
 
-Deleted notes complicate this, and the third Story here shows why they do not:
-the limit counts the rows you actually receive.
+To continue, give back the last entity of the page that you just read. There is
+no cursor to keep and no state on the server.
+
+Deleted notes make this look difficult. The third Story shows that they do not.
+The limit counts the rows that you receive.

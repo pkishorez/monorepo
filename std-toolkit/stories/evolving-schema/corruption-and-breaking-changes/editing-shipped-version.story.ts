@@ -9,14 +9,16 @@ const shipped = ESchema.make('Event', {
 export const editingShippedVersion = Story.make({
   title: 'Editing shipped version',
   description:
-    'Editing a version that has already shipped breaks the rows written under it.',
+    'If you edit a version that has shipped, the notes written under it stop working.',
+  setupNote:
+    'One schema, shown before and after an edit to v1 that adds a field in place.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens to rows written before v1 is edited in place?',
+      'What happens to rows that were written before v1 was edited?',
       {
         answer:
-          'They silently break — the edited schema still calls itself v1, so old rows fail with `Decode failed` because they lack the new field.',
+          'They stop working, and nothing reports the change. The edited schema still calls itself v1, so old rows fail the check because they do not have the new field.',
         proof: Effect.gen(function* () {
           const edited = ESchema.make('Event', {
             name: Schema.String,
@@ -34,9 +36,9 @@ export const editingShippedVersion = Story.make({
         }),
       },
     ),
-    Story.question('Do rows written after the in-place edit still work?', {
+    Story.question('Do rows written after the edit still work?', {
       answer:
-        'Yes — new rows match the new v1 shape, which is exactly what hides the breakage in development.',
+        'Yes. New rows match the new v1 shape. That is what hides the fault during development.',
       proof: Effect.gen(function* () {
         const edited = ESchema.make('Event', {
           name: Schema.String,

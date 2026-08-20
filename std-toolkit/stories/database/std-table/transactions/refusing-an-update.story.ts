@@ -7,15 +7,16 @@ const key = { noteId: 'n1', notebook: 'work' };
 
 export const refusingAnUpdate = Story.make({
   title: 'Refusing an update',
-  description:
-    'An invariant that fails the whole batch before any of it is submitted.',
+  description: 'A condition can fail the whole batch before any of it is sent.',
+  setupNote:
+    'The `note` from `support.ts`, with a condition attached to one op.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note must not be edited after it is archived. How is that enforced at commit time, not before?',
+      'A note must not change after it is archived. How does the system apply that rule at commit time?',
       {
         answer:
-          'Give `getAndUpdateOp` an entity invariant through `check`. Transact evaluates it against the value it reads at commit time and fails the batch before submitting anything, so sibling ops never land.',
+          'Attach a condition to the op. `transact` runs it against the value that it reads at commit time. If the condition refuses, the batch fails before anything is sent, so the other ops do not land.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

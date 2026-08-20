@@ -13,14 +13,16 @@ const seed = {
 export const freshDatabases = Story.make({
   title: 'Fresh databases',
   description:
-    'Each proof gets an empty database and gives it back when it finishes.',
+    'Each proof receives an empty database and gives it back at the end.',
+  setupNote:
+    'One program, run two times on each database, to show that the second run starts empty.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Every proof writes notes into a real database. What stops the next one from finding them?',
+      'Each proof writes notes into a real database. What stops the next proof from finding them?',
       {
         answer:
-          'They are released when the proof finishes — the DynamoDB table is deleted, the IndexedDB database is dropped, the Memory adapter table becomes unreachable, and the SQLite connection is closed — so the next proof starts empty.',
+          'The proof releases its database when it finishes. The DynamoDB table is deleted. The IndexedDB database is dropped. The Memory table becomes unreachable. The SQLite connection is closed. The next proof therefore starts empty.',
         proof: Effect.gen(function* () {
           yield* parity(note.insert(seed));
           const results = yield* parity(
@@ -35,9 +37,8 @@ export const freshDatabases = Story.make({
         }),
       },
     ),
-    Story.question('And when a proof fails halfway through?', {
-      answer:
-        'Yes — teardown is a finalizer, so a failing program tears its databases down on the way out just like a passing one.',
+    Story.question('Does that still happen when a proof fails?', {
+      answer: 'Yes. The release runs whether the proof passes or fails.',
       proof: Effect.gen(function* () {
         const failures = yield* parity(
           Effect.gen(function* () {

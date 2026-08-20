@@ -38,12 +38,14 @@ const program = Effect.gen(function* () {
 export const fourDriversOneTable = Story.make({
   title: 'Four drivers, one table',
   description:
-    'One table shape over four SQLite runtimes, behind a three-method seam.',
+    'One table shape over four SQLite runtimes, behind a seam of three methods.',
+  setupNote:
+    'One program, run on the node driver, the better-sqlite3 driver, and the Durable Object driver.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which runtimes can host the SQLite adapter?', {
       answer:
-        'Any runtime with a SQLite binding: node:sqlite, better-sqlite3, Bun, and Cloudflare Durable Objects each get a driver behind the same three-method SQLiteDriver seam. The seam is the SQLite adapter’s native capability — DynamoDB is one HTTP API and IndexedDB one browser API, but SQLite is an embedded engine that surfaces differently in every runtime, so only this adapter needs a driver layer. This proof runs the identical program on node:sqlite, better-sqlite3, and the Durable Object driver (its storage host simulated in-process); the Bun driver ships at std-toolkit/db/sqlite/bun but only runs under the Bun runtime, so it is shown here, not proven.',
+        'Any runtime that has a SQLite binding. There is a driver for node:sqlite, for better-sqlite3, for Bun, and for Cloudflare Durable Objects. Each one sits behind the same seam of three methods. Only this adapter needs a seam, because each runtime supplies SQLite in a different way. This proof runs the same program on three of the drivers. The Bun driver ships in the package but runs only under Bun, so it is named here and not proved.',
       proof: Effect.gen(function* () {
         const results = yield* Effect.all({
           node: onDriver(makeNodeSQLite({ path: ':memory:' }), program),
