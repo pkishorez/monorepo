@@ -256,9 +256,9 @@ function StoryBody({
           {story.setup !== null && (
             <div
               className={cn(
-                'overflow-y-auto rounded-lg',
+                'overflow-auto rounded-lg',
                 scrollbarStyles,
-                setupExpanded ? 'max-h-[60vh]' : 'max-h-52',
+                setupExpanded ? 'max-h-[32rem]' : 'max-h-52',
               )}
             >
               <CodeSnippet code={story.setup} />
@@ -367,7 +367,7 @@ function SourceDialog({
             {source.path}
           </DialogTitle>
         </div>
-        <div className={cn('flex-1 overflow-y-auto', scrollbarStyles)}>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', scrollbarStyles)}>
           <SourceViewer
             filePath={source.path}
             content={source.content}
@@ -418,7 +418,10 @@ function StoryDialog({
           )}
         </div>
         <div
-          className={cn('flex-1 overflow-y-auto px-5 py-4', scrollbarStyles)}
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto px-5 py-4',
+            scrollbarStyles,
+          )}
         >
           <StoryBody
             story={story}
