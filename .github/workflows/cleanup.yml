@@ -22,6 +22,9 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ vars.AWS_REGION }}
+      # Supplied explicitly so Alchemy skips the STS GetCallerIdentity it
+      # would otherwise use to discover the account id.
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       BANK_AWS_ACCESS_KEY_ID: ${{ secrets.BANK_AWS_ACCESS_KEY_ID }}
       BANK_AWS_SECRET_ACCESS_KEY: ${{ secrets.BANK_AWS_SECRET_ACCESS_KEY }}
       # Destroy also evaluates apps/docs/alchemy.run.ts, whose accident-guard
