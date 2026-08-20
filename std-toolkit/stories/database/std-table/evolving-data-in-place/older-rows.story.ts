@@ -17,13 +17,13 @@ const todaysTable = StdTable.make('std-table-stories')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-const lastYearsArticle = EntityESchema.make('Article', 'articleId', {
-  section: Schema.String,
+const lastYearsNote = EntityESchema.make('Note', 'noteId', {
+  notebook: Schema.String,
   title: Schema.String,
 }).build();
 
-const todaysArticle = EntityESchema.make('Article', 'articleId', {
-  section: Schema.String,
+const todaysNote = EntityESchema.make('Note', 'noteId', {
+  notebook: Schema.String,
   title: Schema.String,
 })
   .evolve('v2', { summary: Schema.NullOr(Schema.String) }, (previous) => ({
@@ -33,16 +33,16 @@ const todaysArticle = EntityESchema.make('Article', 'articleId', {
   .build();
 
 const oldArticle = lastYearsTable
-  .entity(lastYearsArticle)
-  .primary({ pk: ['section'] })
+  .entity(lastYearsNote)
+  .primary({ pk: ['notebook'] })
   .build();
 
 const article = todaysTable
-  .entity(todaysArticle)
-  .primary({ pk: ['section'] })
+  .entity(todaysNote)
+  .primary({ pk: ['notebook'] })
   .build();
 
-const key = { articleId: 'a1', section: 'news' };
+const key = { noteId: 'a1', notebook: 'news' };
 
 export const olderRows = Story.make({
   title: 'Older rows',
@@ -51,7 +51,7 @@ export const olderRows = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when you read a row that an older version of the schema wrote?',
+      'A note was written last year, before the schema grew a field. What does reading it give back today?',
       {
         answer:
           'The row folds forward in memory. The migration fills the new field before you see it. The DecodedEntity has no `_v`, and the read does not rewrite the stored row.',
@@ -81,7 +81,7 @@ export const olderRows = Story.make({
         }),
       },
     ),
-    Story.question('What is written back when you update a migrated row?', {
+    Story.question('And once that note is edited and saved?', {
       answer:
         'The explicit update writes the whole row at the latest encoded version. The DecodedEntity still has no `_v`.',
       proof: Effect.gen(function* () {

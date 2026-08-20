@@ -13,5 +13,6 @@ Three ideas carry the whole part:
 - A **live query** is what a screen mounts, and what updates when the copy does.
 - A change made in the browser is shown **immediately** and confirmed afterwards.
 
-Start with **How these stories run** for the vocabulary, then **Wiring a
-collection** for the first note to make the round trip.
+Start with **Building the simulation**, which assembles the world the rest of
+this part runs in — and ends by proving that it did. Then **Wiring a
+collection**, for the first note to make the full round trip.

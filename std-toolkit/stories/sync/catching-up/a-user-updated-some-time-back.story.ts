@@ -4,10 +4,10 @@ import { syncStrategy } from 'std-toolkit/sync';
 import {
   Simulation,
   storyTable,
-  todoEntity,
-  todoSource,
-  type Todo,
-  type TodoEntity,
+  noteEntity,
+  noteSource,
+  type Note,
+  type NoteEntity,
 } from '../support.js';
 
 const batches: string[][] = [];
@@ -15,18 +15,18 @@ const simulation = Simulation.make({
   table: storyTable,
   collections: [
     Simulation.collection({
-      entity: todoEntity,
+      entity: noteEntity,
       configure: ({ backend }) => {
-        const inbox = todoSource(backend, 'inbox');
+        const inbox = noteSource(backend, 'inbox');
         return {
           sync: {
             total: {
-              strategy: syncStrategy.oldToNew<Todo>({
+              strategy: syncStrategy.oldToNew<Note>({
                 source: ({ paginated }) =>
                   paginated({
                     fetch: ({ cursor }) =>
                       inbox.pageNewer(cursor, 2).pipe(
-                        Effect.tap((page: readonly TodoEntity[]) =>
+                        Effect.tap((page: readonly NoteEntity[]) =>
                           Effect.sync(() => {
                             if (page.length > 0) {
                               batches.push(
@@ -47,23 +47,23 @@ const simulation = Simulation.make({
   ] as const,
 });
 
-const history: Todo[] = [
-  { todoId: 't1', listId: 'inbox', title: 'Buy milk', done: true },
-  { todoId: 't2', listId: 'inbox', title: 'Walk dog', done: false },
-  { todoId: 't3', listId: 'inbox', title: 'Write report', done: false },
+const history: Note[] = [
+  { noteId: 't1', notebook: 'inbox', title: 'Buy milk', pinned: true },
+  { noteId: 't2', notebook: 'inbox', title: 'Walk dog', pinned: false },
+  { noteId: 't3', notebook: 'inbox', title: 'Write report', pinned: false },
 ];
 
 const seed = (
   backend: Parameters<Parameters<typeof simulation.run>[0]>[0]['backend'],
 ) =>
   Effect.gen(function* () {
-    yield* backend.insert('Todo', { ...history[0]!, done: false });
-    yield* backend.insert('Todo', history[1]!);
-    yield* backend.insert('Todo', history[2]!);
+    yield* backend.insert('Note', { ...history[0]!, pinned: false });
+    yield* backend.insert('Note', history[1]!);
+    yield* backend.insert('Note', history[2]!);
     yield* backend.update(
-      'Todo',
-      { todoId: 't1', listId: 'inbox' },
-      { done: true },
+      'Note',
+      { noteId: 't1', notebook: 'inbox' },
+      { pinned: true },
     );
   });
 
@@ -85,7 +85,7 @@ export const aUserUpdatedSomeTimeBack = Story.make({
             const alice = browser('alice');
             const inbox = yield* alice.mount({
               name: 'inbox',
-              query: (q) => q.from({ todo: alice.collection('Todo') }),
+              query: (q) => q.from({ note: alice.collection('Note') }),
             });
             yield* inbox.eventuallyShows(history);
             yield* Story.assert(
@@ -111,17 +111,17 @@ export const aUserUpdatedSomeTimeBack = Story.make({
         Effect.gen(function* () {
           batches.length = 0;
           yield* seed(backend);
-          yield* backend.remove('Todo', {
-            todoId: 't2',
-            listId: 'inbox',
+          yield* backend.remove('Note', {
+            noteId: 't2',
+            notebook: 'inbox',
           });
           const alice = browser('alice');
           const inbox = yield* alice.mount({
             name: 'inbox',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
           yield* inbox.eventuallyShows(
-            history.filter((todo) => todo.todoId !== 't2'),
+            history.filter((note) => note.noteId !== 't2'),
           );
           return inbox.toArray;
         }),

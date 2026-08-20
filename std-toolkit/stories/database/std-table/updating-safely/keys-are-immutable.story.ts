@@ -13,7 +13,7 @@ export const keysAreImmutable = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens if an update tries to change the primary key?',
+      'Someone drags a note into a different notebook. Can the note just change its `notebook` field?',
       {
         answer:
           'The update fails with `PrimaryKeyUpdateNotSupported` and the stored row keeps its old values — a row moves only by inserting it under the new key and deleting the old one.',

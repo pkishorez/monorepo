@@ -12,40 +12,43 @@ export const skippingAndMissing = Story.make({
     'An update that can refuse itself, checked against the value that was just read.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you decide, after reading, not to write at all?', {
-      answer:
-        'Give the update an entity invariant through `check`. It runs against the value that was just read, and a refusal fails with `CheckRefused` before any write, so the update stamp stays put.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            const inserted = yield* note.insert(draft);
-            const failure = yield* note
-              .getAndUpdate(
-                key,
-                { status: 'open' },
-                { check: (current) => current.status !== 'open' },
-              )
-              .pipe(Effect.flip);
-            const stored = yield* note.get(key);
-            return {
-              reason: reasonOf(failure),
-              insertedStamp: inserted.meta._u,
-              storedStamp: stored?.meta._u ?? null,
-              status: stored?.value.status ?? null,
-            };
-          }),
-        );
-        yield* Story.assert(
-          'nothing was written and the stamp is untouched',
-          results.sqlite.reason === 'CheckRefused' &&
-            results.sqlite.storedStamp === results.sqlite.insertedStamp &&
-            results.sqlite.status === 'open',
-        );
-        yield* Story.assert('every adapter agrees', agree(results));
-        return results;
-      }),
-    }),
-    Story.question('What happens if you delete a row that is already gone?', {
+    Story.question(
+      'A note turns out to already say what the edit would set. How is the write called off?',
+      {
+        answer:
+          'Give the update an entity invariant through `check`. It runs against the value that was just read, and a refusal fails with `CheckRefused` before any write, so the update stamp stays put.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              const inserted = yield* note.insert(draft);
+              const failure = yield* note
+                .getAndUpdate(
+                  key,
+                  { status: 'open' },
+                  { check: (current) => current.status !== 'open' },
+                )
+                .pipe(Effect.flip);
+              const stored = yield* note.get(key);
+              return {
+                reason: reasonOf(failure),
+                insertedStamp: inserted.meta._u,
+                storedStamp: stored?.meta._u ?? null,
+                status: stored?.value.status ?? null,
+              };
+            }),
+          );
+          yield* Story.assert(
+            'nothing was written and the stamp is untouched',
+            results.sqlite.reason === 'CheckRefused' &&
+              results.sqlite.storedStamp === results.sqlite.insertedStamp &&
+              results.sqlite.status === 'open',
+          );
+          yield* Story.assert('every adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
+    Story.question('And deleting a note another tab deleted a moment ago?', {
       answer:
         'It is written again. A delete always writes a tombstone, so the update stamp moves and the change broadcasts. Every op contributes exactly one write, which is what keeps a batch atomic and keeps its outcome report aligned with the ops you handed in.',
       proof: Effect.gen(function* () {

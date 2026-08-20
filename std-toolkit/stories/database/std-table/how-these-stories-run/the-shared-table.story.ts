@@ -9,7 +9,7 @@ export const theSharedTable = Story.make({
     'The one table shape every Story in this part is written against.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('What table do these stories write to?', {
+    Story.question('Which table are all these notes going into?', {
       answer:
         'One logical table with a partition key, a sort key, one local secondary index slot, and one global secondary index slot — the same shape on every backend.',
       proof: Effect.gen(function* () {
@@ -27,7 +27,7 @@ export const theSharedTable = Story.make({
         return shape;
       }),
     }),
-    Story.question('Which entities share it?', {
+    Story.question('And what else is in there besides notes?', {
       answer:
         'A keyed `Note` with three access patterns and a single `Settings` record — two entity types living in one table.',
       proof: Effect.gen(function* () {

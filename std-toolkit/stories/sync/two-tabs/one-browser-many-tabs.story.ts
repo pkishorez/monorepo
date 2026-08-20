@@ -4,22 +4,22 @@ import { syncStrategy } from 'std-toolkit/sync';
 import {
   Simulation,
   storyTable,
-  todoEntity,
-  todoSource,
-  type Todo,
+  noteEntity,
+  noteSource,
+  type Note,
 } from '../support.js';
 
 const simulation = Simulation.make({
   table: storyTable,
   collections: [
     Simulation.collection({
-      entity: todoEntity,
+      entity: noteEntity,
       configure: ({ backend }) => {
-        const inbox = todoSource(backend, 'inbox');
+        const inbox = noteSource(backend, 'inbox');
         return {
           sync: {
             total: {
-              strategy: syncStrategy.oldToNew<Todo>({
+              strategy: syncStrategy.oldToNew<Note>({
                 source: ({ paginated }) =>
                   paginated({
                     fetch: ({ cursor }) =>
@@ -36,17 +36,17 @@ const simulation = Simulation.make({
   ] as const,
 });
 
-const milk: Todo = {
-  todoId: 't1',
-  listId: 'inbox',
+const milk: Note = {
+  noteId: 't1',
+  notebook: 'inbox',
   title: 'Buy milk',
-  done: false,
+  pinned: false,
 };
-const dog: Todo = {
-  todoId: 't2',
-  listId: 'inbox',
+const dog: Note = {
+  noteId: 't2',
+  notebook: 'inbox',
   title: 'Walk dog',
-  done: false,
+  pinned: false,
 };
 
 export const oneBrowserManyTabs = Story.make({
@@ -64,22 +64,22 @@ export const oneBrowserManyTabs = Story.make({
           const alice = browser('alice');
           const first = yield* alice.mount({
             name: 'first-tab',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
-          yield* backend.insert('Todo', milk);
+          yield* backend.insert('Note', milk);
           yield* first.eventuallyShows([milk]);
 
           const second = alice.tab('second');
           const later = yield* second.mount({
             name: 'second-tab',
-            query: (q) => q.from({ todo: second.collection('Todo') }),
+            query: (q) => q.from({ note: second.collection('Note') }),
           });
           yield* later.eventuallyShows([milk]);
           return later.toArray;
         }),
       ),
     }),
-    Story.question('Alice adds a todo in one tab. Does the other tab see it?', {
+    Story.question('Alice adds a note in one tab. Does the other tab see it?', {
       answer:
         'Yes. After the Backend confirms the mutation, the writing tab accepts the complete Entity into its Sync Replica. Peer Sync sends that Entity to the matching qualified Collection, where the sibling converges its separate Memory replica and advances its projection immediately.',
       proof: simulation.run(({ browser }) =>
@@ -88,21 +88,21 @@ export const oneBrowserManyTabs = Story.make({
           const second = alice.tab('second');
           const left = yield* alice.mount({
             name: 'left',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
           const right = yield* second.mount({
             name: 'right',
-            query: (q) => q.from({ todo: second.collection('Todo') }),
+            query: (q) => q.from({ note: second.collection('Note') }),
           });
 
-          yield* alice.insert('Todo', milk);
+          yield* alice.insert('Note', milk);
           yield* left.eventuallyShows([milk]);
           yield* right.eventuallyShows([milk]);
           return right.toArray;
         }),
       ),
     }),
-    Story.question('Alice edits a todo in one tab. Does the other follow?', {
+    Story.question('Alice edits a note in one tab. Does the other follow?', {
       answer:
         'Yes. The edit stays optimistic and tab-local until the Backend confirms it. The accepted Entity then enters Peer Sync, and the sibling applies normal convergence without relaying the delivery.',
       proof: simulation.run(({ browser }) =>
@@ -111,27 +111,27 @@ export const oneBrowserManyTabs = Story.make({
           const second = alice.tab('second');
           const left = yield* alice.mount({
             name: 'left',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
           const right = yield* second.mount({
             name: 'right',
-            query: (q) => q.from({ todo: second.collection('Todo') }),
+            query: (q) => q.from({ note: second.collection('Note') }),
           });
-          yield* alice.insert('Todo', milk);
+          yield* alice.insert('Note', milk);
           yield* right.eventuallyShows([milk]);
 
           yield* second.update(
-            'Todo',
-            { todoId: 't1', listId: 'inbox' },
-            { done: true },
+            'Note',
+            { noteId: 't1', notebook: 'inbox' },
+            { pinned: true },
           );
-          yield* left.eventuallyShows([{ ...milk, done: true }]);
+          yield* left.eventuallyShows([{ ...milk, pinned: true }]);
           return left.toArray;
         }),
       ),
     }),
     Story.question(
-      'Alice removes a todo in one tab. Does it vanish in the other?',
+      'Alice removes a note in one tab. Does it vanish in the other?',
       {
         answer:
           'Yes. The removal is stored as a confirmed tombstone, and Peer Sync carries it like any other accepted Entity. The receiving replica retains the tombstone while its projection removes the row.',
@@ -141,17 +141,17 @@ export const oneBrowserManyTabs = Story.make({
             const second = alice.tab('second');
             const left = yield* alice.mount({
               name: 'left',
-              query: (q) => q.from({ todo: alice.collection('Todo') }),
+              query: (q) => q.from({ note: alice.collection('Note') }),
             });
             const right = yield* second.mount({
               name: 'right',
-              query: (q) => q.from({ todo: second.collection('Todo') }),
+              query: (q) => q.from({ note: second.collection('Note') }),
             });
-            yield* alice.insert('Todo', milk);
-            yield* alice.insert('Todo', dog);
+            yield* alice.insert('Note', milk);
+            yield* alice.insert('Note', dog);
             yield* right.eventuallyShows([milk, dog]);
 
-            yield* second.remove('Todo', { todoId: 't1', listId: 'inbox' });
+            yield* second.remove('Note', { noteId: 't1', notebook: 'inbox' });
             yield* left.eventuallyShows([dog]);
             return left.toArray;
           }),
@@ -167,22 +167,22 @@ export const oneBrowserManyTabs = Story.make({
           const second = alice.tab('second');
           const left = yield* alice.mount({
             name: 'left',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
           const right = yield* second.mount({
             name: 'right',
-            query: (q) => q.from({ todo: second.collection('Todo') }),
+            query: (q) => q.from({ note: second.collection('Note') }),
           });
-          yield* alice.insert('Todo', milk);
+          yield* alice.insert('Note', milk);
           yield* right.eventuallyShows([milk]);
 
           yield* second.unmount(right);
-          yield* alice.insert('Todo', dog);
+          yield* alice.insert('Note', dog);
           yield* left.eventuallyShows([milk, dog]);
 
           const reopened = yield* second.mount({
             name: 'reopened',
-            query: (q) => q.from({ todo: second.collection('Todo') }),
+            query: (q) => q.from({ note: second.collection('Note') }),
           });
           yield* reopened.eventuallyShows([milk, dog]);
           return reopened.toArray;

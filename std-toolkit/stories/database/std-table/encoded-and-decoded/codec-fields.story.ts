@@ -16,22 +16,22 @@ const TagList = Schema.String.pipe(
   ),
 );
 
-const BookingSchema = EntityESchema.make('Booking', 'bookingId', {
-  room: Schema.String,
-  startsAt: Schema.DateFromString,
+const ReminderNoteSchema = EntityESchema.make('Note', 'noteId', {
+  notebook: Schema.String,
+  remindAt: Schema.DateFromString,
   tags: TagList,
 }).build();
 
-const bookingsTable = StdTable.make('std-table-stories')
+const notesTable = StdTable.make('std-table-stories')
   .primary('pk', 'sk')
   .lsi('LSI1', 'LSI1SK')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-const booking = bookingsTable
-  .entity(BookingSchema)
-  .primary({ pk: ['room'] })
-  .index('LSI1', 'byStart', { sk: ['startsAt'] })
+const note = notesTable
+  .entity(ReminderNoteSchema)
+  .primary({ pk: ['notebook'] })
+  .index('LSI1', 'byReminder', { sk: ['remindAt'] })
   .build();
 
 // A second binding over the same physical table, typed as raw strings. It reads
@@ -42,22 +42,22 @@ const storedTable = StdTable.make('std-table-stories')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-const storedBooking = storedTable
+const storedNote = storedTable
   .entity(
-    EntityESchema.make('Booking', 'bookingId', {
-      room: Schema.String,
-      startsAt: Schema.String,
+    EntityESchema.make('Note', 'noteId', {
+      notebook: Schema.String,
+      remindAt: Schema.String,
       tags: Schema.String,
     }).build(),
   )
-  .primary({ pk: ['room'] })
+  .primary({ pk: ['notebook'] })
   .build();
 
-const key = { bookingId: 'b1', room: 'oak' };
+const key = { noteId: 'b1', notebook: 'oak' };
 
 const standup = {
   ...key,
-  startsAt: new Date('2026-05-01T09:00:00.000Z'),
+  remindAt: new Date('2026-05-01T09:00:00.000Z'),
   tags: ['weekly', 'team'],
 };
 
@@ -68,18 +68,18 @@ export const codecFields = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What shape do you hand to a write, and what shape comes back from a read?',
+      'A note carries a reminder date and a list of tags. What shape goes in, and what comes back?',
       {
         answer:
-          'The decoded shape both times. `startsAt` goes in as a `Date` and comes back as a `Date`; `tags` goes in as an array and comes back as an array. Encoding happens on the way to the adapter and is undone on the way back.',
+          'The decoded shape both times. `remindAt` goes in as a `Date` and comes back as a `Date`; `tags` goes in as an array and comes back as an array. Encoding happens on the way to the adapter and is undone on the way back.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
-              yield* booking.insert(standup);
-              const read = yield* booking.get(key);
+              yield* note.insert(standup);
+              const read = yield* note.get(key);
               return {
-                isDate: read?.value.startsAt instanceof Date,
-                startsAt: read?.value.startsAt.toISOString() ?? null,
+                isDate: read?.value.remindAt instanceof Date,
+                remindAt: read?.value.remindAt.toISOString() ?? null,
                 tags: read?.value.tags ?? null,
               };
             }),
@@ -87,7 +87,7 @@ export const codecFields = Story.make({
           yield* Story.assert(
             'the read hands back live Date and array values',
             results.sqlite.isDate &&
-              results.sqlite.startsAt === '2026-05-01T09:00:00.000Z' &&
+              results.sqlite.remindAt === '2026-05-01T09:00:00.000Z' &&
               JSON.stringify(results.sqlite.tags) ===
                 JSON.stringify(['weekly', 'team']),
           );
@@ -96,40 +96,40 @@ export const codecFields = Story.make({
         }),
       },
     ),
-    Story.question('What does the row actually hold?', {
+    Story.question('And what is actually sitting in the database?', {
       answer:
         'The encoded shape — an ISO string and a joined string. Every adapter stores the same portable bytes, so the codec, not the database, decides the storage format.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
-            yield* booking.insert(standup);
-            const stored = yield* storedBooking.get(key);
+            yield* note.insert(standup);
+            const stored = yield* storedNote.get(key);
             return {
-              startsAt: stored?.value.startsAt ?? null,
+              remindAt: stored?.value.remindAt ?? null,
               tags: stored?.value.tags ?? null,
             };
           }),
         );
         yield* Story.assert(
           'the stored row holds strings, not a Date or an array',
-          results.sqlite.startsAt === '2026-05-01T09:00:00.000Z' &&
+          results.sqlite.remindAt === '2026-05-01T09:00:00.000Z' &&
             results.sqlite.tags === 'weekly|team',
         );
         yield* Story.assert('every adapter agrees', agree(results));
         return results;
       }),
     }),
-    Story.question('Where does the version stamp live?', {
+    Story.question('Where does the schema version live in all that?', {
       answer:
         'On the encoded value, never on what you read. `encode` stamps `_v` alongside the encoded fields; the DecodedEntity carries neither a `_v` field nor a `_v` in its meta.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
-            const inserted = yield* booking.insert(standup);
-            const encoded = yield* BookingSchema.encode(inserted.value);
+            const inserted = yield* note.insert(standup);
+            const encoded = yield* ReminderNoteSchema.encode(inserted.value);
             return {
               encodedVersion: encoded._v,
-              encodedStartsAt: encoded.startsAt,
+              encodedStartsAt: encoded.remindAt,
               valueHasVersion: Object.hasOwn(inserted.value, '_v'),
               metaHasVersion: Object.hasOwn(inserted.meta, '_v'),
             };
@@ -148,28 +148,28 @@ export const codecFields = Story.make({
         return results;
       }),
     }),
-    Story.question('Which side do index keys come from?', {
+    Story.question('Which side does an index key get built from?', {
       answer:
-        'The encoded side. `byStart` sorts on the stored ISO string, which is lexicographically chronological, so the index orders bookings by time — a `Date` stringified any other way would not.',
+        'The encoded side. `byReminder` sorts on the stored ISO string, which is lexicographically chronological, so the index orders bookings by time — a `Date` stringified any other way would not.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
-            yield* booking.insert({
+            yield* note.insert({
               ...standup,
-              bookingId: 'b2',
-              startsAt: new Date('2026-05-01T14:00:00.000Z'),
+              noteId: 'b2',
+              remindAt: new Date('2026-05-01T14:00:00.000Z'),
             });
-            yield* booking.insert(standup);
-            yield* booking.insert({
+            yield* note.insert(standup);
+            yield* note.insert({
               ...standup,
-              bookingId: 'b3',
-              startsAt: new Date('2026-04-30T16:00:00.000Z'),
+              noteId: 'b3',
+              remindAt: new Date('2026-04-30T16:00:00.000Z'),
             });
-            const page = yield* booking.query('byStart', {
-              pk: { room: 'oak' },
+            const page = yield* note.query('byReminder', {
+              pk: { notebook: 'oak' },
               '>=': null,
             });
-            return page.items.map(({ value }) => value.bookingId);
+            return page.items.map(({ value }) => value.noteId);
           }),
         );
         yield* Story.assert(
@@ -180,22 +180,22 @@ export const codecFields = Story.make({
         return results;
       }),
     }),
-    Story.question('What happens to a codec field on update?', {
+    Story.question('And when only one of those fields is updated?', {
       answer:
         'It makes the same round trip. You hand `getAndUpdate` a `Date`, the row is rewritten with a fresh ISO string, and the next read decodes it back.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
-            yield* booking.insert(standup);
-            const moved = yield* booking.getAndUpdate(key, {
-              startsAt: new Date('2026-05-02T09:30:00.000Z'),
+            yield* note.insert(standup);
+            const moved = yield* note.getAndUpdate(key, {
+              remindAt: new Date('2026-05-02T09:30:00.000Z'),
             });
-            const stored = yield* storedBooking.get(key);
-            const read = yield* booking.get(key);
+            const stored = yield* storedNote.get(key);
+            const read = yield* note.get(key);
             return {
-              updatedIsDate: moved.value.startsAt instanceof Date,
-              stored: stored?.value.startsAt ?? null,
-              read: read?.value.startsAt.toISOString() ?? null,
+              updatedIsDate: moved.value.remindAt instanceof Date,
+              stored: stored?.value.remindAt ?? null,
+              read: read?.value.remindAt.toISOString() ?? null,
               tagsSurvived: read?.value.tags ?? null,
             };
           }),

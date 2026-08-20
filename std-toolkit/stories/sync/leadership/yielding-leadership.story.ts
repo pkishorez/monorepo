@@ -5,23 +5,23 @@ import { syncStrategy } from 'std-toolkit/sync';
 import {
   Simulation,
   storyTable,
-  todoEntity,
-  todoSource,
-  type Todo,
+  noteEntity,
+  noteSource,
+  type Note,
 } from '../support.js';
 
-const seeded: Todo = {
-  todoId: 'seeded',
-  listId: 'inbox',
+const seeded: Note = {
+  noteId: 'seeded',
+  notebook: 'inbox',
   title: 'Already in the inbox',
-  done: false,
+  pinned: false,
 };
 
-const addedWhileWaiting: Todo = {
-  todoId: 'waiting-tab-write',
-  listId: 'inbox',
+const addedWhileWaiting: Note = {
+  noteId: 'waiting-tab-write',
+  notebook: 'inbox',
   title: 'Added by the waiting tab',
-  done: false,
+  pinned: false,
 };
 
 const waitUntil = (predicate: () => boolean) =>
@@ -40,14 +40,14 @@ const makeSimulation = (releaseWhen: 'hidden' | 'frozen') => {
     leadership: Simulation.webLocks({ releaseWhen }),
     collections: [
       Simulation.collection({
-        entity: todoEntity,
+        entity: noteEntity,
         configure: ({ backend }) => ({
           sync: {
             partitions: {
-              listId: (listId) => {
-                const inbox = todoSource(backend, String(listId));
+              notebook: (notebook) => {
+                const inbox = noteSource(backend, String(notebook));
                 return {
-                  strategy: syncStrategy.oldToNew<Todo>({
+                  strategy: syncStrategy.oldToNew<Note>({
                     source: ({ live }) =>
                       live({
                         open: ({ cursor }) =>
@@ -85,8 +85,8 @@ const mountInbox = (tab: Tab) =>
     name: 'Inbox partition',
     query: (q) =>
       q
-        .from({ todo: tab.collection('Todo') })
-        .where(({ todo }) => eq(todo.listId, 'inbox')),
+        .from({ note: tab.collection('Note') })
+        .where(({ note }) => eq(note.notebook, 'inbox')),
   });
 
 const waitForAcquisitions = (
@@ -120,7 +120,7 @@ const runDance = (simulation: LeadershipSimulation) =>
   simulation.simulation.run(({ backend, browser }) =>
     Effect.gen(function* () {
       simulation.counters.acquisitions = 0;
-      yield* backend.insert('Todo', seeded);
+      yield* backend.insert('Note', seeded);
 
       const first = browser('alice');
       const second = first.tab('second');
@@ -129,7 +129,7 @@ const runDance = (simulation: LeadershipSimulation) =>
 
       const secondInbox = yield* mountInbox(second);
       yield* firstInbox.eventuallyShows([seeded]);
-      yield* second.insert('Todo', addedWhileWaiting);
+      yield* second.insert('Note', addedWhileWaiting);
       yield* firstInbox.eventuallyShows([seeded, addedWhileWaiting]);
       yield* secondInbox.eventuallyShows([seeded, addedWhileWaiting]);
       const secondWaited = simulation.counters.acquisitions === 1;

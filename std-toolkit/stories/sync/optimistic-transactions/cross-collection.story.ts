@@ -5,32 +5,32 @@ import { syncStrategy } from 'std-toolkit/sync';
 import {
   Simulation,
   storyTable,
-  todoEntity,
-  todoSource,
-  type Todo,
+  noteEntity,
+  noteSource,
+  type Note,
 } from '../support.js';
 
 const AuditSchema = EntityESchema.make('Audit', 'auditId', {
-  todoId: Schema.String,
+  noteId: Schema.String,
   message: Schema.String,
 }).build();
 
 const auditEntity = storyTable
   .entity(AuditSchema)
-  .primary({ pk: ['todoId'] })
+  .primary({ pk: ['noteId'] })
   .build();
 
 const simulation = Simulation.make({
   table: storyTable,
   collections: [
     Simulation.collection({
-      entity: todoEntity,
+      entity: noteEntity,
       configure: ({ backend }) => {
-        const inbox = todoSource(backend, 'inbox');
+        const inbox = noteSource(backend, 'inbox');
         return {
           sync: {
             total: {
-              strategy: syncStrategy.oldToNew<Todo>({
+              strategy: syncStrategy.oldToNew<Note>({
                 source: ({ live }) =>
                   live({ open: ({ cursor }) => inbox.changes(cursor) }),
               }),
@@ -46,17 +46,17 @@ const simulation = Simulation.make({
   ] as const,
 });
 
-const todo = {
-  todoId: 't1',
-  listId: 'inbox',
+const note = {
+  noteId: 't1',
+  notebook: 'inbox',
   title: 'Ship the simulation',
-  done: false,
+  pinned: false,
 };
 
 const audit = {
   auditId: 'a1',
-  todoId: 't1',
-  message: 'Todo completed',
+  noteId: 't1',
+  message: 'Note completed',
 };
 
 export const crossCollection = Story.make({
@@ -72,75 +72,75 @@ export const crossCollection = Story.make({
           'Yes. The Browser uses TanStack DB’s optimistic action and mutates both real Collections in one ambient transaction. Both Live Queries update immediately; one Backend transaction then persists and confirms them together.',
         proof: simulation.run(({ backend, browser }) =>
           Effect.gen(function* () {
-            yield* backend.insert('Todo', todo);
+            yield* backend.insert('Note', note);
             const alice = browser('alice');
-            const todos = yield* alice.mount({
+            const notes = yield* alice.mount({
               name: 'inbox',
-              query: (q) => q.from({ todo: alice.collection('Todo') }),
+              query: (q) => q.from({ note: alice.collection('Note') }),
             });
             const audits = yield* alice.mount({
               name: 'audit',
               query: (q) => q.from({ audit: alice.collection('Audit') }),
             });
-            yield* todos.eventuallyShows([todo]);
+            yield* notes.eventuallyShows([note]);
 
             const backendWrite = yield* backend.holdNextWrite;
             const transaction = yield* alice.transact(
-              'Complete todo and record audit',
+              'Complete note and record audit',
               ({ collection }) => {
-                collection('Todo').update('t1', (draft) => {
-                  draft.done = true;
+                collection('Note').update('t1', (draft) => {
+                  draft.pinned = true;
                 });
                 collection('Audit').insert(audit);
               },
             );
 
-            yield* todos.eventuallyShows([{ ...todo, done: true }]);
+            yield* notes.eventuallyShows([{ ...note, pinned: true }]);
             yield* audits.eventuallyShows([audit]);
             yield* backendWrite.succeed;
             yield* transaction.persisted;
-            return { todos: todos.toArray, audits: audits.toArray };
+            return { notes: notes.toArray, audits: audits.toArray };
           }),
         ),
       },
     ),
     Story.question('What does a failed Backend transaction do?', {
       answer:
-        'TanStack DB removes the whole optimistic overlay. The Todo returns to its confirmed value and the optimistic Audit row disappears; neither write reaches the Backend.',
+        'TanStack DB removes the whole optimistic overlay. The Note returns to its confirmed value and the optimistic Audit row disappears; neither write reaches the Backend.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
-          yield* backend.insert('Todo', todo);
+          yield* backend.insert('Note', note);
           const alice = browser('alice');
-          const todos = yield* alice.mount({
+          const notes = yield* alice.mount({
             name: 'inbox',
-            query: (q) => q.from({ todo: alice.collection('Todo') }),
+            query: (q) => q.from({ note: alice.collection('Note') }),
           });
           const audits = yield* alice.mount({
             name: 'audit',
             query: (q) => q.from({ audit: alice.collection('Audit') }),
           });
-          yield* todos.eventuallyShows([todo]);
+          yield* notes.eventuallyShows([note]);
 
           const backendWrite = yield* backend.holdNextWrite;
           const transaction = yield* alice.transact(
-            'Fail todo completion',
+            'Fail note completion',
             ({ collection }) => {
-              collection('Todo').update('t1', (draft) => {
-                draft.done = true;
+              collection('Note').update('t1', (draft) => {
+                draft.pinned = true;
               });
               collection('Audit').insert(audit);
             },
           );
 
-          yield* todos.eventuallyShows([{ ...todo, done: true }]);
+          yield* notes.eventuallyShows([{ ...note, pinned: true }]);
           yield* audits.eventuallyShows([audit]);
           yield* backendWrite.fail(
             new Error('Backend rejected the transaction'),
           );
           yield* transaction.failed;
-          yield* todos.eventuallyShows([todo]);
+          yield* notes.eventuallyShows([note]);
           yield* audits.eventuallyShows([]);
-          return { todos: todos.toArray, audits: audits.toArray };
+          return { notes: notes.toArray, audits: audits.toArray };
         }),
       ),
     }),

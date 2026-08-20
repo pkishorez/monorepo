@@ -12,7 +12,7 @@ export const layerSelection = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when a nested scope provides another Adapter layer for the same StdTable?',
+      'A program never names a database. So how does one get chosen — and can it change partway through?',
       {
         answer:
           'The nested layer selects its Adapter only inside that scope. Before and after the nested scope, operations use the outer layer again.',

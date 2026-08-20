@@ -13,19 +13,19 @@ import {
   type SyncStoreLayer,
 } from 'std-toolkit/sync';
 
-type Todo = { id: string; title: string };
+type Note = { id: string; title: string };
 
-const TodoSchema = EntityESchema.make('Todo', 'id', {
+const NoteSchema = EntityESchema.make('Note', 'id', {
   title: Schema.String,
 }).build();
 
-const todo = (
+const note = (
   id: string,
   title: string,
   updated: string,
-): DecodedEntity<Todo> => ({
+): DecodedEntity<Note> => ({
   value: { id, title },
-  meta: { _e: 'Todo', _d: false, _u: updated },
+  meta: { _e: 'Note', _d: false, _u: updated },
 });
 
 const makeBus = () => {
@@ -93,7 +93,7 @@ const openTab = (options: {
     ...(options.storeLayer ? { storeLayer: options.storeLayer } : {}),
     ...(options.peerSync === undefined ? {} : { peerSync: options.peerSync }),
   });
-  const config = app.sync({ schema: TodoSchema });
+  const config = app.sync({ schema: NoteSchema });
   const projection = makeProjection();
   const subscription = config.sync.sync(projection.callbacks as never) as {
     cleanup: () => Promise<void>;
@@ -110,7 +110,7 @@ const eventually = (predicate: () => boolean) =>
     return false;
   });
 
-const received = (writes: readonly unknown[], entity: DecodedEntity<Todo>) =>
+const received = (writes: readonly unknown[], entity: DecodedEntity<Note>) =>
   writes.some(
     (write) =>
       typeof write === 'object' &&
@@ -154,8 +154,8 @@ export const peerSyncModel = Story.make({
           storeLayer: Memory.make(syncStore).layer,
           peerSync: { channel: bus.factory },
         });
-        const entity = todo('memory', 'Memory peers', '1');
-        yield* eventually(() => bus.subscribers('memory-tabs.todo') === 2);
+        const entity = note('memory', 'Memory peers', '1');
+        yield* eventually(() => bus.subscribers('memory-tabs.note') === 2);
         yield* left.config.utils.applyToSyncReplica(entity);
         const converged = yield* eventually(() =>
           received(right.projection.writes, entity),
@@ -179,8 +179,8 @@ export const peerSyncModel = Story.make({
         });
         const pollLeft = openTab({ name: 'polling-only', peerSync: false });
         const pollRight = openTab({ name: 'polling-only', peerSync: false });
-        const entity = todo('freshness', 'Compare delivery', '2');
-        yield* eventually(() => bus.subscribers('fast-path.todo') === 2);
+        const entity = note('freshness', 'Compare delivery', '2');
+        yield* eventually(() => bus.subscribers('fast-path.note') === 2);
         yield* peerLeft.config.utils.applyToSyncReplica(entity);
         yield* pollLeft.config.utils.applyToSyncReplica(entity);
         const peerWasImmediate = yield* eventually(() =>
@@ -216,8 +216,8 @@ export const peerSyncModel = Story.make({
           name: 'repair',
           peerSync: { channel: bus.factory },
         });
-        const entity = todo('repair', 'Backend repairs', '3');
-        yield* eventually(() => bus.subscribers('repair.todo') === 2);
+        const entity = note('repair', 'Backend repairs', '3');
+        yield* eventually(() => bus.subscribers('repair.note') === 2);
         bus.setDrop(true);
         yield* left.config.utils.applyToSyncReplica(entity);
         yield* Story.assert(
@@ -248,7 +248,7 @@ export const peerSyncModel = Story.make({
           storeLayer: firstAdapter.layer,
           peerSync: false,
         });
-        const entity = todo('durable', 'Survives reload', '4');
+        const entity = note('durable', 'Survives reload', '4');
         yield* beforeReload.config.utils.applyToSyncReplica(entity);
         yield* close(beforeReload);
 
@@ -275,7 +275,7 @@ export const peerSyncModel = Story.make({
       proof: Effect.gen(function* () {
         const left = openTab({ name: 'disabled', peerSync: false });
         const right = openTab({ name: 'disabled', peerSync: false });
-        const entity = todo('disabled', 'Backend only', '5');
+        const entity = note('disabled', 'Backend only', '5');
         yield* left.config.utils.applyToSyncReplica(entity);
         yield* Story.assert(
           'the disabled peer stayed stale before backend delivery',

@@ -9,8 +9,8 @@ const table = StdTable.make('index-components-story')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-const TaskSchema = EntityESchema.make('Task', 'taskId', {
-  project: Schema.String,
+const NoteSchema = EntityESchema.make('Note', 'noteId', {
+  notebook: Schema.String,
   title: Schema.String,
   priority: Schema.Number,
 }).build();
@@ -39,14 +39,14 @@ export const indexComponents = Story.make({
           const messages = yield* Effect.sync(() => ({
             sortComponent: attempt(() =>
               table
-                .entity(TaskSchema)
-                .primary({ pk: ['project'] })
+                .entity(NoteSchema)
+                .primary({ pk: ['notebook'] })
                 .index('LSI1', 'byPriority', { sk: ['priority'] as never })
                 .build(),
             ),
             partitionComponent: attempt(() =>
               table
-                .entity(TaskSchema)
+                .entity(NoteSchema)
                 .primary({ pk: ['priority'] as never })
                 .build(),
             ),
@@ -71,19 +71,19 @@ export const indexComponents = Story.make({
           const messages = yield* Effect.sync(() => ({
             sameSlot: attempt(() =>
               table
-                .entity(TaskSchema)
-                .primary({ pk: ['project'] })
+                .entity(NoteSchema)
+                .primary({ pk: ['notebook'] })
                 .index('LSI1', 'byTitle', { sk: ['title'] })
-                .index('LSI1', 'byProject', { sk: ['project'] })
+                .index('LSI1', 'byProject', { sk: ['notebook'] })
                 .build(),
             ),
             sameName: attempt(() =>
               table
-                .entity(TaskSchema)
-                .primary({ pk: ['project'] })
+                .entity(NoteSchema)
+                .primary({ pk: ['notebook'] })
                 .index('LSI1', 'byTitle', { sk: ['title'] })
                 .index('GSI1', 'byTitle', {
-                  pk: ['project'],
+                  pk: ['notebook'],
                   sk: ['title'],
                 })
                 .build(),

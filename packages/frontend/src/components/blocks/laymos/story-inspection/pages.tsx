@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import {
   ChevronDown,
+  ChevronRight,
   FileCode2,
   Link as LinkIcon,
   Maximize2,
+  SquareArrowOutUpRight,
 } from 'lucide-react';
 import type { StoryTree } from 'laymos';
 
@@ -16,7 +18,6 @@ import { cn } from '#lib/utils';
 import {
   countQuestions,
   groupVerdict,
-  splitSpine,
   storyAnchor,
   type StoryLeaf,
   type StoryReports,
@@ -64,6 +65,7 @@ export function NodePage({
           reports={reports}
           running={running}
           onRun={onRun}
+          onSelect={onSelect}
         />
       );
   }
@@ -85,8 +87,6 @@ function GroupPage({
   readonly onSelect: (id: string) => void;
 }) {
   const [dialogStory, setDialogStory] = useState<StoryLeaf | null>(null);
-  const [depthOpen, setDepthOpen] = useState(false);
-  const { spine, depth } = splitSpine(group.stories);
   const storyRow = (story: StoryLeaf) => (
     <ChildRow
       key={story.id}
@@ -94,12 +94,13 @@ function GroupPage({
       description={story.description}
       verdict={reports?.[story.id]?.verdict}
       count={story.questions.length}
-      onOpen={() => onSelect(story.id)}
-      onOpenDialog={() => setDialogStory(story)}
+      onOpen={() => setDialogStory(story)}
+      onOpenPage={() => onSelect(story.id)}
     />
   );
   return (
     <div className="flex flex-col gap-5">
+      <Breadcrumbs id={id} onSelect={onSelect} />
       <PageHeading
         title={group.title}
         description={group.description}
@@ -117,25 +118,7 @@ function GroupPage({
             onOpen={() => onSelect(`${id}/${child.title}`)}
           />
         ))}
-        {spine.map(storyRow)}
-        {depthOpen && depth.map(storyRow)}
-        {depth.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setDepthOpen((value) => !value)}
-            className="flex w-full items-center gap-2 border-t border-border/60 px-3.5 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-          >
-            <ChevronDown
-              className={cn(
-                'size-3.5 transition-transform',
-                depthOpen && 'rotate-180',
-              )}
-            />
-            {depthOpen
-              ? 'Hide the rest'
-              : `${depth.length} more, past the main line`}
-          </button>
-        )}
+        {group.stories.map(storyRow)}
       </div>
       {dialogStory !== null && (
         <StoryDialog
@@ -155,17 +138,20 @@ function StoryPage({
   reports,
   running,
   onRun,
+  onSelect,
 }: {
   readonly story: StoryLeaf;
   readonly reports?: StoryReports;
   readonly running?: boolean;
   readonly onRun?: (scope?: string) => void;
+  readonly onSelect: (id: string) => void;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   const report = reports?.[story.id];
   return (
     <div className="flex flex-col gap-5">
+      <Breadcrumbs id={story.id} onSelect={onSelect} />
       <PageHeading
         title={story.title}
         description={story.description}
@@ -430,6 +416,36 @@ function QuestionsEndSpacer() {
   );
 }
 
+// A node's id is the titles on the path to it, so the trail is already in hand.
+function Breadcrumbs({
+  id,
+  onSelect,
+}: {
+  readonly id: string;
+  readonly onSelect: (id: string) => void;
+}) {
+  const titles = id.split('/');
+  if (titles.length < 2) return null;
+  return (
+    <nav className="flex flex-wrap items-center gap-0.5 text-xs text-muted-foreground">
+      {titles.slice(0, -1).map((title, index) => (
+        <span key={title} className="flex items-center gap-0.5">
+          {index > 0 && (
+            <ChevronRight className="size-3 shrink-0 text-muted-foreground/50" />
+          )}
+          <button
+            type="button"
+            onClick={() => onSelect(titles.slice(0, index + 1).join('/'))}
+            className="rounded px-1 py-0.5 transition-colors hover:bg-accent hover:text-foreground"
+          >
+            {title}
+          </button>
+        </span>
+      ))}
+    </nav>
+  );
+}
+
 function PageHeading({
   title,
   description,
@@ -465,14 +481,14 @@ function ChildRow({
   verdict,
   count,
   onOpen,
-  onOpenDialog,
+  onOpenPage,
 }: {
   readonly title: string;
   readonly description?: string;
   readonly verdict?: Verdict;
   readonly count?: number;
   readonly onOpen: () => void;
-  readonly onOpenDialog?: () => void;
+  readonly onOpenPage?: () => void;
 }) {
   return (
     <div className="group flex items-center border-b border-border/60 transition-colors last:border-b-0 hover:bg-accent/40">
@@ -500,14 +516,15 @@ function ChildRow({
           </span>
         )}
       </button>
-      {onOpenDialog !== undefined && (
+      {onOpenPage !== undefined && (
         <button
           type="button"
-          onClick={onOpenDialog}
-          title="Open in dialog"
-          className="mr-2 rounded-md p-1.5 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+          onClick={onOpenPage}
+          title="Open its own page"
+          className="mr-2 inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground/70 opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
         >
-          <Maximize2 className="size-3.5" />
+          <SquareArrowOutUpRight className="size-3" />
+          page
         </button>
       )}
     </div>

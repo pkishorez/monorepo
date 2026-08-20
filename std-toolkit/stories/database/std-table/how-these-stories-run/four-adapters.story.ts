@@ -16,7 +16,7 @@ export const fourAdapters = Story.make({
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Which databases does every proof run against?', {
+    Story.question('A Story here says a note was stored. Stored where?', {
       answer:
         'All four at once — DynamoDB Local over HTTP, IndexedDB, Memory, and an in-memory SQLite database — and `parity` returns what each Adapter produced.',
       proof: Effect.gen(function* () {
@@ -29,34 +29,37 @@ export const fourAdapters = Story.make({
         return { ...results, dynamodbEndpoint };
       }),
     }),
-    Story.question('Why do the four results match down to the update stamp?', {
-      answer:
-        'Each run gets the same deterministic update-stamp sequence instead of real ULIDs, so a whole stored Entity — Entity Meta included — can be compared across Adapters.',
-      proof: Effect.gen(function* () {
-        const results = yield* parity(
-          Effect.gen(function* () {
-            const first = yield* note.insert({
-              noteId: 'n1',
-              notebook: 'harness',
-              title: 'First',
-              status: 'open',
-            });
-            const second = yield* note.insert({
-              noteId: 'n2',
-              notebook: 'harness',
-              title: 'Second',
-              status: 'open',
-            });
-            return [first.meta._u, second.meta._u];
-          }),
-        );
-        yield* Story.assert(
-          'stamps advance one step at a time',
-          results.sqlite[0] !== results.sqlite[1],
-        );
-        yield* Story.assert('every Adapter agrees', agree(results));
-        return results;
-      }),
-    }),
+    Story.question(
+      'Four different databases agreeing down to the update stamp seems too good. What makes that possible?',
+      {
+        answer:
+          'Each run gets the same deterministic update-stamp sequence instead of real ULIDs, so a whole stored Entity — Entity Meta included — can be compared across Adapters.',
+        proof: Effect.gen(function* () {
+          const results = yield* parity(
+            Effect.gen(function* () {
+              const first = yield* note.insert({
+                noteId: 'n1',
+                notebook: 'harness',
+                title: 'First',
+                status: 'open',
+              });
+              const second = yield* note.insert({
+                noteId: 'n2',
+                notebook: 'harness',
+                title: 'Second',
+                status: 'open',
+              });
+              return [first.meta._u, second.meta._u];
+            }),
+          );
+          yield* Story.assert(
+            'stamps advance one step at a time',
+            results.sqlite[0] !== results.sqlite[1],
+          );
+          yield* Story.assert('every Adapter agrees', agree(results));
+          return results;
+        }),
+      },
+    ),
   ],
 });

@@ -5,9 +5,9 @@ import { syncStrategy } from 'std-toolkit/sync';
 import {
   Simulation,
   storyTable,
-  todoEntity,
-  todoSource,
-  type Todo,
+  noteEntity,
+  noteSource,
+  type Note,
 } from '../support.js';
 
 const activated: string[] = [];
@@ -15,16 +15,16 @@ const simulation = Simulation.make({
   table: storyTable,
   collections: [
     Simulation.collection({
-      entity: todoEntity,
+      entity: noteEntity,
       configure: ({ backend }) => ({
         sync: {
           partitions: {
-            listId: (listId) => {
-              const value = String(listId);
+            notebook: (notebook) => {
+              const value = String(notebook);
               activated.push(value);
-              const source = todoSource(backend, value);
+              const source = noteSource(backend, value);
               return {
-                strategy: syncStrategy.oldToNew<Todo>({
+                strategy: syncStrategy.oldToNew<Note>({
                   source: ({ live }) =>
                     live({ open: ({ cursor }) => source.changes(cursor) }),
                 }),
@@ -38,16 +38,16 @@ const simulation = Simulation.make({
 });
 
 const work = {
-  todoId: 'w1',
-  listId: 'work',
+  noteId: 'w1',
+  notebook: 'work',
   title: 'Ship release',
-  done: false,
+  pinned: false,
 };
 const home = {
-  todoId: 'h1',
-  listId: 'home',
+  noteId: 'h1',
+  notebook: 'home',
   title: 'Fix faucet',
-  done: false,
+  pinned: false,
 };
 
 export const oneListAtATime = Story.make({
@@ -58,26 +58,26 @@ export const oneListAtATime = Story.make({
   questions: [
     Story.question('Does mounting one partition query sync only that list?', {
       answer:
-        'Yes. Mounting the work Live Query subscribes to the real query Collection, which pushes its listId predicate into Todo and activates only the work partition.',
+        'Yes. Mounting the work Live Query subscribes to the real query Collection, which pushes its notebook predicate into Note and activates only the work partition.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           activated.length = 0;
-          yield* backend.insert('Todo', work);
-          yield* backend.insert('Todo', home);
+          yield* backend.insert('Note', work);
+          yield* backend.insert('Note', home);
           const alice = browser('alice');
-          const workTodos = yield* alice.mount({
+          const workNotes = yield* alice.mount({
             name: 'work',
             query: (q) =>
               q
-                .from({ todo: alice.collection('Todo') })
-                .where(({ todo }) => eq(todo.listId, 'work')),
+                .from({ note: alice.collection('Note') })
+                .where(({ note }) => eq(note.notebook, 'work')),
           });
-          yield* workTodos.eventuallyShows([work]);
+          yield* workNotes.eventuallyShows([work]);
           yield* Story.assert(
             'only work activated',
             sameNames(activated, ['work']),
           );
-          return { activated, rows: workTodos.toArray };
+          return { activated, rows: workNotes.toArray };
         }),
       ),
     }),
@@ -87,26 +87,26 @@ export const oneListAtATime = Story.make({
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           activated.length = 0;
-          yield* backend.insert('Todo', work);
+          yield* backend.insert('Note', work);
           const alice = browser('alice');
           const query = () =>
             alice.mount({
               name: 'work',
               query: (q) =>
                 q
-                  .from({ todo: alice.collection('Todo') })
-                  .where(({ todo }) => eq(todo.listId, 'work')),
+                  .from({ note: alice.collection('Note') })
+                  .where(({ note }) => eq(note.notebook, 'work')),
             });
           const firstMount = yield* query();
           yield* firstMount.eventuallyShows([work]);
           yield* alice.unmount(firstMount);
           const second = {
-            todoId: 'w2',
-            listId: 'work',
+            noteId: 'w2',
+            notebook: 'work',
             title: 'Publish notes',
-            done: false,
+            pinned: false,
           };
-          yield* backend.insert('Todo', second);
+          yield* backend.insert('Note', second);
           const secondMount = yield* query();
           yield* secondMount.eventuallyShows([work, second]);
           yield* Story.assert(
@@ -119,29 +119,29 @@ export const oneListAtATime = Story.make({
     }),
     Story.question('Can two partition queries stay mounted together?', {
       answer:
-        'Yes. Work and home are independent Live Queries and activate independent workers inside Alice’s Todo Collection.',
+        'Yes. Work and home are independent Live Queries and activate independent workers inside Alice’s Note Collection.',
       proof: simulation.run(({ backend, browser }) =>
         Effect.gen(function* () {
           activated.length = 0;
-          yield* backend.insert('Todo', work);
-          yield* backend.insert('Todo', home);
+          yield* backend.insert('Note', work);
+          yield* backend.insert('Note', home);
           const alice = browser('alice');
-          const workTodos = yield* alice.mount({
+          const workNotes = yield* alice.mount({
             name: 'work',
             query: (q) =>
               q
-                .from({ todo: alice.collection('Todo') })
-                .where(({ todo }) => eq(todo.listId, 'work')),
+                .from({ note: alice.collection('Note') })
+                .where(({ note }) => eq(note.notebook, 'work')),
           });
-          const homeTodos = yield* alice.mount({
+          const homeNotes = yield* alice.mount({
             name: 'home',
             query: (q) =>
               q
-                .from({ todo: alice.collection('Todo') })
-                .where(({ todo }) => eq(todo.listId, 'home')),
+                .from({ note: alice.collection('Note') })
+                .where(({ note }) => eq(note.notebook, 'home')),
           });
-          yield* workTodos.eventuallyShows([work]);
-          yield* homeTodos.eventuallyShows([home]);
+          yield* workNotes.eventuallyShows([work]);
+          yield* homeNotes.eventuallyShows([home]);
           yield* Story.assert(
             'both partitions activated',
             sameNames(activated, ['work', 'home']),

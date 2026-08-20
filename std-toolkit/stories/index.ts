@@ -32,10 +32,12 @@ import { fourAdapters } from './database/std-table/how-these-stories-run/four-ad
 import { freshDatabases } from './database/std-table/how-these-stories-run/fresh-databases.story.js';
 import { layerSelection } from './database/std-table/how-these-stories-run/layer-selection.story.js';
 import { theSharedTable } from './database/std-table/how-these-stories-run/the-shared-table.story.js';
-import { shapeOfATable } from './database/std-table/defining-a-table/shape-of-a-table.story.js';
+import { aTableToPutNotesIn } from './database/std-table/building-the-notebook/a-table-to-put-notes-in.story.js';
+import { whereANoteLives } from './database/std-table/building-the-notebook/where-a-note-lives.story.js';
+import { aSecondWayToRead } from './database/std-table/building-the-notebook/a-second-way-to-read.story.js';
+import { theNotebookWeBuilt } from './database/std-table/building-the-notebook/the-notebook-we-built.story.js';
 import { reservedNames } from './database/std-table/defining-a-table/reserved-names.story.js';
 import { topologyLimits } from './database/std-table/defining-a-table/topology-limits.story.js';
-import { keyedEntities } from './database/std-table/binding-entities/keyed-entities.story.js';
 import { indexComponents } from './database/std-table/binding-entities/index-components.story.js';
 import { singleEntities } from './database/std-table/binding-entities/single-entities.story.js';
 import { sharingOneTable } from './database/std-table/binding-entities/sharing-one-table.story.js';
@@ -63,7 +65,10 @@ import { codecFields } from './database/std-table/encoded-and-decoded/codec-fiel
 import { olderRows } from './database/std-table/evolving-data-in-place/older-rows.story.js';
 import { unreadableRows } from './database/std-table/evolving-data-in-place/unreadable-rows.story.js';
 
-import { aSimulatedWorld } from './sync/how-these-stories-run/a-simulated-world.story.js';
+import { aBackendAndNobodyWatching } from './sync/building-the-simulation/a-backend-and-nobody-watching.story.js';
+import { aBrowserMountsAQuery } from './sync/building-the-simulation/a-browser-mounts-a-query.story.js';
+import { twoBrowsersOneBackend } from './sync/building-the-simulation/two-browsers-one-backend.story.js';
+import { theVocabularyWeBuilt } from './sync/building-the-simulation/the-vocabulary-we-built.story.js';
 import { fromDatabaseToCollection } from './sync/wiring-a-collection/from-database-to-collection.story.js';
 import { aUserUpdatedSomeTimeBack } from './sync/catching-up/a-user-updated-some-time-back.story.js';
 import { editsKeepFlowing } from './sync/catching-up/edits-keep-flowing.story.js';
@@ -176,20 +181,25 @@ export default Story.group(
               [fourAdapters, freshDatabases, layerSelection, theSharedTable],
             ),
             Story.group(
-              'Defining a table',
+              'Building the notebook',
               {
                 description:
-                  'The least a table has to declare before anything can be stored in it.',
+                  'Four Stories that assemble the table every later Story uses — and prove, at the end, that they built it.',
               },
-              [shapeOfATable],
+              [
+                aTableToPutNotesIn,
+                whereANoteLives,
+                aSecondWayToRead,
+                theNotebookWeBuilt,
+              ],
             ),
             Story.group(
-              'Binding entities',
+              'More than one entity',
               {
                 description:
-                  'Giving the Note a place in the table: which of its fields make the partition, and which make the row.',
+                  'A notebook holds more than notes: an entity with exactly one row, and two entities sharing one table.',
               },
-              [keyedEntities, singleEntities, sharingOneTable],
+              [singleEntities, sharingOneTable],
             ),
             Story.group(
               'Writing & reading',
@@ -265,12 +275,17 @@ export default Story.group(
           },
           [
             Story.group(
-              'How these stories run',
+              'Building the simulation',
               {
                 description:
-                  'One backend, any number of browsers, and the vocabulary the rest of this part is written in.',
+                  'Four Stories that assemble the world the rest of this part runs in — and prove, at the end, that they built it.',
               },
-              [aSimulatedWorld],
+              [
+                aBackendAndNobodyWatching,
+                aBrowserMountsAQuery,
+                twoBrowsersOneBackend,
+                theVocabularyWeBuilt,
+              ],
             ),
             Story.group(
               'Wiring a collection',
