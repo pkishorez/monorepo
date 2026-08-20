@@ -10,7 +10,7 @@ export const insertARow = Story.make({
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Someone writes a note. What comes back?', {
+    Story.question('A note is inserted. What does the insert return?', {
       answer:
         'The stored entity. That is your value plus the data that the table adds: the entity name, the schema version, the update stamp, and a mark that says the note is live.',
       proof: Effect.gen(function* () {
@@ -72,9 +72,9 @@ export const insertARow = Story.make({
       },
     ),
     Story.question(
-      'What happens when the app asks for a note that was never written?',
+      'What does a read return for a note that was never written?',
       {
-        answer: 'It receives null. An absent note is a value, not a failure.',
+        answer: 'Null. An absent note is a value, not a failure.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             note.get({ noteId: 'missing', notebook: 'work' }),

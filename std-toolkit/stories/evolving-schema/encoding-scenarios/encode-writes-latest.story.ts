@@ -10,18 +10,24 @@ export const encodeWritesLatest = Story.make({
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Someone saves a note. Which version does it get?', {
-      answer:
-        'The newest version, always. `encode` checks the value against the newest shape and stamps it `_v: "v4"`. Saving an old note is therefore what removes its old version from storage.',
-      proof: Effect.gen(function* () {
-        const stored = yield* Note.encode({ text: 'Buy milk', pinned: false });
-        yield* Story.assert(
-          'the note is stamped at the latest version',
-          stored._v === 'v4',
-        );
-        return stored;
-      }),
-    }),
+    Story.question(
+      'A note is encoded for storage. Which version is stamped on it?',
+      {
+        answer:
+          'The newest version, always. `encode` checks the value against the newest shape and stamps it `_v: "v4"`. Saving an old note is therefore what removes its old version from storage.',
+        proof: Effect.gen(function* () {
+          const stored = yield* Note.encode({
+            text: 'Buy milk',
+            pinned: false,
+          });
+          yield* Story.assert(
+            'the note is stamped at the latest version',
+            stored._v === 'v4',
+          );
+          return stored;
+        }),
+      },
+    ),
     Story.question(
       'The app added an extra field to the note before it saved it. What reaches storage?',
       {

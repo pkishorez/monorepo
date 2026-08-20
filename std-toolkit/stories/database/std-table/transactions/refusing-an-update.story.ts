@@ -11,7 +11,7 @@ export const refusingAnUpdate = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'A note must not change after it is archived. How does the system apply that rule at commit time?',
+      'A note must not change after it is archived. How is that rule applied at commit time?',
       {
         answer:
           'Attach a condition to the op. `transact` runs it against the value that it reads at commit time. If the condition refuses, the batch fails before anything is sent, so the other ops do not land.',

@@ -43,7 +43,7 @@ export const writeYourOwnDriver = Story.make({
   description: 'Anything that executes SQL can host the whole table.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How much must a driver of your own supply?', {
+    Story.question('How much must a custom driver supply?', {
       answer:
         'Three methods: `run`, `all`, and `transaction`. A `close` method is optional. Anything that executes SQL can therefore host the whole table. This Story wraps the node driver in about twelve lines to record each statement, and the whole entity surface runs through it without a change. The seam is thus a good place for logging, metrics, or retries.',
       proof: Effect.gen(function* () {

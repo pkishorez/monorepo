@@ -49,7 +49,7 @@ export const skippingAndMissing = Story.make({
       },
     ),
     Story.question(
-      'What happens when the app deletes a note that another tab deleted first?',
+      'What happens when a delete targets a note that is already deleted?',
       {
         answer:
           'The delete fails and reports that the note is absent. It does not report success.',
@@ -81,7 +81,7 @@ export const skippingAndMissing = Story.make({
       },
     ),
     Story.question(
-      'What happens when the app updates a note that is not there?',
+      'What happens when an update targets a note that is not there?',
       {
         answer:
           'The update fails and reports that the note is absent. It does not create the note.',

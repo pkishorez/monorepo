@@ -11,7 +11,7 @@ export const goingFullyNative = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What do you do when the native operations are still not enough?',
+      'How is something done that the native operations do not offer?',
       {
         answer:
           'Use the raw client. The adapter exposes the typed client and the physical table name. With them you can use the whole DynamoDB API. This Story runs a scan, which the portable surface does not offer, over the rows that the portable writes produced.',

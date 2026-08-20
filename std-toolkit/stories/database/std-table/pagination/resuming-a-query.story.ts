@@ -22,7 +22,7 @@ export const resumingAQuery = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The reader reaches the end of the page. How is the next page read?',
+      'A page ends before the partition does. How is the next page read?',
       {
         answer:
           'Give the query the last entity of the page that you just read. There is no cursor to keep, and this method reads each row one time.',

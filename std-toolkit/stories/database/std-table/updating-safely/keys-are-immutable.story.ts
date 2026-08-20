@@ -13,10 +13,10 @@ export const keysAreImmutable = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Someone moves a note into a different notebook. Can the note change its `notebook` field?',
+      'An update sets `notebook` to a different value. That field is part of the primary key. What happens?',
       {
         answer:
-          'No. The update fails and the stored note keeps its values. To move a note, write it under the new key and delete the old one.',
+          'The update fails and the stored note keeps its values. To move a note, write it under the new key and delete the old one.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {

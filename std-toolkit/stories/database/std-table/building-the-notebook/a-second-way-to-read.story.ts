@@ -50,7 +50,7 @@ export const aSecondWayToRead = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The screen lists notes in alphabetical order, not by identity. The primary key cannot do that. What is added?',
+      'The notes must come back in title order, not in identity order. The primary key cannot do that. What is added?',
       {
         answer:
           'A second order over the same notes. It reuses the notebook as its partition and names `title` as the order. One notebook can then be read two ways, and it is stored one time.',
