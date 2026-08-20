@@ -1,26 +1,7 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 2 breaking                                     │
-╰────────────────────────────────────────────────╯
-
-┌────────────┬───────────────────────────────────────────────┬─────────┬─────────┐
-│ Status     │ Change                                        │ Before  │ After   │
-├────────────┼───────────────────────────────────────────────┼─────────┼─────────┤
-│ ✕ BREAKING │ Changed approved decoded contract for User v1 │ changed │ changed │
-│ ✕ BREAKING │ Changed approved encoded contract for User v1 │ changed │ changed │
-└────────────┴───────────────────────────────────────────────┴─────────┴─────────┘
+FAIL  1 snapshot change needs approval
 
 BREAKING
+  User v1
+    preferences · encoded and decoded: — → { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
 
-  Changed approved decoded contract for User v1
-  /schemas/User/versions/v1/decoded
-    before  present
-    after   present
-
-  Changed approved encoded contract for User v1
-  /schemas/User/versions/v1/encoded
-    before  present
-    after   present
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

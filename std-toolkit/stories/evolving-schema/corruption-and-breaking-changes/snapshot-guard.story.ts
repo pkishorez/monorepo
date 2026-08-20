@@ -30,7 +30,7 @@ export const snapshotGuard = Story.make({
         yield* Story.assert(
           'appending v2 is classified safe',
           changes.length > 0 &&
-            changes.every((change) => change.classification === 'safe'),
+            changes.every((change) => change.impact === 'safe'),
         );
         return changes;
       }),
@@ -51,7 +51,7 @@ export const snapshotGuard = Story.make({
           );
           yield* Story.assert(
             'editing approved v1 is classified breaking',
-            changes.some((change) => change.classification === 'breaking'),
+            changes.some((change) => change.impact === 'breaking'),
           );
           return changes;
         }),

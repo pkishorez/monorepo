@@ -1,47 +1,123 @@
 import { Snapshot } from '../../snapshot/index.js';
-import type { ContractSnapshot } from '../../snapshot/index.js';
+import type {
+  SnapshotChange,
+  SnapshotDiagnostic,
+} from '../../snapshot/index.js';
 import { baselineFileName } from '../contract-files/index.js';
 
-const approveCommand = 'std-toolkit snapshot approve';
-const viewCommand = 'std-toolkit snapshot view';
+export type SnapshotCommandResult =
+  | {
+      readonly _tag: 'Match';
+      readonly limitations: readonly SnapshotDiagnostic[];
+    }
+  | { readonly _tag: 'MissingBaseline' }
+  | {
+      readonly _tag: 'Drift';
+      readonly changes: readonly SnapshotChange[];
+      readonly limitations: readonly SnapshotDiagnostic[];
+    }
+  | { readonly _tag: 'Created' }
+  | {
+      readonly _tag: 'Unchanged';
+      readonly limitations: readonly SnapshotDiagnostic[];
+    }
+  | {
+      readonly _tag: 'Updated';
+      readonly changes: readonly SnapshotChange[];
+      readonly limitations: readonly SnapshotDiagnostic[];
+    };
 
-export function joinSections(
-  ...sections: readonly (string | undefined)[]
-): string {
-  return sections
-    .filter((section): section is string => section !== undefined)
+export interface SnapshotOutcome {
+  readonly exitCode: 0 | 1;
+  readonly output: string;
+}
+
+function sections(...values: readonly (string | undefined)[]): string {
+  return values
+    .filter((value): value is string => value !== undefined)
     .join('\n\n');
 }
 
-export function renderDiagnostics(
-  snapshot: ContractSnapshot,
+function count(changes: readonly SnapshotChange[]): string {
+  return `${changes.length} snapshot ${changes.length === 1 ? 'change' : 'changes'}`;
+}
+
+function limitationPath(path: string): string {
+  const values = path
+    .split('/')
+    .filter(Boolean)
+    .map((value) => value.replaceAll('~1', '/').replaceAll('~0', '~'));
+  const schema = values[0] === 'schemas' ? values[1] : undefined;
+  const versionIndex = values.indexOf('versions');
+  const version = versionIndex < 0 ? undefined : values[versionIndex + 1];
+  const fields = values.flatMap((value, index) =>
+    values[index - 1] === 'properties' ? [value] : [],
+  );
+  return [schema, version, ...fields].filter(Boolean).join(' › ') || path;
+}
+
+function limitations(
+  values: readonly SnapshotDiagnostic[],
 ): string | undefined {
-  const diagnostics = Snapshot.inspect(snapshot);
-  if (diagnostics.length === 0) return undefined;
+  if (values.length === 0) return undefined;
   return [
-    'WARNINGS',
-    '',
-    ...diagnostics.flatMap((diagnostic, index) => [
-      ...(index === 0 ? [] : ['']),
-      `  ${diagnostic.message}`,
-      `  ${diagnostic.path}`,
-    ]),
+    'LIMITATIONS',
+    ...values.map((item) => `  ${limitationPath(item.path)}: ${item.message}`),
   ].join('\n');
 }
 
-export function renderMissingBaseline(): string {
-  return joinSections(
-    `No approved snapshot found: ${baselineFileName}`,
-    `Review it with \`${viewCommand}\`, then approve with:\n\n  ${approveCommand}`,
-  );
-}
-
-export function renderDriftHint(): string {
-  return `Review the changes, then approve them with:\n\n  ${approveCommand}`;
-}
-
-export function renderApproval(created: boolean): string {
-  return created
-    ? `✓ Approved snapshot written to ${baselineFileName}`
-    : `✓ Approved snapshot updated: ${baselineFileName}`;
+export function renderSnapshotResult(
+  result: SnapshotCommandResult,
+): SnapshotOutcome {
+  switch (result._tag) {
+    case 'Match': {
+      const currentLimitations = limitations(result.limitations);
+      return {
+        exitCode: 0,
+        output: sections(
+          currentLimitations === undefined
+            ? 'PASS  Snapshot matches'
+            : 'PASS WITH LIMITATIONS  Snapshot matches',
+          currentLimitations,
+        ),
+      };
+    }
+    case 'MissingBaseline':
+      return {
+        exitCode: 1,
+        output: sections(
+          'FAIL  No approved snapshot found',
+          'Run: std-toolkit snapshot approve',
+        ),
+      };
+    case 'Drift':
+      return {
+        exitCode: 1,
+        output: sections(
+          `FAIL  ${count(result.changes)} ${result.changes.length === 1 ? 'needs' : 'need'} approval`,
+          Snapshot.renderChanges(result.changes),
+          limitations(result.limitations),
+          'Run: std-toolkit snapshot approve',
+        ),
+      };
+    case 'Created':
+      return { exitCode: 0, output: `APPROVED  ${baselineFileName}` };
+    case 'Unchanged':
+      return {
+        exitCode: 0,
+        output: sections(
+          'ALREADY APPROVED  No snapshot changes',
+          limitations(result.limitations),
+        ),
+      };
+    case 'Updated':
+      return {
+        exitCode: 0,
+        output: sections(
+          `APPROVED  ${count(result.changes)}`,
+          Snapshot.renderChanges(result.changes),
+          limitations(result.limitations),
+        ),
+      };
+  }
 }

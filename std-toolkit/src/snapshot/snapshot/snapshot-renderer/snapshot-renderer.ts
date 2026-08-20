@@ -2,7 +2,7 @@ import type {
   ContractSnapshot,
   ESchemaDefinition,
   SnapshotChange,
-  SnapshotClassification,
+  SnapshotImpact,
 } from '../../domain/index.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -11,11 +11,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function pad(value: string, width: number): string {
   return value + ' '.repeat(Math.max(0, width - value.length));
-}
-
-function indent(lines: readonly string[], spaces: number): readonly string[] {
-  const prefix = ' '.repeat(spaces);
-  return lines.map((line) => (line.length === 0 ? '' : `${prefix}${line}`));
 }
 
 function section(title: string): string {
@@ -319,167 +314,94 @@ export function renderSnapshot(snapshot: ContractSnapshot): string {
   return lines.join('\n');
 }
 
-const classificationOrder: readonly SnapshotClassification[] = [
+const impactOrder: readonly SnapshotImpact[] = [
   'breaking',
-  'requires-backfill',
   'unverifiable',
+  'requires-backfill',
   'safe',
 ];
 
-const classificationLabels: Record<SnapshotClassification, string> = {
-  breaking: '✕ BREAKING',
-  'requires-backfill': '◇ BACKFILL',
-  unverifiable: '? UNVERIFIABLE',
-  safe: '✓ SAFE',
+const impactLabels: Record<SnapshotImpact, string> = {
+  breaking: 'BREAKING',
+  unverifiable: 'UNVERIFIABLE',
+  'requires-backfill': 'BACKFILL',
+  safe: 'SAFE',
 };
 
-function shortValue(value: unknown): string {
+function subjectLabel(change: SnapshotChange): string {
+  const { subject } = change;
+  switch (subject.kind) {
+    case 'snapshot':
+      return 'Snapshot';
+    case 'table':
+      return `Table ${subject.name ?? ''}`.trim();
+    case 'eschema':
+      return `ESchema ${subject.name ?? ''}`.trim();
+    case 'version':
+      return `${subject.name ?? 'ESchema'} ${subject.version ?? ''}`.trim();
+    case 'entity':
+      return `Entity ${subject.name ?? ''}`.trim();
+    case 'primary-index':
+      return 'Primary index';
+    case 'local-secondary-index':
+      return `Local secondary index ${subject.name ?? ''}`.trim();
+    case 'global-secondary-index':
+      return `Global secondary index ${subject.name ?? ''}`.trim();
+    case 'access-pattern':
+      return `Access pattern ${[subject.owner, subject.name].filter(Boolean).join('/')}`;
+  }
+}
+
+function valueLabel(value: unknown): string {
   if (value === undefined) return '—';
-  if (
-    value === null ||
-    ['string', 'number', 'boolean'].includes(typeof value)
-  ) {
-    return String(value);
+  if (isRecord(value) && typeof value._tag === 'string') {
+    return inlineType(value);
   }
-  return Array.isArray(value) ? value.map(String).join(', ') : 'changed';
+  if (Array.isArray(value)) return value.map(valueLabel).join(', ') || '—';
+  return literal(value);
 }
 
-function summaryValue(
-  change: SnapshotChange,
-  side: 'before' | 'after',
-): string {
-  const value = change[side];
-  if (value === undefined) return side === 'before' ? '—' : 'removed';
-  if (isRecord(value) && side === 'after' && change.before === undefined) {
-    return 'added';
+function sideLabel(side: SnapshotChange['edits'][number]['side']): string {
+  switch (side) {
+    case 'encoded':
+      return 'encoded';
+    case 'decoded':
+      return 'decoded';
+    case 'encoded-and-decoded':
+      return 'encoded and decoded';
+    default:
+      return '';
   }
-  return shortValue(value);
 }
 
-const detailLabels: Readonly<Record<string, string>> = {
-  name: 'Name',
-  kind: 'Kind',
-  index: 'Index',
-  pk: 'Partition key',
-  sk: 'Sort key',
-  schema: 'Schema',
-  idField: 'Identity',
-  version: 'Version',
-};
-
-function recordRows(value: Record<string, unknown>): readonly string[][] {
-  return Object.entries(detailLabels).flatMap(([key, label]) => {
-    const item = value[key];
-    if (item === undefined) return [];
-    if (Array.isArray(item)) return [[label, item.join(', ') || '—']];
-    if (
-      item === null ||
-      ['string', 'number', 'boolean'].includes(typeof item)
-    ) {
-      return [[label, String(item ?? '—')]];
-    }
-    return [];
-  });
+function editLine(edit: SnapshotChange['edits'][number]): string {
+  const location = edit.path.join('.') || 'contract';
+  const side = sideLabel(edit.side);
+  const qualifier = side.length === 0 ? '' : ` · ${side}`;
+  return `${location}${qualifier}: ${valueLabel(edit.before)} → ${valueLabel(edit.after)}`;
 }
 
-function renderRecord(value: Record<string, unknown>): readonly string[] {
-  const rows = recordRows(value);
-  const lines = rows.length === 0 ? [] : [...table(['Field', 'Value'], rows)];
-  if ('encoded' in value) {
-    if (lines.length > 0) lines.push('');
-    lines.push(
-      'Encoded',
-      ...representationLines(value.encoded).map((line) => `  ${line}`),
-    );
-  }
-  if ('decoded' in value) {
-    if (lines.length > 0) lines.push('');
-    lines.push(
-      'Decoded',
-      ...representationLines(value.decoded).map((line) => `  ${line}`),
-    );
-  }
-  return lines;
-}
-
-function detailLines(change: SnapshotChange): readonly string[] {
-  const lines = [`  ${change.message}`, `  ${change.path}`];
-  if (change.before !== undefined || change.after !== undefined) {
-    if (isRecord(change.before) || isRecord(change.after)) {
-      const before = isRecord(change.before) ? renderRecord(change.before) : [];
-      const after = isRecord(change.after) ? renderRecord(change.after) : [];
-      if (before.length > 0) {
-        lines.push('', '  Before', ...indent(before, 4));
-      }
-      if (after.length > 0) {
-        lines.push('', '  After', ...indent(after, 4));
-      }
-      if (before.length === 0 && after.length === 0) {
-        lines.push(
-          `    before  ${change.before === undefined ? '—' : 'present'}`,
-          `    after   ${change.after === undefined ? '—' : 'present'}`,
-        );
-      }
-    } else {
-      lines.push(
-        '',
-        ...table(
-          ['', 'Value'],
-          [
-            ['Before', shortValue(change.before)],
-            ['After', shortValue(change.after)],
-          ],
-        ).map((line) => `  ${line}`),
-      );
-    }
-  }
-  return lines;
+function changeLines(change: SnapshotChange): readonly string[] {
+  const subject = subjectLabel(change);
+  if (change.action !== 'edited') return [`  ${subject} ${change.action}`];
+  return [
+    `  ${subject}`,
+    ...change.edits.map((item) => `    ${editLine(item)}`),
+  ];
 }
 
 export function renderSnapshotChanges(
   changes: readonly SnapshotChange[],
 ): string {
-  if (changes.length === 0) {
-    return '✓ Database contract matches the approved snapshot';
-  }
-  const counts = classificationOrder
-    .map((classification) => {
-      const count = changes.filter(
-        (change) => change.classification === classification,
-      ).length;
-      return count === 0 ? undefined : `${count} ${classification}`;
-    })
-    .filter((value): value is string => value !== undefined)
-    .join(' · ');
-  const lines = [
-    ...titleBox('DATABASE CONTRACT CHANGED', counts),
-    '',
-    ...table(
-      ['Status', 'Change', 'Before', 'After'],
-      [...changes]
-        .sort(
-          (a, b) =>
-            classificationOrder.indexOf(a.classification) -
-              classificationOrder.indexOf(b.classification) ||
-            a.path.localeCompare(b.path),
-        )
-        .map((change) => [
-          classificationLabels[change.classification],
-          change.message,
-          summaryValue(change, 'before'),
-          summaryValue(change, 'after'),
-        ]),
-    ),
-  ];
-  for (const classification of classificationOrder) {
-    const classified = changes.filter(
-      (change) => change.classification === classification,
-    );
+  const lines: string[] = [];
+  for (const impact of impactOrder) {
+    const classified = changes.filter((change) => change.impact === impact);
     if (classified.length === 0) continue;
-    lines.push('', section(classificationLabels[classification].slice(2)), '');
+    if (lines.length > 0) lines.push('');
+    lines.push(impactLabels[impact]);
     classified.forEach((change, index) => {
-      if (index > 0) lines.push('');
-      lines.push(...detailLines(change));
+      if (index > 0 && change.action === 'edited') lines.push('');
+      lines.push(...changeLines(change));
     });
   }
   return lines.join('\n');

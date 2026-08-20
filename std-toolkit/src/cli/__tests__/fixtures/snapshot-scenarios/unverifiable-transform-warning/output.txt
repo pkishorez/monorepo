@@ -1,6 +1,4 @@
-✓ Database contract matches the approved snapshot
+PASS WITH LIMITATIONS  Snapshot matches
 
-WARNINGS
-
-  Transformation behavior cannot be verified from snapshot data
-  /schemas/User/versions/v1/properties/email
+LIMITATIONS
+  User › v1 › email: Transformation behavior cannot be verified from snapshot data

@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
 import * as NodeServices from '@effect/platform-node/NodeServices';
-import { approveSnapshot, verifySnapshot } from '../snapshot/index.js';
+import {
+  approveSnapshot,
+  renderSnapshotResult,
+  type SnapshotCommandResult,
+  verifySnapshot,
+} from '../snapshot/index.js';
 
 const directories: string[] = [];
 
@@ -46,11 +51,14 @@ async function run(
   cwd: string,
   update: boolean,
 ): Promise<{ readonly exitCode: number; readonly output: string }> {
-  return Effect.runPromise(
-    (update ? approveSnapshot(cwd) : verifySnapshot(cwd)).pipe(
-      Effect.provide(NodeServices.layer),
-    ),
-  );
+  const result: SnapshotCommandResult = update
+    ? await Effect.runPromise(
+        approveSnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
+      )
+    : await Effect.runPromise(
+        verifySnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
+      );
+  return renderSnapshotResult(result);
 }
 
 afterEach(async () => {
@@ -67,11 +75,11 @@ describe('std-toolkit snapshot command', () => {
 
     await expect(run(cwd, false)).resolves.toMatchObject({
       exitCode: 1,
-      output: expect.stringContaining('No approved snapshot found'),
+      output: expect.stringContaining('FAIL  No approved snapshot found'),
     });
     await expect(run(cwd, true)).resolves.toMatchObject({
       exitCode: 0,
-      output: expect.stringContaining('Approved snapshot written'),
+      output: 'APPROVED  std-toolkit.snapshot.json',
     });
     expect(
       JSON.parse(
@@ -80,9 +88,7 @@ describe('std-toolkit snapshot command', () => {
     ).toEqual(snapshot());
     await expect(run(cwd, false)).resolves.toMatchObject({
       exitCode: 0,
-      output: expect.stringContaining(
-        'Database contract matches the approved snapshot',
-      ),
+      output: 'PASS  Snapshot matches',
     });
   });
 
@@ -96,8 +102,8 @@ describe('std-toolkit snapshot command', () => {
 
     const drift = await run(cwd, false);
     expect(drift).toMatchObject({ exitCode: 1 });
-    expect(drift.output).toContain('DATABASE CONTRACT CHANGED');
-    expect(drift.output).toContain('✕ BREAKING');
+    expect(drift.output).toContain('FAIL  1 snapshot change needs approval');
+    expect(drift.output).toContain('BREAKING');
     expect(drift.output).toContain('std-toolkit snapshot approve');
     expect(drift.output).not.toContain('DATABASE CONTRACT\n');
     expect(
@@ -108,12 +114,32 @@ describe('std-toolkit snapshot command', () => {
 
     await expect(run(cwd, true)).resolves.toMatchObject({
       exitCode: 0,
-      output: expect.stringContaining('Approved snapshot updated'),
+      output: expect.stringContaining('APPROVED  1 snapshot change'),
     });
     expect(
       JSON.parse(
         await readFile(join(cwd, 'std-toolkit.snapshot.json'), 'utf8'),
       ),
     ).toEqual(snapshot({ changed: true }));
+  });
+
+  it('does not rewrite an unchanged approved snapshot', async () => {
+    const cwd = await fixture(snapshot());
+    await run(cwd, true);
+    await expect(run(cwd, true)).resolves.toEqual({
+      exitCode: 0,
+      output: 'ALREADY APPROVED  No snapshot changes',
+    });
+  });
+
+  it('refuses to overwrite an unreadable baseline', async () => {
+    const cwd = await fixture(snapshot());
+    const baseline = join(cwd, 'std-toolkit.snapshot.json');
+    await writeFile(baseline, '{invalid');
+
+    await expect(run(cwd, true)).rejects.toThrow(
+      'Snapshot baseline is not valid JSON',
+    );
+    await expect(readFile(baseline, 'utf8')).resolves.toBe('{invalid');
   });
 });

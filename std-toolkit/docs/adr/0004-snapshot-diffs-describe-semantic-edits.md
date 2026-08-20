@@ -1,0 +1,5 @@
+# Snapshot diffs describe exact semantic edits
+
+Snapshot comparison reports one change for each semantically coherent operation. An addition or removal identifies the affected object without printing its complete definition; an edit shows the exact nested semantic differences. Related field edits with the same impact are grouped, while independent operations or impacts remain separate. Comparison does not treat an edited encoded or decoded contract as an opaque before-and-after value, and it does not inflate every changed leaf into an independent change. This keeps verification and approval concise while explaining precisely what changed within existing contracts.
+
+Changes use a closed semantic model containing impact, subject, action, and nested edits rather than free-form kinds, messages, storage paths, and unknown before-and-after values. Schema edits describe contract concepts rather than raw Effect Schema JSON. A nested ESchema version addition is reported once at the changed child instead of producing synthetic parent changes, and a table entity lifecycle does not separately report the entity's owned schema lifecycle.

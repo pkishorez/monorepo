@@ -1,42 +1,7 @@
-╭─ DATABASE CONTRACT CHANGED ────────────────────╮
-│ 2 safe                                         │
-╰────────────────────────────────────────────────╯
-
-┌────────┬─────────────────────────────────────┬─────────┬─────────┐
-│ Status │ Change                              │ Before  │ After   │
-├────────┼─────────────────────────────────────┼─────────┼─────────┤
-│ ✓ SAFE │ Removed access pattern User/byEmail │ changed │ removed │
-│ ✓ SAFE │ Removed global secondary index GSI1 │ changed │ removed │
-└────────┴─────────────────────────────────────┴─────────┴─────────┘
+FAIL  2 snapshot changes need approval
 
 SAFE
+  Access pattern User/byEmail removed
+  Global secondary index GSI1 removed
 
-  Removed access pattern User/byEmail
-  /entities/User/accessPatterns/byEmail
-
-  Before
-    ┌───────────────┬─────────┐
-    │ Field         │ Value   │
-    ├───────────────┼─────────┤
-    │ Name          │ byEmail │
-    │ Kind          │ gsi     │
-    │ Index         │ GSI1    │
-    │ Partition key │ email   │
-    │ Sort key      │ id      │
-    └───────────────┴─────────┘
-
-  Removed global secondary index GSI1
-  /topology/globalSecondaryIndexes/GSI1
-
-  Before
-    ┌───────────────┬────────┐
-    │ Field         │ Value  │
-    ├───────────────┼────────┤
-    │ Name          │ GSI1   │
-    │ Partition key │ gsi1pk │
-    │ Sort key      │ gsi1sk │
-    └───────────────┴────────┘
-
-Review the changes, then approve them with:
-
-  std-toolkit snapshot approve
+Run: std-toolkit snapshot approve

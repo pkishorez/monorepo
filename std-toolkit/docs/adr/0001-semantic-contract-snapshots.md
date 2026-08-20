@@ -1,5 +1,7 @@
 # Semantic contract snapshots replace source tracking
 
+The storage-ownership decision is superseded by ADR 0003, and the change-reporting shape is superseded by ADR 0004. The remaining decisions still apply.
+
 std-toolkit will protect persisted data by snapshotting the semantic contracts declared by ESchemas and database tables instead of tracking source files or enforcing a generated folder structure. The canonical artifact is versioned structured JSON, with deterministic human-readable rendering for tests and reviews; snapshot storage and approval remain outside the library so the same evidence can serve Vitest, CI, deployment systems, and a unified UI.
 
 ## Decision

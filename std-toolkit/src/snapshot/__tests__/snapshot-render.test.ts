@@ -23,31 +23,23 @@ describe('snapshot rendering', () => {
   it('renders ordered changes for review', () => {
     const rendered = Snapshot.renderChanges([
       {
-        path: '/topology/globalSecondaryIndexes/GSI2',
-        scope: 'index',
-        kind: 'secondary-index-added',
-        classification: 'requires-backfill',
-        message: 'Added global secondary index GSI2',
-        after: {
-          name: 'GSI2',
-          pk: 'gsi2pk',
-          sk: 'gsi2sk',
-        },
+        subject: { kind: 'global-secondary-index', name: 'GSI2' },
+        action: 'added',
+        impact: 'requires-backfill',
+        edits: [],
       },
       {
-        path: '/schemas/User/versions/v2',
-        scope: 'eschema',
-        kind: 'version-added',
-        classification: 'safe',
-        message: 'Added next version User v2',
+        subject: { kind: 'version', name: 'User', version: 'v2' },
+        action: 'added',
+        impact: 'safe',
+        edits: [],
       },
     ]);
 
-    expect(rendered).toContain('✓ SAFE');
-    expect(rendered).toContain('◇ BACKFILL');
-    expect(rendered).toContain('/schemas/User/versions/v2');
-    expect(rendered).toContain('Partition key');
-    expect(rendered).toContain('gsi2pk');
+    expect(rendered).toContain('SAFE');
+    expect(rendered).toContain('BACKFILL');
+    expect(rendered).toContain('User v2 added');
+    expect(rendered).toContain('Global secondary index GSI2 added');
   });
 
   it('dispatches ESchema and table rendering without recursion', () => {
