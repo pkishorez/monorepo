@@ -15,7 +15,10 @@ import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiSourceRouteImport } from './routes/api/source'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
+import { Route as DemosIndexRouteImport } from './routes/demos/index'
+import { Route as DemosBankRouteImport } from './routes/demos/bank'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as ApiBankRpcRouteImport } from './routes/api/bank.rpc'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -47,9 +50,24 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosIndexRoute = DemosIndexRouteImport.update({
+  id: '/demos/',
+  path: '/demos/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosBankRoute = DemosBankRouteImport.update({
+  id: '/demos/bank',
+  path: '/demos/bank',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/docs/$',
   path: '/docs/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiBankRpcRoute = ApiBankRpcRouteImport.update({
+  id: '/api/bank/rpc',
+  path: '/api/bank/rpc',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -59,8 +77,11 @@ export interface FileRoutesByFullPath {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/bank': typeof DemosBankRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
+  '/demos/': typeof DemosIndexRoute
+  '/api/bank/rpc': typeof ApiBankRpcRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,8 +89,11 @@ export interface FileRoutesByTo {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/bank': typeof DemosBankRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog': typeof BlogIndexRoute
+  '/demos': typeof DemosIndexRoute
+  '/api/bank/rpc': typeof ApiBankRpcRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,8 +102,11 @@ export interface FileRoutesById {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/bank': typeof DemosBankRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
+  '/demos/': typeof DemosIndexRoute
+  '/api/bank/rpc': typeof ApiBankRpcRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -89,8 +116,11 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/bank'
     | '/docs/$'
     | '/blog/'
+    | '/demos/'
+    | '/api/bank/rpc'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -98,8 +128,11 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/bank'
     | '/docs/$'
     | '/blog'
+    | '/demos'
+    | '/api/bank/rpc'
   id:
     | '__root__'
     | '/'
@@ -107,8 +140,11 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/bank'
     | '/docs/$'
     | '/blog/'
+    | '/demos/'
+    | '/api/bank/rpc'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,8 +153,11 @@ export interface RootRouteChildren {
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSourceRoute: typeof ApiSourceRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  DemosBankRoute: typeof DemosBankRoute
   DocsSplatRoute: typeof DocsSplatRoute
   BlogIndexRoute: typeof BlogIndexRoute
+  DemosIndexRoute: typeof DemosIndexRoute
+  ApiBankRpcRoute: typeof ApiBankRpcRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -165,11 +204,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/': {
+      id: '/demos/'
+      path: '/demos'
+      fullPath: '/demos/'
+      preLoaderRoute: typeof DemosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demos/bank': {
+      id: '/demos/bank'
+      path: '/demos/bank'
+      fullPath: '/demos/bank'
+      preLoaderRoute: typeof DemosBankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/$': {
       id: '/docs/$'
       path: '/docs/$'
       fullPath: '/docs/$'
       preLoaderRoute: typeof DocsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/bank/rpc': {
+      id: '/api/bank/rpc'
+      path: '/api/bank/rpc'
+      fullPath: '/api/bank/rpc'
+      preLoaderRoute: typeof ApiBankRpcRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -181,8 +241,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchRoute: ApiSearchRoute,
   ApiSourceRoute: ApiSourceRoute,
   BlogSlugRoute: BlogSlugRoute,
+  DemosBankRoute: DemosBankRoute,
   DocsSplatRoute: DocsSplatRoute,
   BlogIndexRoute: BlogIndexRoute,
+  DemosIndexRoute: DemosIndexRoute,
+  ApiBankRpcRoute: ApiBankRpcRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

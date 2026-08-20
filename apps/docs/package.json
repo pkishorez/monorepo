@@ -4,9 +4,10 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "vite dev",
+    "dev": "alchemy dev",
     "build": "vite build",
-    "lint": "fumadocs-mdx && tsc --noEmit",
+    "lint": "fumadocs-mdx && tsc --noEmit && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
     "postinstall": "fumadocs-mdx",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
   },
@@ -14,17 +15,24 @@
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "@monorepo/frontend": "workspace:*",
+    "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "@xstate/react": "catalog:",
+    "effect": "catalog:",
     "fumadocs-core": "catalog:",
     "fumadocs-mdx": "catalog:",
     "fumadocs-ui": "catalog:",
     "lucide-react": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "std-toolkit": "workspace:*",
+    "use-effect-ts": "workspace:*",
+    "xstate": "catalog:"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
     "@effect/platform-node": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/mdx": "catalog:",
@@ -33,7 +41,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
-    "effect": "catalog:",
+    "laymos": "workspace:*",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"

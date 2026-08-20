@@ -1,0 +1,229 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts", "src/styles", "src/types.d.ts"],
+  "layers": {
+    "entry": {
+      "paths": ["src/router.tsx", "src/start.ts", "src/server.ts"],
+      "description": "Host entries \u2014 TanStack Start server, router, worker forwarding",
+      "modules": {
+        "src/router.tsx": {},
+        "src/start.ts": {},
+        "src/server.ts": {}
+      }
+    },
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "Route surface \u2014 pages and API handlers",
+      "modules": {
+        "src/routes": {}
+      }
+    },
+    "components": {
+      "paths": ["src/components"],
+      "description": "Presentation shared across routes",
+      "modules": {
+        "src/components/mdx.tsx": {
+          "exposed": true
+        },
+        "src/components/home-header.tsx": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/components/not-found.tsx": {
+          "exposed": true
+        },
+        "src/components/status-badge.tsx": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/components/eschema-playground.tsx": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "lib": {
+      "paths": ["src/lib"],
+      "description": "Content sources and shared layout data",
+      "modules": {
+        "src/lib/source.ts": {
+          "exposed": true
+        },
+        "src/lib/blog.ts": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/lib/blog-data.ts": {
+          "exposed": true
+        },
+        "src/lib/shared.ts": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/lib/layout.shared.tsx": {
+          "exposed": true
+        }
+      }
+    },
+    "bank-rpc": {
+      "paths": ["src/demos/bank/rpc"],
+      "description": "Std Bank demo \u2014 one RPC capability with a contract door, a server door, and a client door",
+      "moduleGraphs": {
+        "bank-rpc": {
+          "description": "Moves the Bank functionality across a boundary without caring which boundary.",
+          "path": "src/demos/bank/rpc",
+          "modules": {
+            "contract": {
+              "exposed": true
+            },
+            "handlers": {},
+            "server": {
+              "exposed": true
+            },
+            "client": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "handlers": ["contract"],
+            "server": ["handlers", "contract"],
+            "client": ["handlers", "contract"]
+          }
+        }
+      }
+    },
+    "bank-orchestrator": {
+      "paths": ["src/demos/bank/orchestrator"],
+      "description": "Std Bank demo \u2014 accounts and transfers over the abstract table",
+      "modules": {
+        "src/demos/bank/orchestrator/accounts": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/demos/bank/orchestrator/transfers": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/demos/bank/orchestrator/stamp": {
+          "shared": true
+        },
+        "src/demos/bank/orchestrator/seed": {
+          "exposed": true
+        }
+      }
+    },
+    "bank-std-table": {
+      "paths": ["src/demos/bank/std-table"],
+      "description": "Std Bank demo \u2014 the single-table design and its entity bindings",
+      "moduleGraphs": {
+        "std-table": {
+          "description": "Binds the domain to one StdTable: the topology and one entity per record kind.",
+          "path": "src/demos/bank/std-table",
+          "modules": {
+            "table": {
+              "exposed": true
+            },
+            "entities/account": {
+              "exposed": true
+            },
+            "entities/transfer": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "entities/account": ["table"],
+            "entities/transfer": ["table"]
+          }
+        }
+      }
+    },
+    "bank-journey": {
+      "paths": ["src/demos/bank/journey"],
+      "description": "Std Bank demo \u2014 the journey state machine: which act is possible when",
+      "modules": {
+        "src/demos/bank/journey/machine": {
+          "exposed": true
+        },
+        "src/demos/bank/journey/problem": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "bank-ui": {
+      "paths": ["src/demos/bank/ui"],
+      "description": "Std Bank demo \u2014 dumb presentation: props in, callbacks out",
+      "modules": {
+        "src/demos/bank/ui/account-list": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/bank-settings": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/money": {
+          "shared": true
+        },
+        "src/demos/bank/ui/open-account-dialog": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/pager": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/send-dialog": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/store-toggle": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/transactions": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/transfer-status": {
+          "exposed": true
+        },
+        "src/demos/bank/ui/viewpoint-card": {
+          "exposed": true
+        }
+      }
+    },
+    "bank-contract": {
+      "paths": ["src/demos/bank/contract"],
+      "description": "Std Bank demo \u2014 schemas, name rules, domain refusals",
+      "modules": {
+        "src/demos/bank/contract/account": {
+          "exposed": true
+        },
+        "src/demos/bank/contract/transfer": {
+          "exposed": true
+        },
+        "src/demos/bank/contract/name": {
+          "exposed": true
+        },
+        "src/demos/bank/contract/refusal": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "docs-site": {
+      "description": "Docs app: entries over routes over components over lib",
+      "rules": {
+        "entry": ["components"],
+        "routes": ["components", "lib", "bank-rpc", "bank-journey", "bank-ui"],
+        "components": ["lib"]
+      }
+    },
+    "std-bank": {
+      "description": "Std Bank demo: rpc over orchestrator over table over the contract, with the journey and the UI beside them",
+      "rules": {
+        "bank-rpc": ["bank-orchestrator", "bank-std-table", "bank-contract"],
+        "bank-orchestrator": ["bank-std-table", "bank-contract"],
+        "bank-std-table": ["bank-contract"],
+        "bank-journey": ["bank-contract"],
+        "bank-ui": ["bank-contract"]
+      }
+    }
+  }
+}

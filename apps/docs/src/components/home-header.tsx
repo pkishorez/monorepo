@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { ThemeSwitch } from 'fumadocs-ui/layouts/shared/slots/theme-switch';
-import { Newspaper } from 'lucide-react';
+import { FlaskConical, Newspaper } from 'lucide-react';
 import { appName } from '@/lib/shared';
 
 export function HomeHeader() {
@@ -28,6 +28,17 @@ export function HomeHeader() {
           >
             <Newspaper className="size-3.5" />
             Blog
+          </Link>
+          <Link
+            to="/demos"
+            className="relative inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            activeProps={{
+              className:
+                'font-medium text-primary after:absolute after:-bottom-2.5 after:inset-x-2 after:h-0.5 after:rounded-full after:bg-primary hover:bg-primary/5 hover:text-primary',
+            }}
+          >
+            <FlaskConical className="size-3.5" />
+            Demos
           </Link>
           <ThemeSwitch />
         </div>

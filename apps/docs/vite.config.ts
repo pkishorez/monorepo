@@ -8,17 +8,27 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    rollupOptions: {
+      external: ['cloudflare:workers'],
+    },
+  },
+  ssr: {
+    resolve: {
+      mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'],
+    },
+  },
   plugins: [
     mdx(),
     tailwindcss(),
-    // No prerender: pages SSR on the Worker at request time. Prerendering
-    // crashes silently inside the Cloudflare Vite plugin's workerd runtime
-    // during `alchemy deploy` (works under plain node `vite build`).
-    tanstackStart(),
+    tanstackStart({
+      server: { entry: 'server.ts' },
+    }),
     react(),
   ],
   resolve: {
     tsconfigPaths: true,
+    dedupe: ['@tanstack/db', '@tanstack/react-db', 'react', 'react-dom'],
     alias: {
       tslib: 'tslib/tslib.es6.js',
     },
