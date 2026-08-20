@@ -2,6 +2,7 @@ import { useMemo, useState, type ComponentProps } from 'react';
 import { ChevronDown, Maximize2, X } from 'lucide-react';
 import type { StoryReport } from 'laymos';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import {
   FlowItemDetails,
@@ -92,9 +93,29 @@ export function Markdown({
   return (
     <div className={cn('prose dark:prose-invert max-w-none', className)}>
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           pre: ({ children }) => <>{children}</>,
           code: MarkdownCode,
+          table: ({ children }) => (
+            <div
+              className={cn('not-prose my-4 overflow-x-auto', scrollbarStyles)}
+            >
+              <table className="w-full border-collapse text-sm">
+                {children}
+              </table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border-b border-border px-3 py-2 text-left font-semibold">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td className="border-b border-border/50 px-3 py-2 align-top">
+              {children}
+            </td>
+          ),
         }}
       >
         {children}
