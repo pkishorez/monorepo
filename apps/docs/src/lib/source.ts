@@ -9,12 +9,6 @@ export const source = loader({
   plugins: [lucideIconsPlugin()],
 });
 
-/**
- * Serializable docs source data for a fully static deployment: a slug -> content
- * path map plus the serialized page tree. Prerendered to `/api/source` and
- * fetched by the docs route loader on client-side navigation (there is no
- * runtime server to answer a server function).
- */
 export async function loadSourceData() {
   return {
     pages: Object.fromEntries(
