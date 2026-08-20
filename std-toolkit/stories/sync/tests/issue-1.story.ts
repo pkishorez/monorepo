@@ -87,8 +87,6 @@ export const issue1 = Story.make({
   title: 'Issue 1',
   description:
     'A regression, kept runnable outside the Story tree. A paced update must read the note that the browser is showing.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. This Story uses `utils.pacedUpdate`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -5,6 +5,7 @@ import {
   FileCode2,
   Link as LinkIcon,
   Maximize2,
+  Minimize2,
   SquareArrowOutUpRight,
 } from 'lucide-react';
 import type { StoryTree } from 'laymos';
@@ -212,7 +213,7 @@ function StoryBody({
   readonly anchorPrefix?: string;
 }) {
   const [supportOpen, setSupportOpen] = useState(false);
-  const [setupCodeOpen, setSetupCodeOpen] = useState(false);
+  const [setupExpanded, setSetupExpanded] = useState(false);
   const report = reports?.[story.id];
   const questionReports = new Map<string, QuestionReport>(
     (report?.questions ?? []).map((question) => [question.slug, question]),
@@ -220,10 +221,8 @@ function StoryBody({
   const support = story.support;
   return (
     <div className="flex flex-col gap-4">
-      {(story.setup !== null ||
-        story.setupNote !== null ||
-        support !== null) && (
-        <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+      {(story.setup !== null || support !== null) && (
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               setup
@@ -231,16 +230,15 @@ function StoryBody({
             {story.setup !== null && (
               <button
                 type="button"
-                onClick={() => setSetupCodeOpen((value) => !value)}
+                onClick={() => setSetupExpanded((value) => !value)}
                 className="inline-flex items-center gap-1 rounded border border-border/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               >
-                <ChevronRight
-                  className={cn(
-                    'size-3 transition-transform',
-                    setupCodeOpen && 'rotate-90',
-                  )}
-                />
-                code
+                {setupExpanded ? (
+                  <Minimize2 className="size-3" />
+                ) : (
+                  <Maximize2 className="size-3" />
+                )}
+                {setupExpanded ? 'collapse' : 'expand'}
               </button>
             )}
             {support !== null && (
@@ -255,13 +253,16 @@ function StoryBody({
               </button>
             )}
           </div>
-          {story.setupNote !== null && (
-            <Markdown className="prose-sm text-sm leading-relaxed text-muted-foreground">
-              {story.setupNote}
-            </Markdown>
-          )}
-          {story.setup !== null && setupCodeOpen && (
-            <CodeSnippet code={story.setup} />
+          {story.setup !== null && (
+            <div
+              className={cn(
+                'overflow-y-auto rounded-lg',
+                scrollbarStyles,
+                setupExpanded ? 'max-h-[60vh]' : 'max-h-52',
+              )}
+            >
+              <CodeSnippet code={story.setup} />
+            </div>
           )}
         </div>
       )}
@@ -360,7 +361,7 @@ function SourceDialog({
 }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[85vh] w-[min(92vw,64rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[64rem]">
+      <DialogContent className="flex h-[85vh] w-[min(92vw,64rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[64rem]">
         <div className="flex items-center gap-2.5 border-b border-border px-5 py-3 pr-14">
           <DialogTitle className="min-w-0 flex-1 truncate text-sm font-semibold">
             {source.path}
@@ -399,7 +400,7 @@ function StoryDialog({
   const report = reports?.[story.id];
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex max-h-[85vh] w-[min(92vw,64rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[64rem]">
+      <DialogContent className="flex h-[85vh] w-[min(92vw,64rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[64rem]">
         <div className="flex items-center gap-2.5 border-b border-border px-5 py-3 pr-14">
           <StatusIcon verdict={report?.verdict} />
           <DialogTitle className="min-w-0 flex-1 truncate text-sm font-semibold">

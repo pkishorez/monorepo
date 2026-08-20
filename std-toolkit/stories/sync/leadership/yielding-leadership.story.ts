@@ -165,8 +165,6 @@ const runDance = (simulation: LeadershipSimulation) =>
 export const yieldingLeadership = Story.make({
   title: 'Two tabs dance for one partition',
   description: 'Hiding a tab passes leadership to a tab that is waiting.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. `Simulation.webLocks()` supplies leadership through web locks. The release rule is `hidden` in one Story and `frozen` in the other.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

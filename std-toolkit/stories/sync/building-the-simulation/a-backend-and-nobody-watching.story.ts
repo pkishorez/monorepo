@@ -79,8 +79,6 @@ export const aBackendAndNobodyWatching = Story.make({
   description:
     'Step one of four. A server that holds notes, before any browser exists.',
   spine: true,
-  setupNote:
-    'A table and a Note, plus one collection. Nothing in this Story opens a browser.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

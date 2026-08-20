@@ -8,7 +8,6 @@ export const oldRowAutoMigrates = Story.make({
   description:
     'Nothing asks for a migration. Reading the note is what runs one.',
   spine: true,
-  setupNote: 'The completed Note from `support.ts`. Its newest version is v4.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -11,7 +11,6 @@ export const valueWithVersionKey = Story.make({
   title: 'When a value already has a _v of its own',
   description:
     'One shape conflicts with the envelope. Writing it through `encode` first removes the conflict.',
-  setupNote: 'An `Imported` value whose own type contains a `_v` field.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

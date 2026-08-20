@@ -10,7 +10,6 @@ export const deletingAndRestoring = Story.make({
   title: 'Deleting and restoring',
   description:
     'A delete marks the note. It does not remove the note. That is what makes it possible to undo.',
-  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('A note is deleted. Is it gone?', {

@@ -15,7 +15,6 @@ export const livingInTheBrowser = Story.make({
   title: 'Living in the browser',
   description:
     'An upgrade needs each other tab to release its connection first.',
-  setupNote: 'One IndexedDB database with two connections, to act as two tabs.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Can the schema upgrade while another tab is open?', {

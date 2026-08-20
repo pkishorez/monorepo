@@ -15,8 +15,6 @@ export const missingVersionStamp = Story.make({
   title: 'Missing version stamp',
   description:
     'Data written before stamps existed is read as the first version.',
-  setupNote:
-    'A Bookmark with one step. This Story reads data that carries no `_v`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens when data has no `_v`?', {

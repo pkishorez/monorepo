@@ -10,7 +10,6 @@ export const skippingAndMissing = Story.make({
   title: 'Skipping and missing rows',
   description:
     'An update can stop itself. It is checked against the value that was just read.',
-  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

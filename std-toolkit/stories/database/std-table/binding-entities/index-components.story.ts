@@ -28,8 +28,6 @@ export const indexComponents = Story.make({
   title: 'Index components',
   description:
     'A key part is built from encoded text. Not every field can be one.',
-  setupNote:
-    'A Note with a numeric field. This Story tries to use that field as a key part.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

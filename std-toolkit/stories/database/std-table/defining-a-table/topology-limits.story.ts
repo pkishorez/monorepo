@@ -29,7 +29,6 @@ const withSlots = (lsis: number, gsis: number): unknown => {
 export const topologyLimits = Story.make({
   title: 'Topology limits',
   description: 'A row needs two different key attributes to be addressable.',
-  setupNote: 'Attempts to build tables whose key attributes conflict.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

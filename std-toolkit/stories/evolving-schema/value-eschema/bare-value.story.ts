@@ -10,8 +10,6 @@ export const bareValue = Story.make({
   title: 'Values written before any of this existed',
   description:
     'A setting that was stored as a plain value, with no envelope and no stamp, can still be read.',
-  setupNote:
-    'A `PerPage` value. v1 is text. v2 is a number. The migration converts one to the other.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

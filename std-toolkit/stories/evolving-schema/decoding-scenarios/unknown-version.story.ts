@@ -9,7 +9,6 @@ const Widget = ESchema.make('Widget', {
 export const unknownVersion = Story.make({
   title: 'Unknown version',
   description: 'A stamp that names an unknown version is refused.',
-  setupNote: 'A Widget with one version, v1.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

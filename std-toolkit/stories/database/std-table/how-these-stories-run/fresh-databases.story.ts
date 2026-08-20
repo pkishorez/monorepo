@@ -14,8 +14,6 @@ export const freshDatabases = Story.make({
   title: 'Fresh databases',
   description:
     'Each proof receives an empty database and gives it back at the end.',
-  setupNote:
-    'One program, run two times on each database, to show that the second run starts empty.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

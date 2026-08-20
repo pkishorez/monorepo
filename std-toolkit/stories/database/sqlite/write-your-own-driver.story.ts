@@ -41,8 +41,6 @@ const recordingDriver = (inner: SQLiteDriver) => {
 export const writeYourOwnDriver = Story.make({
   title: 'Write your own driver',
   description: 'Anything that executes SQL can host the whole table.',
-  setupNote:
-    'A short wrapper around the node driver. It records each statement and then passes it on.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How much must a driver of your own supply?', {

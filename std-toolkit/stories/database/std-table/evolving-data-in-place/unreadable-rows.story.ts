@@ -42,8 +42,6 @@ const key = { articleId: 'a1', section: 'news' };
 export const unreadableRows = Story.make({
   title: 'Unreadable rows',
   description: 'Data that cannot be decoded fails at the row that holds it.',
-  setupNote:
-    'Two bindings over one table. One writes a shape that the other cannot read.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

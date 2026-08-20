@@ -17,7 +17,6 @@ export const reservedNames = Story.make({
   title: 'Reserved names',
   description:
     'Five attribute names belong to the row layout. A table cannot use them.',
-  setupNote: 'Attempts to build a table with names that the row layout owns.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which attribute names can a table not use?', {

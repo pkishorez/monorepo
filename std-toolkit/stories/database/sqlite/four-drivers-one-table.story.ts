@@ -39,8 +39,6 @@ export const fourDriversOneTable = Story.make({
   title: 'Four drivers, one table',
   description:
     'One table shape over four SQLite runtimes, behind a seam of three methods.',
-  setupNote:
-    'One program, run on the node driver, the better-sqlite3 driver, and the Durable Object driver.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which runtimes can host the SQLite adapter?', {

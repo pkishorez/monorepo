@@ -10,7 +10,6 @@ export const keysAreImmutable = Story.make({
   title: 'Keys are immutable',
   description:
     'A note cannot change its own key. It can only be written under a new one.',
-  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

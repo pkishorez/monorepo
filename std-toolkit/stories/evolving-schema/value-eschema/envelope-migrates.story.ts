@@ -12,7 +12,6 @@ export const envelopeMigrates = Story.make({
   title: 'The envelope decides which rung',
   description:
     'The stamp on the envelope selects the starting version. An envelope must not contain another envelope.',
-  setupNote: 'A `Theme` value. v1 is free text. v2 is one of two words.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

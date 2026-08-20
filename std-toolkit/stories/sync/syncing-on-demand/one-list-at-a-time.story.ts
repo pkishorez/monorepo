@@ -54,8 +54,6 @@ export const oneListAtATime = Story.make({
   title: 'One list at a time',
   description:
     'Only the partition that a mounted query asks for becomes active.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. Each live query filters to one notebook.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

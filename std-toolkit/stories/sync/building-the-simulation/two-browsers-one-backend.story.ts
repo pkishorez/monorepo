@@ -92,8 +92,6 @@ export const twoBrowsersOneBackend = Story.make({
   description:
     'Step three. A second person opens the same notebook, and one of them goes offline.',
   spine: true,
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

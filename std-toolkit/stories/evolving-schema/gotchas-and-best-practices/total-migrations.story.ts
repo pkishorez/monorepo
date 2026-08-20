@@ -19,7 +19,6 @@ export const totalMigrations = Story.make({
   title: 'Total migrations',
   description:
     'A migration must accept each value that the old version allowed.',
-  setupNote: 'A schema that turns an optional nickname into a display name.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens to a v1 row that has a real nickname?', {

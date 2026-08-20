@@ -9,8 +9,6 @@ export const batchInsert = Story.make({
   title: 'Batch insert',
   description:
     'A batch write reduces the number of network calls. Only DynamoDB needs this.',
-  setupNote:
-    'The `counter` entity from the DynamoDB support file, against DynamoDB Local.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you fill a table faster than one write at a time?', {

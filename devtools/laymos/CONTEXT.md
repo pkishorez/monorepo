@@ -28,12 +28,6 @@ description shown inline in listings plus a mandatory Story page, and holds
 either subgroups or Stories — never both. Groups have no verdict of their
 own; any rollup is derived from descendant Story reports.
 
-**Setup note**:
-One or two sentences of markdown that say what a Story's setup code
-establishes, so a reader learns the ground a proof stands on without reading
-the code. The Stories view shows the note and keeps the code itself folded
-until the reader asks for it. A Story with no setup code needs no note.
-
 **Story page**:
 The markdown file narrating a Story or a Story Group, resolved by position
 rather than declared: a Story's page is the `.md` sibling of its Story file, and

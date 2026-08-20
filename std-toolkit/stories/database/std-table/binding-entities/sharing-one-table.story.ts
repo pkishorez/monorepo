@@ -17,8 +17,6 @@ const notebookRecord = table
 export const sharingOneTable = Story.make({
   title: 'Sharing one table',
   description: 'Two entities in one table do not see the rows of each other.',
-  setupNote:
-    'The `note` from `support.ts`, plus a second entity called Notebook bound to the same table.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

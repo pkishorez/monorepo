@@ -17,8 +17,6 @@ export const pageSize = Story.make({
   description:
     'A query has a page size whether you ask for one or not. It also says whether rows remain.',
   spine: true,
-  setupNote:
-    'The `note` from `support.ts`, with more notes than one page holds.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

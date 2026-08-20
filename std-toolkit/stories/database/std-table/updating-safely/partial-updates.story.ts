@@ -11,7 +11,6 @@ export const partialUpdates = Story.make({
   description:
     'Change some fields of a note. Do not read the whole note into your own code first.',
   spine: true,
-  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

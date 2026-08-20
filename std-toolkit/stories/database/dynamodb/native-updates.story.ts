@@ -16,8 +16,6 @@ export const nativeUpdates = Story.make({
   title: 'Native updates',
   description:
     'Push arithmetic into the database instead of reading, changing, and writing back.',
-  setupNote:
-    'The `counter` entity from the DynamoDB support file, against DynamoDB Local.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you increase a counter without reading it first?', {

@@ -137,8 +137,6 @@ export const peerSyncModel = Story.make({
   title: 'Peer Sync is a freshness path',
   description:
     'Peer sync is a speed path between open tabs. It is never a source of truth.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. The Stories here compare peer sync against reading the backend alone.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Do two tabs with in-memory copies agree at once?', {

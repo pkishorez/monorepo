@@ -158,8 +158,6 @@ export const leadershipIsNotACache = Story.make({
   title: 'Leadership is not a cache',
   description:
     'Leadership stops a late tab from repeating work. It does not give that tab the result.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. One Story uses in-memory copies. Another uses a shared IndexedDB copy.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

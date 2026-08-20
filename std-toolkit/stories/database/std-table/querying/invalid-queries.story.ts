@@ -7,8 +7,6 @@ export const invalidQueries = Story.make({
   title: 'Invalid queries',
   description:
     'A query carries one sort condition. It carries no more and no less.',
-  setupNote:
-    'The `note` from `support.ts`. This Story sends queries that the system refuses.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens when a query gives two sort conditions?', {

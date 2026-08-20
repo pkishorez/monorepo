@@ -24,8 +24,6 @@ export const sequentialVersions = Story.make({
   description:
     'The three steps run together. This Story also proves that the schema you built is the one the other Stories use.',
   spine: true,
-  setupNote:
-    'The completed Note, with all three steps. The last question compares it with the `Note` that `support.ts` exports.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

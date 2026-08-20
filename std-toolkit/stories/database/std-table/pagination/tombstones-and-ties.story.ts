@@ -16,8 +16,6 @@ export const tombstonesAndTies = Story.make({
   title: 'Tombstones and ties',
   description:
     'Deleted notes sit between live ones. They do not use the page that you asked for.',
-  setupNote:
-    'The `note` from `support.ts`, with deleted notes between the live ones.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

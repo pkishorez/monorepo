@@ -63,8 +63,6 @@ export const crossCollection = Story.make({
   title: 'Cross-collection optimistic actions',
   description:
     'Two collections change in one transaction. Both appear at once and are confirmed together.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. There are two collections here: Note and Audit.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Do both changes appear before the backend commits?', {

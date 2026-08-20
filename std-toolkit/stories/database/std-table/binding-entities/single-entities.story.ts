@@ -7,8 +7,6 @@ export const singleEntities = Story.make({
   title: 'Single entities',
   description:
     'An entity with one row. It returns a declared default instead of null.',
-  setupNote:
-    'The `settings` single entity from `support.ts`. Its default theme is light and its default page size is 20.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

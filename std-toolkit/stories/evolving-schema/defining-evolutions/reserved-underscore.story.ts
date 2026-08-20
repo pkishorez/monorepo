@@ -7,7 +7,6 @@ export const reservedUnderscore = Story.make({
   title: 'The stamp you never wrote',
   description:
     'Storage holds one field that the notebook did not declare. The `_` prefix is reserved, so your fields cannot collide with it.',
-  setupNote: 'The completed Note from `support.ts`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -10,8 +10,6 @@ export const adoptExistingSchema = Story.make({
   title: 'Adopting a schema you already have',
   description:
     'You can wrap a schema that you already have. It costs nothing now and permits migrations later.',
-  setupNote:
-    'A plain `Status` schema, wrapped as a value. The last question wraps it again and adds one step.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

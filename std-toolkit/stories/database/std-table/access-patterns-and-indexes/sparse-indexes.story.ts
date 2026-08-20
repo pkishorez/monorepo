@@ -44,8 +44,6 @@ export const sparseIndexes = Story.make({
   title: 'Sparse indexes',
   description:
     'A note that cannot make an index key stays out of that index. It is still readable everywhere else.',
-  setupNote:
-    'A second Note binding over the same table. Its index key uses a field that can hold null.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

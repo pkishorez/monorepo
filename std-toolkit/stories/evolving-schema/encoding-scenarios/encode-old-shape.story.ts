@@ -8,7 +8,6 @@ export const encodeOldShape = Story.make({
   title: 'Migrations only run downhill',
   description:
     '`decode` moves a note forward. `encode` does not. It accepts the newest shape only.',
-  setupNote: 'The completed Note from `support.ts`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

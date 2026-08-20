@@ -59,8 +59,6 @@ const history: Note[] = [
 export const editsKeepFlowing = Story.make({
   title: 'Edits keep flowing',
   description: 'A gap closes from both ends at the same time.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. The backend writes five notes before the browser mounts.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How does the browser read a large backlog?', {
