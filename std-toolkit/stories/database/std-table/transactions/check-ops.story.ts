@@ -29,9 +29,11 @@ const outcomes = (error: unknown): readonly Outcome[] =>
   (error as { reason?: { operations?: readonly Outcome[] } }).reason
     ?.operations ?? [];
 
+const REFUSALS = new Set(['stale', 'refused', 'missing']);
+
 const refusedBy = (error: unknown) =>
   outcomes(error)
-    .filter(({ status }) => status === 'failed')
+    .filter(({ status }) => REFUSALS.has(status))
     .map(({ op }) => op.operationKind);
 
 const noteIds = (written: readonly unknown[]) =>
@@ -68,7 +70,7 @@ export const checkOps = Story.make({
     }),
     Story.question('How do you guard a batch on a business rule?', {
       answer:
-        '`getAndCheckOp` reads a keyed row, applies your synchronous check to its domain value, and prepares an unchanged check when the result is true. A missing or tombstoned row fails with `NoItemToCheck`; a false result fails with `CheckRefused`. If the accepted row moves before commit, the transaction still fails with `TransactFailed`.',
+        '`getAndCheckOp` carries an entity invariant. Building it reads nothing: `transact` reads the keyed row at commit time, applies your check to its domain value, and guards that value. A false result reports `refused`; a missing or tombstoned row reports `missing`. Either way the batch fails before anything is submitted.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -79,19 +81,29 @@ export const checkOps = Story.make({
             );
             const write = yield* note.insertOp(draft('new'));
             const written = yield* table.transact([check, write]);
-            const refused = yield* note
-              .getAndCheckOp(key('guard'), ({ status }) => status === 'closed')
+            const error = yield* table
+              .transact([
+                yield* note.getAndCheckOp(
+                  key('guard'),
+                  ({ status }) => status === 'closed',
+                ),
+                yield* note.insertOp(draft('never')),
+              ])
               .pipe(Effect.flip);
             return {
               positions: noteIds(written),
-              refused: reasonOf(refused),
+              refused: reasonOf(error),
+              statuses: outcomes(error).map(({ status }) => status),
+              neverWritten: (yield* note.get(key('never'))) !== null,
             };
           }),
         );
         yield* Story.assert(
-          'the accepted value guards the write and the refused value never becomes an op',
+          'the accepted value guards the write and a refused invariant stops the batch',
           results.sqlite.positions.join() === ',new' &&
-            results.sqlite.refused === 'CheckRefused',
+            results.sqlite.refused === 'TransactFailed' &&
+            results.sqlite.statuses[0] === 'refused' &&
+            results.sqlite.neverWritten === false,
         );
         yield* Story.assert('every adapter agrees', agree(results));
         return results;
@@ -266,7 +278,7 @@ export const checkOps = Story.make({
     }),
     Story.question('What do the ops that did not fail report?', {
       answer:
-        'The `detail` on a refused op is the condition kind on every adapter, so the reason a check failed is portable. The *status* of the ops that did not fail is not, and the report says so rather than hiding it. DynamoDB evaluates every item and can name several failures at once, so an op it cleared reads `passed`. SQLite, IndexedDB, and Memory abort at the first refusal, so everything after it reads `not-evaluated`. Only the `failed` entries are portable — `passed` never means "this was written", because a failed transact writes nothing at all.',
+        'The `detail` on a refused op is the condition kind on every adapter, so the reason a check failed is portable. The *status* of the ops that did not fail is not, and the report says so rather than hiding it. DynamoDB evaluates every item and can name several failures at once, so an op it cleared reads `passed`. SQLite, IndexedDB, and Memory abort at the first refusal, so everything after it reads `not-evaluated`. Only the refusing entry is portable — `passed` never means "this was written", because a failed transact writes nothing at all. A moved `_u` reports `stale`, which a retry may clear; a refused invariant reports `refused`, which no retry will.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -279,8 +291,8 @@ export const checkOps = Story.make({
               .pipe(Effect.flip);
             return {
               statuses: outcomes(error).map(({ status }) => status),
-              refusedDetail: outcomes(error).find(
-                ({ status }) => status === 'failed',
+              refusedDetail: outcomes(error).find(({ status }) =>
+                REFUSALS.has(status),
               )?.detail,
             };
           }),
@@ -288,7 +300,7 @@ export const checkOps = Story.make({
         yield* Story.assert(
           'every adapter marks the check that refused',
           [results.dynamodb, results.idb, results.memory, results.sqlite].every(
-            ({ statuses }) => statuses[0] === 'failed',
+            ({ statuses }) => statuses[0] === 'stale',
           ),
         );
         yield* Story.assert(

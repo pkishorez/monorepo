@@ -21,7 +21,8 @@ export const makeTableContract = (
 ): StdTableContract => {
   const schema = itemSchema(table);
   return {
-    getItem: (key) => getItem(client, table, tableName, schema, key),
+    getItem: (key, options) =>
+      getItem(client, table, tableName, schema, key, options),
     queryItems: (request) =>
       queryItems(client, table, tableName, schema, request),
     writeItem: (request) =>

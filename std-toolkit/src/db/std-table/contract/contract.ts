@@ -164,9 +164,14 @@ export class OperationFailure extends Data.TaggedError('OperationFailure')<{
 
 export type ContractFailure = ConditionFailure | OperationFailure;
 
+export interface ReadOptions {
+  readonly consistent?: boolean;
+}
+
 export interface StdTableContract {
   readonly getItem: (
     key: EncodedKey,
+    options?: ReadOptions,
   ) => Effect.Effect<EncodedItem | null, ContractFailure>;
   readonly queryItems: (
     request: QueryRequest,

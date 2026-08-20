@@ -18,12 +18,21 @@ export const getItem = (
   tableName: string,
   schema: ItemSchema,
   key: EncodedKey,
+  options?: { readonly consistent?: boolean },
 ) =>
   Effect.try({
     try: () => decodeKey(table, key),
     catch: contractFailure,
   }).pipe(
-    Effect.flatMap((Key) => client.getItem({ TableName: tableName, Key })),
+    Effect.flatMap((Key) =>
+      client.getItem({
+        TableName: tableName,
+        Key,
+        ...(options?.consistent === undefined
+          ? {}
+          : { ConsistentRead: options.consistent }),
+      }),
+    ),
     Effect.flatMap(({ Item }) =>
       Item === undefined
         ? Effect.succeed(null)

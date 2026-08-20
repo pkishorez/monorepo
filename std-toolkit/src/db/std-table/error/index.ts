@@ -13,8 +13,8 @@ export {
   PrimaryKeyUpdateNotSupported,
   TransactFailed,
   TransactionTooLarge,
-  UpdateRefused,
   type DatabaseErrorReason,
   type TransactOperation,
   type TransactOutcome,
+  type TransactOutcomeStatus,
 } from './error.js';

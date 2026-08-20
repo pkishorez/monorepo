@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
 
-import { agree, note, parity, reasonOf } from '../../support.js';
+import { agree, note, parity, reasonOf, table } from '../../support.js';
 
 const key = { noteId: 'n1', notebook: 'work' };
 
@@ -13,40 +13,53 @@ export const refusingAnUpdate = Story.make({
       'How does a business rule veto a transaction after reading the row?',
       {
         answer:
-          'Return null from the update function in `getAndUpdateOp` — building the op fails with `UpdateRefused`, so the transaction is never submitted and sibling ops never land.',
+          'Give `getAndUpdateOp` an entity invariant through `check`. Transact evaluates it against the value it reads at commit time and fails the batch before submitting anything, so sibling ops never land.',
         proof: Effect.gen(function* () {
           const results = yield* parity(
             Effect.gen(function* () {
               yield* note.insert({ ...key, title: 'Draft', status: 'done' });
-              const error = yield* Effect.all([
-                note.getAndUpdateOp(key, (current) =>
-                  current.status === 'done' ? null : { status: 'done' },
-                ),
-                note.insertOp({
-                  noteId: 'n2',
-                  notebook: 'work',
-                  title: 'Sibling',
-                  status: 'open',
-                }),
-              ]).pipe(Effect.flip);
+              const error = yield* table
+                .transact([
+                  yield* note.getAndUpdateOp(
+                    key,
+                    { status: 'done' },
+                    { check: (current) => current.status !== 'done' },
+                  ),
+                  yield* note.insertOp({
+                    noteId: 'n2',
+                    notebook: 'work',
+                    title: 'Sibling',
+                    status: 'open',
+                  }),
+                ])
+                .pipe(Effect.flip);
               const sibling = yield* note.get({
                 noteId: 'n2',
                 notebook: 'work',
               });
               const original = yield* note.get(key);
+              const reason = (error as { reason: { _tag: string } }).reason;
               return {
                 reason: reasonOf(error),
+                status:
+                  reason._tag === 'TransactFailed'
+                    ? ((
+                        reason as unknown as {
+                          operations: readonly { status: string }[];
+                        }
+                      ).operations[0]?.status ?? null)
+                    : null,
                 siblingWritten: sibling !== null,
-                stampUntouched: original !== null,
-                status: original?.value.status ?? null,
+                noteStatus: original?.value.status ?? null,
               };
             }),
           );
           yield* Story.assert(
-            'the refused op fails with UpdateRefused and nothing is written',
-            results.sqlite.reason === 'UpdateRefused' &&
+            'the refused op reports `refused` and nothing is written',
+            results.sqlite.reason === 'TransactFailed' &&
+              results.sqlite.status === 'refused' &&
               !results.sqlite.siblingWritten &&
-              results.sqlite.status === 'done',
+              results.sqlite.noteStatus === 'done',
           );
           yield* Story.assert('every adapter agrees', agree(results));
           return results;

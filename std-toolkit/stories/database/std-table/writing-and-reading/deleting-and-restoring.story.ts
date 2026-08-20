@@ -73,7 +73,7 @@ export const deletingAndRestoring = Story.make({
     }),
     Story.question('How do you bring a deleted row back?', {
       answer:
-        'Call `restore`, which clears the deleted flag; restoring a row that is already live returns it unchanged without writing.',
+        'Call `restore`, which clears the deleted flag. Restoring a row that is already live writes it again and stamps a fresh version, because every op produces exactly one write — that is what keeps a batch atomic and its outcome report aligned.',
       proof: Effect.gen(function* () {
         const results = yield* parity(
           Effect.gen(function* () {
@@ -90,9 +90,9 @@ export const deletingAndRestoring = Story.make({
           }),
         );
         yield* Story.assert(
-          'restore revives the row and a second restore changes nothing',
+          'restore revives the row and a second restore writes it again',
           results.sqlite.restoredFlag === false &&
-            results.sqlite.againStamp === results.sqlite.restoredStamp &&
+            results.sqlite.againStamp !== results.sqlite.restoredStamp &&
             results.sqlite.title === 'Draft',
         );
         yield* Story.assert('every adapter agrees', agree(results));

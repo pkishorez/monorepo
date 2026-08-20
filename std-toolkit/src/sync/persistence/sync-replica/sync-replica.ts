@@ -94,76 +94,78 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
       Effect.gen(function* () {
         const cursorKey = { collection, key: CURSOR_KEY };
         const cursor = yield* storedReplicaCursorEntity.get(cursorKey);
-        let assigned: string | null = null;
+        const seq = nextSequence(
+          cursor === null ? null : cursor.value.position,
+        );
+        const observedPosition = cursor === null ? null : cursor.value.position;
         const cursorOp =
           cursor === null
             ? yield* storedReplicaCursorEntity.insertOp({
                 ...cursorKey,
-                position: (assigned = nextSequence(null)),
+                position: seq,
               })
             : yield* storedReplicaCursorEntity.getAndUpdateOp(
                 cursorKey,
-                (latest) => ({
-                  position: (assigned = nextSequence(latest.position)),
-                }),
+                { position: seq },
+                { check: (latest) => latest.position === observedPosition },
               );
-        if (assigned === null) {
-          return yield* Effect.die(
-            new Error(
-              `Projection Sequence was not assigned for '${collection}'`,
-            ),
-          );
-        }
-        const seq: string = assigned;
 
         const currentStored = yield* storedReplicaEntity.get(key(id));
-        let accepted: EncodedEntity<unknown> | null = null;
-        let repaired: boolean = false;
         const incomingWithReceipt: EncodedEntity<S['Encoded']> = {
           ...incoming,
           meta: { ...incoming.meta, _c: clientNow },
         };
+        const outcome = ((): {
+          readonly accepted: EncodedEntity<unknown>;
+          readonly repaired: boolean;
+        } | null => {
+          if (currentStored === null)
+            return { accepted: incomingWithReceipt, repaired: false };
+          const current = currentStored.value.entity as EncodedEntity<unknown>;
+          if (converge(current, incoming) !== 'skip')
+            return { accepted: incomingWithReceipt, repaired: false };
+          if (
+            !current.meta._d &&
+            incoming.meta._s != null &&
+            incoming.meta._s !== current.meta._s
+          )
+            return {
+              accepted: {
+                ...current,
+                meta: { ...current.meta, _s: incoming.meta._s, _c: clientNow },
+              },
+              repaired: true,
+            };
+          return null;
+        })();
+        if (outcome === null) return null;
+        const { accepted, repaired } = outcome;
+
+        const observedSeq =
+          currentStored === null ? null : currentStored.value.seq;
         const replicaOp =
           currentStored === null
             ? yield* storedReplicaEntity.insertOp({
                 collection,
                 key: id,
                 seq,
-                entity: (accepted = incomingWithReceipt),
+                entity: accepted,
               })
-            : yield* storedReplicaEntity.getAndUpdateOp(key(id), (stored) => {
-                const current = stored.entity as EncodedEntity<unknown>;
-                if (converge(current, incoming) !== 'skip') {
-                  accepted = incomingWithReceipt;
-                } else if (
-                  !current.meta._d &&
-                  incoming.meta._s != null &&
-                  incoming.meta._s !== current.meta._s
-                ) {
-                  accepted = {
-                    ...current,
-                    meta: {
-                      ...current.meta,
-                      _s: incoming.meta._s,
-                      _c: clientNow,
-                    },
-                  };
-                  repaired = true;
-                }
-                return accepted === null ? {} : { seq, entity: accepted };
-              });
+            : yield* storedReplicaEntity.getAndUpdateOp(
+                key(id),
+                { seq, entity: accepted },
+                { check: (stored) => stored.seq === observedSeq },
+              );
 
-        if (accepted === null) return null;
         const result = yield* syncStore
           .transact([cursorOp, replicaOp])
           .pipe(Effect.result);
         if (result._tag === 'Success') {
-          if (!repaired) {
+          if (!repaired)
             return {
               ...incomingDecoded,
               meta: { ...incomingDecoded.meta, _c: clientNow },
             };
-          }
           // A repaired entity is stored data, so it can predate this build's schema.
           const decoded = yield* entitySchema
             .decode(accepted)

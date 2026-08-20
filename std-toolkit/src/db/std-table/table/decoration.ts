@@ -1,5 +1,9 @@
 import { Effect } from 'effect';
-import { nextUlid } from '../../../core/index.js';
+import {
+  nextUlid,
+  type DecodedEntity,
+  type DecodedSingleEntity,
+} from '../../../core/index.js';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
@@ -10,12 +14,14 @@ import {
   DuplicateTransactionTarget,
   ForeignTransactionItem,
   TransactFailed,
+  type TransactOutcomeStatus,
   TransactionTooLarge,
 } from '../error/index.js';
 import {
   ConditionFailure,
   StdTableService,
   type ContractFailure,
+  type TransactItem,
 } from '../contract/index.js';
 import type {
   KeyedEntityDefinition,
@@ -30,6 +36,8 @@ import {
   type AnyTransactOp,
 } from '../entity/index.js';
 import type { StdTable } from './table.js';
+
+type AnyDecoded = DecodedEntity<object> | DecodedSingleEntity<object>;
 
 interface AnyEntityBuilder {
   index(
@@ -48,6 +56,12 @@ interface AnyEntityBuilder {
   >;
 }
 
+const READ_CONCURRENCY = 12;
+
+/** A database-evaluated condition kind, as the status the caller acts on. */
+const conditionStatus = (detail: string | undefined): TransactOutcomeStatus =>
+  detail === 'updated' ? 'stale' : 'missing';
+
 const transactFailed = (
   ops: readonly AnyTransactOp<string>[],
   failure: ContractFailure,
@@ -59,7 +73,12 @@ const transactFailed = (
       operations: ops.map((op, index) => {
         const outcome = failure.outcomes?.[index];
         return {
-          status: outcome?.status ?? 'not-evaluated',
+          status:
+            outcome === undefined || outcome.status === 'not-evaluated'
+              ? ('not-evaluated' as const)
+              : outcome.status === 'passed'
+                ? ('passed' as const)
+                : conditionStatus(outcome.detail),
           ...(outcome?.detail === undefined ? {} : { detail: outcome.detail }),
           op,
         };
@@ -67,6 +86,37 @@ const transactFailed = (
     }),
   });
 };
+
+/** An op refusing before submission, as one outcome per op at its position. */
+const refusedAt = (
+  ops: readonly AnyTransactOp<string>[],
+  index: number,
+  reason: DatabaseError['reason'],
+) => {
+  const status: TransactOutcomeStatus =
+    reason._tag === 'CheckRefused' ? 'refused' : 'missing';
+  return new DatabaseError({
+    reason: new TransactFailed({
+      operations: ops.map((op, position) => ({
+        status:
+          position < index
+            ? ('passed' as const)
+            : position === index
+              ? status
+              : ('not-evaluated' as const),
+        ...(position === index ? { detail: reason._tag } : {}),
+        op,
+      })),
+    }),
+  });
+};
+
+const REFUSAL_TAGS = new Set([
+  'CheckRefused',
+  'NoItemToUpdate',
+  'NoItemToCheck',
+  'ItemAlreadyExists',
+]);
 
 const decorateEntityBuilder = (
   builder: AnyEntityBuilder,
@@ -125,13 +175,43 @@ export const decorateTable = <Name extends string>(
         }
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;
+        const current = yield* Effect.forEach(
+          ops,
+          (op) =>
+            op.readsCurrent
+              ? contract
+                  .getItem(op.key, { consistent: true })
+                  .pipe(
+                    Effect.mapError((error) =>
+                      dbError('transact', error as ContractFailure),
+                    ),
+                  )
+              : Effect.succeed(null),
+          { concurrency: READ_CONCURRENCY },
+        );
+        const version = yield* nextUlid;
         const applied = [];
-        for (const op of ops)
-          applied.push(
-            op.operationKind === 'checkOp'
-              ? op.apply()
-              : op.apply(yield* nextUlid),
-          );
+        for (let index = 0; index < ops.length; index++) {
+          const op = ops[index] as AnyTransactOp<Name>;
+          const result = yield* (
+            op.apply(current[index] ?? null, version) as Effect.Effect<
+              {
+                readonly write: TransactItem;
+                readonly entity: AnyDecoded | null;
+              },
+              DatabaseError
+            >
+          ).pipe(Effect.result);
+          if (result._tag === 'Failure') {
+            if (!REFUSAL_TAGS.has(result.failure.reason._tag))
+              return yield* Effect.fail(result.failure);
+            return yield* Effect.fail(
+              refusedAt(ops, index, result.failure.reason),
+            );
+          }
+          applied.push(result.success);
+        }
+        // One write per op, in order, so a positional outcome report lines up.
         yield* contract
           .transactWriteItems(applied.map(({ write }) => write))
           .pipe(
