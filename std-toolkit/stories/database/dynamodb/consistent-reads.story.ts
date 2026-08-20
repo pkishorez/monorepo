@@ -7,6 +7,8 @@ import { counter, counterKey, unmarshallItem } from './support.js';
 
 export const consistentReads = Story.make({
   title: 'Consistent reads',
+  description:
+    'Forcing a read to come from the leader replica instead of a lagging one.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you demand a strongly consistent read?', {

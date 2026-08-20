@@ -17,6 +17,7 @@ const Document = ESchema.make('Document', {
 
 export const appendDontMutate = Story.make({
   title: "Append, don't mutate",
+  description: 'Add a rung; never reach back and change one.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

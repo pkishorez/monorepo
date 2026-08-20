@@ -22,6 +22,7 @@ export { slugifyQuestion } from './slug.js';
 export {
   QuestionLeafSchema,
   StoryLeafSchema,
+  StoryPageSchema,
   StorySourceSchema,
   StoryTreeGroupSchema,
   StoryTreeSchema,
@@ -29,6 +30,7 @@ export {
 export type {
   QuestionLeaf,
   StoryLeaf,
+  StoryPage,
   StorySource,
   StoryTree,
   StoryTreeGroup,

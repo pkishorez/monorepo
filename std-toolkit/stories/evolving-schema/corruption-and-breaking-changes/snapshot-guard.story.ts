@@ -9,6 +9,8 @@ const approved = ESchema.make('Ticket', {
 
 export const snapshotGuard = Story.make({
   title: 'Snapshot guard',
+  description:
+    'The approved snapshot is what tells a safe change from a breaking one.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How does the snapshot diff classify an honest evolution?', {

@@ -8,6 +8,8 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 
 export const deletingAndRestoring = Story.make({
   title: 'Deleting and restoring',
+  description:
+    'A delete marks the row rather than removing it, which is what makes it undoable.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does delete do to a row?', {

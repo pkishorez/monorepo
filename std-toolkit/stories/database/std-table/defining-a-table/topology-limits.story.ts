@@ -28,6 +28,8 @@ const withSlots = (lsis: number, gsis: number): unknown => {
 
 export const topologyLimits = Story.make({
   title: 'Topology limits',
+  description:
+    'The table shapes that refuse to build, and why a row needs two distinct key attributes.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

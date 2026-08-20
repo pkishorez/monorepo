@@ -8,6 +8,8 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 
 export const skippingAndMissing = Story.make({
   title: 'Skipping and missing rows',
+  description:
+    'An update that can refuse itself, checked against the value that was just read.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you decide, after reading, not to write at all?', {

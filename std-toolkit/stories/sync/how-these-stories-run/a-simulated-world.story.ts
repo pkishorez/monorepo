@@ -27,6 +27,8 @@ const simulation = Simulation.make({
 
 export const aSimulatedWorld = Story.make({
   title: 'A simulated world',
+  description:
+    'One backend, any number of browsers, and the vocabulary every Sync Story is written in.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Who is talking in these stories?', {

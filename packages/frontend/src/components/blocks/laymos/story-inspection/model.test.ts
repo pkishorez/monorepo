@@ -9,6 +9,9 @@ function story(id: string, path: string, supportPath?: string): StoryLeaf {
   return {
     id,
     title: id,
+    description: '',
+    spine: false,
+    page: null,
     setup: null,
     questions: [],
     source: { path, content: '' },
@@ -18,7 +21,7 @@ function story(id: string, path: string, supportPath?: string): StoryLeaf {
 }
 
 function group(title: string, stories: readonly StoryLeaf[]): StoryTree {
-  return { title, groups: [], stories };
+  return { title, description: '', page: null, groups: [], stories };
 }
 
 function changed(

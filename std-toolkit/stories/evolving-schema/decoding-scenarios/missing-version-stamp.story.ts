@@ -13,6 +13,8 @@ const Bookmark = ESchema.make('Bookmark', {
 
 export const missingVersionStamp = Story.make({
   title: 'Missing version stamp',
+  description:
+    'Data written before any stamp existed is adopted as the earliest version.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens when a payload has no `_v` at all?', {

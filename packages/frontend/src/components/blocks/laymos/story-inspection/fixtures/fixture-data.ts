@@ -30,14 +30,22 @@ export const decodeAll = (schema, rows) =>
 
 export const storyTree: StoryTree = {
   title: 'std-toolkit',
+  description: 'Everything std-toolkit does, one proof at a time.',
+  page: null,
   groups: [
     {
       title: 'ESchema',
+      description:
+        'How a schema grows without breaking the rows already written.',
+      page: null,
       groups: [],
       stories: [
         {
           id: 'std-toolkit/ESchema/Evolves an entity across versions',
           title: 'Evolves an entity across versions',
+          description: 'A v1 row meets a v2 schema and decodes.',
+          spine: true,
+          page: null,
           setup: eschemaSetup,
           questions: [
             {
@@ -79,11 +87,16 @@ export const storyTree: StoryTree = {
     },
     {
       title: 'Sync',
+      description: 'How a mutation travels and how state survives a crash.',
+      page: null,
       groups: [],
       stories: [
         {
           id: 'std-toolkit/Sync/Round-trips a mutation',
           title: 'Round-trips a mutation',
+          description: 'A pushed mutation is acknowledged and folded in.',
+          spine: true,
+          page: null,
           setup: null,
           questions: [
             {
@@ -107,6 +120,9 @@ export const storyTree: StoryTree = {
         {
           id: 'std-toolkit/Sync/Restores after a crash',
           title: 'Restores after a crash',
+          description: 'An unclean shutdown loses nothing.',
+          spine: false,
+          page: null,
           setup: null,
           questions: [
             {

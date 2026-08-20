@@ -123,6 +123,8 @@ const mountInbox = (tab: StoryTab, name: string) =>
 
 export const oneReaderManyTabs = Story.make({
   title: 'One reader, many tabs',
+  description:
+    'Many tabs, one backend reader — but only when a leadership layer is supplied.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Is Leadership automatic?', {

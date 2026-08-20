@@ -13,6 +13,8 @@ const Metric = ESchema.make('Metric', {
 
 export const malformedPayload = Story.make({
   title: 'Malformed payload',
+  description:
+    'Data is validated against the version it claims before any rung runs.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

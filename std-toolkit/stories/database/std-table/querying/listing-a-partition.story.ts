@@ -13,6 +13,9 @@ const seed = Effect.forEach(notes, (value) => note.insert(value));
 
 export const listingAPartition = Story.make({
   title: 'Listing a partition',
+  description:
+    'Reading a whole notebook: the unbounded condition that walks an entire partition in order.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you list everything in one partition?', {

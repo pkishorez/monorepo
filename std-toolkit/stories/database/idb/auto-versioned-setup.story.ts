@@ -13,6 +13,8 @@ import {
 
 export const autoVersionedSetup = Story.make({
   title: 'Auto-versioned setup',
+  description:
+    'The version number bumps only when the declared shape actually changed.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Who owns the IndexedDB version number?', {

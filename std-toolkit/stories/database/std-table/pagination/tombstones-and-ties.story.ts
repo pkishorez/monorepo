@@ -14,6 +14,8 @@ const tie = (noteId: string) =>
 
 export const tombstonesAndTies = Story.make({
   title: 'Tombstones and ties',
+  description:
+    'Deleted rows sit between live ones without eating into the page you asked for.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Do deleted rows use up the page limit?', {

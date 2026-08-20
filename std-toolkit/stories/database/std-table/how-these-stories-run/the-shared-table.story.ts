@@ -5,6 +5,8 @@ import { note, settings, table } from '../../support.js';
 
 export const theSharedTable = Story.make({
   title: 'The shared table',
+  description:
+    'The one table shape every Story in this part is written against.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What table do these stories write to?', {

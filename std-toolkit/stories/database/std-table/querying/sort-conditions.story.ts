@@ -22,6 +22,7 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 
 export const sortConditions = Story.make({
   title: 'Sort conditions',
+  description: 'The seven ways to name a slice of a partition.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

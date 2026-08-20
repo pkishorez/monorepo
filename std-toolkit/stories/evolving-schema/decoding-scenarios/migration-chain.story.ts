@@ -1,76 +1,52 @@
-import { Effect, Schema } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { ESchema } from 'std-toolkit/eschema';
 
-const Order = ESchema.make('Order', {
-  total: Schema.Number,
-})
-  .evolve('v2', { currency: Schema.String }, (previous) => ({
-    ...previous,
-    currency: 'USD',
-  }))
-  .evolve('v3', { paid: Schema.Boolean }, (previous) => ({
-    ...previous,
-    paid: previous.total === 0,
-  }))
-  .build();
+import { Note } from '../support.js';
 
 export const migrationChain = Story.make({
-  title: 'Migration chain',
+  title: 'Only the rungs above you',
+  description:
+    'A note is not migrated from the beginning — it is migrated from wherever it already is.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when a v1 payload is decoded by a schema three versions deep?',
+      'The notebook holds notes written at every version. Does each one run the whole ladder?',
       {
         answer:
-          'It walks every migration after its version in order — v1→v2 backfills `currency`, then v2→v3 derives `paid` from `total`.',
+          'No. Decode starts at the version the note is stamped with and runs only the rungs above it, so a v3 note never reruns the rungs it already went through.',
         proof: Story.trace(
           Effect.gen(function* () {
-            const fromV1 = yield* Order.decode({ _v: 'v1', total: 0 });
+            const fromV3 = yield* Note.decode({
+              _v: 'v3',
+              body: 'Call Ada',
+              pinned: true,
+            });
             yield* Story.assert(
-              'v1→v2 backfilled the currency',
-              fromV1.currency === 'USD',
+              'the v3→v4 rung ran',
+              fromV3.text === 'Call Ada',
             );
             yield* Story.assert(
-              'v2→v3 derived paid from the v1 data',
-              fromV1.paid === true,
+              'the earlier rungs did not rerun — pinned was left alone',
+              fromV3.pinned === true,
             );
-            return fromV1;
+            return fromV3;
           }),
         ),
       },
     ),
-    Story.question('Does a v2 payload rerun the v1→v2 step?', {
-      answer:
-        "No — decode starts from the payload's own version, so only v2→v3 runs and the stored `currency` survives.",
+    Story.question('And a note already written at the latest version?', {
+      answer: 'No migration runs at all. It passes straight through.',
       proof: Effect.gen(function* () {
-        const fromV2 = yield* Order.decode({
-          _v: 'v2',
-          total: 25,
-          currency: 'EUR',
+        const fromV4 = yield* Note.decode({
+          _v: 'v4',
+          text: 'Ship the release',
+          pinned: true,
         });
         yield* Story.assert(
-          'the v1→v2 step was skipped — EUR survived',
-          fromV2.currency === 'EUR',
+          'a latest-version note passes straight through',
+          fromV4.text === 'Ship the release' && fromV4.pinned === true,
         );
-        yield* Story.assert('the v2→v3 step still ran', fromV2.paid === false);
-        return fromV2;
-      }),
-    }),
-    Story.question('What happens to a payload already at the latest version?', {
-      answer: 'No migration runs at all — it passes straight through.',
-      proof: Effect.gen(function* () {
-        const fromV3 = yield* Order.decode({
-          _v: 'v3',
-          total: 10,
-          currency: 'GBP',
-          paid: true,
-        });
-        yield* Story.assert(
-          'a latest-version payload passes straight through',
-          fromV3.paid === true && fromV3.currency === 'GBP',
-        );
-        return fromV3;
+        return fromV4;
       }),
     }),
   ],

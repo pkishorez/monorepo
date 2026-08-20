@@ -5,6 +5,7 @@ const subject = 'the row';
 
 const first = Story.make({
   title: 'first story',
+  description: 'The first Story authored in a shared file.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does the first story prove?', {
@@ -19,6 +20,7 @@ const first = Story.make({
 
 const second = Story.make({
   title: 'second story',
+  description: 'The second Story authored in the same file.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(`What does ${subject} look like when read back?`, {
@@ -32,4 +34,8 @@ const second = Story.make({
   ],
 });
 
-export default Story.group('shared-file', [first, second]);
+export default Story.group(
+  'shared-file',
+  { description: 'Two Stories authored in one file.' },
+  [first, second],
+);

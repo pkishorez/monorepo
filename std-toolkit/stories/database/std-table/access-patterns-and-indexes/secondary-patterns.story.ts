@@ -19,6 +19,8 @@ const same = (matched: readonly string[], expected: readonly string[]) =>
 
 export const secondaryPatterns = Story.make({
   title: 'Secondary patterns',
+  description:
+    'Asking the same table a different question by naming a different access pattern.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

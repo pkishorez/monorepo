@@ -8,6 +8,8 @@ const Widget = ESchema.make('Widget', {
 
 export const unknownVersion = Story.make({
   title: 'Unknown version',
+  description:
+    'A stamp naming a version that was never declared is refused rather than guessed at.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

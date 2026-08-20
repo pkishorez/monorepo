@@ -20,6 +20,7 @@ import type {
   QuestionSection,
   StoryAssertion,
   StoryLeaf,
+  StoryPage,
   StoryReport,
   StorySource,
   StoryTree,
@@ -140,11 +141,22 @@ function loadRoot(configPath: string) {
         cause: null,
       });
     }
-    return yield* indexGroup(root, [root.title], entryPoint, {
+    const options: IndexOptions = {
       projectRoot: dirname(absoluteConfigPath),
       storiesRoot,
       supportCache: new Map(),
-    });
+      groupDirectories: new Map(),
+    };
+    const indexed = yield* indexGroup(root, [root.title], entryPoint, options);
+    return {
+      ...indexed,
+      tree: attachGroupPages(
+        indexed.tree,
+        indexed.directory,
+        options.projectRoot,
+        options.groupDirectories,
+      ),
+    };
   }).pipe(
     Effect.provide(ConfigServiceLive),
     Effect.provide(NodeServices.layer),
@@ -155,6 +167,7 @@ interface IndexOptions {
   readonly projectRoot: string;
   readonly storiesRoot: string;
   readonly supportCache: Map<string, StorySource | null>;
+  readonly groupDirectories: Map<StoryTreeGroup, string | null>;
 }
 
 function indexGroup(
@@ -162,15 +175,13 @@ function indexGroup(
   path: readonly string[],
   entryPoint: string,
   options: IndexOptions,
-): Effect.Effect<
-  { tree: StoryTreeGroup; stories: readonly IndexedStory[] },
-  StoriesError
-> {
+): Effect.Effect<IndexedGroup, StoriesError> {
   return Effect.gen(function* () {
     yield* checkUniqueTitles(group.children, path, entryPoint);
     const groups: StoryTreeGroup[] = [];
     const leaves: StoryLeaf[] = [];
     const stories: IndexedStory[] = [];
+    const directories: string[] = [];
     for (const child of group.children) {
       const id = [...path, child.title].join('/');
       if (isStory(child)) {
@@ -184,12 +195,17 @@ function indexGroup(
         leaves.push({
           id,
           title: child.title,
+          description: child.description,
+          spine: child.spine,
+          page: resolveStoryPage(child, options.projectRoot),
           setup: snippets.setup,
           questions,
           source,
           support: resolveSupport(child, options),
         });
         stories.push({ id, story: child });
+        const directory = storyDirectory(child);
+        if (directory !== null) directories.push(directory);
       } else {
         const indexed = yield* indexGroup(
           child,
@@ -198,14 +214,113 @@ function indexGroup(
           options,
         );
         groups.push(indexed.tree);
+        options.groupDirectories.set(indexed.tree, indexed.directory);
         stories.push(...indexed.stories);
+        directories.push(...indexed.directories);
       }
     }
     return {
-      tree: { title: group.title, groups, stories: leaves },
+      tree: {
+        title: group.title,
+        description: group.description,
+        page: null,
+        groups,
+        stories: leaves,
+      },
       stories,
+      directories,
+      directory: commonDirectory(directories),
     };
   });
+}
+
+interface IndexedGroup {
+  readonly tree: StoryTreeGroup;
+  readonly stories: readonly IndexedStory[];
+  readonly directories: readonly string[];
+  readonly directory: string | null;
+}
+
+function storyDirectory(story: Story): string | null {
+  try {
+    return dirname(fileURLToPath(story.sourceUrl));
+  } catch {
+    return null;
+  }
+}
+
+function readPage(filePath: string, projectRoot: string): StoryPage | null {
+  if (!existsSync(filePath)) return null;
+  return {
+    path: relative(projectRoot, filePath),
+    content: readFileSync(filePath, 'utf8'),
+  };
+}
+
+function resolveStoryPage(story: Story, projectRoot: string): StoryPage | null {
+  let filePath: string;
+  try {
+    filePath = fileURLToPath(story.sourceUrl);
+  } catch {
+    return null;
+  }
+  if (!filePath.endsWith('.ts')) return null;
+  return readPage(`${filePath.slice(0, -3)}.md`, projectRoot);
+}
+
+// A Story Group owns the folder its descendant Stories share, and its page sits
+// there under the group's own title. Two groups can span one folder — a Learn
+// and a Reference trunk over the same Stories — so the title, not `index`, is
+// what keeps their pages apart.
+function groupPage(
+  group: StoryTreeGroup,
+  directory: string | null,
+  projectRoot: string,
+): StoryPage | null {
+  if (directory === null) return null;
+  return readPage(
+    join(directory, `${slugifyQuestion(group.title)}.md`),
+    projectRoot,
+  );
+}
+
+function attachGroupPages(
+  group: StoryTreeGroup,
+  directory: string | null,
+  projectRoot: string,
+  directoriesById: ReadonlyMap<StoryTreeGroup, string | null>,
+): StoryTreeGroup {
+  return {
+    ...group,
+    page: groupPage(group, directory, projectRoot),
+    groups: group.groups.map((child) =>
+      attachGroupPages(
+        child,
+        directoriesById.get(child) ?? null,
+        projectRoot,
+        directoriesById,
+      ),
+    ),
+  };
+}
+
+function commonDirectory(directories: readonly string[]): string | null {
+  const [first, ...rest] = directories;
+  if (first === undefined) return null;
+  let shared = first.split(sep);
+  for (const directory of rest) {
+    const segments = directory.split(sep);
+    let index = 0;
+    while (
+      index < shared.length &&
+      index < segments.length &&
+      shared[index] === segments[index]
+    ) {
+      index += 1;
+    }
+    shared = shared.slice(0, index);
+  }
+  return shared.length === 0 ? null : shared.join(sep);
 }
 
 function indexQuestions(

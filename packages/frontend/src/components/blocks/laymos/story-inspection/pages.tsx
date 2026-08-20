@@ -16,6 +16,7 @@ import { cn } from '#lib/utils';
 import {
   countQuestions,
   groupVerdict,
+  splitSpine,
   storyAnchor,
   type StoryLeaf,
   type StoryReports,
@@ -84,29 +85,57 @@ function GroupPage({
   readonly onSelect: (id: string) => void;
 }) {
   const [dialogStory, setDialogStory] = useState<StoryLeaf | null>(null);
+  const [depthOpen, setDepthOpen] = useState(false);
+  const { spine, depth } = splitSpine(group.stories);
+  const storyRow = (story: StoryLeaf) => (
+    <ChildRow
+      key={story.id}
+      title={story.title}
+      description={story.description}
+      verdict={reports?.[story.id]?.verdict}
+      count={story.questions.length}
+      onOpen={() => onSelect(story.id)}
+      onOpenDialog={() => setDialogStory(story)}
+    />
+  );
   return (
     <div className="flex flex-col gap-5">
-      <PageHeading title={group.title} verdict={groupVerdict(group, reports)} />
+      <PageHeading
+        title={group.title}
+        description={group.description}
+        verdict={groupVerdict(group, reports)}
+      />
+      {group.page !== null && <Markdown>{group.page.content}</Markdown>}
       <div className="overflow-hidden rounded-lg border border-border">
         {group.groups.map((child) => (
           <ChildRow
             key={child.title}
             title={child.title}
+            description={child.description}
             verdict={groupVerdict(child, reports)}
             count={countQuestions(child)}
             onOpen={() => onSelect(`${id}/${child.title}`)}
           />
         ))}
-        {group.stories.map((story) => (
-          <ChildRow
-            key={story.id}
-            title={story.title}
-            verdict={reports?.[story.id]?.verdict}
-            count={story.questions.length}
-            onOpen={() => onSelect(story.id)}
-            onOpenDialog={() => setDialogStory(story)}
-          />
-        ))}
+        {spine.map(storyRow)}
+        {depthOpen && depth.map(storyRow)}
+        {depth.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setDepthOpen((value) => !value)}
+            className="flex w-full items-center gap-2 border-t border-border/60 px-3.5 py-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+          >
+            <ChevronDown
+              className={cn(
+                'size-3.5 transition-transform',
+                depthOpen && 'rotate-180',
+              )}
+            />
+            {depthOpen
+              ? 'Hide the rest'
+              : `${depth.length} more, past the main line`}
+          </button>
+        )}
       </div>
       {dialogStory !== null && (
         <StoryDialog
@@ -139,6 +168,7 @@ function StoryPage({
     <div className="flex flex-col gap-5">
       <PageHeading
         title={story.title}
+        description={story.description}
         verdict={report?.verdict}
         actions={
           <>
@@ -161,6 +191,7 @@ function StoryPage({
           </>
         }
       />
+      {story.page !== null && <Markdown>{story.page.content}</Markdown>}
       <StoryBody
         story={story}
         reports={reports}
@@ -401,32 +432,43 @@ function QuestionsEndSpacer() {
 
 function PageHeading({
   title,
+  description,
   verdict,
   actions,
 }: {
   readonly title: string;
+  readonly description?: string;
   readonly verdict?: Verdict;
   readonly actions?: ReactNode;
 }) {
   return (
-    <header className="flex items-center gap-2.5">
-      {verdict !== undefined && <VerdictDot verdict={verdict} />}
-      <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold leading-tight tracking-tight">
-        {title}
-      </h1>
-      {actions}
+    <header className="flex flex-col gap-1">
+      <div className="flex items-center gap-2.5">
+        {verdict !== undefined && <VerdictDot verdict={verdict} />}
+        <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold leading-tight tracking-tight">
+          {title}
+        </h1>
+        {actions}
+      </div>
+      {description !== undefined && description !== '' && (
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+      )}
     </header>
   );
 }
 
 function ChildRow({
   title,
+  description,
   verdict,
   count,
   onOpen,
   onOpenDialog,
 }: {
   readonly title: string;
+  readonly description?: string;
   readonly verdict?: Verdict;
   readonly count?: number;
   readonly onOpen: () => void;
@@ -442,8 +484,15 @@ function ChildRow({
         <span className="shrink-0 self-center">
           <VerdictDot verdict={verdict} />
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm font-medium leading-snug">
-          {title}
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm font-medium leading-snug">
+            {title}
+          </span>
+          {description !== undefined && description !== '' && (
+            <span className="truncate text-xs leading-snug text-muted-foreground">
+              {description}
+            </span>
+          )}
         </span>
         {count !== undefined && (
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">

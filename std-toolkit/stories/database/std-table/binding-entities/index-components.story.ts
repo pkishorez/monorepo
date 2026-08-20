@@ -26,6 +26,8 @@ const attempt = (build: () => unknown): string => {
 
 export const indexComponents = Story.make({
   title: 'Index components',
+  description:
+    'Key components are built from encoded strings, so not every field can be one.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

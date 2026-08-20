@@ -2,41 +2,47 @@ import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { ValueESchema } from 'std-toolkit/eschema';
 
-const Rating = ValueESchema.make('Rating', Schema.String)
-  .evolve('v2', Schema.Number, (previous) =>
-    previous === 'good' ? 4 : previous === 'bad' ? 1 : 3,
+const NoteStatus = ValueESchema.make('NoteStatus', Schema.String)
+  .evolve('v2', Schema.Literals(['open', 'done']), (previous) =>
+    previous === 'finished' ? 'done' : 'open',
   )
   .build();
 
 export const evolveAValue = Story.make({
-  title: 'Evolve a value',
+  title: 'A setting is not an object',
+  description:
+    "A note's status is one bare value, and it evolves on the same ladder objects do.",
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What happens when a v1 string envelope is decoded after the value evolved to a number?',
+      "The notebook used to store a note's status as free text and now stores one of two words. What happens to the statuses already written?",
       {
         answer:
-          "Each evolution replaces the whole codec, so decode runs the v1→v2 migration and `'good'` becomes `4`.",
+          'They migrate on read, exactly like a field of an object would. Each rung replaces the whole codec, so v1 text becomes a v2 literal.',
         proof: Effect.gen(function* () {
-          const migrated = yield* Rating.decode({ _v: 'v1', value: 'good' });
+          const migrated = yield* NoteStatus.decode({
+            _v: 'v1',
+            value: 'finished',
+          });
           yield* Story.assert(
-            'the v1 string became a v2 number',
-            migrated === 4,
+            'the old text became one of the new words',
+            migrated === 'done',
           );
           return migrated;
         }),
       },
     ),
-    Story.question('What does encoding a current rating write to storage?', {
+    Story.question('Where does a bare value keep its version stamp?', {
       answer:
-        'A `{ _v, value }` envelope — a bare `4` has nowhere else to carry its version stamp.',
+        'In an envelope. A bare `"done"` has nowhere to carry a stamp, so storage wraps it as `{ _v, value }`.',
       proof: Effect.gen(function* () {
-        const encoded = yield* Rating.encode(5);
+        const stored = yield* NoteStatus.encode('done');
         yield* Story.assert(
           'storage wraps the value in an envelope',
-          encoded._v === 'v2' && encoded.value === 5,
+          stored._v === 'v2' && stored.value === 'done',
         );
-        return encoded;
+        return stored;
       }),
     }),
   ],

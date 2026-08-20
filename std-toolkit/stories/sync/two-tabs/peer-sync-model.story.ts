@@ -135,6 +135,8 @@ const close = (
 
 export const peerSyncModel = Story.make({
   title: 'Peer Sync is a freshness path',
+  description:
+    'Peer sync is a freshness path between live tabs, never a source of truth.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Do two Memory-backed tabs converge immediately?', {

@@ -8,6 +8,8 @@ const draft = { ...key, title: 'Draft', status: 'open' };
 
 export const hardDelete = Story.make({
   title: 'Hard delete',
+  description:
+    'The one call that really removes a row, and the phrase you have to type to get it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you remove a row for real?', {

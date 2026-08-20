@@ -12,6 +12,9 @@ const indexed = StdTable.make('indexed-table')
 
 export const shapeOfATable = Story.make({
   title: 'Shape of a table',
+  description:
+    'The least a table has to declare, and what a secondary index adds to it.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What is the least a table has to declare?', {

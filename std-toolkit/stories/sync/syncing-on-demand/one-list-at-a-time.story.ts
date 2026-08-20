@@ -52,6 +52,8 @@ const home = {
 
 export const oneListAtATime = Story.make({
   title: 'One list at a time',
+  description:
+    'Only the partition a mounted query actually asks for is activated.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Does mounting one partition query sync only that list?', {

@@ -13,6 +13,8 @@ const original = ESchema.make('Player', {
 
 export const changingShippedMigration = Story.make({
   title: 'Changing shipped migration',
+  description:
+    'Rewriting a migration that has already run forks history: the same bytes decode two ways.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

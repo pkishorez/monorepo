@@ -7,6 +7,8 @@ import { counter, counterKey, unmarshallItem } from './support.js';
 
 export const batchInsert = Story.make({
   title: 'Batch insert',
+  description:
+    'Amortizing network round-trips with BatchWriteItem — a DynamoDB-only concern.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you seed a table faster than one write at a time?', {

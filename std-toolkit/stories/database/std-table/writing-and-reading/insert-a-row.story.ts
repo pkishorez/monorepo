@@ -5,6 +5,9 @@ import { agree, note, parity, reasonOf } from '../../support.js';
 
 export const insertARow = Story.make({
   title: 'Insert a row',
+  description:
+    'What a write puts in the table, what it stamps on it, and what a read of a missing row gives back.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does insert return?', {

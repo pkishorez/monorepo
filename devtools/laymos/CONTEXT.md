@@ -10,8 +10,8 @@ _Being redefined from scratch._
 **Story**:
 A named, executable narrative of one behavior of the Project's code — a leaf
 of the Story tree. A Story carries a one-line description shown inline in
-listings, a detailed markdown page, and an executable program whose run
-captures Story artifacts and Story assertions.
+listings, an optional Story page, a Story spine flag, and an executable program
+whose run captures Story artifacts and Story assertions.
 
 **Story question**:
 One question-and-answer unit of a Story: a reader-facing question, its prose
@@ -24,9 +24,25 @@ question's verdict.
 
 **Story Group**:
 A documentation node of the Story tree. It carries a title and one-line
-description shown inline in listings plus a detailed markdown page, and holds
+description shown inline in listings plus a mandatory Story page, and holds
 either subgroups or Stories — never both. Groups have no verdict of their
 own; any rollup is derived from descendant Story reports.
+
+**Story page**:
+The markdown file narrating a Story or a Story Group, resolved by position
+rather than declared: a Story's page is the `.md` sibling of its Story file, and
+a Story Group's page is named after the group's own title, in the folder its
+descendant Stories share. Two Story Groups may span one folder — a Learn and a
+Reference trunk over the same Stories — so the title, not a fixed file name, is
+what keeps their pages apart. A Story Group without a page is a lint violation;
+a Story without one is carried by its description and its Story questions.
+
+**Story spine**:
+The line a reader follows to learn the Project without reading everything: the
+Stories flagged as core flow. Every other Story is depth, kept in the Story tree
+and collapsed under its Story Group until the reader asks for it. The flag says
+what a Story is for, never whether it runs — a Stories run covers spine and
+depth alike.
 
 **Story tree**:
 A Project's whole documentation-plus-Stories hierarchy, rooted at the Story

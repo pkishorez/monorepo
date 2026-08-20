@@ -16,6 +16,9 @@ const idsOf = (page: { items: readonly { value: { noteId: string } }[] }) =>
 
 export const keyedEntities = Story.make({
   title: 'Keyed entities',
+  description:
+    'Binding a Note to the table: which fields make the partition, and which make the row.',
+  spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

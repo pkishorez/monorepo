@@ -58,6 +58,8 @@ const history: Todo[] = [
 
 export const editsKeepFlowing = Story.make({
   title: 'Edits keep flowing',
+  description:
+    'A gap is closed from both ends at once — newest first and oldest last.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How does bidirectional sync swallow a backlog?', {

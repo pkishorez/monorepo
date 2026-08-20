@@ -5,6 +5,8 @@ import { agree, parity, settings } from '../../support.js';
 
 export const singleEntities = Story.make({
   title: 'Single entities',
+  description:
+    'An entity with exactly one row, which reads back a declared default instead of null.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

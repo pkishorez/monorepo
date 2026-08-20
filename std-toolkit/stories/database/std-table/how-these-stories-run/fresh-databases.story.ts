@@ -12,6 +12,8 @@ const seed = {
 
 export const freshDatabases = Story.make({
   title: 'Fresh databases',
+  description:
+    'Each proof gets an empty database and gives it back when it finishes.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens to the databases a question creates?', {

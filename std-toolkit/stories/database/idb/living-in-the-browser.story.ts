@@ -13,6 +13,7 @@ import {
 
 export const livingInTheBrowser = Story.make({
   title: 'Living in the browser',
+  description: 'An upgrade needs every other tab to let go first.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Can the schema upgrade while another tab is open?', {

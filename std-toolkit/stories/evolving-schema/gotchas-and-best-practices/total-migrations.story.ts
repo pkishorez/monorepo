@@ -17,6 +17,8 @@ const Profile = ESchema.make('Profile', {
 
 export const totalMigrations = Story.make({
   title: 'Total migrations',
+  description:
+    'A migration has to answer for every value the old version allowed.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What happens to a v1 row with a real nickname?', {

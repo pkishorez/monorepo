@@ -12,53 +12,64 @@ const StoredNumber = Schema.String.pipe(
   ),
 );
 
-const Reading = ESchema.make('Reading', {
-  celsius: StoredNumber,
+const Note = ESchema.make('Note', {
+  text: Schema.String,
+  wordCount: StoredNumber,
 })
-  .evolve('v2', { fahrenheit: Schema.Number }, (previous) => ({
+  .evolve('v2', { long: Schema.Boolean }, (previous) => ({
     ...previous,
-    fahrenheit: previous.celsius * 1.8 + 32,
+    long: previous.wordCount > 100,
   }))
   .build();
 
 export const transformedFields = Story.make({
-  title: 'Transformed fields',
+  title: 'Fields that change shape in storage',
+  description:
+    'A field stored as text but used as a number — and which side of it a migration gets to see.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Which side of a codec field does a migration see — stored or decoded?',
+      "The note's word count is stored as text. Which side does a migration see?",
       {
         answer:
-          'The decoded side, always — fields decode first, so the migration receives `celsius` as a real number and can do arithmetic on it.',
+          'The decoded side, always. Every field decodes before any rung runs, so the migration receives a real number and can do arithmetic on it.',
         proof: Effect.gen(function* () {
-          const decoded = yield* Reading.decode({ _v: 'v1', celsius: '21.5' });
+          const note = yield* Note.decode({
+            _v: 'v1',
+            text: 'Buy milk',
+            wordCount: '140',
+          });
           yield* Story.assert(
-            'the field decoded from string to number',
-            decoded.celsius === 21.5,
+            'the field arrived as a number',
+            note.wordCount === 140,
           );
           yield* Story.assert(
-            'the migration computed with the decoded number',
-            decoded.fahrenheit === 21.5 * 1.8 + 32,
+            'the migration computed with that number',
+            note.long === true,
           );
-          return decoded;
+          return note;
         }),
       },
     ),
-    Story.question('What does encode write back for a codec field?', {
+    Story.question('And what goes back to storage?', {
       answer:
-        'The stored representation — each field runs its `encode`, so `celsius` goes back to a string in a row stamped `_v: "v2"`.',
+        'The stored representation again — every field runs its own encode on the way in, so the count is text once more.',
       proof: Effect.gen(function* () {
-        const decoded = yield* Reading.decode({ _v: 'v1', celsius: '21.5' });
-        const encoded = yield* Reading.encode(decoded);
+        const note = yield* Note.decode({
+          _v: 'v1',
+          text: 'Buy milk',
+          wordCount: '140',
+        });
+        const stored = yield* Note.encode(note);
         yield* Story.assert(
-          'the stored side is a string again',
-          encoded.celsius === '21.5',
+          'the stored side is text again',
+          stored.wordCount === '140',
         );
         yield* Story.assert(
-          'the stored row is stamped v2',
-          encoded._v === 'v2',
+          'stamped at the latest version',
+          stored._v === 'v2',
         );
-        return encoded;
+        return stored;
       }),
     }),
   ],
