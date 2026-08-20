@@ -19,7 +19,6 @@ export const resumingAQuery = Story.make({
   title: 'Resuming a query',
   description:
     'Continue where the last page stopped. There is no cursor to keep.',
-  setupNote: 'The `note` from `support.ts`, read one page at a time.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

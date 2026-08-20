@@ -11,7 +11,6 @@ export const noOptionalFields = Story.make({
   title: 'No optional fields',
   description:
     'Absence is an explicit null. A key that is absent is an error, not a silent `undefined`.',
-  setupNote: 'A Contact whose `phone` field can hold a string or null.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

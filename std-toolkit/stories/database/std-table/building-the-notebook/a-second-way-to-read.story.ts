@@ -47,8 +47,6 @@ export const aSecondWayToRead = Story.make({
   description:
     'Step three. The notebook must be read by title and by status, so the table gets two more key slots.',
   spine: true,
-  setupNote:
-    'The table from step two, plus two index slots. `byTitle` reuses the partition and orders by title. `byStatus` brings its own partition and orders by status and then title.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

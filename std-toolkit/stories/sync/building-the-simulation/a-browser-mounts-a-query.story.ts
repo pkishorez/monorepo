@@ -86,8 +86,6 @@ export const aBrowserMountsAQuery = Story.make({
   description:
     'Step two. Someone opens the notebook, and a screen starts to watch it.',
   spine: true,
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -17,8 +17,6 @@ export const addAField = Story.make({
   description:
     'Step one. The Note gets a `pinned` field. Notes written before it still work.',
   spine: true,
-  setupNote:
-    'The Note at v1 has a `body` and a `colour`. One step is added. It is called v2, it adds `pinned`, and its migration sets `pinned` to false.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

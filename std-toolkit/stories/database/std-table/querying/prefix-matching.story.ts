@@ -22,8 +22,6 @@ export const prefixMatching = Story.make({
   title: 'Prefix matching',
   description:
     'Match the start of a sort key. This is how one level of a hierarchy is read.',
-  setupNote:
-    'The `note` from `support.ts`, with notes whose sort keys form a path.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

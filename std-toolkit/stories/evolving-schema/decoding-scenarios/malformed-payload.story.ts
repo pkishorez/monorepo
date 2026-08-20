@@ -15,8 +15,6 @@ export const malformedPayload = Story.make({
   title: 'Malformed payload',
   description:
     'Data is checked against the version that it claims before any step runs.',
-  setupNote:
-    'A Metric with one step. This Story supplies data that does not match its own version.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

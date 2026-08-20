@@ -8,7 +8,6 @@ export const insertARow = Story.make({
   description:
     'What a write puts in the table, what it adds to it, and what a read of an absent note returns.',
   spine: true,
-  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Someone writes a note. What comes back?', {

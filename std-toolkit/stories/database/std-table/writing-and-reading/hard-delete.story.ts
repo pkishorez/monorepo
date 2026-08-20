@@ -10,7 +10,6 @@ export const hardDelete = Story.make({
   title: 'Hard delete',
   description:
     'One operation removes a note for real. It asks you to type a phrase first.',
-  setupNote: 'The `note` from `support.ts`, run on each of the four databases.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

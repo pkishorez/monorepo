@@ -9,8 +9,6 @@ export const consistentReads = Story.make({
   title: 'Consistent reads',
   description:
     'Force a read to come from the leader replica instead of one that lags.',
-  setupNote:
-    'The `counter` entity from the DynamoDB support file, against DynamoDB Local.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How do you ask for a read that is certain to be current?', {

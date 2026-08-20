@@ -15,8 +15,6 @@ export const listingAPartition = Story.make({
   title: 'Listing a partition',
   description: 'Read a whole notebook with a condition that has no bound.',
   spine: true,
-  setupNote:
-    'The `note` from `support.ts`, with several notes in one notebook.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

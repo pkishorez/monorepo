@@ -7,8 +7,6 @@ export const migrationChain = Story.make({
   title: 'Only the rungs above you',
   description:
     'A note does not start at the first version. It starts where it already is.',
-  setupNote:
-    'The completed Note from `support.ts`. This Story reads notes that were stored at v3 and at v4.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

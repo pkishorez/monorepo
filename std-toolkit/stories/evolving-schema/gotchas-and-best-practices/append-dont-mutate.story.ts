@@ -18,8 +18,6 @@ const Document = ESchema.make('Document', {
 export const appendDontMutate = Story.make({
   title: "Append, don't mutate",
   description: 'Add a step. Do not change a step that has shipped.',
-  setupNote:
-    'One schema with three versions. Each new version is added at the end.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

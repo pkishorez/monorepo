@@ -12,7 +12,6 @@ function story(id: string, path: string, supportPath?: string): StoryLeaf {
     description: '',
     spine: false,
     page: null,
-    setupNote: null,
     setup: null,
     questions: [],
     source: { path, content: '' },

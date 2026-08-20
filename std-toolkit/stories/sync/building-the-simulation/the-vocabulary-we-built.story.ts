@@ -32,8 +32,6 @@ export const theVocabularyWeBuilt = Story.make({
   description:
     'Step four. This Story proves that the table, the Note, and the words used here are the ones that the other Stories use.',
   spine: true,
-  setupNote:
-    'The table and the Note built in the three Stories above, next to the ones that `support.ts` exports.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

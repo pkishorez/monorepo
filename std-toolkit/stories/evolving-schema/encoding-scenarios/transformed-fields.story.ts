@@ -26,8 +26,6 @@ export const transformedFields = Story.make({
   title: 'Fields that change shape in storage',
   description:
     'A field is stored as text and used as a number. This Story shows which side a migration sees.',
-  setupNote:
-    'A Note whose `wordCount` is stored as text and decoded to a number. One step adds a `long` field that is calculated from it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

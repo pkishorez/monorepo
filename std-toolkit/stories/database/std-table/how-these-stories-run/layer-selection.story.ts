@@ -9,8 +9,6 @@ export const layerSelection = Story.make({
   title: 'Layer selection',
   description:
     'The layer around a program selects the database. The program does not.',
-  setupNote:
-    'Two Memory tables, supplied as two layers. The program runs inside one, then inside the other.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

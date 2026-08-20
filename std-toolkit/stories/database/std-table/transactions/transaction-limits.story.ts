@@ -22,8 +22,6 @@ const jobOp = {
 export const transactionLimits = Story.make({
   title: 'Transaction limits',
   description: 'One row may be touched one time in a batch.',
-  setupNote:
-    'The `note` from `support.ts`. This Story sends batches that the system refuses.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('A batch touches the same note two times. What happens?', {

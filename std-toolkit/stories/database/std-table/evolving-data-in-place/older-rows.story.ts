@@ -48,8 +48,6 @@ export const olderRows = Story.make({
   title: 'Older rows',
   description:
     'A note written against an older schema moves forward as it is read. Storage does not change.',
-  setupNote:
-    'Two bindings over one table. One uses last year schema. One uses this year schema, which has one more step.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

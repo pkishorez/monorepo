@@ -8,8 +8,6 @@ import { unmarshallItem } from './support.js';
 export const goingFullyNative = Story.make({
   title: 'Going fully native',
   description: 'The raw client, and the portability that it costs.',
-  setupNote:
-    'The `table` from the DynamoDB support file, plus the raw DynamoDB client.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -32,8 +32,6 @@ export const theNotebookWeBuilt = Story.make({
   description:
     'Step four. This Story proves that the table and the Note built here are the ones that the other Stories use.',
   spine: true,
-  setupNote:
-    'The completed table and Note from the three Stories above, next to the ones that `support.ts` exports.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

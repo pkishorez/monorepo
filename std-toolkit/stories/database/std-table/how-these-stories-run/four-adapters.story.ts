@@ -14,8 +14,6 @@ export const fourAdapters = Story.make({
   description:
     'Each proof in this part runs on four databases at the same time. All four must agree.',
   spine: true,
-  setupNote:
-    '`parity` runs one program on each of the four databases. `agree` compares the four results.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

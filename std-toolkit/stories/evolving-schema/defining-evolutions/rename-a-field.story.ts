@@ -22,8 +22,6 @@ export const renameAField = Story.make({
   description:
     'Step three. One field changes its name. The text that is already written moves with it.',
   spine: true,
-  setupNote:
-    'The Note now has three steps. v4 removes `body` and adds `text` in the same step. Its migration copies the value across.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

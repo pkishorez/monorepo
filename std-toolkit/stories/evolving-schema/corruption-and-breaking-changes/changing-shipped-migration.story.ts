@@ -15,7 +15,6 @@ export const changingShippedMigration = Story.make({
   title: 'Changing shipped migration',
   description:
     'If you rewrite a migration that has run, the same bytes decode in two ways.',
-  setupNote: 'One schema, shown with two different v1 to v2 migrations.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

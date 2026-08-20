@@ -36,8 +36,6 @@ export const fromDatabaseToCollection = Story.make({
   description:
     'The first note that makes the complete trip, in each of the four directions.',
   spine: true,
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('The backend creates a note. What does the browser see?', {

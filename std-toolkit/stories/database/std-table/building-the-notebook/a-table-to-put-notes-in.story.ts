@@ -9,8 +9,6 @@ export const aTableToPutNotesIn = Story.make({
   description:
     'Step one of four. A name and two key attributes make a complete table.',
   spine: true,
-  setupNote:
-    'One table, called `notebook`, with a partition key and a sort key. No index and no entity yet.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

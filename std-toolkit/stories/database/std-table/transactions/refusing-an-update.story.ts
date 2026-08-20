@@ -8,8 +8,6 @@ const key = { noteId: 'n1', notebook: 'work' };
 export const refusingAnUpdate = Story.make({
   title: 'Refusing an update',
   description: 'A condition can fail the whole batch before any of it is sent.',
-  setupNote:
-    'The `note` from `support.ts`, with a condition attached to one op.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

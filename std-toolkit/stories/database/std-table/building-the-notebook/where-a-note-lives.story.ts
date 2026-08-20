@@ -41,8 +41,6 @@ export const whereANoteLives = Story.make({
   description:
     'Step two. The Note is bound to the table. Its `notebook` field decides where a note goes.',
   spine: true,
-  setupNote:
-    'The table from step one, plus a Note bound to it. The partition is built from the `notebook` field. Three notes are written to an in-memory copy.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

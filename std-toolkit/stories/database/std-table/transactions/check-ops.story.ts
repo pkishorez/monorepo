@@ -46,8 +46,6 @@ const noteIds = (written: readonly unknown[]) =>
 export const checkOps = Story.make({
   title: 'Check ops',
   description: 'Assert that a note has not changed, without writing to it.',
-  setupNote:
-    'The `note` and the `settings` from `support.ts`. This Story adds check ops to batches.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

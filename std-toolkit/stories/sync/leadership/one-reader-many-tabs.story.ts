@@ -124,8 +124,6 @@ const mountInbox = (tab: StoryTab, name: string) =>
 export const oneReaderManyTabs = Story.make({
   title: 'One reader, many tabs',
   description: 'Many tabs, one backend reader. This needs a leadership layer.',
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. `Simulation.inMemory()` supplies one shared leadership layer to each tab.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Is leadership automatic?', {

@@ -14,8 +14,6 @@ const Ticket = ESchema.make('Ticket', {
 export const pureMigrations = Story.make({
   title: 'Pure migrations',
   description: 'The same bytes must decode to the same value on each read.',
-  setupNote:
-    'A schema whose migration calculates a new field from the old value only.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

@@ -8,8 +8,6 @@ export const tableDefinition = Story.make({
   title: 'Table definition for IaC',
   description:
     'Turn a table into an input that infrastructure code can use to create it.',
-  setupNote:
-    'The `table` from the DynamoDB support file. This Story needs no client and no credentials.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

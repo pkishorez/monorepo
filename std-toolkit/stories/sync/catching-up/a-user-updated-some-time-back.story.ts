@@ -71,8 +71,6 @@ export const aUserUpdatedSomeTimeBack = Story.make({
   title: 'Backend history before mount',
   description: 'A browser that has been away finds the history waiting for it.',
   spine: true,
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. The backend writes before any browser opens.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

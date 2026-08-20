@@ -54,8 +54,6 @@ export const oneBrowserManyTabs = Story.make({
   description:
     'A second tab starts empty. The backend fills it, not the first tab.',
   spine: true,
-  setupNote:
-    'The table, the Note, and the collection that the simulation uses. `Simulation.make` builds the world, and `simulation.run` runs one script inside it. `browser("alice").tab("second")` opens a second tab with its own copy of the data.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Alice opens a second tab. What does it show?', {

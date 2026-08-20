@@ -15,8 +15,6 @@ export const autoVersionedSetup = Story.make({
   title: 'Auto-versioned setup',
   description:
     'The version number increases only when the declared shape changed.',
-  setupNote:
-    'An IndexedDB database, set up two times, to show when the version changes.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Who owns the IndexedDB version number?', {

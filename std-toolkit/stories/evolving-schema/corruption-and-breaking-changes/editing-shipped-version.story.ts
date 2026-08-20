@@ -10,8 +10,6 @@ export const editingShippedVersion = Story.make({
   title: 'Editing shipped version',
   description:
     'If you edit a version that has shipped, the notes written under it stop working.',
-  setupNote:
-    'One schema, shown before and after an edit to v1 that adds a field in place.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

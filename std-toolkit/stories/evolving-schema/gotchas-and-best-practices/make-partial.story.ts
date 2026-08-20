@@ -10,8 +10,6 @@ const Settings = ESchema.make('Settings', {
 export const makePartialValidates = Story.make({
   title: 'makePartial',
   description: '`makePartial` adds a version stamp. It checks nothing.',
-  setupNote:
-    'A Settings schema. This Story calls `makePartial` rather than `encode`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does `makePartial` do to a partial update?', {

@@ -8,7 +8,6 @@ export const encodeWritesLatest = Story.make({
   description:
     'Each write goes in at the newest version. Storage gains new notes only.',
   spine: true,
-  setupNote: 'The completed Note from `support.ts`. Its newest version is v4.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Someone saves a note. Which version does it get?', {

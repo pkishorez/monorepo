@@ -18,8 +18,6 @@ export const removeAField = Story.make({
   description:
     'Step two. The notebook stops colouring notes. The colour in storage stops appearing.',
   spine: true,
-  setupNote:
-    'The Note now has two steps. v2 adds `pinned`. v3 removes `colour`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

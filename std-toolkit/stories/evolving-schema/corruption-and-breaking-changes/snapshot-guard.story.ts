@@ -11,8 +11,6 @@ export const snapshotGuard = Story.make({
   title: 'Snapshot guard',
   description:
     'An approved snapshot separates a safe change from a breaking one.',
-  setupNote:
-    'A schema and an approved snapshot of it. The diff compares the two.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How does the diff describe a correct change?', {

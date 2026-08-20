@@ -22,8 +22,6 @@ export const staleOps = Story.make({
   title: 'Stale ops',
   description:
     'An op carries intent, not a copy of the row. Time cannot make it wrong.',
-  setupNote:
-    'The `note` from `support.ts`. The note changes between building an op and committing it.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

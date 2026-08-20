@@ -13,8 +13,6 @@ export const evolveAValue = Story.make({
   description:
     'The status of a note is one value. It changes version in the same way that an object does.',
   spine: true,
-  setupNote:
-    'A `NoteStatus` value. v1 is free text. v2 is one of two words. The migration maps the old text onto the new words.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

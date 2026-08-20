@@ -14,8 +14,6 @@ export const atomicWrites = Story.make({
   title: 'Atomic writes',
   description: 'Several writes that land together, or not at all.',
   spine: true,
-  setupNote:
-    'The `note` from `support.ts`. Each write is built as an op and the list goes to `transact`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

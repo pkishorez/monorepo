@@ -7,7 +7,6 @@ export const theSharedTable = Story.make({
   title: 'The shared table',
   description:
     'The one table shape that each Story in this part is written against.',
-  setupNote: 'The `table` and the `note` that `support.ts` exports.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question('Which table do these notes go into?', {

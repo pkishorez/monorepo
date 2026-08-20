@@ -198,7 +198,6 @@ function indexGroup(
           description: child.description,
           spine: child.spine,
           page: resolveStoryPage(child, options.projectRoot),
-          setupNote: child.setupNote,
           setup: snippets.setup,
           questions,
           source,

@@ -21,8 +21,6 @@ export const secondaryPatterns = Story.make({
   title: 'Secondary patterns',
   description:
     'Ask the same table a different question. Name a different access pattern.',
-  setupNote:
-    'The `note` from `support.ts`. It has two secondary patterns: `byTitle` and `byStatus`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

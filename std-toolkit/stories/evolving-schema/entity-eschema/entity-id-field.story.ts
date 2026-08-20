@@ -8,7 +8,6 @@ export const entityIdField = Story.make({
   description:
     'An entity names one field as its identity. No step may change that field.',
   spine: true,
-  setupNote: 'A `NoteEntity` whose identity field is `noteId`.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(

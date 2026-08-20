@@ -65,8 +65,6 @@ export const codecFields = Story.make({
   title: 'Codec fields',
   description:
     'A date goes in as a date and comes back as a date. The adapter does the conversion.',
-  setupNote:
-    'A Note whose `remindAt` is a date and whose `tags` are a list. A second binding over the same table reads the stored bytes as plain text.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
