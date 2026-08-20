@@ -24,7 +24,7 @@ export const secondaryPatterns = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The screen wants the open notes only. The primary key cannot do that. What can?',
+      'A query must return the open notes only. The primary key cannot express that. What can?',
       {
         answer:
           'A secondary pattern. `byStatus` uses a key of `[status, title]`, so the notes of one status stay together and sort by title inside that group.',

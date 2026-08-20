@@ -18,7 +18,7 @@ export const nativeUpdates = Story.make({
     'Push arithmetic into the database instead of reading, changing, and writing back.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you increase a counter without reading it first?', {
+    Story.question('How is a counter increased without a read first?', {
       answer:
         'Use a native update. It builds an expression that DynamoDB applies in the database. The portable operation must read the row, change it, and write it back with a guard. Only DynamoDB can do the arithmetic itself.',
       proof: Effect.gen(function* () {

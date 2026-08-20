@@ -13,7 +13,7 @@ export const hardDelete = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The user wants a note erased, not hidden. How is that done?',
+      'A soft delete keeps the row. How is the row removed for real?',
       {
         answer:
           'Call `hardDelete` with the key and the confirmation phrase. The phrase is part of the type, so you cannot call it by accident. A read then returns null.',

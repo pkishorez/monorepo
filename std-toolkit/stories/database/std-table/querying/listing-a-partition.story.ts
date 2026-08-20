@@ -18,7 +18,7 @@ export const listingAPartition = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The screen opens on a notebook. How are all of its notes read?',
+      'A notebook holds notes under one partition key. How are all of them read?',
       {
         answer:
           'Query the primary pattern with a condition that has no bound. The query then reads the whole partition in sort-key order.',

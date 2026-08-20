@@ -14,7 +14,7 @@ export const partialUpdates = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'Someone renames a note. How does the title change without affecting the other fields?',
+      'How does an update change the title only, and leave the other fields alone?',
       {
         answer:
           'Give `getAndUpdate` the key and only the fields that change. The other fields keep their values, and the update stamp moves forward.',

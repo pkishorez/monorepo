@@ -117,7 +117,7 @@ export const checkOps = Story.make({
       },
     ),
     Story.question(
-      'Someone changed that notebook just before the commit. What happens?',
+      'The checked notebook changes between the read and the commit. What happens?',
       {
         answer:
           'The batch fails and nothing is written. The report names the check op as the one that failed, so you learn which assertion refused.',

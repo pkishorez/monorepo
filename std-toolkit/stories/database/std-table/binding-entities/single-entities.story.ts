@@ -10,7 +10,7 @@ export const singleEntities = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The notebook has settings. What do they read as before anyone changes them?',
+      'The notebook has settings. What does a read return before anything is written?',
       {
         answer:
           'They read as the declared default. The value carries the entity name and an empty update stamp. A read of a single entity never fails and never returns null.',

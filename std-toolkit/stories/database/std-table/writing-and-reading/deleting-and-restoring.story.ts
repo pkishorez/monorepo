@@ -38,7 +38,7 @@ export const deletingAndRestoring = Story.make({
         return results;
       }),
     }),
-    Story.question('How does the screen avoid showing deleted notes?', {
+    Story.question('How does a query leave the deleted notes out?', {
       answer:
         'It asks the query for live notes only. The query then leaves out the notes that are marked as deleted.',
       proof: Effect.gen(function* () {

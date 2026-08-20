@@ -28,7 +28,7 @@ export const makePartialValidates = Story.make({
         return patch;
       }),
     }),
-    Story.question('What happens when you give it an empty partial?', {
+    Story.question('What happens when the partial is empty?', {
       answer:
         'It returns a value that has a stamp and nothing else. Nothing checks that the update contains a field. Use `encode` when you need that check.',
       proof: Effect.gen(function* () {

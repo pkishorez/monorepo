@@ -27,7 +27,7 @@ export const sequentialVersions = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The oldest note in the notebook has not been opened since it was written. What happens the first time that someone reads it?',
+      'The oldest note in the notebook is still at v1. What happens the first time that it is read?',
       {
         answer:
           'Each step above its version runs, in order, in one pass. The note gets `pinned`. It loses `colour`. Its text moves from `body` to `text`.',

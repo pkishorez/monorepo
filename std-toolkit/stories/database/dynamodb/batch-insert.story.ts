@@ -11,7 +11,7 @@ export const batchInsert = Story.make({
     'A batch write reduces the number of network calls. Only DynamoDB needs this.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you fill a table faster than one write at a time?', {
+    Story.question('How is a table filled faster than one write at a time?', {
       answer:
         'Use a batch write. It sends raw rows in groups of 25, which is the DynamoDB limit, and reports anything that DynamoDB refused. It exists to reduce network calls. IndexedDB and SQLite run in the same process and have no network calls to reduce, so this operation belongs to DynamoDB only.',
       proof: Effect.gen(function* () {

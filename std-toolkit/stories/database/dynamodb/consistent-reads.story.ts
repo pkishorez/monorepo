@@ -11,7 +11,7 @@ export const consistentReads = Story.make({
     'Force a read to come from the leader replica instead of one that lags.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('How do you ask for a read that is certain to be current?', {
+    Story.question('How is a read that is certain to be current requested?', {
       answer:
         'Use the native read and ask for a consistent read. DynamoDB then answers from the leader replica rather than from one that can lag. Its data is on several replicas, so this control exists here. IndexedDB and SQLite always read the state that was last committed.',
       proof: Effect.gen(function* () {
