@@ -1,5 +1,9 @@
 vp staged
 
+# Types cross file boundaries, so check every workspace rather than the staged
+# files alone: a tsconfig or dependency change breaks types with no .ts staged.
+pnpm -r --if-present lint:tsc
+
 # Dependency policy is repo-wide, so only pay for it when a manifest moves.
 if git diff --cached --name-only | grep -qE '(^|/)package\.json$|^pnpm-workspace\.yaml$'; then
   syncpack lint
