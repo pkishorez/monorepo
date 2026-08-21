@@ -345,6 +345,9 @@ catalogs:
       specifier: npm:xstate@6.0.0-alpha.23
       version: 6.0.0-alpha.23
 
+patchedDependencies:
+  alchemy@2.0.0-beta.72: 9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0
+
 importers:
 
   .:
@@ -454,7 +457,7 @@ importers:
         version: 6.0.5(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
       alchemy:
         specifier: 'catalog:'
-        version: 2.0.0-beta.72(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0)
+        version: 2.0.0-beta.72(patch_hash=9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0)(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0)
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
@@ -12570,7 +12573,7 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
-  alchemy@2.0.0-beta.72(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0):
+  alchemy@2.0.0-beta.72(patch_hash=9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0)(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0):
     dependencies:
       '@alchemy.run/cloudflare-runtime': 2.0.0-beta.72(@distilled.cloud/cloudflare@1.0.0-rc.4(effect@4.0.0-rc.110))(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(effect@4.0.0-rc.110)(rolldown@1.1.5)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
       '@alchemy.run/node-utils': 0.0.5

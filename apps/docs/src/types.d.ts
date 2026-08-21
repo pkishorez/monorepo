@@ -5,3 +5,11 @@ declare global {
     interface Env extends WorkerEnv {}
   }
 }
+
+declare module '@tanstack/react-start' {
+  interface Register {
+    server: {
+      requestContext: { env: Cloudflare.Env };
+    };
+  }
+}
