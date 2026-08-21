@@ -1,5 +1,5 @@
 import { createOptimisticAction } from '@tanstack/react-db';
-import { Context, Effect, Layer, Scope, Stream } from 'effect';
+import { Context, Effect, Layer, References, Scope, Stream } from 'effect';
 import { RpcClient } from 'effect/unstable/rpc';
 import { nextUlid, type DecodedEntity } from 'std-toolkit/core';
 import {
@@ -17,6 +17,16 @@ import { BankRpcs } from '../contract/index.ts';
 import { Network, NetworkLive } from './network.ts';
 
 export const newId = (): string => Effect.runSync(nextUlid);
+
+const quiet = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+  Effect.provideService(effect, References.MinimumLogLevel, 'Warning');
+
+const quietRuntime = {
+  runPromise: <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
+    Effect.runPromise(quiet(effect)),
+  runSync: <A, E>(effect: Effect.Effect<A, E>): A =>
+    Effect.runSync(quiet(effect)),
+};
 
 interface SendMoneyInput {
   readonly id: string;
@@ -54,7 +64,11 @@ const makeBank = Effect.gen(function* () {
   const api = yield* BankApi;
   const network = yield* Network;
 
-  const std = createStdSync({ name: syncName, platform });
+  const std = createStdSync({
+    name: syncName,
+    platform,
+    runtime: quietRuntime,
+  });
 
   const liveOldToNew = <T extends object>(
     subscribe: (
@@ -105,7 +119,7 @@ const makeBank = Effect.gen(function* () {
       transfers.insert({ id, from, to, amount });
     },
     mutationFn: (input) =>
-      Effect.runPromise(
+      quietRuntime.runPromise(
         network.travel.pipe(
           Effect.flatMap(() => api.transfer(input)),
           Effect.tap((outcome) =>
@@ -136,7 +150,7 @@ export type BankRuntime = Effect.Success<typeof makeBank>;
 export const runBank = (
   wiring: Layer.Layer<BankWiring, unknown>,
 ): Promise<BankRuntime> =>
-  Effect.runPromise(
+  quietRuntime.runPromise(
     Effect.gen(function* () {
       const services = yield* Layer.build(
         Layer.mergeAll(BankApiLive, NetworkLive).pipe(
