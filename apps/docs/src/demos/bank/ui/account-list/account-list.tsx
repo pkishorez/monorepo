@@ -42,7 +42,12 @@ function AccountRow({
         />
       )}
       <ItemMedia>
-        <Monogram name={account.name} />
+        <motion.div
+          layoutId={`monogram-${account.id}`}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+        >
+          <Monogram name={account.name} />
+        </motion.div>
       </ItemMedia>
       <ItemContent>
         <ItemTitle className="text-[0.9375rem] font-medium">
