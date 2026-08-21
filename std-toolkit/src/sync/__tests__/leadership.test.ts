@@ -70,8 +70,7 @@ describe('Leadership integration', () => {
     const makeCollection = () => {
       const std = createStdSync({
         name: 'shared',
-        leadershipLayer,
-        peerSync: false,
+        platform: { leadershipLayer },
       });
       return {
         std,
@@ -117,8 +116,7 @@ describe('Leadership integration', () => {
     });
     const std = createStdSync({
       name: 'roles',
-      leadershipLayer,
-      peerSync: false,
+      platform: { leadershipLayer },
       cadence: { window: 1_000, readiness: 1_000, pollDelay: 1_000 },
     });
     const repair = { fetchFrom: () => Effect.succeed([]) };

@@ -107,9 +107,11 @@ const openTab = (options: {
 }) => {
   const app = createStdSync({
     name: options.name,
-    storeLayer: options.storeLayer,
-    leadershipLayer: options.leadershipLayer,
-    peerSync: options.peerSync,
+    platform: {
+      storeLayer: options.storeLayer,
+      leadershipLayer: options.leadershipLayer,
+      ...(options.peerSync ? { peerSync: options.peerSync } : {}),
+    },
   });
   const config = app.sync({
     schema: NoteSchema,

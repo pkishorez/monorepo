@@ -26,7 +26,7 @@ describe('batched mutations', () => {
     const inserted: string[] = [];
     const updated: string[] = [];
     const deleted: string[] = [];
-    const std = createStdSync({ name: 'batch-handlers', peerSync: false });
+    const std = createStdSync({ name: 'batch-handlers' });
     const config = std.sync({
       schema: todoSchema,
       onInsert: (item) =>
@@ -90,7 +90,7 @@ describe('batched mutations', () => {
   });
 
   it('flushes every confirmed entity of a batch into the Sync Replica', async () => {
-    const std = createStdSync({ name: 'batch-replica', peerSync: false });
+    const std = createStdSync({ name: 'batch-replica' });
     const config = std.sync({
       schema: todoSchema,
       onInsert: (item) => Effect.succeed(todo(item.id, '2', item.title)),
@@ -116,7 +116,7 @@ describe('batched mutations', () => {
   it('bounds backend concurrency at five in-flight mutations', async () => {
     let inFlight = 0;
     let peak = 0;
-    const std = createStdSync({ name: 'batch-concurrency', peerSync: false });
+    const std = createStdSync({ name: 'batch-concurrency' });
     const config = std.sync({
       schema: todoSchema,
       onInsert: (item) =>

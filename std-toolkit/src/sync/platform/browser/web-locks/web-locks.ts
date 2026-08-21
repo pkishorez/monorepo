@@ -3,7 +3,7 @@ import {
   LeadershipService,
   type LeadershipIdentity,
   type LeadershipObserver,
-} from '../leadership.js';
+} from '../../../runtime/leadership/index.js';
 
 export type BrowserLockManager = {
   request: (

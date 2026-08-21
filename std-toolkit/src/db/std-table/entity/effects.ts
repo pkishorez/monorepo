@@ -96,6 +96,7 @@ export const subscribe = <T extends object>(
   changesOrEmpty().pipe(
     Stream.filter(
       (notice) =>
-        notice.meta._e === entityName && matchesFilter(notice.value as T, filter),
+        notice.meta._e === entityName &&
+        matchesFilter(notice.value as T, filter),
     ),
   ) as Stream.Stream<ChangeNotice<T>>;

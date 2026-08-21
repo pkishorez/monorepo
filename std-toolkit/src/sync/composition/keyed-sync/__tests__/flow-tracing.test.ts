@@ -43,7 +43,9 @@ describe('collection flow tracing', () => {
     const strategyRuns: string[] = [];
     const built = createStdSync({
       name: 'comments',
-      storeLayer: contractLayer(syncStore.logicalName, contract),
+      platform: {
+        storeLayer: contractLayer(syncStore.logicalName, contract),
+      },
     }).sync({
       schema,
       sync: {

@@ -20,6 +20,7 @@ import type {
   SyncStoreLayer,
 } from 'std-toolkit/sync';
 import { createStdSync } from 'std-toolkit/sync';
+import { broadcastChannel } from 'std-toolkit/sync/platform/browser';
 
 import type { SimulatedDocument } from '../simulated-browser.js';
 import type { makeBackend } from './backend.js';
@@ -61,14 +62,18 @@ export const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
   const connection = options.connection;
   const prefix = `browser:${options.label}`;
   const lane = initFlow({ id: options.flowId, participantName: prefix });
+  const peerChannel = broadcastChannel();
   const app = createStdSync<never>({
     name: options.syncName,
     runtime: options.runtime,
     flow: { id: options.flowId, participantPrefix: prefix },
-    storeLayer: options.storeLayer,
-    ...(options.leadershipLayer
-      ? { leadershipLayer: options.leadershipLayer }
-      : {}),
+    platform: {
+      storeLayer: options.storeLayer,
+      ...(options.leadershipLayer
+        ? { leadershipLayer: options.leadershipLayer }
+        : {}),
+      ...(peerChannel ? { peerSync: { channel: peerChannel } } : {}),
+    },
     // TanStack DB arms a single shared, ref'd GC timer for the longest gcTime in
     // play, so the default five minutes would hold the story process open long
     // after the last Story finished.

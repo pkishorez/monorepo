@@ -2,7 +2,7 @@ import {
   webLockLeadershipWithEnvironment,
   type BrowserDocument,
   type BrowserLockManager,
-} from '../../src/sync/runtime/leadership/web-locks/web-locks.js';
+} from '../../src/sync/platform/browser/web-locks/web-locks.js';
 
 type LockRequest = {
   readonly name: string;

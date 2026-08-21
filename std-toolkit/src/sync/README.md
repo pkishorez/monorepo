@@ -22,23 +22,22 @@ never enter Peer Sync.
 ```typescript
 import { createCollection } from '@tanstack/react-db';
 import { Effect, Schedule } from 'effect';
-import { IDB } from 'std-toolkit/db/idb';
-import {
-  createStdSync,
-  paceStrategy,
-  syncStore,
-  syncStrategy,
-} from 'std-toolkit/sync';
-
-const database = IDB.database({ databaseName: 'app' });
-const store = IDB.make(syncStore, { database });
-await Effect.runPromise(store.setup);
+import { createStdSync, paceStrategy, syncStrategy } from 'std-toolkit/sync';
+import { browser } from 'std-toolkit/sync/platform/browser';
 
 const std = createStdSync({
   name: 'acme-production',
-  storeLayer: store.layer,
+  platform: browser(),
 });
 ```
+
+`platform` names the environment the instance runs in. Absent, the instance is
+a solo participant: an isolated Memory Sync Store, no Leadership, no Peer Sync.
+`browser()` is the shared-origin browser preset: an IndexedDB Sync Store
+(database `std-sync` unless overridden via `databaseName`), Web Locks
+Leadership, and Peer Sync over `BroadcastChannel`. A platform is a plain value;
+instances may share one, because everything it provides is consumed per
+qualified Collection Name.
 
 `name` is normalized and qualifies every Collection Name. All tabs connected to
 the same Backend dataset must use the same stable name. The qualified Collection
@@ -277,11 +276,11 @@ source: ({ subscribe }) => subscribe({ open: () => api.settingsStream() });
 
 ## Sync Store and durability
 
-Each sync instance uses an isolated Memory adapter by default. Supplying a
-`storeLayer` replaces it globally for that instance; any adapter layer
-created for `syncStore` is accepted, including IndexedDB and SQLite. The Sync
-Store holds both the Sync Replica and Sync State. Write failures surface as
-`WriteError.Storage` while adapter-specific errors remain internal.
+Each sync instance uses an isolated Memory adapter by default. A platform may
+supply a `storeLayer` that replaces it globally for that instance; any adapter
+layer created for `syncStore` is accepted, including IndexedDB and SQLite. The
+Sync Store holds both the Sync Replica and Sync State. Write failures surface
+as `WriteError.Storage` while adapter-specific errors remain internal.
 
 Tombstones remain in the Sync Replica. Persisted Sync State is tagged with its strategy
 name and decoded with that strategy's schema. A name mismatch or invalid state is
@@ -293,17 +292,17 @@ another live tab's projection fresh without Peer Sync or backend delivery.
 
 ## Peer Sync
 
-Peer Sync is enabled by default when `BroadcastChannel` is available. One Peer
-Channel belongs to each qualified Collection, so messages never need routing by
-a lossy display address. Disable the shortcut for the whole Std Sync or supply a
-custom transport:
+Peer Sync is off unless the platform opts in. The core has no default
+transport: a platform enables Peer Sync by returning `peerSync: { channel }`.
+`browser()` does so with the `broadcastChannel()` factory (also exported from
+`std-toolkit/sync/platform/browser` for custom platforms). One Peer Channel
+belongs to each qualified Collection, so messages never need routing by a
+lossy display address.
 
 ```typescript
-const pollingOnly = createStdSync({ name: 'acme-production', peerSync: false });
-
 const custom = createStdSync({
   name: 'acme-production',
-  peerSync: { channel: customPeerChannelFactory },
+  platform: { peerSync: { channel: customPeerChannelFactory } },
 });
 ```
 
