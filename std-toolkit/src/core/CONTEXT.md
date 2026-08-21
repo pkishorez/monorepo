@@ -33,8 +33,12 @@ The singleton counterpart of a **DecodedEntity** or **EncodedEntity** — one en
 _Avoid_: Singleton row, single record.
 
 **Broadcaster**:
-The application-facing outbound hook for confirmed entity writes. It receives a batch of **DecodedEntities** after every successful write — a single-element batch for one write, the full op list for transactions and bulk inserts. Whoever provides the layer decides where changes go and owns any transport encoding. Optional — writes proceed without it.
+The application-facing outbound hook for confirmed entity writes, and the untyped, in-process fan-out engine underneath **subscribe**. It receives a batch of **DecodedEntities** after every successful write — a single-element batch for one write, the full op list for transactions and bulk inserts — and exposes them as a `changes` Stream. Whoever provides the layer decides where changes go and owns any transport encoding. Optional — writes proceed without it, and an absent Broadcaster yields an empty subscribe Stream rather than failing. A default in-memory implementation (`defaultBroadcaster`, Effect PubSub-backed) ships so consumers get subscribe/publish without writing their own fan-out. The typed entry points ([[db]] Entity surface, StdTable) forward through it rather than exposing it directly.
 _Avoid_: EventBus, emitter, channel.
+
+**Change Notice**:
+The notification a subscriber receives when a committed write matches its subscription. Its payload is the same **DecodedEntity** shape Broadcaster already carries — no separate operation-kind field; a delete is inferable from `_d`. Fires only as a byproduct of a real committed write, never manually. Delivery is in-process, fire-and-forget, unordered, with no replay of missed notices.
+_Avoid_: EventBus, emitter, subscription callback. Deliberately distinct from [[sync]] Peer Sync, which is best-effort, same-origin, multi-tab delivery for freshness rather than a per-write notification — see Peer Sync's own definition.
 
 **StdToolkitError**:
 The union of context-level toolkit errors such as [[db]] `DatabaseError`, `ESchemaError`, and `SnapshotError`. It is a type-level umbrella, not a base class.

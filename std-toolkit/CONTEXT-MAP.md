@@ -4,7 +4,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 
 ## Contexts
 
-- [core](./src/core/CONTEXT.md) — the shared spine: the **Entity** model, **Entity Meta**, **Broadcaster**, and the base error. Every other context builds on these terms.
+- [core](./src/core/CONTEXT.md) — the shared spine: the **Entity** model, **Entity Meta**, **Broadcaster**, **Change Notice**, and the base error. Every other context builds on these terms.
 - [eschema](./src/eschema/CONTEXT.md) — versioned, self-migrating schemas (schema evolution).
 - [snapshot](./src/snapshot/CONTEXT.md) — semantic contract capture, inspection, comparison, and rendering for ESchemas and database tables.
 - [db](./src/db/CONTEXT.md) — the single-table storage kernel shared by the database adapters.

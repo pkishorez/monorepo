@@ -1,6 +1,11 @@
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Broadcaster, Ulid, type DecodedEntity } from '../../../core/index.js';
+import {
+  Broadcaster,
+  defaultBroadcaster,
+  Ulid,
+  type DecodedEntity,
+} from '../../../core/index.js';
 import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { encodeCompositeKey } from '../key/index.js';
 import { StdTable } from '../table/index.js';
@@ -169,6 +174,7 @@ export const runConformanceSuite = (
       const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
+        changes: Stream.empty,
       });
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -256,6 +262,7 @@ export const runConformanceSuite = (
       const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
+        changes: Stream.empty,
       });
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -285,6 +292,7 @@ export const runConformanceSuite = (
       const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
+        changes: Stream.empty,
       });
 
       await Effect.runPromise(
@@ -352,6 +360,7 @@ export const runConformanceSuite = (
       const broadcasts: DecodedEntity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
+        changes: Stream.empty,
       });
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -1215,6 +1224,47 @@ export const runConformanceSuite = (
           failure: { reason: { _tag: 'DecodeFailed' } },
         });
       }),
+    );
+  });
+
+  it('delivers Change Notices to entity-filtered and table-wide subscribers', async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const filtered = yield* Effect.forkChild(
+          Stream.runCollect(
+            item.subscribe({ category: 'notify' }).pipe(Stream.take(1)),
+          ),
+        );
+        const tableWide = yield* Effect.forkChild(
+          Stream.runCollect(conformanceTable.subscribe().pipe(Stream.take(2))),
+        );
+        yield* Effect.sleep('20 millis');
+
+        yield* item.insert({
+          itemId: 'skip',
+          category: 'ignore',
+          label: 'skip',
+          value: 1,
+        });
+        yield* item.insert({
+          itemId: 'match',
+          category: 'notify',
+          label: 'match',
+          value: 1,
+        });
+
+        const notices = yield* Fiber.join(filtered);
+        expect(notices).toHaveLength(1);
+        expect(notices[0]?.value).toMatchObject({
+          itemId: 'match',
+          category: 'notify',
+        });
+
+        expect(yield* Fiber.join(tableWide)).toHaveLength(2);
+      }).pipe(
+        Effect.provide(Layer.merge(adapter.makeLayer(), defaultBroadcaster)),
+        Effect.provideService(Ulid, deterministicUlid),
+      ),
     );
   });
 };

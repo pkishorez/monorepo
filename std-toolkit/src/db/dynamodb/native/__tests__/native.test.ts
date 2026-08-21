@@ -1,4 +1,4 @@
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Layer, Schema, Stream } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   Broadcaster,
@@ -134,6 +134,7 @@ describe('DynamoDB native operations', () => {
     const broadcasts: DecodedEntity<object>[] = [];
     const broadcaster = Layer.succeed(Broadcaster, {
       broadcast: (entities) => broadcasts.push(...entities),
+      changes: Stream.empty,
     });
 
     const result = await Effect.runPromise(

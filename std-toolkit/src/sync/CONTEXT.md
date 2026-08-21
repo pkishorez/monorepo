@@ -115,7 +115,7 @@ _Avoid_: Peer Sync message.
 Best-effort same-origin delivery of accepted, backend-confirmed Entities between
 live tabs. It improves freshness while backend synchronization remains the
 correctness and repair mechanism.
-_Avoid_: Change Notice, authoritative sync, Peer Fast Path.
+_Avoid_: Change Notice (see [core](../core/CONTEXT.md) — a per-write notification, not this best-effort tab relay), authoritative sync, Peer Fast Path.
 
 **Peer Channel**:
 The transport owned by one qualified Collection Name through which Peer

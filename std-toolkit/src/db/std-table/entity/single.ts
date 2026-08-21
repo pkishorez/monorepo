@@ -15,7 +15,7 @@ import type {
   WriteOptions,
   TransactOp,
 } from './entity.js';
-import { broadcast, dbError, failReason } from './effects.js';
+import { broadcast, dbError, failReason, subscribe } from './effects.js';
 import { decodeSingle, encodeSingle, singleKey } from './storage.js';
 
 export const makeSingleEntity = <
@@ -220,5 +220,7 @@ export const makeSingleEntity = <
       replaceOp(definition.defaultValue).pipe(
         Effect.flatMap((op) => runWithRetry(op)),
       ),
+    subscribe: (filter?: Partial<S['Type']>) =>
+      subscribe<S['Type']>(definition.name, filter),
   } as unknown as SingleEntity<Name, S>;
 };

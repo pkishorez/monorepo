@@ -28,7 +28,7 @@ import type {
   KeyedEntityDefinition,
 } from '../definition/index.js';
 import { queryEntity } from './query.js';
-import { broadcast, dbError, failReason } from './effects.js';
+import { broadcast, dbError, failReason, subscribe } from './effects.js';
 import type {
   CheckOp,
   EntityInvariant,
@@ -395,6 +395,8 @@ export const makeKeyedEntity = <
       input: JsonObject,
       options?: QueryOptions<EntityValue<S>>,
     ) => queryEntity(definition, patternName, input, options),
+    subscribe: (filter?: Partial<EntityValue<S>>) =>
+      subscribe<EntityValue<S>>(definition.name, filter),
   };
   return entity as unknown as KeyedEntity<Name, S, Pk, Patterns>;
 };

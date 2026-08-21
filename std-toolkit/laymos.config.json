@@ -440,14 +440,14 @@
     },
     "core.impl": {
       "paths": [
-        "src/core/broadcaster.ts",
+        "src/core/broadcaster",
         "src/core/entity-schema",
         "src/core/error.ts",
         "src/core/ulid.ts"
       ],
       "description": "Impl \u2014 internal implementation",
       "modules": {
-        "src/core/broadcaster.ts": {
+        "src/core/broadcaster": {
           "exposed": true
         },
         "src/core/error.ts": {
@@ -682,7 +682,7 @@
       "description": "The logical table: public entrypoint, aggregate, entity surface, model, and port",
       "rules": {
         "db.public": ["std-table.table"],
-        "std-table.table": ["std-table.entity"],
+        "std-table.table": ["std-table.entity", "core.public"],
         "std-table.entity": [
           "core.public",
           "std-table.definition",
