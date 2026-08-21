@@ -3,6 +3,7 @@ import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import BankApi from './src/demos/bank/rpc/server/api.ts';
+import { dynamo, tableExists } from './src/demos/bank/rpc/server/dynamo.ts';
 
 const isProdStage = (stage: string): boolean => stage === 'prod';
 const isDemoStage = (stage: string): boolean => stage === 'demo';
@@ -24,6 +25,12 @@ export const Worker = Cloudflare.Website.Vite(
   Effect.gen(function* () {
     const stage = yield* Stage;
     assertStageIsSafe(stage);
+
+    yield* dynamo.setup.pipe(
+      Effect.catch((error) =>
+        tableExists(error) ? Effect.void : Effect.die(error),
+      ),
+    );
 
     const isLocal = !isDeployedStage(stage);
     const domain = isLocal
