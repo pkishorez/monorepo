@@ -4,12 +4,15 @@ import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
 import { RpcServer } from 'effect/unstable/rpc';
 import { BankHandlersLive } from '../handlers/index.ts';
 import { BankRpcSerializationLayer, BankRpcs } from '../contract/index.ts';
-import { dynamo } from './dynamo.ts';
+import {
+  dynamo,
+  dynamoEndpoint,
+  dynamoRegion,
+  dynamoTable,
+} from './dynamo.ts';
 
 const env = (key: string, fallback: string): string =>
   globalThis.process?.env?.[key] ?? fallback;
-
-const endpoint = env('BANK_DYNAMODB_ENDPOINT', 'http://localhost:8090');
 
 const tooManyRequests = () =>
   HttpServerResponse.text('Too many requests. Slow down and try again.', {
@@ -25,9 +28,9 @@ export default class BankApi extends Cloudflare.RpcWorker<BankApi>()(
     compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
     schema: BankRpcs,
     env: {
-      BANK_DYNAMODB_TABLE: env('BANK_DYNAMODB_TABLE', 'std-bank-v3'),
-      BANK_DYNAMODB_REGION: env('BANK_DYNAMODB_REGION', 'local'),
-      BANK_DYNAMODB_ENDPOINT: endpoint,
+      BANK_DYNAMODB_TABLE: dynamoTable,
+      BANK_DYNAMODB_REGION: dynamoRegion,
+      BANK_DYNAMODB_ENDPOINT: dynamoEndpoint,
       AWS_ACCESS_KEY_ID: Redacted.make(env('BANK_AWS_ACCESS_KEY_ID', 'local')),
       AWS_SECRET_ACCESS_KEY: Redacted.make(
         env('BANK_AWS_SECRET_ACCESS_KEY', 'local'),
