@@ -1,6 +1,6 @@
 import { Suspense, use, useMemo, useState } from 'react';
-import { Landmark } from 'lucide-react';
-import { createFileRoute } from '@tanstack/react-router';
+import { ArrowLeft, Landmark } from 'lucide-react';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { eq, not, useLiveQuery } from '@tanstack/react-db';
 import { useMachine } from '@xstate/react';
 import { uTime } from 'std-toolkit/core';
@@ -12,9 +12,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@monorepo/frontend/components/ui/tabs';
-import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { baseOptions } from '@/lib/layout.shared';
-import { HomeHeader } from '@/components/home-header';
 import type { Account } from '@/demos/bank/contract/account';
 import type { Transfer } from '@/demos/bank/contract/transfer';
 import { journeyMachine } from '@/demos/bank/machine';
@@ -34,7 +31,6 @@ import {
   type OpenAccountDraft,
 } from '@/demos/bank/ui/open-account-dialog';
 import { SendDialog } from '@/demos/bank/ui/send-dialog';
-import { Pager } from '@/demos/bank/ui/pager';
 import { StoreToggle } from '@/demos/bank/ui/store-toggle';
 import {
   Transactions,
@@ -44,7 +40,10 @@ import {
   TransferStatus,
   type StatusLine,
 } from '@/demos/bank/ui/transfer-status';
-import { ViewpointCard } from '@/demos/bank/ui/viewpoint-card';
+import {
+  ViewpointCard,
+  ViewpointPlaceholder,
+} from '@/demos/bank/ui/viewpoint-card';
 
 export const Route = createFileRoute('/demos/bank')({
   component: BankPage,
@@ -63,10 +62,7 @@ export const Route = createFileRoute('/demos/bank')({
 
 type StoreKey = 'memory' | 'idb' | 'dynamo' | 'sqlite';
 
-const PAGE_SIZE = 6;
-const TX_PAGE_SIZE = 7;
-
-const FRAME = 'flex min-h-[28.5rem] flex-col';
+const SCROLL = '-mx-2 flex min-h-0 flex-1 flex-col overflow-y-auto px-2';
 
 const STORES: ReadonlyArray<{
   value: StoreKey;
@@ -103,17 +99,22 @@ function BankPage() {
   const [store, setStore] = useState<StoreKey>('memory');
 
   return (
-    <HomeLayout
-      {...baseOptions()}
-      searchToggle={{ enabled: false }}
-      slots={{ header: HomeHeader }}
-    >
-      <main className="mx-auto w-full max-w-md flex-1 px-5 py-12 sm:px-6 sm:py-20 lg:max-w-lg">
+    <>
+      <main className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden px-5 py-6 sm:px-6 sm:py-8 lg:max-w-lg">
         <Suspense fallback={<BootingSkeleton />}>
           <BootedBank key={store} store={store} onStoreChange={setStore} />
         </Suspense>
       </main>
-    </HomeLayout>
+      <div className="fixed inset-0 z-60 hidden items-center justify-center bg-background px-8 text-center [@media(max-height:479px)]:flex">
+        <div className="max-w-xs space-y-2">
+          <p className="text-base font-semibold">This window is too short</p>
+          <p className="text-sm text-muted-foreground">
+            The bank fits on one screen without scrolling — give the window a
+            bit more height.
+          </p>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -121,21 +122,18 @@ function BootingSkeleton() {
   return (
     <>
       <header className="flex h-9 items-center justify-between gap-3">
-        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-7 w-32" />
         <div className="flex items-center gap-1">
           <Skeleton className="h-8 w-28" />
           <Skeleton className="size-8" />
         </div>
       </header>
-      <div className="mt-10 space-y-6">
-        <Skeleton className="h-[9.25rem] w-full rounded-xl" />
-        <div className="space-y-2">
-          <div className="flex h-9 items-center justify-between gap-3">
-            <Skeleton className="h-5 w-44" />
-            <Skeleton className="h-8 w-24" />
-          </div>
-          <Skeleton className="min-h-[28.5rem] w-full rounded-lg" />
+      <Skeleton className="mt-4 h-[4.75rem] w-full shrink-0 rounded-xl" />
+      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex h-9 shrink-0 items-center">
+          <Skeleton className="h-5 w-44" />
         </div>
+        <Skeleton className="min-h-0 w-full flex-1 rounded-lg" />
       </div>
     </>
   );
@@ -163,8 +161,6 @@ function Bank({
 }) {
   const [network, setNetwork] = useState<NetworkQuality>('fast');
   const [opening, setOpening] = useState(false);
-  const [page, setPage] = useState(0);
-  const [txPage, setTxPage] = useState(0);
   const [tab, setTab] = useState<'people' | 'transactions'>('people');
 
   const [state, send] = useMachine(journeyMachine, {
@@ -179,22 +175,14 @@ function Bank({
   const { data: transferRows } = useLiveQuery(() => runtime.transfers);
 
   const rows = (allRows ?? []) as ReadonlyArray<Account & Live>;
-  const banking = rows.some((account) => account.id === viewpointId);
-  const pages = Math.max(
-    1,
-    Math.ceil((rows.length - (banking ? 1 : 0)) / PAGE_SIZE),
-  );
-  const peerPage = Math.min(page, pages - 1);
 
   const { data: pageRows } = useLiveQuery(
     (q) =>
       q
         .from({ account: runtime.accounts })
         .where(({ account }) => not(eq(account.id, viewpointId ?? '')))
-        .orderBy(({ account }) => account.balance, 'desc')
-        .offset(peerPage * PAGE_SIZE)
-        .limit(PAGE_SIZE),
-    [viewpointId, peerPage],
+        .orderBy(({ account }) => account.balance, 'desc'),
+    [viewpointId],
   );
 
   const all = rows;
@@ -215,7 +203,6 @@ function Bank({
         return {
           id: t.id,
           direction: sent ? ('sent' as const) : ('received' as const),
-          counterpartyId,
           counterpartyName: nameOf.get(counterpartyId) ?? 'a closed account',
           amount: t.amount,
           at: timeOf(t.id),
@@ -243,7 +230,16 @@ function Bank({
 
   const header = (
     <header className="flex h-9 items-center justify-between gap-3">
-      <h1 className="text-2xl font-semibold tracking-tight">Bank</h1>
+      <div className="flex items-center gap-1.5">
+        <Link
+          to="/demos"
+          aria-label="Back to demos"
+          className="-ml-2 flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight">Bank</h1>
+      </div>
       <div className="flex items-center gap-1">
         <StoreToggle
           stores={STORES}
@@ -272,7 +268,7 @@ function Bank({
     return (
       <>
         {header}
-        <section className={`mt-10 ${FRAME}`}>
+        <section className="mt-4 flex min-h-0 flex-1 flex-col">
           <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
             <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
               <Landmark className="size-5" />
@@ -296,23 +292,22 @@ function Bank({
       </>
     );
 
-  const peerPager = <Pager page={peerPage} pages={pages} onPage={setPage} />;
-
   if (viewpoint === undefined)
     return (
       <>
         {header}
-        <section className="mt-10 space-y-2">
-          <div className="flex h-9 items-center justify-between gap-3">
+        <div className="mt-4 shrink-0">
+          <ViewpointPlaceholder />
+        </div>
+        <section className="mt-4 flex min-h-0 flex-1 flex-col gap-2">
+          <div className="flex h-9 shrink-0 items-center">
             <h2 className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
               Bank as
             </h2>
-            {peerPager}
           </div>
-          <div className={FRAME}>
+          <div className={SCROLL}>
             <AccountList
               accounts={peers}
-              slots={PAGE_SIZE}
               action="Bank as"
               openLabel="Open an account"
               onPick={(accountId) => send({ type: 'BANK_AS', accountId })}
@@ -332,82 +327,70 @@ function Bank({
     ? (all.find((account) => account.id === peerId) ?? null)
     : null;
 
-  const txPages = Math.max(1, Math.ceil(lines.length / TX_PAGE_SIZE));
-  const txPageIndex = Math.min(txPage, txPages - 1);
-  const txLines = lines.slice(
-    txPageIndex * TX_PAGE_SIZE,
-    txPageIndex * TX_PAGE_SIZE + TX_PAGE_SIZE,
-  );
-
   const statusLines: StatusLine[] = Object.values(state.context.flights)
     .filter(
       (flight) => flight.from === viewpoint.id || flight.to === viewpoint.id,
     )
-    .map((flight) => ({
-      id: flight.id,
-      phase: flight.phase,
-      message: flight.problem?.message ?? null,
-    }));
+    .map((flight) => {
+      const counterpartyId =
+        flight.from === viewpoint.id ? flight.to : flight.from;
+      return {
+        id: flight.id,
+        phase: flight.phase,
+        message: flight.problem?.message ?? null,
+        amount: flight.amount,
+        attempt: flight.attempt,
+        counterpartyName:
+          all.find((account) => account.id === counterpartyId)?.name ??
+          'a closed account',
+      };
+    });
 
   return (
     <>
       {header}
 
-      <div className="mt-10 space-y-6">
+      <div className="mt-4 shrink-0">
         <ViewpointCard
           account={viewpoint}
           accounts={[...all].sort((a, b) => b.balance - a.balance)}
           onBankAs={(accountId) => send({ type: 'BANK_AS', accountId })}
           onOpenAccount={() => setOpening(true)}
-          status={
-            <TransferStatus
-              lines={statusLines}
-              onRetry={(id) => send({ type: 'RETRY', id })}
-              onDismiss={(id) => send({ type: 'DISMISS', id })}
-            />
-          }
         />
-
-        <Tabs
-          value={tab}
-          onValueChange={(value) =>
-            setTab((value ?? tab) as 'people' | 'transactions')
-          }
-          className="gap-2"
-        >
-          <div className="flex h-9 items-center justify-between gap-3">
-            <TabsList variant="line">
-              <TabsTrigger value="people">People</TabsTrigger>
-              <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            </TabsList>
-            {tab === 'people' ? (
-              peerPager
-            ) : (
-              <Pager page={txPageIndex} pages={txPages} onPage={setTxPage} />
-            )}
-          </div>
-          <TabsContent value="people" className={FRAME}>
-            <AccountList
-              accounts={peers}
-              slots={PAGE_SIZE}
-              action="Send money to"
-              openLabel="Open another account"
-              onPick={(accountId) =>
-                send({ type: 'COMPOSE', peerId: accountId })
-              }
-              onOpenAccount={() => setOpening(true)}
-            />
-          </TabsContent>
-          <TabsContent value="transactions" className={FRAME}>
-            <Transactions
-              lines={txLines}
-              slots={TX_PAGE_SIZE}
-              onBankAs={(accountId) => send({ type: 'BANK_AS', accountId })}
-            />
-          </TabsContent>
-        </Tabs>
       </div>
 
+      <Tabs
+        value={tab}
+        onValueChange={(value) =>
+          setTab((value ?? tab) as 'people' | 'transactions')
+        }
+        className="mt-4 flex min-h-0 flex-1 flex-col gap-2"
+      >
+        <div className="flex h-9 shrink-0 items-center">
+          <TabsList variant="line">
+            <TabsTrigger value="people">People</TabsTrigger>
+            <TabsTrigger value="transactions">Transactions</TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="people" className={SCROLL}>
+          <AccountList
+            accounts={peers}
+            action="Send money to"
+            openLabel="Open another account"
+            onPick={(accountId) => send({ type: 'COMPOSE', peerId: accountId })}
+            onOpenAccount={() => setOpening(true)}
+          />
+        </TabsContent>
+        <TabsContent value="transactions" className={SCROLL}>
+          <Transactions lines={lines} />
+        </TabsContent>
+      </Tabs>
+
+      <TransferStatus
+        lines={statusLines}
+        onRetry={(id) => send({ type: 'RETRY', id })}
+        onDismiss={(id) => send({ type: 'DISMISS', id })}
+      />
       <SendDialog
         peer={peer}
         available={viewpoint.balance}
