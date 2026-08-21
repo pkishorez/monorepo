@@ -1,4 +1,14 @@
+import { Check, ChevronDown, Database } from 'lucide-react';
 import { Button } from '@monorepo/frontend/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@monorepo/frontend/components/ui/dropdown-menu';
+import { cn } from '@monorepo/frontend/lib/utils';
 
 export interface StoreOption {
   readonly value: string;
@@ -14,33 +24,44 @@ export function StoreToggle({
   store: string;
   onChange: (value: string) => void;
 }) {
-  const index = stores.findIndex((option) => option.value === store);
-  const current = stores[index] ?? stores[0];
+  const current = stores.find((option) => option.value === store) ?? stores[0];
   if (current === undefined) return null;
-  const next = stores[(index + 1) % stores.length] ?? current;
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => onChange(next.value)}
-      title={`Storing in ${current.label} — switch to ${next.label}`}
-      aria-label={`Storage: ${current.label}. Switch to ${next.label}.`}
-      className="h-8 w-32 shrink-0 justify-center gap-2 px-2.5 font-normal tabular-nums"
-    >
-      <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
-        {stores.map((option) => (
-          <span
-            key={option.value}
-            className={
-              option.value === current.value
-                ? 'h-1 w-3 rounded-full bg-foreground transition-colors'
-                : 'h-1 w-1 rounded-full bg-muted-foreground/40 transition-colors'
-            }
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`Store: ${current.label}`}
+            className="h-8 shrink-0 gap-1.5 px-2.5 font-normal"
           />
-        ))}
-      </span>
-      <span className="truncate text-xs">{current.label}</span>
-    </Button>
+        }
+      >
+        <Database className="size-3.5 text-muted-foreground" />
+        <span className="text-xs">{current.label}</span>
+        <ChevronDown className="size-3 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Keep accounts in</DropdownMenuLabel>
+          {stores.map((option) => (
+            <DropdownMenuItem
+              key={option.value}
+              onClick={() => onChange(option.value)}
+            >
+              {option.label}
+              <Check
+                className={cn(
+                  'ml-auto size-4',
+                  option.value === current.value ? 'opacity-100' : 'opacity-0',
+                )}
+              />
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
