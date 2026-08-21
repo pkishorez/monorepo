@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
 import { assign, enqueueActions, fromPromise, setup } from 'xstate';
-import { explain, type Problem } from '../problem/index.ts';
+import { explain, type Problem } from './problem/index.ts';
 
 export interface TransferRequest {
   readonly id: string;

@@ -10,12 +10,9 @@ export const AccountEntity = EntitySchema(AccountSchema);
 export const TransferEntity = EntitySchema(TransferSchema);
 
 export const TransferDirectionSchema = Schema.Literals(['sent', 'received']);
+export type TransferDirection = typeof TransferDirectionSchema.Type;
 
-export class BankRpcs extends RpcGroup.make(
-  Rpc.make('listAccounts', {
-    payload: { cursor: Schema.NullOr(AccountEntity) },
-    success: Schema.Array(AccountEntity),
-  }),
+export class BankMutations extends RpcGroup.make(
   Rpc.make('openAccount', {
     payload: {
       id: Schema.String,
@@ -38,22 +35,34 @@ export class BankRpcs extends RpcGroup.make(
     }),
     error: TransferRefused,
   }),
-  Rpc.make('listTransfers', {
-    payload: {
-      account: Schema.String,
-      direction: TransferDirectionSchema,
-      cursor: Schema.NullOr(TransferEntity),
-    },
-    success: Schema.Array(TransferEntity),
-  }),
-  Rpc.make('listAllTransfers', {
-    payload: { cursor: Schema.NullOr(TransferEntity) },
-    success: Schema.Array(TransferEntity),
-  }),
   Rpc.make('seed', {
     success: Schema.Boolean,
   }),
 ) {}
+
+export class BankSubscriptions extends RpcGroup.make(
+  Rpc.make('subscribeAccounts', {
+    payload: { '>': Schema.NullOr(AccountEntity) },
+    success: AccountEntity,
+    stream: true,
+  }),
+  Rpc.make('subscribeTransfers', {
+    payload: {
+      account: Schema.String,
+      direction: TransferDirectionSchema,
+      '>': Schema.NullOr(TransferEntity),
+    },
+    success: TransferEntity,
+    stream: true,
+  }),
+  Rpc.make('subscribeAllTransfers', {
+    payload: { '>': Schema.NullOr(TransferEntity) },
+    success: TransferEntity,
+    stream: true,
+  }),
+) {}
+
+export const BankRpcs = BankMutations.merge(BankSubscriptions);
 
 export const BankRpcSerializationLayer = RpcSerialization.layerNdjson;
 

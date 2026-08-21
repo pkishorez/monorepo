@@ -388,6 +388,9 @@ importers:
       '@monorepo/frontend':
         specifier: workspace:*
         version: link:../../packages/frontend
+      '@pkishorez/effect-cloudflare':
+        specifier: workspace:*
+        version: link:../../packages/effect-cloudflare
       '@tanstack/react-db':
         specifier: 'catalog:'
         version: 0.2.1(react@19.2.8)(typescript@7.0.2)
@@ -639,6 +642,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20260817.1
+      '@pkishorez/effect-cloudflare':
+        specifier: workspace:*
+        version: link:../effect-cloudflare
       std-toolkit:
         specifier: workspace:*
         version: link:../../std-toolkit

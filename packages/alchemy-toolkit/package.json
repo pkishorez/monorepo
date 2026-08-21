@@ -10,6 +10,11 @@
       "import": "./src/unstable/rpc-worker/index.ts",
       "default": "./src/unstable/rpc-worker/index.ts"
     },
+    "./unstable/durable-rpc-worker": {
+      "types": "./src/unstable/durable-rpc-worker/index.ts",
+      "import": "./src/unstable/durable-rpc-worker/index.ts",
+      "default": "./src/unstable/durable-rpc-worker/index.ts"
+    },
     "./unstable/dynamo-table": {
       "types": "./src/unstable/dynamo-table/index.ts",
       "import": "./src/unstable/dynamo-table/index.ts",
@@ -30,6 +35,7 @@
   },
   "dependencies": {
     "@cloudflare/workers-types": "catalog:",
+    "@pkishorez/effect-cloudflare": "workspace:*",
     "std-toolkit": "workspace:*"
   },
   "peerDependencies": {
