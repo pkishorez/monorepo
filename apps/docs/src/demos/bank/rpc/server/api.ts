@@ -4,12 +4,7 @@ import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
 import { RpcServer } from 'effect/unstable/rpc';
 import { BankHandlersLive } from '../handlers/index.ts';
 import { BankRpcSerializationLayer, BankRpcs } from '../contract/index.ts';
-import {
-  dynamo,
-  dynamoEndpoint,
-  dynamoRegion,
-  dynamoTable,
-} from './dynamo.ts';
+import { dynamo, dynamoEndpoint, dynamoRegion, dynamoTable } from './dynamo.ts';
 
 const env = (key: string, fallback: string): string =>
   globalThis.process?.env?.[key] ?? fallback;
