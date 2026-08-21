@@ -50,8 +50,17 @@ _Avoid_: session, login, current user, impersonation.
 
 **Sync Radius**:
 How far a store's changes reach: this page (Memory), this browser (IndexedDB),
-everyone (DynamoDB). The radius is a property of reach; each one is a separate
-bank, with its own Accounts and its own money.
+everyone (DynamoDB, Durable Object). The radius is a property of reach; each
+one is a separate bank, with its own Accounts and its own money.
+
+**Delivery**:
+How a store's changes arrive at a reader: Push (the store notifies you the
+moment something changes) or Poll (you re-ask on a schedule and diff what
+changed). Orthogonal to Sync Radius — a radius describes who a change reaches,
+Delivery describes how fast and by what means they find out. Memory,
+IndexedDB, and Durable Object deliver by Push; DynamoDB delivers by Poll, only
+moved server-side so a reader still just watches a stream, never re-asks
+itself.
 
 ## Decisions
 

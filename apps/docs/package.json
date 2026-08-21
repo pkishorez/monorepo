@@ -16,6 +16,7 @@
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "@monorepo/alchemy-toolkit": "workspace:*",
     "@monorepo/frontend": "workspace:*",
+    "@pkishorez/effect-cloudflare": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
