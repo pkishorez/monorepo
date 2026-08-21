@@ -49,10 +49,10 @@ export function OpenAccountDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Open an account</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="top-24 max-w-sm -translate-y-0 gap-6 p-6">
+        <DialogHeader className="gap-1 text-left">
+          <DialogTitle className="text-base">Open an account</DialogTitle>
+          <DialogDescription className="text-xs">
             Give it a name and an opening balance. You will be banking as this
             account right away.
           </DialogDescription>
@@ -100,7 +100,13 @@ export function OpenAccountDialog({
           </div>
         </form>
         <DialogFooter>
-          <Button type="submit" form="open-account" disabled={!ready}>
+          <Button
+            type="submit"
+            form="open-account"
+            size="lg"
+            disabled={!ready}
+            className="w-full"
+          >
             Open account
           </Button>
         </DialogFooter>

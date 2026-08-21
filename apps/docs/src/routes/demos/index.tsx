@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { baseOptions } from '@/lib/layout.shared';
 import { HomeHeader } from '@/components/home-header';
 
@@ -9,9 +9,8 @@ const demos = [
     name: 'bank',
     title: 'Bank',
     description:
-      'Bank as anyone, send money to anyone. Every transfer debits, credits and records in one atomic commit, and lands on screen before the bank has answered. Switch the store underneath it — in-memory, IndexedDB, DynamoDB — and the same app keeps working. The total never changes.',
+      'Bank as anyone, send money to anyone — one atomic commit per transfer, on screen before the server answers, over any store.',
     to: '/demos/bank',
-    stack: ['std-toolkit', 'Effect RPC', 'XState', 'IndexedDB', 'DynamoDB'],
   },
 ] as const;
 
@@ -35,33 +34,23 @@ function DemosIndex() {
           </p>
         </section>
 
-        <section className="mt-10 flex flex-col gap-4">
+        <ul className="mt-8 divide-y">
           {demos.map((demo) => (
-            <Link
-              key={demo.name}
-              to={demo.to}
-              className="group rounded-xl border bg-fd-card p-5 transition-colors hover:border-foreground/20"
-            >
-              <div className="flex items-center gap-2">
-                <h2 className="font-medium">{demo.title}</h2>
-                <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {demo.description}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-1.5">
-                {demo.stack.map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </Link>
+            <li key={demo.name}>
+              <Link to={demo.to} className="group flex items-center gap-4 py-5">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-medium group-hover:underline group-hover:underline-offset-4">
+                    {demo.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {demo.description}
+                  </p>
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground" />
+              </Link>
+            </li>
           ))}
-        </section>
+        </ul>
       </main>
     </HomeLayout>
   );

@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { ChevronsUpDown, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronsUpDown, Plus, UserRound } from 'lucide-react';
 import {
   Command,
   CommandEmpty,
@@ -15,20 +15,41 @@ import {
   PopoverTrigger,
 } from '@monorepo/frontend/components/ui/popover';
 import type { Account } from '../../contract/account/index.ts';
-import { formatMoney, Monogram } from '../money/index.ts';
+import { AnimatedMoney, formatMoney, Monogram } from '../money/index.ts';
+
+export function ViewpointPlaceholder() {
+  return (
+    <section className="flex items-center justify-between gap-4 rounded-xl border border-dashed p-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-dashed text-muted-foreground">
+          <UserRound className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[0.6875rem] tracking-widest text-muted-foreground uppercase">
+            Banking as
+          </p>
+          <p className="text-lg font-semibold tracking-tight text-muted-foreground/70">
+            No one yet
+          </p>
+        </div>
+      </div>
+      <p className="shrink-0 text-right text-xs text-muted-foreground">
+        Pick a person below
+      </p>
+    </section>
+  );
+}
 
 export function ViewpointCard({
   account,
   accounts,
   onBankAs,
   onOpenAccount,
-  status,
 }: {
   account: Account;
   accounts: readonly Account[];
   onBankAs: (accountId: string) => void;
   onOpenAccount: () => void;
-  status: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const pick = (act: () => void) => () => {
@@ -37,7 +58,7 @@ export function ViewpointCard({
   };
 
   return (
-    <section className="rounded-xl border bg-muted/30 p-5">
+    <section className="flex items-center justify-between gap-4 rounded-xl border bg-muted/30 p-4">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
           render={
@@ -48,7 +69,7 @@ export function ViewpointCard({
             />
           }
         >
-          <Monogram name={account.name} className="size-11" />
+          <Monogram name={account.name} className="size-10" />
           <div className="min-w-0">
             <p className="text-[0.6875rem] tracking-widest text-muted-foreground uppercase">
               Banking as
@@ -98,12 +119,11 @@ export function ViewpointCard({
           </Command>
         </PopoverContent>
       </Popover>
-      <div className="mt-4 flex h-14 items-end justify-between gap-4">
-        <p className="font-mono text-5xl font-semibold tracking-tight tabular-nums">
-          {formatMoney(account.balance)}
-        </p>
-        {status}
-      </div>
+      <AnimatedMoney
+        key={account.id}
+        amount={account.balance}
+        className="shrink-0 font-mono text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl"
+      />
     </section>
   );
 }

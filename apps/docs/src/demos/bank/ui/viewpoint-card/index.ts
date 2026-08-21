@@ -1,1 +1,1 @@
-export { ViewpointCard } from './viewpoint-card.tsx';
+export { ViewpointCard, ViewpointPlaceholder } from './viewpoint-card.tsx';

@@ -2,6 +2,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@monorepo/frontend/components/ui/button';
 import { cn } from '@monorepo/frontend/lib/utils';
 
+const MAX_DOTS = 8;
+
 export function Pager({
   page,
   pages,
@@ -15,7 +17,7 @@ export function Pager({
     <nav
       aria-hidden={pages <= 1}
       className={cn(
-        'flex h-8 shrink-0 items-center justify-end gap-1 text-xs text-muted-foreground',
+        'flex h-8 shrink-0 items-center gap-0.5',
         pages <= 1 && 'invisible',
       )}
     >
@@ -29,9 +31,33 @@ export function Pager({
       >
         <ChevronLeft className="size-4" />
       </Button>
-      <span className="w-10 text-center tabular-nums">
-        {page + 1} / {Math.max(pages, 1)}
-      </span>
+      {pages <= MAX_DOTS ? (
+        <div className="flex items-center">
+          {Array.from({ length: pages }, (_, index) => (
+            <button
+              key={index}
+              type="button"
+              aria-label={`Page ${index + 1}`}
+              aria-current={index === page || undefined}
+              onClick={() => onPage(index)}
+              className="flex size-4 items-center justify-center"
+            >
+              <span
+                className={cn(
+                  'size-1.5 rounded-full transition-colors',
+                  index === page
+                    ? 'bg-foreground'
+                    : 'bg-muted-foreground/30 hover:bg-muted-foreground/60',
+                )}
+              />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <span className="w-10 text-center text-xs text-muted-foreground tabular-nums">
+          {page + 1} / {pages}
+        </span>
+      )}
       <Button
         size="icon"
         variant="ghost"
