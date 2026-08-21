@@ -44,6 +44,9 @@ import { sharingOneTable } from './database/std-table/binding-entities/sharing-o
 import { insertARow } from './database/std-table/writing-and-reading/insert-a-row.story.js';
 import { deletingAndRestoring } from './database/std-table/writing-and-reading/deleting-and-restoring.story.js';
 import { hardDelete } from './database/std-table/writing-and-reading/hard-delete.story.js';
+import { subscribingToANote } from './database/std-table/watching-for-changes/subscribing-to-a-note.story.js';
+import { filteringByValue } from './database/std-table/watching-for-changes/filtering-by-value.story.js';
+import { tableWideSubscriptions } from './database/std-table/watching-for-changes/table-wide-subscriptions.story.js';
 import { partialUpdates } from './database/std-table/updating-safely/partial-updates.story.js';
 import { skippingAndMissing } from './database/std-table/updating-safely/skipping-and-missing.story.js';
 import { keysAreImmutable } from './database/std-table/updating-safely/keys-are-immutable.story.js';
@@ -208,6 +211,14 @@ export default Story.group(
                   'Putting a note in, taking it back out, and what a delete really does to it.',
               },
               [insertARow, deletingAndRestoring, hardDelete],
+            ),
+            Story.group(
+              'Watching for changes',
+              {
+                description:
+                  "A note's own Stream of Change Notices, narrowed by a value filter, and the wider untyped Stream the table itself exposes.",
+              },
+              [subscribingToANote, filteringByValue, tableWideSubscriptions],
             ),
             Story.group(
               'Updating safely',

@@ -1,6 +1,7 @@
-import { Effect } from 'effect';
+import { Effect, type Stream } from 'effect';
 import {
   nextUlid,
+  type ChangeNotice,
   type DecodedEntity,
   type DecodedSingleEntity,
 } from '../../../core/index.js';
@@ -29,6 +30,7 @@ import type {
 } from '../definition/index.js';
 import {
   broadcast,
+  changesOrEmpty,
   dbError,
   failReason,
   makeKeyedEntity,
@@ -224,6 +226,9 @@ export const decorateTable = <Name extends string>(
         return applied.map(({ entity }) => entity) as never;
       });
     },
+    // Table-wide: every entity broadcasting through this Broadcaster, not
+    // just this table's — Entity Meta carries no table identity to filter by.
+    subscribe: (): Stream.Stream<ChangeNotice> => changesOrEmpty(),
     dangerouslyRemoveAllItems(_confirmation: 'I KNOW WHAT I AM DOING') {
       return Effect.gen(function* () {
         const contract = (yield* StdTableService(definition.logicalName))

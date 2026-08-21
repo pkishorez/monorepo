@@ -1,9 +1,11 @@
 export {
   broadcast,
+  changesOrEmpty,
   dbError,
   failReason,
   makeKeyedEntity,
   makeSingleEntity,
+  subscribe,
   type AnyTransactOp,
   type CheckOp,
   type EntityKey,

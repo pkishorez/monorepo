@@ -9,7 +9,7 @@ The pattern of storing many entity types in one physical table, distinguished by
 _Avoid_: multi-table, one-table-per-entity.
 
 **StdTable**:
-The adapter-independent single-table abstraction and aggregate of its entity surfaces, built with `StdTable.make`. It is an interface in the architectural sense: it defines what a table is and what every adapter must implement to realize one. Its logical name is unique within an application and is the type-level and Effect runtime identity for its layer. Entity surfaces may be added independently of when an adapter table is constructed; callers keep the typed references returned at definition time.
+The adapter-independent single-table abstraction and aggregate of its entity surfaces, built with `StdTable.make`. It is an interface in the architectural sense: it defines what a table is and what every adapter must implement to realize one. Its logical name is unique within an application and is the type-level and Effect runtime identity for its layer. Entity surfaces may be added independently of when an adapter table is constructed; callers keep the typed references returned at definition time. It also exposes table-wide `subscribe`, returning a `Stream` of core [[core]] **Change Notice**s across every entity broadcasting through the same Broadcaster — untyped, since no single entity schema applies, and not narrowed to this table's own entities (Entity Meta carries no table identity). Entity- or value-scoped subscription belongs to the **Entity surface** instead.
 _Avoid_: Table (bare, for the abstraction), EntityRegistry, EntityManager, store registry, portable table.
 
 **StdTable contract**:
@@ -96,7 +96,7 @@ An ESchema-encoded string field used to derive a physical key for an **access pa
 _Avoid_: String-coerced field, delimiter-joined key.
 
 **Entity surface**:
-The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). It validates and accepts latest decoded domain values and returns validated **DecodedEntities**; encoding and decoding occur before and after the **StdTable contract**. An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided.
+The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). It validates and accepts latest decoded domain values and returns validated **DecodedEntities**; encoding and decoding occur before and after the **StdTable contract**. An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided. It also exposes `subscribe`, returning a `Stream` of core [[core]] **Change Notice**s for this entity, optionally narrowed by an exact-match `value` filter typed to this entity's schema (an omitted filter widens to every change on the entity).
 _Avoid_: Entity service (retired term), adapter-specific Entity wrappers, PortableKeyedEntity.
 
 **Read migration**:

@@ -1,8 +1,10 @@
+import type { Stream } from 'effect';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
 } from '../../../eschema/index.js';
 import type {
+  ChangeNotice,
   DecodedEntity,
   DecodedSingleEntity,
 } from '../../../core/index.js';
@@ -58,6 +60,7 @@ export interface StdTable<
   dangerouslyRemoveAllItems(
     confirmation: 'I KNOW WHAT I AM DOING',
   ): TableEffect<{ readonly itemsDeleted: number }, Name>;
+  subscribe(): Stream.Stream<ChangeNotice>;
 }
 
 export interface TableBuilder<Name extends string> {

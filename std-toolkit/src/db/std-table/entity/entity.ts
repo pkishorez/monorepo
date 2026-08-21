@@ -1,5 +1,6 @@
-import type { Effect } from 'effect';
+import type { Effect, Stream } from 'effect';
 import type {
+  ChangeNotice,
   DecodedEntity,
   DecodedSingleEntity,
 } from '../../../core/index.js';
@@ -198,6 +199,9 @@ export interface KeyedEntity<
     } & SortCondition<Record<Patterns[Pattern]['sk'][number], string>>,
     options?: QueryOptions<EntityValue<S>>,
   ): TableEffect<QueryPage<DecodedEntity<EntityValue<S>>>, Name>;
+  subscribe(
+    filter?: Partial<EntityValue<S>>,
+  ): Stream.Stream<ChangeNotice<EntityValue<S>>>;
 }
 
 export interface SingleEntity<
@@ -218,6 +222,9 @@ export interface SingleEntity<
     entity: DecodedSingleEntity<S['Type']>,
   ): TableEffect<CheckOp<Name>, Name>;
   reset(): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
+  subscribe(
+    filter?: Partial<S['Type']>,
+  ): Stream.Stream<ChangeNotice<S['Type']>>;
 }
 
 export interface KeyedBuilderStart<
@@ -284,4 +291,10 @@ export interface SingleBuilder<
 
 export { makeKeyedEntity } from './keyed.js';
 export { makeSingleEntity } from './single.js';
-export { broadcast, dbError, failReason } from './effects.js';
+export {
+  broadcast,
+  changesOrEmpty,
+  dbError,
+  failReason,
+  subscribe,
+} from './effects.js';
