@@ -4,18 +4,13 @@ import {
   ItemMedia,
   ItemTitle,
 } from '@monorepo/frontend/components/ui/item';
-import { Spinner } from '@monorepo/frontend/components/ui/spinner';
-import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { formatMoney, Monogram } from '../money/index.ts';
 
-export interface ListedAccount extends Account {
-  readonly pending?: boolean;
-  readonly busy?: boolean;
-}
+export type ListedAccount = Account;
 
 const row =
-  'group -mx-2 flex h-16 w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 disabled:pointer-events-none disabled:opacity-50';
+  'group -mx-2 flex h-16 w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50';
 
 export function AccountList({
   accounts,
@@ -41,7 +36,6 @@ export function AccountList({
           <button
             type="button"
             onClick={() => onPick(account.id)}
-            disabled={account.busy === true}
             aria-label={`${action} ${account.name}`}
             className={row}
           >
@@ -53,17 +47,7 @@ export function AccountList({
                 {account.name}
               </ItemTitle>
             </ItemContent>
-            <span className="flex size-3.5 shrink-0 items-center justify-center">
-              {account.busy === true && (
-                <Spinner className="size-3.5 text-muted-foreground" />
-              )}
-            </span>
-            <span
-              className={cn(
-                'shrink-0 font-mono text-sm tabular-nums transition-opacity',
-                account.pending === true && 'opacity-40',
-              )}
-            >
+            <span className="shrink-0 font-mono text-sm tabular-nums">
               {formatMoney(account.balance)}
             </span>
           </button>

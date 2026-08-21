@@ -1,18 +1,15 @@
 import type * as React from 'react';
 import { ChevronsUpDown } from 'lucide-react';
 import { Button } from '@monorepo/frontend/components/ui/button';
-import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { formatMoney, Monogram } from '../money/index.ts';
 
 export function ViewpointCard({
   account,
-  pending,
   onSwitch,
   status,
 }: {
   account: Account;
-  pending: boolean;
   onSwitch: () => void;
   status: React.ReactNode;
 }) {
@@ -44,12 +41,7 @@ export function ViewpointCard({
         </Button>
       </div>
       <div className="mt-4 flex h-14 items-end justify-between gap-4">
-        <p
-          className={cn(
-            'font-mono text-5xl font-semibold tracking-tight tabular-nums transition-opacity',
-            pending && 'opacity-40',
-          )}
-        >
+        <p className="font-mono text-5xl font-semibold tracking-tight tabular-nums">
           {formatMoney(account.balance)}
         </p>
         {status}

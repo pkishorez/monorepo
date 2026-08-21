@@ -161,7 +161,7 @@ export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
         ),
     });
 
-    const seed = (): Promise<boolean> => {
+    const seed = (): void => {
       accounts.insert(
         seedNames(SEED_SIZE).map((name) => ({
           id: newId(),
@@ -169,7 +169,6 @@ export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
           balance: seedBalance(),
         })),
       );
-      return Promise.resolve(true);
     };
 
     return { api, accounts, transfers, std, network, sendMoney, seed };
