@@ -1,1 +1,1 @@
-export { default as BankApi } from './api.ts';
+export { BankApi } from './api.ts';
