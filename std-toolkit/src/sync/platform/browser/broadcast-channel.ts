@@ -1,4 +1,7 @@
-import type { PeerChannel, PeerChannelFactory } from './peer-sync.js';
+import type {
+  PeerChannel,
+  PeerChannelFactory,
+} from '../../runtime/peer-sync/index.js';
 
 type BrowserBroadcastChannel = {
   postMessage(message: unknown): void;
@@ -17,7 +20,7 @@ type BroadcastChannelConstructor = new (
   name: string,
 ) => BrowserBroadcastChannel;
 
-export const defaultPeerChannelFactory = (): PeerChannelFactory | null => {
+export const broadcastChannel = (): PeerChannelFactory | null => {
   const constructor = (
     globalThis as { BroadcastChannel?: BroadcastChannelConstructor }
   ).BroadcastChannel;

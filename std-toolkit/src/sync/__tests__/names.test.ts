@@ -47,11 +47,11 @@ describe('named sync', () => {
     const persistence = Memory.make(syncStore);
     const first = createStdSync({
       name: 'Dataset A',
-      storeLayer: persistence.layer,
+      platform: { storeLayer: persistence.layer },
     });
     const second = createStdSync({
       name: 'Dataset B',
-      storeLayer: persistence.layer,
+      platform: { storeLayer: persistence.layer },
     });
     const firstCollection = first.sync({ schema: schema('Todo') });
     const secondCollection = second.sync({ schema: schema('Todo') });

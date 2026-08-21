@@ -137,13 +137,17 @@ describe('Peer Sync replica integration', () => {
     const secondStore = Memory.make(syncStore);
     const first = createStdSync({
       name: 'Acme',
-      storeLayer: firstStore.layer,
-      peerSync: { channel: bus.factory },
+      platform: {
+        storeLayer: firstStore.layer,
+        peerSync: { channel: bus.factory },
+      },
     });
     const second = createStdSync({
       name: 'Acme',
-      storeLayer: secondStore.layer,
-      peerSync: { channel: bus.factory },
+      platform: {
+        storeLayer: secondStore.layer,
+        peerSync: { channel: bus.factory },
+      },
     });
     const firstConfig = first.sync({ schema: todoSchema });
     const secondMounted = mount(second.sync({ schema: todoSchema }));
@@ -206,11 +210,11 @@ describe('Peer Sync replica integration', () => {
     const bus = makeBus();
     const first = createStdSync({
       name: 'later',
-      peerSync: { channel: bus.factory },
+      platform: { peerSync: { channel: bus.factory } },
     });
     const second = createStdSync({
       name: 'later',
-      peerSync: { channel: bus.factory },
+      platform: { peerSync: { channel: bus.factory } },
     });
     const firstConfig = first.sync({ schema: todoSchema });
     const secondConfig = second.sync({ schema: todoSchema });
@@ -232,11 +236,10 @@ describe('Peer Sync replica integration', () => {
     const bus = makeBus();
     const first = createStdSync({
       name: 'local',
-      peerSync: { channel: bus.factory },
+      platform: { peerSync: { channel: bus.factory } },
     });
     const disabled = createStdSync({
       name: 'local',
-      peerSync: false,
     });
     const firstMounted = mount(first.sync({ schema: todoSchema }));
     const disabledMounted = mount(disabled.sync({ schema: todoSchema }));
@@ -285,13 +288,17 @@ describe('Peer Sync replica integration', () => {
     const bus = makeBus();
     const first = createStdSync({
       name: 'shared-idb',
-      storeLayer: firstAdapter.layer,
-      peerSync: { channel: bus.factory },
+      platform: {
+        storeLayer: firstAdapter.layer,
+        peerSync: { channel: bus.factory },
+      },
     });
     const second = createStdSync({
       name: 'shared-idb',
-      storeLayer: secondAdapter.layer,
-      peerSync: { channel: bus.factory },
+      platform: {
+        storeLayer: secondAdapter.layer,
+        peerSync: { channel: bus.factory },
+      },
     });
     const firstConfig = first.sync({ schema: todoSchema });
     const secondMounted = mount(second.sync({ schema: todoSchema }));
@@ -315,11 +322,11 @@ describe('Peer Sync replica integration', () => {
     const bus = makeBus();
     const first = createStdSync({
       name: 'preferences',
-      peerSync: { channel: bus.factory },
+      platform: { peerSync: { channel: bus.factory } },
     });
     const second = createStdSync({
       name: 'preferences',
-      peerSync: { channel: bus.factory },
+      platform: { peerSync: { channel: bus.factory } },
     });
     const firstConfig = first.singleItemSync({
       schema: settingsSchema,
@@ -365,7 +372,7 @@ describe('Peer Sync replica integration', () => {
     const confirmed = todo('mutation', '1');
     const std = createStdSync({
       name: 'failures',
-      peerSync: { channel: failingChannel },
+      platform: { peerSync: { channel: failingChannel } },
       onEvent: (event) => Effect.sync(() => events.push(event)),
     });
     const config = std.sync({

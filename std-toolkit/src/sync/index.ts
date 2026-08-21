@@ -12,6 +12,7 @@ export {
   type SingleItemStrategy,
   type SingleItemSyncConfig,
   type StdSyncDefaults,
+  type StdSyncPlatform,
   type StrategyContext,
   type SyncConfig,
   type SyncEvent,

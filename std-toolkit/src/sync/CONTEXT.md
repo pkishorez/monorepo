@@ -82,6 +82,12 @@ Exclusive ownership by one Sync participant of one backend-reading role while
 equivalent participants remain dormant and eligible for takeover.
 _Avoid_: Strategy Leadership, query lock, fetch mutex, primary tab.
 
+**Platform**:
+The environment one Std Sync instance runs in: where its Sync Store lives and
+how concurrent participants coordinate through Leadership and Peer Sync. Chosen
+once per instance; absent means a solo participant with ephemeral state.
+_Avoid_: environment detection, deployment target, browser sniffing.
+
 **Partition**:
 A ref-counted Sync lifecycle window for one keyed subset. It is unrelated to a
 database partition and does not define Collection retention.

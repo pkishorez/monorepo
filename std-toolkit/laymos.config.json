@@ -605,7 +605,7 @@
       },
       "moduleGraphs": {
         "leadership": {
-          "description": "Elects one leader, backed by an in-memory or Web Locks strategy.",
+          "description": "Elects one leader, backed by an in-memory strategy or a platform-supplied Layer.",
           "path": "src/sync/runtime/leadership",
           "modules": {
             "index.ts": {
@@ -614,15 +614,11 @@
             "leadership.ts": {},
             "in-memory": {
               "exposed": true
-            },
-            "web-locks": {
-              "exposed": true
             }
           },
           "rules": {
             "index.ts": ["leadership.ts"],
-            "in-memory": ["leadership.ts"],
-            "web-locks": ["leadership.ts"]
+            "in-memory": ["leadership.ts"]
           }
         }
       }
@@ -672,6 +668,15 @@
           "exposed": true
         },
         "src/sync/domain/sync-address": {
+          "exposed": true
+        }
+      }
+    },
+    "sync.platform": {
+      "paths": ["src/sync/platform"],
+      "description": "Platform presets \u2014 packaged environments assembling Sync Store, Leadership, and Peer Sync",
+      "modules": {
+        "src/sync/platform/browser": {
           "exposed": true
         }
       }
@@ -790,7 +795,8 @@
         "sync.workers": ["sync.runtime"],
         "sync.runtime": ["sync.persistence"],
         "sync.persistence": ["db.public", "sync.domain"],
-        "sync.domain": ["core.public"]
+        "sync.domain": ["core.public"],
+        "sync.platform": ["sync.public", "idb.public"]
       }
     }
   }

@@ -84,9 +84,9 @@
       "types": "./dist/sync/runtime/leadership/in-memory/index.d.ts",
       "default": "./dist/sync/runtime/leadership/in-memory/index.js"
     },
-    "./sync/leadership/web-locks": {
-      "types": "./dist/sync/runtime/leadership/web-locks/index.d.ts",
-      "default": "./dist/sync/runtime/leadership/web-locks/index.js"
+    "./sync/platform/browser": {
+      "types": "./dist/sync/platform/browser/index.d.ts",
+      "default": "./dist/sync/platform/browser/index.js"
     }
   },
   "files": [

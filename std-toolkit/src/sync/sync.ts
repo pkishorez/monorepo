@@ -51,6 +51,12 @@ import {
 
 export type { LeadershipLayer } from './runtime/leadership/index.js';
 
+export type StdSyncPlatform = {
+  readonly storeLayer?: SyncStoreLayer;
+  readonly leadershipLayer?: LeadershipLayer;
+  readonly peerSync?: { readonly channel: PeerChannelFactory };
+};
+
 export const syncStrategy = { oldToNew, newToOld, bidirectional };
 export const paceStrategy = mutationPaceStrategy;
 
@@ -121,26 +127,25 @@ export type SingleItemSyncConfig<
 export type StdSyncDefaults<R = never> = {
   name: string;
   options?: StdCollectionOptions<object>;
-  storeLayer?: SyncStoreLayer;
+  platform?: StdSyncPlatform;
   cadence?: CadenceConfig;
   runtime?: EffectRuntime<R>;
   onEvent?: SyncReporter<R>;
   flow?: FlowPlacement;
-  peerSync?: false | { channel: PeerChannelFactory };
-  leadershipLayer?: LeadershipLayer;
 };
 
 const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
   const name = normalizeSyncName(defaults.name);
+  const platform = defaults.platform ?? {};
   const collectionNames = new Set<string>();
   const runner = makeEffectRunner(defaults.runtime);
   const report: SyncReporter<R> =
     defaults.onEvent ?? ((event) => Effect.logError(event));
   const tracker = makeTracker();
   const store = makeSyncStore(
-    defaults.storeLayer ?? Memory.make(syncStore).layer,
+    platform.storeLayer ?? Memory.make(syncStore).layer,
   );
-  const leadership = makeLeadership(defaults.leadershipLayer);
+  const leadership = makeLeadership(platform.leadershipLayer);
   const cleanups = new Set<() => Promise<void>>();
   let disposed = false;
   let disposePromise: Promise<void> | null = null;
@@ -196,11 +201,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       ...(defaults.cadence ? { defaultCadence: defaults.cadence } : {}),
       runner,
       report,
-      ...(defaults.peerSync === false
-        ? { peerChannel: null }
-        : defaults.peerSync
-          ? { peerChannel: defaults.peerSync.channel }
-          : {}),
+      peerChannel: platform.peerSync ? platform.peerSync.channel : null,
       ...(defaults.flow ? { flowPlacement: defaults.flow } : {}),
     });
     return { ...mergeOptions(options), ...built };
@@ -239,11 +240,7 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
       options: mergeOptions(options),
       runner,
       report,
-      ...(defaults.peerSync === false
-        ? { peerChannel: null }
-        : defaults.peerSync
-          ? { peerChannel: defaults.peerSync.channel }
-          : {}),
+      peerChannel: platform.peerSync ? platform.peerSync.channel : null,
       ...(defaults.flow ? { flowPlacement: defaults.flow } : {}),
     });
   };

@@ -149,7 +149,9 @@ describe('Sync persistence', () => {
     };
     const std = createStdSync({
       name: 'persistence',
-      storeLayer: contractLayer(syncStore.logicalName, contract),
+      platform: {
+        storeLayer: contractLayer(syncStore.logicalName, contract),
+      },
     });
     const mounted = mount(
       std.singleItemSync({
@@ -189,7 +191,9 @@ describe('Sync persistence', () => {
     };
     const std = createStdSync({
       name: 'persistence',
-      storeLayer: contractLayer(syncStore.logicalName, contract),
+      platform: {
+        storeLayer: contractLayer(syncStore.logicalName, contract),
+      },
     });
     std.sync({ schema: todoSchema });
     std.registry().process({
@@ -230,7 +234,7 @@ describe('Sync persistence', () => {
     const memory = Memory.make(syncStore);
     const first = createStdSync({
       name: 'shared',
-      storeLayer: memory.layer,
+      platform: { storeLayer: memory.layer },
     });
     const firstCollection = first.sync({ schema: todoSchema });
     await Effect.runPromise(
@@ -242,7 +246,7 @@ describe('Sync persistence', () => {
 
     const second = createStdSync({
       name: 'shared',
-      storeLayer: memory.layer,
+      platform: { storeLayer: memory.layer },
     });
     const mounted = mount(second.sync({ schema: todoSchema }));
     await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
@@ -269,7 +273,7 @@ describe('Sync persistence', () => {
 
     const first = createStdSync({
       name: 'settings',
-      storeLayer: adapter.layer,
+      platform: { storeLayer: adapter.layer },
     });
     const firstCollection = first.singleItemSync({
       schema: settingsSchema,
@@ -284,7 +288,7 @@ describe('Sync persistence', () => {
 
     const second = createStdSync({
       name: 'settings',
-      storeLayer: adapter.layer,
+      platform: { storeLayer: adapter.layer },
     });
     const mounted = mount(
       second.singleItemSync({
@@ -309,7 +313,7 @@ describe('Sync persistence', () => {
     const memory = Memory.make(syncStore);
     const first = createStdSync({
       name: 'strategy-state',
-      storeLayer: memory.layer,
+      platform: { storeLayer: memory.layer },
     });
     const saved = { value: false };
     const firstMount = mount(
@@ -337,7 +341,7 @@ describe('Sync persistence', () => {
     const observed: unknown[] = [];
     const second = createStdSync({
       name: 'strategy-state',
-      storeLayer: memory.layer,
+      platform: { storeLayer: memory.layer },
     });
     const secondMount = mount(
       second.singleItemSync({
@@ -365,7 +369,7 @@ describe('Sync persistence', () => {
   it('maps adapter write failures to WriteError.Storage', async () => {
     const std = createStdSync({
       name: 'failing',
-      storeLayer: failingLayer(),
+      platform: { storeLayer: failingLayer() },
     });
     const collection = std.sync({ schema: todoSchema });
     const error = await Effect.runPromise(
@@ -387,7 +391,7 @@ describe('Sync persistence', () => {
     const events: unknown[] = [];
     const std = createStdSync({
       name: 'failing',
-      storeLayer: failingLayer(),
+      platform: { storeLayer: failingLayer() },
       onEvent: (event) => Effect.sync(() => events.push(event)),
     });
     const mounted = mount(std.sync({ schema: todoSchema }));

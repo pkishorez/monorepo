@@ -3,7 +3,6 @@ import type { DecodedEntity } from '../../../core/index.js';
 import type { AnyESchema } from '../../../eschema/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { EffectRunner } from '../effect-runner/index.js';
-import { defaultPeerChannelFactory } from './broadcast-channel.js';
 import { makePeerMessageCodec } from './peer-message.js';
 
 type PeerOperation<A> = Promise<A> | Effect.Effect<A, unknown>;
@@ -93,8 +92,7 @@ export const makePeerSync = <TItem, R = never>(args: {
     admitted = admitted.then(() => applyMessage(message));
   };
 
-  const factory =
-    args.channel === undefined ? defaultPeerChannelFactory() : args.channel;
+  const factory = args.channel ?? null;
   const ready: Promise<PeerChannel | null> = (async () => {
     if (factory === null) return null;
     let channel: PeerChannel;

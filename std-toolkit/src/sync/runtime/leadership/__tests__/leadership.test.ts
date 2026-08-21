@@ -1,7 +1,7 @@
 import { Deferred, Effect, Fiber } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { inMemoryLeadership } from '../in-memory/index.js';
-import { webLockLeadership } from '../web-locks/index.js';
+import { webLockLeadership } from '../../../platform/browser/web-locks/index.js';
 import {
   leadershipIdentity,
   makeLeadership,

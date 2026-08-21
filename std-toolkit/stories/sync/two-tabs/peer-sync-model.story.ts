@@ -90,8 +90,10 @@ const openTab = (options: {
 }) => {
   const app = createStdSync({
     name: options.name,
-    ...(options.storeLayer ? { storeLayer: options.storeLayer } : {}),
-    ...(options.peerSync === undefined ? {} : { peerSync: options.peerSync }),
+    platform: {
+      ...(options.storeLayer ? { storeLayer: options.storeLayer } : {}),
+      ...(options.peerSync ? { peerSync: options.peerSync } : {}),
+    },
   });
   const config = app.sync({ schema: NoteSchema });
   const projection = makeProjection();
