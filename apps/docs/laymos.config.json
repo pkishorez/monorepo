@@ -19,6 +19,13 @@
         "src/routes": {}
       }
     },
+    "infra": {
+      "paths": ["src/infra"],
+      "description": "Deployable resources — each worker defined separately, composed by alchemy.run.ts",
+      "modules": {
+        "src/infra": {}
+      }
+    },
     "components": {
       "paths": ["src/components"],
       "description": "Presentation shared across routes",
@@ -68,7 +75,7 @@
     },
     "bank-rpc": {
       "paths": ["src/demos/bank/rpc"],
-      "description": "Std Bank demo — one RPC capability with a contract door, a server door, and a client door",
+      "description": "Std Bank demo — a contract naming two RPC groups, mutation handlers, one subscription handler per execution context, a server door, and a client door",
       "moduleGraphs": {
         "bank-rpc": {
           "description": "Moves the Bank functionality across a boundary without caring which boundary.",
@@ -77,8 +84,19 @@
             "contract": {
               "exposed": true
             },
-            "handlers": {},
-            "server": {
+            "mutations": {
+              "exposed": true
+            },
+            "subscriptions/in-memory": {
+              "exposed": true
+            },
+            "subscriptions/durable-object": {
+              "exposed": true
+            },
+            "subscriptions/dynamodb-worker": {
+              "exposed": true
+            },
+            "server/durable-object": {
               "exposed": true
             },
             "client": {
@@ -86,29 +104,20 @@
             }
           },
           "rules": {
-            "handlers": ["contract"],
-            "server": ["handlers", "contract"],
-            "client": ["handlers", "contract"]
+            "mutations": ["contract"],
+            "subscriptions/in-memory": ["contract"],
+            "subscriptions/dynamodb-worker": ["contract"],
+            "subscriptions/durable-object": [
+              "contract",
+              "subscriptions/in-memory"
+            ],
+            "server/durable-object": [
+              "mutations",
+              "subscriptions/durable-object",
+              "contract"
+            ],
+            "client": ["mutations", "subscriptions/in-memory", "contract"]
           }
-        }
-      }
-    },
-    "bank-orchestrator": {
-      "paths": ["src/demos/bank/orchestrator"],
-      "description": "Std Bank demo — accounts and transfers over the abstract table",
-      "modules": {
-        "src/demos/bank/orchestrator/accounts": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/demos/bank/orchestrator/transfers": {
-          "exposed": true
-        },
-        "src/demos/bank/orchestrator/stamp": {
-          "shared": true
-        },
-        "src/demos/bank/orchestrator/seed": {
-          "exposed": true
         }
       }
     },
@@ -137,16 +146,26 @@
         }
       }
     },
-    "bank-journey": {
-      "paths": ["src/demos/bank/journey"],
-      "description": "Std Bank demo — the journey state machine: which act is possible when",
-      "modules": {
-        "src/demos/bank/journey/machine": {
-          "exposed": true
-        },
-        "src/demos/bank/journey/problem": {
-          "shared": true,
-          "exposed": true
+    "bank-machine": {
+      "paths": ["src/demos/bank/machine"],
+      "description": "Std Bank demo — the front-end state machine: which act is possible when",
+      "moduleGraphs": {
+        "bank-machine": {
+          "description": "The state machine and the door over it.",
+          "path": "src/demos/bank/machine",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "machine.ts": {},
+            "problem": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "index.ts": ["machine.ts"],
+            "machine.ts": ["problem"]
+          }
         }
       }
     },
@@ -209,18 +228,18 @@
     "docs-site": {
       "description": "Docs app: entries over routes over components over lib",
       "rules": {
-        "entry": ["components"],
-        "routes": ["components", "lib", "bank-rpc", "bank-journey", "bank-ui"],
+        "entry": ["components", "bank-rpc"],
+        "routes": ["components", "lib", "bank-rpc", "bank-machine", "bank-ui"],
+        "infra": ["bank-rpc", "bank-std-table"],
         "components": ["lib"]
       }
     },
     "std-bank": {
-      "description": "Std Bank demo: rpc over orchestrator over table over the contract, with the journey and the UI beside them",
+      "description": "Std Bank demo: rpc over table over the contract, with the machine and the UI beside them",
       "rules": {
-        "bank-rpc": ["bank-orchestrator", "bank-std-table", "bank-contract"],
-        "bank-orchestrator": ["bank-std-table", "bank-contract"],
+        "bank-rpc": ["bank-std-table", "bank-contract"],
         "bank-std-table": ["bank-contract"],
-        "bank-journey": ["bank-contract"],
+        "bank-machine": ["bank-contract"],
         "bank-ui": ["bank-contract"]
       }
     }

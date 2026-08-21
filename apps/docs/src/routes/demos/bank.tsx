@@ -16,8 +16,9 @@ import { baseOptions } from '@/lib/layout.shared';
 import { HomeHeader } from '@/components/home-header';
 import type { Account } from '@/demos/bank/contract/account';
 import type { Transfer } from '@/demos/bank/contract/transfer';
-import { journeyMachine } from '@/demos/bank/journey/machine';
+import { journeyMachine } from '@/demos/bank/machine';
 import {
+  durableObjectBank,
   httpBank,
   idbBank,
   memoryBank,
@@ -59,7 +60,7 @@ export const Route = createFileRoute('/demos/bank')({
   }),
 });
 
-type StoreKey = 'memory' | 'idb' | 'http';
+type StoreKey = 'memory' | 'idb' | 'http' | 'durable-object';
 
 const PAGE_SIZE = 6;
 const TX_PAGE_SIZE = 7;
@@ -74,6 +75,7 @@ const STORES: ReadonlyArray<{
   { value: 'memory', label: 'In-memory', boot: memoryBank },
   { value: 'idb', label: 'IndexedDB', boot: idbBank },
   { value: 'http', label: 'DynamoDB', boot: httpBank },
+  { value: 'durable-object', label: 'SQLite (DO)', boot: durableObjectBank },
 ];
 
 const NETWORKS: ReadonlyArray<{ value: NetworkQuality; label: string }> = [

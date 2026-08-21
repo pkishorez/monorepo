@@ -1,104 +1,50 @@
 import { createOptimisticAction } from '@tanstack/react-db';
-import { Effect, Layer, Schedule, Scope } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { Effect, Layer, Scope, Stream } from 'effect';
 import { RpcClient } from 'effect/unstable/rpc';
 import { nextUlid } from 'std-toolkit/core';
-import type { StdTableService } from 'std-toolkit/db';
 import {
   createStdSync,
   syncStrategy,
-  type LeadershipLayer,
-  type SyncStoreLayer,
+  type StdSyncPlatform,
 } from 'std-toolkit/sync';
 import { AccountSchema, type Account } from '../../contract/account/index.ts';
 import {
   TransferSchema,
   type Transfer,
 } from '../../contract/transfer/index.ts';
-import {
-  seedBalance,
-  seedNames,
-  SEED_SIZE,
-} from '../../orchestrator/seed/index.ts';
-import {
-  BANK_RPC_PATH,
-  BankRpcSerializationLayer,
-  BankRpcs,
-} from '../contract/index.ts';
-import { makeBankFetch } from '../handlers/index.ts';
+import { seedBalance, seedNames, SEED_SIZE } from '../mutations/index.ts';
+import { BankRpcs } from '../contract/index.ts';
 import { makeNetwork } from './network.ts';
 
-type BankTableLayer = Layer.Layer<StdTableService<'bank'>>;
+export const newId = (): string => Effect.runSync(nextUlid);
 
-type FetchLike = (
-  input: RequestInfo | URL,
-  init?: RequestInit,
-) => Promise<Response>;
-
-export interface SendMoneyInput {
+interface SendMoneyInput {
   readonly id: string;
   readonly from: string;
   readonly to: string;
   readonly amount: number;
 }
 
-export interface OpenAccountInput {
-  readonly id: string;
-  readonly name: string;
-  readonly balance: number;
-}
-
 export interface BankWiring {
-  readonly fetchImpl: FetchLike;
-  readonly url: string;
+  readonly protocolLayer: Layer.Layer<RpcClient.Protocol>;
+  readonly keepSubscribed: <A, E, R>(
+    subscribe: () => Stream.Stream<A, E, R>,
+  ) => Stream.Stream<A, E, R>;
   readonly syncName: string;
-  readonly storeLayer: SyncStoreLayer | undefined;
-  readonly leadershipLayer: LeadershipLayer;
+  readonly platform?: StdSyncPlatform;
 }
 
-const LOCAL_RPC_URL = `http://bank.local${BANK_RPC_PATH}`;
-
-export const salt = () => crypto.randomUUID().slice(0, 8);
-
-export const newId = (): string => Effect.runSync(nextUlid);
-
-export const loopback = (
-  table: BankTableLayer,
-): Pick<BankWiring, 'fetchImpl' | 'url'> => {
-  const handle = makeBankFetch(table);
-  return {
-    fetchImpl: (input, init) => handle(new Request(input, init)),
-    url: LOCAL_RPC_URL,
-  };
-};
-
-const protocolLayer = (wiring: BankWiring) =>
-  RpcClient.layerProtocolHttp({ url: wiring.url }).pipe(
-    Layer.provide([
-      FetchHttpClient.layer.pipe(
-        Layer.provide(
-          Layer.succeed(
-            FetchHttpClient.Fetch,
-            wiring.fetchImpl as typeof globalThis.fetch,
-          ),
-        ),
-      ),
-      BankRpcSerializationLayer,
-    ]),
-  );
-
-export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
+const makeBank = (wiring: Effect.Effect<BankWiring, unknown, Scope.Scope>) =>
   Effect.gen(function* () {
     const resolved = yield* wiring;
     const api = yield* RpcClient.make(BankRpcs).pipe(
-      Effect.provide(protocolLayer(resolved)),
+      Effect.provide(resolved.protocolLayer),
     );
     const network = makeNetwork();
 
     const std = createStdSync({
       name: resolved.syncName,
-      storeLayer: resolved.storeLayer,
-      leadershipLayer: resolved.leadershipLayer,
+      platform: resolved.platform,
     });
 
     const accounts = std.collection({
@@ -106,10 +52,14 @@ export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
       sync: {
         total: {
           strategy: syncStrategy.oldToNew<Account>({
-            source: ({ poll }) =>
-              poll({
-                fetch: ({ cursor }) => api.listAccounts({ cursor }),
-                schedule: Schedule.spaced('1 second'),
+            source: ({ live }) =>
+              live({
+                open: ({ cursor }) =>
+                  resolved
+                    .keepSubscribed(() =>
+                      api.subscribeAccounts({ '>': cursor }),
+                    )
+                    .pipe(Stream.map((item) => [item] as const)),
               }),
           }),
         },
@@ -127,10 +77,14 @@ export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
       sync: {
         total: {
           strategy: syncStrategy.oldToNew<Transfer>({
-            source: ({ poll }) =>
-              poll({
-                fetch: ({ cursor }) => api.listAllTransfers({ cursor }),
-                schedule: Schedule.spaced('1 second'),
+            source: ({ live }) =>
+              live({
+                open: ({ cursor }) =>
+                  resolved
+                    .keepSubscribed(() =>
+                      api.subscribeAllTransfers({ '>': cursor }),
+                    )
+                    .pipe(Stream.map((item) => [item] as const)),
               }),
           }),
         },
@@ -176,10 +130,8 @@ export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
 
 export type BankRuntime = Effect.Success<ReturnType<typeof makeBank>>;
 
-export type BankApi = BankRuntime['api'];
-
 export const runBank = (
-  wiring: Effect.Effect<BankWiring, unknown>,
+  wiring: Effect.Effect<BankWiring, unknown, Scope.Scope>,
 ): Promise<BankRuntime> =>
   Effect.runPromise(
     makeBank(wiring).pipe(

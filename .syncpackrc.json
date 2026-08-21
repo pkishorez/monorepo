@@ -26,6 +26,7 @@
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
         "@pkishorez/devtools",
+        "@pkishorez/effect-cloudflare",
         "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
@@ -75,6 +76,7 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@pkishorez/devtools",
+        "@pkishorez/effect-cloudflare",
         "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
