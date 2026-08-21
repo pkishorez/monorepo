@@ -30,7 +30,7 @@ export function AccountList({
   const fillers = Math.max(0, slots - accounts.length);
 
   return (
-    <ul className="divide-y divide-border/60">
+    <ul>
       {accounts.map((account) => (
         <li key={account.id}>
           <button

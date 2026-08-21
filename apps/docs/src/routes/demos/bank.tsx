@@ -1,4 +1,5 @@
 import { Suspense, use, useMemo, useState } from 'react';
+import { Landmark } from 'lucide-react';
 import { createFileRoute } from '@tanstack/react-router';
 import { eq, not, useLiveQuery } from '@tanstack/react-db';
 import { useMachine } from '@xstate/react';
@@ -122,7 +123,7 @@ function BootingSkeleton() {
       <header className="flex h-9 items-center justify-between gap-3">
         <Skeleton className="h-7 w-24" />
         <div className="flex items-center gap-1">
-          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-8 w-28" />
           <Skeleton className="size-8" />
         </div>
       </header>
@@ -242,15 +243,7 @@ function Bank({
 
   const header = (
     <header className="flex h-9 items-center justify-between gap-3">
-      <h1 className="text-2xl font-semibold tracking-tight">
-        <button
-          type="button"
-          onClick={() => send({ type: 'SWITCH' })}
-          className="rounded-sm outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          Bank
-        </button>
-      </h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Bank</h1>
       <div className="flex items-center gap-1">
         <StoreToggle
           stores={STORES}
@@ -279,17 +272,24 @@ function Bank({
     return (
       <>
         {header}
-        <section
-          className={`mt-10 flex flex-col items-center justify-center gap-4 ${FRAME}`}
-        >
-          <p className="text-sm text-muted-foreground">No accounts</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button onClick={seed} className="gap-2">
-              Seed accounts
-            </Button>
-            <Button variant="outline" onClick={() => setOpening(true)}>
-              Create account
-            </Button>
+        <section className={`mt-10 ${FRAME}`}>
+          <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
+            <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Landmark className="size-5" />
+            </span>
+            <h2 className="mt-4 text-base font-semibold">
+              A bank with no accounts
+            </h2>
+            <p className="mt-1 max-w-72 text-sm text-muted-foreground">
+              Seed a few people to send money between, or open an account of
+              your own.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <Button onClick={seed}>Seed accounts</Button>
+              <Button variant="outline" onClick={() => setOpening(true)}>
+                Open an account
+              </Button>
+            </div>
           </div>
         </section>
         {dialog}
@@ -356,7 +356,9 @@ function Bank({
       <div className="mt-10 space-y-6">
         <ViewpointCard
           account={viewpoint}
-          onSwitch={() => send({ type: 'SWITCH' })}
+          accounts={[...all].sort((a, b) => b.balance - a.balance)}
+          onBankAs={(accountId) => send({ type: 'BANK_AS', accountId })}
+          onOpenAccount={() => setOpening(true)}
           status={
             <TransferStatus
               lines={statusLines}
