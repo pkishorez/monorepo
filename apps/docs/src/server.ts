@@ -1,5 +1,5 @@
-import handler, { createServerEntry } from '@tanstack/react-start/server-entry';
+import handler from '@tanstack/react-start/server-entry';
 
-export default createServerEntry({
-  fetch: (request) => handler.fetch(request),
-});
+export default {
+  fetch: (request, env) => handler.fetch(request, { context: { env } }),
+} satisfies ExportedHandler<Cloudflare.Env>;
