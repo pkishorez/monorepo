@@ -42,7 +42,7 @@ export function Transactions({
   const fillers = Math.max(0, slots - lines.length);
 
   return (
-    <ul className="divide-y divide-border/60">
+    <ul>
       {lines.map((line) => (
         <li
           key={line.id}
