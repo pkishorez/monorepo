@@ -65,5 +65,3 @@ export class BankSubscriptions extends RpcGroup.make(
 export const BankRpcs = BankMutations.merge(BankSubscriptions);
 
 export const BankRpcSerializationLayer = RpcSerialization.layerNdjson;
-
-export const BANK_RPC_PATH = '/api/bank/rpc';

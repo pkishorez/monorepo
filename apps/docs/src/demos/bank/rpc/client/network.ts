@@ -1,4 +1,4 @@
-import { Data, Effect } from 'effect';
+import { Context, Data, Effect, Layer } from 'effect';
 
 export const NETWORK_QUALITIES = ['fast', 'slow', 'offline'] as const;
 
@@ -12,13 +12,16 @@ const LATENCY: Record<NetworkQuality, `${number} millis`> = {
   offline: '800 millis',
 };
 
-export interface Network {
-  readonly get: () => NetworkQuality;
-  readonly set: (quality: NetworkQuality) => void;
-  readonly travel: Effect.Effect<void, NetworkDown>;
-}
+export class Network extends Context.Service<
+  Network,
+  {
+    readonly get: () => NetworkQuality;
+    readonly set: (quality: NetworkQuality) => void;
+    readonly travel: Effect.Effect<void, NetworkDown>;
+  }
+>()('BankNetwork') {}
 
-export const makeNetwork = (): Network => {
+export const NetworkLive: Layer.Layer<Network> = Layer.sync(Network, () => {
   let quality: NetworkQuality = 'fast';
   return {
     get: () => quality,
@@ -33,4 +36,4 @@ export const makeNetwork = (): Network => {
       ),
     ),
   };
-};
+});

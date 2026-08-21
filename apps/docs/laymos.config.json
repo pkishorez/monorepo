@@ -93,9 +93,6 @@
             "subscriptions/durable-object": {
               "exposed": true
             },
-            "subscriptions/dynamodb-worker": {
-              "exposed": true
-            },
             "server/durable-object": {
               "exposed": true
             },
@@ -106,7 +103,6 @@
           "rules": {
             "mutations": ["contract"],
             "subscriptions/in-memory": ["contract"],
-            "subscriptions/dynamodb-worker": ["contract"],
             "subscriptions/durable-object": [
               "contract",
               "subscriptions/in-memory"
