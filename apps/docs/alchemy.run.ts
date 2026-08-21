@@ -1,11 +1,11 @@
 import { Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
-import * as DynamoDB from 'alchemy/AWS/DynamoDB';
 import { providers as awsProviders } from 'alchemy/AWS';
+import { makeDynamoDBTable } from '@monorepo/alchemy-toolkit/unstable/dynamo-table';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { DynamoDB as StdDynamoDB } from 'std-toolkit/db/dynamodb';
-import BankApi from './src/demos/bank/rpc/server/api.ts';
+import { BankApi } from './src/demos/bank/rpc/server/index.ts';
 import {
   dynamo,
   dynamoTable,
@@ -31,19 +31,7 @@ const assertStageIsSafe = (stage: string): void => {
 // The bank demo's table shape lives once in `bankTable` (std-toolkit's
 // StdTable builder); derive Alchemy's AWS.DynamoDB.Table props from the same
 // definition the raw SDK client uses locally so the two never drift apart.
-const bankTableDefinition = StdDynamoDB.getTableDefinition(bankTable);
-const bankTableAttributes = Object.fromEntries(
-  bankTableDefinition.AttributeDefinitions.map((attribute) => [
-    attribute.AttributeName,
-    attribute.AttributeType,
-  ]),
-);
-const bankTablePartitionKey = bankTableDefinition.KeySchema.find(
-  (key) => key.KeyType === 'HASH',
-)!.AttributeName;
-const bankTableSortKey = bankTableDefinition.KeySchema.find(
-  (key) => key.KeyType === 'RANGE',
-)?.AttributeName;
+const bankTableTopology = StdDynamoDB.getTableDefinition(bankTable);
 
 export const Worker = Cloudflare.Website.Vite(
   'Worker',
@@ -64,13 +52,9 @@ export const Worker = Cloudflare.Website.Vite(
     } else {
       // Deployed stages get a real, Alchemy-tracked table: creation,
       // drift, and teardown (on PR close) are Alchemy's job here.
-      yield* DynamoDB.Table('BankTable', {
+      yield* makeDynamoDBTable(bankTableTopology, {
+        resourceId: 'BankTable',
         tableName: dynamoTable,
-        partitionKey: bankTablePartitionKey,
-        sortKey: bankTableSortKey,
-        attributes: bankTableAttributes,
-        globalSecondaryIndexes: bankTableDefinition.GlobalSecondaryIndexes,
-        billingMode: bankTableDefinition.BillingMode,
       });
     }
 
