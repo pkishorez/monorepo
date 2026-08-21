@@ -16,7 +16,6 @@ export interface TransactionLine {
   readonly counterpartyName: string;
   readonly amount: number;
   readonly at: string;
-  readonly pending: boolean;
 }
 
 export function Transactions({
@@ -47,10 +46,7 @@ export function Transactions({
       {lines.map((line) => (
         <li
           key={line.id}
-          className={cn(
-            'group -mx-2 flex h-16 items-center gap-3 rounded-lg px-2 transition-colors hover:bg-muted/50',
-            line.pending && 'opacity-45',
-          )}
+          className="group -mx-2 flex h-16 items-center gap-3 rounded-lg px-2 transition-colors hover:bg-muted/50"
         >
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
             {line.direction === 'sent' ? (

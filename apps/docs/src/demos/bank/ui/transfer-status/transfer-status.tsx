@@ -1,5 +1,4 @@
 import { Button } from '@monorepo/frontend/components/ui/button';
-import { Spinner } from '@monorepo/frontend/components/ui/spinner';
 
 export interface StatusLine {
   readonly id: string;
@@ -16,23 +15,14 @@ export function TransferStatus({
   onRetry: (id: string) => void;
   onDismiss: (id: string) => void;
 }) {
-  const sending = lines.filter((line) => line.phase === 'sending').length;
   const problems = lines.filter((line) => line.phase !== 'sending');
   const problem = problems[problems.length - 1];
 
   return (
     <div
       role="status"
-      className="flex h-14 min-w-0 flex-col items-end justify-center gap-1 text-right"
+      className="flex h-7 min-w-0 items-center justify-end text-right"
     >
-      <p className="flex h-4 items-center gap-1.5 text-xs text-muted-foreground">
-        {sending > 0 && (
-          <>
-            <Spinner className="size-3 shrink-0" />
-            {sending === 1 ? 'Sending…' : `Sending ${sending}…`}
-          </>
-        )}
-      </p>
       <div className="flex h-7 items-center gap-1">
         {problem !== undefined && (
           <>

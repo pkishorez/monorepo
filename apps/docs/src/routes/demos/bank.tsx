@@ -5,7 +5,6 @@ import { useMachine } from '@xstate/react';
 import { uTime } from 'std-toolkit/core';
 import { Button } from '@monorepo/frontend/components/ui/button';
 import { Skeleton } from '@monorepo/frontend/components/ui/skeleton';
-import { Spinner } from '@monorepo/frontend/components/ui/spinner';
 import {
   Tabs,
   TabsContent,
@@ -17,7 +16,7 @@ import { baseOptions } from '@/lib/layout.shared';
 import { HomeHeader } from '@/components/home-header';
 import type { Account } from '@/demos/bank/contract/account';
 import type { Transfer } from '@/demos/bank/contract/transfer';
-import { busyAccounts, journeyMachine } from '@/demos/bank/journey/machine';
+import { journeyMachine } from '@/demos/bank/journey/machine';
 import {
   httpBank,
   idbBank,
@@ -26,7 +25,7 @@ import {
   type BankRuntime,
   type NetworkQuality,
 } from '@/demos/bank/rpc/client';
-import { AccountList, type ListedAccount } from '@/demos/bank/ui/account-list';
+import { AccountList } from '@/demos/bank/ui/account-list';
 import { BankSettings } from '@/demos/bank/ui/bank-settings';
 import {
   OpenAccountDialog,
@@ -161,7 +160,6 @@ function Bank({
 }) {
   const [network, setNetwork] = useState<NetworkQuality>('fast');
   const [opening, setOpening] = useState(false);
-  const [seeding, setSeeding] = useState(false);
   const [page, setPage] = useState(0);
   const [txPage, setTxPage] = useState(0);
   const [tab, setTab] = useState<'people' | 'transactions'>('people');
@@ -196,17 +194,8 @@ function Bank({
     [viewpointId, peerPage],
   );
 
-  const busy = busyAccounts(state.context);
-
-  const decorate = (data: unknown): ListedAccount[] =>
-    ((data ?? []) as ReadonlyArray<Account & Live>).map((account) => ({
-      ...account,
-      pending: account.$synced === false,
-      busy: busy.has(account.id),
-    }));
-
-  const all = decorate(allRows);
-  const peers = decorate(pageRows);
+  const all = rows;
+  const peers = (pageRows ?? []) as ReadonlyArray<Account & Live>;
   const viewpoint = all.find((account) => account.id === viewpointId);
 
   const lines = useMemo<TransactionLine[]>(() => {
@@ -227,7 +216,6 @@ function Bank({
           counterpartyName: nameOf.get(counterpartyId) ?? 'a closed account',
           amount: t.amount,
           at: timeOf(t.id),
-          pending: t.$synced === false,
         };
       });
   }, [transferRows, allRows, viewpointId]);
@@ -243,10 +231,7 @@ function Bank({
     send({ type: 'BANK_AS', accountId: id });
   };
 
-  const seed = () => {
-    setSeeding(true);
-    runtime.seed().finally(() => setSeeding(false));
-  };
+  const seed = () => runtime.seed();
 
   const changeNetwork = (quality: NetworkQuality) => {
     setNetwork(quality);
@@ -274,6 +259,7 @@ function Bank({
           networks={NETWORKS}
           network={network}
           onNetworkChange={(value) => changeNetwork(value as NetworkQuality)}
+          onSeed={seed}
         />
       </div>
     </header>
@@ -296,12 +282,9 @@ function Bank({
         >
           <p className="text-sm text-muted-foreground">No accounts</p>
           <div className="flex flex-wrap justify-center gap-2">
-            {store !== 'http' && (
-              <Button onClick={seed} disabled={seeding} className="gap-2">
-                {seeding && <Spinner className="size-3.5" />}
-                Seed accounts
-              </Button>
-            )}
+            <Button onClick={seed} className="gap-2">
+              Seed accounts
+            </Button>
             <Button variant="outline" onClick={() => setOpening(true)}>
               Create account
             </Button>
@@ -371,7 +354,6 @@ function Bank({
       <div className="mt-10 space-y-6">
         <ViewpointCard
           account={viewpoint}
-          pending={viewpoint.pending === true}
           onSwitch={() => send({ type: 'SWITCH' })}
           status={
             <TransferStatus

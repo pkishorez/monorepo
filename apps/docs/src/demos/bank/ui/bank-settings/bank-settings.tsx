@@ -22,10 +22,12 @@ export function BankSettings({
   networks,
   network,
   onNetworkChange,
+  onSeed,
 }: {
   networks: readonly SettingOption[];
   network: string;
   onNetworkChange: (value: string) => void;
+  onSeed?: () => void;
 }) {
   return (
     <Popover>
@@ -67,6 +69,17 @@ export function BankSettings({
             ))}
           </SelectContent>
         </Select>
+        {onSeed !== undefined && (
+          <>
+            <div className="mt-2 flex items-baseline justify-between gap-4">
+              <span className="text-sm font-medium">Accounts</span>
+              <span className="text-xs text-muted-foreground">demo data</span>
+            </div>
+            <Button variant="outline" size="sm" onClick={onSeed}>
+              Seed accounts
+            </Button>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );
