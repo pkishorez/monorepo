@@ -1,3 +1,3 @@
-export { default as BankApi } from './api.ts';
-export { default as BankDo } from './durable-object.ts';
+export { default as DynamoDO } from './dynamo-do.ts';
+export { default as SqliteDO } from './sqlite-do.ts';
 export { BankTable } from './table.ts';

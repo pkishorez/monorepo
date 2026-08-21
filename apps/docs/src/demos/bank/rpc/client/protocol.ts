@@ -61,11 +61,6 @@ export const loopbackProtocol = (
   );
 };
 
-export const httpProtocol = (url: string): Layer.Layer<RpcClient.Protocol> =>
-  RpcClient.layerProtocolHttp({ url }).pipe(
-    Layer.provide([FetchHttpClient.layer, BankRpcSerializationLayer]),
-  );
-
 export interface DurableObjectProtocol {
   readonly protocolLayer: Layer.Layer<RpcClient.Protocol>;
   readonly keepSubscribed: <A, E, R>(

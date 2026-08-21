@@ -1,6 +1,6 @@
 export {
-  durableObjectBank,
-  httpBank,
+  dynamoBank,
+  sqliteBank,
   idbBank,
   memoryBank,
   newId,

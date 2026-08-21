@@ -18,8 +18,8 @@ import type { Account } from '@/demos/bank/contract/account';
 import type { Transfer } from '@/demos/bank/contract/transfer';
 import { journeyMachine } from '@/demos/bank/machine';
 import {
-  durableObjectBank,
-  httpBank,
+  dynamoBank,
+  sqliteBank,
   idbBank,
   memoryBank,
   newId,
@@ -60,7 +60,7 @@ export const Route = createFileRoute('/demos/bank')({
   }),
 });
 
-type StoreKey = 'memory' | 'idb' | 'http' | 'durable-object';
+type StoreKey = 'memory' | 'idb' | 'dynamo' | 'sqlite';
 
 const PAGE_SIZE = 6;
 const TX_PAGE_SIZE = 7;
@@ -74,8 +74,8 @@ const STORES: ReadonlyArray<{
 }> = [
   { value: 'memory', label: 'In-memory', boot: memoryBank },
   { value: 'idb', label: 'IndexedDB', boot: idbBank },
-  { value: 'http', label: 'DynamoDB', boot: httpBank },
-  { value: 'durable-object', label: 'SQLite (DO)', boot: durableObjectBank },
+  { value: 'dynamo', label: 'DynamoDB', boot: dynamoBank },
+  { value: 'sqlite', label: 'SQLite (DO)', boot: sqliteBank },
 ];
 
 const NETWORKS: ReadonlyArray<{ value: NetworkQuality; label: string }> = [

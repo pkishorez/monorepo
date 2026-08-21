@@ -1,6 +1,5 @@
 export {
   AccountEntity,
-  BANK_RPC_PATH,
   BankMutations,
   BankRpcSerializationLayer,
   BankRpcs,

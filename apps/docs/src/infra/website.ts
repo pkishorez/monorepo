@@ -2,7 +2,7 @@ import { Stage } from 'alchemy';
 import * as Output from 'alchemy/Output';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import { Config, Effect } from 'effect';
-import { BankApi, BankDo, BankTable } from './bank/index.ts';
+import { BankTable, DynamoDO, SqliteDO } from './bank/index.ts';
 import {
   assertStageIsSafe,
   devConfigFor,
@@ -27,23 +27,29 @@ export const Website = Cloudflare.Website.Vite(
 
     yield* BankTable;
 
-    const bankDo = yield* BankDo;
-    const bankDoUrl = Output.map(bankDo.url, (url) => {
-      if (!url) {
-        throw new Error(
-          'BankDo worker has no URL — enable workersDev or give it a domain.',
-        );
-      }
-      return url;
-    });
+    const urlOf = (
+      name: string,
+      worker: { url: Output.Output<string | undefined> },
+    ) =>
+      Output.map(worker.url, (url) => {
+        if (!url) {
+          throw new Error(
+            `${name} worker has no URL — enable workersDev or give it a domain.`,
+          );
+        }
+        return url;
+      });
+
+    const sqliteDo = yield* SqliteDO;
+    const dynamoDo = yield* DynamoDO;
 
     return {
       compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
       dev: devConfigFor(isLocal),
       domain: domainFor(stage),
       env: {
-        BANK_API: BankApi,
-        VITE_BANK_DO_URL: bankDoUrl,
+        VITE_BANK_SQLITE_DO_URL: urlOf('SqliteDO', sqliteDo),
+        VITE_BANK_DYNAMO_DO_URL: urlOf('DynamoDO', dynamoDo),
       },
     };
   }),

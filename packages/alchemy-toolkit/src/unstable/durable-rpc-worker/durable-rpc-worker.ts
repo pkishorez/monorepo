@@ -20,6 +20,12 @@ export interface DurableRpcWorkerOptions<Rpcs extends Rpc.Any> {
   readonly transferredFrom?:
     | Cloudflare.DurableObjectTransferSource
     | Cloudflare.DurableObjectTransferSource[];
+  /**
+   * Runs in the Durable Object constructor — including at plan time, before
+   * any instance exists — so `Config` reads here are discovered and bound
+   * into the worker's env for the handlers to read at runtime.
+   */
+  readonly init?: Effect.Effect<unknown>;
   /** @default true — the worker's URL is how clients reach the RPC socket. */
   readonly workersDev?: boolean;
   readonly domain?: string;
@@ -79,6 +85,7 @@ export const DurableRpcWorker =
     const objectLive = DurableRpcObject.make<never>(
       Effect.gen(function* () {
         const state = yield* Cloudflare.DurableObjectState;
+        yield* options.init ?? Effect.void;
 
         return Effect.gen(function* () {
           const layer = yield* handlers;
