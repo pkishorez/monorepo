@@ -14,6 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@monorepo/frontend/components/ui/popover';
+import { motion } from '@monorepo/frontend/motion';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney, formatMoney, Monogram } from '../money/index.ts';
 
@@ -69,7 +70,12 @@ export function ViewpointCard({
             />
           }
         >
-          <Monogram name={account.name} className="size-10" />
+          <motion.div
+            layoutId={`monogram-${account.id}`}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <Monogram name={account.name} className="size-10" />
+          </motion.div>
           <div className="min-w-0">
             <p className="text-[0.6875rem] tracking-widest text-muted-foreground uppercase">
               Banking as
