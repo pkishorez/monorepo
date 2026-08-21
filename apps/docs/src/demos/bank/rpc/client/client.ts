@@ -1,16 +1,11 @@
-import { Effect, Scope, Stream } from 'effect';
+import { Effect, Layer, Stream } from 'effect';
 import { IDB } from 'std-toolkit/db/idb';
 import { Memory } from 'std-toolkit/db/memory';
 import { browser } from 'std-toolkit/sync/platform/browser';
 import { bankTable } from '../../std-table/table/index.ts';
-import { BANK_RPC_PATH } from '../contract/index.ts';
 import { BankSubscriptionsLive } from '../subscriptions/in-memory/index.ts';
-import {
-  durableObjectProtocol,
-  httpProtocol,
-  loopbackProtocol,
-} from './protocol.ts';
-import { runBank, type BankRuntime, type BankWiring } from './runtime.ts';
+import { durableObjectProtocol, loopbackProtocol } from './protocol.ts';
+import { BankWiring, runBank, type BankRuntime } from './runtime.ts';
 
 export { newId, type BankRuntime } from './runtime.ts';
 export type { NetworkQuality } from './network.ts';
@@ -20,13 +15,13 @@ const identitySubscribed = <A, E, R>(
 ): Stream.Stream<A, E, R> => subscribe();
 
 const bootOnce = (
-  wiring: Effect.Effect<BankWiring, unknown, Scope.Scope>,
+  wiring: Layer.Layer<BankWiring, unknown>,
 ): (() => Promise<BankRuntime>) => {
   let runtime: Promise<BankRuntime> | undefined;
   return () => (runtime ??= runBank(wiring));
 };
 
-const memoryWiring: Effect.Effect<BankWiring> = Effect.sync(() => ({
+const MemoryWiring = Layer.succeed(BankWiring, {
   protocolLayer: loopbackProtocol(
     Memory.make(bankTable).layer,
     BankSubscriptionsLive,
@@ -34,51 +29,62 @@ const memoryWiring: Effect.Effect<BankWiring> = Effect.sync(() => ({
   ),
   keepSubscribed: identitySubscribed,
   syncName: 'bank-memory',
-}));
-
-const idbWiring = Effect.gen(function* () {
-  const table = IDB.make(bankTable, {
-    database: IDB.database({ databaseName: 'bank-demo-v3' }),
-  });
-  yield* table.setup;
-  return {
-    protocolLayer: loopbackProtocol(
-      table.layer,
-      BankSubscriptionsLive,
-      'http://bank.local/rpc/idb',
-    ),
-    keepSubscribed: identitySubscribed,
-    syncName: 'bank-idb',
-    platform: browser(),
-  } satisfies BankWiring;
 });
 
-const httpWiring: Effect.Effect<BankWiring> = Effect.sync(() => ({
-  protocolLayer: httpProtocol(BANK_RPC_PATH),
-  keepSubscribed: identitySubscribed,
-  syncName: 'bank-dynamo',
-  platform: browser(),
-}));
-
-const durableObjectWiring: Effect.Effect<BankWiring, unknown, Scope.Scope> =
+const IdbWiring = Layer.effect(
+  BankWiring,
   Effect.gen(function* () {
-    const bankDoUrl = import.meta.env.VITE_BANK_DO_URL;
-    if (!bankDoUrl) {
-      return yield* Effect.fail(
-        new Error('VITE_BANK_DO_URL is not set — deploy wires it in infra.'),
-      );
-    }
-    const { protocolLayer, keepSubscribed } =
-      yield* durableObjectProtocol(bankDoUrl);
+    const table = IDB.make(bankTable, {
+      database: IDB.database({ databaseName: 'bank-demo-v3' }),
+    });
+    yield* table.setup;
     return {
-      protocolLayer,
-      keepSubscribed,
-      syncName: 'bank-do',
+      protocolLayer: loopbackProtocol(
+        table.layer,
+        BankSubscriptionsLive,
+        'http://bank.local/rpc/idb',
+      ),
+      keepSubscribed: identitySubscribed,
+      syncName: 'bank-idb',
       platform: browser(),
     };
-  });
+  }),
+);
 
-export const memoryBank = bootOnce(memoryWiring);
-export const idbBank = bootOnce(idbWiring);
-export const httpBank = bootOnce(httpWiring);
-export const durableObjectBank = bootOnce(durableObjectWiring);
+const DurableObjectWiring = (
+  envKey: 'VITE_BANK_SQLITE_DO_URL' | 'VITE_BANK_DYNAMO_DO_URL',
+  syncName: string,
+): Layer.Layer<BankWiring, unknown> =>
+  Layer.effect(
+    BankWiring,
+    Effect.gen(function* () {
+      const url = import.meta.env[envKey];
+      if (!url) {
+        return yield* Effect.fail(
+          new Error(`${envKey} is not set — deploy wires it in infra.`),
+        );
+      }
+      const { protocolLayer, keepSubscribed } =
+        yield* durableObjectProtocol(url);
+      return {
+        protocolLayer,
+        keepSubscribed,
+        syncName,
+        platform: browser(),
+      };
+    }),
+  );
+
+const SqliteWiring = DurableObjectWiring(
+  'VITE_BANK_SQLITE_DO_URL',
+  'bank-sqlite',
+);
+const DynamoWiring = DurableObjectWiring(
+  'VITE_BANK_DYNAMO_DO_URL',
+  'bank-dynamo',
+);
+
+export const memoryBank = bootOnce(MemoryWiring);
+export const idbBank = bootOnce(IdbWiring);
+export const sqliteBank = bootOnce(SqliteWiring);
+export const dynamoBank = bootOnce(DynamoWiring);
