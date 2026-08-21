@@ -16,7 +16,7 @@ import { BankRpcSerializationLayer, BankRpcs } from '../contract/index.ts';
 
 export const BankHandlersLive = BankRpcs.toLayer({
   listAccounts: ({ cursor }) => listAccounts(cursor),
-  openAccount: ({ id, name }) => openAccount({ id, name }),
+  openAccount: ({ id, name, balance }) => openAccount({ id, name, balance }),
   transfer: ({ id, from, to, amount }) => transfer({ id, from, to, amount }),
   listTransfers: ({ account, direction, cursor }) =>
     listTransfers(account, direction, cursor),

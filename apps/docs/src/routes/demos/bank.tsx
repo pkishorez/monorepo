@@ -255,7 +255,15 @@ function Bank({
 
   const header = (
     <header className="flex h-9 items-center justify-between gap-3">
-      <h1 className="text-2xl font-semibold tracking-tight">Bank</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        <button
+          type="button"
+          onClick={() => send({ type: 'SWITCH' })}
+          className="rounded-sm outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Bank
+        </button>
+      </h1>
       <div className="flex items-center gap-1">
         <StoreToggle
           stores={STORES}

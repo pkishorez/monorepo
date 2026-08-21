@@ -1,1 +1,1 @@
-export { bankServerFetch } from './server.ts';
+export { default as BankApi } from './api.ts';

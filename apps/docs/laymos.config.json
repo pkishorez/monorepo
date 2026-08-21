@@ -5,7 +5,7 @@
   "layers": {
     "entry": {
       "paths": ["src/router.tsx", "src/start.ts", "src/server.ts"],
-      "description": "Host entries \u2014 TanStack Start server, router, worker forwarding",
+      "description": "Host entries — TanStack Start server, router, worker forwarding",
       "modules": {
         "src/router.tsx": {},
         "src/start.ts": {},
@@ -14,7 +14,7 @@
     },
     "routes": {
       "paths": ["src/routes"],
-      "description": "Route surface \u2014 pages and API handlers",
+      "description": "Route surface — pages and API handlers",
       "modules": {
         "src/routes": {}
       }
@@ -68,7 +68,7 @@
     },
     "bank-rpc": {
       "paths": ["src/demos/bank/rpc"],
-      "description": "Std Bank demo \u2014 one RPC capability with a contract door, a server door, and a client door",
+      "description": "Std Bank demo — one RPC capability with a contract door, a server door, and a client door",
       "moduleGraphs": {
         "bank-rpc": {
           "description": "Moves the Bank functionality across a boundary without caring which boundary.",
@@ -95,14 +95,13 @@
     },
     "bank-orchestrator": {
       "paths": ["src/demos/bank/orchestrator"],
-      "description": "Std Bank demo \u2014 accounts and transfers over the abstract table",
+      "description": "Std Bank demo — accounts and transfers over the abstract table",
       "modules": {
         "src/demos/bank/orchestrator/accounts": {
           "shared": true,
           "exposed": true
         },
         "src/demos/bank/orchestrator/transfers": {
-          "shared": true,
           "exposed": true
         },
         "src/demos/bank/orchestrator/stamp": {
@@ -115,7 +114,7 @@
     },
     "bank-std-table": {
       "paths": ["src/demos/bank/std-table"],
-      "description": "Std Bank demo \u2014 the single-table design and its entity bindings",
+      "description": "Std Bank demo — the single-table design and its entity bindings",
       "moduleGraphs": {
         "std-table": {
           "description": "Binds the domain to one StdTable: the topology and one entity per record kind.",
@@ -140,7 +139,7 @@
     },
     "bank-journey": {
       "paths": ["src/demos/bank/journey"],
-      "description": "Std Bank demo \u2014 the journey state machine: which act is possible when",
+      "description": "Std Bank demo — the journey state machine: which act is possible when",
       "modules": {
         "src/demos/bank/journey/machine": {
           "exposed": true
@@ -153,7 +152,7 @@
     },
     "bank-ui": {
       "paths": ["src/demos/bank/ui"],
-      "description": "Std Bank demo \u2014 dumb presentation: props in, callbacks out",
+      "description": "Std Bank demo — dumb presentation: props in, callbacks out",
       "modules": {
         "src/demos/bank/ui/account-list": {
           "exposed": true
@@ -189,7 +188,7 @@
     },
     "bank-contract": {
       "paths": ["src/demos/bank/contract"],
-      "description": "Std Bank demo \u2014 schemas, name rules, domain refusals",
+      "description": "Std Bank demo — schemas, name rules, domain refusals",
       "modules": {
         "src/demos/bank/contract/account": {
           "exposed": true

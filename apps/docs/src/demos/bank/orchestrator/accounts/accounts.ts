@@ -13,6 +13,7 @@ type BankTableService = StdTableService<'bank'>;
 export interface OpenAccountInput {
   readonly id?: string | undefined;
   readonly name: string;
+  readonly balance?: number | undefined;
 }
 
 export const listAccounts = (
@@ -37,6 +38,6 @@ export const openAccount = (
     if (name === null) return yield* Effect.fail(new InvalidName());
     const id = input.id ?? (yield* nextUlid);
     return yield* accountEntity
-      .insert({ id, name, balance: 0 })
+      .insert({ id, name, balance: input.balance ?? 0 })
       .pipe(Effect.map(stamp), Effect.orDie);
   });

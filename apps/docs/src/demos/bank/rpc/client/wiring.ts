@@ -16,6 +16,11 @@ import {
   type Transfer,
 } from '../../contract/transfer/index.ts';
 import {
+  seedBalance,
+  seedNames,
+  SEED_SIZE,
+} from '../../orchestrator/seed/index.ts';
+import {
   BANK_RPC_PATH,
   BankRpcSerializationLayer,
   BankRpcs,
@@ -40,6 +45,7 @@ export interface SendMoneyInput {
 export interface OpenAccountInput {
   readonly id: string;
   readonly name: string;
+  readonly balance: number;
 }
 
 export interface BankWiring {
@@ -108,7 +114,12 @@ export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
           }),
         },
       },
-      onInsert: (item) => api.openAccount({ id: item.id, name: item.name }),
+      onInsert: (item) =>
+        api.openAccount({
+          id: item.id,
+          name: item.name,
+          balance: item.balance,
+        }),
     });
 
     const transfers = std.collection({
@@ -150,7 +161,16 @@ export const makeBank = (wiring: Effect.Effect<BankWiring, unknown>) =>
         ),
     });
 
-    const seed = (): Promise<boolean> => Effect.runPromise(api.seed());
+    const seed = (): Promise<boolean> => {
+      accounts.insert(
+        seedNames(SEED_SIZE).map((name) => ({
+          id: newId(),
+          name,
+          balance: seedBalance(),
+        })),
+      );
+      return Promise.resolve(true);
+    };
 
     return { api, accounts, transfers, std, network, sendMoney, seed };
   });

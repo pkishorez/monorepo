@@ -20,6 +20,7 @@ export class BankRpcs extends RpcGroup.make(
     payload: {
       id: Schema.String,
       name: Schema.String,
+      balance: Schema.Int,
     },
     success: AccountEntity,
     error: InvalidName,

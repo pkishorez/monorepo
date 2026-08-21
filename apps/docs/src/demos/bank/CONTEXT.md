@@ -57,7 +57,8 @@ bank, with its own Accounts and its own money.
 
 - Banking is anonymous: an Account is not owned, not logged into, and not
   protected. A Viewpoint is chosen, never authenticated.
-- New Accounts open at zero and are funded by Transfers.
+- An Account opens with the balance its owner chose, up to a fixed cap; from
+  then on it changes only through Transfers.
 - A Transfer moves money between exactly two distinct Accounts and settles
   atomically: both balances and the Transfer record, or nothing.
 - Transfers are immutable history; an Account's history is everything it sent
