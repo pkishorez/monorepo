@@ -206,18 +206,20 @@ export function FlowSection({ flows, spans, className }: FlowSectionProps) {
             onSelectionChange={setSelectedItem}
           />
         )}
-        {selectedItem && !isMobile && (
+        {!isMobile && (
           <div
             className={cn(
               'w-96 shrink-0 overflow-y-auto border-l',
               scrollbarStyles,
             )}
           >
-            <FlowItemDetails
-              item={selectedItem}
-              onClose={() => setSelectedItem(null)}
-              onOpenTrace={setTrace}
-            />
+            {selectedItem ? (
+              <FlowItemDetails item={selectedItem} onOpenTrace={setTrace} />
+            ) : (
+              <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
+                Select a flow item to inspect its attributes
+              </div>
+            )}
           </div>
         )}
         {selectedItem && isMobile && (
