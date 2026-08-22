@@ -391,6 +391,9 @@ importers:
       '@pkishorez/effect-cloudflare':
         specifier: workspace:*
         version: link:../../packages/effect-cloudflare
+      '@pkishorez/effect-tracer':
+        specifier: workspace:*
+        version: link:../../devtools/effect-tracer
       '@tanstack/react-db':
         specifier: 'catalog:'
         version: 0.2.1(react@19.2.8)(typescript@7.0.2)

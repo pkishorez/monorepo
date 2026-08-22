@@ -90,6 +90,8 @@ export interface TraceViewerProps {
   readonly view?: TraceView;
   readonly onViewChange?: (view: TraceView) => void;
   readonly defaultView?: TraceView;
+  /** Span to select when a trace is first shown, if it belongs to that trace. */
+  readonly initialSelectedSpanId?: string;
   /** Sizing for the non-fullscreen container. Defaults to a bounded height. */
   readonly className?: string;
 }
@@ -109,6 +111,7 @@ export function TraceViewer({
   view,
   onViewChange,
   defaultView = 'waterfall',
+  initialSelectedSpanId,
   className,
 }: TraceViewerProps) {
   const traces = useMemo(() => groupTraceSpans([...spans]), [spans]);
@@ -192,7 +195,15 @@ export function TraceViewer({
       sidebarWidth: resolvedSidebarWidth,
       nameColWidth: 300,
       sidebarOpen: true,
-      selectedSpanId: trace.roots[0]?.span.spanId ?? null,
+      selectedSpanId:
+        (initialSelectedSpanId !== undefined &&
+        collectSpans(trace.roots).some(
+          (span) => span.spanId === initialSelectedSpanId,
+        )
+          ? initialSelectedSpanId
+          : null) ??
+        trace.roots[0]?.span.spanId ??
+        null,
     }),
     sidebarWidth: resolvedSidebarWidth,
     sidebarOpen: true,

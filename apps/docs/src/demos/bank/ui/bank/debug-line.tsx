@@ -85,9 +85,11 @@ function Link({ ws }: { ws: DebugLineProps['ws'] }) {
 
 export function DebugPanel({
   debug,
+  onTraces,
   onClose,
 }: {
   debug: DebugLineProps;
+  onTraces: () => void;
   onClose: () => void;
 }) {
   return (
@@ -97,13 +99,22 @@ export function DebugPanel({
     >
       <div className="flex items-baseline justify-between">
         <span className={eyebrow}>Diagnostics</span>
-        <button
-          type="button"
-          onClick={onClose}
-          className={cn(textLink, eyebrow, 'hover:text-foreground')}
-        >
-          Close
-        </button>
+        <span className="flex items-baseline gap-4">
+          <button
+            type="button"
+            onClick={onTraces}
+            className={cn(textLink, eyebrow, 'hover:text-foreground')}
+          >
+            Traces
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className={cn(textLink, eyebrow, 'hover:text-foreground')}
+          >
+            Close
+          </button>
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
         <Stat label="Network">

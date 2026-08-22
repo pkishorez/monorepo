@@ -17,6 +17,7 @@
     "@monorepo/alchemy-toolkit": "workspace:*",
     "@monorepo/frontend": "workspace:*",
     "@pkishorez/effect-cloudflare": "workspace:*",
+    "@pkishorez/effect-tracer": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",

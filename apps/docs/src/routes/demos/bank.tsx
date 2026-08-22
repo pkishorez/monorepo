@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-router';
 import { useLiveQuery } from '@tanstack/react-db';
 import { useMachine } from '@xstate/react';
+import { DevToolsPanel } from '@monorepo/frontend/components/blocks/devtools-panel';
 import type { Account } from '@/demos/bank/contract/account';
 import type { Transfer } from '@/demos/bank/contract/transfer';
 import { journeyMachine } from '@/demos/bank/machine';
@@ -113,6 +114,7 @@ const BOOTING = {
   onOpen: noop,
   onRetry: noop,
   onDebug: noop,
+  onTraces: noop,
 } as const;
 
 function BankPage() {
@@ -171,6 +173,7 @@ function LiveBank({
   runtime: BankRuntime;
 }) {
   const [network, setNetwork] = useState<NetworkQuality>(runtime.network.get());
+  const [traces, setTraces] = useState(false);
 
   const [state, send] = useMachine(journeyMachine, {
     input: {
@@ -215,49 +218,58 @@ function LiveBank({
   }));
 
   return (
-    <Bank
-      stores={shell.stores}
-      store={shell.store}
-      onStore={shell.onStore}
-      backHref={shell.backHref}
-      accounts={(accountRows ?? EMPTY) as ReadonlyArray<Account>}
-      transfers={(transferRows ?? EMPTY) as ReadonlyArray<Transfer>}
-      attempts={attempts}
-      fromId={fromId}
-      toId={toId}
-      onPick={(accountId) => send({ type: 'PICK', accountId })}
-      onCancel={() => send({ type: 'CANCEL' })}
-      onUntarget={() => send({ type: 'UNTARGET' })}
-      onSwap={() => send({ type: 'SWAP' })}
-      onSend={(amount, stay) => send({ type: 'SEND', amount, stay })}
-      onOpen={(opening) => {
-        const id = newId();
-        runtime.accounts.insert({
-          id,
-          name: opening.name,
-          balance: opening.balance,
-        });
-        send({ type: 'CANCEL' });
-        send({ type: 'PICK', accountId: id });
-      }}
-      onRetry={(id) => send({ type: 'RETRY', id })}
-      onDebug={shell.onDebug}
-      debug={
-        shell.debug
-          ? {
-              networks: NETWORKS,
-              network,
-              onNetwork: (quality) => {
-                setNetwork(quality as NetworkQuality);
-                runtime.network.set(quality as NetworkQuality);
-              },
-              ws: vitals.ws,
-              leadership: leadershipOf(vitals),
-              queued: vitals.queued,
-              committing: vitals.committing,
-            }
-          : null
-      }
-    />
+    <>
+      <Bank
+        stores={shell.stores}
+        store={shell.store}
+        onStore={shell.onStore}
+        backHref={shell.backHref}
+        accounts={(accountRows ?? EMPTY) as ReadonlyArray<Account>}
+        transfers={(transferRows ?? EMPTY) as ReadonlyArray<Transfer>}
+        attempts={attempts}
+        fromId={fromId}
+        toId={toId}
+        onPick={(accountId) => send({ type: 'PICK', accountId })}
+        onCancel={() => send({ type: 'CANCEL' })}
+        onUntarget={() => send({ type: 'UNTARGET' })}
+        onSwap={() => send({ type: 'SWAP' })}
+        onSend={(amount, stay) => send({ type: 'SEND', amount, stay })}
+        onOpen={(opening) => {
+          const id = newId();
+          runtime.accounts.insert({
+            id,
+            name: opening.name,
+            balance: opening.balance,
+          });
+          send({ type: 'CANCEL' });
+          send({ type: 'PICK', accountId: id });
+        }}
+        onRetry={(id) => send({ type: 'RETRY', id })}
+        onDebug={shell.onDebug}
+        debug={
+          shell.debug
+            ? {
+                networks: NETWORKS,
+                network,
+                onNetwork: (quality) => {
+                  setNetwork(quality as NetworkQuality);
+                  runtime.network.set(quality as NetworkQuality);
+                },
+                ws: vitals.ws,
+                leadership: leadershipOf(vitals),
+                queued: vitals.queued,
+                committing: vitals.committing,
+              }
+            : null
+        }
+        onTraces={() => setTraces(true)}
+      />
+      <DevToolsPanel
+        recorder={runtime.recorder}
+        filters={['flows']}
+        open={traces}
+        onClose={() => setTraces(false)}
+      />
+    </>
   );
 }
