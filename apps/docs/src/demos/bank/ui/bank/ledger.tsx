@@ -53,8 +53,14 @@ const coarsePointer = () =>
 const keepFocus = (event: { preventDefault: () => void }) =>
   event.preventDefault();
 
+const tap = {
+  scale: 0.97,
+  backgroundColor: 'var(--primary)',
+  color: 'var(--primary-foreground)',
+} as const;
+
 const badge =
-  'h-8 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground/80 outline-none transition-[color,background-color,transform] duration-150 hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground active:scale-[0.97]';
+  'h-8 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground/80 outline-none transition-colors duration-150 hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground';
 
 const panel = '-mx-2.5 rounded-xl px-2.5';
 const panelOn = 'bg-muted/15';
@@ -339,9 +345,10 @@ function Row({
             >
               <span className="flex items-center gap-2">
                 {QUICK.map((quick) => (
-                  <button
+                  <motion.button
                     key={quick}
                     type="button"
+                    whileTap={tap}
                     disabled={quick > target.available}
                     onPointerDown={keepFocus}
                     onClick={() => target.onSend(quick, true)}
@@ -352,10 +359,11 @@ function Row({
                     )}
                   >
                     +{quick}
-                  </button>
+                  </motion.button>
                 ))}
-                <button
+                <motion.button
                   type="button"
+                  whileTap={tap}
                   onClick={toggleEdit}
                   aria-label={`Type an amount to send to ${row.name}`}
                   aria-pressed={editing}
@@ -366,7 +374,7 @@ function Row({
                   )}
                 >
                   <Pencil className="size-3.5" />
-                </button>
+                </motion.button>
               </span>
             </motion.div>
           )}
