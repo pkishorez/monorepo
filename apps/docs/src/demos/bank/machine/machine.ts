@@ -24,16 +24,15 @@ export interface JourneyInput {
 
 export interface JourneyContext {
   readonly send: JourneyInput['send'];
-  readonly viewpointId: string | null;
-  readonly peerId: string | null;
+  readonly fromId: string | null;
+  readonly toId: string | null;
   readonly flights: Readonly<Record<string, Flight>>;
 }
 
 export type JourneyEvent =
-  | { type: 'BANK_AS'; accountId: string }
-  | { type: 'SWITCH' }
-  | { type: 'COMPOSE'; peerId: string }
+  | { type: 'PICK'; accountId: string }
   | { type: 'CANCEL' }
+  | { type: 'UNTARGET' }
   | { type: 'SEND'; amount: number }
   | { type: 'RETRY'; id: string }
   | { type: 'DISMISS'; id: string };
@@ -83,8 +82,15 @@ export const journeyMachine = setup({
     ),
   },
   guards: {
-    free: ({ context }, params: { accountId: string | null }) =>
-      params.accountId !== null && !busyAccounts(context).has(params.accountId),
+    free: ({ context, event }) =>
+      event.type === 'PICK' && !busyAccounts(context).has(event.accountId),
+    bothFree: ({ context, event }) => {
+      if (event.type !== 'PICK' || context.fromId === null) return false;
+      const busy = busyAccounts(context);
+      return !busy.has(event.accountId) && !busy.has(context.fromId);
+    },
+    isFrom: ({ context, event }) =>
+      event.type === 'PICK' && event.accountId === context.fromId,
   },
   actions: {
     launch: enqueueActions(
@@ -98,13 +104,14 @@ export const journeyMachine = setup({
         });
       },
     ),
+    clear: assign({ fromId: null, toId: null }),
   },
 }).createMachine({
   id: 'bank-journey',
   context: ({ input }) => ({
     send: input.send,
-    viewpointId: null,
-    peerId: null,
+    fromId: null,
+    toId: null,
     flights: {},
   }),
   on: {
@@ -157,64 +164,61 @@ export const journeyMachine = setup({
       }),
     },
   },
-  initial: 'choosing',
+  initial: 'idle',
   states: {
-    choosing: {
+    idle: {
+      entry: 'clear',
       on: {
-        BANK_AS: {
-          target: 'banking',
-          actions: assign({ viewpointId: ({ event }) => event.accountId }),
+        PICK: {
+          target: 'armed',
+          guard: 'free',
+          actions: assign({ fromId: ({ event }) => event.accountId }),
         },
       },
     },
-    banking: {
-      initial: 'idle',
-      states: {
-        idle: {
-          entry: assign({ peerId: null }),
-          on: {
-            COMPOSE: {
-              target: 'composing',
-              guard: {
-                type: 'free',
-                params: ({ event }) => ({ accountId: event.peerId }),
+    armed: {
+      on: {
+        CANCEL: 'idle',
+        PICK: [
+          { guard: 'isFrom', target: 'idle' },
+          {
+            guard: 'bothFree',
+            target: 'typing',
+            actions: assign({ toId: ({ event }) => event.accountId }),
+          },
+        ],
+      },
+    },
+    typing: {
+      on: {
+        CANCEL: 'idle',
+        UNTARGET: { target: 'armed', actions: assign({ toId: null }) },
+        PICK: [
+          { guard: 'isFrom', target: 'idle' },
+          {
+            guard: 'bothFree',
+            actions: assign({ toId: ({ event }) => event.accountId }),
+          },
+        ],
+        SEND: {
+          target: 'armed',
+          actions: enqueueActions(({ context, event, enqueue }) => {
+            enqueue({
+              type: 'launch',
+              params: {
+                flight: {
+                  id: Effect.runSync(nextUlid),
+                  from: context.fromId!,
+                  to: context.toId!,
+                  amount: event.amount,
+                  phase: 'sending',
+                  problem: null,
+                  attempt: 0,
+                },
               },
-              actions: assign({ peerId: ({ event }) => event.peerId }),
-            },
-            BANK_AS: {
-              actions: assign({
-                viewpointId: ({ event }) => event.accountId,
-              }),
-            },
-            SWITCH: {
-              target: '#bank-journey.choosing',
-              actions: assign({ viewpointId: null }),
-            },
-          },
-        },
-        composing: {
-          on: {
-            CANCEL: 'idle',
-            SEND: {
-              target: 'idle',
-              actions: enqueueActions(({ context, event, enqueue }) => {
-                enqueue({
-                  type: 'launch',
-                  params: {
-                    flight: {
-                      id: Effect.runSync(nextUlid),
-                      from: context.viewpointId!,
-                      to: context.peerId!,
-                      amount: event.amount,
-                      phase: 'sending',
-                      problem: null,
-                      attempt: 0,
-                    },
-                  },
-                });
-              }),
-            },
-          },
+            });
+            enqueue.assign({ toId: null });
+          }),
         },
       },
     },
