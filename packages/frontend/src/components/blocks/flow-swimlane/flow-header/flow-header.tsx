@@ -165,7 +165,8 @@ export function FlowHeader({
                       ? `${cell.label} · ${cell.participantCount} collapsed`
                       : cell.marker === 'hidden' && cell.participantCount > 1
                         ? `${cell.participantCount} participants hidden`
-                        : cell.kind === 'marker' && cell.label === 'own activity'
+                        : cell.kind === 'marker' &&
+                            cell.label === 'own activity'
                           ? 'own hidden'
                           : `${cell.label} hidden`}
                   </span>
