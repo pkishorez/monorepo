@@ -78,8 +78,10 @@ const timeOf = (ulid: string): string => {
       });
 };
 
-const byName = (a: Account, b: Account): number =>
-  a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+const richestFirst = (a: Account, b: Account): number =>
+  b.balance - a.balance ||
+  a.name.localeCompare(b.name) ||
+  a.id.localeCompare(b.id);
 
 const newestFirst = <T extends { readonly id: string }>(a: T, b: T): number =>
   b.id.localeCompare(a.id);
@@ -102,7 +104,7 @@ export function Bank(props: BankProps) {
   const [opening, setOpening] = useState(false);
 
   const rows = useMemo(
-    () => [...props.accounts].sort(byName),
+    () => [...props.accounts].sort(richestFirst),
     [props.accounts],
   );
   const nameOf = useMemo(
