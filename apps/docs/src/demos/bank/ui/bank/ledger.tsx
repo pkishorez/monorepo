@@ -1,5 +1,11 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { History, Pencil, X } from 'lucide-react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type Ref,
+} from 'react';
+import { ArrowUpDown, History, Pencil, X } from 'lucide-react';
 import { AnimatePresence, motion } from '@monorepo/frontend/motion';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
@@ -22,6 +28,7 @@ export interface LedgerProps {
   readonly onPick: (accountId: string) => void;
   readonly onCancel: () => void;
   readonly onUntarget: () => void;
+  readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onHistory: (accountId: string) => void;
 }
@@ -58,10 +65,10 @@ const coarsePointer = () =>
 const keepFocus = (event: { preventDefault: () => void }) =>
   event.preventDefault();
 
-const tap = { scale: 0.97 } as const;
+const tap = { scale: 0.92 } as const;
 
 const badge =
-  'h-8 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground/80 outline-none transition-colors duration-150 hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground active:bg-primary active:text-primary-foreground';
+  'h-8 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground/80 outline-none transition-colors duration-150 focus-visible:bg-primary focus-visible:text-primary-foreground active:bg-primary active:text-primary-foreground';
 
 const panel = '-mx-2.5 rounded-xl px-2.5';
 const panelOn = 'bg-muted/15';
@@ -163,12 +170,14 @@ function Stage({
 }
 
 function Row({
+  ref,
   row,
   busy,
   dimmed,
   target,
   onPick,
 }: {
+  ref?: Ref<HTMLLIElement>;
   row: Account;
   busy: boolean;
   dimmed: boolean;
@@ -178,6 +187,7 @@ function Row({
     readonly onRaw: (raw: string) => void;
     readonly onSend: (amount: number, stay?: boolean) => void;
     readonly onUntarget: () => void;
+    readonly onSwap: () => void;
   } | null;
   onPick: () => void;
 }) {
@@ -218,6 +228,7 @@ function Row({
 
   return (
     <motion.li
+      ref={ref}
       layout
       layoutId={`row-${row.id}`}
       initial={{ opacity: 0 }}
@@ -341,8 +352,19 @@ function Row({
               exit={{ opacity: 0, y: -4 }}
               transition={fast}
               onClick={(event) => event.stopPropagation()}
-              className="flex h-10 shrink-0 items-center justify-end gap-6"
+              className="flex h-10 shrink-0 items-center justify-between gap-6"
             >
+              <motion.button
+                type="button"
+                whileTap={tap}
+                onPointerDown={keepFocus}
+                onClick={target.onSwap}
+                aria-label={`Swap: send from ${row.name} instead`}
+                className={cn(badge, 'flex items-center gap-1.5')}
+              >
+                <ArrowUpDown className="size-3.5" />
+                Swap
+              </motion.button>
               <span className="flex items-center gap-2">
                 {QUICK.map((quick) => (
                   <motion.button
@@ -355,7 +377,7 @@ function Row({
                     className={cn(
                       mono,
                       badge,
-                      'disabled:opacity-30 disabled:hover:bg-muted disabled:hover:text-foreground/80 disabled:active:bg-muted disabled:active:text-foreground/80',
+                      'disabled:opacity-30 disabled:active:bg-muted disabled:active:text-foreground/80',
                     )}
                   >
                     +{quick}
@@ -392,6 +414,7 @@ export function Ledger({
   onPick,
   onCancel,
   onUntarget,
+  onSwap,
   onSend,
   onHistory,
 }: LedgerProps) {
@@ -417,7 +440,7 @@ export function Ledger({
       <Stage from={from} onCancel={onCancel} onHistory={onHistory} />
       <div className={scrollBox}>
         <ul>
-          <AnimatePresence initial={false}>
+          <AnimatePresence initial={false} mode="popLayout">
             {rows
               .filter((row) => row.id !== fromId)
               .map((row) => (
@@ -434,6 +457,7 @@ export function Ledger({
                           onRaw: setRaw,
                           onSend,
                           onUntarget,
+                          onSwap,
                         }
                       : null
                   }
