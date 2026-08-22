@@ -28,6 +28,8 @@ import { makeVitals, type BankVitals } from './vitals.ts';
 
 export const newId = (): string => Effect.runSync(nextUlid);
 
+const SYNC_VERSION = 1;
+
 const quiet = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   Effect.provideService(effect, References.MinimumLogLevel, 'Warning');
 
@@ -101,6 +103,7 @@ const makeBank = Effect.gen(function* () {
 
   const std = createStdSync({
     name: syncName,
+    version: SYNC_VERSION,
     platform,
     runtime: quietRuntime,
     onEvent: (event) =>
