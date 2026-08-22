@@ -52,6 +52,7 @@ export const Route = createFileRoute('/demos/bank')({
           'Move money between accounts and watch both balances settle — one atomic commit per transfer, optimistically on screen, over four stores of growing sync radius.',
       },
     ],
+    styles: [{ children: 'body { overflow: hidden; }' }],
   }),
 });
 
@@ -121,11 +122,6 @@ function BankPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [store, setStore] = useState<StoreKey>(search.store);
-
-  useEffect(() => {
-    document.body.classList.add('overflow-hidden');
-    return () => document.body.classList.remove('overflow-hidden');
-  }, []);
 
   const switchStore = (next: StoreKey) => {
     if (next === store) return;
