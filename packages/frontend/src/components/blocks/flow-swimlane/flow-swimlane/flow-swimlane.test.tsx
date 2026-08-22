@@ -109,7 +109,7 @@ describe('FlowSwimlane', () => {
     expect(markup).toContain('comments.comment');
     expect(markup).toContain('a-very-long-worker-name-that-must-wrap');
     expect(markup).toContain('whitespace-nowrap');
-    expect(markup).toContain('grid-template-rows:repeat(3, 34px)');
-    expect(markup).toContain('grid-template-columns:121px 260px 121px');
+    expect(markup).toContain('grid-template-rows:repeat(2, 28px) 44px');
+    expect(markup).toContain('grid-template-columns:130px 260px 130px');
   });
 });
