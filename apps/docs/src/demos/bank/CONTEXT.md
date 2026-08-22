@@ -69,7 +69,7 @@ itself.
   plus everything it received.
 - A Name is a label, never a key; only the Id identifies an Account. Opening an
   Account can therefore never be refused for its Name.
-- Transfers run concurrently, but never two over the same Account: while a
-  Transfer is in flight both of its Accounts are held, and neither can send nor
-  receive until it settles, is refused, or fails.
+- Transfers settle one after another, in the order they were sent: each one is
+  shown optimistically the moment it is sent, then commits on the Backend
+  behind the one before it. An Account in flight may still send and receive.
 - Refusals are permanent and Failures are not; only a Failure may be retried.

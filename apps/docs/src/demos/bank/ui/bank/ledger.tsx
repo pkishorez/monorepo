@@ -222,7 +222,6 @@ function Row({
       role="button"
       tabIndex={0}
       data-row
-      aria-disabled={busy || undefined}
       aria-pressed={targeting}
       onClick={pick}
       onPointerDown={(event) => {
@@ -253,7 +252,7 @@ function Row({
             className={cn(
               'flex min-w-0 flex-1 items-center gap-2 truncate text-base transition-colors',
               targeting && 'text-primary',
-              !targeting && !busy && 'group-hover:text-primary',
+              !targeting && 'group-hover:text-primary',
             )}
           >
             <span className="truncate">{row.name}</span>

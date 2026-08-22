@@ -56,16 +56,6 @@ const without = (
   return rest;
 };
 
-export const busyAccounts = (context: JourneyContext): ReadonlySet<string> => {
-  const busy = new Set<string>();
-  for (const flight of Object.values(context.flights)) {
-    if (flight.phase !== 'sending') continue;
-    busy.add(flight.from);
-    busy.add(flight.to);
-  }
-  return busy;
-};
-
 export const journeyMachine = setup({
   types: {
     input: {} as JourneyInput,
@@ -82,13 +72,6 @@ export const journeyMachine = setup({
     ),
   },
   guards: {
-    free: ({ context, event }) =>
-      event.type === 'PICK' && !busyAccounts(context).has(event.accountId),
-    bothFree: ({ context, event }) => {
-      if (event.type !== 'PICK' || context.fromId === null) return false;
-      const busy = busyAccounts(context);
-      return !busy.has(event.accountId) && !busy.has(context.fromId);
-    },
     isFrom: ({ context, event }) =>
       event.type === 'PICK' && event.accountId === context.fromId,
     isTo: ({ context, event }) =>
@@ -190,7 +173,6 @@ export const journeyMachine = setup({
       on: {
         PICK: {
           target: 'armed',
-          guard: 'free',
           actions: assign({ fromId: ({ event }) => event.accountId }),
         },
       },
@@ -201,7 +183,6 @@ export const journeyMachine = setup({
         PICK: [
           { guard: 'isFrom', target: 'idle' },
           {
-            guard: 'bothFree',
             target: 'typing',
             actions: assign({ toId: ({ event }) => event.accountId }),
           },
@@ -215,10 +196,7 @@ export const journeyMachine = setup({
         PICK: [
           { guard: 'isFrom', target: 'idle' },
           { guard: 'isTo', target: 'armed', actions: assign({ toId: null }) },
-          {
-            guard: 'bothFree',
-            actions: assign({ toId: ({ event }) => event.accountId }),
-          },
+          { actions: assign({ toId: ({ event }) => event.accountId }) },
         ],
         SEND: [
           {
