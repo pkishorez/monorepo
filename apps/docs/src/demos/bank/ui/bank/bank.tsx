@@ -60,6 +60,7 @@ export interface BankProps {
   readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onOpen: (opening: Opening) => void;
+  readonly onSeed: () => void;
   readonly onClear: () => void;
   readonly onRetry: (attemptId: string) => void;
   readonly debug: BankDebug | null;
@@ -203,6 +204,9 @@ export function Bank(props: BankProps) {
                       <DropdownMenuContent align="start" className="min-w-44">
                         <DropdownMenuItem onClick={() => setOpening(true)}>
                           Open an account
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={props.onSeed}>
+                          Seed accounts
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

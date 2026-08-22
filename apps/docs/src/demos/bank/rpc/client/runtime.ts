@@ -253,9 +253,6 @@ const makeBank = Effect.gen(function* () {
     );
   };
 
-  const seedIfEmpty = (): Promise<boolean> =>
-    runtime.runPromise(api.seed().pipe(Effect.withSpan('Seed if empty')));
-
   const clear = (): Promise<void> =>
     runtime.runPromise(
       api
@@ -276,7 +273,6 @@ const makeBank = Effect.gen(function* () {
     network,
     sendMoney,
     seed,
-    seedIfEmpty,
     clear,
     vitals,
     recorder,
