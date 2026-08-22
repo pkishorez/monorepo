@@ -165,6 +165,9 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: 6.0.5
       version: 6.0.5
+    '@xstate/react':
+      specifier: 6.1.0
+      version: 6.1.0
     '@xyflow/react':
       specifier: 12.11.3
       version: 12.11.3
@@ -342,6 +345,9 @@ catalogs:
       specifier: npm:xstate@6.0.0-alpha.23
       version: 6.0.0-alpha.23
 
+patchedDependencies:
+  alchemy@2.0.0-beta.72: 9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0
+
 importers:
 
   .:
@@ -376,9 +382,21 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: 'catalog:'
         version: 5.3.0
+      '@monorepo/alchemy-toolkit':
+        specifier: workspace:*
+        version: link:../../packages/alchemy-toolkit
       '@monorepo/frontend':
         specifier: workspace:*
         version: link:../../packages/frontend
+      '@pkishorez/effect-cloudflare':
+        specifier: workspace:*
+        version: link:../../packages/effect-cloudflare
+      '@pkishorez/effect-tracer':
+        specifier: workspace:*
+        version: link:../../devtools/effect-tracer
+      '@tanstack/react-db':
+        specifier: 'catalog:'
+        version: 0.2.1(react@19.2.8)(typescript@7.0.2)
       '@tanstack/react-router':
         specifier: 'catalog:'
         version: 1.170.29(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -388,6 +406,12 @@ importers:
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.168.46(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+      '@xstate/react':
+        specifier: 'catalog:'
+        version: 6.1.0(@types/react@19.2.18)(react@19.2.8)(xstate@5.32.5)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.110
       fumadocs-core:
         specifier: 'catalog:'
         version: 16.14.4(@mdx-js/mdx@3.1.1(supports-color@10.2.2))(@tanstack/react-router@1.170.29(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.18)(lucide-react@1.31.0(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@10.2.2)(zod@4.4.3)
@@ -406,7 +430,19 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
+      std-toolkit:
+        specifier: workspace:*
+        version: link:../../std-toolkit
+      use-effect-ts:
+        specifier: workspace:*
+        version: link:../../packages/use-effect-ts
+      xstate:
+        specifier: 'catalog:'
+        version: 5.32.5
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20260817.1
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1))
@@ -430,10 +466,10 @@ importers:
         version: 6.0.5(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
       alchemy:
         specifier: 'catalog:'
-        version: 2.0.0-beta.72(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0)
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.110
+        version: 2.0.0-beta.72(patch_hash=9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0)(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0)
+      laymos:
+        specifier: workspace:*
+        version: link:../../devtools/laymos
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
@@ -603,6 +639,40 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.2.0)(typescript@7.0.2))(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+
+  packages/alchemy-toolkit:
+    dependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20260817.1
+      '@pkishorez/effect-cloudflare':
+        specifier: workspace:*
+        version: link:../effect-cloudflare
+      std-toolkit:
+        specifier: workspace:*
+        version: link:../../std-toolkit
+    devDependencies:
+      '@tsconfig/node22':
+        specifier: 'catalog:'
+        version: 22.0.6
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      alchemy:
+        specifier: 'catalog:'
+        version: 2.0.0-beta.72(patch_hash=9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0)(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(@typescript/typescript6@6.0.2)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0)
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.110
+      typescript:
+        specifier: catalog:typescript6
+        version: '@typescript/typescript6@6.0.2'
+      vite:
+        specifier: 'catalog:'
+        version: 8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.2.0)(@typescript/typescript6@6.0.2))(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
 
   packages/effect-cloudflare:
     dependencies:
@@ -1412,9 +1482,6 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
-
-  '@cloudflare/workers-types@5.20260723.1':
-    resolution: {integrity: sha512-+P5tDo+ZjW5nmWq/zagLVIyV8U/mSk7n8n0mLUHjn3pOdY7kdEDmURUxvhwwYqLJ/VPnyMJPAYtZjHbqAnIpDg==}
 
   '@cloudflare/workers-types@5.20260817.1':
     resolution: {integrity: sha512-5Dv+cyjusBTPLMRedUCiLJu3zqeeupgyn1QcHmpHJV9k/TjQAxx79AO8RVtpjVaO2CB+Oh3ywAp1UuNpbyDjGQ==}
@@ -4592,6 +4659,15 @@ packages:
     engines: {node: '>=20.0.0'}
     cpu: [x64]
     os: [win32]
+
+  '@xstate/react@6.1.0':
+    resolution: {integrity: sha512-ep9F0jGTI63B/jE8GHdMpUqtuz7yRebNaKv8EMUaiSi29NOglywc2X2YSOV/ygbIK+LtmgZ0q9anoEA2iBSEOw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      xstate: ^5.28.0
+    peerDependenciesMeta:
+      xstate:
+        optional: true
 
   '@xyflow/react@12.11.3':
     resolution: {integrity: sha512-G3jogHz2GWUtIOkhavUGno2YzY9u6fILIJBttfsBendb0/HWB90JG+sOTAvlIMEwyvq9zgy9V9ZQSwyQjR5QzQ==}
@@ -8117,10 +8193,6 @@ packages:
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
-  tinyexec@1.2.4:
-    resolution: {integrity: sha512-SHf/r48b7vOrjve9PxJo3MN5v5yuyjHvdUcrQffT3WXMUfnGmHDVbC4k3sHJaJTgZCwpUplIaAo5ANtMyp3YHg==}
-    engines: {node: '>=18'}
-
   tinyexec@1.3.0:
     resolution: {integrity: sha512-QKAl9m8gWWGHV8jZcPeym6j+XULi6tOf1mT83WYJ4Lk2ytW/uwAWkrP0uFsdoYMdueVJ0qs26wZ+23xeB4ibNQ==}
     engines: {node: '>=18'}
@@ -8322,6 +8394,15 @@ packages:
     peerDependencies:
       '@types/react': '*'
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+
+  use-isomorphic-layout-effect@1.2.1:
+    resolution: {integrity: sha512-tpZZ+EX0gaghDAiFR37hj5MgY6ZN55kLiPkJsKxBMZ6GZdOSPJXiOzPM984oPYZ5AnehYx5WQp1+ME8I/P/pRA==}
+    peerDependencies:
+      '@types/react': '*'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -8727,6 +8808,29 @@ snapshots:
     dependencies:
       ansi-styles: 6.2.3
       is-fullwidth-code-point: 5.1.0
+
+  '@alchemy.run/cloudflare-runtime@2.0.0-beta.72(@distilled.cloud/cloudflare@1.0.0-rc.4(effect@4.0.0-rc.110))(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@typescript/typescript6@6.0.2)(effect@4.0.0-rc.110)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))':
+    dependencies:
+      '@alchemy.run/node-utils': 0.0.5
+      '@cloudflare/unenv-preset': 2.16.1(unenv@2.0.0-rc.24)(workerd@1.20260704.1)
+      '@distilled.cloud/cloudflare': 1.0.0-rc.4(effect@4.0.0-rc.110)
+      '@puppeteer/browsers': 2.13.2(supports-color@10.2.2)
+      capnp-es: 0.0.14(@typescript/typescript6@6.0.2)
+      effect: 4.0.0-rc.110
+      magic-string: 0.30.21
+      sharp: 0.34.5
+      unenv: 2.0.0-rc.24
+      workerd: 1.20260704.1
+    optionalDependencies:
+      '@effect/platform-node': 4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1))
+      rolldown: 1.1.5
+      vite: 8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0)
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+      - typescript
 
   '@alchemy.run/cloudflare-runtime@2.0.0-beta.72(@distilled.cloud/cloudflare@1.0.0-rc.4(effect@4.0.0-rc.110))(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(effect@4.0.0-rc.110)(rolldown@1.1.5)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))':
     dependencies:
@@ -9337,8 +9441,6 @@ snapshots:
   '@cloudflare/workerd-windows-64@1.20260704.1':
     optional: true
 
-  '@cloudflare/workers-types@5.20260723.1': {}
-
   '@cloudflare/workers-types@5.20260817.1': {}
 
   '@codemirror/autocomplete@6.20.3':
@@ -9527,7 +9629,7 @@ snapshots:
 
   '@effect/sql-d1@4.0.0-rc.109(effect@4.0.0-rc.110)':
     dependencies:
-      '@cloudflare/workers-types': 5.20260723.1
+      '@cloudflare/workers-types': 5.20260817.1
       effect: 4.0.0-rc.110
 
   '@effect/sql-sqlite-do@4.0.0-rc.110(effect@4.0.0-rc.110)':
@@ -9975,7 +10077,7 @@ snapshots:
     dependencies:
       '@types/estree': 1.0.8
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdx': 2.0.14
       acorn: 8.17.0
       collapse-white-space: 2.1.0
@@ -10603,6 +10705,28 @@ snapshots:
   '@polka/url@1.0.0-next.29': {}
 
   '@prisma/debug@7.2.0': {}
+
+  '@prisma/dev@0.20.0(@typescript/typescript6@6.0.2)':
+    dependencies:
+      '@electric-sql/pglite': 0.3.15
+      '@electric-sql/pglite-socket': 0.0.20(@electric-sql/pglite@0.3.15)
+      '@electric-sql/pglite-tools': 0.2.20(@electric-sql/pglite@0.3.15)
+      '@hono/node-server': 1.19.9(hono@4.11.4)
+      '@mrleebo/prisma-ast': 0.13.1
+      '@prisma/get-platform': 7.2.0
+      '@prisma/query-plan-executor': 7.2.0
+      foreground-child: 3.3.1
+      get-port-please: 3.2.0
+      hono: 4.11.4
+      http-status-codes: 2.3.0
+      pathe: 2.0.3
+      proper-lockfile: 4.1.2
+      remeda: 2.33.4
+      std-env: 3.10.0
+      valibot: 1.2.0(@typescript/typescript6@6.0.2)
+      zeptomatch: 2.1.0
+    transitivePeerDependencies:
+      - typescript
 
   '@prisma/dev@0.20.0(typescript@7.0.2)':
     dependencies:
@@ -12058,7 +12182,7 @@ snapshots:
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.2.0
     optional: true
 
   '@types/statuses@2.0.6':
@@ -12367,6 +12491,16 @@ snapshots:
   '@voidzero-dev/vite-plus-win32-x64-msvc@0.2.9':
     optional: true
 
+  '@xstate/react@6.1.0(@types/react@19.2.18)(react@19.2.8)(xstate@5.32.5)':
+    dependencies:
+      react: 19.2.8
+      use-isomorphic-layout-effect: 1.2.1(@types/react@19.2.18)(react@19.2.8)
+      use-sync-external-store: 1.6.0(react@19.2.8)
+    optionalDependencies:
+      xstate: 5.32.5
+    transitivePeerDependencies:
+      - '@types/react'
+
   '@xyflow/react@12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@xyflow/system': 0.0.80
@@ -12527,7 +12661,63 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
-  alchemy@2.0.0-beta.72(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0):
+  alchemy@2.0.0-beta.72(patch_hash=9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0)(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(@typescript/typescript6@6.0.2)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0):
+    dependencies:
+      '@alchemy.run/cloudflare-runtime': 2.0.0-beta.72(@distilled.cloud/cloudflare@1.0.0-rc.4(effect@4.0.0-rc.110))(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@typescript/typescript6@6.0.2)(effect@4.0.0-rc.110)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+      '@alchemy.run/node-utils': 0.0.5
+      '@aws-sdk/credential-providers': 3.1111.0
+      '@clack/prompts': 1.7.0
+      '@distilled.cloud/aws': 1.0.0-rc.4(effect@4.0.0-rc.110)
+      '@distilled.cloud/axiom': 1.0.0-rc.4(effect@4.0.0-rc.110)
+      '@distilled.cloud/cloudflare': 1.0.0-rc.4(effect@4.0.0-rc.110)
+      '@distilled.cloud/core': 1.0.0-rc.4(effect@4.0.0-rc.110)
+      '@distilled.cloud/neon': 1.0.0-rc.4(effect@4.0.0-rc.110)
+      '@distilled.cloud/planetscale': 1.0.0-rc.4(effect@4.0.0-rc.110)
+      '@effect/sql-d1': 4.0.0-rc.109(effect@4.0.0-rc.110)
+      '@effect/sql-sqlite-do': 4.0.0-rc.110(effect@4.0.0-rc.110)
+      '@effect/vitest': 4.0.0-rc.110(effect@4.0.0-rc.110)(vitest@4.1.10)
+      '@libsql/client': 0.17.4
+      '@octokit/rest': 22.0.1
+      '@octokit/webhooks': 14.2.0
+      '@prisma/dev': 0.20.0(@typescript/typescript6@6.0.2)
+      '@smithy/node-config-provider': 4.6.0
+      '@smithy/shared-ini-file-loader': 4.7.0
+      '@smithy/types': 4.17.0
+      '@types/aws-lambda': 8.10.162
+      aws4fetch: 1.0.20
+      capnweb: 0.6.1
+      effect: 4.0.0-rc.110
+      fast-glob: 3.3.3
+      fast-xml-parser: 5.10.1
+      ink: 6.8.0(@types/react@19.2.18)(react@19.2.8)
+      jszip: 3.10.1
+      libsodium-wrappers: 0.8.4
+      pathe: 2.0.3
+      picomatch: 4.0.5
+      react: 19.2.8
+      rolldown: 1.1.5
+      undici: 7.28.0
+      yaml: 2.9.0
+    optionalDependencies:
+      '@effect/platform-node': 4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1))
+      mongodb: 6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9)
+      mysql2: 3.23.3(@types/node@26.2.0)
+      pg: 8.23.0
+      vite: 8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0)
+      ws: 8.21.0
+    transitivePeerDependencies:
+      - '@types/react'
+      - bare-abort-controller
+      - bare-buffer
+      - bufferutil
+      - react-devtools-core
+      - react-native-b4a
+      - supports-color
+      - typescript
+      - utf-8-validate
+      - vitest
+
+  alchemy@2.0.0-beta.72(patch_hash=9a4ac3341bc21bf5c9e94f429b08a8e67094ef2f0e4b48b33e6c80b3742333c0)(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/react@19.2.18)(effect@4.0.0-rc.110)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(mysql2@3.23.3(@types/node@26.2.0))(pg@8.23.0)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(vitest@4.1.10)(ws@8.21.0):
     dependencies:
       '@alchemy.run/cloudflare-runtime': 2.0.0-beta.72(@distilled.cloud/cloudflare@1.0.0-rc.4(effect@4.0.0-rc.110))(@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1(@opentelemetry/api@1.9.1)))(effect@4.0.0-rc.110)(rolldown@1.1.5)(supports-color@10.2.2)(typescript@7.0.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
       '@alchemy.run/node-utils': 0.0.5
@@ -12789,6 +12979,10 @@ snapshots:
   callsites@3.1.0: {}
 
   caniuse-lite@1.0.30001792: {}
+
+  capnp-es@0.0.14(@typescript/typescript6@6.0.2):
+    optionalDependencies:
+      typescript: '@typescript/typescript6@6.0.2'
 
   capnp-es@0.0.14(typescript@7.0.2):
     optionalDependencies:
@@ -13901,7 +14095,7 @@ snapshots:
   hast-util-to-jsx-runtime@2.3.6(supports-color@10.2.2):
     dependencies:
       '@types/estree': 1.0.8
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/unist': 3.0.3
       comma-separated-tokens: 2.0.3
       devlop: 1.1.0
@@ -13934,7 +14128,7 @@ snapshots:
 
   hast-util-whitespace@3.0.0:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
 
   hastscript@9.0.1:
     dependencies:
@@ -14554,7 +14748,7 @@ snapshots:
   mdast-util-mdx-expression@2.0.1(supports-color@10.2.2):
     dependencies:
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       devlop: 1.1.0
       mdast-util-from-markdown: 2.0.3(supports-color@10.2.2)
@@ -14565,7 +14759,7 @@ snapshots:
   mdast-util-mdx-jsx@3.2.0(supports-color@10.2.2):
     dependencies:
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       '@types/unist': 3.0.3
       ccount: 2.0.1
@@ -14592,7 +14786,7 @@ snapshots:
   mdast-util-mdxjs-esm@2.0.1(supports-color@10.2.2):
     dependencies:
       '@types/estree-jsx': 1.0.5
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       devlop: 1.1.0
       mdast-util-from-markdown: 2.0.3(supports-color@10.2.2)
@@ -15857,7 +16051,7 @@ snapshots:
   rehype-recma@1.0.0(supports-color@10.2.2):
     dependencies:
       '@types/estree': 1.0.8
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       hast-util-to-estree: 3.1.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
@@ -15908,7 +16102,7 @@ snapshots:
 
   remark-rehype@11.1.2:
     dependencies:
-      '@types/hast': 3.0.4
+      '@types/hast': 3.0.5
       '@types/mdast': 4.0.4
       mdast-util-to-hast: 13.2.1
       unified: 11.0.5
@@ -16462,8 +16656,6 @@ snapshots:
 
   tinybench@2.9.0: {}
 
-  tinyexec@1.2.4: {}
-
   tinyexec@1.3.0: {}
 
   tinyglobby@0.2.17:
@@ -16670,6 +16862,12 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.18
 
+  use-isomorphic-layout-effect@1.2.1(@types/react@19.2.18)(react@19.2.8):
+    dependencies:
+      react: 19.2.8
+    optionalDependencies:
+      '@types/react': 19.2.18
+
   use-sidecar@1.1.3(@types/react@19.2.18)(react@19.2.7):
     dependencies:
       detect-node-es: 1.1.0
@@ -16697,6 +16895,10 @@ snapshots:
   util-deprecate@1.0.2: {}
 
   utils-merge@1.0.1: {}
+
+  valibot@1.2.0(@typescript/typescript6@6.0.2):
+    optionalDependencies:
+      typescript: '@typescript/typescript6@6.0.2'
 
   valibot@1.2.0(typescript@7.0.2):
     optionalDependencies:
@@ -16841,7 +17043,7 @@ snapshots:
       picomatch: 4.0.5
       std-env: 4.1.0
       tinybench: 2.9.0
-      tinyexec: 1.2.4
+      tinyexec: 1.3.0
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
       vite: 8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0)
@@ -16871,7 +17073,7 @@ snapshots:
       picomatch: 4.0.5
       std-env: 4.1.0
       tinybench: 2.9.0
-      tinyexec: 1.2.4
+      tinyexec: 1.3.0
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
       vite: 8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0)

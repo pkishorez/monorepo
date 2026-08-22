@@ -11,6 +11,8 @@ import {
 } from '../../db/std-table/contract/index.js';
 import { describe, expect, it, vi } from 'vitest';
 import { createStdSync, syncStore } from '../sync.js';
+import { browser } from '../platform/browser/index.js';
+import { storedReplicaEntity } from '../persistence/sync-store/index.js';
 import { noStrategyState } from '../domain/strategy-state/index.js';
 
 type Todo = { id: string; listId: string; title: string };
@@ -307,6 +309,270 @@ describe('Sync persistence', () => {
 
     await mounted.subscription.cleanup();
     await second.dispose();
+  });
+
+  it('clears data persisted before versioning was introduced', async () => {
+    const memory = Memory.make(syncStore);
+    const first = createStdSync({
+      name: 'versioned',
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'legacy' }, '1'),
+        ),
+    );
+    await first.dispose();
+
+    const second = createStdSync({
+      name: 'versioned',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    const mounted = mount(second.sync({ schema: todoSchema }));
+    await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
+    expect(mounted.writes).toEqual([]);
+
+    await mounted.subscription.cleanup();
+    await second.dispose();
+  });
+
+  it('keeps persisted data while the version is unchanged', async () => {
+    const memory = Memory.make(syncStore);
+    const first = createStdSync({
+      name: 'versioned',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'kept' }, '1'),
+        ),
+    );
+    await first.dispose();
+
+    const second = createStdSync({
+      name: 'versioned',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    const mounted = mount(second.sync({ schema: todoSchema }));
+    await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
+    expect(mounted.writes).toHaveLength(1);
+
+    await mounted.subscription.cleanup();
+    await second.dispose();
+  });
+
+  it('clears every persisted collection when the version changes', async () => {
+    const memory = Memory.make(syncStore);
+    const first = createStdSync({
+      name: 'versioned',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'stale' }, '1'),
+        ),
+    );
+    const firstSettings = mount(
+      first.singleItemSync({
+        schema: settingsSchema,
+        strategy: {
+          name: 'settings-cursor',
+          state: cursorState(),
+          run: (ctx) => ctx.setState({ cursor: 'settings-v1' }),
+        },
+      }),
+    );
+    await vi.waitFor(() => expect(firstSettings.probe.readyCount).toBe(1));
+    await firstSettings.subscription.cleanup();
+    await first.dispose();
+
+    const observed: unknown[] = [];
+    const second = createStdSync({
+      name: 'versioned',
+      version: 2,
+      platform: { storeLayer: memory.layer },
+    });
+    const todos = mount(second.sync({ schema: todoSchema }));
+    await vi.waitFor(() => expect(todos.probe.readyCount).toBe(1));
+    expect(todos.writes).toEqual([]);
+    const settings = mount(
+      second.singleItemSync({
+        schema: settingsSchema,
+        strategy: {
+          name: 'settings-cursor',
+          state: cursorState(),
+          run: (ctx) =>
+            ctx.getState.pipe(
+              Effect.tap((state) => Effect.sync(() => observed.push(state))),
+              Effect.asVoid,
+            ),
+        },
+      }),
+    );
+    await vi.waitFor(() => expect(settings.probe.readyCount).toBe(1));
+    await vi.waitFor(() => expect(observed).toEqual([{ cursor: null }]));
+
+    await todos.subscription.cleanup();
+    await settings.subscription.cleanup();
+    await second.dispose();
+  });
+
+  it('clears collections the new version no longer registers', async () => {
+    const memory = Memory.make(syncStore);
+    const first = createStdSync({
+      name: 'versioned',
+      version: 'a',
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'orphan' }, '1'),
+        ),
+    );
+    await first.dispose();
+    const before = await Effect.runPromise(
+      storedReplicaEntity
+        .query('primary', { pk: { collection: 'versioned.todo' }, '>=': null })
+        .pipe(Effect.provide(memory.layer)),
+    );
+    expect(before.items).toHaveLength(1);
+
+    const second = createStdSync({
+      name: 'versioned',
+      version: 'b',
+      platform: { storeLayer: memory.layer },
+    });
+    const settings = mount(
+      second.singleItemSync({
+        schema: settingsSchema,
+        strategy: noopSingleStrategy,
+      }),
+    );
+    await vi.waitFor(() => expect(settings.probe.readyCount).toBe(1));
+    const rows = await Effect.runPromise(
+      storedReplicaEntity
+        .query('primary', { pk: { collection: 'versioned.todo' }, '>=': null })
+        .pipe(Effect.provide(memory.layer)),
+    );
+    expect(rows.items).toEqual([]);
+
+    await settings.subscription.cleanup();
+    await second.dispose();
+  });
+
+  it('does not let Syncs sharing a store wipe each other back', async () => {
+    const memory = Memory.make(syncStore);
+    const first = createStdSync({
+      name: 'first',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'first' }, '1'),
+        ),
+    );
+    await first.dispose();
+
+    const second = createStdSync({
+      name: 'second',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      second
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-2', listId: 'inbox', title: 'second' }, '1'),
+        ),
+    );
+    await second.dispose();
+
+    const firstAgain = createStdSync({
+      name: 'first',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    const mounted = mount(firstAgain.sync({ schema: todoSchema }));
+    await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
+    const rows = await Effect.runPromise(
+      storedReplicaEntity
+        .query('primary', { pk: { collection: 'second.todo' }, '>=': null })
+        .pipe(Effect.provide(memory.layer)),
+    );
+    expect(rows.items).toHaveLength(1);
+
+    await mounted.subscription.cleanup();
+    await firstAgain.dispose();
+  });
+
+  it('isolates browser persistence by Sync name by default', async () => {
+    vi.stubGlobal('navigator', { locks: { request: vi.fn() } });
+    vi.stubGlobal('document', {
+      visibilityState: 'visible',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    const suffix = crypto.randomUUID();
+    const firstName = `first-${suffix}`;
+    const secondName = `second-${suffix}`;
+    const first = createStdSync({
+      name: firstName,
+      version: 1,
+      platform: browser(),
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'first' }, '1'),
+        ),
+    );
+    await first.dispose();
+
+    const second = createStdSync({
+      name: secondName,
+      version: 1,
+      platform: browser(),
+    });
+    await Effect.runPromise(
+      second
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-2', listId: 'inbox', title: 'second' }, '1'),
+        ),
+    );
+    await second.dispose();
+
+    const firstAgain = createStdSync({
+      name: firstName,
+      version: 1,
+      platform: browser(),
+    });
+    const mounted = mount(firstAgain.sync({ schema: todoSchema }));
+    await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
+    expect(mounted.writes).toHaveLength(1);
+    expect(mounted.writes[0]).toMatchObject({
+      value: { id: 'todo-1', title: 'first' },
+    });
+
+    await mounted.subscription.cleanup();
+    await firstAgain.dispose();
+    vi.unstubAllGlobals();
   });
 
   it('resumes strategy state through a shared layer', async () => {

@@ -2,21 +2,36 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [main, std-toolkit/demo]
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage to deploy: prod, demo, or pr<N> for a preview of that PR'
+        required: true
+        type: string
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-${{ inputs.stage || github.ref }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    if: github.event.action != 'closed'
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      # Supplied explicitly so Alchemy skips the STS GetCallerIdentity it
+      # would otherwise use to discover the account id.
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      BANK_AWS_ACCESS_KEY_ID: ${{ secrets.BANK_AWS_ACCESS_KEY_ID }}
+      BANK_AWS_SECRET_ACCESS_KEY: ${{ secrets.BANK_AWS_SECRET_ACCESS_KEY }}
+      BANK_ADMIN_KEY: ${{ secrets.BANK_ADMIN_KEY }}
       # Opt through the accident-guard in apps/docs/alchemy.run.ts — deployed
       # stages refuse to reconcile without it.
       ALLOW_DEPLOY: 'true'
@@ -28,20 +43,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      # `prod` binds docs.kishore.app; each PR gets its own pr<N> stage on
-      # pr<N>-docs.kishore.app, destroyed when the PR closes.
+      # Pushes to main reconcile `prod` on docs.kishore.app, and pushes to
+      # std-toolkit/demo reconcile the long-lived `demo` stage on
+      # demo-docs.kishore.app. Everything else is a deliberate
+      # workflow_dispatch, where pr<N> previews live on pr<N>-docs.kishore.app
+      # and are destroyed when that PR closes.
       - name: Compute stage
         id: stage
+        env:
+          INPUT_STAGE: ${{ inputs.stage }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            stage="pr${{ github.event.number }}"
-            docs_host="pr${{ github.event.number }}-docs.kishore.app"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if ! printf '%s' "$INPUT_STAGE" | grep -qxE 'prod|demo|pr[0-9]+'; then
+              echo "::error::Stage must be 'prod', 'demo' or 'pr<N>', got '$INPUT_STAGE'." >&2
+              exit 1
+            fi
+            stage="$INPUT_STAGE"
           elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
             stage="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/std-toolkit/demo" ]; then
+            stage="demo"
+          else
+            echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main or std-toolkit/demo." >&2
+            exit 1
+          fi
+          if [ "$stage" = "prod" ]; then
             docs_host="docs.kishore.app"
           else
-            echo "::error::Unexpected ref '${{ github.ref }}' — only main and pull_request events are supported." >&2
-            exit 1
+            docs_host="$stage-docs.kishore.app"
           fi
           {
             echo "stage=$stage"
@@ -60,25 +89,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Deploy only when docs or something it depends on changed: workspace
+      # A dispatch is an explicit request, so it always deploys. A push
+      # deploys only when docs or something it depends on changed: workspace
       # packages via pnpm's changed-since filter (docs ∈ changed ∪ dependents),
       # plus root files the graph can't attribute (this workflow, lockfile,
       # catalogs). Unknown base (force-push, first run) deploys to be safe.
       - name: Check docs affected
         id: changes
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base="${{ github.event.pull_request.base.sha }}"
+          deploy=false
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            deploy=true
           else
             base="${{ github.event.before }}"
-          fi
-          deploy=false
-          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
-            deploy=true
-          elif git diff --name-only "$base" HEAD | grep -qxE '\.github/workflows/deploy\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml'; then
-            deploy=true
-          elif pnpm ls -r --depth -1 --parseable --filter "...[$base]" | grep -q '/apps/docs$'; then
-            deploy=true
+            if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+              deploy=true
+            elif git diff --name-only "$base" HEAD | grep -qxE '\.github/workflows/deploy\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml'; then
+              deploy=true
+            elif pnpm ls -r --depth -1 --parseable --filter "...[$base]" | grep -q '/apps/docs$'; then
+              deploy=true
+            fi
           fi
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
 

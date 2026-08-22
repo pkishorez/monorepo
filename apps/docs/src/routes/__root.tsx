@@ -8,6 +8,7 @@ import * as React from 'react';
 import appCss from '@/styles/app.css?url';
 import { appName } from '@/lib/shared';
 import { RootProvider } from 'fumadocs-ui/provider/tanstack';
+import { useTheme } from 'fumadocs-ui/provider/base';
 
 export const Route = createRootRoute({
   head: () => ({
@@ -38,13 +39,26 @@ export const Route = createRootRoute({
   component: RootComponent,
 });
 
+function ThemeColor() {
+  const { resolvedTheme } = useTheme();
+  React.useEffect(() => {
+    const meta =
+      document.querySelector<HTMLMetaElement>('meta[name="theme-color"]') ??
+      document.head.appendChild(
+        Object.assign(document.createElement('meta'), { name: 'theme-color' }),
+      );
+    meta.content = getComputedStyle(document.body).backgroundColor;
+  }, [resolvedTheme]);
+  return null;
+}
+
 function RootComponent() {
   return (
     <html suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body className="flex flex-col min-h-screen">
+      <body className="flex min-h-svh flex-col">
         <RootProvider
           search={{
             options: {
@@ -53,6 +67,7 @@ function RootComponent() {
             },
           }}
         >
+          <ThemeColor />
           <Outlet />
         </RootProvider>
         <Scripts />

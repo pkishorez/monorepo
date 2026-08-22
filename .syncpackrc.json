@@ -26,9 +26,11 @@
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
         "@pkishorez/devtools",
+        "@pkishorez/effect-cloudflare",
         "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
+        "@monorepo/alchemy-toolkit",
         "@monorepo/frontend",
         "std-toolkit",
         "use-effect-ts",
@@ -74,9 +76,11 @@
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
         "@pkishorez/devtools",
+        "@pkishorez/effect-cloudflare",
         "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
+        "@monorepo/alchemy-toolkit",
         "@monorepo/frontend",
         "std-toolkit",
         "use-effect-ts",

@@ -1,0 +1,547 @@
+{
+  "_v": "v2",
+  "kind": "table",
+  "logicalName": "bank",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [],
+    "globalSecondaryIndexes": [
+      {
+        "name": "GSI1",
+        "pk": "GSI1PK",
+        "sk": "GSI1SK"
+      },
+      {
+        "name": "GSI2",
+        "pk": "GSI2PK",
+        "sk": "GSI2SK"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "name": "account",
+      "kind": "keyed",
+      "schema": "account",
+      "idField": "name",
+      "primary": {
+        "pk": [],
+        "sk": ["name"]
+      },
+      "accessPatterns": [
+        {
+          "name": "byUpdated",
+          "kind": "gsi",
+          "index": "GSI1",
+          "pk": [],
+          "sk": ["_u"]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [],
+          "sk": ["name"]
+        }
+      ]
+    },
+    {
+      "name": "transfer",
+      "kind": "keyed",
+      "schema": "transfer",
+      "idField": "id",
+      "primary": {
+        "pk": [],
+        "sk": ["id"]
+      },
+      "accessPatterns": [
+        {
+          "name": "byReceiver",
+          "kind": "gsi",
+          "index": "GSI2",
+          "pk": ["to"],
+          "sk": ["id"]
+        },
+        {
+          "name": "bySender",
+          "kind": "gsi",
+          "index": "GSI1",
+          "pk": ["from"],
+          "sk": ["id"]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [],
+          "sk": ["id"]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "account",
+      "kind": "entity",
+      "idField": "name",
+      "versions": [
+        {
+          "version": "v1",
+          "encoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "_v"
+                  },
+                  "type": {
+                    "_tag": "Literal",
+                    "checks": [],
+                    "literal": {
+                      "type": "string",
+                      "value": "v1"
+                    }
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "age"
+                  },
+                  "type": {
+                    "_tag": "Number",
+                    "checks": [
+                      {
+                        "_tag": "Filter",
+                        "aborted": false,
+                        "annotations": {
+                          "arbitrary": {
+                            "constraint": {
+                              "integer": true
+                            }
+                          }
+                        },
+                        "representation": {
+                          "id": "effect/schema/isInt",
+                          "payload": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "balance"
+                  },
+                  "type": {
+                    "_tag": "Number",
+                    "checks": [
+                      {
+                        "_tag": "Filter",
+                        "aborted": false,
+                        "annotations": {
+                          "arbitrary": {
+                            "constraint": {
+                              "integer": true
+                            }
+                          }
+                        },
+                        "representation": {
+                          "id": "effect/schema/isInt",
+                          "payload": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "emoji"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "gender"
+                  },
+                  "type": {
+                    "_tag": "Union",
+                    "checks": [],
+                    "mode": "anyOf",
+                    "types": [
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "female"
+                        }
+                      },
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "male"
+                        }
+                      },
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "other"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "name"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "decoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "age"
+                  },
+                  "type": {
+                    "_tag": "Number",
+                    "checks": [
+                      {
+                        "_tag": "Filter",
+                        "aborted": false,
+                        "annotations": {
+                          "arbitrary": {
+                            "constraint": {
+                              "integer": true
+                            }
+                          }
+                        },
+                        "representation": {
+                          "id": "effect/schema/isInt",
+                          "payload": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "balance"
+                  },
+                  "type": {
+                    "_tag": "Number",
+                    "checks": [
+                      {
+                        "_tag": "Filter",
+                        "aborted": false,
+                        "annotations": {
+                          "arbitrary": {
+                            "constraint": {
+                              "integer": true
+                            }
+                          }
+                        },
+                        "representation": {
+                          "id": "effect/schema/isInt",
+                          "payload": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "emoji"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "gender"
+                  },
+                  "type": {
+                    "_tag": "Union",
+                    "checks": [],
+                    "mode": "anyOf",
+                    "types": [
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "female"
+                        }
+                      },
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "male"
+                        }
+                      },
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "other"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "name"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "transformations": [],
+          "unverifiable": []
+        }
+      ]
+    },
+    {
+      "identity": "transfer",
+      "kind": "entity",
+      "idField": "id",
+      "versions": [
+        {
+          "version": "v1",
+          "encoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "_v"
+                  },
+                  "type": {
+                    "_tag": "Literal",
+                    "checks": [],
+                    "literal": {
+                      "type": "string",
+                      "value": "v1"
+                    }
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "amount"
+                  },
+                  "type": {
+                    "_tag": "Number",
+                    "checks": [
+                      {
+                        "_tag": "Filter",
+                        "aborted": false,
+                        "annotations": {
+                          "arbitrary": {
+                            "constraint": {
+                              "integer": true
+                            }
+                          }
+                        },
+                        "representation": {
+                          "id": "effect/schema/isInt",
+                          "payload": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "from"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "id"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "to"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "decoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "amount"
+                  },
+                  "type": {
+                    "_tag": "Number",
+                    "checks": [
+                      {
+                        "_tag": "Filter",
+                        "aborted": false,
+                        "annotations": {
+                          "arbitrary": {
+                            "constraint": {
+                              "integer": true
+                            }
+                          }
+                        },
+                        "representation": {
+                          "id": "effect/schema/isInt",
+                          "payload": null
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "from"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "id"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "to"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "transformations": [],
+          "unverifiable": []
+        }
+      ]
+    }
+  ]
+}

@@ -140,11 +140,10 @@ export function FlowCanvas({
         width: localEventWidth + 14,
       };
     }
-    const height = selectedStep.kind === 'state' ? 36 : 42;
     return {
-      height,
+      height: 42,
       left: x - localEventWidth / 2 - 7,
-      top: y - height / 2,
+      top: y - 21,
       width: localEventWidth + 14,
     };
   })();
@@ -610,77 +609,6 @@ export function FlowCanvas({
                       {item.kind === 'activation-start'
                         ? `▸ ${label}`
                         : `■ ${label}`}
-                    </div>
-                  </foreignObject>
-                </g>
-              );
-            }
-
-            if (item.kind === 'state') {
-              const keys = Object.entries(item.state);
-              const chip =
-                keys
-                  .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
-                  .join('  ·  ') || 'State';
-              const activate = () => onItemClick?.(item.members[0]!);
-              return (
-                <g
-                  key={item.id}
-                  data-flow-item="state"
-                  data-selected={selected || undefined}
-                  role={onItemClick ? 'button' : undefined}
-                  tabIndex={onItemClick ? 0 : undefined}
-                  aria-label={onItemClick ? `Open ${chip}` : undefined}
-                  onClick={activate}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') activate();
-                  }}
-                  onMouseEnter={() => {
-                    if (!selected) setHoveredItemId(item.id);
-                  }}
-                  onMouseLeave={() => setHoveredItemId(null)}
-                  style={{
-                    cursor: onItemClick ? 'pointer' : 'default',
-                    outline: 'none',
-                  }}
-                >
-                  <rect
-                    x={0}
-                    y={y - flowRowGap / 2}
-                    width={width}
-                    height={flowRowGap}
-                    fill={
-                      hovered && !selected
-                        ? 'color-mix(in oklab, var(--color-primary) 3%, transparent)'
-                        : 'transparent'
-                    }
-                    style={{ transition: 'fill 120ms ease-out' }}
-                  />
-                  <rect
-                    x={x - localEventWidth / 2}
-                    y={y - 11}
-                    width={localEventWidth}
-                    height={22}
-                    rx={11}
-                    fill="var(--color-muted)"
-                    stroke="var(--color-border)"
-                    strokeWidth={1}
-                  />
-                  <foreignObject
-                    x={x - localEventWidth / 2 + 9}
-                    y={y - 10}
-                    width={localEventWidth - 18}
-                    height={20}
-                  >
-                    <div
-                      className="truncate text-center font-mono text-[10px] leading-[20px] text-muted-foreground"
-                      title={Object.entries(item.merged)
-                        .map(
-                          ([key, value]) => `${key}: ${JSON.stringify(value)}`,
-                        )
-                        .join('\n')}
-                    >
-                      {chip}
                     </div>
                   </foreignObject>
                 </g>

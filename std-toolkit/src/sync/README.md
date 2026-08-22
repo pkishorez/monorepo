@@ -44,6 +44,14 @@ the same Backend dataset must use the same stable name. The qualified Collection
 Name identifies its Sync Store namespace and its one Peer Channel; the schema's
 original name remains the Entity `_e` identity.
 
+`version` (optional, string or number) stamps the Sync Store. When an instance
+boots with a different version than the one stored — including no stored
+version at all, as on clients that predate versioning — it empties the whole Sync
+Store — replicas, cursors, strategy state, for every namespace sharing that
+store — before serving anything, then records the new version. Bump it whenever
+the Backend is wiped or re-shaped so devices that cached the old data don't keep
+showing it; leave it unset and nothing is ever cleared.
+
 Use `std.collection(config)` when you want Sync to create the TanStack
 collection. `createCollection(std.sync(config))` is also supported. Call
 `await std.dispose()` when the sync instance is no longer needed.
@@ -217,10 +225,16 @@ telemetry configuration decides whether that Flow is exported.
 The Flow has a `collection` lane, one global worker lane, one stable lane for each
 logical Partition, a lane for each Cadence Repair worker, and one worker lane for
 Single Item Sync. Repeated subscribers to the same Partition share its lane and
-produce subscriber-count messages. Strategies run inside a Flow activity so API
-and persistence spans are linked as nested trace work. Every non-empty strategy
-or Cadence Repair delivery logs how many entities were received and how many the
-Sync Replica accepted after convergence.
+produce subscriber-count messages. Hydration is told as two activities on the
+collection lane — `Load Sync Replica`, then `Project into Collection` — each
+carrying its row count, and `Collection ready` closes it. Every supervised
+strategy run is a `Sync session` activity numbered per retry; it stays running
+for as long as the strategy does, and the built-in strategies record each
+delivered batch as a child activity (`Receive batch`, `Backfill batch`,
+`Tail batch`) so a live session visibly progresses. Strategies run inside that
+activity so API and persistence spans are linked as nested trace work. Every
+non-empty strategy or Cadence Repair delivery logs how many entities were
+received and how many the Sync Replica accepted after convergence.
 
 Every participant with a real lifecycle records an **Activation** — the window
 in which it is alive. The collection lane is activated from `sync(callbacks)` to
@@ -229,8 +243,7 @@ cleanup, each strategy for its supervised run, and each partition for one
 number of times but never twice at once, and the swim lane draws each Activation
 as a solid rail whose end cap is coloured by its outcome.
 
-Custom strategies can add high-level activities, events, and state through
-`ctx.flow`:
+Custom strategies can add high-level activities and events through `ctx.flow`:
 
 ```typescript
 run: (ctx) =>
@@ -241,13 +254,8 @@ run: (ctx) =>
         attributes: { entityCount: page.length },
       }),
     ),
-    Effect.tap((page) => ctx.flow.state({ lastPageSize: page.length })),
   );
 ```
-
-`ctx.flow.state` publishes part of the participant's state; keys merge forward,
-so a strategy can emit only what changed and the viewer can read the complete
-state at any later point. A `null` value clears a key.
 
 ## Single-item sync
 

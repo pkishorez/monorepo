@@ -71,6 +71,7 @@ catalog:
   '@tanstack/react-router-devtools': 1.167.1
   '@tanstack/react-start': 1.168.46
   '@tsconfig/node22': 22.0.6
+  '@xstate/react': 6.1.0
   '@types/better-sqlite3': 9.6.0
   '@types/bun': 1.3.14
   '@types/mdx': 2.0.14
@@ -148,3 +149,10 @@ catalogs:
     typescript: npm:@typescript/typescript6@6.0.2
   xstate6:
     xstate-v6: npm:xstate@6.0.0-alpha.23
+
+# TODO: drop this once alchemy-run/alchemy#1127 merges and ships in a release
+# — it works around a Node terminal service crash inside Cloudflare Workers
+# (see patches/alchemy@2.0.0-beta.72.patch). Applies to every alchemy
+# dependency in the workspace, not just apps/docs or alchemy-toolkit.
+patchedDependencies:
+  alchemy@2.0.0-beta.72: patches/alchemy@2.0.0-beta.72.patch

@@ -9,7 +9,7 @@ import { deriveRecordedFlow } from './derive.js';
 import { writeFlowLog, type FlowLogLevel } from './log.js';
 import type { ProjectFlowInput } from './observation.js';
 import { projectObservations } from './projection.js';
-import type { RecordedFlowAttributeValue, RecordedFlowItem } from './schema.js';
+import type { RecordedFlowItem } from './schema.js';
 
 interface FlowLogOptions {
   readonly attributes?: Readonly<Record<string, unknown>>;
@@ -58,10 +58,6 @@ interface Flow {
   readonly reply: (
     token: MessageToken,
     message: unknown,
-    options?: FlowLogOptions,
-  ) => Effect.Effect<void>;
-  readonly state: (
-    patch: Readonly<Record<string, RecordedFlowAttributeValue>>,
     options?: FlowLogOptions,
   ) => Effect.Effect<void>;
   readonly activation: {
@@ -197,11 +193,6 @@ export const initFlow = (options: InitFlowOptions): Flow => {
         [flowAttributes.messageReplyTo]: token.id,
         [flowAttributes.messageTo]: token.from,
       }),
-    state: (patch, logOptions) =>
-      write(undefined, 'State', logOptions, {
-        ...makeNamespacedFlowAttributes(patch),
-        [flowAttributes.itemType]: flowItemTypes.state,
-      }),
     activation: { start: startActivation },
     activated: (activationOptions) => (effect) =>
       Effect.uninterruptibleMask((restore) =>
@@ -220,7 +211,7 @@ export const initFlow = (options: InitFlowOptions): Flow => {
 export const projectFlow = (input: ProjectFlowInput) =>
   projectObservations(input);
 
-/** Derives Activations, cumulative State, and whole-Flow warnings. */
+/** Derives Activations and whole-Flow warnings. */
 export const deriveFlow = (items: readonly RecordedFlowItem[]) =>
   deriveRecordedFlow(items);
 
@@ -252,7 +243,6 @@ export {
   RecordedFlowMessageSchema,
   RecordedFlowSchema,
   RecordedFlowSeveritySchema,
-  RecordedFlowStateSchema,
   RecordedFlowWarningSchema,
   type FlowActivityStatus,
   type RecordedFlow,
@@ -266,6 +256,5 @@ export {
   type RecordedFlowLocalEvent,
   type RecordedFlowMessage,
   type RecordedFlowSeverity,
-  type RecordedFlowState,
   type RecordedFlowWarning,
 } from './schema.js';

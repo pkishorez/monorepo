@@ -52,7 +52,7 @@ import {
 export type { LeadershipLayer } from './runtime/leadership/index.js';
 
 export type StdSyncPlatform = {
-  readonly storeLayer?: SyncStoreLayer;
+  readonly storeLayer?: SyncStoreLayer | ((syncName: string) => SyncStoreLayer);
   readonly leadershipLayer?: LeadershipLayer;
   readonly peerSync?: { readonly channel: PeerChannelFactory };
 };
@@ -126,6 +126,7 @@ export type SingleItemSyncConfig<
  */
 export type StdSyncDefaults<R = never> = {
   name: string;
+  version?: string | number;
   options?: StdCollectionOptions<object>;
   platform?: StdSyncPlatform;
   cadence?: CadenceConfig;
@@ -142,8 +143,15 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
   const report: SyncReporter<R> =
     defaults.onEvent ?? ((event) => Effect.logError(event));
   const tracker = makeTracker();
+  const configuredStore =
+    typeof platform.storeLayer === 'function'
+      ? platform.storeLayer(name)
+      : platform.storeLayer;
   const store = makeSyncStore(
-    platform.storeLayer ?? Memory.make(syncStore).layer,
+    configuredStore ?? Memory.make(syncStore).layer,
+    defaults.version === undefined
+      ? undefined
+      : { name, version: String(defaults.version) },
   );
   const leadership = makeLeadership(platform.leadershipLayer);
   const cleanups = new Set<() => Promise<void>>();
@@ -311,7 +319,7 @@ export type {
   PeerChannel,
   PeerChannelFactory,
 } from './runtime/peer-sync/index.js';
-export type { SyncEvent } from './domain/sync-event/index.js';
+export type { LeadershipState, SyncEvent } from './domain/sync-event/index.js';
 export type { SyncReporter } from './domain/sync-event/index.js';
 export type {
   PartitionedStrategy,

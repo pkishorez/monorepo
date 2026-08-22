@@ -7,10 +7,6 @@ export interface BlogPostMeta {
   path: string;
 }
 
-/**
- * Serializable blog metadata for a fully static deployment: prerendered to
- * `/api/blog` and fetched by the blog route loaders on client-side navigation.
- */
 export function loadBlogData(): { posts: BlogPostMeta[] } {
   return {
     posts: blog.map((post) => ({

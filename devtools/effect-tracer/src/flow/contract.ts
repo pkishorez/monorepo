@@ -16,7 +16,6 @@ export const flowItemTypes = {
   activationStart: 'activation-start',
   localEvent: 'local-event',
   message: 'message',
-  state: 'state',
 } as const;
 
 export const activationOutcomeKinds = [
@@ -54,8 +53,7 @@ export type FlowRecordAttributes =
   | {
       readonly itemType: typeof flowItemTypes.activationEnd;
       readonly activationOutcome: ActivationOutcomeKind;
-    }
-  | { readonly itemType: typeof flowItemTypes.state };
+    };
 
 /** Constructors for Activation Outcomes. `failed` requires its cause. */
 export const Activation = {

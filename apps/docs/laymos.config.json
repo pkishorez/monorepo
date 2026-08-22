@@ -1,0 +1,220 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts", "src/styles", "src/types.d.ts"],
+  "layers": {
+    "entry": {
+      "paths": ["src/router.tsx", "src/start.ts", "src/server.ts"],
+      "description": "Host entries — TanStack Start server, router, worker forwarding",
+      "modules": {
+        "src/router.tsx": {},
+        "src/start.ts": {},
+        "src/server.ts": {}
+      }
+    },
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "Route surface — pages and API handlers",
+      "modules": {
+        "src/routes": {}
+      }
+    },
+    "infra": {
+      "paths": ["src/infra"],
+      "description": "Deployable resources — each worker defined separately, composed by alchemy.run.ts",
+      "modules": {
+        "src/infra": {}
+      }
+    },
+    "components": {
+      "paths": ["src/components"],
+      "description": "Presentation shared across routes",
+      "modules": {
+        "src/components/mdx.tsx": {
+          "exposed": true
+        },
+        "src/components/home-header.tsx": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/components/not-found.tsx": {
+          "exposed": true
+        },
+        "src/components/status-badge.tsx": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/components/eschema-playground.tsx": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "lib": {
+      "paths": ["src/lib"],
+      "description": "Content sources and shared layout data",
+      "modules": {
+        "src/lib/source.ts": {
+          "exposed": true
+        },
+        "src/lib/blog.ts": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/lib/blog-data.ts": {
+          "exposed": true
+        },
+        "src/lib/shared.ts": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/lib/layout.shared.tsx": {
+          "exposed": true
+        }
+      }
+    },
+    "bank-rpc": {
+      "paths": ["src/demos/bank/rpc"],
+      "description": "Std Bank demo — a contract naming two RPC groups, mutation handlers, one subscription handler per execution context, a server door, and a client door",
+      "moduleGraphs": {
+        "bank-rpc": {
+          "description": "Moves the Bank functionality across a boundary without caring which boundary.",
+          "path": "src/demos/bank/rpc",
+          "modules": {
+            "contract": {
+              "exposed": true
+            },
+            "mutations": {
+              "exposed": true
+            },
+            "subscriptions/in-memory": {
+              "exposed": true
+            },
+            "subscriptions/durable-object": {
+              "exposed": true
+            },
+            "server/durable-object": {
+              "exposed": true
+            },
+            "client": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "mutations": ["contract"],
+            "subscriptions/in-memory": ["contract"],
+            "subscriptions/durable-object": [
+              "contract",
+              "subscriptions/in-memory"
+            ],
+            "server/durable-object": [
+              "mutations",
+              "subscriptions/durable-object",
+              "contract"
+            ],
+            "client": ["mutations", "subscriptions/in-memory", "contract"]
+          }
+        }
+      }
+    },
+    "bank-std-table": {
+      "paths": ["src/demos/bank/std-table"],
+      "description": "Std Bank demo — the single-table design and its entity bindings",
+      "moduleGraphs": {
+        "std-table": {
+          "description": "Binds the domain to one StdTable: the topology and one entity per record kind.",
+          "path": "src/demos/bank/std-table",
+          "modules": {
+            "table": {
+              "exposed": true
+            },
+            "entities/account": {
+              "exposed": true
+            },
+            "entities/transfer": {
+              "exposed": true
+            },
+            "entities/generation": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "entities/account": ["table"],
+            "entities/transfer": ["table"],
+            "entities/generation": ["table"]
+          }
+        }
+      }
+    },
+    "bank-machine": {
+      "paths": ["src/demos/bank/machine"],
+      "description": "Std Bank demo — the front-end state machine: which act is possible when",
+      "moduleGraphs": {
+        "bank-machine": {
+          "description": "The state machine and the door over it.",
+          "path": "src/demos/bank/machine",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "machine.ts": {},
+            "problem": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "index.ts": ["machine.ts"],
+            "machine.ts": ["problem"]
+          }
+        }
+      }
+    },
+    "bank-ui": {
+      "paths": ["src/demos/bank/ui"],
+      "description": "Std Bank demo — one dumb component: every fact as a prop, every act as a callback",
+      "modules": {
+        "src/demos/bank/ui/bank": {
+          "exposed": true
+        }
+      }
+    },
+    "bank-contract": {
+      "paths": ["src/demos/bank/contract"],
+      "description": "Std Bank demo — schemas, name rules, domain refusals",
+      "modules": {
+        "src/demos/bank/contract/account": {
+          "exposed": true
+        },
+        "src/demos/bank/contract/transfer": {
+          "exposed": true
+        },
+        "src/demos/bank/contract/name": {
+          "exposed": true
+        },
+        "src/demos/bank/contract/refusal": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "docs-site": {
+      "description": "Docs app: entries over routes over components over lib",
+      "rules": {
+        "entry": ["components", "bank-rpc"],
+        "routes": ["components", "lib", "bank-rpc", "bank-machine", "bank-ui"],
+        "infra": ["bank-rpc", "bank-std-table"],
+        "components": ["lib"]
+      }
+    },
+    "std-bank": {
+      "description": "Std Bank demo: rpc over table over the contract, with the machine and the UI beside them",
+      "rules": {
+        "bank-rpc": ["bank-std-table", "bank-contract"],
+        "bank-std-table": ["bank-contract"],
+        "bank-machine": ["bank-contract"],
+        "bank-ui": ["bank-contract"]
+      }
+    }
+  }
+}

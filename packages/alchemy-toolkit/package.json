@@ -1,0 +1,52 @@
+{
+  "name": "@monorepo/alchemy-toolkit",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Curated wrappers over the alchemy IaC flows this monorepo actually uses",
+  "type": "module",
+  "exports": {
+    "./unstable/rpc-worker": {
+      "types": "./src/unstable/rpc-worker/index.ts",
+      "import": "./src/unstable/rpc-worker/index.ts",
+      "default": "./src/unstable/rpc-worker/index.ts"
+    },
+    "./unstable/durable-rpc-worker": {
+      "types": "./src/unstable/durable-rpc-worker/index.ts",
+      "import": "./src/unstable/durable-rpc-worker/index.ts",
+      "default": "./src/unstable/durable-rpc-worker/index.ts"
+    },
+    "./unstable/dynamo-table": {
+      "types": "./src/unstable/dynamo-table/index.ts",
+      "import": "./src/unstable/dynamo-table/index.ts",
+      "default": "./src/unstable/dynamo-table/index.ts"
+    },
+    "./*": {
+      "types": "./src/*.ts",
+      "import": "./src/*.ts",
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@pkishorez/effect-cloudflare": "workspace:*",
+    "std-toolkit": "workspace:*"
+  },
+  "peerDependencies": {
+    "alchemy": "2.0.0-beta.72",
+    "effect": "4.0.0-rc.110"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@typescript/native": "catalog:",
+    "alchemy": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:typescript6",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

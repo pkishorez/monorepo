@@ -31,9 +31,11 @@ describe('resolveWebSocketUrl', () => {
     expect(resolveWebSocketUrl('/rpc')).toBe('ws://localhost:5173/rpc');
   });
 
-  it('drops query and hash from the resolved url', () => {
+  it('keeps the query but drops the hash from the resolved url', () => {
     restore = withLocation('https://example.com/app?a=1#top');
-    expect(resolveWebSocketUrl('/rpc?b=2#frag')).toBe('wss://example.com/rpc');
+    expect(resolveWebSocketUrl('/rpc?b=2#frag')).toBe(
+      'wss://example.com/rpc?b=2',
+    );
   });
 
   it('passes an absolute ws url through untouched', () => {

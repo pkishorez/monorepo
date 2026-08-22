@@ -78,17 +78,6 @@ const displayAttributes = (
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 };
 
-const stateAttributes = (
-  attributes: KeyValue[] | undefined,
-): Readonly<Record<string, RecordedFlowAttributeValue>> =>
-  Object.fromEntries(
-    (attributes ?? []).flatMap(({ key, value }) =>
-      key?.startsWith(flowAttributePrefix)
-        ? [[key.slice(flowAttributePrefix.length), flowValue(value)] as const]
-        : [],
-    ),
-  );
-
 const severity = (number: number | undefined) => {
   if ((number ?? 0) >= 17) return 'error' as const;
   if ((number ?? 0) >= 13) return 'warning' as const;
@@ -161,6 +150,5 @@ export const logObservation = (
     ...(destination ? { destination } : {}),
     ...(messageId ? { messageId } : {}),
     ...(replyTo ? { replyTo } : {}),
-    state: stateAttributes(log.attributes),
   };
 };

@@ -19,6 +19,15 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      # Supplied explicitly so Alchemy skips the STS GetCallerIdentity it
+      # would otherwise use to discover the account id.
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      BANK_AWS_ACCESS_KEY_ID: ${{ secrets.BANK_AWS_ACCESS_KEY_ID }}
+      BANK_AWS_SECRET_ACCESS_KEY: ${{ secrets.BANK_AWS_SECRET_ACCESS_KEY }}
+      BANK_ADMIN_KEY: ${{ secrets.BANK_ADMIN_KEY }}
       # Destroy also evaluates apps/docs/alchemy.run.ts, whose accident-guard
       # refuses deployed stages without this opt-in.
       ALLOW_DEPLOY: 'true'
@@ -52,12 +61,32 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --filter docs...
 
+      # Previews are only ever created by a deliberate dispatch, so most PRs
+      # close with no stage to destroy. Ask the state store first and skip
+      # quietly when there is nothing there; if the store cannot answer,
+      # attempt the destroy anyway rather than leave resources running.
+      - name: Look for the stage
+        id: lookup
+        run: |
+          if ! stages=$(pnpm -C apps/docs exec alchemy state stages --stack Docs 2>&1); then
+            echo "::warning::Could not list stages for the Docs stack — attempting destroy anyway."
+            echo "$stages"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif printf '%s\n' "$stages" | grep -qxF "$STAGE"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No '$STAGE' stage in the Docs stack — nothing to destroy."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Destroy docs preview
         id: destroy
+        if: steps.lookup.outputs.exists == 'true'
         continue-on-error: true
         run: pnpm -C apps/docs exec alchemy destroy --stage "$STAGE" --yes
 
       - name: State tree
+        if: steps.lookup.outputs.exists == 'true'
         run: pnpm -C apps/docs exec alchemy state tree || true
 
       - name: Force-clear orphaned state on destroy failure
@@ -75,10 +104,15 @@ jobs:
         env:
           DESTROY_OUTCOME: ${{ steps.destroy.outcome }}
         run: |
+          case "$DESTROY_OUTCOME" in
+            success) status="🗑️ destroyed" ;;
+            failure) status="❌ destroy failed (state force-cleared)" ;;
+            *) status="⏭️ no stage to destroy" ;;
+          esac
           {
             echo "## Cleanup — \`$STAGE\`"
             echo ""
             echo "| App | Status |"
             echo "| --- | --- |"
-            echo "| docs | $([ "$DESTROY_OUTCOME" = "success" ] && echo "🗑️ destroyed" || echo "❌ destroy failed (state force-cleared)") |"
+            echo "| docs | $status |"
           } >> "$GITHUB_STEP_SUMMARY"

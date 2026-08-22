@@ -35,19 +35,31 @@ export const oldToNew = <TItem extends object, R = never>(
     return Effect.gen(function* () {
       const cursor = (yield* ctx.getState)
         .cursor as DecodedEntity<TItem> | null;
+      yield* ctx.flow.log(
+        cursor === null
+          ? 'Opening the source from the beginning'
+          : 'Opening the source after the last synced Entity',
+        { attributes: { cursor: cursor?.meta._u ?? null } },
+      );
       const stream = openPartitionedSource(source, {
         cursor,
         nextCursor: (batch) => newestOf([...batch]),
       });
 
-      yield* Stream.runForEach(stream, (batch) =>
-        Effect.gen(function* () {
+      let batches = 0;
+      yield* Stream.runForEach(stream, (batch) => {
+        batches += 1;
+        return Effect.gen(function* () {
           yield* ctx.applyToSyncReplica([...batch]);
           yield* ctx.setState({
             cursor: newestOf([...batch]),
           } satisfies OldToNewState);
-        }),
-      );
+        }).pipe(
+          ctx.flow.withSpan('Receive batch', {
+            attributes: { batch: batches, rows: batch.length },
+          }),
+        );
+      });
     });
   },
 });

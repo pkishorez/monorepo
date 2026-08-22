@@ -45,8 +45,10 @@ import { nextUlid } from '../../../core/index.js';
 import {
   Activation,
   makeCollectionFlow,
+  narrateHydration,
   partitionParticipantName,
   type ActivationRef,
+  type FlowParticipant,
   type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
@@ -159,18 +161,25 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
 
   const advance = (
-    options: { readonly seeding: boolean } = { seeding: false },
+    options: {
+      readonly seeding: boolean;
+      readonly narrator?: FlowParticipant;
+    } = { seeding: false },
   ): Effect.Effect<number, WriteError> =>
     TxSemaphore.withPermit(
       advancePermit,
       Effect.gen(function* () {
         if (projector === null) return 0;
-        const delta = yield* replica.since(position);
+        const story = narrateHydration(options.narrator, collectionName);
+        const delta = yield* story.load(position, replica.since(position));
         position = delta.position;
         const entities = options.seeding
           ? delta.entities.filter((entity) => !entity.meta._d)
           : delta.entities;
-        yield* Effect.sync(() => projector?.projectEntities(entities));
+        yield* story.project(
+          entities.length,
+          Effect.sync(() => projector?.projectEntities(entities)),
+        );
         return entities.length;
       }),
     );
@@ -343,7 +352,13 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         );
         runner.runSync(
           flow.collection.log('Collection start', {
-            attributes: { collection: collectionName },
+            attributes: {
+              collection: collectionName,
+              ...(config.total ? { strategy: config.total.strategy.name } : {}),
+              ...(partitionFields.length > 0
+                ? { partitions: partitionFields.join(', ') }
+                : {}),
+            },
           }),
         );
         projector = makeCollectionProjector<TItem>(callbacks, { deleteKeyOf });
@@ -364,11 +379,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
         runner.runSync(
           Effect.forkIn(
             Effect.gen(function* () {
-              const projected = yield* advance({ seeding: true }).pipe(
-                flow.collection.withSpan('Sync Replica hydration', {
-                  attributes: { collection: collectionName },
-                }),
-              );
+              const projected = yield* advance({
+                seeding: true,
+                narrator: flow.collection,
+              });
               const ready = yield* Effect.sync(() => {
                 if (!active) return false;
                 callbacks.markReady();
@@ -376,12 +390,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               });
               if (!ready) return;
               yield* flow.collection.log('Collection ready', {
-                attributes: {
-                  collection: collectionName,
-                  entityCount: projected,
-                },
+                attributes: { collection: collectionName, rows: projected },
               });
-              yield* flow.collection.state({ projectedRows: projected });
               if (config.total) {
                 yield* execution
                   .start(GLOBAL_PARTITION_KEY, config.total, flow)

@@ -6,8 +6,10 @@ import type {
 } from '../../database/index.js';
 import { SQLiteChangesMismatch } from '../../database/index.js';
 
+// Wide enough that workerd's `SqlStorage` assigns structurally (its rows
+// admit `ArrayBuffer`, ours don't); the driver narrows every row it returns.
 export interface DurableObjectSqlCursor {
-  readonly toArray: () => SQLiteRow[];
+  readonly toArray: () => ReadonlyArray<Record<string, unknown>>;
   readonly rowsWritten: number;
 }
 
@@ -28,6 +30,29 @@ export interface DurableObjectSQLiteConfig {
 }
 
 export type DurableObjectSQLiteDriver = SQLiteDriver;
+
+const toSQLiteValue = (column: string, value: unknown): SQLiteValue => {
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'bigint' ||
+    value instanceof Uint8Array
+  )
+    return value;
+  throw new Error(
+    `Durable Object SQLite returned an unsupported value in column "${column}"`,
+  );
+};
+
+const toSQLiteRow = (row: Record<string, unknown>): SQLiteRow =>
+  Object.fromEntries(
+    Object.entries(row).map(([column, value]) => [
+      column,
+      toSQLiteValue(column, value),
+    ]),
+  );
 
 export const makeDurableObjectSQLite = (
   configuration: DurableObjectSQLiteConfig,
@@ -51,7 +76,11 @@ export const makeDurableObjectSQLite = (
     run,
     all: (sql, parameters = []) =>
       Effect.try({
-        try: () => storage.sql.exec(sql, ...parameters).toArray(),
+        try: () =>
+          storage.sql
+            .exec(sql, ...parameters)
+            .toArray()
+            .map(toSQLiteRow),
         catch: (cause) => cause,
       }),
     transaction: (statements) =>

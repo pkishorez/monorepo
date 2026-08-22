@@ -33,12 +33,6 @@ interface SourceData {
   pageTree: SerializedPageTree;
 }
 
-/**
- * Resolves the docs source data (slug -> path map + page tree) isomorphically:
- * directly from the source at prerender time on the server, and from the
- * prerendered `/api/source` JSON on client-side navigation. This keeps the
- * deployment fully static — no server function endpoint to 404.
- */
 const getSourceData = createIsomorphicFn()
   .server(async (): Promise<SourceData> => {
     const { loadSourceData } = await import('@/lib/source');
