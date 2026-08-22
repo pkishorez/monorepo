@@ -91,8 +91,23 @@ const makeVersionGate = (
     yield* Effect.logWarning(
       `[sync] "${versioning.name}" moved from version "${stored?.value.version ?? 'none'}" to "${versioning.version}"; clearing the Sync Store`,
     );
-    yield* syncStore.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING');
-    yield* storedVersionEntity.insert({ ...key, version: versioning.version });
+    // Version records of every Sync survive the clear; otherwise two Syncs
+    // sharing one store would keep wiping each other on every boot.
+    yield* Effect.all(
+      [
+        storedReplicaEntity.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING'),
+        storedReplicaCursorEntity.dangerouslyRemoveAllItems(
+          'I KNOW WHAT I AM DOING',
+        ),
+        storedSyncStateEntity.dangerouslyRemoveAllItems(
+          'I KNOW WHAT I AM DOING',
+        ),
+      ],
+      { discard: true },
+    );
+    yield* stored === null
+      ? storedVersionEntity.insert({ ...key, version: versioning.version })
+      : storedVersionEntity.getAndUpdate(key, { version: versioning.version });
   }).pipe(Effect.cached, Effect.runSync);
 
 export const makeSyncStore = (

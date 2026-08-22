@@ -471,6 +471,54 @@ describe('Sync persistence', () => {
     await second.dispose();
   });
 
+  it('does not let Syncs sharing a store wipe each other back', async () => {
+    const memory = Memory.make(syncStore);
+    const first = createStdSync({
+      name: 'first',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'first' }, '1'),
+        ),
+    );
+    await first.dispose();
+
+    const second = createStdSync({
+      name: 'second',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    await Effect.runPromise(
+      second
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-2', listId: 'inbox', title: 'second' }, '1'),
+        ),
+    );
+    await second.dispose();
+
+    const firstAgain = createStdSync({
+      name: 'first',
+      version: 1,
+      platform: { storeLayer: memory.layer },
+    });
+    const mounted = mount(firstAgain.sync({ schema: todoSchema }));
+    await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
+    const rows = await Effect.runPromise(
+      storedReplicaEntity
+        .query('primary', { pk: { collection: 'second.todo' }, '>=': null })
+        .pipe(Effect.provide(memory.layer)),
+    );
+    expect(rows.items).toHaveLength(1);
+
+    await mounted.subscription.cleanup();
+    await firstAgain.dispose();
+  });
+
   it('resumes strategy state through a shared layer', async () => {
     const memory = Memory.make(syncStore);
     const first = createStdSync({
