@@ -7,6 +7,8 @@ import mdx from 'fumadocs-mdx/vite';
 export default defineConfig({
   server: {
     port: 3000,
+    // Accept the Host headers the portless proxy forwards during dev.
+    allowedHosts: ['.local.kishore.app'],
   },
   build: {
     rollupOptions: {
