@@ -1,5 +1,14 @@
 # @pkishorez/devtools
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`eacf385`](https://github.com/pkishorez/monorepo/commit/eacf385ccd0458933758ae6a18ff078f4d669325), [`4da25e4`](https://github.com/pkishorez/monorepo/commit/4da25e426d32fb482406c089ba7c213d1d1bba98), [`a1c077d`](https://github.com/pkishorez/monorepo/commit/a1c077dd7182632203be59f35d2e475b4df6ab65), [`6630802`](https://github.com/pkishorez/monorepo/commit/66308024a71ab6a30aa0e1f979527c8fa23f533c), [`211dbe7`](https://github.com/pkishorez/monorepo/commit/211dbe7a900199a9471120fb9e2b03c32c8c43d7), [`8215ec7`](https://github.com/pkishorez/monorepo/commit/8215ec7fea498d366f9b06d9f947db960d5bf90c), [`2cfe607`](https://github.com/pkishorez/monorepo/commit/2cfe6076fe401aec0fa5f3b8e3d9f5ed655228a7)]:
+  - std-toolkit@0.0.7
+  - @pkishorez/lotel@0.0.7
+  - laymos@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes
