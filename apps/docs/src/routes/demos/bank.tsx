@@ -108,6 +108,7 @@ const BOOTING = {
   onPick: noop,
   onCancel: noop,
   onUntarget: noop,
+  onSwap: noop,
   onSend: noop,
   onOpen: noop,
   onRetry: noop,
@@ -227,6 +228,7 @@ function LiveBank({
       onPick={(accountId) => send({ type: 'PICK', accountId })}
       onCancel={() => send({ type: 'CANCEL' })}
       onUntarget={() => send({ type: 'UNTARGET' })}
+      onSwap={() => send({ type: 'SWAP' })}
       onSend={(amount, stay) => send({ type: 'SEND', amount, stay })}
       onOpen={(opening) => {
         const id = newId();
