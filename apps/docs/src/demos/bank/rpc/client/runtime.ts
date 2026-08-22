@@ -142,7 +142,19 @@ const makeBank = Effect.gen(function* () {
     );
   };
 
-  return { api, accounts, transfers, std, network, sendMoney, seed };
+  const seedIfEmpty = (): Promise<boolean> =>
+    quietRuntime.runPromise(api.seed());
+
+  return {
+    api,
+    accounts,
+    transfers,
+    std,
+    network,
+    sendMoney,
+    seed,
+    seedIfEmpty,
+  };
 });
 
 export type BankRuntime = Effect.Success<typeof makeBank>;

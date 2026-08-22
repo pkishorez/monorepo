@@ -1,8 +1,9 @@
 # Bank
 
-A shared table of accounts and the money moving between them. You bank as one
-of them, send money to the others, and watch it land — against stores of
-growing sync radius. The total money in the bank never changes.
+A shared table of accounts and the money moving between them. Every account
+is on screen at once; you pick a sender, pick a receiver, type an amount, and
+watch both balances move — against stores of growing sync radius. The total
+money in the bank never changes.
 
 ## Language
 
@@ -42,12 +43,6 @@ so the identical Transfer may be attempted again and may then succeed.
 Distinguished from a Refusal by who said no: a Failure is the journey, a
 Refusal is the bank.
 
-**Viewpoint**:
-The Account you are currently banking as. A Viewpoint is a way of looking, not
-a login: it grants nothing, the bank never learns of it, and you may take up
-any Account's Viewpoint at will.
-_Avoid_: session, login, current user, impersonation.
-
 **Sync Radius**:
 How far a store's changes reach: this page (Memory), this browser (IndexedDB),
 everyone (DynamoDB, Durable Object). The radius is a property of reach; each
@@ -65,7 +60,7 @@ itself.
 ## Decisions
 
 - Banking is anonymous: an Account is not owned, not logged into, and not
-  protected. A Viewpoint is chosen, never authenticated.
+  protected. Anyone may move money from any Account to any other.
 - An Account opens with the balance its owner chose, up to a fixed cap; from
   then on it changes only through Transfers.
 - A Transfer moves money between exactly two distinct Accounts and settles

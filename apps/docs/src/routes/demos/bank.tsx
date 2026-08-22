@@ -1,21 +1,10 @@
-import { Suspense, use, useMemo, useState } from 'react';
-import { ArrowLeft, Landmark } from 'lucide-react';
+import { Suspense, use, useEffect, useState, useTransition } from 'react';
 import {
   createFileRoute,
-  Link,
   type SearchSchemaInput,
 } from '@tanstack/react-router';
-import { eq, not, useLiveQuery } from '@tanstack/react-db';
+import { useLiveQuery } from '@tanstack/react-db';
 import { useMachine } from '@xstate/react';
-import { uTime } from 'std-toolkit/core';
-import { Button } from '@monorepo/frontend/components/ui/button';
-import { Skeleton } from '@monorepo/frontend/components/ui/skeleton';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@monorepo/frontend/components/ui/tabs';
 import type { Account } from '@/demos/bank/contract/account';
 import type { Transfer } from '@/demos/bank/contract/transfer';
 import { journeyMachine } from '@/demos/bank/machine';
@@ -28,26 +17,7 @@ import {
   type BankRuntime,
   type NetworkQuality,
 } from '@/demos/bank/rpc/client';
-import { AccountList } from '@/demos/bank/ui/account-list';
-import { BankSettings } from '@/demos/bank/ui/bank-settings';
-import {
-  OpenAccountDialog,
-  type OpenAccountDraft,
-} from '@/demos/bank/ui/open-account-dialog';
-import { SendDialog } from '@/demos/bank/ui/send-dialog';
-import { StoreToggle } from '@/demos/bank/ui/store-toggle';
-import {
-  Transactions,
-  type TransactionLine,
-} from '@/demos/bank/ui/transactions';
-import {
-  TransferStatus,
-  type StatusLine,
-} from '@/demos/bank/ui/transfer-status';
-import {
-  ViewpointCard,
-  ViewpointPlaceholder,
-} from '@/demos/bank/ui/viewpoint-card';
+import { Bank, type BankAttempt, type BankStore } from '@/demos/bank/ui/bank';
 
 const STORE_KEYS = ['memory', 'idb', 'dynamo', 'sqlite'] as const;
 
@@ -60,9 +30,10 @@ export const Route = createFileRoute('/demos/bank')({
   component: BankPage,
   ssr: false,
   validateSearch: (
-    search: { store?: StoreKey } & SearchSchemaInput,
-  ): { store: StoreKey } => ({
+    search: { store?: StoreKey; debug?: boolean } & SearchSchemaInput,
+  ): { store: StoreKey; debug?: boolean } => ({
     store: isStoreKey(search.store) ? search.store : 'memory',
+    ...(search.debug === true ? { debug: true } : {}),
   }),
   head: () => ({
     meta: [
@@ -70,351 +41,197 @@ export const Route = createFileRoute('/demos/bank')({
       {
         name: 'description',
         content:
-          'Bank as anyone, send money to anyone. Every transfer moves two balances and writes one row in a single atomic commit — optimistically on screen, then confirmed.',
+          'Move money between accounts and watch both balances settle — one atomic commit per transfer, optimistically on screen, over four stores of growing sync radius.',
       },
     ],
   }),
 });
 
-const SCROLL = '-mx-2 flex min-h-0 flex-1 flex-col overflow-y-auto px-2';
-
-const STORES: ReadonlyArray<{
-  value: StoreKey;
-  label: string;
-  boot: () => Promise<BankRuntime>;
-}> = [
-  { value: 'memory', label: 'In-memory', boot: memoryBank },
-  { value: 'idb', label: 'IndexedDB', boot: idbBank },
-  { value: 'dynamo', label: 'DynamoDB', boot: dynamoBank },
-  { value: 'sqlite', label: 'SQLite (DO)', boot: sqliteBank },
-];
-
-const NETWORKS: ReadonlyArray<{ value: NetworkQuality; label: string }> = [
-  { value: 'fast', label: 'Fast' },
-  { value: 'slow', label: 'Slow' },
-  { value: 'offline', label: 'Offline' },
-];
-
-interface Live {
-  readonly $synced?: boolean;
+interface Store extends BankStore {
+  readonly value: StoreKey;
+  readonly local: boolean;
+  readonly boot: () => Promise<BankRuntime>;
 }
 
-const timeOf = (ulid: string): string => {
-  const ms = uTime(ulid);
-  return ms === null
-    ? ''
-    : new Date(ms).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-};
+const STORES: readonly Store[] = [
+  {
+    value: 'memory',
+    label: 'Memory',
+    reach: 'this page · push',
+    local: true,
+    boot: memoryBank,
+  },
+  {
+    value: 'idb',
+    label: 'IndexedDB',
+    reach: 'this browser · push',
+    local: true,
+    boot: idbBank,
+  },
+  {
+    value: 'dynamo',
+    label: 'DynamoDB',
+    reach: 'everyone · poll',
+    local: false,
+    boot: dynamoBank,
+  },
+  {
+    value: 'sqlite',
+    label: 'Durable Object',
+    reach: 'everyone · push',
+    local: false,
+    boot: sqliteBank,
+  },
+];
+
+const NETWORKS: readonly NetworkQuality[] = ['fast', 'slow', 'offline'];
+
+const PROBLEM_LINGER_MS = 5000;
+
+const EMPTY: readonly never[] = [];
+
+const noop = () => {};
+
+const BOOTING = {
+  debug: null,
+  accounts: EMPTY,
+  transfers: EMPTY,
+  attempts: EMPTY,
+  fromId: null,
+  toId: null,
+  onPick: noop,
+  onCancel: noop,
+  onUntarget: noop,
+  onSend: noop,
+  onOpen: noop,
+  onRetry: noop,
+} as const;
 
 function BankPage() {
-  const { store } = Route.useSearch();
+  const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const setStore = (next: StoreKey) =>
-    navigate({ search: { store: next }, replace: true });
+  const [store, setStore] = useState<StoreKey>(search.store);
+  const [switching, startSwitch] = useTransition();
+
+  const switchStore = (next: StoreKey) => {
+    if (next === store) return;
+    startSwitch(() => setStore(next));
+    void navigate({ search: { ...search, store: next }, replace: true });
+  };
+
+  const choice = STORES.find((option) => option.value === store)!;
+  const shell = {
+    stores: STORES,
+    store,
+    switching,
+    onStore: (value: string) => switchStore(value as StoreKey),
+    debug: search.debug === true,
+  };
 
   return (
-    <>
-      <main className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden px-5 py-6 sm:px-6 sm:py-8 lg:max-w-lg">
-        <Suspense fallback={<BootingSkeleton />}>
-          <BootedBank key={store} store={store} onStoreChange={setStore} />
-        </Suspense>
-      </main>
-      <div className="fixed inset-0 z-60 hidden items-center justify-center bg-background px-8 text-center [@media(max-height:479px)]:flex">
-        <div className="max-w-xs space-y-2">
-          <p className="text-base font-semibold">This window is too short</p>
-          <p className="text-sm text-muted-foreground">
-            The bank fits on one screen without scrolling — give the window a
-            bit more height.
-          </p>
-        </div>
-      </div>
-    </>
+    <Suspense fallback={<Bank {...shell} {...BOOTING} />}>
+      <BootedBank key={store} choice={choice} shell={shell} />
+    </Suspense>
   );
 }
 
-function BootingSkeleton() {
-  return (
-    <>
-      <header className="flex h-9 items-center justify-between gap-3">
-        <Skeleton className="h-7 w-32" />
-        <div className="flex items-center gap-1">
-          <Skeleton className="h-8 w-28" />
-          <Skeleton className="size-8" />
-        </div>
-      </header>
-      <Skeleton className="mt-4 h-[4.75rem] w-full shrink-0 rounded-xl" />
-      <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2">
-        <div className="flex h-9 shrink-0 items-center">
-          <Skeleton className="h-5 w-44" />
-        </div>
-        <Skeleton className="min-h-0 w-full flex-1 rounded-lg" />
-      </div>
-    </>
-  );
+interface Shell {
+  readonly stores: readonly Store[];
+  readonly store: StoreKey;
+  readonly switching: boolean;
+  readonly onStore: (value: string) => void;
+  readonly debug: boolean;
 }
 
-function BootedBank({
-  store,
-  onStoreChange,
-}: {
-  store: StoreKey;
-  onStoreChange: (store: StoreKey) => void;
-}) {
-  const runtime = use(STORES.find((option) => option.value === store)!.boot());
-  return <Bank store={store} onStoreChange={onStoreChange} runtime={runtime} />;
+function BootedBank({ choice, shell }: { choice: Store; shell: Shell }) {
+  const runtime = use(choice.boot());
+  return <LiveBank choice={choice} shell={shell} runtime={runtime} />;
 }
 
-function Bank({
-  store,
-  onStoreChange,
+function LiveBank({
+  choice,
+  shell,
   runtime,
 }: {
-  store: StoreKey;
-  onStoreChange: (store: StoreKey) => void;
+  choice: Store;
+  shell: Shell;
   runtime: BankRuntime;
 }) {
-  const [network, setNetwork] = useState<NetworkQuality>('fast');
-  const [opening, setOpening] = useState(false);
-  const [tab, setTab] = useState<'people' | 'transactions'>('people');
+  const [network, setNetwork] = useState<NetworkQuality>(runtime.network.get());
 
   const [state, send] = useMachine(journeyMachine, {
     input: {
       send: (request) => runtime.sendMoney(request).isPersisted.promise,
     },
   });
+  const { fromId, toId, flights } = state.context;
 
-  const { viewpointId, peerId } = state.context;
-
-  const { data: allRows } = useLiveQuery(() => runtime.accounts);
+  const { data: accountRows } = useLiveQuery(() => runtime.accounts);
   const { data: transferRows } = useLiveQuery(() => runtime.transfers);
 
-  const rows = (allRows ?? []) as ReadonlyArray<Account & Live>;
+  useEffect(() => {
+    if (choice.local) void runtime.seedIfEmpty();
+  }, [choice, runtime]);
 
-  const { data: pageRows } = useLiveQuery(
-    (q) =>
-      q
-        .from({ account: runtime.accounts })
-        .where(({ account }) => not(eq(account.id, viewpointId ?? '')))
-        .orderBy(({ account }) => account.balance, 'desc'),
-    [viewpointId],
-  );
-
-  const all = rows;
-  const peers = (pageRows ?? []) as ReadonlyArray<Account & Live>;
-  const viewpoint = all.find((account) => account.id === viewpointId);
-
-  const lines = useMemo<TransactionLine[]>(() => {
-    if (viewpointId === null) return [];
-    const nameOf = new Map(
-      ((allRows ?? []) as ReadonlyArray<Account>).map((a) => [a.id, a.name]),
+  useEffect(() => {
+    const problems = Object.values(flights).filter(
+      (flight) => flight.phase !== 'sending',
     );
-    return ((transferRows ?? []) as ReadonlyArray<Transfer & Live>)
-      .filter((t) => t.from === viewpointId || t.to === viewpointId)
-      .sort((a, b) => b.id.localeCompare(a.id))
-      .map((t) => {
-        const sent = t.from === viewpointId;
-        const counterpartyId = sent ? t.to : t.from;
-        return {
-          id: t.id,
-          direction: sent ? ('sent' as const) : ('received' as const),
-          counterpartyName: nameOf.get(counterpartyId) ?? 'a closed account',
-          amount: t.amount,
-          at: timeOf(t.id),
-        };
-      });
-  }, [transferRows, allRows, viewpointId]);
-
-  const openAccount = (draft: OpenAccountDraft) => {
-    const id = newId();
-    runtime.accounts.insert({
-      id,
-      name: draft.name.trim().replace(/\s+/g, ' '),
-      balance: draft.balance,
-    });
-    setOpening(false);
-    send({ type: 'BANK_AS', accountId: id });
-  };
-
-  const seed = () => runtime.seed();
-
-  const changeNetwork = (quality: NetworkQuality) => {
-    setNetwork(quality);
-    runtime.network.set(quality);
-  };
-
-  const header = (
-    <header className="flex h-9 items-center justify-between gap-3">
-      <div className="flex items-center gap-1.5">
-        <Link
-          to="/demos"
-          aria-label="Back to demos"
-          className="-ml-2 flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Bank</h1>
-      </div>
-      <div className="flex items-center gap-1">
-        <StoreToggle
-          stores={STORES}
-          store={store}
-          onChange={(value) => onStoreChange(value as StoreKey)}
-        />
-        <BankSettings
-          networks={NETWORKS}
-          network={network}
-          onNetworkChange={(value) => changeNetwork(value as NetworkQuality)}
-          onSeed={seed}
-        />
-      </div>
-    </header>
-  );
-
-  const dialog = (
-    <OpenAccountDialog
-      open={opening}
-      onOpenChange={setOpening}
-      onOpen={openAccount}
-    />
-  );
-
-  if (all.length === 0)
-    return (
-      <>
-        {header}
-        <section className="mt-4 flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed p-8 text-center">
-            <span className="flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <Landmark className="size-5" />
-            </span>
-            <h2 className="mt-4 text-base font-semibold">
-              A bank with no accounts
-            </h2>
-            <p className="mt-1 max-w-72 text-sm text-muted-foreground">
-              Seed a few people to send money between, or open an account of
-              your own.
-            </p>
-            <div className="mt-5 flex flex-wrap justify-center gap-2">
-              <Button onClick={seed}>Seed accounts</Button>
-              <Button variant="outline" onClick={() => setOpening(true)}>
-                Open an account
-              </Button>
-            </div>
-          </div>
-        </section>
-        {dialog}
-      </>
+    if (problems.length === 0) return;
+    const timer = setTimeout(
+      () =>
+        problems.forEach((flight) => send({ type: 'DISMISS', id: flight.id })),
+      PROBLEM_LINGER_MS,
     );
+    return () => clearTimeout(timer);
+  }, [flights, send]);
 
-  if (viewpoint === undefined)
-    return (
-      <>
-        {header}
-        <div className="mt-4 shrink-0">
-          <ViewpointPlaceholder />
-        </div>
-        <section className="mt-4 flex min-h-0 flex-1 flex-col gap-2">
-          <div className="flex h-9 shrink-0 items-center">
-            <h2 className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
-              Bank as
-            </h2>
-          </div>
-          <div className={SCROLL}>
-            <AccountList
-              accounts={peers}
-              action="Bank as"
-              openLabel="Open an account"
-              onPick={(accountId) => send({ type: 'BANK_AS', accountId })}
-              onOpenAccount={() => setOpening(true)}
-            />
-          </div>
-        </section>
-        {dialog}
-      </>
-    );
-
-  const composing =
-    typeof state.value === 'object' &&
-    (state.value as Record<string, unknown>).banking === 'composing';
-
-  const peer = composing
-    ? (all.find((account) => account.id === peerId) ?? null)
-    : null;
-
-  const statusLines: StatusLine[] = Object.values(state.context.flights)
-    .filter(
-      (flight) => flight.from === viewpoint.id || flight.to === viewpoint.id,
-    )
-    .map((flight) => {
-      const counterpartyId =
-        flight.from === viewpoint.id ? flight.to : flight.from;
-      return {
-        id: flight.id,
-        phase: flight.phase,
-        message: flight.problem?.message ?? null,
-        amount: flight.amount,
-        attempt: flight.attempt,
-        counterpartyName:
-          all.find((account) => account.id === counterpartyId)?.name ??
-          'a closed account',
-      };
-    });
+  const attempts: BankAttempt[] = Object.values(flights).map((flight) => ({
+    id: flight.id,
+    from: flight.from,
+    to: flight.to,
+    amount: flight.amount,
+    phase: flight.phase,
+    message: flight.problem?.message ?? null,
+    attempt: flight.attempt,
+  }));
 
   return (
-    <>
-      {header}
-
-      <div className="mt-4 shrink-0">
-        <ViewpointCard
-          account={viewpoint}
-          accounts={[...all].sort((a, b) => b.balance - a.balance)}
-          onBankAs={(accountId) => send({ type: 'BANK_AS', accountId })}
-          onOpenAccount={() => setOpening(true)}
-        />
-      </div>
-
-      <Tabs
-        value={tab}
-        onValueChange={(value) =>
-          setTab((value ?? tab) as 'people' | 'transactions')
-        }
-        className="mt-4 flex min-h-0 flex-1 flex-col gap-2"
-      >
-        <div className="flex h-9 shrink-0 items-center">
-          <TabsList variant="line">
-            <TabsTrigger value="people">People</TabsTrigger>
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="people" className={SCROLL}>
-          <AccountList
-            accounts={peers}
-            action="Send money to"
-            openLabel="Open another account"
-            onPick={(accountId) => send({ type: 'COMPOSE', peerId: accountId })}
-            onOpenAccount={() => setOpening(true)}
-          />
-        </TabsContent>
-        <TabsContent value="transactions" className={SCROLL}>
-          <Transactions lines={lines} />
-        </TabsContent>
-      </Tabs>
-
-      <TransferStatus
-        lines={statusLines}
-        onRetry={(id) => send({ type: 'RETRY', id })}
-        onDismiss={(id) => send({ type: 'DISMISS', id })}
-      />
-      <SendDialog
-        peer={peer}
-        available={viewpoint.balance}
-        onSend={(amount) => send({ type: 'SEND', amount })}
-        onDismiss={() => send({ type: 'CANCEL' })}
-      />
-      {dialog}
-    </>
+    <Bank
+      stores={shell.stores}
+      store={shell.store}
+      switching={shell.switching}
+      onStore={shell.onStore}
+      accounts={(accountRows ?? EMPTY) as ReadonlyArray<Account>}
+      transfers={(transferRows ?? EMPTY) as ReadonlyArray<Transfer>}
+      attempts={attempts}
+      fromId={fromId}
+      toId={toId}
+      onPick={(accountId) => send({ type: 'PICK', accountId })}
+      onCancel={() => send({ type: 'CANCEL' })}
+      onUntarget={() => send({ type: 'UNTARGET' })}
+      onSend={(amount) => send({ type: 'SEND', amount })}
+      onOpen={(opening) =>
+        runtime.accounts.insert({
+          id: newId(),
+          name: opening.name,
+          balance: opening.balance,
+        })
+      }
+      onRetry={(id) => send({ type: 'RETRY', id })}
+      debug={
+        shell.debug
+          ? {
+              networks: NETWORKS,
+              network,
+              onNetwork: (quality) => {
+                setNetwork(quality as NetworkQuality);
+                runtime.network.set(quality as NetworkQuality);
+              },
+              onSeed: runtime.seed,
+            }
+          : null
+      }
+    />
   );
 }
