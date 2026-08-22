@@ -58,15 +58,6 @@ const projectEvent = (
           ...common,
         },
       };
-    case flowItemTypes.state:
-      return {
-        item: {
-          kind: 'state',
-          state: observation.state ?? {},
-          merged: {},
-          ...common,
-        },
-      };
     case flowItemTypes.message:
       if (!observation.destination) {
         return {

@@ -57,17 +57,6 @@ const displayAttributes = (
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 };
 
-const stateAttributes = (
-  record: Readonly<Record<string, TraceValue>>,
-): Readonly<Record<string, RecordedFlowAttributeValue>> =>
-  Object.fromEntries(
-    Object.entries(record).flatMap(([key, value]) =>
-      key.startsWith(flowAttributePrefix)
-        ? [[key.slice(flowAttributePrefix.length), value] as const]
-        : [],
-    ),
-  );
-
 const activityObservation = (
   span: CapturedSpan,
   flowId: string,
@@ -126,7 +115,6 @@ const eventObservation = (
     ...(typeof destination === 'string' ? { destination } : {}),
     ...(typeof messageId === 'string' ? { messageId } : {}),
     ...(typeof replyTo === 'string' ? { replyTo } : {}),
-    state: stateAttributes(log.annotations),
   };
 };
 

@@ -20,13 +20,10 @@ describe('strategy lifecycle', () => {
     const messages: string[] = [];
     const states: string[] = [];
     const flow: StrategyFlow = {
-      log: (message) =>
+      log: (message, options) =>
         Effect.sync(() => {
           messages.push(String(message));
-        }),
-      state: (patch) =>
-        Effect.sync(() => {
-          states.push(String(patch.leadership));
+          states.push(String(options?.attributes?.leadership));
         }),
       withSpan: () => (effect) => effect,
     };

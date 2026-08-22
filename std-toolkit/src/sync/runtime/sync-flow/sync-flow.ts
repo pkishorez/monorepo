@@ -2,7 +2,6 @@ import {
   initFlow,
   type ActivationRef,
   type MessageToken,
-  type RecordedFlowAttributeValue,
 } from '@pkishorez/effect-tracer/flow';
 import { Effect } from 'effect';
 import type { PartitionValue } from '../../domain/partition-identity/index.js';
@@ -20,10 +19,6 @@ type FlowLogOptions = {
 
 export type StrategyFlow = {
   log: (message: unknown, options?: FlowLogOptions) => Effect.Effect<void>;
-  /** Publishes part of this participant's state; keys merge forward. */
-  state: (
-    patch: Readonly<Record<string, RecordedFlowAttributeValue>>,
-  ) => Effect.Effect<void>;
   withSpan: (
     name: string,
     options?: {
@@ -74,7 +69,6 @@ const participant = (id: string, name: string): FlowParticipant => {
     log: flow.log,
     reply: flow.reply,
     send: flow.send,
-    state: flow.state,
     withSpan: flow.withSpan,
   };
 };

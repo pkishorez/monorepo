@@ -13,7 +13,6 @@ const kindStyles: Record<RecordedFlowItem['kind'], string> = {
   'activation-start': 'bg-primary/10 text-primary',
   'local-event': 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
   message: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-  state: 'bg-muted text-muted-foreground',
 };
 
 const kindLabels: Record<RecordedFlowItem['kind'], string> = {
@@ -22,7 +21,6 @@ const kindLabels: Record<RecordedFlowItem['kind'], string> = {
   'activation-start': 'activation start',
   'local-event': 'event',
   message: 'message',
-  state: 'state',
 };
 
 const statusColor: Record<string, string> = {
@@ -225,18 +223,7 @@ export function FlowItemDetails({
             )}
         </div>
 
-        {item.kind === 'state' && (
-          <div>
-            <SectionLabel>Published</SectionLabel>
-            <JsonTree value={item.state} />
-            <div className="mt-6">
-              <SectionLabel>Participant state here</SectionLabel>
-              <JsonTree value={item.merged} />
-            </div>
-          </div>
-        )}
-
-        {hasAttributes && item.kind !== 'state' && (
+        {hasAttributes && (
           <div>
             <SectionLabel>Attributes</SectionLabel>
             <JsonTree value={attributes} />
