@@ -1,1 +1,1 @@
-export { makeTraceRecorder } from './recorder.js';
+export { makeTraceRecorder, type TraceRecorder } from './recorder.js';

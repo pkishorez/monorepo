@@ -98,6 +98,7 @@
     "zustand": "catalog:"
   },
   "peerDependencies": {
+    "@pkishorez/effect-tracer": "workspace:*",
     "@tanstack/react-db": "0.1.92",
     "@tanstack/react-query": "5.101.4",
     "effect": "4.0.0-rc.110",
@@ -108,6 +109,9 @@
     "zustand": "5.0.14"
   },
   "peerDependenciesMeta": {
+    "@pkishorez/effect-tracer": {
+      "optional": true
+    },
     "@tanstack/react-db": {
       "optional": true
     },

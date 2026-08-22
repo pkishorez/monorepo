@@ -300,4 +300,19 @@ describe('makeTraceRecorder', () => {
 
     expect(recorder.snapshot().spans).toHaveLength(0);
   });
+
+  it('records every span run through a Runtime once its layer is provided', async () => {
+    const recorder = makeTraceRecorder();
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        yield* Effect.void.pipe(Effect.withSpan('first'));
+        yield* Effect.void.pipe(Effect.withSpan('second'));
+      }).pipe(Effect.provide(recorder.layer)),
+    );
+
+    expect(names(recorder.snapshot().spans)).toEqual(
+      expect.arrayContaining(['first', 'second']),
+    );
+  });
 });
