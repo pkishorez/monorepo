@@ -31,6 +31,7 @@ jobs:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       BANK_AWS_ACCESS_KEY_ID: ${{ secrets.BANK_AWS_ACCESS_KEY_ID }}
       BANK_AWS_SECRET_ACCESS_KEY: ${{ secrets.BANK_AWS_SECRET_ACCESS_KEY }}
+      BANK_ADMIN_KEY: ${{ secrets.BANK_ADMIN_KEY }}
       # Opt through the accident-guard in apps/docs/alchemy.run.ts — deployed
       # stages refuse to reconcile without it.
       ALLOW_DEPLOY: 'true'

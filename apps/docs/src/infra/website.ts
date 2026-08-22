@@ -23,6 +23,7 @@ export const Website = Cloudflare.Website.Vite(
     if (!isLocal) {
       yield* Effect.orDie(Config.redacted('BANK_AWS_ACCESS_KEY_ID'));
       yield* Effect.orDie(Config.redacted('BANK_AWS_SECRET_ACCESS_KEY'));
+      yield* Effect.orDie(Config.redacted('BANK_ADMIN_KEY'));
     }
 
     yield* BankTable;

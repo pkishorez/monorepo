@@ -4,6 +4,8 @@ export {
   BankRpcSerializationLayer,
   BankRpcs,
   BankSubscriptions,
+  Forbidden,
+  Role,
   TransferDirectionSchema,
   TransferEntity,
   type TransferDirection,

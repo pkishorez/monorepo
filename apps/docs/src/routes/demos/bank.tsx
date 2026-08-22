@@ -38,10 +38,15 @@ export const Route = createFileRoute('/demos/bank')({
   component: BankPage,
   ssr: false,
   validateSearch: (
-    search: { store?: StoreKey; debug?: boolean } & SearchSchemaInput,
-  ): { store: StoreKey; debug?: boolean } => ({
+    search: {
+      store?: StoreKey;
+      debug?: boolean;
+      admin?: string;
+    } & SearchSchemaInput,
+  ): { store: StoreKey; debug?: boolean; admin?: string } => ({
     store: isStoreKey(search.store) ? search.store : 'idb',
     ...(search.debug === true ? { debug: true } : {}),
+    ...(typeof search.admin === 'string' ? { admin: search.admin } : {}),
   }),
   head: () => ({
     meta: [
@@ -102,6 +107,7 @@ const noop = () => {};
 
 const BOOTING = {
   debug: null,
+  admin: false,
   accounts: EMPTY,
   transfers: EMPTY,
   attempts: EMPTY,
@@ -113,6 +119,7 @@ const BOOTING = {
   onSwap: noop,
   onSend: noop,
   onOpen: noop,
+  onClear: noop,
   onRetry: noop,
   onDebug: noop,
   onTraces: noop,
@@ -228,6 +235,7 @@ function LiveBank({
         accounts={(accountRows ?? EMPTY) as ReadonlyArray<Account>}
         transfers={(transferRows ?? EMPTY) as ReadonlyArray<Transfer>}
         attempts={attempts}
+        admin={runtime.admin}
         fromId={fromId}
         toId={toId}
         onPick={(accountId) => send({ type: 'PICK', accountId })}
@@ -245,6 +253,7 @@ function LiveBank({
           send({ type: 'CANCEL' });
           send({ type: 'PICK', accountId: id });
         }}
+        onClear={() => void runtime.clear().then(() => location.reload())}
         onRetry={(id) => send({ type: 'RETRY', id })}
         onDebug={shell.onDebug}
         debug={
