@@ -15,6 +15,7 @@ export {
   type StdSyncPlatform,
   type StrategyContext,
   type SyncConfig,
+  type LeadershipState,
   type SyncEvent,
   type SyncStoreLayer,
   type SyncReporter,

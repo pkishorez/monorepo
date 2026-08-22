@@ -9,6 +9,7 @@ import {
   Stream,
 } from 'effect';
 import { RpcClient } from 'effect/unstable/rpc';
+import type { ConnectionStatus } from '@pkishorez/effect-cloudflare/websocket-rpc-client';
 import { nextUlid, type DecodedEntity } from 'std-toolkit/core';
 import {
   createStdSync,
@@ -23,6 +24,7 @@ import {
 import { seedBalance, seedNames, SEED_SIZE } from '../mutations/index.ts';
 import { BankRpcs } from '../contract/index.ts';
 import { Network, NetworkLive } from './network.ts';
+import { makeVitals, type BankVitals } from './vitals.ts';
 
 export const newId = (): string => Effect.runSync(nextUlid);
 
@@ -50,6 +52,7 @@ export class BankWiring extends Context.Service<
     readonly keepSubscribed: <A, E, R>(
       subscribe: () => Stream.Stream<A, E, R>,
     ) => Stream.Stream<A, E, R>;
+    readonly connectionStatus?: Stream.Stream<ConnectionStatus>;
     readonly syncName: string;
     readonly platform?: StdSyncPlatform;
   }
@@ -68,14 +71,44 @@ export class BankApi extends Context.Service<
 const BankApiLive = Layer.effect(BankApi, makeApi);
 
 const makeBank = Effect.gen(function* () {
-  const { keepSubscribed, syncName, platform } = yield* BankWiring;
+  const { keepSubscribed, connectionStatus, syncName, platform } =
+    yield* BankWiring;
   const api = yield* BankApi;
   const network = yield* Network;
+
+  const vitals = makeVitals({
+    ws: connectionStatus ? { status: 'connecting', reconnects: 0 } : null,
+    leadership: {},
+    queued: 0,
+    committing: 0,
+  });
+  const patch = (fn: (v: BankVitals) => Partial<BankVitals>) =>
+    Effect.sync(() => vitals.update((v) => ({ ...v, ...fn(v) })));
+
+  if (connectionStatus) {
+    yield* Effect.forkScoped(
+      Stream.runForEach(connectionStatus, (status) =>
+        patch((v) => ({
+          ws: {
+            status,
+            reconnects:
+              (v.ws?.reconnects ?? 0) + (status === 'reconnecting' ? 1 : 0),
+          },
+        })),
+      ),
+    );
+  }
 
   const std = createStdSync({
     name: syncName,
     platform,
     runtime: quietRuntime,
+    onEvent: (event) =>
+      event._tag === 'LeadershipChanged'
+        ? patch((v) => ({
+            leadership: { ...v.leadership, [event.collection]: event.state },
+          }))
+        : Effect.logError(event),
   });
 
   const liveOldToNew = <T extends object>(
@@ -128,14 +161,25 @@ const makeBank = Effect.gen(function* () {
     },
     mutationFn: (input) =>
       quietRuntime.runPromise(
-        lane.withPermits(1)(
-          network.travel.pipe(
-            Effect.flatMap(() => api.transfer(input)),
-            Effect.tap((outcome) =>
-              Effect.all([
-                accounts.utils.applyToSyncReplica([...outcome.accounts]),
-                transfers.utils.applyToSyncReplica([outcome.transfer]),
-              ]),
+        patch((v) => ({ queued: v.queued + 1 })).pipe(
+          Effect.andThen(
+            lane.withPermits(1)(
+              patch((v) => ({
+                queued: v.queued - 1,
+                committing: v.committing + 1,
+              })).pipe(
+                Effect.andThen(network.travel),
+                Effect.flatMap(() => api.transfer(input)),
+                Effect.tap((outcome) =>
+                  Effect.all([
+                    accounts.utils.applyToSyncReplica([...outcome.accounts]),
+                    transfers.utils.applyToSyncReplica([outcome.transfer]),
+                  ]),
+                ),
+                Effect.ensuring(
+                  patch((v) => ({ committing: v.committing - 1 })),
+                ),
+              ),
             ),
           ),
         ),
@@ -164,6 +208,7 @@ const makeBank = Effect.gen(function* () {
     sendMoney,
     seed,
     seedIfEmpty,
+    vitals,
   };
 });
 
