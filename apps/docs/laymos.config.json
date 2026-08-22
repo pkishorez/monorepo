@@ -167,36 +167,9 @@
     },
     "bank-ui": {
       "paths": ["src/demos/bank/ui"],
-      "description": "Std Bank demo — dumb presentation: props in, callbacks out",
+      "description": "Std Bank demo — one dumb component: every fact as a prop, every act as a callback",
       "modules": {
-        "src/demos/bank/ui/account-list": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/bank-settings": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/money": {
-          "shared": true
-        },
-        "src/demos/bank/ui/open-account-dialog": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/pager": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/send-dialog": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/store-toggle": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/transactions": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/transfer-status": {
-          "exposed": true
-        },
-        "src/demos/bank/ui/viewpoint-card": {
+        "src/demos/bank/ui/bank": {
           "exposed": true
         }
       }
