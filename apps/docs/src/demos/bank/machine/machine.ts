@@ -33,7 +33,7 @@ export type JourneyEvent =
   | { type: 'PICK'; accountId: string }
   | { type: 'CANCEL' }
   | { type: 'UNTARGET' }
-  | { type: 'SEND'; amount: number }
+  | { type: 'SEND'; amount: number; stay?: boolean }
   | { type: 'RETRY'; id: string }
   | { type: 'DISMISS'; id: string };
 
@@ -104,6 +104,23 @@ export const journeyMachine = setup({
         });
       },
     ),
+    launchFromContext: enqueueActions(({ context, event, enqueue }) => {
+      if (event.type !== 'SEND') return;
+      const flight: Flight = {
+        id: Effect.runSync(nextUlid),
+        from: context.fromId!,
+        to: context.toId!,
+        amount: event.amount,
+        phase: 'sending',
+        problem: null,
+        attempt: 0,
+      };
+      enqueue.assign({ flights: { ...context.flights, [flight.id]: flight } });
+      enqueue.spawnChild('settle', {
+        id: actorIdOf(flight),
+        input: { send: context.send, request: flight },
+      });
+    }),
     clear: assign({ fromId: null, toId: null }),
   },
 }).createMachine({
@@ -200,26 +217,16 @@ export const journeyMachine = setup({
             actions: assign({ toId: ({ event }) => event.accountId }),
           },
         ],
-        SEND: {
-          target: 'armed',
-          actions: enqueueActions(({ context, event, enqueue }) => {
-            enqueue({
-              type: 'launch',
-              params: {
-                flight: {
-                  id: Effect.runSync(nextUlid),
-                  from: context.fromId!,
-                  to: context.toId!,
-                  amount: event.amount,
-                  phase: 'sending',
-                  problem: null,
-                  attempt: 0,
-                },
-              },
-            });
-            enqueue.assign({ toId: null });
-          }),
-        },
+        SEND: [
+          {
+            guard: ({ event }) => event.stay === true,
+            actions: 'launchFromContext',
+          },
+          {
+            target: 'armed',
+            actions: ['launchFromContext', assign({ toId: null })],
+          },
+        ],
       },
     },
   },
