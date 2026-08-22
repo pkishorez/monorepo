@@ -38,7 +38,6 @@ export type BankDebug = Omit<DebugLineProps, 'failed' | 'onRetry'>;
 export interface BankProps {
   readonly stores: readonly BankStore[];
   readonly store: string;
-  readonly switching: boolean;
   readonly onStore: (value: string) => void;
   readonly backHref: string;
   readonly accounts: readonly Account[];
@@ -150,12 +149,7 @@ export function Bank(props: BankProps) {
           onChange={props.onStore}
         />
       </header>
-      <div
-        className={cn(
-          'flex min-h-0 flex-1 flex-col justify-center transition-opacity duration-200',
-          props.switching && 'opacity-40',
-        )}
-      >
+      <div className="flex min-h-0 flex-1 flex-col justify-center">
         <Ledger
           rows={rows}
           busy={busy}
@@ -170,12 +164,7 @@ export function Bank(props: BankProps) {
           onHistory={setViewingId}
         />
       </div>
-      <footer
-        className={cn(
-          'flex shrink-0 flex-col transition-opacity duration-200',
-          props.switching && 'opacity-40',
-        )}
-      >
+      <footer className="flex shrink-0 flex-col">
         {props.debug !== null ? (
           <DebugPanel
             debug={{ ...props.debug, failed, onRetry: props.onRetry }}
