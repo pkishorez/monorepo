@@ -91,6 +91,8 @@ export const journeyMachine = setup({
     },
     isFrom: ({ context, event }) =>
       event.type === 'PICK' && event.accountId === context.fromId,
+    isTo: ({ context, event }) =>
+      event.type === 'PICK' && event.accountId === context.toId,
   },
   actions: {
     launch: enqueueActions(
@@ -212,6 +214,7 @@ export const journeyMachine = setup({
         UNTARGET: { target: 'armed', actions: assign({ toId: null }) },
         PICK: [
           { guard: 'isFrom', target: 'idle' },
+          { guard: 'isTo', target: 'armed', actions: assign({ toId: null }) },
           {
             guard: 'bothFree',
             actions: assign({ toId: ({ event }) => event.accountId }),

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { History, X } from 'lucide-react';
+import { History, Pencil, X } from 'lucide-react';
 import { AnimatePresence, motion } from '@monorepo/frontend/motion';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
@@ -53,6 +53,9 @@ const coarsePointer = () =>
 const keepFocus = (event: { preventDefault: () => void }) =>
   event.preventDefault();
 
+const badge =
+  'h-7 rounded-full bg-muted px-3 text-sm font-medium text-foreground/80 outline-none transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground';
+
 const panel = '-mx-2.5 rounded-xl px-2.5';
 const panelOn = 'bg-muted/15';
 
@@ -72,11 +75,11 @@ function Stage({
     <div
       className={cn(
         panel,
-        '-my-2.5 flex flex-col py-2.5 transition-colors duration-200',
+        '-my-3 flex flex-col gap-1 py-3 transition-colors duration-200',
         from !== null && panelOn,
       )}
     >
-      <div className={cn(eyebrow, 'flex h-4 items-center justify-between')}>
+      <div className={cn(eyebrow, 'flex h-5 items-center justify-between')}>
         <AnimatePresence initial={false}>
           {from !== null && (
             <motion.span
@@ -100,7 +103,7 @@ function Stage({
               exit={{ opacity: 0 }}
               transition={fast}
               onClick={() => onHistory(from.id)}
-              className="flex items-center gap-1 text-muted-foreground/60 outline-none transition-colors hover:text-foreground focus-visible:text-foreground"
+              className="-mr-2 flex h-5 items-center gap-1 rounded-full px-2 text-muted-foreground/60 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
             >
               <History className="size-3" />
               Transactions
@@ -108,7 +111,7 @@ function Stage({
           )}
         </AnimatePresence>
       </div>
-      <div className="relative h-12">
+      <div className="relative h-10">
         <AnimatePresence initial={false}>
           {from === null ? (
             <motion.p
@@ -130,7 +133,7 @@ function Stage({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={lift}
-              className={cn(rowShell, 'absolute inset-0 h-12')}
+              className={cn(rowShell, 'absolute inset-0 h-10 items-center')}
             >
               <button
                 type="button"
@@ -175,17 +178,25 @@ function Row({
   const over = target !== null && amount !== null && amount > target.available;
   const inputRef = useRef<HTMLInputElement>(null);
   const settled = useRef(false);
+  const [editing, setEditing] = useState(false);
   const targeting = target !== null;
   useEffect(() => {
-    if (!targeting) return;
     settled.current = false;
-    if (!coarsePointer()) inputRef.current?.focus();
+    setEditing(false);
   }, [targeting]);
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
 
-  const pick = () => {
-    onPick();
-    if (!coarsePointer())
-      requestAnimationFrame(() => inputRef.current?.focus());
+  const pick = () => onPick();
+  const edit = () => {
+    if (!targeting) return;
+    setEditing(true);
+    inputRef.current?.focus();
+  };
+  const toggleEdit = () => {
+    if (editing) inputRef.current?.blur();
+    else edit();
   };
 
   const settle = (act: () => void) => {
@@ -194,10 +205,8 @@ function Row({
     act();
   };
   const commit = () => {
-    if (target === null) return;
-    settle(() =>
-      amount !== null && !over ? target.onSend(amount) : target.onUntarget(),
-    );
+    if (target === null || amount === null || over) return;
+    settle(() => target.onSend(amount));
   };
 
   return (
@@ -227,7 +236,7 @@ function Row({
       }}
       className={cn(
         panel,
-        'group cursor-pointer py-3 outline-none transition-[opacity,background-color] duration-200 will-change-transform',
+        'group py-3 outline-none transition-[opacity,background-color] duration-200 will-change-transform',
         dimmed && 'opacity-70',
         targeting && panelOn,
       )}
@@ -251,18 +260,23 @@ function Row({
             <motion.span
               layout="position"
               transition={fast}
+              onClick={(event) => {
+                if (!targeting) return;
+                event.stopPropagation();
+                edit();
+              }}
               className={cn(
                 money,
                 'transition-colors',
                 busy && 'text-muted-foreground/60',
-                targeting &&
+                editing &&
                   'text-muted-foreground/60 line-through decoration-muted-foreground/30',
               )}
             >
               <AnimatedMoney amount={row.balance} />
             </motion.span>
             <AnimatePresence initial={false} mode="popLayout">
-              {target !== null && targeting && (
+              {target !== null && editing && (
                 <motion.form
                   key="amount"
                   initial={{ opacity: 0, x: 8 }}
@@ -295,6 +309,7 @@ function Row({
                     }
                     onBlur={() => {
                       if (coarsePointer()) commit();
+                      setEditing(false);
                     }}
                     placeholder="0"
                     aria-label={`Amount to send to ${row.name}, up to ${formatMoney(target.available)}`}
@@ -320,17 +335,8 @@ function Row({
               exit={{ opacity: 0, y: -4 }}
               transition={fast}
               onClick={(event) => event.stopPropagation()}
-              className="flex h-9 shrink-0 items-center justify-between gap-6"
+              className="flex h-9 shrink-0 items-center justify-end gap-6"
             >
-              <button
-                type="button"
-                onPointerDown={keepFocus}
-                onClick={() => settle(target.onUntarget)}
-                aria-label={`Stop sending to ${row.name}`}
-                className="-ml-1.5 flex size-7 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
-              >
-                <X className="size-3.5" />
-              </button>
               <span className="flex items-center gap-2">
                 {QUICK.map((quick) => (
                   <button
@@ -341,12 +347,26 @@ function Row({
                     onClick={() => target.onSend(quick, true)}
                     className={cn(
                       mono,
-                      'h-7 rounded-full bg-muted px-3 text-sm font-medium text-foreground/80 outline-none transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground disabled:opacity-30 disabled:hover:bg-muted disabled:hover:text-foreground/80',
+                      badge,
+                      'disabled:opacity-30 disabled:hover:bg-muted disabled:hover:text-foreground/80',
                     )}
                   >
                     +{quick}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={toggleEdit}
+                  aria-label={`Type an amount to send to ${row.name}`}
+                  aria-pressed={editing}
+                  className={cn(
+                    badge,
+                    'flex size-7 items-center justify-center px-0',
+                    editing && 'bg-primary text-primary-foreground',
+                  )}
+                >
+                  <Pencil className="size-3.5" />
+                </button>
               </span>
             </motion.div>
           )}
