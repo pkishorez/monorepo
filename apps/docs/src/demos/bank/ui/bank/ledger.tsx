@@ -54,7 +54,7 @@ const keepFocus = (event: { preventDefault: () => void }) =>
   event.preventDefault();
 
 const badge =
-  'h-7 rounded-full bg-muted px-3 text-sm font-medium text-foreground/80 outline-none transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground';
+  'h-8 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground/80 outline-none transition-[color,background-color,transform] duration-150 hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground active:scale-[0.97]';
 
 const panel = '-mx-2.5 rounded-xl px-2.5';
 const panelOn = 'bg-muted/15';
@@ -335,7 +335,7 @@ function Row({
               exit={{ opacity: 0, y: -4 }}
               transition={fast}
               onClick={(event) => event.stopPropagation()}
-              className="flex h-9 shrink-0 items-center justify-end gap-6"
+              className="flex h-10 shrink-0 items-center justify-end gap-6"
             >
               <span className="flex items-center gap-2">
                 {QUICK.map((quick) => (
@@ -361,7 +361,7 @@ function Row({
                   aria-pressed={editing}
                   className={cn(
                     badge,
-                    'flex size-7 items-center justify-center px-0',
+                    'flex size-8 items-center justify-center px-0',
                     editing && 'bg-primary text-primary-foreground',
                   )}
                 >

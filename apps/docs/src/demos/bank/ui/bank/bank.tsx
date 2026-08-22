@@ -184,7 +184,7 @@ export function Bank(props: BankProps) {
           <button
             type="button"
             onClick={() => setOpening(true)}
-            className={cn(textLink, 'text-sm text-muted-foreground/60')}
+            className={cn(textLink, 'text-sm text-muted-foreground')}
           >
             Open an account
           </button>
@@ -192,7 +192,7 @@ export function Bank(props: BankProps) {
             aria-label="Total money in the bank"
             className={cn(
               mono,
-              'shrink-0 text-xl text-muted-foreground/70 transition-opacity',
+              'shrink-0 text-xl transition-opacity',
               rows.length === 0 && 'opacity-0',
             )}
           >
