@@ -44,7 +44,7 @@ function RootComponent() {
       <head>
         <HeadContent />
       </head>
-      <body className="flex flex-col min-h-screen">
+      <body className="flex min-h-svh flex-col">
         <RootProvider
           search={{
             options: {
