@@ -12,14 +12,13 @@ import {
   dynamoBank,
   sqliteBank,
   idbBank,
-  memoryBank,
   newId,
   type BankRuntime,
   type NetworkQuality,
 } from '@/demos/bank/rpc/client';
 import { Bank, type BankAttempt, type BankStore } from '@/demos/bank/ui/bank';
 
-const STORE_KEYS = ['memory', 'idb', 'dynamo', 'sqlite'] as const;
+const STORE_KEYS = ['idb', 'dynamo', 'sqlite'] as const;
 
 type StoreKey = (typeof STORE_KEYS)[number];
 
@@ -32,7 +31,7 @@ export const Route = createFileRoute('/demos/bank')({
   validateSearch: (
     search: { store?: StoreKey; debug?: boolean } & SearchSchemaInput,
   ): { store: StoreKey; debug?: boolean } => ({
-    store: isStoreKey(search.store) ? search.store : 'memory',
+    store: isStoreKey(search.store) ? search.store : 'idb',
     ...(search.debug === true ? { debug: true } : {}),
   }),
   head: () => ({
@@ -54,13 +53,6 @@ interface Store extends BankStore {
 }
 
 const STORES: readonly Store[] = [
-  {
-    value: 'memory',
-    label: 'Memory',
-    reach: 'this page · push',
-    local: true,
-    boot: memoryBank,
-  },
   {
     value: 'idb',
     label: 'IndexedDB',
@@ -125,6 +117,7 @@ function BankPage() {
     store,
     switching,
     onStore: (value: string) => switchStore(value as StoreKey),
+    backHref: '/demos',
     debug: search.debug === true,
   };
 
@@ -140,6 +133,7 @@ interface Shell {
   readonly store: StoreKey;
   readonly switching: boolean;
   readonly onStore: (value: string) => void;
+  readonly backHref: string;
   readonly debug: boolean;
 }
 
@@ -202,6 +196,7 @@ function LiveBank({
       store={shell.store}
       switching={shell.switching}
       onStore={shell.onStore}
+      backHref={shell.backHref}
       accounts={(accountRows ?? EMPTY) as ReadonlyArray<Account>}
       transfers={(transferRows ?? EMPTY) as ReadonlyArray<Transfer>}
       attempts={attempts}
@@ -210,7 +205,7 @@ function LiveBank({
       onPick={(accountId) => send({ type: 'PICK', accountId })}
       onCancel={() => send({ type: 'CANCEL' })}
       onUntarget={() => send({ type: 'UNTARGET' })}
-      onSend={(amount) => send({ type: 'SEND', amount })}
+      onSend={(amount, stay) => send({ type: 'SEND', amount, stay })}
       onOpen={(opening) =>
         runtime.accounts.insert({
           id: newId(),
