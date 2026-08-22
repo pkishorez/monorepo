@@ -2,6 +2,7 @@ export {
   cadenceParticipantName,
   globalParticipantName,
   makeCollectionFlow,
+  narrateHydration,
   partitionParticipantName,
   singleItemParticipantName,
   type ActivationOutcome,

@@ -4,7 +4,7 @@ import {
   type MessageToken,
   type RecordedFlowAttributeValue,
 } from '@pkishorez/effect-tracer/flow';
-import type { Effect } from 'effect';
+import { Effect } from 'effect';
 import type { PartitionValue } from '../../domain/partition-identity/index.js';
 import {
   partitionSyncAddress,
@@ -107,6 +107,53 @@ export const makeCollectionFlow = (
     participant: getParticipant,
   };
 };
+
+/**
+ * Tells the story of one Sync Replica hydration on a participant's lane: one
+ * activity that reads the Store, one that projects into the Collection. Logs
+ * written inside are plain so they nest under the activity instead of becoming
+ * events of their own.
+ */
+export const narrateHydration = (
+  narrator: FlowParticipant | undefined,
+  collection: string,
+) => ({
+  load: <A extends { readonly entities: readonly unknown[] }, E, R>(
+    from: string | null,
+    effect: Effect.Effect<A, E, R>,
+  ): Effect.Effect<A, E, R> =>
+    narrator
+      ? effect.pipe(
+          Effect.tap((delta) =>
+            Effect.logInfo(
+              `Read ${delta.entities.length} rows from the Sync Replica`,
+            ).pipe(
+              Effect.annotateLogs({
+                rows: delta.entities.length,
+                since: from ?? 'the beginning',
+              }),
+            ),
+          ),
+          narrator.withSpan('Load Sync Replica', {
+            attributes: { collection },
+          }),
+        )
+      : effect,
+  project: <A, E, R>(
+    rows: number,
+    effect: Effect.Effect<A, E, R>,
+  ): Effect.Effect<A, E, R> =>
+    narrator
+      ? effect.pipe(
+          Effect.tap(() =>
+            Effect.logInfo(`Projected ${rows} rows into the Collection`),
+          ),
+          narrator.withSpan('Project into Collection', {
+            attributes: { collection, rows },
+          }),
+        )
+      : effect,
+});
 
 export const globalParticipantName = (strategyName: string) =>
   strategySyncAddress('{global}', strategyName);

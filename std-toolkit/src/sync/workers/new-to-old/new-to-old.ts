@@ -87,8 +87,10 @@ export const newToOld = <TItem extends object, R = never>(
         let sharedTop = topAtStart !== null;
         let previousFloor = topAtStart?.low;
 
-        yield* Stream.runForEach(olderStream, (batch) =>
-          Effect.gen(function* () {
+        let batches = 0;
+        yield* Stream.runForEach(olderStream, (batch) => {
+          batches += 1;
+          return Effect.gen(function* () {
             sawRecord = true;
             yield* ctx.applyToSyncReplica([...batch]);
             const batchTop = newestOf([...batch]);
@@ -99,8 +101,12 @@ export const newToOld = <TItem extends object, R = never>(
               sharedTop = true;
               yield* Deferred.succeed(topReady, batchTop);
             }
-          }),
-        );
+          }).pipe(
+            ctx.flow.withSpan('Backfill batch', {
+              attributes: { batch: batches, rows: batch.length },
+            }),
+          );
+        });
 
         if (sawRecord) yield* commit(markReachedOldest);
         yield* Deferred.succeed(topReady, null);
@@ -117,14 +123,20 @@ export const newToOld = <TItem extends object, R = never>(
         // Without this, an empty backfill (`top === null`) makes every batch a
         // disjoint range — generating 10k items would yield one slice per batch.
         let tailAnchor: Cursor<TItem> | null = top;
-        yield* Stream.runForEach(newerStream, (batch) =>
-          Effect.gen(function* () {
+        let batches = 0;
+        yield* Stream.runForEach(newerStream, (batch) => {
+          batches += 1;
+          return Effect.gen(function* () {
             yield* ctx.applyToSyncReplica([...batch]);
             const high = newestOf([...batch]);
             yield* commit(addRange(tailAnchor ?? oldestOf([...batch]), high));
             tailAnchor = high;
-          }),
-        );
+          }).pipe(
+            ctx.flow.withSpan('Tail batch', {
+              attributes: { batch: batches, rows: batch.length },
+            }),
+          );
+        });
       });
 
       yield* Effect.all([runBackfill, runLiveTail], {

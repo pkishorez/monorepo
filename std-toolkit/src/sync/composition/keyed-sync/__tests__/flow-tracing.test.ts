@@ -275,8 +275,7 @@ describe('collection flow tracing', () => {
       new Set(
         flow.items
           .filter(
-            (item) =>
-              item.kind === 'activity' && item.name === 'Strategy attempt',
+            (item) => item.kind === 'activity' && item.name === 'Sync session',
           )
           .map(({ participantName }) => participantName),
       ),

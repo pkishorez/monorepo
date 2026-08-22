@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import type { TraceRecorder } from '@pkishorez/effect-tracer/recorder';
 import { flowAttributes } from '@pkishorez/effect-tracer/flow';
@@ -32,6 +32,8 @@ export interface DevToolsPanelProps {
    * @default 'traces'
    */
   readonly defaultFilter?: Filter;
+  /** Which kinds the panel offers at all. Defaults to both. */
+  readonly filters?: readonly Filter[];
   readonly className?: string;
 }
 
@@ -50,10 +52,15 @@ export function DevToolsPanel({
   onClose,
   recorder,
   defaultFilter = 'traces',
+  filters = ['traces', 'flows'],
   className,
 }: DevToolsPanelProps) {
   const [filter, setFilter] = useState<Filter>(defaultFilter);
   const { spans, logs, flows } = useRecorderSnapshot(recorder);
+  const otelSpans = useMemo(
+    () => attachCapturedLogs(spans, logs),
+    [spans, logs],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -66,16 +73,20 @@ export function DevToolsPanel({
 
   if (!open) return null;
 
-  const hasTraces = spans.some(
-    (span) => span.attributes[flowAttributes.id] === undefined,
-  );
-  const hasFlows = flows.length > 0;
+  const hasTraces =
+    filters.includes('traces') &&
+    spans.some((span) => span.attributes[flowAttributes.id] === undefined);
+  const hasFlows = filters.includes('flows') && flows.length > 0;
   const showTabs = hasTraces && hasFlows;
-  const activeFilter: Filter = !hasFlows
-    ? 'traces'
-    : !hasTraces
-      ? 'flows'
-      : filter;
+  const activeFilter: Filter = !filters.includes('traces')
+    ? 'flows'
+    : !filters.includes('flows')
+      ? 'traces'
+      : !hasFlows
+        ? 'traces'
+        : !hasTraces
+          ? 'flows'
+          : filter;
 
   return (
     <div
@@ -110,12 +121,16 @@ export function DevToolsPanel({
       <div className="flex min-h-0 flex-1 flex-col">
         {activeFilter === 'traces' ? (
           <TraceViewer
-            spans={attachCapturedLogs(spans, logs)}
+            spans={otelSpans}
             className="min-h-0 flex-1"
             emptyMessage="No traces recorded yet."
           />
         ) : (
-          <FlowSection flows={flows} className="min-h-0 flex-1" />
+          <FlowSection
+            flows={flows}
+            spans={otelSpans}
+            className="min-h-0 flex-1"
+          />
         )}
       </div>
     </div>

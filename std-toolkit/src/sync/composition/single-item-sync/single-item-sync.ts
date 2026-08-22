@@ -35,8 +35,10 @@ import { nextUlid } from '../../../core/index.js';
 import {
   Activation,
   makeCollectionFlow,
+  narrateHydration,
   singleItemParticipantName,
   type ActivationRef,
+  type FlowParticipant,
   type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
@@ -127,14 +129,20 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   let position: string | null = null;
   let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
 
-  const advance = (): Effect.Effect<number, WriteError> =>
+  const advance = (
+    narrator?: FlowParticipant,
+  ): Effect.Effect<number, WriteError> =>
     TxSemaphore.withPermit(
       advancePermit,
       Effect.gen(function* () {
         if (projector === null) return 0;
-        const delta = yield* replica.since(position);
+        const story = narrateHydration(narrator, collectionName);
+        const delta = yield* story.load(position, replica.since(position));
         position = delta.position;
-        yield* Effect.sync(() => projector?.projectEntities(delta.entities));
+        yield* story.project(
+          delta.entities.length,
+          Effect.sync(() => projector?.projectEntities(delta.entities)),
+        );
         return delta.entities.length;
       }),
     );
@@ -233,7 +241,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
     );
     config.runner.runSync(
       flow.collection.log('Collection start', {
-        attributes: { collection: collectionName },
+        attributes: { collection: collectionName, strategy: strategy.name },
       }),
     );
     const local = makeCollectionProjector<TItem>(callbacks);
@@ -249,11 +257,7 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
       Effect.forkIn(
         Effect.catch(
           Effect.gen(function* () {
-            const projected = yield* advance().pipe(
-              flow.collection.withSpan('Sync Replica hydration', {
-                attributes: { collection: collectionName },
-              }),
-            );
+            const projected = yield* advance(flow.collection);
             const ready = yield* Effect.sync(() => {
               if (!active) return false;
               callbacks.markReady();
@@ -261,12 +265,8 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
             });
             if (!ready) return;
             yield* flow.collection.log('Collection ready', {
-              attributes: {
-                collection: collectionName,
-                entityCount: projected,
-              },
+              attributes: { collection: collectionName, rows: projected },
             });
-            yield* flow.collection.state({ projectedRows: projected });
             yield* flow.collection.send(
               strategyFlow.name,
               'Single-item sync start',

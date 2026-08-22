@@ -225,10 +225,16 @@ telemetry configuration decides whether that Flow is exported.
 The Flow has a `collection` lane, one global worker lane, one stable lane for each
 logical Partition, a lane for each Cadence Repair worker, and one worker lane for
 Single Item Sync. Repeated subscribers to the same Partition share its lane and
-produce subscriber-count messages. Strategies run inside a Flow activity so API
-and persistence spans are linked as nested trace work. Every non-empty strategy
-or Cadence Repair delivery logs how many entities were received and how many the
-Sync Replica accepted after convergence.
+produce subscriber-count messages. Hydration is told as two activities on the
+collection lane — `Load Sync Replica`, then `Project into Collection` — each
+carrying its row count, and `Collection ready` closes it. Every supervised
+strategy run is a `Sync session` activity numbered per retry; it stays running
+for as long as the strategy does, and the built-in strategies record each
+delivered batch as a child activity (`Receive batch`, `Backfill batch`,
+`Tail batch`) so a live session visibly progresses. Strategies run inside that
+activity so API and persistence spans are linked as nested trace work. Every
+non-empty strategy or Cadence Repair delivery logs how many entities were
+received and how many the Sync Replica accepted after convergence.
 
 Every participant with a real lifecycle records an **Activation** — the window
 in which it is alive. The collection lane is activated from `sync(callbacks)` to

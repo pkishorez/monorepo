@@ -54,6 +54,7 @@ export interface BankProps {
   readonly onRetry: (attemptId: string) => void;
   readonly debug: BankDebug | null;
   readonly onDebug: (open: boolean) => void;
+  readonly onTraces: () => void;
 }
 
 const timeOf = (ulid: string): string => {
@@ -171,6 +172,7 @@ export function Bank(props: BankProps) {
           {props.debug !== null ? (
             <DebugPanel
               debug={{ ...props.debug, failed, onRetry: props.onRetry }}
+              onTraces={props.onTraces}
               onClose={() => props.onDebug(false)}
             />
           ) : (
@@ -190,6 +192,13 @@ export function Bank(props: BankProps) {
                     className={cn(textLink, 'text-xs')}
                   >
                     Debug
+                  </button>
+                  <button
+                    type="button"
+                    onClick={props.onTraces}
+                    className={cn(textLink, 'text-xs')}
+                  >
+                    Traces
                   </button>
                 </span>
                 <p
