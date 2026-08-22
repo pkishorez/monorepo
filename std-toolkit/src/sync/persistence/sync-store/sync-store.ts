@@ -17,6 +17,11 @@ const storedSyncStateSchema = EntityESchema.make('SyncStoredState', 'key', {
   value: fromType<OpaqueValue>(),
 }).build();
 
+const storedVersionSchema = EntityESchema.make('SyncStoredVersion', 'key', {
+  collection: Schema.String,
+  version: Schema.String,
+}).build();
+
 const storedReplicaCursorSchema = EntityESchema.make(
   'SyncStoredReplicaCursor',
   'key',
@@ -47,6 +52,11 @@ export const storedSyncStateEntity = syncStore
   .primary({ pk: ['collection'] })
   .build();
 
+export const storedVersionEntity = syncStore
+  .entity(storedVersionSchema)
+  .primary({ pk: ['collection'] })
+  .build();
+
 export type StoredReplicaValue = typeof storedReplicaSchema.Type;
 export type StoredSyncStateValue = typeof storedSyncStateSchema.Type;
 export type SyncStoreLayer = Layer.Layer<StdTableService<typeof TABLE_NAME>>;
@@ -64,12 +74,39 @@ export type SyncStore = {
   dispose: () => Promise<void>;
 };
 
-export const makeSyncStore = (layer: SyncStoreLayer): SyncStore => {
+export type SyncStoreVersion = {
+  readonly name: string;
+  readonly version: string;
+};
+
+const VERSION_KEY = 'version';
+
+const makeVersionGate = (
+  versioning: SyncStoreVersion,
+): Effect.Effect<void, unknown, StdTableService<typeof TABLE_NAME>> =>
+  Effect.gen(function* () {
+    const key = { collection: versioning.name, key: VERSION_KEY };
+    const stored = yield* storedVersionEntity.get(key);
+    if (stored?.value.version === versioning.version) return;
+    yield* Effect.logWarning(
+      `[sync] "${versioning.name}" moved from version "${stored?.value.version ?? 'none'}" to "${versioning.version}"; clearing the Sync Store`,
+    );
+    yield* syncStore.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING');
+    yield* storedVersionEntity.insert({ ...key, version: versioning.version });
+  }).pipe(Effect.cached, Effect.runSync);
+
+export const makeSyncStore = (
+  layer: SyncStoreLayer,
+  versioning?: SyncStoreVersion,
+): SyncStore => {
   const runtime = ManagedRuntime.make(layer);
+  const gate = versioning ? Effect.orDie(makeVersionGate(versioning)) : null;
   return {
     provide: (effect, details) =>
       runtime.contextEffect.pipe(
-        Effect.flatMap((context) => Effect.provide(effect, context)),
+        Effect.flatMap((context) =>
+          Effect.provide(gate ? Effect.andThen(gate, effect) : effect, context),
+        ),
         Effect.withSpan('sync.sync-store', {
           kind: 'client',
           attributes: {

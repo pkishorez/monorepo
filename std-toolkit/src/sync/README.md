@@ -44,6 +44,14 @@ the same Backend dataset must use the same stable name. The qualified Collection
 Name identifies its Sync Store namespace and its one Peer Channel; the schema's
 original name remains the Entity `_e` identity.
 
+`version` (optional, string or number) stamps the Sync Store. When an instance
+boots with a different version than the one stored — including no stored
+version at all, as on clients that predate versioning — it empties the whole Sync
+Store — replicas, cursors, strategy state, for every namespace sharing that
+store — before serving anything, then records the new version. Bump it whenever
+the Backend is wiped or re-shaped so devices that cached the old data don't keep
+showing it; leave it unset and nothing is ever cleared.
+
 Use `std.collection(config)` when you want Sync to create the TanStack
 collection. `createCollection(std.sync(config))` is also supported. Call
 `await std.dispose()` when the sync instance is no longer needed.
