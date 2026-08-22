@@ -122,6 +122,11 @@ function BankPage() {
   const navigate = Route.useNavigate();
   const [store, setStore] = useState<StoreKey>(search.store);
 
+  useEffect(() => {
+    document.body.classList.add('overflow-hidden');
+    return () => document.body.classList.remove('overflow-hidden');
+  }, []);
+
   const switchStore = (next: StoreKey) => {
     if (next === store) return;
     startTransition(() => setStore(next));
