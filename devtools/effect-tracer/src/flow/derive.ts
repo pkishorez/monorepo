@@ -1,6 +1,5 @@
 import type {
   RecordedFlowActivation,
-  RecordedFlowAttributeValue,
   RecordedFlowItem,
   RecordedFlowWarning,
 } from './schema.js';
@@ -12,15 +11,13 @@ interface OpenActivation {
 }
 
 /**
- * Pairs Activation boundaries, merges Participant State forward, and reports
- * what only a whole-Flow scan can see. Both projectors share it so the rules
- * live once.
+ * Pairs Activation boundaries and reports what only a whole-Flow scan can see.
+ * Both projectors share it so the rules live once.
  */
 export const deriveRecordedFlow = (items: readonly RecordedFlowItem[]) => {
   const warnings: RecordedFlowWarning[] = [];
   const activations: RecordedFlowActivation[] = [];
   const open = new Map<string, OpenActivation>();
-  const state = new Map<string, Record<string, RecordedFlowAttributeValue>>();
   const emitters = new Set<string>();
   const destinations = new Map<string, string>();
 
@@ -79,16 +76,6 @@ export const deriveRecordedFlow = (items: readonly RecordedFlowItem[]) => {
         outcome: item.outcome,
       });
       return item;
-    }
-
-    if (item.kind === 'state') {
-      const merged = { ...state.get(item.participantName) };
-      for (const [key, value] of Object.entries(item.state)) {
-        if (value === null) delete merged[key];
-        else merged[key] = value;
-      }
-      state.set(item.participantName, merged);
-      return { ...item, merged };
     }
 
     return item;

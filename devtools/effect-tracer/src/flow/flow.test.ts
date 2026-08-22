@@ -25,7 +25,6 @@ describe('initFlow', () => {
         const token = yield* flow.send('server', { offer: 'sdp' });
         expect(token.to).toBe('server');
         const activation = yield* flow.activation.start('Call');
-        yield* flow.state({ peers: 2 });
         yield* activation.end(Activation.completed());
       }).pipe(Effect.withLogger(logger)),
     );
@@ -49,12 +48,6 @@ describe('initFlow', () => {
       {
         'flow.id': 'call-123',
         'flow.item.type': 'activation-start',
-        'flow.participant.name': 'client-a',
-      },
-      {
-        'flowattr.peers': 2,
-        'flow.id': 'call-123',
-        'flow.item.type': 'state',
         'flow.participant.name': 'client-a',
       },
       {
@@ -113,31 +106,6 @@ describe('initFlow', () => {
     expect(recorded.activations.map(({ name }) => name)).toEqual([
       'First',
       'Second',
-    ]);
-  });
-
-  it('merges Participant State forward and clears on null', async () => {
-    const recorder = makeTraceRecorder();
-    const flow = initFlow({ id: 'call-123', participantName: 'client-a' });
-
-    await Effect.runPromise(
-      recorder.instrument(
-        Effect.gen(function* () {
-          yield* flow.state({ reachedOldest: false, rows: 1 });
-          yield* flow.state({ rows: 12 });
-          yield* flow.state({ reachedOldest: null });
-        }),
-      ),
-    );
-
-    const merged = recorder
-      .snapshotFlow('call-123')!
-      .items.filter((item) => item.kind === 'state')
-      .map((item) => item.merged);
-    expect(merged).toEqual([
-      { reachedOldest: false, rows: 1 },
-      { reachedOldest: false, rows: 12 },
-      { rows: 12 },
     ]);
   });
 

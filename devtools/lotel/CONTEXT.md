@@ -119,8 +119,8 @@ Participant, records one Activity, and appears as one node in the Flow view.
 Its ordinary descendant Spans are drill-down detail. Flow Spans are not nested.
 
 **Flow Item**:
-One Activity, Local Event, Message, Activation Start, Activation End, or
-Participant State record in a Flow. Flow Items have a chronological order.
+One Activity, Local Event, Message, Activation Start, or Activation End in a
+Flow. Flow Items have a chronological order.
 
 **Flow Step**:
 One currently visible navigable row in a Flow view. A Flow Step is either one
@@ -141,13 +141,6 @@ carries its cause as an ordinary attribute. Outcome describes the Activation
 only; supervision may restart the work, so a failed Activation does not mean
 the Flow or the Participant failed.
 
-**Participant State**:
-A partial, keyed snapshot a Participant publishes about itself at a point in a
-Flow, such as a stored row count or a covered-range list. Successive snapshots
-merge forward per key, so a Participant may publish only what changed, and the
-merged value is readable at any later point. State belongs to the Participant,
-not to an Activation: it survives the gap between Activations.
-
 **Message**:
 A Flow Log Record that records information sent from one Participant to one or
 more other Participants. It appears as an arrow between their swim lanes.
@@ -164,8 +157,7 @@ it. A Log Record can identify a Trace and Span but remains distinct from both.
 
 **Flow Log Record**:
 A Log Record that identifies a Flow and Participant. It appears independently
-of Flow Spans as a Local Event, a Message, an Activation boundary, or a
-Participant State record.
+of Flow Spans as a Local Event, a Message, or an Activation boundary.
 
 **Local Event**:
 A Flow Log Record that conveys information about its Participant. Its severity

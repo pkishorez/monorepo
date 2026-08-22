@@ -32,8 +32,5 @@ describe('Flow examples', () => {
         flow?.items.some((item) => item.kind === 'message' && item.replyTo),
       ),
     ).toBe(true);
-    expect(
-      flows.some((flow) => flow?.items.some((item) => item.kind === 'state')),
-    ).toBe(true);
   });
 });

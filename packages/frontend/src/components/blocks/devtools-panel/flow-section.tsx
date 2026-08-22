@@ -59,8 +59,11 @@ const summarize = (flow: RecordedFlow): FlowSummary => {
       const value = item.attributes?.rows ?? item.attributes?.entityCount;
       if (typeof value === 'number') rows = value;
     }
-    if (item.kind === 'state' && typeof item.state.leadership === 'string') {
-      leadership = item.state.leadership;
+    if (
+      item.kind === 'local-event' &&
+      typeof item.attributes?.leadership === 'string'
+    ) {
+      leadership = item.attributes.leadership;
     }
   }
   const tone: FlowSummary['tone'] = flow.activations.some(

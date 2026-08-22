@@ -27,16 +27,6 @@ const hierarchyFlow: RecordedFlow = {
       timestamp: 2,
     },
     {
-      id: 'collection-state',
-      kind: 'state',
-      name: 'Collection state',
-      participantName: 'browser:alice/comments.comment',
-      severity: 'info',
-      state: { rows: 12 },
-      merged: { rows: 12 },
-      timestamp: 3,
-    },
-    {
       id: 'strategy-attempt',
       kind: 'activity',
       name: 'Strategy attempt',

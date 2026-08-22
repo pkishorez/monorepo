@@ -11,7 +11,6 @@ const kindDot: Record<RecordedFlowItem['kind'], string> = {
   'activation-start': 'bg-primary',
   'local-event': 'bg-sky-500',
   message: 'bg-amber-500',
-  state: 'bg-muted-foreground',
 };
 
 const formatDuration = (milliseconds: number) => {

@@ -29,11 +29,9 @@ const checkoutSuccess = (): FlowScenario => ({
       yield* checkout.send('inventory', 'Reserve items');
       yield* Effect.sleep('4 millis').pipe(inventory.withSpan('Reserve stock'));
       yield* inventory.send('checkout-api', 'Stock reserved');
-      yield* checkout.state({ authorized: false, reservedItems: 3 });
       yield* checkout.send('payments', 'Authorize payment');
       yield* Effect.sleep('5 millis').pipe(payments.withSpan('Charge card'));
       yield* payments.send('checkout-api', 'Payment authorized');
-      yield* checkout.state({ authorized: true });
       yield* checkout.send('browser', 'Order confirmed');
       yield* activation.end(Activation.completed());
     });

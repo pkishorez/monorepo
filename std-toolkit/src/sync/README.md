@@ -243,8 +243,7 @@ cleanup, each strategy for its supervised run, and each partition for one
 number of times but never twice at once, and the swim lane draws each Activation
 as a solid rail whose end cap is coloured by its outcome.
 
-Custom strategies can add high-level activities, events, and state through
-`ctx.flow`:
+Custom strategies can add high-level activities and events through `ctx.flow`:
 
 ```typescript
 run: (ctx) =>
@@ -255,13 +254,8 @@ run: (ctx) =>
         attributes: { entityCount: page.length },
       }),
     ),
-    Effect.tap((page) => ctx.flow.state({ lastPageSize: page.length })),
   );
 ```
-
-`ctx.flow.state` publishes part of the participant's state; keys merge forward,
-so a strategy can emit only what changed and the viewer can read the complete
-state at any later point. A `null` value clears a key.
 
 ## Single-item sync
 

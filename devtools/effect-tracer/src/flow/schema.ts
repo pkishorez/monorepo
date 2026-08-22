@@ -99,21 +99,12 @@ export const RecordedFlowActivationEndSchema = Schema.Struct({
   outcome: ActivationOutcomeKindSchema,
 });
 
-export const RecordedFlowStateSchema = Schema.Struct({
-  kind: Schema.Literal('state'),
-  ...ItemBase,
-  severity: RecordedFlowSeveritySchema,
-  state: Schema.Record(Schema.String, RecordedFlowAttributeValueSchema),
-  merged: Schema.Record(Schema.String, RecordedFlowAttributeValueSchema),
-});
-
 export const RecordedFlowItemSchema = Schema.Union([
   RecordedFlowActivitySchema,
   RecordedFlowActivationEndSchema,
   RecordedFlowActivationStartSchema,
   RecordedFlowLocalEventSchema,
   RecordedFlowMessageSchema,
-  RecordedFlowStateSchema,
 ]);
 
 export const RecordedFlowActivationSchema = Schema.Struct({
@@ -153,7 +144,6 @@ export type RecordedFlowActivationStart =
   typeof RecordedFlowActivationStartSchema.Type;
 export type RecordedFlowActivationEnd =
   typeof RecordedFlowActivationEndSchema.Type;
-export type RecordedFlowState = typeof RecordedFlowStateSchema.Type;
 export type RecordedFlowItem = typeof RecordedFlowItemSchema.Type;
 export type RecordedFlowActivation = typeof RecordedFlowActivationSchema.Type;
 export type RecordedFlowWarning = typeof RecordedFlowWarningSchema.Type;
