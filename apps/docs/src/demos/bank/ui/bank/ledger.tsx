@@ -30,7 +30,7 @@ const money = cn(mono, 'text-xl');
 const rowShell =
   'flex h-7 w-full items-baseline justify-between gap-6 text-left outline-none';
 const scrollBox =
-  '-mx-3.5 h-[30rem] min-h-[8rem] shrink overflow-x-hidden overflow-y-auto overscroll-contain px-3.5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
+  '-mx-3.5 max-h-[30rem] min-h-[8rem] shrink overflow-x-hidden overflow-y-auto overscroll-contain px-3.5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
 
 const numberField =
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';

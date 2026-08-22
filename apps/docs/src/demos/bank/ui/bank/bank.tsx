@@ -140,7 +140,7 @@ export function Bank(props: BankProps) {
   const viewing = rows.find((row) => row.id === viewingId) ?? null;
 
   return (
-    <main className="mx-auto flex h-svh w-full max-w-md flex-col gap-8 overflow-hidden px-6 py-8">
+    <main className="mx-auto my-auto flex max-h-svh w-full max-w-md flex-col gap-8 overflow-hidden px-6 py-8">
       <header>
         <StoreLine
           stores={props.stores}
@@ -149,7 +149,7 @@ export function Bank(props: BankProps) {
           onChange={props.onStore}
         />
       </header>
-      <div className="flex min-h-0 flex-1 flex-col justify-center">
+      <div className="flex min-h-0 flex-col">
         <Ledger
           rows={rows}
           busy={busy}
