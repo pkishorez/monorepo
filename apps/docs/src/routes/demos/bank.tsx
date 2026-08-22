@@ -206,13 +206,16 @@ function LiveBank({
       onCancel={() => send({ type: 'CANCEL' })}
       onUntarget={() => send({ type: 'UNTARGET' })}
       onSend={(amount, stay) => send({ type: 'SEND', amount, stay })}
-      onOpen={(opening) =>
+      onOpen={(opening) => {
+        const id = newId();
         runtime.accounts.insert({
-          id: newId(),
+          id,
           name: opening.name,
           balance: opening.balance,
-        })
-      }
+        });
+        send({ type: 'CANCEL' });
+        send({ type: 'PICK', accountId: id });
+      }}
       onRetry={(id) => send({ type: 'RETRY', id })}
       debug={
         shell.debug

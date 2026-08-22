@@ -5,6 +5,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@monorepo/frontend/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@monorepo/frontend/components/ui/drawer';
+import { useIsMobile } from '@monorepo/frontend/hooks/use-mobile';
 import { AnimatePresence, motion } from '@monorepo/frontend/motion';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
@@ -21,17 +29,17 @@ export interface TransactionLine {
 }
 
 const scrollBox =
-  '-mx-6 max-h-[min(50dvh,24rem)] overflow-x-hidden overflow-y-auto overscroll-contain px-6 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
+  'overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
 
 function Lines({ lines }: { lines: readonly TransactionLine[] }) {
   if (lines.length === 0)
     return (
-      <p className="flex h-12 items-center text-sm text-muted-foreground/60">
+      <p className="py-2 text-sm text-muted-foreground/60">
         No transactions yet
       </p>
     );
   return (
-    <ul>
+    <ul className="flex flex-col gap-3">
       <AnimatePresence initial={false}>
         {lines.map((line) => (
           <motion.li
@@ -41,18 +49,16 @@ function Lines({ lines }: { lines: readonly TransactionLine[] }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="flex h-12 items-baseline justify-between gap-6"
+            className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-baseline gap-4"
           >
-            <span className="flex min-w-0 items-baseline gap-2 truncate text-sm">
-              <span className="truncate">{line.counterpartyName}</span>
-              <span className="text-xs text-muted-foreground/60">
-                {line.at}
-              </span>
+            <span className={cn(mono, 'text-xs text-muted-foreground/60')}>
+              {line.at}
             </span>
+            <span className="truncate text-sm">{line.counterpartyName}</span>
             <span
               className={cn(
                 mono,
-                'shrink-0 text-base',
+                'text-base',
                 line.direction === 'sent' ? 'text-destructive' : 'text-primary',
               )}
             >
@@ -66,6 +72,11 @@ function Lines({ lines }: { lines: readonly TransactionLine[] }) {
   );
 }
 
+const summaryOf = (count: number): string =>
+  count === 0
+    ? 'Transactions'
+    : `${count} transaction${count === 1 ? '' : 's'}, newest first`;
+
 export function TransactionsDialog({
   account,
   lines,
@@ -75,26 +86,50 @@ export function TransactionsDialog({
   lines: readonly TransactionLine[];
   onClose: () => void;
 }) {
+  const mobile = useIsMobile();
+  const open = account !== null;
+  const onOpenChange = (next: boolean) => {
+    if (!next) onClose();
+  };
+  const balance = (
+    <span className={cn(mono, 'text-2xl font-normal text-foreground')}>
+      {account !== null && <AnimatedMoney amount={account.balance} />}
+    </span>
+  );
+
+  if (mobile)
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[85dvh]">
+          <DrawerHeader className="gap-1 text-left">
+            <DrawerTitle className="truncate text-sm text-muted-foreground">
+              {account?.name}
+            </DrawerTitle>
+            {balance}
+            <DrawerDescription className="text-xs">
+              {summaryOf(lines.length)}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className={cn(scrollBox, 'px-4 pb-6')}>
+            <Lines lines={lines} />
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+
   return (
-    <Dialog open={account !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        showCloseButton={false}
-        className="top-24 max-w-sm -translate-y-0 gap-4 p-6"
-      >
-        <DialogHeader className="gap-1 text-left">
-          <DialogTitle className="flex items-baseline justify-between gap-6 text-base">
-            <span className="truncate">{account?.name}</span>
-            <span className={cn(mono, 'shrink-0 text-xl font-normal')}>
-              {account !== null && <AnimatedMoney amount={account.balance} />}
-            </span>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="top-24 max-w-sm -translate-y-0 gap-4 p-6">
+        <DialogHeader className="gap-1 pr-8 text-left">
+          <DialogTitle className="truncate text-sm font-normal text-muted-foreground">
+            {account?.name}
           </DialogTitle>
+          {balance}
           <DialogDescription className="text-xs">
-            {lines.length === 0
-              ? 'Transactions'
-              : `${lines.length} transaction${lines.length === 1 ? '' : 's'}, newest first`}
+            {summaryOf(lines.length)}
           </DialogDescription>
         </DialogHeader>
-        <div className={scrollBox}>
+        <div className={cn(scrollBox, '-mx-6 max-h-[min(50dvh,24rem)] px-6')}>
           <Lines lines={lines} />
         </div>
       </DialogContent>
