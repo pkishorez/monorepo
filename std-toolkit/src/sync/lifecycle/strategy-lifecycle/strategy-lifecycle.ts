@@ -23,15 +23,12 @@ export const superviseStrategy = <A, E, R, RReport>(args: {
       Effect.all(
         [
           args.flow
-            ? Effect.all(
-                [
-                  args.flow.log(message, {
-                    attributes: { leadershipIdentity: args.identity },
-                  }),
-                  args.flow.state({ leadership: state }),
-                ],
-                { discard: true },
-              )
+            ? args.flow.log(message, {
+                attributes: {
+                  leadership: state,
+                  leadershipIdentity: args.identity,
+                },
+              })
             : Effect.void,
           args.onLeadership?.(state) ?? Effect.void,
         ],

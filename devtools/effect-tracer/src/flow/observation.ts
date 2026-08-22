@@ -31,7 +31,6 @@ export interface FlowEventObservation extends FlowObservationBase {
   readonly destination?: string;
   readonly messageId?: string;
   readonly replyTo?: string;
-  readonly state?: Readonly<Record<string, RecordedFlowAttributeValue>>;
 }
 
 export type FlowObservation = FlowActivityObservation | FlowEventObservation;
