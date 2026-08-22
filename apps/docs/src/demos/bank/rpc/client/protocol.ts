@@ -4,6 +4,7 @@ import { RpcClient, RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import {
   layerWebSocketProtocol,
   RpcConnection,
+  type ConnectionStatus,
 } from '@pkishorez/effect-cloudflare/websocket-rpc-client';
 import { defaultBroadcaster } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
@@ -66,6 +67,7 @@ export interface DurableObjectProtocol {
   readonly keepSubscribed: <A, E, R>(
     subscribe: () => Stream.Stream<A, E, R>,
   ) => Stream.Stream<A, E, R>;
+  readonly connectionStatus: Stream.Stream<ConnectionStatus>;
 }
 
 export const durableObjectProtocol = (
@@ -82,5 +84,6 @@ export const durableObjectProtocol = (
     return {
       protocolLayer: Layer.succeed(RpcClient.Protocol, protocol),
       keepSubscribed: connection.keepSubscribed,
+      connectionStatus: connection.connectionStatus,
     };
   });
