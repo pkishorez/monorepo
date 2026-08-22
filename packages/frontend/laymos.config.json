@@ -2,6 +2,7 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [
+    "src/components/blocks/devtools-panel/devtools-panel.fixture.tsx",
     "src/components/blocks/hello.tsx",
     "src/components/blocks/flow-swimlane/examples",
     "src/components/blocks/flow-swimlane/flow-swimlane.fixture.tsx",
@@ -134,6 +135,15 @@
             "narrative-view": ["trace-model", "trace-presentation"],
             "span-inspection": ["trace-model", "trace-presentation"]
           }
+        }
+      }
+    },
+    "devtools-panel": {
+      "paths": ["src/components/blocks/devtools-panel"],
+      "description": "Shows Traces and Flows recorded from a running Effect program",
+      "modules": {
+        "src/components/blocks/devtools-panel": {
+          "exposed": true
         }
       }
     },
@@ -443,6 +453,7 @@
       "description": "Frontend component architecture",
       "rules": {
         "architecture-analysis": ["blocks"],
+        "devtools-panel": ["blocks"],
         "blocks": ["ui"],
         "form": ["ui"],
         "ui": ["hooks", "lib"]

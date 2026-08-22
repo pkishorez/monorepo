@@ -3,6 +3,7 @@ import {
   Clock,
   Effect,
   Exit,
+  Layer,
   Logger,
   Option,
   References,
@@ -120,6 +121,12 @@ export interface TraceRecorder {
   readonly instrument: <A, E, R>(
     effect: Effect.Effect<A, E, R>,
   ) => Effect.Effect<A, E, R>;
+  /**
+   * Installs the recorder's tracer and logger into a Runtime once. Every
+   * Effect that Runtime subsequently runs is recorded, without wrapping each
+   * one in {@link TraceRecorder.instrument}.
+   */
+  readonly layer: Layer.Layer<never>;
   /** Everything recorded so far. Safe to call at any point, including mid-run. */
   readonly snapshot: () => CapturedTrace;
   /** Returns one Flow derived from its recorded spans and logs. */
@@ -246,6 +253,10 @@ export function makeTraceRecorder(
         Effect.withTracer(tracer),
         Effect.provide(Logger.layer([logger])),
       ),
+    layer: Layer.mergeAll(
+      Layer.succeed(Tracer.Tracer, tracer),
+      Logger.layer([logger]),
+    ),
     snapshot,
     snapshotFlow: (flowId) => projectRecordedFlow(snapshot(), flowId),
     snapshotFlows: () => {
