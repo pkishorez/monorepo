@@ -52,7 +52,7 @@ import {
 export type { LeadershipLayer } from './runtime/leadership/index.js';
 
 export type StdSyncPlatform = {
-  readonly storeLayer?: SyncStoreLayer;
+  readonly storeLayer?: SyncStoreLayer | ((syncName: string) => SyncStoreLayer);
   readonly leadershipLayer?: LeadershipLayer;
   readonly peerSync?: { readonly channel: PeerChannelFactory };
 };
@@ -143,8 +143,12 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
   const report: SyncReporter<R> =
     defaults.onEvent ?? ((event) => Effect.logError(event));
   const tracker = makeTracker();
+  const configuredStore =
+    typeof platform.storeLayer === 'function'
+      ? platform.storeLayer(name)
+      : platform.storeLayer;
   const store = makeSyncStore(
-    platform.storeLayer ?? Memory.make(syncStore).layer,
+    configuredStore ?? Memory.make(syncStore).layer,
     defaults.version === undefined
       ? undefined
       : { name, version: String(defaults.version) },
