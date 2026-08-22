@@ -5,7 +5,14 @@ import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney } from './animated-money.tsx';
 import { formatMoney } from './money.ts';
-import { bare, chWidth, digitsOnly, mono, parseAmount } from './shared.ts';
+import {
+  bare,
+  chWidth,
+  digitsOnly,
+  eyebrow,
+  mono,
+  parseAmount,
+} from './shared.ts';
 
 export interface LedgerProps {
   readonly rows: readonly Account[];
@@ -23,12 +30,10 @@ const money = cn(mono, 'text-xl');
 const rowShell =
   'flex h-7 w-full items-baseline justify-between gap-6 text-left outline-none';
 const scrollBox =
-  '-mx-3.5 h-[clamp(8rem,calc(100svh-22rem),30rem)] overflow-x-hidden overflow-y-auto overscroll-contain px-3.5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
+  '-mx-3.5 h-[30rem] min-h-[8rem] shrink overflow-x-hidden overflow-y-auto overscroll-contain px-3.5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
 
 const numberField =
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
-const eyebrow =
-  'text-[0.6875rem] leading-none tracking-widest text-muted-foreground uppercase';
 
 const moveFocus = (event: KeyboardEvent<HTMLElement>) => {
   if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
@@ -405,7 +410,10 @@ export function Ledger({
   });
 
   return (
-    <div className="flex flex-col gap-4" onKeyDown={moveFocus}>
+    <div
+      className="flex max-h-full min-h-0 flex-col gap-4"
+      onKeyDown={moveFocus}
+    >
       <Stage from={from} onCancel={onCancel} onHistory={onHistory} />
       <div className={scrollBox}>
         <ul>

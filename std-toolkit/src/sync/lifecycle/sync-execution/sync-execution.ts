@@ -193,6 +193,14 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
                   }),
                 ),
               ),
+          onLeadership: (state) =>
+            args.report({
+              _tag: 'LeadershipChanged',
+              collection: args.collectionName,
+              partitionKey,
+              strategy: entry.strategy.name,
+              state,
+            }),
         });
         yield* Effect.forkIn(strategyRun, ownerScope);
 

@@ -23,3 +23,5 @@ export const parseAmount = (raw: string): number | null => {
 export const chWidth = (raw: string): { width: string } => ({
   width: `${Math.max(1, raw.length)}ch`,
 });
+export const eyebrow =
+  'text-[0.6875rem] leading-none tracking-widest text-muted-foreground uppercase';

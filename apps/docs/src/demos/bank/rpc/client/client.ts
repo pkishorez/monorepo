@@ -64,11 +64,12 @@ const DurableObjectWiring = (
           new Error(`${envKey} is not set — deploy wires it in infra.`),
         );
       }
-      const { protocolLayer, keepSubscribed } =
+      const { protocolLayer, keepSubscribed, connectionStatus } =
         yield* durableObjectProtocol(url);
       return {
         protocolLayer,
         keepSubscribed,
+        connectionStatus,
         syncName,
         platform: browser(),
       };

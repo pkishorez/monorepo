@@ -305,6 +305,14 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
                   strategy: strategy.name,
                   cause,
                 }),
+              onLeadership: (state) =>
+                config.report({
+                  _tag: 'LeadershipChanged',
+                  collection: collectionName,
+                  partitionKey: SINGLE_STATE_KEY,
+                  strategy: strategy.name,
+                  state,
+                }),
             }).pipe(
               Effect.flatMap((lifecycle) =>
                 Effect.sync(() => {

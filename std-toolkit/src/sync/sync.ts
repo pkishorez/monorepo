@@ -311,7 +311,7 @@ export type {
   PeerChannel,
   PeerChannelFactory,
 } from './runtime/peer-sync/index.js';
-export type { SyncEvent } from './domain/sync-event/index.js';
+export type { LeadershipState, SyncEvent } from './domain/sync-event/index.js';
 export type { SyncReporter } from './domain/sync-event/index.js';
 export type {
   PartitionedStrategy,

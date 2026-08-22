@@ -12,6 +12,7 @@ import type {
   Leadership,
   LeadershipIdentity,
 } from '../../runtime/leadership/index.js';
+import type { LeadershipState } from '../../domain/sync-event/index.js';
 
 export const startSingleItemLifecycle = <
   TItem extends object,
@@ -28,6 +29,7 @@ export const startSingleItemLifecycle = <
   ) => StrategyContext<TItem, TState>;
   onError: (error: unknown) => Effect.Effect<void, never, R>;
   onDefect: (defect: unknown) => Effect.Effect<void, never, R>;
+  onLeadership: (state: LeadershipState) => Effect.Effect<void, never, R>;
 }): Effect.Effect<{ close: Effect.Effect<void> }, never, R> =>
   Effect.gen(function* () {
     const scope = yield* Scope.make();
@@ -53,6 +55,7 @@ export const startSingleItemLifecycle = <
             level: 'error',
           })
           .pipe(Effect.andThen(args.onError(error))),
+      onLeadership: args.onLeadership,
       onDefect: (defect) =>
         args.flow
           .log('Strategy defect', {

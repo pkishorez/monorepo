@@ -1,4 +1,11 @@
-import { Suspense, use, useEffect, useState, useTransition } from 'react';
+import {
+  Suspense,
+  use,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from 'react';
 import {
   createFileRoute,
   type SearchSchemaInput,
@@ -14,6 +21,7 @@ import {
   idbBank,
   newId,
   type BankRuntime,
+  type BankVitals,
   type NetworkQuality,
 } from '@/demos/bank/rpc/client';
 import { Bank, type BankAttempt, type BankStore } from '@/demos/bank/ui/bank';
@@ -78,7 +86,13 @@ const STORES: readonly Store[] = [
 
 const NETWORKS: readonly NetworkQuality[] = ['fast', 'slow', 'offline'];
 
-const PROBLEM_LINGER_MS = 5000;
+const REFUSAL_LINGER_MS = 5000;
+
+const leadershipOf = (vitals: BankVitals): 'leader' | 'follower' | null => {
+  const states = Object.values(vitals.leadership);
+  if (states.length === 0) return null;
+  return states.some((state) => state === 'waiting') ? 'follower' : 'leader';
+};
 
 const EMPTY: readonly never[] = [];
 
@@ -97,6 +111,7 @@ const BOOTING = {
   onSend: noop,
   onOpen: noop,
   onRetry: noop,
+  onDebug: noop,
 } as const;
 
 function BankPage() {
@@ -119,6 +134,11 @@ function BankPage() {
     onStore: (value: string) => switchStore(value as StoreKey),
     backHref: '/demos',
     debug: search.debug === true,
+    onDebug: (open: boolean) =>
+      void navigate({
+        search: { store: search.store, ...(open ? { debug: true } : {}) },
+        replace: true,
+      }),
   };
 
   return (
@@ -135,6 +155,7 @@ interface Shell {
   readonly onStore: (value: string) => void;
   readonly backHref: string;
   readonly debug: boolean;
+  readonly onDebug: (open: boolean) => void;
 }
 
 function BootedBank({ choice, shell }: { choice: Store; shell: Shell }) {
@@ -167,15 +188,20 @@ function LiveBank({
     if (choice.local) void runtime.seedIfEmpty();
   }, [choice, runtime]);
 
+  const vitals = useSyncExternalStore(
+    runtime.vitals.subscribe,
+    runtime.vitals.get,
+  );
+
   useEffect(() => {
-    const problems = Object.values(flights).filter(
-      (flight) => flight.phase !== 'sending',
+    const refusals = Object.values(flights).filter(
+      (flight) => flight.phase === 'refused',
     );
-    if (problems.length === 0) return;
+    if (refusals.length === 0) return;
     const timer = setTimeout(
       () =>
-        problems.forEach((flight) => send({ type: 'DISMISS', id: flight.id })),
-      PROBLEM_LINGER_MS,
+        refusals.forEach((flight) => send({ type: 'DISMISS', id: flight.id })),
+      REFUSAL_LINGER_MS,
     );
     return () => clearTimeout(timer);
   }, [flights, send]);
@@ -217,6 +243,7 @@ function LiveBank({
         send({ type: 'PICK', accountId: id });
       }}
       onRetry={(id) => send({ type: 'RETRY', id })}
+      onDebug={shell.onDebug}
       debug={
         shell.debug
           ? {
@@ -226,7 +253,10 @@ function LiveBank({
                 setNetwork(quality as NetworkQuality);
                 runtime.network.set(quality as NetworkQuality);
               },
-              onSeed: runtime.seed,
+              ws: vitals.ws,
+              leadership: leadershipOf(vitals),
+              queued: vitals.queued,
+              committing: vitals.committing,
             }
           : null
       }
