@@ -126,6 +126,7 @@ export type SingleItemSyncConfig<
  */
 export type StdSyncDefaults<R = never> = {
   name: string;
+  version?: string | number;
   options?: StdCollectionOptions<object>;
   platform?: StdSyncPlatform;
   cadence?: CadenceConfig;
@@ -144,6 +145,9 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
   const tracker = makeTracker();
   const store = makeSyncStore(
     platform.storeLayer ?? Memory.make(syncStore).layer,
+    defaults.version === undefined
+      ? undefined
+      : { name, version: String(defaults.version) },
   );
   const leadership = makeLeadership(platform.leadershipLayer);
   const cleanups = new Set<() => Promise<void>>();
