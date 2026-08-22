@@ -11,6 +11,7 @@ import {
 } from '../../db/std-table/contract/index.js';
 import { describe, expect, it, vi } from 'vitest';
 import { createStdSync, syncStore } from '../sync.js';
+import { browser } from '../platform/browser/index.js';
 import { storedReplicaEntity } from '../persistence/sync-store/index.js';
 import { noStrategyState } from '../domain/strategy-state/index.js';
 
@@ -517,6 +518,61 @@ describe('Sync persistence', () => {
 
     await mounted.subscription.cleanup();
     await firstAgain.dispose();
+  });
+
+  it('isolates browser persistence by Sync name by default', async () => {
+    vi.stubGlobal('navigator', { locks: { request: vi.fn() } });
+    vi.stubGlobal('document', {
+      visibilityState: 'visible',
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    const suffix = crypto.randomUUID();
+    const firstName = `first-${suffix}`;
+    const secondName = `second-${suffix}`;
+    const first = createStdSync({
+      name: firstName,
+      version: 1,
+      platform: browser(),
+    });
+    await Effect.runPromise(
+      first
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-1', listId: 'inbox', title: 'first' }, '1'),
+        ),
+    );
+    await first.dispose();
+
+    const second = createStdSync({
+      name: secondName,
+      version: 1,
+      platform: browser(),
+    });
+    await Effect.runPromise(
+      second
+        .sync({ schema: todoSchema })
+        .utils.applyToSyncReplica(
+          entity({ id: 'todo-2', listId: 'inbox', title: 'second' }, '1'),
+        ),
+    );
+    await second.dispose();
+
+    const firstAgain = createStdSync({
+      name: firstName,
+      version: 1,
+      platform: browser(),
+    });
+    const mounted = mount(firstAgain.sync({ schema: todoSchema }));
+    await vi.waitFor(() => expect(mounted.probe.readyCount).toBe(1));
+    expect(mounted.writes).toHaveLength(1);
+    expect(mounted.writes[0]).toMatchObject({
+      value: { id: 'todo-1', title: 'first' },
+    });
+
+    await mounted.subscription.cleanup();
+    await firstAgain.dispose();
+    vi.unstubAllGlobals();
   });
 
   it('resumes strategy state through a shared layer', async () => {
