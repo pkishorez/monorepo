@@ -48,10 +48,6 @@ export class BankMutations extends RpcGroup.make(
     }),
     error: TransferRefused,
   }),
-  Rpc.make('seed', {
-    success: Schema.Boolean,
-    error: Forbidden,
-  }),
   Rpc.make('clear', {
     success: Schema.Int,
     error: Forbidden,
