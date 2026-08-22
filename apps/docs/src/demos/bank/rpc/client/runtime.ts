@@ -1,5 +1,13 @@
 import { createOptimisticAction } from '@tanstack/react-db';
-import { Context, Effect, Layer, References, Scope, Stream } from 'effect';
+import {
+  Context,
+  Effect,
+  Layer,
+  References,
+  Scope,
+  Semaphore,
+  Stream,
+} from 'effect';
 import { RpcClient } from 'effect/unstable/rpc';
 import { nextUlid, type DecodedEntity } from 'std-toolkit/core';
 import {
@@ -106,6 +114,8 @@ const makeBank = Effect.gen(function* () {
     ),
   });
 
+  const lane = Semaphore.makeUnsafe(1);
+
   const sendMoney = createOptimisticAction<SendMoneyInput>({
     onMutate: ({ id, from, to, amount }) => {
       accounts.update(from, (draft) => {
@@ -118,13 +128,15 @@ const makeBank = Effect.gen(function* () {
     },
     mutationFn: (input) =>
       quietRuntime.runPromise(
-        network.travel.pipe(
-          Effect.flatMap(() => api.transfer(input)),
-          Effect.tap((outcome) =>
-            Effect.all([
-              accounts.utils.applyToSyncReplica([...outcome.accounts]),
-              transfers.utils.applyToSyncReplica([outcome.transfer]),
-            ]),
+        lane.withPermits(1)(
+          network.travel.pipe(
+            Effect.flatMap(() => api.transfer(input)),
+            Effect.tap((outcome) =>
+              Effect.all([
+                accounts.utils.applyToSyncReplica([...outcome.accounts]),
+                transfers.utils.applyToSyncReplica([outcome.transfer]),
+              ]),
+            ),
           ),
         ),
       ),
