@@ -23,5 +23,16 @@ export const domainFor = (stage: string): string | undefined =>
     Match.orElse(() => undefined),
   );
 
-export const devConfigFor = (isLocal: boolean): { port: number } | undefined =>
-  isLocal ? { port: 3000 } : undefined;
+// Honor the PORT injected by `portless run` (see the "dev" script).
+export const devConfigFor = (
+  isLocal: boolean,
+): { port: number } | undefined => {
+  if (!isLocal) return undefined;
+  const port = Number(process.env.PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(
+      'PORT must be assigned by portless. Start the app with `pnpm dev`.',
+    );
+  }
+  return { port };
+};

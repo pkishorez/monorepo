@@ -4,7 +4,7 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "dev": "alchemy dev",
+    "dev": "portless run --force alchemy dev",
     "build": "vite build",
     "lint": "fumadocs-mdx && tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",

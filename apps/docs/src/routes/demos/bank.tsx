@@ -1,6 +1,10 @@
 import { Suspense, use, useMemo, useState } from 'react';
 import { ArrowLeft, Landmark } from 'lucide-react';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  Link,
+  type SearchSchemaInput,
+} from '@tanstack/react-router';
 import { eq, not, useLiveQuery } from '@tanstack/react-db';
 import { useMachine } from '@xstate/react';
 import { uTime } from 'std-toolkit/core';
@@ -45,9 +49,21 @@ import {
   ViewpointPlaceholder,
 } from '@/demos/bank/ui/viewpoint-card';
 
+const STORE_KEYS = ['memory', 'idb', 'dynamo', 'sqlite'] as const;
+
+type StoreKey = (typeof STORE_KEYS)[number];
+
+const isStoreKey = (value: unknown): value is StoreKey =>
+  STORE_KEYS.includes(value as StoreKey);
+
 export const Route = createFileRoute('/demos/bank')({
   component: BankPage,
   ssr: false,
+  validateSearch: (
+    search: { store?: StoreKey } & SearchSchemaInput,
+  ): { store: StoreKey } => ({
+    store: isStoreKey(search.store) ? search.store : 'memory',
+  }),
   head: () => ({
     meta: [
       { title: 'Bank — a live demo of std-toolkit' },
@@ -59,8 +75,6 @@ export const Route = createFileRoute('/demos/bank')({
     ],
   }),
 });
-
-type StoreKey = 'memory' | 'idb' | 'dynamo' | 'sqlite';
 
 const SCROLL = '-mx-2 flex min-h-0 flex-1 flex-col overflow-y-auto px-2';
 
@@ -96,7 +110,10 @@ const timeOf = (ulid: string): string => {
 };
 
 function BankPage() {
-  const [store, setStore] = useState<StoreKey>('memory');
+  const { store } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setStore = (next: StoreKey) =>
+    navigate({ search: { store: next }, replace: true });
 
   return (
     <>
