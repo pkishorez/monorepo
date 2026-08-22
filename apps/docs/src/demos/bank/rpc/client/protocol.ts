@@ -10,7 +10,11 @@ import { defaultBroadcaster } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
 import { BankMutationsLive } from '../mutations/index.ts';
 import type { BankSubscriptionsLive as InMemorySubscriptionsLive } from '../subscriptions/in-memory/index.ts';
-import { BankRpcSerializationLayer, BankRpcs } from '../contract/index.ts';
+import {
+  BankRpcSerializationLayer,
+  BankRpcs,
+  Role,
+} from '../contract/index.ts';
 
 type BankTableLayer = Layer.Layer<StdTableService<'bank'>>;
 type SubscriptionsLayer = typeof InMemorySubscriptionsLive;
@@ -26,7 +30,9 @@ const makeBankFetch = (
 ): ((request: Request) => Promise<Response>) => {
   const services = Layer.mergeAll(
     Layer.mergeAll(BankMutationsLive, subscriptions).pipe(
-      Layer.provide(Layer.merge(table, defaultBroadcaster)),
+      Layer.provide(
+        Layer.mergeAll(table, defaultBroadcaster, Layer.succeed(Role, 'admin')),
+      ),
     ),
     BankRpcSerializationLayer,
   );

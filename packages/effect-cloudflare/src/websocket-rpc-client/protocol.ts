@@ -9,7 +9,7 @@ import { rpcConnectionLayer } from './connection.ts';
  * Resolves an RPC endpoint to an absolute `ws:`/`wss:` URL.
  *
  * A relative URL is resolved against `globalThis.location` and its scheme
- * swapped (`https:` → `wss:`, otherwise `ws:`); query and hash are dropped.
+ * swapped (`https:` → `wss:`, otherwise `ws:`); the query is kept and the hash dropped.
  * An absolute URL is used as given, with the same scheme swap applied.
  *
  * Exported so callers who need their own `Socket` layer — a test double, a
@@ -30,7 +30,6 @@ export const resolveWebSocketUrl = (url: string): string => {
   if (resolved.protocol !== 'ws:' && resolved.protocol !== 'wss:') {
     resolved.protocol = resolved.protocol === 'https:' ? 'wss:' : 'ws:';
   }
-  resolved.search = '';
   resolved.hash = '';
   return resolved.toString();
 };

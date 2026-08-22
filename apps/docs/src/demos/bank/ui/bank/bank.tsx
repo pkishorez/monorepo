@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react';
+import { ChevronDownIcon } from 'lucide-react';
 import { uTime } from 'std-toolkit/core';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@monorepo/frontend/components/ui/dropdown-menu';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import type { Transfer } from '../../contract/transfer/index.ts';
@@ -43,6 +51,7 @@ export interface BankProps {
   readonly accounts: readonly Account[];
   readonly transfers: readonly Transfer[];
   readonly attempts: readonly BankAttempt[];
+  readonly admin: boolean;
   readonly fromId: string | null;
   readonly toId: string | null;
   readonly onPick: (accountId: string) => void;
@@ -51,6 +60,7 @@ export interface BankProps {
   readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onOpen: (opening: Opening) => void;
+  readonly onClear: () => void;
   readonly onRetry: (attemptId: string) => void;
   readonly debug: BankDebug | null;
   readonly onDebug: (open: boolean) => void;
@@ -179,13 +189,31 @@ export function Bank(props: BankProps) {
             <div className="flex flex-col gap-6">
               <div className="flex h-12 items-baseline justify-between gap-6 border-t border-border/60 pt-4">
                 <span className="flex items-baseline gap-4 text-sm text-muted-foreground">
-                  <button
-                    type="button"
-                    onClick={() => setOpening(true)}
-                    className={textLink}
-                  >
-                    Open an account
-                  </button>
+                  {props.admin ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        className={cn(
+                          textLink,
+                          'inline-flex items-center gap-1 text-primary',
+                        )}
+                      >
+                        Admin
+                        <ChevronDownIcon className="size-3.5" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="min-w-44">
+                        <DropdownMenuItem onClick={() => setOpening(true)}>
+                          Open an account
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={props.onClear}
+                        >
+                          Clear all records
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => props.onDebug(true)}

@@ -4,9 +4,12 @@ import { Effect, Layer, Scope } from 'effect';
 import { HttpServerRequest } from 'effect/unstable/http';
 import { RpcSerialization } from 'effect/unstable/rpc';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { makeHibernatingWebSocketRpc } from '@pkishorez/effect-cloudflare/hibernating-rpc';
+import {
+  makeHibernatingWebSocketRpc,
+  type ConnectionSlot,
+} from '@pkishorez/effect-cloudflare/hibernating-rpc';
 
-export interface DurableRpcWorkerOptions<Rpcs extends Rpc.Any> {
+export interface DurableRpcWorkerOptions<Rpcs extends Rpc.Any, A = never> {
   /** `import.meta.filename` of the module whose default export is this worker. */
   readonly main: string;
   readonly schema: RpcGroup.RpcGroup<Rpcs>;
@@ -26,6 +29,8 @@ export interface DurableRpcWorkerOptions<Rpcs extends Rpc.Any> {
    * into the worker's env for the handlers to read at runtime.
    */
   readonly init?: Effect.Effect<unknown>;
+  /** Per-connection value resolved from the upgrade request and provided to every handler. */
+  readonly connection?: ConnectionSlot<A>;
   /** @default true — the worker's URL is how clients reach the RPC socket. */
   readonly workersDev?: boolean;
   readonly domain?: string;
@@ -70,9 +75,9 @@ export type DurableRpcHandlers<Rpcs extends Rpc.Any, E = never> = Effect.Effect<
  */
 export const DurableRpcWorker =
   <Self>() =>
-  <Rpcs extends Rpc.Any, E = never>(
+  <Rpcs extends Rpc.Any, E = never, A = never>(
     id: string,
-    options: DurableRpcWorkerOptions<Rpcs>,
+    options: DurableRpcWorkerOptions<Rpcs, A>,
     handlers: DurableRpcHandlers<Rpcs, E>,
   ) => {
     class DurableRpcObject extends Cloudflare.DurableObject<
@@ -94,6 +99,7 @@ export const DurableRpcWorker =
             upgrade: Cloudflare.upgrade,
             group: options.schema,
             layer,
+            connection: options.connection,
           }).pipe(
             Effect.provide(options.serialization ?? RpcSerialization.layerJson),
             Effect.orDie,

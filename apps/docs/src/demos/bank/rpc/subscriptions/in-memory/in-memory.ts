@@ -1,4 +1,4 @@
-import { Effect, Stream } from 'effect';
+import { Duration, Effect, Stream } from 'effect';
 import type { DecodedEntity } from 'std-toolkit/core';
 import type { QueryPage, StdTableService } from 'std-toolkit/db';
 import {
@@ -15,6 +15,10 @@ import {
 } from '../../../std-table/entities/transfer/index.ts';
 
 type BankTableService = StdTableService<'bank'>;
+type Batch<T> = ReadonlyArray<DecodedEntity<T>>;
+
+const batchSize = 20;
+const batchWindow = Duration.millis(50);
 
 const stamp = <T>(row: DecodedEntity<T>): DecodedEntity<T> => ({
   ...row,
@@ -46,15 +50,15 @@ const watch = <T extends object>(config: {
     cursor: DecodedEntity<T> | null,
   ) => Effect.Effect<QueryPage<DecodedEntity<T>>, never, BankTableService>;
   readonly subscribe: () => Stream.Stream<DecodedEntity<T>>;
-}): Stream.Stream<DecodedEntity<T>, never, BankTableService> =>
+}): Stream.Stream<Batch<T>, never, BankTableService> =>
   Stream.concat(
     Stream.fromIterableEffect(catchUp(config.fetchPage, config.cursor)),
     Stream.suspend(() => config.subscribe()),
-  ).pipe(Stream.map(stamp));
+  ).pipe(Stream.map(stamp), Stream.groupedWithin(batchSize, batchWindow));
 
 export const watchAccounts = (
   cursor: AccountRow | null,
-): Stream.Stream<AccountRow, never, BankTableService> =>
+): Stream.Stream<ReadonlyArray<AccountRow>, never, BankTableService> =>
   watch({
     cursor,
     fetchPage: (after) =>
@@ -72,7 +76,7 @@ export const watchTransfers = (
   account: string,
   direction: TransferDirection,
   cursor: TransferRow | null,
-): Stream.Stream<TransferRow, never, BankTableService> =>
+): Stream.Stream<ReadonlyArray<TransferRow>, never, BankTableService> =>
   watch({
     cursor,
     fetchPage: (after) => {
@@ -102,7 +106,7 @@ export const watchTransfers = (
 
 export const watchAllTransfers = (
   cursor: TransferRow | null,
-): Stream.Stream<TransferRow, never, BankTableService> =>
+): Stream.Stream<ReadonlyArray<TransferRow>, never, BankTableService> =>
   watch({
     cursor,
     fetchPage: (after) =>
