@@ -1,10 +1,10 @@
 import {
   Suspense,
+  startTransition,
   use,
   useEffect,
   useState,
   useSyncExternalStore,
-  useTransition,
 } from 'react';
 import {
   createFileRoute,
@@ -118,11 +118,10 @@ function BankPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [store, setStore] = useState<StoreKey>(search.store);
-  const [switching, startSwitch] = useTransition();
 
   const switchStore = (next: StoreKey) => {
     if (next === store) return;
-    startSwitch(() => setStore(next));
+    startTransition(() => setStore(next));
     void navigate({ search: { ...search, store: next }, replace: true });
   };
 
@@ -130,7 +129,6 @@ function BankPage() {
   const shell = {
     stores: STORES,
     store,
-    switching,
     onStore: (value: string) => switchStore(value as StoreKey),
     backHref: '/demos',
     debug: search.debug === true,
@@ -151,7 +149,6 @@ function BankPage() {
 interface Shell {
   readonly stores: readonly Store[];
   readonly store: StoreKey;
-  readonly switching: boolean;
   readonly onStore: (value: string) => void;
   readonly backHref: string;
   readonly debug: boolean;
@@ -220,7 +217,6 @@ function LiveBank({
     <Bank
       stores={shell.stores}
       store={shell.store}
-      switching={shell.switching}
       onStore={shell.onStore}
       backHref={shell.backHref}
       accounts={(accountRows ?? EMPTY) as ReadonlyArray<Account>}
