@@ -27,6 +27,7 @@ jobs:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
       BANK_AWS_ACCESS_KEY_ID: ${{ secrets.BANK_AWS_ACCESS_KEY_ID }}
       BANK_AWS_SECRET_ACCESS_KEY: ${{ secrets.BANK_AWS_SECRET_ACCESS_KEY }}
+      BANK_ADMIN_KEY: ${{ secrets.BANK_ADMIN_KEY }}
       # Destroy also evaluates apps/docs/alchemy.run.ts, whose accident-guard
       # refuses deployed stages without this opt-in.
       ALLOW_DEPLOY: 'true'

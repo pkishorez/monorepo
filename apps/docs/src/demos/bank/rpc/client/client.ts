@@ -55,6 +55,18 @@ const IdbWiring = Layer.effect(
   }),
 );
 
+const ADMIN_KEY = 'bank-admin-key';
+
+const adminUrl = (url: string): string => {
+  const fromSearch = new URLSearchParams(location.search).get('admin');
+  if (fromSearch) localStorage.setItem(ADMIN_KEY, fromSearch);
+  const key = fromSearch ?? localStorage.getItem(ADMIN_KEY);
+  if (!key) return url;
+  const target = new URL(url);
+  target.searchParams.set('admin', key);
+  return target.toString();
+};
+
 const DurableObjectWiring = (
   envKey: 'VITE_BANK_SQLITE_DO_URL' | 'VITE_BANK_DYNAMO_DO_URL',
   syncName: string,
@@ -69,7 +81,7 @@ const DurableObjectWiring = (
         );
       }
       const { protocolLayer, keepSubscribed, connectionStatus } =
-        yield* durableObjectProtocol(url);
+        yield* durableObjectProtocol(adminUrl(url));
       return {
         protocolLayer,
         keepSubscribed,

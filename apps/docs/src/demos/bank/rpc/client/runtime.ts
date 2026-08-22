@@ -34,6 +34,25 @@ export const newId = (): string => Effect.runSync(nextUlid);
 
 const SYNC_VERSION = 1;
 
+const deleteDatabase = (name: string): Effect.Effect<void> =>
+  Effect.callback<void>((resume) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess =
+      request.onerror =
+      request.onblocked =
+        () => resume(Effect.void);
+  });
+
+const dropSyncDatabases = (prefix: string): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    if (typeof indexedDB === 'undefined') return;
+    const databases = yield* Effect.promise(() => indexedDB.databases());
+    const names = databases.flatMap(({ name }) =>
+      name?.startsWith(prefix) ? [name] : [],
+    );
+    yield* Effect.forEach(names, deleteDatabase, { discard: true });
+  });
+
 const quiet = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   Effect.provideService(effect, References.MinimumLogLevel, 'Warning');
 
@@ -95,6 +114,8 @@ const makeBank = Effect.gen(function* () {
     yield* BankWiring;
   const api = yield* BankApi;
   const network = yield* Network;
+  const session = yield* api.session();
+  const admin = session.role === 'admin';
   const recorder = makeTraceRecorder();
   const runtime = recordedRuntime(recorder);
 
@@ -122,7 +143,7 @@ const makeBank = Effect.gen(function* () {
   }
 
   const std = createStdSync({
-    name: syncName,
+    name: `${syncName}-g${session.generation}`,
     version: SYNC_VERSION,
     platform,
     runtime,
@@ -137,14 +158,13 @@ const makeBank = Effect.gen(function* () {
   const liveOldToNew = <T extends object>(
     subscribe: (
       cursor: DecodedEntity<T> | null,
-    ) => Stream.Stream<DecodedEntity<T>, unknown>,
+    ) => Stream.Stream<ReadonlyArray<DecodedEntity<T>>, unknown>,
   ) => ({
     total: {
       strategy: syncStrategy.oldToNew<T>({
         source: ({ live }) =>
           live({
-            open: ({ cursor }) =>
-              keepSubscribed(() => subscribe(cursor)).pipe(Stream.chunks),
+            open: ({ cursor }) => keepSubscribed(() => subscribe(cursor)),
           }),
       }),
     },
@@ -236,8 +256,20 @@ const makeBank = Effect.gen(function* () {
   const seedIfEmpty = (): Promise<boolean> =>
     runtime.runPromise(api.seed().pipe(Effect.withSpan('Seed if empty')));
 
+  const clear = (): Promise<void> =>
+    runtime.runPromise(
+      api
+        .clear()
+        .pipe(
+          Effect.andThen(Effect.promise(() => std.dispose())),
+          Effect.andThen(dropSyncDatabases(`std-sync:${syncName}-`)),
+          Effect.withSpan('Clear the bank'),
+        ),
+    );
+
   return {
     api,
+    admin,
     accounts,
     transfers,
     std,
@@ -245,6 +277,7 @@ const makeBank = Effect.gen(function* () {
     sendMoney,
     seed,
     seedIfEmpty,
+    clear,
     vitals,
     recorder,
   };

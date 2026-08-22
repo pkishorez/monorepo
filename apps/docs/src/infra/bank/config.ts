@@ -1,4 +1,6 @@
 import { Config, Effect, Redacted } from 'effect';
+import type { ConnectionSlot } from '@pkishorez/effect-cloudflare/hibernating-rpc';
+import { Role } from '../../demos/bank/rpc/contract/index.ts';
 
 const secret = (key: string) =>
   Effect.map(
@@ -32,3 +34,15 @@ export const dynamoSettings = Effect.gen(function* () {
     secretAccessKey,
   };
 });
+
+export const adminKey = Effect.orDie(secret('BANK_ADMIN_KEY'));
+
+export const adminConnection: ConnectionSlot<Role> = {
+  tag: Role,
+  initial: (request) =>
+    Effect.map(adminKey, (key) =>
+      new URL(request.url, 'http://do').searchParams.get('admin') === key
+        ? 'admin'
+        : 'guest',
+    ),
+};

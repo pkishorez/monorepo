@@ -85,7 +85,7 @@ One field, relative or absolute:
 | `'wss://other.test/rpc'`   | anything                  | `wss://other.test/rpc`       |
 | `'https://other.test/rpc'` | anything                  | `wss://other.test/rpc`       |
 
-Query and hash are dropped. Resolution happens **lazily at layer build time**, so a
+The query is kept (handy for connection tokens) and the hash dropped. Resolution happens **lazily at layer build time**, so a
 module-level `ManagedRuntime` is safe to construct during SSR — nothing touches
 `location` until the runtime is first used in a browser.
 

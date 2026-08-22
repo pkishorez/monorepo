@@ -4,7 +4,7 @@ import { defaultBroadcaster } from 'std-toolkit/core';
 import { BankRpcs } from '../../demos/bank/rpc/contract/index.ts';
 import { BankMutationsLive } from '../../demos/bank/rpc/mutations/index.ts';
 import { BankSubscriptionsLive } from '../../demos/bank/rpc/subscriptions/durable-object/index.ts';
-import { dynamoSettings } from './config.ts';
+import { adminConnection, adminKey, dynamoSettings } from './config.ts';
 import { dynamoClient } from './dynamo.ts';
 
 export default class DynamoDO extends DurableRpcWorker<DynamoDO>()(
@@ -14,7 +14,8 @@ export default class DynamoDO extends DurableRpcWorker<DynamoDO>()(
     schema: BankRpcs,
     objectName: 'DynamoDurableObject',
     compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
-    init: Effect.orDie(dynamoSettings),
+    init: Effect.all([Effect.orDie(dynamoSettings), adminKey]),
+    connection: adminConnection,
   },
   Effect.gen(function* () {
     const dynamo = yield* Effect.orDie(dynamoClient);

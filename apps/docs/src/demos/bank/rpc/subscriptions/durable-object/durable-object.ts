@@ -1,4 +1,4 @@
-import { Effect, Option, Stream } from 'effect';
+import { Array, Effect, Option, Stream } from 'effect';
 import { StreamCheckpoint } from '@pkishorez/effect-cloudflare/hibernating-rpc';
 import type { StdTableService } from 'std-toolkit/db';
 import {
@@ -13,39 +13,46 @@ import * as InMemory from '../in-memory/index.ts';
 
 type BankTableService = StdTableService<'bank'>;
 
-const checkpointed = <T extends object>(
-  schema: typeof AccountEntity | typeof TransferEntity,
-  cursor: T | null,
-  watch: (cursor: T | null) => Stream.Stream<T, never, BankTableService>,
-): Stream.Stream<T, never, BankTableService> =>
+const checkpointed = <S extends typeof AccountEntity | typeof TransferEntity>(
+  schema: S,
+  cursor: S['Type'] | null,
+  watch: (
+    cursor: S['Type'] | null,
+  ) => Stream.Stream<ReadonlyArray<S['Type']>, never, BankTableService>,
+): Stream.Stream<ReadonlyArray<S['Type']>, never, BankTableService> =>
   Stream.unwrap(
     Effect.gen(function* () {
       const checkpoint = yield* StreamCheckpoint;
       const resumed = yield* checkpoint.get(schema).pipe(Effect.orDie);
-      const resumeFrom = Option.getOrElse(resumed, () => cursor) as T | null;
+      const resumeFrom = Option.getOrElse(resumed, () => cursor);
       return watch(resumeFrom).pipe(
-        Stream.tap((item) => checkpoint.put(item, schema).pipe(Effect.orDie)),
-      ) as Stream.Stream<T, never, BankTableService>;
+        Stream.tap((batch) =>
+          Option.match(Array.last(batch), {
+            onNone: () => Effect.void,
+            onSome: (item) => checkpoint.put(item, schema).pipe(Effect.orDie),
+          }),
+        ),
+      );
     }),
   );
 
 export const watchAccounts = (
   cursor: AccountRow | null,
-): Stream.Stream<AccountRow, never, BankTableService> =>
+): Stream.Stream<ReadonlyArray<AccountRow>, never, BankTableService> =>
   checkpointed(AccountEntity, cursor, InMemory.watchAccounts);
 
 export const watchTransfers = (
   account: string,
   direction: TransferDirection,
   cursor: TransferRow | null,
-): Stream.Stream<TransferRow, never, BankTableService> =>
+): Stream.Stream<ReadonlyArray<TransferRow>, never, BankTableService> =>
   checkpointed(TransferEntity, cursor, (resumeFrom) =>
     InMemory.watchTransfers(account, direction, resumeFrom),
   );
 
 export const watchAllTransfers = (
   cursor: TransferRow | null,
-): Stream.Stream<TransferRow, never, BankTableService> =>
+): Stream.Stream<ReadonlyArray<TransferRow>, never, BankTableService> =>
   checkpointed(TransferEntity, cursor, InMemory.watchAllTransfers);
 
 export const BankSubscriptionsLive = BankSubscriptions.toLayer({
