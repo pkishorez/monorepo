@@ -4,7 +4,7 @@ import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import type { Transfer } from '../../contract/transfer/index.ts';
 import { LastEvent, type LastEventLine } from './last-event.tsx';
-import { formatMoney } from './money.ts';
+import { AnimatedMoney } from './animated-money.tsx';
 import { Ledger } from './ledger.tsx';
 import { OpenDialog } from './open-dialog.tsx';
 import { mono, textLink, type Opening } from './shared.ts';
@@ -196,7 +196,7 @@ export function Bank(props: BankProps) {
               rows.length === 0 && 'opacity-0',
             )}
           >
-            {formatMoney(total)}
+            <AnimatedMoney amount={total} />
           </p>
         </div>
         <LastEvent line={line} onRetry={props.onRetry} />

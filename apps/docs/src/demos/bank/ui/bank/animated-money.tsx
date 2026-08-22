@@ -25,36 +25,41 @@ export function AnimatedMoney({
   const value = useMotionValue(amount);
   const text = useTransform(value, (raw) => formatMoney(Math.round(raw)));
   const reduced = useReducedMotion();
-  const [moving, setMoving] = useState(false);
+  const [moving, setMoving] = useState<'up' | 'down' | null>(null);
 
   useEffect(() => {
     const from = value.get();
     if (reduced || from === amount) {
       value.set(amount);
-      setMoving(false);
+      setMoving(null);
       return;
     }
-    setMoving(true);
+    setMoving(amount > from ? 'up' : 'down');
     const duration = Math.min(
       ROLL_MAX_S,
       ROLL_MIN_S + Math.log10(Math.abs(amount - from)) * ROLL_PER_DECADE_S,
     );
     const controls = animate(value, amount, { duration, ease: 'easeOut' });
     const flash = setTimeout(
-      () => setMoving(false),
+      () => setMoving(null),
       Math.max(FLASH_HOLD_MS, duration * 1000),
     );
     return () => {
       controls.stop();
       clearTimeout(flash);
-      setMoving(false);
+      setMoving(null);
     };
   }, [amount, reduced, value]);
 
   return (
     <motion.span
       style={{ transitionDuration: `${FLASH_FADE_MS}ms` }}
-      className={cn('transition-colors', moving && 'text-primary', className)}
+      className={cn(
+        'transition-colors',
+        moving === 'up' && 'text-primary',
+        moving === 'down' && 'text-destructive',
+        className,
+      )}
     >
       {text}
     </motion.span>

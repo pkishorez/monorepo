@@ -5,8 +5,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@monorepo/frontend/components/ui/dialog';
+import { AnimatePresence, motion } from '@monorepo/frontend/motion';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
+import { AnimatedMoney } from './animated-money.tsx';
 import { formatMoney } from './money.ts';
 import { mono } from './shared.ts';
 
@@ -30,27 +32,36 @@ function Lines({ lines }: { lines: readonly TransactionLine[] }) {
     );
   return (
     <ul>
-      {lines.map((line) => (
-        <li
-          key={line.id}
-          className="flex h-12 items-baseline justify-between gap-6"
-        >
-          <span className="flex min-w-0 items-baseline gap-2 truncate text-sm">
-            <span className="truncate">{line.counterpartyName}</span>
-            <span className="text-xs text-muted-foreground/60">{line.at}</span>
-          </span>
-          <span
-            className={cn(
-              mono,
-              'shrink-0 text-base',
-              line.direction === 'sent' ? 'text-destructive' : 'text-primary',
-            )}
+      <AnimatePresence initial={false}>
+        {lines.map((line) => (
+          <motion.li
+            key={line.id}
+            layout="position"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="flex h-12 items-baseline justify-between gap-6"
           >
-            {line.direction === 'sent' ? '−' : '+'}
-            {formatMoney(line.amount)}
-          </span>
-        </li>
-      ))}
+            <span className="flex min-w-0 items-baseline gap-2 truncate text-sm">
+              <span className="truncate">{line.counterpartyName}</span>
+              <span className="text-xs text-muted-foreground/60">
+                {line.at}
+              </span>
+            </span>
+            <span
+              className={cn(
+                mono,
+                'shrink-0 text-base',
+                line.direction === 'sent' ? 'text-destructive' : 'text-primary',
+              )}
+            >
+              {line.direction === 'sent' ? '−' : '+'}
+              {formatMoney(line.amount)}
+            </span>
+          </motion.li>
+        ))}
+      </AnimatePresence>
     </ul>
   );
 }
@@ -74,7 +85,7 @@ export function TransactionsDialog({
           <DialogTitle className="flex items-baseline justify-between gap-6 text-base">
             <span className="truncate">{account?.name}</span>
             <span className={cn(mono, 'shrink-0 text-xl font-normal')}>
-              {account !== null && formatMoney(account.balance)}
+              {account !== null && <AnimatedMoney amount={account.balance} />}
             </span>
           </DialogTitle>
           <DialogDescription className="text-xs">
