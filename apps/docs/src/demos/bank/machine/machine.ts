@@ -33,6 +33,7 @@ export type JourneyEvent =
   | { type: 'PICK'; accountId: string }
   | { type: 'CANCEL' }
   | { type: 'UNTARGET' }
+  | { type: 'SWAP' }
   | { type: 'SEND'; amount: number; stay?: boolean }
   | { type: 'RETRY'; id: string }
   | { type: 'DISMISS'; id: string };
@@ -193,6 +194,12 @@ export const journeyMachine = setup({
       on: {
         CANCEL: 'idle',
         UNTARGET: { target: 'armed', actions: assign({ toId: null }) },
+        SWAP: {
+          actions: assign({
+            fromId: ({ context }) => context.toId,
+            toId: ({ context }) => context.fromId,
+          }),
+        },
         PICK: [
           { guard: 'isFrom', target: 'idle' },
           { guard: 'isTo', target: 'armed', actions: assign({ toId: null }) },

@@ -48,6 +48,7 @@ export interface BankProps {
   readonly onPick: (accountId: string) => void;
   readonly onCancel: () => void;
   readonly onUntarget: () => void;
+  readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onOpen: (opening: Opening) => void;
   readonly onRetry: (attemptId: string) => void;
@@ -161,6 +162,7 @@ export function Bank(props: BankProps) {
               if (viewingId === null) props.onCancel();
             }}
             onUntarget={props.onUntarget}
+            onSwap={props.onSwap}
             onSend={props.onSend}
             onHistory={setViewingId}
           />
