@@ -2,7 +2,6 @@ export {
   BankMutationsLive,
   openAccount,
   seedBalance,
-  seedBankIfEmpty,
   seedNames,
   SEED_SIZE,
   transfer,

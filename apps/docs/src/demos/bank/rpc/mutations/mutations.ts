@@ -132,24 +132,6 @@ export const transfer = (
     );
   });
 
-const hasAnyAccount: Effect.Effect<boolean, never, BankTableService> =
-  accountEntity.query('byUpdated', { pk: {}, '>=': null }, { limit: 1 }).pipe(
-    Effect.map(({ items }) => items.length > 0),
-    Effect.orDie,
-  );
-
-export const seedBankIfEmpty: Effect.Effect<boolean, never, BankTableService> =
-  Effect.gen(function* () {
-    if (yield* hasAnyAccount) return false;
-    yield* Effect.all(
-      seedNames(SEED_SIZE).map((name) =>
-        openAccount({ name, balance: seedBalance() }).pipe(Effect.orDie),
-      ),
-      { discard: true },
-    );
-    return true;
-  });
-
 const generation: Effect.Effect<number, never, BankTableService> =
   generationEntity.get().pipe(
     Effect.map((current) => current.value.value),
@@ -174,7 +156,6 @@ export const BankMutationsLive = BankMutations.toLayer({
   openAccount: ({ id, name, balance }) =>
     requireAdmin.pipe(Effect.andThen(openAccount({ id, name, balance }))),
   transfer: ({ id, from, to, amount }) => transfer({ id, from, to, amount }),
-  seed: () => requireAdmin.pipe(Effect.andThen(seedBankIfEmpty)),
   clear: () => requireAdmin.pipe(Effect.andThen(clearBank)),
   session: () => Effect.all({ role: Role, generation }),
 });

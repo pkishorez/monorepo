@@ -63,7 +63,6 @@ export const Route = createFileRoute('/demos/bank')({
 
 interface Store extends BankStore {
   readonly value: StoreKey;
-  readonly local: boolean;
   readonly boot: () => Promise<BankRuntime>;
 }
 
@@ -72,21 +71,18 @@ const STORES: readonly Store[] = [
     value: 'idb',
     label: 'IndexedDB',
     reach: 'this browser · push',
-    local: true,
     boot: idbBank,
   },
   {
     value: 'dynamo',
     label: 'DynamoDB',
     reach: 'everyone · poll',
-    local: false,
     boot: dynamoBank,
   },
   {
     value: 'sqlite',
     label: 'Durable Object',
     reach: 'everyone · push',
-    local: false,
     boot: sqliteBank,
   },
 ];
@@ -119,6 +115,7 @@ const BOOTING = {
   onSwap: noop,
   onSend: noop,
   onOpen: noop,
+  onSeed: noop,
   onClear: noop,
   onRetry: noop,
   onDebug: noop,
@@ -168,18 +165,10 @@ interface Shell {
 
 function BootedBank({ choice, shell }: { choice: Store; shell: Shell }) {
   const runtime = use(choice.boot());
-  return <LiveBank choice={choice} shell={shell} runtime={runtime} />;
+  return <LiveBank shell={shell} runtime={runtime} />;
 }
 
-function LiveBank({
-  choice,
-  shell,
-  runtime,
-}: {
-  choice: Store;
-  shell: Shell;
-  runtime: BankRuntime;
-}) {
+function LiveBank({ shell, runtime }: { shell: Shell; runtime: BankRuntime }) {
   const [network, setNetwork] = useState<NetworkQuality>(runtime.network.get());
   const [traces, setTraces] = useState(false);
 
@@ -192,10 +181,6 @@ function LiveBank({
 
   const { data: accountRows } = useLiveQuery(() => runtime.accounts);
   const { data: transferRows } = useLiveQuery(() => runtime.transfers);
-
-  useEffect(() => {
-    if (choice.local) void runtime.seedIfEmpty();
-  }, [choice, runtime]);
 
   const vitals = useSyncExternalStore(
     runtime.vitals.subscribe,
@@ -253,6 +238,7 @@ function LiveBank({
           send({ type: 'CANCEL' });
           send({ type: 'PICK', accountId: id });
         }}
+        onSeed={runtime.seed}
         onClear={() => void runtime.clear().then(() => location.reload())}
         onRetry={(id) => send({ type: 'RETRY', id })}
         onDebug={shell.onDebug}
