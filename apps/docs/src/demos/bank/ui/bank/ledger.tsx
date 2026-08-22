@@ -53,14 +53,10 @@ const coarsePointer = () =>
 const keepFocus = (event: { preventDefault: () => void }) =>
   event.preventDefault();
 
-const tap = {
-  scale: 0.97,
-  backgroundColor: 'var(--primary)',
-  color: 'var(--primary-foreground)',
-} as const;
+const tap = { scale: 0.97 } as const;
 
 const badge =
-  'h-8 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground/80 outline-none transition-colors duration-150 hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground';
+  'h-8 rounded-full bg-muted px-3.5 text-sm font-medium text-foreground/80 outline-none transition-colors duration-150 hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground active:bg-primary active:text-primary-foreground';
 
 const panel = '-mx-2.5 rounded-xl px-2.5';
 const panelOn = 'bg-muted/15';
@@ -355,7 +351,7 @@ function Row({
                     className={cn(
                       mono,
                       badge,
-                      'disabled:opacity-30 disabled:hover:bg-muted disabled:hover:text-foreground/80',
+                      'disabled:opacity-30 disabled:hover:bg-muted disabled:hover:text-foreground/80 disabled:active:bg-muted disabled:active:text-foreground/80',
                     )}
                   >
                     +{quick}

@@ -80,9 +80,7 @@ const makeBank = Effect.gen(function* () {
         source: ({ live }) =>
           live({
             open: ({ cursor }) =>
-              keepSubscribed(() => subscribe(cursor)).pipe(
-                Stream.map((item) => [item] as const),
-              ),
+              keepSubscribed(() => subscribe(cursor)).pipe(Stream.chunks),
           }),
       }),
     },
