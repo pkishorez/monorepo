@@ -411,7 +411,7 @@ describe('FlowSwimlane interactions', () => {
     };
 
     click('Hide browser own activity');
-    expect(viewport.textContent).toContain('self hidden');
+    expect(viewport.textContent).toContain('own hidden');
     expect(viewport.querySelectorAll('[data-flow-item]')).toHaveLength(2);
     click('Restore browser own activity');
     expect(viewport.querySelectorAll('[data-flow-item]')).toHaveLength(3);
