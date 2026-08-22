@@ -1,4 +1,4 @@
-import { XIcon } from 'lucide-react';
+import { ScanSearch, XIcon } from 'lucide-react';
 
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
@@ -70,10 +70,16 @@ function SectionLabel({ children }: { readonly children: React.ReactNode }) {
 export function FlowItemDetails({
   item,
   onClose,
+  onOpenTrace,
   className,
 }: {
   readonly item: RecordedFlowItem;
   readonly onClose?: () => void;
+  /** Offered on activities, which are spans in a trace the host can show. */
+  readonly onOpenTrace?: (target: {
+    readonly traceId: string;
+    readonly spanId: string;
+  }) => void;
   readonly className?: string;
 }) {
   const attributes = item.attributes ?? {};
@@ -101,6 +107,19 @@ export function FlowItemDetails({
           <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
             {formatDuration(item.duration)}
           </span>
+        )}
+        {item.kind === 'activity' && onOpenTrace && (
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() =>
+              onOpenTrace({ traceId: item.traceId, spanId: item.spanId })
+            }
+            className="shrink-0"
+          >
+            <ScanSearch />
+            Open trace
+          </Button>
         )}
         {onClose && (
           <Button

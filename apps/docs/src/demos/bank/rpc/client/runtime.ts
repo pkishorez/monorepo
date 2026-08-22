@@ -10,6 +10,10 @@ import {
 } from 'effect';
 import { RpcClient } from 'effect/unstable/rpc';
 import type { ConnectionStatus } from '@pkishorez/effect-cloudflare/websocket-rpc-client';
+import {
+  makeTraceRecorder,
+  type TraceRecorder,
+} from '@pkishorez/effect-tracer/recorder';
 import { nextUlid, type DecodedEntity } from 'std-toolkit/core';
 import {
   createStdSync,
@@ -38,6 +42,20 @@ const quietRuntime = {
     Effect.runPromise(quiet(effect)),
   runSync: <A, E>(effect: Effect.Effect<A, E>): A =>
     Effect.runSync(quiet(effect)),
+};
+
+const recordedRuntime = (recorder: TraceRecorder) => {
+  const record = <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+    effect.pipe(
+      Effect.provide(recorder.layer),
+      Effect.provideService(References.MinimumLogLevel, 'Info'),
+    );
+  return {
+    runPromise: <A, E>(effect: Effect.Effect<A, E>): Promise<A> =>
+      Effect.runPromise(record(effect)),
+    runSync: <A, E>(effect: Effect.Effect<A, E>): A =>
+      Effect.runSync(record(effect)),
+  };
 };
 
 interface SendMoneyInput {
@@ -77,6 +95,8 @@ const makeBank = Effect.gen(function* () {
     yield* BankWiring;
   const api = yield* BankApi;
   const network = yield* Network;
+  const recorder = makeTraceRecorder();
+  const runtime = recordedRuntime(recorder);
 
   const vitals = makeVitals({
     ws: connectionStatus ? { status: 'connecting', reconnects: 0 } : null,
@@ -105,7 +125,7 @@ const makeBank = Effect.gen(function* () {
     name: syncName,
     version: SYNC_VERSION,
     platform,
-    runtime: quietRuntime,
+    runtime,
     onEvent: (event) =>
       event._tag === 'LeadershipChanged'
         ? patch((v) => ({
@@ -163,7 +183,7 @@ const makeBank = Effect.gen(function* () {
       transfers.insert({ id, from, to, amount });
     },
     mutationFn: (input) =>
-      quietRuntime.runPromise(
+      runtime.runPromise(
         patch((v) => ({ queued: v.queued + 1 })).pipe(
           Effect.andThen(
             lane.withPermits(1)(
@@ -171,13 +191,19 @@ const makeBank = Effect.gen(function* () {
                 queued: v.queued - 1,
                 committing: v.committing + 1,
               })).pipe(
-                Effect.andThen(network.travel),
-                Effect.flatMap(() => api.transfer(input)),
+                Effect.andThen(
+                  network.travel.pipe(Effect.withSpan('Travel the network')),
+                ),
+                Effect.flatMap(() =>
+                  api
+                    .transfer(input)
+                    .pipe(Effect.withSpan('Commit on the bank')),
+                ),
                 Effect.tap((outcome) =>
                   Effect.all([
                     accounts.utils.applyToSyncReplica([...outcome.accounts]),
                     transfers.utils.applyToSyncReplica([outcome.transfer]),
-                  ]),
+                  ]).pipe(Effect.withSpan('Apply to the Sync Replica')),
                 ),
                 Effect.ensuring(
                   patch((v) => ({ committing: v.committing - 1 })),
@@ -185,6 +211,14 @@ const makeBank = Effect.gen(function* () {
               ),
             ),
           ),
+          Effect.withSpan('Transfer', {
+            attributes: {
+              'transfer.id': input.id,
+              'transfer.from': input.from,
+              'transfer.to': input.to,
+              'transfer.amount': input.amount,
+            },
+          }),
         ),
       ),
   });
@@ -200,7 +234,7 @@ const makeBank = Effect.gen(function* () {
   };
 
   const seedIfEmpty = (): Promise<boolean> =>
-    quietRuntime.runPromise(api.seed());
+    runtime.runPromise(api.seed().pipe(Effect.withSpan('Seed if empty')));
 
   return {
     api,
@@ -212,6 +246,7 @@ const makeBank = Effect.gen(function* () {
     seed,
     seedIfEmpty,
     vitals,
+    recorder,
   };
 });
 

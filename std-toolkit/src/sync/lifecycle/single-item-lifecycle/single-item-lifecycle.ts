@@ -37,20 +37,29 @@ export const startSingleItemLifecycle = <
     yield* args.flow.log('Single-item sync start', {
       attributes: { strategy: args.strategy.name },
     });
+    let session = 0;
     const guarded = superviseStrategy({
       leadership: args.leadership,
       identity: args.identity,
       flow: args.flow,
-      run: (attemptScope) =>
-        args.strategy.run(args.makeContext(attemptScope, args.flow)).pipe(
-          args.flow.withSpan('Strategy attempt', {
-            attributes: { strategy: args.strategy.name },
-          }),
-          Effect.tap(() => args.flow.log('Strategy success')),
-        ),
+      run: (attemptScope) => {
+        session += 1;
+        return args.strategy
+          .run(args.makeContext(attemptScope, args.flow))
+          .pipe(
+            args.flow.withSpan('Sync session', {
+              attributes: { strategy: args.strategy.name, session },
+            }),
+            Effect.tap(() =>
+              args.flow.log('Sync session completed', {
+                attributes: { strategy: args.strategy.name, session },
+              }),
+            ),
+          );
+      },
       onError: (error) =>
         args.flow
-          .log('Strategy failure', {
+          .log('Sync session failed', {
             attributes: { cause: String(error), strategy: args.strategy.name },
             level: 'error',
           })
@@ -58,7 +67,7 @@ export const startSingleItemLifecycle = <
       onLeadership: args.onLeadership,
       onDefect: (defect) =>
         args.flow
-          .log('Strategy defect', {
+          .log('Sync session defect', {
             attributes: {
               cause: String(defect),
               strategy: args.strategy.name,

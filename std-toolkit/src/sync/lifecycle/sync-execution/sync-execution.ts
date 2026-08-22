@@ -135,6 +135,7 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
           partition ? 'Partition active' : 'Sync lifecycle',
         );
 
+        let session = 0;
         const strategyRun = superviseStrategy({
           leadership: args.leadership,
           identity: leadershipIdentity({
@@ -143,8 +144,9 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
             role: { _tag: 'Strategy', name: entry.strategy.name },
           }),
           flow: strategyFlow,
-          run: (attemptScope) =>
-            entry.strategy
+          run: (attemptScope) => {
+            session += 1;
+            return entry.strategy
               .run(
                 args.makeContext(
                   partitionKey,
@@ -154,14 +156,19 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
                 ),
               )
               .pipe(
-                strategyFlow.withSpan('Strategy attempt', { attributes }),
+                strategyFlow.withSpan('Sync session', {
+                  attributes: { ...attributes, session },
+                }),
                 Effect.tap(() =>
-                  strategyFlow.log('Strategy success', { attributes }),
+                  strategyFlow.log('Sync session completed', {
+                    attributes: { ...attributes, session },
+                  }),
                 ),
-              ),
+              );
+          },
           onError: (cause) =>
             strategyFlow
-              .log('Strategy failure', {
+              .log('Sync session failed', {
                 attributes: { ...attributes, cause: String(cause) },
                 level: 'error',
               })
@@ -178,7 +185,7 @@ export const makeSyncExecution = <TItem extends object, R>(args: {
               ),
           onDefect: (cause) =>
             strategyFlow
-              .log('Strategy defect', {
+              .log('Sync session defect', {
                 attributes: { ...attributes, cause: String(cause) },
                 level: 'error',
               })
