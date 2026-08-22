@@ -40,6 +40,7 @@ export interface BankProps {
   readonly store: string;
   readonly switching: boolean;
   readonly onStore: (value: string) => void;
+  readonly backHref: string;
   readonly accounts: readonly Account[];
   readonly transfers: readonly Transfer[];
   readonly attempts: readonly BankAttempt[];
@@ -48,7 +49,7 @@ export interface BankProps {
   readonly onPick: (accountId: string) => void;
   readonly onCancel: () => void;
   readonly onUntarget: () => void;
-  readonly onSend: (amount: number) => void;
+  readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onOpen: (opening: Opening) => void;
   readonly onRetry: (attemptId: string) => void;
   readonly debug: BankDebug | null;
@@ -150,11 +151,12 @@ export function Bank(props: BankProps) {
   const viewing = rows.find((row) => row.id === viewingId) ?? null;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-8 px-6 py-8">
+    <main className="mx-auto flex h-svh w-full max-w-md flex-col justify-center gap-8 overflow-hidden px-6 py-8">
       <div className="flex flex-col gap-3">
         <StoreLine
           stores={props.stores}
           store={props.store}
+          backHref={props.backHref}
           onChange={props.onStore}
         />
         {props.debug !== null && <DebugLine debug={props.debug} />}

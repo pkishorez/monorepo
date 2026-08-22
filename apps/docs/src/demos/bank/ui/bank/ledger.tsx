@@ -15,15 +15,15 @@ export interface LedgerProps {
   readonly onPick: (accountId: string) => void;
   readonly onCancel: () => void;
   readonly onUntarget: () => void;
-  readonly onSend: (amount: number) => void;
+  readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onHistory: (accountId: string) => void;
 }
 
 const money = cn(mono, 'text-xl');
 const rowShell =
-  'flex h-12 w-full items-baseline justify-between gap-6 text-left outline-none';
+  'flex h-7 w-full items-baseline justify-between gap-6 text-left outline-none';
 const scrollBox =
-  '-mx-5 h-[min(60dvh,30rem)] overflow-x-hidden overflow-y-auto overscroll-contain px-5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
+  '-mx-3.5 h-[clamp(8rem,calc(100svh-22rem),30rem)] overflow-x-hidden overflow-y-auto overscroll-contain px-3.5 [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
 
 const numberField =
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
@@ -46,7 +46,14 @@ const moveFocus = (event: KeyboardEvent<HTMLElement>) => {
 
 const QUICK = [1, 5, 10] as const;
 
-const panel = '-mx-4 rounded-xl px-4';
+const coarsePointer = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(pointer: coarse)').matches;
+
+const keepFocus = (event: { preventDefault: () => void }) =>
+  event.preventDefault();
+
+const panel = '-mx-2.5 rounded-xl px-2.5';
 const panelOn = 'bg-muted/15';
 
 const fast = { duration: 0.15, ease: 'easeOut' } as const;
@@ -65,7 +72,7 @@ function Stage({
     <div
       className={cn(
         panel,
-        '-my-3 flex flex-col py-3 transition-colors duration-200',
+        '-my-2.5 flex flex-col py-2.5 transition-colors duration-200',
         from !== null && panelOn,
       )}
     >
@@ -123,7 +130,7 @@ function Stage({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={lift}
-              className={cn(rowShell, 'absolute inset-0')}
+              className={cn(rowShell, 'absolute inset-0 h-12')}
             >
               <button
                 type="button"
@@ -159,7 +166,7 @@ function Row({
     readonly available: number;
     readonly raw: string;
     readonly onRaw: (raw: string) => void;
-    readonly onSend: (amount: number) => void;
+    readonly onSend: (amount: number, stay?: boolean) => void;
     readonly onUntarget: () => void;
   } | null;
   onPick: () => void;
@@ -167,148 +174,185 @@ function Row({
   const amount = target === null ? null : parseAmount(target.raw);
   const over = target !== null && amount !== null && amount > target.available;
   const inputRef = useRef<HTMLInputElement>(null);
+  const settled = useRef(false);
   const targeting = target !== null;
   useEffect(() => {
-    if (targeting) inputRef.current?.focus();
+    if (!targeting) return;
+    settled.current = false;
+    if (!coarsePointer()) inputRef.current?.focus();
   }, [targeting]);
 
   const pick = () => {
     onPick();
-    requestAnimationFrame(() => inputRef.current?.focus());
+    if (!coarsePointer())
+      requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const settle = (act: () => void) => {
+    if (settled.current) return;
+    settled.current = true;
+    act();
+  };
+  const commit = () => {
+    if (target === null) return;
+    settle(() =>
+      amount !== null && !over ? target.onSend(amount) : target.onUntarget(),
+    );
   };
 
   return (
-    <motion.div
-      initial={false}
-      animate={{ height: targeting ? 100 : 48, paddingTop: targeting ? 12 : 0 }}
+    <motion.li
+      layout
+      layoutId={`row-${row.id}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={lift}
+      role="button"
+      tabIndex={0}
+      data-row
+      aria-disabled={busy || undefined}
+      aria-pressed={targeting}
+      onClick={pick}
+      onPointerDown={(event) => {
+        if (targeting && !(event.target as HTMLElement).closest('form'))
+          event.preventDefault();
+      }}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          pick();
+        }
+      }}
       className={cn(
         panel,
-        'group relative flex flex-col overflow-hidden transition-[opacity,background-color] duration-200',
-        dimmed && 'opacity-40',
+        'group cursor-pointer py-3 outline-none transition-[opacity,background-color] duration-200 will-change-transform',
+        dimmed && 'opacity-70',
         targeting && panelOn,
       )}
     >
-      <div
-        role="button"
-        tabIndex={0}
-        data-row
-        aria-disabled={busy || undefined}
-        aria-pressed={targeting}
-        onClick={pick}
-        onKeyDown={(event) => {
-          if (event.target !== event.currentTarget) return;
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            pick();
-          }
-        }}
-        className={cn(rowShell, 'min-w-0 shrink-0 cursor-pointer')}
-      >
-        <span
-          className={cn(
-            'flex min-w-0 flex-1 items-center gap-2 truncate text-base transition-colors',
-            targeting && 'text-primary',
-            !targeting && !busy && 'group-hover:text-primary',
-          )}
+      <div className="relative flex flex-col gap-2">
+        <motion.div
+          layout="position"
+          transition={lift}
+          className={cn(rowShell, 'min-w-0 shrink-0')}
         >
-          <span className="truncate">{row.name}</span>
-        </span>
-        <span className="flex shrink-0 items-baseline gap-3">
-          <motion.span
-            layout="position"
-            transition={fast}
+          <span
             className={cn(
-              money,
-              'transition-colors',
-              busy && 'text-muted-foreground/60',
-              targeting &&
-                'text-muted-foreground/60 line-through decoration-muted-foreground/30',
+              'flex min-w-0 flex-1 items-center gap-2 truncate text-base transition-colors',
+              targeting && 'text-primary',
+              !targeting && !busy && 'group-hover:text-primary',
             )}
           >
-            <AnimatedMoney amount={row.balance} />
-          </motion.span>
-          <AnimatePresence initial={false} mode="popLayout">
-            {target !== null && (
-              <motion.form
-                key="amount"
-                initial={{ opacity: 0, x: 8 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 8 }}
-                transition={fast}
-                onClick={(event) => event.stopPropagation()}
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (amount !== null && !over) target.onSend(amount);
-                }}
-                className={cn(
-                  money,
-                  'flex items-baseline text-primary',
-                  over && 'text-destructive',
-                )}
-              >
-                <span aria-hidden>+</span>
-                <input
-                  ref={inputRef}
-                  id={`amount-${row.id}`}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  step={1}
-                  autoComplete="off"
-                  value={target.raw}
-                  onChange={(event) =>
-                    target.onRaw(digitsOnly(event.target.value))
-                  }
-                  placeholder="0"
-                  aria-label={`Amount to send to ${row.name}, up to ${formatMoney(target.available)}`}
-                  style={chWidth(target.raw)}
-                  className={cn(
-                    bare,
-                    numberField,
-                    'text-right leading-none caret-primary',
-                  )}
-                />
-              </motion.form>
-            )}
-          </AnimatePresence>
-        </span>
-      </div>
-      <AnimatePresence initial={false}>
-        {target !== null && (
-          <motion.div
-            key="quick"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={fast}
-            className="-mt-1.5 flex h-10 shrink-0 items-start justify-between gap-6"
-          >
-            <button
-              type="button"
-              onClick={target.onUntarget}
-              aria-label={`Stop sending to ${row.name}`}
-              className="-ml-1 flex size-6 items-center justify-center rounded-sm text-muted-foreground/40 outline-none transition-colors hover:text-foreground focus-visible:text-foreground"
+            <span className="truncate">{row.name}</span>
+          </span>
+          <span className="flex shrink-0 items-baseline gap-3">
+            <motion.span
+              layout="position"
+              transition={fast}
+              className={cn(
+                money,
+                'transition-colors',
+                busy && 'text-muted-foreground/60',
+                targeting &&
+                  'text-muted-foreground/60 line-through decoration-muted-foreground/30',
+              )}
             >
-              <X className="size-3.5" />
-            </button>
-            <span className={cn(mono, 'flex items-baseline gap-4 text-base')}>
-              {QUICK.map((quick) => (
-                <button
-                  key={quick}
-                  type="button"
-                  disabled={quick > target.available}
-                  onClick={() => target.onSend(quick)}
-                  className="text-muted-foreground/60 outline-none transition-colors hover:text-primary focus-visible:text-primary disabled:opacity-30 disabled:hover:text-muted-foreground/60"
+              <AnimatedMoney amount={row.balance} />
+            </motion.span>
+            <AnimatePresence initial={false} mode="popLayout">
+              {target !== null && targeting && (
+                <motion.form
+                  key="amount"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8 }}
+                  transition={fast}
+                  onClick={(event) => event.stopPropagation()}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    commit();
+                  }}
+                  className={cn(
+                    money,
+                    'flex items-baseline text-primary',
+                    over && 'text-destructive',
+                  )}
                 >
-                  +{quick}
-                </button>
-              ))}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+                  <span aria-hidden>+</span>
+                  <input
+                    ref={inputRef}
+                    id={`amount-${row.id}`}
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    step={1}
+                    autoComplete="off"
+                    value={target.raw}
+                    onChange={(event) =>
+                      target.onRaw(digitsOnly(event.target.value))
+                    }
+                    onBlur={() => {
+                      if (coarsePointer()) commit();
+                    }}
+                    placeholder="0"
+                    aria-label={`Amount to send to ${row.name}, up to ${formatMoney(target.available)}`}
+                    style={chWidth(target.raw)}
+                    className={cn(
+                      bare,
+                      numberField,
+                      'text-right leading-none caret-primary',
+                    )}
+                  />
+                </motion.form>
+              )}
+            </AnimatePresence>
+          </span>
+        </motion.div>
+        <AnimatePresence initial={false} mode="popLayout">
+          {target !== null && targeting && (
+            <motion.div
+              key="quick"
+              layout="position"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={fast}
+              onClick={(event) => event.stopPropagation()}
+              className="flex h-9 shrink-0 items-center justify-between gap-6"
+            >
+              <button
+                type="button"
+                onPointerDown={keepFocus}
+                onClick={() => settle(target.onUntarget)}
+                aria-label={`Stop sending to ${row.name}`}
+                className="-ml-1.5 flex size-7 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+              <span className="flex items-center gap-2">
+                {QUICK.map((quick) => (
+                  <button
+                    key={quick}
+                    type="button"
+                    disabled={quick > target.available}
+                    onPointerDown={keepFocus}
+                    onClick={() => target.onSend(quick, true)}
+                    className={cn(
+                      mono,
+                      'h-7 rounded-full bg-muted px-3 text-sm font-medium text-foreground/80 outline-none transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:bg-primary focus-visible:text-primary-foreground disabled:opacity-30 disabled:hover:bg-muted disabled:hover:text-foreground/80',
+                    )}
+                  >
+                    +{quick}
+                  </button>
+                ))}
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.li>
   );
 }
 
@@ -331,7 +375,7 @@ export function Ledger({
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
+      if (event.key === 'Escape') onUntarget();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -346,33 +390,24 @@ export function Ledger({
             {rows
               .filter((row) => row.id !== fromId)
               .map((row) => (
-                <motion.li
+                <Row
                   key={row.id}
-                  layout="position"
-                  layoutId={`row-${row.id}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={lift}
-                >
-                  <Row
-                    row={row}
-                    busy={busy.has(row.id)}
-                    dimmed={typing && row.id !== toId}
-                    target={
-                      row.id === toId && from !== null
-                        ? {
-                            available: from.balance,
-                            raw,
-                            onRaw: setRaw,
-                            onSend,
-                            onUntarget,
-                          }
-                        : null
-                    }
-                    onPick={() => onPick(row.id)}
-                  />
-                </motion.li>
+                  row={row}
+                  busy={busy.has(row.id)}
+                  dimmed={typing && row.id !== toId}
+                  target={
+                    row.id === toId && from !== null
+                      ? {
+                          available: from.balance,
+                          raw,
+                          onRaw: setRaw,
+                          onSend,
+                          onUntarget,
+                        }
+                      : null
+                  }
+                  onPick={() => onPick(row.id)}
+                />
               ))}
           </AnimatePresence>
         </ul>
