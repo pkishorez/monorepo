@@ -140,70 +140,72 @@ export function Bank(props: BankProps) {
   const viewing = rows.find((row) => row.id === viewingId) ?? null;
 
   return (
-    <main className="mx-auto my-auto flex max-h-svh w-full max-w-md flex-col gap-8 overflow-hidden px-6 py-8">
-      <header>
-        <StoreLine
-          stores={props.stores}
-          store={props.store}
-          backHref={props.backHref}
-          onChange={props.onStore}
-        />
-      </header>
-      <div className="flex min-h-0 flex-col">
-        <Ledger
-          rows={rows}
-          busy={busy}
-          fromId={props.fromId}
-          toId={props.toId}
-          onPick={props.onPick}
-          onCancel={() => {
-            if (viewingId === null) props.onCancel();
-          }}
-          onUntarget={props.onUntarget}
-          onSend={props.onSend}
-          onHistory={setViewingId}
-        />
-      </div>
-      <footer className="flex shrink-0 flex-col">
-        {props.debug !== null ? (
-          <DebugPanel
-            debug={{ ...props.debug, failed, onRetry: props.onRetry }}
-            onClose={() => props.onDebug(false)}
+    <main className="mx-auto flex h-svh max-h-svh w-full max-w-md flex-col overflow-hidden px-6 py-8">
+      <div className="my-auto flex min-h-0 flex-col gap-8">
+        <header>
+          <StoreLine
+            stores={props.stores}
+            store={props.store}
+            backHref={props.backHref}
+            onChange={props.onStore}
           />
-        ) : (
-          <div className="flex flex-col gap-6">
-            <div className="flex h-12 items-baseline justify-between gap-6 border-t border-border/60 pt-4">
-              <span className="flex items-baseline gap-4 text-sm text-muted-foreground">
-                <button
-                  type="button"
-                  onClick={() => setOpening(true)}
-                  className={textLink}
+        </header>
+        <div className="flex min-h-0 flex-col">
+          <Ledger
+            rows={rows}
+            busy={busy}
+            fromId={props.fromId}
+            toId={props.toId}
+            onPick={props.onPick}
+            onCancel={() => {
+              if (viewingId === null) props.onCancel();
+            }}
+            onUntarget={props.onUntarget}
+            onSend={props.onSend}
+            onHistory={setViewingId}
+          />
+        </div>
+        <footer className="flex shrink-0 flex-col">
+          {props.debug !== null ? (
+            <DebugPanel
+              debug={{ ...props.debug, failed, onRetry: props.onRetry }}
+              onClose={() => props.onDebug(false)}
+            />
+          ) : (
+            <div className="flex flex-col gap-6">
+              <div className="flex h-12 items-baseline justify-between gap-6 border-t border-border/60 pt-4">
+                <span className="flex items-baseline gap-4 text-sm text-muted-foreground">
+                  <button
+                    type="button"
+                    onClick={() => setOpening(true)}
+                    className={textLink}
+                  >
+                    Open an account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => props.onDebug(true)}
+                    className={cn(textLink, 'text-xs')}
+                  >
+                    Debug
+                  </button>
+                </span>
+                <p
+                  aria-label="Total money in the bank"
+                  className={cn(
+                    mono,
+                    'shrink-0 text-xl transition-opacity',
+                    rows.length === 0 && 'opacity-0',
+                  )}
                 >
-                  Open an account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => props.onDebug(true)}
-                  className={cn(textLink, 'text-xs')}
-                >
-                  Debug
-                </button>
-              </span>
-              <p
-                aria-label="Total money in the bank"
-                className={cn(
-                  mono,
-                  'shrink-0 text-xl transition-opacity',
-                  rows.length === 0 && 'opacity-0',
-                )}
-              >
-                <AnimatedMoney amount={total} />
-              </p>
+                  <AnimatedMoney amount={total} />
+                </p>
+              </div>
+              <LastEvent line={line} onRetry={props.onRetry} />
             </div>
-            <LastEvent line={line} onRetry={props.onRetry} />
-          </div>
-        )}
-      </footer>
+          )}
+        </footer>
+      </div>
       <TransactionsDialog
         account={viewing}
         lines={viewing === null ? [] : linesOf(viewing.id)}
