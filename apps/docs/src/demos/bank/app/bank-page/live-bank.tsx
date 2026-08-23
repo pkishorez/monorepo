@@ -129,6 +129,7 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
           onChoose: (id) => dispatch({ type: 'choose', id }),
           onClear: () => dispatch({ type: 'clear' }),
           onDropReceiver: () => dispatch({ type: 'drop-receiver' }),
+          onSwap: () => dispatch({ type: 'swap' }),
           onSend: (amount, stay = false) => {
             if (fromId === null || toId === null) return;
             runtime.send({ from: fromId, to: toId, amount });
