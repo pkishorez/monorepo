@@ -110,10 +110,17 @@ export function FlowSwimlane({
       hiddenPaths,
     ],
   );
-  const activeParticipantName =
-    layout.items.find((item) =>
+  const activeParticipantNames = useMemo(() => {
+    const step = layout.items.find((item) =>
       item.members.some(({ id }) => id === activeSelectedId),
-    )?.participantName ?? null;
+    );
+    if (step === undefined) return new Set<string>();
+    return new Set(
+      step.kind === 'message'
+        ? [step.participantName, step.destination]
+        : [step.participantName],
+    );
+  }, [layout.items, activeSelectedId]);
 
   const select = useCallback(
     (item: RecordedFlowItem | null) => {
@@ -291,7 +298,7 @@ export function FlowSwimlane({
         style={{ width: Math.max(layout.width, 0), minWidth: 'min-content' }}
       >
         <FlowHeader
-          activeParticipantName={activeParticipantName}
+          activeParticipantNames={activeParticipantNames}
           layout={layout}
           onHideParticipant={(participantName) =>
             setHiddenParticipantNames((current) =>

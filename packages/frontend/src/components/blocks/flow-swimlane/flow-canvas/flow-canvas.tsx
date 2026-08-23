@@ -189,8 +189,9 @@ export function FlowCanvas({
               viewBox="0 0 10 10"
               refX="9"
               refY="5"
-              markerWidth="7"
-              markerHeight="7"
+              markerWidth="11"
+              markerHeight="11"
+              markerUnits="userSpaceOnUse"
               orient="auto"
             >
               <path d="M 0 0 L 10 5 L 0 10 z" fill={messageColor} />
@@ -417,16 +418,31 @@ export function FlowCanvas({
                     style={{ transition: 'fill 120ms ease-out' }}
                   />
                   <line
+                    data-flow-message-halo
+                    data-active={selected || undefined}
                     x1={x}
                     y1={y}
                     x2={destinationX}
                     y2={y}
                     stroke={messageColor}
-                    strokeWidth={1.5}
+                    strokeOpacity={selected ? 0.3 : 0}
+                    strokeWidth={12}
+                    strokeLinecap="round"
+                    style={{ transition: 'stroke-opacity 140ms ease-out' }}
+                  />
+                  <line
+                    data-flow-message-line
+                    x1={x}
+                    y1={y}
+                    x2={destinationX}
+                    y2={y}
+                    stroke={messageColor}
+                    strokeWidth={selected ? 4 : 1.5}
                     strokeDasharray={
                       item.replyTo === undefined ? undefined : '6 4'
                     }
                     markerEnd={`url(#${markerId}-arrow)`}
+                    style={{ transition: 'stroke-width 140ms ease-out' }}
                   />
                   {latency !== undefined && (
                     <text

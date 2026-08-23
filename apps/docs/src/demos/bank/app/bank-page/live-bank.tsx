@@ -129,7 +129,6 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
           onChoose: (id) => dispatch({ type: 'choose', id }),
           onClear: () => dispatch({ type: 'clear' }),
           onDropReceiver: () => dispatch({ type: 'drop-receiver' }),
-          onSwap: () => dispatch({ type: 'swap' }),
           onSend: (amount, stay = false) => {
             if (fromId === null || toId === null) return;
             runtime.send({ from: fromId, to: toId, amount });
@@ -146,11 +145,7 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
           admin === null
             ? null
             : {
-                onOpen: (opening) => {
-                  const id = admin.open(opening);
-                  dispatch({ type: 'clear' });
-                  dispatch({ type: 'choose', id });
-                },
+                onOpen: (opening) => void admin.open(opening),
                 onSeed: (n) => void admin.seed(n),
                 onClear: () => void admin.clear().then(() => location.reload()),
               }

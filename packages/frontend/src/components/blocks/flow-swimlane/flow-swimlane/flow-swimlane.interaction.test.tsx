@@ -25,6 +25,23 @@ const localEvent = (
   timestamp,
 });
 
+const message = (
+  id: string,
+  participantName: string,
+  destination: string,
+  name: string,
+  timestamp: number,
+): RecordedFlowItem => ({
+  id,
+  kind: 'message',
+  name,
+  participantName,
+  destination,
+  messageId: id,
+  severity: 'info',
+  timestamp,
+});
+
 const flowOf = (items: RecordedFlow['items']): RecordedFlow => ({
   id: 'interactive-flow',
   latestTimestamp: items.at(-1)?.timestamp ?? 0,
@@ -120,6 +137,46 @@ describe('FlowSwimlane interactions', () => {
       );
     });
   };
+
+  it('lights both lanes and the arrow when a message is selected', () => {
+    const viewport = render(
+      flowOf([
+        localEvent('first', 'browser', 'First', 1),
+        message('ask', 'browser', 'backend', 'Ask', 2),
+      ]),
+    );
+
+    key(viewport, 'j');
+    key(viewport, 'j');
+    expect(host.querySelector('output')?.getAttribute('data-selected-id')).toBe(
+      'ask',
+    );
+    expect(
+      [...viewport.querySelectorAll('[data-active-participant="true"]')].map(
+        (cell) => cell.getAttribute('data-participant-path'),
+      ),
+    ).toEqual(['browser', 'backend']);
+    const line = host.querySelector(
+      '[data-flow-item="message"][data-selected="true"] [data-flow-message-line]',
+    );
+    expect(line?.getAttribute('stroke-width')).toBe('4');
+    expect(
+      host.querySelector('[data-flow-message-halo][data-active="true"]'),
+    ).not.toBeNull();
+
+    key(viewport, 'k');
+    expect(
+      viewport.querySelectorAll('[data-active-participant="true"]'),
+    ).toHaveLength(1);
+    expect(
+      host
+        .querySelector('[data-flow-item="message"] [data-flow-message-line]')
+        ?.getAttribute('stroke-width'),
+    ).toBe('1.5');
+    expect(
+      host.querySelector('[data-flow-message-halo][data-active="true"]'),
+    ).toBeNull();
+  });
 
   it('navigates visible steps, scrolls smoothly, and shares one focus indicator', () => {
     const viewport = render(

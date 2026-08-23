@@ -55,7 +55,6 @@ export interface BankLedger {
   readonly onChoose: (accountId: string) => void;
   readonly onClear: () => void;
   readonly onDropReceiver: () => void;
-  readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
 }
 
@@ -236,7 +235,6 @@ export function Bank({
               if (history.viewingId === null) ledger.onClear();
             }}
             onDropReceiver={ledger.onDropReceiver}
-            onSwap={ledger.onSwap}
             onSend={ledger.onSend}
             onHistory={history.onView}
           />
