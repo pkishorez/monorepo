@@ -15,7 +15,6 @@ export type DraftIntent =
   | { readonly type: 'choose'; readonly id: string }
   | { readonly type: 'clear' }
   | { readonly type: 'drop-receiver' }
-  | { readonly type: 'swap' }
   | { readonly type: 'sent'; readonly stay: boolean };
 
 export const EMPTY_DRAFT: Draft = { kind: 'empty' };
@@ -50,11 +49,6 @@ export const reduceDraft = (draft: Draft, intent: DraftIntent): Draft =>
     Match.when({ type: 'clear' }, () => EMPTY_DRAFT),
     Match.when({ type: 'drop-receiver' }, () =>
       draft.kind === 'receiver-chosen' ? senderChosen(draft.from) : draft,
-    ),
-    Match.when({ type: 'swap' }, () =>
-      draft.kind === 'receiver-chosen'
-        ? receiverChosen(draft.to, draft.from)
-        : draft,
     ),
     Match.when({ type: 'sent' }, ({ stay }) =>
       draft.kind === 'receiver-chosen' && !stay

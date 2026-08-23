@@ -73,14 +73,14 @@ const leafCellClass =
 
 export function FlowHeader({
   layout,
-  activeParticipantName,
+  activeParticipantNames,
   onHideParticipant,
   onHideSubtree,
   onRestore,
   onToggleCollapse,
 }: {
   readonly layout: FlowLayout;
-  readonly activeParticipantName: string | null;
+  readonly activeParticipantNames: ReadonlySet<string>;
   readonly onHideParticipant: (participantName: string) => void;
   readonly onHideSubtree: (path: string) => void;
   readonly onRestore: (
@@ -93,9 +93,9 @@ export function FlowHeader({
   const sideGutter = layout.sidePadding;
   const lastRow = maxDepth + 1;
   const onActivePath = (path: string) =>
-    activeParticipantName !== null &&
-    (activeParticipantName === path ||
-      activeParticipantName.startsWith(`${path}/`));
+    [...activeParticipantNames].some(
+      (name) => name === path || name.startsWith(`${path}/`),
+    );
 
   return (
     <div
@@ -176,7 +176,7 @@ export function FlowHeader({
           }
 
           if (cell.kind === 'self') {
-            const active = activeParticipantName === cell.path;
+            const active = activeParticipantNames.has(cell.path);
             const ownerLabel = cell.path.split('/').at(-1) ?? cell.path;
             return (
               <div
@@ -231,7 +231,7 @@ export function FlowHeader({
               candidate.kind === 'self' && candidate.path === cell.path,
           );
           const active =
-            activeParticipantName === cell.path && !hasOwnActivityCell;
+            activeParticipantNames.has(cell.path) && !hasOwnActivityCell;
           const hide = () =>
             group ? onHideSubtree(cell.path) : onHideParticipant(cell.path);
           const hideLabel = group
