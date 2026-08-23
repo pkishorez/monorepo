@@ -2,6 +2,7 @@ import { Array as Arr, Effect } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
 import type { BankApi } from '../api/index.ts';
 import type { BankRunner } from '../diagnostics/index.ts';
+import { makeInteractionFlow } from '../interaction-flow/index.ts';
 import type { BankSync } from '../sync/index.ts';
 
 export interface Opening {
@@ -43,34 +44,74 @@ export const makeAdmin = ({
 }: AdminOptions): Admin => ({
   open: (opening) => {
     const id = newId();
-    accounts.insert({ id, name: opening.name, balance: opening.balance });
+    const flow = makeInteractionFlow('open', id);
+    const label = `Open ${opening.name} with ${opening.balance}`;
+    runner.runSync(
+      flow.user.activated({ name: label })(
+        flow.user.send('bank', label).pipe(
+          Effect.andThen(
+            Effect.sync(() =>
+              accounts.insert({
+                id,
+                name: opening.name,
+                balance: opening.balance,
+              }),
+            ).pipe(flow.bank.withSpan('Insert into the accounts collection')),
+          ),
+          Effect.andThen(
+            flow.bank.log('The accounts collection persists it — see its flow'),
+          ),
+        ),
+      ),
+    );
     return id;
   },
-  seed: (count) =>
-    runner.runPromise(
-      Effect.forEach(
-        Arr.chunksOf(seedNames(count), SEED_BATCH),
-        (names) =>
-          Effect.sync(() =>
-            accounts.insert(
-              names.map((name) => ({
-                id: newId(),
-                name,
-                balance: seedBalance(),
-              })),
+  seed: (count) => {
+    const flow = makeInteractionFlow('seed', newId());
+    const label = `Seed ${count} accounts`;
+    return runner.runPromise(
+      flow.user.activated({ name: label })(
+        flow.user.send('bank', label).pipe(
+          Effect.andThen(
+            Effect.forEach(
+              Arr.chunksOf(seedNames(count), SEED_BATCH),
+              (names) =>
+                Effect.sync(() =>
+                  accounts.insert(
+                    names.map((name) => ({
+                      id: newId(),
+                      name,
+                      balance: seedBalance(),
+                    })),
+                  ),
+                ).pipe(Effect.andThen(Effect.sleep(0))),
+              { discard: true },
+            ).pipe(
+              flow.bank.withSpan('Seed accounts', {
+                attributes: { 'seed.count': count },
+              }),
             ),
-          ).pipe(Effect.andThen(Effect.sleep(0))),
-        { discard: true },
-      ).pipe(
-        Effect.withSpan('Seed accounts', {
-          attributes: { 'seed.count': count },
-        }),
+          ),
+        ),
       ),
-    ),
-  clear: () =>
-    runner.runPromise(
-      api
-        .clear()
-        .pipe(Effect.andThen(forget), Effect.withSpan('Clear the bank')),
-    ),
+    );
+  },
+  clear: () => {
+    const flow = makeInteractionFlow('clear', newId());
+    return runner.runPromise(
+      flow.user.activated({ name: 'Clear the bank' })(
+        flow.user.send('bank', 'Clear the bank').pipe(
+          Effect.andThen(
+            flow.call('clear', api.clear(), {
+              reply: () => 'Cleared',
+              failure: (error) => String(error),
+            }),
+          ),
+          Effect.andThen(
+            forget.pipe(flow.bank.withSpan('Drop the local replica')),
+          ),
+        ),
+      ),
+    );
+  },
 });

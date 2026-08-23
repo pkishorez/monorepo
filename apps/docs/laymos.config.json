@@ -113,6 +113,7 @@
             "api": {},
             "diagnostics": {},
             "sync": {},
+            "interaction-flow": {},
             "transfers": {},
             "admin": {},
             "stores": {},
@@ -123,8 +124,14 @@
           "rules": {
             "diagnostics": ["live-value.ts"],
             "sync": ["api", "diagnostics"],
-            "transfers": ["api", "sync", "diagnostics", "live-value.ts"],
-            "admin": ["api", "sync", "diagnostics"],
+            "transfers": [
+              "api",
+              "sync",
+              "diagnostics",
+              "live-value.ts",
+              "interaction-flow"
+            ],
+            "admin": ["api", "sync", "diagnostics", "interaction-flow"],
             "stores": ["api"],
             "bank": [
               "api",

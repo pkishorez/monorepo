@@ -10,6 +10,7 @@ import {
   Tracer,
 } from 'effect';
 import { RecordedFlowSchema } from '../flow/index.js';
+import { nextSequence } from '../sequence/index.js';
 import { projectRecordedFlow, recordedFlowIds } from './flow-snapshot.js';
 
 type RecordedFlow = typeof RecordedFlowSchema.Type;
@@ -50,6 +51,7 @@ export interface CapturedEvent {
 export interface CapturedLog {
   /** Stable identity for this log, assigned in arrival order. */
   readonly id: string;
+  readonly sequence: number;
   readonly spanId: string | null;
   readonly timestamp: number;
   readonly level: TraceLogLevel;
@@ -63,6 +65,7 @@ export interface CapturedSpan {
   readonly spanId: string;
   readonly parentSpanId: string | null;
   readonly name: string;
+  readonly sequence: number;
   /** Milliseconds since the epoch. */
   readonly startTime: number;
   /** Milliseconds since the epoch, or `null` while the span is still running. */
@@ -138,10 +141,16 @@ export interface TraceRecorder {
 type NativeSpanOptions = ConstructorParameters<typeof Tracer.NativeSpan>[0];
 
 class RecordedSpan extends Tracer.NativeSpan {
+  readonly sequence: number;
   readonly #onEnd: (span: RecordedSpan) => void;
 
-  constructor(options: NativeSpanOptions, onEnd: (span: RecordedSpan) => void) {
+  constructor(
+    options: NativeSpanOptions,
+    sequence: number,
+    onEnd: (span: RecordedSpan) => void,
+  ) {
     super(options);
+    this.sequence = sequence;
     this.#onEnd = onEnd;
   }
 
@@ -163,9 +172,8 @@ export function makeTraceRecorder(
     requireFinishedSpans = false,
   } = options;
 
-  const spans: Tracer.NativeSpan[] = [];
+  const spans: RecordedSpan[] = [];
   const logs: CapturedLog[] = [];
-  let logSequence = 0;
   let truncated = false;
 
   const toValue = (value: unknown): TraceValue =>
@@ -181,7 +189,7 @@ export function makeTraceRecorder(
         // Still a real span, so children nest correctly - it is just not recorded.
         return new Tracer.NativeSpan(spanOptions);
       }
-      const span = new RecordedSpan(spanOptions, (ended) => {
+      const span = new RecordedSpan(spanOptions, nextSequence(), (ended) => {
         onSpanEnd?.(normalizeSpan(ended, toValue));
       });
       spans.push(span);
@@ -192,8 +200,10 @@ export function makeTraceRecorder(
   const logger = Logger.make<unknown, void>((logOptions) => {
     const level = logLevel(logOptions.logLevel);
     if (level === null) return;
+    const sequence = nextSequence();
     const log: CapturedLog = {
-      id: `log-${logSequence++}`,
+      id: `log-${sequence}`,
+      sequence,
       spanId: logOptions.fiber.currentSpan?.spanId ?? null,
       // The tracer stamps spans from Clock's nanosecond source while
       // `logOptions.date` comes from `Date.now()`. Mixing them lets a log sort
@@ -242,7 +252,10 @@ export function makeTraceRecorder(
               ? log.spanId
               : null,
         }))
-        .sort((left, right) => left.timestamp - right.timestamp),
+        .sort(
+          (left, right) =>
+            left.timestamp - right.timestamp || left.sequence - right.sequence,
+        ),
       truncated,
     };
   };
@@ -283,7 +296,7 @@ function logLevel(level: string): TraceLogLevel | null {
 }
 
 function normalizeSpan(
-  span: Tracer.NativeSpan,
+  span: RecordedSpan,
   toValue: (value: unknown) => TraceValue,
 ): CapturedSpan {
   const status = span.status;
@@ -296,6 +309,7 @@ function normalizeSpan(
       onSome: (parent) => parent.spanId,
     }),
     name: span.name,
+    sequence: span.sequence,
     startTime: nanosToMillis(status.startTime),
     endTime: running ? null : nanosToMillis(status.endTime),
     status: running
@@ -335,7 +349,7 @@ function sortSpans(spans: readonly CapturedSpan[]): CapturedSpan[] {
     children.set(group, [...(children.get(group) ?? []), span]);
   }
   const compare = (left: CapturedSpan, right: CapturedSpan) =>
-    left.startTime - right.startTime || left.spanId.localeCompare(right.spanId);
+    left.startTime - right.startTime || left.sequence - right.sequence;
   const ordered: CapturedSpan[] = [];
   const seen = new Set<string>();
   const visit = (span: CapturedSpan): void => {

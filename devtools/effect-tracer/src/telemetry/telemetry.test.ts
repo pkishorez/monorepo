@@ -72,6 +72,12 @@ describe('makeTelemetryLayer', () => {
     expect(JSON.stringify(requests.get('/v1/metrics'))).toContain(
       'test.telemetry.events',
     );
+    expect(JSON.stringify(requests.get('/v1/traces'))).toContain(
+      'tracer.sequence',
+    );
+    expect(JSON.stringify(requests.get('/v1/logs'))).toContain(
+      'tracer.sequence',
+    );
   });
 
   it('does not fail the application when the collector is unavailable', async () => {
@@ -179,7 +185,12 @@ describe('makeDevTelemetryLayer', () => {
 
     expect(started.endTimeUnixNano).toBeUndefined();
     expect(started.status).toEqual({ code: 0 });
-    expect(started.attributes).toEqual([]);
+    expect(started.attributes.map(({ key }: { key: string }) => key)).toEqual([
+      'tracer.sequence',
+    ]);
+    expect(log.attributes.map(({ key }: { key: string }) => key)).toContain(
+      'tracer.sequence',
+    );
     expect(ended.traceId).toBe(started.traceId);
     expect(ended.spanId).toBe(started.spanId);
     expect(ended.endTimeUnixNano).toBeDefined();

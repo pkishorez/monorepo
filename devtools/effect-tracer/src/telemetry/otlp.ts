@@ -4,7 +4,12 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { BatchLogRecordProcessor } from '@opentelemetry/sdk-logs';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import {
+  BatchSpanProcessor,
+  type SpanProcessor,
+} from '@opentelemetry/sdk-trace-base';
+import type { LogRecordProcessor } from '@opentelemetry/sdk-logs';
+import { nextSequence, sequenceAttribute } from '../sequence/index.js';
 
 const signalUrl = (endpoint: string, signal: string) =>
   `${endpoint.replace(/\/+$/, '')}/v1/${signal}`;
@@ -40,6 +45,25 @@ const tolerateUnavailableCollector = <Exporter extends object>(
     },
   });
 
+const sequencedSpans = (inner: SpanProcessor): SpanProcessor => ({
+  onStart: (span, context) => {
+    span.setAttribute(sequenceAttribute, nextSequence());
+    inner.onStart(span, context);
+  },
+  onEnd: (span) => inner.onEnd(span),
+  forceFlush: () => inner.forceFlush(),
+  shutdown: () => inner.shutdown(),
+});
+
+const sequencedLogs = (inner: LogRecordProcessor): LogRecordProcessor => ({
+  onEmit: (record, context) => {
+    record.setAttribute(sequenceAttribute, nextSequence());
+    inner.onEmit(record, context);
+  },
+  forceFlush: () => inner.forceFlush(),
+  shutdown: () => inner.shutdown(),
+});
+
 export const makeOtlpLayer = (options: {
   endpoint: string;
   serviceName: string;
@@ -51,29 +75,33 @@ export const makeOtlpLayer = (options: {
   NodeSdk.layer(() => ({
     ...(options.traces
       ? {
-          spanProcessor: new BatchSpanProcessor(
-            tolerateUnavailableCollector(
-              new OTLPTraceExporter({
-                url: signalUrl(options.endpoint, 'traces'),
-                timeoutMillis: 1_000,
-              }),
+          spanProcessor: sequencedSpans(
+            new BatchSpanProcessor(
+              tolerateUnavailableCollector(
+                new OTLPTraceExporter({
+                  url: signalUrl(options.endpoint, 'traces'),
+                  timeoutMillis: 1_000,
+                }),
+              ),
+              { scheduledDelayMillis: 500, exportTimeoutMillis: 1_000 },
             ),
-            { scheduledDelayMillis: 500, exportTimeoutMillis: 1_000 },
           ),
         }
       : {}),
     ...(options.logs
       ? {
-          logRecordProcessor: new BatchLogRecordProcessor({
-            exporter: tolerateUnavailableCollector(
-              new OTLPLogExporter({
-                url: signalUrl(options.endpoint, 'logs'),
-                timeoutMillis: 1_000,
-              }),
-            ),
-            scheduledDelayMillis: 500,
-            exportTimeoutMillis: 1_000,
-          }),
+          logRecordProcessor: sequencedLogs(
+            new BatchLogRecordProcessor({
+              exporter: tolerateUnavailableCollector(
+                new OTLPLogExporter({
+                  url: signalUrl(options.endpoint, 'logs'),
+                  timeoutMillis: 1_000,
+                }),
+              ),
+              scheduledDelayMillis: 500,
+              exportTimeoutMillis: 1_000,
+            }),
+          ),
         }
       : {}),
     ...(options.metrics

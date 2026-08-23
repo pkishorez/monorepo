@@ -51,7 +51,19 @@ interface FlowSummary {
 }
 
 const summarize = (flow: RecordedFlow): FlowSummary => {
-  const lane = flow.activations[0]?.participantName ?? flow.id;
+  const opener = flow.activations.reduce<
+    RecordedFlow['activations'][number] | undefined
+  >(
+    (earliest, activation) =>
+      earliest === undefined ||
+      activation.startTimestamp < earliest.startTimestamp
+        ? activation
+        : earliest,
+    undefined,
+  );
+  const lane = opener?.participantName ?? flow.id;
+  const interaction =
+    opener !== undefined && !lane.includes('/') && !lane.includes('.');
   let rows: number | null = null;
   let leadership: string | null = null;
   for (const item of flow.items) {
@@ -74,7 +86,7 @@ const summarize = (flow: RecordedFlow): FlowSummary => {
       ? 'running'
       : 'idle';
   return {
-    name: shortNameOf(lane),
+    name: interaction ? opener.name : shortNameOf(lane),
     store: storeOf(lane),
     rows,
     leadership,

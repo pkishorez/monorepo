@@ -10,3 +10,9 @@ export {
   type FlowObservation,
   type RecordedFlowAttributeValue,
 } from './flow.js';
+export {
+  readSequence,
+  sequenceAttribute,
+  sequenceOrder,
+  tracerAttributePrefix,
+} from '../sequence/index.js';

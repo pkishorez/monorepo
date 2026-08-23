@@ -1,4 +1,4 @@
-import { Deferred, Effect, Fiber } from 'effect';
+import { Clock, Deferred, Effect, Fiber } from 'effect';
 import { describe, expect, it } from 'vitest';
 
 import { makeTraceRecorder } from './recorder.js';
@@ -13,6 +13,41 @@ const token = (flow: ReturnType<TraceRecorder['snapshotFlow']>) =>
   )?.messageId;
 
 describe('makeTraceRecorder', () => {
+  it('keeps emission order when spans and logs share a millisecond', async () => {
+    const frozen: Clock.Clock = {
+      currentTimeMillisUnsafe: () => 1_000,
+      currentTimeMillis: Effect.succeed(1_000),
+      monotonicTimeNanosUnsafe: () => 1_000_000_000n,
+      monotonicTimeNanos: Effect.succeed(1_000_000_000n),
+      currentTimeNanosUnsafe: () => 1_000_000_000n,
+      currentTimeNanos: Effect.succeed(1_000_000_000n),
+      sleep: () => Effect.void,
+    };
+    const recorder = makeTraceRecorder();
+    const flow = initFlow({ id: 'call-123', participantName: 'client' });
+
+    await Effect.runPromise(
+      recorder.instrument(
+        Effect.gen(function* () {
+          yield* flow.log('First');
+          yield* Effect.void.pipe(flow.withSpan('Second'));
+          yield* flow.log('Third');
+          yield* Effect.void.pipe(flow.withSpan('Fourth'));
+        }).pipe(Effect.provideService(Clock.Clock, frozen)),
+      ),
+    );
+
+    const trace = recorder.snapshot();
+    expect(names(trace.spans)).toEqual(['Second', 'Fourth']);
+    expect(trace.logs.map(({ message }) => message)).toEqual([
+      'First',
+      'Third',
+    ]);
+    expect(
+      recorder.snapshotFlow('call-123')?.items.map(({ name }) => name),
+    ).toEqual(['First', 'Second', 'Third', 'Fourth']);
+  });
+
   it('exposes recorded Flow activities, events, messages, and Activations', async () => {
     const recorder = makeTraceRecorder();
     const client = initFlow({ id: 'call-123', participantName: 'client-a' });

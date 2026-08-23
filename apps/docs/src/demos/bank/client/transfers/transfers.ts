@@ -1,8 +1,17 @@
 import { createOptimisticAction } from '@tanstack/react-db';
-import { Effect, Semaphore } from 'effect';
+import {
+  Activation,
+  type ActivationRef,
+  type MessageToken,
+} from '@pkishorez/effect-tracer/flow';
+import { Clock, Effect, Semaphore } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
 import type { BankApi } from '../api/index.ts';
 import type { BankRunner, Network, Vitals } from '../diagnostics/index.ts';
+import {
+  makeInteractionFlow,
+  type InteractionFlow,
+} from '../interaction-flow/index.ts';
 import { makeLiveValue, type LiveValue } from '../live-value.ts';
 import type { BankSync } from '../sync/index.ts';
 import { explain } from './problem.ts';
@@ -37,6 +46,13 @@ export interface TransfersOptions {
   readonly runner: BankRunner;
 }
 
+interface Story {
+  readonly flow: InteractionFlow;
+  readonly ask: MessageToken;
+  readonly user: ActivationRef;
+  readonly bank: ActivationRef;
+}
+
 const REFUSAL_LINGER = '5 seconds';
 
 export const makeTransfers = ({
@@ -57,67 +73,94 @@ export const makeTransfers = ({
 
   const lane = Semaphore.makeUnsafe(1);
 
+  const flows = new Map<string, InteractionFlow>();
+  const flowOf = (id: string) => {
+    const existing = flows.get(id);
+    if (existing) return existing;
+    const created = makeInteractionFlow('transfer', id);
+    flows.set(id, created);
+    return created;
+  };
+  const stories = new Map<string, Story>();
+
+  const nameOf = (id: string) => accounts.get(id)?.name ?? id;
+  const describe = ({ from, to, amount, attempt }: Attempt) =>
+    `${attempt > 0 ? `Retry ${attempt} · ` : ''}Transfer ${amount} · ${nameOf(from)} → ${nameOf(to)}`;
+
   const commit = createOptimisticAction<Attempt>({
-    onMutate: ({ id, from, to, amount }) => {
-      accounts.update(from, (draft) => {
-        draft.balance -= amount;
+    onMutate: (attempt) => {
+      const { id, from, to, amount } = attempt;
+      const apply = Effect.sync(() => {
+        accounts.update(from, (draft) => {
+          draft.balance -= amount;
+        });
+        accounts.update(to, (draft) => {
+          draft.balance += amount;
+        });
+        transfers.insert({ id, from, to, amount });
       });
-      accounts.update(to, (draft) => {
-        draft.balance += amount;
-      });
-      transfers.insert({ id, from, to, amount });
+      runner.runSync(
+        apply.pipe(flowOf(id).bank.withSpan('Apply optimistically')),
+      );
     },
     mutationFn: (input) =>
       runner.runPromise(
-        vitals
-          .patch((v) => ({ queued: v.queued + 1 }))
-          .pipe(
-            Effect.andThen(
-              lane.withPermits(1)(
-                vitals
-                  .patch((v) => ({
-                    queued: v.queued - 1,
-                    committing: v.committing + 1,
-                  }))
-                  .pipe(
-                    Effect.andThen(
-                      network.travel.pipe(
-                        Effect.withSpan('Travel the network'),
-                      ),
-                    ),
-                    Effect.flatMap(() =>
-                      api
-                        .transfer({
-                          id: input.id,
-                          from: input.from,
-                          to: input.to,
-                          amount: input.amount,
-                        })
-                        .pipe(Effect.withSpan('Commit on the bank')),
-                    ),
-                    Effect.tap((outcome) =>
-                      Effect.all([
-                        accounts.utils.applyToSyncReplica([
-                          ...outcome.accounts,
-                        ]),
-                        transfers.utils.applyToSyncReplica([outcome.transfer]),
-                      ]).pipe(Effect.withSpan('Apply to the Sync Replica')),
-                    ),
-                    Effect.ensuring(
-                      vitals.patch((v) => ({ committing: v.committing - 1 })),
-                    ),
+        Effect.gen(function* () {
+          const flow = flowOf(input.id);
+          const { bank, api: apiLane } = flow;
+          yield* vitals.patch((v) => ({ queued: v.queued + 1 }));
+          yield* bank.log('Queued for the lane');
+          const queuedAt = yield* Clock.currentTimeMillis;
+          return yield* lane.withPermits(1)(
+            Effect.gen(function* () {
+              yield* vitals.patch((v) => ({
+                queued: v.queued - 1,
+                committing: v.committing + 1,
+              }));
+              const waitedMs = (yield* Clock.currentTimeMillis) - queuedAt;
+              yield* bank.log('Lane acquired', { attributes: { waitedMs } });
+              const outcome = yield* flow.call(
+                `transfer ${input.amount}`,
+                network.travel.pipe(
+                  apiLane.withSpan('Travel the network'),
+                  Effect.andThen(
+                    api
+                      .transfer({
+                        id: input.id,
+                        from: input.from,
+                        to: input.to,
+                        amount: input.amount,
+                      })
+                      .pipe(apiLane.withSpan('Commit on the bank')),
                   ),
+                ),
+                {
+                  reply: ({ accounts: touched }) =>
+                    `${touched.length} accounts + 1 transfer`,
+                  failure: (error) => explain(error).message,
+                },
+              );
+              yield* Effect.all([
+                accounts.utils.applyToSyncReplica([...outcome.accounts]),
+                transfers.utils.applyToSyncReplica([outcome.transfer]),
+              ]).pipe(bank.withSpan('Apply the outcome to the Sync Replica'));
+              return outcome;
+            }).pipe(
+              Effect.ensuring(
+                vitals.patch((v) => ({ committing: v.committing - 1 })),
               ),
             ),
-            Effect.withSpan('Transfer', {
-              attributes: {
-                'transfer.id': input.id,
-                'transfer.from': input.from,
-                'transfer.to': input.to,
-                'transfer.amount': input.amount,
-              },
-            }),
-          ),
+          );
+        }).pipe(
+          Effect.withSpan('Transfer', {
+            attributes: {
+              'transfer.id': input.id,
+              'transfer.from': input.from,
+              'transfer.to': input.to,
+              'transfer.amount': input.amount,
+            },
+          }),
+        ),
       ),
   });
 
@@ -128,12 +171,58 @@ export const makeTransfers = ({
       ),
     );
 
+  const begin = (attempt: Attempt): Story =>
+    runner.runSync(
+      Effect.gen(function* () {
+        const flow = flowOf(attempt.id);
+        const label = describe(attempt);
+        const user = yield* flow.user.activation.start(label);
+        const ask = yield* flow.user.send('bank', label, {
+          attributes: {
+            from: attempt.from,
+            to: attempt.to,
+            amount: attempt.amount,
+          },
+        });
+        const bank = yield* flow.bank.activation.start('Handle the transfer');
+        return { flow, ask, user, bank };
+      }),
+    );
+
+  const settle = (
+    id: string,
+    outcome: Parameters<ActivationRef['end']>[0],
+    message: string,
+  ) => {
+    const story = stories.get(id);
+    if (!story) return;
+    stories.delete(id);
+    runner.runSync(
+      Effect.all([
+        story.bank.end(outcome),
+        story.flow.bank.reply(story.ask, message, {
+          level: outcome.kind === 'failed' ? 'error' : 'info',
+        }),
+        story.user.end(outcome),
+      ]),
+    );
+  };
+
   const launch = (attempt: Attempt) => {
+    stories.set(attempt.id, begin(attempt));
     put(attempt);
     commit(attempt).isPersisted.promise.then(
-      () => drop(attempt.id),
+      () => {
+        settle(attempt.id, Activation.completed(), 'Settled');
+        drop(attempt.id);
+      },
       (error: unknown) => {
         const problem = explain(error);
+        settle(
+          attempt.id,
+          Activation.failed(problem.message),
+          `${problem.kind === 'refusal' ? 'Refused' : 'Failed'}: ${problem.message}`,
+        );
         put({
           ...attempt,
           phase: problem.kind === 'refusal' ? 'refused' : 'failed',
@@ -164,6 +253,10 @@ export const makeTransfers = ({
         attempt: attempt.attempt + 1,
       });
     },
-    dismiss: drop,
+    dismiss: (id) => {
+      const flow = flows.get(id);
+      if (flow) runner.runSync(flow.user.log('Dismissed'));
+      drop(id);
+    },
   };
 };
