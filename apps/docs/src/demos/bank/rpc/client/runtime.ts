@@ -25,7 +25,7 @@ import {
   TransferSchema,
   type Transfer,
 } from '../../contract/transfer/index.ts';
-import { seedBalance, seedNames, SEED_SIZE } from '../mutations/index.ts';
+import { seedBalance, seedNames } from '../mutations/index.ts';
 import { BankRpcs } from '../contract/index.ts';
 import { Network, NetworkLive } from './network.ts';
 import { makeVitals, type BankVitals } from './vitals.ts';
@@ -243,9 +243,9 @@ const makeBank = Effect.gen(function* () {
       ),
   });
 
-  const seed = (): void => {
+  const seed = (count: number): void => {
     accounts.insert(
-      seedNames(SEED_SIZE).map((name) => ({
+      seedNames(count).map((name) => ({
         id: newId(),
         name,
         balance: seedBalance(),

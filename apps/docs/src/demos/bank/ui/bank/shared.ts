@@ -5,6 +5,8 @@ export interface Opening {
 
 export const MAX_OPENING_BALANCE = 10_000;
 export const DEFAULT_OPENING_BALANCE = 500;
+export const DEFAULT_SEED_COUNT = 8;
+export const MAX_SEED_COUNT = 1_000;
 
 export const mono = 'font-mono tracking-tight tabular-nums';
 export const bare =

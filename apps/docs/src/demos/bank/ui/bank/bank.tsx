@@ -20,6 +20,7 @@ import { LastEvent, type LastEventLine } from './last-event.tsx';
 import { AnimatedMoney } from './animated-money.tsx';
 import { Ledger } from './ledger.tsx';
 import { OpenDialog } from './open-dialog.tsx';
+import { SeedDialog } from './seed-dialog.tsx';
 import { mono, textLink, type Opening } from './shared.ts';
 import { StoreLine, type StoreChoice } from './store-line.tsx';
 import {
@@ -60,7 +61,7 @@ export interface BankProps {
   readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onOpen: (opening: Opening) => void;
-  readonly onSeed: () => void;
+  readonly onSeed: (count: number) => void;
   readonly onClear: () => void;
   readonly onRetry: (attemptId: string) => void;
   readonly debug: BankDebug | null;
@@ -102,6 +103,7 @@ const lastEventOf = (
 export function Bank(props: BankProps) {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const rows = useMemo(
     () => [...props.accounts].sort(richestFirst),
@@ -207,7 +209,7 @@ export function Bank(props: BankProps) {
                         <DropdownMenuItem onClick={() => setOpening(true)}>
                           Open an account
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={props.onSeed}>
+                        <DropdownMenuItem onClick={() => setSeeding(true)}>
                           Seed accounts
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
@@ -260,6 +262,11 @@ export function Bank(props: BankProps) {
         open={opening}
         onOpenChange={setOpening}
         onOpen={props.onOpen}
+      />
+      <SeedDialog
+        open={seeding}
+        onOpenChange={setSeeding}
+        onSeed={props.onSeed}
       />
     </main>
   );
