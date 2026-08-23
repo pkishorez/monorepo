@@ -166,6 +166,32 @@ describe('Sync Replica over StdTable', () => {
     }),
   );
 
+  itEffect('writes a batch wider than one transaction in sequence order', () =>
+    Effect.gen(function* () {
+      const { replica } = makeReplica();
+      const batch = Array.from({ length: 250 }, (_, index) =>
+        entity(`item-${String(index).padStart(3, '0')}`, `Item ${index}`, '1'),
+      );
+      const accepted = yield* replica.applyToSyncReplica(batch);
+      expect(accepted).toHaveLength(250);
+
+      const delta = yield* replica.since(null);
+      expect(delta.entities.map((item) => item.value.id)).toEqual(
+        batch.map((item) => item.value.id),
+      );
+      expect(delta.position).toBe('00000000000000000000000000000250');
+
+      const again = yield* replica.applyToSyncReplica([
+        ...batch.slice(0, 20),
+        entity('item-new', 'New', '1'),
+      ]);
+      expect(again.map((item) => item.value.id)).toEqual(['item-new']);
+      const next = yield* replica.since(delta.position);
+      expect(next.entities.map((item) => item.value.id)).toEqual(['item-new']);
+      expect(next.position).toBe('00000000000000000000000000000251');
+    }),
+  );
+
   itEffect('validates the complete batch before writing any entity', () =>
     Effect.gen(function* () {
       const { replica } = makeReplica();

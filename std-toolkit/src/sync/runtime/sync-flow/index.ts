@@ -3,6 +3,7 @@ export {
   globalParticipantName,
   makeCollectionFlow,
   narrateHydration,
+  narrateReplicaWrite,
   partitionParticipantName,
   singleItemParticipantName,
   type ActivationOutcome,

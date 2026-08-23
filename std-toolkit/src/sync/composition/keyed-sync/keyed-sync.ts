@@ -46,9 +46,9 @@ import {
   Activation,
   makeCollectionFlow,
   narrateHydration,
+  narrateReplicaWrite,
   partitionParticipantName,
   type ActivationRef,
-  type FlowParticipant,
   type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
@@ -84,8 +84,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     total?: PartitionEntry<S['Type'], R, any>;
     partitions?: PartitionMap<S, R>;
     onInsert?: (
-      item: S['Type'],
-    ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
+      items: ReadonlyArray<S['Type']>,
+    ) => Effect.Effect<ReadonlyArray<DecodedEntity<S['Type']>>, unknown, R>;
     onUpdate?: (
       payload: UpdatePayload<S['Type'], S>,
     ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
@@ -150,20 +150,23 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   });
   const pending = runner.runSync(makePendingTracker);
   const advancePermit = runner.runSync(TxSemaphore.make(1));
+  const writePermit = runner.runSync(TxSemaphore.make(1));
   let projector: Projector<TItem> | null = null;
   let collectionUpdate:
     | ((key: string, updater: (draft: TCollItem) => void) => Transaction)
     | null = null;
-  // The native collection is needed by per-partition cadence loops.
   let nativeCollection: SyncCollection<TItem> | null = null;
   let collectionActivation: ActivationRef | null = null;
   let position: string | null = null;
   let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
 
+  // Projects the replica page by page so a large hydration paints progressively
+  // instead of blocking until every row is read; `onFirstPage` fires once rows are visible.
   const advance = (
     options: {
       readonly seeding: boolean;
-      readonly narrator?: FlowParticipant;
+      readonly narrator?: StrategyFlow | undefined;
+      readonly onFirstPage?: () => void;
     } = { seeding: false },
   ): Effect.Effect<number, WriteError> =>
     TxSemaphore.withPermit(
@@ -171,16 +174,24 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
       Effect.gen(function* () {
         if (projector === null) return 0;
         const story = narrateHydration(options.narrator, collectionName);
-        const delta = yield* story.load(position, replica.since(position));
-        position = delta.position;
-        const entities = options.seeding
-          ? delta.entities.filter((entity) => !entity.meta._d)
-          : delta.entities;
-        yield* story.project(
-          entities.length,
-          Effect.sync(() => projector?.projectEntities(entities)),
+        let projected = 0;
+        const read = yield* story.load(
+          position,
+          replica.eachPage(position, (page) =>
+            Effect.gen(function* () {
+              const entities = options.seeding
+                ? page.entities.filter((entity) => !entity.meta._d)
+                : page.entities;
+              projector?.projectEntities(entities);
+              position = page.position;
+              if (projected === 0) options.onFirstPage?.();
+              projected += entities.length;
+              yield* Effect.yieldNow;
+            }),
+          ),
         );
-        return entities.length;
+        position = read.position;
+        return projected;
       }),
     );
 
@@ -190,34 +201,39 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     options: { readonly propagate: boolean } = { propagate: true },
   ): Effect.Effect<DecodedEntity<TItem>[], WriteError> => {
     config.assertActive();
-    return replica.applyToSyncReplica(entities).pipe(
-      Effect.tap(() => advance()),
-      Effect.tap((accepted) =>
-        options.propagate && accepted.length > 0 && peerSync !== null
-          ? Effect.promise(() =>
-              peerSync!.broadcast(
-                accepted as [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
-              ),
-            )
-          : Effect.void,
-      ),
-      Effect.tap((accepted) =>
-        syncFlow && entities.length > 0
-          ? syncFlow.log('Sync Replica write', {
-              attributes: {
-                receivedCount: entities.length,
-                storedCount: accepted.length,
-              },
-            })
-          : Effect.void,
-      ),
-      Effect.withSpan('sync.apply-to-sync-replica', {
-        attributes: {
-          entity: collectionName,
-          entityCount: entities.length,
-        },
-      }),
-    );
+    const story = narrateReplicaWrite(syncFlow, collectionName);
+    return story
+      .write(
+        entities.length,
+        TxSemaphore.withPermit(
+          writePermit,
+          replica.applyToSyncReplica(entities),
+        ),
+      )
+      .pipe(
+        Effect.tap(() => advance({ seeding: false, narrator: syncFlow })),
+        Effect.tap((accepted) =>
+          options.propagate && accepted.length > 0 && peerSync !== null
+            ? story.broadcast(
+                accepted.length,
+                Effect.promise(() =>
+                  peerSync!.broadcast(
+                    accepted as [
+                      DecodedEntity<TItem>,
+                      ...DecodedEntity<TItem>[],
+                    ],
+                  ),
+                ),
+              )
+            : Effect.void,
+        ),
+        Effect.withSpan('sync.apply-to-sync-replica', {
+          attributes: {
+            entity: collectionName,
+            entityCount: entities.length,
+          },
+        }),
+      );
   };
 
   const projectOnly = (entities: DecodedEntity<TItem>[]): Effect.Effect<void> =>
@@ -339,10 +355,6 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
     schema: makeCollectionItemSchema(schema),
     getKey: (item) => String((item as Record<string, unknown>)[schema.idField]),
     rowUpdateMode: 'full',
-    // Partitioned collections require on-demand mode so TanStack DB calls loadSubset
-    // with the subscription's where expression — otherwise loadSubset is bypassed
-    // and no partition is ever activated. Collections with only a global strategy
-    // use the default eager mode (all data syncs automatically).
     ...(partitionFields.length > 0 && { syncMode: 'on-demand' as const }),
     sync: {
       sync: (callbacks) => {
@@ -375,6 +387,12 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           values: () => native.values(),
         };
         let active = true;
+        let readyMarked = false;
+        const markReady = () => {
+          if (!active || readyMarked) return;
+          readyMarked = true;
+          callbacks.markReady();
+        };
         const initializationScope = runner.runSync(Scope.make());
         runner.runSync(
           Effect.forkIn(
@@ -382,10 +400,11 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               const projected = yield* advance({
                 seeding: true,
                 narrator: flow.collection,
+                onFirstPage: markReady,
               });
               const ready = yield* Effect.sync(() => {
                 if (!active) return false;
-                callbacks.markReady();
+                markReady();
                 return true;
               });
               if (!ready) return;

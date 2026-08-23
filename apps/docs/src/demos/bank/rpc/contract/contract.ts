@@ -2,7 +2,6 @@ import { Context, Schema } from 'effect';
 import { Rpc, RpcGroup, RpcSerialization } from 'effect/unstable/rpc';
 import { EntitySchema } from 'std-toolkit/core';
 import { AccountSchema } from '../../contract/account/index.ts';
-import { InvalidName } from '../../contract/name/index.ts';
 import { TransferRefused } from '../../contract/refusal/index.ts';
 import { TransferSchema } from '../../contract/transfer/index.ts';
 
@@ -23,14 +22,18 @@ export class Forbidden extends Schema.TaggedError<Forbidden>()(
 ) {}
 
 export class BankMutations extends RpcGroup.make(
-  Rpc.make('openAccount', {
+  Rpc.make('openAccounts', {
     payload: {
-      id: Schema.String,
-      name: Schema.String,
-      balance: Schema.Int,
+      accounts: Schema.Array(
+        Schema.Struct({
+          id: Schema.String,
+          name: Schema.String,
+          balance: Schema.Int,
+        }),
+      ),
     },
-    success: AccountEntity,
-    error: Schema.Union([InvalidName, Forbidden]),
+    success: AccountBatch,
+    error: Forbidden,
   }),
   Rpc.make('transfer', {
     payload: {

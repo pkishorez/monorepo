@@ -11,10 +11,8 @@ export interface Opening {
 }
 
 export interface Admin {
-  /** Opens an account optimistically and returns its Id. */
   readonly open: (opening: Opening) => string;
   readonly seed: (count: number) => Promise<void>;
-  /** Wipes the bank and its local sync replica; the page must reload afterwards. */
   readonly clear: () => Promise<void>;
 }
 
@@ -24,12 +22,12 @@ export interface AdminOptions {
   readonly runner: BankRunner;
 }
 
-const SEED_BATCH = 1000;
+const SEED_BURST = 500;
 
 const seedNames = (count: number): readonly string[] => {
   const taken = new Set<number>();
   while (taken.size < count)
-    taken.add(1000 + Math.floor(Math.random() * 99_000));
+    taken.add(1000 + Math.floor(Math.random() * 999_000));
   return [...taken].map((suffix) => `User ${suffix}`);
 };
 
@@ -74,17 +72,22 @@ export const makeAdmin = ({
         flow.user.send('bank', label).pipe(
           Effect.andThen(
             Effect.forEach(
-              Arr.chunksOf(seedNames(count), SEED_BATCH),
+              Arr.chunksOf(seedNames(count), SEED_BURST),
               (names) =>
-                Effect.sync(() =>
-                  accounts.insert(
-                    names.map((name) => ({
-                      id: newId(),
-                      name,
-                      balance: seedBalance(),
-                    })),
-                  ),
-                ).pipe(Effect.andThen(Effect.sleep(0))),
+                Effect.promise(
+                  () =>
+                    accounts.insert(
+                      names.map((name) => ({
+                        id: newId(),
+                        name,
+                        balance: seedBalance(),
+                      })),
+                    ).isPersisted.promise,
+                ).pipe(
+                  flow.bank.withSpan('Seed a burst', {
+                    attributes: { 'seed.burst': names.length },
+                  }),
+                ),
               { discard: true },
             ).pipe(
               flow.bank.withSpan('Seed accounts', {

@@ -114,7 +114,8 @@ export const makeBrowser = <const D extends readonly AnyDefinition[]>(options: {
     const collection = app.collection({
       ...configured,
       schema: entity.schema,
-      onInsert: (value: any) => backend.insert(value),
+      onInsert: (values: ReadonlyArray<any>) =>
+        Effect.forEach(values, (value) => backend.insert(value)),
       onUpdate:
         configured.onUpdate ??
         (({ current, updates }: { current: any; updates: any }) =>

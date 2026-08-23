@@ -60,11 +60,6 @@ export type StdSyncPlatform = {
 export const syncStrategy = { oldToNew, newToOld, bidirectional };
 export const paceStrategy = mutationPaceStrategy;
 
-/**
- * Config for keyed total, partitioned, or hybrid sync. Total and partition
- * workers keep independent progress while converging through one Sync Replica.
- * Omit `sync` for a storage-only collection fed by `applyToSyncReplica` or broadcasts.
- */
 type SyncShape<S extends AnyEntityESchema, R = never> =
   | {
       total: PartitionEntry<S['Type'], R, any>;
@@ -80,8 +75,8 @@ export type SyncConfig<S extends AnyEntityESchema, R = never> = {
   sync?: SyncShape<S, R>;
   options?: StdCollectionOptions<S['Type']>;
   onInsert?: (
-    item: S['Type'],
-  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
+    items: ReadonlyArray<S['Type']>,
+  ) => Effect.Effect<ReadonlyArray<DecodedEntity<S['Type']>>, unknown, R>;
   onUpdate?: (
     payload: UpdatePayload<S['Type'], S>,
   ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
@@ -91,7 +86,6 @@ export type SyncConfig<S extends AnyEntityESchema, R = never> = {
   updatePacing?: PaceStrategyFactory;
 };
 
-/** Config for the `singleItemSync` method (collection-level lifecycle, no partitions). */
 type SingleItemSyncBase<S extends AnyUnkeyedESchema, R = never> = {
   schema: S;
   options?: StdCollectionOptions<S['Type']>;
@@ -117,13 +111,6 @@ export type SingleItemSyncConfig<
       }
   );
 
-/**
- * Creates one Std Sync instance: a shared tracker behind `sync` (keyed,
- * partitioned), `singleItemSync` (singleton), and `registry` (the broadcast
- * router). Optional `defaults.options` are merged into every collection's options,
- * with per-collection options winning. Schema names are normalized and qualified
- * by the required Sync name; duplicate normalized collection names throw.
- */
 export type StdSyncDefaults<R = never> = {
   name: string;
   version?: string | number;
@@ -174,8 +161,6 @@ const makeStdSync = <R>(defaults: StdSyncDefaults<R>) => {
     return tracked;
   };
 
-  // TanStack DB defaults to a five-minute GC, and it arms one shared ref'd timer
-  // for the longest gcTime in play — long enough to hold a Node process open.
   const defaultGcTime = 10_000;
 
   const mergeOptions = <TItem extends object>(

@@ -1,6 +1,7 @@
 export {
   BankMutationsLive,
   openAccount,
+  openAccounts,
   transfer,
   type OpenAccountInput,
   type TransferInput,

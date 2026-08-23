@@ -29,10 +29,10 @@ describe('batched mutations', () => {
     const std = createStdSync({ name: 'batch-handlers' });
     const config = std.sync({
       schema: todoSchema,
-      onInsert: (item) =>
+      onInsert: (items) =>
         Effect.sync(() => {
-          inserted.push(item.id);
-          return todo(item.id, '2', item.title);
+          inserted.push(...items.map((item) => item.id));
+          return items.map((item) => todo(item.id, '2', item.title));
         }),
       onUpdate: ({ current, updates }) =>
         Effect.sync(() => {
@@ -93,7 +93,8 @@ describe('batched mutations', () => {
     const std = createStdSync({ name: 'batch-replica' });
     const config = std.sync({
       schema: todoSchema,
-      onInsert: (item) => Effect.succeed(todo(item.id, '2', item.title)),
+      onInsert: (items) =>
+        Effect.succeed(items.map((item) => todo(item.id, '2', item.title))),
     });
 
     await config.onInsert!({
@@ -119,21 +120,21 @@ describe('batched mutations', () => {
     const std = createStdSync({ name: 'batch-concurrency' });
     const config = std.sync({
       schema: todoSchema,
-      onInsert: (item) =>
+      onDelete: ({ current }) =>
         Effect.gen(function* () {
           inFlight += 1;
           peak = Math.max(peak, inFlight);
           yield* Effect.sleep('10 millis');
           inFlight -= 1;
-          return todo(item.id, '2', item.title);
+          return todo(current.id, '2', current.title, true);
         }),
     });
 
-    await config.onInsert!({
+    await config.onDelete!({
       transaction: {
         mutations: Array.from({ length: 20 }, (_, index) => ({
           key: `k${index}`,
-          modified: { id: `k${index}`, title: `T${index}` },
+          original: { id: `k${index}`, title: `T${index}` },
         })),
       },
     } as never);

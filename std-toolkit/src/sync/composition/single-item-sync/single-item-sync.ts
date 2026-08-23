@@ -36,9 +36,9 @@ import {
   Activation,
   makeCollectionFlow,
   narrateHydration,
+  narrateReplicaWrite,
   singleItemParticipantName,
   type ActivationRef,
-  type FlowParticipant,
   type FlowPlacement,
   type StrategyFlow,
 } from '../../runtime/sync-flow/index.js';
@@ -130,14 +130,21 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
   let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
 
   const advance = (
-    narrator?: FlowParticipant,
+    narrator?: StrategyFlow,
   ): Effect.Effect<number, WriteError> =>
     TxSemaphore.withPermit(
       advancePermit,
       Effect.gen(function* () {
         if (projector === null) return 0;
         const story = narrateHydration(narrator, collectionName);
-        const delta = yield* story.load(position, replica.since(position));
+        const delta = yield* story.load(
+          position,
+          replica
+            .since(position)
+            .pipe(
+              Effect.map((read) => ({ ...read, rows: read.entities.length })),
+            ),
+        );
         position = delta.position;
         yield* story.project(
           delta.entities.length,
@@ -160,22 +167,21 @@ export const buildSingleItem = <S extends AnyUnkeyedESchema, TState, R = never>(
           reason: `single-item collection '${schema.name}' cannot be deleted`,
         });
       }
-      const accepted = yield* replica.applyToSyncReplica(entities);
-      yield* advance();
+      const story = narrateReplicaWrite(syncFlow, collectionName);
+      const accepted = yield* story.write(
+        entities.length,
+        replica.applyToSyncReplica(entities),
+      );
+      yield* advance(syncFlow);
       if (options.propagate && accepted.length > 0 && peerSync !== null) {
-        yield* Effect.promise(() =>
-          peerSync!.broadcast(
-            accepted as [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
+        yield* story.broadcast(
+          accepted.length,
+          Effect.promise(() =>
+            peerSync!.broadcast(
+              accepted as [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
+            ),
           ),
         );
-      }
-      if (syncFlow && entities.length > 0) {
-        yield* syncFlow.log('Sync Replica write', {
-          attributes: {
-            receivedCount: entities.length,
-            storedCount: accepted.length,
-          },
-        });
       }
       return accepted;
     }).pipe(
