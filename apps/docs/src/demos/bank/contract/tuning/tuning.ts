@@ -14,6 +14,5 @@ export const PUSH_BATCH_WINDOW_MS = 50;
 /** Rows per table query while a subscriber catches up from its cursor. */
 export const CATCH_UP_PAGE_SIZE = 100;
 
-/** Rows the ledger asks the collection for at first, and per scroll to the end. */
-export const LEDGER_FIRST_PAGE = 30;
-export const LEDGER_NEXT_PAGE = 20;
+/** Accounts per ledger page. */
+export const LEDGER_PAGE_SIZE = 20;

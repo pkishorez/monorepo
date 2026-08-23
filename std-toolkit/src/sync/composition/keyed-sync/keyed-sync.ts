@@ -26,7 +26,6 @@ import type { Tracker } from '../../runtime/sync-registry/index.js';
 import { makeSyncStateStore } from '../../persistence/sync-state/index.js';
 import { makePartitionLifecycle } from '../../lifecycle/partition-sync/index.js';
 import { GLOBAL_PARTITION_KEY } from '../../domain/partition-identity/index.js';
-import { READY_AFTER_FIRST_PAGE } from '../../domain/tuning/index.js';
 import { buildMutationHandlers } from './mutations.js';
 import { makePendingTracker } from '../../runtime/pending-mutations/index.js';
 import type {
@@ -161,13 +160,12 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
   let position: string | null = null;
   let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
 
-  // Projects the replica page by page so a large hydration paints progressively
-  // instead of blocking until every row is read; `onFirstPage` fires once rows are visible.
+  // Projects the replica page by page so a large hydration never blocks on reading
+  // every row first; the Collection is marked ready only once all of it is projected.
   const advance = (
     options: {
       readonly seeding: boolean;
       readonly narrator?: StrategyFlow | undefined;
-      readonly onFirstPage?: () => void;
     } = { seeding: false },
   ): Effect.Effect<number, WriteError> =>
     TxSemaphore.withPermit(
@@ -184,7 +182,6 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
                 ? page.entities.filter((entity) => !entity.meta._d)
                 : page.entities;
               projector?.projectEntities(entities);
-              if (projected === 0) options.onFirstPage?.();
               position = page.position;
               projected += entities.length;
               yield* Effect.yieldNow;
@@ -388,12 +385,6 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
           values: () => native.values(),
         };
         let active = true;
-        let readyMarked = false;
-        const markReady = () => {
-          if (!active || readyMarked) return;
-          readyMarked = true;
-          callbacks.markReady();
-        };
         const initializationScope = runner.runSync(Scope.make());
         runner.runSync(
           Effect.forkIn(
@@ -401,11 +392,10 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               const projected = yield* advance({
                 seeding: true,
                 narrator: flow.collection,
-                ...(READY_AFTER_FIRST_PAGE ? { onFirstPage: markReady } : {}),
               });
               const ready = yield* Effect.sync(() => {
                 if (!active) return false;
-                markReady();
+                callbacks.markReady();
                 return true;
               });
               if (!ready) return;

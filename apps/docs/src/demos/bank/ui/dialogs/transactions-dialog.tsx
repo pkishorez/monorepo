@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,8 +19,8 @@ import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney } from '../ledger/animated-money.tsx';
 import { formatMoney } from '../ledger/money.ts';
-import { usePaging } from '../ledger/paging.ts';
 import { mono } from '../shared.ts';
+import { LEDGER_PAGE_SIZE } from '../../contract/tuning/index.ts';
 
 export interface TransactionLine {
   readonly id: string;
@@ -32,6 +33,29 @@ export interface TransactionLine {
 const scrollBox =
   'overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
 
+/** Reveals LEDGER_PAGE_SIZE more lines each time the sentinel scrolls into view. */
+const useScrollPaging = (total: number) => {
+  const [limit, setLimit] = useState(LEDGER_PAGE_SIZE);
+  const hasMore = total > limit;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!hasMore) return;
+    const root = scrollRef.current;
+    const more = moreRef.current;
+    if (root === null || more === null) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) setLimit((n) => n + LEDGER_PAGE_SIZE);
+      },
+      { root, rootMargin: '200px' },
+    );
+    observer.observe(more);
+    return () => observer.disconnect();
+  }, [hasMore]);
+  return { limit, hasMore, scrollRef, moreRef };
+};
+
 function Lines({
   lines,
   className,
@@ -39,7 +63,7 @@ function Lines({
   lines: readonly TransactionLine[];
   className: string;
 }) {
-  const { limit, hasMore, scrollRef, moreRef } = usePaging(lines.length);
+  const { limit, hasMore, scrollRef, moreRef } = useScrollPaging(lines.length);
   return (
     <div ref={scrollRef} className={cn(scrollBox, className)}>
       {lines.length === 0 ? (

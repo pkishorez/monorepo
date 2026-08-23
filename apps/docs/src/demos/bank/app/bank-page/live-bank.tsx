@@ -103,21 +103,27 @@ const useSummary = (runtime: BankRuntime) => {
   return { total: data?.[0]?.total ?? 0, count: data?.[0]?.n ?? 0 };
 };
 
-const useRichest = (
+// Newest accounts first, paged on the indexed `id` (a ULID): a unique sort key is what
+// lets TanStack page from the index in milliseconds and without repeats. The query
+// re-evaluates on every commit, so it only exists once the collection is ready.
+const useNewest = (
   runtime: BankRuntime,
+  enabled: boolean,
+  offset: number,
   limit: number,
   excludeId: string | null,
 ): readonly Account[] => {
   const { data } = useLiveQuery(
     (q) =>
-      q
-        .from({ a: runtime.accounts })
-        .where(({ a }) => not(eq(a.id, excludeId ?? '')))
-        .orderBy(({ a }) => a.balance, 'desc')
-        .orderBy(({ a }) => a.name)
-        .orderBy(({ a }) => a.id)
-        .limit(limit),
-    [limit, excludeId],
+      !enabled
+        ? null
+        : q
+            .from({ a: runtime.accounts })
+            .where(({ a }) => not(eq(a.id, excludeId ?? '')))
+            .orderBy(({ a }) => a.id, 'desc')
+            .offset(offset)
+            .limit(limit),
+    [enabled, offset, limit, excludeId],
   );
   return (data ?? EMPTY) as readonly Account[];
 };
@@ -146,10 +152,10 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
   const summary = useSummary(runtime);
   const from = useAccount(runtime, fromId);
   const viewing = useAccount(runtime, viewingId);
-  const { limit, ...paging } = usePaging(
+  const { offset, limit, ...paging } = usePaging(
     summary.count - (from === null ? 0 : 1),
   );
-  const rows = useRichest(runtime, limit, fromId);
+  const rows = useNewest(runtime, ready, offset, limit, fromId);
   const viewed = useHistory(runtime, viewingId);
   const attempts = useSyncExternalStore(
     runtime.attempts.subscribe,
