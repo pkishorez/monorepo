@@ -118,12 +118,7 @@ function Activity({
       )}
     >
       <History className="size-3 text-muted-foreground/60" />
-      <span
-        className={cn(
-          'flex items-center gap-0.5',
-          activity.sent > 0 && 'text-destructive',
-        )}
-      >
+      <span className="flex items-center gap-0.5 text-destructive">
         <ArrowUp className="size-3" strokeWidth={2.5} />
         {activity.sent.toLocaleString()}
       </span>
