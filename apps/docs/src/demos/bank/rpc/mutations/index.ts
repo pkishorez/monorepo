@@ -3,7 +3,6 @@ export {
   openAccount,
   seedBalance,
   seedNames,
-  SEED_SIZE,
   transfer,
   type OpenAccountInput,
   type TransferInput,

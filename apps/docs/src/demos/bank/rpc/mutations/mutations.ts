@@ -24,8 +24,6 @@ const stamp = <T>(row: DecodedEntity<T>): DecodedEntity<T> => ({
   meta: { ...row.meta, _s: Date.now() },
 });
 
-export const SEED_SIZE = 8;
-
 export const seedNames = (count: number): readonly string[] => {
   const taken = new Set<number>();
   while (taken.size < count) taken.add(1000 + Math.floor(Math.random() * 9000));
