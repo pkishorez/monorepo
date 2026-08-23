@@ -18,7 +18,7 @@ import {
 } from './debug-line.tsx';
 import { LastEvent, type LastEventLine } from './last-event.tsx';
 import { AnimatedMoney } from './animated-money.tsx';
-import { Ledger } from './ledger.tsx';
+import { Ledger, type Activity } from './ledger.tsx';
 import { OpenDialog } from './open-dialog.tsx';
 import { SeedDialog } from './seed-dialog.tsx';
 import { mono, textLink, type Opening } from './shared.ts';
@@ -29,6 +29,7 @@ import {
 } from './transactions-dialog.tsx';
 
 export type { Opening } from './shared.ts';
+export type { Activity } from './ledger.tsx';
 
 export type BankStore = StoreChoice;
 
@@ -50,7 +51,11 @@ export interface BankProps {
   readonly onStore: (value: string) => void;
   readonly backHref: string;
   readonly accounts: readonly Account[];
-  readonly transfers: readonly Transfer[];
+  readonly transferCount: number;
+  readonly activity: ReadonlyMap<string, Activity>;
+  readonly viewingId: string | null;
+  readonly viewed: readonly Transfer[];
+  readonly onView: (accountId: string | null) => void;
   readonly attempts: readonly BankAttempt[];
   readonly admin: boolean;
   readonly fromId: string | null;
@@ -61,13 +66,15 @@ export interface BankProps {
   readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onOpen: (opening: Opening) => void;
-  readonly onSeed: (count: number) => void;
+  readonly onSeed: (count: number) => void | Promise<void>;
   readonly onClear: () => void;
   readonly onRetry: (attemptId: string) => void;
   readonly debug: BankDebug | null;
   readonly onDebug: (open: boolean) => void;
   readonly onTraces: () => void;
 }
+
+const EMPTY_LINES: readonly TransactionLine[] = [];
 
 const timeOf = (ulid: string): string => {
   const ms = uTime(ulid);
@@ -101,7 +108,6 @@ const lastEventOf = (
 };
 
 export function Bank(props: BankProps) {
-  const [viewingId, setViewingId] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
@@ -139,22 +145,17 @@ export function Bank(props: BankProps) {
   );
   const total = rows.reduce((sum, row) => sum + row.balance, 0);
 
-  const linesOf = (accountId: string): readonly TransactionLine[] =>
-    props.transfers
-      .filter((t) => t.from === accountId || t.to === accountId)
-      .sort(newestFirst)
-      .map((t) => {
-        const sent = t.from === accountId;
-        return {
-          id: t.id,
-          direction: sent ? 'sent' : 'received',
-          counterpartyName: nameOf.get(sent ? t.to : t.from) ?? 'someone',
-          amount: t.amount,
-          at: timeOf(t.id),
-        };
-      });
-
-  const viewing = rows.find((row) => row.id === viewingId) ?? null;
+  const viewing = rows.find((row) => row.id === props.viewingId) ?? null;
+  const lines: readonly TransactionLine[] = props.viewed.map((t) => {
+    const sent = t.from === props.viewingId;
+    return {
+      id: t.id,
+      direction: sent ? 'sent' : 'received',
+      counterpartyName: nameOf.get(sent ? t.to : t.from) ?? 'someone',
+      amount: t.amount,
+      at: timeOf(t.id),
+    };
+  });
 
   return (
     <main className="mx-auto flex h-svh max-h-svh w-full max-w-md flex-col overflow-hidden px-6 py-8">
@@ -170,17 +171,18 @@ export function Bank(props: BankProps) {
         <div className="flex min-h-0 flex-col">
           <Ledger
             rows={rows}
+            activity={props.activity}
             busy={busy}
             fromId={props.fromId}
             toId={props.toId}
             onPick={props.onPick}
             onCancel={() => {
-              if (viewingId === null) props.onCancel();
+              if (props.viewingId === null) props.onCancel();
             }}
             onUntarget={props.onUntarget}
             onSwap={props.onSwap}
             onSend={props.onSend}
-            onHistory={setViewingId}
+            onHistory={props.onView}
           />
         </div>
         <footer className="flex shrink-0 flex-col">
@@ -237,16 +239,28 @@ export function Bank(props: BankProps) {
                     Traces
                   </button>
                 </span>
-                <p
-                  aria-label="Total money in the bank"
+                <span
                   className={cn(
-                    mono,
-                    'shrink-0 text-xl transition-opacity',
+                    'flex shrink-0 flex-col items-end gap-1 transition-opacity',
                     rows.length === 0 && 'opacity-0',
                   )}
                 >
-                  <AnimatedMoney amount={total} />
-                </p>
+                  <p
+                    aria-label="Total money in the bank"
+                    className={cn(mono, 'text-xl')}
+                  >
+                    <AnimatedMoney amount={total} />
+                  </p>
+                  <p
+                    className={cn(
+                      mono,
+                      'text-[0.6875rem] leading-none text-muted-foreground',
+                    )}
+                  >
+                    {rows.length.toLocaleString()} accounts ·{' '}
+                    {props.transferCount.toLocaleString()} transfers
+                  </p>
+                </span>
               </div>
               <LastEvent line={line} onRetry={props.onRetry} />
             </div>
@@ -255,8 +269,8 @@ export function Bank(props: BankProps) {
       </div>
       <TransactionsDialog
         account={viewing}
-        lines={viewing === null ? [] : linesOf(viewing.id)}
-        onClose={() => setViewingId(null)}
+        lines={viewing === null ? EMPTY_LINES : lines}
+        onClose={() => props.onView(null)}
       />
       <OpenDialog
         open={opening}
@@ -266,7 +280,7 @@ export function Bank(props: BankProps) {
       <SeedDialog
         open={seeding}
         onOpenChange={setSeeding}
-        onSeed={props.onSeed}
+        onSeed={(count) => void props.onSeed(count)}
       />
     </main>
   );

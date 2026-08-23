@@ -26,7 +26,8 @@ const stamp = <T>(row: DecodedEntity<T>): DecodedEntity<T> => ({
 
 export const seedNames = (count: number): readonly string[] => {
   const taken = new Set<number>();
-  while (taken.size < count) taken.add(1000 + Math.floor(Math.random() * 9000));
+  while (taken.size < count)
+    taken.add(1000 + Math.floor(Math.random() * 99_000));
   return [...taken].map((suffix) => `User ${suffix}`);
 };
 

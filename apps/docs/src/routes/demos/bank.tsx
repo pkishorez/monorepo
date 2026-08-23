@@ -2,6 +2,7 @@ import {
   Suspense,
   use,
   useEffect,
+  useMemo,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -9,7 +10,7 @@ import {
   createFileRoute,
   type SearchSchemaInput,
 } from '@tanstack/react-router';
-import { useLiveQuery } from '@tanstack/react-db';
+import { count, eq, or, useLiveQuery } from '@tanstack/react-db';
 import { useMachine } from '@xstate/react';
 import { DevToolsPanel } from '@monorepo/frontend/components/blocks/devtools-panel';
 import type { Account } from '@/demos/bank/contract/account';
@@ -24,7 +25,12 @@ import {
   type BankVitals,
   type NetworkQuality,
 } from '@/demos/bank/rpc/client';
-import { Bank, type BankAttempt, type BankStore } from '@/demos/bank/ui/bank';
+import {
+  Bank,
+  type Activity,
+  type BankAttempt,
+  type BankStore,
+} from '@/demos/bank/ui/bank';
 
 const STORE_KEYS = ['idb', 'dynamo', 'sqlite'] as const;
 
@@ -97,6 +103,7 @@ const leadershipOf = (vitals: BankVitals): 'leader' | 'follower' | null => {
 };
 
 const EMPTY: readonly never[] = [];
+const NO_ACTIVITY: ReadonlyMap<string, Activity> = new Map();
 
 const noop = () => {};
 
@@ -104,7 +111,11 @@ const BOOTING = {
   debug: null,
   admin: false,
   accounts: EMPTY,
-  transfers: EMPTY,
+  transferCount: 0,
+  activity: NO_ACTIVITY,
+  viewingId: null,
+  viewed: EMPTY,
+  onView: noop,
   attempts: EMPTY,
   fromId: null,
   toId: null,
@@ -178,8 +189,47 @@ function LiveBank({ shell, runtime }: { shell: Shell; runtime: BankRuntime }) {
   });
   const { fromId, toId, flights } = state.context;
 
+  const [viewingId, setViewingId] = useState<string | null>(null);
+
   const { data: accountRows } = useLiveQuery(() => runtime.accounts);
-  const { data: transferRows } = useLiveQuery(() => runtime.transfers);
+  const { data: totals } = useLiveQuery((q) =>
+    q
+      .from({ t: runtime.transfers })
+      .select(({ t }) => ({ transfers: count(t.id) })),
+  );
+  const { data: sent } = useLiveQuery((q) =>
+    q
+      .from({ t: runtime.transfers })
+      .groupBy(({ t }) => t.from)
+      .select(({ t }) => ({ id: t.from, count: count(t.id) })),
+  );
+  const { data: received } = useLiveQuery((q) =>
+    q
+      .from({ t: runtime.transfers })
+      .groupBy(({ t }) => t.to)
+      .select(({ t }) => ({ id: t.to, count: count(t.id) })),
+  );
+  const { data: viewed } = useLiveQuery(
+    (q) =>
+      viewingId === null
+        ? null
+        : q
+            .from({ t: runtime.transfers })
+            .where(({ t }) => or(eq(t.from, viewingId), eq(t.to, viewingId)))
+            .orderBy(({ t }) => t.id, 'desc'),
+    [viewingId],
+  );
+  const activity = useMemo(() => {
+    const byId = new Map<string, Activity>();
+    for (const row of sent ?? EMPTY)
+      byId.set(row.id, { sent: row.count, received: 0 });
+    for (const row of received ?? EMPTY)
+      byId.set(row.id, {
+        sent: byId.get(row.id)?.sent ?? 0,
+        received: row.count,
+      });
+    return byId;
+  }, [sent, received]);
 
   const vitals = useSyncExternalStore(
     runtime.vitals.subscribe,
@@ -217,7 +267,11 @@ function LiveBank({ shell, runtime }: { shell: Shell; runtime: BankRuntime }) {
         onStore={shell.onStore}
         backHref={shell.backHref}
         accounts={(accountRows ?? EMPTY) as ReadonlyArray<Account>}
-        transfers={(transferRows ?? EMPTY) as ReadonlyArray<Transfer>}
+        transferCount={totals?.[0]?.transfers ?? 0}
+        activity={activity}
+        viewingId={viewingId}
+        viewed={(viewed ?? EMPTY) as ReadonlyArray<Transfer>}
+        onView={setViewingId}
         attempts={attempts}
         admin={runtime.admin}
         fromId={fromId}
@@ -237,7 +291,7 @@ function LiveBank({ shell, runtime }: { shell: Shell; runtime: BankRuntime }) {
           send({ type: 'CANCEL' });
           send({ type: 'PICK', accountId: id });
         }}
-        onSeed={runtime.seed}
+        onSeed={(count) => void runtime.seed(count)}
         onClear={() => void runtime.clear().then(() => location.reload())}
         onRetry={(id) => send({ type: 'RETRY', id })}
         onDebug={shell.onDebug}
