@@ -348,7 +348,6 @@ describe('Peer Sync replica integration', () => {
     );
     expect(mounted.writes).toEqual([]);
 
-    // The same apply path is used by a later backend poll/push and repairs the miss.
     await Effect.runPromise(
       secondConfig.utils.applyToSyncReplica([settings('dark', '1')]),
     );
@@ -377,7 +376,8 @@ describe('Peer Sync replica integration', () => {
     });
     const config = std.sync({
       schema: todoSchema,
-      onInsert: (item) => Effect.succeed(todo(item.id, '2', item.title)),
+      onInsert: (items) =>
+        Effect.succeed(items.map((item) => todo(item.id, '2', item.title))),
     });
 
     await expect(

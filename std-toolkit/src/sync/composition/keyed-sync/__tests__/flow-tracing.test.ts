@@ -169,14 +169,12 @@ describe('collection flow tracing', () => {
     await vi.waitFor(() =>
       expect(
         recorder
-          .snapshot()
-          .logs.filter((log) => log.message === 'Sync Replica write'),
+          .snapshotFlows()[0]
+          ?.items.filter((item) => item.name === 'Write to Sync Replica'),
       ).toHaveLength(2),
     );
     mounted.unloadSubset(subset);
     mounted.unloadSubset(subset);
-    // Refcount is back to 0. Reactivating must reuse the same lane and open a
-    // second Activation on it rather than minting a new participant.
     mounted.loadSubset(subset);
     await vi.waitFor(() =>
       expect(
@@ -207,7 +205,6 @@ describe('collection flow tracing', () => {
       ['Partition active', 'completed'],
       ['Partition active', 'completed'],
     ]);
-    // Two Activations, one lane.
     expect(partitionLanes.size).toBe(1);
     expect(flow.activations.every(({ endItemId }) => endItemId !== null)).toBe(
       true,
@@ -233,7 +230,7 @@ describe('collection flow tracing', () => {
     const writeSpanIds = new Set(
       recorder
         .snapshot()
-        .spans.filter((span) => span.name === 'sync.apply-to-sync-replica')
+        .spans.filter((span) => span.name === 'Write to Sync Replica')
         .map((span) => span.spanId),
     );
     expect(
@@ -263,14 +260,18 @@ describe('collection flow tracing', () => {
     ).toHaveLength(3);
     const syncWrites = recorder
       .snapshot()
-      .logs.filter((log) => log.message === 'Sync Replica write');
+      .logs.filter((log) => String(log.message).startsWith('Stored '));
     expect(syncWrites).toHaveLength(2);
-    expect(syncWrites.map((log) => log.annotations.storedCount).sort()).toEqual(
-      [0, 1],
-    );
-    expect(syncWrites.map((log) => log.annotations.receivedCount)).toEqual([
-      1, 1,
+    expect(syncWrites.map((log) => log.annotations.stored).sort()).toEqual([
+      0, 1,
     ]);
+    expect(syncWrites.map((log) => log.annotations.received)).toEqual([1, 1]);
+    expect(
+      flow.items.filter(
+        (item) =>
+          item.kind === 'activity' && item.name === 'Write to Sync Replica',
+      ),
+    ).toHaveLength(2);
     expect(
       new Set(
         flow.items
@@ -329,7 +330,6 @@ describe('collection flow tracing', () => {
     expect(
       flows[0]?.items.filter((item) => item.name === 'Collection cleanup'),
     ).toHaveLength(2);
-    // One stable lane, two Activations — the case the lane brightness exists for.
     expect(flows[0]?.activations).toMatchObject([
       { participantName: 'comments.comment', outcome: 'completed' },
       { participantName: 'comments.comment', outcome: 'completed' },

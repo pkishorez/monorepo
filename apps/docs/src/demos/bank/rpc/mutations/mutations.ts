@@ -1,4 +1,4 @@
-import { Data, Effect, Match } from 'effect';
+import { Array as Arr, Data, Effect, Match } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
 import type { DatabaseError, StdTableService } from 'std-toolkit/db';
 import { InvalidName, normalizeName } from '../../contract/name/index.ts';
@@ -40,6 +40,15 @@ export const openAccount = (
       .insert({ id, name, balance: input.balance ?? 0 })
       .pipe(Effect.map(stamp), Effect.orDie);
   });
+
+const OPEN_CONCURRENCY = 5;
+
+export const openAccounts = (
+  inputs: readonly OpenAccountInput[],
+): Effect.Effect<readonly AccountRow[], never, BankTableService> =>
+  Effect.forEach(inputs, (input) => openAccount(input).pipe(Effect.option), {
+    concurrency: OPEN_CONCURRENCY,
+  }).pipe(Effect.map(Arr.getSomes));
 
 export interface TransferInput {
   readonly id?: string | undefined;
@@ -131,8 +140,8 @@ const requireAdmin = Effect.flatMap(Role, (role) =>
 );
 
 export const BankMutationsLive = BankMutations.toLayer({
-  openAccount: ({ id, name, balance }) =>
-    requireAdmin.pipe(Effect.andThen(openAccount({ id, name, balance }))),
+  openAccounts: ({ accounts }) =>
+    requireAdmin.pipe(Effect.andThen(openAccounts(accounts))),
   transfer: ({ id, from, to, amount }) => transfer({ id, from, to, amount }),
   clear: () => requireAdmin.pipe(Effect.andThen(clearBank)),
   session: () => Effect.map(Role, (role) => ({ role })),

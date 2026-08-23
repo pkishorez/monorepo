@@ -26,16 +26,6 @@ import type { EffectRunner } from '../../runtime/effect-runner/index.js';
 import type { PendingTracker } from '../../runtime/pending-mutations/index.js';
 import type { CollectionFlow } from '../../runtime/sync-flow/index.js';
 
-/**
- * Builds the TanStack mutation handlers for a partitioned collection. Each handler
- * extracts every payload in the transaction, runs the user Effect for each one with
- * bounded concurrency, and flushes the returned backend-confirmed Entities through a
- * single `applyToSyncReplica`; `onDelete` flushes the tombstones the user Effect
- * returns. `pacedUpdate` paces optimistic updates per key via
- * `buildPacedUpdate` (default `coalesce`), applying the optimistic row through the
- * engine-supplied `optimistic` callback and flushing the confirmed entity through
- * `applyToSyncReplica`. Mutation results never touch sync-state.
- */
 export const buildMutationHandlers = <
   S extends AnyEntityESchema,
   R = never,
@@ -46,8 +36,8 @@ export const buildMutationHandlers = <
     entities: DecodedEntity<S['Type']>[],
   ) => Effect.Effect<void, WriteError>;
   onInsert?: (
-    item: S['Type'],
-  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
+    items: ReadonlyArray<S['Type']>,
+  ) => Effect.Effect<ReadonlyArray<DecodedEntity<S['Type']>>, unknown, R>;
   onUpdate?: (
     payload: UpdatePayload<S['Type'], S>,
   ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
@@ -77,19 +67,14 @@ export const buildMutationHandlers = <
 
   const runMutations = async (
     operation: 'delete' | 'insert' | 'update',
-    items: readonly {
-      key: string;
-      effect: Effect.Effect<DecodedEntity<TItem>, unknown, R>;
-    }[],
+    keys: readonly string[],
+    confirm: Effect.Effect<ReadonlyArray<DecodedEntity<TItem>>, unknown, R>,
   ): Promise<void> => {
-    for (const item of items) pending.increment(item.key);
+    for (const key of keys) pending.increment(key);
     try {
       const mutation = Effect.gen(function* () {
-        const results = yield* Effect.all(
-          items.map((item) => item.effect),
-          { concurrency: MUTATION_CONCURRENCY },
-        );
-        yield* applyToSyncReplica(results);
+        const results = yield* confirm;
+        yield* applyToSyncReplica([...results]);
       });
       const activeFlow = flow();
       await runner.runPromise(
@@ -98,8 +83,8 @@ export const buildMutationHandlers = <
               activeFlow.collection.withSpan('Collection Mutation', {
                 attributes: {
                   collection: args.collectionName,
-                  ...(items.length === 1 ? { entityKey: items[0]!.key } : {}),
-                  mutationCount: items.length,
+                  ...(keys.length === 1 ? { entityKey: keys[0] } : {}),
+                  mutationCount: keys.length,
                   operation,
                 },
               }),
@@ -107,9 +92,13 @@ export const buildMutationHandlers = <
           : mutation,
       );
     } finally {
-      for (const item of items) pending.decrement(item.key);
+      for (const key of keys) pending.decrement(key);
     }
   };
+
+  const eachConfirmed = (
+    effects: ReadonlyArray<Effect.Effect<DecodedEntity<TItem>, unknown, R>>,
+  ) => Effect.all(effects, { concurrency: MUTATION_CONCURRENCY });
 
   const buildUpdatePayload = (
     current: CollectionItem<TItem>,
@@ -123,10 +112,12 @@ export const buildMutationHandlers = <
       }: InsertMutationFnParams<TCollItem, string>): Promise<void> => {
         await runMutations(
           'insert',
-          transaction.mutations.map((mutation) => ({
-            key: String(mutation.key),
-            effect: onInsert(stripMeta<TItem>(mutation.modified)),
-          })),
+          transaction.mutations.map((mutation) => String(mutation.key)),
+          onInsert(
+            transaction.mutations.map((mutation) =>
+              stripMeta<TItem>(mutation.modified),
+            ),
+          ),
         );
       }
     : undefined;
@@ -137,15 +128,17 @@ export const buildMutationHandlers = <
       }: UpdateMutationFnParams<TCollItem, string>): Promise<void> => {
         await runMutations(
           'update',
-          transaction.mutations.map((mutation) => ({
-            key: String(mutation.key),
-            effect: onUpdate(
-              buildUpdatePayload(
-                mutation.original,
-                stripMetaPartial<TItem>(mutation.changes),
+          transaction.mutations.map((mutation) => String(mutation.key)),
+          eachConfirmed(
+            transaction.mutations.map((mutation) =>
+              onUpdate(
+                buildUpdatePayload(
+                  mutation.original,
+                  stripMetaPartial<TItem>(mutation.changes),
+                ),
               ),
             ),
-          })),
+          ),
         );
       }
     : undefined;
@@ -156,10 +149,12 @@ export const buildMutationHandlers = <
       }: DeleteMutationFnParams<TCollItem, string>): Promise<void> => {
         await runMutations(
           'delete',
-          transaction.mutations.map((mutation) => ({
-            key: String(mutation.key),
-            effect: onDelete({ current: stripMeta(mutation.original) }),
-          })),
+          transaction.mutations.map((mutation) => String(mutation.key)),
+          eachConfirmed(
+            transaction.mutations.map((mutation) =>
+              onDelete({ current: stripMeta(mutation.original) }),
+            ),
+          ),
         );
       }
     : undefined;
@@ -170,8 +165,6 @@ export const buildMutationHandlers = <
           string,
           (changes: Partial<TItem>) => Transaction<Partial<TItem>>
         >();
-        // The pacer is cached per key, so `commit` reads the row from here rather
-        // than closing over the row seen on the first call for that key.
         const rows = new Map<string, CollectionItem<TItem>>();
         return (
           key: string,
@@ -187,14 +180,13 @@ export const buildMutationHandlers = <
               optimistic: (next) => optimistic(key, next),
               commit: async (merged) => {
                 const updates = stripMetaPartial<TItem>(merged);
-                await runMutations('update', [
-                  {
-                    key,
-                    effect: onUpdate(
-                      buildUpdatePayload(rows.get(key)!, updates),
-                    ),
-                  },
-                ]);
+                await runMutations(
+                  'update',
+                  [key],
+                  eachConfirmed([
+                    onUpdate(buildUpdatePayload(rows.get(key)!, updates)),
+                  ]),
+                );
               },
             });
             mutate.set(key, paced);

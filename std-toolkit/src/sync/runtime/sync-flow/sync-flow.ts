@@ -39,11 +39,9 @@ export type FlowParticipant = StrategyFlow & {
     message: unknown,
     options?: FlowLogOptions,
   ) => Effect.Effect<void>;
-  /** Opens this participant's Activation; the ref is the only way to close it. */
   activation: {
     start: (name?: unknown) => Effect.Effect<ActivationRef>;
   };
-  /** Runs the effect inside one Activation whose outcome follows its Exit. */
   activated: (
     name: string,
   ) => <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
@@ -102,28 +100,20 @@ export const makeCollectionFlow = (
   };
 };
 
-/**
- * Tells the story of one Sync Replica hydration on a participant's lane: one
- * activity that reads the Store, one that projects into the Collection. Logs
- * written inside are plain so they nest under the activity instead of becoming
- * events of their own.
- */
 export const narrateHydration = (
-  narrator: FlowParticipant | undefined,
+  narrator: StrategyFlow | undefined,
   collection: string,
 ) => ({
-  load: <A extends { readonly entities: readonly unknown[] }, E, R>(
+  load: <A extends { readonly rows: number }, E, R>(
     from: string | null,
     effect: Effect.Effect<A, E, R>,
   ): Effect.Effect<A, E, R> =>
     narrator
       ? effect.pipe(
-          Effect.tap((delta) =>
-            Effect.logInfo(
-              `Read ${delta.entities.length} rows from the Sync Replica`,
-            ).pipe(
+          Effect.tap((read) =>
+            Effect.logInfo(`Read ${read.rows} rows from the Sync Replica`).pipe(
               Effect.annotateLogs({
-                rows: delta.entities.length,
+                rows: read.rows,
                 since: from ?? 'the beginning',
               }),
             ),
@@ -143,6 +133,51 @@ export const narrateHydration = (
             Effect.logInfo(`Projected ${rows} rows into the Collection`),
           ),
           narrator.withSpan('Project into Collection', {
+            attributes: { collection, rows },
+          }),
+        )
+      : effect,
+});
+
+export const narrateReplicaWrite = (
+  narrator: StrategyFlow | undefined,
+  collection: string,
+) => ({
+  write: <A extends readonly unknown[], E, R>(
+    received: number,
+    effect: Effect.Effect<A, E, R>,
+  ): Effect.Effect<A, E, R> =>
+    narrator
+      ? effect.pipe(
+          Effect.tap((accepted) => {
+            const skipped = received - accepted.length;
+            return Effect.logInfo(
+              skipped === 0
+                ? `Stored ${accepted.length} new rows in the Sync Replica`
+                : `Stored ${accepted.length} of ${received} rows in the Sync Replica (${skipped} already current)`,
+            ).pipe(
+              Effect.annotateLogs({
+                received,
+                stored: accepted.length,
+                alreadyCurrent: skipped,
+              }),
+            );
+          }),
+          narrator.withSpan('Write to Sync Replica', {
+            attributes: { collection, rows: received },
+          }),
+        )
+      : effect,
+  broadcast: <A, E, R>(
+    rows: number,
+    effect: Effect.Effect<A, E, R>,
+  ): Effect.Effect<A, E, R> =>
+    narrator
+      ? effect.pipe(
+          Effect.tap(() =>
+            Effect.logInfo(`Broadcast ${rows} rows to peer tabs`),
+          ),
+          narrator.withSpan('Broadcast to peers', {
             attributes: { collection, rows },
           }),
         )

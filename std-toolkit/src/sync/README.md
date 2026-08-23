@@ -90,7 +90,7 @@ const tasks = std.collection({
     },
   },
   updatePacing: paceStrategy.coalesce({ wait: 50 }),
-  onInsert: (task) => api.createTask(task),
+  onInsert: (tasks) => api.createTasks(tasks),
   onUpdate: ({ current, updates }) => api.updateTask(current, updates),
   onDelete: ({ current }) => api.deleteTask(current),
 });

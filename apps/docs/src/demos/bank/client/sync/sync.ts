@@ -83,11 +83,9 @@ export const makeBankSync = ({
         api.subscribeAccounts({ '>': cursor }),
       ),
     },
-    onInsert: (item) =>
-      api.openAccount({ id: item.id, name: item.name, balance: item.balance }),
+    onInsert: (items) => api.openAccounts({ accounts: items }),
   });
 
-  // A live query on `eq(t.from, id)` / `eq(t.to, id)` is what opens a partition.
   const transfers = std.collection({
     schema: TransferSchema,
     options: { gcTime: TRANSFERS_GC_TIME },
@@ -105,7 +103,6 @@ export const makeBankSync = ({
     },
   });
 
-  /** Stops syncing and deletes this store's local replica; the page must reload afterwards. */
   const forget: Effect.Effect<void> = Effect.promise(() => std.dispose()).pipe(
     Effect.andThen(dropDatabases(`std-sync:${name}`)),
     Effect.withSpan('Forget the sync replica'),

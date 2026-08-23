@@ -30,6 +30,11 @@ type SyncReplica<TItem> = {
     entities: DecodedEntity<TItem>[],
   ) => Effect.Effect<DecodedEntity<TItem>[], WriteError>;
   since: (position: string | null) => Effect.Effect<Delta<TItem>, WriteError>;
+  /** Streams the rows after `position` one page at a time; resolves with the last position read. */
+  eachPage: <E>(
+    position: string | null,
+    onPage: (page: Delta<TItem>) => Effect.Effect<void, E>,
+  ) => Effect.Effect<{ position: string | null; rows: number }, WriteError | E>;
   get: (id: string) => Effect.Effect<DecodedEntity<TItem> | null, WriteError>;
 };
 
@@ -43,6 +48,8 @@ const invalidEntity = (cause: ESchemaError): WriteError => ({
 
 const CURSOR_KEY = 'replica';
 const SEQUENCE_WIDTH = 32;
+const PAGE_SIZE = 2000;
+const TRANSACT_LIMIT = 100;
 
 const nextSequence = (position: string | null): string =>
   (position === null ? 1n : BigInt(position) + 1n)
@@ -76,125 +83,247 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
   const storedEntity = (stored: StoredReplicaValue) =>
     entitySchema.decode(stored.entity);
 
-  const writeOne = (
-    id: string,
-    incoming: EncodedEntity<S['Encoded']>,
-    incomingDecoded: DecodedEntity<TItem>,
-    clientNow: number,
-  ): Effect.Effect<
-    DecodedEntity<TItem> | null,
-    DatabaseError | ESchemaError
-  > => {
-    const attempt = (
-      retries: number,
-    ): Effect.Effect<
-      DecodedEntity<TItem> | null,
-      DatabaseError | ESchemaError
-    > =>
-      Effect.gen(function* () {
-        const cursorKey = { collection, key: CURSOR_KEY };
-        const cursor = yield* storedReplicaCursorEntity.get(cursorKey);
-        const seq = nextSequence(
-          cursor === null ? null : cursor.value.position,
-        );
-        const observedPosition = cursor === null ? null : cursor.value.position;
-        const cursorOp =
-          cursor === null
-            ? yield* storedReplicaCursorEntity.insertOp({
-                ...cursorKey,
-                position: seq,
-              })
-            : yield* storedReplicaCursorEntity.getAndUpdateOp(
-                cursorKey,
-                { position: seq },
-                { check: (latest) => latest.position === observedPosition },
-              );
-
-        const currentStored = yield* storedReplicaEntity.get(key(id));
-        const incomingWithReceipt: EncodedEntity<S['Encoded']> = {
-          ...incoming,
-          meta: { ...incoming.meta, _c: clientNow },
-        };
-        const outcome = ((): {
-          readonly accepted: EncodedEntity<unknown>;
-          readonly repaired: boolean;
-        } | null => {
-          if (currentStored === null)
-            return { accepted: incomingWithReceipt, repaired: false };
-          const current = currentStored.value.entity as EncodedEntity<unknown>;
-          if (converge(current, incoming) !== 'skip')
-            return { accepted: incomingWithReceipt, repaired: false };
-          if (
-            !current.meta._d &&
-            incoming.meta._s != null &&
-            incoming.meta._s !== current.meta._s
-          )
-            return {
-              accepted: {
-                ...current,
-                meta: { ...current.meta, _s: incoming.meta._s, _c: clientNow },
-              },
-              repaired: true,
-            };
-          return null;
-        })();
-        if (outcome === null) return null;
-        const { accepted, repaired } = outcome;
-
-        const observedSeq =
-          currentStored === null ? null : currentStored.value.seq;
-        const replicaOp =
-          currentStored === null
-            ? yield* storedReplicaEntity.insertOp({
-                collection,
-                key: id,
-                seq,
-                entity: accepted,
-              })
-            : yield* storedReplicaEntity.getAndUpdateOp(
-                key(id),
-                { seq, entity: accepted },
-                { check: (stored) => stored.seq === observedSeq },
-              );
-
-        const result = yield* syncStore
-          .transact([cursorOp, replicaOp])
-          .pipe(Effect.result);
-        if (result._tag === 'Success') {
-          if (!repaired)
-            return {
-              ...incomingDecoded,
-              meta: { ...incomingDecoded.meta, _c: clientNow },
-            };
-          // A repaired entity is stored data, so it can predate this build's schema.
-          const decoded = yield* entitySchema
-            .decode(accepted)
-            .pipe(Effect.result);
-          return decoded._tag === 'Success' ? decoded.success : null;
-        }
-        if (retries > 0 && result.failure.reason._tag === 'TransactFailed') {
-          return yield* attempt(retries - 1);
-        }
-        return yield* Effect.fail(result.failure);
-      }).pipe((effect) =>
-        args.store.provide(effect, {
-          collection,
-          operation: 'transact',
-          record: 'sync-replica',
-        }),
-      );
-
-    return attempt(10);
+  type Candidate = {
+    id: string;
+    decoded: DecodedEntity<TItem>;
+    encoded: EncodedEntity<S['Encoded']>;
   };
 
+  type Outcome = {
+    readonly id: string;
+    readonly accepted: EncodedEntity<unknown>;
+    readonly decoded: DecodedEntity<TItem>;
+    readonly repaired: boolean;
+    readonly observedSeq: string | null;
+  };
+
+  const decide = (
+    candidate: Candidate,
+    currentStored: DecodedEntity<StoredReplicaValue> | null,
+    clientNow: number,
+  ): Outcome | null => {
+    const { id, decoded, encoded: incoming } = candidate;
+    const incomingWithReceipt: EncodedEntity<S['Encoded']> = {
+      ...incoming,
+      meta: { ...incoming.meta, _c: clientNow },
+    };
+    const observedSeq = currentStored === null ? null : currentStored.value.seq;
+    if (currentStored === null)
+      return {
+        id,
+        accepted: incomingWithReceipt,
+        decoded,
+        repaired: false,
+        observedSeq,
+      };
+    const current = currentStored.value.entity as EncodedEntity<unknown>;
+    if (converge(current, incoming) !== 'skip')
+      return {
+        id,
+        accepted: incomingWithReceipt,
+        decoded,
+        repaired: false,
+        observedSeq,
+      };
+    if (
+      !current.meta._d &&
+      incoming.meta._s != null &&
+      incoming.meta._s !== current.meta._s
+    )
+      return {
+        id,
+        accepted: {
+          ...current,
+          meta: { ...current.meta, _s: incoming.meta._s, _c: clientNow },
+        },
+        decoded,
+        repaired: true,
+        observedSeq,
+      };
+    return null;
+  };
+
+  const acceptedOf = (
+    outcome: Outcome,
+    clientNow: number,
+  ): Effect.Effect<DecodedEntity<TItem> | null, ESchemaError> => {
+    if (!outcome.repaired)
+      return Effect.succeed({
+        ...outcome.decoded,
+        meta: { ...outcome.decoded.meta, _c: clientNow },
+      });
+    return entitySchema
+      .decode(outcome.accepted)
+      .pipe(Effect.result)
+      .pipe(
+        Effect.map((decoded) =>
+          decoded._tag === 'Success' ? decoded.success : null,
+        ),
+      );
+  };
+
+  const CHUNK = TRANSACT_LIMIT - 1;
+  const READ_CONCURRENCY = 12;
+
+  const commitChunk = (
+    chunk: readonly Outcome[],
+    observedPosition: string | null,
+  ): Effect.Effect<
+    { readonly position: string },
+    DatabaseError | ESchemaError
+  > =>
+    Effect.gen(function* () {
+      const cursorKey = { collection, key: CURSOR_KEY };
+      let seq = observedPosition;
+      const rowOps = [];
+      for (const outcome of chunk) {
+        seq = nextSequence(seq);
+        rowOps.push(
+          outcome.observedSeq === null
+            ? yield* storedReplicaEntity.insertOp({
+                collection,
+                key: outcome.id,
+                seq,
+                entity: outcome.accepted,
+              })
+            : yield* storedReplicaEntity.getAndUpdateOp(
+                { collection, key: outcome.id },
+                { seq, entity: outcome.accepted },
+                { check: (stored) => stored.seq === outcome.observedSeq },
+              ),
+        );
+      }
+      const position = seq as string;
+      const cursorOp =
+        observedPosition === null
+          ? yield* storedReplicaCursorEntity.insertOp({
+              ...cursorKey,
+              position,
+            })
+          : yield* storedReplicaCursorEntity.getAndUpdateOp(
+              cursorKey,
+              { position },
+              { check: (latest) => latest.position === observedPosition },
+            );
+      yield* syncStore.transact([cursorOp, ...rowOps]);
+      return { position };
+    }).pipe((effect) =>
+      args.store.provide(effect, {
+        collection,
+        operation: 'transact',
+        record: 'sync-replica',
+      }),
+    );
+
+  const writeBatch = (
+    candidates: readonly Candidate[],
+    clientNow: number,
+    retries: number,
+  ): Effect.Effect<DecodedEntity<TItem>[], DatabaseError | ESchemaError> =>
+    Effect.gen(function* () {
+      if (candidates.length === 0) return [];
+      const cursorKey = { collection, key: CURSOR_KEY };
+      const cursor = yield* args.store.provide(
+        storedReplicaCursorEntity.get(cursorKey),
+        { collection, operation: 'get', record: 'sync-replica' },
+      );
+      const stored = yield* args.store.provide(
+        Effect.forEach(
+          candidates,
+          (candidate) => storedReplicaEntity.get(key(candidate.id)),
+          { concurrency: READ_CONCURRENCY },
+        ),
+        { collection, operation: 'get', record: 'sync-replica' },
+      );
+      const outcomes: Outcome[] = [];
+      for (const [index, candidate] of candidates.entries()) {
+        const outcome = decide(candidate, stored[index] ?? null, clientNow);
+        if (outcome !== null) outcomes.push(outcome);
+      }
+
+      const acceptedEntities: DecodedEntity<TItem>[] = [];
+      let position = cursor === null ? null : cursor.value.position;
+      let committed = 0;
+      while (committed < outcomes.length) {
+        const chunk = outcomes.slice(committed, committed + CHUNK);
+        const result = yield* commitChunk(chunk, position).pipe(Effect.result);
+        if (result._tag === 'Failure') {
+          if (
+            retries > 0 &&
+            result.failure instanceof DatabaseError &&
+            result.failure.reason._tag === 'TransactFailed'
+          ) {
+            const remaining = new Set(
+              outcomes.slice(committed).map((outcome) => outcome.id),
+            );
+            const retried = yield* writeBatch(
+              candidates.filter((candidate) => remaining.has(candidate.id)),
+              clientNow,
+              retries - 1,
+            );
+            return [...acceptedEntities, ...retried];
+          }
+          return yield* Effect.fail(result.failure);
+        }
+        position = result.success.position;
+        committed += chunk.length;
+        for (const outcome of chunk) {
+          const accepted = yield* acceptedOf(outcome, clientNow);
+          if (accepted !== null) acceptedEntities.push(accepted);
+        }
+      }
+      return acceptedEntities;
+    });
+
+  const eachPage = <E>(
+    position: string | null,
+    onPage: (page: Delta<TItem>) => Effect.Effect<void, E>,
+  ): Effect.Effect<{ position: string | null; rows: number }, WriteError | E> =>
+    Effect.gen(function* () {
+      let latest = position;
+      let rows = 0;
+      let after: DecodedEntity<StoredReplicaValue> | undefined;
+      let hasMore = true;
+      while (hasMore) {
+        const page = yield* args.store
+          .provide(
+            storedReplicaEntity.query(
+              'bySequence',
+              position === null
+                ? { pk: { collection }, '>': null }
+                : { pk: { collection }, '>': { seq: position } },
+              { limit: PAGE_SIZE, ...(after === undefined ? {} : { after }) },
+            ),
+            { collection, operation: 'query', record: 'sync-replica' },
+          )
+          .pipe(
+            Effect.mapError(storeError('failed to read Sync Replica entities')),
+          );
+        const entities: DecodedEntity<TItem>[] = [];
+        for (const item of page.items) {
+          entities.push(
+            yield* storedEntity(item.value).pipe(
+              Effect.mapError(invalidEntity),
+            ),
+          );
+          latest = item.value.seq;
+        }
+        if (entities.length > 0) {
+          rows += entities.length;
+          yield* onPage({ entities, position: latest });
+        }
+        hasMore = page.hasMore;
+        after = page.items.at(-1);
+        if (after === undefined) break;
+      }
+      return { position: latest, rows };
+    });
+
   return {
+    eachPage,
     applyToSyncReplica: (entities) =>
       Effect.gen(function* () {
-        const validated: Array<{
-          id: string;
-          decoded: DecodedEntity<TItem>;
-          encoded: EncodedEntity<S['Encoded']>;
-        }> = [];
+        const validated: Candidate[] = [];
         for (const decoded of entities) {
           if (!isDecodedEntity(decoded)) {
             return yield* Effect.fail<WriteError>({
@@ -255,57 +384,32 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
         }
 
         const clientNow = yield* Clock.currentTimeMillis;
-        const acceptedEntities: DecodedEntity<TItem>[] = [];
-        for (const [id, { decoded, encoded }] of newest) {
-          const accepted = yield* writeOne(
+        return yield* writeBatch(
+          [...newest].map(([id, { decoded, encoded }]) => ({
             id,
-            encoded,
             decoded,
-            clientNow,
-          ).pipe(
-            Effect.mapError((cause) =>
-              cause instanceof DatabaseError
-                ? storeError('failed to apply Sync Replica entities')(cause)
-                : invalidEntity(cause),
-            ),
-          );
-          if (accepted !== null) acceptedEntities.push(accepted);
-        }
-        return acceptedEntities;
+            encoded,
+          })),
+          clientNow,
+          10,
+        ).pipe(
+          Effect.mapError((cause) =>
+            cause instanceof DatabaseError
+              ? storeError('failed to apply Sync Replica entities')(cause)
+              : invalidEntity(cause),
+          ),
+        );
       }),
     since: (position) =>
       Effect.gen(function* () {
         const entities: DecodedEntity<TItem>[] = [];
-        let latest = position;
-        let after: DecodedEntity<StoredReplicaValue> | undefined;
-        let hasMore = true;
-        while (hasMore) {
-          const page = yield* args.store.provide(
-            storedReplicaEntity.query(
-              'bySequence',
-              position === null
-                ? { pk: { collection }, '>': null }
-                : { pk: { collection }, '>': { seq: position } },
-              { limit: 100, ...(after === undefined ? {} : { after }) },
-            ),
-            { collection, operation: 'query', record: 'sync-replica' },
-          );
-          for (const item of page.items) {
-            entities.push(yield* storedEntity(item.value));
-            latest = item.value.seq;
-          }
-          hasMore = page.hasMore;
-          after = page.items.at(-1);
-          if (after === undefined) break;
-        }
-        return { entities, position: latest };
-      }).pipe(
-        Effect.mapError((cause) =>
-          cause instanceof DatabaseError
-            ? storeError('failed to read Sync Replica entities')(cause)
-            : invalidEntity(cause),
-        ),
-      ),
+        const read = yield* eachPage(position, (page) =>
+          Effect.sync(() => {
+            entities.push(...page.entities);
+          }),
+        );
+        return { entities, position: read.position };
+      }),
     get: (id) =>
       Effect.gen(function* () {
         const stored = yield* args.store.provide(
