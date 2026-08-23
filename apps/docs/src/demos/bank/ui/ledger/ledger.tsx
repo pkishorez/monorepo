@@ -18,7 +18,7 @@ import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney } from './animated-money.tsx';
 import { formatMoney } from './money.ts';
-import { usePaging } from './paging.ts';
+import type { Paging } from './paging.ts';
 import {
   bare,
   chWidth,
@@ -36,7 +36,10 @@ export interface Activity {
 const NO_ACTIVITY: Activity = { sent: 0, received: 0 };
 
 export interface LedgerProps {
+  /** Richest-first page of accounts, already without the sender. */
   readonly rows: readonly Account[];
+  readonly from: Account | null;
+  readonly paging: Paging;
   readonly activity: ReadonlyMap<string, Activity>;
   readonly busy: ReadonlySet<string>;
   readonly fromId: string | null;
@@ -494,6 +497,8 @@ function Row({
 
 export function Ledger({
   rows,
+  from,
+  paging: { hasMore, scrollRef, moreRef },
   activity,
   busy,
   fromId,
@@ -508,10 +513,6 @@ export function Ledger({
   const [raw, setRaw] = useState('');
   useEffect(() => setRaw(''), [fromId, toId]);
 
-  const visible = rows.filter((row) => row.id !== fromId);
-  const { limit, hasMore, scrollRef, moreRef } = usePaging(visible.length);
-
-  const from = rows.find((row) => row.id === fromId) ?? null;
   const typing = from !== null && toId !== null;
 
   useEffect(() => {
@@ -538,7 +539,7 @@ export function Ledger({
       <div ref={scrollRef} className={scrollBox}>
         <ul>
           <AnimatePresence initial={false} mode="popLayout">
-            {visible.slice(0, limit).map((row) => (
+            {rows.map((row) => (
               <Row
                 key={row.id}
                 row={row}

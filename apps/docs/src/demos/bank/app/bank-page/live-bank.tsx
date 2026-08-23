@@ -1,5 +1,5 @@
 import { useMemo, useReducer, useState, useSyncExternalStore } from 'react';
-import { count, eq, useLiveQuery } from '@tanstack/react-db';
+import { count, eq, not, sum, useLiveQuery } from '@tanstack/react-db';
 import { DevToolsPanel } from '@monorepo/frontend/components/blocks/devtools-panel';
 import type { Account } from '../../contract/account/index.ts';
 import type { Transfer } from '../../contract/transfer/index.ts';
@@ -9,7 +9,12 @@ import {
   type BankVitals,
   type NetworkQuality,
 } from '../../client/bank/index.ts';
-import { Bank, type Activity, type BankShell } from '../../ui/index.ts';
+import {
+  Bank,
+  usePaging,
+  type Activity,
+  type BankShell,
+} from '../../ui/index.ts';
 import {
   EMPTY_DRAFT,
   receiverOf,
@@ -69,6 +74,54 @@ const useCount = (
   return data?.[0]?.n ?? 0;
 };
 
+const useAccount = (
+  runtime: BankRuntime,
+  id: string | null,
+): Account | null => {
+  const { data } = useLiveQuery(
+    (q) =>
+      id === null
+        ? null
+        : q.from({ a: runtime.accounts }).where(({ a }) => eq(a.id, id)),
+    [id],
+  );
+  return (data?.[0] ?? null) as Account | null;
+};
+
+const useReady = (runtime: BankRuntime): boolean =>
+  useSyncExternalStore(
+    (onChange) => runtime.accounts.on('status:change', onChange),
+    () => runtime.accounts.isReady(),
+  );
+
+const useSummary = (runtime: BankRuntime) => {
+  const { data } = useLiveQuery((q) =>
+    q
+      .from({ a: runtime.accounts })
+      .select(({ a }) => ({ total: sum(a.balance), n: count(a.id) })),
+  );
+  return { total: data?.[0]?.total ?? 0, count: data?.[0]?.n ?? 0 };
+};
+
+const useRichest = (
+  runtime: BankRuntime,
+  limit: number,
+  excludeId: string | null,
+): readonly Account[] => {
+  const { data } = useLiveQuery(
+    (q) =>
+      q
+        .from({ a: runtime.accounts })
+        .where(({ a }) => not(eq(a.id, excludeId ?? '')))
+        .orderBy(({ a }) => a.balance, 'desc')
+        .orderBy(({ a }) => a.name)
+        .orderBy(({ a }) => a.id)
+        .limit(limit),
+    [limit, excludeId],
+  );
+  return (data ?? EMPTY) as readonly Account[];
+};
+
 const useActivity = (runtime: BankRuntime, id: string | null): Activity => {
   const sent = useCount(runtime, 'from', id);
   const received = useCount(runtime, 'to', id);
@@ -87,7 +140,16 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [traces, setTraces] = useState(false);
 
-  const { data: accountRows } = useLiveQuery(() => runtime.accounts);
+  const fromId = senderOf(draft);
+  const toId = receiverOf(draft);
+  const ready = useReady(runtime);
+  const summary = useSummary(runtime);
+  const from = useAccount(runtime, fromId);
+  const viewing = useAccount(runtime, viewingId);
+  const { limit, ...paging } = usePaging(
+    summary.count - (from === null ? 0 : 1),
+  );
+  const rows = useRichest(runtime, limit, fromId);
   const viewed = useHistory(runtime, viewingId);
   const attempts = useSyncExternalStore(
     runtime.attempts.subscribe,
@@ -102,8 +164,6 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
     runtime.diagnostics.network.quality.get,
   );
 
-  const fromId = senderOf(draft);
-  const toId = receiverOf(draft);
   const fromActivity = useActivity(runtime, fromId);
   const toActivity = useActivity(runtime, toId);
   const activity = useMemo(() => {
@@ -122,7 +182,13 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
       <Bank
         shell={shell}
         ledger={{
-          accounts: (accountRows ?? EMPTY) as ReadonlyArray<Account>,
+          ready,
+          rows,
+          from,
+          paging,
+          count: summary.count,
+          total: summary.total,
+          nameOf: (id) => runtime.accounts.get(id)?.name ?? null,
           activity,
           fromId,
           toId,
@@ -138,6 +204,7 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
         }}
         history={{
           viewingId,
+          viewing,
           viewed,
           onView: setViewingId,
         }}

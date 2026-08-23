@@ -19,7 +19,17 @@ const booting = (
 ): BankProps => ({
   shell,
   ledger: {
-    accounts: [],
+    ready: false,
+    rows: [],
+    from: null,
+    paging: {
+      hasMore: false,
+      scrollRef: { current: null },
+      moreRef: { current: null },
+    },
+    count: 0,
+    total: 0,
+    nameOf: () => null,
     activity: new Map(),
     fromId: null,
     toId: null,
@@ -29,7 +39,7 @@ const booting = (
     onSwap: noop,
     onSend: noop,
   },
-  history: { viewingId: null, viewed: [], onView: noop },
+  history: { viewingId: null, viewing: null, viewed: [], onView: noop },
   attempts: { attempts: [], onRetry: noop },
   admin: null,
   diagnostics: { debug: null, onDebug, onTraces: noop },

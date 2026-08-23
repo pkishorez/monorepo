@@ -1,5 +1,6 @@
 import { Array as Arr, Effect } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
+import { SEED_BURST } from '../../contract/tuning/index.ts';
 import type { BankApi } from '../api/index.ts';
 import type { BankRunner } from '../diagnostics/index.ts';
 import { makeInteractionFlow } from '../interaction-flow/index.ts';
@@ -21,8 +22,6 @@ export interface AdminOptions {
   readonly sync: BankSync;
   readonly runner: BankRunner;
 }
-
-const SEED_BURST = 500;
 
 const seedNames = (count: number): readonly string[] => {
   const taken = new Set<number>();
