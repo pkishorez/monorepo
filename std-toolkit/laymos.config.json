@@ -669,6 +669,9 @@
         },
         "src/sync/domain/sync-address": {
           "exposed": true
+        },
+        "src/sync/domain/tuning": {
+          "exposed": true
         }
       }
     },

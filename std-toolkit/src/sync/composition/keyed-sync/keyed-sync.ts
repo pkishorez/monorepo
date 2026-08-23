@@ -26,6 +26,7 @@ import type { Tracker } from '../../runtime/sync-registry/index.js';
 import { makeSyncStateStore } from '../../persistence/sync-state/index.js';
 import { makePartitionLifecycle } from '../../lifecycle/partition-sync/index.js';
 import { GLOBAL_PARTITION_KEY } from '../../domain/partition-identity/index.js';
+import { READY_AFTER_FIRST_PAGE } from '../../domain/tuning/index.js';
 import { buildMutationHandlers } from './mutations.js';
 import { makePendingTracker } from '../../runtime/pending-mutations/index.js';
 import type {
@@ -183,8 +184,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
                 ? page.entities.filter((entity) => !entity.meta._d)
                 : page.entities;
               projector?.projectEntities(entities);
-              position = page.position;
               if (projected === 0) options.onFirstPage?.();
+              position = page.position;
               projected += entities.length;
               yield* Effect.yieldNow;
             }),
@@ -400,7 +401,7 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               const projected = yield* advance({
                 seeding: true,
                 narrator: flow.collection,
-                onFirstPage: markReady,
+                ...(READY_AFTER_FIRST_PAGE ? { onFirstPage: markReady } : {}),
               });
               const ready = yield* Effect.sync(() => {
                 if (!active) return false;

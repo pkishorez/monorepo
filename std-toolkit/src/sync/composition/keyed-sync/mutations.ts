@@ -8,6 +8,7 @@ import { Effect } from 'effect';
 import type { DecodedEntity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
+import { MUTATION_CONCURRENCY } from '../../domain/tuning/index.js';
 import type {
   CollectionItem,
   DeletePayload,
@@ -51,8 +52,6 @@ export const buildMutationHandlers = <
 }) => {
   type TItem = S['Type'];
   type TCollItem = CollectionItem<TItem>;
-
-  const MUTATION_CONCURRENCY = 5;
 
   const {
     applyToSyncReplica,

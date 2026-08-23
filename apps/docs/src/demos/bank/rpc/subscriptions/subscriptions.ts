@@ -14,13 +14,15 @@ import {
   BankSubscriptions,
   TransferEntity,
 } from '../contract/index.ts';
+import {
+  CATCH_UP_PAGE_SIZE,
+  PUSH_BATCH_SIZE,
+  PUSH_BATCH_WINDOW_MS,
+} from '../../contract/tuning/index.ts';
 import { checkpointed } from './checkpoint.ts';
 
 type BankTableService = StdTableService<'bank'>;
 type Batch<T> = ReadonlyArray<DecodedEntity<T>>;
-
-const batchSize = 20;
-const batchWindow = Duration.millis(50);
 
 const stamp = <T>(row: DecodedEntity<T>): DecodedEntity<T> => ({
   ...row,
@@ -56,7 +58,13 @@ const watch = <T extends object>(config: {
   Stream.concat(
     Stream.fromIterableEffect(catchUp(config.fetchPage, config.cursor)),
     Stream.suspend(() => config.subscribe()),
-  ).pipe(Stream.map(stamp), Stream.groupedWithin(batchSize, batchWindow));
+  ).pipe(
+    Stream.map(stamp),
+    Stream.groupedWithin(
+      PUSH_BATCH_SIZE,
+      Duration.millis(PUSH_BATCH_WINDOW_MS),
+    ),
+  );
 
 export const watchAccounts = (
   cursor: AccountRow | null,
@@ -68,7 +76,7 @@ export const watchAccounts = (
         .query(
           'byUpdated',
           { pk: {}, '>=': null },
-          { limit: 100, ...(after === null ? {} : { after }) },
+          { limit: CATCH_UP_PAGE_SIZE, ...(after === null ? {} : { after }) },
         )
         .pipe(Effect.orDie),
     subscribe: () => accountEntity.subscribe(),
@@ -77,7 +85,7 @@ export const watchAccounts = (
 export type TransferSide = 'from' | 'to';
 
 const pageOf = (after: TransferRow | null) => ({
-  limit: 100,
+  limit: CATCH_UP_PAGE_SIZE,
   ...(after === null ? {} : { after }),
 });
 

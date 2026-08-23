@@ -11,5 +11,6 @@ export {
   type BankShell,
 } from './bank.tsx';
 export type { Activity } from './ledger/ledger.tsx';
+export { usePaging, type Paging } from './ledger/paging.ts';
 export type { Opening } from './shared.ts';
 export type { StoreChoice } from './status/store-line.tsx';

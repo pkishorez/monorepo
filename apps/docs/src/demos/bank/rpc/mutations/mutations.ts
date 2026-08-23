@@ -2,6 +2,7 @@ import { Array as Arr, Data, Effect, Match } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
 import type { DatabaseError, StdTableService } from 'std-toolkit/db';
 import { InvalidName, normalizeName } from '../../contract/name/index.ts';
+import { OPEN_CONCURRENCY } from '../../contract/tuning/index.ts';
 import { isValidAmount } from '../../contract/transfer/index.ts';
 import {
   accountEntity,
@@ -40,8 +41,6 @@ export const openAccount = (
       .insert({ id, name, balance: input.balance ?? 0 })
       .pipe(Effect.map(stamp), Effect.orDie);
   });
-
-const OPEN_CONCURRENCY = 5;
 
 export const openAccounts = (
   inputs: readonly OpenAccountInput[],

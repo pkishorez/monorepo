@@ -9,6 +9,11 @@ import { DatabaseError } from '../../../db/index.js';
 import { converge } from '../../domain/entity-convergence/index.js';
 import { isDecodedEntity } from '../../domain/entity-validation/index.js';
 import {
+  HYDRATION_PAGE_SIZE,
+  REPLICA_READ_CONCURRENCY,
+  REPLICA_TRANSACT_LIMIT,
+} from '../../domain/tuning/index.js';
+import {
   storageError,
   type WriteError,
 } from '../../domain/sync-error/index.js';
@@ -48,8 +53,6 @@ const invalidEntity = (cause: ESchemaError): WriteError => ({
 
 const CURSOR_KEY = 'replica';
 const SEQUENCE_WIDTH = 32;
-const PAGE_SIZE = 2000;
-const TRANSACT_LIMIT = 100;
 
 const nextSequence = (position: string | null): string =>
   (position === null ? 1n : BigInt(position) + 1n)
@@ -162,8 +165,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
       );
   };
 
-  const CHUNK = TRANSACT_LIMIT - 1;
-  const READ_CONCURRENCY = 12;
+  const CHUNK = REPLICA_TRANSACT_LIMIT - 1;
 
   const commitChunk = (
     chunk: readonly Outcome[],
@@ -231,7 +233,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
         Effect.forEach(
           candidates,
           (candidate) => storedReplicaEntity.get(key(candidate.id)),
-          { concurrency: READ_CONCURRENCY },
+          { concurrency: REPLICA_READ_CONCURRENCY },
         ),
         { collection, operation: 'get', record: 'sync-replica' },
       );
@@ -292,7 +294,10 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
               position === null
                 ? { pk: { collection }, '>': null }
                 : { pk: { collection }, '>': { seq: position } },
-              { limit: PAGE_SIZE, ...(after === undefined ? {} : { after }) },
+              {
+                limit: HYDRATION_PAGE_SIZE,
+                ...(after === undefined ? {} : { after }),
+              },
             ),
             { collection, operation: 'query', record: 'sync-replica' },
           )

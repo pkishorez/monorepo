@@ -19,6 +19,7 @@ import {
 } from './dialogs/transactions-dialog.tsx';
 import { AnimatedMoney } from './ledger/animated-money.tsx';
 import { Ledger, type Activity } from './ledger/ledger.tsx';
+import type { Paging } from './ledger/paging.ts';
 import { mono, textLink, type Opening } from './shared.ts';
 import {
   DebugPanel,
@@ -48,7 +49,15 @@ export interface BankShell {
 }
 
 export interface BankLedger {
-  readonly accounts: readonly Account[];
+  /** False while the accounts Collection is still hydrating; the list waits, the footer totals do not. */
+  readonly ready: boolean;
+  /** Richest-first page of accounts, already without the sender. */
+  readonly rows: readonly Account[];
+  readonly from: Account | null;
+  readonly paging: Paging;
+  readonly count: number;
+  readonly total: number;
+  readonly nameOf: (accountId: string) => string | null;
   readonly activity: ReadonlyMap<string, Activity>;
   readonly fromId: string | null;
   readonly toId: string | null;
@@ -61,6 +70,7 @@ export interface BankLedger {
 
 export interface BankHistory {
   readonly viewingId: string | null;
+  readonly viewing: Account | null;
   readonly viewed: readonly Transfer[];
   readonly onView: (accountId: string | null) => void;
 }
@@ -102,11 +112,6 @@ const timeOf = (ulid: string): string => {
         minute: '2-digit',
       });
 };
-
-const richestFirst = (a: Account, b: Account): number =>
-  b.balance - a.balance ||
-  a.name.localeCompare(b.name) ||
-  a.id.localeCompare(b.id);
 
 const newestFirst = <T extends { readonly id: string }>(a: T, b: T): number =>
   b.id.localeCompare(a.id);
@@ -187,14 +192,7 @@ export function Bank({
   const [opening, setOpening] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
-  const rows = useMemo(
-    () => [...ledger.accounts].sort(richestFirst),
-    [ledger.accounts],
-  );
-  const nameOf = useMemo(
-    () => new Map(ledger.accounts.map((account) => [account.id, account.name])),
-    [ledger.accounts],
-  );
+  const { nameOf } = ledger;
   const busy = useMemo(() => {
     const held = new Set<string>();
     for (const attempt of attempts.attempts) {
@@ -215,22 +213,19 @@ export function Bank({
         .sort(newestFirst)
         .map((attempt) => ({
           id: attempt.id,
-          fromName: nameOf.get(attempt.from) ?? 'someone',
-          toName: nameOf.get(attempt.to) ?? 'someone',
+          fromName: nameOf(attempt.from) ?? 'someone',
+          toName: nameOf(attempt.to) ?? 'someone',
           amount: attempt.amount,
           message: attempt.message ?? '',
         })),
     [attempts.attempts, nameOf],
   );
-  const total = rows.reduce((sum, row) => sum + row.balance, 0);
-
-  const viewing = rows.find((row) => row.id === history.viewingId) ?? null;
   const lines: readonly TransactionLine[] = history.viewed.map((t) => {
     const sent = t.from === history.viewingId;
     return {
       id: t.id,
       direction: sent ? 'sent' : 'received',
-      counterpartyName: nameOf.get(sent ? t.to : t.from) ?? 'someone',
+      counterpartyName: nameOf(sent ? t.to : t.from) ?? 'someone',
       amount: t.amount,
       at: timeOf(t.id),
     };
@@ -248,21 +243,39 @@ export function Bank({
           />
         </header>
         <div className="flex min-h-0 flex-col">
-          <Ledger
-            rows={rows}
-            activity={ledger.activity}
-            busy={busy}
-            fromId={ledger.fromId}
-            toId={ledger.toId}
-            onChoose={ledger.onChoose}
-            onClear={() => {
-              if (history.viewingId === null) ledger.onClear();
-            }}
-            onDropReceiver={ledger.onDropReceiver}
-            onSwap={ledger.onSwap}
-            onSend={ledger.onSend}
-            onHistory={history.onView}
-          />
+          {ledger.ready ? (
+            <Ledger
+              rows={ledger.rows}
+              from={ledger.from}
+              paging={ledger.paging}
+              activity={ledger.activity}
+              busy={busy}
+              fromId={ledger.fromId}
+              toId={ledger.toId}
+              onChoose={ledger.onChoose}
+              onClear={() => {
+                if (history.viewingId === null) ledger.onClear();
+              }}
+              onDropReceiver={ledger.onDropReceiver}
+              onSwap={ledger.onSwap}
+              onSend={ledger.onSend}
+              onHistory={history.onView}
+            />
+          ) : (
+            <div className="flex max-h-full min-h-0 flex-col gap-4">
+              <p
+                aria-live="polite"
+                className="flex h-10 items-center text-base text-muted-foreground/40"
+              >
+                Loading
+                {ledger.count > 0
+                  ? ` ${ledger.count.toLocaleString()}`
+                  : ''}{' '}
+                accounts…
+              </p>
+              <div className="h-[30rem] min-h-[8rem] shrink" />
+            </div>
+          )}
         </div>
         <footer className="flex shrink-0 flex-col">
           {diagnostics.debug !== null ? (
@@ -302,14 +315,14 @@ export function Bank({
                 <span
                   className={cn(
                     'flex shrink-0 flex-col items-end gap-1 transition-opacity',
-                    rows.length === 0 && 'opacity-0',
+                    ledger.count === 0 && 'opacity-0',
                   )}
                 >
                   <p
                     aria-label="Total money in the bank"
                     className={cn(mono, 'text-xl')}
                   >
-                    <AnimatedMoney amount={total} />
+                    <AnimatedMoney amount={ledger.total} />
                   </p>
                   <p
                     className={cn(
@@ -317,7 +330,7 @@ export function Bank({
                       'text-[0.6875rem] leading-none text-muted-foreground',
                     )}
                   >
-                    {rows.length.toLocaleString()} accounts
+                    {ledger.count.toLocaleString()} accounts
                   </p>
                 </span>
               </div>
@@ -327,8 +340,8 @@ export function Bank({
         </footer>
       </div>
       <TransactionsDialog
-        account={viewing}
-        lines={viewing === null ? EMPTY_LINES : lines}
+        account={history.viewing}
+        lines={history.viewing === null ? EMPTY_LINES : lines}
         onClose={() => history.onView(null)}
       />
       {admin !== null && (
