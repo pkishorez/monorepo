@@ -1,6 +1,5 @@
 import {
   Suspense,
-  startTransition,
   use,
   useEffect,
   useState,
@@ -129,7 +128,7 @@ function BankPage() {
 
   const switchStore = (next: StoreKey) => {
     if (next === store) return;
-    startTransition(() => setStore(next));
+    setStore(next);
     void navigate({ search: { ...search, store: next }, replace: true });
   };
 

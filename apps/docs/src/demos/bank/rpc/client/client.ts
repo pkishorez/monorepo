@@ -18,11 +18,7 @@ const bootOnce = (
   wiring: Layer.Layer<BankWiring, unknown>,
 ): (() => Promise<BankRuntime>) => {
   let runtime: Promise<BankRuntime> | undefined;
-  return () =>
-    (runtime ??= runBank(wiring).then(async (bank) => {
-      await Promise.all([bank.accounts.preload(), bank.transfers.preload()]);
-      return bank;
-    }));
+  return () => (runtime ??= runBank(wiring));
 };
 
 const MemoryWiring = Layer.succeed(BankWiring, {
