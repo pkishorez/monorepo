@@ -26,6 +26,7 @@ const booting = (
     onChoose: noop,
     onClear: noop,
     onDropReceiver: noop,
+    onSwap: noop,
     onSend: noop,
   },
   history: { viewingId: null, viewed: [], onView: noop },

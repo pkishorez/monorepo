@@ -5,7 +5,14 @@ import {
   type KeyboardEvent,
   type Ref,
 } from 'react';
-import { ArrowDown, ArrowUp, History, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  History,
+  Pencil,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, motion } from '@monorepo/frontend/motion';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
@@ -37,6 +44,7 @@ export interface LedgerProps {
   readonly onChoose: (accountId: string) => void;
   readonly onClear: () => void;
   readonly onDropReceiver: () => void;
+  readonly onSwap: () => void;
   readonly onSend: (amount: number, stay?: boolean) => void;
   readonly onHistory: (accountId: string) => void;
 }
@@ -251,6 +259,7 @@ function Row({
     readonly onRaw: (raw: string) => void;
     readonly onSend: (amount: number, stay?: boolean) => void;
     readonly onDropReceiver: () => void;
+    readonly onSwap: () => void;
   } | null;
   onChoose: () => void;
 }) {
@@ -274,6 +283,11 @@ function Row({
     setEditing(true);
     inputRef.current?.focus();
   };
+  const toggleEdit = () => {
+    if (editing) inputRef.current?.blur();
+    else edit();
+  };
+
   const settle = (act: () => void) => {
     if (settled.current) return;
     settled.current = true;
@@ -429,16 +443,19 @@ function Row({
               onClick={(event) => event.stopPropagation()}
               className="flex h-10 shrink-0 items-center justify-between gap-6"
             >
-              <button
+              <motion.button
                 type="button"
-                onClick={edit}
+                whileTap={tap}
+                onPointerDown={keepFocus}
+                onClick={target.onSwap}
+                aria-label={`Swap: send from ${row.name} instead`}
                 className={cn(
-                  eyebrow,
-                  'normal-case tracking-normal outline-none transition-colors hover:text-foreground focus-visible:text-foreground',
+                  badge,
+                  'flex size-8 items-center justify-center px-0',
                 )}
               >
-                {editing ? 'Type an amount' : 'Or tap the balance to type'}
-              </button>
+                <ArrowUpDown className="size-3.5" />
+              </motion.button>
               <span className="flex items-center gap-2">
                 {QUICK.map((quick) => (
                   <motion.button
@@ -457,6 +474,20 @@ function Row({
                     +{quick}
                   </motion.button>
                 ))}
+                <motion.button
+                  type="button"
+                  whileTap={tap}
+                  onClick={toggleEdit}
+                  aria-label={`Type an amount to send to ${row.name}`}
+                  aria-pressed={editing}
+                  className={cn(
+                    badge,
+                    'flex size-8 items-center justify-center px-0',
+                    editing && 'bg-primary text-primary-foreground',
+                  )}
+                >
+                  <Pencil className="size-3.5" />
+                </motion.button>
               </span>
             </motion.div>
           )}
@@ -475,6 +506,7 @@ export function Ledger({
   onChoose,
   onClear,
   onDropReceiver,
+  onSwap,
   onSend,
   onHistory,
 }: LedgerProps) {
@@ -527,6 +559,7 @@ export function Ledger({
                         onRaw: setRaw,
                         onSend,
                         onDropReceiver,
+                        onSwap,
                       }
                     : null
                 }
