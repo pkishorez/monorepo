@@ -16,14 +16,16 @@ const ensureLocalTable = Effect.gen(function* () {
   );
 });
 
+// `alchemy state tree` evaluates the stack under a placeholder stage with real
+// AWS credentials, so a local create is gated on a local endpoint, not on stage.
 export const BankTable = Effect.gen(function* () {
   const stage = yield* Stage;
-  return yield* isDeployedStage(stage)
-    ? Effect.flatMap(dynamoSettings, ({ tableName }) =>
-        makeDynamoDBTable(StdDynamoDB.getTableDefinition(bankTable), {
-          resourceId: 'BankTable',
-          tableName,
-        }),
-      )
-    : ensureLocalTable;
+  const { tableName, endpoint } = yield* dynamoSettings;
+  if (isDeployedStage(stage)) {
+    return yield* makeDynamoDBTable(StdDynamoDB.getTableDefinition(bankTable), {
+      resourceId: 'BankTable',
+      tableName,
+    });
+  }
+  if (endpoint !== '') yield* ensureLocalTable;
 }).pipe(Effect.orDie);
