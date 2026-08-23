@@ -220,6 +220,9 @@
         },
         "src/demos/bank/contract/refusal": {
           "exposed": true
+        },
+        "src/demos/bank/contract/tuning": {
+          "exposed": true
         }
       }
     }
