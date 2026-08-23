@@ -143,7 +143,7 @@ export function TraceViewer({
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({
       block: 'nearest',
-      inline: 'nearest',
+      inline: 'center',
     });
   }, [activeTraceId]);
 
