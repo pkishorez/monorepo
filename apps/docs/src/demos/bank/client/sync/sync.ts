@@ -15,6 +15,25 @@ import type { BankRunner, Vitals } from '../diagnostics/index.ts';
 
 const SYNC_VERSION = 1;
 
+const deleteDatabase = (name: string): Effect.Effect<void> =>
+  Effect.callback<void>((resume) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess =
+      request.onerror =
+      request.onblocked =
+        () => resume(Effect.void);
+  });
+
+const dropDatabases = (prefix: string): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    if (typeof indexedDB === 'undefined') return;
+    const databases = yield* Effect.promise(() => indexedDB.databases());
+    const names = databases.flatMap(({ name }) =>
+      name?.startsWith(prefix) ? [name] : [],
+    );
+    yield* Effect.forEach(names, deleteDatabase, { discard: true });
+  });
+
 export interface BankSyncOptions {
   readonly api: BankApi;
   readonly keepSubscribed: KeepSubscribed;
@@ -74,7 +93,13 @@ export const makeBankSync = ({
     ),
   });
 
-  return { std, accounts, transfers };
+  /** Stops syncing and deletes this store's local replica; the page must reload afterwards. */
+  const forget: Effect.Effect<void> = Effect.promise(() => std.dispose()).pipe(
+    Effect.andThen(dropDatabases(`std-sync:${name}`)),
+    Effect.withSpan('Forget the sync replica'),
+  );
+
+  return { std, accounts, transfers, forget };
 };
 
 export type BankSync = ReturnType<typeof makeBankSync>;

@@ -20,7 +20,6 @@ export interface Admin {
 export interface AdminOptions {
   readonly api: BankApi;
   readonly sync: BankSync;
-  readonly syncName: string;
   readonly runner: BankRunner;
 }
 
@@ -37,29 +36,9 @@ const seedBalance = (): number => 50 * (2 + Math.floor(Math.random() * 19));
 
 const newId = (): string => Effect.runSync(nextUlid);
 
-const deleteDatabase = (name: string): Effect.Effect<void> =>
-  Effect.callback<void>((resume) => {
-    const request = indexedDB.deleteDatabase(name);
-    request.onsuccess =
-      request.onerror =
-      request.onblocked =
-        () => resume(Effect.void);
-  });
-
-const dropSyncDatabases = (prefix: string): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    if (typeof indexedDB === 'undefined') return;
-    const databases = yield* Effect.promise(() => indexedDB.databases());
-    const names = databases.flatMap(({ name }) =>
-      name?.startsWith(prefix) ? [name] : [],
-    );
-    yield* Effect.forEach(names, deleteDatabase, { discard: true });
-  });
-
 export const makeAdmin = ({
   api,
-  sync: { std, accounts },
-  syncName,
+  sync: { accounts, forget },
   runner,
 }: AdminOptions): Admin => ({
   open: (opening) => {
@@ -92,10 +71,6 @@ export const makeAdmin = ({
     runner.runPromise(
       api
         .clear()
-        .pipe(
-          Effect.andThen(Effect.promise(() => std.dispose())),
-          Effect.andThen(dropSyncDatabases(`std-sync:${syncName}-`)),
-          Effect.withSpan('Clear the bank'),
-        ),
+        .pipe(Effect.andThen(forget), Effect.withSpan('Clear the bank')),
     ),
 });

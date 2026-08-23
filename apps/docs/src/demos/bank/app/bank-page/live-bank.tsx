@@ -157,6 +157,10 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
                 leadership: leadershipOf(vitals),
                 queued: vitals.queued,
                 committing: vitals.committing,
+                onForget: () =>
+                  void runtime.diagnostics
+                    .forget()
+                    .then(() => location.reload()),
               }
             : null,
           onDebug,
