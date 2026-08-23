@@ -74,20 +74,38 @@ export const watchAccounts = (
     subscribe: () => accountEntity.subscribe(),
   });
 
+export type TransferSide = 'from' | 'to';
+
+const pageOf = (after: TransferRow | null) => ({
+  limit: 100,
+  ...(after === null ? {} : { after }),
+});
+
+const transferPages = {
+  from: (account: string, after: TransferRow | null) =>
+    transferEntity.query(
+      'byFrom',
+      { pk: { from: account }, '>=': null },
+      pageOf(after),
+    ),
+  to: (account: string, after: TransferRow | null) =>
+    transferEntity.query(
+      'byTo',
+      { pk: { to: account }, '>=': null },
+      pageOf(after),
+    ),
+};
+
 export const watchTransfers = (
+  side: TransferSide,
+  account: string,
   cursor: TransferRow | null,
 ): Stream.Stream<ReadonlyArray<TransferRow>, never, BankTableService> =>
   watch({
     cursor,
     fetchPage: (after) =>
-      transferEntity
-        .query(
-          'primary',
-          { pk: {}, '>=': null },
-          { limit: 100, ...(after === null ? {} : { after }) },
-        )
-        .pipe(Effect.orDie),
-    subscribe: () => transferEntity.subscribe(),
+      transferPages[side](account, after).pipe(Effect.orDie),
+    subscribe: () => transferEntity.subscribe({ [side]: account }),
   });
 
 export interface BankSubscriptionsOptions {
@@ -103,8 +121,16 @@ export const BankSubscriptionsLive = ({
       checkpoint
         ? checkpointed(AccountEntity, cursor, watchAccounts)
         : watchAccounts(cursor),
-    subscribeAllTransfers: ({ '>': cursor }) =>
+    subscribeTransfersFrom: ({ from, '>': cursor }) =>
       checkpoint
-        ? checkpointed(TransferEntity, cursor, watchTransfers)
-        : watchTransfers(cursor),
+        ? checkpointed(TransferEntity, cursor, (resume) =>
+            watchTransfers('from', from, resume),
+          )
+        : watchTransfers('from', from, cursor),
+    subscribeTransfersTo: ({ to, '>': cursor }) =>
+      checkpoint
+        ? checkpointed(TransferEntity, cursor, (resume) =>
+            watchTransfers('to', to, resume),
+          )
+        : watchTransfers('to', to, cursor),
   });

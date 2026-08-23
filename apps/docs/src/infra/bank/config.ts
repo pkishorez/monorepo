@@ -22,7 +22,7 @@ export const dynamoSettings = Effect.gen(function* () {
         };
   return {
     tableName: yield* Config.string('BANK_DYNAMODB_TABLE').pipe(
-      Config.withDefault('std-bank-v3'),
+      Config.withDefault('std-bank-v4'),
     ),
     region: yield* Config.string('BANK_DYNAMODB_REGION').pipe(
       Config.withDefault(defaults.region),

@@ -49,7 +49,6 @@ export interface BankShell {
 
 export interface BankLedger {
   readonly accounts: readonly Account[];
-  readonly transferCount: number;
   readonly activity: ReadonlyMap<string, Activity>;
   readonly fromId: string | null;
   readonly toId: string | null;
@@ -297,8 +296,7 @@ export function Bank({
                       'text-[0.6875rem] leading-none text-muted-foreground',
                     )}
                   >
-                    {rows.length.toLocaleString()} accounts ·{' '}
-                    {ledger.transferCount.toLocaleString()} transfers
+                    {rows.length.toLocaleString()} accounts
                   </p>
                 </span>
               </div>

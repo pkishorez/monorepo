@@ -20,7 +20,6 @@ const booting = (
   shell,
   ledger: {
     accounts: [],
-    transferCount: 0,
     activity: new Map(),
     fromId: null,
     toId: null,
