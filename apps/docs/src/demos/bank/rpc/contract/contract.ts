@@ -46,11 +46,11 @@ export class BankMutations extends RpcGroup.make(
     error: TransferRefused,
   }),
   Rpc.make('clear', {
-    success: Schema.Int,
+    success: Schema.Void,
     error: Forbidden,
   }),
   Rpc.make('session', {
-    success: Schema.Struct({ role: RoleSchema, generation: Schema.Int }),
+    success: Schema.Struct({ role: RoleSchema }),
   }),
 ) {}
 

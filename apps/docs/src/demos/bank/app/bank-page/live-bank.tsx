@@ -100,7 +100,10 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
     if (toId !== null) byId.set(toId, toActivity);
     return byId;
   }, [fromId, toId, fromActivity, toActivity]);
-  const admin = runtime.admin;
+  const admin = useSyncExternalStore(
+    runtime.admin.subscribe,
+    runtime.admin.get,
+  );
 
   return (
     <>

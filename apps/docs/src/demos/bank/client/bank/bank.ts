@@ -1,4 +1,5 @@
 import { Effect, Scope } from 'effect';
+import { makeLiveValue, type LiveValue } from '../live-value.ts';
 import { makeAdmin, type Admin } from '../admin/index.ts';
 import { connectBankApi, type BankApi } from '../api/index.ts';
 import {
@@ -24,8 +25,8 @@ export interface BankRuntime {
   readonly send: Transfers['send'];
   readonly attempts: Transfers['attempts'];
   readonly retry: Transfers['retry'];
-  /** Null for guests: admin acts exist only where the role allows them. */
-  readonly admin: Admin | null;
+  /** Null until the bank says who you are, and for guests after that. */
+  readonly admin: LiveValue<Admin | null>;
   readonly diagnostics: {
     readonly network: Network;
     readonly vitals: Vitals;
@@ -38,7 +39,6 @@ const makeBank = (
 ): Effect.Effect<BankRuntime, never, Scope.Scope> =>
   Effect.gen(function* () {
     const api: BankApi = yield* connectBankApi(store.connection);
-    const session = yield* api.session().pipe(Effect.orDie);
     const { recorder, runner } = makeTracing();
     const network = makeNetwork();
     const vitals = makeVitals(store.connection.connectionStatus !== null);
@@ -50,16 +50,25 @@ const makeBank = (
     const sync = makeBankSync({
       api,
       keepSubscribed: store.connection.keepSubscribed,
-      name: `${store.syncName}-g${session.generation}`,
+      name: store.syncName,
       platform: store.platform,
       runner,
       vitals,
     });
     const transfers = makeTransfers({ api, sync, network, vitals, runner });
-    const admin =
-      session.role === 'admin'
-        ? makeAdmin({ api, sync, syncName: store.syncName, runner })
-        : null;
+    const admin = makeLiveValue<Admin | null>(null);
+    yield* Effect.forkScoped(
+      api.session().pipe(
+        Effect.orDie,
+        Effect.map(({ role }) =>
+          admin.update(() =>
+            role === 'admin'
+              ? makeAdmin({ api, sync, syncName: store.syncName, runner })
+              : null,
+          ),
+        ),
+      ),
+    );
 
     return {
       accounts: sync.accounts,

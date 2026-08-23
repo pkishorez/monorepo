@@ -25,7 +25,7 @@ export const STORES: readonly Store[] = [
   },
   {
     value: 'sqlite',
-    label: 'Durable Object',
+    label: 'SQLite',
     reach: 'everyone · push',
     boot: bank.sqlite,
   },

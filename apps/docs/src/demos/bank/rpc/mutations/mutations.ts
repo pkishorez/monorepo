@@ -11,7 +11,6 @@ import {
   transferEntity,
   type TransferRow,
 } from '../../std-table/entities/transfer/index.ts';
-import { generationEntity } from '../../std-table/entities/generation/index.ts';
 import { bankTable } from '../../std-table/table/index.ts';
 import { TransferRefused } from '../../contract/refusal/index.ts';
 import { BankMutations, Forbidden, Role } from '../contract/index.ts';
@@ -121,20 +120,10 @@ export const transfer = (
     );
   });
 
-const generation: Effect.Effect<number, never, BankTableService> =
-  generationEntity.get().pipe(
-    Effect.map((current) => current.value.value),
-    Effect.orDie,
-  );
-
-export const clearBank: Effect.Effect<number, never, BankTableService> =
+export const clearBank: Effect.Effect<void, never, BankTableService> =
   Effect.gen(function* () {
     yield* accountEntity.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING');
     yield* transferEntity.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING');
-    const next = yield* generationEntity.getAndUpdate((current) => ({
-      value: current.value + 1,
-    }));
-    return next.value.value;
   }).pipe(Effect.orDie);
 
 const requireAdmin = Effect.flatMap(Role, (role) =>
@@ -146,5 +135,5 @@ export const BankMutationsLive = BankMutations.toLayer({
     requireAdmin.pipe(Effect.andThen(openAccount({ id, name, balance }))),
   transfer: ({ id, from, to, amount }) => transfer({ id, from, to, amount }),
   clear: () => requireAdmin.pipe(Effect.andThen(clearBank)),
-  session: () => Effect.all({ role: Role, generation }),
+  session: () => Effect.map(Role, (role) => ({ role })),
 });
