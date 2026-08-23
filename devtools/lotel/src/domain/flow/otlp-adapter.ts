@@ -1,5 +1,9 @@
 import {
   flowAttributePrefix,
+  readSequence,
+  sequenceAttribute,
+  sequenceOrder,
+  tracerAttributePrefix,
   type FlowObservation,
   type RecordedFlowAttributeValue,
 } from '@pkishorez/effect-tracer/flow';
@@ -65,7 +69,12 @@ const displayAttributes = (
   attributes: KeyValue[] | undefined,
 ): Readonly<Record<string, RecordedFlowAttributeValue>> | undefined => {
   const entries = (attributes ?? []).flatMap(({ key, value }) => {
-    if (!key || key.startsWith('flow.')) return [];
+    if (
+      !key ||
+      key.startsWith('flow.') ||
+      key.startsWith(tracerAttributePrefix)
+    )
+      return [];
     return [
       [
         key.startsWith(flowAttributePrefix)
@@ -83,6 +92,14 @@ const severity = (number: number | undefined) => {
   if ((number ?? 0) >= 13) return 'warning' as const;
   if ((number ?? 0) > 0 && (number ?? 0) <= 8) return 'debug' as const;
   return 'info' as const;
+};
+
+const orderOf = (attributes: KeyValue[] | undefined, arrival: string) => {
+  const value = attributes?.find(({ key }) => key === sequenceAttribute)?.value;
+  const sequence = readSequence(
+    value?.intValue ?? value?.doubleValue ?? value?.stringValue,
+  );
+  return sequence === null ? arrival : sequenceOrder(sequence);
 };
 
 export const spanObservation = (
@@ -103,7 +120,7 @@ export const spanObservation = (
       : {}),
     name: span.name ?? 'Activity',
     timestamp: start,
-    order: record.meta._u,
+    order: orderOf(span.attributes, record.meta._u),
     ...(attributes ? { attributes } : {}),
     duration: end === null ? null : Math.max(0, end - start),
     status:
@@ -142,7 +159,7 @@ export const logObservation = (
     timestamp: unixNanosToMilliseconds(
       log.timeUnixNano ?? log.observedTimeUnixNano,
     ),
-    order: record.meta._u,
+    order: orderOf(log.attributes, record.meta._u),
     ...(attributes ? { attributes } : {}),
     severity: severity(log.severityNumber),
     ...(itemType ? { itemType } : {}),

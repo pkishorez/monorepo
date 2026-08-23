@@ -11,6 +11,9 @@
           "shared": true,
           "exposed": true
         },
+        "src/sequence": {
+          "shared": true
+        },
         "src/recorder": {
           "exposed": true
         }

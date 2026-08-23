@@ -6,6 +6,7 @@ import {
   type FlowObservation,
   type RecordedFlowAttributeValue,
 } from '../flow/index.js';
+import { sequenceOrder, tracerAttributePrefix } from '../sequence/index.js';
 import type {
   CapturedLog,
   CapturedSpan,
@@ -44,7 +45,10 @@ const displayAttributes = (
   record: Readonly<Record<string, TraceValue>>,
 ): Readonly<Record<string, RecordedFlowAttributeValue>> | undefined => {
   const entries = Object.entries(record)
-    .filter(([key]) => !key.startsWith('flow.'))
+    .filter(
+      ([key]) =>
+        !key.startsWith('flow.') && !key.startsWith(tracerAttributePrefix),
+    )
     .map(
       ([key, value]) =>
         [
@@ -129,8 +133,6 @@ export const recordedFlowIds = (trace: CapturedTrace) => [
   ),
 ];
 
-const observationOrder = (index: number) => index.toString().padStart(12, '0');
-
 export const projectRecordedFlow = (
   trace: CapturedTrace,
   id: string,
@@ -163,7 +165,10 @@ export const projectRecordedFlow = (
     };
     visit(spanId);
     return collected
-      .sort((left, right) => left.timestamp - right.timestamp)
+      .sort(
+        (left, right) =>
+          left.timestamp - right.timestamp || left.sequence - right.sequence,
+      )
       .map((log) => {
         const attributes = displayAttributes(log.annotations);
         return {
@@ -176,11 +181,11 @@ export const projectRecordedFlow = (
   };
 
   const observations = [
-    ...trace.spans.map((span, index) =>
-      activityObservation(span, id, observationOrder(index), nestedLogs),
+    ...trace.spans.map((span) =>
+      activityObservation(span, id, sequenceOrder(span.sequence), nestedLogs),
     ),
-    ...trace.logs.map((log, index) =>
-      eventObservation(log, id, observationOrder(trace.spans.length + index)),
+    ...trace.logs.map((log) =>
+      eventObservation(log, id, sequenceOrder(log.sequence)),
     ),
   ].filter((observation) => observation !== null);
   if (observations.length === 0) return null;

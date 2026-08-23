@@ -12,7 +12,7 @@ import { JsonTree } from '../../json';
  * verbose and identical across most spans, so we hide them behind an
  * expand-on-demand disclosure and let user-defined attributes take precedence.
  */
-const SYSTEM_PREFIXES = ['resource.', 'scope.'] as const;
+const SYSTEM_PREFIXES = ['resource.', 'scope.', 'tracer.'] as const;
 
 function isSystemKey(key: string): boolean {
   return SYSTEM_PREFIXES.some((prefix) => key.startsWith(prefix));

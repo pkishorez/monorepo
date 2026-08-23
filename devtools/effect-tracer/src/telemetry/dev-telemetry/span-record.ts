@@ -1,6 +1,7 @@
 import { Cause, Exit, Option, Tracer } from 'effect';
 import { OtlpResource } from 'effect/unstable/observability';
 import type { RequestQueue } from './request-queue.js';
+import { nextSequence, sequenceAttribute } from '../../sequence/index.js';
 
 type NativeSpanOptions = ConstructorParameters<typeof Tracer.NativeSpan>[0];
 
@@ -96,6 +97,7 @@ class ExportedSpan extends Tracer.NativeSpan {
   constructor(options: NativeSpanOptions, exporter: SpanExporterOptions) {
     super(options);
     this.#options = exporter;
+    this.attribute(sequenceAttribute, nextSequence());
     if (this.sampled) {
       exporter.queue.offerProvisionalSpan(
         spanKey(this),

@@ -1,6 +1,7 @@
 import { Cause, Clock, Logger, References } from 'effect';
 import { OtlpResource } from 'effect/unstable/observability';
 import type { RequestQueue } from './request-queue.js';
+import { nextSequence, sequenceAttribute } from '../../sequence/index.js';
 
 interface LogExporterOptions {
   readonly queue: RequestQueue;
@@ -36,9 +37,10 @@ export const makeLogger = (options: LogExporterOptions) =>
     const annotations = logOptions.fiber.getRef(
       References.CurrentLogAnnotations,
     );
-    const attributes = OtlpResource.entriesToAttributes(
-      Object.entries(annotations),
-    );
+    const attributes = OtlpResource.entriesToAttributes([
+      ...Object.entries(annotations),
+      [sequenceAttribute, nextSequence()],
+    ]);
     if (logOptions.cause.reasons.length > 0) {
       attributes.push({
         key: 'log.error',
