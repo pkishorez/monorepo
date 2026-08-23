@@ -132,7 +132,8 @@
               "sync",
               "transfers",
               "admin",
-              "stores"
+              "stores",
+              "live-value.ts"
             ]
           }
         }
@@ -188,15 +189,11 @@
             },
             "entities/transfer": {
               "exposed": true
-            },
-            "entities/generation": {
-              "exposed": true
             }
           },
           "rules": {
             "entities/account": ["table"],
-            "entities/transfer": ["table"],
-            "entities/generation": ["table"]
+            "entities/transfer": ["table"]
           }
         }
       }
