@@ -34,12 +34,10 @@ export const inMemoryLeadership = () => {
           observer.requested.pipe(
             Effect.andThen(
               entry.semaphore.withPermit(
-                observer.acquired.pipe(
-                  Effect.andThen(effect),
-                  Effect.ensuring(observer.released),
-                ),
+                observer.acquired.pipe(Effect.andThen(effect)),
               ),
             ),
+            Effect.ensuring(observer.released),
           ),
         (entry) =>
           Effect.sync(() => {

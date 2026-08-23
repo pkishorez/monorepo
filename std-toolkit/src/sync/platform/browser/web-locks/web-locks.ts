@@ -165,12 +165,10 @@ const runWithLifecycle = <A, E, R>(
             withWebLock(
               locks,
               identity,
-              observer.acquired.pipe(
-                Effect.andThen(effect),
-                Effect.ensuring(observer.released),
-              ),
+              observer.acquired.pipe(Effect.andThen(effect)),
             ),
           ),
+          Effect.ensuring(observer.released),
           Effect.map((value): Outcome => ({ _tag: 'Completed', value })),
         );
         const yielded = gate

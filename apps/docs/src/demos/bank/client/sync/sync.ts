@@ -60,7 +60,7 @@ export const makeBankSync = ({
     runtime: runner,
     onEvent: (event) =>
       event._tag === 'LeadershipChanged'
-        ? vitals.lead(event.collection, event.state)
+        ? vitals.lead(event)
         : Effect.logError(event),
   });
 
