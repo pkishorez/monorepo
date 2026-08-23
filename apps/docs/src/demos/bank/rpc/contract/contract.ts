@@ -60,8 +60,13 @@ export class BankSubscriptions extends RpcGroup.make(
     success: AccountBatch,
     stream: true,
   }),
-  Rpc.make('subscribeAllTransfers', {
-    payload: { '>': Schema.NullOr(TransferEntity) },
+  Rpc.make('subscribeTransfersFrom', {
+    payload: { from: Schema.String, '>': Schema.NullOr(TransferEntity) },
+    success: TransferBatch,
+    stream: true,
+  }),
+  Rpc.make('subscribeTransfersTo', {
+    payload: { to: Schema.String, '>': Schema.NullOr(TransferEntity) },
     success: TransferBatch,
     stream: true,
   }),

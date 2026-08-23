@@ -1,5 +1,5 @@
 import { useMemo, useReducer, useState, useSyncExternalStore } from 'react';
-import { count, eq, or, useLiveQuery } from '@tanstack/react-db';
+import { count, eq, useLiveQuery } from '@tanstack/react-db';
 import { DevToolsPanel } from '@monorepo/frontend/components/blocks/devtools-panel';
 import type { Account } from '../../contract/account/index.ts';
 import type { Transfer } from '../../contract/transfer/index.ts';
@@ -23,6 +23,32 @@ const leadershipOf = (vitals: BankVitals): 'leader' | 'follower' | null => {
   const states = Object.values(vitals.leadership);
   if (states.length === 0) return null;
   return states.some((state) => state === 'waiting') ? 'follower' : 'leader';
+};
+
+const useSide = (
+  runtime: BankRuntime,
+  side: 'from' | 'to',
+  id: string | null,
+): readonly Transfer[] => {
+  const { data } = useLiveQuery(
+    (q) =>
+      id === null
+        ? null
+        : q
+            .from({ t: runtime.transfers })
+            .where(({ t }) => eq(side === 'from' ? t.from : t.to, id)),
+    [id, side],
+  );
+  return (data ?? EMPTY) as readonly Transfer[];
+};
+
+const useHistory = (runtime: BankRuntime, id: string | null) => {
+  const sent = useSide(runtime, 'from', id);
+  const received = useSide(runtime, 'to', id);
+  return useMemo(
+    () => [...sent, ...received].sort((a, b) => (a.id < b.id ? 1 : -1)),
+    [sent, received],
+  );
 };
 
 const useCount = (
@@ -62,21 +88,7 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
   const [traces, setTraces] = useState(false);
 
   const { data: accountRows } = useLiveQuery(() => runtime.accounts);
-  const { data: totals } = useLiveQuery((q) =>
-    q
-      .from({ t: runtime.transfers })
-      .select(({ t }) => ({ transfers: count(t.id) })),
-  );
-  const { data: viewed } = useLiveQuery(
-    (q) =>
-      viewingId === null
-        ? null
-        : q
-            .from({ t: runtime.transfers })
-            .where(({ t }) => or(eq(t.from, viewingId), eq(t.to, viewingId)))
-            .orderBy(({ t }) => t.id, 'desc'),
-    [viewingId],
-  );
+  const viewed = useHistory(runtime, viewingId);
   const attempts = useSyncExternalStore(
     runtime.attempts.subscribe,
     runtime.attempts.get,
@@ -111,7 +123,6 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
         shell={shell}
         ledger={{
           accounts: (accountRows ?? EMPTY) as ReadonlyArray<Account>,
-          transferCount: totals?.[0]?.transfers ?? 0,
           activity,
           fromId,
           toId,
@@ -127,7 +138,7 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
         }}
         history={{
           viewingId,
-          viewed: (viewed ?? EMPTY) as ReadonlyArray<Transfer>,
+          viewed,
           onView: setViewingId,
         }}
         attempts={{ attempts, onRetry: runtime.retry }}

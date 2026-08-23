@@ -13,7 +13,8 @@ import {
 import type { BankApi, KeepSubscribed } from '../api/index.ts';
 import type { BankRunner, Vitals } from '../diagnostics/index.ts';
 
-const SYNC_VERSION = 1;
+const SYNC_VERSION = 2;
+const TRANSFERS_GC_TIME = 5_000;
 
 const deleteDatabase = (name: string): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
@@ -67,30 +68,41 @@ export const makeBankSync = ({
       cursor: DecodedEntity<T> | null,
     ) => Stream.Stream<ReadonlyArray<DecodedEntity<T>>, unknown>,
   ) => ({
-    total: {
-      strategy: syncStrategy.oldToNew<T>({
-        source: ({ live }) =>
-          live({
-            open: ({ cursor }) => keepSubscribed(() => subscribe(cursor)),
-          }),
-      }),
-    },
+    strategy: syncStrategy.oldToNew<T>({
+      source: ({ live }) =>
+        live({
+          open: ({ cursor }) => keepSubscribed(() => subscribe(cursor)),
+        }),
+    }),
   });
 
   const accounts = std.collection({
     schema: AccountSchema,
-    sync: liveOldToNew<Account>((cursor) =>
-      api.subscribeAccounts({ '>': cursor }),
-    ),
+    sync: {
+      total: liveOldToNew<Account>((cursor) =>
+        api.subscribeAccounts({ '>': cursor }),
+      ),
+    },
     onInsert: (item) =>
       api.openAccount({ id: item.id, name: item.name, balance: item.balance }),
   });
 
+  // A live query on `eq(t.from, id)` / `eq(t.to, id)` is what opens a partition.
   const transfers = std.collection({
     schema: TransferSchema,
-    sync: liveOldToNew<Transfer>((cursor) =>
-      api.subscribeAllTransfers({ '>': cursor }),
-    ),
+    options: { gcTime: TRANSFERS_GC_TIME },
+    sync: {
+      partitions: {
+        from: (from) =>
+          liveOldToNew<Transfer>((cursor) =>
+            api.subscribeTransfersFrom({ from, '>': cursor }),
+          ),
+        to: (to) =>
+          liveOldToNew<Transfer>((cursor) =>
+            api.subscribeTransfersTo({ to, '>': cursor }),
+          ),
+      },
+    },
   });
 
   /** Stops syncing and deletes this store's local replica; the page must reload afterwards. */
