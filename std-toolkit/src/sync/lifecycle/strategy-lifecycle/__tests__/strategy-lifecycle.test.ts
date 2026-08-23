@@ -61,6 +61,38 @@ describe('strategy lifecycle', () => {
     await leadership.dispose();
   });
 
+  it('releases a follower that is interrupted while still waiting', async () => {
+    const states: string[] = [];
+    const leadership = makeLeadership(inMemoryLeadership());
+    const supervise = (onLeadership: (state: string) => Effect.Effect<void>) =>
+      superviseStrategy({
+        leadership,
+        identity,
+        run: () => Effect.void,
+        onError: () => Effect.void,
+        onLeadership,
+      });
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const leader = yield* Effect.forkChild(supervise(() => Effect.void));
+          yield* Effect.yieldNow;
+          const follower = yield* Effect.forkChild(
+            supervise((state) => Effect.sync(() => void states.push(state))),
+          );
+          yield* Effect.yieldNow;
+          expect(states).toEqual(['waiting']);
+          yield* Fiber.interrupt(follower);
+          expect(states).toEqual(['waiting', 'released']);
+          yield* Fiber.interrupt(leader);
+        }),
+      ),
+    );
+
+    await leadership.dispose();
+  });
+
   it('closes each failed attempt before retrying in a fresh scope', async () => {
     let attempts = 0;
     let finalizers = 0;

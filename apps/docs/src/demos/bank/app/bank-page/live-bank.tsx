@@ -6,7 +6,6 @@ import type { Transfer } from '../../contract/transfer/index.ts';
 import {
   NETWORK_QUALITIES,
   type BankRuntime,
-  type BankVitals,
   type NetworkQuality,
 } from '../../client/bank/index.ts';
 import {
@@ -23,12 +22,6 @@ import {
 } from '../draft/index.ts';
 
 const EMPTY: readonly never[] = [];
-
-const leadershipOf = (vitals: BankVitals): 'leader' | 'follower' | null => {
-  const states = Object.values(vitals.leadership);
-  if (states.length === 0) return null;
-  return states.some((state) => state === 'waiting') ? 'follower' : 'leader';
-};
 
 const useSide = (
   runtime: BankRuntime,
@@ -234,7 +227,7 @@ export function LiveBank({ shell, debug, onDebug, runtime }: LiveBankProps) {
                     () => quality as NetworkQuality,
                   ),
                 ws: vitals.ws,
-                leadership: leadershipOf(vitals),
+                leadership: vitals.leadership,
                 queued: vitals.queued,
                 committing: vitals.committing,
                 onForget: () =>

@@ -19,7 +19,11 @@ export interface DebugPanelProps {
     readonly status: 'connecting' | 'connected' | 'reconnecting';
     readonly reconnects: number;
   } | null;
-  readonly leadership: 'leader' | 'follower' | null;
+  readonly leadership: readonly {
+    readonly collection: string;
+    readonly partitionKey: string;
+    readonly state: 'waiting' | 'leading';
+  }[];
   readonly queued: number;
   readonly committing: number;
   readonly failed: readonly DebugFailure[];
@@ -61,6 +65,53 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
         {children}
       </span>
     </div>
+  );
+}
+
+const partitionLabel = (partitionKey: string) => {
+  if (partitionKey === '__total__') return 'all';
+  const parsed: unknown = JSON.parse(partitionKey);
+  return Array.isArray(parsed)
+    ? parsed
+        .map(
+          ([field, , value]: [string, string, unknown]) =>
+            `${field}=${String(value)}`,
+        )
+        .join(' ')
+    : partitionKey;
+};
+
+function Leases({ leases }: { leases: DebugPanelProps['leadership'] }) {
+  if (leases.length === 0)
+    return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-1">
+      {leases.map((lease) => (
+        <span
+          key={`${lease.collection}|${lease.partitionKey}`}
+          className="flex items-baseline gap-2 truncate"
+        >
+          <span
+            aria-hidden
+            className={cn(
+              'size-1.5 shrink-0 self-center rounded-full',
+              lease.state === 'leading'
+                ? 'bg-primary'
+                : 'bg-muted-foreground/40',
+            )}
+          />
+          <span className="truncate">
+            {lease.collection}
+            <span className="ml-1.5 text-muted-foreground">
+              {partitionLabel(lease.partitionKey)}
+            </span>
+          </span>
+          <span className="ml-auto font-sans text-xs tracking-normal text-muted-foreground normal-case">
+            {lease.state === 'leading' ? 'leader' : 'follower'}
+          </span>
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -147,9 +198,11 @@ export function DebugPanel({
         <Stat label="Link">
           <Link ws={debug.ws} />
         </Stat>
-        <Stat label="Tab">
-          {debug.leadership ?? <span className="text-muted-foreground">—</span>}
-        </Stat>
+        <div className="col-span-2 sm:col-span-3">
+          <Stat label="Sync leases">
+            <Leases leases={debug.leadership} />
+          </Stat>
+        </div>
         <div className="col-span-2 sm:col-span-3">
           <Stat label="Transfers">
             <span className="flex flex-wrap items-baseline gap-x-4">

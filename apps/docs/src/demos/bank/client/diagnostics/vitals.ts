@@ -3,12 +3,18 @@ import type { ConnectionStatus } from '@pkishorez/effect-cloudflare/websocket-rp
 import type { LeadershipState } from 'std-toolkit/sync';
 import { makeLiveValue, type LiveValue } from '../live-value.ts';
 
+export interface Lease {
+  readonly collection: string;
+  readonly partitionKey: string;
+  readonly state: Exclude<LeadershipState, 'released'>;
+}
+
 export interface BankVitals {
   readonly ws: {
     readonly status: ConnectionStatus;
     readonly reconnects: number;
   } | null;
-  readonly leadership: Readonly<Record<string, LeadershipState>>;
+  readonly leadership: readonly Lease[];
   readonly queued: number;
   readonly committing: number;
 }
@@ -17,10 +23,11 @@ export interface Vitals extends LiveValue<BankVitals> {
   readonly patch: (
     fn: (vitals: BankVitals) => Partial<BankVitals>,
   ) => Effect.Effect<void>;
-  readonly lead: (
-    collection: string,
-    state: LeadershipState,
-  ) => Effect.Effect<void>;
+  readonly lead: (lease: {
+    readonly collection: string;
+    readonly partitionKey: string;
+    readonly state: LeadershipState;
+  }) => Effect.Effect<void>;
   readonly followConnection: (
     status: Stream.Stream<ConnectionStatus>,
   ) => Effect.Effect<void>;
@@ -29,7 +36,7 @@ export interface Vitals extends LiveValue<BankVitals> {
 export const makeVitals = (connected: boolean): Vitals => {
   const value = makeLiveValue<BankVitals>({
     ws: connected ? { status: 'connecting', reconnects: 0 } : null,
-    leadership: {},
+    leadership: [],
     queued: 0,
     committing: 0,
   });
@@ -38,8 +45,19 @@ export const makeVitals = (connected: boolean): Vitals => {
   return {
     ...value,
     patch,
-    lead: (collection, state) =>
-      patch((v) => ({ leadership: { ...v.leadership, [collection]: state } })),
+    lead: (lease) =>
+      patch((v) => ({
+        leadership: [
+          ...v.leadership.filter(
+            (l) =>
+              l.collection !== lease.collection ||
+              l.partitionKey !== lease.partitionKey,
+          ),
+          ...(lease.state === 'released'
+            ? []
+            : [{ ...lease, state: lease.state }]),
+        ],
+      })),
     followConnection: (status) =>
       Stream.runForEach(status, (next) =>
         patch((v) => ({

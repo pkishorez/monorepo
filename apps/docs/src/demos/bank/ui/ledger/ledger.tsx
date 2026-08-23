@@ -240,6 +240,7 @@ function Stage({
 function Row({
   ref,
   row,
+  layoutKey,
   activity,
   onHistory,
   busy,
@@ -249,6 +250,7 @@ function Row({
 }: {
   ref?: Ref<HTMLLIElement>;
   row: Account;
+  layoutKey: string;
   activity: Activity;
   onHistory: () => void;
   busy: boolean;
@@ -302,6 +304,7 @@ function Row({
     <motion.li
       ref={ref}
       layout
+      layoutDependency={layoutKey}
       layoutId={`row-${row.id}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: dimmed ? 0.7 : 1 }}
@@ -332,6 +335,7 @@ function Row({
       <div className="relative flex flex-col gap-2">
         <motion.div
           layout="position"
+          layoutDependency={targeting}
           transition={lift}
           className={cn(rowShell, 'min-w-0 shrink-0')}
         >
@@ -365,6 +369,7 @@ function Row({
           <span className="flex shrink-0 items-baseline gap-3">
             <motion.span
               layout="position"
+              layoutDependency={editing}
               transition={fast}
               onClick={(event) => {
                 if (!targeting) return;
@@ -436,6 +441,7 @@ function Row({
             <motion.div
               key="quick"
               layout="position"
+              layoutDependency={targeting}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
@@ -560,6 +566,9 @@ export function Ledger({
   useEffect(() => setRaw(''), [fromId, toId]);
 
   const typing = from !== null && toId !== null;
+  // Rows only re-measure when the sender or receiver changes, so a flood of inserts
+  // on the newest-first page re-renders in place instead of sliding every row.
+  const layoutKey = `${fromId ?? ''}/${toId ?? ''}`;
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
@@ -584,12 +593,13 @@ export function Ledger({
       />
       <div className={scrollBox}>
         {/* Keyed by page so a page change remounts the list instead of animating every row. */}
-        <ul key={paging.page}>
+        <ul key={paging.page} className="relative">
           <AnimatePresence initial={false} mode="popLayout">
             {rows.map((row) => (
               <Row
                 key={row.id}
                 row={row}
+                layoutKey={layoutKey}
                 activity={activity.get(row.id) ?? NO_ACTIVITY}
                 onHistory={() => onHistory(row.id)}
                 busy={busy.has(row.id)}
