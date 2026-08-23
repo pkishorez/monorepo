@@ -1,5 +1,6 @@
 import { createOptimisticAction } from '@tanstack/react-db';
 import {
+  Array as Arr,
   Context,
   Effect,
   Layer,
@@ -33,6 +34,7 @@ import { makeVitals, type BankVitals } from './vitals.ts';
 export const newId = (): string => Effect.runSync(nextUlid);
 
 const SYNC_VERSION = 1;
+const SEED_BATCH = 1000;
 
 const deleteDatabase = (name: string): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
@@ -243,15 +245,27 @@ const makeBank = Effect.gen(function* () {
       ),
   });
 
-  const seed = (count: number): void => {
-    accounts.insert(
-      seedNames(count).map((name) => ({
-        id: newId(),
-        name,
-        balance: seedBalance(),
-      })),
+  const seed = (count: number): Promise<void> =>
+    runtime.runPromise(
+      Effect.forEach(
+        Arr.chunksOf(seedNames(count), SEED_BATCH),
+        (names) =>
+          Effect.sync(() =>
+            accounts.insert(
+              names.map((name) => ({
+                id: newId(),
+                name,
+                balance: seedBalance(),
+              })),
+            ),
+          ).pipe(Effect.andThen(Effect.sleep(0))),
+        { discard: true },
+      ).pipe(
+        Effect.withSpan('Seed accounts', {
+          attributes: { 'seed.count': count },
+        }),
+      ),
     );
-  };
 
   const clear = (): Promise<void> =>
     runtime.runPromise(

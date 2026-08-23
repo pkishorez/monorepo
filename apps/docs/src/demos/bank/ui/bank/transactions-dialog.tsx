@@ -18,6 +18,7 @@ import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney } from './animated-money.tsx';
 import { formatMoney } from './money.ts';
+import { usePaging } from './paging.ts';
 import { mono } from './shared.ts';
 
 export interface TransactionLine {
@@ -31,44 +32,58 @@ export interface TransactionLine {
 const scrollBox =
   'overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
 
-function Lines({ lines }: { lines: readonly TransactionLine[] }) {
-  if (lines.length === 0)
-    return (
-      <p className="py-2 text-sm text-muted-foreground/60">
-        No transactions yet
-      </p>
-    );
+function Lines({
+  lines,
+  className,
+}: {
+  lines: readonly TransactionLine[];
+  className: string;
+}) {
+  const { limit, hasMore, scrollRef, moreRef } = usePaging(lines.length);
   return (
-    <ul className="flex flex-col gap-3">
-      <AnimatePresence initial={false}>
-        {lines.map((line) => (
-          <motion.li
-            key={line.id}
-            layout="position"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-baseline gap-4"
-          >
-            <span className={cn(mono, 'text-xs text-muted-foreground/60')}>
-              {line.at}
-            </span>
-            <span className="truncate text-sm">{line.counterpartyName}</span>
-            <span
-              className={cn(
-                mono,
-                'text-base',
-                line.direction === 'sent' ? 'text-destructive' : 'text-primary',
-              )}
-            >
-              {line.direction === 'sent' ? '−' : '+'}
-              {formatMoney(line.amount)}
-            </span>
-          </motion.li>
-        ))}
-      </AnimatePresence>
-    </ul>
+    <div ref={scrollRef} className={cn(scrollBox, className)}>
+      {lines.length === 0 ? (
+        <p className="py-2 text-sm text-muted-foreground/60">
+          No transactions yet
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-3">
+          <AnimatePresence initial={false}>
+            {lines.slice(0, limit).map((line) => (
+              <motion.li
+                key={line.id}
+                layout="position"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-baseline gap-4"
+              >
+                <span className={cn(mono, 'text-xs text-muted-foreground/60')}>
+                  {line.at}
+                </span>
+                <span className="truncate text-sm">
+                  {line.counterpartyName}
+                </span>
+                <span
+                  className={cn(
+                    mono,
+                    'text-base',
+                    line.direction === 'sent'
+                      ? 'text-destructive'
+                      : 'text-primary',
+                  )}
+                >
+                  {line.direction === 'sent' ? '−' : '+'}
+                  {formatMoney(line.amount)}
+                </span>
+              </motion.li>
+            ))}
+          </AnimatePresence>
+          {hasMore && <li ref={moreRef} aria-hidden className="h-px" />}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -110,9 +125,7 @@ export function TransactionsDialog({
               {summaryOf(lines.length)}
             </DrawerDescription>
           </DrawerHeader>
-          <div className={cn(scrollBox, 'px-4 pb-6')}>
-            <Lines lines={lines} />
-          </div>
+          <Lines lines={lines} className="px-4 pb-6" />
         </DrawerContent>
       </Drawer>
     );
@@ -129,9 +142,7 @@ export function TransactionsDialog({
             {summaryOf(lines.length)}
           </DialogDescription>
         </DialogHeader>
-        <div className={cn(scrollBox, '-mx-6 max-h-[min(50dvh,24rem)] px-6')}>
-          <Lines lines={lines} />
-        </div>
+        <Lines lines={lines} className="-mx-6 max-h-[min(50dvh,24rem)] px-6" />
       </DialogContent>
     </Dialog>
   );

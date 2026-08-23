@@ -5,12 +5,20 @@ import {
   type KeyboardEvent,
   type Ref,
 } from 'react';
-import { ArrowUpDown, History, Pencil, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  History,
+  Pencil,
+  X,
+} from 'lucide-react';
 import { AnimatePresence, motion } from '@monorepo/frontend/motion';
 import { cn } from '@monorepo/frontend/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney } from './animated-money.tsx';
 import { formatMoney } from './money.ts';
+import { usePaging } from './paging.ts';
 import {
   bare,
   chWidth,
@@ -20,8 +28,16 @@ import {
   parseAmount,
 } from './shared.ts';
 
+export interface Activity {
+  readonly sent: number;
+  readonly received: number;
+}
+
+const NO_ACTIVITY: Activity = { sent: 0, received: 0 };
+
 export interface LedgerProps {
   readonly rows: readonly Account[];
+  readonly activity: ReadonlyMap<string, Activity>;
   readonly busy: ReadonlySet<string>;
   readonly fromId: string | null;
   readonly toId: string | null;
@@ -76,12 +92,63 @@ const panelOn = 'bg-muted/15';
 const fast = { duration: 0.15, ease: 'easeOut' } as const;
 const lift = { duration: 0.2, ease: 'easeOut' } as const;
 
+function Activity({
+  name,
+  activity,
+  onHistory,
+}: {
+  name: string;
+  activity: Activity;
+  onHistory: () => void;
+}) {
+  const idle = activity.sent === 0 && activity.received === 0;
+  return (
+    <button
+      type="button"
+      onPointerDown={keepFocus}
+      onClick={(event) => {
+        event.stopPropagation();
+        onHistory();
+      }}
+      aria-label={`${name}: ${activity.sent} sent, ${activity.received} received. See transactions`}
+      className={cn(
+        mono,
+        'flex h-6 shrink-0 items-center gap-2 rounded-full bg-muted/70 pr-2.5 pl-2 text-xs font-medium normal-case tracking-tight outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring',
+        idle && 'text-muted-foreground/50',
+      )}
+    >
+      <History className="size-3 text-muted-foreground/60" />
+      <span
+        className={cn(
+          'flex items-center gap-0.5',
+          activity.sent > 0 && 'text-destructive',
+        )}
+      >
+        <ArrowUp className="size-3" strokeWidth={2.5} />
+        {activity.sent.toLocaleString()}
+      </span>
+      <span aria-hidden className="h-3 w-px bg-border" />
+      <span
+        className={cn(
+          'flex items-center gap-0.5',
+          activity.received > 0 && 'text-primary',
+        )}
+      >
+        <ArrowDown className="size-3" strokeWidth={2.5} />
+        {activity.received.toLocaleString()}
+      </span>
+    </button>
+  );
+}
+
 function Stage({
   from,
+  activity,
   onCancel,
   onHistory,
 }: {
   from: Account | null;
+  activity: Activity;
   onCancel: () => void;
   onHistory: (accountId: string) => void;
 }) {
@@ -109,19 +176,20 @@ function Stage({
         </AnimatePresence>
         <AnimatePresence initial={false}>
           {from !== null && (
-            <motion.button
+            <motion.span
               key="history"
-              type="button"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={fast}
-              onClick={() => onHistory(from.id)}
-              className="-mr-2 flex h-5 items-center gap-1 rounded-full px-2 text-muted-foreground/60 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:text-foreground"
+              className="-mr-2 flex items-center"
             >
-              <History className="size-3" />
-              Transactions
-            </motion.button>
+              <Activity
+                name={from.name}
+                activity={activity}
+                onHistory={() => onHistory(from.id)}
+              />
+            </motion.span>
           )}
         </AnimatePresence>
       </div>
@@ -172,6 +240,8 @@ function Stage({
 function Row({
   ref,
   row,
+  activity,
+  onHistory,
   busy,
   dimmed,
   target,
@@ -179,6 +249,8 @@ function Row({
 }: {
   ref?: Ref<HTMLLIElement>;
   row: Account;
+  activity: Activity;
+  onHistory: () => void;
   busy: boolean;
   dimmed: boolean;
   target: {
@@ -272,6 +344,24 @@ function Row({
             )}
           >
             <span className="truncate">{row.name}</span>
+            <AnimatePresence initial={false}>
+              {targeting && (
+                <motion.span
+                  key="activity"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={fast}
+                  className="flex shrink-0 items-center"
+                >
+                  <Activity
+                    name={row.name}
+                    activity={activity}
+                    onHistory={onHistory}
+                  />
+                </motion.span>
+              )}
+            </AnimatePresence>
           </span>
           <span className="flex shrink-0 items-baseline gap-3">
             <motion.span
@@ -408,6 +498,7 @@ function Row({
 
 export function Ledger({
   rows,
+  activity,
   busy,
   fromId,
   toId,
@@ -420,6 +511,9 @@ export function Ledger({
 }: LedgerProps) {
   const [raw, setRaw] = useState('');
   useEffect(() => setRaw(''), [fromId, toId]);
+
+  const visible = rows.filter((row) => row.id !== fromId);
+  const { limit, hasMore, scrollRef, moreRef } = usePaging(visible.length);
 
   const from = rows.find((row) => row.id === fromId) ?? null;
   const typing = from !== null && toId !== null;
@@ -437,34 +531,42 @@ export function Ledger({
       className="flex max-h-full min-h-0 flex-col gap-4"
       onKeyDown={moveFocus}
     >
-      <Stage from={from} onCancel={onCancel} onHistory={onHistory} />
-      <div className={scrollBox}>
+      <Stage
+        from={from}
+        activity={
+          from === null ? NO_ACTIVITY : (activity.get(from.id) ?? NO_ACTIVITY)
+        }
+        onCancel={onCancel}
+        onHistory={onHistory}
+      />
+      <div ref={scrollRef} className={scrollBox}>
         <ul>
           <AnimatePresence initial={false} mode="popLayout">
-            {rows
-              .filter((row) => row.id !== fromId)
-              .map((row) => (
-                <Row
-                  key={row.id}
-                  row={row}
-                  busy={busy.has(row.id)}
-                  dimmed={typing && row.id !== toId}
-                  target={
-                    row.id === toId && from !== null
-                      ? {
-                          available: from.balance,
-                          raw,
-                          onRaw: setRaw,
-                          onSend,
-                          onUntarget,
-                          onSwap,
-                        }
-                      : null
-                  }
-                  onPick={() => onPick(row.id)}
-                />
-              ))}
+            {visible.slice(0, limit).map((row) => (
+              <Row
+                key={row.id}
+                row={row}
+                activity={activity.get(row.id) ?? NO_ACTIVITY}
+                onHistory={() => onHistory(row.id)}
+                busy={busy.has(row.id)}
+                dimmed={typing && row.id !== toId}
+                target={
+                  row.id === toId && from !== null
+                    ? {
+                        available: from.balance,
+                        raw,
+                        onRaw: setRaw,
+                        onSend,
+                        onUntarget,
+                        onSwap,
+                      }
+                    : null
+                }
+                onPick={() => onPick(row.id)}
+              />
+            ))}
           </AnimatePresence>
+          {hasMore && <li ref={moreRef} aria-hidden className="h-px" />}
         </ul>
       </div>
     </div>

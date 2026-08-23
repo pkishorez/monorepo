@@ -1,5 +1,6 @@
 export {
   Bank,
+  type Activity,
   type BankAttempt,
   type BankDebug,
   type BankProps,
