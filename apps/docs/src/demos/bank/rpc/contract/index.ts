@@ -6,7 +6,5 @@ export {
   BankSubscriptions,
   Forbidden,
   Role,
-  TransferDirectionSchema,
   TransferEntity,
-  type TransferDirection,
 } from './contract.ts';

@@ -24,16 +24,6 @@ const stamp = <T>(row: DecodedEntity<T>): DecodedEntity<T> => ({
   meta: { ...row.meta, _s: Date.now() },
 });
 
-export const seedNames = (count: number): readonly string[] => {
-  const taken = new Set<number>();
-  while (taken.size < count)
-    taken.add(1000 + Math.floor(Math.random() * 99_000));
-  return [...taken].map((suffix) => `User ${suffix}`);
-};
-
-export const seedBalance = (): number =>
-  50 * (2 + Math.floor(Math.random() * 19));
-
 export interface OpenAccountInput {
   readonly id?: string | undefined;
   readonly name: string;

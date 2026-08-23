@@ -1,6 +1,11 @@
+import * as Cloudflare from 'alchemy/Cloudflare';
 import { DurableRpcWorker } from '@monorepo/alchemy-toolkit/unstable/durable-rpc-worker';
+import { Effect } from 'effect';
+import { SQLite } from 'std-toolkit/db/sqlite';
+import { makeDurableObjectSQLite } from 'std-toolkit/db/sqlite/durable-object';
 import { BankRpcs } from '../../demos/bank/rpc/contract/index.ts';
-import { BankDurableObjectHandlers } from '../../demos/bank/rpc/server/durable-object/index.ts';
+import { makeBankServer } from '../../demos/bank/server/index.ts';
+import { bankTable } from '../../demos/bank/std-table/table/index.ts';
 import { adminConnection, adminKey } from './config.ts';
 
 export default class SqliteDO extends DurableRpcWorker<SqliteDO>()(
@@ -9,10 +14,16 @@ export default class SqliteDO extends DurableRpcWorker<SqliteDO>()(
     main: import.meta.filename,
     schema: BankRpcs,
     objectName: 'BankDurableObject',
-    transferredFrom: ['Worker', 'BankDo'],
     compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
     init: adminKey,
     connection: adminConnection,
   },
-  BankDurableObjectHandlers,
+  Effect.gen(function* () {
+    const state = yield* Cloudflare.DurableObjectState;
+    const table = SQLite.make(bankTable, {
+      database: makeDurableObjectSQLite({ storage: state.raw.storage }),
+    });
+    yield* table.setup.pipe(Effect.orDie);
+    return makeBankServer({ table: table.layer, checkpoint: true });
+  }),
 ) {}

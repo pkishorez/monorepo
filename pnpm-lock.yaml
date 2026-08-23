@@ -165,9 +165,6 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: 6.0.5
       version: 6.0.5
-    '@xstate/react':
-      specifier: 6.1.0
-      version: 6.1.0
     '@xyflow/react':
       specifier: 12.11.3
       version: 12.11.3
@@ -406,9 +403,6 @@ importers:
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.168.46(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.1.5)(supports-color@10.2.2)(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
-      '@xstate/react':
-        specifier: 'catalog:'
-        version: 6.1.0(@types/react@19.2.18)(react@19.2.8)(xstate@5.32.5)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.110
@@ -436,9 +430,6 @@ importers:
       use-effect-ts:
         specifier: workspace:*
         version: link:../../packages/use-effect-ts
-      xstate:
-        specifier: 'catalog:'
-        version: 5.32.5
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
@@ -4660,15 +4651,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@xstate/react@6.1.0':
-    resolution: {integrity: sha512-ep9F0jGTI63B/jE8GHdMpUqtuz7yRebNaKv8EMUaiSi29NOglywc2X2YSOV/ygbIK+LtmgZ0q9anoEA2iBSEOw==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      xstate: ^5.28.0
-    peerDependenciesMeta:
-      xstate:
-        optional: true
-
   '@xyflow/react@12.11.3':
     resolution: {integrity: sha512-G3jogHz2GWUtIOkhavUGno2YzY9u6fILIJBttfsBendb0/HWB90JG+sOTAvlIMEwyvq9zgy9V9ZQSwyQjR5QzQ==}
     peerDependencies:
@@ -8394,15 +8376,6 @@ packages:
     peerDependencies:
       '@types/react': '*'
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-
-  use-isomorphic-layout-effect@1.2.1:
-    resolution: {integrity: sha512-tpZZ+EX0gaghDAiFR37hj5MgY6ZN55kLiPkJsKxBMZ6GZdOSPJXiOzPM984oPYZ5AnehYx5WQp1+ME8I/P/pRA==}
-    peerDependencies:
-      '@types/react': '*'
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -12490,16 +12463,6 @@ snapshots:
 
   '@voidzero-dev/vite-plus-win32-x64-msvc@0.2.9':
     optional: true
-
-  '@xstate/react@6.1.0(@types/react@19.2.18)(react@19.2.8)(xstate@5.32.5)':
-    dependencies:
-      react: 19.2.8
-      use-isomorphic-layout-effect: 1.2.1(@types/react@19.2.18)(react@19.2.8)
-      use-sync-external-store: 1.6.0(react@19.2.8)
-    optionalDependencies:
-      xstate: 5.32.5
-    transitivePeerDependencies:
-      - '@types/react'
 
   '@xyflow/react@12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.8)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
@@ -16859,12 +16822,6 @@ snapshots:
     dependencies:
       react: 19.2.8
       tslib: 2.8.1
-    optionalDependencies:
-      '@types/react': 19.2.18
-
-  use-isomorphic-layout-effect@1.2.1(@types/react@19.2.18)(react@19.2.8):
-    dependencies:
-      react: 19.2.8
     optionalDependencies:
       '@types/react': 19.2.18
 
