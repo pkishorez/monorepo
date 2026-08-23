@@ -6,7 +6,12 @@ export interface LiveValue<T> {
 
 export const makeLiveValue = <T>(initial: T): LiveValue<T> => {
   let state = initial;
+  let scheduled = false;
   const listeners = new Set<() => void>();
+  const notify = () => {
+    scheduled = false;
+    listeners.forEach((listener) => listener());
+  };
   return {
     get: () => state,
     subscribe: (listener) => {
@@ -15,7 +20,9 @@ export const makeLiveValue = <T>(initial: T): LiveValue<T> => {
     },
     update: (patch) => {
       state = patch(state);
-      listeners.forEach((listener) => listener());
+      if (scheduled) return;
+      scheduled = true;
+      queueMicrotask(notify);
     },
   };
 };

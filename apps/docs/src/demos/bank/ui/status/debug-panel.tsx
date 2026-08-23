@@ -147,7 +147,7 @@ export function DebugPanel({
   return (
     <section
       aria-label="Diagnostics"
-      className="flex max-h-[50svh] flex-col gap-4 overflow-y-auto border-t border-border/60 pt-4"
+      className="flex flex-col gap-4 border-t border-border/60 pt-4"
     >
       <div className="flex items-baseline justify-between">
         <span className={eyebrow}>Diagnostics</span>
@@ -175,80 +175,82 @@ export function DebugPanel({
           </button>
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-        <Stat label="Network">
-          <span className="flex gap-3">
-            {debug.networks.map((quality) => (
-              <button
-                key={quality}
-                type="button"
-                onClick={() => debug.onNetwork(quality)}
-                className={cn(
-                  textLink,
-                  quality === debug.network
-                    ? 'text-foreground'
-                    : 'text-muted-foreground',
-                )}
-              >
-                {quality}
-              </button>
-            ))}
-          </span>
-        </Stat>
-        <Stat label="Link">
-          <Link ws={debug.ws} />
-        </Stat>
-        <div className="col-span-2 sm:col-span-3">
-          <Stat label="Sync leases">
-            <Leases leases={debug.leadership} />
-          </Stat>
-        </div>
-        <div className="col-span-2 sm:col-span-3">
-          <Stat label="Transfers">
-            <span className="flex flex-wrap items-baseline gap-x-4">
-              <Count count={debug.committing} label="committing" />
-              <Count count={debug.queued} label="queued" />
-              <Count
-                count={debug.failed.length}
-                label="failed"
-                tone="text-destructive"
-              />
+      <div className="flex max-h-[40svh] min-h-0 flex-col gap-4 overflow-y-auto">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+          <Stat label="Network">
+            <span className="flex gap-3">
+              {debug.networks.map((quality) => (
+                <button
+                  key={quality}
+                  type="button"
+                  onClick={() => debug.onNetwork(quality)}
+                  className={cn(
+                    textLink,
+                    quality === debug.network
+                      ? 'text-foreground'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {quality}
+                </button>
+              ))}
             </span>
           </Stat>
-        </div>
-      </div>
-      {debug.failed.length > 0 && (
-        <ul className="flex flex-col gap-1.5">
-          {debug.failed.map((failure) => (
-            <li
-              key={failure.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 text-sm"
-            >
-              <span className="truncate">
-                {failure.fromName} → {failure.toName}
-                <span className={cn(mono, 'ml-2 text-muted-foreground')}>
-                  {formatMoney(failure.amount)}
-                </span>
-                {failure.message !== '' && (
-                  <span className="ml-2 text-xs text-muted-foreground/60">
-                    {failure.message}
-                  </span>
-                )}
+          <Stat label="Link">
+            <Link ws={debug.ws} />
+          </Stat>
+          <div className="col-span-2 sm:col-span-3">
+            <Stat label="Sync leases">
+              <Leases leases={debug.leadership} />
+            </Stat>
+          </div>
+          <div className="col-span-2 sm:col-span-3">
+            <Stat label="Transfers">
+              <span className="flex flex-wrap items-baseline gap-x-4">
+                <Count count={debug.committing} label="committing" />
+                <Count count={debug.queued} label="queued" />
+                <Count
+                  count={debug.failed.length}
+                  label="failed"
+                  tone="text-destructive"
+                />
               </span>
-              <button
-                type="button"
-                onClick={() => debug.onRetry(failure.id)}
-                className={cn(
-                  textLink,
-                  'text-xs text-foreground underline underline-offset-4 hover:text-primary',
-                )}
+            </Stat>
+          </div>
+        </div>
+        {debug.failed.length > 0 && (
+          <ul className="flex flex-col gap-1.5">
+            {debug.failed.map((failure) => (
+              <li
+                key={failure.id}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 text-sm"
               >
-                Retry
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                <span className="truncate">
+                  {failure.fromName} → {failure.toName}
+                  <span className={cn(mono, 'ml-2 text-muted-foreground')}>
+                    {formatMoney(failure.amount)}
+                  </span>
+                  {failure.message !== '' && (
+                    <span className="ml-2 text-xs text-muted-foreground/60">
+                      {failure.message}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => debug.onRetry(failure.id)}
+                  className={cn(
+                    textLink,
+                    'text-xs text-foreground underline underline-offset-4 hover:text-primary',
+                  )}
+                >
+                  Retry
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
