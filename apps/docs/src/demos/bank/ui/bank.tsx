@@ -129,26 +129,49 @@ function AdminMenu({
   onOpen,
   onSeed,
 }: {
-  admin: BankAdmin;
+  admin: BankAdmin | null;
   onOpen: () => void;
   onSeed: () => void;
 }) {
+  const available = admin !== null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className={cn(textLink, 'inline-flex items-center gap-1 text-primary')}
+        disabled={!available}
+        aria-label={available ? 'Admin' : 'Admin (connecting)'}
+        className={cn(
+          textLink,
+          'inline-flex items-center gap-1.5 transition-[color,opacity] duration-300',
+          available
+            ? 'text-primary'
+            : 'cursor-default text-muted-foreground/40 hover:text-muted-foreground/40',
+        )}
       >
+        <span
+          aria-hidden
+          className={cn(
+            'size-1.5 rounded-full transition-colors duration-300',
+            available ? 'bg-primary' : 'bg-muted-foreground/30',
+          )}
+        />
         Admin
-        <ChevronDownIcon className="size-3.5" />
+        <ChevronDownIcon
+          className={cn(
+            'size-3.5 transition-opacity duration-300',
+            !available && 'opacity-40',
+          )}
+        />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-44">
-        <DropdownMenuItem onClick={onOpen}>Open an account</DropdownMenuItem>
-        <DropdownMenuItem onClick={onSeed}>Seed accounts</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={admin.onClear}>
-          Clear all records
-        </DropdownMenuItem>
-      </DropdownMenuContent>
+      {available && (
+        <DropdownMenuContent align="start" className="min-w-44">
+          <DropdownMenuItem onClick={onOpen}>Open an account</DropdownMenuItem>
+          <DropdownMenuItem onClick={onSeed}>Seed accounts</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={admin.onClear}>
+            Clear all records
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      )}
     </DropdownMenu>
   );
 }
@@ -256,13 +279,11 @@ export function Bank({
             <div className="flex flex-col gap-6">
               <div className="flex h-12 items-baseline justify-between gap-6 border-t border-border/60 pt-4">
                 <span className="flex items-baseline gap-4 text-sm text-muted-foreground">
-                  {admin !== null && (
-                    <AdminMenu
-                      admin={admin}
-                      onOpen={() => setOpening(true)}
-                      onSeed={() => setSeeding(true)}
-                    />
-                  )}
+                  <AdminMenu
+                    admin={admin}
+                    onOpen={() => setOpening(true)}
+                    onSeed={() => setSeeding(true)}
+                  />
                   <button
                     type="button"
                     onClick={() => diagnostics.onDebug(true)}
