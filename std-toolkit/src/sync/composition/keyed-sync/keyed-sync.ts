@@ -507,7 +507,8 @@ export const buildPartitioned = <S extends AnyEntityESchema, R = never>(
               }),
             );
           }
-          if (r.deactivated) runner.runSync(execution.stop(r.partitionKey));
+          if (r.deactivated)
+            void runner.runPromise(execution.stop(r.partitionKey));
         };
 
         const cleanup = async (): Promise<void> => {
