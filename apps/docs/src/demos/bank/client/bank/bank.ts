@@ -31,6 +31,8 @@ export interface BankRuntime {
     readonly network: Network;
     readonly vitals: Vitals;
     readonly recorder: TraceRecorder;
+    /** Drops this store's local sync replica; the page must reload afterwards. */
+    readonly forget: () => Promise<void>;
   };
 }
 
@@ -62,9 +64,7 @@ const makeBank = (
         Effect.orDie,
         Effect.map(({ role }) =>
           admin.update(() =>
-            role === 'admin'
-              ? makeAdmin({ api, sync, syncName: store.syncName, runner })
-              : null,
+            role === 'admin' ? makeAdmin({ api, sync, runner }) : null,
           ),
         ),
       ),
@@ -77,7 +77,12 @@ const makeBank = (
       attempts: transfers.attempts,
       retry: transfers.retry,
       admin,
-      diagnostics: { network, vitals, recorder },
+      diagnostics: {
+        network,
+        vitals,
+        recorder,
+        forget: () => runner.runPromise(sync.forget),
+      },
     };
   });
 

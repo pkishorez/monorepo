@@ -24,6 +24,7 @@ export interface DebugPanelProps {
   readonly committing: number;
   readonly failed: readonly DebugFailure[];
   readonly onRetry: (id: string) => void;
+  readonly onForget: () => void;
 }
 
 const value = cn(mono, 'text-sm text-foreground');
@@ -100,6 +101,13 @@ export function DebugPanel({
       <div className="flex items-baseline justify-between">
         <span className={eyebrow}>Diagnostics</span>
         <span className="flex items-baseline gap-4">
+          <button
+            type="button"
+            onClick={debug.onForget}
+            className={cn(textLink, eyebrow, 'hover:text-foreground')}
+          >
+            Clear cache
+          </button>
           <button
             type="button"
             onClick={onTraces}
