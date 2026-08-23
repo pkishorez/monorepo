@@ -84,8 +84,17 @@ export const makeTransfers = ({
   const stories = new Map<string, Story>();
 
   const nameOf = (id: string) => accounts.get(id)?.name ?? id;
-  const describe = ({ from, to, amount, attempt }: Attempt) =>
-    `${attempt > 0 ? `Retry ${attempt} · ` : ''}Transfer ${amount} · ${nameOf(from)} → ${nameOf(to)}`;
+  const headline = ({ from, to, amount }: Attempt) =>
+    `${amount} · ${nameOf(from)} → ${nameOf(to)}`;
+  const describe = (attempt: Attempt) =>
+    `${attempt.attempt > 0 ? `Retry ${attempt.attempt} · ` : ''}Transfer ${headline(attempt)}`;
+  const attributesOf = ({ id, from, to, amount, attempt }: Attempt) => ({
+    'transfer.id': id,
+    'transfer.from': nameOf(from),
+    'transfer.to': nameOf(to),
+    'transfer.amount': amount,
+    'transfer.attempt': attempt,
+  });
 
   const commit = createOptimisticAction<Attempt>({
     onMutate: (attempt) => {
@@ -120,7 +129,7 @@ export const makeTransfers = ({
               const waitedMs = (yield* Clock.currentTimeMillis) - queuedAt;
               yield* bank.log('Lane acquired', { attributes: { waitedMs } });
               const outcome = yield* flow.call(
-                `transfer ${input.amount}`,
+                `Commit transfer ${headline(input)}`,
                 network.travel.pipe(
                   apiLane.withSpan('Travel the network'),
                   Effect.andThen(
@@ -138,6 +147,7 @@ export const makeTransfers = ({
                   reply: ({ accounts: touched }) =>
                     `${touched.length} accounts + 1 transfer`,
                   failure: (error) => explain(error).message,
+                  attributes: attributesOf(input),
                 },
               );
               yield* Effect.all([
@@ -152,14 +162,7 @@ export const makeTransfers = ({
             ),
           );
         }).pipe(
-          Effect.withSpan('Transfer', {
-            attributes: {
-              'transfer.id': input.id,
-              'transfer.from': input.from,
-              'transfer.to': input.to,
-              'transfer.amount': input.amount,
-            },
-          }),
+          Effect.withSpan('Transfer', { attributes: attributesOf(input) }),
         ),
       ),
   });
@@ -176,15 +179,13 @@ export const makeTransfers = ({
       Effect.gen(function* () {
         const flow = flowOf(attempt.id);
         const label = describe(attempt);
-        const user = yield* flow.user.activation.start(label);
-        const ask = yield* flow.user.send('bank', label, {
-          attributes: {
-            from: attempt.from,
-            to: attempt.to,
-            amount: attempt.amount,
-          },
-        });
-        const bank = yield* flow.bank.activation.start('Handle the transfer');
+        const attributes = attributesOf(attempt);
+        const user = yield* flow.user.activation.start(label, { attributes });
+        const ask = yield* flow.user.send('bank', label, { attributes });
+        const bank = yield* flow.bank.activation.start(
+          `Process transfer ${headline(attempt)}`,
+          { attributes },
+        );
         return { flow, ask, user, bank };
       }),
     );

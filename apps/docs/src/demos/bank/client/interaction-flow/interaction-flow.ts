@@ -8,6 +8,7 @@ export type InteractionKind = 'transfer' | 'open' | 'seed' | 'clear';
 export interface Telling<A, E> {
   readonly reply: (outcome: A) => string;
   readonly failure: (error: E) => string;
+  readonly attributes?: Readonly<Record<string, unknown>>;
 }
 
 export interface InteractionFlow {
@@ -39,9 +40,11 @@ export const makeInteractionFlow = (
     api,
     call: (request, effect, telling) =>
       Effect.gen(function* () {
-        const token = yield* bank.send('api', request);
+        const token = yield* bank.send('api', request, {
+          attributes: telling.attributes,
+        });
         return yield* api
-          .activated({ name: request })(effect)
+          .activated({ name: request, attributes: telling.attributes })(effect)
           .pipe(
             Effect.tap((outcome) => api.reply(token, telling.reply(outcome))),
             Effect.tapError((error) =>

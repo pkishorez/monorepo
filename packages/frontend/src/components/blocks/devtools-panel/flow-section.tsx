@@ -151,7 +151,7 @@ export function FlowSection({ flows, spans, className }: FlowSectionProps) {
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({
       block: 'nearest',
-      inline: 'nearest',
+      inline: 'center',
     });
   }, [selected?.id]);
 
