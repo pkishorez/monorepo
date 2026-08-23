@@ -1,35 +1,33 @@
-import { useEffect, useRef, useState, type RefObject } from 'react';
-
-import {
-  LEDGER_FIRST_PAGE,
-  LEDGER_NEXT_PAGE,
-} from '../../contract/tuning/index.ts';
+import { useState } from 'react';
+import { LEDGER_PAGE_SIZE } from '../../contract/tuning/index.ts';
 
 export interface Paging {
-  readonly hasMore: boolean;
-  readonly scrollRef: RefObject<HTMLDivElement | null>;
-  readonly moreRef: RefObject<HTMLLIElement | null>;
+  /** 0-based page; clamped so it never points past the last page. */
+  readonly page: number;
+  readonly pageCount: number;
+  readonly total: number;
+  /** 1-based row numbers of the current page, for "21–40 of 100,000". */
+  readonly first: number;
+  readonly last: number;
+  readonly onPrev: () => void;
+  readonly onNext: () => void;
 }
 
-/** Grows `limit` as the sentinel scrolls into view; `total` is how many rows exist in all. */
+/** Pages through `total` rows, LEDGER_PAGE_SIZE at a time. */
 export const usePaging = (total: number) => {
-  const [limit, setLimit] = useState(LEDGER_FIRST_PAGE);
-  const hasMore = total > limit;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const moreRef = useRef<HTMLLIElement>(null);
-  useEffect(() => {
-    if (!hasMore) return;
-    const root = scrollRef.current;
-    const more = moreRef.current;
-    if (root === null || more === null) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) setLimit((n) => n + LEDGER_NEXT_PAGE);
-      },
-      { root, rootMargin: '200px' },
-    );
-    observer.observe(more);
-    return () => observer.disconnect();
-  }, [hasMore]);
-  return { limit, hasMore, scrollRef, moreRef };
+  const [wanted, setWanted] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(total / LEDGER_PAGE_SIZE));
+  const page = Math.min(wanted, pageCount - 1);
+  const offset = page * LEDGER_PAGE_SIZE;
+  return {
+    offset,
+    limit: LEDGER_PAGE_SIZE,
+    page,
+    pageCount,
+    total,
+    first: total === 0 ? 0 : offset + 1,
+    last: Math.min(total, offset + LEDGER_PAGE_SIZE),
+    onPrev: () => setWanted(Math.max(0, page - 1)),
+    onNext: () => setWanted(Math.min(pageCount - 1, page + 1)),
+  };
 };

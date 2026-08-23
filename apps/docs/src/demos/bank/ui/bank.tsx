@@ -51,7 +51,7 @@ export interface BankShell {
 export interface BankLedger {
   /** False while the accounts Collection is still hydrating; the list waits, the footer totals do not. */
   readonly ready: boolean;
-  /** Richest-first page of accounts, already without the sender. */
+  /** Newest-first page of accounts, already without the sender. */
   readonly rows: readonly Account[];
   readonly from: Account | null;
   readonly paging: Paging;

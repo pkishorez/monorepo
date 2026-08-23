@@ -9,6 +9,8 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
   History,
   Pencil,
   X,
@@ -36,7 +38,7 @@ export interface Activity {
 const NO_ACTIVITY: Activity = { sent: 0, received: 0 };
 
 export interface LedgerProps {
-  /** Richest-first page of accounts, already without the sender. */
+  /** Newest-first page of accounts, already without the sender. */
   readonly rows: readonly Account[];
   readonly from: Account | null;
   readonly paging: Paging;
@@ -495,10 +497,54 @@ function Row({
   );
 }
 
+function Pager({ paging }: { paging: Paging }) {
+  const arrow =
+    'flex size-8 items-center justify-center rounded-full outline-none transition-colors hover:bg-muted focus-visible:bg-muted disabled:opacity-30 disabled:hover:bg-transparent';
+  return (
+    <div
+      className={cn(
+        eyebrow,
+        'flex h-8 shrink-0 items-center justify-between normal-case tracking-normal',
+      )}
+    >
+      <span className={mono}>
+        {paging.total === 0
+          ? 'No accounts'
+          : `${paging.first.toLocaleString()}–${paging.last.toLocaleString()} of ${paging.total.toLocaleString()}`}
+      </span>
+      <span className="flex items-center gap-1">
+        <motion.button
+          type="button"
+          whileTap={tap}
+          onClick={paging.onPrev}
+          disabled={paging.page === 0}
+          aria-label="Previous page"
+          className={arrow}
+        >
+          <ChevronLeft className="size-4" />
+        </motion.button>
+        <span className={cn(mono, 'min-w-12 text-center')}>
+          {paging.page + 1} / {paging.pageCount}
+        </span>
+        <motion.button
+          type="button"
+          whileTap={tap}
+          onClick={paging.onNext}
+          disabled={paging.page >= paging.pageCount - 1}
+          aria-label="Next page"
+          className={arrow}
+        >
+          <ChevronRight className="size-4" />
+        </motion.button>
+      </span>
+    </div>
+  );
+}
+
 export function Ledger({
   rows,
   from,
-  paging: { hasMore, scrollRef, moreRef },
+  paging,
   activity,
   busy,
   fromId,
@@ -536,8 +582,9 @@ export function Ledger({
         onClear={onClear}
         onHistory={onHistory}
       />
-      <div ref={scrollRef} className={scrollBox}>
-        <ul>
+      <div className={scrollBox}>
+        {/* Keyed by page so a page change remounts the list instead of animating every row. */}
+        <ul key={paging.page}>
           <AnimatePresence initial={false} mode="popLayout">
             {rows.map((row) => (
               <Row
@@ -563,9 +610,9 @@ export function Ledger({
               />
             ))}
           </AnimatePresence>
-          {hasMore && <li ref={moreRef} aria-hidden className="h-px" />}
         </ul>
       </div>
+      <Pager paging={paging} />
     </div>
   );
 }

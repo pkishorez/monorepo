@@ -1,3 +1,4 @@
+import { BTreeIndex } from '@tanstack/react-db';
 import { Effect, type Stream } from 'effect';
 import type { DecodedEntity } from 'std-toolkit/core';
 import {
@@ -85,6 +86,9 @@ export const makeBankSync = ({
     },
     onInsert: (items) => api.openAccounts({ accounts: items }),
   });
+  // A B-tree on the id lets the ledger page newest-first and look accounts up without
+  // rescanning every row (seconds vs milliseconds at 1 lakh rows).
+  accounts.createIndex((row) => row.id, { indexType: BTreeIndex });
 
   const transfers = std.collection({
     schema: TransferSchema,
