@@ -1,8 +1,6 @@
 export {
   BankMutationsLive,
   openAccount,
-  seedBalance,
-  seedNames,
   transfer,
   type OpenAccountInput,
   type TransferInput,

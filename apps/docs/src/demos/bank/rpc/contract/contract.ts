@@ -22,9 +22,6 @@ export class Forbidden extends Schema.TaggedError<Forbidden>()(
   {},
 ) {}
 
-export const TransferDirectionSchema = Schema.Literals(['sent', 'received']);
-export type TransferDirection = typeof TransferDirectionSchema.Type;
-
 export class BankMutations extends RpcGroup.make(
   Rpc.make('openAccount', {
     payload: {
@@ -61,15 +58,6 @@ export class BankSubscriptions extends RpcGroup.make(
   Rpc.make('subscribeAccounts', {
     payload: { '>': Schema.NullOr(AccountEntity) },
     success: AccountBatch,
-    stream: true,
-  }),
-  Rpc.make('subscribeTransfers', {
-    payload: {
-      account: Schema.String,
-      direction: TransferDirectionSchema,
-      '>': Schema.NullOr(TransferEntity),
-    },
-    success: TransferBatch,
     stream: true,
   }),
   Rpc.make('subscribeAllTransfers', {

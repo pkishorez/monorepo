@@ -22,7 +22,6 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-start": "catalog:",
-    "@xstate/react": "catalog:",
     "effect": "catalog:",
     "fumadocs-core": "catalog:",
     "fumadocs-mdx": "catalog:",
@@ -31,8 +30,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "std-toolkit": "workspace:*",
-    "use-effect-ts": "workspace:*",
-    "xstate": "catalog:"
+    "use-effect-ts": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
