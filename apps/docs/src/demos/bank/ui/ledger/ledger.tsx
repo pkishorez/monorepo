@@ -304,7 +304,7 @@ function Row({
       layout
       layoutId={`row-${row.id}`}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: dimmed ? 0.7 : 1 }}
       exit={{ opacity: 0 }}
       transition={lift}
       role="button"
@@ -325,8 +325,7 @@ function Row({
       }}
       className={cn(
         panel,
-        'group py-3 outline-none transition-[opacity,background-color] duration-200 will-change-transform',
-        dimmed && 'opacity-70',
+        'group py-3 outline-none transition-colors duration-200',
         targeting && panelOn,
       )}
     >
@@ -450,10 +449,12 @@ function Row({
                 onPointerDown={keepFocus}
                 onClick={target.onSwap}
                 aria-label={`Swap: send from ${row.name} instead`}
-                className={cn(badge, 'flex items-center gap-1.5')}
+                className={cn(
+                  badge,
+                  'flex size-8 items-center justify-center px-0',
+                )}
               >
                 <ArrowUpDown className="size-3.5" />
-                Swap
               </motion.button>
               <span className="flex items-center gap-2">
                 {QUICK.map((quick) => (
