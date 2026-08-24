@@ -5,6 +5,7 @@ import {
   Layers3,
   Maximize2,
   Minimize2,
+  X,
 } from 'lucide-react';
 import {
   useEffect,
@@ -92,6 +93,8 @@ export interface TraceViewerProps {
   readonly defaultView?: TraceView;
   /** Span to select when a trace is first shown, if it belongs to that trace. */
   readonly initialSelectedSpanId?: string;
+  /** When set, the header trades its fullscreen toggle for a close button calling this. */
+  readonly onClose?: () => void;
   /** Sizing for the non-fullscreen container. Defaults to a bounded height. */
   readonly className?: string;
 }
@@ -112,6 +115,7 @@ export function TraceViewer({
   onViewChange,
   defaultView = 'waterfall',
   initialSelectedSpanId,
+  onClose,
   className,
 }: TraceViewerProps) {
   const traces = useMemo(() => groupTraceSpans([...spans]), [spans]);
@@ -348,20 +352,33 @@ export function TraceViewer({
                 </button>
               ))}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              onClick={() => setFullscreen((current) => !current)}
-            >
-              {fullscreen ? (
-                <Minimize2 aria-hidden />
-              ) : (
-                <Maximize2 aria-hidden />
-              )}
-            </Button>
+            {onClose !== undefined ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Close trace"
+                title="Close"
+                onClick={onClose}
+              >
+                <X aria-hidden />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={fullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                title={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                onClick={() => setFullscreen((current) => !current)}
+              >
+                {fullscreen ? (
+                  <Minimize2 aria-hidden />
+                ) : (
+                  <Maximize2 aria-hidden />
+                )}
+              </Button>
+            )}
           </div>
           <div className="min-h-0 flex-1">
             {traces.map((trace) => (

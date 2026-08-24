@@ -28,6 +28,8 @@ interface FlowSectionProps {
   readonly flows: readonly RecordedFlow[];
   /** Every recorded span, so an activity can open the trace it belongs to. */
   readonly spans: ComponentProps<typeof TraceViewer>['spans'];
+  /** False while the host keeps the section mounted but hidden; overlays close and hotkeys go quiet. */
+  readonly active?: boolean;
   readonly className?: string;
 }
 
@@ -107,7 +109,12 @@ const leadershipWord: Record<string, string> = {
 };
 
 /** Lets the developer pick a recorded Flow, then shows it. */
-export function FlowSection({ flows, spans, className }: FlowSectionProps) {
+export function FlowSection({
+  flows,
+  spans,
+  active = true,
+  className,
+}: FlowSectionProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<RecordedFlowItem | null>(
     null,
@@ -154,6 +161,18 @@ export function FlowSection({ flows, spans, className }: FlowSectionProps) {
       inline: 'center',
     });
   }, [selected?.id]);
+
+  useEffect(() => {
+    if (!active || !isMobile) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '?') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, [contenteditable]')) return;
+      setInspecting(true);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [active, isMobile]);
 
   if (flows.length === 0) {
     return (
@@ -245,7 +264,7 @@ export function FlowSection({ flows, spans, className }: FlowSectionProps) {
         )}
       </div>
       <Sheet
-        open={isMobile && inspecting && selectedItem !== null}
+        open={active && isMobile && inspecting && selectedItem !== null}
         onOpenChange={(open) => !open && setInspecting(false)}
       >
         <SheetContent
@@ -274,7 +293,7 @@ export function FlowSection({ flows, spans, className }: FlowSectionProps) {
         </SheetContent>
       </Sheet>
       <Dialog
-        open={trace !== null}
+        open={active && trace !== null}
         onOpenChange={(open) => !open && setTrace(null)}
       >
         <DialogContent
@@ -286,6 +305,7 @@ export function FlowSection({ flows, spans, className }: FlowSectionProps) {
             <TraceViewer
               spans={traceSpans}
               initialSelectedSpanId={trace.spanId}
+              onClose={() => setTrace(null)}
               className="h-full rounded-none border-0"
               emptyMessage="This trace is no longer in the recording."
             />

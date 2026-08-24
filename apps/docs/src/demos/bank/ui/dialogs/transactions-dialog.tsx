@@ -31,7 +31,7 @@ export interface TransactionLine {
 }
 
 const scrollBox =
-  'overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-color:var(--border)_transparent] [scrollbar-width:thin]';
+  'overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-color:var(--border)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]';
 
 /** Reveals LEDGER_PAGE_SIZE more lines each time the sentinel scrolls into view. */
 const useScrollPaging = (total: number) => {
