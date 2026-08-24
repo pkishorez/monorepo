@@ -1,4 +1,4 @@
-import { Duration, Effect, Stream } from 'effect';
+import { Duration, Effect, Option, Stream } from 'effect';
 import type { DecodedEntity } from 'std-toolkit/core';
 import type { QueryPage, StdTableService } from 'std-toolkit/db';
 import {
@@ -34,19 +34,18 @@ const catchUp = <T extends object>(
     cursor: DecodedEntity<T> | null,
   ) => Effect.Effect<QueryPage<DecodedEntity<T>>, never, BankTableService>,
   cursor: DecodedEntity<T> | null,
-): Effect.Effect<readonly DecodedEntity<T>[], never, BankTableService> =>
-  Effect.gen(function* () {
-    const items: DecodedEntity<T>[] = [];
-    let after = cursor;
-    while (true) {
-      const page = yield* fetchPage(after);
-      items.push(...page.items);
+): Stream.Stream<Batch<T>, never, BankTableService> =>
+  Stream.paginate(cursor, (after: DecodedEntity<T> | null) =>
+    Effect.map(fetchPage(after), (page) => {
       const last = page.items.at(-1);
-      if (!page.hasMore || last === undefined) break;
-      after = last;
-    }
-    return items;
-  });
+      return [
+        page.items.length === 0 ? [] : [page.items],
+        page.hasMore && last !== undefined
+          ? Option.some<DecodedEntity<T> | null>(last)
+          : Option.none<DecodedEntity<T> | null>(),
+      ] as const;
+    }),
+  );
 
 const watch = <T extends object>(config: {
   readonly cursor: DecodedEntity<T> | null;
@@ -56,15 +55,14 @@ const watch = <T extends object>(config: {
   readonly subscribe: () => Stream.Stream<DecodedEntity<T>>;
 }): Stream.Stream<Batch<T>, never, BankTableService> =>
   Stream.concat(
-    Stream.fromIterableEffect(catchUp(config.fetchPage, config.cursor)),
-    Stream.suspend(() => config.subscribe()),
-  ).pipe(
-    Stream.map(stamp),
-    Stream.groupedWithin(
-      PUSH_BATCH_SIZE,
-      Duration.millis(PUSH_BATCH_WINDOW_MS),
+    catchUp(config.fetchPage, config.cursor),
+    Stream.suspend(() => config.subscribe()).pipe(
+      Stream.groupedWithin(
+        PUSH_BATCH_SIZE,
+        Duration.millis(PUSH_BATCH_WINDOW_MS),
+      ),
     ),
-  );
+  ).pipe(Stream.map((batch): Batch<T> => batch.map((row) => stamp(row))));
 
 export const watchAccounts = (
   cursor: AccountRow | null,
