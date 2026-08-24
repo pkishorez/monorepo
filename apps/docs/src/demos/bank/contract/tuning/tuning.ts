@@ -12,7 +12,7 @@ export const PUSH_BATCH_SIZE = 20;
 export const PUSH_BATCH_WINDOW_MS = 50;
 
 /** Rows per table query while a subscriber catches up from its cursor. */
-export const CATCH_UP_PAGE_SIZE = 100;
+export const CATCH_UP_PAGE_SIZE = 1000;
 
 /** Accounts per ledger page. */
 export const LEDGER_PAGE_SIZE = 20;
