@@ -168,7 +168,7 @@ function AdminMenu({
         />
       </DropdownMenuTrigger>
       {available && (
-        <DropdownMenuContent align="start" className="min-w-44">
+        <DropdownMenuContent side="top" align="start" className="min-w-44">
           <DropdownMenuItem onClick={onOpen}>Open an account</DropdownMenuItem>
           <DropdownMenuItem onClick={onSeed}>Seed accounts</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -265,7 +265,7 @@ export function Bank({
             <div className="flex max-h-full min-h-0 flex-col gap-4">
               <p
                 aria-live="polite"
-                className="flex h-10 items-center text-base text-muted-foreground/40"
+                className="mt-6 flex h-10 items-center text-base text-muted-foreground/40"
               >
                 Loading
                 {ledger.count > 0
@@ -274,6 +274,7 @@ export function Bank({
                 accounts…
               </p>
               <div className="h-[30rem] min-h-[8rem] shrink" />
+              <div className="h-8 shrink-0" />
             </div>
           )}
         </div>
@@ -309,7 +310,7 @@ export function Bank({
                     onClick={diagnostics.onTraces}
                     className={cn(textLink, 'text-xs')}
                   >
-                    Traces
+                    Flows
                   </button>
                 </span>
                 <span

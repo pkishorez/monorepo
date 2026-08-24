@@ -110,6 +110,14 @@ const makeVersionGate = (
       : storedVersionEntity.getAndUpdate(key, { version: versioning.version });
   }).pipe(Effect.cached, Effect.runSync);
 
+const isRowArray = Schema.is(Schema.Array(Schema.Unknown));
+const isPage = Schema.is(
+  Schema.Struct({ items: Schema.Array(Schema.Unknown) }),
+);
+
+const returnedRows = (value: unknown): number | null =>
+  isRowArray(value) ? value.length : isPage(value) ? value.items.length : null;
+
 export const makeSyncStore = (
   layer: SyncStoreLayer,
   versioning?: SyncStoreVersion,
@@ -122,6 +130,12 @@ export const makeSyncStore = (
         Effect.flatMap((context) =>
           Effect.provide(gate ? Effect.andThen(gate, effect) : effect, context),
         ),
+        Effect.tap((value) => {
+          const rows = returnedRows(value);
+          return rows === null
+            ? Effect.void
+            : Effect.annotateCurrentSpan('db.response.returned_rows', rows);
+        }),
         Effect.withSpan('sync.sync-store', {
           kind: 'client',
           attributes: {

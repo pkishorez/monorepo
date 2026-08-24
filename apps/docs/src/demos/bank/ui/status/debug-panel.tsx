@@ -164,7 +164,7 @@ export function DebugPanel({
             onClick={onTraces}
             className={cn(textLink, eyebrow, 'hover:text-foreground')}
           >
-            Traces
+            Flows
           </button>
           <button
             type="button"
@@ -175,7 +175,7 @@ export function DebugPanel({
           </button>
         </span>
       </div>
-      <div className="flex max-h-[40svh] min-h-0 flex-col gap-4 overflow-y-auto">
+      <div className="flex max-h-[40svh] min-h-0 flex-col gap-4 overflow-y-auto [scrollbar-color:var(--border)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]">
         <div className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
           <Stat label="Network">
             <span className="flex gap-3">

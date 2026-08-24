@@ -19,7 +19,7 @@ const FILTERS: { readonly value: Filter; readonly label: string }[] = [
 ];
 
 export interface DevToolsPanelProps {
-  /** Whether the panel is shown. Render nothing while `false`. */
+  /** Whether the panel is shown. Kept mounted while `false`, so selection and scroll survive a close. */
   readonly open: boolean;
   /** Called when the developer dismisses the panel, via its close button or Escape. */
   readonly onClose: () => void;
@@ -71,8 +71,6 @@ export function DevToolsPanel({
     return () => document.removeEventListener('keydown', closeOnEscape);
   }, [open, onClose]);
 
-  if (!open) return null;
-
   const hasTraces =
     filters.includes('traces') &&
     spans.some((span) => span.attributes[flowAttributes.id] === undefined);
@@ -90,8 +88,10 @@ export function DevToolsPanel({
 
   return (
     <div
+      inert={!open}
       className={cn(
         'fixed inset-3 z-40 flex flex-col overflow-hidden rounded-lg border bg-background shadow-2xl',
+        !open && 'invisible',
         className,
       )}
     >
@@ -129,6 +129,7 @@ export function DevToolsPanel({
           <FlowSection
             flows={flows}
             spans={otelSpans}
+            active={open}
             className="min-h-0 flex-1"
           />
         )}
