@@ -1,4 +1,0 @@
-PASS WITH LIMITATIONS  Snapshot matches
-
-LIMITATIONS
-  User › v1 › email: Transformation behavior cannot be verified from snapshot data

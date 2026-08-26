@@ -4,7 +4,7 @@ import { EntityESchema } from '../../eschema/index.js';
 import { EntitySchema } from '../entity-schema/index.js';
 
 const counter = EntityESchema.make('Counter', 'id', {
-  count: Schema.NumberFromString,
+  count: Schema.Number,
 })
   .evolve('v2', { label: Schema.String }, (previous) => ({
     ...previous,
@@ -13,7 +13,7 @@ const counter = EntityESchema.make('Counter', 'id', {
   .build();
 
 const encodedV1 = {
-  value: { _v: 'v1', id: 'one', count: '2' },
+  value: { _v: 'v1', id: 'one', count: 2 },
   meta: { _e: 'Counter', _u: '1', _d: false },
 } as const;
 
@@ -37,7 +37,7 @@ describe('EntitySchema', () => {
     const encoded = await Effect.runPromise(entitySchema.encode(decoded));
 
     expect(encoded).toEqual({
-      value: { _v: 'v2', id: 'one', count: '2', label: 'count-2' },
+      value: { _v: 'v2', id: 'one', count: 2, label: 'count-2' },
       meta: { _e: 'Counter', _u: '1', _d: false },
     });
   });
@@ -53,7 +53,7 @@ describe('EntitySchema', () => {
 
     expect(decoded.value.count).toBe(2);
     expect(encoded.value._v).toBe('v2');
-    expect(encoded.value.count).toBe('2');
+    expect(encoded.value.count).toBe(2);
   });
 
   it('does not guess that a decoded entity is encoded', async () => {

@@ -1,7 +1,0 @@
-FAIL  1 snapshot change needs approval
-
-BREAKING
-  User v1
-    transformation.email: — → "stringFromBase64String"
-
-Run: std-toolkit snapshot approve

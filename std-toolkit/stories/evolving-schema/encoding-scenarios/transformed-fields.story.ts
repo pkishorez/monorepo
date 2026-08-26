@@ -1,75 +1,61 @@
-import { Effect, Schema, SchemaTransformation } from 'effect';
+import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { ESchema } from 'std-toolkit/eschema';
-
-const StoredNumber = Schema.String.pipe(
-  Schema.decodeTo(
-    Schema.Number,
-    SchemaTransformation.transform({
-      decode: (value) => Number(value),
-      encode: (value) => String(value),
-    }),
-  ),
-);
-
-const Note = ESchema.make('Note', {
-  text: Schema.String,
-  wordCount: StoredNumber,
-})
-  .evolve('v2', { long: Schema.Boolean }, (previous) => ({
-    ...previous,
-    long: previous.wordCount > 100,
-  }))
-  .build();
 
 export const transformedFields = Story.make({
   title: 'Fields that change shape in storage',
   description:
-    'A field is stored as text and used as a number. This Story shows which side a migration sees.',
+    'A word count stored as text and read as a number needs a custom transformation. A Snapshot must be able to capture a field and restore a live schema from that capture alone, so a transformation is refused the moment the field is declared.',
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'The word count of the note is stored as text. Which side does a migration see?',
+      'A note stores its word count as text but the app wants a number. Can a field do that conversion?',
       {
         answer:
-          'The decoded side, always. Each field decodes before any step runs. The migration therefore receives a number and can calculate with it.',
+          'No. `ESchema.make` refuses the field immediately — before any data is ever decoded or encoded — because a custom transformation cannot be restored from a Snapshot alone.',
         proof: Effect.gen(function* () {
-          const note = yield* Note.decode({
-            _v: 'v1',
-            text: 'Buy milk',
-            wordCount: '140',
-          });
-          yield* Story.assert(
-            'the field arrived as a number',
-            note.wordCount === 140,
+          const attempt = Effect.try(() =>
+            ESchema.make('Note', {
+              text: Schema.String,
+              wordCount: Schema.NumberFromString,
+            }).build(),
           );
+          const failure = yield* Effect.flip(attempt);
+          const cause = failure.cause;
           yield* Story.assert(
-            'the migration computed with that number',
-            note.long === true,
+            'the field is refused at definition time',
+            cause instanceof Error &&
+              cause.name === 'UnrepresentableFieldError' &&
+              cause.message.includes('wordCount'),
           );
-          return note;
+          return { message: (cause as Error).message };
         }),
       },
     ),
-    Story.question('What goes back into storage?', {
+    Story.question('So how does the note store its word count?', {
       answer:
-        'The stored form. Each field encodes on the way in, so the count becomes text again.',
+        'As the number it already is. Store the field in the shape you want to keep, and the migration that adds it can still compute from other fields.',
       proof: Effect.gen(function* () {
+        const Note = ESchema.make('Note', {
+          text: Schema.String,
+          wordCount: Schema.Number,
+        })
+          .evolve('v2', { long: Schema.Boolean }, (previous) => ({
+            ...previous,
+            long: previous.wordCount > 100,
+          }))
+          .build();
+
         const note = yield* Note.decode({
           _v: 'v1',
           text: 'Buy milk',
-          wordCount: '140',
+          wordCount: 140,
         });
-        const stored = yield* Note.encode(note);
         yield* Story.assert(
-          'the stored side is text again',
-          stored.wordCount === '140',
+          'the migration computed from the plain field',
+          note.long === true,
         );
-        yield* Story.assert(
-          'stamped at the latest version',
-          stored._v === 'v2',
-        );
-        return stored;
+        return note;
       }),
     }),
   ],

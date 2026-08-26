@@ -226,7 +226,6 @@ describe('portable Table definition', () => {
   it('rejects non-string encoded index components at runtime', () => {
     const invalid = EntityESchema.make('Invalid', 'id', {
       count: Schema.Number,
-      encodedCount: Schema.NumberFromString,
     }).build();
     const table = makeTable();
 
@@ -236,12 +235,6 @@ describe('portable Table definition', () => {
         .primary({ pk: ['count' as never] })
         .build(),
     ).toThrow('Index component "count" must encode to a string');
-    expect(() =>
-      table
-        .entity(invalid)
-        .primary({ pk: ['encodedCount'] })
-        .build(),
-    ).not.toThrow();
   });
 
   it('accepts nullable string index components', () => {

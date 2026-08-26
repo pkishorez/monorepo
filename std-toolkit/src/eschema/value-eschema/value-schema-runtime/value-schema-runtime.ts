@@ -10,8 +10,14 @@ import {
   metaSchema,
   schemaDescriptor,
 } from '../../domain/schema-model/index.js';
-import { ESchemaError } from '../../domain/eschema-error/index.js';
-import { registerESchemaIntrospection } from '../../domain/introspection/index.js';
+import {
+  ESchemaError,
+  UnrepresentableFieldError,
+} from '../../domain/eschema-error/index.js';
+import {
+  findUnrepresentableField,
+  registerESchemaIntrospection,
+} from '../../domain/introspection/index.js';
 
 function hasVersionStamp(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && '_v' in value;
@@ -27,6 +33,17 @@ export function makeValueSchemaRuntime<
   readonly evolutions: readonly ValueEvolution[];
 }) {
   const evolutions = [...input.evolutions];
+  for (const evolution of evolutions) {
+    const found = findUnrepresentableField(evolution.schema.ast);
+    if (found !== undefined) {
+      throw new UnrepresentableFieldError(
+        input.name,
+        evolution.version,
+        found.path,
+        found.reason,
+      );
+    }
+  }
   registerESchemaIntrospection(input.owner, () => ({
     name: input.name,
     kind: 'value',

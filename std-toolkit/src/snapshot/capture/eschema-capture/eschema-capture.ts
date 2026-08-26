@@ -1,13 +1,7 @@
-import {
-  Schema,
-  SchemaAST,
-  SchemaRepresentation,
-  SchemaTransformation,
-} from 'effect';
+import { Schema, SchemaAST, SchemaRepresentation } from 'effect';
 import {
   inspectESchema,
   inspectESchemaComposition,
-  isESchemaCompositionPlumbing,
   type ESchemaIntrospection,
 } from '../../../eschema/domain/introspection/index.js';
 import type {
@@ -41,33 +35,6 @@ const presentationKeys = new Set([
   'format',
 ]);
 
-const allowedTransformations = new Map<object, string>([
-  [SchemaTransformation.numberFromString, 'numberFromString'],
-  [SchemaTransformation.bigintFromString, 'bigintFromString'],
-  [SchemaTransformation.dateFromString, 'dateFromString'],
-  [SchemaTransformation.dateFromMillis, 'dateFromMillis'],
-  [SchemaTransformation.durationFromString, 'durationFromString'],
-  [SchemaTransformation.durationFromNanos, 'durationFromNanos'],
-  [SchemaTransformation.durationFromMillis, 'durationFromMillis'],
-  [SchemaTransformation.urlFromString, 'urlFromString'],
-  [SchemaTransformation.bigDecimalFromString, 'bigDecimalFromString'],
-  [
-    SchemaTransformation.uint8ArrayFromBase64String,
-    'uint8ArrayFromBase64String',
-  ],
-  [SchemaTransformation.stringFromBase64String, 'stringFromBase64String'],
-  [SchemaTransformation.stringFromBase64UrlString, 'stringFromBase64UrlString'],
-  [SchemaTransformation.stringFromHexString, 'stringFromHexString'],
-  [SchemaTransformation.stringFromUriComponent, 'stringFromUriComponent'],
-  [SchemaTransformation.fromJsonString, 'fromJsonString'],
-  [SchemaTransformation.fromFormData, 'fromFormData'],
-  [SchemaTransformation.fromURLSearchParams, 'fromURLSearchParams'],
-  [SchemaTransformation.timeZoneNamedFromString, 'timeZoneNamedFromString'],
-  [SchemaTransformation.timeZoneFromString, 'timeZoneFromString'],
-  [SchemaTransformation.dateTimeUtcFromString, 'dateTimeUtcFromString'],
-  [SchemaTransformation.dateTimeZonedFromString, 'dateTimeZonedFromString'],
-]);
-
 function escapePointer(value: string): string {
   return value.replaceAll('~', '~0').replaceAll('/', '~1');
 }
@@ -81,10 +48,6 @@ function representationId(value: unknown): string | undefined {
   return typeof value.representation.id === 'string'
     ? value.representation.id
     : undefined;
-}
-
-function isBuiltInRepresentation(value: unknown): boolean {
-  return representationId(value)?.startsWith('effect/schema/') === true;
 }
 
 function persistedPrimitive(value: unknown): unknown {
@@ -146,6 +109,11 @@ function canonicalize(
   return output;
 }
 
+/**
+ * A field's schema is already validated as representable when its ESchema is
+ * built (see eschema's field policy), so the only Declaration a capture can
+ * still see here is a composition reference — turn it into that reference.
+ */
 function sanitizeRepresentation(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sanitizeRepresentation);
   if (!isRecord(value)) return value;
@@ -153,26 +121,11 @@ function sanitizeRepresentation(value: unknown): unknown {
     const reference = isRecord(value.annotations)
       ? value.annotations.eschemaReference
       : undefined;
-    if (typeof reference === 'string') {
-      return { _tag: 'Reference', $ref: reference };
-    }
-    return { _tag: 'Unknown', checks: [] };
+    return { _tag: 'Reference', $ref: reference };
   }
   const output: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(value)) {
-    if (key === 'checks' && Array.isArray(child)) {
-      output[key] = child
-        .filter((check) => {
-          if (!isRecord(check)) return false;
-          if (check._tag === 'FilterGroup' && Array.isArray(check.checks)) {
-            return check.checks.every(isBuiltInRepresentation);
-          }
-          return isBuiltInRepresentation(check);
-        })
-        .map(sanitizeRepresentation);
-    } else {
-      output[key] = sanitizeRepresentation(child);
-    }
+    output[key] = sanitizeRepresentation(child);
   }
   return output;
 }
@@ -266,37 +219,21 @@ function walkAst(
   }
 }
 
+/**
+ * eschema's field policy already refuses any transform, un-id'd filter, or
+ * un-id'd declaration when a schema is defined (composition references
+ * aside), so nothing reaching capture can produce those markers any more.
+ * A constructor default is the one limitation that policy doesn't cover —
+ * it changes `Schema.make(...)` convenience construction, not decode/encode
+ * fidelity, so it stays a tracked, approvable limitation rather than a ban.
+ */
 function inspectAst(ast: SchemaAST.AST): {
   readonly transformations: ESchemaVersion['transformations'];
   readonly unverifiable: readonly SnapshotMarker[];
 } {
-  const transformations = new Map<
-    string,
-    ESchemaVersion['transformations'][number]
-  >();
   const markers = new Map<string, SnapshotMarker>();
   walkAst(ast, (node, path) => {
     if (inspectESchemaComposition(node) !== undefined) return false;
-    for (const link of node.encoding ?? []) {
-      const transformation = link.transformation;
-      if (isESchemaCompositionPlumbing(transformation)) continue;
-      const name = allowedTransformations.get(transformation);
-      if (name === undefined) {
-        const markerPath = path || '/';
-        markers.set(`transformation:${markerPath}`, {
-          path: markerPath,
-          kind: 'transformation',
-          message:
-            'Transformation behavior cannot be verified from snapshot data',
-        });
-      } else {
-        const transformationPath = path || '/';
-        transformations.set(`${transformationPath}:${name}`, {
-          path: transformationPath,
-          name,
-        });
-      }
-    }
     if (node.context?.constructorDefault !== undefined) {
       const markerPath = path || '/';
       markers.set(`default:${markerPath}`, {
@@ -306,39 +243,9 @@ function inspectAst(ast: SchemaAST.AST): {
           'Default-producing behavior cannot be verified from snapshot data',
       });
     }
-    if (node._tag === 'Declaration') {
-      const persistenceIdentity = node.annotations?.representation;
-      let serializable = isBuiltInRepresentation(node.annotations);
-      try {
-        serializable =
-          serializable && JSON.stringify(persistenceIdentity) !== undefined;
-      } catch {
-        serializable = false;
-      }
-      if (!serializable) {
-        const markerPath = path || '/';
-        markers.set(`declaration:${markerPath}`, {
-          path: markerPath,
-          kind: 'declaration',
-          message: 'Declaration behavior cannot be verified from snapshot data',
-        });
-      }
-    }
-    for (const check of node.checks ?? []) {
-      if (!isBuiltInRepresentation(check.annotations)) {
-        const markerPath = path || '/';
-        markers.set(`filter:${markerPath}`, {
-          path: markerPath,
-          kind: 'filter',
-          message: 'Filter behavior cannot be verified from snapshot data',
-        });
-      }
-    }
   });
   return {
-    transformations: [...transformations.values()].sort((a, b) =>
-      compareStrings(`${a.path}:${a.name}`, `${b.path}:${b.name}`),
-    ),
+    transformations: [],
     unverifiable: [...markers.values()].sort((a, b) =>
       compareStrings(`${a.path}:${a.kind}`, `${b.path}:${b.kind}`),
     ),

@@ -1,4 +1,8 @@
 export { Snapshot } from './snapshot/index.js';
+export type {
+  RestoredESchema,
+  RestoredESchemaVersion,
+} from './restore/eschema-restore/index.js';
 export {
   ContractSnapshotSchema,
   ESchemaSnapshotSchema,

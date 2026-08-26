@@ -23,6 +23,7 @@ import { bareValue } from './evolving-schema/value-eschema/bare-value.story.js';
 import { envelopeMigrates } from './evolving-schema/value-eschema/envelope-migrates.story.js';
 import { valueWithVersionKey } from './evolving-schema/value-eschema/value-with-version-key.story.js';
 import { entityIdField } from './evolving-schema/entity-eschema/entity-id-field.story.js';
+import { roundTrip } from './evolving-schema/snapshots/round-trip.story.js';
 import { appendDontMutate } from './evolving-schema/gotchas-and-best-practices/append-dont-mutate.story.js';
 import { totalMigrations } from './evolving-schema/gotchas-and-best-practices/total-migrations.story.js';
 import { pureMigrations } from './evolving-schema/gotchas-and-best-practices/pure-migrations.story.js';
@@ -166,6 +167,14 @@ export default Story.group(
                   'One field names the note, and the ladder is not allowed to touch it.',
               },
               [entityIdField],
+            ),
+            Story.group(
+              'Snapshots',
+              {
+                description:
+                  'What a Note looks like from the outside: a captured, restorable picture, and the field shapes that picture can hold.',
+              },
+              [roundTrip],
             ),
           ],
         ),

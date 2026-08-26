@@ -20,6 +20,7 @@
     "src/eschema/play.ts",
     "src/eschema/tutorial",
     "src/snapshot/__tests__",
+    "src/snapshot/restore/eschema-restore/__tests__",
     "src/sync/__tests__",
     "src/sync/composition/keyed-sync/__tests__",
     "src/sync/domain/partition-identity/__tests__",
@@ -420,6 +421,15 @@
         }
       }
     },
+    "snapshot.restore": {
+      "paths": ["src/snapshot/restore"],
+      "description": "Restore \u2014 live schemas rebuilt from a captured ESchema snapshot",
+      "modules": {
+        "src/snapshot/restore/eschema-restore": {
+          "exposed": true
+        }
+      }
+    },
     "snapshot.domain": {
       "paths": ["src/snapshot/domain"],
       "description": "Domain \u2014 snapshot models, errors, and canonical ordering",
@@ -766,11 +776,16 @@
       }
     },
     "snapshot": {
-      "description": "Snapshot facade, capture, domain, and one-way ESchema integration",
+      "description": "Snapshot facade, capture, restore, domain, and two-way ESchema integration",
       "rules": {
         "snapshot.public": ["snapshot.facade"],
-        "snapshot.facade": ["eschema.constructs", "snapshot.capture"],
-        "snapshot.capture": ["eschema.domain", "snapshot.domain"]
+        "snapshot.facade": [
+          "eschema.constructs",
+          "snapshot.capture",
+          "snapshot.restore"
+        ],
+        "snapshot.capture": ["eschema.domain", "snapshot.domain"],
+        "snapshot.restore": ["snapshot.domain"]
       }
     },
     "core": {

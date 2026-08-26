@@ -1,4 +1,4 @@
-import { Schema, SchemaTransformation } from 'effect';
+import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { ESchema, toSchema } from '../../eschema/index.js';
 import { Snapshot } from '../index.js';
@@ -135,50 +135,6 @@ describe('Snapshot.diff', () => {
     },
   );
 
-  it('reports approved transformation changes', () => {
-    const before = Snapshot.capture(
-      ESchema.make('Item', { value: Schema.StringFromBase64 }).build(),
-    );
-    const after = Snapshot.capture(
-      ESchema.make('Item', { value: Schema.StringFromHex }).build(),
-    );
-
-    expect(Snapshot.diff(before, after)).toEqual([
-      expect.objectContaining({
-        action: 'edited',
-        impact: 'breaking',
-        edits: [
-          expect.objectContaining({
-            before: 'stringFromBase64String',
-            after: 'stringFromHexString',
-          }),
-        ],
-      }),
-    ]);
-  });
-
-  it('reports transformations moved between fields', () => {
-    const before = Snapshot.capture(
-      ESchema.make('Item', {
-        first: Schema.StringFromBase64,
-        second: Schema.StringFromHex,
-      }).build(),
-    );
-    const after = Snapshot.capture(
-      ESchema.make('Item', {
-        first: Schema.StringFromHex,
-        second: Schema.StringFromBase64,
-      }).build(),
-    );
-
-    expect(Snapshot.diff(before, after)).toEqual([
-      expect.objectContaining({
-        action: 'edited',
-        impact: 'breaking',
-      }),
-    ]);
-  });
-
   it('reports root changes as breaking', () => {
     const first = Snapshot.capture(
       ESchema.make('First', { value: Schema.String }).build(),
@@ -266,19 +222,5 @@ describe('Snapshot.diff', () => {
       impact: 'breaking',
       subject: expect.objectContaining({ kind: 'version', version: 'v2' }),
     });
-  });
-
-  it('does not emit a change for an unchanged custom transform', () => {
-    const custom = Schema.String.pipe(
-      Schema.decodeTo(
-        Schema.Number,
-        SchemaTransformation.transform({ decode: Number, encode: String }),
-      ),
-    );
-    const snapshot = Snapshot.capture(
-      ESchema.make('Item', { value: custom }).build(),
-    );
-    expect(Snapshot.inspect(snapshot)).not.toEqual([]);
-    expect(Snapshot.diff(snapshot, structuredClone(snapshot))).toEqual([]);
   });
 });

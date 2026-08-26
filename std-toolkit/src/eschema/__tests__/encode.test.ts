@@ -4,7 +4,6 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../index.js';
-import { StringToNumber } from './fixtures.js';
 
 describe('ESchema', () => {
   describe('Encoding', () => {
@@ -17,17 +16,6 @@ describe('ESchema', () => {
 
           const encoded = yield* schema.encode({ id: 'u1', name: 'Alice' });
           expect(encoded).toEqual({ _v: 'v1', id: 'u1', name: 'Alice' });
-        }),
-      );
-
-      itEffect('applies field transformations on encode', () =>
-        Effect.gen(function* () {
-          const schema = EntityESchema.make('Test', 'id', {
-            count: StringToNumber,
-          }).build();
-
-          const encoded = yield* schema.encode({ id: 't1', count: 42 });
-          expect(encoded).toEqual({ _v: 'v1', id: 't1', count: '42' });
         }),
       );
 
@@ -69,7 +57,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             name: Schema.String,
-            count: StringToNumber,
+            count: Schema.Number,
           }).build();
 
           const original = { id: 't1', name: 'test', count: 42 };
@@ -82,13 +70,13 @@ describe('ESchema', () => {
       itEffect('preserves data through decode → encode cycle', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
-            count: StringToNumber,
+            count: Schema.Number,
           }).build();
 
-          const raw = { _v: 'v1', id: 't1', count: '123' };
+          const raw = { _v: 'v1', id: 't1', count: 123 };
           const decoded = yield* schema.decode(raw);
           const encoded = yield* schema.encode(decoded);
-          expect(encoded).toEqual({ _v: 'v1', id: 't1', count: '123' });
+          expect(encoded).toEqual({ _v: 'v1', id: 't1', count: 123 });
         }),
       );
     });

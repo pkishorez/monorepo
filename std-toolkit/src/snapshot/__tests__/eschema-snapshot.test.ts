@@ -1,4 +1,4 @@
-import { Effect, Schema, SchemaTransformation } from 'effect';
+import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   ESchema,
@@ -12,26 +12,16 @@ import {
   SnapshotIdentityConflict,
 } from '../index.js';
 
-const customTransform = Schema.String.pipe(
-  Schema.decodeTo(
-    Schema.Number,
-    SchemaTransformation.transform({
-      decode: Number,
-      encode: String,
-    }),
-  ),
-);
-
 describe('ESchema semantic snapshots', () => {
   it('captures every version and all three variants', async () => {
-    const plain = ESchema.make('Payment', { amount: Schema.NumberFromString })
-      .evolve('v2', { createdAt: Schema.Date }, (value) => ({
+    const plain = ESchema.make('Payment', { amount: Schema.Number })
+      .evolve('v2', { createdAt: Schema.String }, (value) => ({
         ...value,
-        createdAt: new Date(0),
+        createdAt: 'unknown',
       }))
       .build();
     const entity = EntityESchema.make('User', 'userId', {
-      homepage: Schema.URLFromString,
+      homepage: Schema.String,
     }).build();
     const value = ValueESchema.make(
       'Pair',
@@ -46,9 +36,6 @@ describe('ESchema semantic snapshots', () => {
     });
     expect(Snapshot.capture(value).schemas[0]).toMatchObject({ kind: 'value' });
     expect(JSON.stringify(Snapshot.capture(value))).toContain('BigInt');
-    expect(
-      Snapshot.capture(plain).schemas[0]?.versions[0]?.transformations,
-    ).toContainEqual(expect.objectContaining({ name: 'numberFromString' }));
     expect(Snapshot.inspect(Snapshot.capture(plain))).toEqual([]);
     expect(Snapshot.inspect(Snapshot.capture(entity))).toEqual([]);
 
@@ -58,30 +45,20 @@ describe('ESchema semantic snapshots', () => {
     );
   });
 
-  it('stores custom runtime limitations while retaining both sides', () => {
-    const declaration = Schema.declare(
-      (input: unknown): input is string => typeof input === 'string',
-    );
-    const filtered = Schema.String.check(
-      Schema.makeFilter((value) => value.length > 0 || 'empty'),
-    );
-    const limitations = ESchema.make('Limitations', {
-      customTransform,
-      declaration,
-      filtered,
-      builtInDate: Schema.Date,
-    }).build();
-    const snapshot = Snapshot.capture(limitations);
-    const version = snapshot.schemas[0]!.versions[0]!;
-
-    expect(version.encoded).toBeDefined();
-    expect(version.decoded).toBeDefined();
-    expect(version.unverifiable.map((item) => item.kind)).toEqual(
-      expect.arrayContaining(['transformation', 'declaration', 'filter']),
-    );
-    expect(Snapshot.inspect(snapshot)).toHaveLength(
-      version.unverifiable.length,
-    );
+  it('rejects fields that cannot be captured and restored', () => {
+    expect(() =>
+      ESchema.make('Payment', { amount: Schema.NumberFromString }).build(),
+    ).toThrow(/amount.*transformation/i);
+    expect(() =>
+      ESchema.make('Limitations', {
+        filtered: Schema.String.check(
+          Schema.makeFilter((value) => value.length > 0 || 'empty'),
+        ),
+      }).build(),
+    ).toThrow(/filtered.*filter/i);
+    expect(() =>
+      ESchema.make('Limitations', { builtInDate: Schema.Date }).build(),
+    ).toThrow(/builtInDate.*declaration/i);
   });
 
   it('deduplicates nested schemas and rejects identity conflicts', () => {

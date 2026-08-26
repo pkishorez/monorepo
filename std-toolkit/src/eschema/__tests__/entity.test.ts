@@ -4,7 +4,6 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../index.js';
-import { StringToNumber } from './fixtures.js';
 
 describe('ESchema', () => {
   describe('Entity', () => {
@@ -24,23 +23,22 @@ describe('ESchema', () => {
       itEffect('supports complex field types', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Complex', 'id', {
-            count: StringToNumber,
-            optional: Schema.String.pipe(
-              Schema.withDecodingDefaultType(Effect.succeed('default')),
-            ),
+            count: Schema.Number,
+            tag: Schema.Literals(['a', 'b']),
             nullable: Schema.NullOr(Schema.String),
           }).build();
 
           const decoded = yield* schema.decode({
             _v: 'v1',
             id: 'c1',
-            count: '42',
+            count: 42,
+            tag: 'a',
             nullable: null,
           });
           expect(decoded).toEqual({
             id: 'c1',
             count: 42,
-            optional: 'default',
+            tag: 'a',
             nullable: null,
           });
         }),
