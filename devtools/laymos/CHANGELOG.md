@@ -1,5 +1,12 @@
 # laymos
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`9bf3b20`](https://github.com/pkishorez/monorepo/commit/9bf3b201e4bf1817b579f86d3840f7b146a65126)]:
+  - @pkishorez/effect-tracer@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes

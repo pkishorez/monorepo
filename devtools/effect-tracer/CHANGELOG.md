@@ -1,5 +1,11 @@
 # @pkishorez/effect-tracer
 
+## 0.0.7
+
+### Patch Changes
+
+- [`9bf3b20`](https://github.com/pkishorez/monorepo/commit/9bf3b201e4bf1817b579f86d3840f7b146a65126) Thanks [@pkishorez](https://github.com/pkishorez)! - `TraceRecorder` gains a `layer` door - an Effect `Layer` that installs the recorder's tracer and logger into a Runtime once, so every Effect that Runtime subsequently runs is recorded automatically. `instrument` still works for tracing one Effect in isolation. `TraceRecorder` is now exported from `recorder`, since a caller building this layer's host component needs to name it.
+
 ## 0.0.6
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 # @pkishorez/lotel
 
+## 0.0.7
+
+### Patch Changes
+
+- [`a1c077d`](https://github.com/pkishorez/monorepo/commit/a1c077dd7182632203be59f35d2e475b4df6ab65) Thanks [@pkishorez](https://github.com/pkishorez)! - Adopt std-toolkit's decoded entity types: `EntityType` becomes `DecodedEntity` across the flow, telemetry, and telemetry-store domains.
+
+  The telemetry HTTP payloads built from `EntitySchema` change shape with it — `_v` now rides inside each entity's `value` instead of its `meta`. Client and server must run the same version.
+
+- Updated dependencies [[`eacf385`](https://github.com/pkishorez/monorepo/commit/eacf385ccd0458933758ae6a18ff078f4d669325), [`4da25e4`](https://github.com/pkishorez/monorepo/commit/4da25e426d32fb482406c089ba7c213d1d1bba98), [`6630802`](https://github.com/pkishorez/monorepo/commit/66308024a71ab6a30aa0e1f979527c8fa23f533c), [`211dbe7`](https://github.com/pkishorez/monorepo/commit/211dbe7a900199a9471120fb9e2b03c32c8c43d7), [`8215ec7`](https://github.com/pkishorez/monorepo/commit/8215ec7fea498d366f9b06d9f947db960d5bf90c), [`9bf3b20`](https://github.com/pkishorez/monorepo/commit/9bf3b201e4bf1817b579f86d3840f7b146a65126), [`2cfe607`](https://github.com/pkishorez/monorepo/commit/2cfe6076fe401aec0fa5f3b8e3d9f5ed655228a7)]:
+  - std-toolkit@0.0.7
+  - @pkishorez/effect-tracer@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes

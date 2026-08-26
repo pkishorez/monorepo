@@ -1,5 +1,60 @@
 # std-toolkit
 
+## 0.0.7
+
+### Patch Changes
+
+- [`eacf385`](https://github.com/pkishorez/monorepo/commit/eacf385ccd0458933758ae6a18ff078f4d669325) Thanks [@pkishorez](https://github.com/pkishorez)! - Add `getAndCheckOp` for guarding transactions with keyed-entity business checks.
+
+- [`4da25e4`](https://github.com/pkishorez/monorepo/commit/4da25e426d32fb482406c089ba7c213d1d1bba98) Thanks [@pkishorez](https://github.com/pkishorez)! - Report snapshot contract changes as semantic edits, including object index signature changes, and keep snapshot approval in the CLI.
+
+- [`6630802`](https://github.com/pkishorez/monorepo/commit/66308024a71ab6a30aa0e1f979527c8fa23f533c) Thanks [@pkishorez](https://github.com/pkishorez)! - Expose the latest decoded entity form at every application boundary, and keep encoded values — the ones stamped with `_v` — inside persistence and transport. `EntitySchema` becomes the single complete-entity codec between `EncodedEntity` and `DecodedEntity`: encoding always writes the latest version, decoding accepts and migrates every known version. See ADR 0005.
+
+  Also in this release:
+
+  - New `Encoded & decoded values` story group covering codec fields end to end at the StdTable level: what you hand a write versus what the row holds, where `_v` lives, that index keys derive from the encoded side, and how a codec field survives an update — verified across DynamoDB, IndexedDB, memory, and SQLite.
+  - `applyToSyncReplica` validates entity shape again before touching `meta._e`. A mutation handler or `SyncSource.fetch` that returns a malformed entity now fails with `Invalid` instead of killing the sync fiber with a `TypeError`.
+  - The Sync Replica no longer round-trips accepted entities through encode/decode, and the one decode it still needs — repairing a settle receipt from a stored row — runs after the transaction commits rather than before it, so a stored row this build cannot decode no longer fails the whole batch.
+
+  ## Breaking changes
+
+  This is a deliberate breaking replacement rather than a compatibility layer, because wrappers would preserve exactly the encoded/decoded distinction application code should no longer have to manage. The package is pre-1.0, so it ships as a patch.
+
+  - **Persisted Sync Stores must be cleared.** The stored replica record changed from `{ value, meta }` to a single `entity` field with no schema evolution, so existing IndexedDB and SQLite sync stores cannot be read by this version. Clear site data, or drop and recreate the sync store table, as part of the upgrade.
+  - **`_v` is gone from Entity Meta.** It lives on the encoded value only. Code reading `entity.meta._v` breaks, and decoded meta that still carries `_v` is now actively rejected.
+  - **`core` renames.** `EntityType` → `DecodedEntity`, `SingleEntityType` → `DecodedSingleEntity`, `MetaSchema` → `EntityMetaSchema`. `EncodedEntity`, `EncodedSingleEntity`, `EntityMeta`, and `SingleEntityMeta` are new. `EntitySchema` and `SingleEntitySchema` are no longer plain `Schema.Struct`s — they are codecs exposing `decode`, `encode`, and `latestVersion`.
+  - **Sync callbacks changed shape.** `onInsert`, `onUpdate`, `onDelete`, and `SyncSource` fetches take and return `DecodedEntity` / `DecodedSingleEntity`. Returned values are now encoded through the entity schema, so a value that does not match the schema fails with `Invalid` where it previously passed through.
+  - **Collections now validate.** Keyed and single-item collections carry a Standard Schema, so an insert or update whose item does not match the latest decoded shape is rejected at the mutation instead of reaching the replica.
+  - **Peer Sync wire format changed.** Peer messages carry encoded entities whose value holds `_v` and whose meta does not. Tabs running the previous version cannot exchange messages with tabs running this one.
+  - **`isEntity` is now `isDecodedEntity`**, and it also rejects meta containing `_v`.
+
+- [`211dbe7`](https://github.com/pkishorez/monorepo/commit/211dbe7a900199a9471120fb9e2b03c32c8c43d7) Thanks [@pkishorez](https://github.com/pkishorez)! - `createStdSync` takes one `platform` option instead of `storeLayer`, `leadershipLayer`, and `peerSync`.
+
+  A platform names the environment a Std Sync instance runs in — where the Sync Store lives and how concurrent participants coordinate. `platform: browser()` (from `std-toolkit/sync/platform/browser`) is the shipped preset: an IndexedDB Sync Store in database `std-sync` (overridable via `databaseName`), Web Locks Leadership, and Peer Sync over BroadcastChannel. A platform is a plain value and may be shared between instances — everything it provides is consumed per qualified Collection Name. Omitting `platform` means a solo participant: an isolated Memory Sync Store, no Leadership, no Peer Sync.
+
+  Breaking changes:
+
+  - `storeLayer`, `leadershipLayer`, and `peerSync` are removed from `StdSyncDefaults`. Pass a `platform` value `{ storeLayer?, leadershipLayer?, peerSync? }` for custom wiring.
+  - Peer Sync is now opt-in and the core ships no default transport. It was previously on by default whenever `BroadcastChannel` existed, which let participants that do not share a Backend inject entities into each other's replicas. A platform enables it with `peerSync: { channel }`; the BroadcastChannel factory is exported as `broadcastChannel` from `std-toolkit/sync/platform/browser`.
+  - Web Locks Leadership moved into the browser platform module; the `std-toolkit/sync/leadership/web-locks` subpath export is removed. Import `browser()` instead, or reach the raw pieces via `std-toolkit/sync/platform/browser`.
+
+- [`8215ec7`](https://github.com/pkishorez/monorepo/commit/8215ec7fea498d366f9b06d9f947db960d5bf90c) Thanks [@pkishorez](https://github.com/pkishorez)! - Process every insert, update, and delete in batched collection mutations, with backend work limited to five concurrent operations.
+
+- [`2cfe607`](https://github.com/pkishorez/monorepo/commit/2cfe6076fe401aec0fa5f3b8e3d9f5ed655228a7) Thanks [@pkishorez](https://github.com/pkishorez)! - Transact ops now carry intent only; `transact` performs the reads at commit time.
+
+  `getAndUpdateOp`, `deleteOp`, `restoreOp`, and `getAndCheckOp` no longer read when you build them, so the interval between building an op and committing it cannot make it stale. `transact` reads the current items consistently and concurrently, applies each op to what it read, and submits.
+
+  Breaking changes:
+
+  - An update callback can no longer return `null`. A rule that declines the write is an entity invariant, passed as the `check` option beside `lastWriteWins` and evaluated against the value `transact` reads. `UpdateRefused` is removed; a refusal is `CheckRefused`.
+  - `TransactOutcome.status` replaces `failed` with `stale`, `refused`, and `missing`, so a caller can tell a retryable conflict from a broken invariant or a wrong key.
+  - `NoItemToUpdate`, `NoItemToCheck`, and `ItemAlreadyExists` now surface from `transact` rather than from the op constructor.
+  - `check` and `lastWriteWins` are mutually exclusive; the types reject the pair, because only the `_u` condition holds the value the invariant judged.
+  - `StdTableContract.getItem` takes an optional `{ consistent }`.
+
+- Updated dependencies [[`9bf3b20`](https://github.com/pkishorez/monorepo/commit/9bf3b201e4bf1817b579f86d3840f7b146a65126)]:
+  - @pkishorez/effect-tracer@0.0.7
+
 ## 0.0.6
 
 ### Patch Changes
