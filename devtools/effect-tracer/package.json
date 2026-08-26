@@ -1,6 +1,6 @@
 {
   "name": "@pkishorez/effect-tracer",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "private": false,
   "description": "Effect tracing tools for in-process recording and OTLP export",
   "repository": {
