@@ -103,6 +103,18 @@ _Avoid_: Entity service (retired term), adapter-specific Entity wrappers, Portab
 The in-memory conversion of an older **encoded item** into the latest decoded domain form during a get or query. It never rewrites storage; only a later explicit write persists the latest encoded version.
 _Avoid_: Read repair, automatic migration write-back.
 
+**Table scan**:
+A portable, table-wide walk of every physical row (`table.scan()`), returning raw **encoded item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
+_Avoid_: Full table read, dump.
+
+**Drift**:
+The mismatch between a stored **encoded item**'s secondary-index keys and what the current entity registration would derive for the same decoded value (`table.drift(item)`). A difference confined to `_v` or the encoded payload, with keys unchanged, is not Drift, since it already self-heals through **Read migration**. A primary partition-key or sort-key difference violates **Entity key immutability** and fails with `PrimaryKeyDrift`; it is never returned as repairable Drift. Detected only for keyed entities; a **SingleEntity** has no secondary indexes to drift.
+_Avoid_: Backfill need, staleness, migration debt.
+
+**Reindex**:
+The guarded, silent rewrite of one item's physical representation to the form `drift` reported (`table.reindex(currentForm)`). It preserves the exact `_u` it read rather than minting a new one, and fires no Change Notice. The rewrite updates secondary-index keys and can also persist the latest equivalent encoded payload produced by **Read migration**. This is safe under the same `_u` because the latest decoded domain value did not change. A conflict (the real `_u` moved since it was read) fails with `ReindexConflict`; the operation never retries, leaving that to the caller.
+_Avoid_: Repair write, silent update, backfill write.
+
 **Entity key**:
 The logical identity accepted by a keyed **entity surface**: the entity's primary partition components plus its ESchema id field. It is derived into the encoded partition and sort keys internally rather than exposing those physical values to callers.
 _Avoid_: Physical key, encoded key, pk/sk pair.

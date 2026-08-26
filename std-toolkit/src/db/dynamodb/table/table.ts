@@ -9,6 +9,7 @@ import {
 } from './delete.js';
 import { queryItems } from './query.js';
 import { getItem } from './read.js';
+import { scanItems } from './scan.js';
 import { transactWriteItems, writeItem } from './write.js';
 
 export const makeTableContract = (
@@ -25,6 +26,8 @@ export const makeTableContract = (
       getItem(client, table, tableName, schema, key, options),
     queryItems: (request) =>
       queryItems(client, table, tableName, schema, request),
+    scanItems: (request) =>
+      scanItems(client, table, tableName, schema, request),
     writeItem: (request) =>
       writeItem(client, table, tableName, schema, request),
     transactWriteItems: (requests) =>

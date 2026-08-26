@@ -176,6 +176,34 @@ export const makeTableContract = (
       },
       catch: (cause) => new OperationFailure({ cause }),
     }),
+  scanItems: (request) =>
+    Effect.try({
+      try: () => {
+        if (request.segment !== undefined && request.segment > 0)
+          return { items: [], hasMore: false };
+        const ordered = [...items.values()].sort(
+          (left, right) =>
+            compare(left.pk, right.pk) || compare(left.sk, right.sk),
+        );
+        const startIndex =
+          request.startAfter === undefined
+            ? 0
+            : ordered.findIndex(
+                (item) =>
+                  item.pk === request.startAfter?.pk &&
+                  item.sk === request.startAfter?.sk,
+              ) + 1;
+        const selected = ordered.slice(
+          startIndex,
+          startIndex + request.limit + 1,
+        );
+        return {
+          items: selected.slice(0, request.limit).map(cloneItem),
+          hasMore: selected.length > request.limit,
+        };
+      },
+      catch: (cause) => new OperationFailure({ cause }),
+    }),
   queryItems: (request) =>
     Effect.try({
       try: () => {

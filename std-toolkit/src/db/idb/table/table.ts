@@ -9,6 +9,7 @@ import type { IDBConnection } from '../database/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import { queryItems } from './query.js';
 import { nativeFailure, requestPromise } from './request.js';
+import { scanItems } from './scan.js';
 import { transactionPromise } from './transaction.js';
 import { storedConditionHolds, writeFailure } from './write.js';
 import { decodeKey, itemSchema } from '../item-schema/index.js';
@@ -145,6 +146,12 @@ export const makeTableContract = (
             query,
             database.compare,
           ),
+        catch: nativeFailure,
+      }),
+    scanItems: (request) =>
+      Effect.tryPromise({
+        try: async () =>
+          scanItems(await database.open(), table, storeName, request),
         catch: nativeFailure,
       }),
   };

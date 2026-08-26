@@ -34,6 +34,7 @@ describe('collection flow tracing', () => {
     const contract: StdTableContract = {
       getItem: never,
       queryItems: never,
+      scanItems: never,
       writeItem: never,
       transactWriteItems: never,
       hardDeleteItem: never,

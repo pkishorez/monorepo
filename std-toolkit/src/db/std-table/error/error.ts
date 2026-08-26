@@ -68,6 +68,18 @@ export class OperationFailed extends Data.TaggedError('OperationFailed')<{
   readonly operation: string;
   readonly cause: unknown;
 }> {}
+export class EntityNotFound extends Data.TaggedError('EntityNotFound')<{
+  readonly entity: string;
+}> {}
+export class PrimaryKeyDrift extends Data.TaggedError('PrimaryKeyDrift')<{
+  readonly entity: string;
+  readonly storedKey: { readonly pk: string; readonly sk: string };
+  readonly currentKey: { readonly pk: string; readonly sk: string };
+}> {}
+export class ReindexConflict extends Data.TaggedError('ReindexConflict')<{
+  readonly entity: string;
+  readonly observedU: string;
+}> {}
 
 export type DatabaseErrorReason =
   | ItemAlreadyExists
@@ -82,7 +94,10 @@ export type DatabaseErrorReason =
   | ForeignTransactionItem
   | TransactFailed
   | DecodeFailed
-  | OperationFailed;
+  | OperationFailed
+  | EntityNotFound
+  | PrimaryKeyDrift
+  | ReindexConflict;
 
 export class DatabaseError extends Data.TaggedError('DatabaseError')<{
   readonly reason: DatabaseErrorReason;

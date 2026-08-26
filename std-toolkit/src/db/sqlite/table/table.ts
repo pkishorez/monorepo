@@ -9,6 +9,7 @@ import {
   deleteItem,
   readItem,
 } from './read.js';
+import { scanItems } from './scan.js';
 import { writeTransaction } from './transaction.js';
 import { writeItem } from './write.js';
 
@@ -35,5 +36,7 @@ export const makeTableContract = (
     hardDeleteAllItems: () => deleteAllItems(database, tableName),
     queryItems: (request) =>
       queryItems(database, table, tableName, schema, request),
+    scanItems: (request) =>
+      scanItems(database, table, tableName, schema, request),
   };
 };

@@ -25,6 +25,8 @@ export {
   type ReadOptions,
   type QueryRequest,
   type QueryResult,
+  type ScanRequest,
+  type ScanResult,
   type StdTableContract,
   type TransactCheck,
   type TransactItem,

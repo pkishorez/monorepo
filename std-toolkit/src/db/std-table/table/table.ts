@@ -8,6 +8,8 @@ import type {
   DecodedEntity,
   DecodedSingleEntity,
 } from '../../../core/index.js';
+import type { DatabaseError } from '../error/index.js';
+import type { EncodedItem, StdTableService } from '../contract/index.js';
 import {
   Table as DefinitionTable,
   type GlobalSecondaryIndex,
@@ -28,6 +30,21 @@ import type {
 } from '../entity/index.js';
 import { decorateTable } from './decoration.js';
 
+export interface ScanOptions {
+  readonly parallelism?: number;
+}
+
+export interface DriftResult {
+  readonly drifted: boolean;
+  readonly currentForm: EncodedItem;
+}
+
+type TableStream<A, Name extends string> = Stream.Stream<
+  A,
+  DatabaseError,
+  StdTableService<Name>
+>;
+
 export interface StdTable<
   Name extends string = string,
   Primary extends PrimaryIndex = PrimaryIndex,
@@ -38,6 +55,7 @@ export interface StdTable<
   readonly primary: Primary;
   readonly localSecondaryIndexes: Lsis;
   readonly globalSecondaryIndexes: Gsis;
+  readonly registeredEntities: DefinitionTableDefinition<Name>['registeredEntities'];
   snapshot(): ReturnType<DefinitionTableDefinition<Name>['snapshot']>;
   entity<S extends AnyEntityESchema>(
     schema: S,
@@ -61,6 +79,9 @@ export interface StdTable<
     confirmation: 'I KNOW WHAT I AM DOING',
   ): TableEffect<{ readonly itemsDeleted: number }, Name>;
   subscribe(): Stream.Stream<ChangeNotice>;
+  scan(options?: ScanOptions): TableStream<EncodedItem, Name>;
+  drift(item: EncodedItem): TableEffect<DriftResult, Name>;
+  reindex(currentForm: EncodedItem): TableEffect<void, Name>;
 }
 
 export interface TableBuilder<Name extends string> {
