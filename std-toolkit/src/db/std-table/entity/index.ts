@@ -1,3 +1,4 @@
+export { decode, encode, makeEncodedItem } from './storage.js';
 export {
   broadcast,
   changesOrEmpty,

@@ -129,6 +129,25 @@ export const makeDeterministicContract = <Name extends string>(
         items.clear();
         return removed;
       }),
+    scanItems: (request) =>
+      Effect.sync(() => {
+        if (request.segment !== undefined && request.segment > 0)
+          return { items: [], hasMore: false };
+        const all = [...items.values()];
+        const startIndex =
+          request.startAfter === undefined
+            ? 0
+            : all.findIndex(
+                (item) =>
+                  item.pk === request.startAfter?.pk &&
+                  item.sk === request.startAfter?.sk,
+              ) + 1;
+        const selected = all.slice(startIndex, startIndex + request.limit + 1);
+        return {
+          items: selected.slice(0, request.limit),
+          hasMore: selected.length > request.limit,
+        };
+      }),
     queryItems: (request) =>
       Effect.sync(() => {
         const matching = [...items.values()]

@@ -142,6 +142,18 @@ export interface QueryResult {
   readonly hasMore: boolean;
 }
 
+export interface ScanRequest {
+  readonly limit: number;
+  readonly startAfter?: EncodedKey;
+  readonly segment?: number;
+  readonly totalSegments?: number;
+}
+
+export interface ScanResult {
+  readonly items: readonly EncodedItem[];
+  readonly hasMore: boolean;
+}
+
 export class ConditionFailure extends Data.TaggedError('ConditionFailure')<{
   readonly outcomes?: readonly ItemOutcome[];
 }> {}
@@ -176,6 +188,9 @@ export interface StdTableContract {
   readonly queryItems: (
     request: QueryRequest,
   ) => Effect.Effect<QueryResult, ContractFailure>;
+  readonly scanItems: (
+    request: ScanRequest,
+  ) => Effect.Effect<ScanResult, ContractFailure>;
   readonly writeItem: (
     put: ConditionalPut,
   ) => Effect.Effect<void, ContractFailure>;

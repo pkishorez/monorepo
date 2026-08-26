@@ -3,6 +3,7 @@ import type {
   EncodedKey,
   ItemCondition,
   QueryRequest,
+  ScanRequest,
 } from '../../std-table/contract/index.js';
 import type { SQLiteRow, SQLiteValue } from '../item-schema/index.js';
 import { quoteIdentifier, tableIndexes } from './identifier.js';
@@ -118,6 +119,31 @@ const makeQueryStatement = (
   );
 };
 
+const makeScanStatement = (
+  tableName: string,
+  table: SQLiteTable,
+  request: ScanRequest,
+) => {
+  const pk = quoteIdentifier(table.primary.pk);
+  const sk = quoteIdentifier(table.primary.sk);
+  const quoted = quoteIdentifier(tableName);
+  if (request.startAfter === undefined) {
+    return {
+      sql: `SELECT * FROM ${quoted} ORDER BY ${pk} ASC, ${sk} ASC LIMIT ?`,
+      parameters: [request.limit + 1],
+    };
+  }
+  return {
+    sql: `SELECT * FROM ${quoted} WHERE (${pk} > ? OR (${pk} = ? AND ${sk} > ?)) ORDER BY ${pk} ASC, ${sk} ASC LIMIT ?`,
+    parameters: [
+      request.startAfter.pk,
+      request.startAfter.pk,
+      request.startAfter.sk,
+      request.limit + 1,
+    ],
+  };
+};
+
 const makeCreateTableStatement = (tableName: string, table: SQLiteTable) => {
   const columns = tableColumnDefinitions(table);
   return {
@@ -192,6 +218,7 @@ export const Statement = {
   indexList: makeIndexListStatement,
   indexOwner: makeIndexOwnerStatement,
   query: makeQueryStatement,
+  scan: makeScanStatement,
   dropIndex: makeDropIndexStatement,
   tableInfo: makeTableInfoStatement,
   write: makeWriteStatement,

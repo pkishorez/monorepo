@@ -228,6 +228,10 @@ export interface TableDefinition<
     schema: TSchema,
   ): SingleEntityBuilder<Name, TSchema>;
   snapshot(): LogicalTableSnapshot;
+  readonly registeredEntities: readonly (
+    | KeyedEntityDefinition
+    | SingleEntityDefinition
+  )[];
 }
 
 export interface TableTopologyBuilder<

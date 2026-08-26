@@ -98,6 +98,7 @@ const failingLayer = () => {
   const contract: StdTableContract = {
     getItem: failure,
     queryItems: failure,
+    scanItems: failure,
     writeItem: failure,
     transactWriteItems: failure,
     hardDeleteItem: failure,
@@ -143,6 +144,7 @@ describe('Sync persistence', () => {
     const contract: StdTableContract = {
       getItem: never,
       queryItems: never,
+      scanItems: never,
       writeItem: never,
       transactWriteItems: never,
       hardDeleteItem: never,
@@ -175,6 +177,7 @@ describe('Sync persistence', () => {
     const contract: StdTableContract = {
       getItem: () => Effect.succeed(null),
       queryItems: () => Effect.succeed({ items: [], hasMore: false }),
+      scanItems: () => Effect.succeed({ items: [], hasMore: false }),
       writeItem: () => Effect.void,
       transactWriteItems: () =>
         Effect.sync(() => {

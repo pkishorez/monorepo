@@ -66,6 +66,7 @@ import { staleOps } from './database/std-table/transactions/stale-ops.story.js';
 import { refusingAnUpdate } from './database/std-table/transactions/refusing-an-update.story.js';
 import { codecFields } from './database/std-table/encoded-and-decoded/codec-fields.story.js';
 import { olderRows } from './database/std-table/evolving-data-in-place/older-rows.story.js';
+import { backfillingAnIndex } from './database/std-table/detecting-and-repairing-drift/backfilling-an-index.story.js';
 import { unreadableRows } from './database/std-table/evolving-data-in-place/unreadable-rows.story.js';
 
 import { aBackendAndNobodyWatching } from './sync/building-the-simulation/a-backend-and-nobody-watching.story.js';
@@ -275,6 +276,14 @@ export default Story.group(
                   "Part one's ladder, now running inside a read — with nothing rewritten in storage.",
               },
               [olderRows],
+            ),
+            Story.group(
+              'Detecting and repairing index drift',
+              {
+                description:
+                  'A row written before an access pattern existed cannot answer it until scan, drift, and reindex bring it forward.',
+              },
+              [backfillingAnIndex],
             ),
           ],
         ),

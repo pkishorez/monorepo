@@ -79,6 +79,7 @@ const makeTableDefinition = <Name extends string>(
     snapshot() {
       return createLogicalTableSnapshot(table, entities);
     },
+    registeredEntities: entities,
   } as TableDefinition<Name>;
   return Object.freeze(table);
 };

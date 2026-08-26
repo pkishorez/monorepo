@@ -1,4 +1,4 @@
-import { Effect, type Stream } from 'effect';
+import { Effect, Stream } from 'effect';
 import {
   nextUlid,
   type ChangeNotice,
@@ -13,7 +13,10 @@ import type {
 import {
   DatabaseError,
   DuplicateTransactionTarget,
+  EntityNotFound,
   ForeignTransactionItem,
+  PrimaryKeyDrift,
+  ReindexConflict,
   TransactFailed,
   type TransactOutcomeStatus,
   TransactionTooLarge,
@@ -22,6 +25,7 @@ import {
   ConditionFailure,
   StdTableService,
   type ContractFailure,
+  type EncodedItem,
   type TransactItem,
 } from '../contract/index.js';
 import type {
@@ -32,12 +36,16 @@ import {
   broadcast,
   changesOrEmpty,
   dbError,
+  decode,
+  encode,
   failReason,
+  makeEncodedItem,
   makeKeyedEntity,
   makeSingleEntity,
   type AnyTransactOp,
 } from '../entity/index.js';
-import type { StdTable } from './table.js';
+import { scanStream } from './scan.js';
+import type { ScanOptions, StdTable } from './table.js';
 
 type AnyDecoded = DecodedEntity<object> | DecodedSingleEntity<object>;
 
@@ -59,6 +67,17 @@ interface AnyEntityBuilder {
 }
 
 const READ_CONCURRENCY = 12;
+
+const sameKeys = (
+  left: Readonly<Record<string, string>>,
+  right: Readonly<Record<string, string>>,
+): boolean => {
+  const leftEntries = Object.entries(left);
+  return (
+    leftEntries.length === Object.keys(right).length &&
+    leftEntries.every(([key, value]) => right[key] === value)
+  );
+};
 
 /** A database-evaluated condition kind, as the status the caller acts on. */
 const conditionStatus = (detail: string | undefined): TransactOutcomeStatus =>
@@ -241,6 +260,77 @@ export const decorateTable = <Name extends string>(
             ),
           );
         return { itemsDeleted };
+      });
+    },
+    scan(options?: ScanOptions) {
+      return Stream.unwrap(
+        Effect.map(StdTableService(definition.logicalName), (service) =>
+          scanStream(service.contract, options?.parallelism ?? 1).pipe(
+            Stream.mapError((error) =>
+              dbError('scan', error as ContractFailure),
+            ),
+          ),
+        ),
+      );
+    },
+    drift(item: EncodedItem) {
+      return Effect.gen(function* () {
+        const found = definition.registeredEntities.find(
+          (candidate) => candidate.name === item.meta._e,
+        );
+        if (found === undefined)
+          return yield* failReason(
+            new EntityNotFound({ entity: item.meta._e }),
+          );
+        // SingleEntity has no secondary indexes, so its key never drifts.
+        if (found.kind === 'single')
+          return { drifted: false, currentForm: item };
+        const decoded = yield* decode(found.schema, item);
+        const encoded = yield* encode(
+          found.schema,
+          decoded.value,
+          found.name,
+          item.meta,
+        );
+        const currentForm = makeEncodedItem(
+          found,
+          encoded,
+          item.meta._u,
+          item.meta._d,
+        );
+        if (item.pk !== currentForm.pk || item.sk !== currentForm.sk)
+          return yield* failReason(
+            new PrimaryKeyDrift({
+              entity: found.name,
+              storedKey: { pk: item.pk, sk: item.sk },
+              currentKey: { pk: currentForm.pk, sk: currentForm.sk },
+            }),
+          );
+        const drifted = !sameKeys(item.keys, currentForm.keys);
+        return { drifted, currentForm };
+      });
+    },
+    reindex(currentForm: EncodedItem) {
+      return Effect.gen(function* () {
+        const contract = (yield* StdTableService(definition.logicalName))
+          .contract;
+        yield* contract
+          .writeItem({
+            item: currentForm,
+            condition: { kind: 'updated', value: currentForm.meta._u },
+          })
+          .pipe(
+            Effect.mapError((error) =>
+              error instanceof ConditionFailure
+                ? new DatabaseError({
+                    reason: new ReindexConflict({
+                      entity: currentForm.meta._e,
+                      observedU: currentForm.meta._u,
+                    }),
+                  })
+                : dbError('reindex', error as ContractFailure),
+            ),
+          );
       });
     },
   };
