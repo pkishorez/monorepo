@@ -47,7 +47,7 @@ The guarantee that the current application can decode every historical encoded v
 _Avoid_: backward compatibility, rolling-deployment compatibility.
 
 **encode**:
-Serialization. Always writes the latest **version** and stamps `_v`. Encoded values are intended for JSON persistence and transport, but schema authors are currently responsible for choosing JSON-serializable encoded field types.
+Serialization. Always writes the latest **version** and stamps `_v`. Encoded values are intended for JSON persistence and transport; a field is enforced, at definition time, to use only a shape a Snapshot can capture and later restore — an object, primitive, literal, union, array, enum, template literal, or branded value. A custom transformation, or a filter or declared type without a stable identity, is refused before the schema can be built. `Schema.UniqueSymbol` is a known exception: a registered symbol from `Symbol.for(...)` can be captured, but a local symbol from `Symbol(...)` is accepted when the ESchema is defined and fails during snapshot capture because it has no stable identity.
 
 **decode**:
 Deserialization. Reads `_v`, then folds the data through **migration**s up to the current shape.

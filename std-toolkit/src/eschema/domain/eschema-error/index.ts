@@ -1,1 +1,1 @@
-export { ESchemaError } from './eschema-error.js';
+export { ESchemaError, UnrepresentableFieldError } from './eschema-error.js';

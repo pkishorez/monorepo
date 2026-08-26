@@ -51,6 +51,12 @@ See the tutorial at `src/eschema/tutorial/` for a guided walkthrough.
 
 Schemas produce canonical, JSON-safe descriptions of every encoded and decoded version. Use the shared snapshot API to inspect current limitations and compare the current contract with a stored baseline.
 
+`Schema.UniqueSymbol` is a known exception to the definition-time field check.
+Snapshot capture supports only registered symbols created with `Symbol.for(...)`.
+A local symbol created with `Symbol(...)` can be used to build an ESchema, but
+snapshot capture fails because the symbol has no stable identity to store and
+restore.
+
 ```ts
 import { readFile } from 'node:fs/promises';
 import { Effect } from 'effect';

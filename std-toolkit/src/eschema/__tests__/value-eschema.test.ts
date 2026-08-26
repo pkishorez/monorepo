@@ -11,7 +11,6 @@ import {
   type ESchemaType,
 } from '../index.js';
 import { ESchemaError } from '../index.js';
-import { StringToNumber } from './fixtures.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -141,28 +140,14 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('migrations receive decoded transformed values', () =>
+      itEffect('migrations receive decoded values from prior versions', () =>
         Effect.gen(function* () {
-          const schema = ValueESchema.make('Count', StringToNumber)
+          const schema = ValueESchema.make('Count', Schema.Number)
             .evolve('v2', Schema.Number, (value) => value * 2)
             .build();
 
-          const decoded = yield* schema.decode({ _v: 'v1', value: '21' });
+          const decoded = yield* schema.decode({ _v: 'v1', value: 21 });
 
-          expect(decoded).toBe(42);
-        }),
-      );
-    });
-
-    describe('Transforms', () => {
-      itEffect('applies value transforms on encode and decode', () =>
-        Effect.gen(function* () {
-          const schema = ValueESchema.make('Count', StringToNumber).build();
-
-          const encoded = yield* schema.encode(42);
-          const decoded = yield* schema.decode(encoded);
-
-          expect(encoded).toEqual({ _v: 'v1', value: '42' });
           expect(decoded).toBe(42);
         }),
       );
@@ -241,15 +226,14 @@ describe('ESchema', () => {
       });
 
       it('getDescriptor describes the canonical envelope', () => {
-        const schema = ValueESchema.make('Count', StringToNumber).build();
+        const schema = ValueESchema.make('Count', Schema.Number).build();
 
         const descriptor = schema.getDescriptor();
         const versionSchema = descriptor.properties._v as { enum?: string[] };
-        const valueSchema = descriptor.properties.value as { type?: string };
 
         expect(descriptor.type).toBe('object');
         expect(versionSchema.enum).toEqual(['v1']);
-        expect(valueSchema.type).toBe('string');
+        expect(descriptor.properties).toHaveProperty('value');
       });
 
       it('Standard Schema validate follows the read path', () => {
@@ -268,19 +252,19 @@ describe('ESchema', () => {
 
     describe('Type extractors', () => {
       it('extracts decoded and encoded value types', () => {
-        const schema = ValueESchema.make('Count', StringToNumber).build();
+        const schema = ValueESchema.make('Count', Schema.Number).build();
 
         type Decoded = ESchemaType<typeof schema>;
         type Encoded = ESchemaEncoded<typeof schema>;
 
         const decoded: Decoded = 42;
-        const encoded: Encoded = { _v: 'v1', value: '42' };
+        const encoded: Encoded = { _v: 'v1', value: 42 };
 
-        // @ts-expect-error — encoded value uses the schema encoded type
-        const invalidEncoded: Encoded = { _v: 'v1', value: 42 };
+        // @ts-expect-error — encoded value must carry the envelope's _v
+        const invalidEncoded: Encoded = { value: 42 };
 
         expect(decoded).toBe(42);
-        expect(encoded).toEqual({ _v: 'v1', value: '42' });
+        expect(encoded).toEqual({ _v: 'v1', value: 42 });
         void invalidEncoded;
       });
 

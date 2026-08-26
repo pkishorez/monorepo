@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Schema, SchemaTransformation } from 'effect';
+import { Schema } from 'effect';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EntityESchema } from '../../eschema/index.js';
 import type {
@@ -81,35 +81,6 @@ const userEditedV1 = EntityESchema.make('User', 'id', {
     notifications: Schema.Struct({
       email: Schema.Boolean,
       push: Schema.Boolean,
-    }),
-  }),
-}).build();
-
-const transformedUser = EntityESchema.make('User', 'id', {
-  email: Schema.StringFromBase64,
-  profile: Schema.Struct({
-    displayName: Schema.String,
-    tags: Schema.Array(Schema.String),
-    address: Schema.Struct({
-      city: Schema.String,
-      country: Schema.String,
-    }),
-  }),
-}).build();
-
-const customTransformedUser = EntityESchema.make('User', 'id', {
-  email: Schema.String.pipe(
-    Schema.decodeTo(
-      Schema.Number,
-      SchemaTransformation.transform({ decode: Number, encode: String }),
-    ),
-  ),
-  profile: Schema.Struct({
-    displayName: Schema.String,
-    tags: Schema.Array(Schema.String),
-    address: Schema.Struct({
-      city: Schema.String,
-      country: Schema.String,
     }),
   }),
 }).build();
@@ -276,26 +247,10 @@ const scenarios: readonly Scenario[] = [
     exitCode: 1,
   },
   {
-    name: 'transformation-changed',
-    baseline: table(),
-    current: table({ schemas: Snapshot.capture(transformedUser).schemas }),
-    exitCode: 1,
-  },
-  {
     name: 'table-renamed',
     baseline: table(),
     current: table({ logicalName: 'legacy' }),
     exitCode: 1,
-  },
-  {
-    name: 'unverifiable-transform-warning',
-    baseline: table({
-      schemas: Snapshot.capture(customTransformedUser).schemas,
-    }),
-    current: table({
-      schemas: Snapshot.capture(customTransformedUser).schemas,
-    }),
-    exitCode: 0,
   },
 ];
 
@@ -309,9 +264,7 @@ function expectedFirstLine(scenario: Scenario): string {
     return 'FAIL  No approved snapshot found';
   }
   return scenario.exitCode === 0
-    ? scenario.name === 'unverifiable-transform-warning'
-      ? 'PASS WITH LIMITATIONS  Snapshot matches'
-      : 'PASS  Snapshot matches'
+    ? 'PASS  Snapshot matches'
     : `FAIL  ${Snapshot.diff(scenario.baseline, scenario.current).length} snapshot ${Snapshot.diff(scenario.baseline, scenario.current).length === 1 ? 'change needs' : 'changes need'} approval`;
 }
 

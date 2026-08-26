@@ -21,13 +21,13 @@ The explicit acceptance and storage of the current contract as the new baseline,
 _Avoid_: Safe change, automatic acceptance.
 
 **snapshot limitation**:
-An aspect of the current contract whose behavior cannot be verified from snapshot data. An approved unchanged limitation remains visible without causing verification to fail.
+An aspect of the current contract whose behavior cannot be verified from snapshot data. The only limitation a field can still carry is a constructor default — it changes `Schema.make(...)` convenience construction, not decode/encode fidelity, so eschema tracks it rather than refusing it. Every other limitation this term once covered — an unnamed transformation, filter, or declared type — can no longer occur: eschema refuses that field the moment it is defined, before a snapshot ever sees it. An approved unchanged limitation remains visible without causing verification to fail.
 _Avoid_: Snapshot change, verification failure, warning.
 
 **snapshot identity**:
 The stable name of an ESchema within an **ESchema snapshot**, taken from the ESchema's own mandatory name. One ESchema may be referenced any number of times under the same identity, while every distinct ESchema has a distinct identity.
 _Avoid_: Generated ID, traversal ID.
 
-**verifiable transformation**:
-An Effect-provided schema transformation with a stable public identity that an **ESchema snapshot** can name. Other transformations are represented by their encoded and decoded sides and marked `unverifiable`.
-_Avoid_: Inferred transformation, source-hashed transformation.
+**restored schema**:
+A live, working schema rebuilt from an **ESchema snapshot** alone, with no access to the original source. Restore is the mirror of capture, and it is sound because captured fields contain the identity needed to restore them. ESchema refuses unrepresentable fields at definition time, except for the known `Schema.UniqueSymbol` edge case: a local symbol fails during capture, while a registered `Symbol.for(...)` value can be captured and restored. A composed field restores by resolving its **ESchema snapshot** reference, not by reviving the wrapper that produced it.
+_Avoid_: Reconstructed type, rebuilt schema.

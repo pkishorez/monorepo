@@ -8,8 +8,12 @@ import type {
   StructFieldsSchema,
 } from '../schema-model/index.js';
 import { metaSchema, schemaDescriptor, struct } from '../schema-model/index.js';
-import { ESchemaError } from '../eschema-error/index.js';
 import {
+  ESchemaError,
+  UnrepresentableFieldError,
+} from '../eschema-error/index.js';
+import {
+  findUnrepresentableField,
   registerESchemaIntrospection,
   type ESchemaKind,
 } from '../introspection/index.js';
@@ -26,6 +30,17 @@ export function makeObjectSchemaRuntime<
   readonly evolutions: readonly Evolution[];
 }) {
   const evolutions = [...input.evolutions];
+  for (const evolution of evolutions) {
+    const found = findUnrepresentableField(struct(evolution.schema).ast);
+    if (found !== undefined) {
+      throw new UnrepresentableFieldError(
+        input.name,
+        evolution.version,
+        found.path,
+        found.reason,
+      );
+    }
+  }
   registerESchemaIntrospection(input.owner, () => ({
     name: input.name,
     kind: input.kind,

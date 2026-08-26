@@ -1,7 +1,6 @@
 import { it, describe, expect } from 'vitest';
 import { Schema } from 'effect';
 import { EntityESchema } from '../index.js';
-import { StringToNumber } from './fixtures.js';
 
 describe('ESchema', () => {
   describe('Descriptors', () => {
@@ -44,16 +43,6 @@ describe('ESchema', () => {
         expect(descriptor.properties).toHaveProperty('a');
         expect(descriptor.properties).toHaveProperty('b');
         expect(versionSchema.enum).toEqual(['v2']);
-      });
-
-      it('represents encoded types correctly for transforms', () => {
-        const schema = EntityESchema.make('Test', 'id', {
-          count: StringToNumber,
-        }).build();
-
-        const descriptor = schema.getDescriptor();
-        const countSchema = descriptor.properties.count as { type?: string };
-        expect(countSchema.type).toBe('string');
       });
 
       it('includes id in properties', () => {

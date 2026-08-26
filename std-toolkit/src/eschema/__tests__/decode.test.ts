@@ -5,7 +5,6 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../index.js';
 import { ESchemaError } from '../index.js';
-import { StringToNumber } from './fixtures.js';
 
 describe('ESchema', () => {
   describe('Decoding', () => {
@@ -14,14 +13,14 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             name: Schema.String,
-            count: StringToNumber,
+            count: Schema.Number,
           }).build();
 
           const decoded = yield* schema.decode({
             _v: 'v1',
             id: 't1',
             name: 'foo',
-            count: '10',
+            count: 10,
           });
           expect(decoded).toEqual({ id: 't1', name: 'foo', count: 10 });
         }),
@@ -30,12 +29,12 @@ describe('ESchema', () => {
       itEffect('decodes and migrates v1 to v2', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
-            a: StringToNumber,
+            a: Schema.Number,
           })
             .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'added' }))
             .build();
 
-          const decoded = yield* schema.decode({ _v: 'v1', id: 't1', a: '42' });
+          const decoded = yield* schema.decode({ _v: 'v1', id: 't1', a: 42 });
           expect(decoded).toEqual({ id: 't1', a: 42, b: 'added' });
         }),
       );

@@ -5,7 +5,6 @@ const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
 import { Effect, Schema } from 'effect';
 import { ESchema, fromType } from '../index.js';
 import { ESchemaError } from '../index.js';
-import { StringToNumber } from './fixtures.js';
 
 describe('ESchema', () => {
   describe('Plain schema', () => {
@@ -25,13 +24,13 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = ESchema.make('Counter', {
             name: Schema.String,
-            count: StringToNumber,
+            count: Schema.Number,
           }).build();
 
           const decoded = yield* schema.decode({
             _v: 'v1',
             name: 'foo',
-            count: '10',
+            count: 10,
           });
           expect(decoded).toEqual({ name: 'foo', count: 10 });
         }),
@@ -142,7 +141,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = ESchema.make('Counter', {
             name: Schema.String,
-            count: StringToNumber,
+            count: Schema.Number,
           }).build();
 
           const encoded = yield* schema.encode({ name: 'test', count: 42 });
