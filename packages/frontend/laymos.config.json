@@ -20,6 +20,7 @@
     "src/components/blocks/laymos/module-inspection/violation/fixtures",
     "src/components/blocks/laymos/story-inspection/fixtures",
     "src/components/blocks/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
+    "src/components/blocks/std-toolkit-studio/std-toolkit-studio.fixture.tsx",
     "src/cosmos.decorator.tsx",
     "src/css.d.ts",
     "src/styles"
@@ -165,6 +166,35 @@
             "graph-layout": ["relationship-presentation"],
             "diagram-canvas": ["graph-layout"],
             "complex-field-details": ["relationship-presentation"]
+          }
+        }
+      }
+    },
+    "studio": {
+      "paths": ["src/components/blocks/std-toolkit-studio"],
+      "description": "Composes reusable Blocks into the Std Toolkit Studio",
+      "moduleGraphs": {
+        "std-toolkit-studio": {
+          "description": "Loads, queries, and presents one StdTable through Studio RPC",
+          "path": "src/components/blocks/std-toolkit-studio",
+          "modules": {
+            "std-toolkit-studio": {
+              "exposed": true
+            },
+            "snapshot-session": {},
+            "query-model": {},
+            "query-workspace": {},
+            "record-table": {},
+            "record-details": {}
+          },
+          "rules": {
+            "std-toolkit-studio": ["snapshot-session", "query-workspace"],
+            "query-workspace": [
+              "query-model",
+              "record-table",
+              "record-details"
+            ],
+            "record-table": ["query-model"]
           }
         }
       }
@@ -483,6 +513,7 @@
     "frontend": {
       "description": "Frontend component architecture",
       "rules": {
+        "studio": ["blocks"],
         "architecture-analysis": ["blocks"],
         "devtools-panel": ["blocks"],
         "blocks": ["ui"],

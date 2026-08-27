@@ -14,6 +14,7 @@
     "./components/blocks/flow-swimlane": "./src/components/blocks/flow-swimlane/flow-swimlane/index.ts",
     "./components/blocks/laymos": "./src/components/blocks/laymos/analysis-explorer/index.ts",
     "./components/blocks/otel-trace-viewer": "./src/components/blocks/otel-trace-viewer/trace-viewer/index.ts",
+    "./components/blocks/std-toolkit-studio": "./src/components/blocks/std-toolkit-studio/std-toolkit-studio/index.ts",
     "./components/blocks/*": "./src/components/blocks/*/index.ts",
     "./components/*": "./src/components/*.tsx",
     "./lib/shadow-dom": "./src/lib/shadow-dom.tsx",
