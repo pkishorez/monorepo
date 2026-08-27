@@ -9,7 +9,7 @@ A structured, serializable description of every ESchema version on both its enco
 _Avoid_: Source snapshot, version-file snapshot.
 
 **ESchema snapshot change**:
-One semantically coherent difference between two **ESchema snapshots**, with its own safety classification. An addition or removal names the affected contract element; an edit describes its exact nested differences. A snapshot comparison is a list of changes, not a single overall verdict or an unstructured replacement of an entire contract section.
+One semantically coherent difference between two **ESchema snapshots**, with its own safety classification. An addition or removal names the affected contract element; an edit describes its exact nested differences; an added, removed, or retargeted **entity reference** is safe because it affects visualization metadata rather than persisted data or runtime behavior.
 _Avoid_: Overall status, snapshot result.
 
 **snapshot verification**:
@@ -31,3 +31,11 @@ _Avoid_: Generated ID, traversal ID.
 **restored schema**:
 A live, working schema rebuilt from an **ESchema snapshot** alone, with no access to the original source. Restore is the mirror of capture, and it is sound because captured fields contain the identity needed to restore them. ESchema refuses unrepresentable fields at definition time, except for the known `Schema.UniqueSymbol` edge case: a local symbol fails during capture, while a registered `Symbol.for(...)` value can be captured and restored. A composed field restores by resolving its **ESchema snapshot** reference, not by reviving the wrapper that produced it.
 _Avoid_: Reconstructed type, rebuilt schema.
+
+**Entity Relationship view**:
+A visual projection of a table snapshot's Entities, current fields, own identifiers, and explicitly declared entity references, including nested and external targets. Each reference is one directed connector from its source field to the target Entity's `idField`; no reverse connector is inferred, and table topology and access patterns are separate views.
+_Avoid_: Table topology graph, schema dependency graph.
+
+**external target**:
+The named target of an **entity reference** that is absent from the viewed table snapshot. It remains visible without an invented identifier field.
+_Avoid_: Missing Entity, invalid reference.

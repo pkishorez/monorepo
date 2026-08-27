@@ -3,6 +3,8 @@
   "sourceRoots": ["src"],
   "ignoredPaths": [
     "src/components/blocks/devtools-panel/devtools-panel.fixture.tsx",
+    "src/components/blocks/er-diagram/er-diagram.fixture.tsx",
+    "src/components/blocks/er-diagram/fixtures",
     "src/components/blocks/hello.tsx",
     "src/components/blocks/flow-swimlane/examples",
     "src/components/blocks/flow-swimlane/flow-swimlane.fixture.tsx",
@@ -26,6 +28,7 @@
     "blocks": {
       "paths": [
         "src/components/blocks/diff-viewer",
+        "src/components/blocks/er-diagram",
         "src/components/blocks/file-tree",
         "src/components/blocks/flow-swimlane",
         "src/components/blocks/json",
@@ -138,6 +141,27 @@
             ],
             "narrative-view": ["trace-model", "trace-presentation"],
             "span-inspection": ["trace-model", "trace-presentation"]
+          }
+        },
+        "er-diagram": {
+          "description": "Presents table snapshots as clean field-level entity relationship diagrams",
+          "path": "src/components/blocks/er-diagram",
+          "modules": {
+            "er-diagram": {
+              "exposed": true
+            },
+            "relationship-presentation": {},
+            "graph-layout": {},
+            "diagram-canvas": {}
+          },
+          "rules": {
+            "er-diagram": [
+              "relationship-presentation",
+              "graph-layout",
+              "diagram-canvas"
+            ],
+            "graph-layout": ["relationship-presentation"],
+            "diagram-canvas": ["graph-layout"]
           }
         }
       }
