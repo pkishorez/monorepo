@@ -68,7 +68,7 @@ describe('applyRelationshipFocus', () => {
     expect(focused.edges[0]?.style?.opacity).toBe(0.96);
   });
 
-  it('narrows a selected entity to a hovered connected entity', async () => {
+  it('confines a hovered entity to the pinned entity relationships', async () => {
     const layout = await layoutGraph(presentSnapshot(annotatedSnapshot));
     const unrelated = {
       ...layout.nodes[1]!,
@@ -97,7 +97,33 @@ describe('applyRelationshipFocus', () => {
     expect(focused.edges[0]?.style?.opacity).toBe(0.96);
   });
 
-  it('keeps card-level narrowing over an ordinary field', async () => {
+  it('does not leave the pinned entity for an unrelated hovered entity', async () => {
+    const layout = await layoutGraph(presentSnapshot(annotatedSnapshot));
+    const unrelated = {
+      ...layout.nodes[1]!,
+      id: 'Unrelated',
+      data: {
+        ...layout.nodes[1]!.data,
+        entity: { ...layout.nodes[1]!.data.entity, id: 'Unrelated' },
+      },
+    };
+    const focused = applyRelationshipFocus(
+      { kind: 'entity', entityId: 'Customer' },
+      [...layout.nodes, unrelated],
+      layout.edges,
+      { kind: 'entity', entityId: 'Unrelated' },
+    );
+
+    expect(
+      focused.nodes.find(({ id }) => id === 'Customer')?.data.focused,
+    ).toBe(true);
+    expect(
+      focused.nodes.find(({ id }) => id === 'Unrelated')?.data.dimmed,
+    ).toBe(true);
+    expect(focused.edges[0]?.style?.opacity).toBe(0.1);
+  });
+
+  it('does not leave the pinned entity for an unrelated hovered field', async () => {
     const layout = await layoutGraph(presentSnapshot(annotatedSnapshot));
     const otherNode = {
       ...layout.nodes[1]!,
@@ -126,7 +152,10 @@ describe('applyRelationshipFocus', () => {
       { kind: 'field', entityId: 'Order', fieldName: 'status' },
     );
 
-    expect(focused.nodes.find(({ id }) => id === 'Order')?.data.related).toBe(
+    expect(
+      focused.nodes.find(({ id }) => id === 'Customer')?.data,
+    ).toMatchObject({ focused: true, dimmed: false });
+    expect(focused.nodes.find(({ id }) => id === 'Order')?.data.dimmed).toBe(
       true,
     );
     expect(focused.nodes.find(({ id }) => id === 'Other')?.data.dimmed).toBe(
@@ -135,10 +164,10 @@ describe('applyRelationshipFocus', () => {
     expect(
       focused.edges.find(({ id }) => id === otherEdge.id)?.style?.opacity,
     ).toBe(0.1);
-    expect(focused.edges[0]?.style?.opacity).toBe(0.96);
+    expect(focused.edges[0]?.style?.opacity).toBe(0.1);
   });
 
-  it('narrows a selected entity to the exact hovered field edge', async () => {
+  it('confines a hovered reference field to the pinned entity', async () => {
     const layout = await layoutGraph(presentSnapshot(annotatedSnapshot));
     const focused = applyRelationshipFocus(
       { kind: 'entity', entityId: 'Customer' },
@@ -150,6 +179,66 @@ describe('applyRelationshipFocus', () => {
     expect(
       focused.nodes.find(({ id }) => id === 'Customer')?.data,
     ).toMatchObject({ focused: true, connectedFields: ['id'] });
+    expect(focused.nodes.find(({ id }) => id === 'Order')?.data).toMatchObject({
+      related: true,
+      connectedFields: ['customerId'],
+    });
+    expect(focused.edges[0]?.style?.opacity).toBe(0.96);
+  });
+
+  it('previews a card without requiring a pinned selection', async () => {
+    const layout = await layoutGraph(presentSnapshot(annotatedSnapshot));
+    const focused = applyRelationshipFocus(
+      undefined,
+      layout.nodes,
+      layout.edges,
+      { kind: 'entity', entityId: 'Customer' },
+    );
+
+    expect(
+      focused.nodes.find(({ id }) => id === 'Customer')?.data.focused,
+    ).toBe(true);
+    expect(focused.nodes.find(({ id }) => id === 'Order')?.data.related).toBe(
+      true,
+    );
+    expect(focused.edges[0]?.style?.opacity).toBe(0.96);
+  });
+
+  it('previews every connector targeting a hovered id field', async () => {
+    const layout = await layoutGraph(presentSnapshot(annotatedSnapshot));
+    const focused = applyRelationshipFocus(
+      undefined,
+      layout.nodes,
+      layout.edges,
+      { kind: 'field', entityId: 'Customer', fieldName: 'id' },
+    );
+
+    expect(
+      focused.nodes.find(({ id }) => id === 'Customer')?.data,
+    ).toMatchObject({ focused: true, selectedField: 'id' });
+    expect(focused.nodes.find(({ id }) => id === 'Order')?.data).toMatchObject({
+      related: true,
+      connectedFields: ['customerId'],
+    });
+    expect(focused.edges[0]?.style?.opacity).toBe(0.96);
+  });
+
+  it('narrows a pinned entity to one of its own hovered fields', async () => {
+    const layout = await layoutGraph(presentSnapshot(annotatedSnapshot));
+    const focused = applyRelationshipFocus(
+      { kind: 'entity', entityId: 'Customer' },
+      layout.nodes,
+      layout.edges,
+      { kind: 'field', entityId: 'Customer', fieldName: 'id' },
+    );
+
+    expect(
+      focused.nodes.find(({ id }) => id === 'Customer')?.data,
+    ).toMatchObject({
+      focused: true,
+      selectedField: 'id',
+      connectedFields: ['id'],
+    });
     expect(focused.nodes.find(({ id }) => id === 'Order')?.data).toMatchObject({
       related: true,
       connectedFields: ['customerId'],

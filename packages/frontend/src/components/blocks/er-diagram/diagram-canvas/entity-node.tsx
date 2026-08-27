@@ -210,7 +210,7 @@ export function EntityNode({ data }: NodeProps<DiagramNode>) {
                     event.stopPropagation();
                     if (field.complex !== undefined) {
                       data.onComplexFieldOpen?.(entity.id, field.name);
-                    } else if (field.referenceTarget !== undefined) {
+                    } else {
                       data.onFieldSelect?.(entity.id, field.name);
                     }
                   }}
