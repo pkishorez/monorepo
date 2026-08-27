@@ -28,11 +28,29 @@ function configPaths(config: Config): readonly ConfigPath[] {
       location: `ignoredPaths[${index}]`,
       path,
     })),
-    ...Object.entries(config.layers).flatMap(([layer, value]) =>
-      value.paths.map((path, index) => ({
+    ...Object.entries(config.layers).flatMap(([layer, value]) => [
+      ...value.paths.map((path, index) => ({
         location: `layers.${layer}.paths[${index}]`,
         path,
       })),
+      ...(value.docsPath === undefined
+        ? []
+        : [{ location: `layers.${layer}.docsPath`, path: value.docsPath }]),
+      ...Object.entries(value.moduleGraphs).flatMap(([graph, graphValue]) =>
+        graphValue.docsPath === undefined
+          ? []
+          : [
+              {
+                location: `layers.${layer}.moduleGraphs.${graph}.docsPath`,
+                path: graphValue.docsPath,
+              },
+            ],
+      ),
+    ]),
+    ...Object.entries(config.layerGraphs).flatMap(([graph, value]) =>
+      value.docsPath === undefined
+        ? []
+        : [{ location: `layerGraphs.${graph}.docsPath`, path: value.docsPath }],
     ),
   ];
 }

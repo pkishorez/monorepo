@@ -53,6 +53,7 @@ export interface GraphHeaderNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly active: boolean;
   readonly activatable: boolean;
+  readonly openable: boolean;
 }
 
 export type LayerGraphNode = Node<LayerNodeData, 'layer'>;
@@ -68,6 +69,7 @@ interface GraphLayoutInput extends LayerInteraction {
   readonly isolatedLayerGraphId?: string;
   readonly showLayerConnections?: boolean;
   readonly onLayerGraphActivate?: (graphId: string) => void;
+  readonly onLayerGraphOpen?: (graphId: string) => void;
   readonly activeViolationPair?: LayerViolationPair;
 }
 
@@ -155,6 +157,7 @@ export function layoutGraph(input: GraphLayoutInput): {
         dimmed,
         active: input.activeLayerGraphId === group.id,
         activatable: input.onLayerGraphActivate !== undefined,
+        openable: input.onLayerGraphOpen !== undefined,
         ...(group.description === undefined
           ? {}
           : { description: group.description }),

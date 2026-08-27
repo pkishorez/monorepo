@@ -11,7 +11,7 @@ import {
   complexModuleDependencies,
   complexModules,
 } from '../../module-inspection/fixtures/complex-fixture-data';
-import { loadFixtureModuleSource } from '../../module-inspection/fixtures/fixture-data';
+import { loadFixtureSourceFiles } from '../../module-inspection/fixtures/fixture-data';
 import {
   storyReports,
   storyTree,
@@ -45,7 +45,7 @@ function Interactive() {
       layerCoverageViolations={complexCoverageViolations}
       modules={changedModules}
       dependencies={complexModuleDependencies}
-      loadModuleSource={loadFixtureModuleSource}
+      loadSourceFiles={loadFixtureSourceFiles}
       loadFileDiff={loadFixtureFileDiff}
       changes={gitOptions.showChanges ? fixtureChangeIndex : undefined}
       gitAvailable

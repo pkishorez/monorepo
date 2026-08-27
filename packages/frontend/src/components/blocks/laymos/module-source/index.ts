@@ -1,7 +1,8 @@
 export { ModuleSourceExplorer, moduleSourceRequest } from './module-source';
 export type {
   ChangedPaths,
+  LoadDocumentation,
   LoadFileDiff,
-  LoadModuleSource,
-  ModuleSourceOpenRequest,
+  LoadSourceFiles,
+  SourceOpenRequest,
 } from './module-source';

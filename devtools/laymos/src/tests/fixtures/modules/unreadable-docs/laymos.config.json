@@ -1,0 +1,12 @@
+{
+  "sourceRoots": ["src"],
+  "layers": {
+    "app": {
+      "paths": ["src"],
+      "modules": {
+        "src/broken-docs": {}
+      }
+    }
+  },
+  "layerGraphs": {}
+}

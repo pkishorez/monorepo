@@ -6,7 +6,7 @@ import {
   moduleGraphs,
   modules,
   moduleViolations,
-  loadFixtureModuleSource,
+  loadFixtureSourceFiles,
 } from './fixture-data';
 import { LaymosShell } from '../../architecture-workspace';
 
@@ -19,6 +19,6 @@ export default (
     moduleGraphs={moduleGraphs}
     dependencies={moduleDependencies}
     moduleViolations={moduleViolations}
-    loadModuleSource={loadFixtureModuleSource}
+    loadSourceFiles={loadFixtureSourceFiles}
   />
 );

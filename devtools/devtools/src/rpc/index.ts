@@ -4,10 +4,13 @@ export {
   ConfigSchemaError,
   ConfigValidationError,
   DevtoolsRpc,
+  DocumentationReadError,
+  DocumentationScopeNotFoundError,
   GitUnavailableError,
   InvalidProjectPath,
   ModuleSourceNotFoundError,
   ModuleSourceReadError,
   SourceAnalysisError,
+  SourceFileReadError,
   StoriesUnavailableError,
 } from './rpc.js';

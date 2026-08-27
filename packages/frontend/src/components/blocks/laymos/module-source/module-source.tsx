@@ -1,10 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Effect } from 'effect';
-import type { ChangeStatus, FileDiff, ModuleSourceSnapshot } from 'laymos';
+import type {
+  ChangeStatus,
+  Documentation,
+  DocumentationScope,
+  FileDiff,
+  ModuleSourceFile,
+} from 'laymos';
 import { useComponentLifecycle } from 'use-effect-ts';
 
 import { DiffViewer } from '../../diff-viewer';
 import { FileTree, expandAll, expandTo } from '../../file-tree';
+import { MarkdownViewer } from '../../markdown-viewer';
 import { SourceViewer, type SourceViewerLine } from '../../source-viewer';
 import { Button } from '#components/ui/button';
 import {
@@ -20,6 +27,7 @@ import {
   ResizablePanelGroup,
 } from '#components/ui/resizable';
 import { Spinner } from '#components/ui/spinner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
 import { ChevronsDownUp, ChevronsUpDown, RefreshCw } from '#lib/lucide';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
@@ -28,27 +36,49 @@ import { initialSourceFile } from './initial-selection';
 import { buildSnapshotTree } from './snapshot-tree';
 import type { Module } from '../analysis-presentation';
 
-export type LoadModuleSource = (
-  modulePath: string,
-) => Effect.Effect<ModuleSourceSnapshot, unknown, never>;
+export type LoadSourceFiles = (
+  pathPrefixes: readonly string[],
+) => Effect.Effect<
+  { readonly files: readonly ModuleSourceFile[] },
+  unknown,
+  never
+>;
 
 export type LoadFileDiff = (
   path: string,
 ) => Effect.Effect<FileDiff, unknown, never>;
 
+export type LoadDocumentation = (
+  scope: DocumentationScope,
+) => Effect.Effect<Documentation, unknown, never>;
+
 export type ChangedPaths = ReadonlyMap<string, ChangeStatus>;
 
-export interface ModuleSourceOpenRequest {
-  readonly modulePath: string;
+// One scope this dialog can explore — a Configured Module, a Module Graph, a
+// Layer, or a LayerGraph — reduced to what fetching and labeling need: a
+// title, the project-relative roots whose files belong to it, the
+// Documentation scope it reads, and an optional entry point (only a Module
+// has one).
+export interface SourceOpenRequest {
+  readonly title: string;
+  readonly pathPrefixes: readonly string[];
+  readonly scope: DocumentationScope;
+  readonly entryPoint?: string;
   readonly initialFilePath?: string;
 }
 
 export function moduleSourceRequest(
   modules: readonly Module[],
   moduleId: string,
-): ModuleSourceOpenRequest | undefined {
+): SourceOpenRequest | undefined {
   const configured = modules.find(({ id }) => id === moduleId);
-  return configured === undefined ? undefined : { modulePath: configured.id };
+  return configured === undefined
+    ? undefined
+    : {
+        title: configured.id,
+        pathPrefixes: [configured.id],
+        scope: { kind: 'module', modulePath: configured.id },
+      };
 }
 
 type UnchangedMode = 'show' | 'dim' | 'hide';
@@ -56,33 +86,47 @@ type UnchangedMode = 'show' | 'dim' | 'hide';
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'failure'; readonly message: string }
-  | { readonly kind: 'success'; readonly snapshot: ModuleSourceSnapshot };
+  | {
+      readonly kind: 'success';
+      readonly files: readonly ModuleSourceFile[];
+    };
+
+type DocumentationState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'failure'; readonly message: string }
+  | { readonly kind: 'success'; readonly documentation: Documentation };
+
+const filesTabId = 'files';
+const documentationTabId = 'documentation';
 
 export function ModuleSourceExplorer({
   request,
-  loadModuleSource,
+  loadSourceFiles,
   loadFileDiff,
+  loadDocumentation,
   changedPaths,
   onClose,
 }: {
-  readonly request: ModuleSourceOpenRequest;
-  readonly loadModuleSource: LoadModuleSource;
+  readonly request: SourceOpenRequest;
+  readonly loadSourceFiles: LoadSourceFiles;
   readonly loadFileDiff?: LoadFileDiff;
+  readonly loadDocumentation?: LoadDocumentation;
   readonly changedPaths?: ChangedPaths;
   readonly onClose: () => void;
 }) {
   const [reload, setReload] = useState(0);
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const prefixKey = request.pathPrefixes.join('\0');
 
   useComponentLifecycle(
-    loadModuleSource(request.modulePath).pipe(
+    loadSourceFiles(request.pathPrefixes).pipe(
       Effect.match({
         onFailure: (error) =>
           setState({ kind: 'failure', message: failureMessage(error) }),
-        onSuccess: (snapshot) => setState({ kind: 'success', snapshot }),
+        onSuccess: ({ files }) => setState({ kind: 'success', files }),
       }),
     ),
-    { deps: [request.modulePath, reload] },
+    { deps: [prefixKey, reload] },
   );
 
   const reloadSource = () => {
@@ -90,46 +134,107 @@ export function ModuleSourceExplorer({
     setReload((value) => value + 1);
   };
 
+  // Documentation-first: the dialog opens on the Documentation tab and only
+  // falls back to Files once loading confirms there's nothing to show there.
+  const [activeTab, setActiveTab] = useState(
+    loadDocumentation === undefined ? filesTabId : documentationTabId,
+  );
+  const [docState, setDocState] = useState<DocumentationState>({
+    kind: 'loading',
+  });
+  const scopeKey = JSON.stringify(request.scope);
+
+  useComponentLifecycle(
+    loadDocumentation === undefined
+      ? Effect.sync(() => setDocState({ kind: 'loading' }))
+      : loadDocumentation(request.scope).pipe(
+          Effect.match({
+            onFailure: (error) =>
+              setDocState({ kind: 'failure', message: failureMessage(error) }),
+            onSuccess: (documentation) =>
+              setDocState({ kind: 'success', documentation }),
+          }),
+        ),
+    { deps: [scopeKey, reload] },
+  );
+
+  const docUnavailable =
+    loadDocumentation === undefined ||
+    docState.kind === 'failure' ||
+    (docState.kind === 'success' &&
+      docState.documentation.content === undefined);
+
+  useEffect(() => {
+    if (docUnavailable && activeTab === documentationTabId) {
+      setActiveTab(filesTabId);
+    }
+  }, [docUnavailable, activeTab]);
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex h-[88vh] w-[min(1440px,95vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
-        <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pe-14">
-          <div className="flex min-w-0 items-center gap-3">
-            <DialogTitle className="min-w-0 flex-1 truncate font-mono text-sm">
-              {request.modulePath}
-            </DialogTitle>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={reloadSource}
-              disabled={state.kind === 'loading'}
-            >
-              <RefreshCw className="size-3.5" />
-              Reload
-            </Button>
-          </div>
-          <DialogDescription className="sr-only">
-            Browse the analyzed source files assigned to this Configured Module.
-          </DialogDescription>
-        </DialogHeader>
-        {state.kind === 'loading' ? (
-          <LoadingState />
-        ) : state.kind === 'failure' ? (
-          <FailureState
-            message={state.message}
-            onRetry={reloadSource}
-            onClose={onClose}
-          />
-        ) : (
-          <SnapshotView
-            key={reload}
-            snapshot={state.snapshot}
-            initialFilePath={request.initialFilePath}
-            loadFileDiff={loadFileDiff}
-            changedPaths={changedPaths}
-          />
-        )}
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="flex min-h-0 flex-1 flex-col gap-0"
+        >
+          <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pe-14">
+            <div className="flex min-w-0 items-center gap-3">
+              <DialogTitle className="min-w-0 flex-1 truncate font-mono text-sm">
+                {request.title}
+              </DialogTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={reloadSource}
+                disabled={state.kind === 'loading'}
+              >
+                <RefreshCw className="size-3.5" />
+                Reload
+              </Button>
+            </div>
+            <DialogDescription className="sr-only">
+              Browse the documentation and source files of this scope.
+            </DialogDescription>
+            <TabsList variant="line" className="mt-1">
+              <TabsTrigger value={documentationTabId} disabled={docUnavailable}>
+                Documentation
+              </TabsTrigger>
+              <TabsTrigger value={filesTabId}>Files</TabsTrigger>
+            </TabsList>
+          </DialogHeader>
+          <TabsContent
+            value={documentationTabId}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <DocumentationTab state={docState} />
+          </TabsContent>
+          <TabsContent
+            value={filesTabId}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            {state.kind === 'loading' ? (
+              <LoadingState />
+            ) : state.kind === 'failure' ? (
+              <FailureState
+                message={state.message}
+                onRetry={reloadSource}
+                onClose={onClose}
+              />
+            ) : (
+              <SnapshotView
+                key={reload}
+                files={state.files}
+                pathPrefixes={request.pathPrefixes}
+                entryPoint={request.entryPoint}
+                initialFilePath={request.initialFilePath}
+                loadFileDiff={loadFileDiff}
+                changedPaths={changedPaths}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );
@@ -175,19 +280,56 @@ function FailureState({
   );
 }
 
+function UnavailableState({ message }: { readonly message: string }) {
+  return (
+    <div className="grid min-h-0 flex-1 place-items-center p-6">
+      <p className="max-w-sm text-center text-sm text-muted-foreground">
+        {message}
+      </p>
+    </div>
+  );
+}
+
+function DocumentationTab({ state }: { readonly state: DocumentationState }) {
+  if (state.kind === 'loading') return <LoadingState />;
+  if (state.kind === 'failure') {
+    return <UnavailableState message={state.message} />;
+  }
+  if (state.documentation.content === undefined) {
+    return (
+      <UnavailableState message="No documentation is configured for this scope." />
+    );
+  }
+
+  return (
+    <div className={cn('min-h-0 flex-1 overflow-y-auto p-6', scrollbarStyles)}>
+      {state.documentation.path !== undefined && (
+        <p className="mb-4 font-mono text-xs text-muted-foreground">
+          {state.documentation.path}
+        </p>
+      )}
+      <MarkdownViewer>{state.documentation.content}</MarkdownViewer>
+    </div>
+  );
+}
+
 function SnapshotView({
-  snapshot,
+  files,
+  pathPrefixes,
+  entryPoint,
   initialFilePath,
   loadFileDiff,
   changedPaths,
 }: {
-  readonly snapshot: ModuleSourceSnapshot;
+  readonly files: readonly ModuleSourceFile[];
+  readonly pathPrefixes: readonly string[];
+  readonly entryPoint?: string;
   readonly initialFilePath?: string;
   readonly loadFileDiff?: LoadFileDiff;
   readonly changedPaths?: ChangedPaths;
 }) {
-  const tree = buildSnapshotTree(snapshot);
-  const initialPath = initialSourceFile(snapshot, initialFilePath);
+  const tree = buildSnapshotTree(files, pathPrefixes);
+  const initialPath = initialSourceFile(files, entryPoint, initialFilePath);
   const [selectedPath, setSelectedPath] = useState(initialPath);
   const initialTreePath =
     initialPath === undefined
@@ -213,7 +355,7 @@ function SnapshotView({
     const folders = expandAll(visiblePaths);
     return folders.length > 0 && folders.every((f) => expanded.includes(f));
   }, [visiblePaths, expanded]);
-  const selected = snapshot.files.find(({ path }) => path === selectedPath);
+  const selected = files.find(({ path }) => path === selectedPath);
   const selectedTreePath =
     selectedPath === undefined
       ? undefined
@@ -317,7 +459,7 @@ function FileView({
   status,
   loadFileDiff,
 }: {
-  readonly file: ModuleSourceSnapshot['files'][number];
+  readonly file: ModuleSourceFile;
   readonly status?: ChangeStatus;
   readonly loadFileDiff?: LoadFileDiff;
 }) {

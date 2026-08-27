@@ -57,6 +57,8 @@ const layerOffsetY = 84;
 interface GraphCallbacks {
   readonly onModuleActivate?: (moduleId: string) => void;
   readonly onLayerGraphActivate?: (graphId: string) => void;
+  readonly onLayerOpen?: (layerId: string) => void;
+  readonly onLayerGraphOpen?: (graphId: string) => void;
 }
 
 export interface ModuleGraphLayoutInput extends GraphCallbacks {
@@ -83,6 +85,7 @@ interface LayerNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly softlyDimmed: boolean;
   readonly moduleCount: number;
+  readonly openable: boolean;
 }
 
 interface GraphLaneNodeData extends Record<string, unknown> {
@@ -95,6 +98,7 @@ interface GraphHeaderNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly active: boolean;
   readonly activatable: boolean;
+  readonly openable: boolean;
 }
 
 interface ModuleNodeData extends Record<string, unknown> {
@@ -274,6 +278,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
         dimmed: laneDimmed,
         active: activeLayerGraphId === group.id,
         activatable: input.onLayerGraphActivate !== undefined,
+        openable: input.onLayerGraphOpen !== undefined,
         ...(group.description === undefined
           ? {}
           : { description: group.description }),
@@ -326,6 +331,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
         softlyDimmed:
           hover !== undefined && !dimmed && !hover.layerIds.has(layer.id),
         moduleCount: base.modules.length,
+        openable: input.onLayerOpen !== undefined,
       },
     });
 
@@ -343,7 +349,7 @@ export function layoutModuleGraph(input: ModuleGraphLayoutInput): {
         selectable: false,
         focusable: false,
         zIndex: zBand,
-        style: { pointerEvents: 'none' },
+        style: { pointerEvents: 'auto' },
         data: {
           label: band.graph.id,
           ...(band.graph.description === undefined

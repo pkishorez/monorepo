@@ -63,3 +63,15 @@ export const FileDiffSchema = Schema.Struct({
 });
 
 export type FileDiff = typeof FileDiffSchema.Type;
+
+export const BranchSchema = Schema.Struct({
+  name: Schema.String,
+  remote: Schema.Boolean,
+  current: Schema.Boolean,
+}).annotate({
+  title: 'Branch',
+  description:
+    "One local or remote-tracking branch a Change set's Base ref may name. `current` marks the branch HEAD is on.",
+});
+
+export type Branch = typeof BranchSchema.Type;

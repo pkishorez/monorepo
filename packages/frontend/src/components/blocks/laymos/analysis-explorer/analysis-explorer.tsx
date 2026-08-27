@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type {
   ArchitectureAnalysis,
+  Branch,
   ChangeSet,
   StoryReport,
   StoryTree,
@@ -25,7 +26,11 @@ import {
   ModuleTree as ModuleTreeView,
   ModuleViolationsList as ModuleViolationsListView,
 } from '../module-inspection';
-import type { LoadFileDiff, LoadModuleSource } from '../module-source';
+import type {
+  LoadDocumentation,
+  LoadFileDiff,
+  LoadSourceFiles,
+} from '../module-source';
 
 interface AnalysisProps {
   readonly analysis: ArchitectureAnalysis;
@@ -33,9 +38,14 @@ interface AnalysisProps {
 }
 
 interface LaymosProps extends AnalysisProps {
-  readonly loadModuleSource: LoadModuleSource;
+  readonly loadSourceFiles: LoadSourceFiles;
   readonly changes?: ChangeSet;
   readonly loadFileDiff?: LoadFileDiff;
+  readonly loadDocumentation?: LoadDocumentation;
+  readonly branches?: readonly Branch[];
+  readonly baseRef?: string;
+  readonly onBaseRefChange?: (baseRef: string) => void;
+  readonly gitAvailable?: boolean;
   readonly stories?: {
     readonly tree: StoryTree;
     readonly reports?: Readonly<Record<string, StoryReport>>;
@@ -48,23 +58,34 @@ interface LayerGraphProps extends AnalysisProps, LayerInteraction {
   readonly layerGraphId?: string;
   readonly activeViolationPairId?: string;
   readonly onClearFocus?: () => void;
+  readonly onLayerGraphOpen?: (graphId: string) => void;
   readonly ariaLabel?: string;
 }
 
 export function Laymos({
   analysis,
-  loadModuleSource,
+  loadSourceFiles,
   changes,
   loadFileDiff,
+  loadDocumentation,
+  branches,
+  baseRef,
+  onBaseRefChange,
+  gitAvailable,
   stories,
   className,
 }: LaymosProps) {
   return (
     <LaymosExperience
       analysis={analysis}
-      loadModuleSource={loadModuleSource}
+      loadSourceFiles={loadSourceFiles}
       changes={changes}
       loadFileDiff={loadFileDiff}
+      loadDocumentation={loadDocumentation}
+      branches={branches}
+      baseRef={baseRef}
+      onBaseRefChange={onBaseRefChange}
+      gitAvailable={gitAvailable}
       stories={stories}
       className={className}
     />
@@ -178,6 +199,7 @@ interface ModuleGraphProps extends AnalysisProps {
   readonly activeViolationId?: string;
   readonly onModuleActivate?: (moduleId: string) => void;
   readonly onModuleOpen?: (moduleId: string) => void;
+  readonly onModuleGraphOpen?: (graphId: string) => void;
   readonly onLayerActivate?: (layerId: string) => void;
   readonly onClearFocus?: () => void;
 }
@@ -190,6 +212,7 @@ export function ModuleGraph({
   activeViolationId,
   onModuleActivate,
   onModuleOpen,
+  onModuleGraphOpen,
   onLayerActivate,
   onClearFocus,
   className,
@@ -211,6 +234,7 @@ export function ModuleGraph({
       )}
       onModuleActivate={onModuleActivate}
       onModuleOpen={onModuleOpen}
+      onModuleGraphOpen={onModuleGraphOpen}
       onLayerActivate={onLayerActivate}
       onClearFocus={onClearFocus}
     />
@@ -280,7 +304,11 @@ export function ModuleViolationsList({
 }
 
 export { ModuleLegend };
-export type { LoadFileDiff, LoadModuleSource } from '../module-source';
+export type {
+  LoadDocumentation,
+  LoadFileDiff,
+  LoadSourceFiles,
+} from '../module-source';
 
 function useModel(analysis: ArchitectureAnalysis) {
   return useMemo(() => buildPresentationModel(analysis), [analysis]);

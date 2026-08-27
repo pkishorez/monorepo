@@ -1,18 +1,14 @@
-import type { ModuleSourceSnapshot } from 'laymos';
-
 export function initialSourceFile(
-  snapshot: ModuleSourceSnapshot,
+  files: readonly { readonly path: string }[],
+  entryPoint?: string,
   requestedPath?: string,
 ): string | undefined {
-  const paths = snapshot.files.map(({ path }) => path);
+  const paths = files.map(({ path }) => path);
   if (requestedPath !== undefined && paths.includes(requestedPath)) {
     return requestedPath;
   }
-  if (
-    snapshot.entryPoint !== undefined &&
-    paths.includes(snapshot.entryPoint)
-  ) {
-    return snapshot.entryPoint;
+  if (entryPoint !== undefined && paths.includes(entryPoint)) {
+    return entryPoint;
   }
   return [...paths].sort((left, right) => left.localeCompare(right))[0];
 }

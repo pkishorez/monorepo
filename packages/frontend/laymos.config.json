@@ -29,6 +29,7 @@
         "src/components/blocks/file-tree",
         "src/components/blocks/flow-swimlane",
         "src/components/blocks/json",
+        "src/components/blocks/markdown-viewer",
         "src/components/blocks/otel-trace-viewer",
         "src/components/blocks/sequence",
         "src/components/blocks/source-viewer",
@@ -45,6 +46,9 @@
         },
         "src/components/blocks/json": {
           "shared": true,
+          "exposed": true
+        },
+        "src/components/blocks/markdown-viewer": {
           "exposed": true
         },
         "src/components/blocks/sequence": {
@@ -200,7 +204,7 @@
               "architecture-tree",
               "project-changes"
             ],
-            "module-source": ["analysis-presentation"]
+            "module-source": ["analysis-presentation", "architecture-graph"]
           }
         }
       }

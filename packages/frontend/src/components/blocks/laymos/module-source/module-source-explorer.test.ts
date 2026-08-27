@@ -28,13 +28,17 @@ const members: readonly Module[] = [
 describe('moduleSourceRequest', () => {
   test('opens a Configured Module directly', () => {
     expect(moduleSourceRequest(modules, 'src/domain/orders')).toEqual({
-      modulePath: 'src/domain/orders',
+      title: 'src/domain/orders',
+      pathPrefixes: ['src/domain/orders'],
+      scope: { kind: 'module', modulePath: 'src/domain/orders' },
     });
   });
 
   test('opens a Module Graph member as its own Module', () => {
     expect(moduleSourceRequest(members, 'src/domain/orders/events')).toEqual({
-      modulePath: 'src/domain/orders/events',
+      title: 'src/domain/orders/events',
+      pathPrefixes: ['src/domain/orders/events'],
+      scope: { kind: 'module', modulePath: 'src/domain/orders/events' },
     });
   });
 

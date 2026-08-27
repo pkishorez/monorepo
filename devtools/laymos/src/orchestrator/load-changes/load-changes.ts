@@ -2,7 +2,11 @@ import { dirname, resolve } from 'node:path';
 
 import { Effect } from 'effect';
 
-import type { ChangeSet, FileDiff } from '../../change-set-schema/index.js';
+import type {
+  Branch,
+  ChangeSet,
+  FileDiff,
+} from '../../change-set-schema/index.js';
 import { Git, GitLive, type GitError } from '../../services/git/index.js';
 
 export function loadChangeSet(
@@ -23,6 +27,15 @@ export function loadFileDiff(
   return Effect.gen(function* () {
     const git = yield* Git;
     return yield* git.fileDiff(projectDir(configPath), baseRef, path);
+  }).pipe(Effect.provide(GitLive));
+}
+
+export function loadBranches(
+  configPath: string,
+): Effect.Effect<readonly Branch[], GitError> {
+  return Effect.gen(function* () {
+    const git = yield* Git;
+    return yield* git.branches(projectDir(configPath));
   }).pipe(Effect.provide(GitLive));
 }
 

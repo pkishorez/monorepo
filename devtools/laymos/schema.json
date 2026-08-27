@@ -71,6 +71,9 @@
             ],
             "description": "Human-readable summary of this Layer."
           },
+          "docsPath": {
+            "$ref": "#/definitions/Union_"
+          },
           "modules": {
             "type": "object",
             "additionalProperties": {
@@ -97,6 +100,9 @@
                 "path": {
                   "type": "string",
                   "description": "Canonical project-relative directory rooting this Module Graph. Every member lives below it and every file below it must belong to a member."
+                },
+                "docsPath": {
+                  "$ref": "#/definitions/Union_"
                 },
                 "modules": {
                   "type": "object",
@@ -162,6 +168,9 @@
             ],
             "description": "Human-readable summary of this LayerGraph."
           },
+          "docsPath": {
+            "$ref": "#/definitions/Union_"
+          },
           "rules": {
             "type": "object",
             "additionalProperties": {
@@ -192,6 +201,17 @@
   "title": "Laymos Config",
   "description": "Declares a project's Layers, their Modules and Module Graphs, and its LayerGraphs.",
   "definitions": {
+    "Union_": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
+    },
     "Objects_": {
       "type": "object",
       "properties": {

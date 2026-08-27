@@ -4,6 +4,7 @@
   "layers": {
     "app": {
       "paths": ["src"],
+      "docsPath": "docs/app.md",
       "modules": {
         "src/feature": {
           "exposed": true
@@ -15,5 +16,12 @@
       }
     }
   },
-  "layerGraphs": {}
+  "layerGraphs": {
+    "core": {
+      "docsPath": "docs/architecture.md",
+      "rules": {
+        "app": []
+      }
+    }
+  }
 }

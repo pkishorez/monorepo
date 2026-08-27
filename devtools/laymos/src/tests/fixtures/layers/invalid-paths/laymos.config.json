@@ -4,12 +4,29 @@
   "layers": {
     "app": {
       "paths": ["src/app/"],
+      "docsPath": "../../app.md",
       "modules": {
         "src/app": {
           "exposed": true
         }
+      },
+      "moduleGraphs": {
+        "feature": {
+          "path": "src/feature",
+          "docsPath": "/feature.md",
+          "modules": {
+            "one": { "exposed": true },
+            "two": {}
+          },
+          "rules": {}
+        }
       }
     }
   },
-  "layerGraphs": {}
+  "layerGraphs": {
+    "architecture": {
+      "docsPath": "docs/../architecture.md",
+      "rules": {}
+    }
+  }
 }

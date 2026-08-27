@@ -1,11 +1,12 @@
 import type {
+  Branch,
   ChangedPath,
   ChangeSet,
   ChangeStatus,
   DiffHunk,
 } from '../../change-set-schema/index.js';
 import { parsePatch } from './parse-patch.js';
-import { requireGit, splitNul } from './run-git.js';
+import { requireGit, runGit, splitNul } from './run-git.js';
 
 const wholeFileContext = 1_000_000;
 
@@ -126,6 +127,40 @@ async function resolveBase(baseDir: string, baseRef: string): Promise<string> {
     'unknown-ref',
   );
   return mergeBase.trim();
+}
+
+export async function listBranches(baseDir: string): Promise<Branch[]> {
+  await requireGit(baseDir, ['rev-parse', '--show-toplevel'], 'not-a-repo');
+  const current = (
+    await runGit(baseDir, ['symbolic-ref', '--short', 'HEAD'])
+  ).stdout.trim();
+
+  const local = splitLines(
+    await requireGit(
+      baseDir,
+      ['for-each-ref', '--format=%(refname:short)', 'refs/heads'],
+      'command-failed',
+    ),
+  ).map((name) => ({ name, remote: false, current: name === current }));
+
+  const remote = splitLines(
+    await requireGit(
+      baseDir,
+      ['for-each-ref', '--format=%(refname:short)', 'refs/remotes'],
+      'command-failed',
+    ),
+  )
+    .filter((name) => !name.endsWith('/HEAD'))
+    .map((name) => ({ name, remote: true, current: false }));
+
+  return [...local, ...remote];
+}
+
+function splitLines(stdout: string): string[] {
+  return stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '');
 }
 
 function trackedStatus(code: string): ChangeStatus | undefined {
