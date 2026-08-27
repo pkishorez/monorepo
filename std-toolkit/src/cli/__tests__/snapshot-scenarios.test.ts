@@ -14,9 +14,9 @@ import { Snapshot } from '../../snapshot/index.js';
 import { Effect } from 'effect';
 import * as NodeServices from '@effect/platform-node/NodeServices';
 import {
-  approveSnapshot,
   renderSnapshotResult,
   type SnapshotCommandResult,
+  updateSnapshot,
   verifySnapshot,
 } from '../snapshot/index.js';
 
@@ -152,7 +152,7 @@ interface Scenario {
   readonly baseline?: TableSnapshot;
   readonly current: TableSnapshot;
   readonly exitCode: number;
-  readonly mode?: 'verify' | 'approve';
+  readonly mode?: 'verify' | 'update';
 }
 
 const scenarios: readonly Scenario[] = [
@@ -171,7 +171,7 @@ const scenarios: readonly Scenario[] = [
     name: 'new-table-approved',
     current: table(),
     exitCode: 0,
-    mode: 'approve',
+    mode: 'update',
   },
   {
     name: 'entity-added',
@@ -223,7 +223,7 @@ const scenarios: readonly Scenario[] = [
       entities: [indexedEntity],
     }),
     exitCode: 0,
-    mode: 'approve',
+    mode: 'update',
   },
   {
     name: 'secondary-index-removed',
@@ -255,10 +255,10 @@ const scenarios: readonly Scenario[] = [
 ];
 
 function expectedFirstLine(scenario: Scenario): string {
-  if (scenario.mode === 'approve') {
+  if (scenario.mode === 'update') {
     return scenario.baseline === undefined
-      ? 'APPROVED  std-toolkit.snapshot.json'
-      : `APPROVED  ${Snapshot.diff(scenario.baseline, scenario.current).length} snapshot ${Snapshot.diff(scenario.baseline, scenario.current).length === 1 ? 'change' : 'changes'}`;
+      ? 'UPDATED  std-toolkit.snapshot.json'
+      : `UPDATED  ${Snapshot.diff(scenario.baseline, scenario.current).length} snapshot ${Snapshot.diff(scenario.baseline, scenario.current).length === 1 ? 'change' : 'changes'}`;
   }
   if (scenario.baseline === undefined) {
     return 'FAIL  No approved snapshot found';
@@ -284,9 +284,9 @@ async function runScenario(
     );
   }
   const commandResult: SnapshotCommandResult =
-    scenario.mode === 'approve'
+    scenario.mode === 'update'
       ? await Effect.runPromise(
-          approveSnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
+          updateSnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
         )
       : await Effect.runPromise(
           verifySnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),

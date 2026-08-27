@@ -1,6 +1,7 @@
 import { Effect, Schema } from 'effect';
 import type {
   ESchemaDescriptor,
+  ValueDraftDefinition,
   ValueEnvelopeEncoded,
   ValueEvolution,
   ValueSchema,
@@ -130,5 +131,58 @@ export function makeValueSchemaRuntime<
           value: schema(),
         }),
       ),
+  } as const;
+}
+
+/**
+ * Wraps the base value runtime with a draft overlay, mirroring
+ * `makeDraftedObjectSchemaRuntime`: decode folds through published
+ * migrations then the draft's forward migration; encode applies the draft's
+ * backward migration first, then encodes against the last published schema.
+ */
+export function makeDraftedValueSchemaRuntime<
+  TVersion extends string,
+  TLatest extends ValueSchema,
+  TDraft extends ValueSchema,
+>(input: {
+  readonly owner: object;
+  readonly name: string;
+  readonly latestVersion: TVersion;
+  readonly evolutions: readonly ValueEvolution[];
+  readonly draft: ValueDraftDefinition;
+}) {
+  const base = makeValueSchemaRuntime<TVersion, TLatest>(input);
+
+  const found = findUnrepresentableField(input.draft.schema.ast);
+  if (found !== undefined) {
+    throw new UnrepresentableFieldError(
+      input.name,
+      'draft',
+      found.path,
+      found.reason,
+    );
+  }
+
+  const decode = (
+    value: unknown,
+  ): Effect.Effect<ValueSchemaDecoded<TDraft>, ESchemaError> =>
+    base
+      .decode(value)
+      .pipe(
+        Effect.map(
+          (data) => input.draft.forward(data) as ValueSchemaDecoded<TDraft>,
+        ),
+      );
+
+  const encode = (
+    value: ValueSchemaDecoded<TDraft>,
+  ): Effect.Effect<ValueEnvelopeEncoded<TVersion, TLatest>, ESchemaError> =>
+    base.encode(input.draft.backward(value) as ValueSchemaDecoded<TLatest>);
+
+  return {
+    schema: base.schema,
+    decode,
+    encode,
+    descriptor: base.descriptor,
   } as const;
 }

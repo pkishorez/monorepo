@@ -4,4 +4,4 @@ BACKFILL
   Access pattern User/byEmail added
   Global secondary index GSI1 added
 
-Run: std-toolkit snapshot approve
+Run: std-toolkit snapshot update

@@ -5,6 +5,7 @@ import type {
   EncodedKey,
   StdTableContract,
 } from '../contract/index.js';
+import { ENFORCEMENT_ENTITY } from '../key/index.js';
 
 const SCAN_PAGE_SIZE = 200;
 
@@ -43,5 +44,5 @@ export const scanStream = (
       scanSegment(contract, segment, totalSegments),
     ),
     { concurrency: totalSegments },
-  );
+  ).pipe(Stream.filter((item) => item.meta._e !== ENFORCEMENT_ENTITY));
 };

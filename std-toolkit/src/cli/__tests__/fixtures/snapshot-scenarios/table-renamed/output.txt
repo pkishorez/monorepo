@@ -4,4 +4,4 @@ BREAKING
   Table legacy
     name: "app" → "legacy"
 
-Run: std-toolkit snapshot approve
+Run: std-toolkit snapshot update

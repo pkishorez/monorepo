@@ -47,7 +47,15 @@ The guarantee that the current application can decode every historical encoded v
 _Avoid_: backward compatibility, rolling-deployment compatibility.
 
 **encode**:
-Serialization. Always writes the latest **version** and stamps `_v`. Encoded values are intended for JSON persistence and transport; a field is enforced, at definition time, to use only a shape a Snapshot can capture and later restore — an object, primitive, literal, union, array, enum, template literal, or branded value. A custom transformation, or a filter or declared type without a stable identity, is refused before the schema can be built. `Schema.UniqueSymbol` is a known exception: a registered symbol from `Symbol.for(...)` can be captured, but a local symbol from `Symbol(...)` is accepted when the ESchema is defined and fails during snapshot capture because it has no stable identity.
+Serialization. Always writes the latest **version** and stamps `_v` — even when a **draft version** exists, encode never targets the draft's own shape, since a draft has no version of its own. Encoded values are intended for JSON persistence and transport; a field is enforced, at definition time, to use only a shape a Snapshot can capture and later restore — an object, primitive, literal, union, array, enum, template literal, or branded value. A custom transformation, or a filter or declared type without a stable identity, is refused before the schema can be built. `Schema.UniqueSymbol` is a known exception: a registered symbol from `Symbol.for(...)` can be captured, but a local symbol from `Symbol(...)` is accepted when the ESchema is defined and fails during snapshot capture because it has no stable identity.
+
+**draft version**:
+An unpublished, dev-time-only overlay on an **ESchema**, added with `.draft(delta, { forward, backward })`. At most one exists at a time. **decode** runs the normal **migration** chain up to the last **version**, then the draft's `forward` migration; **encode** runs the draft's `backward` migration first, then writes and stamps `_v` against that same last version — persisted bytes never move while a draft is in place. A draft is not a **version**: it never appears in an **Evolution**, so it is invisible to **ESchema snapshot** capture and both the file-based and table-level baselines.
+_Avoid_: staged version, preview version.
+
+**promote**:
+Turning a **draft version** into a real **version** — a plain source edit, not a runtime call. The developer replaces `.draft(delta, { forward, backward })` with `.evolve(nextVersion, delta, forward)`, dropping `backward` since encode now targets the new latest directly.
+_Avoid_: publish, confirm (as a runtime action).
 
 **decode**:
 Deserialization. Reads `_v`, then folds the data through **migration**s up to the current shape.

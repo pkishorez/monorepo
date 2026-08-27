@@ -7,7 +7,14 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
+      "std-toolkit/core": ["./src/core/index.ts"],
+      "std-toolkit/eschema": ["./src/eschema/index.ts"],
+      "std-toolkit/snapshot": ["./src/snapshot/index.ts"],
       "std-toolkit/sync": ["./src/sync/index.ts"],
+      "std-toolkit/sync/paced": ["./src/sync/runtime/mutation-pacing/index.ts"],
+      "std-toolkit/sync/platform/browser": [
+        "./src/sync/platform/browser/index.ts"
+      ],
       "std-toolkit/sync/leadership/in-memory": [
         "./src/sync/runtime/leadership/in-memory/index.ts"
       ],

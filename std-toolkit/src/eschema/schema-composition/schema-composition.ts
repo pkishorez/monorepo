@@ -2,12 +2,6 @@ import { Effect, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import type {
   AnyESchema,
   AnyValueESchema,
-  StructFieldsDecoded,
-  StructFieldsEncoded,
-  StructFieldsSchema,
-  ValueSchema,
-  ValueSchemaDecoded,
-  ValueSchemaEncoded,
 } from '../domain/schema-model/index.js';
 import { ESchemaError } from '../domain/eschema-error/index.js';
 import {
@@ -17,18 +11,12 @@ import {
 
 const compositionSchemas = new WeakMap<object, Schema.Top>();
 
-export function toSchema<V extends string, L extends StructFieldsSchema>(
-  eschema: AnyESchema<V, L>,
-): Schema.Codec<
-  StructFieldsDecoded<L>,
-  StructFieldsEncoded<L> & { readonly _v: string }
->;
-export function toSchema<V extends string, L extends ValueSchema>(
-  eschema: AnyValueESchema<V, L>,
-): Schema.Codec<
-  ValueSchemaDecoded<L>,
-  { readonly _v: string; readonly value: ValueSchemaEncoded<L> }
->;
+export function toSchema<T extends AnyESchema>(
+  eschema: T,
+): Schema.Codec<T['Type'], T['Encoded']>;
+export function toSchema<T extends AnyValueESchema>(
+  eschema: T,
+): Schema.Codec<T['Type'], T['Encoded']>;
 export function toSchema(eschema: AnyESchema | AnyValueESchema): Schema.Top {
   const cached = compositionSchemas.get(eschema);
   if (cached !== undefined) return cached;

@@ -33,7 +33,7 @@ export function verifySnapshot(cwd: string) {
   });
 }
 
-export function approveSnapshot(cwd: string) {
+export function updateSnapshot(cwd: string) {
   return Effect.gen(function* () {
     const [current, baseline] = yield* Effect.all(
       [loadContract(cwd), readBaseline(cwd)],
@@ -74,7 +74,7 @@ export function makeSnapshotCommand<R>(cwd: Effect.Effect<string, never, R>) {
       'Verify the database contract against the approved snapshot.',
     ),
     Command.withSubcommands([
-      Command.make('approve', {}, () => run(approveSnapshot)).pipe(
+      Command.make('update', {}, () => run(updateSnapshot)).pipe(
         Command.withDescription(
           'Write the current database contract as the approved snapshot.',
         ),

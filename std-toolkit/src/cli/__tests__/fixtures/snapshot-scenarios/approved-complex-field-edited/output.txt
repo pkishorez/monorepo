@@ -4,4 +4,4 @@ BREAKING
   User v1
     preferences · encoded and decoded: — → { notifications: { email: boolean; push: boolean }; theme: "light" | "dark" | "system" }
 
-Run: std-toolkit snapshot approve
+Run: std-toolkit snapshot update

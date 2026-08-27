@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
 import type {
+  DraftDefinition,
   ESchemaDescriptor,
   Evolution,
   Prettify,
@@ -132,5 +133,64 @@ export function makeObjectSchemaRuntime<
           _v: Schema.Literal(input.latestVersion),
         }),
       ),
+  } as const;
+}
+
+/**
+ * Wraps the base runtime with a draft overlay. Decode folds through every
+ * published migration as usual, then applies the draft's forward migration.
+ * Encode applies the draft's backward migration first, then encodes and
+ * stamps `_v` against the last published evolution — persisted bytes never
+ * move while a draft is in place.
+ */
+export function makeDraftedObjectSchemaRuntime<
+  TVersion extends string,
+  TLatest extends StructFieldsSchema,
+  TDraft extends StructFieldsSchema,
+>(input: {
+  readonly owner: object;
+  readonly name: string;
+  readonly kind: Exclude<ESchemaKind, 'value'>;
+  readonly idField: string | null;
+  readonly latestVersion: TVersion;
+  readonly evolutions: readonly Evolution[];
+  readonly draft: DraftDefinition;
+}) {
+  const base = makeObjectSchemaRuntime<TVersion, TLatest>(input);
+
+  const found = findUnrepresentableField(struct(input.draft.schema).ast);
+  if (found !== undefined) {
+    throw new UnrepresentableFieldError(
+      input.name,
+      'draft',
+      found.path,
+      found.reason,
+    );
+  }
+
+  const decode = (
+    value: unknown,
+  ): Effect.Effect<Prettify<StructFieldsDecoded<TDraft>>, ESchemaError> =>
+    base
+      .decode(value)
+      .pipe(
+        Effect.map(
+          (data) =>
+            input.draft.forward(data) as Prettify<StructFieldsDecoded<TDraft>>,
+        ),
+      );
+
+  const encode = (
+    value: StructFieldsDecoded<TDraft>,
+  ): Effect.Effect<
+    Prettify<StructFieldsEncoded<TLatest>> & { readonly _v: TVersion },
+    ESchemaError
+  > => base.encode(input.draft.backward(value) as StructFieldsDecoded<TLatest>);
+
+  return {
+    fields: base.fields,
+    decode,
+    encode,
+    descriptor: base.descriptor,
   } as const;
 }

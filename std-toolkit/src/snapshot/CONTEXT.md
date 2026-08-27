@@ -17,7 +17,7 @@ A check that the current contract exactly matches its approved baseline. Missing
 _Avoid_: Safety assessment, snapshot diff.
 
 **snapshot approval**:
-The explicit acceptance and storage of the current contract as the new baseline, independent of the safety classification of its changes.
+The explicit acceptance and storage of the current contract as the new baseline, independent of the safety classification of its changes. This is the CLI's file-based baseline only. db's Table-level enforcement is a distinct mechanism, gated by classification: it stores its own baseline inside the table and only ever moves it forward on a `safe` or `requires-backfill` diff, never unconditionally.
 _Avoid_: Safe change, automatic acceptance.
 
 **snapshot limitation**:

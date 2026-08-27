@@ -4,4 +4,4 @@ SAFE
   Access pattern User/byEmail removed
   Global secondary index GSI1 removed
 
-Run: std-toolkit snapshot approve
+Run: std-toolkit snapshot update

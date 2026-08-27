@@ -87,7 +87,7 @@ export function renderSnapshotResult(
         exitCode: 1,
         output: sections(
           'FAIL  No approved snapshot found',
-          'Run: std-toolkit snapshot approve',
+          'Run: std-toolkit snapshot update',
         ),
       };
     case 'Drift':
@@ -97,16 +97,16 @@ export function renderSnapshotResult(
           `FAIL  ${count(result.changes)} ${result.changes.length === 1 ? 'needs' : 'need'} approval`,
           Snapshot.renderChanges(result.changes),
           limitations(result.limitations),
-          'Run: std-toolkit snapshot approve',
+          'Run: std-toolkit snapshot update',
         ),
       };
     case 'Created':
-      return { exitCode: 0, output: `APPROVED  ${baselineFileName}` };
+      return { exitCode: 0, output: `UPDATED  ${baselineFileName}` };
     case 'Unchanged':
       return {
         exitCode: 0,
         output: sections(
-          'ALREADY APPROVED  No snapshot changes',
+          'ALREADY UP TO DATE  No snapshot changes',
           limitations(result.limitations),
         ),
       };
@@ -114,7 +114,7 @@ export function renderSnapshotResult(
       return {
         exitCode: 0,
         output: sections(
-          `APPROVED  ${count(result.changes)}`,
+          `UPDATED  ${count(result.changes)}`,
           Snapshot.renderChanges(result.changes),
           limitations(result.limitations),
         ),

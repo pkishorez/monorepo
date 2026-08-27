@@ -5,9 +5,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
 import * as NodeServices from '@effect/platform-node/NodeServices';
 import {
-  approveSnapshot,
   renderSnapshotResult,
   type SnapshotCommandResult,
+  updateSnapshot,
   verifySnapshot,
 } from '../snapshot/index.js';
 
@@ -53,7 +53,7 @@ async function run(
 ): Promise<{ readonly exitCode: number; readonly output: string }> {
   const result: SnapshotCommandResult = update
     ? await Effect.runPromise(
-        approveSnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
+        updateSnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
       )
     : await Effect.runPromise(
         verifySnapshot(cwd).pipe(Effect.provide(NodeServices.layer)),
@@ -79,7 +79,7 @@ describe('std-toolkit snapshot command', () => {
     });
     await expect(run(cwd, true)).resolves.toMatchObject({
       exitCode: 0,
-      output: 'APPROVED  std-toolkit.snapshot.json',
+      output: 'UPDATED  std-toolkit.snapshot.json',
     });
     expect(
       JSON.parse(
@@ -104,7 +104,7 @@ describe('std-toolkit snapshot command', () => {
     expect(drift).toMatchObject({ exitCode: 1 });
     expect(drift.output).toContain('FAIL  1 snapshot change needs approval');
     expect(drift.output).toContain('BREAKING');
-    expect(drift.output).toContain('std-toolkit snapshot approve');
+    expect(drift.output).toContain('std-toolkit snapshot update');
     expect(drift.output).not.toContain('DATABASE CONTRACT\n');
     expect(
       JSON.parse(
@@ -114,7 +114,7 @@ describe('std-toolkit snapshot command', () => {
 
     await expect(run(cwd, true)).resolves.toMatchObject({
       exitCode: 0,
-      output: expect.stringContaining('APPROVED  1 snapshot change'),
+      output: expect.stringContaining('UPDATED  1 snapshot change'),
     });
     expect(
       JSON.parse(
@@ -128,7 +128,7 @@ describe('std-toolkit snapshot command', () => {
     await run(cwd, true);
     await expect(run(cwd, true)).resolves.toEqual({
       exitCode: 0,
-      output: 'ALREADY APPROVED  No snapshot changes',
+      output: 'ALREADY UP TO DATE  No snapshot changes',
     });
   });
 
@@ -141,5 +141,33 @@ describe('std-toolkit snapshot command', () => {
       'Snapshot baseline is not valid JSON',
     );
     await expect(readFile(baseline, 'utf8')).resolves.toBe('{invalid');
+  });
+
+  it('refuses to write when the contract entry fails to import', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'std-toolkit-snapshot-'));
+    directories.push(cwd);
+    await writeFile(
+      join(cwd, 'std-toolkit.snapshot.ts'),
+      'this is not valid TypeScript at all {{{\n',
+    );
+
+    await expect(run(cwd, true)).rejects.toThrow();
+    await expect(
+      readFile(join(cwd, 'std-toolkit.snapshot.json'), 'utf8'),
+    ).rejects.toThrow();
+  });
+
+  it('refuses to write when the contract entry has no default export', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'std-toolkit-snapshot-'));
+    directories.push(cwd);
+    await writeFile(
+      join(cwd, 'std-toolkit.snapshot.ts'),
+      'export const notTheDefault = 1;\n',
+    );
+
+    await expect(run(cwd, true)).rejects.toThrow();
+    await expect(
+      readFile(join(cwd, 'std-toolkit.snapshot.json'), 'utf8'),
+    ).rejects.toThrow();
   });
 });

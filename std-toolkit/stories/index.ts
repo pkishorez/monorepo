@@ -24,6 +24,8 @@ import { envelopeMigrates } from './evolving-schema/value-eschema/envelope-migra
 import { valueWithVersionKey } from './evolving-schema/value-eschema/value-with-version-key.story.js';
 import { entityIdField } from './evolving-schema/entity-eschema/entity-id-field.story.js';
 import { roundTrip } from './evolving-schema/snapshots/round-trip.story.js';
+import { readDraftWriteLatest } from './evolving-schema/draft-versions/read-draft-write-latest.story.js';
+import { promotingADraft } from './evolving-schema/draft-versions/promoting-a-draft.story.js';
 import { appendDontMutate } from './evolving-schema/gotchas-and-best-practices/append-dont-mutate.story.js';
 import { totalMigrations } from './evolving-schema/gotchas-and-best-practices/total-migrations.story.js';
 import { pureMigrations } from './evolving-schema/gotchas-and-best-practices/pure-migrations.story.js';
@@ -69,6 +71,7 @@ import { codecFields } from './database/std-table/encoded-and-decoded/codec-fiel
 import { olderRows } from './database/std-table/evolving-data-in-place/older-rows.story.js';
 import { backfillingAnIndex } from './database/std-table/detecting-and-repairing-drift/backfilling-an-index.story.js';
 import { unreadableRows } from './database/std-table/evolving-data-in-place/unreadable-rows.story.js';
+import { verifySnapshot } from './database/std-table/table-level-enforcement/verify-snapshot.story.js';
 
 import { aBackendAndNobodyWatching } from './sync/building-the-simulation/a-backend-and-nobody-watching.story.js';
 import { aBrowserMountsAQuery } from './sync/building-the-simulation/a-browser-mounts-a-query.story.js';
@@ -175,6 +178,14 @@ export default Story.group(
                   'What a Note looks like from the outside: a captured, restorable picture, and the field shapes that picture can hold.',
               },
               [roundTrip],
+            ),
+            Story.group(
+              'Draft versions',
+              {
+                description:
+                  'A next shape, tried out in the app before it ever becomes a version — and invisible to every Snapshot until it does.',
+              },
+              [readDraftWriteLatest, promotingADraft],
             ),
           ],
         ),
@@ -293,6 +304,14 @@ export default Story.group(
                   'A row written before an access pattern existed cannot answer it until scan, drift, and reindex bring it forward.',
               },
               [backfillingAnIndex],
+            ),
+            Story.group(
+              'Table-level enforcement',
+              {
+                description:
+                  'A second line of defense with its baseline kept inside the table itself, independent of the file-based lint.',
+              },
+              [verifySnapshot],
             ),
           ],
         ),

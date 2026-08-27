@@ -5,4 +5,4 @@ BACKFILL
     pk: "gsi1pk" → "nextGsiPk"
     sk: "gsi1sk" → "nextGsiSk"
 
-Run: std-toolkit snapshot approve
+Run: std-toolkit snapshot update

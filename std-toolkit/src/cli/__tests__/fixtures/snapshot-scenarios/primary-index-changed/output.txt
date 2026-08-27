@@ -5,4 +5,4 @@ BREAKING
     pk: "pk" → "partitionKey"
     sk: "sk" → "sortKey"
 
-Run: std-toolkit snapshot approve
+Run: std-toolkit snapshot update
