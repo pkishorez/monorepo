@@ -64,5 +64,9 @@ Deserialization. Reads `_v`, then folds the data through **migration**s up to th
 Converts an **ESchema** into a plain Effect Schema for validation or composition (e.g. nesting one eschema inside another).
 _Avoid_: asSchema, toEffectSchema.
 
+**entity reference**:
+A visualization hint that a field identifies an Entity through that Entity's `idField`; the target is declared by stable Entity name rather than inferred from the field's name. It changes no validation, storage, lookup, or integrity behavior; cardinality follows the surrounding schema shape, cyclic references need no special treatment, and the target may be unresolved or belong to another table.
+_Avoid_: Foreign key, ID-shaped field, inferred relationship.
+
 **ESchemaError** / **MigrationFailure**:
 The decode/validation error type, and the report describing a failed **migration**.
