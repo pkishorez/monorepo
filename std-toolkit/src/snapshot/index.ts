@@ -9,6 +9,7 @@ export {
   SnapshotDecodeError,
   SnapshotFormatRetired,
   SnapshotIdentityConflict,
+  SnapshotIncompatible,
   TableSnapshotSchema,
 } from './domain/index.js';
 export type {

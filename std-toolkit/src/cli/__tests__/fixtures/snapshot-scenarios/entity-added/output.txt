@@ -3,4 +3,4 @@ FAIL  1 snapshot change needs approval
 SAFE
   Entity User added
 
-Run: std-toolkit snapshot approve
+Run: std-toolkit snapshot update

@@ -12,6 +12,7 @@ import type {
 } from '../domain/schema-model/index.js';
 import { mergeDelta } from '../domain/schema-model/index.js';
 import type { EntityESchema } from './entity-eschema.js';
+import { DraftedEntityESchemaBuilder } from './drafted-entity-eschema-builder.js';
 
 export class EntityESchemaBuilder<
   TName extends string,
@@ -51,6 +52,42 @@ export class EntityESchemaBuilder<
       V,
       MergeSchemas<TLatest, D> & Record<TIdField, Schema.Codec<string, string>>
     >(this.name, this.idField, this.idSchema, evolutions, version, this.finish);
+  }
+
+  draft<D extends DeltaSchema>(
+    delta: D &
+      ForbidUnderscorePrefix<D> &
+      ForbidIdField<D, TIdField> &
+      ForbidOptionalFields<D>,
+    migrations: {
+      readonly forward: (
+        previous: StructFieldsDecoded<TLatest>,
+      ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>;
+      readonly backward: (
+        draft: StructFieldsDecoded<MergeSchemas<TLatest, D>>,
+      ) => StructFieldsDecoded<TLatest>;
+    },
+  ): DraftedEntityESchemaBuilder<
+    TName,
+    TIdField,
+    TVersion,
+    TLatest,
+    MergeSchemas<TLatest, D> & Record<TIdField, Schema.Codec<string, string>>
+  > {
+    const previous = this.evolutions.at(-1)?.schema ?? {};
+    const schema = mergeDelta(previous, delta);
+    schema[this.idField] = this.idSchema;
+    return new DraftedEntityESchemaBuilder<
+      TName,
+      TIdField,
+      TVersion,
+      TLatest,
+      MergeSchemas<TLatest, D> & Record<TIdField, Schema.Codec<string, string>>
+    >(this.name, this.idField, this.evolutions, this.version, {
+      schema,
+      forward: migrations.forward,
+      backward: migrations.backward,
+    });
   }
 
   build(): EntityESchema<TName, TIdField, TVersion, TLatest> {

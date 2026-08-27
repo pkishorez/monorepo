@@ -10,6 +10,7 @@ import type {
 } from '../domain/schema-model/index.js';
 import { mergeDelta } from '../domain/schema-model/index.js';
 import type { ESchema } from './eschema.js';
+import { DraftedESchemaBuilder } from './drafted-eschema-builder.js';
 
 export class ESchemaBuilder<
   TName extends string,
@@ -48,6 +49,31 @@ export class ESchemaBuilder<
       version,
       this.finish,
     );
+  }
+
+  draft<D extends DeltaSchema>(
+    delta: D & ForbidUnderscorePrefix<D> & ForbidOptionalFields<D>,
+    migrations: {
+      readonly forward: (
+        previous: StructFieldsDecoded<TLatest>,
+      ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>;
+      readonly backward: (
+        draft: StructFieldsDecoded<MergeSchemas<TLatest, D>>,
+      ) => StructFieldsDecoded<TLatest>;
+    },
+  ): DraftedESchemaBuilder<TName, TVersion, TLatest, MergeSchemas<TLatest, D>> {
+    const previous = this.evolutions.at(-1)?.schema ?? {};
+    const schema = mergeDelta(previous, delta);
+    return new DraftedESchemaBuilder<
+      TName,
+      TVersion,
+      TLatest,
+      MergeSchemas<TLatest, D>
+    >(this.name, this.evolutions, this.version, {
+      schema,
+      forward: migrations.forward,
+      backward: migrations.backward,
+    });
   }
 
   build(): ESchema<TVersion, TLatest, TName> {

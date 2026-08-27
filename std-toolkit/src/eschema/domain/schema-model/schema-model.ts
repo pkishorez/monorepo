@@ -119,21 +119,47 @@ export type ValueEvolution = {
   migration: ((prev: any) => any) | null;
 };
 
+/**
+ * An unpublished, dev-time-only overlay on top of the last published
+ * evolution. `forward` produces the draft's decoded read shape from the last
+ * published decoded shape; `backward` produces the last published decoded
+ * shape from the draft's decoded shape, so encode always writes bytes in the
+ * last published shape.
+ */
+export type DraftDefinition = {
+  readonly schema: StructFieldsSchema;
+  readonly forward: (previous: any) => any;
+  readonly backward: (draft: any) => any;
+};
+
+export type ValueDraftDefinition = {
+  readonly schema: ValueSchema;
+  readonly forward: (previous: any) => any;
+  readonly backward: (draft: any) => any;
+};
+
 // ─── Any* type aliases ──────────────────────────────────────────────────────
 
 /**
- * Widest type — matches any ESchema (base, SingleEntity, or Entity).
+ * Widest type — matches any ESchema (base, SingleEntity, or Entity), drafted
+ * or not. `TDraft` defaults to `S` (the last published shape), which is
+ * exactly what an undrafted ESchema already is — decode/encode operate on
+ * the same shape everything else does. A drafted schema is simply an
+ * instance where `TDraft` differs from `S`: `Type`/decode/encode follow
+ * `TDraft`, while `Encoded` — and everything a Snapshot ever sees — stays
+ * pinned to `S`. One family, one default, instead of a parallel hierarchy.
  */
 export interface AnyESchema<
   V extends string = string,
   S extends StructFieldsSchema = any,
   N extends string = string,
+  TDraft extends StructFieldsSchema = S,
 > {
   readonly name: N;
   readonly latestVersion: V;
   readonly fields: S;
   readonly schema: Schema.Struct<S>;
-  readonly Type: Prettify<StructFieldsDecoded<S>>;
+  readonly Type: Prettify<StructFieldsDecoded<TDraft>>;
   readonly Encoded: Prettify<StructFieldsEncoded<S>> & {
     readonly _v: V;
   };
@@ -142,9 +168,9 @@ export interface AnyESchema<
   ): Partial<StructFieldsDecoded<S>> & { readonly _v: V };
   decode(
     value: unknown,
-  ): Effect.Effect<Prettify<StructFieldsDecoded<S>>, ESchemaError>;
+  ): Effect.Effect<Prettify<StructFieldsDecoded<TDraft>>, ESchemaError>;
   encode(
-    value: StructFieldsDecoded<S>,
+    value: StructFieldsDecoded<TDraft>,
   ): Effect.Effect<
     Prettify<StructFieldsEncoded<S>> & { readonly _v: V },
     ESchemaError
@@ -152,7 +178,7 @@ export interface AnyESchema<
   getDescriptor(): ESchemaDescriptor;
   readonly '~standard': StandardSchemaV1.Props<
     unknown,
-    Prettify<StructFieldsDecoded<S>>
+    Prettify<StructFieldsDecoded<TDraft>>
   >;
 }
 
@@ -163,35 +189,47 @@ export type AnyUnkeyedESchema<
   V extends string = string,
   S extends StructFieldsSchema = any,
   N extends string = string,
-> = AnyESchema<V, S, N> & { readonly idField?: never };
+  TDraft extends StructFieldsSchema = S,
+> = AnyESchema<V, S, N, TDraft> & { readonly idField?: never };
 
 /**
- * Matches any EntityESchema (has name + idField).
+ * Matches any EntityESchema (has name + idField), drafted or not.
  */
 export interface AnyEntityESchema<
   N extends string = string,
   Id extends string = string,
   V extends string = string,
   S extends StructFieldsSchema = any,
-> extends AnyESchema<V, S, N> {
+  TDraft extends StructFieldsSchema = S,
+> extends AnyESchema<V, S, N, TDraft> {
   readonly idField: Id;
 }
 
+/**
+ * Matches any ValueESchema, drafted or not — same `TDraft`-defaults-to-`S`
+ * shape as {@link AnyESchema}.
+ */
 export interface AnyValueESchema<
   V extends string = string,
   S extends ValueSchema = any,
+  TDraft extends ValueSchema = S,
 > {
   readonly name: string;
   readonly latestVersion: V;
   readonly schema: S;
-  readonly Type: ValueSchemaDecoded<S>;
+  readonly Type: ValueSchemaDecoded<TDraft>;
   readonly Encoded: ValueEnvelopeEncoded<V, S>;
-  decode(value: unknown): Effect.Effect<ValueSchemaDecoded<S>, ESchemaError>;
+  decode(
+    value: unknown,
+  ): Effect.Effect<ValueSchemaDecoded<TDraft>, ESchemaError>;
   encode(
-    value: ValueSchemaDecoded<S>,
+    value: ValueSchemaDecoded<TDraft>,
   ): Effect.Effect<ValueEnvelopeEncoded<V, S>, ESchemaError>;
   getDescriptor(): ESchemaDescriptor;
-  readonly '~standard': StandardSchemaV1.Props<unknown, ValueSchemaDecoded<S>>;
+  readonly '~standard': StandardSchemaV1.Props<
+    unknown,
+    ValueSchemaDecoded<TDraft>
+  >;
 }
 
 export type AnyEvolvingSchema = AnyESchema | AnyEntityESchema | AnyValueESchema;
@@ -199,28 +237,29 @@ export type AnyEvolvingSchema = AnyESchema | AnyEntityESchema | AnyValueESchema;
 // ─── Type extractors ────────────────────────────────────────────────────────
 
 /**
- * Extracts the type from any ESchema level.
- * Same type for both encode and decode operations.
+ * Extracts the type from any ESchema level — the draft's shape when one
+ * exists, the last published shape otherwise. Same type for both encode and
+ * decode operations.
  */
 export type ESchemaType<T extends AnyEvolvingSchema> =
-  T extends AnyValueESchema<infer _V, infer TLatest>
-    ? ValueSchemaDecoded<TLatest>
-    : T extends AnyESchema<infer _V, infer TLatest, infer _N>
-      ? Prettify<StructFieldsDecoded<TLatest>>
+  T extends AnyValueESchema<infer _V, infer _S, infer TDraft>
+    ? ValueSchemaDecoded<TDraft>
+    : T extends AnyESchema<infer _V, infer _S, infer _N, infer TDraft>
+      ? Prettify<StructFieldsDecoded<TDraft>>
       : never;
 
 export type ESchemaEncoded<T extends AnyEvolvingSchema> =
-  T extends AnyValueESchema<infer V, infer TLatest>
-    ? ValueEnvelopeEncoded<V, TLatest>
-    : T extends AnyESchema<infer V, infer TLatest, infer _N>
-      ? Prettify<StructFieldsEncoded<TLatest> & { readonly _v: V }>
+  T extends AnyValueESchema<infer V, infer S, infer _TDraft>
+    ? ValueEnvelopeEncoded<V, S>
+    : T extends AnyESchema<infer V, infer S, infer _N, infer _TDraft>
+      ? Prettify<StructFieldsEncoded<S> & { readonly _v: V }>
       : never;
 
 /**
  * Extracts the ID field name from an EntityESchema.
  */
 export type ESchemaIdField<T extends AnyEntityESchema> =
-  T extends AnyEntityESchema<infer _N, infer Id, infer _V, infer _TLatest>
+  T extends AnyEntityESchema<infer _N, infer Id, infer _V, infer _S>
     ? Id
     : never;
 

@@ -1,1 +1,4 @@
-export { makeObjectSchemaRuntime } from './object-schema-runtime.js';
+export {
+  makeDraftedObjectSchemaRuntime,
+  makeObjectSchemaRuntime,
+} from './object-schema-runtime.js';

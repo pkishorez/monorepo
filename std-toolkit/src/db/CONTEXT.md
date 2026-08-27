@@ -104,8 +104,16 @@ The in-memory conversion of an older **encoded item** into the latest decoded do
 _Avoid_: Read repair, automatic migration write-back.
 
 **Table scan**:
-A portable, table-wide walk of every physical row (`table.scan()`), returning raw **encoded item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
+A portable, table-wide walk of every physical row (`table.scan()`), returning raw **encoded item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially. Never yields the **Enforcement baseline** item — every other table operation is already scoped to a named entity, so scan is the one place that item would otherwise leak into.
 _Avoid_: Full table read, dump.
+
+**Enforcement baseline**:
+The `TableSnapshot` a table's own **Table-level enforcement** last accepted, stored as a single reserved **encoded item** inside the table itself at a fixed key no real registered entity can produce. It is read, diffed, and — only on a safe outcome — rewritten each time enforcement runs; it is not the file-based CLI baseline, and the two are never the same object.
+_Avoid_: Approved snapshot file, contract file (both name the CLI's separate, file-based baseline).
+
+**Table-level enforcement**:
+`table.verifySnapshot()` — a second, independent line of defense beyond the code-level CLI lint, since a file on disk can simply go unread. It diffs the table's current, code-derived snapshot against the **Enforcement baseline**: a `breaking` or `unverifiable` change rejects and leaves the baseline untouched; a `safe` or `requires-backfill` change (logged as a warning) moves the baseline forward; no baseline yet bootstraps instead of rejecting. It is a plain function a caller chooses to invoke — nothing wires it in automatically.
+_Avoid_: Snapshot approval, deploy gate (as a separate mechanism — it is not).
 
 **Drift**:
 The mismatch between a stored **encoded item**'s secondary-index keys and what the current entity registration would derive for the same decoded value (`table.drift(item)`). A difference confined to `_v` or the encoded payload, with keys unchanged, is not Drift, since it already self-heals through **Read migration**. A primary partition-key or sort-key difference violates **Entity key immutability** and fails with `PrimaryKeyDrift`; it is never returned as repairable Drift. Detected only for keyed entities; a **SingleEntity** has no secondary indexes to drift.

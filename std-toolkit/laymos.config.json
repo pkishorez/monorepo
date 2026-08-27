@@ -14,6 +14,7 @@
     "src/db/sqlite/__tests__",
     "src/db/std-table/__tests__",
     "src/db/std-table/definition/__tests__",
+    "src/db/std-table/enforcement/__tests__",
     "src/db/std-table/entity/__tests__",
     "src/db/std-table/key/__tests__",
     "src/eschema/__tests__",
@@ -91,6 +92,15 @@
       "description": "Model \u2014 collision-safe key encoding and storage derivation",
       "modules": {
         "src/db/std-table/key": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.enforcement": {
+      "paths": ["src/db/std-table/enforcement"],
+      "description": "Guard \u2014 table-level snapshot enforcement, baseline kept inside the table",
+      "modules": {
+        "src/db/std-table/enforcement": {
           "exposed": true
         }
       }
@@ -485,7 +495,7 @@
     },
     "cli.commands": {
       "paths": ["src/cli/snapshot"],
-      "description": "Commands \u2014 snapshot verify, approve, and view",
+      "description": "Commands \u2014 snapshot verify and update",
       "modules": {
         "src/cli/snapshot": {
           "exposed": true
@@ -700,7 +710,11 @@
       "description": "The logical table: public entrypoint, aggregate, entity surface, model, and port",
       "rules": {
         "db.public": ["std-table.table"],
-        "std-table.table": ["std-table.entity", "core.public"],
+        "std-table.table": [
+          "std-table.entity",
+          "std-table.enforcement",
+          "core.public"
+        ],
         "std-table.entity": [
           "core.public",
           "std-table.definition",
@@ -710,7 +724,15 @@
         "std-table.definition": ["std-table.snapshot"],
         "std-table.snapshot": ["eschema.public", "snapshot.capture"],
         "std-table.key": ["std-table.contract"],
-        "std-table.error": ["std-table.contract"]
+        "std-table.error": ["std-table.contract"],
+        "std-table.enforcement": [
+          "core.public",
+          "std-table.snapshot",
+          "std-table.contract",
+          "std-table.error",
+          "std-table.key",
+          "snapshot.public"
+        ]
       }
     },
     "dynamodb": {

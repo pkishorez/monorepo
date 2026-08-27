@@ -20,7 +20,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 - **eschema → core**: an **EncodedEntity** value carries eschema's `_v` **version** stamp; core's `EntitySchema` converts between encoded and decoded entity representations.
 - **snapshot → eschema**: snapshot consumes ESchema structural introspection to produce **ESchema snapshots**; eschema does not depend on snapshot.
 - **db → core, eschema**: the adapters persist core **Entities** whose `value` is validated by an eschema schema.
-- **db → snapshot**: database tables provide topology and registered-entity source data to snapshot and expose `table.snapshot()` as their capture surface.
+- **db → snapshot**: database tables provide topology and registered-entity source data to snapshot and expose `table.snapshot()` as their capture surface. Table-level enforcement additionally consumes snapshot's comparison (`Snapshot.diff`) to decide whether its own stored baseline can move forward.
 - **db (dynamodb ↔ sqlite ↔ idb ↔ memory)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite, idb, and memory mirror dynamodb's topology and each child context records only its divergences.
 - **sync → core**: exposes **DecodedEntities** to application-facing integration points, decodes transport values at ingress, and interprets `_u` for convergence and `_s`/`_c` for cadence.
 - **sync → db**: realizes its **Sync Store** through a compatible database adapter; Memory versus IndexedDB changes durability, not Peer Sync behavior.

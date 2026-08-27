@@ -10,6 +10,7 @@ export {
   SnapshotDiagnosticSchema,
   SnapshotFormatRetired,
   SnapshotIdentityConflict,
+  SnapshotIncompatible,
   SnapshotMarkerSchema,
   SnapshotEditSchema,
   SnapshotSubjectKindSchema,

@@ -321,6 +321,23 @@ export class SnapshotIdentityConflict extends Error {
   }
 }
 
+/**
+ * Raised by table-level enforcement when a diff against the table's own
+ * stored baseline contains a `breaking` or `unverifiable` change. The
+ * baseline is left untouched — only a `safe` or `requires-backfill` diff
+ * moves the frozen baseline forward.
+ */
+export class SnapshotIncompatible extends Error {
+  readonly _tag = 'SnapshotIncompatible';
+
+  constructor(readonly changes: readonly SnapshotChange[]) {
+    super(
+      `Snapshot has ${changes.length} incompatible ${changes.length === 1 ? 'change' : 'changes'} that cannot be safely applied to the deployed table`,
+    );
+    this.name = 'SnapshotIncompatible';
+  }
+}
+
 export const compareStrings = (a: string, b: string): number =>
   a < b ? -1 : a > b ? 1 : 0;
 

@@ -1,4 +1,4 @@
-APPROVED  1 snapshot change
+UPDATED  1 snapshot change
 
 BACKFILL
   Global secondary index GSI1

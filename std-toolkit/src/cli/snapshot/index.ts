@@ -1,6 +1,6 @@
 export {
-  approveSnapshot,
   makeSnapshotCommand,
+  updateSnapshot,
   verifySnapshot,
 } from './snapshot.js';
 export {
