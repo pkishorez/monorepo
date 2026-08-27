@@ -44,6 +44,11 @@ const graphPathField = Schema.String.annotate({
     'Canonical project-relative directory rooting this Module Graph. Every member lives below it and every file below it must belong to a member.',
 });
 
+const docsPathField = Schema.optional(Schema.String).annotate({
+  description:
+    'Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it.',
+});
+
 const graphModulesDescription =
   'Every member of this Module Graph, keyed relative to its path. At least two members, at least one exposed, and no member may be Shared.';
 
@@ -58,6 +63,7 @@ const GraphRulesSchema = Schema.Record(
 const ModuleGraphSchema = Schema.Struct({
   description: graphDescriptionField,
   path: graphPathField,
+  docsPath: docsPathField,
   modules: Schema.Record(Schema.String, ModuleSchema)
     .annotate({ description: graphModulesDescription })
     .pipe(Schema.check(Schema.isMinProperties(2))),
@@ -67,6 +73,7 @@ const ModuleGraphSchema = Schema.Struct({
 const ModuleGraphInputSchema = Schema.Struct({
   description: graphDescriptionField,
   path: graphPathField,
+  docsPath: docsPathField,
   modules: Schema.Record(Schema.String, ModuleInputSchema)
     .annotate({ description: graphModulesDescription })
     .pipe(Schema.check(Schema.isMinProperties(2))),
@@ -103,6 +110,7 @@ const layerModuleGraphsDescription =
 const LayerSchema = Schema.Struct({
   paths: layerPathsField,
   description: layerDescriptionField,
+  docsPath: docsPathField,
   modules: Schema.Record(Schema.String, ModuleSchema).annotate({
     description: layerModulesDescription,
   }),
@@ -114,6 +122,7 @@ const LayerSchema = Schema.Struct({
 const LayerInputSchema = Schema.Struct({
   paths: layerPathsField,
   description: layerDescriptionField,
+  docsPath: docsPathField,
   modules: Schema.Record(Schema.String, ModuleInputSchema)
     .annotate({ description: layerModulesDescription })
     .pipe(
@@ -136,6 +145,7 @@ const LayerGraphSchema = Schema.Struct({
   description: Schema.optional(Schema.String).annotate({
     description: 'Human-readable summary of this LayerGraph.',
   }),
+  docsPath: docsPathField,
   rules: Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({
     description:
       'Maps a Layer id to the Layer ids it may directly depend on. Rules are default-deny and transitive: a dependency between two Layers with no declared path between them, direct or transitive, is a violation. A Layer with no outgoing rule is a valid, intentional leaf.',

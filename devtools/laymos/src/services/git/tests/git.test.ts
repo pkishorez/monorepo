@@ -52,6 +52,13 @@ function fileDiff(baseDir: string, path: string, baseRef = 'HEAD') {
   }).pipe(Effect.provide(GitLive), Effect.runPromise);
 }
 
+function branches(baseDir: string) {
+  return Effect.gen(function* () {
+    const service = yield* Git;
+    return yield* service.branches(baseDir);
+  }).pipe(Effect.provide(GitLive), Effect.runPromise);
+}
+
 describe('Git change set', () => {
   test('reports untracked files as added', async () => {
     await withRepo(async ({ dir, write }) => {
@@ -182,6 +189,64 @@ describe('Git file diff', () => {
         { kind: 'added', content: 'export const edited = 2;', newNumber: 1 },
       ]);
     });
+  });
+});
+
+describe('Git branches', () => {
+  test('lists local branches, marking the one HEAD is on', async () => {
+    await withRepo(async ({ dir, git }) => {
+      git('checkout', '-b', 'feature');
+      git('checkout', 'main');
+
+      const actual = await branches(dir);
+
+      expect(actual).toContainEqual({
+        name: 'main',
+        remote: false,
+        current: true,
+      });
+      expect(actual).toContainEqual({
+        name: 'feature',
+        remote: false,
+        current: false,
+      });
+    });
+  });
+
+  test('excludes the symbolic origin/HEAD ref from remote branches', async () => {
+    await withRepo(async ({ dir, git }) => {
+      git('remote', 'add', 'origin', dir);
+      git('fetch', 'origin');
+      git(
+        'symbolic-ref',
+        'refs/remotes/origin/HEAD',
+        'refs/remotes/origin/main',
+      );
+
+      const actual = await branches(dir);
+
+      expect(actual.map(({ name }) => name)).not.toContain('origin/HEAD');
+      expect(actual).toContainEqual({
+        name: 'origin/main',
+        remote: true,
+        current: false,
+      });
+    });
+  });
+
+  test('fails when the folder is not a git repository', async () => {
+    const plain = await mkdtemp(join(tmpdir(), 'laymos-plain-'));
+    try {
+      const actual = await Effect.gen(function* () {
+        const service = yield* Git;
+        return yield* service.branches(plain);
+      }).pipe(Effect.provide(GitLive), Effect.flip, Effect.runPromise);
+
+      expect(actual).toBeInstanceOf(GitError);
+      expect(actual.reason).toBe('not-a-repo');
+    } finally {
+      await rm(plain, { recursive: true, force: true });
+    }
   });
 });
 

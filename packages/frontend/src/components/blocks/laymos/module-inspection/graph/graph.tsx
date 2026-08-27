@@ -56,8 +56,11 @@ interface ModuleGraphProps {
   readonly activeViolation?: ModuleViolation;
   readonly onModuleActivate?: (moduleId: string) => void;
   readonly onModuleOpen?: (moduleId: string) => void;
+  readonly onModuleGraphOpen?: (graphId: string) => void;
   readonly onLayerActivate?: (layerId: string) => void;
+  readonly onLayerOpen?: (layerId: string) => void;
   readonly onLayerGraphActivate?: (graphId: string) => void;
+  readonly onLayerGraphOpen?: (graphId: string) => void;
   readonly onClearFocus?: () => void;
   readonly className?: string;
 }
@@ -140,9 +143,29 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
           if (node.type === 'module-layer') props.onLayerActivate?.(node.id);
         }}
         onNodeContextMenu={(event, node) => {
-          if (node.type !== 'module') return;
-          event.preventDefault();
-          props.onModuleOpen?.(node.id);
+          if (node.type === 'module') {
+            event.preventDefault();
+            props.onModuleOpen?.(node.id);
+            return;
+          }
+          if (node.type === 'module-band') {
+            event.preventDefault();
+            props.onModuleGraphOpen?.(node.id.slice('module-band:'.length));
+            return;
+          }
+          if (node.type === 'module-layer') {
+            if (props.onLayerOpen === undefined) return;
+            event.preventDefault();
+            props.onLayerOpen(node.id);
+            return;
+          }
+          if (node.type === 'module-graph-header') {
+            if (props.onLayerGraphOpen === undefined) return;
+            event.preventDefault();
+            props.onLayerGraphOpen(
+              node.id.slice('module-graph-header:'.length),
+            );
+          }
         }}
         onNodeMouseEnter={(_, node) => {
           if (
@@ -178,12 +201,16 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
 function LayerContainer({ data }: NodeProps<LayerContainerNode>) {
   return (
     <section
+      title={
+        data.openable ? "Right-click to explore this Layer's source" : undefined
+      }
       className={cn(
         'h-full w-full cursor-pointer rounded-xl border border-border bg-muted/20 shadow-sm',
         changeSurfaceClass(data.changeStatus),
         data.focused && selectedContainerClass,
         data.dimmed && 'opacity-15',
         data.softlyDimmed && 'opacity-15',
+        data.openable && 'cursor-context-menu',
       )}
     >
       <Handle
@@ -241,8 +268,13 @@ function GraphHeader({ data }: NodeProps<GraphHeaderNode>) {
           data.active && 'border-primary/70 bg-primary/5 text-foreground',
           data.dimmed && 'opacity-25',
           data.activatable && 'cursor-pointer hover:border-primary/60',
+          data.openable && 'cursor-context-menu',
         )}
-        title={data.description}
+        title={
+          data.openable
+            ? "Right-click to explore this LayerGraph's source"
+            : data.description
+        }
       >
         <span className="truncate text-xs font-bold uppercase tracking-wider">
           {data.label}
@@ -312,8 +344,9 @@ function ConfiguredModule({ data }: NodeProps<ConfiguredModuleNode>) {
 function ModuleBand({ data }: NodeProps<ModuleBandNode>) {
   return (
     <div
+      title="Right-click to explore this Module Graph's source"
       className={cn(
-        'h-full w-full rounded-xl border border-dashed border-border bg-muted/10',
+        'h-full w-full cursor-context-menu rounded-xl border border-dashed border-border bg-muted/10',
         data.violation && 'border-destructive bg-destructive/5',
         data.dimmed && 'opacity-20',
       )}

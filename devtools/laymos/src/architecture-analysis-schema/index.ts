@@ -35,3 +35,11 @@ export type {
   ModuleSourceFile,
   ModuleSourceSnapshot,
 } from './module-source-schema.js';
+export {
+  DocumentationScopeSchema,
+  DocumentationSchema,
+} from './documentation-schema.js';
+export type {
+  Documentation,
+  DocumentationScope,
+} from './documentation-schema.js';

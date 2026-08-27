@@ -1,0 +1,1 @@
+This directory makes reading README.md fail with a non-missing-file error.

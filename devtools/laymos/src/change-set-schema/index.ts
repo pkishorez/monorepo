@@ -1,5 +1,6 @@
 // RPC transports use this browser-safe runtime contract for Change sets.
 export {
+  BranchSchema,
   ChangedPathSchema,
   ChangeSetSchema,
   ChangeStatusSchema,
@@ -9,6 +10,7 @@ export {
 } from './change-set-schema.js';
 // Renderers name the change decoration they apply to an Architecture Analysis.
 export type {
+  Branch,
   ChangedPath,
   ChangeSet,
   ChangeStatus,

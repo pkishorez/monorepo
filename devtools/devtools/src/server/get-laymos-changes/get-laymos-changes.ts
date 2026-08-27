@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import { Effect } from 'effect';
-import { GitError, loadChangeSet, loadFileDiff } from 'laymos';
+import { GitError, loadBranches, loadChangeSet, loadFileDiff } from 'laymos';
 
 import { GitUnavailableError, InvalidProjectPath } from '../../rpc/index.js';
 
@@ -13,6 +13,13 @@ export function getLaymosChanges(projectPath: string, baseRef?: string) {
     return yield* loadChangeSet(configPath, baseRef).pipe(
       Effect.mapError(toRpcError),
     );
+  });
+}
+
+export function getLaymosBranches(projectPath: string) {
+  return Effect.gen(function* () {
+    const configPath = yield* laymosConfigPath(projectPath);
+    return yield* loadBranches(configPath).pipe(Effect.mapError(toRpcError));
   });
 }
 

@@ -9,10 +9,9 @@ import type {
 
 export { layerGraphs as moduleLayerGraphs } from '../../layer-inspection/fixtures/fixture-data';
 
-export const loadFixtureModuleSource = (modulePath: string) =>
-  Effect.succeed({
-    modulePath,
-    entryPoint: `${modulePath}/index.ts`,
+export const loadFixtureSourceFiles = (pathPrefixes: readonly string[]) => {
+  const modulePath = pathPrefixes[0] ?? '';
+  return Effect.succeed({
     files: [
       {
         path: `${modulePath}/index.ts`,
@@ -36,6 +35,7 @@ export const loadFixtureModuleSource = (modulePath: string) =>
         : []),
     ],
   });
+};
 
 export const moduleLayers: readonly Layer[] = [
   {

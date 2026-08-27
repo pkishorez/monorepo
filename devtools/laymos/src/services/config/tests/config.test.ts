@@ -118,7 +118,17 @@ describe('ConfigService', () => {
       'path',
       'path',
       'path',
+      'path',
+      'path',
+      'path',
     ]);
+    expect(error.issues.map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        'layers.app.docsPath must be a canonical project-relative path: "../../app.md"',
+        'layers.app.moduleGraphs.feature.docsPath must be a canonical project-relative path: "/feature.md"',
+        'layerGraphs.architecture.docsPath must be a canonical project-relative path: "docs/../architecture.md"',
+      ]),
+    );
   });
 
   test('finds overlaps within and across Layers', async () => {

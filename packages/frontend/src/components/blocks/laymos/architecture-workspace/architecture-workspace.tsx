@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { ArchitectureAnalysis, ChangeSet, StoryTree } from 'laymos';
+import type {
+  ArchitectureAnalysis,
+  Branch,
+  ChangeSet,
+  StoryTree,
+} from 'laymos';
 
 import {
   ChevronDown,
@@ -62,9 +67,10 @@ import {
 import {
   ModuleSourceExplorer,
   moduleSourceRequest,
+  type LoadDocumentation,
   type LoadFileDiff,
-  type LoadModuleSource,
-  type ModuleSourceOpenRequest,
+  type LoadSourceFiles,
+  type SourceOpenRequest,
 } from '../module-source';
 import { changedPathsUnder, type ChangeIndex } from '../project-changes';
 import { StoriesDocsSite, type StoryReports } from '../story-inspection';
@@ -72,15 +78,18 @@ import { StoriesDocsSite, type StoryReports } from '../story-inspection';
 export interface GitOptions {
   // Off hides the change overlay entirely, whatever git reports.
   readonly showChanges: boolean;
-  readonly showUncommitted: boolean;
   readonly includeUnchanged: boolean;
 }
 
 export const defaultGitOptions: GitOptions = {
   showChanges: true,
-  showUncommitted: true,
   includeUnchanged: false,
 };
+
+// The Base ref 'HEAD' means the working tree's uncommitted changes; any other
+// value is a branch name, whose Change set already carries uncommitted work
+// on top, since a Base ref diffs against the working tree, never a commit.
+export const uncommittedBaseRef = 'HEAD';
 
 const allGraphsId = 'all';
 const layersModulesTabId = 'layers-modules';
@@ -96,12 +105,16 @@ interface LayersModulesProps {
   readonly moduleGraphs?: readonly ModuleGraphModel[];
   readonly dependencies: readonly ModuleDependency[];
   readonly moduleViolations?: readonly ModuleViolation[];
-  readonly loadModuleSource: LoadModuleSource;
+  readonly loadSourceFiles: LoadSourceFiles;
   readonly loadFileDiff?: LoadFileDiff;
+  readonly loadDocumentation?: LoadDocumentation;
   readonly changes?: ChangeIndex;
   readonly gitOptions?: GitOptions;
   readonly onGitOptionsChange?: (options: GitOptions) => void;
   readonly gitAvailable?: boolean;
+  readonly branches?: readonly Branch[];
+  readonly baseRef?: string;
+  readonly onBaseRefChange?: (baseRef: string) => void;
   readonly stories?: StoriesTabProps;
   readonly className?: string;
 }
@@ -115,26 +128,41 @@ interface StoriesTabProps {
 
 export function LaymosExperience({
   analysis,
-  loadModuleSource,
+  loadSourceFiles,
   loadFileDiff,
+  loadDocumentation,
   changes,
+  branches,
+  baseRef = uncommittedBaseRef,
+  onBaseRefChange,
+  // Whether git integration exists for this Project at all, independent of
+  // whether a Change set has been fetched yet — a caller that lets the user
+  // pick a Base ref before any Change set exists (e.g. defaulting to no
+  // diff) must pass this explicitly, or the picker never gets a chance to
+  // open. Defaults to inferring availability from what was actually passed.
+  gitAvailable = changes !== undefined ||
+    branches !== undefined ||
+    onBaseRefChange !== undefined,
   stories,
   className,
 }: {
   readonly analysis: ArchitectureAnalysis;
-  readonly loadModuleSource: LoadModuleSource;
+  readonly loadSourceFiles: LoadSourceFiles;
   readonly loadFileDiff?: LoadFileDiff;
+  readonly loadDocumentation?: LoadDocumentation;
   readonly changes?: ChangeSet;
+  readonly branches?: readonly Branch[];
+  readonly baseRef?: string;
+  readonly onBaseRefChange?: (baseRef: string) => void;
+  readonly gitAvailable?: boolean;
   readonly stories?: StoriesTabProps;
   readonly className?: string;
 }) {
   const [gitOptions, setGitOptions] = useState<GitOptions>(defaultGitOptions);
   const visibleChanges = useMemo(() => {
     if (changes === undefined || !gitOptions.showChanges) return undefined;
-    if (gitOptions.showUncommitted) return changes;
-    const files = changes.files.filter(({ committed }) => committed);
-    return { ...changes, files };
-  }, [changes, gitOptions.showChanges, gitOptions.showUncommitted]);
+    return changes;
+  }, [changes, gitOptions.showChanges]);
   const model = useMemo(
     () => buildPresentationModel(analysis, visibleChanges),
     [analysis, visibleChanges],
@@ -145,8 +173,12 @@ export function LaymosExperience({
       changes={model.changes}
       gitOptions={gitOptions}
       onGitOptionsChange={setGitOptions}
-      gitAvailable={changes !== undefined}
+      gitAvailable={gitAvailable}
+      branches={branches}
+      baseRef={baseRef}
+      onBaseRefChange={onBaseRefChange}
       loadFileDiff={loadFileDiff}
+      loadDocumentation={loadDocumentation}
       layers={model.layers}
       rules={model.rules}
       layerGraphs={model.layerGraphs}
@@ -156,7 +188,7 @@ export function LaymosExperience({
       moduleGraphs={model.moduleGraphs}
       dependencies={model.moduleDependencies}
       moduleViolations={model.moduleViolations}
-      loadModuleSource={loadModuleSource}
+      loadSourceFiles={loadSourceFiles}
       stories={stories}
       className={className}
     />
@@ -227,8 +259,12 @@ export function LayersModulesExperience({
   gitOptions = defaultGitOptions,
   onGitOptionsChange,
   gitAvailable = false,
-  loadModuleSource,
+  branches = [],
+  baseRef = uncommittedBaseRef,
+  onBaseRefChange,
+  loadSourceFiles,
   loadFileDiff,
+  loadDocumentation,
   changes,
   className,
 }: LayersModulesProps) {
@@ -271,13 +307,12 @@ export function LayersModulesExperience({
   const [hoveredLayerId, setHoveredLayerId] = useState<string>();
   const [activeModuleId, setActiveModuleId] = useState<string>();
   const [activeViolationId, setActiveViolationId] = useState<string>();
-  const [sourceRequest, setSourceRequest] = useState<ModuleSourceOpenRequest>();
+  const [sourceRequest, setSourceRequest] = useState<SourceOpenRequest>();
 
   // A LayerGraph every one of whose Layers is hosted elsewhere draws no lane,
   // so offering it would be a selection with nothing to show.
-  const drawnGraphIds = graphGroups({ layers, rules, layerGraphs }).map(
-    ({ id }) => id,
-  );
+  const graphGroupList = graphGroups({ layers, rules, layerGraphs });
+  const drawnGraphIds = graphGroupList.map(({ id }) => id);
   const selectedGraph = layerGraphs.find(
     ({ id }) => id === activeGraphId && drawnGraphIds.includes(id),
   );
@@ -409,6 +444,45 @@ export function LayersModulesExperience({
     const request = moduleSourceRequest(modules, moduleId);
     if (request !== undefined) setSourceRequest(request);
   };
+  const openModuleGraphSource = (graphId: string) => {
+    const graph = moduleGraphs.find(({ id }) => id === graphId);
+    if (graph !== undefined) {
+      setSourceRequest({
+        title: graph.path,
+        pathPrefixes: [graph.path],
+        scope: {
+          kind: 'module-graph',
+          layerId: graph.layerId,
+          graphId: graph.id,
+        },
+      });
+    }
+  };
+  const openLayerSource = (layerId: string) => {
+    const layer = allLayers.find(({ id }) => id === layerId);
+    if (layer !== undefined) {
+      setSourceRequest({
+        title: layer.id,
+        pathPrefixes: layer.scopes.map(({ path }) => path),
+        scope: { kind: 'layer', layerId: layer.id },
+      });
+    }
+  };
+  const openLayerGraphSource = (graphId: string) => {
+    const group = graphGroupList.find(({ id }) => id === graphId);
+    if (group === undefined) return;
+    const hostedLayerIds = new Set(group.layerIds);
+    const pathPrefixes = allLayers
+      .filter(({ id }) => hostedLayerIds.has(id))
+      .flatMap(({ scopes }) => scopes.map(({ path }) => path));
+    if (pathPrefixes.length > 0) {
+      setSourceRequest({
+        title: graphId,
+        pathPrefixes,
+        scope: { kind: 'layer-graph', graphId },
+      });
+    }
+  };
 
   return (
     <>
@@ -420,8 +494,8 @@ export function LayersModulesExperience({
       >
         <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
           <p className="min-w-0 text-xs text-muted-foreground">
-            Select a Layer or Module to reveal connections. Right-click a Module
-            to explore its source.
+            Select a Layer or Module to reveal connections. Right-click a
+            Module, Module Graph, Layer, or LayerGraph to explore its source.
           </p>
           <div className="flex flex-wrap items-center gap-4">
             <ViewOptionsMenu
@@ -447,12 +521,21 @@ export function LayersModulesExperience({
             {gitAvailable && onGitOptionsChange !== undefined && (
               <GitOptionsMenu
                 options={gitOptions}
-                baseRef={changes?.baseRef}
+                baseRef={baseRef}
+                branches={branches}
                 hasChangedModules={hasChangedModules}
-                onChange={(next) => {
+                onOptionsChange={(next) => {
                   clearFocus();
                   onGitOptionsChange(next);
                 }}
+                onBaseRefChange={
+                  onBaseRefChange === undefined
+                    ? undefined
+                    : (next) => {
+                        clearFocus();
+                        onBaseRefChange(next);
+                      }
+                }
               />
             )}
             <LayerGraphMenu
@@ -502,8 +585,11 @@ export function LayersModulesExperience({
                   activeViolation={activeViolation}
                   onModuleActivate={activateModule}
                   onModuleOpen={openModuleSource}
+                  onModuleGraphOpen={openModuleGraphSource}
                   onLayerActivate={activateLayer}
+                  onLayerOpen={openLayerSource}
                   onLayerGraphActivate={activateLayerGraph}
+                  onLayerGraphOpen={openLayerGraphSource}
                   onClearFocus={clearFocus}
                 />
               ) : (
@@ -522,7 +608,9 @@ export function LayersModulesExperience({
                     if (layerFocus.hoverEnabled) setHoveredLayerId(id);
                   }}
                   onLayerActivate={activateLayer}
+                  onLayerOpen={openLayerSource}
                   onLayerGraphActivate={activateLayerGraph}
+                  onLayerGraphOpen={openLayerGraphSource}
                   onClearFocus={clearFocus}
                 />
               )}
@@ -615,14 +703,15 @@ export function LayersModulesExperience({
       </div>
       {sourceRequest !== undefined && (
         <ModuleSourceExplorer
-          key={`${sourceRequest.modulePath}:${sourceRequest.initialFilePath ?? ''}`}
+          key={`${sourceRequest.pathPrefixes.join('\0')}:${sourceRequest.initialFilePath ?? ''}`}
           request={sourceRequest}
-          loadModuleSource={loadModuleSource}
+          loadSourceFiles={loadSourceFiles}
           loadFileDiff={loadFileDiff}
+          loadDocumentation={loadDocumentation}
           changedPaths={
             changes === undefined
               ? undefined
-              : changedPathsUnder(changes, sourceRequest.modulePath)
+              : changedPathsUnder(changes, sourceRequest.pathPrefixes)
           }
           onClose={() => setSourceRequest(undefined)}
         />
@@ -804,21 +893,25 @@ function LayerGraphMenu({
 function GitOptionsMenu({
   options,
   baseRef,
+  branches,
   hasChangedModules,
-  onChange,
+  onOptionsChange,
+  onBaseRefChange,
 }: {
   readonly options: GitOptions;
-  readonly baseRef: string | undefined;
+  readonly baseRef: string;
+  readonly branches: readonly Branch[];
   readonly hasChangedModules: boolean;
-  readonly onChange: (options: GitOptions) => void;
+  readonly onOptionsChange: (options: GitOptions) => void;
+  readonly onBaseRefChange?: (baseRef: string) => void;
 }) {
+  const comparing =
+    baseRef === uncommittedBaseRef ? 'Uncommitted changes' : baseRef;
   const summary = !options.showChanges
     ? 'Git changes off'
-    : baseRef === undefined
-      ? 'No changes'
-      : hasChangedModules
-        ? `Changes since ${baseRef}`
-        : `No changes since ${baseRef}`;
+    : hasChangedModules
+      ? comparing
+      : `No changes · ${comparing}`;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex h-9 min-w-56 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
@@ -834,21 +927,34 @@ function GitOptionsMenu({
           <DropdownMenuCheckboxItem
             checked={options.showChanges}
             onCheckedChange={(showChanges) =>
-              onChange({ ...options, showChanges })
+              onOptionsChange({ ...options, showChanges })
             }
           >
             Show git changes
           </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            checked={options.showUncommitted}
-            disabled={!options.showChanges}
-            onCheckedChange={(showUncommitted) =>
-              onChange({ ...options, showUncommitted })
-            }
-          >
-            Show uncommitted changes
-          </DropdownMenuCheckboxItem>
         </DropdownMenuGroup>
+        {options.showChanges && onBaseRefChange !== undefined && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Compare against</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={baseRef}
+                onValueChange={onBaseRefChange}
+              >
+                <DropdownMenuRadioItem value={uncommittedBaseRef}>
+                  Uncommitted changes
+                </DropdownMenuRadioItem>
+                {branches.map((branch) => (
+                  <DropdownMenuRadioItem key={branch.name} value={branch.name}>
+                    {branch.name}
+                    {branch.current ? ' (current)' : ''}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuLabel>Scope</DropdownMenuLabel>
@@ -856,7 +962,7 @@ function GitOptionsMenu({
             checked={options.includeUnchanged}
             disabled={!options.showChanges}
             onCheckedChange={(includeUnchanged) =>
-              onChange({ ...options, includeUnchanged })
+              onOptionsChange({ ...options, includeUnchanged })
             }
           >
             Include unchanged

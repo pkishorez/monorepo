@@ -1,7 +1,11 @@
 import { Context, Effect, Layer } from 'effect';
 
-import type { ChangeSet, FileDiff } from '../../change-set-schema/index.js';
-import { readChangeSet, readFileDiff } from './changed-paths.js';
+import type {
+  Branch,
+  ChangeSet,
+  FileDiff,
+} from '../../change-set-schema/index.js';
+import { listBranches, readChangeSet, readFileDiff } from './changed-paths.js';
 import { GitError } from './errors.js';
 
 export class Git extends Context.Service<
@@ -16,6 +20,9 @@ export class Git extends Context.Service<
       baseRef: string,
       path: string,
     ) => Effect.Effect<FileDiff, GitError>;
+    readonly branches: (
+      baseDir: string,
+    ) => Effect.Effect<readonly Branch[], GitError>;
   }
 >()('Git') {}
 
@@ -31,6 +38,11 @@ export const GitLive = Layer.succeed(Git)({
         path,
         hunks: await readFileDiff(baseDir, baseRef, path),
       }),
+      catch: (cause) => asGitError(cause, baseDir),
+    }),
+  branches: (baseDir) =>
+    Effect.tryPromise({
+      try: () => listBranches(baseDir),
       catch: (cause) => asGitError(cause, baseDir),
     }),
 });

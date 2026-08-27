@@ -9,4 +9,8 @@ export {
   ModuleTree,
   ModuleViolationsList,
 } from './analysis-explorer';
-export type { LoadFileDiff, LoadModuleSource } from './analysis-explorer';
+export type {
+  LoadDocumentation,
+  LoadFileDiff,
+  LoadSourceFiles,
+} from './analysis-explorer';

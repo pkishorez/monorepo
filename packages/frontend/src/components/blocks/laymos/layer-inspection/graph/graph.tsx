@@ -40,6 +40,7 @@ interface LayerGraphProps extends LayerInteraction {
   readonly isolatedLayerGraphId?: string;
   readonly showLayerConnections?: boolean;
   readonly onLayerGraphActivate?: (graphId: string) => void;
+  readonly onLayerGraphOpen?: (graphId: string) => void;
   readonly activeViolationPair?: LayerViolationPair;
   readonly onClearFocus?: () => void;
   readonly className?: string;
@@ -110,6 +111,12 @@ function GraphCanvas(props: LayerGraphProps) {
           node.data.onActivate?.(node.id);
         }}
         onNodeContextMenu={(event, node) => {
+          if (node.type === 'graph-header') {
+            if (props.onLayerGraphOpen === undefined) return;
+            event.preventDefault();
+            props.onLayerGraphOpen(node.id.slice('graph:'.length));
+            return;
+          }
           if (node.type !== 'layer') return;
           if (!node.data.openEnabled) return;
           event.preventDefault();
@@ -163,8 +170,13 @@ function GraphHeader({ data }: NodeProps<GraphHeaderNode>) {
           data.active && 'border-primary/70 bg-primary/5 text-foreground',
           data.dimmed && 'opacity-25',
           data.activatable && 'cursor-pointer hover:border-primary/60',
+          data.openable && 'cursor-context-menu',
         )}
-        title={data.description}
+        title={
+          data.openable
+            ? "Right-click to explore this LayerGraph's source"
+            : data.description
+        }
       >
         <span className="truncate text-xs font-bold uppercase tracking-wider">
           {data.label}

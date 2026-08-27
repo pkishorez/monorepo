@@ -72,11 +72,14 @@ export function indexChanges(
 
 export function changedPathsUnder(
   index: ChangeIndex,
-  prefix: string,
+  prefixes: string | readonly string[],
 ): ReadonlyMap<string, ChangeStatus> {
+  const list = typeof prefixes === 'string' ? [prefixes] : prefixes;
   const owned = new Map<string, ChangeStatus>();
   for (const [path, status] of index.files) {
-    if (path === prefix || path.startsWith(`${prefix}/`)) {
+    if (
+      list.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+    ) {
       owned.set(path, status);
     }
   }

@@ -4,9 +4,16 @@ import { LotelRpc } from '@pkishorez/lotel/rpc';
 import {
   ArchitectureAnalysisSchema,
   ConfigValidationIssueSchema,
+  DocumentationScopeSchema,
+  DocumentationSchema,
+  ModuleSourceFileSchema,
   ModuleSourceSnapshotSchema,
 } from 'laymos/architecture-analysis-schema';
-import { ChangeSetSchema, FileDiffSchema } from 'laymos/change-set-schema';
+import {
+  BranchSchema,
+  ChangeSetSchema,
+  FileDiffSchema,
+} from 'laymos/change-set-schema';
 import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
 
 export class InvalidProjectPath extends Schema.TaggedError<InvalidProjectPath>(
@@ -48,6 +55,24 @@ export class ModuleSourceReadError extends Schema.TaggedError<ModuleSourceReadEr
   'ModuleSourceReadError',
 )('ModuleSourceReadError', {
   filePath: Schema.String,
+  message: Schema.String,
+}) {}
+
+export class SourceFileReadError extends Schema.TaggedError<SourceFileReadError>(
+  'SourceFileReadError',
+)('SourceFileReadError', {
+  filePath: Schema.String,
+  message: Schema.String,
+}) {}
+
+export class DocumentationScopeNotFoundError extends Schema.TaggedError<DocumentationScopeNotFoundError>(
+  'DocumentationScopeNotFoundError',
+)('DocumentationScopeNotFoundError', { scope: DocumentationScopeSchema }) {}
+
+export class DocumentationReadError extends Schema.TaggedError<DocumentationReadError>(
+  'DocumentationReadError',
+)('DocumentationReadError', {
+  path: Schema.String,
   message: Schema.String,
 }) {}
 
@@ -106,6 +131,27 @@ const GetLaymosModuleSourceError = Schema.Union([
   ModuleSourceReadError,
 ]);
 
+const GetLaymosSourceFilesError = Schema.Union([
+  InvalidProjectPath,
+  ConfigReadError,
+  ConfigParseError,
+  ConfigSchemaError,
+  ConfigValidationError,
+  SourceAnalysisError,
+  SourceFileReadError,
+]);
+
+const GetLaymosDocumentationError = Schema.Union([
+  InvalidProjectPath,
+  ConfigReadError,
+  ConfigParseError,
+  ConfigSchemaError,
+  ConfigValidationError,
+  SourceAnalysisError,
+  DocumentationScopeNotFoundError,
+  DocumentationReadError,
+]);
+
 export const DevtoolsToolRpc = RpcGroup.make(
   Rpc.make('AnalyzeLaymosProject', {
     payload: { projectPath: Schema.String },
@@ -116,6 +162,24 @@ export const DevtoolsToolRpc = RpcGroup.make(
     payload: { projectPath: Schema.String, modulePath: Schema.String },
     success: ModuleSourceSnapshotSchema,
     error: GetLaymosModuleSourceError,
+  }),
+  Rpc.make('GetLaymosSourceFiles', {
+    payload: {
+      projectPath: Schema.String,
+      pathPrefixes: Schema.Array(Schema.String),
+    },
+    success: Schema.Struct({ files: Schema.Array(ModuleSourceFileSchema) }),
+    error: GetLaymosSourceFilesError,
+  }),
+  Rpc.make('GetLaymosDocumentation', {
+    payload: { projectPath: Schema.String, scope: DocumentationScopeSchema },
+    success: DocumentationSchema,
+    error: GetLaymosDocumentationError,
+  }),
+  Rpc.make('GetLaymosBranches', {
+    payload: { projectPath: Schema.String },
+    success: Schema.Array(BranchSchema),
+    error: LaymosChangesError,
   }),
   Rpc.make('GetLaymosChanges', {
     payload: {

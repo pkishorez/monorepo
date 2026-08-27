@@ -33,13 +33,17 @@
             "analyze-project": { "exposed": true },
             "inspect": { "exposed": true },
             "load-module-source": { "exposed": true },
+            "load-documentation": { "exposed": true },
+            "load-source-files": { "exposed": true },
             "load-changes": { "exposed": true },
             "run-stories": { "exposed": true }
           },
           "rules": {
             "analyze-project": ["load-project"],
             "inspect": ["analyze-project", "load-project"],
-            "load-module-source": ["load-project"]
+            "load-module-source": ["load-project"],
+            "load-documentation": ["load-project"],
+            "load-source-files": ["load-project"]
           }
         }
       }

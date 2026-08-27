@@ -6,6 +6,17 @@ export {
   ModuleSourceNotFound,
   ModuleSourceReadError,
 } from './orchestrator/load-module-source/index.js';
+// Node consumers use this high-level capability to read documentation at any scope.
+export {
+  loadDocumentation,
+  DocumentationReadError,
+  DocumentationScopeNotFound,
+} from './orchestrator/load-documentation/index.js';
+// Node consumers use this high-level capability to read arbitrary source files by path.
+export {
+  loadSourceFiles,
+  SourceFileReadError,
+} from './orchestrator/load-source-files/index.js';
 // RPC transports use this browser-safe runtime contract for Architecture Analysis.
 export { ArchitectureAnalysisSchema } from './architecture-analysis-schema/index.js';
 // Renderers name the complete renderer-neutral analysis they consume.
@@ -14,6 +25,14 @@ export { ModuleSourceSnapshotSchema } from './architecture-analysis-schema/index
 export type {
   ModuleSourceFile,
   ModuleSourceSnapshot,
+} from './architecture-analysis-schema/index.js';
+export {
+  DocumentationScopeSchema,
+  DocumentationSchema,
+} from './architecture-analysis-schema/index.js';
+export type {
+  Documentation,
+  DocumentationScope,
 } from './architecture-analysis-schema/index.js';
 export {
   InspectionTargetNotFound,
@@ -46,6 +65,7 @@ export { StoryReportSchema, StoryTreeSchema } from './story/schema/index.js';
 export type { StoryReport, StoryTree } from './story/schema/index.js';
 // Node consumers use this high-level capability to report what a Base ref changed.
 export {
+  loadBranches,
   loadChangeSet,
   loadFileDiff,
 } from './orchestrator/load-changes/index.js';
@@ -53,6 +73,7 @@ export {
 export { GitError } from './services/git/index.js';
 // RPC transports use this browser-safe runtime contract for Change sets.
 export {
+  BranchSchema,
   ChangedPathSchema,
   ChangeSetSchema,
   ChangeStatusSchema,
@@ -62,6 +83,7 @@ export {
 } from './change-set-schema/index.js';
 // Renderers name the change decoration they apply to an Architecture Analysis.
 export type {
+  Branch,
   ChangedPath,
   ChangeSet,
   ChangeStatus,
