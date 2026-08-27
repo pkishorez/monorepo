@@ -22,6 +22,7 @@
     "src/eschema/tutorial",
     "src/snapshot/__tests__",
     "src/snapshot/restore/eschema-restore/__tests__",
+    "src/studio-rpc/__tests__",
     "src/sync/__tests__",
     "src/sync/composition/keyed-sync/__tests__",
     "src/sync/domain/partition-identity/__tests__",
@@ -47,6 +48,15 @@
         },
         "src/db/db.ts": {
           "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "studio-rpc": {
+      "paths": ["src/studio-rpc"],
+      "description": "Integration — runtime-discovered StdTable reads over Effect RPC",
+      "modules": {
+        "src/studio-rpc": {
           "exposed": true
         }
       }
@@ -706,6 +716,12 @@
     }
   },
   "layerGraphs": {
+    "studio-rpc": {
+      "description": "Studio RPC composes the semantic table surface and snapshot contract",
+      "rules": {
+        "studio-rpc": ["std-table.table", "snapshot.public"]
+      }
+    },
     "std-table": {
       "description": "The logical table: public entrypoint, aggregate, entity surface, model, and port",
       "rules": {

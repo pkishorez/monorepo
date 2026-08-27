@@ -72,6 +72,10 @@
       "types": "./dist/snapshot/index.d.ts",
       "default": "./dist/snapshot/index.js"
     },
+    "./studio-rpc": {
+      "types": "./dist/studio-rpc/index.d.ts",
+      "default": "./dist/studio-rpc/index.js"
+    },
     "./sync": {
       "types": "./dist/sync/index.d.ts",
       "default": "./dist/sync/index.js"

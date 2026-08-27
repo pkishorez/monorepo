@@ -34,7 +34,7 @@ export const EncodedKeySchema: Schema.Codec<EncodedKey> = Schema.Struct({
   sk: Schema.String,
 });
 
-const EncodedDataSchema = Schema.declare<EncodedData>(
+export const EncodedDataSchema = Schema.declare<EncodedData>(
   (input): input is EncodedData =>
     typeof input === 'object' &&
     input !== null &&

@@ -1,5 +1,6 @@
 export {
   ConditionFailure,
+  EncodedDataSchema,
   EncodedItemSchema,
   EncodedKeySchema,
   OperationFailure,
