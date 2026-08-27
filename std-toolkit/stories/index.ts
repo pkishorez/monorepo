@@ -72,6 +72,7 @@ import { olderRows } from './database/std-table/evolving-data-in-place/older-row
 import { backfillingAnIndex } from './database/std-table/detecting-and-repairing-drift/backfilling-an-index.story.js';
 import { unreadableRows } from './database/std-table/evolving-data-in-place/unreadable-rows.story.js';
 import { verifySnapshot } from './database/std-table/table-level-enforcement/verify-snapshot.story.js';
+import { readingThroughStudio } from './database/std-table/studio-rpc/reading-through-studio.story.js';
 
 import { aBackendAndNobodyWatching } from './sync/building-the-simulation/a-backend-and-nobody-watching.story.js';
 import { aBrowserMountsAQuery } from './sync/building-the-simulation/a-browser-mounts-a-query.story.js';
@@ -312,6 +313,14 @@ export default Story.group(
                   'A second line of defense with its baseline kept inside the table itself, independent of the file-based lint.',
               },
               [verifySnapshot],
+            ),
+            Story.group(
+              'Studio RPC',
+              {
+                description:
+                  'Runtime discovery and Entity reads through one generic Effect RPC group.',
+              },
+              [readingThroughStudio],
             ),
           ],
         ),

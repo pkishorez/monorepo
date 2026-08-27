@@ -20,6 +20,10 @@ _Avoid_: Table runtime, runtime, port, binding, adapter Entity service, duplicat
 The typed Effect service, identified by a StdTable's unique logical name, through which operations reach the contract implementation (`StdTableService`). Providing an adapter table's layer satisfies it; every used StdTable requires its own layer in one Effect runtime.
 _Avoid_: Table binding, attachment, mutable binding, global registration, object-identity binding.
 
+**Studio RPC**:
+A remotely hosted, read-only view of one **StdTable** for inspection clients. It exposes the table's semantic snapshot and delegates entity lookup and **access pattern** queries to the existing keyed and singleton **entity surfaces**, preserving their defaults, read migration, tombstone visibility, ordering, and pagination. Results are re-encoded as core [[core]] **EncodedEntities** or **SingleEntities** for transport; physical storage and adapter-native operations remain hidden.
+_Avoid_: Database API, admin API, raw table endpoint, multi-table endpoint.
+
 **Adapter**:
 A database implementation of the **StdTable contract**: DynamoDB, SQLite, IDB, or Memory (brand-faithful casing). Each adapter may also expose **adapter-native operations** beyond the contract. One adapter never imports another.
 _Avoid_: backend, engine, database plugin.

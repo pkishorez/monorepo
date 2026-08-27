@@ -22,6 +22,7 @@ npm install @tanstack/react-db react   # required by sync
 | [`std-toolkit/core`](src/core/README.md)                                    | Entity codecs and shared decoded application primitives                       |
 | [`std-toolkit/eschema`](src/eschema/README.md)                              | Versioned, self-migrating schemas built on Effect Schema                      |
 | [`std-toolkit/snapshot`](src/eschema/README.md#semantic-contract-snapshots) | Semantic contract decoding, inspection, comparison, and rendering             |
+| [`std-toolkit/studio-rpc`](src/studio-rpc/README.md)                        | Runtime-discovered, read-only StdTable access for Studio                      |
 | `std-toolkit/db`                                                            | Portable Table and Entity definitions and operations                          |
 | [`std-toolkit/db/dynamodb`](src/db/dynamodb/README.md)                      | DynamoDB binding, setup, expression builder, and native operations            |
 | [`std-toolkit/db/sqlite`](src/db/sqlite/README.md)                          | SQLite binding and setup with separate environment driver entrypoints         |

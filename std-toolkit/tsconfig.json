@@ -10,6 +10,7 @@
       "std-toolkit/core": ["./src/core/index.ts"],
       "std-toolkit/eschema": ["./src/eschema/index.ts"],
       "std-toolkit/snapshot": ["./src/snapshot/index.ts"],
+      "std-toolkit/studio-rpc": ["./src/studio-rpc/index.ts"],
       "std-toolkit/sync": ["./src/sync/index.ts"],
       "std-toolkit/sync/paced": ["./src/sync/runtime/mutation-pacing/index.ts"],
       "std-toolkit/sync/platform/browser": [
