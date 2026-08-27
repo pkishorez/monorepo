@@ -17,7 +17,9 @@ export function applyRelationshipFocus(
   edges: Layout['edges'],
   hover?: FocusTarget,
 ) {
-  if (focus === undefined) {
+  const entityAnchor = focus?.kind === 'entity' ? focus : undefined;
+  const active = focus?.kind === 'field' ? focus : (hover ?? focus);
+  if (active === undefined) {
     return {
       nodes: nodes.map((node) => ({
         ...node,
@@ -34,48 +36,46 @@ export function applyRelationshipFocus(
     };
   }
 
-  const selectedEdges = edges.filter((edge) =>
-    focus.kind === 'entity'
-      ? edge.source === focus.entityId || edge.target === focus.entityId
-      : (edge.source === focus.entityId &&
-          edge.data?.relationship.sourceField === focus.fieldName) ||
-        (edge.target === focus.entityId &&
-          edge.data?.relationship.targetField === focus.fieldName),
+  const primary = entityAnchor ?? active;
+  const primaryEdges = edges.filter((edge) =>
+    primary.kind === 'entity'
+      ? edge.source === primary.entityId || edge.target === primary.entityId
+      : (edge.source === primary.entityId &&
+          edge.data?.relationship.sourceField === primary.fieldName) ||
+        (edge.target === primary.entityId &&
+          edge.data?.relationship.targetField === primary.fieldName),
   );
-  const hoveredCardEdges =
-    focus.kind === 'entity' &&
-    hover !== undefined &&
-    hover.entityId !== focus.entityId
-      ? selectedEdges.filter(
-          (edge) =>
-            (edge.source === focus.entityId &&
-              edge.target === hover.entityId) ||
-            (edge.target === focus.entityId && edge.source === hover.entityId),
-        )
-      : [];
-  const hoveredFieldEdges =
-    hover?.kind === 'field'
-      ? hoveredCardEdges.filter(
-          (edge) =>
-            (edge.source === hover.entityId &&
-              edge.data?.relationship.sourceField === hover.fieldName) ||
-            (edge.target === hover.entityId &&
-              edge.data?.relationship.targetField === hover.fieldName),
-        )
-      : [];
-  const refiningField = hoveredFieldEdges.length > 0;
-  const focusedEdges = refiningField
-    ? hoveredFieldEdges
-    : hoveredCardEdges.length > 0
-      ? hoveredCardEdges
-      : selectedEdges;
-  const connectedNodeIds = new Set([focus.entityId]);
-  focusedEdges.forEach((edge) => connectedNodeIds.add(edge.target));
-  focusedEdges.forEach((edge) => connectedNodeIds.add(edge.source));
-  const focusedEdgeIds = new Set(focusedEdges.map(({ id }) => id));
+  const selectedEdges =
+    entityAnchor === undefined || hover === undefined
+      ? primaryEdges
+      : hover.kind === 'entity'
+        ? hover.entityId === entityAnchor.entityId
+          ? primaryEdges
+          : primaryEdges.filter(
+              (edge) =>
+                edge.source === hover.entityId ||
+                edge.target === hover.entityId,
+            )
+        : primaryEdges.filter(
+            (edge) =>
+              (edge.source === hover.entityId &&
+                edge.data?.relationship.sourceField === hover.fieldName) ||
+              (edge.target === hover.entityId &&
+                edge.data?.relationship.targetField === hover.fieldName),
+          );
+  const connectedNodeIds = new Set([primary.entityId]);
+  selectedEdges.forEach((edge) => connectedNodeIds.add(edge.target));
+  selectedEdges.forEach((edge) => connectedNodeIds.add(edge.source));
+  const focusedEdgeIds = new Set(selectedEdges.map(({ id }) => id));
   const connectedFields = new Map<string, Set<string>>();
-  if (focus.kind === 'field' || refiningField) {
-    for (const edge of focusedEdges) {
+  const preciseField =
+    primary.kind === 'field'
+      ? primary
+      : entityAnchor !== undefined && hover?.kind === 'field'
+        ? hover
+        : undefined;
+  if (preciseField !== undefined) {
+    for (const edge of selectedEdges) {
       const relationship = edge.data?.relationship;
       if (relationship === undefined) continue;
       const sourceFields = connectedFields.get(edge.source) ?? new Set();
@@ -94,12 +94,14 @@ export function applyRelationshipFocus(
       ...node,
       data: {
         ...node.data,
-        focused: node.id === focus.entityId,
-        related: node.id !== focus.entityId && connectedNodeIds.has(node.id),
+        focused: node.id === primary.entityId,
+        related: node.id !== primary.entityId && connectedNodeIds.has(node.id),
         dimmed: !connectedNodeIds.has(node.id),
         selectedField:
-          focus.kind === 'field' && node.id === focus.entityId
-            ? focus.fieldName
+          preciseField !== undefined &&
+          preciseField.entityId === primary.entityId &&
+          node.id === primary.entityId
+            ? preciseField.fieldName
             : undefined,
         connectedFields: [...(connectedFields.get(node.id) ?? [])],
       },
