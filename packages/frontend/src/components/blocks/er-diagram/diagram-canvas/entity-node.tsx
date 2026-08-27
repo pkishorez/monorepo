@@ -2,6 +2,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import {
   ArrowUpRight,
   Box,
+  Braces,
   Database,
   KeyRound,
   TriangleAlert,
@@ -16,6 +17,7 @@ type DiagramNode = Node<
   LayoutNode['data'] & {
     readonly onEntitySelect?: (entityId: string) => void;
     readonly onFieldSelect?: (entityId: string, fieldName: string) => void;
+    readonly onComplexFieldOpen?: (entityId: string, fieldName: string) => void;
     readonly onEntityHover?: (entityId: string, active: boolean) => void;
     readonly onFieldHover?: (
       entityId: string,
@@ -206,7 +208,11 @@ export function EntityNode({ data }: NodeProps<DiagramNode>) {
                   )}
                   onClick={(event) => {
                     event.stopPropagation();
-                    data.onFieldSelect?.(entity.id, field.name);
+                    if (field.complex !== undefined) {
+                      data.onComplexFieldOpen?.(entity.id, field.name);
+                    } else if (field.referenceTarget !== undefined) {
+                      data.onFieldSelect?.(entity.id, field.name);
+                    }
                   }}
                 >
                   <span className="grid size-3 place-items-center">
@@ -214,6 +220,11 @@ export function EntityNode({ data }: NodeProps<DiagramNode>) {
                       <KeyRound
                         className="size-3 text-amber-500 dark:text-amber-400"
                         aria-label="Identifier"
+                      />
+                    ) : field.complex !== undefined ? (
+                      <Braces
+                        className="size-3 text-primary/75"
+                        aria-label="Inspect complex type"
                       />
                     ) : field.referenceTarget !== undefined ? (
                       <ArrowUpRight

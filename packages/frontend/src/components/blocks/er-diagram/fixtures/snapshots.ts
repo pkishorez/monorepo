@@ -9,6 +9,7 @@ type Variant = {
 
 type Field = {
   readonly name: string;
+  readonly schemaType?: unknown;
   readonly type?: Primitive;
   readonly literal?: string;
   readonly optional?: boolean;
@@ -44,23 +45,28 @@ function primitive(type: Primitive = 'string', reference?: string): unknown {
 
 function property(field: Field): unknown {
   const item =
-    field.variants !== undefined
-      ? {
-          _tag: 'Union',
-          checks: [],
-          types: field.variants.map((variant) =>
-            object([{ name: 'kind', literal: variant.tag }, ...variant.fields]),
-          ),
-        }
-      : field.nested !== undefined
-        ? object(field.nested)
-        : field.literal !== undefined
-          ? {
-              _tag: 'Literal',
-              checks: [],
-              literal: { type: 'string', value: field.literal },
-            }
-          : primitive(field.type, field.reference);
+    field.schemaType !== undefined
+      ? field.schemaType
+      : field.variants !== undefined
+        ? {
+            _tag: 'Union',
+            checks: [],
+            types: field.variants.map((variant) =>
+              object([
+                { name: 'kind', literal: variant.tag },
+                ...variant.fields,
+              ]),
+            ),
+          }
+        : field.nested !== undefined
+          ? object(field.nested)
+          : field.literal !== undefined
+            ? {
+                _tag: 'Literal',
+                checks: [],
+                literal: { type: 'string', value: field.literal },
+              }
+            : primitive(field.type, field.reference);
   const type = field.array
     ? { _tag: 'Arrays', checks: [], elements: [], rest: [item] }
     : field.optional
@@ -402,6 +408,113 @@ export const selfReferenceSnapshot = table('categories', [
     fields: [
       { name: 'name' },
       { name: 'parentId', reference: 'Category', optional: true },
+    ],
+  },
+]);
+
+const tagged = (tag: string, checks: readonly unknown[] = []) => ({
+  _tag: tag,
+  checks,
+});
+
+const literalType = (type: string, value: unknown) => ({
+  _tag: 'Literal',
+  checks: [],
+  literal: { type, value },
+});
+
+const referenceType = (target: string) => ({
+  ...tagged('String'),
+  annotations: { entityReference: target },
+});
+
+const arrayType = (item: unknown) => ({
+  ...tagged('Arrays'),
+  elements: [],
+  rest: [item],
+});
+
+const tupleType = (elements: readonly unknown[], rest: unknown[] = []) => ({
+  ...tagged('Arrays'),
+  elements,
+  rest,
+});
+
+const unionType = (...types: readonly unknown[]) => ({
+  ...tagged('Union'),
+  types,
+});
+
+export const allDataTypesSnapshot = table('all-schema-data-types', [
+  {
+    name: 'AllDataTypes',
+    fields: [
+      { name: 'string', schemaType: tagged('String') },
+      { name: 'number', schemaType: tagged('Number') },
+      { name: 'boolean', schemaType: tagged('Boolean') },
+      { name: 'bigint', schemaType: tagged('BigInt') },
+      { name: 'symbol', schemaType: tagged('Symbol') },
+      { name: 'undefined', schemaType: tagged('Undefined') },
+      { name: 'void', schemaType: tagged('Void') },
+      { name: 'never', schemaType: tagged('Never') },
+      { name: 'unknown', schemaType: tagged('Unknown') },
+      { name: 'any', schemaType: tagged('Any') },
+      { name: 'stringLiteral', schemaType: literalType('string', 'draft') },
+      { name: 'numberLiteral', schemaType: literalType('number', 42) },
+      { name: 'booleanLiteral', schemaType: literalType('boolean', true) },
+      { name: 'nullLiteral', schemaType: literalType('null', null) },
+      {
+        name: 'literalUnion',
+        schemaType: unionType(
+          literalType('string', 'draft'),
+          literalType('string', 'published'),
+          literalType('number', 0),
+          literalType('boolean', false),
+          literalType('null', null),
+        ),
+      },
+      { name: 'primitiveArray', schemaType: arrayType(tagged('String')) },
+      {
+        name: 'objectArray',
+        schemaType: arrayType(
+          object([
+            { name: 'label' },
+            { name: 'ownerId', schemaType: referenceType('Identity') },
+          ]),
+        ),
+      },
+      {
+        name: 'tuple',
+        schemaType: tupleType([
+          tagged('String'),
+          referenceType('Account'),
+          object([{ name: 'enabled', type: 'boolean' }]),
+        ]),
+      },
+      {
+        name: 'tupleWithRest',
+        schemaType: tupleType(
+          [literalType('string', 'head')],
+          [tagged('Number')],
+        ),
+      },
+      {
+        name: 'nestedObject',
+        nested: [
+          { name: 'name' },
+          { name: 'ownerId', reference: 'User' },
+          { name: 'metadata', nested: [{ name: 'createdAt' }] },
+        ],
+      },
+      {
+        name: 'mixedUnion',
+        schemaType: unionType(
+          object([{ name: 'kind', literal: 'structured' }, { name: 'value' }]),
+          literalType('string', 'automatic'),
+          tagged('Number'),
+          referenceType('Policy'),
+        ),
+      },
     ],
   },
 ]);

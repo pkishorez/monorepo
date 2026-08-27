@@ -1,14 +1,19 @@
 import { Database, LoaderCircle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TableSnapshot } from 'std-toolkit/snapshot';
 
 import { cn } from '#lib/utils';
 
+import { ComplexFieldDetails } from '../complex-field-details';
 import { DiagramCanvas } from '../diagram-canvas';
 import { layoutGraph } from '../graph-layout';
 import { presentSnapshot } from '../relationship-presentation';
 
 type Layout = Awaited<ReturnType<typeof layoutGraph>>;
+type InspectedField = {
+  readonly entityId: string;
+  readonly fieldName: string;
+};
 
 export function ERDiagram({
   snapshot,
@@ -21,6 +26,24 @@ export function ERDiagram({
 }) {
   const presentation = useMemo(() => presentSnapshot(snapshot), [snapshot]);
   const [layout, setLayout] = useState<Layout>();
+  const [inspectedField, setInspectedField] = useState<InspectedField>();
+  const openComplexField = useCallback(
+    (entityId: string, fieldName: string) =>
+      setInspectedField({ entityId, fieldName }),
+    [],
+  );
+  const inspected = useMemo(() => {
+    if (inspectedField === undefined) return undefined;
+    const entity = presentation.entities.find(
+      ({ id }) => id === inspectedField.entityId,
+    );
+    const field = entity?.fields.find(
+      ({ name }) => name === inspectedField.fieldName,
+    );
+    return entity === undefined || field?.complex === undefined
+      ? undefined
+      : { entity, field };
+  }, [inspectedField, presentation.entities]);
 
   useEffect(() => {
     let active = true;
@@ -56,11 +79,21 @@ export function ERDiagram({
   }
 
   return (
-    <DiagramCanvas
-      layout={layout}
-      className={className}
-      ariaLabel={ariaLabel ?? `${snapshot.logicalName} entity relationships`}
-    />
+    <>
+      <DiagramCanvas
+        layout={layout}
+        className={className}
+        ariaLabel={ariaLabel ?? `${snapshot.logicalName} entity relationships`}
+        onComplexFieldOpen={openComplexField}
+      />
+      <ComplexFieldDetails
+        entityLabel={inspected?.entity.label ?? ''}
+        field={inspected?.field}
+        onOpenChange={(open) => {
+          if (!open) setInspectedField(undefined);
+        }}
+      />
+    </>
   );
 }
 

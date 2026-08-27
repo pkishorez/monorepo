@@ -27,14 +27,21 @@ export function DiagramCanvas({
   layout,
   className,
   ariaLabel,
+  onComplexFieldOpen,
 }: {
   readonly layout: Layout;
   readonly className?: string;
   readonly ariaLabel?: string;
+  readonly onComplexFieldOpen?: (entityId: string, fieldName: string) => void;
 }) {
   return (
     <ReactFlowProvider key={layout.id}>
-      <CanvasBody layout={layout} className={className} ariaLabel={ariaLabel} />
+      <CanvasBody
+        layout={layout}
+        className={className}
+        ariaLabel={ariaLabel}
+        onComplexFieldOpen={onComplexFieldOpen}
+      />
     </ReactFlowProvider>
   );
 }
@@ -43,10 +50,12 @@ function CanvasBody({
   layout,
   className,
   ariaLabel,
+  onComplexFieldOpen,
 }: {
   readonly layout: Layout;
   readonly className?: string;
   readonly ariaLabel?: string;
+  readonly onComplexFieldOpen?: (entityId: string, fieldName: string) => void;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(layout.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layout.edges);
@@ -88,6 +97,11 @@ function CanvasBody({
                 : { kind: 'field', entityId, fieldName },
             );
           },
+          onComplexFieldOpen: (entityId: string, fieldName: string) => {
+            setFocus(undefined);
+            setHover(undefined);
+            onComplexFieldOpen?.(entityId, fieldName);
+          },
           onEntityHover: (entityId: string, active: boolean) => {
             setHover(active ? { kind: 'entity', entityId } : undefined);
           },
@@ -104,7 +118,7 @@ function CanvasBody({
           },
         },
       })),
-    [focused.nodes],
+    [focused.nodes, onComplexFieldOpen],
   );
 
   return (

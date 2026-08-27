@@ -1,6 +1,6 @@
 import type { TableSnapshot } from 'std-toolkit/snapshot';
 
-import { schemaFields } from './schema-fields';
+import { fieldReferenceTargets, schemaFields } from './schema-fields';
 
 export function presentSnapshot(snapshot: TableSnapshot) {
   const definitions = new Map(
@@ -25,11 +25,8 @@ export function presentSnapshot(snapshot: TableSnapshot) {
 
   for (const entity of entities) {
     for (const field of entity.fields) {
-      if (
-        field.referenceTarget !== undefined &&
-        !entityNames.has(field.referenceTarget)
-      ) {
-        externalNames.add(field.referenceTarget);
+      for (const target of fieldReferenceTargets(field)) {
+        if (!entityNames.has(target)) externalNames.add(target);
       }
     }
   }

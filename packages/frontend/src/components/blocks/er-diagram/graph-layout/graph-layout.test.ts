@@ -23,14 +23,11 @@ describe('layoutGraph', () => {
     });
   });
 
-  it('aligns a lone external target with its source field row', async () => {
+  it('keeps a nested external target without inventing a parent edge', async () => {
     const layout = await layoutGraph(presentSnapshot(nestedSnapshot));
-    const source = layout.nodes.find(({ id }) => id === 'Event')!;
-    const target = layout.nodes.find(({ id }) => id === 'external:Identity')!;
 
-    expect(target.position.y + 78 / 2).toBe(
-      source.position.y + 50 + 34 + 34 / 2,
-    );
+    expect(layout.nodes.map(({ id }) => id)).toContain('external:Identity');
+    expect(layout.edges).toEqual([]);
   });
 
   it('routes self references to a compact target on the same side', async () => {

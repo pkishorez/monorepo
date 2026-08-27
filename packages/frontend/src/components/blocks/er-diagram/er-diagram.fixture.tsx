@@ -1,14 +1,12 @@
 import { ERDiagram } from './er-diagram';
 import {
+  allDataTypesSnapshot,
   arrayPlaylistSnapshot,
   complexCommerceSnapshot,
   cyclicTeamsSnapshot,
-  deeplyNestedSnapshot,
-  discriminatedPaymentSnapshot,
   emptySnapshot,
   externalAuditSnapshot,
   optionalBlogSnapshot,
-  nestedArraySnapshot,
   selfReferenceSnapshot,
   singleSettingsSnapshot,
   simpleOrdersSnapshot,
@@ -35,19 +33,9 @@ export default {
       <ERDiagram snapshot={versionedAccountsSnapshot} />
     </Frame>
   ),
-  'deeply nested structs': (
+  'all schema data types': (
     <Frame>
-      <ERDiagram snapshot={deeplyNestedSnapshot} />
-    </Frame>
-  ),
-  'arrays of nested structs': (
-    <Frame>
-      <ERDiagram snapshot={nestedArraySnapshot} />
-    </Frame>
-  ),
-  'discriminated union (current)': (
-    <Frame>
-      <ERDiagram snapshot={discriminatedPaymentSnapshot} />
+      <ERDiagram className="h-[760px]" snapshot={allDataTypesSnapshot} />
     </Frame>
   ),
   'mutual cycle': (
