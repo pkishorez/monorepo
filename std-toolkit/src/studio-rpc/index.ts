@@ -1,1 +1,1 @@
-export { StudioRpc } from './studio-rpc.js';
+export { StudioRpc, type StudioRpcClient } from './studio-rpc.js';
