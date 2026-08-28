@@ -4,7 +4,7 @@ import { EntityESchema } from 'std-toolkit/eschema';
 export const TransferSchema = EntityESchema.make('transfer', 'id', {
   from: Schema.String,
   to: Schema.String,
-  amount: Schema.Int,
+  amount: Schema.Number,
 }).build();
 
 export type Transfer = (typeof TransferSchema)['Type'];
