@@ -55,23 +55,36 @@ have stable identity.
 **Critical: the proposal never becomes `_u`.** `_u` is also the cursor axis —
 strategies fetch "entities beyond cursor X" by `_u` — so writing an old
 edit-time stamp into `_u` would land the accepted write *behind* other
-clients' cursors, invisible to incremental sync forever. The roles split:
+clients' cursors, invisible to incremental sync forever. `_u` stays
+**server-minted at write time**: every accepted write is ahead of every
+cursor, sync visibility never depends on a client clock, and client
+convergence keeps comparing `_u` alone — unchanged.
 
-- `_u` stays **server-minted at write time**. Every accepted write is ahead
-  of every cursor; sync visibility never depends on a client clock. Client
-  convergence keeps comparing `_u` alone — unchanged.
-- A new optional meta field, the **edit stamp `_p`**, records the winning
-  `proposedU`. The backend applies a slot conditionally: **apply iff
-  `proposedU` is newer than the stored `_p`** (db `transact` check ops),
-  writing fresh server `_u` + `_p = proposedU` on apply, and returning the
-  authoritative entity either way. So a stale device reconnecting cannot
-  overwrite a newer edit made elsewhere — its write is *superseded*, a
-  successful no-op that ordinary convergence cleans up.
+**The conditional apply is user-written, not toolkit-wired.** The backend
+author's RPC handler uses the existing db conditional update:
 
-`proposedU` is **optional end to end**: a backend that ignores it stamps `_u`
-on arrival and skips the `_p` compare — arrival-order LWW, today's behavior,
-nothing breaks. Forwarding one field and using the conditional-apply helper
-upgrades to edit-time LWW.
+```typescript
+taskEntity.getAndUpdate(key, updates, {
+  check: (current, meta) => meta._u < proposedU,
+});
+// check failed → fetch current, return it (superseded)
+```
+
+The one db change this requires: **check invariants receive Entity Meta**
+(today `EntityInvariant<T> = (current: T) => boolean` sees the value only).
+No server-side proposal machinery, no new write paths.
+
+Semantics of comparing edit-time `proposedU` against arrival-time `_u`:
+deliberately **conservative**. Arrival is always at or after edit, so a stale
+device can never overwrite a newer edit (the safe direction); the cost is
+that an offline edit may be superseded by a competing write that merely
+*arrived* after it was made. Exact edit-vs-edit fairness — an optional `_p`
+edit-stamp meta field compared instead of `_u` — is a documented later
+refinement, not v1.
+
+`proposedU` is **optional end to end**: a backend that ignores it does plain
+writes — arrival-order LWW, today's behavior, nothing breaks. Adding the one
+check clause upgrades to conservative edit-time LWW.
 
 Clock drift is **accounted for, not solved**: sync visibility is immune by
 construction (`_u` is server time). Drift affects only conflict fairness
@@ -257,10 +270,12 @@ Each phase ships and is testable independently.
 ### Phase 5 — server recipe and docs
 
 - Documented backend pattern (with example) for the conditional apply:
-  db `transact` check on the `_p` edit stamp (`proposedU > stored _p`),
-  writing fresh server-minted `_u` + `_p = proposedU` on apply, returning
-  the authoritative entity on supersession; future-bound validation of
-  `proposedU`; db support for writing `_p` alongside the server-minted `_u`.
+  `getAndUpdate` with a meta-aware check (`meta._u < proposedU`), returning
+  the authoritative entity on a failed check (supersession); future-bound
+  validation of `proposedU`. Prerequisite db change (small, may land in any
+  phase): check invariants (`EntityInvariant`, `WriteOptions.check`,
+  `getAndCheckOp`) receive Entity Meta alongside the value. The optional
+  `_p` edit-stamp refinement is documented but not implemented.
 - eschema payload guidance for actions; README/docs updates; sync stories
   covering the full user journeys (fast edits offline → reload → reconnect;
   two-device stale write; halted lane recovery).
@@ -280,10 +295,10 @@ it in the Sync Store, updating opportunistically). Mint with `ulidx`
 monotonic factory seeded at `max(Date.now(), uTime(lastSeenStamp))`;
 monotonic mode already breaks same-ms ties. The server-side recipe (phase 5)
 refuses a `proposedU` more than a configured tolerance (default: 5 minutes)
-ahead of server time as a `rejected` outcome. `proposedU` is compared only
-against the stored `_p` edit stamp — never written into or compared against
-`_u`, which remains server-minted (see "Conflicts" above). `_p` is a new
-optional Entity Meta field defined in `core` alongside `_s`/`_c`.
+ahead of server time as a `rejected` outcome. `proposedU` is never written
+into `_u`, which remains server-minted; the v1 recipe compares it against the
+stored `_u` in a user-written check (see "Conflicts" above), and the optional
+`_p` edit stamp is a later refinement.
 
 ### Stored entities (same StdTable as `sync-store.ts`)
 
