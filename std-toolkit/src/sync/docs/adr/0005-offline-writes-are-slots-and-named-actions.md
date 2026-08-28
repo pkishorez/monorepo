@@ -26,14 +26,24 @@ clock (never behind the newest update stamp this client has seen).
 **The proposal never becomes `_u`.** `_u` is also the cursor axis for
 incremental sync; writing an old edit-time stamp into `_u` would land an
 accepted write *behind* other clients' cursors, making it invisible to
-cursor-based sync forever. The two roles are split: `_u` stays server-minted
-at write time (cursor and convergence axis — every accepted write is always
-ahead of every cursor), and the entity meta gains an optional **edit stamp**
-(`_p`) recording the `proposedU` that won. The backend applies a slot with a
-conditional write via db `transact` check ops — apply iff `proposedU` is
-newer than the stored `_p` — and on apply writes a fresh server-minted `_u`
-together with `_p = proposedU`. Client convergence continues to compare `_u`
-alone and is unchanged. Every delivery has one of three outcomes:
+cursor-based sync forever. `_u` therefore stays server-minted at write time
+(cursor and convergence axis — every accepted write is always ahead of every
+cursor), and client convergence continues to compare `_u` alone, unchanged.
+
+The conditional apply is **not wired into the toolkit's server side**. The
+backend author writes it as an ordinary db conditional update in their RPC
+handler — `getAndUpdate(key, updates, { check: (current, meta) => meta._u <
+proposedU })` — with a failed check answered by returning the current
+authoritative entity (superseded). The only db change this needs is exposing
+Entity Meta to check invariants, which today receive the value alone.
+Comparing the edit-time proposal against the stored *arrival-time* `_u` is
+deliberately conservative: arrival is always at or after edit, so a stale
+edit can never overwrite a newer one, though an offline edit may be
+superseded by a competing write that *arrived* after it was made. Exact
+edit-versus-edit fairness — an optional **edit stamp** (`_p`) meta field
+recording the winning `proposedU` and compared instead of `_u` — is the
+documented refinement, not required for v1. Every delivery has one of three
+outcomes:
 
 - **applied** — the proposal won; the confirmed Entity flows back through
   `applyToSyncReplica` and normal sync.
