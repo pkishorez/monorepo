@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx",
+    "exactOptionalPropertyTypes": false
+  },
+  "include": [
+    "src/browser.tsx",
+    "src/browser-app/**/*",
+    "src/browser-globals.d.ts",
+    "src/client/**/*",
+    "src/rpc/**/*",
+    "src/ui/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/fixtures/**/*"
+  ]
+}

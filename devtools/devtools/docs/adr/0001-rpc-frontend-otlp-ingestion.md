@@ -25,6 +25,13 @@ protobuf, and metrics are outside the current scope.
 
 - DevTools owns server configuration, CORS, process lifecycle, storage-path
   selection, RPC composition, and route mounting.
+- Browser RPC access is same-origin. Cross-origin and Private Network Access
+  headers apply only to OTLP ingestion so locally running browser applications
+  can export telemetry to Lotel.
+- UI and RPC requests validate their loopback `Host` and browser `Origin` to
+  prevent unrelated webpages and DNS-rebinding hosts from invoking local file
+  analysis or Story execution. Non-browser clients without an `Origin` remain
+  supported.
 - lotel exports `LotelRpc`, its RPC handler layer, its OTLP/HTTP group, its
   OTLP/HTTP handler layer, and named Telemetry Store adapter layers.
 - DevTools does not redefine telemetry schemas or call lotel storage directly.

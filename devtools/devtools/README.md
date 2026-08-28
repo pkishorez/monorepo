@@ -18,9 +18,16 @@ npm i -g @pkishorez/devtools
 devtools
 ```
 
-The server listens on `http://127.0.0.1:14400`. Its NDJSON RPC endpoint is
-available at `/rpc`, and its OTLP/HTTP ingestion endpoints are available at
-`/v1/traces` and `/v1/logs`.
+The command serves its bundled home page at `http://127.0.0.1:14400`. From
+there, open:
+
+- `/lotel` to inspect local OpenTelemetry traces, logs, and flows.
+- `/laymos` to explore the architecture of a local project.
+
+The same loopback server exposes its NDJSON RPC endpoint at `/rpc`, its health
+endpoint at `/health`, and its OTLP/HTTP ingestion endpoints at `/v1/traces`
+and `/v1/logs`. The UI is part of this package; it does not redirect to or
+depend on a hosted application.
 
 ## Get a trace
 
@@ -65,6 +72,9 @@ Unknown Modules and source read failures are separate tagged RPC errors.
 | --------------- | ------------------------------ | --------------------------- |
 | `DEVTOOLS_PORT` | `14400`                        | Port to listen on.          |
 | `DEVTOOLS_DB`   | OS-specific DevTools data path | Telemetry SQLite file path. |
+
+Use `devtools --open` to open the home page in your default browser. `--port`
+and `--db` override the matching environment variables.
 
 ## Library exports
 
