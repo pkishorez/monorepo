@@ -1,5 +1,5 @@
 ---
-'@pkishorez/devtools': minor
+'@pkishorez/devtools': patch
 'laymos': patch
 ---
 
