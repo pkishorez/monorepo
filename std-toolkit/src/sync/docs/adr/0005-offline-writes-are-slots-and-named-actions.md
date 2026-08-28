@@ -14,7 +14,7 @@ record per entity holding the latest desired state (`upsert`) or a tombstone
 one upsert, an unsent insert followed by delete removes the slot entirely.
 Because a final state depends on nothing but itself, there is no operation
 chain, no replay ordering, and no cascading failure across entities. Operations
-whose *intent* matters — cross-entity transactions, server-computed effects —
+whose _intent_ matters — cross-entity transactions, server-computed effects —
 are not slots; they are **Offline Actions** (below).
 
 ## "Last write wins" means last edit, not last arrival
@@ -25,7 +25,7 @@ clock (never behind the newest update stamp this client has seen).
 
 **The proposal never becomes `_u`.** `_u` is also the cursor axis for
 incremental sync; writing an old edit-time stamp into `_u` would land an
-accepted write *behind* other clients' cursors, making it invisible to
+accepted write _behind_ other clients' cursors, making it invisible to
 cursor-based sync forever. `_u` therefore stays server-minted at write time
 (cursor and convergence axis — every accepted write is always ahead of every
 cursor), and client convergence continues to compare `_u` alone, unchanged.
@@ -36,10 +36,10 @@ handler — `getAndUpdate(key, updates, { check: (current, meta) => meta._u <
 proposedU })` — with a failed check answered by returning the current
 authoritative entity (superseded). The only db change this needs is exposing
 Entity Meta to check invariants, which today receive the value alone.
-Comparing the edit-time proposal against the stored *arrival-time* `_u` is
+Comparing the edit-time proposal against the stored _arrival-time_ `_u` is
 deliberately conservative: arrival is always at or after edit, so a stale
 edit can never overwrite a newer one, though an offline edit may be
-superseded by a competing write that *arrived* after it was made. Exact
+superseded by a competing write that _arrived_ after it was made. Exact
 edit-versus-edit fairness — an optional **edit stamp** (`_p`) meta field
 recording the winning `proposedU` and compared instead of `_u` — is the
 documented refinement, not required for v1. Every delivery has one of three
@@ -58,7 +58,7 @@ duplicate under the conditional write. Actions carry explicit idempotency keys.
 
 Clock drift is accounted for, not solved. The cursor axis is immune by
 construction (`_u` is server time only), so drift can never hide a write from
-sync. Drift affects only conflict *fairness* between the same user's devices:
+sync. Drift affects only conflict _fairness_ between the same user's devices:
 a behind-clock device is defended by the HLC floor (it can never stamp behind
 data it has already seen, so it cannot lose to itself), and an ahead-clock
 device is bounded by a server tolerance on `proposedU` (minutes ahead of
@@ -86,8 +86,8 @@ queued".
 
 ## Offline is orthogonal to pacing
 
-Pacing decides *when* to send (in-memory smoothing of rapid edits); offline
-decides *what survives* when sending fails or cannot happen. They are sibling
+Pacing decides _when_ to send (in-memory smoothing of rapid edits); offline
+decides _what survives_ when sending fails or cannot happen. They are sibling
 collection options — any pace strategy, or none, combines with `offline`.
 Eager writes still want durability, so no combination is restricted.
 

@@ -37,15 +37,15 @@ there is no operation chain, so one entity's failure never cascades to another.
 
 Slot coalescing rules:
 
-| existing slot            | new edit | result                       |
-| ------------------------ | -------- | ---------------------------- |
-| none                     | insert   | `upsert` (full state)        |
-| `upsert` (unsent insert) | update   | `upsert` (merged state)      |
-| `upsert` (unsent insert) | delete   | slot removed — never sent    |
-| `upsert` (existing row)  | delete   | `delete`                     |
-| `delete`                 | insert   | `upsert`                     |
+| existing slot            | new edit | result                    |
+| ------------------------ | -------- | ------------------------- |
+| none                     | insert   | `upsert` (full state)     |
+| `upsert` (unsent insert) | update   | `upsert` (merged state)   |
+| `upsert` (unsent insert) | delete   | slot removed — never sent |
+| `upsert` (existing row)  | delete   | `delete`                  |
+| `delete`                 | insert   | `upsert`                  |
 
-### Conflicts: the newest *edit* wins, not the newest *arrival*
+### Conflicts: the newest _edit_ wins, not the newest _arrival_
 
 Every slot carries `proposedU` — a ULID minted the moment the user edited,
 disciplined as a hybrid logical clock (never behind the newest update stamp
@@ -54,7 +54,7 @@ have stable identity.
 
 **Critical: the proposal never becomes `_u`.** `_u` is also the cursor axis —
 strategies fetch "entities beyond cursor X" by `_u` — so writing an old
-edit-time stamp into `_u` would land the accepted write *behind* other
+edit-time stamp into `_u` would land the accepted write _behind_ other
 clients' cursors, invisible to incremental sync forever. `_u` stays
 **server-minted at write time**: every accepted write is ahead of every
 cursor, sync visibility never depends on a client clock, and client
@@ -78,7 +78,7 @@ Semantics of comparing edit-time `proposedU` against arrival-time `_u`:
 deliberately **conservative**. Arrival is always at or after edit, so a stale
 device can never overwrite a newer edit (the safe direction); the cost is
 that an offline edit may be superseded by a competing write that merely
-*arrived* after it was made. Exact edit-vs-edit fairness — an optional `_p`
+_arrived_ after it was made. Exact edit-vs-edit fairness — an optional `_p`
 edit-stamp meta field compared instead of `_u` — is a documented later
 refinement, not v1.
 
@@ -130,8 +130,8 @@ and `$synced` / `$origin` stay truthful for the whole offline window
 
 ### Configuration: offline is orthogonal to pacing
 
-Pacing smooths rapid edits in memory (*when* to send); offline makes intent
-durable (*what survives*). Sibling options, any combination:
+Pacing smooths rapid edits in memory (_when_ to send); offline makes intent
+durable (_what survives_). Sibling options, any combination:
 
 ```typescript
 const tasks = std.collection({
@@ -152,21 +152,24 @@ cover plain `insert` / `update` / `delete` too.
 
 ```typescript
 const archiveProject = std.createOfflineAction({
-  name: 'archive-project',            // unique + stable: the routing address
+  name: 'archive-project', // unique + stable: the routing address
   payload: Schema.Struct({ projectId: Schema.String }),
-  onMutate: ({ projectId }) => {      // immediate optimistic application
-    projects.update(projectId, (d) => { d.archived = true; });
+  onMutate: ({ projectId }) => {
+    // immediate optimistic application
+    projects.update(projectId, (d) => {
+      d.archived = true;
+    });
   },
   mutationFn: ({ projectId }, { idempotencyKey }) =>
     api.archiveProject(projectId, { idempotencyKey }), // runs at drain turn
   partition: ({ projectId }) => projectId, // omit = one default lane
-  onPartitionReject: 'halt',          // or 'discard' | 'continue'
+  onPartitionReject: 'halt', // or 'discard' | 'continue'
 });
 
 const handle = archiveProject({ projectId: 'p1' });
-await handle.durable;   // safely queued
-await handle.done;      // executed on server; rejects → onMutate rolls back
-handle.cancel();        // 'cancelled' | 'in-flight' | 'not-found'
+await handle.durable; // safely queued
+await handle.done; // executed on server; rejects → onMutate rolls back
+handle.cancel(); // 'cancelled' | 'in-flight' | 'not-found'
 ```
 
 - Entries addressed by `(namespace, action name, partition key, seq)`.
@@ -198,7 +201,7 @@ handle.cancel();        // 'cancelled' | 'in-flight' | 'not-found'
   and outbox for logout; the documented pattern is a user-scoped Std Sync
   name so cross-user leakage is structurally impossible.
 - Status surface: `tasks.utils.outbox.pending() / size() / subscribe() /
-  cancel(id)`, `std.offline.size() / subscribe()`, per-row status derived
+cancel(id)`, `std.offline.size() / subscribe()`, per-row status derived
   from outbox state.
 
 ### Prior art
@@ -367,7 +370,7 @@ themselves still travel via existing Peer Sync.
 type OfflineOption =
   | boolean
   | {
-      retry?: Schedule.Schedule<unknown>;      // default: exponential 1s..5m, jittered
+      retry?: Schedule.Schedule<unknown>; // default: exponential 1s..5m, jittered
       onDiscarded?: (e: OutboxDiscardedEvent) => void;
     };
 // createStdSync({ offline?: Omit<OfflineOption, boolean> }) sets instance defaults.
@@ -380,5 +383,5 @@ resolves with `'applied'`-style outcomes for symmetry
 ## Out of scope (deliberate)
 
 Field-level merge, CRDT collaborative editing, cross-tab visibility of
-*unsent* optimistic state, at-rest encryption, and a per-call
+_unsent_ optimistic state, at-rest encryption, and a per-call
 `offline: false` escape hatch (revisit only if a real use case demands it).
