@@ -20,12 +20,20 @@ are not slots; they are **Offline Actions** (below).
 ## "Last write wins" means last edit, not last arrival
 
 Ids are minted on the client (ULID), and every slot carries a `proposedU`: a
-`_u` minted at the moment the user edited, disciplined as a hybrid logical
-clock (never behind the newest `_u` this client has seen; the server rejects
-proposals too far in its future). The backend applies a slot with a conditional
-write — apply iff `proposedU` is newer than the stored `_u` — which is the
-existing client Convergence Rule enforced server-side via db `transact` check
-ops. Every delivery has one of three outcomes:
+stamp minted at the moment the user edited, disciplined as a hybrid logical
+clock (never behind the newest update stamp this client has seen).
+
+**The proposal never becomes `_u`.** `_u` is also the cursor axis for
+incremental sync; writing an old edit-time stamp into `_u` would land an
+accepted write *behind* other clients' cursors, making it invisible to
+cursor-based sync forever. The two roles are split: `_u` stays server-minted
+at write time (cursor and convergence axis — every accepted write is always
+ahead of every cursor), and the entity meta gains an optional **edit stamp**
+(`_p`) recording the `proposedU` that won. The backend applies a slot with a
+conditional write via db `transact` check ops — apply iff `proposedU` is
+newer than the stored `_p` — and on apply writes a fresh server-minted `_u`
+together with `_p = proposedU`. Client convergence continues to compare `_u`
+alone and is unchanged. Every delivery has one of three outcomes:
 
 - **applied** — the proposal won; the confirmed Entity flows back through
   `applyToSyncReplica` and normal sync.
@@ -37,6 +45,20 @@ ops. Every delivery has one of three outcomes:
 
 Slot retries need no idempotency key: re-sending the same `proposedU` is a
 duplicate under the conditional write. Actions carry explicit idempotency keys.
+
+Clock drift is accounted for, not solved. The cursor axis is immune by
+construction (`_u` is server time only), so drift can never hide a write from
+sync. Drift affects only conflict *fairness* between the same user's devices:
+a behind-clock device is defended by the HLC floor (it can never stamp behind
+data it has already seen, so it cannot lose to itself), and an ahead-clock
+device is bounded by a server tolerance on `proposedU` (minutes ahead of
+server time; beyond it the write is refused as malformed rather than winning
+conflicts for a year). Within the tolerance, an ahead clock wins conflicts
+unfairly for its skew duration — a accepted, documented degradation, never a
+correctness or sync-visibility failure. `proposedU` is optional end to end: a
+backend that ignores it simply stamps `_u` on arrival and skips the `_p`
+compare, degrading to arrival-order LWW (today's behavior) without breaking
+anything.
 
 ## Presentation goes through TanStack's front door
 
