@@ -498,18 +498,69 @@ importers:
         specifier: catalog:typescript6
         version: '@typescript/typescript6@6.0.2'
     devDependencies:
+      '@monorepo/frontend':
+        specifier: workspace:*
+        version: link:../../packages/frontend
+      '@pkishorez/effect-tracer':
+        specifier: workspace:*
+        version: link:../effect-tracer
+      '@tailwindcss/vite':
+        specifier: 'catalog:'
+        version: 4.3.3(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+      '@tanstack/react-db':
+        specifier: 'catalog:'
+        version: 0.2.1(@typescript/typescript6@6.0.2)(react@19.2.8)
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.101.4(react@19.2.8)
+      '@tanstack/react-router':
+        specifier: 'catalog:'
+        version: 1.170.29(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@types/node':
         specifier: 'catalog:'
         version: 26.2.0
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.4(@types/react@19.2.18)
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 6.0.5(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+      '@xyflow/react':
+        specifier: 'catalog:'
+        version: 12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.8)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+      react-dom:
+        specifier: 'catalog:'
+        version: 19.2.8(react@19.2.8)
+      react-resizable-panels:
+        specifier: 'catalog:'
+        version: 4.12.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.3.3
       tsx:
         specifier: 'catalog:'
         version: 4.23.12
+      use-effect-ts:
+        specifier: workspace:*
+        version: link:../../packages/use-effect-ts
+      vite:
+        specifier: 'catalog:'
+        version: 8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0)
       vitest:
         specifier: 'catalog:'
         version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(@vitest/browser-preview@4.1.10)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.2.0)(@typescript/typescript6@6.0.2))(vite@8.1.5(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))
+      zustand:
+        specifier: 'catalog:'
+        version: 5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
 
   devtools/effect-tracer:
     dependencies:
@@ -822,12 +873,12 @@ importers:
         specifier: catalog:xstate6
         version: xstate@6.0.0-alpha.23
     devDependencies:
-      '@pkishorez/devtools':
-        specifier: workspace:*
-        version: link:../../devtools/devtools
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../../devtools/effect-tracer
+      '@pkishorez/lotel':
+        specifier: workspace:*
+        version: link:../../devtools/lotel
       '@tailwindcss/typography':
         specifier: 'catalog:'
         version: 0.5.20(tailwindcss@4.3.3)
@@ -11552,11 +11603,24 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
+  '@tanstack/db-ivm@0.1.18(@typescript/typescript6@6.0.2)':
+    dependencies:
+      fractional-indexing: 3.2.0
+      sorted-btree: 1.8.1
+      typescript: '@typescript/typescript6@6.0.2'
+
   '@tanstack/db-ivm@0.1.18(typescript@7.0.2)':
     dependencies:
       fractional-indexing: 3.2.0
       sorted-btree: 1.8.1
       typescript: 7.0.2
+
+  '@tanstack/db@0.7.2(@typescript/typescript6@6.0.2)':
+    dependencies:
+      '@standard-schema/spec': 1.1.0
+      '@tanstack/db-ivm': 0.1.18(@typescript/typescript6@6.0.2)
+      '@tanstack/pacer-lite': 0.2.1
+      typescript: '@typescript/typescript6@6.0.2'
 
   '@tanstack/db@0.7.2(typescript@7.0.2)':
     dependencies:
@@ -11588,6 +11652,14 @@ snapshots:
       '@tanstack/query-core': 5.101.4
       typescript: 7.0.2
 
+  '@tanstack/react-db@0.2.1(@typescript/typescript6@6.0.2)(react@19.2.8)':
+    dependencies:
+      '@tanstack/db': 0.7.2(@typescript/typescript6@6.0.2)
+      react: 19.2.8
+      use-sync-external-store: 1.6.0(react@19.2.8)
+    transitivePeerDependencies:
+      - typescript
+
   '@tanstack/react-db@0.2.1(react@19.2.7)(typescript@7.0.2)':
     dependencies:
       '@tanstack/db': 0.7.2(typescript@7.0.2)
@@ -11618,6 +11690,11 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.101.4
       react: 19.2.7
+
+  '@tanstack/react-query@5.101.4(react@19.2.8)':
+    dependencies:
+      '@tanstack/query-core': 5.101.4
+      react: 19.2.8
 
   '@tanstack/react-router-devtools@1.167.1(@tanstack/react-router@1.170.29(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(@tanstack/router-core@1.171.24)(csstype@3.2.3)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
@@ -12471,6 +12548,19 @@ snapshots:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
       zustand: 4.5.7(@types/react@19.2.18)(immer@11.1.8)(react@19.2.7)
+    optionalDependencies:
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.4(@types/react@19.2.18)
+    transitivePeerDependencies:
+      - immer
+
+  '@xyflow/react@12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.8)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+    dependencies:
+      '@xyflow/system': 0.0.80
+      classcat: 5.0.5
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      zustand: 4.5.7(@types/react@19.2.18)(immer@11.1.8)(react@19.2.8)
     optionalDependencies:
       '@types/react': 19.2.18
       '@types/react-dom': 19.2.4(@types/react@19.2.18)
@@ -15883,6 +15973,11 @@ snapshots:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
+  react-resizable-panels@4.12.3(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+    dependencies:
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+
   react-style-singleton@2.2.3(@types/react@19.2.18)(react@19.2.7):
     dependencies:
       get-nonce: 1.0.1
@@ -17270,11 +17365,26 @@ snapshots:
       immer: 11.1.8
       react: 19.2.7
 
+  zustand@4.5.7(@types/react@19.2.18)(immer@11.1.8)(react@19.2.8):
+    dependencies:
+      use-sync-external-store: 1.6.0(react@19.2.8)
+    optionalDependencies:
+      '@types/react': 19.2.18
+      immer: 11.1.8
+      react: 19.2.8
+
   zustand@5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.7)(use-sync-external-store@1.6.0(react@19.2.7)):
     optionalDependencies:
       '@types/react': 19.2.18
       immer: 11.1.8
       react: 19.2.7
       use-sync-external-store: 1.6.0(react@19.2.7)
+
+  zustand@5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8)):
+    optionalDependencies:
+      '@types/react': 19.2.18
+      immer: 11.1.8
+      react: 19.2.8
+      use-sync-external-store: 1.6.0(react@19.2.8)
 
   zwitch@2.0.4: {}

@@ -4,6 +4,7 @@ export {
   ConfigSchemaError,
   ConfigValidationError,
   DevtoolsRpc,
+  DevtoolsToolRpc,
   DocumentationReadError,
   DocumentationScopeNotFoundError,
   GitUnavailableError,

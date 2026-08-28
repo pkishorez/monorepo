@@ -1,42 +1,20 @@
 #!/usr/bin/env node
 import { exec } from 'node:child_process';
-import { createServer } from 'node:http';
 import path from 'node:path';
 import envPaths from 'env-paths';
-import { Config, Effect, Layer, References } from 'effect';
+import { Config, Effect, References } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse,
-} from 'effect/unstable/http';
-import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
-import {
-  NodeHttpServer,
-  NodeRuntime,
-  NodeServices,
-} from '@effect/platform-node';
-import { LotelOtlpHttpLive, LotelRpcLive } from '@pkishorez/lotel';
-import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { getTraceCommand } from '../cli/get-trace.js';
-import { DevtoolsRpc } from '../rpc/index.js';
-import { DevtoolsHandlersLive } from './handlers.js';
+import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
 
-// The server always binds to loopback; only the port and db path are configurable.
 const HOST = '127.0.0.1';
-const APP_URL = process.env.DEVTOOLS_APP_URL ?? 'https://kishore.app/devtools';
-
-/**
- * Default telemetry database location: a stable, OS-appropriate user data
- * directory (via `env-paths`), so telemetry survives across runs and is
- * independent of the directory devtools happens to be launched from.
- */
+const VERSION = '0.0.7';
 const DEFAULT_DB_PATH = path.join(
   envPaths('devtools', { suffix: '' }).data,
   'lotel.sqlite',
 );
 
-/** Best-effort, silent open of the DevTools frontend in the default browser. */
 const openInBrowser = (url: string) => {
   const opener =
     process.platform === 'darwin'
@@ -46,121 +24,6 @@ const openInBrowser = (url: string) => {
         : 'xdg-open';
   exec(`${opener} ${JSON.stringify(url)}`, () => {});
 };
-
-/** Frontend surface: the typed RPC group consumed by the `/devtools` route. */
-const RpcRouteLive = RpcServer.layerHttp({
-  group: DevtoolsRpc,
-  path: '/rpc',
-  protocol: 'http',
-}).pipe(
-  Layer.provide(Layer.merge(DevtoolsHandlersLive, LotelRpcLive)),
-  Layer.provide(RpcSerialization.layerNdjson),
-);
-
-/**
- * Landing route: a human-readable description of what this server is and the
- * endpoints it exposes, plus the URL to open the hosted frontend against it.
- */
-const makeIndexRouteLive = ({
-  serverUrl,
-  openUrl,
-}: {
-  serverUrl: string;
-  openUrl: string;
-}) =>
-  HttpRouter.add(
-    'GET',
-    '/',
-    HttpServerResponse.json({
-      name: 'devtools',
-      description: 'Local devtools server for inspecting OpenTelemetry data.',
-      open: openUrl,
-      endpoints: {
-        '/': 'This description.',
-        '/rpc': 'Typed RPC endpoint consumed by the devtools frontend.',
-        '/v1/traces': 'OTLP/HTTP ingest for traces.',
-        '/v1/logs': 'OTLP/HTTP ingest for logs.',
-      },
-      serverUrl,
-    }),
-  );
-
-/**
- * One process, two surfaces (see ADR 0001): `/rpc` for the frontend and lotel's
- * OTLP/HTTP ingest endpoints for external apps.
- */
-const RoutesLive = Layer.mergeAll(RpcRouteLive, LotelOtlpHttpLive);
-
-/**
- * Cross-origin headers applied to every response. The hosted frontend is served
- * over HTTPS from a public origin, so it both needs standard CORS headers and
- * triggers Chrome's Private Network Access preflight when reaching this loopback
- * server.
- */
-const CORS_HEADERS: Record<string, string> = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
-  'access-control-allow-private-network': 'true',
-};
-
-/**
- * Self-contained CORS middleware, registered as global router middleware so it
- * wraps each route handler *before* the response is sent. The `middleware`
- * option on {@link HttpRouter.serve} runs around response sending, so changes it
- * makes to real responses are discarded — only the preflight (which it replaces
- * wholesale) survived, leaving actual responses without
- * `Access-Control-Allow-Origin`. This sets the headers on both the 204 preflight
- * and every actual response.
- */
-const corsMiddleware = <E, R>(
-  app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>,
-) =>
-  Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) =>
-    request.method === 'OPTIONS'
-      ? Effect.succeed(
-          HttpServerResponse.setHeaders(
-            HttpServerResponse.empty({ status: 204 }),
-            {
-              ...CORS_HEADERS,
-              'access-control-allow-headers':
-                request.headers['access-control-request-headers'] ?? '*',
-            },
-          ),
-        )
-      : Effect.map(app, (response) =>
-          HttpServerResponse.setHeaders(response, CORS_HEADERS),
-        ),
-  );
-
-/** Global CORS middleware layer; applies to every registered route. */
-const CorsMiddlewareLive = HttpRouter.middleware(corsMiddleware, {
-  global: true,
-});
-
-const makeServerLive = ({
-  port,
-  db,
-  serverUrl,
-  openUrl,
-}: {
-  port: number;
-  db: string;
-  serverUrl: string;
-  openUrl: string;
-}) =>
-  // The frontend is served from a different origin, so CORS is applied to every
-  // route (the `/rpc` and `/v1/*` surfaces) via the global middleware layer.
-  HttpRouter.serve(
-    Layer.mergeAll(
-      RoutesLive,
-      makeIndexRouteLive({ serverUrl, openUrl }),
-      CorsMiddlewareLive,
-    ),
-  ).pipe(
-    Layer.provide(sqliteTelemetryStoreLayer({ path: db })),
-    Layer.provide(NodeHttpServer.layer(createServer, { host: HOST, port })),
-    Layer.provide(NodeServices.layer),
-  );
 
 const port = Flag.integer('port').pipe(
   Flag.withAlias('p'),
@@ -176,7 +39,7 @@ const db = Flag.string('db').pipe(
 );
 
 const open = Flag.boolean('open').pipe(
-  Flag.withDescription('Open the DevTools frontend in your default browser'),
+  Flag.withDescription('Open DevTools in your default browser'),
   Flag.withDefault(false),
 );
 
@@ -184,26 +47,33 @@ const command = Command.make(
   'devtools',
   { port, db, open },
   Effect.fn(function* ({ port, db, open }) {
-    const serverUrl = `http://localhost:${port}`;
-    const openUrl = `${APP_URL}?url=${encodeURIComponent(serverUrl)}`;
+    const devtoolsUrl = `http://${HOST}:${port}`;
 
     yield* Effect.gen(function* () {
-      console.log(`devtools running on ${serverUrl}`);
+      console.log(`devtools running on ${devtoolsUrl}`);
       console.log(`lotel storage: ${path.resolve(db)}`);
-      console.log(`open: ${openUrl}`);
-      if (open) openInBrowser(openUrl);
+      console.log(`open: ${devtoolsUrl}`);
+      if (open) openInBrowser(devtoolsUrl);
       yield* Effect.never;
-    }).pipe(Effect.provide(makeServerLive({ port, db, serverUrl, openUrl })));
+    }).pipe(
+      Effect.provide(
+        makeLocalDevtoolsServer({
+          port,
+          db,
+          version: VERSION,
+          skipUiCheck: process.env.DEVTOOLS_SKIP_UI_CHECK === '1',
+        }),
+      ),
+    );
   }),
 ).pipe(
-  Command.withDescription('Local devtools RPC + telemetry server'),
+  Command.withDescription('Local DevTools application'),
   Command.withSubcommands([getTraceCommand]),
 );
 
 command.pipe(
-  Command.run({ version: '0.0.0' }),
+  Command.run({ version: VERSION }),
   Effect.provide(NodeServices.layer),
-  // The CLI is consumed only by the frontend: silence all Effect logging.
   Effect.provideService(References.MinimumLogLevel, 'None'),
   NodeRuntime.runMain,
 );

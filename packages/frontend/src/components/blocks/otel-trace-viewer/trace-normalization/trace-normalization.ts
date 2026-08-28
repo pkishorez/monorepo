@@ -1,15 +1,7 @@
-import { DevtoolsRpc } from '@pkishorez/devtools/rpc';
-import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import type { LogRecord, SpanRecord } from '@pkishorez/lotel/telemetry';
 import type { OtelEvent, OtelSpan, OtelStatus } from '../trace-model';
 import { attachCapturedLogs as attachCapturedLogsToSpans } from './captured-log-transform';
 
-type GetTraceRpc = Extract<
-  RpcGroup.Rpcs<typeof DevtoolsRpc>,
-  { readonly _tag: 'GetTrace' }
->;
-type TraceDetails = Rpc.Success<GetTraceRpc>;
-type SpanRecord = TraceDetails['spans'][number]['value'];
-type LogRecord = TraceDetails['logs'][number]['value'];
 type KV = NonNullable<SpanRecord['span']['attributes']>[number];
 type AnyVal = NonNullable<KV['value']>;
 type KVList = NonNullable<AnyVal['kvlistValue']>['values'];

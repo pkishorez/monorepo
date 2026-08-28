@@ -1,4 +1,4 @@
-import { DevtoolsToolRpc } from '../rpc/rpc.js';
+import { DevtoolsToolRpc } from '../rpc/index.js';
 import { analyzeLaymosProject } from './analyze-laymos-project/index.js';
 import {
   getLaymosBranches,

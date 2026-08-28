@@ -22,16 +22,16 @@
   },
   "files": [
     "dist",
-    "src",
+    "src/rpc",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "vp pack",
+    "build": "vp pack && vp build",
     "build:watch": "vp pack --watch",
-    "dev": "pnpm --filter '@pkishorez/devtools^...' build && tsx src/server/main.ts",
-    "lint": "vp check && tsc --noEmit",
-    "test": "vitest run"
+    "dev": "tsx scripts/dev.mts",
+    "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit && laymos lint",
+    "test": "vitest run && tsx scripts/package-smoke.mts"
   },
   "dependencies": {
     "@effect/platform-node": "catalog:",
@@ -44,10 +44,27 @@
     "typescript": "catalog:typescript6"
   },
   "devDependencies": {
+    "@monorepo/frontend": "workspace:*",
+    "@pkishorez/effect-tracer": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@tanstack/react-db": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-router": "catalog:",
     "@typescript/native": "catalog:",
     "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@xyflow/react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-resizable-panels": "catalog:",
+    "tailwindcss": "catalog:",
     "tsx": "catalog:",
-    "vitest": "catalog:"
+    "use-effect-ts": "workspace:*",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "zustand": "catalog:"
   },
   "publishConfig": {
     "access": "public"

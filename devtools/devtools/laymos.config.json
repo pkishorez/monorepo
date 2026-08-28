@@ -1,0 +1,156 @@
+{
+  "$schema": "../laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [
+    "src/ui/laymos/layer-inspection/fixtures",
+    "src/ui/laymos/module-inspection/fixtures"
+  ],
+  "layers": {
+    "entry": {
+      "paths": ["src/browser.tsx", "src/server/main.ts", "src/cli"],
+      "description": "Starts the browser application and the local DevTools process",
+      "modules": {
+        "src/browser.tsx": {},
+        "src/server/main.ts": {},
+        "src/cli/get-trace.ts": { "shared": true }
+      }
+    },
+    "browser-application": {
+      "paths": ["src/browser-app"],
+      "description": "Composes the DevTools home and Tool routes",
+      "modules": {
+        "src/browser-app": { "exposed": true }
+      }
+    },
+    "tool-interface": {
+      "paths": ["src/ui"],
+      "description": "Owns the complete browser interaction for each Tool",
+      "moduleGraphs": {
+        "lotel": {
+          "description": "Synchronizes and presents Traces, Log Records, and Flows",
+          "path": "src/ui/lotel",
+          "modules": {
+            "lotel": { "exposed": true },
+            "collections.ts": {},
+            "viewer": {}
+          },
+          "rules": {
+            "lotel": ["collections.ts", "viewer"],
+            "viewer": ["collections.ts"]
+          }
+        },
+        "laymos": {
+          "description": "Loads and presents Project architecture, source, changes, documentation, and Stories",
+          "path": "src/ui/laymos",
+          "modules": {
+            "laymos": { "exposed": true },
+            "analysis-explorer": {},
+            "analysis-presentation": {},
+            "architecture-graph": {},
+            "architecture-tree": {},
+            "architecture-workspace": {},
+            "layer-inspection": {},
+            "module-inspection": {},
+            "module-source": {},
+            "project-changes": {},
+            "story-inspection": {}
+          },
+          "rules": {
+            "laymos": ["analysis-explorer"],
+            "analysis-explorer": [
+              "analysis-presentation",
+              "architecture-tree",
+              "architecture-workspace",
+              "layer-inspection",
+              "module-inspection",
+              "module-source"
+            ],
+            "analysis-presentation": ["project-changes"],
+            "architecture-graph": ["analysis-presentation"],
+            "architecture-workspace": [
+              "analysis-presentation",
+              "architecture-graph",
+              "architecture-tree",
+              "layer-inspection",
+              "module-inspection",
+              "module-source",
+              "project-changes",
+              "story-inspection"
+            ],
+            "layer-inspection": [
+              "analysis-presentation",
+              "architecture-graph",
+              "architecture-tree"
+            ],
+            "module-inspection": [
+              "analysis-presentation",
+              "architecture-graph",
+              "architecture-tree",
+              "project-changes"
+            ],
+            "module-source": ["analysis-presentation", "architecture-graph"]
+          }
+        }
+      }
+    },
+    "browser-client": {
+      "paths": ["src/client"],
+      "description": "Connects browser Tools to same-origin DevTools RPC",
+      "modules": {
+        "src/client/devtools-rpc": { "exposed": true }
+      }
+    },
+    "server-host": {
+      "paths": ["src/server/local-devtools-server"],
+      "description": "Hosts the browser application, RPC, health, and OTLP on loopback",
+      "modules": {
+        "src/server/local-devtools-server": {
+          "exposed": true
+        }
+      }
+    },
+    "server-handlers": {
+      "paths": [
+        "src/server/handlers.ts",
+        "src/server/analyze-laymos-project",
+        "src/server/get-laymos-changes",
+        "src/server/get-laymos-documentation",
+        "src/server/get-laymos-module-source",
+        "src/server/get-laymos-source-files",
+        "src/server/get-laymos-stories",
+        "src/server/run-laymos-stories"
+      ],
+      "description": "Fulfils the Laymos RPC contract with local Project behavior",
+      "modules": {
+        "src/server/handlers.ts": { "exposed": true },
+        "src/server/analyze-laymos-project": { "shared": true },
+        "src/server/get-laymos-changes": { "shared": true },
+        "src/server/get-laymos-documentation": { "shared": true },
+        "src/server/get-laymos-module-source": { "shared": true },
+        "src/server/get-laymos-source-files": { "shared": true },
+        "src/server/get-laymos-stories": { "shared": true },
+        "src/server/run-laymos-stories": { "shared": true }
+      }
+    },
+    "rpc-contract": {
+      "paths": ["src/rpc"],
+      "description": "Defines the typed contract shared by the browser and local server",
+      "modules": {
+        "src/rpc": { "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "devtools": {
+      "rules": {
+        "entry": ["browser-application", "server-host"],
+        "browser-application": ["tool-interface", "browser-client"],
+        "tool-interface": ["browser-client", "rpc-contract"],
+        "browser-client": ["rpc-contract"],
+        "server-host": ["server-handlers", "rpc-contract"],
+        "server-handlers": ["rpc-contract"],
+        "rpc-contract": []
+      }
+    }
+  }
+}

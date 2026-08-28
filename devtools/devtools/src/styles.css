@@ -1,0 +1,31 @@
+@source './**/*.ts';
+@source './**/*.tsx';
+@source '../node_modules/@monorepo/frontend';
+
+@import '@monorepo/frontend/styles/global.css';
+@import '@monorepo/frontend/styles/typography.css';
+@import '@monorepo/frontend/styles/font-inter.css';
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

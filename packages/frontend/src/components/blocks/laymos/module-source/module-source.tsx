@@ -303,12 +303,14 @@ function DocumentationTab({ state }: { readonly state: DocumentationState }) {
 
   return (
     <div className={cn('min-h-0 flex-1 overflow-y-auto p-6', scrollbarStyles)}>
-      {state.documentation.path !== undefined && (
-        <p className="mb-4 font-mono text-xs text-muted-foreground">
-          {state.documentation.path}
-        </p>
-      )}
-      <MarkdownViewer>{state.documentation.content}</MarkdownViewer>
+      <div className="mx-auto max-w-3xl">
+        {state.documentation.path !== undefined && (
+          <p className="mb-4 font-mono text-xs text-muted-foreground">
+            {state.documentation.path}
+          </p>
+        )}
+        <MarkdownViewer>{state.documentation.content}</MarkdownViewer>
+      </div>
     </div>
   );
 }

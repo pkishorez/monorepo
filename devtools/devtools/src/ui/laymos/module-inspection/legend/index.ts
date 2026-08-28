@@ -1,0 +1,1 @@
+export { ModuleLegend } from './legend';

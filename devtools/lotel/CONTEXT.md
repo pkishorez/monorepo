@@ -1,7 +1,7 @@
-# lotel — Context
+# Lotel — Context
 
-lotel is the domain behind the Telemetry Tool. It receives and provides access
-to local OpenTelemetry Span Records and Log Records for development inspection.
+Lotel is the DevTools Tool and domain for receiving and inspecting local
+OpenTelemetry Span Records and Log Records.
 
 ## Language
 

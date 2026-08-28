@@ -77,8 +77,8 @@
     "xstate-v6": "catalog:xstate6"
   },
   "devDependencies": {
-    "@pkishorez/devtools": "workspace:*",
     "@pkishorez/effect-tracer": "workspace:*",
+    "@pkishorez/lotel": "workspace:*",
     "@tailwindcss/typography": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
@@ -101,6 +101,7 @@
   },
   "peerDependencies": {
     "@pkishorez/effect-tracer": "workspace:*",
+    "@pkishorez/lotel": "workspace:*",
     "@tanstack/react-db": "0.1.92",
     "@tanstack/react-query": "5.101.4",
     "effect": "4.0.0-rc.110",
@@ -112,6 +113,9 @@
   },
   "peerDependenciesMeta": {
     "@pkishorez/effect-tracer": {
+      "optional": true
+    },
+    "@pkishorez/lotel": {
       "optional": true
     },
     "@tanstack/react-db": {
