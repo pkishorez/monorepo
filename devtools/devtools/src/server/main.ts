@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { exec } from 'node:child_process';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
@@ -9,7 +10,9 @@ import { getTraceCommand } from '../cli/get-trace.js';
 import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
 
 const HOST = '127.0.0.1';
-const VERSION = '0.0.7';
+const { version: VERSION } = createRequire(import.meta.url)(
+  '../../package.json',
+) as { version: string };
 const DEFAULT_DB_PATH = path.join(
   envPaths('devtools', { suffix: '' }).data,
   'lotel.sqlite',
