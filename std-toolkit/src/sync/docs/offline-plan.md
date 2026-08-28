@@ -237,6 +237,100 @@ Each phase ships and is testable independently.
   covering the full user journeys (fast edits offline → reload → reconnect;
   two-device stale write; halted lane recovery).
 
+## Implementation contracts
+
+Mechanical details a fresh implementer should not have to guess. Where this
+section is silent, follow the existing patterns in `../CONTEXT.md`
+(vocabulary), `../../persistence/sync-store/sync-store.ts` (stored entity
+conventions), the existing workers (drain worker shape), and laymos layering.
+
+### `proposedU` minting (HLC discipline)
+
+Keep a per-Std-Sync `lastSeenU` (max of: every `_u` accepted into any replica,
+and every `proposedU` this client minted; persist it in the Sync Store,
+updating opportunistically). Mint with `ulidx` monotonic factory seeded at
+`max(Date.now(), uTime(lastSeenU))`; monotonic mode already breaks same-ms
+ties. The server-side recipe (phase 5) rejects a `proposedU` more than a
+configured tolerance (default: 5 minutes) ahead of server time as a
+`rejected` outcome.
+
+### Stored entities (same StdTable as `sync-store.ts`)
+
+Follow the existing pattern (`EntityESchema.make(...)`, `.primary({ pk:
+['collection'] })`, opaque encoded payloads via `fromType`):
+
+- `SyncStoredOutboxSlot` — key = entity id; fields: `collection`, `kind`
+  (`'upsert' | 'delete'`), `value` (encoded latest entity state; absent for
+  delete), `proposedU`, `changes` (encoded partial for replaying updates as
+  diffs), `baseKind` (`'insert' | 'existing'` — whether the entity was ever
+  confirmed, deciding insert-vs-update replay and the insert+delete
+  cancellation), `generation`, `attempts`, `enqueuedAt`.
+- `SyncStoredOutboxAction` — key = `seq` (ULID); fields: `collection`
+  (namespace), `actionName`, `partitionKey`, `payload` (encoded),
+  `idempotencyKey`, `attempts`, `enqueuedAt`.
+- `SyncStoredOutboxLane` — key = `actionName + '/' + partitionKey`; fields:
+  `collection` (namespace), `status` (`'active' | 'halted'`), `haltedBy`
+  (seq of the rejected entry, when halted).
+
+All three are added to the version-gate wipe list in `sync-store.ts`.
+
+### Error classification
+
+Add a tagged error to the sync error domain, e.g. `WriteError.Rejected`
+(exported so app handlers can `Effect.fail` it; also accept a defect whose
+value is `instanceof` an exported `NonRetriableError` class for non-Effect
+API clients). Everything else — typed or defect — is transient and retries.
+
+### Handler / waiter contract
+
+`runMutations` (in `composition/keyed-sync/mutations.ts`), when `offline` is
+on: persist/merge the slot, then `await outbox.delivered(entityId,
+generation)` instead of calling the user callback. `delivered` resolves when
+a flight carrying `>= generation` lands `applied` or `superseded`, and fails
+with the rejection when it lands `rejected`. The drain worker is what
+actually invokes the user's `onInsert`/`onUpdate`/`onDelete`; their return
+value flows to `applyToSyncReplica` exactly as today. `onInsert`'s batch
+signature is preserved by the drainer batching ready insert-slots per flight
+where convenient; correctness never depends on batching.
+
+### Replay rules (boot)
+
+1. Replica hydration and projection complete first (`Collection ready`).
+2. Entity slots replay in `enqueuedAt` order: `baseKind: 'insert'` upserts
+   replay as front-door `insert(value)`; existing-entity upserts replay as
+   `update(key, d => Object.assign(d, changes))`; deletes as `delete(key)` —
+   each with `metadata: { std: { replay: entityId } }`, which routes the
+   handler to re-attach (no new slot write, no generation bump).
+3. Action entries replay per lane in `seq` order by invoking the registered
+   action with the persisted payload and `replay` metadata. A payload that
+   fails schema decode, or an unregistered name, parks the entry
+   (`onUnknownAction`).
+4. Replay happens in every tab (optimism is per-tab); only the leader drains.
+
+### Cross-tab completion
+
+Reuse the peer channel infrastructure with a distinct envelope kind (not a
+Peer Message): `{ kind: 'outbox-outcome', entryKey, generation?, outcome }`,
+best-effort like Peer Sync — the store is the truth, and every tab's waiter
+registry also re-checks the store on reconnect/boot. Confirmed entities
+themselves still travel via existing Peer Sync.
+
+### Config types (target surface)
+
+```typescript
+type OfflineOption =
+  | boolean
+  | {
+      retry?: Schedule.Schedule<unknown>;      // default: exponential 1s..5m, jittered
+      onDiscarded?: (e: OutboxDiscardedEvent) => void;
+    };
+// createStdSync({ offline?: Omit<OfflineOption, boolean> }) sets instance defaults.
+```
+
+Action config and handle types are as sketched in "Actions" above; `done`
+resolves with `'applied'`-style outcomes for symmetry
+(`'executed' | 'rejected' | 'cancelled'`).
+
 ## Out of scope (deliberate)
 
 Field-level merge, CRDT collaborative editing, cross-tab visibility of
