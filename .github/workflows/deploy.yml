@@ -69,12 +69,15 @@ jobs:
           fi
           if [ "$stage" = "prod" ]; then
             docs_host="docs.kishore.app"
+            bank_table="std-bank-v4"
           else
             docs_host="$stage-docs.kishore.app"
+            bank_table="$stage-std-bank-v4"
           fi
           {
             echo "stage=$stage"
             echo "docs_url=https://$docs_host"
+            echo "bank_table=$bank_table"
           } >> "$GITHUB_OUTPUT"
 
       - name: Setup pnpm
@@ -124,12 +127,43 @@ jobs:
         if: steps.changes.outputs.deploy == 'true'
         run: pnpm -C apps/docs exec alchemy cloudflare bootstrap
 
+      # Before stage-specific names were introduced, demo/preview deploys used
+      # prod's physical table name. Delete that legacy table only when its
+      # Alchemy ownership tags prove it belongs to a non-production Docs stage.
+      - name: Remove legacy non-production bank table
+        if: steps.changes.outputs.deploy == 'true' && steps.stage.outputs.stage == 'prod'
+        run: |
+          table_arn=$(aws dynamodb describe-table \
+            --table-name std-bank-v4 \
+            --query 'Table.TableArn' \
+            --output text 2>/dev/null) || exit 0
+
+          tags=$(aws dynamodb list-tags-of-resource \
+            --resource-arn "$table_arn" \
+            --output json)
+          owner_stack=$(printf '%s' "$tags" | jq -r '.Tags[] | select(.Key == "alchemy::stack") | .Value')
+          owner_stage=$(printf '%s' "$tags" | jq -r '.Tags[] | select(.Key == "alchemy::stage") | .Value')
+          owner_id=$(printf '%s' "$tags" | jq -r '.Tags[] | select(.Key == "alchemy::id") | .Value')
+
+          if [ "$owner_stack" = "Docs" ] && [ "$owner_id" = "BankTable" ] && \
+             { [ "$owner_stage" = "demo" ] || printf '%s' "$owner_stage" | grep -qxE 'pr[0-9]+'; }; then
+            echo "Deleting legacy table std-bank-v4 owned by Docs/$owner_stage/BankTable."
+            aws dynamodb delete-table --table-name std-bank-v4
+            aws dynamodb wait table-not-exists --table-name std-bank-v4
+          elif [ "$owner_stack" = "Docs" ] && [ "$owner_stage" = "prod" ] && [ "$owner_id" = "BankTable" ]; then
+            echo "std-bank-v4 is already owned by prod; no migration needed."
+          else
+            echo "::error::Refusing to delete std-bank-v4: unexpected owner $owner_stack/$owner_stage/$owner_id." >&2
+            exit 1
+          fi
+
       - name: Deploy docs
         id: deploy_docs
         if: steps.changes.outputs.deploy == 'true'
         run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes
         env:
           STAGE: ${{ steps.stage.outputs.stage }}
+          BANK_DYNAMODB_TABLE: ${{ steps.stage.outputs.bank_table }}
 
       - name: State tree
         if: steps.changes.outputs.deploy == 'true' && always()
