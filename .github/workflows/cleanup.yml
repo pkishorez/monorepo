@@ -33,6 +33,8 @@ jobs:
       ALLOW_DEPLOY: 'true'
       # workflow_call passes a stage directly; workflow_dispatch takes a PR number.
       STAGE: ${{ inputs.stage || format('pr{0}', inputs.pr) }}
+      # Non-production stages own isolated tables named <stage>-std-bank-v4.
+      BANK_DYNAMODB_TABLE: ${{ format('{0}-std-bank-v4', inputs.stage || format('pr{0}', inputs.pr)) }}
     steps:
       - name: Validate stage
         run: |
