@@ -1,0 +1,1 @@
+Version two of a task adds a slug, and the step that fills it in for old rows is tempting to write with a timestamp or a counter in it. But that step does not run once during a deploy; it runs every time an old row is read, anywhere. This story shows why the new value must come from the old value and nothing else.

@@ -1,6 +1,6 @@
 import { it, describe, expect } from 'vitest';
 
-import { createStdSync } from '../sync.js';
+import { createStdSync } from '../std-sync/std-sync.js';
 
 describe('Sync', () => {
   describe('Registry', () => {

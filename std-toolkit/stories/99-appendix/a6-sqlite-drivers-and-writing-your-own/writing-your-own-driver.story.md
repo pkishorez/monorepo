@@ -1,0 +1,1 @@
+Someone wants every SQL statement the board runs to show up in their logs. Rather than reaching into the adapter, they write a driver of their own that wraps the real one. This story shows how small that driver is, and how a write with a guard on it reaches a driver.

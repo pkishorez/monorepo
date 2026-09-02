@@ -1,0 +1,1 @@
+Batches were introduced to move a task between boards. Used more widely, they meet three edges: the same task listed twice, a list longer than the database allows, and an op that was built for another table. This story shows each one being refused with nothing written.

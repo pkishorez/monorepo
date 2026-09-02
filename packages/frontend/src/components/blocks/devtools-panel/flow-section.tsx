@@ -64,14 +64,22 @@ const summarize = (flow: RecordedFlow): FlowSummary => {
     undefined,
   );
   const lane = opener?.participantName ?? flow.id;
+  // A Std Sync flow opens on its root participant (no "/" yet), so tell it
+  // apart from an app interaction by the collections it readies.
+  const syncFlow = flow.items.some(
+    (item) => item.kind === 'local-event' && item.name === 'Collection ready',
+  );
   const interaction =
-    opener !== undefined && !lane.includes('/') && !lane.includes('.');
+    opener !== undefined &&
+    !syncFlow &&
+    !lane.includes('/') &&
+    !lane.includes('.');
   let rows: number | null = null;
   let leadership: string | null = null;
   for (const item of flow.items) {
     if (item.kind === 'local-event' && item.name === 'Collection ready') {
       const value = item.attributes?.rows ?? item.attributes?.entityCount;
-      if (typeof value === 'number') rows = value;
+      if (typeof value === 'number') rows = (rows ?? 0) + value;
     }
     if (
       item.kind === 'local-event' &&

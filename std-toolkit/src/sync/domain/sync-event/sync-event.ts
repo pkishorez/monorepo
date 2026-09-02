@@ -34,6 +34,12 @@ export type SyncEvent =
   | { _tag: 'UnservedQuery'; collection: string }
   | { _tag: 'RegistryDeliveryFailed'; collection: string; cause: unknown }
   | {
+      _tag: 'OutboxFailed';
+      phase: 'drain' | 'request' | 'replay';
+      entryIds: ReadonlyArray<string>;
+      cause: unknown;
+    }
+  | {
       _tag: 'PeerSyncFailed';
       collection: string;
       phase:

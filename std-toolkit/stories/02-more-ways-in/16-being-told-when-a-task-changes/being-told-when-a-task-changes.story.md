@@ -1,0 +1,1 @@
+Two people have the `work` board open, and when one of them saves a task the other should see it without pressing refresh. Asking the table again and again would work, but it is wasteful and always a little late. This chapter asks to be told the moment a task changes: for all tasks, for just Ana's, and for everything in the table at once.

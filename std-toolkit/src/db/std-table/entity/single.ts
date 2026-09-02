@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import { nextUlid, type DecodedSingleEntity } from '../../../core/index.js';
 import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { CheckRefused, DatabaseError, NoItemToUpdate } from '../error/index.js';
@@ -177,12 +177,20 @@ export const makeSingleEntity = <
       }
     });
 
+  const spanned =
+    (op: string) =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.withSpan(effect, `StdTable.${op}`, {
+        attributes: { entity: definition.name },
+      });
+
   return {
     ...definition,
-    get: () => read,
+    get: () => read.pipe(spanned('get')),
     put: (value: S['Type']) =>
       replaceOp(value, { lastWriteWins: true }).pipe(
         Effect.flatMap((op) => runOne(op)),
+        spanned('put'),
       ),
     getAndUpdate: (
       input: SingleUpdateInput<S>,
@@ -190,6 +198,7 @@ export const makeSingleEntity = <
     ) =>
       updateOp(input, options).pipe(
         Effect.flatMap((op) => runWithRetry(op, options?.retries ?? 3)),
+        spanned('getAndUpdate'),
       ),
     getAndUpdateOp: (
       input: SingleUpdateInput<S>,
@@ -219,8 +228,13 @@ export const makeSingleEntity = <
     reset: () =>
       replaceOp(definition.defaultValue).pipe(
         Effect.flatMap((op) => runWithRetry(op)),
+        spanned('reset'),
       ),
     subscribe: (filter?: Partial<S['Type']>) =>
-      subscribe<S['Type']>(definition.name, filter),
+      subscribe<S['Type']>(definition.name, filter).pipe(
+        Stream.withSpan('StdTable.subscribe', {
+          attributes: { entity: definition.name },
+        }),
+      ),
   } as unknown as SingleEntity<Name, S>;
 };

@@ -1,0 +1,1 @@
+Every proof in these chapters writes real rows into a real database, sometimes four of them, and yet no chapter ever sees what another one wrote. The reason is the one helper the chapters share, `fresh` in `stories/env.ts`. This story shows what it promises: an empty database each time, taken back even when the proof fails, with update stamps that count up from one.

@@ -1,0 +1,1 @@
+The SQLite adapter does not talk to SQLite directly. It talks to a driver, a small object of three methods, and ships one for each runtime that brings SQLite in its own way. These stories run one program over several of those drivers, then write a driver from scratch to show how little the seam asks for.

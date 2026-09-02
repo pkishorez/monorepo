@@ -1,0 +1,1 @@
+Some tasks were imported from an older system, and their rows carry no version stamp. The app now has a shape with two versions. This story shows how an unstamped row is read, and what happens when an unstamped row does not match the first version either.

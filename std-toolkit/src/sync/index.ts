@@ -1,11 +1,14 @@
 export {
   createStdSync,
+  OutboxUnreachable,
   paceStrategy,
   syncStore,
   syncStrategy,
+  type Connectivity,
   type PeerChannel,
   type PeerChannelFactory,
   type EffectRuntime,
+  type FlowLane,
   type FlowPlacement,
   type LeadershipLayer,
   type PartitionedStrategy,
@@ -19,4 +22,4 @@ export {
   type SyncEvent,
   type SyncStoreLayer,
   type SyncReporter,
-} from './sync.js';
+} from './std-sync/index.js';

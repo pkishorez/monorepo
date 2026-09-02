@@ -1,0 +1,1 @@
+Tasks gain a view count, and the natural next wish is to list a board's tasks by how often they were viewed. That would make a number part of a key, and a key is text. This story shows what is refused when an entity is attached: a key part that is not text, a slot claimed twice, and a pattern name used twice.

@@ -1,0 +1,1 @@
+Someone deletes "Write the plan" by mistake and wants it back a minute later. Later still, a task really does need to disappear for good. This chapter removes a task in the way that can be undone, undoes it, and then removes one in the way that cannot.

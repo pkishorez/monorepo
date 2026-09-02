@@ -3,7 +3,7 @@ import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type { DecodedEntity } from '../../core/index.js';
 import { EntityESchema } from '../../eschema/index.js';
-import { createStdSync } from '../sync.js';
+import { createStdSync } from '../std-sync/std-sync.js';
 
 type Todo = { id: string; title: string };
 

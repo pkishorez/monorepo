@@ -1,0 +1,1 @@
+Someone on the team wants to look at the board's data without writing a query by hand, so the app exposes one read-only RPC group for Studio to talk to. This story shows what Studio learns from that group, how it reads a board, and what it shows for a task written before the current version of the shape existed.

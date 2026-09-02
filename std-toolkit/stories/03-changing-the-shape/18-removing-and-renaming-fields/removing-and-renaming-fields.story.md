@@ -1,0 +1,1 @@
+Nobody used the colour on a task, so the team drops it, and the free-text notes are renamed to details because that is what everyone calls them. Every saved task still has a colour and still calls its text notes. This chapter changes the shape twice more and finds out what old rows look like now, and what happens when old code is still around.

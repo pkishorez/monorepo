@@ -1,0 +1,1 @@
+Someone suggests a due date on every task, but the team is not sure it will stay. They want the app to show it for a week and decide afterwards, without leaving a version behind if the idea is dropped. This chapter tries the field as a draft and then commits to it.

@@ -1,10 +1,9 @@
-import { createOptimisticAction } from '@tanstack/react-db';
 import {
   Activation,
   type ActivationRef,
   type MessageToken,
 } from '@pkishorez/effect-tracer/flow';
-import { Clock, Effect, Semaphore } from 'effect';
+import { Effect, Schema } from 'effect';
 import { nextUlid } from 'std-toolkit/core';
 import type { BankApi } from '../api/index.ts';
 import type { BankRunner, Network, Vitals } from '../diagnostics/index.ts';
@@ -14,7 +13,7 @@ import {
 } from '../interaction-flow/index.ts';
 import { makeLiveValue, type LiveValue } from '../live-value.ts';
 import type { BankSync } from '../sync/index.ts';
-import { explain } from './problem.ts';
+import { explain, type Problem } from './problem.ts';
 
 export interface TransferRequest {
   readonly from: string;
@@ -46,6 +45,17 @@ export interface TransfersOptions {
   readonly runner: BankRunner;
 }
 
+// What the Outbox keeps for us across a reload: enough to redo the optimistic
+// edit and fly the transfer once the bank is reachable.
+const TransferPayload = Schema.Struct({
+  id: Schema.String,
+  from: Schema.String,
+  to: Schema.String,
+  amount: Schema.Number,
+  attempt: Schema.Number,
+});
+type TransferPayload = typeof TransferPayload.Type;
+
 interface Story {
   readonly flow: InteractionFlow;
   readonly ask: MessageToken;
@@ -55,9 +65,13 @@ interface Story {
 
 const REFUSAL_LINGER = '5 seconds';
 
+// Offline is not a failure: the Outbox keeps the Entry and flies it later.
+const isUnreachable = (error: unknown) =>
+  (error as { _tag?: string } | null)?._tag === 'OutboxUnreachable';
+
 export const makeTransfers = ({
   api,
-  sync: { accounts, transfers },
+  sync: { std, accounts, transfers },
   network,
   vitals,
   runner,
@@ -71,108 +85,36 @@ export const makeTransfers = ({
   const drop = (id: string) =>
     attempts.update((all) => all.filter((attempt) => attempt.id !== id));
 
-  const lane = Semaphore.makeUnsafe(1);
-
   const flows = new Map<string, InteractionFlow>();
   const flowOf = (id: string) => {
     const existing = flows.get(id);
     if (existing) return existing;
-    const created = makeInteractionFlow('transfer', id);
+    const created = makeInteractionFlow(std.flow, 'transfer', id);
     flows.set(id, created);
     return created;
   };
   const stories = new Map<string, Story>();
+  // Transfer id → Outbox Entry id, so a failed Entry can be discarded later.
+  const entries = new Map<string, string>();
 
   const nameOf = (id: string) => accounts.get(id)?.name ?? id;
-  const headline = ({ from, to, amount }: Attempt) =>
+  const headline = ({ from, to, amount }: TransferRequest) =>
     `${amount} · ${nameOf(from)} → ${nameOf(to)}`;
   const describe = (attempt: Attempt) =>
     `${attempt.attempt > 0 ? `Retry ${attempt.attempt} · ` : ''}Transfer ${headline(attempt)}`;
-  const attributesOf = ({ id, from, to, amount, attempt }: Attempt) => ({
+  const attributesOf = ({
+    id,
+    from,
+    to,
+    amount,
+    attempt,
+  }: TransferPayload) => ({
     'transfer.id': id,
     'transfer.from': nameOf(from),
     'transfer.to': nameOf(to),
     'transfer.amount': amount,
     'transfer.attempt': attempt,
   });
-
-  const commit = createOptimisticAction<Attempt>({
-    onMutate: (attempt) => {
-      const { id, from, to, amount } = attempt;
-      const apply = Effect.sync(() => {
-        accounts.update(from, (draft) => {
-          draft.balance -= amount;
-        });
-        accounts.update(to, (draft) => {
-          draft.balance += amount;
-        });
-        transfers.insert({ id, from, to, amount });
-      });
-      runner.runSync(
-        apply.pipe(flowOf(id).bank.withSpan('Apply optimistically')),
-      );
-    },
-    mutationFn: (input) =>
-      runner.runPromise(
-        Effect.gen(function* () {
-          const flow = flowOf(input.id);
-          const { bank, api: apiLane } = flow;
-          yield* vitals.patch((v) => ({ queued: v.queued + 1 }));
-          yield* bank.log('Queued for the lane');
-          const queuedAt = yield* Clock.currentTimeMillis;
-          return yield* lane.withPermits(1)(
-            Effect.gen(function* () {
-              yield* vitals.patch((v) => ({
-                queued: v.queued - 1,
-                committing: v.committing + 1,
-              }));
-              const waitedMs = (yield* Clock.currentTimeMillis) - queuedAt;
-              yield* bank.log('Lane acquired', { attributes: { waitedMs } });
-              const outcome = yield* flow.call(
-                `Commit transfer ${headline(input)}`,
-                network.travel.pipe(
-                  apiLane.withSpan('Travel the network'),
-                  Effect.andThen(
-                    api
-                      .transfer({
-                        id: input.id,
-                        from: input.from,
-                        to: input.to,
-                        amount: input.amount,
-                      })
-                      .pipe(apiLane.withSpan('Commit on the bank')),
-                  ),
-                ),
-                {
-                  reply: ({ accounts: touched }) =>
-                    `${touched.length} accounts + 1 transfer`,
-                  failure: (error) => explain(error).message,
-                  attributes: attributesOf(input),
-                },
-              );
-              yield* Effect.all([
-                accounts.utils.applyToSyncReplica([...outcome.accounts]),
-                transfers.utils.applyToSyncReplica([outcome.transfer]),
-              ]).pipe(bank.withSpan('Apply the outcome to the Sync Replica'));
-              return outcome;
-            }).pipe(
-              Effect.ensuring(
-                vitals.patch((v) => ({ committing: v.committing - 1 })),
-              ),
-            ),
-          );
-        }).pipe(
-          Effect.withSpan('Transfer', { attributes: attributesOf(input) }),
-        ),
-      ),
-  });
-
-  const linger = (id: string) =>
-    Effect.runFork(
-      Effect.sleep(REFUSAL_LINGER).pipe(
-        Effect.andThen(Effect.sync(() => drop(id))),
-      ),
-    );
 
   const begin = (attempt: Attempt): Story =>
     runner.runSync(
@@ -209,48 +151,135 @@ export const makeTransfers = ({
     );
   };
 
-  const launch = (attempt: Attempt) => {
-    stories.set(attempt.id, begin(attempt));
-    put(attempt);
-    commit(attempt).isPersisted.promise.then(
-      () => {
-        settle(attempt.id, Activation.completed(), 'Settled');
-        drop(attempt.id);
-      },
-      (error: unknown) => {
-        const problem = explain(error);
-        settle(
-          attempt.id,
-          Activation.failed(problem.message),
-          `${problem.kind === 'refusal' ? 'Refused' : 'Failed'}: ${problem.message}`,
-        );
-        put({
-          ...attempt,
-          phase: problem.kind === 'refusal' ? 'refused' : 'failed',
-          message: problem.message,
-        });
-        if (problem.kind === 'refusal') linger(attempt.id);
-      },
-    );
+  // A failed Entry stays in the Outbox until the user is done with it.
+  const forget = (id: string) => {
+    const entry = entries.get(id);
+    entries.delete(id);
+    if (entry !== undefined)
+      void std.outbox.discard(entry).catch(() => undefined);
   };
+
+  const failed = (payload: TransferPayload, error: unknown) => {
+    const problem: Problem = explain(error);
+    settle(
+      payload.id,
+      Activation.failed(problem.message),
+      `${problem.kind === 'refusal' ? 'Refused' : 'Failed'}: ${problem.message}`,
+    );
+    put({
+      ...payload,
+      phase: problem.kind === 'refusal' ? 'refused' : 'failed',
+      message: problem.message,
+    });
+    if (problem.kind === 'refusal') linger(payload.id);
+  };
+
+  const transfer = std.createOfflineAction({
+    name: 'transfer',
+    payload: TransferPayload,
+    // Runs on send and again on replay after a reload, so the ledger and the
+    // attempts panel both come back showing what is still in the Outbox.
+    onMutate: (payload) => {
+      const { id, from, to, amount } = payload;
+      const attempt: Attempt = { ...payload, phase: 'sending', message: null };
+      stories.set(id, begin(attempt));
+      put(attempt);
+      runner.runSync(
+        Effect.sync(() => {
+          accounts.update(from, (draft) => {
+            draft.balance -= amount;
+          });
+          accounts.update(to, (draft) => {
+            draft.balance += amount;
+          });
+          transfers.insert({ id, from, to, amount });
+        }).pipe(
+          flowOf(id).bank.withSpan('Apply optimistically'),
+          Effect.andThen(vitals.patch((v) => ({ queued: v.queued + 1 }))),
+        ),
+      );
+    },
+    mutationFn: (input, { entryId }) =>
+      Effect.gen(function* () {
+        entries.set(input.id, entryId);
+        const flow = flowOf(input.id);
+        const { bank, api: apiLane } = flow;
+        yield* vitals.patch((v) => ({
+          queued: v.queued - 1,
+          committing: v.committing + 1,
+        }));
+        yield* bank.log('Flown by the Outbox Drainer');
+        const outcome = yield* flow
+          .call(
+            `Commit transfer ${headline(input)}`,
+            network.reach.pipe(
+              apiLane.withSpan('Travel the network'),
+              Effect.andThen(
+                api
+                  .transfer({
+                    id: input.id,
+                    from: input.from,
+                    to: input.to,
+                    amount: input.amount,
+                  })
+                  .pipe(apiLane.withSpan('Commit on the bank')),
+              ),
+            ),
+            {
+              reply: ({ accounts: touched }) =>
+                `${touched.length} accounts + 1 transfer`,
+              failure: (error) => explain(error).message,
+              attributes: attributesOf(input),
+            },
+          )
+          .pipe(
+            Effect.tapError((error) =>
+              isUnreachable(error)
+                ? vitals.patch((v) => ({ queued: v.queued + 1 }))
+                : Effect.sync(() => failed(input, error)),
+            ),
+            Effect.ensuring(
+              vitals.patch((v) => ({ committing: v.committing - 1 })),
+            ),
+          );
+        yield* Effect.all([
+          accounts.utils.applyToSyncReplica([...outcome.accounts]),
+          transfers.utils.applyToSyncReplica([outcome.transfer]),
+        ]).pipe(bank.withSpan('Apply the outcome to the Sync Replica'));
+        settle(input.id, Activation.completed(), 'Settled');
+        drop(input.id);
+        entries.delete(input.id);
+        return outcome;
+      }).pipe(Effect.withSpan('Transfer', { attributes: attributesOf(input) })),
+  });
+
+  const linger = (id: string) =>
+    Effect.runFork(
+      Effect.sleep(REFUSAL_LINGER).pipe(
+        Effect.andThen(
+          Effect.sync(() => {
+            drop(id);
+            forget(id);
+          }),
+        ),
+      ),
+    );
+
+  const launch = (payload: TransferPayload) => void transfer(payload);
 
   return {
     attempts,
     send: (request) =>
-      launch({
-        ...request,
-        id: Effect.runSync(nextUlid),
-        phase: 'sending',
-        message: null,
-        attempt: 0,
-      }),
+      launch({ ...request, id: Effect.runSync(nextUlid), attempt: 0 }),
     retry: (id) => {
       const attempt = attempts.get().find((candidate) => candidate.id === id);
       if (attempt === undefined || attempt.phase === 'sending') return;
+      forget(id);
       launch({
-        ...attempt,
-        phase: 'sending',
-        message: null,
+        id,
+        from: attempt.from,
+        to: attempt.to,
+        amount: attempt.amount,
         attempt: attempt.attempt + 1,
       });
     },
@@ -258,6 +287,7 @@ export const makeTransfers = ({
       const flow = flows.get(id);
       if (flow) runner.runSync(flow.user.log('Dismissed'));
       drop(id);
+      forget(id);
     },
   };
 };
