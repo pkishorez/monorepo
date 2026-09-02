@@ -1,0 +1,1 @@
+A new build of the app adds a slot to the table, and the first person to load it has the old build open in another tab. In a browser both tabs share one database, so the upgrade has to get past the other tab. This story plays out the tab that cooperates, the tab that refuses, and what a tab sees after someone else has upgraded underneath it.

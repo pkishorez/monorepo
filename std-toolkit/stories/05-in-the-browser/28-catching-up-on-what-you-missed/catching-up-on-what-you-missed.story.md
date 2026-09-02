@@ -1,0 +1,1 @@
+The browser was closed for a while. Meanwhile teammates added tasks to the `work` board, finished one and deleted another. When the tab opens again it has to read everything it missed, in a sensible order, and then keep up as new changes come in. This chapter tries three ways of catching up.

@@ -1,0 +1,1 @@
+The `work` board is on the screen, but so far every change came from the server. Now the person at the browser wants to add a task, mark one done, and remove one, and see each change straight away rather than after the server answers. This chapter wires the three writes and watches what the screen shows in between.

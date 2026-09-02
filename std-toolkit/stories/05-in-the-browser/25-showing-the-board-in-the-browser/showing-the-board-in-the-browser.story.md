@@ -1,0 +1,1 @@
+The board has lived on the server through four acts. Now someone opens it in a browser tab and expects to see the `work` board, and to see a task appear when a teammate adds one. This chapter puts the three pieces in place that make that happen.

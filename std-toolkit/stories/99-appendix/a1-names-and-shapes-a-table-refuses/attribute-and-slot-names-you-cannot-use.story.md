@@ -1,0 +1,1 @@
+Someone wants to call the partition key `data`, because that is what it holds, and to call an index `_entity`, because it lists entities. Both names are already in use inside every stored row. This story shows which names the table keeps for itself and what happens when a declaration asks for one.

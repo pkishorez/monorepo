@@ -1,0 +1,1 @@
+The team adds a new way to list a board: open tasks first, by title. It works for every task saved from today on, but a task saved last year is missing from the list even though it is plainly still on the board. This chapter finds out why, repairs the old task without anyone noticing, and sees what happens when the task changes while the repair is still on its way.

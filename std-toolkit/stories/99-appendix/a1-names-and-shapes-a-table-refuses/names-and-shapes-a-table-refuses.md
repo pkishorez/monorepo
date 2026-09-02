@@ -1,0 +1,1 @@
+Most of what a table refuses, it refuses while you are still declaring it, long before a row is written. These stories collect those refusals: names the row layout keeps for itself, shapes that cannot address a row, key parts that are not text, queries with the wrong number of conditions, and batches that break the rules a batch lives by.

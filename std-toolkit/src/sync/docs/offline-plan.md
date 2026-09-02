@@ -1,387 +1,428 @@
-# Offline writes implementation plan
+# Outbox implementation plan
 
 Decisions are recorded in
-[ADR 0005](./adr/0005-offline-writes-are-slots-and-named-actions.md). This plan
-restates the problem and the solution in simple terms, then breaks the work
-into phases.
+[ADR 0005](./adr/0005-offline-writes-are-an-outbox-drained-by-the-leader.md);
+the layer layout below follows [ADR 0007](./adr/0007-sync-layers-are-the-story-zoom-levels.md).
+This plan restates the model in simple terms, places every piece in the
+laymos layer stack, breaks the work into phases, and pins the mechanical
+contracts. Vocabulary is in [CONTEXT.md](../CONTEXT.md).
 
 ## The problem
 
 Sync's read side already survives anything: replicas, cursors, and strategy
-state are persisted, so a reload rebuilds the collection from disk and resumes.
-The write side does not. An optimistic mutation lives only in TanStack DB
-memory until `onInsert` / `onUpdate` / `onDelete` confirms against the backend.
-If the tab reloads, crashes, or stays offline, the user's edit is silently
-lost. The promise an offline-capable sync engine must keep is: **an edit, once
-made, survives anything short of the user clearing their browser** — and today
-we cannot keep it.
+state are persisted, so a reload rebuilds the Collection from disk and
+resumes. The write side does not. An optimistic mutation lives only in
+TanStack DB memory until `onInsert` / `onUpdate` / `onDelete` confirms against
+the Backend. If the tab reloads, crashes, or stays offline, the user's edit is
+silently lost. The promise an offline-capable engine must keep is: **an edit,
+once made, survives anything short of the user clearing their browser**.
 
-Two write shapes need this promise:
+Two write shapes need it:
 
-1. **Entity writes** — insert/update/delete on one entity. The overwhelming
-   majority of writes.
-2. **Actions** — operations whose intent spans entities or must run on the
-   server (archive a project, move money). These cannot be reduced to a final
-   entity state.
+1. **Entity writes** — insert/update/delete on one Entity. The overwhelming
+   majority.
+2. **Offline Actions** — operations whose intent spans Entities or must run
+   on the server (archive a project, move money).
 
-## The solution in simple terms
+## The model
 
-### Entity writes: a mailbox of destinations, not a diary of trips
+### The Outbox
 
-While offline (or mid-flight), each entity has **at most one durable slot** in
-the Sync Store: the latest state the user wants (`upsert`) or a tombstone
-(`delete`). Every new edit overwrites the slot. Insert then three renames then
-"done" is one slot; insert then delete is no slot at all. When connectivity
-returns, a drain worker sends one request per touched entity, in any order —
-there is no operation chain, so one entity's failure never cascades to another.
-
-Slot coalescing rules:
-
-| existing slot            | new edit | result                    |
-| ------------------------ | -------- | ------------------------- |
-| none                     | insert   | `upsert` (full state)     |
-| `upsert` (unsent insert) | update   | `upsert` (merged state)   |
-| `upsert` (unsent insert) | delete   | slot removed — never sent |
-| `upsert` (existing row)  | delete   | `delete`                  |
-| `delete`                 | insert   | `upsert`                  |
-
-### Conflicts: the newest _edit_ wins, not the newest _arrival_
-
-Every slot carries `proposedU` — a ULID minted the moment the user edited,
-disciplined as a hybrid logical clock (never behind the newest update stamp
-this client has seen). Entity ids are minted on the client so offline inserts
-have stable identity.
-
-**Critical: the proposal never becomes `_u`.** `_u` is also the cursor axis —
-strategies fetch "entities beyond cursor X" by `_u` — so writing an old
-edit-time stamp into `_u` would land the accepted write _behind_ other
-clients' cursors, invisible to incremental sync forever. `_u` stays
-**server-minted at write time**: every accepted write is ahead of every
-cursor, sync visibility never depends on a client clock, and client
-convergence keeps comparing `_u` alone — unchanged.
-
-**The conditional apply is user-written, not toolkit-wired.** The backend
-author's RPC handler uses the existing db conditional update:
+One stored entity in the Sync Store holding every write the Backend has not
+confirmed yet. It is a property of the Std Sync, like Platform:
 
 ```typescript
-taskEntity.getAndUpdate(key, updates, {
-  check: (current, meta) => meta._u < proposedU,
-});
-// check failed → fetch current, return it (superseded)
+const std = createStdSync({ platform: browser(), outbox: true });
 ```
 
-The one db change this requires: **check invariants receive Entity Meta**
-(today `EntityInvariant<T> = (current: T) => boolean` sees the value only).
-No server-side proposal machinery, no new write paths.
+Off (the default) is today's behavior, unchanged: online writes work, offline
+writes fail and roll back. On means every write goes through the Outbox. The
+Sync Store's durability decides whether the Outbox survives a reload — Memory
+lasts the session, IndexedDB survives — and there is no separate knob.
 
-Semantics of comparing edit-time `proposedU` against arrival-time `_u`:
-deliberately **conservative**. Arrival is always at or after edit, so a stale
-device can never overwrite a newer edit (the safe direction); the cost is
-that an offline edit may be superseded by a competing write that merely
-_arrived_ after it was made. Exact edit-vs-edit fairness — an optional `_p`
-edit-stamp meta field compared instead of `_u` — is a documented later
-refinement, not v1.
+### Every write does two steps
 
-`proposedU` is **optional end to end**: a backend that ignores it does plain
-writes — arrival-order LWW, today's behavior, nothing breaks. Adding the one
-check clause upgrades to conservative edit-time LWW.
+`insert`, `update`, `delete`, `pacedUpdate`, and an Offline Action all:
 
-Clock drift is **accounted for, not solved**: sync visibility is immune by
-construction (`_u` is server time). Drift affects only conflict fairness
-between devices — a behind clock is defended by the HLC floor (never stamps
-behind what it has seen, so it cannot lose to itself on an uncontended
-entity), an ahead clock is bounded by a server tolerance on `proposedU`
-(minutes; beyond it the write is refused as malformed). Within tolerance an
-ahead clock wins conflicts unfairly for its skew — documented degradation,
-never a correctness failure.
+1. TanStack applies the optimism at once.
+2. The handler **writes an Outbox Entry** — the edit is now safe — then
+   **waits until the Entry is gone** (a Waiter).
 
-Three delivery outcomes, no others:
+Entry gone → Waiter resolves → TanStack drops the optimism; the Sync Replica
+already holds the confirmed Entity, so the row does not move. Entry marked
+`failed` → Waiter rejects → TanStack rolls the optimism back.
 
-- **applied** — proposal won; confirmed entity converges everywhere.
-- **superseded** — backend held something newer; slot dropped; server truth
-  repaints via the normal sync path. Silent by default.
-- **rejected** — backend invariant said no (thrown as a non-retriable error);
-  slot dropped, optimistic state rolls back, app notified.
+Enqueue is always an insert. No read, no merge, nothing to race — any tab, any
+time.
 
-Transient failures (network, 5xx, timeout) are none of these: the slot stays
-and retries on an Effect `Schedule` backoff. Classification is throw-based —
-a tagged non-retriable error means rejected; everything else retries.
+### Entity writes
 
-### Presentation: TanStack's own optimism, no custom overlay
+Each transaction is its own Entry with `op` (`insert` | `update` | `delete`),
+`base` (the item as the user saw it at edit time — never refreshed), and
+`changes`. Entries of one Entity share a Queue. At Request
+time the Drainer folds the Queue's pending Entries, oldest first, into one
+request:
 
-A pending offline write **is** a live TanStack optimistic mutation. The
-mutation handler resolves only when the outbox delivers its entry and throws
-only on rejection — so TanStack's native rollback undoes rejected optimism,
-and `$synced` / `$origin` stay truthful for the whole offline window
-(`$synced: false` = genuinely not on the server yet). Consequences:
+| so far                | next        | result                     |
+| --------------------- | ----------- | -------------------------- |
+| —                     | insert `v`  | insert `v`                 |
+| insert `v`            | update `c`  | insert `v + c`             |
+| insert                | delete      | nothing — Entries deleted  |
+| update (`base`, `c1`) | update `c2` | update (`base`, `c1 + c2`) |
+| update                | delete      | delete                     |
+| delete                | insert `v`  | update (`v`)               |
 
-- **Reload replay is "call the front door again."** On boot, each surviving
-  outbox entry re-invokes the same public operation — entity ops replay their
-  stored diffs, actions re-invoke by name with their persisted payload —
-  flagged via `metadata: { std: { replay: entryId } }` so the wrapper
-  re-attaches to the existing entry instead of enqueueing a duplicate.
-- **Closures never persist; only data does.** Entity updates store the
-  computed changes, not the updater function. Actions must be named and their
-  payloads schema-validated (eschema where possible, so queued payloads
-  migrate across app versions).
-- **Awaiting a write while offline blocks until delivery** (Firestore
-  semantics — document loudly). A separate durable acknowledgment answers
-  "is it safely queued" for callers who need to navigate away.
+The fold is a pure domain function over the stored (encoded) values; `changes`
+merge by shallow spread. Single-item Collections fold too — update + update
+only.
 
-### Configuration: offline is orthogonal to pacing
+The Request calls the unchanged `onInsert([value])`,
+`onUpdate({ current: base, updates: changes })`, or `onDelete({ current })`.
+The result flows to `applyToSyncReplica` exactly as today; Sync State is
+untouched.
 
-Pacing smooths rapid edits in memory (_when_ to send); offline makes intent
-durable (_what survives_). Sibling options, any combination:
-
-```typescript
-const tasks = std.collection({
-  schema: TaskSchema,
-  updatePacing: paceStrategy.debounce({ wait: 300 }), // optional, as today
-  offline: true, // or { retry, onDiscarded, ... }; instance-level defaults on createStdSync
-  onInsert, // unchanged signatures — invoked by the drain instead of directly
-  onUpdate,
-  onDelete,
-});
-```
-
-Eager (unpaced) writes still want durability, so nothing is restricted. Note:
-pacing currently intercepts only `pacedUpdate`; the offline interception must
-cover plain `insert` / `update` / `delete` too.
-
-### Actions: named, partitioned FIFO lanes
+### Offline Actions
 
 ```typescript
 const archiveProject = std.createOfflineAction({
   name: 'archive-project', // unique + stable: the routing address
   payload: Schema.Struct({ projectId: Schema.String }),
-  onMutate: ({ projectId }) => {
-    // immediate optimistic application
+  onMutate: ({ projectId }) =>
     projects.update(projectId, (d) => {
       d.archived = true;
-    });
-  },
-  mutationFn: ({ projectId }, { idempotencyKey }) =>
-    api.archiveProject(projectId, { idempotencyKey }), // runs at drain turn
-  partition: ({ projectId }) => projectId, // omit = one default lane
-  onPartitionReject: 'halt', // or 'discard' | 'continue'
+    }),
+  mutationFn: ({ projectId }) => api.archiveProject(projectId), // the Request
+  queue: ({ projectId }) => projectId, // optional; omit = one Queue per action
 });
 
-const handle = archiveProject({ projectId: 'p1' });
-await handle.durable; // safely queued
-await handle.done; // executed on server; rejects → onMutate rolls back
-handle.cancel(); // 'cancelled' | 'in-flight' | 'not-found'
+const tx = archiveProject({ projectId: 'p1' }); // a TanStack transaction
+await tx.delivered; // rejects on failure
 ```
 
-- Entries addressed by `(namespace, action name, partition key, seq)`.
-- Lanes are independent FIFO queues: parallel across lanes, strict order
-  within one, created lazily, GC'd when empty, with a lane-count warning.
-- Rejection policy per lane: `halt` parks the lane durably (companion API:
-  `std.offline.partition(key).pending() / resume() / discardAll()`),
-  `discard` drops the remainder and rolls back their optimism, `continue`
-  fails only that entry.
-- Duplicate action names throw at definition time. Entries whose name no
-  longer exists after a deploy are parked and reported via `onUnknownAction`.
-- Slots and lanes are independent; same-entity overlap is arbitrated by LWW.
-  Flows that need strict ordering live entirely inside one lane.
+Built on TanStack's `createOptimisticAction`: `onMutate` must be synchronous
+and its writes are captured by the action, never becoming Entity Entries. The
+action's transaction does the same two steps. TanStack completes a transaction
+with no mutations without calling its `mutationFn`, so an action whose
+`onMutate` writes nothing (or changes nothing) is enqueued by the action
+itself; `tx.delivered` is the promise to await in every case. Creating the action registers
+its Handler under `action:<name>`; duplicate names throw. Action Queues
+fly one Entry at a time, oldest first. A failed Entry does not stop its Queue.
+A non-idempotent operation is not an Outbox candidate — use a plain
+`createOptimisticAction` and it stays online-only.
 
-### Storage, multi-tab, lifecycle
+### The Handlers
 
-- New stored entities in the **existing Sync Store StdTable** — durability
-  (memory / IndexedDB / SQLite) stays the platform's one choice.
-- **Any tab enqueues; only the leader drains.** New `OfflineDrain` Leadership
-  role: one lock per collection (entity lane), one per active action lane.
-  Per-entity serialization is the drainer's in-flight map, not a lock.
-- **In-flight is not in the slot**: the drainer claims a slot by clearing it;
-  edits during flight write a fresh slot; a landed flight resolves every
-  waiter at or below the generation it carried (correct under coalescing).
-- Completion is broadcast on the existing peer channel so a non-leader tab's
-  pending handler resolves; the store is the truth on boot.
-- The **version gate** also wipes outbox records, emitting a
-  discarded-count event. **`std.reset()`** wipes replicas, cursors, state,
-  and outbox for logout; the documented pattern is a user-scoped Std Sync
-  name so cross-user leakage is structurally impossible.
-- Status surface: `tasks.utils.outbox.pending() / size() / subscribe() /
-cancel(id)`, `std.offline.size() / subscribe()`, per-row status derived
-  from outbox state.
+The Drainer never imports a Collection or an action. Each Collection
+registers a Handler under `collection:<name>` when it is built (its
+Mutation Callbacks, `applyToSyncReplica`, and its codecs); each Offline
+Action registers under `action:<name>` when created. The Drainer resolves an
+Entry to a handler by that name — one registry, one lookup, one branch on the
+Entry variant. **An Entry whose handler is not registered in the leader tab
+stays `pending`**: a missing handler is that tab's gap (a route not visited, a
+Collection built later), never the Entry's fault, and failing it would roll
+back a user's edit with no recovery. Registering a handler signals the
+Drainer, so a late Collection or action drains as soon as it exists. Register
+at boot when you can — until a leader with the handler appears, the Entry
+waits.
 
-### Prior art
+### The Drainer
 
-`@tanstack/offline-transactions` (official, TanStack DB monorepo) validates
-the architecture and is deliberately mirrored in vocabulary
-(non-retriable-error classification, idempotency keys, unknown-handler hook)
-and mined for test scenarios. It is not adopted: no cross-transaction
-coalescing, one global FIFO (a stuck transaction blocks every entity),
-non-leader tabs do not persist offline writes, and it duplicates storage /
-election / retry / telemetry that std-toolkit owns in Effect-native form.
-See ADR 0005 for the full comparison.
+One per Std Sync, under one `Outbox Drain` Leadership lock. Any tab writes
+Entries; only the leader flies them.
+
+```
+drainer (leader):
+  on start: every in-request → pending
+
+  reader loop:
+    wait for a signal: local enqueue, Outbox Channel `enqueued`, Connectivity online, slow poll
+    queues = distinct Queues with pending Entries
+    for each queue: fork semaphore(queue).withPermit(work(queue))
+
+  work(queue):                          // holds the Queue's permit
+    loop:
+      group = entity Queue ? all pending Entries, oldest first
+                          : the oldest pending Entry
+      if none: return
+      mark group in-request
+      handler = registry.request(group.name)
+      if none: mark group pending; return   // wait for a leader that has it
+      request = fold(group)            // actions: the Entry itself
+      if request is nothing: delete group; ring; continue
+      fly(handler, request)
+        ok    → result to Sync Replica; delete group; ring
+        throw → mark group failed; ring
+```
+
+Properties that fall out: `in-request` means executing, never queued; the
+semaphore is the queue, so a Queue is strictly FIFO and Queues run in parallel;
+a duplicate trigger finds nothing and returns; Entries that arrive during a
+Request fold into the next group. Losing the lock interrupts the reader and
+every `work` fiber; Entries stay where they are. No Requests while
+Connectivity reports offline. "Ring" is the Outbox Channel doorbell — the
+Drainer never touches a Waiter directly.
+
+### Errors
+
+The Outbox does not retry. A Request returns, throws, or is interrupted:
+
+- return → Entries deleted;
+- throw → Entries `failed`; their Waiters reject; optimism rolls back; the
+  Queue continues;
+- interrupted (lock lost, tab gone) → Entries stay `pending`; the next
+  Drainer re-flies them.
+
+A callback that finds the Backend unreachable may fail with the exported
+`OutboxUnreachable` error: the group returns to `pending` and the Drainer
+waits for the next signal. Retries, timeouts, and backoff live inside the
+callback. A `failed` Entry's only exit in v1 is `discard`.
+
+### The pending transaction
+
+While its Entry is in the Outbox, a transaction is `persisting`: optimism
+shown, the row's TanStack `$synced` is `false`, `isPersisted` unresolved.
+Awaiting it blocks until delivery — document this loudly. Accepted v1 limit:
+TanStack parks incoming sync for a Collection while any of its transactions
+persists (`collection/state.ts`, `commitPendingTransactions`); offline there
+is no incoming sync, and online a Request ends quickly.
+
+The hand-rolled `PendingTracker` (`utils.pendingCount` /
+`utils.subscribePending`) is removed. Per-row state is TanStack's `$synced`;
+the durable, cross-tab queue is `std.outbox.entity`.
+
+### Waiters and cross-tab
+
+Waiters live in the tab-local Outbox runtime, outside the Leadership lock,
+for the life of the Std Sync. A Waiter observes a store row; it owns nothing.
+So: Tab A enqueues and waits; Tab B is leader, flies the Entry, deletes it,
+and rings the Outbox Channel (`{ id, outcome }`); A's Waiter re-checks the
+store, finds the row gone, resolves. Leadership can move any number of times
+in between and no promise is touched.
+
+The doorbell is never trusted: a Waiter **checks the store first**, then
+re-checks on every doorbell, any Peer Message, Connectivity online, and a
+slow poll. Gone → resolve; `failed` → reject. This also closes the
+replay-vs-Drainer race: a reloaded tab whose Entry the leader already flew
+resolves on the first check.
+
+### Ready Gate and replay
+
+TanStack Collections are lazy — sync starts on first subscriber or
+`preload()` — so "wait until every Collection is ready" needs `preload()`.
+After `createStdSync`, the Std Sync preloads every Collection its Tracker
+holds; when all are ready, the Ready Gate opens:
+
+1. **Entity replay** happens per Collection at its own ready (before the
+   gate for boot Collections; whenever, for Collections created later):
+   each non-`failed` Entry of that Collection, per Queue in `enqueuedAt`
+   order, is re-issued through its front door (`insert` / `update` /
+   `delete` with the stored `changes`) carrying typed replay metadata. The
+   handler sees the flag, skips the enqueue, and joins as a Waiter. An insert
+   whose id already exists replays as an update.
+2. **Action replay** happens once, at the gate, for every non-`failed` action
+   Entry: re-issued by name with the persisted payload, same metadata. An
+   Entry whose action is not registered, or whose payload fails decode, is
+   skipped here and waits in the store; an action created later replays it
+   at creation.
+3. **The Drainer starts** (and waits for Leadership).
+
+A Collection nobody subscribes to is hydrated once and GC'd after `gcTime`.
+
+### Conflicts
+
+The Backend applies arrival-order last-write-wins, today's behavior. There is
+no edit-time stamp on an Entry: `_u` is the cursor axis and cannot carry one,
+and a client stamp compared against a server-minted `_u` is two clocks
+compared. Idempotency expectations for the Backend: insert-of-existing
+behaves as an update, delete-of-missing succeeds.
+
+### Lifecycle and API
+
+- The version gate wipes the Outbox with the rest of the store.
+- `std.reset()` — the logout path, in place: stop every Sync execution and
+  the Drainer → reject every local Waiter (optimism rolls back) → wipe
+  replicas, cursors, state, and Outbox → re-seed every tracked Collection →
+  restart executions and the Drainer. Do not write during a reset. The
+  TanStack Collection objects the application holds stay the same. Pair with
+  a user-scoped Std Sync Name.
+- `std.outbox.entity` — the stored entity, for type-safe inspection and
+  subscription through the StdTable itself.
+- `std.outbox.transaction(id)` — the live TanStack transaction for an Entry
+  id in this tab, or `null`.
+- `std.outbox.discard(id)` — hard delete; its Waiter rejects, optimism rolls
+  back.
+
+Entries carry `collection` / `action`, so there is no Collection-level API in
+v1.
+
+### Options
+
+```typescript
+createStdSync({ platform: browser(), outbox: true });
+
+std.collection({
+  schema,
+  onInsert,
+  onUpdate,
+  onDelete, // unchanged
+  outbox: false, // opt this Collection out
+  pacing: paceStrategy.debounce({ wait: 300 }), // renamed from updatePacing
+});
+```
+
+With an Outbox, the Outbox is the pacer: `pacedUpdate` is `update`, and
+`pacing` is ignored with a one-time warning. `pacing` configures the
+in-memory pacer used when there is no Outbox.
+
+## Where each piece lives
+
+Sync is layered as the story's zoom levels (ADR 0007): `std-sync → collection →
+strategy / outbox → worker → platform → domain`. The Outbox is one Module Graph
+in the `outbox` layer; dependencies point down.
+
+| home              | module                                   | job                                                                                                                                               |
+| ----------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sync.domain`     | `stored-entity`                          | The stored Outbox Entry schema, version-gated with every other stored entity.                                                                     |
+| `sync.domain`     | `identity`                               | `HandlerName` (`collection:<name>`, `action:<name>`).                                                                                             |
+| `sync.domain`     | `connectivity`                           | The `Connectivity` contract; `alwaysOnline` when no Platform reports one.                                                                         |
+| `sync.outbox`     | `entries`                                | `OutboxEntry`, `QueueKey`, `Request`, the errors, replay metadata, and the `EntryStore` over the Sync Store.                                      |
+| `sync.outbox`     | `handlers`                               | `Handler` and the by-name registry the Drainer looks up.                                                                                          |
+| `sync.outbox`     | `waiters`                                | Tab-local promises that observe the store.                                                                                                        |
+| `sync.outbox`     | `doorbell`                               | The Outbox Channel.                                                                                                                               |
+| `sync.outbox`     | `narration`                              | `narrateOutbox`, `narrateRequest`, `requestOutcome`.                                                                                              |
+| `sync.outbox`     | `drainer`                                | `foldQueue` and `runDrainer`: reader loop, per-Queue semaphores, Connectivity gate.                                                               |
+| `sync.outbox`     | `offline-action`                         | `makeOfflineActions`: `create` builds one Offline Action, registers `action:<name>`, enqueues and waits; `replayAll` runs once at the Ready Gate. |
+| `sync.outbox`     | `outbox` (facade)                        | `makeOutbox` assembles entries, handlers, waiters, doorbell, actions, and the Drainer into `OutboxRuntime`.                                       |
+| `sync.collection` | `mutation`, `outbox-replay`              | Every Collection write becomes an Entry and registers the Collection's Handler; entity replay at ready.                                           |
+| `sync.std-sync`   | `std-sync` (`ready-gate.ts`, `reset.ts`) | `outbox: true`; Ready Gate; `std.outbox.*`; `std.reset()`; owns the Drainer scope and supervises it under Leadership.                             |
+| `sync.platform`   | `browser`                                | Supplies `connectivity` (`navigator.onLine` + `online` / `offline` events).                                                                       |
+
+The two decoupling points are the Handlers (the Drainer never sees a
+Collection or an action) and the Waiters (the lock never sees a promise).
 
 ## Implementation phases
 
 Each phase ships and is testable independently.
 
-### Phase 1 — outbox core (isolated, no wiring)
+### Phase 1 — Outbox core (isolated, no wiring)
 
-- `persistence/outbox-store/`: stored entities for slots
-  (`collection`, entity `key`, `kind`, encoded `value`, `proposedU`,
-  `attempts`, `enqueuedAt`), action entries
-  (`namespace`, `actionName`, `partitionKey`, `seq`, payload, idempotency
-  key, `attempts`), and lane status (`halted`).
-- `runtime/outbox/`: `put` (coalescing table), `remove`, `list`, `size`,
-  `subscribe`; per-entity generation counter and waiter registry; claim-by-
-  clear in-flight discipline; drain loop with Effect `Schedule` retry and
-  throw-based rejection classification.
-- `proposedU` minting (HLC-disciplined ULID) and client id minting rules in
-  `core`/`runtime`.
-- Tests against the Memory store: coalescing table, generation waiters,
-  outcome handling, claim/re-slot during flight.
+- `domain/outbox-entry`: types, `queueKey`, `foldQueue`, `OutboxUnreachable`,
+  replay metadata schema, channel codec, `Connectivity` type.
+- `persistence/sync-store`: `storedOutboxEntryEntity`, wipe list, `provide`
+  details widened.
+- `persistence/outbox`: the store operations.
+- `runtime/outbox`: enqueue, Waiters, Handlers, signal hub.
+- `workers/outbox-drain`: the Drainer.
+- Tests against the Memory store: fold table, FIFO within a Queue, parallel
+  Queues, duplicate triggers, in-request reset on start, interruption leaves
+  Entries pending, failure marks and continues, unregistered handler fails,
+  `OutboxUnreachable` returns to pending, Waiter resolves on a store check
+  with no doorbell.
 
-### Phase 2 — entity lane wiring
+### Phase 2 — entity queue wiring
 
-- `composition/keyed-sync/mutations.ts`: behind the collection `offline`
-  option, handlers enqueue the slot first, stay pending until delivery,
-  throw on rejection; interception covers insert/update/delete and
-  `pacedUpdate`.
-- Drain worker registered under the `OfflineDrain` Leadership role (one per
-  collection); wakes on enqueue, boot, connectivity, retry schedule.
-- Browser platform: connectivity signal (`navigator.onLine` + events).
-- Boot replay: after collection ready, replay surviving slots as front-door
-  operations with the replay flag.
-- Flow tracing: outbox lane with enqueue/flight/outcome activities.
-- Tests: online behavior identical to today; reload mid-flight loses
-  nothing; superseded and rejected paths; multi-tab leader handoff.
+- Delete `runtime/pending-mutations`, `utils.pendingCount`,
+  `utils.subscribePending`; README points at `$synced`.
+- `composition/*/mutations.ts`: behind `outbox`, enqueue then `delivered`;
+  `pacedUpdate` delegates to `update`; `pacing` warns; register the Request
+  Handler.
+- `leadership`: `OutboxDrain` role and scoped identity.
+- `sync.ts`: `outbox` option; Drainer under `superviseStrategy`; browser
+  Platform supplies Connectivity.
+- Entity replay at Collection ready, with typed replay metadata.
+- Flow tracing: Outbox participant with enqueue / request / outcome
+  activities.
+- Tests: `outbox` off is byte-for-byte today's behavior; reload mid-request
+  loses nothing; failure rolls back; leader handoff re-flies; a Waiter in a
+  non-leader tab resolves after the leader's Request.
 
-### Phase 3 — lifecycle and status
+### Phase 3 — Ready Gate, reset, cross-tab, API
 
-- Version gate wipes outbox records + discarded-count event.
-- `std.reset()`; document the user-scoped namespace logout pattern.
-- Status APIs: `utils.outbox.*`, instance-level roll-up, per-row status;
-  `handle.durable` acknowledgment; cross-tab completion broadcast over the
-  peer channel.
-- `onDiscarded` / outbox events through the existing `onEvent` surface.
+- `CollectionHandle.ready` / `reset`; Ready Gate in `sync.ts`.
+- Outbox Channel doorbell plus store re-check on Peer Message / online /
+  poll.
+- `std.reset()`; version-gate discarded-count event.
+- `std.outbox.entity / transaction / discard`.
 
-### Phase 4 — offline actions
+### Phase 4 — Offline Actions
 
-- `createOfflineAction` module: action registry (duplicate names throw),
-  payload schemas, `onMutate` + `mutationFn`, handles
-  (`durable` / `done` / `cancel`), partitioned FIFO lanes with lazy workers
-  (one Leadership lock per active lane), `onPartitionReject` policies with
-  the halted-lane companion API, `onUnknownAction` parking, boot replay by
-  name, idempotency keys.
-- Tests: lane independence, in-lane ordering, halt/discard/continue,
-  rename/unknown-action parking, reload replay of queued actions.
+- `createOfflineAction` on `createOptimisticAction`: registers
+  `action:<name>` (duplicates throw), payload schema, `queue`, action replay
+  at the Ready Gate.
+- Tests: Queue independence, in-Queue ordering, failure continues the Queue,
+  reload replay of queued actions, unregistered action stays pending until
+  registered.
 
-### Phase 5 — server recipe and docs
+### Phase 5 — docs
 
-- Documented backend pattern (with example) for the conditional apply:
-  `getAndUpdate` with a meta-aware check (`meta._u < proposedU`), returning
-  the authoritative entity on a failed check (supersession); future-bound
-  validation of `proposedU`. Prerequisite db change (small, may land in any
-  phase): check invariants (`EntityInvariant`, `WriteOptions.check`,
-  `getAndCheckOp`) receive Entity Meta alongside the value. The optional
-  `_p` edit-stamp refinement is documented but not implemented.
-- eschema payload guidance for actions; README/docs updates; sync stories
-  covering the full user journeys (fast edits offline → reload → reconnect;
-  two-device stale write; halted lane recovery).
+- Documented idempotency expectations (insert-of-existing → update,
+  delete-of-missing → success), the blocking-await rule, README updates, Sync
+  Stories: fast edits offline → reload → reconnect; failed Entry inspection
+  and discard; logout reset.
 
 ## Implementation contracts
 
-Mechanical details a fresh implementer should not have to guess. Where this
-section is silent, follow the existing patterns in `../CONTEXT.md`
-(vocabulary), `../../persistence/sync-store/sync-store.ts` (stored entity
-conventions), the existing workers (drain worker shape), and laymos layering.
+Where this section is silent, follow `../CONTEXT.md` (vocabulary),
+`../../persistence/sync-store/sync-store.ts` (stored entity conventions), the
+existing workers (worker shape), and laymos layering.
 
-### `proposedU` minting (HLC discipline)
+### Stored entity
 
-Keep a per-Std-Sync `lastSeenStamp` (max of: every `_u` and every `_p`
-accepted into any replica, and every `proposedU` this client minted; persist
-it in the Sync Store, updating opportunistically). Mint with `ulidx`
-monotonic factory seeded at `max(Date.now(), uTime(lastSeenStamp))`;
-monotonic mode already breaks same-ms ties. The server-side recipe (phase 5)
-refuses a `proposedU` more than a configured tolerance (default: 5 minutes)
-ahead of server time as a `rejected` outcome. `proposedU` is never written
-into `_u`, which remains server-minted; the v1 recipe compares it against the
-stored `_u` in a user-written check (see "Conflicts" above), and the optional
-`_p` edit stamp is a later refinement.
+`SyncStoredOutboxEntry`, key = Entry id (the TanStack transaction id),
+`.primary({ pk: ['sync'] })` with an index by `queue` + `enqueuedAt`:
 
-### Stored entities (same StdTable as `sync-store.ts`)
+- `sync` (Std Sync Name), `queue`, `status` (`'pending' | 'in-request' |
+'failed'`), `enqueuedAt`
+- entity Entries: `collection`, `op`, `base` (`Schema.encode` of the item),
+  `changes` (`Schema.partial(schema)` encode)
+- action Entries: `action` (name), `payload` (payload schema encode)
 
-Follow the existing pattern (`EntityESchema.make(...)`, `.primary({ pk:
-['collection'] })`, opaque encoded payloads via `fromType`):
+Both codecs come from the registered Handler. Hard delete only. Read
+status through the StdTable; no subscribe or size helpers.
 
-- `SyncStoredOutboxSlot` — key = entity id; fields: `collection`, `kind`
-  (`'upsert' | 'delete'`), `value` (encoded latest entity state; absent for
-  delete), `proposedU`, `changes` (encoded partial for replaying updates as
-  diffs), `baseKind` (`'insert' | 'existing'` — whether the entity was ever
-  confirmed, deciding insert-vs-update replay and the insert+delete
-  cancellation), `generation`, `attempts`, `enqueuedAt`.
-- `SyncStoredOutboxAction` — key = `seq` (ULID); fields: `collection`
-  (namespace), `actionName`, `partitionKey`, `payload` (encoded),
-  `idempotencyKey`, `attempts`, `enqueuedAt`.
-- `SyncStoredOutboxLane` — key = `actionName + '/' + partitionKey`; fields:
-  `collection` (namespace), `status` (`'active' | 'halted'`), `haltedBy`
-  (seq of the rejected entry, when halted).
+### Handler / Waiter contract
 
-All three are added to the version-gate wipe list in `sync-store.ts`.
+`runMutations`, when `outbox` is on: insert the Entry, then
+`yield* outbox.delivered(entryId)` instead of calling the user callback.
+`delivered` checks the store first, then resolves when the Entry is deleted
+and fails when it is marked `failed` or discarded. The Drainer is what invokes
+`onInsert` / `onUpdate` / `onDelete` / `mutationFn` through the Request
+Handler; results flow to `applyToSyncReplica` as today.
 
-### Error classification
+### Handlers
 
-Add a tagged error to the sync error domain, e.g. `WriteError.Rejected`
-(exported so app handlers can `Effect.fail` it; also accept a defect whose
-value is `instanceof` an exported `NonRetriableError` class for non-Effect
-API clients). Everything else — typed or defect — is transient and retries.
+`registerRequest(name, handler)` / `request(name)` on the runtime `outbox`
+door. Names are `collection:<Collection Name>` and `action:<action name>`.
+A handler is `{ fly(request): Effect<void, unknown>, codecs }`; the Drainer
+decodes with the handler's codecs, never with a schema of its own.
 
-### Handler / waiter contract
+### Replay metadata
 
-`runMutations` (in `composition/keyed-sync/mutations.ts`), when `offline` is
-on: persist/merge the slot, then `await outbox.delivered(entityId,
-generation)` instead of calling the user callback. `delivered` resolves when
-a flight carrying `>= generation` lands `applied` or `superseded`, and fails
-with the rejection when it lands `rejected`. The drain worker is what
-actually invokes the user's `onInsert`/`onUpdate`/`onDelete`; their return
-value flows to `applyToSyncReplica` exactly as today. `onInsert`'s batch
-signature is preserved by the drainer batching ready insert-slots per flight
-where convenient; correctness never depends on batching.
+Export `outboxReplay(entryId)` producing the typed `metadata` object and a
+Schema that decodes `mutation.metadata` back; the handler branches on the
+decode, never on a string key.
 
-### Replay rules (boot)
+### Errors
 
-1. Replica hydration and projection complete first (`Collection ready`).
-2. Entity slots replay in `enqueuedAt` order: `baseKind: 'insert'` upserts
-   replay as front-door `insert(value)`; existing-entity upserts replay as
-   `update(key, d => Object.assign(d, changes))`; deletes as `delete(key)` —
-   each with `metadata: { std: { replay: entityId } }`, which routes the
-   handler to re-attach (no new slot write, no generation bump).
-3. Action entries replay per lane in `seq` order by invoking the registered
-   action with the persisted payload and `replay` metadata. A payload that
-   fails schema decode, or an unregistered name, parks the entry
-   (`onUnknownAction`).
-4. Replay happens in every tab (optimism is per-tab); only the leader drains.
+Add `OutboxUnreachable` to `domain/outbox-entry` as a `Schema.TaggedError`
+class (usable as an Effect failure or a thrown defect from non-Effect
+clients). Everything else thrown by a callback marks the group `failed`.
 
-### Cross-tab completion
+### Leadership
 
-Reuse the peer channel infrastructure with a distinct envelope kind (not a
-Peer Message): `{ kind: 'outbox-outcome', entryKey, generation?, outcome }`,
-best-effort like Peer Sync — the store is the truth, and every tab's waiter
-registry also re-checks the store on reconnect/boot. Confirmed entities
-themselves still travel via existing Peer Sync.
+`LeadershipRole` variant `{ _tag: 'OutboxDrain' }`. `leadershipIdentity`
+takes `{ scope: readonly string[]; role }`; the Drainer's scope is
+`[syncName]`.
 
-### Config types (target surface)
+### Connectivity
 
-```typescript
-type OfflineOption =
-  | boolean
-  | {
-      retry?: Schedule.Schedule<unknown>; // default: exponential 1s..5m, jittered
-      onDiscarded?: (e: OutboxDiscardedEvent) => void;
-    };
-// createStdSync({ offline?: Omit<OfflineOption, boolean> }) sets instance defaults.
-```
-
-Action config and handle types are as sketched in "Actions" above; `done`
-resolves with `'applied'`-style outcomes for symmetry
-(`'executed' | 'rejected' | 'cancelled'`).
+`Connectivity = { isOnline: () => boolean; subscribe: (listener) => () => void }`
+as a plain object on `StdSyncPlatform` (like `peerSync`, not a Layer).
+Absent means always online.
 
 ## Out of scope (deliberate)
 
-Field-level merge, CRDT collaborative editing, cross-tab visibility of
-_unsent_ optimistic state, at-rest encryption, and a per-call
-`offline: false` escape hatch (revisit only if a real use case demands it).
+Field-level merge, CRDT collaborative editing, cross-tab visibility of unsent
+optimistic state, at-rest encryption, Outbox-level retry policy, retrying a
+`failed` Entry, halting a Queue on failure, per-call opt-out, cancelling an
+in-request Entry, and edit-time conflict stamps.

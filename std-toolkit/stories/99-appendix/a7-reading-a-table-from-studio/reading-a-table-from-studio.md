@@ -1,0 +1,1 @@
+Studio is the browser tool for looking at a table. It does not need a contract generated per table; it needs one read-only RPC group added to your server, from which it discovers the table and reads it with the same patterns your code uses. This story shows that group in use.

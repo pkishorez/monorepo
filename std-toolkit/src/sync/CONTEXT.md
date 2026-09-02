@@ -51,8 +51,9 @@ The client-side set of backend-confirmed **DecodedEntities** known to one Collec
 _Avoid_: Source of Truth, cache.
 
 **Sync Store**:
-The storage boundary containing encoded representations of Sync Replicas and Sync State. A Memory or
-durable realization changes persistence across reloads, not peer freshness.
+The storage boundary containing encoded representations of Sync Replicas, Sync
+State, and the Outbox. A Memory or durable realization changes persistence
+across reloads, not peer freshness.
 _Avoid_: Sync Persistence Table, offline cache.
 
 **Sync State**:
@@ -82,25 +83,54 @@ Exclusive ownership by one Sync participant of one backend-reading role while
 equivalent participants remain dormant and eligible for takeover.
 _Avoid_: Strategy Leadership, query lock, fetch mutex, primary tab.
 
+**Worker**:
+Any loop Sync runs forever: a Strategy Session, a Cadence Repair, or the
+Outbox Drainer. Every Worker runs under the Supervisor and holds one
+Leadership role; nothing loops outside one.
+_Avoid_: job, participant (a Sync Flow term), task.
+
+**Strategy Session**:
+One running Sync Strategy over one scope: a Global Sync, a Partition Sync, or
+the single Strategy Session of a single-item Collection. It is a Worker.
+_Avoid_: strategy run, engine, executor.
+
+**Supervisor**:
+The single door every Worker runs through: it holds one Leadership role, runs
+the Worker forever, and restarts it with spaced retries on failure.
+_Avoid_: strategy lifecycle, fiber manager, runner.
 **Platform**:
-The environment one Std Sync instance runs in: where its Sync Store lives and
-how concurrent participants coordinate through Leadership and Peer Sync. Chosen
-once per instance; absent means a solo participant with ephemeral state.
+The environment one Std Sync instance runs in: where its Sync Store lives,
+how concurrent participants coordinate through Leadership and Peer Sync, and
+what Connectivity it reports. Chosen once per instance; absent means a solo,
+always-online participant with ephemeral state.
 _Avoid_: environment detection, deployment target, browser sniffing.
 
 **Partition**:
 A ref-counted Sync lifecycle window for one keyed subset. It is unrelated to a
 database partition and does not define Collection retention.
 
+**Global Sync**:
+The Strategy Session that covers a whole keyed Collection. It is always
+running while the Collection is mounted.
+_Avoid_: Total sync, full sync.
+
+**Partition Sync**:
+The Strategy Session that covers one active Partition of a keyed Collection.
+It starts when the Partition becomes active and stops when it becomes inactive.
+_Avoid_: Priority sync, partitioned sync.
+
 **Hybrid Sync**:
-A keyed Sync where global coverage and active Partition acceleration converge
-through the same Sync Replica.
+A keyed Collection running Global Sync and Partition Sync at once, both
+converging through the same Sync Replica. A single-item Collection runs exactly
+one Strategy Session and is never hybrid.
 _Avoid_: Total versus partitioned sync, priority sync.
 
 **Cadence Repair**:
 A bounded recheck of recently delivered Entities that repairs timing drift
-without owning backend progress.
-_Avoid_: Cadence Sync Strategy.
+without owning backend progress. It is configured per Global Sync or per
+Partition Sync, runs alongside that Strategy Session and is reported as part of
+it, and never applies to a single-item Collection.
+_Avoid_: Cadence Sync, Cadence Sync Strategy, collection-level repair.
 
 **Sync Address**:
 A readable observability label for a Sync, Collection, Partition, or strategy,
@@ -139,6 +169,75 @@ stored in the Sync Replica nor sent through Peer Sync.
 **Mutation Callback**:
 The application-facing handler for a TanStack DB insert, update, or delete. It receives only decoded CollectionItems and returns a backend-confirmed **DecodedEntity**; any transport encoding belongs to the API client used by the handler.
 _Avoid_: Encoded Mutation, transport mutation.
+
+**Outbox**:
+The Sync Store record of every write the Backend has not confirmed yet, owned
+by one Std Sync. Off by default; on, it is the one path every write takes.
+_Avoid_: mutation queue, offline cache, pending writes table.
+
+**Outbox Entry**:
+One unconfirmed write in the Outbox: one Entity operation or one Offline
+Action call, identified by its transaction id. It is `pending`, `in-flight`
+(executing right now), or `failed`.
+_Avoid_: slot, outbox item, job.
+
+**Queue**:
+The FIFO unit of the Outbox: all Entries of one Entity, or of one Offline
+Action name and key. Queues drain in parallel; one Queue drains in order.
+_Avoid_: lane, partition (a Sync lifecycle window), shard.
+**Outbox Drainer**:
+The single leader-owned Worker that folds a Queue's pending Entries into one
+Request, resolves its Handler by name, sends it, and deletes or fails the
+Entries by the outcome. It knows nothing about Waiters.
+_Avoid_: outbox worker, sync worker, flush.
+**Handler**:
+The code that sends one Request, registered by name in a Std Sync: a
+Collection's Mutation Callbacks plus its replica apply (`collection:<name>`)
+or an Offline Action's function (`action:<name>`). An Entry whose Handler is
+not registered in the leader tab stays `pending` until a leader that has it
+appears; registering a Handler signals the Drainer.
+_Avoid_: flight handler, flight registry, mutation handler, executor.
+**Waiter**:
+A tab-local promise that resolves when its Outbox Entry leaves the store and
+rejects when the Entry is `failed` or discarded. Waiters observe the store;
+they own nothing, survive Leadership changes, and re-check the store on every
+Outbox Channel message, Peer Message, Connectivity change, and slow poll.
+_Avoid_: pending promise, transaction owner, lock holder.
+
+**Connectivity**:
+The Platform-reported online/offline signal the Drainer gates Requests on. The
+browser Platform reads `navigator.onLine`; no Platform means always online.
+_Avoid_: network status, reachability (a Backend property the callback
+discovers).
+
+**Ready Gate**:
+The moment a Std Sync has preloaded every Collection it tracks so each is
+ready. Offline Action replay and the Drainer start after it; a Collection
+created later replays its own entity Entries at its own ready.
+_Avoid_: settle window, boot delay, hydration barrier.
+
+**Reset**:
+The in-place Std Sync operation for logout: stop every Sync execution and the
+Drainer, fail every local Waiter, wipe the Sync Store, re-seed every tracked
+Collection, and restart. The TanStack DB Collection objects the application
+holds stay the same.
+_Avoid_: dispose (which ends the instance), clear, logout hook.
+
+**Request**:
+One send of one folded Queue to the Backend through its Handler. Its Entries
+are `in-flight` only while it runs.
+_Avoid_: flight, batch.
+**Offline Action**:
+A named, payload-schema'd operation whose intent spans Entities or must run
+on the server, enqueued as one Outbox Entry and executed by the Drainer.
+_Avoid_: command, transaction, mutation.
+
+**Outbox Channel**:
+The best-effort same-origin doorbell on which any tab announces an enqueued
+Entry to the leader and the Drainer announces an Entry's outcome to other
+tabs; the Outbox itself remains the truth. It is one more channel from the
+Platform's channel factory, named `<Std Sync Name>.outbox`.
+_Avoid_: Peer Channel (a Collection's entity relay).
 
 **Sync Event**:
 A structured operational fact reported by Sync, including lifecycle, Registry

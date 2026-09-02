@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { Cause, Duration, Effect, Layer, Option } from 'effect';
 import { StoryContext, isStory, type Story } from 'laymos/story';
 
 const argument = process.argv[2];
@@ -20,6 +20,11 @@ const run = async () => {
     }
     for (const story of stories) {
       console.log(`\n${story.title}`);
+      const budget = Option.getOrElse(
+        Duration.fromInput(story.timeout ?? '10 seconds'),
+        () => Duration.seconds(10),
+      );
+      const deadline = Date.now() + Duration.toMillis(budget);
       for (const question of story.questions) {
         const assertions: { description: string; passed: boolean }[] = [];
         const context = Layer.succeed(StoryContext, {
@@ -29,8 +34,19 @@ const run = async () => {
               assertions.push({ description, passed });
             }),
         });
+        const remaining = deadline - Date.now();
         const exit = await Effect.runPromiseExit(
-          question.proof.pipe(Effect.provide(context)),
+          remaining <= 0
+            ? Effect.fail(`story timed out after ${Duration.format(budget)}`)
+            : question.proof.pipe(
+                Effect.provide(context),
+                Effect.timeout(Duration.millis(remaining)),
+                Effect.mapError((error) =>
+                  error instanceof Cause.TimeoutError
+                    ? `story timed out after ${Duration.format(budget)}`
+                    : error,
+                ),
+              ),
         );
         const failed = assertions.some(({ passed }) => !passed);
         const errored = exit._tag === 'Failure';

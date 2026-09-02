@@ -1,0 +1,1 @@
+A task may have nobody assigned to it. In most code that would be an optional field, sometimes there and sometimes not. Here it is always there, and its value is `null` when nobody is assigned. This story shows the difference between a value that is `null` and a key that is missing.

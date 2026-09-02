@@ -1,0 +1,1 @@
+Someone needs a full scan of the table for a one-off report, and neither the portable table nor the native operations offer one. The raw DynamoDB client is a level below both. This story reaches it, runs the scan over rows the ordinary writes produced, and lays out the three levels and what each one costs.

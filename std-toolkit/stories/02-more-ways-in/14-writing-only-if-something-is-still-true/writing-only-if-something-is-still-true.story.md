@@ -1,0 +1,1 @@
+Someone adds a task to the `work` board at the same moment someone else deletes that board, and a task that has been ticked done should never change again. Both are rules about what must still be true at the instant a write lands, not when it was typed. This chapter puts those rules inside the batch, beside the writes they protect.

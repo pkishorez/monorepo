@@ -1,0 +1,1 @@
+The `work` board has a handful of tasks now and the screen needs to show them all. Sometimes it wants them newest first, sometimes just the ones in a certain range, and sometimes it opens a board with nothing on it. This chapter reads a board every way the screen needs.

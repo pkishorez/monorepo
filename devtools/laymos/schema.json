@@ -43,6 +43,17 @@
       ],
       "description": "Canonical project-relative folder holding every Story file and the index.ts entry point exposing the Story Collection. Implicitly an Ignored path."
     },
+    "storyTimeout": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "How long one Story may run before it is failed as timed out, as an Effect Duration string (e.g. \"10 seconds\"). Defaults to 10 seconds; a Story may override it with its own timeout."
+    },
     "layers": {
       "type": "object",
       "additionalProperties": {

@@ -12,7 +12,7 @@ import {
   type Transfer,
 } from '../../contract/transfer/index.ts';
 import type { BankApi, KeepSubscribed } from '../api/index.ts';
-import type { BankRunner, Vitals } from '../diagnostics/index.ts';
+import type { BankRunner, Network, Vitals } from '../diagnostics/index.ts';
 
 const SYNC_VERSION = 2;
 const TRANSFERS_GC_TIME = 5_000;
@@ -40,6 +40,7 @@ export interface BankSyncOptions {
   readonly api: BankApi;
   readonly keepSubscribed: KeepSubscribed;
   readonly name: string;
+  readonly network: Network;
   readonly platform: StdSyncPlatform | undefined;
   readonly runner: BankRunner;
   readonly vitals: Vitals;
@@ -49,6 +50,7 @@ export const makeBankSync = ({
   api,
   keepSubscribed,
   name,
+  network,
   platform,
   runner,
   vitals,
@@ -56,8 +58,12 @@ export const makeBankSync = ({
   const std = createStdSync({
     name,
     version: SYNC_VERSION,
-    platform,
+    platform: {
+      ...platform,
+      connectivity: network.connectivity(platform?.connectivity),
+    },
     runtime: runner,
+    outbox: true,
     onEvent: (event) =>
       event._tag === 'LeadershipChanged'
         ? vitals.lead(event)
@@ -84,7 +90,8 @@ export const makeBankSync = ({
         api.subscribeAccounts({ '>': cursor }),
       ),
     },
-    onInsert: (items) => api.openAccounts({ accounts: items }),
+    onInsert: (items) =>
+      network.reach.pipe(Effect.andThen(api.openAccounts({ accounts: items }))),
   });
   // A B-tree on the id lets the ledger page newest-first and look accounts up without
   // rescanning every row (seconds vs milliseconds at 1 lakh rows).

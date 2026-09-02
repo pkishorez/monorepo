@@ -1,0 +1,1 @@
+You read "Write the plan", decided what to change, and were about to save when someone else ticked it done. Sometimes your change should go ahead anyway, and sometimes it only made sense for the task as you saw it. This chapter shows what a batch does with a task that moved on, and how to say "only if nothing has changed since I looked".

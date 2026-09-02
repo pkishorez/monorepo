@@ -1,0 +1,1 @@
+"Write the plan" is on the board, and now it needs a better title and, later, a tick to say it is done. Nobody wants to read the whole task, copy it, edit a field and save it all again. This chapter changes just the part that changed, and finds out which parts can never change.
