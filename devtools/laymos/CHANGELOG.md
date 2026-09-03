@@ -1,5 +1,15 @@
 # laymos
 
+## 0.0.8
+
+### Patch Changes
+
+- [`48fa821`](https://github.com/pkishorez/monorepo/commit/48fa8212deeb0c2de2d6a34e157852e896cda06a) Thanks [@pkishorez](https://github.com/pkishorez)! - Add project documentation and source browsing to the architecture workspace, with change-aware source views and safe documentation loading.
+
+- [`7be110e`](https://github.com/pkishorez/monorepo/commit/7be110ee255fb50009e899c5aaf2121e9c0f3b65) Thanks [@pkishorez](https://github.com/pkishorez)! - Bundle the DevTools UI with the local server: `devtools` now serves its own home page, Lotel, and Laymos at the loopback address instead of redirecting to a hosted app. Laymos Story proofs run with a fixed log level and their own logger set, so a proof that captures its logs behaves the same in DevTools as in the CLI.
+- Updated dependencies [[`b0730f3`](https://github.com/pkishorez/monorepo/commit/b0730f371943d2f45b144103302cc64563f25ff7)]:
+  - @pkishorez/effect-tracer@0.0.8
+
 ## 0.0.7
 
 ### Patch Changes

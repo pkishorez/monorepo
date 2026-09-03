@@ -1,5 +1,14 @@
 # @pkishorez/lotel
 
+## 0.0.8
+
+### Patch Changes
+
+- [#29](https://github.com/pkishorez/monorepo/pull/29) [`b0730f3`](https://github.com/pkishorez/monorepo/commit/b0730f371943d2f45b144103302cc64563f25ff7) Thanks [@pkishorez](https://github.com/pkishorez)! - Order spans and logs strictly by emission, even when they share a millisecond. The tracer stamps one process-wide sequence on every span and log: the recorder keeps it as `sequence` on captured spans and logs and uses it to break timestamp ties, and the OTLP and dev telemetry layers carry it as the `tracer.sequence` attribute. lotel orders Flow Items by that sequence when present, falling back to arrival order, and hides `tracer.*` attributes like `flow.*`.
+- Updated dependencies [[`efb3901`](https://github.com/pkishorez/monorepo/commit/efb3901439a0359ed37108db73447a07ddc2a73d), [`06eb95d`](https://github.com/pkishorez/monorepo/commit/06eb95dad79a315549e540a1aacd268c334ee8ef), [`ac3a33c`](https://github.com/pkishorez/monorepo/commit/ac3a33c4502e098fde58c9ae64923d7ddbbeb787), [`b0730f3`](https://github.com/pkishorez/monorepo/commit/b0730f371943d2f45b144103302cc64563f25ff7)]:
+  - std-toolkit@0.0.8
+  - @pkishorez/effect-tracer@0.0.8
+
 ## 0.0.7
 
 ### Patch Changes
