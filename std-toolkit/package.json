@@ -81,12 +81,12 @@
       "default": "./dist/sync/index.js"
     },
     "./sync/paced": {
-      "types": "./dist/sync/runtime/mutation-pacing/index.d.ts",
-      "default": "./dist/sync/runtime/mutation-pacing/index.js"
+      "types": "./dist/sync/collection/pacing/index.d.ts",
+      "default": "./dist/sync/collection/pacing/index.js"
     },
     "./sync/leadership/in-memory": {
-      "types": "./dist/sync/runtime/leadership/in-memory/index.d.ts",
-      "default": "./dist/sync/runtime/leadership/in-memory/index.js"
+      "types": "./dist/sync/platform/leadership/in-memory/index.d.ts",
+      "default": "./dist/sync/platform/leadership/in-memory/index.js"
     },
     "./sync/platform/browser": {
       "types": "./dist/sync/platform/browser/index.d.ts",

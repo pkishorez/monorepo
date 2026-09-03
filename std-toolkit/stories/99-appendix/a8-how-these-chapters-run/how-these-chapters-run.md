@@ -1,0 +1,1 @@
+Every std-toolkit call in these chapters is written out where you can see it. The one thing that is not is the database each proof runs against: that comes from `fresh` in `stories/env.ts`, the single helper the whole tree shares. This story explains what it does so nothing about how a chapter runs is a mystery.

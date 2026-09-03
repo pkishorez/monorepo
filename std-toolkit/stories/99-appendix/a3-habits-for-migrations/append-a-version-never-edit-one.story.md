@@ -1,0 +1,1 @@
+The task shape has changed twice since the first rows were written, and the temptation each time was to edit the shape in place. Instead, each change went on the end as a new version. This story reads a row from each of the three versions and shows that all of them still work and all of them come back looking the same.

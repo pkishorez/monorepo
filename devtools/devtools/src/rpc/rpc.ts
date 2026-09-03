@@ -87,6 +87,7 @@ export class StoriesUnavailableError extends Schema.TaggedError<StoriesUnavailab
     'duplicate-question',
     'snippet-extraction',
     'unknown-scope',
+    'invalid-timeout',
   ]),
   path: Schema.String,
 }) {}

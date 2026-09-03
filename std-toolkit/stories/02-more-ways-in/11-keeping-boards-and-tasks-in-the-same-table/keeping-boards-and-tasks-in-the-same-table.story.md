@@ -1,0 +1,1 @@
+So far a board is just a word on each task. Now boards need names of their own, and a place to keep them, and nobody wants a second table for that. This chapter puts boards in the same table as the tasks, and checks that a board and a task with the same key value never get in each other's way.

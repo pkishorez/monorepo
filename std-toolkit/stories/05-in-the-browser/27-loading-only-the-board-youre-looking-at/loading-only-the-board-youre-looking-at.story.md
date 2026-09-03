@@ -1,0 +1,1 @@
+There are two boards now, `work` and `home`, and a person looking at one of them. Loading both would waste a read on a board nobody is looking at, and keep reading it while they are away. This chapter reads only the board on screen, stops when the screen closes, and copes with two screens at once.

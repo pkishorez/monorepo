@@ -1,0 +1,1 @@
+Someone is typing a task title in the browser, one letter at a time. Each letter should show up on the screen as they type it, but the server does not need ten writes for one word. This chapter paces the writes, checks what each write is based on, and picks a pace for typing, dragging and clicking.

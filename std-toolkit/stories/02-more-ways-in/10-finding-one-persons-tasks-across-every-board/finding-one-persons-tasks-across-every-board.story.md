@@ -1,0 +1,1 @@
+Ana has tasks on the `work` board and on the `home` board, and she wants to see all of hers in one list. Every way in so far starts from a board, so her list would mean reading every board and picking through it. This chapter adds a way in that starts from the person instead, and finds out what happens to a task nobody is assigned to.

@@ -36,12 +36,12 @@ const newId = (): string => Effect.runSync(nextUlid);
 
 export const makeAdmin = ({
   api,
-  sync: { accounts, forget },
+  sync: { std, accounts, forget },
   runner,
 }: AdminOptions): Admin => ({
   open: (opening) => {
     const id = newId();
-    const flow = makeInteractionFlow('open', id);
+    const flow = makeInteractionFlow(std.flow, 'open', id);
     const label = `Open ${opening.name} with ${opening.balance}`;
     runner.runSync(
       flow.user.activated({ name: label })(
@@ -64,7 +64,7 @@ export const makeAdmin = ({
     return id;
   },
   seed: (count) => {
-    const flow = makeInteractionFlow('seed', newId());
+    const flow = makeInteractionFlow(std.flow, 'seed', newId());
     const label = `Seed ${count} accounts`;
     return runner.runPromise(
       flow.user.activated({ name: label })(
@@ -99,7 +99,7 @@ export const makeAdmin = ({
     );
   },
   clear: () => {
-    const flow = makeInteractionFlow('clear', newId());
+    const flow = makeInteractionFlow(std.flow, 'clear', newId());
     return runner.runPromise(
       flow.user.activated({ name: 'Clear the bank' })(
         flow.user.send('bank', 'Clear the bank').pipe(

@@ -1,0 +1,1 @@
+A query is built by hand somewhere, and a typo slips in: two conditions, or none, or a pattern name that was renamed last week, or a page size of zero. This story shows that each of these is turned away with the same failure before the database is touched.

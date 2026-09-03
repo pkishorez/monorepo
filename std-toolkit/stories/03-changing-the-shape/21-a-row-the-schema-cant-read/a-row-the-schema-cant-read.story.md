@@ -1,0 +1,1 @@
+A script somebody wrote on the side has been putting tasks straight into the table, and one of them has a number where the title should be. The board that row sits on has other, perfectly good tasks. This chapter reads the bad row, reads its neighbours, and meets a version stamp nobody recognises.

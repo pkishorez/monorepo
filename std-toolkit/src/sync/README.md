@@ -89,7 +89,7 @@ const tasks = std.collection({
       }),
     },
   },
-  updatePacing: paceStrategy.coalesce({ wait: 50 }),
+  pacing: paceStrategy.coalesce({ wait: 50 }),
   onInsert: (tasks) => api.createTasks(tasks),
   onUpdate: ({ current, updates }) => api.updateTask(current, updates),
   onDelete: ({ current }) => api.deleteTask(current),
@@ -323,6 +323,63 @@ See [ADR 0001](./docs/adr/0001-peer-sync-is-a-freshness-path.md) for why Peer
 Sync carries complete Entities, uses one channel per qualified Collection, and
 remains separate from storage identity and backend authority.
 
+## Offline writes (Outbox)
+
+```typescript
+const std = createStdSync({ name: 'acme', platform: browser(), outbox: true });
+```
+
+With `outbox: true`, every `insert` / `update` / `delete` writes an Outbox
+Entry to the Sync Store first, then waits until the Backend confirms it. The
+edit survives reloads (with a durable store) and stays optimistic while
+offline. One leader tab drains the Outbox: rapid edits on one Entity fold into
+one Request, different Entities' Queues drain in parallel, a rejected write rolls back and stays
+in the Outbox as `failed`. The Backend sees arrival order — last write wins.
+`pacedUpdate` is a plain `update` and `pacing` is ignored — the Outbox is the
+pacer. Opt a Collection out with `outbox: false`.
+
+**Awaiting a write blocks until delivery.** `await todos.insert(...)` (or
+`tx.isPersisted.promise`) does not resolve until the Backend confirms — offline,
+that can be hours. Do not put anything the user is waiting for behind that
+`await`; the optimistic row is already visible. While a write is pending,
+TanStack also holds incoming sync for that Collection, so a Mutation Callback
+that never returns freezes the Collection's reads with no error. Put a timeout
+in every `onInsert` / `onUpdate` / `onDelete` / `mutationFn`.
+
+A Mutation Callback that finds the Backend unreachable fails with
+`OutboxUnreachable`; the Entry stays `pending` until connectivity returns.
+Everything else it throws marks the Entry `failed`.
+
+Operations whose intent spans Collections or must run on the server are
+Offline Actions:
+
+```typescript
+const archiveProject = std.createOfflineAction({
+  name: 'archive-project',
+  payload: Schema.Struct({ projectId: Schema.String }),
+  onMutate: ({ projectId }) =>
+    projects.update(projectId, (d) => {
+      d.archived = true;
+    }),
+  mutationFn: ({ projectId }) => api.archiveProject(projectId),
+  queue: ({ projectId }) => projectId,
+});
+const tx = archiveProject({ projectId: 'p1' });
+await tx.delivered;
+```
+
+Register Collections and actions at boot when you can: the Drainer starts
+once every Collection created through `std.collection` is ready. An Entry
+whose Collection or action the leader tab has not registered stays `pending`
+until a leader that has it appears.
+
+```typescript
+std.outbox.entity; // the stored entity, for inspection through the StdTable
+std.outbox.transaction(id); // the live TanStack transaction in this tab, or null
+await std.outbox.discard(id); // hard delete; its transaction rolls back
+await std.reset(); // logout: stop, wipe the Sync Store, re-seed, restart
+```
+
 ## Utilities and Registry Broadcasts
 
 Keyed collections expose typed engine utilities:
@@ -331,9 +388,10 @@ Keyed collections expose typed engine utilities:
 tasks.utils.schema();
 tasks.utils.applyToSyncReplica(entityOrEntities);
 tasks.utils.pacedUpdate(taskId, { status: 'done' });
-tasks.utils.pendingCount(taskId);
-tasks.utils.subscribePending(listener);
 ```
+
+Per-row pending state is TanStack's `$synced` virtual prop; the durable,
+cross-tab queue is the Outbox (below).
 
 `applyToSyncReplica` returns an Effect and uses the same convergence path as
 worker and mutation results. The Registry routes caller-owned Registry Broadcasts

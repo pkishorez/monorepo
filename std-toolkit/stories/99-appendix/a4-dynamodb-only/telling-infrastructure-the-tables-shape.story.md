@@ -1,0 +1,1 @@
+The real table will be created by infrastructure code, not by the app, and that code needs to know the key schema and the indexes without loading the app or holding credentials. This story asks the table to describe itself in the form a create-table call wants, and explains why so little of it is declared.

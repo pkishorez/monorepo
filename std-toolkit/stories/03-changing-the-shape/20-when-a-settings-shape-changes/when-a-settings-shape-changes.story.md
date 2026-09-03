@@ -1,0 +1,1 @@
+The board's theme used to be whatever text someone typed, and a few boards say "night". From now on it is one of two words. This chapter gives a single value a history of its own, reads themes saved before there were any versions, and copes with a value that arrives already stamped by another tool.

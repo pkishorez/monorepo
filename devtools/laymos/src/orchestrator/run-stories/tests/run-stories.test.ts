@@ -193,3 +193,34 @@ describe('runStories', () => {
     expect((error as StoriesError).reason).toBe('no-stories-path');
   });
 });
+
+describe('story timeout', () => {
+  test('a hanging story fails with a timeout instead of wedging the run', async () => {
+    const reports = await runStories(fixture('timeout')).pipe(
+      Stream.runCollect,
+      Effect.runPromise,
+    );
+
+    const hanging = reports.find((report) =>
+      report.id.endsWith('hanging story'),
+    )!;
+    expect(hanging.verdict).toBe('errored');
+    expect(hanging.questions.map(({ verdict }) => verdict)).toEqual([
+      'passed',
+      'errored',
+    ]);
+    expect(hanging.questions[1]!.error).toContain('timed out after');
+  });
+
+  test('a story-level timeout overrides the config-wide one', async () => {
+    const reports = await runStories(fixture('timeout')).pipe(
+      Stream.runCollect,
+      Effect.runPromise,
+    );
+
+    const patient = reports.find((report) =>
+      report.id.endsWith('patient story'),
+    )!;
+    expect(patient.verdict).toBe('passed');
+  });
+});

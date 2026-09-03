@@ -53,6 +53,7 @@ const makeBank = (
       api,
       keepSubscribed: store.connection.keepSubscribed,
       name: store.syncName,
+      network,
       platform: store.platform,
       runner,
       vitals,

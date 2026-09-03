@@ -1,0 +1,1 @@
+The board has been live for a year and holds thousands of tasks. The team wants every task to have a priority, but none of the saved tasks has one, and nobody wants to run a script over the whole table. This chapter adds the field and reads a year-old task through the new shape.

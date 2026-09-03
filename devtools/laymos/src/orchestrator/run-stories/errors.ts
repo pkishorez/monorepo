@@ -8,7 +8,8 @@ export class StoriesError extends Data.TaggedError('StoriesError')<{
     | 'duplicate-title'
     | 'duplicate-question'
     | 'snippet-extraction'
-    | 'unknown-scope';
+    | 'unknown-scope'
+    | 'invalid-timeout';
   readonly path: string;
   readonly cause: unknown;
 }> {}

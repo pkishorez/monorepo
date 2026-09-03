@@ -1,0 +1,1 @@
+Every time someone opens a board, a counter goes up. Reading the number, adding one and writing it back works, but a busy board turns that into a lot of reads and a lot of retries. DynamoDB can do the arithmetic itself. This story adds to a counter, grows a list and guards the write, all without a read first.

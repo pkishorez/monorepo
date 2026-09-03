@@ -2,7 +2,16 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Cause, Effect, Exit, Logger, References, Stream } from 'effect';
+import {
+  Cause,
+  Duration,
+  Effect,
+  Exit,
+  Logger,
+  Option,
+  References,
+  Stream,
+} from 'effect';
 import { NodeServices } from '@effect/platform-node';
 import { tsImport } from 'tsx/esm/api';
 
@@ -61,19 +70,40 @@ export interface StoriesRun {
 }
 
 const DEFAULT_CONCURRENCY = 16;
+const DEFAULT_STORY_TIMEOUT = Duration.seconds(10);
+
+// The config names a Duration as text; a Story carries a typed DurationInput.
+function resolveTimeout(
+  input: Duration.Input | string | undefined,
+  fallback: Duration.Duration,
+  path: string,
+): Effect.Effect<Duration.Duration, StoriesError> {
+  if (input === undefined) return Effect.succeed(fallback);
+  return Option.match(Duration.fromInput(input as Duration.Input), {
+    onNone: () =>
+      new StoriesError({ reason: 'invalid-timeout', path, cause: input }),
+    onSome: Effect.succeed,
+  });
+}
 
 export function planStories(
   configPath: string,
   options?: RunStoriesOptions,
 ): Effect.Effect<StoriesRun, ConfigError | StoriesError> {
   return Effect.gen(function* () {
-    const { stories } = yield* loadRoot(configPath);
+    const { stories, storyTimeout } = yield* loadRoot(configPath);
+    const timeout = yield* resolveTimeout(
+      storyTimeout,
+      DEFAULT_STORY_TIMEOUT,
+      configPath,
+    );
     const planned = yield* scopeStories(stories, options?.scope);
     return {
       total: planned.length,
-      reports: runEachStory(
+      reports: yield* runEachStory(
         planned,
         options?.concurrency ?? DEFAULT_CONCURRENCY,
+        timeout,
       ),
     };
   });
@@ -91,10 +121,23 @@ export function runStories(
 function runEachStory(
   stories: readonly IndexedStory[],
   concurrency: number,
-): Stream.Stream<StoryReport> {
-  // Ordered concurrent mapping needs three slots; anything less runs one at a time.
-  return Stream.fromArray(stories).pipe(
-    Stream.mapEffect(runStory, concurrency >= 3 ? { concurrency } : undefined),
+  timeout: Duration.Duration,
+): Effect.Effect<Stream.Stream<StoryReport>, StoriesError> {
+  return Effect.map(
+    Effect.forEach(stories, (indexed) =>
+      Effect.map(
+        resolveTimeout(indexed.story.timeout, timeout, indexed.id),
+        (budget) => ({ indexed, budget }),
+      ),
+    ),
+    (planned) =>
+      // Ordered concurrent mapping needs three slots; anything less runs one at a time.
+      Stream.fromArray(planned).pipe(
+        Stream.mapEffect(
+          ({ indexed, budget }) => runStory(indexed, budget),
+          concurrency >= 3 ? { concurrency } : undefined,
+        ),
+      ),
   );
 }
 
@@ -150,6 +193,7 @@ function loadRoot(configPath: string) {
     const indexed = yield* indexGroup(root, [root.title], entryPoint, options);
     return {
       ...indexed,
+      storyTimeout: config.storyTimeout,
       tree: attachGroupPages(
         indexed.tree,
         indexed.directory,
@@ -436,12 +480,35 @@ function checkUniqueTitles(
   return Effect.void;
 }
 
-function runStory({ id, story }: IndexedStory): Effect.Effect<StoryReport> {
+function runStory(
+  { id, story }: IndexedStory,
+  timeout: Duration.Duration,
+): Effect.Effect<StoryReport> {
   return Effect.gen(function* () {
     const questions: QuestionReport[] = [];
-    for (const question of story.questions) {
-      questions.push(yield* runQuestion(question));
-    }
+    // One budget for the whole Story: a hanging proof becomes an errored
+    // verdict instead of wedging the run.
+    yield* Effect.gen(function* () {
+      for (const question of story.questions) {
+        questions.push(yield* runQuestion(question));
+      }
+    }).pipe(
+      Effect.timeout(timeout),
+      Effect.catchTag('TimeoutError', () =>
+        Effect.sync(() => {
+          const interrupted = story.questions[questions.length];
+          if (interrupted !== undefined) {
+            questions.push({
+              slug: slugifyQuestion(interrupted.question),
+              verdict: 'errored',
+              error: `Story timed out after ${Duration.format(timeout)}`,
+              assertions: [],
+              sections: [],
+            } satisfies QuestionReport);
+          }
+        }),
+      ),
+    );
     const verdict = questions.some(({ verdict }) => verdict === 'errored')
       ? 'errored'
       : questions.some(({ verdict }) => verdict === 'failed')

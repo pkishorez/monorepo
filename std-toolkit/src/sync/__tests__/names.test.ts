@@ -2,8 +2,8 @@ import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema } from '../../eschema/index.js';
 import { Memory } from '../../db/memory/index.js';
-import { createStdSync, syncStore } from '../sync.js';
-import { storedReplicaEntity } from '../persistence/sync-store/index.js';
+import { createStdSync, syncStore } from '../std-sync/std-sync.js';
+import { storedReplicaEntity } from '../domain/stored-entity/index.js';
 
 const schema = (name: string) =>
   EntityESchema.make(name, 'id', { title: Schema.String }).build();

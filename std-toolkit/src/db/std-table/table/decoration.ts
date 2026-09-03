@@ -154,6 +154,7 @@ const decorateEntityBuilder = (
 export const decorateTable = <Name extends string>(
   definition: DefinitionTableDefinition<Name>,
 ): StdTable<Name> => {
+  const attributes = { entity: definition.logicalName };
   const table = {
     ...definition,
     entity<S extends AnyEntityESchema>(schema: S) {
@@ -244,11 +245,14 @@ export const decorateTable = <Name extends string>(
         for (const item of applied)
           if (item.entity !== null) yield* broadcast(item.entity);
         return applied.map(({ entity }) => entity) as never;
-      });
+      }).pipe(Effect.withSpan('StdTable.transact', { attributes }));
     },
     // Table-wide: every entity broadcasting through this Broadcaster, not
     // just this table's — Entity Meta carries no table identity to filter by.
-    subscribe: (): Stream.Stream<ChangeNotice> => changesOrEmpty(),
+    subscribe: (): Stream.Stream<ChangeNotice> =>
+      changesOrEmpty().pipe(
+        Stream.withSpan('StdTable.subscribe', { attributes }),
+      ),
     dangerouslyRemoveAllItems(_confirmation: 'I KNOW WHAT I AM DOING') {
       return Effect.gen(function* () {
         const contract = (yield* StdTableService(definition.logicalName))
@@ -272,7 +276,7 @@ export const decorateTable = <Name extends string>(
             ),
           ),
         ),
-      );
+      ).pipe(Stream.withSpan('StdTable.scan', { attributes }));
     },
     drift(item: EncodedItem) {
       return Effect.gen(function* () {
