@@ -21,7 +21,7 @@ import type {
   PartitionEntry,
   StrategyContext,
 } from '../../strategy/strategy/index.js';
-import { superviseStrategy } from '../../worker/supervisor/index.js';
+import { superviseStrategy } from '../../flow/supervisor/index.js';
 import {
   Activation,
   cadenceParticipantName,
@@ -32,7 +32,7 @@ import {
   type FlowParticipant,
   type MessageToken,
   type StrategyFlow,
-} from '../../worker/sync-flow/index.js';
+} from '../../flow/sync-flow/index.js';
 
 export type Partition = { field: string; value: PartitionValue };
 

@@ -27,6 +27,8 @@ export type EntryStore = {
   readonly byId: (id: string) => Effect.Effect<OutboxEntry | null, WriteError>;
   readonly list: () => Effect.Effect<OutboxEntry[], WriteError>;
   readonly queue: (queue: QueueKey) => Effect.Effect<OutboxEntry[], WriteError>;
+  // The distinct Queues with unsettled Entries, without decoding any body.
+  readonly queues: () => Effect.Effect<Set<QueueKey>, WriteError>;
   readonly setStatus: (
     ids: ReadonlyArray<string>,
     status: OutboxStatus,
@@ -115,6 +117,31 @@ export const makeEntryStore = (args: {
       ),
     );
 
+  const queues = (): Effect.Effect<Set<QueueKey>, WriteError> =>
+    Effect.gen(function* () {
+      const found = new Set<QueueKey>();
+      let after: Stored | undefined;
+      while (true) {
+        const page = yield* provide(
+          storedOutboxEntryEntity.query(
+            'primary',
+            { pk: { sync: syncName }, '>=': null },
+            after === undefined ? {} : { after },
+          ),
+          'query',
+        ).pipe(Effect.mapError(storeError('failed to read the Outbox')));
+        for (const item of page.items) {
+          if (item.value.status !== 'failed') {
+            found.add(item.value.queue as QueueKey);
+          }
+        }
+        const last = page.items.at(-1);
+        if (!page.hasMore || last === undefined) break;
+        after = last;
+      }
+      return found;
+    });
+
   const setStatus = (ids: ReadonlyArray<string>, status: OutboxStatus) =>
     Effect.forEach(
       ids,
@@ -179,6 +206,7 @@ export const makeEntryStore = (args: {
         ),
       ),
     list,
+    queues,
     queue: (queue) =>
       entries((after) =>
         storedOutboxEntryEntity.query(

@@ -57,12 +57,12 @@ import {
   type SingleItemSourceConfig,
   type SingleItemStrategy,
 } from '../strategy/strategy/index.js';
-import { superviseStrategy } from '../worker/supervisor/index.js';
+import { superviseStrategy } from '../flow/supervisor/index.js';
 import {
   Activation,
   makeSyncFlow,
   type FlowPlacement,
-} from '../worker/sync-flow/index.js';
+} from '../flow/sync-flow/index.js';
 import { makeReadyGate, type Preloadable } from './ready-gate.js';
 import { makeReset } from './reset.js';
 
@@ -464,7 +464,7 @@ type CreateStdSync = {
 export const createStdSync = makeStdSync as CreateStdSync;
 
 export type { EffectRuntime } from '../platform/effect-runner/index.js';
-export type { FlowLane, FlowPlacement } from '../worker/sync-flow/index.js';
+export type { FlowLane, FlowPlacement } from '../flow/sync-flow/index.js';
 export type {
   PeerChannel,
   PeerChannelFactory,

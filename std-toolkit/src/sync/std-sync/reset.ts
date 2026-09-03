@@ -2,7 +2,7 @@ import type { Tracker } from '../collection/registry/index.js';
 import type { OutboxRuntime } from '../outbox/outbox/index.js';
 import type { EffectRunner } from '../platform/effect-runner/index.js';
 import type { SyncStore } from '../platform/sync-store/index.js';
-import type { SyncFlow } from '../worker/sync-flow/index.js';
+import type { SyncFlow } from '../flow/sync-flow/index.js';
 
 // Logout in place: stop every Worker and the Drainer, fail local Waiters, wipe
 // the Sync Store, re-seed every tracked Collection, restart. The TanStack DB

@@ -41,7 +41,7 @@ import {
   type ActivationRef,
   type CollectionFlow,
   type StrategyFlow,
-} from '../../worker/sync-flow/index.js';
+} from '../../flow/sync-flow/index.js';
 import {
   makePeerSync,
   type PeerChannelFactory,
@@ -116,6 +116,7 @@ export const buildSingleItemCollection = <
   });
   const advancePermit = config.runner.runSync(TxSemaphore.make(1));
   const replayLatch = config.runner.runSync(Latch.make(true));
+  const writePermit = config.runner.runSync(TxSemaphore.make(1));
 
   type Projector = ReturnType<typeof makeCollectionProjector<TItem>>;
   let projector: Projector | null = null;
@@ -168,7 +169,10 @@ export const buildSingleItemCollection = <
       const story = narrateReplicaWrite(syncFlow, collectionName);
       const accepted = yield* story.write(
         entities.length,
-        replica.applyToSyncReplica(entities),
+        TxSemaphore.withPermit(
+          writePermit,
+          replica.applyToSyncReplica(entities),
+        ),
       );
       yield* advance(syncFlow);
       if (options.propagate && accepted.length > 0 && peerSync !== null) {
@@ -357,6 +361,11 @@ export const buildSingleItemCollection = <
                       attributes: { cause: String(error) },
                       level: 'error',
                     }),
+                  ),
+                  Effect.andThen(
+                    collectionActivation === null
+                      ? Effect.void
+                      : collectionActivation.end(Activation.failed(error)),
                   ),
                 ),
             ),

@@ -1,6 +1,6 @@
 import type { Effect } from 'effect';
 import type { HandlerName } from '../../domain/identity/index.js';
-import type { OutboxFlow } from '../../worker/sync-flow/index.js';
+import type { OutboxFlow } from '../../flow/sync-flow/index.js';
 import type { Request } from '../entries/index.js';
 
 export type Handler = {

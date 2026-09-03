@@ -16,11 +16,11 @@ import {
 import {
   narrateOutbox,
   queueKey,
-  replayEntryId,
   type EntityBody,
   type OutboxRuntime,
   type Request,
 } from '../../outbox/outbox/index.js';
+import { runOutboxTransaction } from './outbox-plan.js';
 import type {
   CollectionItem,
   DeletePayload,
@@ -36,7 +36,7 @@ import {
   stripMetaPartial,
 } from '../../domain/collection-item/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
-import type { CollectionFlow } from '../../worker/sync-flow/index.js';
+import type { CollectionFlow } from '../../flow/sync-flow/index.js';
 
 // Per-item onUpdate / onDelete callbacks of one transaction run this many at a time.
 const MUTATION_CONCURRENCY = 5;
@@ -190,55 +190,25 @@ export const buildKeyedMutations = <
     operation: 'delete' | 'insert' | 'update',
     transaction: Transaction<TCollItem>,
   ): Promise<void> => {
-    const active = outbox!;
-    const story = outboxStory();
     const keys = transaction.mutations.map((mutation) => String(mutation.key));
-    return runner.runPromise(
-      withMutationSpan(
-        operation,
-        keys,
+    return runOutboxTransaction({
+      runner,
+      outbox: outbox!,
+      story: outboxStory(),
+      withMutationSpan: (mutation) =>
+        withMutationSpan(operation, keys, mutation),
+      transaction,
+      buildEntry: (mutation, id) =>
         Effect.gen(function* () {
-          const plans = yield* Effect.forEach(
-            transaction.mutations,
-            (mutation) =>
-              Effect.gen(function* () {
-                const replayId = replayEntryId(mutation.metadata);
-                if (replayId !== null) return { id: replayId, entry: null };
-                const id = mutation.mutationId;
-                return {
-                  id,
-                  entry: {
-                    id,
-                    name: handlerName,
-                    queue: queueKey(handlerName, String(mutation.key)),
-                    enqueuedAt: yield* nextUlid,
-                    body: yield* entityBody(mutation),
-                  },
-                };
-              }),
-          );
-          const ids = plans.map((plan) => plan.id);
-          const batch = plans.flatMap((plan) =>
-            plan.entry ? [plan.entry] : [],
-          );
-          yield* story.queue(
-            {
-              entryIds: ids,
-              replayed: plans.some((plan) => plan.entry === null),
-            },
-            batch.length === 0
-              ? Effect.void
-              : story.enqueue(batch, active.enqueue(batch)),
-            // Concurrent so every Entry's transaction is known at once.
-            Effect.forEach(
-              ids,
-              (id) => active.delivered(id, transaction as Transaction),
-              { concurrency: 'unbounded', discard: true },
-            ),
-          );
+          return {
+            id,
+            name: handlerName,
+            queue: queueKey(handlerName, String(mutation.key)),
+            enqueuedAt: yield* nextUlid,
+            body: yield* entityBody(mutation),
+          };
         }),
-      ),
-    );
+    });
   };
 
   const send = (request: Request): Effect.Effect<void, unknown, R> =>

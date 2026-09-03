@@ -1,10 +1,7 @@
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
+import type { Brand } from '../../domain/identity/index.js';
 
-declare const LeadershipIdentityTypeId: unique symbol;
-
-export type LeadershipIdentity = string & {
-  readonly [LeadershipIdentityTypeId]: typeof LeadershipIdentityTypeId;
-};
+export type LeadershipIdentity = string & Brand<'LeadershipIdentity'>;
 
 export type LeadershipRole =
   | { readonly _tag: 'Strategy'; readonly name: string }

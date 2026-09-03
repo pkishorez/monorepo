@@ -4,7 +4,7 @@ import type { WriteError } from '../../domain/sync-error/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
 import { isDecodedEntity } from '../../domain/entity-validation/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
-import type { CollectionFlow } from '../../worker/sync-flow/index.js';
+import type { CollectionFlow } from '../../flow/sync-flow/index.js';
 import type { CollectionName } from '../../domain/identity/index.js';
 
 export type CollectionHandle = {

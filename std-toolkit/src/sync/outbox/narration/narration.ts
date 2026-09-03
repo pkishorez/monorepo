@@ -1,5 +1,5 @@
 import { Cause, Effect, Exit } from 'effect';
-import type { OutboxFlow } from '../../worker/sync-flow/index.js';
+import type { OutboxFlow } from '../../flow/sync-flow/index.js';
 import {
   isOutboxUnreachable,
   type OutboxEntry,

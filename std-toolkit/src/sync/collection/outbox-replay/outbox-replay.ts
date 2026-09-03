@@ -9,7 +9,7 @@ import {
   type OutboxEntry,
   type OutboxRuntime,
 } from '../../outbox/outbox/index.js';
-import type { OutboxFlow } from '../../worker/sync-flow/index.js';
+import type { OutboxFlow } from '../../flow/sync-flow/index.js';
 
 type ReplayCollection = {
   has(key: string): boolean;

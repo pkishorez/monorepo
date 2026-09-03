@@ -1,14 +1,12 @@
 import { Schema } from 'effect';
-import type { HandlerName } from '../../domain/identity/index.js';
+import type { Brand, HandlerName } from '../../domain/identity/index.js';
 import {
   outboxEntityBody,
   outboxEntryBody,
   outboxEntryStatus,
 } from '../../domain/stored-entity/index.js';
 
-declare const queueBrand: unique symbol;
-
-export type QueueKey = string & { readonly [queueBrand]: 'QueueKey' };
+export type QueueKey = string & Brand<'QueueKey'>;
 
 export type OutboxStatus = typeof outboxEntryStatus.Type;
 export type EntityBody = typeof outboxEntityBody.Type;

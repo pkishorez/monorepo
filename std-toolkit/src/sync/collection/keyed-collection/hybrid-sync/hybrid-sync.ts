@@ -84,7 +84,8 @@ export const makeHybridSync = (
           0,
           (subscribers.get(partition.partitionKey) ?? 0) - 1,
         );
-        subscribers.set(partition.partitionKey, subscriberCount);
+        if (subscriberCount === 0) subscribers.delete(partition.partitionKey);
+        else subscribers.set(partition.partitionKey, subscriberCount);
         return {
           ...partition,
           subscriberCount,

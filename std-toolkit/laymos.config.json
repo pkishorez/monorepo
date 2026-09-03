@@ -38,7 +38,7 @@
     "src/sync/strategy/strategy/new-to-old/__tests__",
     "src/sync/strategy/strategy/old-to-new/__tests__",
     "src/sync/strategy/strategy/single-item-source/__tests__",
-    "src/sync/worker/supervisor/__tests__"
+    "src/sync/flow/supervisor/__tests__"
   ],
   "storiesPath": "stories",
   "layers": {
@@ -660,14 +660,14 @@
         }
       }
     },
-    "sync.worker": {
-      "paths": ["src/sync/worker"],
+    "sync.flow": {
+      "paths": ["src/sync/flow"],
       "description": "Worker — what a loop in Sync is: the Supervisor that runs it under a Leadership role, and the Sync Flow that narrates it",
       "modules": {
-        "src/sync/worker/supervisor": {
+        "src/sync/flow/supervisor": {
           "exposed": true
         },
-        "src/sync/worker/sync-flow": {
+        "src/sync/flow/sync-flow": {
           "shared": true,
           "exposed": true
         }
@@ -873,12 +873,12 @@
         "sync.collection": [
           "sync.strategy",
           "sync.outbox",
-          "sync.worker",
+          "sync.flow",
           "sync.platform"
         ],
-        "sync.strategy": ["sync.worker", "sync.platform"],
-        "sync.outbox": ["sync.worker", "sync.platform"],
-        "sync.worker": ["sync.platform"],
+        "sync.strategy": ["sync.flow", "sync.platform"],
+        "sync.outbox": ["sync.flow", "sync.platform"],
+        "sync.flow": ["sync.platform"],
         "sync.platform": ["idb.public", "db.public", "sync.domain"],
         "sync.domain": ["core.public", "db.public", "eschema.public"]
       }
