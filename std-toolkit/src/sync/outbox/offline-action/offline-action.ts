@@ -8,7 +8,7 @@ import {
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
-import type { SyncFlow } from '../../worker/sync-flow/index.js';
+import type { SyncFlow } from '../../flow/sync-flow/index.js';
 import {
   queueKey,
   type OutboxEntry,
@@ -197,6 +197,7 @@ export const makeOfflineActions = <R>(args: {
   const replayAll = Effect.suspend(() => {
     replayed = true;
     return Effect.forEach(replays.values(), (replay) => replay, {
+      concurrency: 'unbounded',
       discard: true,
     });
   });

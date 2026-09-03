@@ -6,7 +6,7 @@ import type { CadenceConfig } from './cadence-policy.js';
 import type { ForwardFetch } from '../../domain/collection-item/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import type { PartitionValue } from '../../domain/identity/index.js';
-import type { StrategyFlow } from '../../worker/sync-flow/index.js';
+import type { StrategyFlow } from '../../flow/sync-flow/index.js';
 
 /**
  * The engine-provided surface a strategy runs against. Carries neither a source

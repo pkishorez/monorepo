@@ -18,10 +18,10 @@ import {
 import {
   narrateOutbox,
   queueKey,
-  replayEntryId,
   type OutboxRuntime,
   type Request,
 } from '../../outbox/outbox/index.js';
+import { runOutboxTransaction } from './outbox-plan.js';
 import type { CollectionItem } from '../../domain/collection-item/index.js';
 import {
   buildPacedUpdate,
@@ -34,7 +34,7 @@ import {
   toEntity,
 } from '../../domain/collection-item/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
-import type { CollectionFlow } from '../../worker/sync-flow/index.js';
+import type { CollectionFlow } from '../../flow/sync-flow/index.js';
 
 export const SINGLE_ITEM_KEY = '__single__';
 
@@ -106,67 +106,35 @@ export const buildSingleItemMutations = <
       ]),
     ) as Partial<TItem>;
 
-  const runOutbox = (transaction: Transaction<TCollItem>): Promise<void> => {
-    const active = outbox!;
-    const story = outboxStory();
-    return runner.runPromise(
-      withMutationSpan(
+  const runOutbox = (transaction: Transaction<TCollItem>): Promise<void> =>
+    runOutboxTransaction({
+      runner,
+      outbox: outbox!,
+      story: outboxStory(),
+      withMutationSpan,
+      transaction,
+      buildEntry: (mutation: PendingMutation<TCollItem>, id) =>
         Effect.gen(function* () {
-          const plans = yield* Effect.forEach(
-            transaction.mutations,
-            (mutation: PendingMutation<TCollItem>) =>
-              Effect.gen(function* () {
-                const replayId = replayEntryId(mutation.metadata);
-                if (replayId !== null) return { id: replayId, entry: null };
-                const id = mutation.mutationId;
-                return {
-                  id,
-                  entry: {
-                    id,
-                    name: handlerName,
-                    queue: queueKey(handlerName, SINGLE_ITEM_KEY),
-                    enqueuedAt: yield* nextUlid,
-                    body: {
-                      kind: 'entity' as const,
-                      op: 'update' as const,
-                      key: SINGLE_ITEM_KEY,
-                      base: yield* encode(
-                        stripMeta<TItem>(mutation.original as TCollItem),
-                      ),
-                      after: yield* encode(stripMeta<TItem>(mutation.modified)),
-                      changed: Object.keys(
-                        stripMetaPartial<TItem>(
-                          mutation.changes as Partial<TCollItem>,
-                        ),
-                      ),
-                    },
-                  },
-                };
-              }),
-          );
-          const ids = plans.map((plan) => plan.id);
-          const batch = plans.flatMap((plan) =>
-            plan.entry ? [plan.entry] : [],
-          );
-          yield* story.queue(
-            {
-              entryIds: ids,
-              replayed: plans.some((plan) => plan.entry === null),
+          return {
+            id,
+            name: handlerName,
+            queue: queueKey(handlerName, SINGLE_ITEM_KEY),
+            enqueuedAt: yield* nextUlid,
+            body: {
+              kind: 'entity' as const,
+              op: 'update' as const,
+              key: SINGLE_ITEM_KEY,
+              base: yield* encode(
+                stripMeta<TItem>(mutation.original as TCollItem),
+              ),
+              after: yield* encode(stripMeta<TItem>(mutation.modified)),
+              changed: Object.keys(
+                stripMetaPartial<TItem>(mutation.changes as Partial<TCollItem>),
+              ),
             },
-            batch.length === 0
-              ? Effect.void
-              : story.enqueue(batch, active.enqueue(batch)),
-            // Concurrent so every Entry's transaction is known at once.
-            Effect.forEach(
-              ids,
-              (id) => active.delivered(id, transaction as Transaction),
-              { concurrency: 'unbounded', discard: true },
-            ),
-          );
+          };
         }),
-      ),
-    );
-  };
+    });
 
   const send = (request: Request): Effect.Effect<void, unknown, R> =>
     Effect.gen(function* () {

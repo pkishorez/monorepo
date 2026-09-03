@@ -164,9 +164,7 @@ export const runDrainer = <R = never>(
 
       while (true) {
         if (connectivity.isOnline()) {
-          const queues = new Set(
-            unsettled(yield* entries.list()).map((entry) => entry.queue),
-          );
+          const queues = yield* entries.queues();
           yield* Effect.forEach(queues, dispatch, { discard: true });
         }
         yield* deps.awaitSignal;

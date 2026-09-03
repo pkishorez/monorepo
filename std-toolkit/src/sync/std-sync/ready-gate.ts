@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import type { EffectRunner } from '../platform/effect-runner/index.js';
-import type { SyncFlow } from '../worker/sync-flow/index.js';
+import type { SyncFlow } from '../flow/sync-flow/index.js';
 
 export type Preloadable = { preload: () => Promise<void> };
 

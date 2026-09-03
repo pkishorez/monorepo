@@ -1,3 +1,4 @@
+export type { Brand } from './brand.js';
 export { normalizeName, stdSyncName, type StdSyncName } from './sync-name.js';
 export { collectionName, type CollectionName } from './collection-name.js';
 export {

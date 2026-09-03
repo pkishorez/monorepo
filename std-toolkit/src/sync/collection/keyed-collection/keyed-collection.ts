@@ -55,7 +55,7 @@ import {
   type ActivationRef,
   type CollectionFlow,
   type StrategyFlow,
-} from '../../worker/sync-flow/index.js';
+} from '../../flow/sync-flow/index.js';
 import {
   makePeerSync,
   type PeerChannelFactory,

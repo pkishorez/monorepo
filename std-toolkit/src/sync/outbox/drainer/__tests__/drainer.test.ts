@@ -18,7 +18,7 @@ import {
 } from '../../outbox/index.js';
 import { makeSyncStore } from '../../../platform/sync-store/index.js';
 import { makeEffectRunner } from '../../../platform/effect-runner/index.js';
-import { makeSyncFlow } from '../../../worker/sync-flow/index.js';
+import { makeSyncFlow } from '../../../flow/sync-flow/index.js';
 
 const todos = collectionHandlerName(
   collectionName(stdSyncName('test'), 'todos'),
