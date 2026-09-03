@@ -1,0 +1,1 @@
+"Write the plan" is moving from the `work` board to the `home` board. That is two writes, a save on one board and a removal on the other, and if only one of them happens the task is either lost or in two places at once. This chapter makes the two writes land together or not at all, and looks at what a refused write does to the one beside it.

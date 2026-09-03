@@ -1,15 +1,15 @@
 import { Effect, Layer, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
-import { serializePartition } from '../domain/partition-identity/index.js';
-import { noStrategyState } from '../domain/strategy-state/index.js';
+import { partitionKey as makePartitionKey } from '../domain/identity/index.js';
+import { noStrategyState } from '../strategy/state/index.js';
 import {
   LeadershipService,
   leadershipIdentity,
   type LeadershipIdentity,
-} from '../runtime/leadership/index.js';
-import { inMemoryLeadership } from '../runtime/leadership/in-memory/index.js';
-import { createStdSync } from '../sync.js';
+} from '../platform/leadership/index.js';
+import { inMemoryLeadership } from '../platform/leadership/in-memory/index.js';
+import { createStdSync } from '../std-sync/std-sync.js';
 
 const todoSchema = EntityESchema.make('Todo', 'id', {
   listId: Schema.String,
@@ -146,32 +146,27 @@ describe('Leadership integration', () => {
     await vi.waitFor(() => expect(identities).toHaveLength(5));
 
     const collectionName = 'roles.todo';
-    const partitionKey = serializePartition({ listId: 'inbox' });
+    const partitionKey = makePartitionKey({ listId: 'inbox' });
     expect(new Set(identities)).toEqual(
       new Set([
         leadershipIdentity({
-          collectionName,
-          partitionKey: '__total__',
+          scope: [collectionName, '__total__'],
           role: { _tag: 'Strategy', name: 'total' },
         }),
         leadershipIdentity({
-          collectionName,
-          partitionKey: '__total__',
+          scope: [collectionName, '__total__'],
           role: { _tag: 'CadenceRepair' },
         }),
         leadershipIdentity({
-          collectionName,
-          partitionKey,
+          scope: [collectionName, partitionKey],
           role: { _tag: 'Strategy', name: 'partition' },
         }),
         leadershipIdentity({
-          collectionName,
-          partitionKey,
+          scope: [collectionName, partitionKey],
           role: { _tag: 'CadenceRepair' },
         }),
         leadershipIdentity({
-          collectionName: 'roles.settings',
-          partitionKey: '__single__',
+          scope: ['roles.settings', '__total__'],
           role: { _tag: 'Strategy', name: 'single' },
         }),
       ]),

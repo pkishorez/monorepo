@@ -1,0 +1,1 @@
+The table is ready and knows where a task goes, but it is still empty. Someone types the first task, "Write the plan", onto the `work` board. This chapter saves it, reads it back, and finds out what happens when the same task is saved twice.

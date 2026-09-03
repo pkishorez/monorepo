@@ -1,7 +1,4 @@
-import type {
-  PeerChannel,
-  PeerChannelFactory,
-} from '../../runtime/peer-sync/index.js';
+import type { PeerChannel, PeerChannelFactory } from '../peer-sync/index.js';
 
 type BrowserBroadcastChannel = {
   postMessage(message: unknown): void;

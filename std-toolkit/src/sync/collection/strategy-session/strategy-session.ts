@@ -1,0 +1,305 @@
+import { Effect, Exit, Scope } from 'effect';
+import type { DecodedEntity } from '../../../core/index.js';
+import type {
+  CollectionName,
+  PartitionKey,
+  PartitionValue,
+} from '../../domain/identity/index.js';
+import type { WriteError } from '../../domain/sync-error/index.js';
+import type { SyncReporter } from '../../domain/sync-event/index.js';
+import {
+  leadershipIdentity,
+  type Leadership,
+} from '../../platform/leadership/index.js';
+import {
+  runCadenceRepair,
+  type CadenceConfig,
+  type SyncCollection,
+} from '../../strategy/cadence-repair/index.js';
+import type {
+  PartitionedStrategy,
+  PartitionEntry,
+  StrategyContext,
+} from '../../strategy/strategy/index.js';
+import { superviseStrategy } from '../../flow/supervisor/index.js';
+import {
+  Activation,
+  cadenceParticipantName,
+  globalParticipantName,
+  partitionParticipantName,
+  type ActivationRef,
+  type CollectionFlow,
+  type FlowParticipant,
+  type MessageToken,
+  type StrategyFlow,
+} from '../../flow/sync-flow/index.js';
+
+export type Partition = { field: string; value: PartitionValue };
+
+export type StrategySessions<TItem extends object, R> = {
+  start: (
+    partitionKey: PartitionKey,
+    entry: PartitionEntry<TItem, R, any>,
+    flow: CollectionFlow,
+    partition?: Partition,
+  ) => Effect.Effect<void, never, R>;
+  stop: (partitionKey: PartitionKey) => Effect.Effect<void>;
+  stopAll: Effect.Effect<void>;
+};
+
+type Running = {
+  scope: Scope.Closeable;
+  flow: CollectionFlow;
+  strategy: FlowParticipant;
+  strategyActivation: ActivationRef;
+  strategyToken: MessageToken;
+  cadence?: FlowParticipant | undefined;
+  cadenceActivation?: ActivationRef | undefined;
+  cadenceToken?: MessageToken | undefined;
+};
+
+// One Strategy Session per key: the Worker that runs a strategy under
+// Leadership, with its Cadence Repair as a child Worker when configured.
+export const makeStrategySessions = <TItem extends object, R>(args: {
+  collectionName: CollectionName;
+  leadership: Leadership;
+  defaultCadence?: CadenceConfig;
+  collection: () => SyncCollection<TItem> | null;
+  makeContext: <TState>(
+    partitionKey: PartitionKey,
+    scope: Scope.Scope,
+    strategy: PartitionedStrategy<TItem, TState, R>,
+    flow: StrategyFlow,
+  ) => StrategyContext<TItem, TState>;
+  applyToSyncReplica: (
+    entities: DecodedEntity<TItem>[],
+    flow?: StrategyFlow,
+  ) => Effect.Effect<void, WriteError>;
+  report: SyncReporter<R>;
+}): Effect.Effect<StrategySessions<TItem, R>> =>
+  Effect.sync(() => {
+    const running = new Map<PartitionKey, Running>();
+
+    const stop = (partitionKey: PartitionKey): Effect.Effect<void> =>
+      Effect.gen(function* () {
+        const active = running.get(partitionKey);
+        if (!active) return;
+        running.delete(partitionKey);
+        yield* active.flow.collection.send(active.strategy.name, 'Sync stop', {
+          attributes: { partitionKey },
+        });
+        if (active.cadence) {
+          yield* active.strategy.send(active.cadence.name, 'Cadence stop', {
+            attributes: { partitionKey },
+          });
+        }
+        yield* Scope.close(active.scope, Exit.void);
+        yield* active.strategy.reply(active.strategyToken, 'Sync ended', {
+          attributes: { partitionKey },
+        });
+        yield* active.strategyActivation.end(Activation.completed());
+        if (active.cadence && active.cadenceActivation && active.cadenceToken) {
+          yield* active.cadence.reply(active.cadenceToken, 'Cadence ended', {
+            attributes: { partitionKey },
+          });
+          yield* active.cadenceActivation.end(Activation.completed());
+        }
+      });
+
+    const start: StrategySessions<TItem, R>['start'] = (
+      partitionKey,
+      entry,
+      flow,
+      partition,
+    ) =>
+      Effect.gen(function* () {
+        yield* stop(partitionKey);
+        const ownerScope = yield* Scope.make();
+        const strategyName = partition
+          ? partitionParticipantName(partition, entry.strategy.name)
+          : globalParticipantName(entry.strategy.name);
+        const strategyFlow = flow.participant(strategyName);
+        const attributes = {
+          collection: args.collectionName,
+          partitionKey,
+          strategy: entry.strategy.name,
+          ...(partition
+            ? {
+                partitionField: partition.field,
+                partitionValue: partition.value,
+              }
+            : {}),
+        };
+
+        const strategyToken = yield* flow.collection.send(
+          strategyFlow.name,
+          'Sync start',
+          { attributes },
+        );
+        const strategyActivation = yield* strategyFlow.activation.start(
+          partition ? 'Partition active' : 'Sync lifecycle',
+        );
+
+        let session = 0;
+        const strategyRun = superviseStrategy({
+          leadership: args.leadership,
+          identity: leadershipIdentity({
+            scope: [args.collectionName, partitionKey],
+            role: { _tag: 'Strategy', name: entry.strategy.name },
+          }),
+          flow: strategyFlow,
+          run: (attemptScope) => {
+            session += 1;
+            return entry.strategy
+              .run(
+                args.makeContext(
+                  partitionKey,
+                  attemptScope,
+                  entry.strategy,
+                  strategyFlow,
+                ),
+              )
+              .pipe(
+                strategyFlow.withSpan('Sync session', {
+                  attributes: { ...attributes, session },
+                }),
+                Effect.tap(() =>
+                  strategyFlow.log('Sync session completed', {
+                    attributes: { ...attributes, session },
+                  }),
+                ),
+              );
+          },
+          onError: (cause) =>
+            strategyFlow
+              .log('Sync session failed', {
+                attributes: { ...attributes, cause: String(cause) },
+                level: 'error',
+              })
+              .pipe(
+                Effect.andThen(
+                  args.report({
+                    _tag: 'StrategyFailed',
+                    collection: args.collectionName,
+                    partitionKey,
+                    strategy: entry.strategy.name,
+                    cause,
+                  }),
+                ),
+              ),
+          onDefect: (cause) =>
+            strategyFlow
+              .log('Sync session defect', {
+                attributes: { ...attributes, cause: String(cause) },
+                level: 'error',
+              })
+              .pipe(
+                Effect.andThen(
+                  args.report({
+                    _tag: 'StrategyDefect',
+                    collection: args.collectionName,
+                    partitionKey,
+                    strategy: entry.strategy.name,
+                    cause,
+                  }),
+                ),
+              ),
+          onLeadership: (state) =>
+            args.report({
+              _tag: 'LeadershipChanged',
+              collection: args.collectionName,
+              partitionKey,
+              strategy: entry.strategy.name,
+              state,
+            }),
+        });
+        yield* Effect.forkIn(strategyRun, ownerScope);
+
+        const repair = entry.repair;
+        const cadence = repair?.cadence ?? args.defaultCadence;
+        const collection = args.collection();
+        let cadenceFlow: FlowParticipant | undefined;
+        let cadenceActivation: ActivationRef | undefined;
+        let cadenceToken: MessageToken | undefined;
+        if (repair && cadence && collection) {
+          cadenceFlow = flow.participant(cadenceParticipantName(strategyName));
+          cadenceToken = yield* strategyFlow.send(
+            cadenceFlow.name,
+            'Cadence start',
+            { attributes },
+          );
+          cadenceActivation =
+            yield* cadenceFlow.activation.start('Cadence repair');
+          const cadenceRun = superviseStrategy({
+            leadership: args.leadership,
+            identity: leadershipIdentity({
+              scope: [args.collectionName, partitionKey],
+              role: { _tag: 'CadenceRepair' },
+            }),
+            flow: cadenceFlow,
+            run: () =>
+              runCadenceRepair({
+                collection,
+                fetchFrom: (cursor) => repair.fetchFrom({ cursor }),
+                applyToSyncReplica: (entities) =>
+                  args.applyToSyncReplica(entities, cadenceFlow),
+                partition,
+                config: cadence,
+              }).pipe(cadenceFlow!.withSpan('Cadence attempt', { attributes })),
+            onError: (cause) =>
+              cadenceFlow!
+                .log('Cadence failure', {
+                  attributes: { ...attributes, cause: String(cause) },
+                  level: 'error',
+                })
+                .pipe(
+                  Effect.andThen(
+                    args.report({
+                      _tag: 'CadenceFailed',
+                      collection: args.collectionName,
+                      partitionKey,
+                      cause,
+                    }),
+                  ),
+                ),
+            onDefect: (cause) =>
+              cadenceFlow!
+                .log('Cadence defect', {
+                  attributes: { ...attributes, cause: String(cause) },
+                  level: 'error',
+                })
+                .pipe(
+                  Effect.andThen(
+                    args.report({
+                      _tag: 'CadenceDefect',
+                      collection: args.collectionName,
+                      partitionKey,
+                      cause,
+                    }),
+                  ),
+                ),
+          });
+          yield* Effect.forkIn(cadenceRun, ownerScope);
+        }
+        running.set(partitionKey, {
+          scope: ownerScope,
+          flow,
+          strategy: strategyFlow,
+          strategyActivation,
+          strategyToken,
+          ...(cadenceFlow
+            ? { cadence: cadenceFlow, cadenceActivation, cadenceToken }
+            : {}),
+        });
+      });
+
+    return {
+      start,
+      stop,
+      stopAll: Effect.gen(function* () {
+        yield* Effect.all([...running.keys()].map(stop), {
+          concurrency: 'unbounded',
+        });
+      }).pipe(Effect.asVoid),
+    };
+  });

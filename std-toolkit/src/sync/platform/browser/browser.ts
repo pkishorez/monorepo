@@ -1,8 +1,9 @@
 import { Effect, Layer } from 'effect';
 import { IDB } from '../../../db/idb/index.js';
-import { syncStore } from '../../persistence/sync-store/index.js';
-import type { StdSyncPlatform } from '../../sync.js';
+import { syncStore } from '../../domain/stored-entity/index.js';
+import type { StdSyncPlatform } from '../contract/index.js';
 import { broadcastChannel } from './broadcast-channel.js';
+import { connectivity } from './connectivity.js';
 import { webLockLeadership } from './web-locks/index.js';
 
 export const browser = (options?: {
@@ -18,10 +19,12 @@ export const browser = (options?: {
     ? storeLayer(options.databaseName)
     : (syncName: string) => storeLayer(`std-sync:${syncName}`);
   const channel = broadcastChannel();
+  const network = connectivity();
   return {
     storeLayer: configuredStore,
     leadershipLayer: webLockLeadership(),
     ...(channel ? { peerSync: { channel } } : {}),
+    ...(network ? { connectivity: network } : {}),
   };
 };
 

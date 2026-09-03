@@ -23,16 +23,22 @@ export interface InteractionFlow {
   ) => Effect.Effect<A, E, R>;
 }
 
+/** Whoever owns the Flow these lanes join — the Std Sync exposes exactly this. */
+export interface FlowHost {
+  readonly participant: (name: string) => Lane;
+}
+
+// The app's lanes sit under `<sync>/app/…` in the sync's own Flow, so one
+// panel shows the user's ask, the bank's work, and the sync that carries it.
 export const makeInteractionFlow = (
+  host: FlowHost,
   kind: InteractionKind,
   id: string,
 ): InteractionFlow => {
   const flowId = `${kind}:${id}`;
-  const lane = (name: string) =>
-    initFlow({ id: flowId, participantName: name });
-  const user = lane('user');
-  const bank = lane('bank');
-  const api = lane('api');
+  const user = host.participant('app/user');
+  const bank = host.participant('app/bank');
+  const api = host.participant('app/api');
   return {
     id: flowId,
     user,

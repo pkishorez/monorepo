@@ -1,0 +1,1 @@
+A few thousand tasks are being imported from a spreadsheet, and one network call per task is too slow. DynamoDB can take rows in batches, but only raw rows. This story fills a board in batches and then shows exactly what the batch path skips.

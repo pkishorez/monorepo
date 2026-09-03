@@ -5,9 +5,13 @@ import type { DecodedEntity } from '../../core/index.js';
 import { IDB } from '../../db/idb/index.js';
 import { Memory } from '../../db/memory/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
-import { noStrategyState } from '../domain/strategy-state/index.js';
+import { noStrategyState } from '../strategy/state/index.js';
 import type { SyncEvent } from '../domain/sync-event/index.js';
-import { createStdSync, syncStore, type PeerChannelFactory } from '../sync.js';
+import {
+  createStdSync,
+  syncStore,
+  type PeerChannelFactory,
+} from '../std-sync/std-sync.js';
 
 type Todo = { id: string; title: string };
 

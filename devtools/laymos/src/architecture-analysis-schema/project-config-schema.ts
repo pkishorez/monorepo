@@ -184,6 +184,11 @@ const storiesPathField = Schema.optional(Schema.String).annotate({
     'Canonical project-relative folder holding every Story file and the index.ts entry point exposing the Story Collection. Implicitly an Ignored path.',
 });
 
+const storyTimeoutField = Schema.optional(Schema.String).annotate({
+  description:
+    'How long one Story may run before it is failed as timed out, as an Effect Duration string (e.g. "10 seconds"). Defaults to 10 seconds; a Story may override it with its own timeout.',
+});
+
 const layersDescription =
   'Every Layer in the project, keyed by id, each owning its Modules and Module Graphs.';
 
@@ -205,6 +210,7 @@ export const ProjectConfigSchema = Schema.Struct({
   sourceRoots: sourceRootsField,
   ignoredPaths: IgnoredPathsSchema,
   storiesPath: storiesPathField,
+  storyTimeout: storyTimeoutField,
   layers: Schema.Record(Schema.String, LayerSchema)
     .annotate({ description: layersDescription })
     .pipe(Schema.check(Schema.isMinProperties(1))),
@@ -223,6 +229,7 @@ export const ProjectConfigInputSchema = Schema.Struct({
     Schema.withDecodingDefaultKey(Effect.succeed<readonly string[]>([])),
   ),
   storiesPath: storiesPathField,
+  storyTimeout: storyTimeoutField,
   layers: Schema.Record(Schema.String, LayerInputSchema)
     .annotate({ description: layersDescription })
     .pipe(Schema.check(Schema.isMinProperties(1))),

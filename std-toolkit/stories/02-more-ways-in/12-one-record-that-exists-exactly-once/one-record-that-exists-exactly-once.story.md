@@ -1,0 +1,1 @@
+The board has settings: a light or dark theme, and how many tasks to show per page. There is only ever one set of them, so they have no id, and the screen must never open to "no settings". This chapter keeps that one record in the same table, reads it before anyone has saved it, changes it, and puts it back to the defaults.

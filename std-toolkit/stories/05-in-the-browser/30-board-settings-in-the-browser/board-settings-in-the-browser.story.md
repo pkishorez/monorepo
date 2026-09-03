@@ -1,0 +1,1 @@
+The board has a settings record: a theme and a page size, one copy for everyone. The browser needs to show it and let someone flip the theme. This chapter brings the single record from chapter 12 to the screen and writes a change back.

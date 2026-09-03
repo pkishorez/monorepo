@@ -1,0 +1,1 @@
+Finishing the last task on a board should also rename the board to say it is done. From the browser those are two changes in two collections, and they must land together or not at all, exactly as the batch in chapter 13 did on the server. This chapter bundles them into one transaction and watches what the screens do when the server accepts, and when it refuses.

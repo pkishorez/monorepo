@@ -1,0 +1,1 @@
+Everything works in this process. Now it has to work on a real page, in a real browser, with real tabs, IndexedDB and a network that comes and goes. This chapter swaps the hand-built pieces for the ready-made browser platform, watches what sync reports, and lets two tabs hand the reading over when one is hidden.

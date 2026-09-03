@@ -1,0 +1,1 @@
+Someone has the board open in ten tabs. Ten copies each reading the server is ten times the traffic for one person, and a tab that opens late should not have to read everything again either. This chapter lets the tabs agree on one reader, hands the job over when that tab closes, and finds out what a late tab can expect.

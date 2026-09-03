@@ -1,0 +1,1 @@
+IndexedDB will only change its shape inside a version change, and every guide tells you to bump a number by hand. Here the table from chapter 2 is set up in a browser database, and then the table from chapter 10, with two more slots, is set up over it. This story shows who moves the version number, and what happens to the tasks that were already there.

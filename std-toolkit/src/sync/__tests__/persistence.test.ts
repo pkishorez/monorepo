@@ -10,10 +10,10 @@ import {
   type StdTableContract,
 } from '../../db/std-table/contract/index.js';
 import { describe, expect, it, vi } from 'vitest';
-import { createStdSync, syncStore } from '../sync.js';
+import { createStdSync, syncStore } from '../std-sync/std-sync.js';
 import { browser } from '../platform/browser/index.js';
-import { storedReplicaEntity } from '../persistence/sync-store/index.js';
-import { noStrategyState } from '../domain/strategy-state/index.js';
+import { storedReplicaEntity } from '../domain/stored-entity/index.js';
+import { noStrategyState } from '../strategy/state/index.js';
 
 type Todo = { id: string; listId: string; title: string };
 

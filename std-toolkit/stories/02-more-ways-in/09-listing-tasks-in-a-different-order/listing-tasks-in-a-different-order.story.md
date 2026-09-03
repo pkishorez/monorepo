@@ -1,0 +1,1 @@
+The `work` board always comes back in id order, and someone wants it alphabetical by title instead. The table so far only knows one order, the one it was built with. This chapter gives the board a second order, and finds out why that means building the table again.

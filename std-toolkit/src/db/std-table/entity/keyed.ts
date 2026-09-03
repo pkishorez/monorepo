@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import {
   nextUlid,
   type DecodedEntity,
@@ -299,6 +299,12 @@ export const makeKeyedEntity = <
           return yield* Effect.fail(result.failure);
       }
     });
+  const spanned =
+    (op: string, key?: EntityKey<S, Pk>) =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.withSpan(effect, `StdTable.${op}`, {
+        attributes: { entity: definition.name, ...key },
+      });
   const entity = {
     ...definition,
     get: (key: EntityKey<S, Pk>, options?: { excludeDeleted?: boolean }) =>
@@ -306,9 +312,13 @@ export const makeKeyedEntity = <
         Effect.map((result) =>
           options?.excludeDeleted && result?.meta._d ? null : result,
         ),
+        spanned('get', key),
       ),
     insert: (value: InsertValue<S>) =>
-      insertOp(value).pipe(Effect.flatMap((op) => runOne('insert', op))),
+      insertOp(value).pipe(
+        Effect.flatMap((op) => runOne('insert', op)),
+        spanned('insert'),
+      ),
     insertOp,
     getAndUpdate: (
       key: EntityKey<S, Pk>,
@@ -319,6 +329,7 @@ export const makeKeyedEntity = <
         Effect.flatMap((op) =>
           runWithRetry('getAndUpdate', op, options?.retries ?? 3),
         ),
+        spanned('getAndUpdate', key),
       ),
     getAndUpdateOp: (
       key: EntityKey<S, Pk>,
@@ -329,12 +340,14 @@ export const makeKeyedEntity = <
     delete: (key: EntityKey<S, Pk>, options?: WriteOptions<EntityValue<S>>) =>
       updateOp('deleteOp', key, {}, options).pipe(
         Effect.flatMap((op) => runOne('delete', op)),
+        spanned('delete', key),
       ),
     deleteOp: (key: EntityKey<S, Pk>, options?: WriteOptions<EntityValue<S>>) =>
       updateOp('deleteOp', key, {}, options),
     restore: (key: EntityKey<S, Pk>, options?: WriteOptions<EntityValue<S>>) =>
       updateOp('restoreOp', key, {}, options).pipe(
         Effect.flatMap((op) => runOne('restore', op)),
+        spanned('restore', key),
       ),
     restoreOp: (
       key: EntityKey<S, Pk>,
@@ -373,7 +386,7 @@ export const makeKeyedEntity = <
         };
         yield* broadcast(deleted);
         return deleted;
-      }),
+      }).pipe(spanned('hardDelete', key)),
     dangerouslyRemoveAllItems: (_confirmation: 'I KNOW WHAT I AM DOING') =>
       Effect.gen(function* () {
         const contract = (yield* service).contract;
@@ -394,9 +407,18 @@ export const makeKeyedEntity = <
       patternName: keyof Patterns & string,
       input: JsonObject,
       options?: QueryOptions<EntityValue<S>>,
-    ) => queryEntity(definition, patternName, input, options),
+    ) =>
+      Effect.withSpan(
+        queryEntity(definition, patternName, input, options),
+        'StdTable.query',
+        { attributes: { entity: definition.name, pattern: patternName } },
+      ),
     subscribe: (filter?: Partial<EntityValue<S>>) =>
-      subscribe<EntityValue<S>>(definition.name, filter),
+      subscribe<EntityValue<S>>(definition.name, filter).pipe(
+        Stream.withSpan('StdTable.subscribe', {
+          attributes: { entity: definition.name },
+        }),
+      ),
   };
   return entity as unknown as KeyedEntity<Name, S, Pk, Patterns>;
 };

@@ -1,0 +1,1 @@
+A row says it was written at version one, but one of its fields holds a value version one never allowed. The step from v1 to v2 was written for real v1 data and would trip over it. This story shows that the row is checked against the version it claims before any step runs.

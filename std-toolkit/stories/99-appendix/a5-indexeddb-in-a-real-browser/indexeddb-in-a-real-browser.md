@@ -1,0 +1,1 @@
+IndexedDB is the only database here that lives inside a browser, where its shape can change only inside a version change and where other tabs may hold it open. These stories show who moves the version number, what an upgrade does to rows that already exist, and how an upgrade gets past another tab, or does not.

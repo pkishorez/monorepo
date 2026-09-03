@@ -1,0 +1,1 @@
+Someone is finishing tasks on the train when the connection drops. They keep working, and they expect nothing to be lost when the connection comes back: their edits should go through, in order, and they should hear about it if the server turns one down. This chapter turns the network off and on and follows the writes.

@@ -1,0 +1,1 @@
+The same person opens the board in a second tab. They expect it to show the same tasks, and a change made in either tab to appear in the other without a refresh. This chapter opens two tabs of one browser and watches what passes between them.

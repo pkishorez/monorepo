@@ -1,0 +1,1 @@
+The `work` board has grown past a hundred tasks, and the screen cannot show them all at once. It needs a first page, a way to ask for the next one, and a clear sign when it has reached the end. This chapter pages through a long board without dropping or repeating a task, even when some tasks have been deleted along the way.

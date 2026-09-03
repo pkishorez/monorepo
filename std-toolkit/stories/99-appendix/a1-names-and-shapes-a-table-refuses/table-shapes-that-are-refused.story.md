@@ -1,0 +1,1 @@
+A table declaration is a handful of lines, and most mistakes in it are caught before a single row is written. This story collects the shapes the table turns away: two keys on one attribute, two indexes on one attribute, and more slots than any database would give you.

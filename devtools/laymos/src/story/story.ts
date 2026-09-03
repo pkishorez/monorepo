@@ -1,4 +1,4 @@
-import { Context, Effect } from 'effect';
+import { Context, Duration, Effect } from 'effect';
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
 
 import type { QuestionSection } from './schema/index.js';
@@ -26,6 +26,8 @@ export interface Story {
   readonly spine: boolean;
   readonly sourceUrl: string;
   readonly questions: readonly StoryQuestion[];
+  /** How long this Story may run before it is failed; overrides the config-wide Story timeout. */
+  readonly timeout?: Duration.Input;
 }
 
 export interface StoryGroup {
