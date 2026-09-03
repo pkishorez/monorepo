@@ -63,6 +63,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --filter docs...
 
+      # Workspace packages docs consumes export dist, so alchemy.run.ts (and
+      # anything it imports, like the bank demo's contract) needs it built
+      # before any alchemy command runs — mirrors deploy.yml's Build step.
+      - name: Build
+        run: pnpm --filter docs... run build
+
       # Previews are only ever created by a deliberate dispatch, so most PRs
       # close with no stage to destroy. Ask the state store first and skip
       # quietly when there is nothing there; if the store cannot answer,
@@ -95,7 +101,7 @@ jobs:
         if: steps.destroy.outcome == 'failure'
         run: |
           echo "::warning::alchemy destroy failed for stage '$STAGE' — force-clearing alchemy state so the stage does not linger. Some cloud resources may need manual cleanup."
-          pnpm -C apps/docs exec alchemy state clear Docs "$STAGE" --stage "$STAGE" --yes
+          pnpm -C apps/docs exec alchemy state clear --stack Docs --stage "$STAGE" --yes
 
       - name: Fail if destroy failed
         if: steps.destroy.outcome == 'failure'
