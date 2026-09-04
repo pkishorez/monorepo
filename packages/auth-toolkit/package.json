@@ -35,6 +35,10 @@
       "types": "./dist/server/rpc/index.d.ts",
       "default": "./dist/server/rpc/index.js"
     },
+    "./server/http-api": {
+      "types": "./dist/server/http-api/index.d.ts",
+      "default": "./dist/server/http-api/index.js"
+    },
     "./worker": {
       "types": "./dist/worker/index.d.ts",
       "default": "./dist/worker/index.js"
@@ -100,6 +104,7 @@
     }
   },
   "devDependencies": {
+    "@effect/platform-node": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/better-sqlite3": "catalog:",
     "@types/node": "catalog:",

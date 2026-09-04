@@ -158,7 +158,14 @@ separate subpaths, so vanilla consumers do not need to install Effect. For
 protecting Effect RPCs declaratively, see
 [`server/rpc`](./src/server/rpc/README.md).
 
-### 4. Sign in / check session from the frontend
+### 4. Protect an Effect HTTP API
+
+Use `withAuthz()` to protect Effect HTTP API endpoints and provide typed Current
+Auth to their handlers. See
+[`server/http-api`](./src/server/http-api/README.md) for setup, policies, testing,
+errors, and refreshed-cookie relay.
+
+### 5. Sign in / check session from the frontend
 
 The browser talks to the Auth Worker directly (not proxied through your
 app backend), so point it at the Auth Worker's own URL:
@@ -256,6 +263,7 @@ concurrent calls, cookie refresh, and failure cases.
 | `worker`           | `createAuthWorker(config)` — assembles the Auth Worker                              |
 | `server`           | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend              |
 | `server/rpc`       | `withAuthz(...)` — see [`server/rpc`](./src/server/rpc/README.md)                   |
+| `server/http-api`  | `withAuthz(...)` — see [`server/http-api`](./src/server/http-api/README.md)         |
 | `client`           | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out |
 | `database/d1`      | Production Primary Database Provider using a D1 binding                             |
 | `database/memory`  | In-memory Primary Database Provider, for tests                                      |
