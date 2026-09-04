@@ -9,7 +9,7 @@ import { authSchema } from '../schema/index.js';
  * An in-memory Primary Database Provider, migrated with the same .sql files
  * the D1 resource applies in production — for tests, not for deployment.
  */
-export const memoryPrimaryDatabase = () => {
+export const memoryPrimaryDatabase = (): ReturnType<typeof drizzleAdapter> => {
   const sqlite = new Database(':memory:');
   const db = drizzle(sqlite, { schema: authSchema });
   migrate(db, { migrationsFolder: authMigrationsDir });

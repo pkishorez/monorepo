@@ -7,7 +7,7 @@ interface AuthModelConfig {
 }
 
 /** Options that shape both Better Auth's runtime model and generated schema. */
-export const authModelOptions = (config: AuthModelConfig) =>
+export const authModelOptions = (config: AuthModelConfig): BetterAuthOptions =>
   ({
     socialProviders: {
       google: config.google,

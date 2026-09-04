@@ -1,5 +1,6 @@
 import {
   betterAuth,
+  type Auth,
   type BetterAuthOptions,
   type SecondaryStorage,
 } from 'better-auth';
@@ -132,7 +133,12 @@ const withCorsHeaders = (response: Response, cors: Headers) => {
   });
 };
 
-export const createAuthWorker = (config: AuthWorkerConfig) => {
+export const createAuthWorker = (
+  config: AuthWorkerConfig,
+): {
+  auth: Auth<BetterAuthOptions>;
+  handler: (request: Request) => Promise<Response>;
+} => {
   config.trustedOrigins.forEach(validateTrustedOrigin);
 
   const modelOptions = authModelOptions(config);
@@ -160,7 +166,7 @@ export const createAuthWorker = (config: AuthWorkerConfig) => {
           },
         }
       : undefined,
-  });
+  }) as Auth<BetterAuthOptions>;
 
   const handler = async (request: Request) => {
     const cors = corsHeaders(request, config.trustedOrigins);
