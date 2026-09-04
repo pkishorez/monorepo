@@ -87,11 +87,50 @@ describe('createAuthWorker', () => {
     expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
   });
 
-  it('uses the primary database for rate limiting', () => {
+  it('disables Better Auth rate limiting', () => {
     createAuthWorker(config);
 
     expect(mocks.betterAuth).toHaveBeenCalledWith(
-      expect.objectContaining({ rateLimit: { storage: 'database' } }),
+      expect.objectContaining({ rateLimit: { enabled: false } }),
+    );
+  });
+
+  it('always installs Admin and installs Dash only with a non-empty API key', () => {
+    createAuthWorker(config);
+    expect(
+      mocks.betterAuth.mock.calls[0]?.[0].plugins.map(
+        (plugin: { id: string }) => plugin.id,
+      ),
+    ).toEqual(['admin']);
+
+    createAuthWorker({ ...config, dashApiKey: '  dash-key  ' });
+    expect(
+      mocks.betterAuth.mock.calls[1]?.[0].plugins.map(
+        (plugin: { id: string }) => plugin.id,
+      ),
+    ).toEqual(['admin', 'dash']);
+    expect(
+      mocks.betterAuth.mock.calls[1]?.[0].plugins.find(
+        (plugin: { id: string }) => plugin.id === 'dash',
+      ).options.apiKey,
+    ).toBe('dash-key');
+
+    createAuthWorker({ ...config, dashApiKey: '   ' });
+    expect(
+      mocks.betterAuth.mock.calls[2]?.[0].plugins.map(
+        (plugin: { id: string }) => plugin.id,
+      ),
+    ).toEqual(['admin']);
+  });
+
+  it('passes the optional User Admission Policy to Better Auth', () => {
+    const validateUser = vi.fn();
+    createAuthWorker({ ...config, validateUser });
+
+    expect(mocks.betterAuth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user: expect.objectContaining({ validateUserInfo: validateUser }),
+      }),
     );
   });
 

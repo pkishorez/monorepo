@@ -69,6 +69,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@better-auth/infra": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:"

@@ -3,7 +3,12 @@ import {
   type BetterAuthOptions,
   type SecondaryStorage,
 } from 'better-auth';
+import { dash } from '@better-auth/infra';
 import { authModelOptions } from './auth-model.js';
+
+type ValidateUser = NonNullable<
+  NonNullable<BetterAuthOptions['user']>['validateUserInfo']
+>;
 
 interface AuthWorkerConfig {
   /** The Auth Worker's own deployed URL. */
@@ -24,6 +29,11 @@ interface AuthWorkerConfig {
   cookieDomain?: string;
   /** Cookie Cache TTL, in seconds. @default 300 (5 minutes) */
   cookieCacheMaxAge?: number;
+  /** Enables Better Auth Infrastructure's Dash plugin when non-empty. */
+  dashApiKey?: string;
+  /** Accepts or rejects identities during registration, account linking, and
+   * fresh provider sign-in. */
+  validateUser?: ValidateUser;
 }
 
 const CORS_METHODS = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS';
@@ -125,13 +135,23 @@ const withCorsHeaders = (response: Response, cors: Headers) => {
 export const createAuthWorker = (config: AuthWorkerConfig) => {
   config.trustedOrigins.forEach(validateTrustedOrigin);
 
+  const modelOptions = authModelOptions(config);
+  const dashApiKey = config.dashApiKey?.trim();
+
   const auth = betterAuth({
-    ...authModelOptions(config),
+    ...modelOptions,
     baseURL: config.baseURL,
     secret: config.secret,
     database: config.database,
     secondaryStorage: config.secondaryStorage,
     trustedOrigins: config.trustedOrigins,
+    user: config.validateUser
+      ? { validateUserInfo: config.validateUser }
+      : undefined,
+    plugins: [
+      ...(modelOptions.plugins ?? []),
+      ...(dashApiKey ? [dash({ apiKey: dashApiKey })] : []),
+    ],
     advanced: config.cookieDomain
       ? {
           crossSubDomainCookies: {

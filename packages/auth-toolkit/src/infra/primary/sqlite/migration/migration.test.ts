@@ -15,14 +15,13 @@ describe('auth migrations', () => {
         .prepare(
           `select name from sqlite_master
            where type = 'table'
-             and name in ('account', 'rate_limit', 'session', 'user', 'verification')
+             and name in ('account', 'session', 'user', 'verification')
            order by name`,
         )
         .all() as { name: string }[];
 
       expect(tables.map(({ name }) => name)).toEqual([
         'account',
-        'rate_limit',
         'session',
         'user',
         'verification',

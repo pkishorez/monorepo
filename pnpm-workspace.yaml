@@ -30,6 +30,7 @@ allowBuilds:
   '@prisma/client': false
 
 catalog:
+  '@better-auth/infra': 0.4.5
   '@base-ui/react': 1.7.0
   '@ast-grep/napi': 0.45.1
   '@vitest/utils': 4.1.10

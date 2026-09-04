@@ -40,6 +40,14 @@ _Avoid_: migrations (too generic on its own — use this term when referring to 
 One of the interchangeable backends for a Primary Database or Session Store decision (e.g. D1 vs. an in-memory Provider for tests, both in the SQLite Dialect Group). Providers are peers — a consumer picks exactly one and passes its built value into `createAuthWorker`; the worker never knows or cares which Provider backed it.
 _Avoid_: adapter (kept as the better-auth/drizzle term for the thing a Provider builds, not for the Provider itself), backend
 
+**Administrator**:
+A User granted the `admin` role and therefore allowed to manage users and sessions through the Auth Worker. Using the hosted dashboard does not by itself make a User an Administrator.
+_Avoid_: dashboard user, admin user
+
+**User Admission Policy**:
+An optional rule that accepts or rejects an identity when it first registers, links an account, or starts a fresh provider sign-in. It does not continuously re-evaluate existing sessions; banning handles an already-admitted User.
+_Avoid_: invariant, user validation
+
 **Direct Session Check**:
 The browser calling the Auth Worker itself (cross-origin, not proxied) to ask "am I logged in" — used by the client subpath's hooks for `useSession`, sign-in, and sign-out. Requires the Auth Worker to allow the browser's origin (see Trusted Origin) and needs its cookie readable across origins (see Shared Cookie Domain).
 _Avoid_: proxied check (that's the separate Server-Side Verification path)

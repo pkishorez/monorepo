@@ -59,7 +59,7 @@
     },
     "worker": {
       "paths": ["src/worker"],
-      "description": "Public — createAuthWorker(config): assembles the better-auth config (Cookie Cache TTL, a Google OAuth plugin, Trusted Origin and Shared Cookie Domain settings) over an already-built Primary Database and Session Store. Takes no dependency on infra — the consumer imports a provider from infra/primary/* and infra/secondary/* and passes it in, so a worker.instance built for tests can swap in the memory providers without this layer knowing. The consumer's own Worker entrypoint calls createAuthWorker and exports the result — that host root lives in the consumer's app, not in this package.",
+      "description": "Public — createAuthWorker(config): assembles the better-auth config (Cookie Cache TTL, Google OAuth, Admin, optional Dash and User Admission Policy, Trusted Origin and Shared Cookie Domain settings) over an already-built Primary Database and Session Store. Takes no dependency on local provider modules — the consumer imports a provider from infra/primary/* and infra/secondary/* and passes it in, so tests can swap in the memory providers without this layer knowing. The consumer's own Worker entrypoint calls createAuthWorker and exports the result — that host root lives in the consumer's app, not in this package.",
       "modules": {
         "src/worker": {
           "exposed": true
