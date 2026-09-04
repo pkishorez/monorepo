@@ -3,7 +3,9 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { drizzle } from 'drizzle-orm/d1';
 import { authSchema } from '../../schema/index.js';
 
-export const d1PrimaryDatabase = (binding: D1Database) => {
+export const d1PrimaryDatabase = (
+  binding: D1Database,
+): ReturnType<typeof drizzleAdapter> => {
   const db = drizzle(binding, { schema: authSchema });
   return drizzleAdapter(db, { provider: 'sqlite', schema: authSchema });
 };
