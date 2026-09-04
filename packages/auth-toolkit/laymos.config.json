@@ -1,0 +1,100 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/infra/primary/sqlite/migration/migrations"],
+  "layers": {
+    "infra.primary.sqlite": {
+      "paths": ["src/infra/primary/sqlite"],
+      "description": "SQLite-dialect Primary Database providers — a future non-SQLite dialect (e.g. Postgres) would be a sibling layer under infra/primary, not a member here",
+      "moduleGraphs": {
+        "sqlite": {
+          "description": "D1 runtime database, D1 deployment resource, and memory database are independent doors built on separate private schema and migration modules.",
+          "path": "src/infra/primary/sqlite",
+          "modules": {
+            "schema": {
+              "exposed": false
+            },
+            "migration": {
+              "exposed": false
+            },
+            "d1/database": {
+              "exposed": true
+            },
+            "d1/resource": {
+              "exposed": true
+            },
+            "memory": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "d1/database": ["schema"],
+            "d1/resource": ["migration"],
+            "memory": ["schema", "migration"]
+          }
+        }
+      }
+    },
+    "infra.secondary": {
+      "paths": ["src/infra/secondary"],
+      "description": "Session Store providers — interchangeable backends for the same decision",
+      "moduleGraphs": {
+        "secondary": {
+          "description": "The Cloudflare KV runtime store, its Alchemy resource, and the memory store are independent public capabilities.",
+          "path": "src/infra/secondary",
+          "modules": {
+            "cf-kv/session-store": {
+              "exposed": true
+            },
+            "cf-kv/resource": {
+              "exposed": true
+            },
+            "memory": {
+              "exposed": true
+            }
+          },
+          "rules": {}
+        }
+      }
+    },
+    "worker": {
+      "paths": ["src/worker"],
+      "description": "Public — createAuthWorker(config): assembles the better-auth config (Cookie Cache TTL, a Google OAuth plugin, Trusted Origin and Shared Cookie Domain settings) over an already-built Primary Database and Session Store. Takes no dependency on infra — the consumer imports a provider from infra/primary/* and infra/secondary/* and passes it in, so a worker.instance built for tests can swap in the memory providers without this layer knowing. The consumer's own Worker entrypoint calls createAuthWorker and exports the result — that host root lives in the consumer's app, not in this package.",
+      "modules": {
+        "src/worker": {
+          "exposed": true
+        }
+      }
+    },
+    "client": {
+      "paths": ["src/client"],
+      "description": "Public — Direct Session Check: React hooks for session state, sign-in, and sign-out",
+      "modules": {
+        "src/client": {
+          "exposed": true
+        }
+      }
+    },
+    "server": {
+      "paths": ["src/server"],
+      "description": "Public — Server-Side Verification: forwards a Consumer Backend's request to the Auth Worker and returns a Verify Payload",
+      "modules": {
+        "src/server": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "auth-toolkit": {
+      "description": "Independently consumed doors — worker, client, server, and the infra providers each stand alone; the consumer wires providers into the worker itself, so no Layer here imports another.",
+      "rules": {
+        "infra.primary.sqlite": [],
+        "infra.secondary": [],
+        "worker": [],
+        "client": [],
+        "server": []
+      }
+    }
+  }
+}
