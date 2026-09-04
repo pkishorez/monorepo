@@ -11,26 +11,17 @@ import {
 } from 'effect/unstable/httpapi';
 import { describe, expect, it } from 'vitest';
 
-import {
-  AuthVerificationUnavailable,
-  CurrentAuth,
-  CurrentAuthResolver,
-  Forbidden,
-  HttpApiAuthMiddleware,
-  Unauthenticated,
-  httpApiAuthMiddlewareLayer,
-  withAuthz,
-  type AuthPolicy,
-  type CurrentAuthResolution,
-  type CurrentAuthResolverService,
-} from 'auth-toolkit/server/http-api';
+import { Authz } from './authz.js';
+import { authzLayer } from './http-api.js';
+
+type Resolve = (typeof Authz.Resolver)['Service']['resolve'];
 
 const requestHeaders = { cookie: Schema.String };
 
 const resolvedAuth = (
   userId = 'u1',
   refreshedCookies: ReadonlyArray<string> = [],
-): CurrentAuthResolution => ({
+) => ({
   currentAuth: {
     session: { id: `session-${userId}` } as Session,
     user: { id: userId } as User,
@@ -38,10 +29,10 @@ const resolvedAuth = (
   refreshedCookies,
 });
 
-const authLayer = (resolve: CurrentAuthResolverService['resolve']) =>
-  httpApiAuthMiddlewareLayer.pipe(
+const authLayer = (resolve: Resolve) =>
+  authzLayer.pipe(
     Layer.provide(
-      Layer.succeed(CurrentAuthResolver, CurrentAuthResolver.of({ resolve })),
+      Layer.succeed(Authz.Resolver, Authz.Resolver.of({ resolve })),
     ),
   );
 
@@ -53,8 +44,8 @@ const TestServices = Layer.mergeAll(
 
 const runApi = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
-  handlers: Layer.Layer<any, never, HttpApiAuthMiddleware>,
-  resolve: CurrentAuthResolverService['resolve'],
+  handlers: Layer.Layer<any, never, Layer.Success<typeof authzLayer>>,
+  resolve: Resolve,
 ) =>
   effect.pipe(
     Effect.provide(handlers),
@@ -68,12 +59,12 @@ describe('Effect HTTP API authentication and authorization', () => {
     const WhoAmI = HttpApiEndpoint.get('whoAmI', '/me', {
       headers: requestHeaders,
       success: Schema.String,
-    }).pipe(withAuthz());
+    }).pipe(Authz.guard());
     const Private = HttpApiGroup.make('private').add(WhoAmI);
     class Api extends HttpApi.make('current-auth-api').add(Private) {}
     const Handlers = HttpApiBuilder.group(Api, 'private', (handlers) =>
       handlers.handle('whoAmI', () =>
-        Effect.map(CurrentAuth, ({ user }) => user.id),
+        Effect.map(Authz.CurrentAuth, ({ user }) => user.id),
       ),
     );
 
@@ -94,14 +85,13 @@ describe('Effect HTTP API authentication and authorization', () => {
   });
 
   it('returns typed 401, 403, and 503 failures', async () => {
-    const denied: AuthPolicy = () =>
-      Effect.fail(new Forbidden({ reason: 'Administrator required' }));
+    const denied = Authz.policy(() => false, 'Administrator required');
     const Private = HttpApiEndpoint.get('private', '/private', {
       headers: requestHeaders,
-    }).pipe(withAuthz());
+    }).pipe(Authz.guard());
     const Admin = HttpApiEndpoint.get('admin', '/admin', {
       headers: requestHeaders,
-    }).pipe(withAuthz(denied));
+    }).pipe(Authz.guard(denied));
     const Group = HttpApiGroup.make('protected').add(Private, Admin);
     class Api extends HttpApi.make('failures-api').add(Group) {}
     const Handlers = HttpApiBuilder.group(Api, 'protected', (handlers) =>
@@ -109,10 +99,7 @@ describe('Effect HTTP API authentication and authorization', () => {
         .handle('private', () => Effect.void)
         .handle('admin', () => Effect.void),
     );
-    const call = (
-      endpoint: 'private' | 'admin',
-      resolve: CurrentAuthResolverService['resolve'],
-    ) =>
+    const call = (endpoint: 'private' | 'admin', resolve: Resolve) =>
       Effect.runPromise(
         runApi(
           Effect.gen(function* () {
@@ -136,14 +123,11 @@ describe('Effect HTTP API authentication and authorization', () => {
       Effect.fail('Auth Worker unavailable'),
     );
 
-    expect(unauthenticated).toBeInstanceOf(Unauthenticated);
-    expect(forbidden).toBeInstanceOf(Forbidden);
-    expect(unavailable).toBeInstanceOf(AuthVerificationUnavailable);
+    expect(unauthenticated).toBeInstanceOf(Authz.Unauthenticated);
+    expect(forbidden).toBeInstanceOf(Authz.Forbidden);
+    expect(unavailable).toBeInstanceOf(Authz.VerificationUnavailable);
 
-    const status = async (
-      endpoint: 'private' | 'admin',
-      resolve: CurrentAuthResolverService['resolve'],
-    ) => {
+    const status = async (endpoint: 'private' | 'admin', resolve: Resolve) => {
       const AppLive = HttpApiBuilder.layer(Api).pipe(
         Layer.provide(Handlers),
         Layer.provide(authLayer(resolve)),
@@ -172,11 +156,11 @@ describe('Effect HTTP API authentication and authorization', () => {
 
   it('uses an endpoint policy instead of the group policy', async () => {
     const calls: string[] = [];
-    const groupPolicy: AuthPolicy = () =>
+    const groupPolicy = () =>
       Effect.sync(() => {
         calls.push('group');
       });
-    const endpointPolicy: AuthPolicy = () =>
+    const endpointPolicy = () =>
       Effect.sync(() => {
         calls.push('endpoint');
       });
@@ -185,10 +169,10 @@ describe('Effect HTTP API authentication and authorization', () => {
     });
     const Overridden = HttpApiEndpoint.get('overridden', '/overridden', {
       headers: requestHeaders,
-    }).pipe(withAuthz(endpointPolicy));
+    }).pipe(Authz.guard(endpointPolicy));
     const Group = HttpApiGroup.make('policies')
       .add(Inherited, Overridden)
-      .pipe(withAuthz(groupPolicy));
+      .pipe(Authz.guard(groupPolicy));
     class Api extends HttpApi.make('policies-api').add(Group) {}
     const Handlers = HttpApiBuilder.group(Api, 'policies', (handlers) =>
       handlers
@@ -219,7 +203,7 @@ describe('Effect HTTP API authentication and authorization', () => {
     const Cookies = HttpApiEndpoint.get('cookies', '/cookies', {
       headers: requestHeaders,
       success: Schema.String,
-    }).pipe(withAuthz());
+    }).pipe(Authz.guard());
     const Group = HttpApiGroup.make('cookieRelay').add(Cookies);
     class Api extends HttpApi.make('cookies-api').add(Group) {}
     const Handlers = HttpApiBuilder.group(Api, 'cookieRelay', (handlers) =>

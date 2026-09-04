@@ -28,14 +28,22 @@
       "default": "./dist/client/index.js"
     },
     "./server": {
-      "types": "./dist/server/index.d.ts",
-      "default": "./dist/server/index.js"
+      "types": "./dist/server/verification/index.d.ts",
+      "default": "./dist/server/verification/index.js"
     },
-    "./server/rpc": {
+    "./rpc": {
+      "types": "./dist/server/rpc/authz.d.ts",
+      "default": "./dist/server/rpc/authz.js"
+    },
+    "./rpc/server": {
       "types": "./dist/server/rpc/index.d.ts",
       "default": "./dist/server/rpc/index.js"
     },
-    "./server/http-api": {
+    "./http-api": {
+      "types": "./dist/server/http-api/authz.d.ts",
+      "default": "./dist/server/http-api/authz.js"
+    },
+    "./http-api/server": {
       "types": "./dist/server/http-api/index.d.ts",
       "default": "./dist/server/http-api/index.js"
     },
@@ -81,7 +89,8 @@
     "@better-auth/infra": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "better-auth": "catalog:",
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "rpc-toolkit": "workspace:*"
   },
   "peerDependencies": {
     "alchemy": "2.0.0-beta.72",

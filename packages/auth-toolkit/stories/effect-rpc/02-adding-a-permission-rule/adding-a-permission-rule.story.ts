@@ -1,19 +1,18 @@
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Story } from 'laymos/story';
-import { Forbidden, withAuthz } from 'auth-toolkit/server/rpc';
+import { Authz } from 'auth-toolkit/rpc';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
+
+const administratorOnly = Authz.policy(
+  ({ user }) => user.id === 'admin',
+  'Administrator required',
+);
 
 const DeleteUser = Rpc.make('DeleteUser', {
   payload: { userId: Schema.String },
   success: Schema.String,
-}).pipe(
-  withAuthz(({ user }) =>
-    user.id === 'admin'
-      ? Effect.void
-      : Effect.fail(new Forbidden({ reason: 'Administrator required' })),
-  ),
-);
+}).pipe(Authz.guard(administratorOnly));
 
 const Api = RpcGroup.make(DeleteUser);
 const Handlers = Api.toLayer({
@@ -28,7 +27,7 @@ export const addingAPermissionRule = Story.make({
   questions: [
     Story.question('When does the authorization policy run?', {
       answer:
-        'After Current Auth is resolved and before the handler. The policy succeeds to allow the call or fails with `Forbidden` to deny it.',
+        'After Current Auth is resolved and before the handler. Define the rule once with `Authz.policy` and attach it with `Authz.guard`; it succeeds to allow the call or fails with `Forbidden` to deny it.',
       proof: Story.trace(
         runRpc(
           Api,
@@ -59,8 +58,8 @@ export const addingAPermissionRule = Story.make({
         ).pipe(
           Effect.tap((error) =>
             Story.assert(
-              'the caller receives Forbidden',
-              error instanceof Forbidden,
+              'the caller receives Authz.Forbidden',
+              error instanceof Authz.Forbidden,
             ),
           ),
         ),

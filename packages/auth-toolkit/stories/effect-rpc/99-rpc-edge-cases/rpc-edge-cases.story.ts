@@ -7,18 +7,14 @@ import {
   RpcServer,
 } from 'effect/unstable/rpc';
 import { Story } from 'laymos/story';
-import {
-  Forbidden,
-  Unauthenticated,
-  withAuthCookies,
-  withAuthz,
-} from 'auth-toolkit/server/rpc';
+import { Authz } from 'auth-toolkit/rpc';
+import { authzCookies } from 'auth-toolkit/rpc/server';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
 
 const GetSettings = Rpc.make('GetSettings', {
   payload: {},
   success: Schema.String,
-}).pipe(withAuthz());
+}).pipe(Authz.guard());
 
 const SettingsApi = RpcGroup.make(GetSettings);
 const SettingsHandlers = SettingsApi.toLayer({
@@ -29,14 +25,12 @@ const DeleteWorkspace = Rpc.make('DeleteWorkspaceAtEdge', {
   payload: {},
   success: Schema.Void,
 }).pipe(
-  withAuthz(({ user }) =>
-    user.id === 'admin'
-      ? Effect.void
-      : Effect.fail(new Forbidden({ reason: 'Administrator required' })),
+  Authz.guard(
+    Authz.policy(({ user }) => user.id === 'admin', 'Administrator required'),
   ),
 );
 
-const AdminApi = withAuthz()(RpcGroup.make(DeleteWorkspace));
+const AdminApi = Authz.guard()(RpcGroup.make(DeleteWorkspace));
 const AdminHandlers = AdminApi.toLayer({
   DeleteWorkspaceAtEdge: () => Effect.void,
 });
@@ -49,7 +43,7 @@ const ListTeams = Rpc.make('ListTeamsAtEdge', {
   payload: {},
   success: Schema.Void,
 });
-const BatchApi = withAuthz()(RpcGroup.make(GetAccount, ListTeams));
+const BatchApi = Authz.guard()(RpcGroup.make(GetAccount, ListTeams));
 const BatchHandlers = BatchApi.toLayer({
   GetAccountAtEdge: () => Effect.void,
   ListTeamsAtEdge: () => Effect.void,
@@ -79,7 +73,7 @@ const makeBatchRequest = () =>
 
 const WrappedRpcApp = Effect.gen(function* () {
   const rpcApp = yield* RpcServer.toHttpEffect(BatchApi);
-  return yield* withAuthCookies(rpcApp);
+  return yield* authzCookies(rpcApp);
 });
 
 const UnwrappedRpcApp = RpcServer.toHttpEffect(BatchApi).pipe(Effect.flatten);
@@ -108,7 +102,7 @@ export const rpcEdgeCases = Story.make({
   questions: [
     Story.question('Is no session different from a broken verifier?', {
       answer:
-        'Yes. Both reject the call as `Unauthenticated`, but their reasons distinguish a missing session from an unavailable Auth Worker.',
+        'Yes. A missing session rejects the call as `Unauthenticated`; an unavailable Auth Worker rejects it as `Authz.VerificationUnavailable`, so callers never mistake an outage for bad credentials.',
       proof: Story.trace(
         Effect.gen(function* () {
           const missingSession = yield* Effect.flip(
@@ -129,18 +123,16 @@ export const rpcEdgeCases = Story.make({
           );
 
           yield* Story.assert(
-            'both failures stay typed',
-            missingSession instanceof Unauthenticated &&
-              unavailableWorker instanceof Unauthenticated,
+            'a missing session is Authz.Unauthenticated',
+            missingSession instanceof Authz.Unauthenticated,
           );
           yield* Story.assert(
-            'their reasons remain distinct',
-            missingSession.reason === 'Authentication required' &&
-              unavailableWorker.reason === 'Session verification failed',
+            'a broken verifier is Authz.VerificationUnavailable',
+            unavailableWorker instanceof Authz.VerificationUnavailable,
           );
           return {
-            missingSession: missingSession.reason,
-            unavailableWorker: unavailableWorker.reason,
+            missingSession: missingSession._tag,
+            unavailableWorker: unavailableWorker._tag,
           };
         }),
       ),
@@ -160,7 +152,7 @@ export const rpcEdgeCases = Story.make({
           Effect.tap((error) =>
             Story.assert(
               'the administrator policy still rejects a member',
-              error instanceof Forbidden,
+              error instanceof Authz.Forbidden,
             ),
           ),
         ),
@@ -191,7 +183,7 @@ export const rpcEdgeCases = Story.make({
     }),
     Story.question('When are refreshed cookies relayed?', {
       answer:
-        'Only when the request/response app uses `withAuthCookies`. Streaming and WebSocket transports cannot add headers after RPC execution.',
+        'Only when the request/response app uses `authzCookies`. Streaming and WebSocket transports cannot add headers after RPC execution.',
       proof: Story.trace(
         Effect.gen(function* () {
           const TestAuth = authLayer(() =>

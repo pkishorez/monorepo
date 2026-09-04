@@ -8,12 +8,13 @@
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
     "paths": {
-      "auth-toolkit/server": ["./src/server/index.ts"],
-      "auth-toolkit/server/http-api": ["./src/server/http-api/index.ts"],
-      "auth-toolkit/server/rpc": ["./src/server/rpc/index.ts"]
+      "auth-toolkit/http-api": ["./src/server/http-api/authz.ts"],
+      "auth-toolkit/http-api/server": ["./src/server/http-api/index.ts"],
+      "auth-toolkit/rpc": ["./src/server/rpc/authz.ts"],
+      "auth-toolkit/rpc/server": ["./src/server/rpc/index.ts"],
+      "auth-toolkit/server": ["./src/server/verification/index.ts"]
     },
     "rootDir": ".",
-
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,

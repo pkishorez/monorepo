@@ -9,7 +9,7 @@ vi.mock('better-auth/client', () => ({
   createAuthClient: mocks.createAuthClient,
 }));
 
-import { verifyRequest } from './server.js';
+import { verifyRequest } from './verification.js';
 
 describe('verifyRequest', () => {
   beforeEach(() => {

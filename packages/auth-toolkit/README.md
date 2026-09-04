@@ -156,14 +156,15 @@ for (const cookie of verified.refreshedCookies) {
 `auth-toolkit/server` is the vanilla server API. Effect integrations live in
 separate subpaths, so vanilla consumers do not need to install Effect. For
 protecting Effect RPCs declaratively, see
-[`server/rpc`](./src/server/rpc/README.md).
+[`rpc` and `server/rpc`](./src/server/rpc/README.md).
 
 ### 4. Protect an Effect HTTP API
 
-Use `withAuthz()` to protect Effect HTTP API endpoints and provide typed Current
-Auth to their handlers. See
-[`server/http-api`](./src/server/http-api/README.md) for setup, policies, testing,
-errors, and refreshed-cookie relay.
+Attach `Authz.guard()` from `auth-toolkit/http-api` to Effect HTTP API endpoints
+to provide typed Current Auth to their handlers, and provide `authzLayer` and `resolverLive` from
+`auth-toolkit/http-api/server` next to them. See
+[`http-api` and `server/http-api`](./src/server/http-api/README.md) for setup,
+policies, testing, errors, and refreshed-cookie relay.
 
 ### 5. Sign in / check session from the frontend
 
@@ -258,19 +259,21 @@ concurrent calls, cookie refresh, and failure cases.
 
 ## Subpaths
 
-| Subpath            | What it gives you                                                                   |
-| ------------------ | ----------------------------------------------------------------------------------- |
-| `worker`           | `createAuthWorker(config)` — assembles the Auth Worker                              |
-| `server`           | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend              |
-| `server/rpc`       | `withAuthz(...)` — see [`server/rpc`](./src/server/rpc/README.md)                   |
-| `server/http-api`  | `withAuthz(...)` — see [`server/http-api`](./src/server/http-api/README.md)         |
-| `client`           | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out |
-| `database/d1`      | Production Primary Database Provider using a D1 binding                             |
-| `database/memory`  | In-memory Primary Database Provider, for tests                                      |
-| `secondary/cf-kv`  | Production Session Store Provider using Cloudflare KV                               |
-| `secondary/memory` | In-memory Session Store Provider, for tests                                         |
-| `alchemy/d1`       | Alchemy resource for provisioning D1 and applying migrations                        |
-| `alchemy/cf-kv`    | Alchemy resource for provisioning Cloudflare KV                                     |
+| Subpath            | What it gives you                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| `worker`           | `createAuthWorker(config)` — assembles the Auth Worker                                |
+| `server`           | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend                |
+| `rpc`              | `Authz` — the RPC Auth Cannotation, safe for shared contracts                         |
+| `http-api`         | `Authz` — the HTTP API Auth Cannotation, safe for shared contracts                    |
+| `rpc/server`       | `authzLayer`, `resolverLive(...)` — see [`rpc`](./src/server/rpc/README.md)           |
+| `http-api/server`  | `authzLayer`, `resolverLive(...)` — see [`http-api`](./src/server/http-api/README.md) |
+| `client`           | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out   |
+| `database/d1`      | Production Primary Database Provider using a D1 binding                               |
+| `database/memory`  | In-memory Primary Database Provider, for tests                                        |
+| `secondary/cf-kv`  | Production Session Store Provider using Cloudflare KV                                 |
+| `secondary/memory` | In-memory Session Store Provider, for tests                                           |
+| `alchemy/d1`       | Alchemy resource for provisioning D1 and applying migrations                          |
+| `alchemy/cf-kv`    | Alchemy resource for provisioning Cloudflare KV                                       |
 
 ## Migrations
 

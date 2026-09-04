@@ -1,22 +1,18 @@
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Story } from 'laymos/story';
-import {
-  CurrentAuth,
-  Unauthenticated,
-  withAuthz,
-} from 'auth-toolkit/server/rpc';
+import { Authz } from 'auth-toolkit/rpc';
 import { authLayer, runRpc } from '../support.js';
 
 const GetProfile = Rpc.make('GetProfile', {
   payload: {},
   success: Schema.Struct({ userId: Schema.String }),
-}).pipe(withAuthz());
+}).pipe(Authz.guard());
 
 const Api = RpcGroup.make(GetProfile);
 const Handlers = Api.toLayer({
   GetProfile: () =>
-    Effect.map(CurrentAuth, ({ user }) => ({ userId: user.id })),
+    Effect.map(Authz.CurrentAuth, ({ user }) => ({ userId: user.id })),
 });
 
 export const protectingYourFirstRpc = Story.make({
@@ -28,7 +24,7 @@ export const protectingYourFirstRpc = Story.make({
   questions: [
     Story.question('How does a handler read the authenticated user?', {
       answer:
-        'Add `withAuthz()` to the RPC. The middleware verifies the session first, then makes its User and Session available as `CurrentAuth` while the handler runs.',
+        'Attach `Authz.guard()` to the RPC. Its Server Implementation verifies the session first, then makes the User and Session available as `CurrentAuth` while the handler runs.',
       proof: Story.trace(
         runRpc(Api, Handlers, (client) =>
           client.GetProfile({}, { headers: { cookie: 'session=valid' } }),
@@ -53,7 +49,7 @@ export const protectingYourFirstRpc = Story.make({
           Effect.tap((error) =>
             Story.assert(
               'the request is rejected as unauthenticated',
-              error instanceof Unauthenticated,
+              error instanceof Authz.Unauthenticated,
             ),
           ),
         ),

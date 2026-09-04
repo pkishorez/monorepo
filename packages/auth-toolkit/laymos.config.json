@@ -78,10 +78,33 @@
     },
     "server": {
       "paths": ["src/server"],
-      "description": "Public — Server-Side Verification: forwards a Consumer Backend's request to the Auth Worker and returns a Verify Payload",
-      "modules": {
-        "src/server": {
-          "exposed": true
+      "description": "Public — Server-Side Verification: forwards a Consumer Backend's request to the Auth Worker and returns a Verify Payload, plus each Sibling's Auth Cannotation: its Declaration (safe for contract code shared with the browser) and its Server Implementation",
+      "moduleGraphs": {
+        "server": {
+          "description": "Server-Side Verification is the vanilla door; the Current Auth Resolver wraps it for Effect; each Sibling module declares its Auth Cannotation in an interior authz file (reached by the package's contract subpath) beside its Server Implementation, both over a shared Current Auth identity.",
+          "path": "src/server",
+          "modules": {
+            "verification": {
+              "exposed": true
+            },
+            "current-auth": {
+              "exposed": false
+            },
+            "current-auth-resolver": {
+              "exposed": false
+            },
+            "rpc": {
+              "exposed": true
+            },
+            "http-api": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "current-auth-resolver": ["verification", "current-auth"],
+            "rpc": ["current-auth", "current-auth-resolver"],
+            "http-api": ["current-auth", "current-auth-resolver"]
+          }
         }
       }
     }

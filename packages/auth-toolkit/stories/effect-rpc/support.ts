@@ -1,17 +1,15 @@
 import type { Session, User } from 'better-auth';
 import { Effect, Layer } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/unstable/rpc';
-import {
-  CurrentAuthResolver,
-  type CurrentAuthResolution,
-  type CurrentAuthResolverService,
-  rpcAuthMiddlewareLayer,
-} from 'auth-toolkit/server/rpc';
+import { Authz } from 'auth-toolkit/rpc';
+import { authzLayer } from 'auth-toolkit/rpc/server';
+
+type Resolve = (typeof Authz.Resolver)['Service']['resolve'];
 
 export const resolvedAuth = (
   userId = 'u1',
   refreshedCookies: ReadonlyArray<string> = [],
-): CurrentAuthResolution => ({
+) => ({
   currentAuth: {
     session: { id: `session-${userId}` } as Session,
     user: { id: userId } as User,
@@ -20,12 +18,11 @@ export const resolvedAuth = (
 });
 
 export const authLayer = (
-  resolve: CurrentAuthResolverService['resolve'] = () =>
-    Effect.succeed(resolvedAuth()),
+  resolve: Resolve = () => Effect.succeed(resolvedAuth()),
 ) =>
-  rpcAuthMiddlewareLayer.pipe(
+  authzLayer.pipe(
     Layer.provide(
-      Layer.succeed(CurrentAuthResolver, CurrentAuthResolver.of({ resolve })),
+      Layer.succeed(Authz.Resolver, Authz.Resolver.of({ resolve })),
     ),
   );
 
