@@ -153,6 +153,11 @@ for (const cookie of verified.refreshedCookies) {
 }
 ```
 
+`auth-toolkit/server` is the vanilla server API. Effect integrations live in
+separate subpaths, so vanilla consumers do not need to install Effect. For
+protecting Effect RPCs declaratively, see
+[`server/rpc`](./src/server/rpc/README.md).
+
 ### 4. Sign in / check session from the frontend
 
 The browser talks to the Auth Worker directly (not proxied through your
@@ -238,12 +243,19 @@ const { handler } = createAuthWorker({
 a `:memory:` SQLite database — so tests exercise the real schema, just not
 the real deployment.
 
+### Executable stories
+
+Run `pnpm --filter auth-toolkit stories` for the short Effect RPC walkthrough:
+authentication, authorization policies, group inheritance, batched and
+concurrent calls, cookie refresh, and failure cases.
+
 ## Subpaths
 
 | Subpath            | What it gives you                                                                   |
 | ------------------ | ----------------------------------------------------------------------------------- |
 | `worker`           | `createAuthWorker(config)` — assembles the Auth Worker                              |
 | `server`           | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend              |
+| `server/rpc`       | `withAuthz(...)` — see [`server/rpc`](./src/server/rpc/README.md)                   |
 | `client`           | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out |
 | `database/d1`      | Production Primary Database Provider using a D1 binding                             |
 | `database/memory`  | In-memory Primary Database Provider, for tests                                      |
