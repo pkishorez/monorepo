@@ -1,6 +1,7 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
+  "storiesPath": "stories",
   "ignoredPaths": ["src/infra/primary/sqlite/migration/migrations"],
   "layers": {
     "infra.primary.sqlite": {

@@ -7,6 +7,11 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
+    "paths": {
+      "auth-toolkit/server": ["./src/server/index.ts"],
+      "auth-toolkit/server/rpc": ["./src/server/rpc/index.ts"]
+    },
+    "rootDir": ".",
 
     "strict": true,
     "noUncheckedIndexedAccess": true,
@@ -14,6 +19,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "stories/**/*"],
   "exclude": ["node_modules"]
 }

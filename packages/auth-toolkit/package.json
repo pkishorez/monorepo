@@ -31,6 +31,10 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./server/rpc": {
+      "types": "./dist/server/rpc/index.d.ts",
+      "default": "./dist/server/rpc/index.js"
+    },
     "./worker": {
       "types": "./dist/worker/index.d.ts",
       "default": "./dist/worker/index.js"
@@ -66,6 +70,7 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
+    "stories": "laymos stories",
     "test": "vitest run"
   },
   "dependencies": {

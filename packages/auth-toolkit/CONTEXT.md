@@ -60,6 +60,30 @@ _Avoid_: forwarding, proxying (proxying implies relaying the response back to th
 What Server-Side Verification returns to a Consumer Backend: the validated session/user data plus any refreshed cookie value. Whether the Consumer Backend relays that refreshed cookie back to the browser is the Consumer Backend's own choice — the Auth Worker utility only hands it over.
 _Avoid_: response (too generic)
 
+**Current Auth**:
+The verified User and Session available while handling one authenticated request in a Consumer Backend.
+_Avoid_: current user (omits the Session), auth context (easily confused with Effect's Context)
+
+**Current Auth Resolver**:
+The replaceable server capability that resolves Current Auth and refreshed cookies from an incoming request. Its production implementation performs Server-Side Verification against the Auth Worker.
+_Avoid_: auth provider, RPC verifier
+
+**Authentication Requirement**:
+A declaration that an RPC may run only with valid Current Auth. It establishes identity but imposes no additional permission rule.
+_Avoid_: auth policy (reserved for authorization)
+
+**Authorization Policy**:
+An Effect-returning rule that decides whether Current Auth may perform an RPC. A declaration on a more specific RPC replaces an inherited group declaration.
+_Avoid_: permission boolean, auth check
+
+**Batched RPC Request**:
+One HTTP request carrying multiple RPC calls. Its calls share request-scoped session verification and refreshed cookies.
+_Avoid_: parallel RPCs
+
+**Concurrent RPC Calls**:
+Independent RPC requests running at the same time. Each request verifies and carries its own Current Auth.
+_Avoid_: parallel RPCs
+
 **Trusted Origin**:
 An origin the Auth Worker's CORS config allows to make a Direct Session Check against it — configurable, and must support whole-subdomain patterns (e.g. any `*.example.com` origin), not just an exact list.
 _Avoid_: allowed origin, CORS origin
