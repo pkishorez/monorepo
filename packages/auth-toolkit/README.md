@@ -8,7 +8,7 @@ below (Auth Worker, Provider, Consumer Backend, etc).
 ## The shape of it
 
 One Cloudflare Worker (the **Auth Worker**) owns sign-in, sign-out, and
-session validation. It's built by composing three things this package
+session validation. It's built by composing two Provider decisions this package
 gives you:
 
 ```
@@ -26,7 +26,7 @@ directly:
   incoming request's cookies to the Auth Worker and find out who's making
   the request.
 
-Only the Auth Worker's entrypoint imports Database and Session Store Providers.
+Only the Auth Worker's entrypoint imports concrete Providers.
 
 ## Usage
 
@@ -44,6 +44,10 @@ import { kvSessionStore } from 'auth-toolkit/secondary/cf-kv';
 interface Env {
   DB: D1Database;
   KV: KVNamespace;
+  AUTH_SECRET: string;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  BETTER_AUTH_API_KEY?: string;
 }
 
 export default {
@@ -57,6 +61,16 @@ export default {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
       },
+      // Dash is omitted when the key is absent or blank.
+      dashApiKey: env.BETTER_AUTH_API_KEY,
+      validateUser: ({ user }) => {
+        if (!user.email?.endsWith('@example.com')) {
+          return {
+            error: 'email_not_allowed',
+            errorDescription: 'Use your example.com Google account',
+          };
+        }
+      },
       trustedOrigins: ['https://*.example.com'],
       cookieDomain: '.example.com',
     });
@@ -65,10 +79,20 @@ export default {
 };
 ```
 
-`database` and `secondaryStorage` are the only two decisions here — D1 and
-Cloudflare KV in production, or the in-memory Providers for tests (see
-[Testing](#testing) below). `createAuthWorker` itself doesn't know or care
-which one you picked.
+`database` and `secondaryStorage` are the two Provider decisions — D1 and
+Cloudflare KV in production, or the in-memory Providers for tests. Better Auth
+rate limiting is disabled for now. `createAuthWorker` does not know which
+concrete Providers you picked.
+
+The Auth Worker always includes Better Auth's Admin plugin so the hosted
+dashboard can persist and enforce bans. It does not expose the Admin client API
+or bootstrap local Administrators. Supplying `dashApiKey` additionally connects
+the worker to Better Auth Infrastructure; omitting it leaves Dash disabled.
+
+`validateUser` is an optional User Admission Policy. It runs when an identity
+registers, links an account, or starts a fresh provider sign-in. Return nothing
+to admit the identity, or return a safe `error` and `errorDescription` to reject
+it. Unexpected thrown errors fail closed with a generic message.
 
 ### 2. Deploy the D1 database and KV namespace with alchemy
 
@@ -149,18 +173,42 @@ import { authClient } from './auth';
 
 function LoginButton() {
   const { data: session, isPending } = authClient.useSession();
+  const { error, dismiss } = authClient.useLoginError();
 
   if (isPending) return null;
   if (session) {
     return <button onClick={authClient.signOut}>Sign out</button>;
   }
   return (
-    <button onClick={() => authClient.signIn.google()}>
-      Sign in with Google
-    </button>
+    <>
+      {error ? (
+        <p>
+          {error.description ?? error.code}
+          <button onClick={dismiss}>Dismiss</button>
+        </p>
+      ) : null}
+      <button onClick={() => authClient.signIn.google()}>
+        Sign in with Google
+      </button>
+    </>
   );
 }
 ```
+
+Google sign-in returns to the current page after success or failure by default.
+Stale `error` and `error_description` parameters are removed before starting a
+new attempt. Override either destination when needed:
+
+```ts
+authClient.signIn.google({
+  callbackURL: '/dashboard',
+  errorCallbackURL: '/sign-in',
+});
+```
+
+After an OAuth failure, `useLoginError()` converts the redirect parameters into
+`{ code, description? }`. Its `dismiss()` function removes only those parameters
+from the address bar without reloading the page.
 
 This only works if the Auth Worker's `trustedOrigins` includes your app's
 origin (step 1). The exported handler uses that list for both Better Auth's
@@ -192,17 +240,17 @@ the real deployment.
 
 ## Subpaths
 
-| Subpath            | What it gives you                                                                               |
-| ------------------ | ----------------------------------------------------------------------------------------------- |
-| `worker`           | `createAuthWorker(config)` — assembles the Auth Worker from a `database` and `secondaryStorage` |
-| `server`           | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend                          |
-| `client`           | `createAuthClient(config)` — `useSession`/`signIn`/`signOut` for the browser                    |
-| `database/d1`      | Production Primary Database Provider using a D1 binding                                         |
-| `database/memory`  | In-memory Primary Database Provider, for tests                                                  |
-| `secondary/cf-kv`  | Production Session Store Provider using Cloudflare KV                                           |
-| `secondary/memory` | In-memory Session Store Provider, for tests                                                     |
-| `alchemy/d1`       | Alchemy resource for provisioning D1 and applying migrations                                    |
-| `alchemy/cf-kv`    | Alchemy resource for provisioning Cloudflare KV                                                 |
+| Subpath            | What it gives you                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `worker`           | `createAuthWorker(config)` — assembles the Auth Worker                              |
+| `server`           | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend              |
+| `client`           | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out |
+| `database/d1`      | Production Primary Database Provider using a D1 binding                             |
+| `database/memory`  | In-memory Primary Database Provider, for tests                                      |
+| `secondary/cf-kv`  | Production Session Store Provider using Cloudflare KV                               |
+| `secondary/memory` | In-memory Session Store Provider, for tests                                         |
+| `alchemy/d1`       | Alchemy resource for provisioning D1 and applying migrations                        |
+| `alchemy/cf-kv`    | Alchemy resource for provisioning Cloudflare KV                                     |
 
 ## Migrations
 

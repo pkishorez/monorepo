@@ -1,4 +1,5 @@
 import type { BetterAuthOptions } from 'better-auth';
+import { admin } from 'better-auth/plugins';
 
 interface AuthModelConfig {
   google: { clientId: string; clientSecret: string };
@@ -23,9 +24,10 @@ export const authModelOptions = (config: AuthModelConfig) =>
     verification: {
       storeInDatabase: true,
     },
-    // Cloudflare KV cannot atomically increment counters and rejects the
-    // default 10-second TTL. Keep rate limiting in the primary database.
     rateLimit: {
-      storage: 'database',
+      enabled: false,
     },
+    // Dash uses Admin's fields and session hook for ban enforcement, even
+    // though administration itself happens through Better Auth Infrastructure.
+    plugins: [admin()],
   }) satisfies BetterAuthOptions;

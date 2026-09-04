@@ -11,11 +11,9 @@ export const kvSessionStore = (binding: KVNamespace): SecondaryStorage => ({
     await binding.delete(key);
     return value;
   },
-  // Better Auth requires this method on every secondary store, but this
-  // package routes rate limiting to D1 because KV cannot implement it safely.
+  // Better Auth requires this method on every secondary store, but Cloudflare
+  // KV cannot implement atomic increments safely.
   increment: () => {
-    throw new Error(
-      'Cloudflare KV does not support atomic increments; use database-backed rate limiting',
-    );
+    throw new Error('Cloudflare KV does not support atomic increments');
   },
 });
