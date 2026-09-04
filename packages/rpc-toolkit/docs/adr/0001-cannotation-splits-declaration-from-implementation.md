@@ -1,0 +1,3 @@
+# Cannotation splits Declaration from Implementation
+
+An endpoint contract (an `RpcGroup` or `HttpApiGroup`) is imported by both the client and the server bundle, so anything a Cannotation needs at declaration time ends up in both. We therefore make `Cannotation.make` produce an implementation-free Declaration (`with`, `get`) and take the server and client logic separately through `layer(impl)` and `clientLayer(impl)`, mirroring how Effect itself separates `RpcMiddleware.Service` from `Layer.effect` and `RpcMiddleware.layerClient`. The one-entry-point form where `make` received `server` and `client` inline was rejected because it leaks server code (resolvers, storage) into the browser bundle.
