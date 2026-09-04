@@ -68,6 +68,10 @@ _Avoid_: current user (omits the Session), auth context (easily confused with Ef
 The replaceable server capability that resolves Current Auth and refreshed cookies from an incoming request. Its production implementation performs Server-Side Verification against the Auth Worker.
 _Avoid_: auth provider, RPC verifier
 
+**Authentication Verification Failure**:
+The Consumer Backend could not determine Current Auth because Server-Side Verification was unavailable. This is different from a request that has no valid session.
+_Avoid_: unauthenticated request, invalid session
+
 **Authentication Requirement**:
 A declaration that an RPC may run only with valid Current Auth. It establishes identity but imposes no additional permission rule.
 _Avoid_: auth policy (reserved for authorization)
