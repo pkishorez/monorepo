@@ -26,7 +26,7 @@ const appendSetCookieHeaders = (
   ) as HttpServerResponse.HttpServerResponse;
 };
 
-// Internal: lets rpcAuthLayer verify once per HTTP request when present.
+// Internal: lets authzLayer verify once per HTTP request when present.
 export class RequestAuthState extends Context.Service<
   RequestAuthState,
   RequestAuthStateValue
@@ -34,7 +34,7 @@ export class RequestAuthState extends Context.Service<
 
 // Bridges refreshed cookies from forked RPC handler fibers back to a
 // completed non-streaming HTTP response. Use with RpcSerialization.layerJson.
-export const withAuthCookies = <
+export const authzCookies = <
   A extends HttpServerResponse.HttpServerResponse,
   E,
   R,

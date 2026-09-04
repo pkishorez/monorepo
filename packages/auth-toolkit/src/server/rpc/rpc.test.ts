@@ -19,17 +19,12 @@ vi.mock('better-auth/client', () => ({
   createAuthClient: mocks.createAuthClient,
 }));
 
-import {
-  CurrentAuth,
-  Forbidden,
-  Unauthenticated,
-  rpcAuthLayer,
-  withAuthCookies,
-  withAuthz,
-  type AuthPolicy,
-} from './rpc.js';
+import { Authz } from './authz.js';
+import { authzCookies, authzLayer, resolverLive } from './rpc.js';
 
-const authLayer = rpcAuthLayer({ authWorkerUrl: 'https://auth.example.com' });
+const authLayer = authzLayer.pipe(
+  Layer.provide(resolverLive({ authWorkerUrl: 'https://auth.example.com' })),
+);
 
 const runRpc = <A extends Rpc.Any, B, E, R>(
   group: RpcGroup.RpcGroup<A>,
@@ -55,10 +50,10 @@ describe('Effect RPC authentication and authorization', () => {
     const WhoAmI = Rpc.make('WhoAmI', {
       payload: {},
       success: Schema.String,
-    }).pipe(withAuthz());
+    }).pipe(Authz.guard());
     const Api = RpcGroup.make(WhoAmI);
     const Handlers = Api.toLayer({
-      WhoAmI: () => Effect.map(CurrentAuth, ({ user }) => user.id),
+      WhoAmI: () => Effect.map(Authz.CurrentAuth, ({ user }) => user.id),
     });
 
     const result = await Effect.runPromise(
@@ -75,7 +70,7 @@ describe('Effect RPC authentication and authorization', () => {
     const Private = Rpc.make('Private', {
       payload: {},
       success: Schema.Void,
-    }).pipe(withAuthz());
+    }).pipe(Authz.guard());
     const Api = RpcGroup.make(Private);
     const Handlers = Api.toLayer({ Private: () => Effect.void });
 
@@ -85,16 +80,16 @@ describe('Effect RPC authentication and authorization', () => {
       ),
     );
 
-    expect(error).toBeInstanceOf(Unauthenticated);
+    expect(error).toBeInstanceOf(Authz.Unauthenticated);
   });
 
   it('uses the nearest authorization policy and inherits a group policy otherwise', async () => {
     const calls: string[] = [];
-    const groupPolicy: AuthPolicy = () =>
+    const groupPolicy = () =>
       Effect.sync(() => {
         calls.push('group');
       });
-    const methodPolicy: AuthPolicy = () =>
+    const methodPolicy = () =>
       Effect.sync(() => {
         calls.push('method');
       });
@@ -102,12 +97,12 @@ describe('Effect RPC authentication and authorization', () => {
     const Inherited = Rpc.make('Inherited', {
       payload: {},
       success: Schema.Void,
-    }).pipe(withAuthz());
+    }).pipe(Authz.guard());
     const Overridden = Rpc.make('Overridden', {
       payload: {},
       success: Schema.Void,
-    }).pipe(withAuthz(methodPolicy));
-    const Api = withAuthz(groupPolicy)(RpcGroup.make(Inherited, Overridden));
+    }).pipe(Authz.guard(methodPolicy));
+    const Api = Authz.guard(groupPolicy)(RpcGroup.make(Inherited, Overridden));
     const Handlers = Api.toLayer({
       Inherited: () => Effect.void,
       Overridden: () => Effect.void,
@@ -128,12 +123,11 @@ describe('Effect RPC authentication and authorization', () => {
   });
 
   it('returns Forbidden when the selected policy rejects CurrentAuth', async () => {
-    const denied: AuthPolicy = () =>
-      Effect.fail(new Forbidden({ reason: 'admin required' }));
+    const denied = Authz.policy(() => false, 'admin required');
     const AdminOnly = Rpc.make('AdminOnly', {
       payload: {},
       success: Schema.Void,
-    }).pipe(withAuthz(denied));
+    }).pipe(Authz.guard(denied));
     const Api = RpcGroup.make(AdminOnly);
     const Handlers = Api.toLayer({ AdminOnly: () => Effect.void });
 
@@ -145,17 +139,17 @@ describe('Effect RPC authentication and authorization', () => {
       ),
     );
 
-    expect(error).toBeInstanceOf(Forbidden);
-    expect((error as Forbidden).reason).toBe('admin required');
+    expect(error).toBeInstanceOf(Authz.Forbidden);
+    expect(error).toMatchObject({ reason: 'admin required' });
   });
 
   it('preserves a nested group policy when an outer group declares another policy', async () => {
     const calls: string[] = [];
-    const innerPolicy: AuthPolicy = () =>
+    const innerPolicy = () =>
       Effect.sync(() => {
         calls.push('inner');
       });
-    const outerPolicy: AuthPolicy = () =>
+    const outerPolicy = () =>
       Effect.sync(() => {
         calls.push('outer');
       });
@@ -168,8 +162,10 @@ describe('Effect RPC authentication and authorization', () => {
       payload: {},
       success: Schema.Void,
     });
-    const InnerApi = withAuthz(innerPolicy)(RpcGroup.make(InnerRpc));
-    const Api = withAuthz(outerPolicy)(RpcGroup.make(OuterRpc).merge(InnerApi));
+    const InnerApi = Authz.guard(innerPolicy)(RpcGroup.make(InnerRpc));
+    const Api = Authz.guard(outerPolicy)(
+      RpcGroup.make(OuterRpc).merge(InnerApi),
+    );
     const Handlers = Api.toLayer({
       InnerRpc: () => Effect.void,
       OuterRpc: () => Effect.void,
@@ -203,7 +199,7 @@ describe('Effect RPC authentication and authorization', () => {
 
     const One = Rpc.make('One', { payload: {}, success: Schema.Void });
     const Two = Rpc.make('Two', { payload: {}, success: Schema.Void });
-    const Api = withAuthz()(RpcGroup.make(One, Two));
+    const Api = Authz.guard()(RpcGroup.make(One, Two));
     const Handlers = Api.toLayer({
       One: () => Effect.void,
       Two: () => Effect.void,
@@ -221,7 +217,7 @@ describe('Effect RPC authentication and authorization', () => {
       Effect.scoped(
         Effect.gen(function* () {
           const app = yield* RpcServer.toHttpEffect(Api);
-          const response = yield* withAuthCookies(app).pipe(
+          const response = yield* authzCookies(app).pipe(
             Effect.provideService(
               HttpServerRequest.HttpServerRequest,
               HttpServerRequest.fromWeb(request),

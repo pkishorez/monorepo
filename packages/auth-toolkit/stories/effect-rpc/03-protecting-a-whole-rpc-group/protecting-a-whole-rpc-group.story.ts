@@ -1,8 +1,16 @@
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Story } from 'laymos/story';
-import { Forbidden, withAuthz } from 'auth-toolkit/server/rpc';
+import { Authz } from 'auth-toolkit/rpc';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
+
+const only = (id: string, reason: string) =>
+  Authz.policy(({ user }) => user.id === id, reason);
+
+const administrator = only('admin', 'Administrator required');
+const workspaceOwner = only('owner', 'Workspace owner required');
+const support = only('support', 'Support access required');
+const member = only('member', 'Membership required');
 
 const GetWorkspace = Rpc.make('GetWorkspace', {
   payload: {},
@@ -12,19 +20,11 @@ const GetWorkspace = Rpc.make('GetWorkspace', {
 const DeleteWorkspace = Rpc.make('DeleteWorkspace', {
   payload: {},
   success: Schema.String,
-}).pipe(
-  withAuthz(({ user }) =>
-    user.id === 'admin'
-      ? Effect.void
-      : Effect.fail(new Forbidden({ reason: 'Administrator required' })),
-  ),
-);
+}).pipe(Authz.guard(administrator));
 
-const WorkspaceApi = withAuthz(({ user }) =>
-  user.id === 'owner'
-    ? Effect.void
-    : Effect.fail(new Forbidden({ reason: 'Workspace owner required' })),
-)(RpcGroup.make(GetWorkspace, DeleteWorkspace));
+const WorkspaceApi = Authz.guard(workspaceOwner)(
+  RpcGroup.make(GetWorkspace, DeleteWorkspace),
+);
 
 const WorkspaceHandlers = WorkspaceApi.toLayer({
   GetWorkspace: () => Effect.succeed('Acme workspace'),
@@ -36,22 +36,16 @@ const GetAuditLog = Rpc.make('GetAuditLog', {
   success: Schema.String,
 });
 
-const SupportApi = withAuthz(({ user }) =>
-  user.id === 'support'
-    ? Effect.void
-    : Effect.fail(new Forbidden({ reason: 'Support access required' })),
-)(RpcGroup.make(GetAuditLog));
+const SupportApi = Authz.guard(support)(RpcGroup.make(GetAuditLog));
 
 const GetDashboard = Rpc.make('GetDashboard', {
   payload: {},
   success: Schema.String,
 });
 
-const PortalApi = withAuthz(({ user }) =>
-  user.id === 'member'
-    ? Effect.void
-    : Effect.fail(new Forbidden({ reason: 'Membership required' })),
-)(RpcGroup.make(GetDashboard).merge(SupportApi));
+const PortalApi = Authz.guard(member)(
+  RpcGroup.make(GetDashboard).merge(SupportApi),
+);
 
 const PortalHandlers = PortalApi.toLayer({
   GetAuditLog: () => Effect.succeed('Audit log'),

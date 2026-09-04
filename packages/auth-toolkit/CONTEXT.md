@@ -66,18 +66,22 @@ _Avoid_: current user (omits the Session), auth context (easily confused with Ef
 
 **Current Auth Resolver**:
 The replaceable server capability that resolves Current Auth and refreshed cookies from an incoming request. Its production implementation performs Server-Side Verification against the Auth Worker.
-_Avoid_: auth provider, RPC verifier
+_Avoid_: auth provider, RPC verifier, CurrentAuthResolver (the tag is `Authz.Resolver`; its production layer is `resolverLive`)
 
 **Authentication Verification Failure**:
 The Consumer Backend could not determine Current Auth because Server-Side Verification was unavailable. This is different from a request that has no valid session.
 _Avoid_: unauthenticated request, invalid session
 
+**Auth Cannotation**:
+The one Cannotation (see rpc-toolkit) auth-toolkit declares per Sibling. Attached without a value it is an Authentication Requirement; attached with a value it also carries an Authorization Policy. Which value applies to an endpoint follows rpc-toolkit's Nearest Wins.
+_Avoid_: auth middleware (the Cannotation attaches one), withAuthz and `.with` (the generic Cannotation verb; Authz calls it `guard`)
+
 **Authentication Requirement**:
-A declaration that an RPC may run only with valid Current Auth. It establishes identity but imposes no additional permission rule.
+An Auth Cannotation without a value: the endpoint may run only with valid Current Auth. It establishes identity but imposes no additional permission rule.
 _Avoid_: auth policy (reserved for authorization)
 
 **Authorization Policy**:
-An Effect-returning rule that decides whether Current Auth may perform an RPC. A declaration on a more specific RPC replaces an inherited group declaration.
+The value an Auth Cannotation carries: a rule that decides whether Current Auth may perform the endpoint. Usually built from an invariant and a failure reason; underneath it is an Effect that fails with Forbidden.
 _Avoid_: permission boolean, auth check
 
 **Batched RPC Request**:

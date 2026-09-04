@@ -1,37 +1,17 @@
-import { Context, Effect, Layer, Option, Ref, Schema } from 'effect';
+import { Effect, Option, Ref } from 'effect';
 import { Cookies } from 'effect/unstable/http';
-import { Rpc, RpcGroup, RpcMiddleware } from 'effect/unstable/rpc';
 
-import {
-  CurrentAuthResolver,
-  currentAuthResolverLayer,
-  type CurrentAuthResolution,
-  type CurrentAuthResolverLayerOptions,
-} from '../current-auth.js';
-import {
-  AuthorizationPolicy,
-  CurrentAuth,
-  Forbidden,
-  Unauthenticated,
-  type AuthPolicy,
-} from './context.js';
+import { Authz } from './authz.js';
+import { cannotation } from './cannotation.js';
+import type { CurrentAuthResolution } from '../current-auth/index.js';
 import { RequestAuthState } from './cookies.js';
 
 export type Verification = Effect.Effect<
   CurrentAuthResolution | null,
-  Unauthenticated
+  InstanceType<typeof Authz.VerificationUnavailable>
 >;
 
-const AuthFailure = Schema.Union([Unauthenticated, Forbidden]);
-
-export class RpcAuthMiddleware extends RpcMiddleware.Service<
-  RpcAuthMiddleware,
-  { provides: CurrentAuth }
->()('auth-toolkit/server/rpc/RpcAuthMiddleware', {
-  error: AuthFailure,
-}) {}
-
-export type RpcAuthLayerOptions = CurrentAuthResolverLayerOptions;
+type AuthzImpl = Extract<Parameters<typeof cannotation.layer>[0], Function>;
 
 const requestFromHeaders = (headers: Readonly<Record<string, string>>) =>
   new Request('http://rpc.local', { headers: Object.entries(headers) });
@@ -64,12 +44,10 @@ const cookieChanges = (
   return { added, refreshed, reissued, removed };
 };
 
-// Builds the RPC middleware from the currently provided Current Auth Resolver.
-export const rpcAuthMiddlewareLayer = Layer.effect(
-  RpcAuthMiddleware,
-  Effect.map(CurrentAuthResolver, (resolver) =>
-    RpcAuthMiddleware.of((handler, { headers, rpc }) => {
-      const policy = Context.getOption(rpc.annotations, AuthorizationPolicy);
+const makeAuthzImpl = Effect.map(
+  Authz.Resolver,
+  (resolver): AuthzImpl =>
+    ({ headers, rpc, value: policy }) => {
       const verification: Verification = Effect.gen(function* () {
         const resolved = yield* resolver.resolve(requestFromHeaders(headers));
 
@@ -108,11 +86,13 @@ export const rpcAuthMiddlewareLayer = Layer.effect(
 
         return resolved;
       }).pipe(
-        Effect.tapError(() => Effect.logWarning('Session verification failed')),
+        Effect.tapError(() =>
+          Effect.logWarning('Session verification unavailable'),
+        ),
         Effect.mapError(
           () =>
-            new Unauthenticated({
-              reason: 'Session verification failed',
+            new Authz.VerificationUnavailable({
+              reason: 'Session verification unavailable',
             }),
         ),
         Effect.withSpan('auth.verify_session', {
@@ -130,7 +110,7 @@ export const rpcAuthMiddlewareLayer = Layer.effect(
           : verification;
 
         if (resolved === null) {
-          return yield* new Unauthenticated({
+          return yield* new Authz.Unauthenticated({
             reason: 'Authentication required',
           });
         }
@@ -160,67 +140,9 @@ export const rpcAuthMiddlewareLayer = Layer.effect(
           );
         }
 
-        return yield* Effect.provideService(
-          handler,
-          CurrentAuth,
-          resolved.currentAuth,
-        );
+        return resolved.currentAuth;
       });
-    }),
-  ),
+    },
 );
 
-// Provides the RPC middleware backed by the Auth Worker's verifier.
-export const rpcAuthLayer = (options: RpcAuthLayerOptions) =>
-  rpcAuthMiddlewareLayer.pipe(Layer.provide(currentAuthResolverLayer(options)));
-
-type AuthzTarget = Rpc.Any | RpcGroup.Any;
-
-type WithAuthz<T extends AuthzTarget> =
-  T extends RpcGroup.RpcGroup<infer A>
-    ? RpcGroup.RpcGroup<Rpc.AddMiddleware<A, typeof RpcAuthMiddleware>>
-    : T extends Rpc.Any
-      ? Rpc.AddMiddleware<T, typeof RpcAuthMiddleware>
-      : never;
-
-interface AuthzDecorator {
-  <T extends AuthzTarget>(target: T): WithAuthz<T>;
-}
-
-// Declares authentication, and optionally authorization, on an RPC or group.
-// A policy on a more specific RPC takes precedence over an inherited group
-// policy. Calling this without a policy never removes an inherited policy.
-export const withAuthz = (policy?: AuthPolicy): AuthzDecorator =>
-  ((target: Rpc.Any | RpcGroup.Any) => {
-    if (Rpc.isRpc(target)) {
-      if (policy === undefined) {
-        return target.middleware(RpcAuthMiddleware);
-      }
-
-      return target
-        .annotate(AuthorizationPolicy, policy)
-        .middleware(RpcAuthMiddleware);
-    }
-
-    const group = target as RpcGroup.RpcGroup<Rpc.Any>;
-
-    if (policy === undefined) {
-      return group.middleware(RpcAuthMiddleware);
-    }
-
-    const rpcsWithPolicy = Array.from(group.requests.values(), (rpc) => {
-      const alreadyHasPolicy = Option.isSome(
-        Context.getOption(rpc.annotations, AuthorizationPolicy),
-      );
-
-      if (alreadyHasPolicy) {
-        return rpc;
-      }
-
-      return (rpc as Rpc.Rpc<string>).annotate(AuthorizationPolicy, policy);
-    });
-
-    return RpcGroup.make(...rpcsWithPolicy)
-      .annotateMerge(group.annotations)
-      .middleware(RpcAuthMiddleware);
-  }) as unknown as AuthzDecorator;
+export const authzLayer = cannotation.layer(makeAuthzImpl);
