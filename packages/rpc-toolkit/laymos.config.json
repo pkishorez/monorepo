@@ -1,0 +1,33 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "layers": {
+    "rpc": {
+      "paths": ["src/rpc"],
+      "description": "The RPC Sibling — everything that talks Effect RPC. Each module is one capability reached by its own package subpath.",
+      "modules": {
+        "src/rpc/cannotation": {
+          "exposed": true
+        }
+      }
+    },
+    "http": {
+      "paths": ["src/http"],
+      "description": "The HTTP Sibling — everything that talks Effect HttpApi. Same shape as rpc; shares vocabulary, not code.",
+      "modules": {
+        "src/http/cannotation": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "rpc-toolkit": {
+      "description": "Siblings are independent public doors; neither imports the other.",
+      "rules": {
+        "rpc": [],
+        "http": []
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "name": "rpc-toolkit",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Opinionated abstractions over Effect RPC and Effect HttpApi: Cannotations — cascading, nearest-wins declarations on endpoints and groups that attach their own middleware",
+  "keywords": [
+    "effect",
+    "rpc",
+    "httpapi",
+    "middleware",
+    "annotations"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist/"
+  ],
+  "exports": {
+    "./rpc/cannotation": {
+      "types": "./dist/rpc/cannotation/index.d.ts",
+      "default": "./dist/rpc/cannotation/index.js"
+    },
+    "./http/cannotation": {
+      "types": "./dist/http/cannotation/index.d.ts",
+      "default": "./dist/http/cannotation/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.110"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:typescript6",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
