@@ -1,5 +1,17 @@
 # std-toolkit
 
+## 0.0.8
+
+### Patch Changes
+
+- [#29](https://github.com/pkishorez/monorepo/pull/29) [`efb3901`](https://github.com/pkishorez/monorepo/commit/efb3901439a0359ed37108db73447a07ddc2a73d) Thanks [@pkishorez](https://github.com/pkishorez)! - Add reversible draft schema versions that remain invisible to persisted snapshots, add optimistic table-level snapshot enforcement backed by an in-table baseline, and rename snapshot approval commands and output to use clearer update terminology.
+
+- [`06eb95d`](https://github.com/pkishorez/monorepo/commit/06eb95dad79a315549e540a1aacd268c334ee8ef) Thanks [@pkishorez](https://github.com/pkishorez)! - Add durable offline sync mutations via an outbox-based mutation flow, and reorganize the sync worker layer into a flow module with a shared outbox-transaction plan.
+
+- [#29](https://github.com/pkishorez/monorepo/pull/29) [`ac3a33c`](https://github.com/pkishorez/monorepo/commit/ac3a33c4502e098fde58c9ae64923d7ddbbeb787) Thanks [@pkishorez](https://github.com/pkishorez)! - Add `version` to `createStdSync`. When the stored version differs from the configured one (including clients that never had one), the Sync Store is emptied before anything is served, so a wiped or re-shaped backend never meets a stale local replica.
+- Updated dependencies [[`b0730f3`](https://github.com/pkishorez/monorepo/commit/b0730f371943d2f45b144103302cc64563f25ff7)]:
+  - @pkishorez/effect-tracer@0.0.8
+
 ## 0.0.7
 
 ### Patch Changes
