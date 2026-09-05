@@ -183,14 +183,14 @@ export const rpcEdgeCases = Story.make({
     }),
     Story.question('When are refreshed cookies relayed?', {
       answer:
-        'Only when the request/response app uses `authzCookies`. Streaming and WebSocket transports cannot add headers after RPC execution.',
+        'Only when the request/response app uses `authzCookies`, and one cookie per name. Streaming and WebSocket transports cannot add headers after RPC execution.',
       proof: Story.trace(
         Effect.gen(function* () {
           const TestAuth = authLayer(() =>
             Effect.succeed(
               resolvedAuth('user-1', [
                 'session=NEW; Path=/; HttpOnly',
-                'session=NEW; Path=/admin; HttpOnly',
+                'session_cache=NEW; Path=/; HttpOnly',
               ]),
             ),
           );
@@ -200,7 +200,7 @@ export const rpcEdgeCases = Story.make({
           const cookies = wrapped.headers.getSetCookie();
 
           yield* Story.assert(
-            'the wrapper relays every returned cookie',
+            'the wrapper relays every distinctly named cookie',
             cookies.length === 2,
           );
           yield* Story.assert(

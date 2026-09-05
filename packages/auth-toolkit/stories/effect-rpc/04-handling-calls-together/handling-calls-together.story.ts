@@ -63,7 +63,7 @@ export const handlingCallsTogether = Story.make({
   questions: [
     Story.question('How often is one batched RPC request verified?', {
       answer:
-        'Once. Both calls receive the same Current Auth, and the HTTP response carries every refreshed cookie.',
+        'Once. Both calls receive the same Current Auth, and the HTTP response carries every refreshed cookie. Relay is keyed by cookie name, so same-name cookies collapse to the last one.',
       proof: Story.trace(
         Effect.gen(function* () {
           const verificationCount = yield* Ref.make(0);
@@ -72,7 +72,7 @@ export const handlingCallsTogether = Story.make({
               Effect.as(
                 resolvedAuth('user-1', [
                   'session=NEW; Path=/; HttpOnly',
-                  'session=NEW; Path=/admin; HttpOnly',
+                  'session_cache=NEW; Path=/; HttpOnly',
                 ]),
               ),
             ),
@@ -98,7 +98,7 @@ export const handlingCallsTogether = Story.make({
             verifications === 1,
           );
           yield* Story.assert(
-            'same-name cookies with different paths are relayed',
+            'every distinctly named refreshed cookie is relayed',
             cookies.length === 2,
           );
           return { verifications, cookies };

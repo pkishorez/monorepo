@@ -1,0 +1,7 @@
+# Refreshed cookie relay is keyed by cookie name
+
+Both Effect integrations relay the Auth Worker's refreshed cookies through `HttpServerResponse`'s own cookie collection, so at most one cookie per name reaches the caller. Two `Set-Cookie` values sharing a name but scoped to different paths collapse to the last one.
+
+The relay previously appended raw `Set-Cookie` values to a WHATWG `Headers` instance cast into the response's `headers` field, which Effect types as a readonly `Record<string, string>`. That cast preserved same-name cookies, but any middleware composed outside the relay that treated headers as a record corrupted the response: `HttpServerResponse.setHeader` spreads `self.headers`, and spreading a `Headers` instance yields `{}`, silently dropping every header including `content-type`. Because the relay wraps the whole HTTP app on the RPC path and registers a pre-response handler on the HTTP API path, ordinary middleware composition reaches that failure.
+
+Better Auth issues every cookie with `path: "/"`, so the cookies actually flowing through the relay cannot collide on name. The dormant guarantee was traded for the reachable corruption. Revisit if Better Auth ever emits path-scoped duplicates: Effect models neither `headers` nor `cookies` in a way that can carry them, so preserving them would require a different response representation rather than a return to the cast.
