@@ -161,6 +161,6 @@ catalogs:
 # TODO: drop this once alchemy-run/alchemy#1127 merges and ships in a release
 # — it works around a Node terminal service crash inside Cloudflare Workers
 # (see patches/alchemy@2.0.0-beta.72.patch). Applies to every alchemy
-# dependency in the workspace, not just apps/docs or alchemy-toolkit.
+# dependency in the workspace, including apps/docs and the toolkit integrations.
 patchedDependencies:
   alchemy@2.0.0-beta.72: patches/alchemy@2.0.0-beta.72.patch

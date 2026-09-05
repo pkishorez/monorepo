@@ -80,11 +80,15 @@ const matchesTrustedOrigin = (origin: string, pattern: string) => {
 
   let value = origin;
   if (!pattern.includes('://')) {
+    let url: URL;
     try {
-      value = new URL(origin).host;
+      url = new URL(origin);
     } catch {
       return false;
     }
+    // A scheme-less pattern never grants a plaintext origin credentialed CORS.
+    if (url.protocol !== 'https:') return false;
+    value = url.host;
   }
   const source = escapeRegExp(pattern)
     .replaceAll('\\*', '.*')
@@ -93,20 +97,20 @@ const matchesTrustedOrigin = (origin: string, pattern: string) => {
 };
 
 const corsHeaders = (request: Request, trustedOrigins: string[]) => {
+  // Vary: Origin even when untrusted, so a shared cache never serves one
+  // origin's CORS response to another.
+  const headers = new Headers({ Vary: 'Origin' });
   const origin = request.headers.get('Origin');
   if (
     !origin ||
     !trustedOrigins.some((pattern) => matchesTrustedOrigin(origin, pattern))
   ) {
-    return undefined;
+    return { allowed: false, headers };
   }
 
-  const headers = new Headers({
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods': CORS_METHODS,
-    'Access-Control-Allow-Origin': origin,
-    Vary: 'Origin',
-  });
+  headers.set('Access-Control-Allow-Credentials', 'true');
+  headers.set('Access-Control-Allow-Methods', CORS_METHODS);
+  headers.set('Access-Control-Allow-Origin', origin);
   const requestedHeaders = request.headers.get(
     'Access-Control-Request-Headers',
   );
@@ -114,7 +118,7 @@ const corsHeaders = (request: Request, trustedOrigins: string[]) => {
     headers.set('Access-Control-Allow-Headers', requestedHeaders);
     headers.append('Vary', 'Access-Control-Request-Headers');
   }
-  return headers;
+  return { allowed: true, headers };
 };
 
 const withCorsHeaders = (response: Response, cors: Headers) => {
@@ -169,15 +173,16 @@ export const createAuthWorker = (
   }) as Auth<BetterAuthOptions>;
 
   const handler = async (request: Request) => {
-    const cors = corsHeaders(request, config.trustedOrigins);
+    const { allowed, headers: cors } = corsHeaders(
+      request,
+      config.trustedOrigins,
+    );
     if (request.method === 'OPTIONS') {
-      return cors
-        ? new Response(null, { status: 204, headers: cors })
-        : new Response(null, { status: 403 });
+      return new Response(null, { status: allowed ? 204 : 403, headers: cors });
     }
 
     const response = await auth.handler(request);
-    return cors ? withCorsHeaders(response, cors) : response;
+    return withCorsHeaders(response, cors);
   };
 
   return { auth, handler };

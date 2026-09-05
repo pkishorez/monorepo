@@ -5,7 +5,7 @@ import {
   layerWebSocketProtocol,
   RpcConnection,
   type ConnectionStatus,
-} from '@pkishorez/effect-cloudflare/websocket-rpc-client';
+} from 'rpc-toolkit/rpc/websocket-client';
 import type { BankWebHandler } from '../../server/index.ts';
 import {
   BankRpcSerializationLayer,

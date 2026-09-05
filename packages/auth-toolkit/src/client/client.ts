@@ -28,9 +28,31 @@ interface AuthClientConfig {
 const browserHref = () =>
   typeof window === 'undefined' ? '' : window.location.href;
 
+const patchedHistories = new WeakSet<History>();
+
+// pushState/replaceState fire no event, so SPA routers would change the href
+// without notifying subscribers.
+const patchHistoryOnce = () => {
+  if (patchedHistories.has(window.history)) return;
+  patchedHistories.add(window.history);
+
+  for (const method of ['pushState', 'replaceState'] as const) {
+    const original = window.history[method];
+    window.history[method] = function (
+      this: History,
+      ...args: Parameters<History[typeof method]>
+    ) {
+      const result = original.apply(this, args);
+      window.dispatchEvent(new Event(LOGIN_ERROR_CHANGE_EVENT));
+      return result;
+    };
+  }
+};
+
 const subscribeToLocation = (onStoreChange: () => void) => {
   if (typeof window === 'undefined') return () => undefined;
 
+  patchHistoryOnce();
   window.addEventListener('popstate', onStoreChange);
   window.addEventListener(LOGIN_ERROR_CHANGE_EVENT, onStoreChange);
   return () => {
@@ -86,7 +108,6 @@ export const createAuthClient = (config: AuthClientConfig) => {
 
         const nextURL = withoutLoginError(window.location.href);
         window.history.replaceState(window.history.state, '', nextURL);
-        window.dispatchEvent(new Event(LOGIN_ERROR_CHANGE_EVENT));
       }, []);
 
       return { error, dismiss };

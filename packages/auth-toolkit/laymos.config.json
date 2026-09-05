@@ -93,6 +93,9 @@
             "current-auth-resolver": {
               "exposed": false
             },
+            "refreshed-cookies": {
+              "exposed": false
+            },
             "rpc": {
               "exposed": true
             },
@@ -102,8 +105,16 @@
           },
           "rules": {
             "current-auth-resolver": ["verification", "current-auth"],
-            "rpc": ["current-auth", "current-auth-resolver"],
-            "http-api": ["current-auth", "current-auth-resolver"]
+            "rpc": [
+              "current-auth",
+              "current-auth-resolver",
+              "refreshed-cookies"
+            ],
+            "http-api": [
+              "current-auth",
+              "current-auth-resolver",
+              "refreshed-cookies"
+            ]
           }
         }
       }

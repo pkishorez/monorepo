@@ -38,7 +38,8 @@
     "src/sync/strategy/strategy/new-to-old/__tests__",
     "src/sync/strategy/strategy/old-to-new/__tests__",
     "src/sync/strategy/strategy/single-item-source/__tests__",
-    "src/sync/flow/supervisor/__tests__"
+    "src/sync/flow/supervisor/__tests__",
+    "src/db/dynamodb/alchemy/__tests__"
   ],
   "storiesPath": "stories",
   "layers": {
@@ -737,6 +738,15 @@
           "exposed": true
         }
       }
+    },
+    "dynamodb.alchemy": {
+      "paths": ["src/db/dynamodb/alchemy"],
+      "description": "Infrastructure — provision an Alchemy resource from DynamoDB topology",
+      "modules": {
+        "src/db/dynamodb/alchemy": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
@@ -797,7 +807,8 @@
           "dynamodb.attribute-value",
           "std-table.contract",
           "std-table.definition"
-        ]
+        ],
+        "dynamodb.alchemy": ["dynamodb.public"]
       }
     },
     "idb": {

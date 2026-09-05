@@ -85,6 +85,31 @@ describe('createAuthWorker', () => {
     );
 
     expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
+    expect(response.headers.get('Vary')).toContain('Origin');
+  });
+
+  it('does not match a scheme-less wildcard against a plaintext origin', async () => {
+    const { handler } = createAuthWorker(config);
+    const response = await handler(
+      new Request('https://auth.example.com/api/auth/get-session', {
+        headers: { Origin: 'http://branch.preview.example.com' },
+      }),
+    );
+
+    expect(response.headers.has('Access-Control-Allow-Origin')).toBe(false);
+  });
+
+  it('varies on Origin when rejecting an untrusted preflight', async () => {
+    const { handler } = createAuthWorker(config);
+    const response = await handler(
+      new Request('https://auth.example.com/api/auth/get-session', {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://attacker.test' },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get('Vary')).toContain('Origin');
   });
 
   it('disables Better Auth rate limiting', () => {

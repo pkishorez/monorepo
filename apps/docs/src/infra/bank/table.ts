@@ -1,5 +1,5 @@
 import { Stage } from 'alchemy';
-import { makeDynamoDBTable } from '@monorepo/alchemy-toolkit/unstable/dynamo-table';
+import { makeDynamoDBTable } from 'std-toolkit/db/dynamodb/alchemy';
 import { Effect } from 'effect';
 import { DynamoDB as StdDynamoDB } from 'std-toolkit/db/dynamodb';
 import { bankTable } from '../../demos/bank/std-table/table/index.ts';

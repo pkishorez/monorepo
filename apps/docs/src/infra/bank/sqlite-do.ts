@@ -1,5 +1,5 @@
 import * as Cloudflare from 'alchemy/Cloudflare';
-import { DurableRpcWorker } from '@monorepo/alchemy-toolkit/unstable/durable-rpc-worker';
+import { DurableRpcWorker } from 'rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
 import { Effect } from 'effect';
 import { SQLite } from 'std-toolkit/db/sqlite';
 import { makeDurableObjectSQLite } from 'std-toolkit/db/sqlite/durable-object';

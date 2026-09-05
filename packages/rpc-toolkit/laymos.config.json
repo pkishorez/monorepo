@@ -1,10 +1,11 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
+  "ignoredPaths": ["src/integration-tests"],
   "layers": {
     "rpc": {
-      "paths": ["src/rpc"],
-      "description": "The RPC Sibling — everything that talks Effect RPC. Each module is one capability reached by its own package subpath.",
+      "paths": ["src/rpc/cannotation"],
+      "description": "RPC Cannotation declarations and native middleware implementation factories.",
       "modules": {
         "src/rpc/cannotation": {
           "exposed": true
@@ -19,14 +20,60 @@
           "exposed": true
         }
       }
+    },
+    "invocation": {
+      "paths": ["src/rpc/invocation"],
+      "description": "Server-controlled invocation kind, independent of transport and deployment.",
+      "modules": {
+        "src/rpc/invocation": {
+          "exposed": true
+        }
+      }
+    },
+    "websocket-client": {
+      "paths": ["src/rpc/websocket-client"],
+      "description": "RPC socket transport and subscription lifecycle.",
+      "modules": {
+        "src/rpc/websocket-client": {
+          "exposed": true
+        }
+      }
+    },
+    "hibernating-rpc": {
+      "paths": ["src/rpc/cloudflare/hibernating-rpc"],
+      "description": "Cloudflare hibernation runtime using platform ports.",
+      "modules": {
+        "src/rpc/cloudflare/hibernating-rpc": {
+          "exposed": true
+        }
+      }
+    },
+    "alchemy": {
+      "paths": [
+        "src/rpc/cloudflare/alchemy/rpc-worker",
+        "src/rpc/cloudflare/alchemy/durable-rpc-worker"
+      ],
+      "description": "Alchemy resource composition over RPC runtimes.",
+      "modules": {
+        "src/rpc/cloudflare/alchemy/rpc-worker": {
+          "exposed": true
+        },
+        "src/rpc/cloudflare/alchemy/durable-rpc-worker": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
     "rpc-toolkit": {
-      "description": "Siblings are independent public doors; neither imports the other.",
+      "description": "Independent RPC and HTTP declarations; Cloudflare runtime depends on invocation context and Alchemy composition depends on runtime.",
       "rules": {
         "rpc": [],
-        "http": []
+        "http": [],
+        "invocation": [],
+        "websocket-client": [],
+        "hibernating-rpc": ["invocation"],
+        "alchemy": ["hibernating-rpc"]
       }
     }
   }

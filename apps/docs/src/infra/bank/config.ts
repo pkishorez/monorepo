@@ -1,5 +1,5 @@
 import { Config, Effect, Redacted } from 'effect';
-import type { ConnectionSlot } from '@pkishorez/effect-cloudflare/hibernating-rpc';
+import type { ConnectionSlot } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 import { Role } from '../../demos/bank/rpc/contract/index.ts';
 
 const secret = (key: string) =>

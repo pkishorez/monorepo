@@ -1,5 +1,5 @@
 import { Effect, Stream } from 'effect';
-import type { ConnectionStatus } from '@pkishorez/effect-cloudflare/websocket-rpc-client';
+import type { ConnectionStatus } from 'rpc-toolkit/rpc/websocket-client';
 import type { LeadershipState } from 'std-toolkit/sync';
 import { makeLiveValue, type LiveValue } from '../live-value.ts';
 

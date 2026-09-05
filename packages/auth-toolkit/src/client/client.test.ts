@@ -15,8 +15,13 @@ vi.mock('better-auth/react', () => ({
 vi.mock('react', () => ({
   useCallback: (callback: unknown) => callback,
   useMemo: (factory: () => unknown) => factory(),
-  useSyncExternalStore: (_subscribe: unknown, getSnapshot: () => unknown) =>
-    getSnapshot(),
+  useSyncExternalStore: (
+    subscribe: (onStoreChange: () => void) => () => void,
+    getSnapshot: () => unknown,
+  ) => {
+    subscribe(() => undefined);
+    return getSnapshot();
+  },
 }));
 
 import { createAuthClient } from './client.js';
@@ -26,17 +31,21 @@ const stubBrowser = (href: string) => {
   const replaceState = vi.fn((_state, _title, nextURL: string) => {
     location.href = nextURL;
   });
+  const pushState = vi.fn((_state, _title, nextURL: string) => {
+    location.href = nextURL;
+  });
   const dispatchEvent = vi.fn();
 
-  vi.stubGlobal('window', {
+  const window = {
     location,
-    history: { state: null, replaceState },
+    history: { state: null, pushState, replaceState },
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent,
-  });
+  };
+  vi.stubGlobal('window', window);
 
-  return { location, replaceState, dispatchEvent };
+  return { location, window, replaceState, dispatchEvent };
 };
 
 describe('createAuthClient', () => {
@@ -113,5 +122,17 @@ describe('createAuthClient', () => {
       'https://app.example.com/login?next=%2Fhome#form',
     );
     expect(browser.dispatchEvent).toHaveBeenCalledOnce();
+  });
+
+  it('notifies subscribers when an SPA router calls pushState', () => {
+    const browser = stubBrowser('https://app.example.com/login?error=denied');
+    const client = createAuthClient({ baseURL: 'https://auth.example.com' });
+
+    client.useLoginError();
+    browser.dispatchEvent.mockClear();
+    browser.window.history.pushState(null, '', 'https://app.example.com/home');
+
+    expect(browser.dispatchEvent).toHaveBeenCalledOnce();
+    expect(browser.location.href).toBe('https://app.example.com/home');
   });
 });
