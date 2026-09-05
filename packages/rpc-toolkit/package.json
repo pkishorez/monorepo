@@ -1,6 +1,6 @@
 {
   "name": "rpc-toolkit",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": false,
   "description": "Effect RPC and HttpApi Cannotations, WebSocket clients, and Cloudflare runtime and deployment integrations",
   "keywords": [
