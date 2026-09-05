@@ -49,6 +49,8 @@ Server entry selects database and service providers, supplies operation dependen
 
 Client RPC and sync expose capabilities with explicit initialization and cleanup. The root route provider under `routes/internal/` owns their session lifetime, including connections, subscriptions, and offline queues. Route pages consume that provider. A separate client entry file is unnecessary.
 
+For client login, logout, and session hooks or server authentication wiring, read [auth-toolkit Application setup](../auth-toolkit/setup/guide.md).
+
 ## Routes
 
 Each route is a folder with `page.tsx`. Keep all application UI under routes. Folders named `components/` and `internal/` are ignored by routing: put UI in components and non-rendering route logic in internal. Place reusable pieces at the nearest common route ancestor. Verify the application’s router applies these conventions when setting up a new application.
