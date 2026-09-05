@@ -102,9 +102,9 @@
   "peerDependencies": {
     "@pkishorez/effect-tracer": "workspace:^",
     "@pkishorez/lotel": "workspace:^",
-    "@tanstack/react-db": "^0.2.1",
+    "@tanstack/react-db": "^0.3.0",
     "@tanstack/react-query": "^5.101.4",
-    "effect": "^4.0.0-rc.110",
+    "effect": "^4.0.0-rc.112",
     "laymos": "workspace:^",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

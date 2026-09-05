@@ -268,6 +268,8 @@ export const makeHibernatingWebSocketRpc = Effect.fnUntraced(function* <
     supportsAck: false,
     supportsTransferables: false,
     supportsSpanPropagation: true,
+    supportsNotifications: true,
+    codecFor: serialization.codecFor,
   };
 
   const runtime = ManagedRuntime.make(

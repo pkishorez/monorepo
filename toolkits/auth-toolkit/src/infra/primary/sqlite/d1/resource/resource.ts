@@ -14,6 +14,8 @@ export const d1PrimaryDatabaseResource = (
 ) =>
   Cloudflare.D1.Database(id, {
     ...(props.name ? { name: props.name } : {}),
-    migrationsDir: authMigrationsDir,
-    migrationsTable: AUTH_MIGRATIONS_TABLE,
+    migrations: {
+      dir: authMigrationsDir,
+      table: AUTH_MIGRATIONS_TABLE,
+    },
   });

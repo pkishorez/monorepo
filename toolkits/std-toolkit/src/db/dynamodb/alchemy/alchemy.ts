@@ -30,10 +30,44 @@ export const makeDynamoDBTable = (
     billingMode: topology.BillingMode,
     ...(sortKey !== undefined ? { sortKey } : {}),
     ...(topology.LocalSecondaryIndexes !== undefined
-      ? { localSecondaryIndexes: topology.LocalSecondaryIndexes }
+      ? {
+          localSecondaryIndexes: topology.LocalSecondaryIndexes.map(
+            (index) => ({
+              indexName: index.IndexName,
+              sortKey: index.KeySchema.find((key) => key.KeyType === 'RANGE')!
+                .AttributeName,
+              projection: index.Projection,
+            }),
+          ),
+        }
       : {}),
     ...(topology.GlobalSecondaryIndexes !== undefined
-      ? { globalSecondaryIndexes: topology.GlobalSecondaryIndexes }
+      ? {
+          globalSecondaryIndexes: topology.GlobalSecondaryIndexes.map(
+            (index) => {
+              const sortKey = index.KeySchema.find(
+                (key) => key.KeyType === 'RANGE',
+              )?.AttributeName;
+              return {
+                indexName: index.IndexName,
+                partitionKey: index.KeySchema.find(
+                  (key) => key.KeyType === 'HASH',
+                )!.AttributeName,
+                ...(sortKey !== undefined ? { sortKey } : {}),
+                projection: index.Projection,
+                ...(index.ProvisionedThroughput !== undefined
+                  ? { provisionedThroughput: index.ProvisionedThroughput }
+                  : {}),
+                ...(index.OnDemandThroughput !== undefined
+                  ? { onDemandThroughput: index.OnDemandThroughput }
+                  : {}),
+                ...(index.WarmThroughput !== undefined
+                  ? { warmThroughput: index.WarmThroughput }
+                  : {}),
+              };
+            },
+          ),
+        }
       : {}),
   });
 };

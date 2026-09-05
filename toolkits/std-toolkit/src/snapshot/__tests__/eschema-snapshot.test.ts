@@ -73,7 +73,21 @@ describe('ESchema semantic snapshots', () => {
       'Child',
       'Parent',
     ]);
-    expect(JSON.stringify(snapshot).match(/ESchemaRef/g)).toHaveLength(3);
+    const version = snapshot.schemas[1]!.versions[0]!;
+    for (const representation of [version.encoded, version.decoded]) {
+      expect(representation).toMatchObject({
+        representation: {
+          propertySignatures: expect.arrayContaining(
+            ['first', 'second'].map((name) => ({
+              isMutable: false,
+              isOptional: false,
+              name: { type: 'string', value: name },
+              type: { _tag: 'ESchemaRef', identity: 'Child' },
+            })),
+          ),
+        },
+      });
+    }
 
     const first = ESchema.make('Same', { value: Schema.String }).build();
     const second = ESchema.make('Same', { value: Schema.String }).build();

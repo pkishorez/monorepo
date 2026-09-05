@@ -47,7 +47,19 @@ it('preserves physical identity, attributes, and both kinds of secondary indexes
     sortKey: 'sk',
     attributes: { pk: 'S', sk: 'S', alternate: 'S' },
     billingMode: 'PAY_PER_REQUEST',
-    localSecondaryIndexes: topology.LocalSecondaryIndexes,
-    globalSecondaryIndexes: topology.GlobalSecondaryIndexes,
+    localSecondaryIndexes: [
+      {
+        indexName: 'byAlternate',
+        sortKey: 'alternate',
+        projection: { ProjectionType: 'ALL' },
+      },
+    ],
+    globalSecondaryIndexes: [
+      {
+        indexName: 'byAlternateGlobally',
+        partitionKey: 'alternate',
+        projection: { ProjectionType: 'ALL' },
+      },
+    ],
   });
 });

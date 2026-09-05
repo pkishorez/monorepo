@@ -30,7 +30,7 @@
     "typescript": "catalog:"
   },
   "peerDependencies": {
-    "effect": "4.0.0-rc.110",
+    "effect": "4.0.0-rc.112",
     "react": "19.2.8"
   }
 }
