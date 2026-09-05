@@ -9,3 +9,5 @@ Start by describing the API with RPC toolkit groups: what each call accepts, wha
 `client/rpc` creates the RPC client from the shared and server group definitions. Server definitions must have a browser-safe export that does not pull in server handlers or services. Client sync uses this RPC client to send requests and receive updates.
 
 Use the installed RPC toolkit APIs and check that the definitions, handlers, and client agree. See [the architecture conventions](../architecture.md) for the boundaries.
+
+For RPC authentication guards and authorization policies, read [auth-toolkit Usage](../../auth-toolkit/usage/guide.md).

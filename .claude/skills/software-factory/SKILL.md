@@ -15,4 +15,5 @@ Four parts, each usable on its own:
 - **Sync** — STD toolkit collections, subscriptions, and optimistic/offline actions. Read [the sync guide](sync/guide.md).
 
 Start with the requested part. A complete setup starts with modeling.
+For application authentication setup or RPC authentication and authorization guards, read [the auth-toolkit skill](../auth-toolkit/SKILL.md). Start with Application setup or Usage.
 Inspect existing code and installed toolkit APIs before implementing. Use the grilling skill for unresolved decisions and reuse agreements already reached. Finish by checking the affected behavior, types, and Laymos rules, and report remaining limitations.
