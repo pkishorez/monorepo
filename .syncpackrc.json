@@ -3,6 +3,25 @@
   "strict": true,
   "versionGroups": [
     {
+      "label": "kui-toolkit internal peers support compatible releases",
+      "packages": ["kui-toolkit"],
+      "dependencies": [
+        "@pkishorez/effect-tracer",
+        "@pkishorez/lotel",
+        "laymos",
+        "std-toolkit",
+        "use-effect-ts"
+      ],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "workspace:^"
+    },
+    {
+      "label": "kui-toolkit public peers use supported ranges",
+      "packages": ["kui-toolkit"],
+      "dependencyTypes": ["peer"],
+      "policy": "semverRangeOnly"
+    },
+    {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
       "packages": ["public-monorepo", "docs"],
@@ -29,7 +48,7 @@
         "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
-        "@monorepo/frontend",
+        "kui-toolkit",
         "rpc-toolkit",
         "std-toolkit",
         "use-effect-ts",
@@ -58,6 +77,20 @@
   ],
   "semverGroups": [
     {
+      "label": "kui-toolkit registry peers use compatible ranges",
+      "packages": ["kui-toolkit"],
+      "dependencies": [
+        "@tanstack/react-db",
+        "@tanstack/react-query",
+        "effect",
+        "react",
+        "react-dom",
+        "zustand"
+      ],
+      "dependencyTypes": ["peer"],
+      "range": "^"
+    },
+    {
       "label": "std-toolkit supports React 18 and 19 peers",
       "dependencies": ["react"],
       "dependencyTypes": ["peer"],
@@ -78,7 +111,7 @@
         "@pkishorez/effect-tracer",
         "laymos",
         "@pkishorez/lotel",
-        "@monorepo/frontend",
+        "kui-toolkit",
         "rpc-toolkit",
         "std-toolkit",
         "use-effect-ts",

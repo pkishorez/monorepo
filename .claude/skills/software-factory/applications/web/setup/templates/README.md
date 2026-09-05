@@ -10,6 +10,8 @@ Start with [common/package.json](common/package.json), [Alchemy](common/alchemy.
 
 Fill in app name, title, stack name, production hostname, local hostname, and Portless name from the agreed settings.
 
+The common files include `kui-toolkit`, Tailwind v4 configuration, fonts, and root stylesheet loading. Apply [UI and Tailwind rules](../rules.md#ui-and-tailwind), including the dependency choice for workspaces that do not contain the toolkit.
+
 Use [root scripts](monorepo/scripts.json), [Vite configuration](monorepo/vite.config.ts), and [Syncpack configuration](monorepo/.syncpackrc.json) only for missing root configuration.
 
 Remove the Alchemy template’s CI-only deployment guard when GitHub Actions is declined and manual deployment is requested.

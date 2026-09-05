@@ -44,7 +44,7 @@
     "typescript": "catalog:typescript6"
   },
   "devDependencies": {
-    "@monorepo/frontend": "workspace:*",
+    "kui-toolkit": "workspace:*",
     "@pkishorez/effect-tracer": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",

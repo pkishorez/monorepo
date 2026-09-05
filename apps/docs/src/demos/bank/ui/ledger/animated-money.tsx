@@ -5,8 +5,8 @@ import {
   useMotionValue,
   useReducedMotion,
   useTransform,
-} from '@monorepo/frontend/motion';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/motion';
+import { cn } from 'kui-toolkit/lib/utils';
 import { formatMoney } from './money.ts';
 
 const ROLL_MIN_S = 0.25;

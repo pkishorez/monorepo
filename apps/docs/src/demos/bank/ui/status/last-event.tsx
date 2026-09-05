@@ -1,5 +1,5 @@
 import { Match } from 'effect';
-import { AnimatePresence, motion } from '@monorepo/frontend/motion';
+import { AnimatePresence, motion } from 'kui-toolkit/motion';
 
 export type LastEventLine =
   | { readonly kind: 'refused'; readonly id: string; readonly message: string }

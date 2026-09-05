@@ -24,6 +24,14 @@
 - Use [monorepo examples](templates/README.md) only to fill gaps.
 - Follow `configure-syncpack` when changing dependency policy.
 
+## UI and Tailwind
+
+- Include `kui-toolkit` in every web app. Use `workspace:*` when the package exists in the target workspace; otherwise add its published version to the default pnpm catalog and use `catalog:`. If it has not been published yet, report the missing dependency instead of inventing a registry version.
+- Apply the common [Vite config](templates/common/vite.config.ts) and [stylesheet](templates/common/src/styles.css): Tailwind v4's Vite plugin compiles CSS, and `ssr.noExternal` compiles the toolkit's TS/TSX during server rendering. Merge these settings into existing configuration.
+- Keep Tailwind configuration in `src/styles.css` using `@theme`, `@source`, and CSS token overrides. This setup needs no `tailwind.config.js` or separate PostCSS config. The toolkit global stylesheet supplies Tailwind, animations, typography, theme tokens, and its own source registration.
+- Load `styles.css?url` through the root route's stylesheet link. Both common and Durable Object root templates preserve this link. Use semantic colors such as `bg-background`, `text-foreground`, and `text-muted-foreground` so the toolkit theme applies consistently.
+- Import components from `kui-toolkit/components/ui/*`; install optional peers only for specialized blocks that need them. Keep application styles and overrides in the app stylesheet.
+
 ## Files and templates
 
 - Follow [web architecture](../architecture.md) and [shared architecture](../../../core/architecture.md) for file placement.

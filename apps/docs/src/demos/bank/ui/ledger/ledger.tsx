@@ -15,8 +15,8 @@ import {
   Pencil,
   X,
 } from 'lucide-react';
-import { AnimatePresence, motion } from '@monorepo/frontend/motion';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { AnimatePresence, motion } from 'kui-toolkit/motion';
+import { cn } from 'kui-toolkit/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney } from './animated-money.tsx';
 import { formatMoney } from './money.ts';

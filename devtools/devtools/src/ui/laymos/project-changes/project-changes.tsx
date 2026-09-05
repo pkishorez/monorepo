@@ -1,6 +1,6 @@
 import type { ArchitectureAnalysis, ChangeSet, ChangeStatus } from 'laymos';
 
-import { cn } from '@monorepo/frontend/lib/utils';
+import { cn } from 'kui-toolkit/lib/utils';
 
 const changeLabels: Readonly<Record<ChangeStatus, string>> = {
   added: 'New',

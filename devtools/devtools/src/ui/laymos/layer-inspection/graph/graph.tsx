@@ -12,7 +12,7 @@ import {
 } from '@xyflow/react';
 import { useMemo } from 'react';
 
-import { cn } from '@monorepo/frontend/lib/utils';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import type {
   Layer,

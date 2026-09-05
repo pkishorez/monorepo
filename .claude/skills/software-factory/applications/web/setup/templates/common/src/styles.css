@@ -1,1 +1,16 @@
-@import 'tailwindcss';
+@import 'kui-toolkit/styles/global.css';
+@import 'kui-toolkit/styles/font-inter.css';
+
+/* Tailwind v4 app configuration; toolkit classes register their own sources. */
+@source './';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+}
+
+@layer base {
+  body {
+    @apply min-h-svh bg-background font-sans text-foreground antialiased;
+  }
+}

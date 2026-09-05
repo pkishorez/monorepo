@@ -7,18 +7,18 @@ import {
   Maximize2,
   Minimize2,
   SquareArrowOutUpRight,
-} from '@monorepo/frontend/lucide';
+} from 'kui-toolkit/lucide';
 import type { StoryTree } from 'laymos';
 
-import { SourceViewer } from '@monorepo/frontend/components/blocks/source-viewer';
-import { Button } from '@monorepo/frontend/components/ui/button';
+import { SourceViewer } from 'kui-toolkit/components/blocks/source-viewer';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@monorepo/frontend/components/ui/dialog';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/dialog';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import {
   countQuestions,

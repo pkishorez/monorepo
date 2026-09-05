@@ -1,7 +1,7 @@
 {
-  "name": "@monorepo/frontend",
-  "version": "0.0.3",
-  "private": true,
+  "name": "kui-toolkit",
+  "version": "0.0.0",
+  "private": false,
   "type": "module",
   "imports": {
     "#components/*": "./src/components/*.tsx",
@@ -43,6 +43,7 @@
     "@shadcn/react": "catalog:",
     "@shikijs/langs": "catalog:",
     "@shikijs/themes": "catalog:",
+    "@tailwindcss/typography": "catalog:",
     "@tanstack/react-form": "catalog:",
     "@uiw/codemirror-theme-xcode": "catalog:",
     "@uiw/react-codemirror": "catalog:",
@@ -79,7 +80,6 @@
   "devDependencies": {
     "@pkishorez/effect-tracer": "workspace:*",
     "@pkishorez/lotel": "workspace:*",
-    "@tailwindcss/typography": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",
@@ -100,16 +100,17 @@
     "zustand": "catalog:"
   },
   "peerDependencies": {
-    "@pkishorez/effect-tracer": "workspace:*",
-    "@pkishorez/lotel": "workspace:*",
-    "@tanstack/react-db": "0.1.92",
-    "@tanstack/react-query": "5.101.4",
-    "effect": "4.0.0-rc.110",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "std-toolkit": "workspace:*",
-    "use-effect-ts": "workspace:*",
-    "zustand": "5.0.14"
+    "@pkishorez/effect-tracer": "workspace:^",
+    "@pkishorez/lotel": "workspace:^",
+    "@tanstack/react-db": "^0.2.1",
+    "@tanstack/react-query": "^5.101.4",
+    "effect": "^4.0.0-rc.110",
+    "laymos": "workspace:^",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "std-toolkit": "workspace:^",
+    "use-effect-ts": "workspace:^",
+    "zustand": "^5.0.15"
   },
   "peerDependenciesMeta": {
     "@pkishorez/effect-tracer": {
@@ -127,6 +128,9 @@
     "effect": {
       "optional": true
     },
+    "laymos": {
+      "optional": true
+    },
     "std-toolkit": {
       "optional": true
     },
@@ -136,5 +140,25 @@
     "zustand": {
       "optional": true
     }
-  }
+  },
+  "description": "React components, blocks, forms, hooks, and styles for Vite and TanStack Start.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "packages/kui-toolkit"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "src/components/",
+    "src/form/",
+    "src/hooks/",
+    "src/lib/",
+    "src/styles/",
+    "src/css.d.ts",
+    "README.md",
+    "LICENSE"
+  ]
 }

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Effect, Exit } from 'effect';
 import { useState } from 'react';
+import { Button } from 'kui-toolkit/components/ui/button';
 import { useComponentLifecycle } from 'use-effect-ts';
 import { Rpc } from '../client/rpc/index.ts';
 import { useRpc } from './internal/rpc-provider';
@@ -46,19 +47,23 @@ function Home() {
   return (
     <main className="mx-auto flex min-h-svh max-w-xl flex-col justify-center px-6 py-16">
       <h1 className="text-4xl font-semibold tracking-tight">__APP_TITLE__</h1>
-      <p className="mt-3 text-stone-600" role="status" aria-live="polite">
+      <p
+        className="mt-3 text-muted-foreground"
+        role="status"
+        aria-live="polite"
+      >
         {connection.status === 'error'
           ? 'Could not connect. Reload to try again.'
           : greeting}
       </p>
-      <button
+      <Button
         type="button"
-        className="mt-6 self-start rounded-lg bg-stone-900 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-50"
+        className="mt-6 self-start"
         disabled={connection.status !== 'ready' || pending}
         onClick={() => setAttempt((value) => value + 1)}
       >
         Refresh
-      </button>
+      </Button>
     </main>
   );
 }

@@ -1,13 +1,13 @@
-import { ChevronRightIcon } from '@monorepo/frontend/lucide';
+import { ChevronRightIcon } from 'kui-toolkit/lucide';
 import {
   NewTracesRow,
   TraceList,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer';
+} from 'kui-toolkit/components/blocks/otel-trace-viewer';
 import type {
   OtelSpan,
   TraceGroup,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer/trace-model';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import { cn } from 'kui-toolkit/lib/utils';
 import type { ColumnWidths, TraceListSettings } from './state';
 import { groupTracesBy } from './filtering';
 

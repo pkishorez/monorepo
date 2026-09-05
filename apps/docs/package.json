@@ -14,7 +14,7 @@
   "dependencies": {
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
-    "@monorepo/frontend": "workspace:*",
+    "kui-toolkit": "workspace:*",
     "@pkishorez/effect-tracer": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",

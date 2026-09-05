@@ -3,21 +3,21 @@ import { Cause, Effect, Stream } from 'effect';
 import type { StoryReport } from 'laymos';
 import { useRunEffect } from 'use-effect-ts';
 import { useIsFetching, useQuery } from '@tanstack/react-query';
-import { Button } from '@monorepo/frontend/components/ui/button';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from '@monorepo/frontend/components/ui/empty';
-import { toast } from '@monorepo/frontend/components/ui/sonner';
+} from 'kui-toolkit/components/ui/empty';
+import { toast } from 'kui-toolkit/components/ui/sonner';
 import {
   ChevronsUpDownIcon,
   FolderIcon,
   RotateCwIcon,
-} from '@monorepo/frontend/lucide';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/lucide';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
+import { cn } from 'kui-toolkit/lib/utils';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,

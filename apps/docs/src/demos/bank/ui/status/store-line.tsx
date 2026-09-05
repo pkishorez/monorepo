@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { cn } from 'kui-toolkit/lib/utils';
 
 export interface StoreChoice {
   readonly value: string;

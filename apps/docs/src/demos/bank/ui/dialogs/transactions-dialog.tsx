@@ -5,17 +5,17 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@monorepo/frontend/components/ui/dialog';
+} from 'kui-toolkit/components/ui/dialog';
 import {
   Drawer,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
-} from '@monorepo/frontend/components/ui/drawer';
-import { useIsMobile } from '@monorepo/frontend/hooks/use-mobile';
-import { AnimatePresence, motion } from '@monorepo/frontend/motion';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/drawer';
+import { useIsMobile } from 'kui-toolkit/hooks/use-mobile';
+import { AnimatePresence, motion } from 'kui-toolkit/motion';
+import { cn } from 'kui-toolkit/lib/utils';
 import type { Account } from '../../contract/account/index.ts';
 import { AnimatedMoney } from '../ledger/animated-money.tsx';
 import { formatMoney } from '../ledger/money.ts';

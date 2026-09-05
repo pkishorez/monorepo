@@ -12,8 +12,8 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import { useEffect, useMemo, useState } from 'react';
-import { Layers3, Lock, Network, Share2 } from '@monorepo/frontend/lib/lucide';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { Layers3, Lock, Network, Share2 } from 'kui-toolkit/lib/lucide';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import { ChangeBadge, changeSurfaceClass } from '../../project-changes';
 import { graphIdentity } from '../../architecture-graph';

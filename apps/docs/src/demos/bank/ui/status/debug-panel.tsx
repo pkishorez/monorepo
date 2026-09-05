@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { cn } from 'kui-toolkit/lib/utils';
 import { formatMoney } from '../ledger/money.ts';
 import { eyebrow, mono, textLink } from '../shared.ts';
 

@@ -13,7 +13,7 @@ import { SubmitButton } from './components/submit-button.js';
  *
  * @example
  * ```tsx
- * import { useAppForm } from "@monorepo/frontend/form"
+ * import { useAppForm } from "kui-toolkit/form"
  *
  * function MyForm() {
  *   const form = useAppForm({

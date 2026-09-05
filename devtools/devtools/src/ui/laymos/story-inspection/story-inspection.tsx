@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronRight, FileText, PanelLeft } from '@monorepo/frontend/lucide';
+import { ChevronRight, FileText, PanelLeft } from 'kui-toolkit/lucide';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import type { StoryTree } from 'laymos';
 
@@ -7,10 +7,10 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@monorepo/frontend/components/ui/resizable';
-import { Button } from '@monorepo/frontend/components/ui/button';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/resizable';
+import { Button } from 'kui-toolkit/components/ui/button';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import {
   countQuestions,

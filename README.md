@@ -32,7 +32,7 @@ WebSocket clients, and Cloudflare runtime and Alchemy deployment integrations.
 
 | Workspace                                            | Package                                                        | Purpose                                                                                                               |
 | ---------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [`packages/frontend`](./packages/frontend)           | `@monorepo/frontend` (private)                                 | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository. |
+| [`packages/kui-toolkit`](./packages/kui-toolkit)     | `kui-toolkit`                                                  | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository. |
 | [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs.                                                                |
 
 ### Single-table design toolkit

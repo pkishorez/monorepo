@@ -1,4 +1,4 @@
-import { cn } from '@monorepo/frontend/lib/utils';
+import { cn } from 'kui-toolkit/lib/utils';
 import { formatRelativeTime } from './filtering';
 
 type FlowContext = {

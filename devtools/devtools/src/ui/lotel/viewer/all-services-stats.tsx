@@ -1,5 +1,5 @@
-import { AlertTriangleIcon } from '@monorepo/frontend/lucide';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { AlertTriangleIcon } from 'kui-toolkit/lucide';
+import { cn } from 'kui-toolkit/lib/utils';
 import {
   formatRelativeTime,
   formatServiceName,

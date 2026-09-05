@@ -1,5 +1,5 @@
-import { FileIcon, FolderIcon } from '@monorepo/frontend/lib/lucide';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { FileIcon, FolderIcon } from 'kui-toolkit/lib/lucide';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import { ChangeBadge } from '../../project-changes';
 import type {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@monorepo/frontend/components/ui/button';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -7,9 +7,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@monorepo/frontend/components/ui/dialog';
-import { Input } from '@monorepo/frontend/components/ui/input';
-import { Label } from '@monorepo/frontend/components/ui/label';
+} from 'kui-toolkit/components/ui/dialog';
+import { Input } from 'kui-toolkit/components/ui/input';
+import { Label } from 'kui-toolkit/components/ui/label';
 import { formatMoney } from '../ledger/money.ts';
 import {
   DEFAULT_OPENING_BALANCE,

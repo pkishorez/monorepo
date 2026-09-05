@@ -35,7 +35,7 @@ If TypeScript is blocked only by missing generated route metadata before the fir
 When preliminary checks pass, or only framework route generation is pending:
 Say: “Code generation is complete. Run `pnpm dev` from `<app-path>` and open `<local-url>`. Please test and let me know if it works.”
 
-Describe the greeting and connection result the user should see, and any missing local prerequisites.
+Describe the greeting and connection result the user should see, and any missing local prerequisites. Include the toolkit styling in local review: the page should use the configured font and theme colors, and backend overlays should render a styled Refresh button. After route generation, verify the normal production build processes both client and SSR imports and includes the toolkit CSS.
 
 Fix reported problems, then return to this checkpoint.
 

@@ -16,6 +16,7 @@ export default defineConfig({
     },
   },
   ssr: {
+    noExternal: ['kui-toolkit'],
     resolve: {
       mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'],
     },
