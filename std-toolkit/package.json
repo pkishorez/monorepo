@@ -1,6 +1,6 @@
 {
   "name": "std-toolkit",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "private": false,
   "description": "Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration",
   "keywords": [

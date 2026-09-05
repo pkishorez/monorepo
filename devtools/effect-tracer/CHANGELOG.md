@@ -1,5 +1,7 @@
 # @pkishorez/effect-tracer
 
+## 0.0.9
+
 ## 0.0.8
 
 ### Patch Changes
