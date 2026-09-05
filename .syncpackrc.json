@@ -51,9 +51,7 @@
         "kui-toolkit",
         "rpc-toolkit",
         "std-toolkit",
-        "use-effect-ts",
-        "@pkishorez/code",
-        "whatever"
+        "use-effect-ts"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "pinVersion": "workspace:*"
@@ -114,9 +112,7 @@
         "kui-toolkit",
         "rpc-toolkit",
         "std-toolkit",
-        "use-effect-ts",
-        "@pkishorez/code",
-        "whatever"
+        "use-effect-ts"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "isIgnored": true

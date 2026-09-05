@@ -62,7 +62,7 @@ Keep the existing dependency direction:
 domain -> persistence -> runtime -> workers -> lifecycle -> composition -> public
 ```
 
-The renamed context lives under `std-toolkit/src/sync`.
+The renamed context lives under `toolkits/std-toolkit/src/sync`.
 
 Add or replace these deep modules:
 
@@ -86,7 +86,7 @@ src/sync/
       broadcast-channel.ts     # private browser adapter
 ```
 
-Every folder module must follow the repository's deep-module convention: a narrow `index.ts`, a matching implementation file, and private supporting files that are not re-exported unnecessarily. Update `std-toolkit/laymos.config.json` so all layers and module declarations use `sync.*` and `src/sync`.
+Every folder module must follow the repository's deep-module convention: a narrow `index.ts`, a matching implementation file, and private supporting files that are not re-exported unnecessarily. Update `toolkits/std-toolkit/laymos.config.json` so all layers and module declarations use `sync.*` and `src/sync`.
 
 ## Peer Sync Contract
 
@@ -138,7 +138,7 @@ The default `BroadcastChannel` adapter stays private. Only `PeerChannel` and `Pe
 
 ### Task 1: Establish the `sync` Context and Package Paths
 
-Rename `std-toolkit/src/tanstack-sync` to `std-toolkit/src/sync` and update imports, test paths, stories, package exports, and Laymos configuration. Rename the public implementation file from `tanstack-sync.ts` to `sync.ts` while retaining the factory name `createStdSync`.
+Rename `toolkits/std-toolkit/src/tanstack-sync` to `toolkits/std-toolkit/src/sync` and update imports, test paths, stories, package exports, and Laymos configuration. Rename the public implementation file from `tanstack-sync.ts` to `sync.ts` while retaining the factory name `createStdSync`.
 
 Remove `std-toolkit/tanstack-sync` and `std-toolkit/tanstack-sync/paced`; add `std-toolkit/sync` and `std-toolkit/sync/paced`. Do not retain deprecated aliases. Update telemetry labels and other identifiers that describe this context.
 

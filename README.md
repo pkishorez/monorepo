@@ -25,19 +25,24 @@ These packages share a fixed Changesets version and are released together.
 | [`devtools/laymos`](./devtools/laymos)     | [`laymos`](https://www.npmjs.com/package/laymos)                           | Declares and enforces TypeScript architecture as layers.                                                                  |
 | [`devtools/lotel`](./devtools/lotel)       | [`@pkishorez/lotel`](https://www.npmjs.com/package/@pkishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development. |
 
+### Toolkits
+
+| Workspace                                          | Package        | Purpose                                                                                                   |
+| -------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------- |
+| [`toolkits/auth-toolkit`](./toolkits/auth-toolkit) | `auth-toolkit` | Shared authentication worker, sessions, and authorization integrations.                                   |
+| [`toolkits/kui-toolkit`](./toolkits/kui-toolkit)   | `kui-toolkit`  | Shared React components, forms, styles, hooks, and visualization blocks.                                  |
+| [`toolkits/rpc-toolkit`](./toolkits/rpc-toolkit)   | `rpc-toolkit`  | RPC and HTTP Cannotations, WebSocket clients, and Cloudflare runtime and Alchemy deployment integrations. |
+| [`toolkits/std-toolkit`](./toolkits/std-toolkit)   | `std-toolkit`  | Single-table data modeling, schema evolution, database adapters, and sync.                                |
+
 ### Packages
 
-[`rpc-toolkit`](./packages/rpc-toolkit) provides RPC and HTTP Cannotations,
-WebSocket clients, and Cloudflare runtime and Alchemy deployment integrations.
-
-| Workspace                                            | Package                                                        | Purpose                                                                                                               |
-| ---------------------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| [`packages/kui-toolkit`](./packages/kui-toolkit)     | `kui-toolkit`                                                  | Shared React UI components, forms, styles, hooks, and graph visualization blocks used by projects in this repository. |
-| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs.                                                                |
+| Workspace                                            | Package                                                        | Purpose                                                |
+| ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
+| [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs. |
 
 ### Single-table design toolkit
 
-[`std-toolkit`](./std-toolkit) ([npm](https://www.npmjs.com/package/std-toolkit))
+[`std-toolkit`](./toolkits/std-toolkit) ([npm](https://www.npmjs.com/package/std-toolkit))
 is a published package containing a set of composable modules for
 database-agnostic single-table design:
 
@@ -51,7 +56,7 @@ database-agnostic single-table design:
 | `std-toolkit/db/idb`      | IndexedDB binding and explicit Store setup.                                            |
 | `std-toolkit/sync`        | TanStack DB synchronization with local replicas, paced writes, and Peer Sync.          |
 
-See the [std-toolkit README](./std-toolkit/README.md) for installation and
+See the [std-toolkit README](./toolkits/std-toolkit/README.md) for installation and
 entry-point documentation.
 
 ## Toolchain
