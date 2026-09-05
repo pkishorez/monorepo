@@ -217,8 +217,8 @@ describe('Effect HTTP API authentication and authorization', () => {
           Effect.succeed(
             resolvedAuth('u1', [
               'session=NEW; Path=/; HttpOnly',
-              'session=NEW; Path=/admin; HttpOnly',
               'session_cache=NEW; Path=/; HttpOnly',
+              'session_cache_1=NEW; Path=/; HttpOnly',
             ]),
           ),
         ),
@@ -236,8 +236,8 @@ describe('Effect HTTP API authentication and authorization', () => {
 
     expect(response.headers.getSetCookie()).toEqual([
       'session=NEW; Path=/; HttpOnly',
-      'session=NEW; Path=/admin; HttpOnly',
       'session_cache=NEW; Path=/; HttpOnly',
+      'session_cache_1=NEW; Path=/; HttpOnly',
     ]);
   });
 });

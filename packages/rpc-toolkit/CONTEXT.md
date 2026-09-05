@@ -27,3 +27,24 @@ _Avoid_: merge, combine, override chain
 **Sibling**:
 The RPC and HTTP flavours of the toolkit. Each is self-contained with the same shape; they share vocabulary, not a common core.
 _Avoid_: adapter, transport layer
+
+**Hibernation Replay**:
+Restarting an active streaming call after its server wakes, using the saved request and checkpoint while the client's connection remains open.
+_Avoid_: reconnect, fiber resume
+
+**Subscription Restart**:
+A fresh subscription initiated by the client after its connection is re-established. It is distinct from Hibernation Replay on an existing connection.
+_Avoid_: hibernation replay
+
+**Connection Identity**:
+The identity established when a connection opens and retained for that connection. It does not by itself establish the caller's current authorization.
+_Avoid_: current permissions
+
+**Fresh Call**:
+A new call received from a client, including a subscription started after reconnect. Restoration through Hibernation Replay is not a Fresh Call.
+
+**Invocation Kind**:
+The server's distinction between a Fresh Call and Hibernation Replay. It describes why a call is executing, independently of the caller's identity or authorization.
+
+**Admission Rate Limit**:
+A limit on Fresh Calls accepted from a caller. Restoring an existing subscription through Hibernation Replay does not consume another admission by default.

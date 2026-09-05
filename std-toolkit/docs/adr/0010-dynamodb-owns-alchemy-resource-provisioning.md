@@ -1,0 +1,3 @@
+# DynamoDB owns its Alchemy resource integration
+
+Move Alchemy Toolkit's DynamoDB table resource functionality into the explicit `std-toolkit/db/dynamodb/alchemy` subpath, consuming the existing DynamoDB table topology. Keep Alchemy an optional peer dependency and isolate its imports from the ordinary DynamoDB entry point so runtime database consumers do not acquire infrastructure dependencies. This places resource provisioning beside the adapter whose topology it implements, as part of the [retirement of the provider-wide toolkit packages](../../../packages/rpc-toolkit/docs/adr/0003-rpc-owns-runtime-and-deployment-integrations.md).

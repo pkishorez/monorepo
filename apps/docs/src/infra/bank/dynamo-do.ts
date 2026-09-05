@@ -1,4 +1,4 @@
-import { DurableRpcWorker } from '@monorepo/alchemy-toolkit/unstable/durable-rpc-worker';
+import { DurableRpcWorker } from 'rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
 import { Effect } from 'effect';
 import { BankRpcs } from '../../demos/bank/rpc/contract/index.ts';
 import { makeBankServer } from '../../demos/bank/server/index.ts';

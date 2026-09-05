@@ -189,8 +189,8 @@ describe('Effect RPC authentication and authorization', () => {
     mocks.getSession.mockImplementation(({ fetchOptions }) => {
       const headers = new Headers();
       headers.append('set-cookie', 'session=NEW; Path=/; HttpOnly');
-      headers.append('set-cookie', 'session=NEW; Path=/admin; HttpOnly');
       headers.append('set-cookie', 'session_cache=NEW; Path=/; HttpOnly');
+      headers.append('set-cookie', 'session_cache_1=NEW; Path=/; HttpOnly');
       fetchOptions.onSuccess({ response: new Response(null, { headers }) });
       return Promise.resolve({
         data: { session: { id: 's1' }, user: { id: 'u1' } },
@@ -235,8 +235,8 @@ describe('Effect RPC authentication and authorization', () => {
     expect(mocks.getSession).toHaveBeenCalledTimes(1);
     expect(webResponse.headers.getSetCookie()).toEqual([
       'session=NEW; Path=/; HttpOnly',
-      'session=NEW; Path=/admin; HttpOnly',
       'session_cache=NEW; Path=/; HttpOnly',
+      'session_cache_1=NEW; Path=/; HttpOnly',
     ]);
   });
 });

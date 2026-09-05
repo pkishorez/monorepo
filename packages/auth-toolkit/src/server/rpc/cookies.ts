@@ -1,30 +1,13 @@
 import { Context, Effect, Ref, SynchronizedRef } from 'effect';
 import { HttpServerResponse } from 'effect/unstable/http';
 
+import { appendRefreshedCookies } from '../refreshed-cookies/index.js';
 import type { Verification } from './middleware.js';
 
 interface RequestAuthStateValue {
   readonly refreshedCookies: Ref.Ref<ReadonlyArray<string>>;
   readonly verify: (verification: Verification) => Verification;
 }
-
-const appendSetCookieHeaders = (
-  response: HttpServerResponse.HttpServerResponse,
-  setCookieHeaders: ReadonlyArray<string>,
-): HttpServerResponse.HttpServerResponse => {
-  const headers = new Headers(response.headers);
-  for (const header of setCookieHeaders) {
-    headers.append('set-cookie', header);
-  }
-
-  return Object.assign(
-    Object.create(Object.getPrototypeOf(response)),
-    response,
-    {
-      headers,
-    },
-  ) as HttpServerResponse.HttpServerResponse;
-};
 
 // Internal: lets authzLayer verify once per HTTP request when present.
 export class RequestAuthState extends Context.Service<
@@ -69,7 +52,5 @@ export const authzCookies = <
 
     const response = yield* Effect.provideService(app, RequestAuthState, state);
     const cookies = yield* Ref.get(refreshedCookies);
-    return cookies.length === 0
-      ? response
-      : appendSetCookieHeaders(response, cookies);
+    return appendRefreshedCookies(response, cookies);
   });

@@ -14,9 +14,7 @@
   "dependencies": {
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
-    "@monorepo/alchemy-toolkit": "workspace:*",
     "@monorepo/frontend": "workspace:*",
-    "@pkishorez/effect-cloudflare": "workspace:*",
     "@pkishorez/effect-tracer": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
@@ -30,7 +28,8 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "std-toolkit": "workspace:*",
-    "use-effect-ts": "workspace:*"
+    "use-effect-ts": "workspace:*",
+    "rpc-toolkit": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

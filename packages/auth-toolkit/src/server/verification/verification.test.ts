@@ -41,6 +41,35 @@ describe('verifyRequest', () => {
     });
   });
 
+  it('throws when the Auth Worker responds with an error status', async () => {
+    mocks.getSession.mockResolvedValueOnce({
+      data: null,
+      error: { status: 503, statusText: 'Service Unavailable' },
+    });
+
+    await expect(
+      verifyRequest({
+        authWorkerUrl: 'https://auth.example.com',
+        request: new Request('https://api.example.com/whoami', {
+          headers: { cookie: 'session=abc' },
+        }),
+      }),
+    ).rejects.toThrow(/status 503/);
+  });
+
+  it('returns null when the Auth Worker reports no session', async () => {
+    mocks.getSession.mockResolvedValueOnce({ data: null });
+
+    const verified = await verifyRequest({
+      authWorkerUrl: 'https://auth.example.com',
+      request: new Request('https://api.example.com/whoami', {
+        headers: { cookie: 'session=abc' },
+      }),
+    });
+
+    expect(verified).toBeNull();
+  });
+
   it('returns refreshed cookies as separate Set-Cookie values', async () => {
     mocks.getSession.mockImplementationOnce(({ fetchOptions }) => {
       const headers = new Headers();

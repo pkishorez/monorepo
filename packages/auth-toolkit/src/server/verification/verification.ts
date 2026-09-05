@@ -34,7 +34,7 @@ export const verifyRequest = async ({
 
   let refreshedCookies: string[] = [];
   const client = createAuthClient({ baseURL: authWorkerUrl });
-  const { data } = await client.getSession({
+  const { data, error } = await client.getSession({
     fetchOptions: {
       headers,
       onSuccess: ({ response }) => {
@@ -42,6 +42,13 @@ export const verifyRequest = async ({
       },
     },
   });
+  // better-fetch resolves non-2xx instead of rejecting, so an unhandled `error`
+  // here is the Auth Worker being unavailable, not an absent session.
+  if (error) {
+    throw new Error(
+      `Auth Worker session check failed with status ${error.status ?? 'unknown'}`,
+    );
+  }
   if (!data) return null;
 
   return { session: data.session, user: data.user, refreshedCookies };
