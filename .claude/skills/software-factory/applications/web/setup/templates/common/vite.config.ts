@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   build: { rolldownOptions: { external: ['cloudflare:workers'] } },
   ssr: {
+    noExternal: ['kui-toolkit'],
     resolve: { mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'] },
   },
   server: { allowedHosts: ['.__LOCAL_HOST__'] },

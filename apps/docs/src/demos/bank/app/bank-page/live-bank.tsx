@@ -1,6 +1,6 @@
 import { useMemo, useReducer, useState, useSyncExternalStore } from 'react';
 import { count, eq, not, sum, useLiveQuery } from '@tanstack/react-db';
-import { DevToolsPanel } from '@monorepo/frontend/components/blocks/devtools-panel';
+import { DevToolsPanel } from 'kui-toolkit/components/blocks/devtools-panel';
 import type { Account } from '../../contract/account/index.ts';
 import type { Transfer } from '../../contract/transfer/index.ts';
 import {

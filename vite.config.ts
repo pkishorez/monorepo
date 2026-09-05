@@ -9,7 +9,7 @@ export default defineConfig({
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
       '**/test/fixtures/**',
-      'packages/frontend/src/components/ui/**',
+      'packages/kui-toolkit/src/components/ui/**',
     ],
   },
   fmt: {
@@ -24,7 +24,7 @@ export default defineConfig({
       'whatever-code/src/codex/generated/**',
       '**/__tests__/fixtures/**',
       '**/test/fixtures/**',
-      'packages/frontend/src/components/ui/**',
+      'packages/kui-toolkit/src/components/ui/**',
       '**/package.json',
       'devtools/laymos/schema.json',
     ],

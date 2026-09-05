@@ -1,0 +1,6 @@
+**/*.test.*
+**/*.fixture.*
+**/fixtures/
+**/examples/
+**/skill/
+**/test-data.ts

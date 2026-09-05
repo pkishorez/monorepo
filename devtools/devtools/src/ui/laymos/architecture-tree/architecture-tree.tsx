@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 
-import { FolderIcon } from '@monorepo/frontend/lib/lucide';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { FolderIcon } from 'kui-toolkit/lib/lucide';
+import { cn } from 'kui-toolkit/lib/utils';
 
 export type ArchitectureTreeBoundaryState =
   | 'neutral'

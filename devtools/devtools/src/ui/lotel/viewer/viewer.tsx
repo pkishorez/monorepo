@@ -3,27 +3,27 @@ import { useLiveQuery } from '@tanstack/react-db';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { flowAttributePrefix } from '@pkishorez/effect-tracer/flow';
 import { makeRecordedFlow, RecordedFlowSchema } from '@pkishorez/lotel/flow';
-import { FlowSwimlane } from '@monorepo/frontend/components/blocks/flow-swimlane';
+import { FlowSwimlane } from 'kui-toolkit/components/blocks/flow-swimlane';
 import {
   attachLogs,
   groupByTrace,
   transformLog,
   transformSpan,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer';
+} from 'kui-toolkit/components/blocks/otel-trace-viewer';
 import type {
   OtelEvent,
   OtelSpan,
   TraceGroup,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer/trace-model';
-import { Button } from '@monorepo/frontend/components/ui/button';
+} from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@monorepo/frontend/components/ui/dialog';
-import { GitBranchIcon, SearchIcon, XIcon } from '@monorepo/frontend/lucide';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/dialog';
+import { GitBranchIcon, SearchIcon, XIcon } from 'kui-toolkit/lucide';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
+import { cn } from 'kui-toolkit/lib/utils';
 import type { DecodedEntity } from 'std-toolkit/core';
 import type {
   LogRecord,

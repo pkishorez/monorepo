@@ -1,13 +1,13 @@
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useState } from 'react';
-import { Button } from '@monorepo/frontend/components/ui/button';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@monorepo/frontend/components/ui/collapsible';
-import { Input } from '@monorepo/frontend/components/ui/input';
-import { Label } from '@monorepo/frontend/components/ui/label';
+} from 'kui-toolkit/components/ui/collapsible';
+import { Input } from 'kui-toolkit/components/ui/input';
+import { Label } from 'kui-toolkit/components/ui/label';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -16,8 +16,8 @@ import {
   FolderPlusIcon,
   PlusIcon,
   Trash2Icon,
-} from '@monorepo/frontend/lucide';
-import { cn } from '@monorepo/frontend/utils';
+} from 'kui-toolkit/lucide';
+import { cn } from 'kui-toolkit/utils';
 import { useProjectStore } from './project-store';
 
 /**

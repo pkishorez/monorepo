@@ -1,10 +1,9 @@
 @source './**/*.ts';
 @source './**/*.tsx';
-@source '../node_modules/@monorepo/frontend';
 
-@import '@monorepo/frontend/styles/global.css';
-@import '@monorepo/frontend/styles/typography.css';
-@import '@monorepo/frontend/styles/font-inter.css';
+@import 'kui-toolkit/styles/global.css';
+@import 'kui-toolkit/styles/typography.css';
+@import 'kui-toolkit/styles/font-inter.css';
 
 ::view-transition-old(root),
 ::view-transition-new(root) {

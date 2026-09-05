@@ -7,8 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@monorepo/frontend/components/ui/dropdown-menu';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/dropdown-menu';
+import { cn } from 'kui-toolkit/lib/utils';
 import type { Account } from '../contract/account/index.ts';
 import type { Transfer } from '../contract/transfer/index.ts';
 import { OpenDialog } from './dialogs/open-dialog.tsx';

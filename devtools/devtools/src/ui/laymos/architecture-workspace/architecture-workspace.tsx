@@ -12,7 +12,7 @@ import {
   GitBranch,
   Network,
   SlidersHorizontal,
-} from '@monorepo/frontend/lib/lucide';
+} from 'kui-toolkit/lib/lucide';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -23,20 +23,20 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@monorepo/frontend/components/ui/dropdown-menu';
+} from 'kui-toolkit/components/ui/dropdown-menu';
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@monorepo/frontend/components/ui/resizable';
+} from 'kui-toolkit/components/ui/resizable';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@monorepo/frontend/components/ui/tabs';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/tabs';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import {
   buildPresentationModel,

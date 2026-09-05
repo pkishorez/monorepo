@@ -6,8 +6,8 @@ import {
   Link2Off,
   PackageX,
   RefreshCw,
-} from '@monorepo/frontend/lib/lucide';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/lib/lucide';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import type { ModuleViolation } from '../../analysis-presentation';
 

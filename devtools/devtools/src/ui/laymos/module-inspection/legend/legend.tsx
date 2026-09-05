@@ -1,4 +1,4 @@
-import { Lock, Network, Share2 } from '@monorepo/frontend/lib/lucide';
+import { Lock, Network, Share2 } from 'kui-toolkit/lib/lucide';
 
 // Exposed is the default on almost every Module, so only exceptions are marked.
 const items = [

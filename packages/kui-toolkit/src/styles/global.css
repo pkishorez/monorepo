@@ -5,6 +5,7 @@
 
 @custom-variant dark (&:where(.dark, .dark *, [data-theme='dark'], [data-theme='dark'] *));
 
+@import './sources.css';
 @import './typography.css';
 @import './theme.css';
 @import './shiki.css';

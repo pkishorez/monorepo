@@ -1,8 +1,8 @@
-import { Loader2 } from '@monorepo/frontend/lucide';
+import { Loader2 } from 'kui-toolkit/lucide';
 import type { StoryTree } from 'laymos';
 
-import { Button } from '@monorepo/frontend/components/ui/button';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { Button } from 'kui-toolkit/components/ui/button';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import { runSummary, type StoryReports } from './model';
 

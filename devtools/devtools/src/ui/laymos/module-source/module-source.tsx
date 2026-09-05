@@ -9,44 +9,44 @@ import type {
 } from 'laymos';
 import { useComponentLifecycle } from 'use-effect-ts';
 
-import { DiffViewer } from '@monorepo/frontend/components/blocks/diff-viewer';
+import { DiffViewer } from 'kui-toolkit/components/blocks/diff-viewer';
 import {
   FileTree,
   expandAll,
   expandTo,
-} from '@monorepo/frontend/components/blocks/file-tree';
-import { MarkdownViewer } from '@monorepo/frontend/components/blocks/markdown-viewer';
+} from 'kui-toolkit/components/blocks/file-tree';
+import { MarkdownViewer } from 'kui-toolkit/components/blocks/markdown-viewer';
 import {
   SourceViewer,
   type SourceViewerLine,
-} from '@monorepo/frontend/components/blocks/source-viewer';
-import { Button } from '@monorepo/frontend/components/ui/button';
+} from 'kui-toolkit/components/blocks/source-viewer';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@monorepo/frontend/components/ui/dialog';
+} from 'kui-toolkit/components/ui/dialog';
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@monorepo/frontend/components/ui/resizable';
-import { Spinner } from '@monorepo/frontend/components/ui/spinner';
+} from 'kui-toolkit/components/ui/resizable';
+import { Spinner } from 'kui-toolkit/components/ui/spinner';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@monorepo/frontend/components/ui/tabs';
+} from 'kui-toolkit/components/ui/tabs';
 import {
   ChevronsDownUp,
   ChevronsUpDown,
   RefreshCw,
-} from '@monorepo/frontend/lib/lucide';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/lib/lucide';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import { initialSourceFile } from './initial-selection';
 import { buildSnapshotTree } from './snapshot-tree';

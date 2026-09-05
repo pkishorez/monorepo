@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import { FileIcon, FolderIcon } from '@monorepo/frontend/lib/lucide';
-import { cn } from '@monorepo/frontend/lib/utils';
+import { FileIcon, FolderIcon } from 'kui-toolkit/lib/lucide';
+import { cn } from 'kui-toolkit/lib/utils';
 
 import type { Layer, LayerInteraction } from '../../analysis-presentation';
 import { layerCount, layerEmptyState, layerRow } from '../presentation';

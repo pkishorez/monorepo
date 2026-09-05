@@ -1,9 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@monorepo/frontend/styles/font-inter.css';
-@import '@monorepo/frontend/styles/theme.css';
-@import '@monorepo/frontend/styles/shiki.css';
+@import 'kui-toolkit/styles/sources.css';
+@import 'kui-toolkit/styles/font-inter.css';
+@import 'kui-toolkit/styles/theme.css';
+@import 'kui-toolkit/styles/shiki.css';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
@@ -22,10 +23,6 @@
   --primary-foreground: oklch(0.18 0.03 258);
   --ring: oklch(0.72 0.16 255);
 }
-
-/* Scan @monorepo/frontend source so utility classes used by frontend
-   components rendered inside MDX are generated. */
-@source '../../../../packages/frontend/src';
 
 /* Single theme source of truth: map every fumadocs colour variable onto the
    frontend design tokens. The frontend tokens are redefined under `.dark` /

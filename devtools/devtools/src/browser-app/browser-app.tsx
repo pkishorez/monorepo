@@ -8,9 +8,9 @@ import {
   RouterProvider,
   useMatchRoute,
 } from '@tanstack/react-router';
-import { Toaster } from '@monorepo/frontend/components/ui/sonner';
-import { Button } from '@monorepo/frontend/components/ui/button';
-import { ArrowRightIcon, MoonIcon, SunIcon } from '@monorepo/frontend/lucide';
+import { Toaster } from 'kui-toolkit/components/ui/sonner';
+import { Button } from 'kui-toolkit/components/ui/button';
+import { ArrowRightIcon, MoonIcon, SunIcon } from 'kui-toolkit/lucide';
 import { DevtoolsRpcProvider } from '../client/devtools-rpc/index.js';
 import { Lotel } from '../ui/lotel/lotel/index.js';
 import { Laymos, LaymosHeader } from '../ui/laymos/laymos/index.js';

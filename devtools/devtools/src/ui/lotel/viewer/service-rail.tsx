@@ -4,10 +4,10 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SearchIcon,
-} from '@monorepo/frontend/lucide';
-import { AnimatePresence, motion } from '@monorepo/frontend/motion';
-import { cn } from '@monorepo/frontend/lib/utils';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
+} from 'kui-toolkit/lucide';
+import { AnimatePresence, motion } from 'kui-toolkit/motion';
+import { cn } from 'kui-toolkit/lib/utils';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
 import {
   formatRelativeTime,
   formatServiceName,

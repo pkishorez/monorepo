@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@monorepo/frontend/components/ui/button';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,9 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@monorepo/frontend/components/ui/alert-dialog';
-import { Trash2Icon } from '@monorepo/frontend/lucide';
-import { toast } from '@monorepo/frontend/components/ui/sonner';
+} from 'kui-toolkit/components/ui/alert-dialog';
+import { Trash2Icon } from 'kui-toolkit/lucide';
+import { toast } from 'kui-toolkit/components/ui/sonner';
 
 /** Telemetry toolbar actions. The DevTools URL is owned by the route shell. */
 export function Header({ onClear }: { onClear: () => Promise<number> }) {

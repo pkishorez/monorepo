@@ -1,12 +1,12 @@
 /**
- * TanStack Form integration for @monorepo/frontend
+ * TanStack Form integration for kui-toolkit
  *
  * This module provides a schema-agnostic form primitive that integrates
  * TanStack Form with the existing UI components.
  *
  * @example
  * ```tsx
- * import { useAppForm } from "@monorepo/frontend/form"
+ * import { useAppForm } from "kui-toolkit/form"
  * import { z } from "zod" // Or any Standard Schema compliant library
  *
  * function ContactForm() {

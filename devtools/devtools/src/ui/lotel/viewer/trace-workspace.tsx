@@ -1,6 +1,6 @@
-import { TraceDock } from '@monorepo/frontend/components/blocks/otel-trace-viewer';
-import type { TraceGroup } from '@monorepo/frontend/components/blocks/otel-trace-viewer/trace-model';
-import { Button } from '@monorepo/frontend/components/ui/button';
+import { TraceDock } from 'kui-toolkit/components/blocks/otel-trace-viewer';
+import type { TraceGroup } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   AlertTriangleIcon,
   BookOpenText,
@@ -8,8 +8,8 @@ import {
   GitBranchIcon,
   Layers3,
   XIcon,
-} from '@monorepo/frontend/lucide';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/lucide';
+import { cn } from 'kui-toolkit/lib/utils';
 import { useLotelStore } from './state';
 
 type TraceView = 'waterfall' | 'parallel' | 'narrative';

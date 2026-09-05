@@ -1,4 +1,4 @@
-# @monorepo/frontend
+# kui-toolkit
 
 ## 0.0.3
 

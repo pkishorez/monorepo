@@ -4,7 +4,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@monorepo/frontend/components/ui/dialog';
+} from 'kui-toolkit/components/ui/dialog';
 import { ProjectManager } from './project-manager';
 
 export function ProjectDialog({

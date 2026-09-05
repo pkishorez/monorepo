@@ -1,7 +1,7 @@
 import type {
   OtelSpan,
   TraceGroup,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer/trace-model';
+} from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
 import type { Filters } from './state';
 
 export const SERVICE_ATTR_KEY = 'resource.service.name';

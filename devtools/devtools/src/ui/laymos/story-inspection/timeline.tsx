@@ -1,30 +1,30 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, Maximize2, X } from '@monorepo/frontend/lucide';
+import { ChevronDown, Maximize2, X } from 'kui-toolkit/lucide';
 import type { StoryReport } from 'laymos';
 
 import {
   FlowItemDetails,
   FlowSwimlane,
   getFlowSummaryIds,
-} from '@monorepo/frontend/components/blocks/flow-swimlane';
-import { MarkdownViewer } from '@monorepo/frontend/components/blocks/markdown-viewer';
+} from 'kui-toolkit/components/blocks/flow-swimlane';
+import { MarkdownViewer } from 'kui-toolkit/components/blocks/markdown-viewer';
 import {
   attachCapturedLogs,
   TraceViewer,
-} from '@monorepo/frontend/components/blocks/otel-trace-viewer';
-import { SourceViewer } from '@monorepo/frontend/components/blocks/source-viewer';
+} from 'kui-toolkit/components/blocks/otel-trace-viewer';
+import { SourceViewer } from 'kui-toolkit/components/blocks/source-viewer';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@monorepo/frontend/components/ui/collapsible';
+} from 'kui-toolkit/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from '@monorepo/frontend/components/ui/dialog';
-import { scrollbarStyles } from '@monorepo/frontend/lib/scrollStyles';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/dialog';
+import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
+import { cn } from 'kui-toolkit/lib/utils';
 
 export type QuestionReport = StoryReport['questions'][number];
 type QuestionSection = QuestionReport['sections'][number];

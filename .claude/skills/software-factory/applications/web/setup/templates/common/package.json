@@ -5,6 +5,7 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "effect": "catalog:",
+    "kui-toolkit": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "rpc-toolkit": "workspace:*",

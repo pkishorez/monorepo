@@ -7,8 +7,8 @@ import {
   LayersIcon,
   PlusIcon,
   XIcon,
-} from '@monorepo/frontend/lucide';
-import { Button } from '@monorepo/frontend/components/ui/button';
+} from 'kui-toolkit/lucide';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Command,
   CommandEmpty,
@@ -16,14 +16,14 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '@monorepo/frontend/components/ui/command';
+} from 'kui-toolkit/components/ui/command';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@monorepo/frontend/components/ui/popover';
-import { serviceColor } from '@monorepo/frontend/components/blocks/otel-trace-viewer';
-import { cn } from '@monorepo/frontend/lib/utils';
+} from 'kui-toolkit/components/ui/popover';
+import { serviceColor } from 'kui-toolkit/components/blocks/otel-trace-viewer';
+import { cn } from 'kui-toolkit/lib/utils';
 import {
   formatServiceName,
   GROUP_BY_TRACE_NAME,
