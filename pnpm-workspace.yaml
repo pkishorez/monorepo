@@ -2,8 +2,7 @@ packages:
   - apps/*
   - devtools/*
   - packages/*
-  - std-toolkit
-  - whatever/*
+  - toolkits/*
 
 # Hold new releases for 24 hours (in minutes) so compromised versions have time to be reported.
 minimumReleaseAge: 1440
@@ -63,11 +62,6 @@ catalog:
   '@tailwindcss/typography': 0.5.20
   '@tailwindcss/vite': 4.3.3
   '@tanstack/query-db-collection': 1.2.4
-  '@tanstack/ai': 0.44.1
-  '@tanstack/ai-claude-code': 0.3.2
-  '@tanstack/ai-sandbox': 0.3.2
-  '@tanstack/ai-sandbox-local-process': 0.2.1
-  '@tanstack/ai-codex': 0.3.2
   '@tanstack/react-db': 0.2.1
   '@tanstack/react-form': 1.33.5
   '@tanstack/react-query': 5.101.4

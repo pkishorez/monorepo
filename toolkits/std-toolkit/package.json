@@ -1,0 +1,171 @@
+{
+  "name": "std-toolkit",
+  "version": "0.0.9",
+  "private": false,
+  "description": "Single-table design toolkit \u2014 database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration",
+  "keywords": [
+    "dynamodb",
+    "effect",
+    "indexeddb",
+    "in-memory",
+    "schema",
+    "single table design",
+    "sqlite",
+    "sync",
+    "tanstack"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "toolkits/std-toolkit"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "std-toolkit": "bin/std-toolkit.mjs"
+  },
+  "exports": {
+    "./db": {
+      "types": "./dist/db/index.d.ts",
+      "default": "./dist/db/index.js"
+    },
+    "./db/dynamodb": {
+      "types": "./dist/db/dynamodb/index.d.ts",
+      "default": "./dist/db/dynamodb/index.js"
+    },
+    "./db/idb": {
+      "types": "./dist/db/idb/index.d.ts",
+      "default": "./dist/db/idb/index.js"
+    },
+    "./db/memory": {
+      "types": "./dist/db/memory/index.d.ts",
+      "default": "./dist/db/memory/index.js"
+    },
+    "./db/sqlite": {
+      "types": "./dist/db/sqlite/index.d.ts",
+      "default": "./dist/db/sqlite/index.js"
+    },
+    "./db/sqlite/better-sqlite3": {
+      "types": "./dist/db/sqlite/drivers/better-sqlite3/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/better-sqlite3/index.js"
+    },
+    "./db/sqlite/bun": {
+      "types": "./dist/db/sqlite/drivers/bun/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/bun/index.js"
+    },
+    "./db/sqlite/durable-object": {
+      "types": "./dist/db/sqlite/drivers/durable-object/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/durable-object/index.js"
+    },
+    "./db/sqlite/node": {
+      "types": "./dist/db/sqlite/drivers/node/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/node/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./eschema": {
+      "types": "./dist/eschema/index.d.ts",
+      "default": "./dist/eschema/index.js"
+    },
+    "./snapshot": {
+      "types": "./dist/snapshot/index.d.ts",
+      "default": "./dist/snapshot/index.js"
+    },
+    "./studio-rpc": {
+      "types": "./dist/studio-rpc/index.d.ts",
+      "default": "./dist/studio-rpc/index.js"
+    },
+    "./sync": {
+      "types": "./dist/sync/index.d.ts",
+      "default": "./dist/sync/index.js"
+    },
+    "./sync/paced": {
+      "types": "./dist/sync/collection/pacing/index.d.ts",
+      "default": "./dist/sync/collection/pacing/index.js"
+    },
+    "./sync/leadership/in-memory": {
+      "types": "./dist/sync/platform/leadership/in-memory/index.d.ts",
+      "default": "./dist/sync/platform/leadership/in-memory/index.js"
+    },
+    "./sync/platform/browser": {
+      "types": "./dist/sync/platform/browser/index.d.ts",
+      "default": "./dist/sync/platform/browser/index.js"
+    },
+    "./db/dynamodb/alchemy": {
+      "types": "./dist/db/dynamodb/alchemy/index.d.ts",
+      "default": "./dist/db/dynamodb/alchemy/index.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "build:watch": "tsc -p tsconfig.build.json --watch",
+    "dynamodb:generate": "bun scripts/dynamodb/generate.ts",
+    "dynamodb:local": "docker run --rm -p 8090:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -sharedDb -inMemory",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "stories": "laymos stories",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc",
+    "test": "DYNAMODB_LOCAL_ENDPOINT=http://localhost:8090 REQUIRE_DYNAMODB_LOCAL=true vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/platform-node-shared": "catalog:",
+    "@pkishorez/effect-tracer": "workspace:*",
+    "@standard-schema/spec": "catalog:",
+    "aws4fetch": "catalog:",
+    "idb": "catalog:",
+    "jiti": "catalog:",
+    "type-fest": "catalog:",
+    "ulidx": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tanstack/query-db-collection": "catalog:",
+    "@tanstack/react-db": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/better-sqlite3": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "better-sqlite3": "catalog:",
+    "effect": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "laymos": "workspace:*",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:",
+    "alchemy": "catalog:"
+  },
+  "peerDependencies": {
+    "@tanstack/react-db": ">=0.1.64",
+    "effect": "4.0.0-rc.110",
+    "react": "^18 || ^19",
+    "alchemy": "2.0.0-beta.72"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-db": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "alchemy": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

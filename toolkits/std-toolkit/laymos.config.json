@@ -1,0 +1,898 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [
+    "src/cli/__tests__",
+    "src/core/__tests__",
+    "src/db/__tests__",
+    "src/db/dynamodb/__tests__",
+    "src/db/dynamodb/expression/__tests__",
+    "src/db/dynamodb/native/__tests__",
+    "src/db/dynamodb/table/__tests__",
+    "src/db/idb/__tests__",
+    "src/db/memory/__tests__",
+    "src/db/sqlite/__tests__",
+    "src/db/std-table/__tests__",
+    "src/db/std-table/definition/__tests__",
+    "src/db/std-table/enforcement/__tests__",
+    "src/db/std-table/entity/__tests__",
+    "src/db/std-table/key/__tests__",
+    "src/eschema/__tests__",
+    "src/eschema/play.ts",
+    "src/eschema/tutorial",
+    "src/snapshot/__tests__",
+    "src/snapshot/restore/eschema-restore/__tests__",
+    "src/studio-rpc/__tests__",
+    "src/sync/__tests__",
+    "src/sync/collection/keyed-collection/__tests__",
+    "src/sync/collection/pacing/__tests__",
+    "src/sync/collection/replica/__tests__",
+    "src/sync/domain/collection-item/__tests__",
+    "src/sync/domain/identity/__tests__",
+    "src/sync/outbox/drainer/__tests__",
+    "src/sync/outbox/entries/__tests__",
+    "src/sync/platform/leadership/__tests__",
+    "src/sync/platform/peer-sync/__tests__",
+    "src/sync/strategy/cadence-repair/__tests__",
+    "src/sync/strategy/strategy/bidirectional/__tests__",
+    "src/sync/strategy/strategy/new-to-old/__tests__",
+    "src/sync/strategy/strategy/old-to-new/__tests__",
+    "src/sync/strategy/strategy/single-item-source/__tests__",
+    "src/sync/flow/supervisor/__tests__",
+    "src/db/dynamodb/alchemy/__tests__"
+  ],
+  "storiesPath": "stories",
+  "layers": {
+    "db.public": {
+      "paths": ["src/db/index.ts", "src/db/db.ts"],
+      "description": "Public — adapter-independent database entrypoint",
+      "modules": {
+        "src/db/index.ts": {
+          "exposed": true
+        },
+        "src/db/db.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "studio-rpc": {
+      "paths": ["src/studio-rpc"],
+      "description": "Integration — runtime-discovered StdTable reads over Effect RPC",
+      "modules": {
+        "src/studio-rpc": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.table": {
+      "paths": ["src/db/std-table/table"],
+      "description": "Aggregate — StdTable builder, decoration, and transact",
+      "modules": {
+        "src/db/std-table/table": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.entity": {
+      "paths": ["src/db/std-table/entity"],
+      "description": "Surface — typed keyed and single entity operations",
+      "modules": {
+        "src/db/std-table/entity": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.definition": {
+      "paths": ["src/db/std-table/definition"],
+      "description": "Model — logical table and entity definitions",
+      "modules": {
+        "src/db/std-table/definition": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.snapshot": {
+      "paths": ["src/db/std-table/snapshot"],
+      "description": "Model — logical table snapshot projection",
+      "modules": {
+        "src/db/std-table/snapshot": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.key": {
+      "paths": ["src/db/std-table/key"],
+      "description": "Model — collision-safe key encoding and storage derivation",
+      "modules": {
+        "src/db/std-table/key": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.enforcement": {
+      "paths": ["src/db/std-table/enforcement"],
+      "description": "Guard — table-level snapshot enforcement, baseline kept inside the table",
+      "modules": {
+        "src/db/std-table/enforcement": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.contract": {
+      "paths": ["src/db/std-table/contract"],
+      "description": "Port — the contract every adapter implements",
+      "modules": {
+        "src/db/std-table/contract": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.error": {
+      "paths": ["src/db/std-table/error"],
+      "description": "Port — public database error",
+      "modules": {
+        "src/db/std-table/error": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.public": {
+      "paths": ["src/db/dynamodb/index.ts", "src/db/dynamodb/dynamodb.ts"],
+      "description": "Public — barrel and adapter door",
+      "modules": {
+        "src/db/dynamodb/index.ts": {
+          "exposed": true
+        },
+        "src/db/dynamodb/dynamodb.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.native": {
+      "paths": ["src/db/dynamodb/native"],
+      "description": "Native — typed DynamoDB-native operations, bypassing the port",
+      "modules": {
+        "src/db/dynamodb/native": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.table": {
+      "paths": ["src/db/dynamodb/table"],
+      "description": "Store — port implementation",
+      "modules": {
+        "src/db/dynamodb/table": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.setup": {
+      "paths": ["src/db/dynamodb/setup"],
+      "description": "Topology — physical table projection and explicit setup",
+      "modules": {
+        "src/db/dynamodb/setup": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.expression": {
+      "paths": ["src/db/dynamodb/expression"],
+      "description": "Language — predicates and updates as DynamoDB expressions",
+      "modules": {
+        "src/db/dynamodb/expression": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.item-schema": {
+      "paths": ["src/db/dynamodb/item-schema"],
+      "description": "Mapping — encoded items to and from attribute values",
+      "modules": {
+        "src/db/dynamodb/item-schema": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.attribute-value": {
+      "paths": ["src/db/dynamodb/attribute-value"],
+      "description": "Encoding — values to and from DynamoDB attribute values",
+      "modules": {
+        "src/db/dynamodb/attribute-value": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.client": {
+      "paths": ["src/db/dynamodb/client"],
+      "description": "Connection — generated API execution and AWS request signing",
+      "modules": {
+        "src/db/dynamodb/client": {
+          "exposed": true
+        }
+      }
+    },
+    "idb.public": {
+      "paths": ["src/db/idb/index.ts", "src/db/idb/idb.ts"],
+      "description": "Public — barrel and adapter door",
+      "modules": {
+        "src/db/idb/index.ts": {
+          "exposed": true
+        },
+        "src/db/idb/idb.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "idb.table": {
+      "paths": ["src/db/idb/table"],
+      "description": "Store — port implementation",
+      "modules": {
+        "src/db/idb/table": {
+          "exposed": true
+        }
+      }
+    },
+    "idb.item-schema": {
+      "paths": ["src/db/idb/item-schema"],
+      "description": "Mapping — encoded items to and from stored records",
+      "modules": {
+        "src/db/idb/item-schema": {
+          "exposed": true
+        }
+      }
+    },
+    "idb.database": {
+      "paths": ["src/db/idb/database"],
+      "description": "Connection — IndexedDB connection lifecycle",
+      "modules": {
+        "src/db/idb/database": {
+          "exposed": true
+        }
+      }
+    },
+    "idb.upgrade": {
+      "paths": ["src/db/idb/upgrade"],
+      "description": "Upgrade — physical store and index schema, declared at connection-open time and therefore below the connection",
+      "modules": {
+        "src/db/idb/upgrade": {
+          "exposed": true
+        }
+      }
+    },
+    "memory.public": {
+      "paths": ["src/db/memory/index.ts", "src/db/memory/memory.ts"],
+      "description": "Public — barrel and adapter door",
+      "modules": {
+        "src/db/memory/index.ts": {
+          "exposed": true
+        },
+        "src/db/memory/memory.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "memory.table": {
+      "paths": ["src/db/memory/table"],
+      "description": "Store — in-memory port implementation",
+      "modules": {
+        "src/db/memory/table": {
+          "exposed": true
+        }
+      }
+    },
+    "sqlite.public": {
+      "paths": ["src/db/sqlite/index.ts", "src/db/sqlite/sqlite.ts"],
+      "description": "Public — barrel and adapter door",
+      "modules": {
+        "src/db/sqlite/index.ts": {
+          "exposed": true
+        },
+        "src/db/sqlite/sqlite.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "sqlite.table": {
+      "paths": ["src/db/sqlite/table"],
+      "description": "Store — port implementation",
+      "modules": {
+        "src/db/sqlite/table": {
+          "exposed": true
+        }
+      }
+    },
+    "sqlite.setup": {
+      "paths": ["src/db/sqlite/setup"],
+      "description": "Topology — physical schema setup and migration",
+      "modules": {
+        "src/db/sqlite/setup": {
+          "exposed": true
+        }
+      }
+    },
+    "sqlite.statement": {
+      "paths": ["src/db/sqlite/statement"],
+      "description": "Language — predicates and writes as parameterized SQL statements",
+      "modules": {
+        "src/db/sqlite/statement": {
+          "exposed": true
+        }
+      }
+    },
+    "sqlite.item-schema": {
+      "paths": ["src/db/sqlite/item-schema"],
+      "description": "Mapping — encoded items to and from rows",
+      "modules": {
+        "src/db/sqlite/item-schema": {
+          "exposed": true
+        }
+      }
+    },
+    "sqlite.database": {
+      "paths": ["src/db/sqlite/database"],
+      "description": "Connection — SQLite database contract",
+      "modules": {
+        "src/db/sqlite/database": {
+          "exposed": true
+        }
+      }
+    },
+    "sqlite.drivers": {
+      "paths": ["src/db/sqlite/drivers"],
+      "description": "Drivers — runtime-specific SQLite bindings",
+      "modules": {
+        "src/db/sqlite/drivers/node": {
+          "exposed": true
+        },
+        "src/db/sqlite/drivers/bun": {
+          "exposed": true
+        },
+        "src/db/sqlite/drivers/better-sqlite3": {
+          "exposed": true
+        },
+        "src/db/sqlite/drivers/durable-object": {
+          "exposed": true
+        }
+      }
+    },
+    "eschema.public": {
+      "paths": ["src/eschema/index.ts"],
+      "description": "Public — barrel",
+      "modules": {
+        "src/eschema/index.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "eschema.constructs": {
+      "paths": [
+        "src/eschema/eschema",
+        "src/eschema/entity-eschema",
+        "src/eschema/value-eschema"
+      ],
+      "description": "Constructs — public ESchema variants and their local builders",
+      "modules": {
+        "src/eschema/eschema": {
+          "exposed": true
+        },
+        "src/eschema/entity-eschema": {
+          "exposed": true
+        },
+        "src/eschema/value-eschema": {
+          "exposed": true
+        }
+      }
+    },
+    "eschema.composition": {
+      "paths": ["src/eschema/schema-composition"],
+      "description": "Composition — Effect Schema composition",
+      "modules": {
+        "src/eschema/schema-composition": {
+          "exposed": true
+        }
+      }
+    },
+    "eschema.domain": {
+      "paths": ["src/eschema/domain"],
+      "description": "Domain — evolution, field policy, runtimes, errors, and introspection",
+      "modules": {
+        "src/eschema/domain/eschema-error": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/eschema/domain/introspection": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/eschema/domain/object-schema-runtime": {
+          "exposed": true
+        },
+        "src/eschema/domain/schema-model": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "snapshot.public": {
+      "paths": ["src/snapshot/index.ts"],
+      "description": "Public — barrel",
+      "modules": {
+        "src/snapshot/index.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "snapshot.facade": {
+      "paths": ["src/snapshot/snapshot"],
+      "description": "Facade — public Snapshot operation composition",
+      "modules": {
+        "src/snapshot/snapshot": {
+          "exposed": true
+        }
+      }
+    },
+    "snapshot.capture": {
+      "paths": ["src/snapshot/capture"],
+      "description": "Capture — ESchema and table contract capture",
+      "modules": {
+        "src/snapshot/capture/eschema-capture": {
+          "exposed": true
+        }
+      }
+    },
+    "snapshot.restore": {
+      "paths": ["src/snapshot/restore"],
+      "description": "Restore — live schemas rebuilt from a captured ESchema snapshot",
+      "modules": {
+        "src/snapshot/restore/eschema-restore": {
+          "exposed": true
+        }
+      }
+    },
+    "snapshot.domain": {
+      "paths": ["src/snapshot/domain"],
+      "description": "Domain — snapshot models, errors, and canonical ordering",
+      "modules": {
+        "src/snapshot/domain": {
+          "exposed": true
+        }
+      }
+    },
+    "core.public": {
+      "paths": ["src/core/index.ts"],
+      "description": "Public — barrel",
+      "modules": {
+        "src/core/index.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "core.impl": {
+      "paths": [
+        "src/core/broadcaster",
+        "src/core/entity-schema",
+        "src/core/error.ts",
+        "src/core/ulid.ts"
+      ],
+      "description": "Impl — internal implementation",
+      "modules": {
+        "src/core/broadcaster": {
+          "exposed": true
+        },
+        "src/core/error.ts": {
+          "exposed": true
+        },
+        "src/core/entity-schema": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/core/ulid.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "cli.entry": {
+      "paths": ["src/cli/cli.ts", "src/cli/run.ts"],
+      "description": "Entry — host process and the command tree it runs",
+      "modules": {
+        "src/cli/cli.ts": {},
+        "src/cli/run.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "cli.commands": {
+      "paths": ["src/cli/snapshot"],
+      "description": "Commands — snapshot verify and update",
+      "modules": {
+        "src/cli/snapshot": {
+          "exposed": true
+        }
+      }
+    },
+    "cli.errors": {
+      "paths": ["src/cli/errors.ts"],
+      "description": "Errors — operational failures rendered for the terminal",
+      "modules": {
+        "src/cli/errors.ts": {
+          "exposed": true
+        }
+      }
+    },
+    "cli.contract-files": {
+      "paths": ["src/cli/contract-files"],
+      "description": "Files — the declared contract entry and the approved baseline on disk",
+      "modules": {
+        "src/cli/contract-files": {
+          "exposed": true
+        }
+      }
+    },
+    "sync.std-sync": {
+      "paths": ["src/sync/index.ts", "src/sync/std-sync"],
+      "description": "Std Sync — the instance: a group of Collections, one Outbox, the Ready Gate and Reset",
+      "modules": {
+        "src/sync/index.ts": {
+          "exposed": true
+        },
+        "src/sync/std-sync": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "sync.collection": {
+      "paths": ["src/sync/collection"],
+      "description": "Collection — one Collection and its lifecycle: keyed and single-item doors, Strategy Sessions, mutations, Replica, Projection",
+      "moduleGraphs": {
+        "collection": {
+          "description": "A Collection mounts, projects its Sync Replica, runs Strategy Sessions, and writes through the Outbox.",
+          "path": "src/sync/collection",
+          "modules": {
+            "keyed-collection": {
+              "exposed": true
+            },
+            "single-item-collection": {
+              "exposed": true
+            },
+            "pacing": {
+              "exposed": true
+            },
+            "registry": {
+              "exposed": true
+            },
+            "strategy-session": {},
+            "mutation": {},
+            "outbox-replay": {},
+            "replica": {},
+            "projection": {}
+          },
+          "rules": {
+            "keyed-collection": [
+              "strategy-session",
+              "mutation",
+              "outbox-replay",
+              "replica",
+              "projection",
+              "registry",
+              "pacing"
+            ],
+            "single-item-collection": [
+              "strategy-session",
+              "mutation",
+              "outbox-replay",
+              "replica",
+              "projection",
+              "registry",
+              "pacing"
+            ],
+            "mutation": ["pacing"]
+          }
+        }
+      }
+    },
+    "sync.strategy": {
+      "paths": ["src/sync/strategy"],
+      "description": "Strategy — how backend-confirmed Entities are obtained: presets, Sync State, Cadence Repair",
+      "moduleGraphs": {
+        "strategy": {
+          "description": "Strategy presets own their Sync Source and Sync State; Cadence Repair runs alongside a Strategy Session.",
+          "path": "src/sync/strategy",
+          "modules": {
+            "strategy": {
+              "exposed": true
+            },
+            "cadence-repair": {
+              "exposed": true
+            },
+            "state": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "strategy": ["state"],
+            "cadence-repair": ["strategy"]
+          }
+        }
+      }
+    },
+    "sync.outbox": {
+      "paths": ["src/sync/outbox"],
+      "description": "Outbox — the durable write path: every write is an Entry in a Queue; the Drainer sends Requests through Handlers; Waiters resolve callers",
+      "moduleGraphs": {
+        "outbox": {
+          "description": "One Outbox per Std Sync: Entries and Queues over the Sync Store, the Drainer Worker, Handlers, Waiters, the doorbell, and Offline Actions.",
+          "path": "src/sync/outbox",
+          "modules": {
+            "outbox": {
+              "exposed": true
+            },
+            "entries": {},
+            "drainer": {},
+            "handlers": {},
+            "waiters": {},
+            "doorbell": {},
+            "narration": {},
+            "offline-action": {}
+          },
+          "rules": {
+            "outbox": [
+              "entries",
+              "drainer",
+              "handlers",
+              "waiters",
+              "doorbell",
+              "narration",
+              "offline-action"
+            ],
+            "drainer": ["entries", "handlers", "narration"],
+            "handlers": ["entries"],
+            "waiters": ["entries"],
+            "doorbell": ["entries"],
+            "narration": ["entries"],
+            "offline-action": ["entries", "handlers", "narration"]
+          }
+        }
+      }
+    },
+    "sync.flow": {
+      "paths": ["src/sync/flow"],
+      "description": "Worker — what a loop in Sync is: the Supervisor that runs it under a Leadership role, and the Sync Flow that narrates it",
+      "modules": {
+        "src/sync/flow/supervisor": {
+          "exposed": true
+        },
+        "src/sync/flow/sync-flow": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "sync.platform": {
+      "paths": ["src/sync/platform"],
+      "description": "Platform — the environment a Std Sync runs in: the contract, Sync Store, Leadership, Peer Sync, the Effect runner, and the browser preset",
+      "moduleGraphs": {
+        "platform": {
+          "description": "The environment contract and its machinery; the browser preset assembles them.",
+          "path": "src/sync/platform",
+          "modules": {
+            "contract": {
+              "exposed": true
+            },
+            "sync-store": {
+              "exposed": true
+            },
+            "leadership": {
+              "exposed": true
+            },
+            "peer-sync": {
+              "exposed": true
+            },
+            "effect-runner": {
+              "exposed": true
+            },
+            "browser": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "browser": ["contract", "sync-store", "leadership", "peer-sync"],
+            "contract": ["leadership", "sync-store"],
+            "peer-sync": ["effect-runner"]
+          }
+        }
+      }
+    },
+    "sync.domain": {
+      "paths": ["src/sync/domain"],
+      "description": "Domain — vocabulary only: identities, stored entity schemas, events, errors, the CollectionItem, channel and connectivity contracts",
+      "modules": {
+        "src/sync/domain/identity": {
+          "exposed": true
+        },
+        "src/sync/domain/stored-entity": {
+          "exposed": true
+        },
+        "src/sync/domain/sync-event": {
+          "exposed": true
+        },
+        "src/sync/domain/sync-error": {
+          "exposed": true
+        },
+        "src/sync/domain/connectivity": {
+          "exposed": true
+        },
+        "src/sync/domain/collection-item": {
+          "exposed": true
+        },
+        "src/sync/domain/peer-channel": {
+          "exposed": true
+        },
+        "src/sync/domain/entity-validation": {
+          "exposed": true
+        }
+      }
+    },
+    "dynamodb.alchemy": {
+      "paths": ["src/db/dynamodb/alchemy"],
+      "description": "Infrastructure — provision an Alchemy resource from DynamoDB topology",
+      "modules": {
+        "src/db/dynamodb/alchemy": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "studio-rpc": {
+      "description": "Studio RPC composes the semantic table surface and snapshot contract",
+      "rules": {
+        "studio-rpc": ["std-table.table", "snapshot.public"]
+      }
+    },
+    "std-table": {
+      "description": "The logical table: public entrypoint, aggregate, entity surface, model, and port",
+      "rules": {
+        "db.public": ["std-table.table"],
+        "std-table.table": [
+          "std-table.entity",
+          "std-table.enforcement",
+          "core.public"
+        ],
+        "std-table.entity": [
+          "core.public",
+          "std-table.definition",
+          "std-table.error",
+          "std-table.key"
+        ],
+        "std-table.definition": ["std-table.snapshot"],
+        "std-table.snapshot": ["eschema.public", "snapshot.capture"],
+        "std-table.key": ["std-table.contract"],
+        "std-table.error": ["std-table.contract"],
+        "std-table.enforcement": [
+          "core.public",
+          "std-table.snapshot",
+          "std-table.contract",
+          "std-table.error",
+          "std-table.key",
+          "snapshot.public"
+        ]
+      }
+    },
+    "dynamodb": {
+      "description": "DynamoDB adapter: public door down through store, topology, language, mapping, encoding, and connection",
+      "rules": {
+        "dynamodb.public": ["dynamodb.native", "dynamodb.table"],
+        "dynamodb.native": [
+          "core.public",
+          "dynamodb.expression",
+          "dynamodb.item-schema",
+          "dynamodb.setup",
+          "std-table.key"
+        ],
+        "dynamodb.table": [
+          "dynamodb.client",
+          "dynamodb.expression",
+          "dynamodb.item-schema"
+        ],
+        "dynamodb.setup": ["dynamodb.client", "std-table.definition"],
+        "dynamodb.expression": ["dynamodb.attribute-value"],
+        "dynamodb.item-schema": [
+          "dynamodb.attribute-value",
+          "std-table.contract",
+          "std-table.definition"
+        ],
+        "dynamodb.alchemy": ["dynamodb.public"]
+      }
+    },
+    "idb": {
+      "description": "IndexedDB adapter: public door down through store, mapping, connection, and open-time upgrade",
+      "rules": {
+        "idb.public": ["idb.table"],
+        "idb.table": ["idb.database", "idb.item-schema"],
+        "idb.item-schema": ["std-table.contract", "std-table.definition"],
+        "idb.database": ["idb.upgrade"],
+        "idb.upgrade": ["std-table.definition"]
+      }
+    },
+    "memory": {
+      "description": "Memory adapter: public door over an in-memory store",
+      "rules": {
+        "memory.public": ["memory.table"],
+        "memory.table": ["std-table.contract", "std-table.definition"]
+      }
+    },
+    "sqlite": {
+      "description": "SQLite adapter: public door down through store, topology, language, mapping, connection, and drivers",
+      "rules": {
+        "sqlite.public": ["sqlite.setup", "sqlite.table"],
+        "sqlite.table": ["sqlite.database", "sqlite.statement"],
+        "sqlite.setup": ["sqlite.database", "sqlite.statement"],
+        "sqlite.statement": ["sqlite.item-schema"],
+        "sqlite.item-schema": ["std-table.contract", "std-table.definition"],
+        "sqlite.database": ["sqlite.item-schema"],
+        "sqlite.drivers": ["sqlite.database"]
+      }
+    },
+    "eschema": {
+      "description": "ESchema entrypoint, constructs, composition, and domain",
+      "rules": {
+        "eschema.public": ["eschema.composition", "eschema.constructs"],
+        "eschema.constructs": ["eschema.domain"],
+        "eschema.composition": ["eschema.domain"]
+      }
+    },
+    "snapshot": {
+      "description": "Snapshot facade, capture, restore, domain, and two-way ESchema integration",
+      "rules": {
+        "snapshot.public": ["snapshot.facade"],
+        "snapshot.facade": [
+          "eschema.constructs",
+          "snapshot.capture",
+          "snapshot.restore"
+        ],
+        "snapshot.capture": ["eschema.domain", "snapshot.domain"],
+        "snapshot.restore": ["snapshot.domain"]
+      }
+    },
+    "core": {
+      "description": "Core utilities and their schema dependency",
+      "rules": {
+        "core.public": ["core.impl"],
+        "core.impl": ["eschema.public"]
+      }
+    },
+    "cli": {
+      "description": "Command-line access to semantic snapshots",
+      "rules": {
+        "cli.entry": ["cli.commands", "cli.errors"],
+        "cli.commands": ["cli.contract-files"],
+        "cli.errors": ["cli.contract-files"],
+        "cli.contract-files": ["snapshot.public"]
+      }
+    },
+    "sync": {
+      "description": "Sync read top-down as its story: the Std Sync holds Collections; a Collection runs Strategy Sessions and writes through the Outbox; every loop is a Worker; the Platform is the environment; the domain is the words",
+      "rules": {
+        "sync.std-sync": ["memory.public", "sync.collection", "sync.outbox"],
+        "sync.collection": [
+          "sync.strategy",
+          "sync.outbox",
+          "sync.flow",
+          "sync.platform"
+        ],
+        "sync.strategy": ["sync.flow", "sync.platform"],
+        "sync.outbox": ["sync.flow", "sync.platform"],
+        "sync.flow": ["sync.platform"],
+        "sync.platform": ["idb.public", "db.public", "sync.domain"],
+        "sync.domain": ["core.public", "db.public", "eschema.public"]
+      }
+    }
+  }
+}
