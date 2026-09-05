@@ -1,0 +1,56 @@
+name: Cleanup __APP_NAME__ preview
+on:
+  pull_request:
+    types: [closed]
+permissions:
+  contents: read
+concurrency:
+  group: __APP_NAME__-pr${{ github.event.number }}
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      STAGE: pr${{ github.event.number }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Add the same selected provider secrets as deployment.
+    steps:
+      - uses: actions/checkout@__CHECKOUT_VERSION__
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: pnpm/action-setup@__PNPM_ACTION_VERSION__
+      - uses: actions/setup-node@__NODE_ACTION_VERSION__
+        with:
+          node-version: __NODE_VERSION__
+          cache: pnpm
+      - run: __INSTALL_COMMAND__
+      - run: __BUILD_WORKSPACE_DEPENDENCIES_COMMAND__
+      - run: __APP_BUILD_COMMAND__
+      - name: Find preview
+        id: preview
+        run: |
+          if ! printf '%s\n' "$STAGE" | grep -qxE 'pr[0-9]+'; then exit 1; fi
+          stages=$(pnpm -C __APP_PATH__ exec alchemy state stages --stack __STACK_NAME__)
+          if printf '%s\n' "$stages" | grep -qxF "$STAGE"; then
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Destroy preview
+        if: steps.preview.outputs.exists == 'true'
+        run: pnpm -C __APP_PATH__ exec alchemy destroy --stage "$STAGE" --yes
+      - name: Cleanup summary
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+          EXISTS: ${{ steps.preview.outputs.exists }}
+        run: |
+          if [ "$RESULT" != success ]; then
+            echo "Preview cleanup $RESULT; review the job and retry." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$EXISTS" = false ]; then
+            echo 'Preview cleanup skipped: no preview exists.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Preview destroyed.' >> "$GITHUB_STEP_SUMMARY"
+          fi

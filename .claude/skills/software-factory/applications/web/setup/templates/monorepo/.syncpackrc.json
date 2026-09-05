@@ -1,0 +1,58 @@
+{
+  "$schema": "./node_modules/syncpack/schema.json",
+  "strict": true,
+  "versionGroups": [
+    {
+      "label": "Internal runtime and dev dependencies",
+      "dependencies": ["__WORKSPACE_PACKAGE__"],
+      "dependencyTypes": ["prod", "dev"],
+      "pinVersion": "workspace:*"
+    },
+    {
+      "label": "Internal peers",
+      "dependencies": ["__WORKSPACE_PACKAGE__"],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "workspace:^"
+    },
+    {
+      "label": "External runtime and dev dependencies use the catalog",
+      "dependencyTypes": ["prod", "dev"],
+      "policy": "catalog"
+    },
+    {
+      "label": "Synchronize other declarations",
+      "dependencyTypes": [
+        "local",
+        "overrides",
+        "peer",
+        "pnpmOverrides",
+        "resolutions"
+      ],
+      "preferVersion": "highestSemver"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "Workspace protocols are set above",
+      "dependencies": ["__WORKSPACE_PACKAGE__"],
+      "dependencyTypes": ["prod", "dev", "peer"],
+      "isIgnored": true
+    },
+    {
+      "label": "Peer ranges",
+      "dependencyTypes": ["peer"],
+      "range": "^"
+    },
+    {
+      "label": "Exact registry versions",
+      "range": ""
+    }
+  ],
+  "updateGroups": [
+    {
+      "label": "Peer updates are intentional",
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts", "src/vite-env.d.ts"],
+  "layers": {
+    "shared-rpc-definitions": {
+      "paths": ["src/shared/rpc/greeting"],
+      "description": "Defines the greeting protocol.",
+      "modules": {
+        "src/shared/rpc/greeting": {
+          "exposed": true
+        }
+      }
+    },
+    "shared-rpc-handlers": {
+      "paths": ["src/shared/rpc/greeting-handlers"],
+      "description": "Answers greeting requests.",
+      "modules": {
+        "src/shared/rpc/greeting-handlers": {
+          "exposed": true
+        }
+      }
+    },
+    "client-rpc": {
+      "paths": ["src/client/rpc"],
+      "description": "Connects the browser to RPC.",
+      "modules": {
+        "src/client/rpc": {
+          "exposed": true
+        }
+      }
+    },
+    "route-runtime": {
+      "paths": ["src/routes/internal"],
+      "description": "Owns the session connection lifetime.",
+      "modules": {
+        "src/routes/internal/rpc-provider.tsx": {
+          "exposed": true
+        }
+      }
+    },
+    "routes": {
+      "paths": ["src/routes/__root.tsx", "src/routes/page.tsx"],
+      "description": "Renders the document and greeting page.",
+      "modules": {
+        "src/routes/__root.tsx": {
+          "exposed": true
+        },
+        "src/routes/page.tsx": {
+          "exposed": true
+        }
+      }
+    },
+    "web-entry": {
+      "paths": ["src/router.tsx"],
+      "description": "Creates the router.",
+      "modules": {
+        "src/router.tsx": {}
+      }
+    },
+    "server-entry": {
+      "paths": ["src/server.ts"],
+      "description": "Hosts TanStack Start requests.",
+      "modules": {
+        "src/server.ts": {}
+      }
+    },
+    "rpc-entry": {
+      "paths": ["src/infra/rpc.ts"],
+      "description": "Hosts Durable Object WebSocket RPC.",
+      "modules": {
+        "src/infra/rpc.ts": {}
+      }
+    }
+  },
+  "layerGraphs": {
+    "application": {
+      "description": "Web and Durable Object entries compose their runtime capabilities.",
+      "rules": {
+        "web-entry": ["routes"],
+        "routes": ["route-runtime"],
+        "route-runtime": ["client-rpc"],
+        "client-rpc": ["shared-rpc-definitions"],
+        "shared-rpc-handlers": ["shared-rpc-definitions"],
+        "rpc-entry": ["shared-rpc-handlers"]
+      }
+    }
+  }
+}

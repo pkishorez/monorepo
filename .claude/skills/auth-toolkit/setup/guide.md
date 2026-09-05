@@ -1,14 +1,16 @@
 # Application setup
 
-Connect an application to the existing production auth instance. Inspect its client, server entry, RPC transport, and installed toolkit APIs. Resolve the auth URL and the application's deployed and local origins before wiring them.
+## Prepare
 
-Use [the architecture conventions](../../software-factory/architecture.md) for placement. Install `auth-toolkit` and the peers required by the client and server integrations being used.
+Inspect the app’s client, server entry, RPC transport, and installed toolkit APIs.
 
-## Client
+Resolve the existing production auth URL and the app’s local and deployed origins.
 
-Create the auth capability under `src/client/auth`, following the application's module conventions. Use `createAuthClient` from `auth-toolkit/client` with the auth worker's own URL. Expose session access, Google sign-in, sign-out, and login errors through the toolkit's `useSession`, `signIn.google`, `signOut`, and `useLoginError` APIs.
+Follow [web architecture](../../software-factory/applications/web/architecture.md) for placement and install `auth-toolkit` with the required peers.
 
-For example, `src/client/auth/auth.ts` creates the client, exported through the module's `index.ts`:
+## Connect the client
+
+Create the auth client in `src/client/auth/auth.ts` using the auth worker’s URL, and export it through `index.ts`:
 
 ```ts
 import { createAuthClient } from 'auth-toolkit/client';
@@ -18,15 +20,19 @@ export const authClient = createAuthClient({
 });
 ```
 
-Keep login and logout UI under routes. Handle session loading, signed-out state, and sign-in failures. Use the current page as the default return destination; configure explicit success and error destinations when the requested flow needs them. Fit authentication into the existing root provider when shared lifetime management is needed.
+Keep login and logout UI under routes, using `useSession()` for session state.
 
-Within a route component, `authClient.useSession()` supplies session state. A login button calls `authClient.signIn.google()`; a logout button calls `authClient.signOut()`. Display redirect failures from `authClient.useLoginError()` beside the login control.
+Call `signIn.google()` and `signOut()` from login and logout controls.
 
-## Server
+Show `useLoginError()` beside the login control and handle loading and signed-out states.
 
-Provide `authzLayer` and `resolverLive({ authWorkerUrl })` from `auth-toolkit/rpc/server` alongside the RPC handlers at the server composition boundary. Reuse existing wiring. Consumer backends verify sessions through the shared auth worker; D1 and KV providers belong to that worker.
+Return to the current page by default, configuring success and error destinations when the requested flow needs them.
 
-For example, supply authentication to an existing RPC server layer alongside its handlers:
+Use the existing root provider when authentication needs shared lifetime management.
+
+## Connect the server
+
+Provide `authzLayer` and `resolverLive({ authWorkerUrl })` alongside RPC handlers, reusing existing wiring:
 
 ```ts
 import { Layer } from 'effect';
@@ -38,12 +44,28 @@ const AuthenticatedRpcLive = RpcLive.pipe(
 );
 ```
 
-For request/response HTTP RPC, wrap the HTTP app with `authzCookies` and use the supported non-framing JSON serialization to relay refreshed cookies. Inspect the existing transport first. Streaming and WebSocket transports need their supported authentication path and an explicit account of cookie refresh limitations.
+Verify sessions through the shared auth worker, keeping its D1 and KV providers there.
 
-Authentication runs on the backend. Keep the existing RPC client composition; verify that the request's cookies actually reach the backend. Check trusted origins, credentialed requests, and cookie scope together. An allowed origin alone does not establish cookie delivery. For local development, verify a compatible local hostname and HTTPS arrangement using the same production auth instance; do not assume plain localhost shares its cookies.
+For request/response HTTP RPC, wrap the HTTP app with `authzCookies` and use supported non-framing JSON serialization to relay refreshed cookies.
 
-Auth worker configuration changes follow [Infrastructure](../infrastructure/guide.md) and deploy through CI. Add endpoint guards through [Usage](../usage/guide.md).
+For streaming or WebSockets, use the transport’s supported authentication path and explain cookie refresh limitations.
 
-## Check the connection
+Keep the existing RPC client and verify that request cookies reach backend authentication.
 
-Check affected types and Laymos rules. Verify login, session loading, logout, and login error handling. Exercise an authenticated request through the application's actual transport and check refreshed-cookie delivery where supported. Cover the local configuration as well as the deployed origin when available. Report any checks waiting on CI, credentials, or an interactive provider sign-in.
+Check trusted origins, credentialed requests, and cookie scope together; allowing an origin alone does not deliver cookies.
+
+For local development, verify a hostname and HTTPS setup compatible with production auth cookies; plain localhost may not share them.
+
+Follow [infrastructure](../infrastructure/guide.md) for auth worker changes deployed through CI.
+
+Follow [usage](../usage/guide.md) to add endpoint guards.
+
+## Verify
+
+Check affected types, Laymos rules, login, session loading, logout, and login errors.
+
+Exercise an authenticated request through the actual transport and check refreshed cookies where supported.
+
+Check local access and the deployed origin when available.
+
+Report checks waiting on CI, credentials, or interactive sign-in.

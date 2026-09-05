@@ -1,0 +1,12 @@
+{
+  "check": "vp check",
+  "fmt": "vp fmt",
+  "lint": "vp check && pnpm lint:syncpack && pnpm -r --no-sort --workspace-concurrency=4 lint",
+  "lint:syncpack": "syncpack lint && syncpack format --check",
+  "syncpack:fix": "syncpack fix",
+  "syncpack:format": "syncpack format",
+  "syncpack:update": "syncpack update --interactive --target minor",
+  "syncpack:update:latest": "syncpack update --interactive --target latest",
+  "syncpack:outdated": "syncpack update --check --no-cache --target minor",
+  "pnpm:outdated": "pnpm outdated --recursive"
+}

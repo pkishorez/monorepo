@@ -1,19 +1,40 @@
 ---
 name: software-factory
-description: Build web applications with STD toolkit modeling, Effect operations, RPC toolkit APIs, and STD toolkit client sync. Use for shared/server/client boundaries and route organization; enter each part independently.
+description: Set up web applications in pnpm monorepos, or build features in existing applications with STD toolkit, Effect, RPC toolkit, and TanStack DB sync.
 ---
 
 # Software factory
 
-Read [the architecture conventions](architecture.md) when choosing placement, dependencies, or application wiring. Use [the glossary](CONTEXT.md) for this skill’s terminology.
+## Start here
 
-Four parts, each usable on its own:
+Use the user's request to identify the next task.
 
-- **Modeling** — evolving schemas, entities, and STD tables. Read [the modeling guide](modeling/guide.md).
-- **Operations** — application behavior expressed as Effect programs, portable or server-specific. Read [the operations guide](operations/guide.md).
-- **RPC** — API definitions, handlers, and client composition using RPC toolkit. Read [the RPC guide](rpc/guide.md).
-- **Sync** — STD toolkit collections, subscriptions, and optimistic/offline actions. Read [the sync guide](sync/guide.md).
+If the task is unclear, ask: “Would you like to set up a web application or work on an existing one?”
 
-Start with the requested part. A complete setup starts with modeling.
-For application authentication setup or RPC authentication and authorization guards, read [the auth-toolkit skill](../auth-toolkit/SKILL.md). Start with Application setup or Usage.
-Inspect existing code and installed toolkit APIs before implementing. Use the grilling skill for unresolved decisions and reuse agreements already reached. Finish by checking the affected behavior, types, and Laymos rules, and report remaining limitations.
+For a new web application, follow [web setup](applications/web/setup/guide.md).
+
+For an existing application, inspect its code and reuse decisions already made.
+
+If setup is unfinished, resume the relevant section of [web setup](applications/web/setup/guide.md).
+
+Once setup is complete, follow [the feature workflow](core/feature.md).
+
+For additional infrastructure, use [setup discovery](applications/web/setup/guide.md) for the requested change and preserve the existing application.
+
+## Working rules
+
+Read only the guide needed for the current step.
+
+Use [shared architecture](core/architecture.md) for shared, server, and client boundaries.
+
+Use [the glossary](core/CONTEXT.md) when toolkit terminology needs clarification.
+
+Inspect existing code and installed APIs before implementing.
+
+Follow confirmed user preferences over defaults in these guides.
+
+Ask focused questions about unresolved choices and keep bootstrap within the requested scope.
+
+Write short, readable Effect workflows with blank lines between logical sections.
+
+Check affected behavior, types, and architecture rules.
