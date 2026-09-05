@@ -30,8 +30,8 @@ Propose additional tables when the requirements justify them.
 Use the **laymos** skill to choose layers and module dependencies.
 Use the **deep-module** skill for entity, table, and independently reusable schema modules, with the export exception below.
 
-Put pure modeling definitions in the existing domain layer by default.
-Propose a dedicated modeling layer when different dependency rules would help.
+For the software-factory layout, put pure modeling definitions in `shared/contracts`, following [the architecture conventions](../architecture.md).
+For an existing application with different placement, agree any relocation before changing its layout.
 Keep database connections and execution outside these pure definitions.
 
 Within the chosen layer:
