@@ -1,5 +1,12 @@
 # laymos
 
+## 0.0.9
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @pkishorez/effect-tracer@0.0.9
+
 ## 0.0.8
 
 ### Patch Changes

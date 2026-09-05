@@ -1,6 +1,6 @@
 {
   "name": "auth-toolkit",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": false,
   "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1 + KV), a client subpath for React session hooks, and a server subpath for backend-to-backend verification",
   "keywords": [
