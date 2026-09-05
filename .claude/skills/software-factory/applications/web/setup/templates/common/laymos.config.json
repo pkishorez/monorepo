@@ -1,0 +1,41 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts"],
+  "layers": {
+    "web-entry": {
+      "paths": ["src/router.tsx"],
+      "description": "Creates the application router.",
+      "modules": {
+        "src/router.tsx": {}
+      }
+    },
+    "server-entry": {
+      "paths": ["src/server.ts"],
+      "description": "Hosts TanStack Start requests.",
+      "modules": {
+        "src/server.ts": {}
+      }
+    },
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "Defines route pages and the document shell.",
+      "modules": {
+        "src/routes/__root.tsx": {
+          "exposed": true
+        },
+        "src/routes/page.tsx": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "web": {
+      "description": "The web entry consumes routes.",
+      "rules": {
+        "web-entry": ["routes"]
+      }
+    }
+  }
+}

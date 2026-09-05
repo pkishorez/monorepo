@@ -1,12 +1,24 @@
 # Usage
 
-Protect the requested RPC endpoints. Inspect their definitions, group annotations, handlers, and server layers. Read the installed toolkit's RPC documentation and examples. If application authentication wiring is missing, follow [Application setup](../setup/guide.md) first.
+## Resolve access
 
-Distinguish authentication from authorization. Authentication requires a valid session. Authorization adds the requested permission rule. If a restriction could mean either who may sign in or who may call an endpoint, resolve that scope before implementing; service-wide sign-in restrictions belong in [Infrastructure](../infrastructure/guide.md).
+Inspect the requested endpoints, group annotations, handlers, server layers, and installed toolkit RPC examples.
 
-Import `Authz` from `auth-toolkit/rpc` in browser-safe RPC definitions. Attach `Authz.guard()` for authentication. Build permission rules with `Authz.policy(invariant, reason)` and attach them with `Authz.guard(policy)`. Use the toolkit's Effect rule form when an invariant cannot express the requested policy.
+Follow [application setup](../setup/guide.md) first if authentication wiring is missing.
 
-For example, given existing `GetProfile` and `ExportReport` RPC definitions:
+Use authentication to require a valid session and authorization to add permission rules.
+
+Clarify whether a restriction controls sign-in or endpoint access; service-wide sign-in restrictions belong in [infrastructure](../infrastructure/guide.md).
+
+## Add guards
+
+Import `Authz` from `auth-toolkit/rpc` in RPC definitions safe for browser imports.
+
+Require a session with `Authz.guard()` or a permission with `Authz.guard(Authz.policy(invariant, reason))`.
+
+Use the toolkit’s Effect rule form when an invariant cannot express the policy.
+
+For existing `GetProfile` and `ExportReport` definitions, require login for one and a company email for the other:
 
 ```ts
 import { Authz } from 'auth-toolkit/rpc';
@@ -20,12 +32,32 @@ const ProtectedGetProfile = GetProfile.pipe(Authz.guard());
 const ProtectedExportReport = ExportReport.pipe(Authz.guard(companyAccount));
 ```
 
-Compose the guarded definitions into the application's RPC group. `GetProfile` requires login; `ExportReport` also requires a company email. The email rule applies to that call, so other accounts may still sign in.
+Compose guarded definitions into the RPC group using a form supported by the installed Effect runtime.
 
-Apply guards to the requested endpoint or group. Inspect inherited policies before changing them: an endpoint policy overrides a group policy, and an empty `Authz.guard()` preserves inherited authorization. Combine rules explicitly when both must hold. Use a group composition form supported at runtime by the installed Effect version.
+Keep the example’s email restriction scoped to the call; other accounts may still sign in.
 
-Keep policy declarations and service contracts safe for browser imports. Supply policy service implementations on the server with the authentication layers. Handlers can read the verified user and session through `Authz.CurrentAuth`; keep business workflows in operations. Follow [software-factory's RPC boundaries](../../software-factory/rpc/guide.md).
+Inspect inherited policies before applying endpoint or group guards.
 
-Verify the affected calls with no valid session, a permitted session, and a rejected policy where applicable. Check that unavailable verification returns `Authz.VerificationUnavailable`, missing or invalid sessions return `Authz.Unauthenticated`, and denied policies return `Authz.Forbidden`. Exercise group inheritance when changing group guards. For focused tests, replace `Authz.Resolver` while keeping real guards and policies active.
+An endpoint policy overrides the group policy; an empty `Authz.guard()` preserves inherited authorization.
 
-Check affected types and Laymos rules. Report which endpoints changed and what access each now requires.
+Combine rules explicitly when both must hold.
+
+## Supply services
+
+Keep policy declarations and service contracts safe for browser imports, supplying implementations with server authentication layers.
+
+Read the verified user and session through `Authz.CurrentAuth` in handlers.
+
+Keep business workflows in operations and follow [RPC boundaries](../../software-factory/core/rpc/guide.md).
+
+## Verify
+
+Check affected calls with an invalid session, a permitted session, and a denied policy where applicable.
+
+Expect `Authz.VerificationUnavailable` when verification is unavailable, `Authz.Unauthenticated` for invalid sessions, and `Authz.Forbidden` for denied policies.
+
+Check inheritance when changing group guards.
+
+For focused tests, replace `Authz.Resolver` while keeping real guards and policies active.
+
+Check affected types and Laymos rules, then report changed endpoints and their access requirements.

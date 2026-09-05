@@ -1,0 +1,52 @@
+name: Deploy __APP_NAME__
+on:
+  push:
+    branches: [__PRODUCTION_BRANCH__]
+  pull_request:
+    types: [opened, reopened, synchronize]
+permissions:
+  contents: read
+concurrency:
+  group: __APP_NAME__-${{ github.event_name == 'pull_request' && format('pr{0}', github.event.number) || 'prod' }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      STAGE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.number) || 'prod' }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Add selected storage provider secrets here.
+    steps:
+      - uses: actions/checkout@__CHECKOUT_VERSION__
+      - uses: pnpm/action-setup@__PNPM_ACTION_VERSION__
+      - uses: actions/setup-node@__NODE_ACTION_VERSION__
+        with:
+          node-version: __NODE_VERSION__
+          cache: pnpm
+      - run: __INSTALL_COMMAND__
+      - run: __BUILD_WORKSPACE_DEPENDENCIES_COMMAND__
+      - run: __APP_BUILD_COMMAND__
+      - run: __MONOREPO_AND_APP_LINT_COMMANDS__
+      - run: pnpm -C __APP_PATH__ exec alchemy cloudflare bootstrap
+      - run: pnpm -C __APP_PATH__ exec alchemy deploy --stage "$STAGE" --yes
+  summary:
+    needs: deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deployment summary
+        env:
+          RESULT: ${{ needs.deploy.result }}
+          STAGE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.number) || 'prod' }}
+        run: |
+          case "$RESULT" in
+            success)
+              host='__PRODUCTION_HOST__'
+              if [ "$STAGE" != prod ]; then host="$STAGE-$host"; fi
+              echo "$STAGE deployed: https://$host" >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            skipped) echo "$STAGE deployment skipped: this event is not eligible for deployment." >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "$STAGE deployment $RESULT. Review the deployment job." >> "$GITHUB_STEP_SUMMARY" ;;
+          esac

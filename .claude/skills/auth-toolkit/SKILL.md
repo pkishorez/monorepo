@@ -5,14 +5,22 @@ description: Provision a shared auth worker with Alchemy and GitHub Actions, con
 
 # Auth toolkit
 
-Three parts, each usable on its own:
+Start with the requested part; each guide works independently.
 
-- **Infrastructure** — the shared Cloudflare auth worker, D1, KV, and deployment through GitHub Actions. Read [the infrastructure guide](infrastructure/guide.md).
-- **Application setup** — client login, logout, and session hooks, plus server authentication wiring. Read [the setup guide](setup/guide.md).
-- **Usage** — RPC authentication guards and authorization policies. Read [the usage guide](usage/guide.md).
+## Choose a guide
 
-Start with the requested part. Applications share one production auth instance, including during local development. Provision infrastructure only when requested.
+Follow [infrastructure](infrastructure/guide.md) to provision the shared Cloudflare worker, D1, KV, and GitHub deployment when requested.
 
-Inspect existing code and installed toolkit exports before implementing. Read the package documentation and source for the APIs involved; use the installed version when examples differ. Use the grilling skill for unresolved decisions and reuse agreements already reached.
+Follow [application setup](setup/guide.md) to connect login, logout, sessions, and server authentication.
 
-For application placement and composition, read [the software-factory architecture conventions](../software-factory/architecture.md). Keep authentication instructions in this skill.
+Follow [usage](usage/guide.md) to protect RPC endpoints with authentication and permission policies.
+
+## Working rules
+
+Share one production auth instance across applications, including local development.
+
+Inspect existing code, package documentation, and toolkit exports; use installed APIs when examples differ.
+
+Use grilling for unresolved decisions and reuse existing agreements.
+
+Follow [web architecture](../software-factory/applications/web/architecture.md) for placement and keep authentication guidance here.
