@@ -16,11 +16,7 @@
     "sourceRoots": {
       "type": "array",
       "description": "Canonical project-relative files or folders that define the complete static analysis universe.",
-      "allOf": [
-        {
-          "minItems": 1
-        }
-      ],
+      "minItems": 1,
       "items": {
         "type": "string"
       }
@@ -62,11 +58,7 @@
           "paths": {
             "type": "array",
             "description": "Canonical project-relative paths belonging to this Layer. No declared Layer scopes may overlap, within one Layer or across Layers.",
-            "allOf": [
-              {
-                "minItems": 1
-              }
-            ],
+            "minItems": 1,
             "items": {
               "type": "string"
             }
@@ -83,12 +75,33 @@
             "description": "Human-readable summary of this Layer."
           },
           "docsPath": {
-            "$ref": "#/definitions/Union_"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
           },
           "modules": {
             "type": "object",
             "additionalProperties": {
-              "$ref": "#/definitions/Objects_"
+              "type": "object",
+              "properties": {
+                "shared": {
+                  "type": "boolean",
+                  "description": "Whether peers in the same Layer may import this Module. Illegal inside a Module Graph, where Rules govern peer access."
+                },
+                "exposed": {
+                  "type": "boolean",
+                  "description": "Whether other Layers may import this Module."
+                }
+              },
+              "additionalProperties": false,
+              "title": "Module",
+              "description": "A Configured Module keyed by its canonical source file or directory — project-relative when declared in a Layer, Module Graph-relative when declared in a Module Graph. Both flags default to false, so a Module is importable by nobody until it says otherwise."
             },
             "description": "Every free-form Configured Module in this Layer, keyed by canonical project-relative source file or directory."
           },
@@ -113,19 +126,36 @@
                   "description": "Canonical project-relative directory rooting this Module Graph. Every member lives below it and every file below it must belong to a member."
                 },
                 "docsPath": {
-                  "$ref": "#/definitions/Union_"
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
                 },
                 "modules": {
                   "type": "object",
                   "additionalProperties": {
-                    "$ref": "#/definitions/Objects_"
+                    "type": "object",
+                    "properties": {
+                      "shared": {
+                        "type": "boolean",
+                        "description": "Whether peers in the same Layer may import this Module. Illegal inside a Module Graph, where Rules govern peer access."
+                      },
+                      "exposed": {
+                        "type": "boolean",
+                        "description": "Whether other Layers may import this Module."
+                      }
+                    },
+                    "additionalProperties": false,
+                    "title": "Module",
+                    "description": "A Configured Module keyed by its canonical source file or directory — project-relative when declared in a Layer, Module Graph-relative when declared in a Module Graph. Both flags default to false, so a Module is importable by nobody until it says otherwise."
                   },
                   "description": "Every member of this Module Graph, keyed relative to its path. At least two members, at least one exposed, and no member may be Shared.",
-                  "allOf": [
-                    {
-                      "minProperties": 2
-                    }
-                  ]
+                  "minProperties": 2
                 },
                 "rules": {
                   "type": "object",
@@ -157,11 +187,7 @@
         "description": "A named, configured group of project-relative paths, owning the Modules and Module Graphs declared within it."
       },
       "description": "Every Layer in the project, keyed by id, each owning its Modules and Module Graphs.",
-      "allOf": [
-        {
-          "minProperties": 1
-        }
-      ]
+      "minProperties": 1
     },
     "layerGraphs": {
       "type": "object",
@@ -180,7 +206,15 @@
             "description": "Human-readable summary of this LayerGraph."
           },
           "docsPath": {
-            "$ref": "#/definitions/Union_"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
           },
           "rules": {
             "type": "object",
@@ -210,34 +244,5 @@
   ],
   "additionalProperties": false,
   "title": "Laymos Config",
-  "description": "Declares a project's Layers, their Modules and Module Graphs, and its LayerGraphs.",
-  "definitions": {
-    "Union_": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "Canonical project-relative path to a markdown file documenting this entity. Read-only: Laymos never writes to it."
-    },
-    "Objects_": {
-      "type": "object",
-      "properties": {
-        "shared": {
-          "type": "boolean",
-          "description": "Whether peers in the same Layer may import this Module. Illegal inside a Module Graph, where Rules govern peer access."
-        },
-        "exposed": {
-          "type": "boolean",
-          "description": "Whether other Layers may import this Module."
-        }
-      },
-      "additionalProperties": false,
-      "title": "Module",
-      "description": "A Configured Module keyed by its canonical source file or directory — project-relative when declared in a Layer, Module Graph-relative when declared in a Module Graph. Both flags default to false, so a Module is importable by nobody until it says otherwise."
-    }
-  }
+  "description": "Declares a project's Layers, their Modules and Module Graphs, and its LayerGraphs."
 }

@@ -124,6 +124,12 @@
   ],
   "updateGroups": [
     {
+      "label": "Aliased Vite core updates stay aligned with vite-plus",
+      "dependencyTypes": ["pnpmCatalog"],
+      "dependencies": ["vite"],
+      "isIgnored": true
+    },
+    {
       "label": "Aliased TypeScript 6 catalog updates are manual",
       "dependencyTypes": ["pnpmCatalog:typescript6"],
       "isIgnored": true

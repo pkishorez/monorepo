@@ -66,11 +66,11 @@ export type PartitionEntry<
  * erased only when the engine stores entries from different factories together.
  */
 export type PartitionMap<S extends AnyEntityESchema, R = never> = {
-  [F in keyof S['Type'] & string as S['Type'][F] extends PartitionValue
-    ? F
-    : never]?: (
-    partitionValue: S['Type'][F],
-  ) => PartitionEntry<S['Type'], R, any>;
+  [
+    F in keyof S['Type'] & string as S['Type'][F] extends PartitionValue
+      ? F
+      : never
+  ]?: (partitionValue: S['Type'][F]) => PartitionEntry<S['Type'], R, any>;
 };
 
 export type SingleItemStrategy<
