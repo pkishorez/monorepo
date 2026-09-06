@@ -46,7 +46,7 @@ export function handleRpc(
               Layer.provide(
                 resolverLive({
                   authWorkerUrl: import.meta.env.DEV
-                    ? 'https://auth.local.kishore.app'
+                    ? 'https://auth.kishore.computer'
                     : 'https://auth.kishore.app',
                 }),
               ),
