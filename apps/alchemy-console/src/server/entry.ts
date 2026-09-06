@@ -1,4 +1,9 @@
 import { Effect, Layer } from 'effect';
+import {
+  authzCookies,
+  authzLayer,
+  resolverLive,
+} from 'auth-toolkit/rpc/server';
 import { HttpEffect } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import { SQLite } from 'std-toolkit/db/sqlite';
@@ -31,12 +36,21 @@ export function handleRpc(
 
         const rpc = yield* RpcServer.toHttpEffect(Greeting);
         return yield* Effect.promise(() =>
-          HttpEffect.toWebHandler(rpc)(request),
+          HttpEffect.toWebHandler(authzCookies(rpc))(request),
         );
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
             GreetingHandlers,
+            authzLayer.pipe(
+              Layer.provide(
+                resolverLive({
+                  authWorkerUrl: import.meta.env.DEV
+                    ? 'https://auth.local.kishore.app'
+                    : 'https://auth.kishore.app',
+                }),
+              ),
+            ),
             RpcSerialization.layerJson,
             table.layer,
           ),
