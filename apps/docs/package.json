@@ -5,7 +5,7 @@
   "sideEffects": false,
   "scripts": {
     "dev": "portless run --force alchemy dev",
-    "build": "vite build",
+    "build": "vp build",
     "lint": "fumadocs-mdx && tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
     "postinstall": "fumadocs-mdx",
