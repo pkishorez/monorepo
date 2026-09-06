@@ -380,6 +380,9 @@ importers:
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.168.49(@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.5)
+      auth-toolkit:
+        specifier: workspace:*
+        version: link:../../toolkits/auth-toolkit
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112

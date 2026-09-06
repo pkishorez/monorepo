@@ -3,6 +3,13 @@
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/routeTree.gen.ts"],
   "layers": {
+    "client-auth": {
+      "paths": ["src/client/auth"],
+      "description": "Connects login and sessions to the shared auth service.",
+      "modules": {
+        "src/client/auth": { "exposed": true }
+      }
+    },
     "shared-rpc-definitions": {
       "paths": ["src/shared/rpc/greeting"],
       "description": "Defines the greeting protocol.",
@@ -89,7 +96,7 @@
       "description": "Web and Worker entries compose HTTP RPC and D1 storage.",
       "rules": {
         "web-entry": ["routes"],
-        "routes": ["route-runtime"],
+        "routes": ["route-runtime", "client-auth"],
         "route-runtime": ["client-rpc"],
         "client-rpc": ["shared-rpc-definitions"],
         "shared-rpc-handlers": ["shared-rpc-definitions"],

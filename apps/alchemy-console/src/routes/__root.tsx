@@ -1,6 +1,5 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { RpcProvider } from './internal/rpc-provider';
 import appCss from '../styles.css?url';
 
 export const Route = createRootRoute({
@@ -22,7 +21,7 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <RpcProvider>{children}</RpcProvider>
+        {children}
         <Scripts />
       </body>
     </html>

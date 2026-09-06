@@ -4,6 +4,7 @@
   "dependencies": {
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "auth-toolkit": "workspace:*",
     "effect": "catalog:",
     "kui-toolkit": "workspace:*",
     "react": "catalog:",
