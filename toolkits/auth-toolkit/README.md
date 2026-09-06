@@ -8,13 +8,10 @@ below (Auth Worker, Provider, Consumer Backend, etc).
 ## The shape of it
 
 One Cloudflare Worker (the **Auth Worker**) owns sign-in, sign-out, and
-session validation. It's built by composing two Provider decisions this package
-gives you:
+session validation. A Primary Database Provider supplies all persisted auth state:
 
 ```
-Primary Database Provider ─┐
-                            ├─▶ createAuthWorker(...) ─▶ Auth Worker
-Session Store Provider ────┘
+Primary Database Provider ─▶ createAuthWorker(...) ─▶ Auth Worker
 ```
 
 Everything else talks to that one worker instead of touching auth state
@@ -30,7 +27,7 @@ Only the Auth Worker's entrypoint imports concrete Providers.
 
 ## Usage
 
-### 1. Pick your Providers and stand up the Auth Worker
+### 1. Pick your Primary Database Provider and stand up the Auth Worker
 
 In your own Worker's entrypoint (this file lives in your app, not in this
 package):
@@ -39,11 +36,9 @@ package):
 // src/worker.ts
 import { createAuthWorker } from 'auth-toolkit/worker';
 import { d1PrimaryDatabase } from 'auth-toolkit/database/d1';
-import { kvSessionStore } from 'auth-toolkit/secondary/cf-kv';
 
 interface Env {
   DB: D1Database;
-  KV: KVNamespace;
   AUTH_SECRET: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
@@ -56,7 +51,6 @@ export default {
       baseURL: 'https://auth.example.com',
       secret: env.AUTH_SECRET,
       database: d1PrimaryDatabase(env.DB),
-      secondaryStorage: kvSessionStore(env.KV),
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
@@ -79,10 +73,13 @@ export default {
 };
 ```
 
-`database` and `secondaryStorage` are the two Provider decisions — D1 and
-Cloudflare KV in production, or the in-memory Providers for tests. Better Auth
-rate limiting is disabled for now. `createAuthWorker` does not know which
-concrete Providers you picked.
+`database` selects the Primary Database Provider: D1 in production or the
+in-memory provider for tests. Sessions and verification records live in that
+database. Better Auth rate limiting is disabled for now.
+
+The Cookie Cache still defaults to five minutes; a cache miss reads the Primary
+Database. Secondary storage may be reconsidered after measuring performance.
+See [the storage decision](./docs/adr/0005-auth-state-uses-only-the-primary-database.md).
 
 The Auth Worker always includes Better Auth's Admin plugin so the hosted
 dashboard can persist and enforce bans. It does not expose the Admin client API
@@ -94,23 +91,21 @@ registers, links an account, or starts a fresh provider sign-in. Return nothing
 to admit the identity, or return a safe `error` and `errorDescription` to reject
 it. Unexpected thrown errors fail closed with a generic message.
 
-### 2. Deploy the D1 database and KV namespace with alchemy
+### 2. Deploy the D1 database with alchemy
 
-The D1/KV resource helpers build the actual Cloudflare bindings and wire up
+The D1 resource helper builds the Cloudflare binding and wires up
 migrations, so your `alchemy.run.ts` stays declarative:
 
 ```ts
 // alchemy.run.ts
 import * as Cloudflare from 'alchemy/Cloudflare';
 import { d1PrimaryDatabaseResource } from 'auth-toolkit/alchemy/d1';
-import { kvSessionStoreResource } from 'auth-toolkit/alchemy/cf-kv';
 
 const db = d1PrimaryDatabaseResource('auth-db');
-const kv = kvSessionStoreResource('auth-sessions');
 
 export const authWorker = await Cloudflare.Worker('auth-worker', {
   entrypoint: 'src/worker.ts',
-  bindings: { DB: db, KV: kv },
+  bindings: { DB: db },
 });
 ```
 
@@ -229,19 +224,17 @@ origin validation and credentialed CORS responses.
 
 ### Testing
 
-Swap in the in-memory Providers wherever you'd pass the D1/KV ones — same
+Swap in the in-memory Primary Database Provider in place of D1 — same
 `createAuthWorker` call, no other code changes:
 
 ```ts
 import { createAuthWorker } from 'auth-toolkit/worker';
 import { memoryPrimaryDatabase } from 'auth-toolkit/database/memory';
-import { memorySessionStore } from 'auth-toolkit/secondary/memory';
 
 const { handler } = createAuthWorker({
   baseURL: 'http://localhost:8787',
   secret: 'test-secret',
   database: memoryPrimaryDatabase(),
-  secondaryStorage: memorySessionStore(),
   google: { clientId: 'test', clientSecret: 'test' },
   trustedOrigins: ['http://localhost:5173'],
 });
@@ -259,21 +252,18 @@ concurrent calls, cookie refresh, and failure cases.
 
 ## Subpaths
 
-| Subpath            | What it gives you                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------- |
-| `worker`           | `createAuthWorker(config)` — assembles the Auth Worker                                |
-| `server`           | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend                |
-| `rpc`              | `Authz` — the RPC Auth Cannotation, safe for shared contracts                         |
-| `http-api`         | `Authz` — the HTTP API Auth Cannotation, safe for shared contracts                    |
-| `rpc/server`       | `authzLayer`, `resolverLive(...)` — see [`rpc`](./src/server/rpc/README.md)           |
-| `http-api/server`  | `authzLayer`, `resolverLive(...)` — see [`http-api`](./src/server/http-api/README.md) |
-| `client`           | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out   |
-| `database/d1`      | Production Primary Database Provider using a D1 binding                               |
-| `database/memory`  | In-memory Primary Database Provider, for tests                                        |
-| `secondary/cf-kv`  | Production Session Store Provider using Cloudflare KV                                 |
-| `secondary/memory` | In-memory Session Store Provider, for tests                                           |
-| `alchemy/d1`       | Alchemy resource for provisioning D1 and applying migrations                          |
-| `alchemy/cf-kv`    | Alchemy resource for provisioning Cloudflare KV                                       |
+| Subpath           | What it gives you                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| `worker`          | `createAuthWorker(config)` — assembles the Auth Worker                                |
+| `server`          | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend                |
+| `rpc`             | `Authz` — the RPC Auth Cannotation, safe for shared contracts                         |
+| `http-api`        | `Authz` — the HTTP API Auth Cannotation, safe for shared contracts                    |
+| `rpc/server`      | `authzLayer`, `resolverLive(...)` — see [`rpc`](./src/server/rpc/README.md)           |
+| `http-api/server` | `authzLayer`, `resolverLive(...)` — see [`http-api`](./src/server/http-api/README.md) |
+| `client`          | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out   |
+| `database/d1`     | Production Primary Database Provider using a D1 binding                               |
+| `database/memory` | In-memory Primary Database Provider, for tests                                        |
+| `alchemy/d1`      | Alchemy resource for provisioning D1 and applying migrations                          |
 
 ## Migrations
 

@@ -9,7 +9,7 @@ Start with the requested part; each guide works independently.
 
 ## Choose a guide
 
-Follow [infrastructure](infrastructure/guide.md) to provision the shared Cloudflare worker, D1, KV, and GitHub deployment when requested.
+Follow [infrastructure](infrastructure/guide.md) to provision the shared Cloudflare worker, D1, and GitHub deployment when requested.
 
 Follow [application setup](setup/guide.md) to connect login, logout, sessions, and server authentication.
 

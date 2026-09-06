@@ -1,9 +1,4 @@
-import {
-  betterAuth,
-  type Auth,
-  type BetterAuthOptions,
-  type SecondaryStorage,
-} from 'better-auth';
+import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
 import { dash } from '@better-auth/infra';
 import { authModelOptions } from './auth-model.js';
 
@@ -18,9 +13,6 @@ interface AuthWorkerConfig {
   /** Build with a Primary Database provider from `database/*`, e.g.
    * `d1PrimaryDatabase(env.DB)` or `memoryPrimaryDatabase()` for tests. */
   database: BetterAuthOptions['database'];
-  /** Build with a Session Store provider from `secondary/*`, e.g.
-   * `kvSessionStore(env.KV)` or `memorySessionStore()` for tests. */
-  secondaryStorage: SecondaryStorage;
   google: { clientId: string; clientSecret: string };
   /** Origins allowed a Direct Session Check — supports `*.example.com`. */
   trustedOrigins: string[];
@@ -153,7 +145,6 @@ export const createAuthWorker = (
     baseURL: config.baseURL,
     secret: config.secret,
     database: config.database,
-    secondaryStorage: config.secondaryStorage,
     trustedOrigins: config.trustedOrigins,
     user: config.validateUser
       ? { validateUserInfo: config.validateUser }

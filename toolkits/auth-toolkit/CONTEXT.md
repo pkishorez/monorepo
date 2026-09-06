@@ -5,23 +5,19 @@ Curated building blocks over better-auth for standing up one shared Auth Worker 
 ## Language
 
 **Auth Worker**:
-The single deployed better-auth instance (Cloudflare Worker) that owns the Primary Database and Session Store, and is the source of truth for sign-in, sign-out, and session validation. Built by a consumer composing a Primary Database Provider and a Session Store Provider into `createAuthWorker`; not deployed by this package itself.
+The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation.
 _Avoid_: auth server (ambiguous with any backend that merely talks to it), backend
 
 **Consumer Backend**:
-Any service (other than the Auth Worker itself) that needs to know whether an incoming request is authenticated. Talks to the Auth Worker over HTTP via the server subpath's client — it never touches the Primary Database or Session Store directly.
+Any service (other than the Auth Worker itself) that needs to know whether an incoming request is authenticated. Talks to the Auth Worker over HTTP via the server subpath's client — it never touches the Primary Database directly.
 _Avoid_: server, app, client (reserved for the browser side)
 
 **Cookie Cache**:
-A signed, short-TTL blob better-auth writes into the session cookie itself, letting the Auth Worker (and nothing else) confirm "logged in, as whom" without a Session Store read. Lives entirely inside the cookie — it is not a server-side cache.
+A signed, short-TTL blob better-auth writes into the session cookie itself, letting the Auth Worker (and nothing else) confirm "logged in, as whom" without a Primary Database read. Lives entirely inside the cookie — it is not a server-side cache.
 _Avoid_: session cache, server cache
 
-**Session Store**:
-The secondaryStorage backend (Cloudflare KV) holding live session records (session token → user id, expiry). Consulted only when the Cookie Cache is missing or expired; refreshes the Cookie Cache on a hit.
-_Avoid_: secondary storage (kept as the better-auth config name, but "Session Store" is the term for what it holds), secondary cache
-
 **Primary Database**:
-The durable store holding user, account, and session records — a decision with several Providers (D1 in production; an in-memory Provider for tests; a future SQL dialect like Postgres, or a Cloudflare Durable Object, would be a sibling Provider group).
+The durable store holding users, linked accounts, sessions, and verification records.
 _Avoid_: database, primary storage
 
 **SQLite Dialect Group**:
@@ -37,7 +33,7 @@ The committed generated schema and SQL migrations a dialect group's Common ships
 _Avoid_: migrations (too generic on its own — use this term when referring to a Common's own shipped recipe, not a consumer's ad hoc SQL)
 
 **Provider**:
-One of the interchangeable backends for a Primary Database or Session Store decision (e.g. D1 vs. an in-memory Provider for tests, both in the SQLite Dialect Group). Providers are peers — a consumer picks exactly one and passes its built value into `createAuthWorker`; the worker never knows or cares which Provider backed it.
+An interchangeable implementation of the Primary Database. A consumer chooses one Provider for its Auth Worker.
 _Avoid_: adapter (kept as the better-auth/drizzle term for the thing a Provider builds, not for the Provider itself), backend
 
 **Administrator**:
