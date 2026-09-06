@@ -29,7 +29,7 @@ A database implementation of the **StdTable contract**: DynamoDB, SQLite, IDB, o
 _Avoid_: backend, engine, database plugin.
 
 **Driver**:
-A platform binding beneath the SQLite adapter (node, bun, better-sqlite3, durable-object) implementing the `SQLiteDriver` interface. Drivers exist only where one adapter spans several runtimes; DynamoDB and IDB have none.
+A platform binding beneath the SQLite adapter (node, bun, better-sqlite3, durable-object, d1) implementing the `SQLiteDriver` interface. Drivers exist only where one adapter spans several runtimes; DynamoDB and IDB have none.
 _Avoid_: database runtime, environment adapter.
 
 **Adapter config**:

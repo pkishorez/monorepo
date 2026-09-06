@@ -355,6 +355,9 @@
         "src/db/sqlite/drivers/better-sqlite3": {
           "exposed": true
         },
+        "src/db/sqlite/drivers/d1": {
+          "exposed": true
+        },
         "src/db/sqlite/drivers/durable-object": {
           "exposed": true
         }

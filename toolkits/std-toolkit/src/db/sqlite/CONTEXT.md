@@ -22,7 +22,7 @@ The range operators for querying within an **item collection** — `<`, `<=`, `>
 Primary, LSI, and GSI access patterns observe the latest committed SQLite state.
 
 **driver**:
-The platform binding implementing the `SQLiteDriver` interface beneath this adapter. Drivers target Node, better-sqlite3, Bun, or Cloudflare Durable Objects.
+The platform binding implementing the `SQLiteDriver` interface beneath this adapter. Drivers target Node, better-sqlite3, Bun, Cloudflare Durable Objects, or Cloudflare D1.
 _Avoid_: adapter, backend, database runtime.
 
 SQLite driver failures are normalized into the shared [[db]] `DatabaseError` as an `OperationFailed` reason whose `cause` retains the driver error.
