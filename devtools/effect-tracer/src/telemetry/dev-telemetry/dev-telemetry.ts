@@ -11,6 +11,8 @@ interface DevTelemetryOptions {
   readonly serviceVersion?: string;
   readonly traces?: boolean;
   readonly logs?: boolean;
+  readonly batchInterval?: Duration.Input;
+  readonly maxBatchSize?: number;
   readonly retries?: number;
   readonly requestTimeout?: Duration.Input;
   readonly shutdownTimeout?: Duration.Input;
@@ -19,14 +21,25 @@ interface DevTelemetryOptions {
 const signalUrl = (endpoint: string, signal: string) =>
   `${endpoint.replace(/\/+$/, '')}/v1/${signal}`;
 
-/** Creates an immediate, Effect-native OTLP layer for local development. */
+/** Creates a batched, Effect-native OTLP layer for local development. */
 export const makeDevTelemetryLayer = (options: DevTelemetryOptions = {}) => {
   const endpoint = options.endpoint ?? 'http://localhost:14400';
   const serviceName = options.serviceName ?? 'unknown-service';
+  const batchInterval = options.batchInterval ?? Duration.millis(100);
+  const maxBatchSize = options.maxBatchSize ?? 100;
+  const intervalMillis = Duration.toMillis(
+    Duration.fromInputUnsafe(batchInterval),
+  );
+  if (!Number.isFinite(intervalMillis) || intervalMillis <= 0)
+    throw new RangeError('batchInterval must be a finite, positive duration');
+  if (!Number.isSafeInteger(maxBatchSize) || maxBatchSize <= 0)
+    throw new RangeError('maxBatchSize must be a positive integer');
 
   return Layer.unwrap(
     Effect.gen(function* () {
       const queue = yield* makeRequestQueue({
+        batchInterval,
+        maxBatchSize,
         retries: Math.max(0, options.retries ?? 0),
         requestTimeout: options.requestTimeout ?? Duration.seconds(3),
         shutdownTimeout: options.shutdownTimeout ?? Duration.seconds(2),
