@@ -3,7 +3,9 @@ import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { Greeting } from '../../shared/rpc/greeting/index.ts';
 
-const makeClient = RpcClient.make(Greeting);
+import { StateStores } from '../../server/rpc/state-stores/index.ts';
+
+const makeClient = RpcClient.make(Greeting.merge(StateStores));
 
 export class Rpc extends Context.Service<
   Rpc,

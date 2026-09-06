@@ -34,7 +34,8 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
-    "lint:tsc": "tsc --noEmit"
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test run --config ../../vite.config.ts tests"
   },
   "sideEffects": false,
   "type": "module"

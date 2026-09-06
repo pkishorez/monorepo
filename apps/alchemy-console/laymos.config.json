@@ -7,7 +7,9 @@
       "paths": ["src/client/auth"],
       "description": "Connects login and sessions to the shared auth service.",
       "modules": {
-        "src/client/auth": { "exposed": true }
+        "src/client/auth": {
+          "exposed": true
+        }
       }
     },
     "shared-rpc-definitions": {
@@ -83,9 +85,40 @@
     },
     "contracts": {
       "paths": ["src/shared/contracts"],
-      "description": "Defines the empty application table.",
+      "description": "Defines application storage and state-store records.",
       "modules": {
         "src/shared/contracts/app-table": {
+          "exposed": true,
+          "shared": true
+        },
+        "src/shared/contracts/alchemy-state-store": {
+          "exposed": true
+        }
+      }
+    },
+    "server-operations": {
+      "paths": ["src/server/operations/state-stores"],
+      "description": "Manages user-owned connections and masks credentials.",
+      "modules": {
+        "src/server/operations/state-stores": {
+          "exposed": true
+        }
+      }
+    },
+    "server-rpc-definitions": {
+      "paths": ["src/server/rpc/state-stores"],
+      "description": "Defines authenticated state-store calls and safe responses.",
+      "modules": {
+        "src/server/rpc/state-stores": {
+          "exposed": true
+        }
+      }
+    },
+    "server-rpc-handlers": {
+      "paths": ["src/server/rpc/state-store-handlers"],
+      "description": "Connects state-store calls to server operations.",
+      "modules": {
+        "src/server/rpc/state-store-handlers": {
           "exposed": true
         }
       }
@@ -98,10 +131,16 @@
         "web-entry": ["routes"],
         "routes": ["route-runtime", "client-auth"],
         "route-runtime": ["client-rpc"],
-        "client-rpc": ["shared-rpc-definitions"],
+        "client-rpc": ["shared-rpc-definitions", "server-rpc-definitions"],
         "shared-rpc-handlers": ["shared-rpc-definitions"],
-        "rpc-entry": ["shared-rpc-handlers", "contracts"],
-        "server-entry": ["rpc-entry"]
+        "rpc-entry": [
+          "shared-rpc-handlers",
+          "contracts",
+          "server-rpc-handlers"
+        ],
+        "server-entry": ["rpc-entry"],
+        "server-operations": ["contracts"],
+        "server-rpc-handlers": ["server-rpc-definitions", "server-operations"]
       }
     }
   }
