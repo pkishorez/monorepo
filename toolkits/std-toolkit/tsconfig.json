@@ -31,6 +31,7 @@
         "./src/db/sqlite/drivers/better-sqlite3/index.ts"
       ],
       "std-toolkit/db/sqlite/bun": ["./src/db/sqlite/drivers/bun/index.ts"],
+      "std-toolkit/db/sqlite/d1": ["./src/db/sqlite/drivers/d1/index.ts"],
       "std-toolkit/db/sqlite/durable-object": [
         "./src/db/sqlite/drivers/durable-object/index.ts"
       ],
