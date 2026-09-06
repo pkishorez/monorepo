@@ -44,7 +44,7 @@ const AuthenticatedRpcLive = RpcLive.pipe(
 );
 ```
 
-Verify sessions through the shared auth worker, keeping its D1 and KV providers there.
+Verify sessions through the shared auth worker, keeping its Primary Database there.
 
 For request/response HTTP RPC, wrap the HTTP app with `authzCookies` and use supported non-framing JSON serialization to relay refreshed cookies.
 

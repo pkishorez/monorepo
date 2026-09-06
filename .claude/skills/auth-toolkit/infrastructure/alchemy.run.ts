@@ -2,7 +2,6 @@ import { Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import { Config, Effect } from 'effect';
 import { d1PrimaryDatabaseResource } from 'auth-toolkit/alchemy/d1';
-import { kvSessionStoreResource } from 'auth-toolkit/alchemy/cf-kv';
 
 export const AuthWorker = Cloudflare.Worker(
   'AuthWorker',
@@ -13,7 +12,6 @@ export const AuthWorker = Cloudflare.Worker(
     }
 
     const db = yield* d1PrimaryDatabaseResource('auth-db');
-    const kv = yield* kvSessionStoreResource('auth-sessions');
 
     const domain = yield* Config.string('AUTH_DOMAIN');
 
@@ -24,7 +22,6 @@ export const AuthWorker = Cloudflare.Worker(
       compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
       env: {
         DB: db,
-        KV: kv,
         AUTH_URL: `https://${domain}`,
         COOKIE_DOMAIN: yield* Config.string('COOKIE_DOMAIN'),
         TRUSTED_ORIGINS: yield* Config.string('TRUSTED_ORIGINS'),

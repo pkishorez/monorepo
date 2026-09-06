@@ -15,7 +15,7 @@ export const authModelOptions = (config: AuthModelConfig): BetterAuthOptions =>
     session: {
       storeSessionInDatabase: true,
       // `refreshCache` is DB-less. On a Cookie Cache miss this worker already
-      // falls through to its Session Store, so the two should not be combined.
+      // reads the Primary Database, so the two should not be combined.
       cookieCache: {
         enabled: true,
         maxAge: config.cookieCacheMaxAge ?? 300,

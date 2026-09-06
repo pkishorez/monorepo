@@ -6,15 +6,15 @@ Inspect the project's package policy, Alchemy setup, workflows, and installed `a
 
 Resolve the Cloudflare account, production auth URL, application origins, cookie domain, and provider credentials. Include local application origins that will use this service. Ask whether to enable the Better Auth dashboard and whether any sign-in restrictions are required. Reuse existing answers.
 
-Define the worker, D1 database, and KV session store in Alchemy with stable production resource and stack identities. Use `d1PrimaryDatabaseResource` from `auth-toolkit/alchemy/d1` and `kvSessionStoreResource` from `auth-toolkit/alchemy/cf-kv`. The D1 helper includes the toolkit's migrations; preserve that wiring.
+Define the worker and D1 database in Alchemy with stable production resource and stack identities. Use `d1PrimaryDatabaseResource` from `auth-toolkit/alchemy/d1`. The D1 helper includes the toolkit's migrations; preserve that wiring.
 
-Compose `createAuthWorker` from `auth-toolkit/worker` with `d1PrimaryDatabase` from `auth-toolkit/database/d1` and `kvSessionStore` from `auth-toolkit/secondary/cf-kv`. Wire the resource bindings, production URL, auth secret, Google credentials, trusted origins, and cookie domain where needed. Keep secrets in the deployment secret configuration.
+Compose `createAuthWorker` from `auth-toolkit/worker` with `d1PrimaryDatabase` from `auth-toolkit/database/d1`. Wire the resource bindings, production URL, auth secret, Google credentials, trusted origins, and cookie domain where needed. Keep secrets in the deployment secret configuration.
 
 ## Implementation files
 
 Copy [alchemy.run.ts](alchemy.run.ts) and [src/worker.ts](src/worker.ts) into the auth application's root and `src` folder, preserving their relative paths. These files are the starting implementation; update them when the toolkit or Alchemy APIs change. Check compatibility with the target project's installed versions before copying.
 
-`alchemy.run.ts` defines the production stack, D1, KV, custom domain, and worker bindings. It requires the `prod` stage and uses persistent Cloudflare state. `src/worker.ts` imports the inferred environment type and composes the D1 and KV adapters with `createAuthWorker`. Requests go through the toolkit's handler for auth routes and credentialed CORS.
+`alchemy.run.ts` defines the production stack, D1, custom domain, and worker bindings. It requires the `prod` stage and uses persistent Cloudflare state. `src/worker.ts` imports the inferred environment type and composes the D1 adapter with `createAuthWorker`. Requests go through the toolkit's handler for auth routes and credentialed CORS.
 
 Supply these values through the deployment workflow:
 
@@ -27,7 +27,7 @@ Supply these values through the deployment workflow:
 | `GOOGLE_CLIENT_ID`     | Google OAuth client ID                                         | The configured provider's client ID                             |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret, stored as a CI secret              | The configured provider's client secret                         |
 
-`Config.redacted` values become worker secret bindings. `DB` and `KV` become resource bindings; the remaining values become application configuration. Configure Cloudflare credentials and Alchemy state access separately for CI. The local hostname assumes local DNS and HTTPS are configured as described in [Application setup](../setup/guide.md).
+`Config.redacted` values become worker secret bindings. `DB` becomes the database resource binding; the remaining values become application configuration. Configure Cloudflare credentials and Alchemy state access separately for CI. The local hostname assumes local DNS and HTTPS are configured as described in [Application setup](../setup/guide.md).
 
 ## Optional admission and dashboard
 

@@ -17,13 +17,6 @@ const config = {
   baseURL: 'https://auth.example.com',
   secret: 'test-secret-test-secret-test-secret',
   database: {} as never,
-  secondaryStorage: {
-    get: async () => null,
-    getAndDelete: async () => null,
-    set: async () => undefined,
-    delete: async () => undefined,
-    increment: async () => 1,
-  },
   google: { clientId: 'test', clientSecret: 'test' },
   trustedOrigins: ['https://app.example.com', '*.preview.example.com'],
 };
@@ -118,6 +111,16 @@ describe('createAuthWorker', () => {
     expect(mocks.betterAuth).toHaveBeenCalledWith(
       expect.objectContaining({ rateLimit: { enabled: false } }),
     );
+  });
+
+  it('uses only the primary database for persisted auth state', () => {
+    createAuthWorker(config);
+
+    const options = mocks.betterAuth.mock.calls[0]?.[0];
+    expect(options.database).toBe(config.database);
+    expect(options).not.toHaveProperty('secondaryStorage');
+    expect(options.session.storeSessionInDatabase).toBe(true);
+    expect(options.verification.storeInDatabase).toBe(true);
   });
 
   it('always installs Admin and installs Dash only with a non-empty API key', () => {

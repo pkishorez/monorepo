@@ -36,31 +36,9 @@
         }
       }
     },
-    "infra.secondary": {
-      "paths": ["src/infra/secondary"],
-      "description": "Session Store providers — interchangeable backends for the same decision",
-      "moduleGraphs": {
-        "secondary": {
-          "description": "The Cloudflare KV runtime store, its Alchemy resource, and the memory store are independent public capabilities.",
-          "path": "src/infra/secondary",
-          "modules": {
-            "cf-kv/session-store": {
-              "exposed": true
-            },
-            "cf-kv/resource": {
-              "exposed": true
-            },
-            "memory": {
-              "exposed": true
-            }
-          },
-          "rules": {}
-        }
-      }
-    },
     "worker": {
       "paths": ["src/worker"],
-      "description": "Public — createAuthWorker(config): assembles the better-auth config (Cookie Cache TTL, Google OAuth, Admin, optional Dash and User Admission Policy, Trusted Origin and Shared Cookie Domain settings) over an already-built Primary Database and Session Store. Takes no dependency on local provider modules — the consumer imports a provider from infra/primary/* and infra/secondary/* and passes it in, so tests can swap in the memory providers without this layer knowing. The consumer's own Worker entrypoint calls createAuthWorker and exports the result — that host root lives in the consumer's app, not in this package.",
+      "description": "Public — createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database, with Cookie Cache, Google OAuth, Admin, optional Dash and User Admission Policy, and origin and cookie settings. Consumers choose D1 or the memory database without coupling the worker to a provider.",
       "modules": {
         "src/worker": {
           "exposed": true
@@ -125,7 +103,6 @@
       "description": "Independently consumed doors — worker, client, server, and the infra providers each stand alone; the consumer wires providers into the worker itself, so no Layer here imports another.",
       "rules": {
         "infra.primary.sqlite": [],
-        "infra.secondary": [],
         "worker": [],
         "client": [],
         "server": []
