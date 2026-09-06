@@ -1,26 +1,49 @@
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/unstable/rpc';
+import { FetchHttpClient } from 'effect/unstable/http';
 import { Authz } from 'auth-toolkit/rpc';
 import { authzLayer } from 'auth-toolkit/rpc/server';
 import { SQLite } from 'std-toolkit/db/sqlite';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { expect, it } from 'vite-plus/test';
-import { appTable } from '../src/shared/contracts/app-table/index.ts';
+import { appTable } from '../src/server/storage/state-store-database/index.ts';
 import {
   alchemyStateStoreEntity as stores,
   alchemyStateStoreSchema,
-} from '../src/shared/contracts/alchemy-state-store/index.ts';
-import {
-  StateStores,
-  createStateStoreInput,
-} from '../src/server/rpc/state-stores/index.ts';
-import { StateStoreHandlers } from '../src/server/rpc/state-store-handlers/index.ts';
+} from '../src/server/storage/state-store-database/index.ts';
+import { StateStores } from '../src/shared/rpc/state-stores/index.ts';
+import { createStateStoreInput } from '../src/shared/contracts/state-stores/index.ts';
+import { StateStoreHandlers } from '../src/server/handlers/state-store-handlers/index.ts';
 
 const connection = {
   kind: 'cloudflare' as const,
-  url: 'https://state.example.workers.dev',
+  accountId: 'a'.repeat(32),
+  apiToken: 'account-test-token',
+  url: 'https://alchemy-state-store.example.workers.dev',
   authToken: 'private-test-token',
 };
+const discoveryFetch = Object.assign(
+  async (input: Parameters<typeof globalThis.fetch>[0]) => {
+    const url = new URL(String(input));
+    const success = (result: unknown) =>
+      Response.json({ success: true, result });
+    if (url.hostname !== 'api.cloudflare.com') {
+      if (url.pathname === '/state/stacks') return Response.json([]);
+      return new Response(connection.authToken);
+    }
+    if (url.pathname.endsWith('/workers/subdomain'))
+      return success({ subdomain: 'example' });
+    if (url.pathname.endsWith('/settings')) return success({});
+    if (url.pathname.endsWith('/secrets_store/stores'))
+      return success([{ id: 'secrets-store' }]);
+    if (url.pathname.endsWith('/subdomain/edge-preview'))
+      return success({ token: 'upload-token' });
+    if (url.pathname.endsWith('/scripts/alchemy-state-store/edge-preview'))
+      return success({ preview_token: 'preview-token' });
+    throw new Error(`Unexpected discovery request: ${url.pathname}`);
+  },
+  { preconnect: () => {} },
+);
 const headers = (userId: string) => ({ headers: { cookie: userId } });
 const resolver = Layer.succeed(Authz.Resolver, {
   resolve: (request) =>
@@ -58,6 +81,7 @@ const run = <A, E>(
   use: (
     client: Effect.Success<ReturnType<typeof makeClient>>,
   ) => Effect.Effect<A, E, never>,
+  fetch: typeof globalThis.fetch = discoveryFetch,
 ) => {
   const database = makeNodeSQLite({ path: ':memory:' });
   const table = SQLite.make(appTable, { database });
@@ -70,6 +94,11 @@ const run = <A, E>(
       Effect.scoped,
       Effect.provide(StateStoreHandlers.pipe(Layer.provide(table.layer))),
       Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
+      Effect.provide(FetchHttpClient.layer),
+      Effect.provideService(FetchHttpClient.Fetch, fetch),
+      Effect.provideService(FetchHttpClient.RequestInit, {
+        redirect: 'manual',
+      }),
       Effect.ensuring(Effect.sync(() => database.close?.())),
     ),
   );
@@ -85,6 +114,7 @@ it('masks all returned tokens, isolates owners, renames, and deletes', async () 
       expect(created.userId).toBe('alice');
       expect(created.name).toBe('My store');
       expect(created.connection.authToken).toBe('xxxxxxxx');
+      expect(created.connection.apiToken).toBe('xxxxxxxx');
 
       const alice = yield* client['AlchemyStateStore.List'](
         {},
@@ -156,6 +186,44 @@ it('requires authentication for every operation', async () => {
   );
 });
 
+it('returns the discovery reason through RPC without saving a failed connection', async () => {
+  const reason =
+    'Finding the Cloudflare Secrets Store failed: Cloudflare returned HTTP 403. Secrets Store Write required.';
+  await run(
+    (client) =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          client['AlchemyStateStore.Create'](
+            { name: 'Store', connection },
+            headers('alice'),
+          ),
+        );
+        expect(error).toMatchObject({
+          _tag: 'StateStoreError',
+          code: 'cloudflare-permission',
+          reason,
+        });
+        expect(
+          yield* client['AlchemyStateStore.List']({}, headers('alice')),
+        ).toEqual([]);
+        expect(JSON.stringify(error)).not.toContain(connection.apiToken);
+      }),
+    Object.assign(
+      async (input: Parameters<typeof globalThis.fetch>[0]) =>
+        String(input).endsWith('/secrets_store/stores')
+          ? Response.json(
+              {
+                success: false,
+                errors: [{ message: 'Secrets Store Write required.' }],
+              },
+              { status: 403 },
+            )
+          : discoveryFetch(input),
+      { preconnect: () => {} },
+    ),
+  );
+});
+
 it('lists beyond one database page', async () => {
   await run((client) =>
     Effect.gen(function* () {
@@ -191,7 +259,7 @@ it('persists the raw token and removes the actual row on delete', async () => {
     Effect.gen(function* () {
       yield* table.setup;
       const encoded = yield* alchemyStateStoreSchema.encode(record);
-      expect(encoded._v).toBe('v1');
+      expect(encoded._v).toBe('v2');
       expect(yield* alchemyStateStoreSchema.decode(encoded)).toEqual(record);
       yield* stores.insert(record);
       expect(
@@ -213,27 +281,48 @@ it('persists the raw token and removes the actual row on delete', async () => {
       Effect.scoped,
       Effect.provide(StateStoreHandlers.pipe(Layer.provide(table.layer))),
       Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
+      Effect.provide(FetchHttpClient.layer),
+      Effect.provideService(FetchHttpClient.Fetch, discoveryFetch),
+      Effect.provideService(FetchHttpClient.RequestInit, {
+        redirect: 'manual',
+      }),
       Effect.provide(table.layer),
       Effect.ensuring(Effect.sync(() => database.close?.())),
     ),
   );
 });
 
-it('rejects empty fields, unsupported adapters, and URLs containing credentials', () => {
+it('rejects empty fields, unsupported adapters, and invalid account IDs', () => {
   const decode = Schema.decodeUnknownSync(createStateStoreInput);
   for (const input of [
     { name: ' ', connection },
-    { name: 'Store', connection: { ...connection, authToken: '' } },
+    { name: 'Store', connection: { ...connection, apiToken: '' } },
     { name: 'Store', connection: { ...connection, kind: 'aws-s3' } },
-    {
-      name: 'Store',
-      connection: { ...connection, url: 'https://user:secret@example.com' },
-    },
-    {
-      name: 'Store',
-      connection: { ...connection, url: 'https://example.com?token=secret' },
-    },
-    { name: 'Store', connection: { ...connection, url: 'http://example.com' } },
+    { name: 'Store', connection: { ...connection, accountId: 'invalid' } },
   ])
     expect(() => decode(input)).toThrow();
+});
+
+it('migrates v1 URL/token connections without inventing account credentials', async () => {
+  const legacy = {
+    _v: 'v1',
+    id: 'legacy',
+    userId: 'alice',
+    name: 'Old store',
+    connection: {
+      kind: 'cloudflare',
+      url: connection.url,
+      authToken: connection.authToken,
+    },
+    createdAt: 'now',
+    updatedAt: 'now',
+  };
+  const decoded = await Effect.runPromise(
+    alchemyStateStoreSchema.decode(legacy),
+  );
+  expect(decoded.connection).toEqual({
+    ...legacy.connection,
+    accountId: null,
+    apiToken: null,
+  });
 });

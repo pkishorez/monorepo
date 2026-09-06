@@ -3,144 +3,243 @@
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/routeTree.gen.ts"],
   "layers": {
-    "client-auth": {
-      "paths": ["src/client/auth"],
-      "description": "Connects login and sessions to the shared auth service.",
+    "shared-contracts": {
+      "paths": ["src/shared/contracts"],
+      "description": "Defines browser-safe inputs, views and failures without storage or runtime implementations.",
       "modules": {
-        "src/client/auth": {
-          "exposed": true
-        }
-      }
-    },
-    "shared-rpc-definitions": {
-      "paths": ["src/shared/rpc/greeting"],
-      "description": "Defines the greeting protocol.",
-      "modules": {
-        "src/shared/rpc/greeting": {
-          "exposed": true
-        }
-      }
-    },
-    "shared-rpc-handlers": {
-      "paths": ["src/shared/rpc/greeting-handlers"],
-      "description": "Answers greeting requests.",
-      "modules": {
-        "src/shared/rpc/greeting-handlers": {
-          "exposed": true
-        }
-      }
-    },
-    "client-rpc": {
-      "paths": ["src/client/rpc"],
-      "description": "Connects the browser to RPC.",
-      "modules": {
-        "src/client/rpc": {
-          "exposed": true
-        }
-      }
-    },
-    "route-runtime": {
-      "paths": ["src/routes/internal"],
-      "description": "Owns the session connection lifetime.",
-      "modules": {
-        "src/routes/internal/rpc-provider.tsx": {
-          "exposed": true
-        }
-      }
-    },
-    "routes": {
-      "paths": ["src/routes/__root.tsx", "src/routes/page.tsx"],
-      "description": "Renders the document and greeting page.",
-      "modules": {
-        "src/routes/__root.tsx": {
+        "src/shared/contracts/state-stores": {
+          "shared": false,
           "exposed": true
         },
-        "src/routes/page.tsx": {
+        "src/shared/contracts/store-details": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "shared-rpc": {
+      "paths": ["src/shared/rpc"],
+      "description": "Names authenticated calls over the shared contracts; each protocol is an independent peer.",
+      "modules": {
+        "src/shared/rpc/greeting": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/rpc/state-stores": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/rpc/store-details": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-entry": {
+      "paths": ["src/server.ts"],
+      "description": "Dispatches Worker requests to RPC or the web framework.",
+      "modules": {
+        "src/server.ts": {
+          "shared": false,
+          "exposed": false
+        }
+      }
+    },
+    "server-host": {
+      "paths": ["src/server/host"],
+      "description": "Builds database, HTTP, authentication and telemetry providers and hosts the RPC handlers.",
+      "modules": {
+        "src/server/host/rpc-host": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-handlers": {
+      "paths": ["src/server/handlers"],
+      "description": "Fulfils each protocol through its workflow and maps safe failures; handlers cannot import one another.",
+      "modules": {
+        "src/server/handlers/greeting-handlers": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/server/handlers/state-store-handlers": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/server/handlers/store-details-handlers": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-workflows": {
+      "paths": ["src/server/workflows"],
+      "description": "Owns user-scoped sequencing and failure policy over storage and independent external services.",
+      "modules": {
+        "src/server/workflows/state-stores": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/server/workflows/store-details": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-services": {
+      "paths": ["src/server/services"],
+      "description": "Discovers Cloudflare connections or reads Alchemy state; neither service can import its peer or storage.",
+      "modules": {
+        "src/server/services/cloudflare-discovery": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/server/services/alchemy-state": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-storage": {
+      "paths": ["src/server/storage"],
+      "description": "Owns the state-store table, schema evolution and entity binding consumed by workflows and the host.",
+      "modules": {
+        "src/server/storage/state-store-database": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-telemetry": {
+      "paths": ["src/server/telemetry"],
+      "description": "Configures development telemetry for the Worker runtime.",
+      "modules": {
+        "src/server/telemetry": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "client-features": {
+      "paths": ["src/client/features"],
+      "description": "Owns login, store management and exploration as independent interactions; routes supply navigation.",
+      "modules": {
+        "src/client/features/auth-boundary": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/client/features/store-list": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/client/features/store-explorer": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "client-session": {
+      "paths": ["src/client/session"],
+      "description": "Owns the RPC connection lifetime, private React context and query/action hooks for a signed-in session.",
+      "modules": {
+        "src/client/session/rpc-session": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "client-connections": {
+      "paths": ["src/client/connections"],
+      "description": "Connects to authentication and typed RPC; each connection is independent of its peer.",
+      "modules": {
+        "src/client/connections/auth": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/client/connections/rpc": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "client-telemetry": {
+      "paths": ["src/client/telemetry"],
+      "description": "Configures development telemetry for the browser runtime.",
+      "modules": {
+        "src/client/telemetry": {
+          "shared": false,
           "exposed": true
         }
       }
     },
     "web-entry": {
       "paths": ["src/router.tsx"],
-      "description": "Creates the router.",
+      "description": "Creates the framework router over the generated route tree.",
       "modules": {
-        "src/router.tsx": {}
-      }
-    },
-    "server-entry": {
-      "paths": ["src/server.ts"],
-      "description": "Hosts TanStack Start and dispatches RPC requests.",
-      "modules": {
-        "src/server.ts": {}
-      }
-    },
-    "rpc-entry": {
-      "paths": ["src/server/entry.ts"],
-      "description": "Provides D1 SQLite and hosts HTTP RPC.",
-      "modules": {
-        "src/server/entry.ts": {
-          "exposed": true
+        "src/router.tsx": {
+          "shared": false,
+          "exposed": false
         }
       }
     },
-    "contracts": {
-      "paths": ["src/shared/contracts"],
-      "description": "Defines application storage and state-store records.",
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "Owns URLs, document composition and navigation while mounting independent client features.",
       "modules": {
-        "src/shared/contracts/app-table": {
-          "exposed": true,
-          "shared": true
+        "src/routes/__root.tsx": {
+          "shared": false,
+          "exposed": true
         },
-        "src/shared/contracts/alchemy-state-store": {
+        "src/routes/page.tsx": {
+          "shared": false,
           "exposed": true
-        }
-      }
-    },
-    "server-operations": {
-      "paths": ["src/server/operations/state-stores"],
-      "description": "Manages user-owned connections and masks credentials.",
-      "modules": {
-        "src/server/operations/state-stores": {
-          "exposed": true
-        }
-      }
-    },
-    "server-rpc-definitions": {
-      "paths": ["src/server/rpc/state-stores"],
-      "description": "Defines authenticated state-store calls and safe responses.",
-      "modules": {
-        "src/server/rpc/state-stores": {
-          "exposed": true
-        }
-      }
-    },
-    "server-rpc-handlers": {
-      "paths": ["src/server/rpc/state-store-handlers"],
-      "description": "Connects state-store calls to server operations.",
-      "modules": {
-        "src/server/rpc/state-store-handlers": {
+        },
+        "src/routes/stores/$storeId/page.tsx": {
+          "shared": false,
           "exposed": true
         }
       }
     }
   },
   "layerGraphs": {
-    "application": {
-      "description": "Web and Worker entries compose HTTP RPC and D1 storage.",
+    "shared": {
+      "description": "The common language: RPC protocols depend on pure contracts. Neither can reach a runtime.",
+      "rules": {
+        "shared-rpc": ["shared-contracts"],
+        "shared-contracts": []
+      }
+    },
+    "server": {
+      "description": "A request enters the host, reaches a handler and runs a workflow over independent services and storage.",
+      "rules": {
+        "server-entry": ["server-host"],
+        "server-host": ["server-handlers", "server-telemetry"],
+        "server-handlers": ["shared-rpc", "server-workflows"],
+        "server-workflows": [
+          "server-services",
+          "server-storage",
+          "shared-contracts"
+        ],
+        "server-services": ["shared-contracts"],
+        "server-storage": [],
+        "server-telemetry": []
+      }
+    },
+    "client": {
+      "description": "Independent features use a session whose connections speak shared protocols; server implementations are unreachable.",
+      "rules": {
+        "client-features": ["client-session"],
+        "client-session": ["client-connections"],
+        "client-connections": ["shared-rpc", "client-telemetry"],
+        "client-telemetry": []
+      }
+    },
+    "routes": {
+      "description": "The router starts pages; pages bind URLs and navigation to client features.",
       "rules": {
         "web-entry": ["routes"],
-        "routes": ["route-runtime", "client-auth"],
-        "route-runtime": ["client-rpc"],
-        "client-rpc": ["shared-rpc-definitions", "server-rpc-definitions"],
-        "shared-rpc-handlers": ["shared-rpc-definitions"],
-        "rpc-entry": [
-          "shared-rpc-handlers",
-          "contracts",
-          "server-rpc-handlers"
-        ],
-        "server-entry": ["rpc-entry"],
-        "server-operations": ["contracts"],
-        "server-rpc-handlers": ["server-rpc-definitions", "server-operations"]
+        "routes": ["client-features"]
       }
     }
   }
