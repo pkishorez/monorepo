@@ -30,7 +30,7 @@ const severityNumber = (level: string) => {
   }
 };
 
-/** Creates the Effect logger that exports one OTLP request per log record. */
+/** Creates the Effect logger that queues OTLP log records for batched export. */
 export const makeLogger = (options: LogExporterOptions) =>
   Logger.make<unknown, void>((logOptions) => {
     const now = String(options.clock.currentTimeNanosUnsafe());
