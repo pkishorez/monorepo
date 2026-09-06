@@ -1,5 +1,13 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+import {
+  HeadContent,
+  Scripts,
+  Outlet,
+  createRootRoute,
+  Link,
+} from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { ThemeProvider } from 'next-themes';
+import { AuthBoundary } from '../client/features/auth-boundary/index.ts';
 import appCss from '../styles.css?url';
 
 export const Route = createRootRoute({
@@ -12,16 +20,33 @@ export const Route = createRootRoute({
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
   shellComponent: RootDocument,
+  component: () => (
+    <AuthBoundary HomeLink={HomeLink}>
+      <Outlet />
+    </AuthBoundary>
+  ),
 });
+
+function HomeLink(props: { className?: string; children: ReactNode }) {
+  return <Link to="/" {...props} />;
+}
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
+        <ThemeProvider
+          attribute="class"
+          storageKey="alchemy-console-theme"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
         <Scripts />
       </body>
     </html>

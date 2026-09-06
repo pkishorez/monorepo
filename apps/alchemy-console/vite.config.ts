@@ -23,7 +23,6 @@ export default defineConfig({
       router: {
         indexToken: 'page',
         routeToken: 'layout',
-        routeFileIgnorePattern: '^(components|internal)$',
       },
     }),
     react(),
