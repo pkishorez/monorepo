@@ -109,9 +109,16 @@ export const authWorker = await Cloudflare.Worker('auth-worker', {
 });
 ```
 
-`d1PrimaryDatabaseResource` defaults `migrationsDir` to the `.sql` files
-this package ships — alchemy applies whatever's pending on every
-`alchemy deploy`. There's no separate migrate step to remember.
+`d1PrimaryDatabaseResource` supplies the package's Drizzle v1 migrations to
+Alchemy, which applies pending migrations on every `alchemy deploy`.
+D1 and in-memory SQLite use the same timestamped migration folders, each
+containing `migration.sql`. The build includes these folders and their
+snapshots. Consumers need no migration configuration changes.
+
+This baseline targets fresh databases. The toolkit pins Drizzle ORM and Kit
+to `1.0.0-rc.4`. `db:generate` uses the configured Better Auth Relations v2
+adapter to generate tables and relations, then runs Drizzle Kit. D1 and
+memory use this same adapter and generated schema.
 
 ### 3. Verify requests from another backend (Consumer Backend)
 

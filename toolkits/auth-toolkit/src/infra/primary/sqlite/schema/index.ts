@@ -1,1 +1,1 @@
-export { authSchema } from './schema.js';
+export { authRelations, authSchema } from './schema.js';

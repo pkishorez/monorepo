@@ -66,7 +66,7 @@
   },
   "scripts": {
     "build": "rm -rf ./dist && tsc -p tsconfig.build.json && cp -R src/infra/primary/sqlite/migration/migrations dist/infra/primary/sqlite/migration/",
-    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/infra/primary/sqlite/schema/schema.generated.ts --adapter drizzle --dialect sqlite -y && pnpm fmt && drizzle-kit generate",
+    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/infra/primary/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
@@ -74,6 +74,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "catalog:",
     "@better-auth/infra": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "better-auth": "catalog:",
