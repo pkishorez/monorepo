@@ -149,6 +149,7 @@ it('streams deletion progress through the real RPC host before completion', asyn
         }).pipe(
           Stream.runForEach((event) =>
             Effect.sync(() => {
+              if (event.kind === 'heartbeat') return;
               seen.push(event.kind);
               if (event.kind === 'progress') progress.resolve();
             }),
@@ -156,10 +157,13 @@ it('streams deletion progress through the real RPC host before completion', asyn
         ),
       ).pipe(Effect.provide(context)),
     );
-    await progress.promise;
-    expect(seen).toEqual(['progress']);
-    finish.resolve();
-    await result;
+    try {
+      await progress.promise;
+      expect(seen).toEqual(['progress']);
+    } finally {
+      finish.resolve();
+      await result;
+    }
     expect(seen).toEqual(['progress', 'complete']);
   } finally {
     await runtime.dispose();

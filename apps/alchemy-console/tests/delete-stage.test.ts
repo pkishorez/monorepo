@@ -188,6 +188,7 @@ it('delivers progress before native deletion finishes and preserves partial fail
     destroy({ ...target, fingerprint: 'reviewed' }).pipe(
       Stream.runForEach((event) =>
         Effect.sync(() => {
+          if (event.kind === 'heartbeat') return;
           seen.push(event.kind);
           if (event.kind === 'progress') first.resolve();
         }),
@@ -195,10 +196,13 @@ it('delivers progress before native deletion finishes and preserves partial fail
     ),
     fetch,
   );
-  await first.promise;
-  expect(seen).toEqual(['progress']);
-  finish.resolve();
-  await result;
+  try {
+    await first.promise;
+    expect(seen).toEqual(['progress']);
+  } finally {
+    finish.resolve();
+    await result;
+  }
   expect(seen).toEqual(['progress', 'failed']);
 });
 
