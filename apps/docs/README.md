@@ -7,6 +7,12 @@ assets.
 
 ## Local development
 
+Production `docs.kishore.app` maps to local `https://docs.kishore.computer`.
+`portless.json` supplies the name `docs.kishore`, using the shared Portless
+proxy configuration. In a Git worktree, Portless
+adds the worktree prefix to the hostname. Use the URL printed at startup.
+Portless must configure local hostname resolution and trust its local TLS CA.
+
 ```bash
 pnpm --filter docs dev     # dev server
 pnpm --filter docs build   # build + prerender -> apps/docs/.output/public
