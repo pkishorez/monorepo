@@ -14,6 +14,7 @@ import {
 import { Rpc } from '../../connections/rpc/index.ts';
 import type { stateStoreView } from '../../../shared/contracts/state-stores/index.ts';
 import { useRpcAction, rpcQueryKeys } from '../../session/rpc-session/index.ts';
+import { TokenDialog } from './token-dialog.tsx';
 import { cloudflareTokenUrl } from './cloudflare-token-url.ts';
 
 export function StoreDialog({
@@ -23,7 +24,10 @@ export function StoreDialog({
 }: {
   action:
     | { kind: 'add' }
-    | { kind: 'rename' | 'delete'; store: typeof stateStoreView.Type };
+    | {
+        kind: 'rename' | 'delete' | 'credentials';
+        store: typeof stateStoreView.Type;
+      };
   onClose: () => void;
   onSaved: (storeId?: string) => void;
 }) {
@@ -32,9 +36,18 @@ export function StoreDialog({
   const [name, setName] = useState(
     action.kind === 'add' ? '' : action.store.name,
   );
-  const [accountId, setAccountId] = useState('');
+  const connects = action.kind === 'add' || action.kind === 'credentials';
+  const [accountId, setAccountId] = useState(
+    action.kind === 'credentials'
+      ? (action.store.connection.accountId ?? '')
+      : '',
+  );
+  const [access, setAccess] = useState<'view' | 'admin'>(
+    action.kind === 'credentials' ? action.store.access : 'view',
+  );
+  const [tokenDialog, setTokenDialog] = useState(false);
   const [token, setToken] = useState('');
-  const tokenUrl = cloudflareTokenUrl(accountId);
+  const tokenUrl = cloudflareTokenUrl(accountId, access);
   const [validation, setValidation] = useState<string | null>(null);
   const request = useRpcAction(
     () =>
@@ -51,8 +64,18 @@ export function StoreDialog({
           });
           return undefined;
         }
+        if (action.kind === 'credentials') {
+          yield* rpc['AlchemyStateStore.UpdateCredentials']({
+            id: action.store.id,
+            accountId: accountId.trim(),
+            apiToken: token.trim(),
+            access,
+          });
+          return undefined;
+        }
         const store = yield* rpc['AlchemyStateStore.Create']({
           name: name.trim(),
+          access,
           connection: {
             kind: 'cloudflare',
             accountId: accountId.trim(),
@@ -75,7 +98,9 @@ export function StoreDialog({
       ? 'Add store'
       : action.kind === 'rename'
         ? 'Rename store'
-        : 'Delete store?';
+        : action.kind === 'credentials'
+          ? 'Update token and access'
+          : 'Delete store?';
 
   return (
     <Dialog
@@ -113,7 +138,7 @@ export function StoreDialog({
               setValidation('Enter a store name.');
               return;
             }
-            if (action.kind === 'add') {
+            if (connects) {
               if (!tokenUrl) {
                 setValidation(
                   'Enter a valid 32-character Cloudflare account ID.',
@@ -128,7 +153,7 @@ export function StoreDialog({
             request.run(undefined);
           }}
         >
-          {action.kind !== 'delete' && (
+          {(action.kind === 'add' || action.kind === 'rename') && (
             <div className="space-y-2">
               <label
                 htmlFor={`${id}-name`}
@@ -150,7 +175,7 @@ export function StoreDialog({
               />
             </div>
           )}
-          {action.kind === 'add' && (
+          {connects && (
             <>
               <div className="space-y-2">
                 <label
@@ -172,9 +197,33 @@ export function StoreDialog({
                     setValidation(null);
                   }}
                   placeholder="32-character account ID"
+                  readOnly={
+                    action.kind === 'credentials' &&
+                    action.store.connection.accountId !== null
+                  }
                   required
                   disabled={request.pending}
                 />
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor={`${id}-access`}
+                  className="block text-sm font-medium"
+                >
+                  Console access
+                </label>
+                <select
+                  id={`${id}-access`}
+                  value={access}
+                  disabled={request.pending}
+                  onChange={(event) =>
+                    setAccess(event.target.value === 'admin' ? 'admin' : 'view')
+                  }
+                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="view">View only</option>
+                  <option value="admin">Admin — destroy stages</option>
+                </select>
               </div>
               {tokenUrl && (
                 <div className="space-y-2">
@@ -185,14 +234,13 @@ export function StoreDialog({
                     >
                       Cloudflare API token
                     </label>
-                    <a
-                      href={tokenUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() => setTokenDialog(true)}
                       className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
                     >
-                      Create token ↗
-                    </a>
+                      Create token
+                    </button>
                   </div>
                   <Input
                     id={`${id}-token`}
@@ -234,13 +282,23 @@ export function StoreDialog({
                   : 'Saving…'
                 : action.kind === 'add'
                   ? 'Add store'
-                  : action.kind === 'delete'
-                    ? 'Delete store'
-                    : 'Save name'}
+                  : action.kind === 'credentials'
+                    ? 'Save token and access'
+                    : action.kind === 'delete'
+                      ? 'Delete store'
+                      : 'Save name'}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
+      {tokenDialog && (
+        <TokenDialog
+          accountId={accountId}
+          access={access}
+          onAccess={setAccess}
+          onClose={() => setTokenDialog(false)}
+        />
+      )}
     </Dialog>
   );
 }

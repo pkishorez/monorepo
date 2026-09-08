@@ -5,6 +5,7 @@ const nonEmpty = Schema.String.check(
 );
 export const createStateStoreInput = Schema.Struct({
   name: nonEmpty,
+  access: Schema.optional(Schema.Literals(['view', 'admin'])),
   connection: Schema.Struct({
     kind: Schema.Literal('cloudflare'),
     accountId: Schema.String.check(
@@ -18,6 +19,7 @@ export const stateStoreView = Schema.Struct({
   id: Schema.String,
   userId: Schema.String,
   name: Schema.String,
+  access: Schema.Literals(['view', 'admin']),
   connection: Schema.Struct({
     kind: Schema.Literal('cloudflare'),
     accountId: Schema.NullOr(Schema.String),

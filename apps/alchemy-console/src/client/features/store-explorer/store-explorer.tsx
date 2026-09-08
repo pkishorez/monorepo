@@ -32,10 +32,12 @@ function ExplorerContent({
   stage,
   NavigationLink,
   onStoreName,
+  StageAction,
 }: ExplorerLocation & {
   storeId: string;
   NavigationLink: NavigationLink;
   onStoreName: (name: string) => void;
+  StageAction: ComponentType<{ stack: string; stage: string }>;
 }) {
   const [filter, setFilter] = useState('');
   const [tab, setTab] = useState<'resources' | 'outputs'>('resources');
@@ -140,6 +142,9 @@ function ExplorerContent({
         </h1>
       )}
       <div className="flex min-w-0 items-center justify-end gap-2">
+        {stack !== undefined && stage !== undefined && (
+          <StageAction stack={stack} stage={stage} />
+        )}
         {tab !== 'outputs' && (
           <>
             <div className="relative w-32 sm:w-56">
@@ -234,14 +239,18 @@ function ExplorerContent({
                   {content}
                 </button>
               ) : (
-                <NavigationLink
-                  key={name}
-                  stack={stack ?? name}
-                  stage={stack !== undefined ? name : undefined}
-                  className={rowClass}
-                >
-                  {content}
-                </NavigationLink>
+                <div key={name} className="flex items-center pr-2">
+                  <NavigationLink
+                    stack={stack ?? name}
+                    stage={stack !== undefined ? name : undefined}
+                    className={`${rowClass} min-w-0 flex-1`}
+                  >
+                    {content}
+                  </NavigationLink>
+                  {stack !== undefined && (
+                    <StageAction stack={stack} stage={name} />
+                  )}
+                </div>
               );
             })}
           </div>
@@ -301,7 +310,11 @@ function ChildCount({
 }
 
 export function StoreExplorer(
-  props: ExplorerLocation & { storeId: string; NavigationLink: NavigationLink },
+  props: ExplorerLocation & {
+    storeId: string;
+    NavigationLink: NavigationLink;
+    StageAction: ComponentType<{ stack: string; stage: string }>;
+  },
 ) {
   const cachedStoreName = useCachedStoreName(props.storeId);
   const [storeName, setStoreName] = useState<string | null>(cachedStoreName);

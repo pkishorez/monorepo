@@ -68,7 +68,9 @@ function message(error: unknown): string {
     return 'Your session expired. Please sign in again.';
   if (
     '_tag' in error &&
-    (error._tag === 'StateStoreError' || error._tag === 'StoreDetailsError') &&
+    (error._tag === 'StateStoreError' ||
+      error._tag === 'StoreDetailsError' ||
+      error._tag === 'DeleteStageError') &&
     'reason' in error &&
     typeof error.reason === 'string' &&
     error.reason.trim()

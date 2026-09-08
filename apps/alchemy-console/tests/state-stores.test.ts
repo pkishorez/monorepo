@@ -249,6 +249,7 @@ it('persists the raw token and removes the actual row on delete', async () => {
   const table = SQLite.make(appTable, { database });
   const record = {
     id: 'one',
+    access: 'view' as const,
     userId: 'alice',
     name: 'Store',
     connection,
@@ -259,7 +260,7 @@ it('persists the raw token and removes the actual row on delete', async () => {
     Effect.gen(function* () {
       yield* table.setup;
       const encoded = yield* alchemyStateStoreSchema.encode(record);
-      expect(encoded._v).toBe('v2');
+      expect(encoded._v).toBe('v3');
       expect(yield* alchemyStateStoreSchema.decode(encoded)).toEqual(record);
       yield* stores.insert(record);
       expect(
@@ -289,6 +290,40 @@ it('persists the raw token and removes the actual row on delete', async () => {
       Effect.provide(table.layer),
       Effect.ensuring(Effect.sync(() => database.close?.())),
     ),
+  );
+});
+
+it('upgrades an owned connection to admin and keeps replacement credentials private', async () => {
+  await run((client) =>
+    Effect.gen(function* () {
+      const created = yield* client['AlchemyStateStore.Create'](
+        { name: 'Store', connection },
+        headers('alice'),
+      );
+      expect(created.access).toBe('view');
+      const input = {
+        id: created.id,
+        accountId: connection.accountId,
+        apiToken: 'replacement-token',
+        access: 'admin' as const,
+      };
+      yield* client['AlchemyStateStore.UpdateCredentials'](
+        input,
+        headers('bob'),
+      ).pipe(Effect.flip);
+      const saved = yield* client['AlchemyStateStore.UpdateCredentials'](
+        input,
+        headers('alice'),
+      );
+      expect(saved.access).toBe('admin');
+      expect(saved.connection.apiToken).toBe('xxxxxxxx');
+      expect(JSON.stringify(saved)).not.toContain('replacement-token');
+      const downgraded = yield* client['AlchemyStateStore.UpdateCredentials'](
+        { ...input, access: 'view' },
+        headers('alice'),
+      );
+      expect(downgraded.access).toBe('view');
+    }),
   );
 });
 

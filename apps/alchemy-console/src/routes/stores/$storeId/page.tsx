@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute, Link, useBlocker } from '@tanstack/react-router';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { DeleteStage } from '../../../client/features/delete-stage/index.ts';
 import { StoreExplorer } from '../../../client/features/store-explorer/index.ts';
 
 export const Route = createFileRoute('/stores/$storeId/')({
@@ -23,16 +25,31 @@ export const Route = createFileRoute('/stores/$storeId/')({
   component: StorePage,
 });
 function StorePage() {
+  const [busy, setBusy] = useState(false);
+  useBlocker({ shouldBlockFn: () => busy, enableBeforeUnload: () => busy });
   const { storeId } = Route.useParams();
   const { stack, stage } = Route.useSearch();
+  const navigate = Route.useNavigate();
   return (
-    <StoreExplorer
-      key={storeId}
+    <DeleteStage
       storeId={storeId}
-      stack={stack}
-      stage={stage}
-      NavigationLink={NavigationLink}
-    />
+      onBusyChange={setBusy}
+      onDeleted={(deleted) => {
+        if (stack === deleted.stack && stage === deleted.stage)
+          void navigate({ search: { stack }, replace: true });
+      }}
+    >
+      {(StageAction) => (
+        <StoreExplorer
+          key={storeId}
+          storeId={storeId}
+          stack={stack}
+          stage={stage}
+          NavigationLink={NavigationLink}
+          StageAction={StageAction}
+        />
+      )}
+    </DeleteStage>
   );
 }
 function NavigationLink({

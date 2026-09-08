@@ -33,6 +33,10 @@ export const alchemyStateStoreSchema = EntityESchema.make(
       connection: { ...previous.connection, accountId: null, apiToken: null },
     }),
   )
+  .evolve('v3', { access: Schema.Literals(['view', 'admin']) }, (previous) => ({
+    ...previous,
+    access: 'view' as const,
+  }))
   .build();
 
 export const appTable = StdTable.make('alchemy-console')

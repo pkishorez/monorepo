@@ -25,7 +25,7 @@ export const Worker = Cloudflare.Website.Vite(
 
     return {
       env: { DB: database },
-      compatibility: { date: '2025-09-02', flags: ['nodejs_compat'] },
+      compatibility: { date: '2026-07-01', flags: ['nodejs_compat'] },
       dev: deployed ? undefined : { port },
       domain: deployed
         ? stage === 'prod'

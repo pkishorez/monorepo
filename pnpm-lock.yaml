@@ -30,6 +30,9 @@ catalogs:
     '@dagrejs/dagre':
       specifier: 3.1.1
       version: 3.1.1
+    '@distilled.cloud/cloudflare':
+      specifier: 1.0.0-rc.8
+      version: 1.0.0-rc.8
     '@effect/opentelemetry':
       specifier: 4.0.0-rc.112
       version: 4.0.0-rc.112
@@ -207,6 +210,9 @@ catalogs:
     env-paths:
       specifier: 4.0.0
       version: 4.0.0
+    esbuild:
+      specifier: 0.28.2
+      version: 0.28.2
     fake-indexeddb:
       specifier: 6.2.5
       version: 6.2.5
@@ -374,6 +380,9 @@ importers:
 
   apps/alchemy-console:
     dependencies:
+      '@distilled.cloud/cloudflare':
+        specifier: 'catalog:'
+        version: 1.0.0-rc.8(effect@4.0.0-rc.112)
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../../devtools/effect-tracer
@@ -435,9 +444,15 @@ importers:
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 6.1.1(@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))
+      esbuild:
+        specifier: 'catalog:'
+        version: 0.28.2
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
+      miniflare:
+        specifier: 'catalog:'
+        version: 4.20260730.0
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3

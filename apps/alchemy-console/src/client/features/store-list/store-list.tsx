@@ -8,6 +8,7 @@ import {
   Search,
   Plus,
   Pencil,
+  KeyRound,
   Trash2,
   ChevronRight,
   LoaderCircle,
@@ -36,7 +37,9 @@ export function StoreList({
     rpcQueryKeys.stores,
   );
   const [dialog, setDialog] = useState<
-    { kind: 'add' } | { kind: 'rename' | 'delete'; store: Store } | null
+    | { kind: 'add' }
+    | { kind: 'rename' | 'delete' | 'credentials'; store: Store }
+    | null
   >(null);
 
   const [filter, setFilter] = useState('');
@@ -159,6 +162,15 @@ export function StoreList({
                   onClick={() => setDialog({ kind: 'rename', store })}
                 >
                   <Pencil />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative z-10 size-11"
+                  aria-label={`Update token for ${store.name}`}
+                  onClick={() => setDialog({ kind: 'credentials', store })}
+                >
+                  <KeyRound />
                 </Button>
                 <Button
                   variant="ghost"
