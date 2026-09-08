@@ -1,6 +1,6 @@
 // No cloud credentials or network operations: the fixture supplies a scoped mock HTTP client.
 import assert from 'node:assert/strict';
-import { builtinModules, createRequire } from 'node:module';
+import { builtinModules, createRequire, findPackageJSON } from 'node:module';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -9,9 +9,11 @@ import { build } from 'esbuild';
 import { Miniflare } from 'miniflare';
 
 // Match the binary Alchemy uses for local development, rather than a newer test-only one.
-const alchemyRequire = createRequire(import.meta.resolve('alchemy'));
 const runtimeRequire = createRequire(
-  alchemyRequire.resolve('@alchemy.run/cloudflare-runtime/core'),
+  findPackageJSON(
+    '@alchemy.run/cloudflare-runtime',
+    import.meta.resolve('alchemy'),
+  ),
 );
 process.env.MINIFLARE_WORKERD_PATH ??= runtimeRequire('workerd').default;
 
