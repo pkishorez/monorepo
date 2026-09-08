@@ -1,0 +1,64 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src", "infra"],
+  "ignoredPaths": ["src/routeTree.gen.ts"],
+  "layers": {
+    "infra": {
+      "paths": ["infra"],
+      "description": "Deployable resources composed by alchemy.run.ts.",
+      "modules": {
+        "infra/website.ts": {
+          "exposed": true
+        },
+        "infra/stage.ts": {
+          "shared": true
+        }
+      }
+    },
+    "web-entry": {
+      "paths": ["src/router.tsx"],
+      "description": "Creates the application router.",
+      "modules": {
+        "src/router.tsx": {}
+      }
+    },
+    "server-entry": {
+      "paths": ["src/server.ts"],
+      "description": "Hosts TanStack Start requests and routes each server-side host by pathname.",
+      "modules": {
+        "src/server.ts": {}
+      }
+    },
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "Route pages and the document shell.",
+      "modules": {
+        "src/routes/__root.tsx": {
+          "exposed": true
+        },
+        "src/routes/page.tsx": {
+          "exposed": true
+        }
+      }
+    },
+    "domain": {
+      "paths": ["src/shared/domain"],
+      "description": "Pure business rules shared by server and client.",
+      "modules": {
+        "src/shared/domain/greeting": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "application": {
+      "description": "Entries over routes over shared behavior.",
+      "rules": {
+        "web-entry": ["routes"],
+        "server-entry": ["infra"],
+        "routes": ["domain"]
+      }
+    }
+  }
+}
