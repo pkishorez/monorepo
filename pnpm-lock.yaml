@@ -4737,9 +4737,6 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@26.2.0':
-    resolution: {integrity: sha512-5IviulTZeRNp2vAJ514cc/HUlY5nZ9fCbq9DMyC52BrhFZACo3nI0R7qBxhQmo/d27NFe96ur/b7Wwxklda+kg==}
-
   '@types/node@26.4.1':
     resolution: {integrity: sha512-k97ENvZWtvA6yqz5/FS6a7duDgOPEeOQOc2iKS/nY6mX6qJUKtLnWzQS+Xj6tXweyj6ZcTAK2Qecetnvi9nCLA==}
 
@@ -9912,7 +9909,7 @@ snapshots:
       '@changesets/should-skip-package': 1.0.0
       '@changesets/types': 7.0.0
       '@manypkg/get-packages': 3.1.0
-      picomatch: 4.0.5
+      picomatch: 4.0.7
 
   '@changesets/errors@1.0.0': {}
 
@@ -9935,7 +9932,7 @@ snapshots:
       '@changesets/errors': 1.0.0
       '@changesets/types': 7.0.0
       '@manypkg/get-packages': 3.1.0
-      picomatch: 4.0.5
+      picomatch: 4.0.7
       tinyexec: 1.3.0
 
   '@changesets/parse@1.0.0':
@@ -12894,7 +12891,7 @@ snapshots:
 
   '@types/http-proxy@1.17.17':
     dependencies:
-      '@types/node': 26.2.0
+      '@types/node': 26.4.1
 
   '@types/mdast@4.0.4':
     dependencies:
@@ -12903,10 +12900,6 @@ snapshots:
   '@types/mdx@2.0.14': {}
 
   '@types/ms@2.1.0': {}
-
-  '@types/node@26.2.0':
-    dependencies:
-      undici-types: 8.3.0
 
   '@types/node@26.4.1':
     dependencies:
@@ -12953,7 +12946,7 @@ snapshots:
 
   '@types/ws@8.18.1':
     dependencies:
-      '@types/node': 26.2.0
+      '@types/node': 26.4.1
 
   '@typescript/typescript-aix-ppc64@7.0.2':
     optional: true
@@ -14084,8 +14077,7 @@ snapshots:
 
   cookie@0.7.2: {}
 
-  cookie@1.1.1:
-    optional: true
+  cookie@1.1.1: {}
 
   core-util-is@1.0.3: {}
 
@@ -17288,8 +17280,7 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  supports-color@10.2.2:
-    optional: true
+  supports-color@10.2.2: {}
 
   symbol-tree@3.2.4:
     optional: true

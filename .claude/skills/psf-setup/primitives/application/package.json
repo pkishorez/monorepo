@@ -1,0 +1,40 @@
+{
+  "name": "__APP_NAME__",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "portless run --force alchemy dev",
+    "build": "vp build",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:tsc": "tsc --noEmit",
+    "lint:laymos": "laymos lint",
+    "test": "vp test",
+    "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
+  },
+  "dependencies": {
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "effect": "catalog:",
+    "kui-toolkit": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "alchemy": "catalog:",
+    "laymos": "workspace:*",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
+  }
+}
