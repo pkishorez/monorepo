@@ -16,6 +16,7 @@ const view = (store: typeof alchemyStateStoreSchema.Type) => ({
   id: store.id,
   userId: store.userId,
   name: store.name,
+  access: store.access,
   connection: {
     kind: store.connection.kind,
     accountId: store.connection.accountId,
@@ -29,6 +30,7 @@ const view = (store: typeof alchemyStateStoreSchema.Type) => ({
 
 export const create = (input: {
   name: string;
+  access?: 'view' | 'admin';
   connection: { kind: 'cloudflare'; accountId: string; apiToken: string };
 }) =>
   Effect.gen(function* () {
@@ -41,6 +43,7 @@ export const create = (input: {
       id,
       userId: user.id,
       name: input.name.trim(),
+      access: input.access ?? 'view',
       connection: { ...input.connection, ...resolved },
       createdAt: now,
       updatedAt: now,
@@ -118,6 +121,47 @@ export const remove = (input: { id: string }) =>
     ),
     Effect.withSpan('StateStores.remove'),
   );
+
+export const updateCredentials = (input: {
+  id: string;
+  accountId: string;
+  apiToken: string;
+  access: 'view' | 'admin';
+}) =>
+  Effect.gen(function* () {
+    const { user } = yield* Authz.CurrentAuth;
+    const key = { userId: user.id, id: input.id };
+    // Establish ownership before using the submitted credentials.
+    const existing = yield* stores.get(key, { excludeDeleted: true });
+    if (!existing) {
+      return yield* Effect.fail(
+        new CloudflareDiscoveryError({
+          code: 'discovery-failed',
+          reason: 'This store is no longer available.',
+        }),
+      );
+    }
+    const resolved = yield* discover(input);
+    if (resolved.url !== existing.value.connection.url) {
+      return yield* Effect.fail(
+        new CloudflareDiscoveryError({
+          code: 'discovery-failed',
+          reason: 'The token must connect to the same state store.',
+        }),
+      );
+    }
+    const saved = yield* stores.getAndUpdate(key, {
+      connection: {
+        kind: 'cloudflare',
+        accountId: input.accountId,
+        apiToken: input.apiToken,
+        ...resolved,
+      },
+      access: input.access,
+      updatedAt: new Date().toISOString(),
+    });
+    return view(saved.value);
+  }).pipe(Effect.withSpan('StateStores.updateCredentials'));
 
 // Database failures may carry submitted values; expose only a safe error code.
 export const errorCode = (error: DatabaseError | CloudflareDiscoveryError) =>

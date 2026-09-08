@@ -5,10 +5,13 @@ import { Greeting } from '../../../shared/rpc/greeting/index.ts';
 
 import { StateStores } from '../../../shared/rpc/state-stores/index.ts';
 
+import { DeleteStage } from '../../../shared/rpc/delete-stage/index.ts';
 import { StoreDetails } from '../../../shared/rpc/store-details/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';
 
-const makeClient = RpcClient.make(Greeting.merge(StateStores, StoreDetails));
+const makeClient = RpcClient.make(
+  Greeting.merge(StateStores, StoreDetails, DeleteStage),
+);
 
 export class Rpc extends Context.Service<
   Rpc,
@@ -20,7 +23,7 @@ export const makeRpcRuntime = (url: string) =>
     Layer.effect(Rpc, makeClient).pipe(
       Layer.provide(
         RpcClient.layerProtocolHttp({ url }).pipe(
-          Layer.provide([FetchHttpClient.layer, RpcSerialization.layerJson]),
+          Layer.provide([FetchHttpClient.layer, RpcSerialization.layerNdjson]),
         ),
       ),
       Layer.provideMerge(telemetryLayer()),

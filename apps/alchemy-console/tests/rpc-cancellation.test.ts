@@ -1,8 +1,16 @@
-import { Effect, Fiber } from 'effect';
+import { Effect, Fiber, Stream } from 'effect';
+import { SQLite } from 'std-toolkit/db/sqlite';
+import {
+  appTable,
+  alchemyStateStoreEntity as stores,
+} from '../src/server/storage/state-store-database/index.ts';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
-const mocks = vi.hoisted(() => ({ makeDatabase: vi.fn() }));
+const mocks = vi.hoisted(() => ({ makeDatabase: vi.fn(), execute: vi.fn() }));
+vi.mock('../src/server/services/stage-destruction/native-engine.ts', () => ({
+  execute: mocks.execute,
+}));
 vi.mock('std-toolkit/db/sqlite/d1', () => ({
   makeD1SQLite: mocks.makeDatabase,
 }));
@@ -67,6 +75,92 @@ it('cancels server work when the query fiber is interrupted', async () => {
     await started.promise;
     await Effect.runPromise(Fiber.interrupt(fiber));
     await vi.waitFor(() => expect(aborted).toHaveBeenCalledTimes(1));
+  } finally {
+    await runtime.dispose();
+    database.close?.();
+  }
+});
+
+it('streams deletion progress through the real RPC host before completion', async () => {
+  vi.stubEnv('DEV', false);
+  const database = makeNodeSQLite({ path: ':memory:' });
+  const table = SQLite.make(appTable, { database });
+  mocks.makeDatabase.mockReturnValue(database);
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      yield* table.setup;
+      yield* stores.insert({
+        id: 'store',
+        userId: 'alice',
+        name: 'Store',
+        access: 'admin',
+        connection: {
+          kind: 'cloudflare',
+          accountId: 'a'.repeat(32),
+          apiToken: 'cloud-token',
+          authToken: 'state-token',
+          url: 'https://state.example.workers.dev',
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }).pipe(Effect.provide(table.layer)),
+  );
+  const progress = Promise.withResolvers<void>();
+  const finish = Promise.withResolvers<void>();
+  mocks.execute.mockImplementation((_input, _mode, emit) =>
+    Effect.gen(function* () {
+      emit({ kind: 'progress', id: 'Worker', status: 'deleting', message: '' });
+      yield* Effect.promise(() => finish.promise);
+      emit({ kind: 'complete', id: null, status: 'complete', message: 'Done' });
+      return null;
+    }),
+  );
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const host = new URL(request.url).hostname;
+      if (host === 'console.example') {
+        request.headers.set('cookie', 'session=test');
+        return handleRpc(request, {} as D1Database);
+      }
+      if (host === 'auth.kishore.app')
+        return Promise.resolve(
+          Response.json({
+            user: { id: 'alice' },
+            session: { id: 'session', userId: 'alice' },
+          }),
+        );
+      throw new Error('Unexpected request');
+    }),
+  );
+  const runtime = makeRpcRuntime('https://console.example/rpc');
+  try {
+    const context = await Effect.runPromise(runtime.contextEffect);
+    const seen: string[] = [];
+    const result = Effect.runPromise(
+      Rpc.use((rpc) =>
+        rpc['AlchemyStateStore.DeleteStage']({
+          storeId: 'store',
+          stack: 'App',
+          stage: 'dev',
+          fingerprint: 'review',
+        }).pipe(
+          Stream.runForEach((event) =>
+            Effect.sync(() => {
+              seen.push(event.kind);
+              if (event.kind === 'progress') progress.resolve();
+            }),
+          ),
+        ),
+      ).pipe(Effect.provide(context)),
+    );
+    await progress.promise;
+    expect(seen).toEqual(['progress']);
+    finish.resolve();
+    await result;
+    expect(seen).toEqual(['progress', 'complete']);
   } finally {
     await runtime.dispose();
     database.close?.();

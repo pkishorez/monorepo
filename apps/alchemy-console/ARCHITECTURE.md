@@ -13,6 +13,7 @@ src/
       auth-boundary/                 Gates the application on login and connection
       store-list/                    Lists, creates, renames and removes stores
       store-explorer/                Explores stacks, stages and resource state
+      delete-stage/                  Owns confirmations, readable plans and progress
     session/rpc-session/             Owns connection lifetime and query/action hooks
     connections/
       auth/                          Connects to the authentication service
@@ -32,7 +33,9 @@ src/
     services/
       cloudflare-discovery/          Resolves a connection through Cloudflare
       alchemy-state/                 Reads and masks remote Alchemy state
+      stage-destruction/             Runs Alchemy Plan.destroy and Apply in the Worker
     storage/state-store-database/    Owns table, record evolution and entity binding
+    storage/stage-deletion-lock/     Serializes console deletions across Worker instances
     telemetry/                       Configures Worker telemetry
 ```
 
@@ -69,6 +72,52 @@ light or dark. It persists that choice in browser local storage under
 
 The explorer owns search, tabs, dialogs, and rendering. Routes supply link
 components, so features do not know route paths or import the router.
+
+## Stage deletion
+
+Deletion runs inside the console Cloudflare Worker. There is no separate Node
+server, container, CLI invocation or executor secret. Node compatibility APIs
+satisfy Alchemy's platform imports; no child process is started. Vite prebundles the private
+`alchemy-console/stage-destruction-engine` entry in development, so the module
+loader never evaluates unused public CLI/emulator exports. Restart dev when
+changing this engine; forced optimization rebuilds its local source. Alchemy owns the
+plan, dependency ordering, retention, provider cleanup and state updates.
+
+The independent deletion feature first asks for confirmation, then loads a
+readable plan. A second confirmation starts a blocking progress dialog over
+NDJSON RPC. Navigation and dismissal are blocked while it runs. Completion or
+failure refreshes cached state. Closing the browser or losing the connection can
+interrupt the request; there is no background job or reconnect protocol.
+
+Both the workflow and service reject case-insensitive `prod` prefixes. Every
+other nonempty stage name is eligible. Ownership and saved admin access are
+checked on the server; credentials always come from the saved connection. Old
+connections default to view access. The token dialog offers the existing view
+template and a broad admin template, editable in Cloudflare. Console view access
+is an application restriction: discovery still requires some Cloudflare Edit
+permissions. Token templates cannot guarantee permission for every product.
+
+The native service composes stock live providers for Workers and routes, D1,
+KV, R2 and its notifications/Sippy/catalog, Workflows, DNS records, Secrets Store,
+Hyperdrive, queue subscriptions, Random and KeyPair. Other resource types,
+including Queues and queue consumers, currently block the entire stage during
+preview: those Alchemy providers still import local runtime initialization that
+fails in workerd. This check includes older replacement generations. Providers
+are never replaced with handwritten Cloudflare deletion calls.
+
+Cloudflare credentials and account context are scoped to each operation through
+Alchemy/Distilled services. HTTP state uses Alchemy's native HTTP store and its
+separate bearer token. Extra zone ownership checks use the typed Distilled SDK.
+Neither global fetch nor process environment variables are modified. Persisted
+account mismatches and local-mode state block planning. Plans are fingerprinted
+and rechecked immediately before applying. Progress contains only safe resource
+identifiers and statuses, never raw provider payloads or errors.
+
+A D1 lease prevents overlapping console deletions for the same state endpoint,
+stack and stage across Worker instances. Execution has a 15-minute deadline and
+crashed leases expire after 16 minutes. This does not lock independent Alchemy
+CLI/CI deployments: do not deploy to a stage while deleting it. The HTTP state
+backend offers no shared transaction spanning planning and cloud mutations.
 
 ## Dependency direction
 
@@ -142,6 +191,7 @@ pnpm --filter alchemy-console lint:laymos
 pnpm --filter alchemy-console exec laymos inspect project
 pnpm --filter alchemy-console lint:tsc
 pnpm --filter alchemy-console test
+pnpm --filter alchemy-console test:worker
 pnpm --filter alchemy-console build
 ```
 

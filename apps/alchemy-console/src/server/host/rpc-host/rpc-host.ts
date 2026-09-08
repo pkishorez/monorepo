@@ -1,9 +1,12 @@
 import { Effect, Layer } from 'effect';
+import { makeStageDeletionLock } from '../../storage/stage-deletion-lock/index.ts';
 import {
   authzCookies,
   authzLayer,
   resolverLive,
 } from 'auth-toolkit/rpc/server';
+import { DeleteStage } from '../../../shared/rpc/delete-stage/index.ts';
+import { DeleteStageHandlers } from '../../handlers/delete-stage-handlers/index.ts';
 import { StoreDetails } from '../../../shared/rpc/store-details/index.ts';
 import { StoreDetailsHandlers } from '../../handlers/store-details-handlers/index.ts';
 import { FetchHttpClient } from 'effect/unstable/http';
@@ -31,9 +34,9 @@ export function handleRpc(
     );
   }
 
-  const table = SQLite.make(appTable, {
-    database: makeD1SQLite({ database: binding }),
-  });
+  const database = makeD1SQLite({ database: binding });
+  const table = SQLite.make(appTable, { database });
+  const deletionLock = makeStageDeletionLock(database);
 
   const http = FetchHttpClient.layer.pipe(
     Layer.provide(
@@ -42,53 +45,52 @@ export function handleRpc(
     ),
   );
 
-  return Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        yield* table.setup;
-
-        const rpc = yield* RpcServer.toHttpEffect(
-          Greeting.merge(StateStores, StoreDetails),
-        );
-        const context = yield* Effect.context();
-        const response = yield* Effect.promise(() =>
-          // The web handler masks interruption while writing its response.
-          // Restore it for RPC work so a disconnected client cancels handlers.
-          HttpEffect.toWebHandler(authzCookies(rpc).pipe(Effect.interruptible))(
-            request,
-            context,
-          ),
-        );
-        // HTTP spans finish on the dispatcher; let them end before telemetry drains.
-        yield* Effect.yieldNow;
-        return response;
-      }).pipe(
-        Effect.provide(
-          Layer.mergeAll(
-            GreetingHandlers,
-            StoreDetailsHandlers.pipe(
-              Layer.provide(table.layer),
-              Layer.provide(http),
-            ),
-            StateStoreHandlers.pipe(
-              Layer.provide(table.layer),
-              Layer.provide(http),
-            ),
-            authzLayer.pipe(
-              Layer.provide(
-                resolverLive({
-                  authWorkerUrl: import.meta.env.DEV
-                    ? 'https://auth.kishore.computer'
-                    : 'https://auth.kishore.app',
-                }),
-              ),
-            ),
-            RpcSerialization.layerJson,
-            table.layer,
-          ),
-        ),
-        Effect.provide(telemetryLayer()),
+  const dependencies = Layer.mergeAll(
+    GreetingHandlers,
+    DeleteStageHandlers.pipe(
+      Layer.provide(table.layer),
+      Layer.provide(http),
+      Layer.provide(deletionLock.layer),
+    ),
+    StoreDetailsHandlers.pipe(Layer.provide(table.layer), Layer.provide(http)),
+    StateStoreHandlers.pipe(Layer.provide(table.layer), Layer.provide(http)),
+    authzLayer.pipe(
+      Layer.provide(
+        resolverLive({
+          authWorkerUrl: import.meta.env.DEV
+            ? 'https://auth.kishore.computer'
+            : 'https://auth.kishore.app',
+        }),
       ),
     ),
+    RpcSerialization.layerNdjson,
+    table.layer,
   );
+
+  let dispose!: () => Promise<void>;
+  const app = Effect.gen(function* () {
+    // Keep providers in the HTTP request scope, which transfers to a streaming body.
+    const scope = yield* Effect.scope;
+    yield* Effect.addFinalizer(() =>
+      Effect.yieldNow.pipe(Effect.andThen(Effect.promise(() => dispose()))),
+    );
+    const context = yield* Layer.buildWithScope(
+      Layer.fresh(dependencies),
+      scope,
+    );
+    return yield* Effect.gen(function* () {
+      yield* table.setup;
+      yield* deletionLock.setup;
+      const rpc = yield* RpcServer.toHttpEffect(
+        Greeting.merge(StateStores, StoreDetails, DeleteStage),
+      );
+      return yield* authzCookies(rpc).pipe(Effect.interruptible);
+    }).pipe(Effect.provide(context));
+  });
+  const web = HttpEffect.toWebHandlerLayer(app, telemetryLayer());
+  dispose = web.dispose;
+  return web.handler(request).catch(async (error) => {
+    await web.dispose();
+    throw error;
+  });
 }

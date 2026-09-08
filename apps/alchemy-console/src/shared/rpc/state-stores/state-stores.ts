@@ -13,6 +13,16 @@ const nonEmpty = Schema.String.check(
 );
 
 export const StateStores = RpcGroup.make(
+  Rpc.make('AlchemyStateStore.UpdateCredentials', {
+    payload: {
+      id: nonEmpty,
+      accountId: createStateStoreInput.fields.connection.fields.accountId,
+      apiToken: nonEmpty,
+      access: Schema.Literals(['view', 'admin']),
+    },
+    success: stateStoreView,
+    error: StateStoreError,
+  }).pipe(Authz.guard()),
   Rpc.make('AlchemyStateStore.Create', {
     payload: createStateStoreInput,
     success: stateStoreView,

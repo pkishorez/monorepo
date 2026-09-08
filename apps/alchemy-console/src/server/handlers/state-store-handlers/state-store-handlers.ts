@@ -14,6 +14,8 @@ const safeError = Effect.mapError(
 );
 
 export const StateStoreHandlers = StateStores.toLayer({
+  'AlchemyStateStore.UpdateCredentials': (input) =>
+    operations.updateCredentials(input).pipe(safeError),
   'AlchemyStateStore.Create': (input) =>
     operations.create(input).pipe(safeError),
   'AlchemyStateStore.List': () => operations.list().pipe(safeError),
