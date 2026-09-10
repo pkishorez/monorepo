@@ -1,0 +1,52 @@
+{
+  "name": "alchemy-console",
+  "version": "0.0.0",
+  "dependencies": {
+    "@distilled.cloud/cloudflare": "catalog:",
+    "@pkishorez/effect-tracer": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "alchemy": "catalog:",
+    "auth-toolkit": "workspace:*",
+    "effect": "catalog:",
+    "kui-toolkit": "workspace:*",
+    "next-themes": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "rpc-toolkit": "workspace:*",
+    "std-toolkit": "workspace:*",
+    "use-effect-ts": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "esbuild": "catalog:",
+    "laymos": "workspace:*",
+    "miniflare": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "private": true,
+  "scripts": {
+    "build": "vp build",
+    "dev": "portless run --force alchemy dev",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test run --config ../../vite.config.ts tests",
+    "test:worker": "node tests/worker-runtime.mjs"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    "./stage-destruction-engine": "./src/server/services/stage-destruction/native-engine.ts"
+  }
+}

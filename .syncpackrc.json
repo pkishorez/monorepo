@@ -44,6 +44,7 @@
     {
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
+        "auth-toolkit",
         "@pkishorez/devtools",
         "@pkishorez/effect-tracer",
         "laymos",
@@ -105,6 +106,7 @@
     {
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
+        "auth-toolkit",
         "@pkishorez/devtools",
         "@pkishorez/effect-tracer",
         "laymos",

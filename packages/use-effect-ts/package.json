@@ -9,6 +9,11 @@
       "types": "./dist/index.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./query": {
+      "types": "./dist/query/index.d.ts",
+      "import": "./dist/query/index.js",
+      "default": "./dist/query/index.js"
     }
   },
   "files": [
@@ -23,6 +28,9 @@
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc",
     "lint:tsc": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:",

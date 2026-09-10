@@ -44,6 +44,7 @@ export function JsonViewer({
           variant="ghost"
           size="icon-xs"
           onClick={copy}
+          aria-label="Copy JSON"
           title="Copy JSON"
         >
           {copied ? <CheckIcon /> : <CopyIcon />}

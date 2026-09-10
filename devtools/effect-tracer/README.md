@@ -60,17 +60,26 @@ Toggle signals individually with the `traces`, `logs`, and `metrics` options.
 ## `@pkishorez/effect-tracer/telemetry/dev-telemetry`
 
 The same job for local development, built on `effect/unstable/observability`
-and `FetchHttpClient` instead of the OpenTelemetry SDK. Exports immediately
-rather than batching, so spans show up as they happen, and stamps
-`deployment.environment: local`.
+and `FetchHttpClient` instead of the OpenTelemetry SDK. Batches updates every
+100 ms or when 100 records are buffered, and stamps `deployment.environment: local`.
+Traces and logs use separate requests. Spans that finish within a batch window
+replace their provisional update; longer spans export both running and completed
+states. Shutdown drains pending records within `shutdownTimeout`.
 
 ```ts
+import { Layer } from 'effect';
 import { makeDevTelemetryLayer } from '@pkishorez/effect-tracer/telemetry/dev-telemetry';
 
-const DevTelemetryLive = makeDevTelemetryLayer({ serviceName: 'my-service' });
+const DevTelemetryLive = import.meta.env.DEV
+  ? makeDevTelemetryLayer({
+      serviceName: 'my-service',
+      batchInterval: '100 millis',
+      maxBatchSize: 100,
+    })
+  : Layer.empty;
 ```
 
-Adds `retries`, `requestTimeout`, and `shutdownTimeout` on top of the shared
+Adds `batchInterval`, `maxBatchSize`, `retries`, `requestTimeout`, and `shutdownTimeout` on top of the shared
 options.
 
 ## License
