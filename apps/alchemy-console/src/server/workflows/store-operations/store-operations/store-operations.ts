@@ -3,6 +3,7 @@ import { Authz } from 'auth-toolkit/rpc';
 import { StateStoreError } from '../../../../shared/contracts/state-stores/index.ts';
 import {
   StoreDetailsError,
+  isAlchemyManagedStack,
   type storeTarget,
   type stackTarget,
   type readStageTarget,
@@ -17,6 +18,7 @@ import * as outputs from '../stage-outputs/index.ts';
 import * as deletionPreview from '../stage-deletion-preview/index.ts';
 import * as deletion from '../stage-deletion/index.ts';
 import { authorizeDeletion } from './authorize-deletion.ts';
+import { read, removeStack } from '../../../services/alchemy-state/index.ts';
 
 const manage = <A, E extends Parameters<typeof management.errorCode>[0], R>(
   run: (userId: string) => Effect.Effect<A, E, R>,
@@ -98,6 +100,75 @@ export const getResourceState = (input: typeof resourceTarget.Type) =>
   readStore(input, 'Fetched resource state', (connection) =>
     resources.getState(connection, input),
   );
+
+export const deleteStack = (input: typeof stackTarget.Type) =>
+  Effect.gen(function* () {
+    const { user } = yield* Authz.CurrentAuth;
+    const store = yield* alchemyStateStoreEntity
+      .get({ userId: user.id, id: input.storeId }, { excludeDeleted: true })
+      .pipe(
+        Effect.mapError(
+          () => new StateStoreError({ code: 'storage-error' as const }),
+        ),
+      );
+    if (!store)
+      return yield* Effect.fail(new StateStoreError({ code: 'not-found' }));
+    if (isAlchemyManagedStack(input.stack))
+      return yield* Effect.fail(
+        new StateStoreError({
+          code: 'managed-stack',
+          reason:
+            'Alchemy-managed state infrastructure cannot be removed here.',
+        }),
+      );
+    if (store.value.access !== 'admin')
+      return yield* Effect.fail(
+        new StateStoreError({
+          code: 'view-only',
+          reason:
+            'This connection needs admin access to delete an empty stack.',
+        }),
+      );
+    const stages = yield* read(store.value.connection, {
+      kind: 'stages',
+      stack: input.stack,
+    }).pipe(
+      Effect.mapError(
+        () =>
+          new StateStoreError({
+            code: 'remote-error',
+            reason: 'Could not verify that the stack is empty.',
+          }),
+      ),
+    );
+    if (
+      !Array.isArray(stages) ||
+      !stages.every((stage) => typeof stage === 'string')
+    )
+      return yield* Effect.fail(
+        new StateStoreError({
+          code: 'remote-error',
+          reason: 'The state store returned an invalid stage list.',
+        }),
+      );
+    if (stages.length > 0)
+      return yield* Effect.fail(
+        new StateStoreError({
+          code: 'non-empty',
+          reason: 'Only stacks without deployed stages can be removed.',
+        }),
+      );
+    yield* removeStack(store.value.connection, input.stack).pipe(
+      Effect.mapError(
+        () =>
+          new StateStoreError({
+            code: 'remote-error',
+            reason: 'Could not remove the empty stack from its state store.',
+          }),
+      ),
+    );
+    yield* Effect.logInfo('Deleted empty stack');
+  }).pipe(Effect.withSpan('StoreOperations.deleteStack'));
 
 export const preview = (input: typeof stageTarget.Type) =>
   Stream.unwrap(

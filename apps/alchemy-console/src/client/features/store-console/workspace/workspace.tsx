@@ -84,6 +84,11 @@ function ExploreWorkspace({
           stage={stage}
           NavigationLink={NavigationLink}
           StageAction={StageAction}
+          admin={store?.access === 'admin'}
+          onStackDeleted={(deletedStack) => {
+            refresh();
+            if (stack === deletedStack) onNavigate({});
+          }}
           sidebarHeader={
             <StoreSwitcher
               storeId={storeId}

@@ -15,6 +15,9 @@ import {
   RefreshButton,
   type NavigationLink,
 } from '../state-view/index.ts';
+import { isAlchemyManagedStack } from '../../../../shared/contracts/state-address/index.ts';
+import { ManagedStackBadge } from './managed-stack.tsx';
+import { DeleteEmptyStackAction } from './delete-empty-stack.tsx';
 
 type StageAction = ComponentType<{
   stack: string;
@@ -31,11 +34,15 @@ export function StoreOverview({
   storeName,
   NavigationLink,
   StageAction,
+  admin,
+  onStackDeleted,
 }: {
   storeId: string;
   storeName: string | null;
   NavigationLink: NavigationLink;
   StageAction: StageAction;
+  admin: boolean;
+  onStackDeleted: (stack: string) => void;
 }) {
   const [slots] = useState(() => Semaphore.makeUnsafe(4));
   const stacks = useRpcQuery(
@@ -89,6 +96,8 @@ export function StoreOverview({
               slots={slots}
               NavigationLink={NavigationLink}
               StageAction={StageAction}
+              admin={admin}
+              onStackDeleted={onStackDeleted}
             />
           ))}
         </div>
@@ -103,13 +112,18 @@ function StackCard({
   slots,
   NavigationLink,
   StageAction,
+  admin,
+  onStackDeleted,
 }: {
   storeId: string;
   stack: string;
   slots: Semaphore.Semaphore;
   NavigationLink: NavigationLink;
   StageAction: StageAction;
+  admin: boolean;
+  onStackDeleted: (stack: string) => void;
 }) {
+  const managed = isAlchemyManagedStack(stack);
   const stages = useRpcQuery(
     Effect.flatMap(Rpc, (rpc) =>
       rpc['AlchemyStateStore.ListStages']({ storeId, stack }),
@@ -120,14 +134,19 @@ function StackCard({
   const shown = names.slice(0, stagesPerCard);
   const hidden = names.length - shown.length;
   return (
-    <section className="flex flex-col overflow-hidden rounded-lg bg-card shadow-raised">
+    <section
+      className={`flex flex-col overflow-hidden rounded-lg shadow-raised ${managed ? 'bg-primary/5' : 'bg-card'}`}
+    >
       <NavigationLink
         stack={stack}
         title={stack}
-        className="group/stack flex h-11 items-center gap-2 border-b bg-muted/30 px-3 text-sm font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+        className={`group/stack flex h-11 items-center gap-2 border-b px-3 text-sm font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${managed ? 'border-primary/20' : 'bg-muted/30'}`}
       >
-        <Layers className="size-4 shrink-0 text-muted-foreground" />
+        <Layers
+          className={`size-4 shrink-0 ${managed ? 'text-primary' : 'text-muted-foreground'}`}
+        />
         <span className="truncate">{stack}</span>
+        {managed && <ManagedStackBadge />}
         <span className="ml-auto flex shrink-0 items-center gap-1 text-xs font-normal text-muted-foreground tabular-nums">
           {stages.data &&
             `${names.length} stage${names.length === 1 ? '' : 's'}`}
@@ -137,14 +156,23 @@ function StackCard({
           />
         </span>
       </NavigationLink>
-      <ul className="flex flex-1 flex-col divide-y">
+      <ul
+        className={`flex flex-1 flex-col divide-y ${managed ? 'divide-primary/15' : ''}`}
+      >
         {stages.pending && !stages.data && <StageSkeleton />}
         {stages.error && !stages.data && (
           <li className="px-3 py-3 text-xs text-destructive">{stages.error}</li>
         )}
         {stages.data && names.length === 0 && (
-          <li className="px-3 py-3 text-xs text-muted-foreground">
-            No stages deployed.
+          <li className="group/row flex items-center pl-3 text-xs text-muted-foreground">
+            <span className="flex-1 py-3">No stages deployed.</span>
+            <DeleteEmptyStackAction
+              storeId={storeId}
+              stack={stack}
+              admin={admin}
+              onDeleted={onStackDeleted}
+              className="opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none"
+            />
           </li>
         )}
         {shown.map((stage) => (
@@ -153,7 +181,7 @@ function StackCard({
               stack={stack}
               stage={stage}
               title={stage}
-              className="flex h-11 min-w-0 flex-1 items-center gap-3 px-3 text-sm hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+              className={`flex h-11 min-w-0 flex-1 items-center gap-3 px-3 text-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring ${managed ? 'hover:bg-primary/10' : 'hover:bg-muted/40'}`}
             >
               <span className="truncate">{stage}</span>
             </NavigationLink>
@@ -198,12 +226,17 @@ export function StackOverview({
   stack,
   NavigationLink,
   StageAction,
+  admin,
+  onStackDeleted,
 }: {
   storeId: string;
   stack: string;
   NavigationLink: NavigationLink;
   StageAction: StageAction;
+  admin: boolean;
+  onStackDeleted: (stack: string) => void;
 }) {
+  const managed = isAlchemyManagedStack(stack);
   const [slots] = useState(() => Semaphore.makeUnsafe(4));
   const stages = useRpcQuery(
     Effect.flatMap(Rpc, (rpc) =>
@@ -216,13 +249,34 @@ export function StackOverview({
     <div className="space-y-6">
       <PaneHeader
         eyebrow="Stack"
-        title={stack}
+        title={
+          managed ? (
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-primary">{stack}</span>
+              <ManagedStackBadge />
+            </span>
+          ) : (
+            stack
+          )
+        }
         meta={
           stages.data
             ? `${names.length} stage${names.length === 1 ? '' : 's'}`
             : undefined
         }
-        actions={<RefreshButton query={stages} label="Refresh stages" />}
+        actions={
+          <>
+            <RefreshButton query={stages} label="Refresh stages" />
+            {stages.data && names.length === 0 && (
+              <DeleteEmptyStackAction
+                storeId={storeId}
+                stack={stack}
+                admin={admin}
+                onDeleted={onStackDeleted}
+              />
+            )}
+          </>
+        }
       />
       {stages.error && (
         <QueryError

@@ -1,5 +1,14 @@
 import { Schema } from 'effect';
 
+export const alchemyManagedStackName = 'CloudflareStateStore';
+export const isAlchemyManagedStack = (stack: string) =>
+  stack === alchemyManagedStackName;
+export const compareStackNames = (left: string, right: string) => {
+  const managedOrder =
+    Number(isAlchemyManagedStack(right)) - Number(isAlchemyManagedStack(left));
+  return managedOrder || (left < right ? -1 : left > right ? 1 : 0);
+};
+
 const name = Schema.String.check(
   Schema.makeFilter((value) => value.length > 0),
 );

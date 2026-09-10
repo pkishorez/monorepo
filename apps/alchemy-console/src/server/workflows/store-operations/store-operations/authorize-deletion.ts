@@ -4,6 +4,7 @@ import {
   acknowledgesProtectedStage,
   DeleteStageError,
 } from '../../../../shared/contracts/delete-stage/index.ts';
+import { isAlchemyManagedStack } from '../../../../shared/contracts/state-address/index.ts';
 import { alchemyStateStoreEntity as stores } from '../../../storage/state-store-database/index.ts';
 
 type Target = { storeId: string; stack: string; stage: string };
@@ -13,6 +14,14 @@ type Intent =
 export const authorizeDeletion = (input: Target, intent: Intent) =>
   Effect.gen(function* () {
     const { user } = yield* Authz.CurrentAuth;
+    if (isAlchemyManagedStack(input.stack))
+      return yield* Effect.fail(
+        new DeleteStageError({
+          code: 'managed-stack',
+          reason:
+            'Alchemy-managed state infrastructure cannot use generic stage deletion. Use Alchemy’s dedicated state-store teardown flow.',
+        }),
+      );
     if (
       intent.kind === 'delete' &&
       !acknowledgesProtectedStage(input.stage, intent.acknowledgement)

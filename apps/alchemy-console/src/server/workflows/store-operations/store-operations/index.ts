@@ -9,6 +9,7 @@ export {
   listResources,
   getStageView,
   getResourceState,
+  deleteStack,
   preview,
   destroy,
 } from './store-operations.ts';

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentType, CSSProperties, ReactNode } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -7,7 +7,6 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
-  SidebarRail,
   SidebarTrigger,
 } from 'kui-toolkit/components/ui/sidebar';
 import { ChevronRight } from 'kui-toolkit/lucide';
@@ -15,6 +14,10 @@ import { Logo, LogoMark } from '../../brand/index.ts';
 import { StateTree, StateOverview } from '../state-browser/index.ts';
 import { ResourceBrowser } from '../resource-browser/index.ts';
 import type { ExplorerLocation, NavigationLink } from '../state-view/index.ts';
+import {
+  defaultSidebarWidth,
+  SidebarResizeHandle,
+} from './sidebar-resize-handle.tsx';
 
 export function StoreExplorer({
   storeId,
@@ -23,6 +26,8 @@ export function StoreExplorer({
   stage,
   NavigationLink,
   StageAction,
+  admin,
+  onStackDeleted,
   sidebarHeader,
   sidebarFooter,
 }: ExplorerLocation & {
@@ -30,10 +35,13 @@ export function StoreExplorer({
   storeName: string | null;
   NavigationLink: NavigationLink;
   StageAction: ComponentType<{ stack: string; stage: string }>;
+  admin: boolean;
+  onStackDeleted: (stack: string) => void;
   sidebarHeader: ReactNode;
   sidebarFooter: ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
   useEffect(() => {
     document.title = [stage, stack, storeName, 'Alchemy Console']
       .filter(Boolean)
@@ -44,6 +52,7 @@ export function StoreExplorer({
       open={sidebarOpen}
       onOpenChange={setSidebarOpen}
       className="min-h-svh"
+      style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
     >
       <Sidebar collapsible="offcanvas">
         <SidebarHeader className="gap-2 p-2">
@@ -66,7 +75,10 @@ export function StoreExplorer({
           />
         </SidebarContent>
         <SidebarFooter className="border-t p-2">{sidebarFooter}</SidebarFooter>
-        <SidebarRail />
+        <SidebarResizeHandle
+          value={sidebarWidth}
+          onValueChange={setSidebarWidth}
+        />
       </Sidebar>
       <SidebarInset className="min-w-0">
         <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-4">
@@ -105,6 +117,8 @@ export function StoreExplorer({
                   storeName={storeName}
                   NavigationLink={NavigationLink}
                   StageAction={StageAction}
+                  admin={admin}
+                  onStackDeleted={onStackDeleted}
                 />
               ) : (
                 <ResourceBrowser

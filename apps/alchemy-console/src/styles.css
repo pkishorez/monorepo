@@ -15,12 +15,16 @@
   --shadow-raised:
     0 0 0 1px rgb(0 0 0 / 0.07), 0 1px 3px rgb(0 0 0 / 0.05),
     0 4px 10px -4px rgb(0 0 0 / 0.05);
+  --primary: oklch(0.491 0.27 292.581);
+  --primary-foreground: oklch(0.985 0 0);
 }
 
 /* Depth shadows vanish on dark surfaces; collapse to a single white ring that matches --border. */
 [data-theme='dark'],
 .dark {
   --shadow-raised: 0 0 0 1px rgb(255 255 255 / 0.1);
+  --primary: oklch(0.702 0.183 293.541);
+  --primary-foreground: oklch(0.205 0 0);
 }
 
 @utility shadow-raised {

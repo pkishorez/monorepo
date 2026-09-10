@@ -1,4 +1,7 @@
 export {
+  alchemyManagedStackName,
+  compareStackNames,
+  isAlchemyManagedStack,
   storeTarget,
   stackTarget,
   readStageTarget,

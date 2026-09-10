@@ -28,6 +28,7 @@ import {
   DeleteStageError,
   type deletionEvent,
 } from '../../../../shared/contracts/delete-stage/index.ts';
+import { isAlchemyManagedStack } from '../../../../shared/contracts/state-address/index.ts';
 import { PlanView } from './plan-view.tsx';
 import {
   useDeletionPreview,
@@ -83,6 +84,23 @@ function StageAction({
 }: Target & { className?: string }) {
   const interaction = useContext(Interaction);
   if (!interaction?.admin) return null;
+  if (isAlchemyManagedStack(stack))
+    return (
+      <span
+        className={`inline-flex ${className ?? ''}`}
+        title="Alchemy manages this stack. Use Alchemy’s dedicated state-store teardown flow."
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 text-muted-foreground"
+          aria-label={`Stage deletion unavailable for Alchemy-managed stage ${stage}`}
+          disabled
+        >
+          <Trash2 />
+        </Button>
+      </span>
+    );
   return (
     <Button
       variant="ghost"

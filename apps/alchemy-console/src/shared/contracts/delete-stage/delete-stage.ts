@@ -68,6 +68,7 @@ export class DeleteStageError extends Schema.Error<DeleteStageError>(
 )({
   _tag: Schema.tag('DeleteStageError'),
   code: Schema.Literals([
+    'managed-stack',
     'protected-stage',
     'view-only',
     'not-found',

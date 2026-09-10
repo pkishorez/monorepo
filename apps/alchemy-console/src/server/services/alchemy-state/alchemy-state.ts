@@ -6,10 +6,41 @@ import {
   persistedStateView,
   resourceSummaryView,
 } from '../../../shared/contracts/resource-browser/index.ts';
-import { StoreDetailsError } from '../../../shared/contracts/state-address/index.ts';
+import {
+  compareStackNames,
+  StoreDetailsError,
+} from '../../../shared/contracts/state-address/index.ts';
 import { maskSecrets } from './mask-secrets.ts';
 
 const invalidState = () => new StoreDetailsError({ code: 'invalid-state' });
+
+const connect = (connection: { url: string; authToken: string }) =>
+  Effect.gen(function* () {
+    // Only Cloudflare's public Worker endpoints; never forward tokens to redirects or private hosts.
+    const endpoint = yield* Effect.try({
+      try: () => new URL(connection.url),
+      catch: () => new StoreDetailsError({ code: 'unsupported-endpoint' }),
+    });
+    if (
+      endpoint.protocol !== 'https:' ||
+      !endpoint.hostname.endsWith('.workers.dev') ||
+      endpoint.port ||
+      endpoint.username ||
+      endpoint.password ||
+      endpoint.search ||
+      endpoint.hash
+    )
+      return yield* Effect.fail(
+        new StoreDetailsError({ code: 'unsupported-endpoint' }),
+      );
+
+    return yield* HttpApiClient.make(StateApi, {
+      baseUrl: connection.url,
+      transformClient: HttpClient.mapRequest((request) =>
+        request.pipe(HttpClientRequest.bearerToken(connection.authToken)),
+      ),
+    });
+  });
 
 export type StateRequest =
   | { kind: 'stacks' }
@@ -38,32 +69,8 @@ export const read = (
   request: StateRequest,
 ) =>
   Effect.gen(function* () {
-    // Only Cloudflare's public Worker endpoints; never forward tokens to redirects or private hosts.
-    const endpoint = yield* Effect.try({
-      try: () => new URL(connection.url),
-      catch: () => new StoreDetailsError({ code: 'unsupported-endpoint' }),
-    });
-    if (
-      endpoint.protocol !== 'https:' ||
-      !endpoint.hostname.endsWith('.workers.dev') ||
-      endpoint.port ||
-      endpoint.username ||
-      endpoint.password ||
-      endpoint.search ||
-      endpoint.hash
-    ) {
-      return yield* Effect.fail(
-        new StoreDetailsError({ code: 'unsupported-endpoint' }),
-      );
-    }
-
     // Use Alchemy's HTTP contract directly: remote payloads are untrusted until decoded below.
-    const client = yield* HttpApiClient.make(StateApi, {
-      baseUrl: connection.url,
-      transformClient: HttpClient.mapRequest((request) =>
-        request.pipe(HttpClientRequest.bearerToken(connection.authToken)),
-      ),
-    });
+    const client = yield* connect(connection);
     const api = client.state;
     const json = (value: unknown) =>
       Schema.decodeUnknownEffect(Schema.Json)(
@@ -71,7 +78,7 @@ export const read = (
       ).pipe(Effect.mapError(invalidState));
     switch (request.kind) {
       case 'stacks':
-        return [...(yield* api.listStacks())].sort();
+        return [...(yield* api.listStacks())].sort(compareStackNames);
       case 'stages':
         return [
           ...(yield* api.listStages({ params: { stack: request.stack } })),
@@ -149,4 +156,26 @@ export const read = (
       Effect.fail(new StoreDetailsError({ code: 'timeout' })),
     ),
     Effect.withSpan(`AlchemyState.${request.kind}`),
+  );
+
+export const removeStack = (
+  connection: { url: string; authToken: string },
+  stack: string,
+) =>
+  Effect.gen(function* () {
+    const client = yield* connect(connection);
+    yield* client.state.deleteStack({ params: { stack }, query: {} });
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.fail(
+        error instanceof StoreDetailsError
+          ? error
+          : new StoreDetailsError({ code: 'remote-error' }),
+      ),
+    ),
+    Effect.timeout('60 seconds'),
+    Effect.catchTag('TimeoutError', () =>
+      Effect.fail(new StoreDetailsError({ code: 'timeout' })),
+    ),
+    Effect.withSpan('AlchemyState.removeStack'),
   );
