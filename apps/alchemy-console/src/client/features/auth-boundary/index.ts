@@ -1,1 +1,1 @@
-export { AuthBoundary } from './auth-boundary.tsx';
+export { AuthBoundary, AccountMenu } from './auth-boundary.tsx';

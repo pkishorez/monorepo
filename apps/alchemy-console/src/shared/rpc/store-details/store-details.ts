@@ -3,6 +3,7 @@ import { Authz } from 'auth-toolkit/rpc';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import {
   persistedStateView,
+  resourceSummaryView,
   StoreDetailsError,
 } from '../../contracts/store-details/index.ts';
 const name = Schema.String.check(
@@ -29,6 +30,14 @@ export const StoreDetails = RpcGroup.make(
   Rpc.make('AlchemyStateStore.ListResources', {
     payload: stage,
     success: names,
+    error: StoreDetailsError,
+  }).pipe(Authz.guard()),
+  Rpc.make('AlchemyStateStore.ListResourceSummaries', {
+    payload: stage,
+    success: Schema.Struct({
+      storeName: Schema.String,
+      data: Schema.Array(resourceSummaryView),
+    }),
     error: StoreDetailsError,
   }).pipe(Authz.guard()),
   Rpc.make('AlchemyStateStore.GetStageOutputs', {

@@ -227,6 +227,10 @@
           "shared": false,
           "exposed": true
         },
+        "src/routes/stores/page.tsx": {
+          "shared": false,
+          "exposed": true
+        },
         "src/routes/stores/$storeId/page.tsx": {
           "shared": false,
           "exposed": true

@@ -12,12 +12,7 @@ export function Outputs({
   };
 }) {
   return (
-    <section
-      role="tabpanel"
-      id="outputs-panel"
-      aria-labelledby="outputs-tab"
-      className="space-y-4"
-    >
+    <div className="space-y-3">
       {query.error && (
         <QueryError
           message={query.error}
@@ -27,7 +22,14 @@ export function Outputs({
         />
       )}
       {query.pending && !query.data && <ListSkeleton label="Loading outputs" />}
-      {query.data && <Value value={query.data.data} />}
-    </section>
+      {query.data && query.data.data === null && (
+        <p className="rounded-md border border-dashed px-3 py-4 text-sm text-muted-foreground">
+          This stage has no outputs.
+        </p>
+      )}
+      {query.data && query.data.data !== null && (
+        <Value value={query.data.data} />
+      )}
+    </div>
   );
 }

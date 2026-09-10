@@ -251,6 +251,42 @@ it('loads each level independently using the saved connection, with masked state
   ]);
 });
 
+it('summarizes every resource in a stage with one call and masks nothing readable', async () => {
+  const fetch = mockFetch({
+    ...fixtures,
+    '/state/stacks/App/stages/prod/resources/Broken': { fqn: 'Broken' },
+    '/state/stacks/App/stages/prod/resources': [
+      'Task',
+      'Gone',
+      'Broken',
+      'Bucket',
+    ],
+  });
+  await run(fetch, (client) =>
+    Effect.gen(function* () {
+      const summaries = yield* client[
+        'AlchemyStateStore.ListResourceSummaries'
+      ]({ storeId: 'store', stack: 'App', stage: 'prod' }, options());
+      expect(summaries).toEqual({
+        storeName: 'Store',
+        data: [
+          { fqn: 'Broken', kind: 'resource', type: null, status: null },
+          {
+            fqn: 'Bucket',
+            kind: 'resource',
+            type: 'Cloudflare.R2.Bucket',
+            status: 'replaced',
+          },
+          { fqn: 'Gone', kind: 'resource', type: null, status: null },
+          { fqn: 'Task', kind: 'action', type: 'Sync', status: 'ran' },
+        ],
+      });
+      expect(JSON.stringify(summaries)).not.toContain('secret');
+      expect(fetch).toHaveBeenCalledTimes(5);
+    }),
+  );
+});
+
 it('does not access the remote store for another user, a missing store, or an invalid session', async () => {
   const fetch = mockFetch();
   await run(fetch, (client) =>

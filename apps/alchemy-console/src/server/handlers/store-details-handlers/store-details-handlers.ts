@@ -2,6 +2,7 @@ import { Effect, Schema } from 'effect';
 import { StoreDetails } from '../../../shared/rpc/store-details/index.ts';
 import {
   persistedStateView,
+  resourceSummaryView,
   StoreDetailsError,
 } from '../../../shared/contracts/store-details/index.ts';
 import { getDetails } from '../../workflows/store-details/index.ts';
@@ -25,6 +26,17 @@ export const StoreDetailsHandlers = StoreDetails.toLayer({
   'AlchemyStateStore.ListResources': (input) =>
     getDetails(input, { kind: 'resources', ...input }).pipe(
       Effect.flatMap(decode(names)),
+    ),
+  'AlchemyStateStore.ListResourceSummaries': (input) =>
+    getDetails(input, { kind: 'summaries', ...input }).pipe(
+      Effect.flatMap(
+        decode(
+          Schema.Struct({
+            storeName: Schema.String,
+            data: Schema.Array(resourceSummaryView),
+          }),
+        ),
+      ),
     ),
   'AlchemyStateStore.GetStageOutputs': (input) =>
     getDetails(input, { kind: 'outputs', ...input }).pipe(

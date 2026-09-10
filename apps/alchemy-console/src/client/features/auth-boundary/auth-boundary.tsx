@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { useRef, useState } from 'react';
-import type { ComponentType, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useRunEffect } from 'use-effect-ts';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Database } from 'kui-toolkit/lucide';
@@ -42,6 +42,7 @@ function AuthButton({ action }: { action: 'login' | 'logout' }) {
     <div className="space-y-2">
       <Button
         variant={action === 'login' ? 'default' : 'ghost'}
+        size={action === 'login' ? 'default' : 'sm'}
         disabled={pending}
         onClick={() => {
           if (active.current) return;
@@ -94,13 +95,16 @@ function ConnectionGate({ children }: { children: ReactNode }) {
   return children;
 }
 
-export function AuthBoundary({
-  children,
-  HomeLink,
-}: {
-  children: ReactNode;
-  HomeLink: ComponentType<{ className?: string; children: ReactNode }>;
-}) {
+export function AccountMenu() {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <ThemeToggle />
+      <AuthButton action="logout" />
+    </div>
+  );
+}
+
+export function AuthBoundary({ children }: { children: ReactNode }) {
   const session = authClient.useSession();
   if (session.isPending)
     return (
@@ -147,21 +151,7 @@ export function AuthBoundary({
 
   return (
     <RpcProvider key={session.data.session.id}>
-      <div className="min-h-svh">
-        <header className="border-b">
-          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-            <HomeLink className="flex min-w-0 items-center gap-2 font-medium tracking-tight">
-              <Database className="size-4 shrink-0 text-muted-foreground" />
-              <span className="truncate">Alchemy Console</span>
-            </HomeLink>
-            <div className="flex shrink-0 items-center gap-2">
-              <ThemeToggle />
-              <AuthButton action="logout" />
-            </div>
-          </div>
-        </header>
-        <ConnectionGate>{children}</ConnectionGate>
-      </div>
+      <ConnectionGate>{children}</ConnectionGate>
     </RpcProvider>
   );
 }

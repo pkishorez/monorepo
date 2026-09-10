@@ -1,9 +1,10 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import { HttpClient, HttpClientRequest } from 'effect/unstable/http';
 import { HttpApiClient } from 'effect/unstable/httpapi';
 import { StateApi } from 'alchemy/State/HttpStateApi';
 import {
   persistedStateView,
+  resourceSummaryView,
   StoreDetailsError,
 } from '../../../shared/contracts/store-details/index.ts';
 import { maskSecrets } from './mask-secrets.ts';
@@ -13,8 +14,24 @@ const invalidState = () => new StoreDetailsError({ code: 'invalid-state' });
 export type StateRequest =
   | { kind: 'stacks' }
   | { kind: 'stages'; stack: string }
-  | { kind: 'resources' | 'outputs'; stack: string; stage: string }
+  | {
+      kind: 'resources' | 'summaries' | 'outputs';
+      stack: string;
+      stage: string;
+    }
   | { kind: 'resource'; stack: string; stage: string; resource: string };
+
+const summarize = (
+  fqn: string,
+  state: Option.Option<typeof persistedStateView.Type> | null,
+): typeof resourceSummaryView.Type => {
+  if (state === null || Option.isNone(state))
+    return { fqn, kind: 'resource', type: null, status: null };
+  const value = state.value;
+  return value.kind === 'action'
+    ? { fqn, kind: 'action', type: value.actionType, status: value.status }
+    : { fqn, kind: 'resource', type: value.resourceType, status: value.status };
+};
 
 export const read = (
   connection: { url: string; authToken: string },
@@ -65,6 +82,36 @@ export const read = (
             params: { stack: request.stack, stage: request.stage },
           })),
         ].sort();
+      case 'summaries': {
+        const names = [
+          ...(yield* api.listResources({
+            params: { stack: request.stack, stage: request.stage },
+          })),
+        ].sort();
+        return yield* Effect.forEach(
+          names,
+          (fqn) =>
+            api
+              .getState({
+                params: {
+                  stack: request.stack,
+                  stage: request.stage,
+                  fqn: encodeURIComponent(fqn),
+                },
+              })
+              .pipe(
+                Effect.flatMap((raw) =>
+                  raw == null
+                    ? Effect.succeed(null)
+                    : Schema.decodeUnknownEffect(persistedStateView)(
+                        maskSecrets(raw, connection.authToken),
+                      ).pipe(Effect.option),
+                ),
+                Effect.map((state) => summarize(fqn, state)),
+              ),
+          { concurrency: 4 },
+        );
+      }
       case 'outputs':
         return yield* json(
           yield* api.getStackOutput({

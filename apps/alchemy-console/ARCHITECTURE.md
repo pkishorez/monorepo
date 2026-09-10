@@ -11,8 +11,8 @@ src/
   client/
     features/
       auth-boundary/                 Gates the application on login and connection
-      store-list/                    Lists, creates, renames and removes stores
-      store-explorer/                Explores stacks, stages and resource state
+      store-list/                    Lands in a store, switches stores, and manages them
+      store-explorer/                Workspace: stack/stage tree beside stage and resource panes
       delete-stage/                  Owns confirmations, readable plans and progress
     session/rpc-session/             Owns connection lifetime and query/action hooks
     connections/
@@ -41,22 +41,34 @@ src/
 
 ## Follow a request
 
-A store URL supplies `storeId`; its `stack` and `stage` search parameters select
-one level of the explorer. Breadcrumb links update those parameters, preserving
-browser Back, refresh, and direct links. Resource selection opens a dialog and
-does not add a navigation level.
+`/` opens the last-used store (remembered in browser local storage under
+`alchemy-console-store`), or the first store; with no stores it shows the store
+list. `/stores` is the management page. A store URL supplies `storeId`; its
+`stack`, `stage` and `resource` search parameters select what the workspace
+shows. Every level is a link, so browser Back, refresh and direct links work.
 
-The signed-in session sends one of five authenticated RPCs: `ListStacks`,
-`ListStages`, `ListResources`, `GetStageOutputs`, or `GetResourceState` (each
-prefixed with `AlchemyStateStore.`). Each workflow loads the current user's
-saved connection and makes only the requested Alchemy state API call. Creating
+The workspace is one screen: a sidebar tree of stacks and stages (a sheet on
+narrow viewports), a main pane, and a resource panel. With no stack selected the
+main pane shows every stack with its stages; with a stack, its stages and
+resource counts; with a stage, a resource table (name, type, status) and the
+stage outputs. Selecting a resource opens its state in a side panel on wide
+viewports and a bottom sheet on phones, without leaving the stage.
+
+The signed-in session sends one of six authenticated RPCs: `ListStacks`,
+`ListStages`, `ListResources`, `ListResourceSummaries`, `GetStageOutputs`, or
+`GetResourceState` (each prefixed with `AlchemyStateStore.`). Each workflow
+loads the current user's saved connection and makes only the requested Alchemy
+state API calls. `ListResourceSummaries` lists a stage's resources and reads
+each state with up to four concurrent requests, returning only name, kind, type
+and status per row; unreadable or missing state yields null type and status. Creating
 a store resolves and saves its connection through Cloudflare discovery;
 ordinary reads reuse it without discovery or an extra verification request.
 
-Opening a store loads stack names. Opening a stack loads stage names. Opening
-a stage loads resource identifiers. Outputs load when their tab opens, and
-resource state loads when its dialog opens. Closing a dialog cancels its active
-query. Remote state and outputs are masked before returning to the client.
+Opening a store loads stack names, and the tree loads each stack's stages.
+Opening a stage loads resource summaries and outputs; the outputs section can be
+collapsed to skip that read. Resource state loads when its panel opens. Leaving
+a panel cancels its active query. Remote state and outputs are masked before
+returning to the client.
 
 Rows load counts for their immediate children with up to four concurrent
 requests. Counts and destination screens share TanStack Query keys, so returning
@@ -70,8 +82,9 @@ The root theme provider follows the system preference until the user chooses
 light or dark. It persists that choice in browser local storage under
 `alchemy-console-theme` and applies it before hydration.
 
-The explorer owns search, tabs, dialogs, and rendering. Routes supply link
-components, so features do not know route paths or import the router.
+The explorer owns the sidebar, filters, panes and rendering. Routes supply link
+components and slots (store switcher, account menu), so features do not know
+route paths or import the router.
 
 ## Stage deletion
 
