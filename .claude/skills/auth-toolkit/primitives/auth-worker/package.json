@@ -1,0 +1,29 @@
+{
+  "name": "__APP_NAME__",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "portless run --force alchemy dev",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:tsc": "tsc --noEmit",
+    "lint:laymos": "laymos lint",
+    "test": "vitest run",
+    "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod"
+  },
+  "dependencies": {
+    "auth-toolkit": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@types/node": "catalog:",
+    "alchemy": "catalog:",
+    "better-sqlite3": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

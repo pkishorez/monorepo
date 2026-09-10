@@ -53,4 +53,4 @@ pnpm lint
 pnpm test
 ```
 
-Finish by telling the user the app folder, the local URL, and how to deploy. Never set `ALLOW_DEPLOY` locally. Leave business features for after setup.
+Finish by telling the user the app folder, and how to deploy. Never set `ALLOW_DEPLOY` locally. Leave business features for after setup.
