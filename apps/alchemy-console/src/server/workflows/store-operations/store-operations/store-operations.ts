@@ -1,0 +1,116 @@
+import { Effect, Stream } from 'effect';
+import { Authz } from 'auth-toolkit/rpc';
+import { StateStoreError } from '../../../../shared/contracts/state-stores/index.ts';
+import {
+  StoreDetailsError,
+  type storeTarget,
+  type stackTarget,
+  type readStageTarget,
+} from '../../../../shared/contracts/state-address/index.ts';
+import type { resourceTarget } from '../../../../shared/contracts/resource-browser/index.ts';
+import type { stageTarget } from '../../../../shared/contracts/delete-stage/index.ts';
+import { alchemyStateStoreEntity } from '../../../storage/state-store-database/index.ts';
+import * as management from '../store-management/index.ts';
+import * as browser from '../state-browser/index.ts';
+import * as resources from '../resource-browser/index.ts';
+import * as outputs from '../stage-outputs/index.ts';
+import * as deletionPreview from '../stage-deletion-preview/index.ts';
+import * as deletion from '../stage-deletion/index.ts';
+import { authorizeDeletion } from './authorize-deletion.ts';
+
+const manage = <A, E extends Parameters<typeof management.errorCode>[0], R>(
+  run: (userId: string) => Effect.Effect<A, E, R>,
+) =>
+  Effect.flatMap(Authz.CurrentAuth, ({ user }) => run(user.id)).pipe(
+    Effect.mapError(
+      (error) =>
+        new StateStoreError({
+          code: management.errorCode(error),
+          ...(error._tag === 'CloudflareDiscoveryError'
+            ? { reason: error.reason }
+            : {}),
+        }),
+    ),
+  );
+
+export const create = (input: Parameters<typeof management.create>[1]) =>
+  manage((userId) => management.create(userId, input));
+export const list = () => manage(management.list);
+export const rename = (input: Parameters<typeof management.rename>[1]) =>
+  manage((userId) => management.rename(userId, input));
+export const remove = (input: Parameters<typeof management.remove>[1]) =>
+  manage((userId) => management.remove(userId, input));
+export const updateCredentials = (
+  input: Parameters<typeof management.updateCredentials>[1],
+) => manage((userId) => management.updateCredentials(userId, input));
+
+const readStore = <A, R>(
+  input: typeof storeTarget.Type,
+  message: string,
+  run: (
+    connection: Parameters<typeof browser.listStacks>[0],
+  ) => Effect.Effect<A, StoreDetailsError, R>,
+) =>
+  Effect.gen(function* () {
+    const { user } = yield* Authz.CurrentAuth;
+    const store = yield* alchemyStateStoreEntity
+      .get({ userId: user.id, id: input.storeId }, { excludeDeleted: true })
+      .pipe(
+        Effect.mapError(() => new StoreDetailsError({ code: 'storage-error' })),
+      );
+    if (!store)
+      return yield* Effect.fail(new StoreDetailsError({ code: 'not-found' }));
+    yield* Effect.logInfo('Loaded state store from database');
+    const data = yield* run(store.value.connection);
+    yield* Effect.logInfo(message);
+    return { storeName: store.value.name, data };
+  }).pipe(
+    Effect.tapError((error) =>
+      Effect.logError('Could not load state details', {
+        code: error.code,
+        ...(error.reason ? { reason: error.reason } : {}),
+      }),
+    ),
+    Effect.withSpan('StoreOperations.read'),
+  );
+
+export const listStacks = (input: typeof storeTarget.Type) =>
+  readStore(input, 'Listed stacks', browser.listStacks);
+export const listStages = (input: typeof stackTarget.Type) =>
+  readStore(input, 'Listed stages', (connection) =>
+    browser.listStages(connection, input.stack),
+  );
+export const listResources = (input: typeof readStageTarget.Type) =>
+  readStore(input, 'Listed resources', (connection) =>
+    browser.listResources(connection, input.stack, input.stage),
+  );
+export const listSummaries = (input: typeof readStageTarget.Type) =>
+  readStore(input, 'Listed resource summaries', (connection) =>
+    resources.listSummaries(connection, input),
+  );
+export const getResourceState = (input: typeof resourceTarget.Type) =>
+  readStore(input, 'Fetched resource state', (connection) =>
+    resources.getState(connection, input),
+  );
+export const getStageOutputs = (input: typeof readStageTarget.Type) =>
+  readStore(input, 'Fetched stage outputs', (connection) =>
+    outputs.getOutputs(connection, input),
+  );
+
+export const preview = (input: typeof stageTarget.Type) =>
+  Stream.unwrap(
+    authorizeDeletion(input).pipe(
+      Effect.map(deletionPreview.preview),
+      Effect.withSpan('DeleteStage.preview'),
+    ),
+  );
+export const destroy = (
+  input: typeof stageTarget.Type & { fingerprint: string },
+) =>
+  Stream.unwrap(
+    authorizeDeletion(input).pipe(
+      Effect.map((target) =>
+        deletion.destroy({ ...target, fingerprint: input.fingerprint }),
+      ),
+    ),
+  );

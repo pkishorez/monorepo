@@ -1,0 +1,15 @@
+export {
+  create,
+  list,
+  rename,
+  remove,
+  updateCredentials,
+  listStacks,
+  listStages,
+  listResources,
+  listSummaries,
+  getResourceState,
+  getStageOutputs,
+  preview,
+  destroy,
+} from './store-operations.ts';

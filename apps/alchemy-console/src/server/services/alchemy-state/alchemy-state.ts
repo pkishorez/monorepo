@@ -5,8 +5,8 @@ import { StateApi } from 'alchemy/State/HttpStateApi';
 import {
   persistedStateView,
   resourceSummaryView,
-  StoreDetailsError,
-} from '../../../shared/contracts/store-details/index.ts';
+} from '../../../shared/contracts/resource-browser/index.ts';
+import { StoreDetailsError } from '../../../shared/contracts/state-address/index.ts';
 import { maskSecrets } from './mask-secrets.ts';
 
 const invalidState = () => new StoreDetailsError({ code: 'invalid-state' });

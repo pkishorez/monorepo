@@ -8,8 +8,9 @@ import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { expect, it, vi } from 'vite-plus/test';
 import { appTable } from '../src/server/storage/state-store-database/index.ts';
 import { alchemyStateStoreEntity as stores } from '../src/server/storage/state-store-database/index.ts';
-import { StoreDetails } from '../src/shared/rpc/store-details/index.ts';
-import { StoreDetailsHandlers } from '../src/server/handlers/store-details-handlers/index.ts';
+import { ConsoleApi as StoreDetails } from '../src/shared/api/console-api/index.ts';
+import { ConsoleHandlers as StoreDetailsHandlers } from '../src/server/handlers/console-handlers/index.ts';
+import { StageDeletionLock } from '../src/server/storage/stage-deletion-lock/index.ts';
 
 const token = 'private-store-token';
 const resolver = Layer.succeed(Authz.Resolver, {
@@ -85,6 +86,12 @@ const run = <A, E>(
       ),
       Effect.provide(
         StoreDetailsHandlers.pipe(
+          Layer.provide(
+            Layer.succeed(StageDeletionLock, {
+              acquire: () => Effect.die('Unexpected deletion'),
+              release: () => Effect.void,
+            }),
+          ),
           Layer.provide(table.layer),
           Layer.provide(FetchHttpClient.layer),
         ),

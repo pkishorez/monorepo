@@ -11,11 +11,19 @@
           "shared": false,
           "exposed": true
         },
-        "src/shared/contracts/store-details": {
+        "src/shared/contracts/resource-browser": {
           "shared": false,
           "exposed": true
         },
         "src/shared/contracts/delete-stage": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/contracts/state-address": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/shared/contracts/stage-outputs": {
           "shared": false,
           "exposed": true
         }
@@ -23,9 +31,9 @@
     },
     "shared-rpc": {
       "paths": ["src/shared/rpc"],
-      "description": "Names authenticated calls over the shared contracts; each protocol is an independent peer.",
+      "description": "Declares capability-specific procedures over browser-safe schemas.",
       "modules": {
-        "src/shared/rpc/greeting": {
+        "src/shared/rpc/state-browser": {
           "shared": false,
           "exposed": true
         },
@@ -33,14 +41,29 @@
           "shared": false,
           "exposed": true
         },
-        "src/shared/rpc/store-details": {
+        "src/shared/rpc/resource-browser": {
           "shared": false,
           "exposed": true
         },
         "src/shared/rpc/delete-stage": {
           "shared": false,
           "exposed": true
+        },
+        "src/shared/rpc/stage-outputs": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/rpc/stage-deletion-preview": {
+          "shared": false,
+          "exposed": true
         }
+      }
+    },
+    "shared-api": {
+      "paths": ["src/shared/api"],
+      "description": "Composes the Console API and applies its inherited authentication policy once.",
+      "modules": {
+        "src/shared/api/console-api": { "exposed": true }
       }
     },
     "server-entry": {
@@ -65,21 +88,9 @@
     },
     "server-handlers": {
       "paths": ["src/server/handlers"],
-      "description": "Fulfils each protocol through its workflow and maps safe failures; handlers cannot import one another.",
+      "description": "Binds the authenticated API to the user-scoped operation boundary.",
       "modules": {
-        "src/server/handlers/greeting-handlers": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/server/handlers/state-store-handlers": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/server/handlers/store-details-handlers": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/server/handlers/delete-stage-handlers": {
+        "src/server/handlers/console-handlers": {
           "shared": false,
           "exposed": true
         }
@@ -88,18 +99,29 @@
     "server-workflows": {
       "paths": ["src/server/workflows"],
       "description": "Owns user-scoped sequencing and failure policy over storage and independent external services.",
-      "modules": {
-        "src/server/workflows/state-stores": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/server/workflows/store-details": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/server/workflows/delete-stage": {
-          "shared": false,
-          "exposed": true
+      "moduleGraphs": {
+        "store-operations": {
+          "path": "src/server/workflows/store-operations",
+          "description": "Authorizes user-owned store operations and delegates to private capabilities.",
+          "modules": {
+            "store-operations": { "exposed": true },
+            "store-management": {},
+            "state-browser": {},
+            "resource-browser": {},
+            "stage-outputs": {},
+            "stage-deletion-preview": {},
+            "stage-deletion": {}
+          },
+          "rules": {
+            "store-operations": [
+              "store-management",
+              "state-browser",
+              "resource-browser",
+              "stage-outputs",
+              "stage-deletion-preview",
+              "stage-deletion"
+            ]
+          }
         }
       }
     },
@@ -147,7 +169,7 @@
     },
     "client-features": {
       "paths": ["src/client/features"],
-      "description": "Owns login, store management and exploration as independent interactions over shared query feedback; routes supply navigation.",
+      "description": "Owns authentication UI and the store workspace with private functional boundaries.",
       "modules": {
         "src/client/features/query-feedback": {
           "shared": true,
@@ -156,18 +178,40 @@
         "src/client/features/auth-boundary": {
           "shared": false,
           "exposed": true
-        },
-        "src/client/features/store-list": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/client/features/store-explorer": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/client/features/delete-stage": {
-          "shared": false,
-          "exposed": true
+        }
+      },
+      "moduleGraphs": {
+        "store-console": {
+          "path": "src/client/features/store-console",
+          "description": "Composes store management, exploration and deletion through one workspace door.",
+          "modules": {
+            "workspace": { "exposed": true },
+            "store-management": {},
+            "state-browser": {},
+            "resource-browser": {},
+            "stage-outputs": {},
+            "stage-deletion-preview": {},
+            "stage-deletion": {},
+            "state-view": {},
+            "store-query": {}
+          },
+          "rules": {
+            "workspace": [
+              "store-management",
+              "state-browser",
+              "resource-browser",
+              "stage-outputs",
+              "stage-deletion",
+              "state-view",
+              "store-query"
+            ],
+            "store-management": ["state-browser", "store-query"],
+            "state-browser": ["state-view", "store-query"],
+            "resource-browser": ["state-view", "store-query"],
+            "stage-outputs": ["state-view", "store-query"],
+            "stage-deletion": ["stage-deletion-preview", "store-query"],
+            "stage-deletion-preview": ["store-query"]
+          }
         }
       }
     },
@@ -242,6 +286,7 @@
     "shared": {
       "description": "The common language: RPC protocols depend on pure contracts. Neither can reach a runtime.",
       "rules": {
+        "shared-api": ["shared-rpc"],
         "shared-rpc": ["shared-contracts"],
         "shared-contracts": []
       }
@@ -251,7 +296,7 @@
       "rules": {
         "server-entry": ["server-host"],
         "server-host": ["server-handlers", "server-telemetry"],
-        "server-handlers": ["shared-rpc", "server-workflows"],
+        "server-handlers": ["shared-api", "server-workflows"],
         "server-workflows": [
           "server-services",
           "server-storage",
@@ -267,7 +312,7 @@
       "rules": {
         "client-features": ["client-session"],
         "client-session": ["client-connections"],
-        "client-connections": ["shared-rpc", "client-telemetry"],
+        "client-connections": ["shared-api", "client-telemetry"],
         "client-telemetry": []
       }
     },
