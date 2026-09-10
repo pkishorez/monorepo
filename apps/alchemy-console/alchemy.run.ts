@@ -1,4 +1,4 @@
-import { Stack, Stage } from 'alchemy';
+import { AlchemyContext, Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
 
@@ -8,6 +8,7 @@ export const Worker = Cloudflare.Website.Vite(
   'Worker',
   Effect.gen(function* () {
     const stage = yield* Stage;
+    const { dev } = yield* AlchemyContext;
     const deployed = stage === 'prod' || /^pr[0-9]+$/.test(stage);
     if (deployed && process.env.CI !== 'true') {
       throw new Error('Deploy prod and PR stages through GitHub Actions.');
@@ -16,7 +17,7 @@ export const Worker = Cloudflare.Website.Vite(
       throw new Error('Choose a production domain before deploying.');
     }
     const port = Number(process.env.PORT);
-    if (!deployed && (!Number.isInteger(port) || port < 1 || port > 65535)) {
+    if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
     }
     const database = yield* Cloudflare.D1.Database('Database', {
@@ -26,7 +27,7 @@ export const Worker = Cloudflare.Website.Vite(
     return {
       env: { DB: database },
       compatibility: { date: '2026-07-01', flags: ['nodejs_compat'] },
-      dev: deployed ? undefined : { port },
+      dev: dev ? { port } : undefined,
       domain: deployed
         ? stage === 'prod'
           ? productionHost

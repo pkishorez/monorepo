@@ -41,6 +41,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Inspect alchemy-console state without a development port
+        run: env -u PORT pnpm -C apps/alchemy-console exec alchemy state stages --stack AlchemyConsole --local
+
       - name: Lint
         run: pnpm lint
 

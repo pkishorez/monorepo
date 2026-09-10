@@ -2,23 +2,29 @@ name: Cleanup alchemy-console preview
 on:
   pull_request:
     types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number whose preview should be destroyed
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
-  group: alchemy-console-pr${{ github.event.number }}
+  group: alchemy-console-pr${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.number }}
   cancel-in-progress: false
 jobs:
   cleanup:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
-      STAGE: pr${{ github.event.number }}
+      STAGE: pr${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.number }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.head.sha }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -31,11 +37,17 @@ jobs:
         id: preview
         run: |
           if ! printf '%s\n' "$STAGE" | grep -qxE 'pr[0-9]+'; then exit 1; fi
-          stages=$(pnpm -C apps/alchemy-console exec alchemy state stages --stack AlchemyConsole)
-          if printf '%s\n' "$stages" | grep -qxF "$STAGE"; then
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          if stages=$(pnpm -C apps/alchemy-console exec alchemy state stages --stack AlchemyConsole); then
+            if printf '%s\n' "$stages" | grep -qxF "$STAGE"; then
+              echo 'exists=true' >> "$GITHUB_OUTPUT"
+            else
+              echo 'exists=false' >> "$GITHUB_OUTPUT"
+            fi
           else
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
+            status=$?
+            printf '%s\n' "$stages" >&2
+            echo "::error::Preview lookup failed for $STAGE"
+            exit "$status"
           fi
       - name: Destroy preview
         if: steps.preview.outputs.exists == 'true'
