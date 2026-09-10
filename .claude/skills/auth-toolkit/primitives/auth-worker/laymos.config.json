@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src", "infra"],
+  "layers": {
+    "infra": {
+      "paths": ["infra"],
+      "description": "The Auth Worker resource and its production configuration.",
+      "modules": {
+        "infra/auth-worker.ts": {
+          "exposed": true
+        },
+        "infra/config.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "worker-entry": {
+      "paths": ["src"],
+      "description": "Composes createAuthWorker with the D1 Primary Database Provider.",
+      "modules": {
+        "src/worker.ts": {}
+      }
+    }
+  },
+  "layerGraphs": {
+    "auth-worker": {
+      "description": "The entry reads configuration and bindings from infra.",
+      "rules": {
+        "worker-entry": ["infra"]
+      }
+    }
+  }
+}

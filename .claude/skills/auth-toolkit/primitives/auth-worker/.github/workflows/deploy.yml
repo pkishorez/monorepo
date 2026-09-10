@@ -1,0 +1,54 @@
+name: Deploy __APP_NAME__
+
+# Production only. The Auth Worker has no previews: sessions live in one D1
+# database and Google accepts a fixed list of redirect URIs.
+on:
+  push:
+    branches: [__PRODUCTION_BRANCH__]
+    paths:
+      - '__APP_PATH__/**'
+      - 'toolkits/auth-toolkit/**'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: __APP_NAME__-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/__PRODUCTION_BRANCH__'
+    runs-on: ubuntu-latest
+    env:
+      ALLOW_DEPLOY: 'true'
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter __APP_NAME__...
+      - run: pnpm --filter __APP_NAME__... run --if-present build
+      - run: pnpm --filter __APP_NAME__ run lint
+      - run: pnpm --filter __APP_NAME__ run test
+      - run: pnpm -C __APP_PATH__ exec alchemy cloudflare bootstrap
+      - run: pnpm -C __APP_PATH__ exec alchemy deploy --stage prod --yes
+      - name: Deployment summary
+        if: always()
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          if [ "$RESULT" = success ]; then
+            echo "prod deployed: https://__PRODUCTION_HOST__" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "prod deployment $RESULT. Review the deployment job." >> "$GITHUB_STEP_SUMMARY"
+          fi
