@@ -1,17 +1,11 @@
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
 import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import { FetchHttpClient } from 'effect/unstable/http';
-import { Greeting } from '../../../shared/rpc/greeting/index.ts';
 
-import { StateStores } from '../../../shared/rpc/state-stores/index.ts';
-
-import { DeleteStage } from '../../../shared/rpc/delete-stage/index.ts';
-import { StoreDetails } from '../../../shared/rpc/store-details/index.ts';
+import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';
 
-const makeClient = RpcClient.make(
-  Greeting.merge(StateStores, StoreDetails, DeleteStage),
-);
+const makeClient = RpcClient.make(ConsoleApi);
 
 export class Rpc extends Context.Service<
   Rpc,

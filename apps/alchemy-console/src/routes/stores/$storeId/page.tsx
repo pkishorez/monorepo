@@ -2,12 +2,10 @@ import { createFileRoute, Link, useBlocker } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AccountMenu } from '../../../client/features/auth-boundary/index.ts';
-import { DeleteStage } from '../../../client/features/delete-stage/index.ts';
 import {
-  StoreExplorer,
+  Workspace,
   type ExplorerLocation,
-} from '../../../client/features/store-explorer/index.ts';
-import { StoreSwitcher } from '../../../client/features/store-list/index.ts';
+} from '../../../client/features/store-console/workspace/index.ts';
 
 const text = (value: unknown) =>
   typeof value === 'string' && value.length > 0 ? value : undefined;
@@ -34,41 +32,26 @@ function StorePage() {
     [navigate],
   );
   return (
-    <DeleteStage
+    <Workspace
+      mode="explore"
       storeId={storeId}
       onBusyChange={setBusy}
-      onDeleted={(deleted) => {
-        if (stack === deleted.stack && stage === deleted.stage) go({ stack });
+      stack={stack}
+      stage={stage}
+      resource={resource}
+      NavigationLink={NavigationLink}
+      StoreLink={StoreLink}
+      ManageLink={ManageLink}
+      onNavigate={go}
+      onStoreCreated={(created) => {
+        void navigate({
+          to: '/stores/$storeId',
+          params: { storeId: created },
+          search: {},
+        });
       }}
-    >
-      {(StageAction) => (
-        <StoreExplorer
-          key={storeId}
-          storeId={storeId}
-          stack={stack}
-          stage={stage}
-          resource={resource}
-          NavigationLink={NavigationLink}
-          StageAction={StageAction}
-          onNavigate={go}
-          sidebarHeader={
-            <StoreSwitcher
-              storeId={storeId}
-              StoreLink={StoreLink}
-              ManageLink={ManageLink}
-              onStoreCreated={(created) => {
-                void navigate({
-                  to: '/stores/$storeId',
-                  params: { storeId: created },
-                  search: {},
-                });
-              }}
-            />
-          }
-          sidebarFooter={<AccountMenu />}
-        />
-      )}
-    </DeleteStage>
+      sidebarFooter={<AccountMenu />}
+    />
   );
 }
 

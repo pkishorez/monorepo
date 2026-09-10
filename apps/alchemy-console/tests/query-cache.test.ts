@@ -2,10 +2,8 @@ import { Effect } from 'effect';
 import { QueryObserver } from '@tanstack/react-query';
 import { effectQueryOptions } from 'use-effect-ts/query';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
-import {
-  makeQueryClient,
-  rpcQueryKeys,
-} from '../src/client/session/rpc-session/query-cache.ts';
+import { makeQueryClient } from '../src/client/session/rpc-session/query-cache.ts';
+import { rpcQueryKeys } from '../src/client/features/store-console/store-query/index.ts';
 
 const clients: ReturnType<typeof makeQueryClient>[] = [];
 const makeClient = () => {

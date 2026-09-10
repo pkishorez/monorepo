@@ -11,9 +11,16 @@ src/
   client/
     features/
       auth-boundary/                 Gates the application on login and connection
-      store-list/                    Lands in a store, switches stores, and manages them
-      store-explorer/                Workspace: stack/stage tree beside stage and resource panes
-      delete-stage/                  Owns confirmations, readable plans and progress
+      store-console/                 Client module graph
+        workspace/                   Public door: landing, management and exploration
+        store-management/            Saved connections, switching and credential dialogs
+        state-browser/               Stack/stage accordion, overviews and resource counts
+        resource-browser/            Resource summaries and state details
+        stage-outputs/               Stage outputs query and collapsible section
+        stage-deletion-preview/      Analysis stream, retry state and reviewed plan
+        stage-deletion/              Confirmations and deletion progress
+        store-query/                 Store cache addresses and safe error presentation
+        state-view/                  Consistent state presentation and navigation props
     session/rpc-session/             Owns connection lifetime and query/action hooks
     connections/
       auth/                          Connects to the authentication service
@@ -21,15 +28,21 @@ src/
     telemetry/                       Configures browser telemetry
   shared/
     contracts/                       Defines pure inputs, views and failures
-    rpc/                             Defines authenticated RPC protocols
+    rpc/                             Defines six capability-specific RPC groups
+    api/console-api/                 Merges the groups and guards the entire API
   server.ts                          Dispatches Worker requests
   server/
     host/rpc-host/                   Supplies providers and hosts RPC
-    handlers/                        Connects protocols to workflows
+    handlers/console-handlers/       Binds the guarded API to operation implementations
     workflows/
-      state-stores/                  Manages user-owned connections and safe views
-      store-details/                 Loads an owned connection and reads
-                                     only the requested level
+      store-operations/              Backend module graph
+        store-operations/            Public door: user-scoped access and safe failures
+        store-management/            Connection persistence, discovery and safe views
+        state-browser/               Separate list-stacks, list-stages and list-resources files
+        resource-browser/            Validated resource summaries and state
+        stage-outputs/               Validated outputs
+        stage-deletion-preview/      Preview of an authorized target
+        stage-deletion/              Leased execution of an authorized target
     services/
       cloudflare-discovery/          Resolves a connection through Cloudflare
       alchemy-state/                 Reads and masks remote Alchemy state
@@ -45,7 +58,9 @@ src/
 `alchemy-console-store`), or the first store; with no stores it shows the store
 list. `/stores` is the management page. A store URL supplies `storeId`; its
 `stack`, `stage` and `resource` search parameters select what the workspace
-shows. Every level is a link, so browser Back, refresh and direct links work.
+shows. Stack and stage names in the tree and ancestor breadcrumbs are links;
+the current breadcrumb is a location label. Refresh and direct links preserve
+the selection.
 
 The workspace is one screen: a sidebar tree of stacks and stages (a sheet on
 narrow viewports), a main pane, and a resource panel. With no stack selected the
@@ -64,7 +79,12 @@ and status per row; unreadable or missing state yields null type and status. Cre
 a store resolves and saves its connection through Cloudflare discovery;
 ordinary reads reuse it without discovery or an extra verification request.
 
-Opening a store loads stack names, and the tree loads each stack's stages.
+Opening a store loads stack names, and the tree eagerly loads each stack's
+stages with up to four concurrent requests. The tree behaves as a single-open
+accordion: clicking a stack name opens it and navigates to its overview; the
+chevron only toggles expansion. With no selection, all stacks start collapsed.
+A directly selected stack opens to reveal its stage. Expanded branches show
+inline loading or retry feedback. The sidebar displays no numeric counts.
 Opening a stage loads resource summaries and outputs; the outputs section can be
 collapsed to skip that read. Resource state loads when its panel opens. Leaving
 a panel cancels its active query. Remote state and outputs are masked before
@@ -82,9 +102,44 @@ The root theme provider follows the system preference until the user chooses
 light or dark. It persists that choice in browser local storage under
 `alchemy-console-theme` and applies it before hydration.
 
-The explorer owns the sidebar, filters, panes and rendering. Routes supply link
-components and slots (store switcher, account menu), so features do not know
-route paths or import the router.
+The workspace composes the store switcher, browsing panes and deletion flow.
+Routes supply link components, navigation callbacks and the account-menu slot,
+so features do not know route paths or import the router. After deletion settles,
+the workspace refreshes state; after successful deletion is dismissed, it moves
+selection out of the deleted stage. Preview does not invalidate browsing data.
+
+## Frontend/backend contract
+
+`POST /rpc` (also `/rpc/`) serves the shared `ConsoleApi` over NDJSON. The client
+and host import the same composed definition. `Authz.guard()` wraps the merged
+group once, so every procedure inherits authentication. The operation boundary
+still checks store ownership and deletion permissions. Capability declarations
+are not independently mounted.
+
+All procedure names have the `AlchemyStateStore.` prefix:
+
+| Capability       | Procedures                                                | Response                                                                  |
+| ---------------- | --------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Store management | `Create`, `List`, `Rename`, `UpdateCredentials`, `Delete` | Masked saved-store views, or void for removal                             |
+| State browser    | `ListStacks`, `ListStages`, `ListResources`               | `{ storeName, data: string[] }`                                           |
+| Resource browser | `ListResourceSummaries`, `GetResourceState`               | `{ storeName, data }` with validated summaries or nullable resource state |
+| Stage outputs    | `GetStageOutputs`                                         | `{ storeName, data: JSON }`                                               |
+| Deletion preview | `PreviewStageDeletion`                                    | Analysis, plan, failure and heartbeat events                              |
+| Stage deletion   | `DeleteStage`                                             | Progress, complete, failed and heartbeat events                           |
+
+There are thirteen procedures; the greeting API has been removed. Browsing
+keeps stacks and stages as separate calls so branch loading and cached reads
+remain independently addressable. Shared schemas own input and output shapes;
+the backend decodes remote state before returning it. Store-management failures
+use `StateStoreError`, read failures use `StoreDetailsError`, and deletion
+failures use `DeleteStageError`, in addition to inherited authentication errors.
+
+Preview accepts `{ storeId, stack, stage }`. Execution additionally requires
+the reviewed `fingerprint`; the backend prepares the plan again before applying.
+Preview ends with a plan or failure; execution ends with complete or failed.
+Heartbeats are not terminal results. The client reports a stream ending without
+a terminal result as an interrupted operation. Neither stream represents a
+durable background job.
 
 ## Stage deletion
 
@@ -96,8 +151,8 @@ loader never evaluates unused public CLI/emulator exports. Restart dev when
 changing this engine; forced optimization rebuilds its local source. Alchemy owns the
 plan, dependency ordering, retention, provider cleanup and state updates.
 
-The independent deletion feature first asks for confirmation, then loads a
-readable plan. A second confirmation starts a blocking progress dialog over
+The deletion member first asks for confirmation, then delegates streaming
+analysis and the readable plan to the preview member. A second confirmation starts a blocking progress dialog over
 NDJSON RPC. Navigation and dismissal are blocked while it runs. Completion or
 failure refreshes cached state. Closing the browser or losing the connection can
 interrupt the request; there is no background job or reconnect protocol.
@@ -143,18 +198,19 @@ flowchart TD
   routes --> features[Client features]
   features --> session[Client session]
   session --> connections[Client connections]
-  connections --> protocol[Shared RPC]
+  connections --> api[Shared Console API]
   connections --> ct[Client telemetry]
 
   worker[Worker entry] --> host[RPC host]
   host --> handlers[Server handlers]
   host --> st[Server telemetry]
-  handlers --> protocol
+  handlers --> api
   handlers --> workflows[Server workflows]
   workflows --> services[Server services]
   workflows --> storage[Server storage]
   workflows --> contracts[Shared contracts]
   services --> contracts
+  api --> protocol[Shared RPC]
   protocol --> contracts
 ```
 
@@ -165,17 +221,20 @@ combined dependency policy: their rules are unioned and transitive.
 
 ## Isolation
 
-Every module explicitly sets `shared: false`. Exposed modules can be consumed
-through `index.ts` from permitted higher layers, but ordinary peers in the same
-layer cannot import them.
+Each module graph has one exposed door: client `workspace` and backend
+`store-operations`. Its other members are private, reachable only through
+declared, non-transitive graph edges. Every directory member has a thin
+`index.ts` exporting from its same-named implementation file. Neither graph
+has an index of its own, and neither crosses a layer boundary.
 
-| Independent peers                                  | Where collaboration belongs                      |
-| -------------------------------------------------- | ------------------------------------------------ |
-| Cloudflare discovery and Alchemy state             | Server workflows                                 |
-| State-store management and store-details workflows | Handlers or a broader workflow in a higher layer |
-| Login boundary, store list and explorer            | Routes                                           |
-| Authentication and RPC connections                 | Client session                                   |
-| RPC handlers                                       | RPC host                                         |
+| Independent peers                            | Where collaboration belongs    |
+| -------------------------------------------- | ------------------------------ |
+| Cloudflare discovery and Alchemy state       | Server workflows               |
+| Store management and remote-state operations | Backend store-operations graph |
+| Store management, browsing and deletion UI   | Client workspace graph         |
+| Login boundary and workspace                 | Routes                         |
+| Authentication and RPC connections           | Client session                 |
+| RPC handlers                                 | RPC host                       |
 
 Services cannot import storage, workflows or handlers. Client code and routes
 cannot reach server implementations. Shared contracts cannot reach either
@@ -183,14 +242,19 @@ runtime. Common lower dependencies remain allowed; independence does not mean
 duplicating a shared contract or giving every workflow its own database.
 
 The RPC provider and hooks form one session capability. Their React context
-stays private inside that module. The storage module similarly owns its table,
+stays private inside that module. Session owns runtime/cache lifetime and
+session refresh; it has no store query keys or feature-specific error codes and
+does not invalidate store data after arbitrary actions. The client graph's
+`store-query` member owns the cache address hierarchy and safe error copy.
+Individual capabilities own their queries and mutation effects; the workspace
+coordinates effects spanning several capabilities. The storage module similarly owns its table,
 schema evolution and entity binding together. Its exports are used to build
 the database at the host and access records in workflows.
 
-No module graph is needed for the current capabilities. Private helper files
-stay inside their owner. If a capability develops independently useful internal
-modules with meaningful dependency directions, give that capability a module
-graph with explicit edges; do not put unrelated peer services into one graph.
+The graph boundaries and rationale are recorded in
+`docs/adr/0001-capability-module-graphs.md`. Presentation primitives in
+`query-feedback` remain shared with the surrounding client-feature layer;
+graph-private members cannot be imported through that shared surface.
 
 Browser and Worker telemetry each own their small runtime configuration. Both
 use the telemetry toolkit; shared application code remains pure.

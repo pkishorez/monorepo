@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { AccountMenu } from '../client/features/auth-boundary/index.ts';
-import { StoreLanding } from '../client/features/store-list/index.ts';
+import { Workspace } from '../client/features/store-console/workspace/index.ts';
 
 export const Route = createFileRoute('/')({ component: LandingPage });
 
@@ -36,7 +36,8 @@ function LandingPage() {
         </span>
         <AccountMenu />
       </header>
-      <StoreLanding
+      <Workspace
+        mode="landing"
         StoreLink={StoreLink}
         onStore={open}
         onStoreCreated={open}

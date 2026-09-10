@@ -11,7 +11,7 @@ import {
   useQueryClient,
 } from 'use-effect-ts/query';
 import type { QueryKey } from 'use-effect-ts/query';
-import { makeQueryClient, rpcQueryKeys } from './query-cache.ts';
+import { makeQueryClient } from './query-cache.ts';
 
 type Connection =
   | { status: 'connecting' }
@@ -62,36 +62,6 @@ function message(error: unknown): string {
     return 'The request failed before it reached the server. Retry.';
   if ('_tag' in error && error._tag === 'Unauthenticated')
     return 'Your session expired. Sign in again to continue.';
-  if (
-    '_tag' in error &&
-    (error._tag === 'StateStoreError' ||
-      error._tag === 'StoreDetailsError' ||
-      error._tag === 'DeleteStageError') &&
-    'reason' in error &&
-    typeof error.reason === 'string' &&
-    error.reason.trim()
-  )
-    return error.reason;
-  if ('code' in error) {
-    switch (error.code) {
-      case 'cloudflare-permission':
-        return 'The Cloudflare token needs access to Workers and Secrets Store.';
-      case 'state-store-missing':
-        return 'No Alchemy state store was found. Deploy it in this Cloudflare account first.';
-      case 'discovery-failed':
-        return 'Could not discover the state store. Check the account ID and API token, then retry.';
-      case 'not-found':
-        return 'This store is no longer available.';
-      case 'remote-error':
-        return 'Could not read this store. Check its URL and token, then try again.';
-      case 'invalid-state':
-        return 'This store returned state we could not read.';
-      case 'unsupported-endpoint':
-        return 'Use the Cloudflare Worker’s HTTPS workers.dev URL for this store.';
-      case 'timeout':
-        return 'The store took too long to respond. Retry in a moment.';
-    }
-  }
   return 'The request didn’t complete. Retry.';
 }
 
@@ -107,7 +77,10 @@ const refreshExpiredSession =
 export function useRpcQuery<A, E>(
   query: Effect.Effect<A, E, Rpc>,
   queryKey: QueryKey,
-  options: { enabled?: boolean } = {},
+  options: {
+    enabled?: boolean;
+    errorMessage?: (error: unknown) => string;
+  } = {},
 ) {
   const connection = useRpc();
   const session = authClient.useSession();
@@ -128,34 +101,22 @@ export function useRpcQuery<A, E>(
   return {
     data: result.data ?? null,
     pending: result.isFetching,
-    error: result.error ? message(result.error) : null,
+    error: result.error
+      ? (options.errorMessage ?? message)(result.error)
+      : null,
     refresh: () => {
       void client.invalidateQueries({ queryKey });
     },
   };
 }
 
-export function useCachedStoreName(storeId: string) {
-  const client = useQueryClient();
-  const stores = client.getQueryData<readonly { id: string; name: string }[]>(
-    rpcQueryKeys.stores,
-  );
-  return (
-    stores?.find((store) => store.id === storeId)?.name ??
-    client
-      .getQueriesData<{ storeName: string }>({ queryKey: ['stores', storeId] })
-      .find(([, data]) => data?.storeName)?.[1]?.storeName ??
-    null
-  );
-}
-
 export function useRpcAction<Input, A, E>(
   action: (input: Input) => Effect.Effect<A, E, Rpc>,
   onSuccess: (value: A) => void,
+  options: { errorMessage?: (error: unknown) => string } = {},
 ) {
   const connection = useRpc();
   const session = authClient.useSession();
-  const queryClient = useQueryClient();
   const active = useRef(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,24 +131,10 @@ export function useRpcAction<Input, A, E>(
         Effect.exit,
       );
       if (Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)) return;
-      if (Exit.isSuccess(exit)) {
-        yield* Effect.promise(() =>
-          queryClient.invalidateQueries({
-            queryKey: rpcQueryKeys.stores,
-            refetchType: 'none',
-          }),
-        );
-        yield* Effect.promise(() =>
-          queryClient.refetchQueries({
-            queryKey: rpcQueryKeys.stores,
-            exact: true,
-            type: 'active',
-          }),
-        );
-      }
       yield* Effect.sync(() => {
         if (Exit.isSuccess(exit)) onSuccess(exit.value);
-        else setError(message(Cause.squash(exit.cause)));
+        else
+          setError((options.errorMessage ?? message)(Cause.squash(exit.cause)));
       });
     }).pipe(
       Effect.ensuring(

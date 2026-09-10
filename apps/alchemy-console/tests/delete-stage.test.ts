@@ -11,7 +11,7 @@ import {
 import {
   preview,
   destroy,
-} from '../src/server/workflows/delete-stage/index.ts';
+} from '../src/server/workflows/store-operations/store-operations/index.ts';
 import {
   StageDeletionLock,
   makeStageDeletionLock,
@@ -27,7 +27,7 @@ import { destructionRequest } from '../src/server/services/stage-destruction/req
 import {
   adminPermissions,
   cloudflareTokenUrl,
-} from '../src/client/features/store-list/cloudflare-token-url.ts';
+} from '../src/client/features/store-console/store-management/cloudflare-token-url.ts';
 
 const connection = {
   kind: 'cloudflare' as const,

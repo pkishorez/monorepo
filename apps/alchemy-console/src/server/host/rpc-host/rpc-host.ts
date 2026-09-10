@@ -5,20 +5,14 @@ import {
   authzLayer,
   resolverLive,
 } from 'auth-toolkit/rpc/server';
-import { DeleteStage } from '../../../shared/rpc/delete-stage/index.ts';
-import { DeleteStageHandlers } from '../../handlers/delete-stage-handlers/index.ts';
-import { StoreDetails } from '../../../shared/rpc/store-details/index.ts';
-import { StoreDetailsHandlers } from '../../handlers/store-details-handlers/index.ts';
+import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
+import { ConsoleHandlers } from '../../handlers/console-handlers/index.ts';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { HttpEffect } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import { SQLite } from 'std-toolkit/db/sqlite';
 import { makeD1SQLite } from 'std-toolkit/db/sqlite/d1';
 import { appTable } from '../../storage/state-store-database/index.ts';
-import { StateStores } from '../../../shared/rpc/state-stores/index.ts';
-import { StateStoreHandlers } from '../../handlers/state-store-handlers/index.ts';
-import { Greeting } from '../../../shared/rpc/greeting/index.ts';
-import { GreetingHandlers } from '../../handlers/greeting-handlers/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';
 
 export function handleRpc(
@@ -46,14 +40,11 @@ export function handleRpc(
   );
 
   const dependencies = Layer.mergeAll(
-    GreetingHandlers,
-    DeleteStageHandlers.pipe(
+    ConsoleHandlers.pipe(
       Layer.provide(table.layer),
       Layer.provide(http),
       Layer.provide(deletionLock.layer),
     ),
-    StoreDetailsHandlers.pipe(Layer.provide(table.layer), Layer.provide(http)),
-    StateStoreHandlers.pipe(Layer.provide(table.layer), Layer.provide(http)),
     authzLayer.pipe(
       Layer.provide(
         resolverLive({
@@ -81,9 +72,7 @@ export function handleRpc(
     return yield* Effect.gen(function* () {
       yield* table.setup;
       yield* deletionLock.setup;
-      const rpc = yield* RpcServer.toHttpEffect(
-        Greeting.merge(StateStores, StoreDetails, DeleteStage),
-      );
+      const rpc = yield* RpcServer.toHttpEffect(ConsoleApi);
       return yield* authzCookies(rpc).pipe(Effect.interruptible);
     }).pipe(Effect.provide(context));
   });

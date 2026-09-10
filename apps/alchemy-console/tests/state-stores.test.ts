@@ -11,9 +11,15 @@ import {
   alchemyStateStoreEntity as stores,
   alchemyStateStoreSchema,
 } from '../src/server/storage/state-store-database/index.ts';
-import { StateStores } from '../src/shared/rpc/state-stores/index.ts';
+import { ConsoleApi as StateStores } from '../src/shared/api/console-api/index.ts';
 import { createStateStoreInput } from '../src/shared/contracts/state-stores/index.ts';
-import { StateStoreHandlers } from '../src/server/handlers/state-store-handlers/index.ts';
+import { ConsoleHandlers as StateStoreHandlers } from '../src/server/handlers/console-handlers/index.ts';
+import { StageDeletionLock } from '../src/server/storage/stage-deletion-lock/index.ts';
+
+const unusedDeletionLock = Layer.succeed(StageDeletionLock, {
+  acquire: () => Effect.die('Unexpected deletion'),
+  release: () => Effect.void,
+});
 
 const connection = {
   kind: 'cloudflare' as const,
@@ -107,7 +113,12 @@ const run = <A, E>(
       return yield* use(client);
     }).pipe(
       Effect.scoped,
-      Effect.provide(StateStoreHandlers.pipe(Layer.provide(table.layer))),
+      Effect.provide(
+        StateStoreHandlers.pipe(
+          Layer.provide(table.layer),
+          Layer.provide(unusedDeletionLock),
+        ),
+      ),
       Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
@@ -295,7 +306,12 @@ it('persists the raw token and removes the actual row on delete', async () => {
       ).toBeNull();
     }).pipe(
       Effect.scoped,
-      Effect.provide(StateStoreHandlers.pipe(Layer.provide(table.layer))),
+      Effect.provide(
+        StateStoreHandlers.pipe(
+          Layer.provide(table.layer),
+          Layer.provide(unusedDeletionLock),
+        ),
+      ),
       Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, discoveryFetch),

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { AccountMenu } from '../../client/features/auth-boundary/index.ts';
-import { StoreList } from '../../client/features/store-list/index.ts';
+import { Workspace } from '../../client/features/store-console/workspace/index.ts';
 
 export const Route = createFileRoute('/stores/')({ component: StoresPage });
 
@@ -26,7 +26,8 @@ function StoresPage() {
         </Link>
         <AccountMenu />
       </header>
-      <StoreList
+      <Workspace
+        mode="management"
         StoreLink={StoreLink}
         onStoreCreated={(storeId) => {
           void navigate({ to: '/stores/$storeId', params: { storeId } });
