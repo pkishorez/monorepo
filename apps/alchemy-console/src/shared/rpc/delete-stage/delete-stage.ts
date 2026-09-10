@@ -8,7 +8,11 @@ import {
 
 export const DeleteStage = RpcGroup.make(
   Rpc.make('AlchemyStateStore.DeleteStage', {
-    payload: { ...stageTarget.fields, fingerprint: Schema.String },
+    payload: {
+      ...stageTarget.fields,
+      fingerprint: Schema.String,
+      acknowledgement: Schema.optional(Schema.String),
+    },
     success: deletionEvent,
     error: DeleteStageError,
     stream: true,

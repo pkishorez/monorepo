@@ -5,5 +5,7 @@ export {
   analysisEvent,
   previewEvent,
   DeleteStageError,
-  canDeleteStage,
+  isProtectedStage,
+  protectedStageAcknowledgement,
+  acknowledgesProtectedStage,
 } from './delete-stage.ts';

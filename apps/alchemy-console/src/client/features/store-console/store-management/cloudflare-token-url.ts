@@ -30,6 +30,11 @@ export const adminPermissions = [
   ['billing', 'Billing', 'read'],
 ] as const;
 
+// Forces the account picker; the chosen account's ID then appears in the URL
+// and under "Account details" on the landing page.
+export const cloudflareAccountUrl =
+  'https://dash.cloudflare.com/?to=/:account/workers-and-pages';
+
 export function cloudflareTokenUrl(
   accountId: string,
   access: 'view' | 'admin' = 'view',

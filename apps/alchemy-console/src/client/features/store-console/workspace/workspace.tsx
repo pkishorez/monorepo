@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { useQueryClient } from 'use-effect-ts/query';
 import {
-  StoreLanding,
   StoreList,
   StoreSwitcher,
   useStore,
@@ -34,20 +33,13 @@ export function Workspace(
   props:
     | ExploreProps
     | {
-        mode: 'landing' | 'management';
+        mode: 'management';
         StoreLink: StoreLink;
         onStoreCreated: (storeId: string) => void;
       },
 ) {
   if (props.mode === 'explore')
     return <ExploreWorkspace key={props.storeId} {...props} />;
-  if (props.mode === 'landing')
-    return (
-      <StoreLanding
-        StoreLink={props.StoreLink}
-        onStoreCreated={props.onStoreCreated}
-      />
-    );
   return (
     <StoreList
       StoreLink={props.StoreLink}

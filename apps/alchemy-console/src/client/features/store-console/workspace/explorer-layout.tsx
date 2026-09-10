@@ -11,6 +11,7 @@ import {
   SidebarTrigger,
 } from 'kui-toolkit/components/ui/sidebar';
 import { ChevronRight } from 'kui-toolkit/lucide';
+import { Logo, LogoMark } from '../../brand/index.ts';
 import { StateTree, StateOverview } from '../state-browser/index.ts';
 import { ResourceBrowser } from '../resource-browser/index.ts';
 import type { ExplorerLocation, NavigationLink } from '../state-view/index.ts';
@@ -45,7 +46,16 @@ export function StoreExplorer({
       className="min-h-svh"
     >
       <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="p-2">{sidebarHeader}</SidebarHeader>
+        <SidebarHeader className="gap-2 p-2">
+          <NavigationLink
+            home
+            title="Alchemy Console"
+            className="flex h-8 items-center rounded-md px-2 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <Logo />
+          </NavigationLink>
+          {sidebarHeader}
+        </SidebarHeader>
         <SidebarContent>
           <StateTree
             key={storeId}
@@ -61,6 +71,22 @@ export function StoreExplorer({
       <SidebarInset className="min-w-0">
         <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-4">
           <SidebarTrigger aria-label="Toggle navigation" />
+          {!sidebarOpen && (
+            <>
+              <NavigationLink
+                home
+                title="Alchemy Console"
+                className="grid size-7 shrink-0 place-items-center rounded-md hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              >
+                <LogoMark className="size-5" />
+                <span className="sr-only">Alchemy Console</span>
+              </NavigationLink>
+              <span
+                className="h-4 w-px shrink-0 bg-border"
+                aria-hidden="true"
+              />
+            </>
+          )}
           <Breadcrumb
             storeName={storeName}
             stack={stack}

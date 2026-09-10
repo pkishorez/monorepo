@@ -22,7 +22,11 @@ vi.mock(
   () => native,
 );
 
-import { canDeleteStage } from '../src/shared/contracts/delete-stage/index.ts';
+import {
+  acknowledgesProtectedStage,
+  isProtectedStage,
+  protectedStageAcknowledgement,
+} from '../src/shared/contracts/delete-stage/index.ts';
 import { destructionRequest } from '../src/server/services/stage-destruction/request.ts';
 import {
   adminPermissions,
@@ -106,19 +110,27 @@ const run = <A, E>(
   );
 };
 
-it('protects every prod prefix and allows all other nonempty stage names', () => {
+it('flags every prod prefix and requires the exact acknowledgement phrase', () => {
   for (const stage of ['prod', 'production', 'prod-eu', 'PROD', 'Production']) {
-    expect(canDeleteStage(stage)).toBe(false);
-    expect(() =>
-      Schema.decodeUnknownSync(destructionRequest)({
-        ...target,
-        stage,
-        connection,
-      }),
-    ).toThrow();
+    expect(isProtectedStage(stage)).toBe(true);
+    expect(acknowledgesProtectedStage(stage, undefined)).toBe(false);
+    expect(acknowledgesProtectedStage(stage, 'i know what i am doing')).toBe(
+      false,
+    );
+    expect(
+      acknowledgesProtectedStage(stage, protectedStageAcknowledgement),
+    ).toBe(true);
   }
-  for (const stage of ['dev', 'pr123', 'staging', 'preview-branch', 'nonprod'])
-    expect(canDeleteStage(stage)).toBe(true);
+  for (const stage of [
+    'dev',
+    'pr123',
+    'staging',
+    'preview-branch',
+    'nonprod',
+  ]) {
+    expect(isProtectedStage(stage)).toBe(false);
+    expect(acknowledgesProtectedStage(stage, undefined)).toBe(true);
+  }
   expect(() =>
     Schema.decodeUnknownSync(destructionRequest)({
       ...target,
@@ -128,18 +140,29 @@ it('protects every prod prefix and allows all other nonempty stage names', () =>
   ).toThrow();
 });
 
-it('rejects protected stages, other owners, and view-only access before invoking Alchemy', async () => {
+it('rejects unacknowledged protected stages, other owners, and view-only access before invoking Alchemy', async () => {
   native.execute.mockClear();
   const fetch = Object.assign(
     vi.fn(async () => Response.json(plan)),
     { preconnect: () => {} },
   );
   for (const stage of ['prod', 'prod-us', 'PRODUCTION']) {
-    const exit = await run(
-      Effect.exit(collect(preview({ ...target, stage }))),
-      fetch,
-    );
-    expect(Exit.isFailure(exit)).toBe(true);
+    for (const acknowledgement of [undefined, 'I know what I am doing']) {
+      const exit = await run(
+        Effect.exit(
+          collect(
+            destroy({
+              ...target,
+              stage,
+              fingerprint: 'reviewed',
+              acknowledgement,
+            }),
+          ),
+        ),
+        fetch,
+      );
+      expect(Exit.isFailure(exit)).toBe(true);
+    }
   }
   expect(
     Exit.isFailure(
@@ -202,6 +225,40 @@ it('reports which resource stopped planning', async () => {
       message: 'AWS.DynamoDB.Table is not a Cloudflare resource.',
     },
   ]);
+});
+
+it('previews a protected stage freely and deletes it once acknowledged', async () => {
+  native.execute.mockClear();
+  const prodPlan = { ...plan, stage: 'prod' };
+  native.execute.mockImplementation((_input, mode, emit) =>
+    Effect.sync(() => {
+      if (mode === 'preview') return prodPlan;
+      emit({ kind: 'complete', id: null, status: 'deleted', message: '' });
+      return null;
+    }),
+  );
+  const fetch = Object.assign(
+    vi.fn(async () => Response.json(prodPlan)),
+    { preconnect: () => {} },
+  );
+  const previewed = await run(
+    collect(preview({ ...target, stage: 'prod' })),
+    fetch,
+  );
+  expect(previewed.at(-1)).toMatchObject({ kind: 'plan' });
+  const deleted = await run(
+    collect(
+      destroy({
+        ...target,
+        stage: 'prod',
+        fingerprint: prodPlan.fingerprint,
+        acknowledgement: protectedStageAcknowledgement,
+      }),
+    ),
+    fetch,
+  );
+  expect(deleted.at(-1)).toMatchObject({ kind: 'complete' });
+  expect(native.execute).toHaveBeenCalledTimes(2);
 });
 
 it('delivers progress before native deletion finishes and preserves partial failure', async () => {

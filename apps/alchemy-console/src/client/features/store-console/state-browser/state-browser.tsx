@@ -13,9 +13,18 @@ export function StateTree(
   >,
 ) {
   const [filter, setFilter] = useState('');
-  const [expanded, setExpanded] = useState<string | null>(props.stack ?? null);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
+    () => new Set(props.stack ? [props.stack] : []),
+  );
   const [slots] = useState(() => Semaphore.makeUnsafe(4));
-  useEffect(() => setExpanded(props.stack ?? null), [props.stack, props.stage]);
+  // Navigating into a stack reveals it without collapsing the ones already open.
+  useEffect(() => {
+    if (props.stack === undefined) return;
+    const current = props.stack;
+    setExpanded((previous) =>
+      previous.has(current) ? previous : new Set([...previous, current]),
+    );
+  }, [props.stack, props.stage]);
   const stacks = useRpcQuery(
     Effect.flatMap(Rpc, (rpc) =>
       rpc['AlchemyStateStore.ListStacks']({ storeId: props.storeId }),

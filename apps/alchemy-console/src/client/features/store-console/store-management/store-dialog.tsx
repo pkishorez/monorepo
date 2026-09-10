@@ -18,11 +18,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from 'kui-toolkit/components/ui/dialog';
-import { ChevronDown, CircleAlert } from 'kui-toolkit/lucide';
+import { ChevronDown, CircleAlert, ExternalLink } from 'kui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import type { stateStoreView } from '../../../../shared/contracts/state-stores/index.ts';
 import { useRpcAction, rpcQueryKeys } from '../store-query/index.ts';
-import { cloudflareTokenUrl } from './cloudflare-token-url.ts';
+import {
+  cloudflareAccountUrl,
+  cloudflareTokenUrl,
+} from './cloudflare-token-url.ts';
 
 type FieldName = 'name' | 'account' | 'token';
 
@@ -220,6 +223,23 @@ export function StoreDialog({
                 id={`${id}-account`}
                 label="Cloudflare account ID"
                 error={fieldError('account')}
+                aside={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    render={
+                      <a
+                        href={cloudflareAccountUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    }
+                  >
+                    Open Cloudflare
+                    <ExternalLink />
+                  </Button>
+                }
               >
                 <Input
                   id={`${id}-account`}
@@ -233,6 +253,7 @@ export function StoreDialog({
                     setValidation(null);
                   }}
                   placeholder="32-character account ID"
+                  aria-description="Pick an account in Cloudflare; the ID is in the page URL and under Account details."
                   readOnly={
                     action.kind === 'credentials' &&
                     action.store.connection.accountId !== null
