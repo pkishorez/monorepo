@@ -30,7 +30,7 @@ import {
   EmptyState,
 } from '../../query-feedback/index.ts';
 import { StoreDialog } from './store-dialog.tsx';
-import { recallStore, rememberStore } from './last-store.ts';
+import { rememberStore } from './last-store.ts';
 import { StoreSwitcher as Switcher } from './store-switcher.tsx';
 import { StackCount } from '../state-browser/index.ts';
 
@@ -71,41 +71,14 @@ const useStores = () =>
     rpcQueryKeys.stores,
   );
 
-/** Sends a returning user straight into a store; shows the store list only when there is nothing to open. */
 export function StoreLanding({
   StoreLink,
-  onStore,
   onStoreCreated,
 }: {
   StoreLink: StoreLink;
-  onStore: (storeId: string) => void;
   onStoreCreated: (storeId: string) => void;
 }) {
-  const query = useStores();
-  const target = query.data?.length
-    ? (query.data.find((store) => store.id === recallStore()) ?? query.data[0])
-        ?.id
-    : undefined;
-  useEffect(() => {
-    if (target) onStore(target);
-  }, [target, onStore]);
-  if (query.data && query.data.length === 0)
-    return <StoreList StoreLink={StoreLink} onStoreCreated={onStoreCreated} />;
-  if (query.error)
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <QueryError
-          message={query.error}
-          pending={query.pending}
-          onRetry={query.refresh}
-        />
-      </div>
-    );
-  return (
-    <p role="status" className="p-8 text-sm text-muted-foreground">
-      Opening your store…
-    </p>
-  );
+  return <StoreList StoreLink={StoreLink} onStoreCreated={onStoreCreated} />;
 }
 
 export function StoreList({
@@ -131,24 +104,28 @@ export function StoreList({
       store.name.toLocaleLowerCase().includes(filter.toLocaleLowerCase()),
     ) ?? [];
   const empty = query.data?.length === 0;
+  const hasStores = (query.data?.length ?? 0) > 0;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6 sm:py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold tracking-tight">Stores</h1>
-          <p className="text-sm text-muted-foreground">
-            Each store is a saved connection to one Alchemy state endpoint.
+    <main className="mx-auto w-full max-w-4xl space-y-8 px-4 py-10 sm:px-6 sm:py-14">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="max-w-2xl space-y-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-balance">
+            Stores
+          </h1>
+          <p className="text-sm leading-6 text-muted-foreground text-pretty">
+            Connect to an Alchemy state endpoint to browse stacks, stages,
+            resources, and deployment outputs.
           </p>
         </div>
-        {!empty && (
+        {hasStores && (
           <Button size="sm" onClick={() => setDialog({ kind: 'add' })}>
             <Plus />
             Add store
           </Button>
         )}
       </div>
-      {!empty && !!query.data?.length && (
+      {hasStores && (
         <div className="flex items-center gap-2">
           <div className="relative flex-1 sm:max-w-64">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
@@ -184,17 +161,22 @@ export function StoreList({
       )}
       {query.pending && !query.data && <ListSkeleton label="Loading stores" />}
       {empty && (
-        <EmptyState
-          icon={Database}
-          title="No stores yet"
-          description="Connect a Cloudflare account to browse its Alchemy state."
-          action={
-            <Button onClick={() => setDialog({ kind: 'add' })}>
-              <Plus />
-              Add store
-            </Button>
-          }
-        />
+        <section className="grid justify-items-center rounded-xl border border-dashed bg-card/40 px-6 py-14 text-center sm:py-18">
+          <div className="mb-5 grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground shadow-sm">
+            <Database className="size-5" aria-hidden="true" />
+          </div>
+          <h2 className="text-base font-semibold tracking-tight">
+            Connect your first store
+          </h2>
+          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground text-pretty">
+            Add a Cloudflare account connection to start exploring the Alchemy
+            state deployed from that account.
+          </p>
+          <Button className="mt-6" onClick={() => setDialog({ kind: 'add' })}>
+            <Plus />
+            Add store
+          </Button>
+        </section>
       )}
       {!!query.data?.length && visible.length === 0 && (
         <EmptyState
@@ -209,7 +191,7 @@ export function StoreList({
         />
       )}
       {visible.length > 0 && (
-        <ul className="divide-y overflow-hidden rounded-lg border bg-card">
+        <ul className="divide-y overflow-hidden rounded-lg bg-card shadow-raised">
           {visible.map((store) => (
             <li
               key={store.id}
@@ -261,7 +243,7 @@ export function StoreList({
           }}
         />
       )}
-    </div>
+    </main>
   );
 }
 

@@ -27,7 +27,6 @@ export function RefreshButton({
 export type ExplorerLocation = {
   stack?: string;
   stage?: string;
-  resource?: string;
 };
 
 export type NavigationLink = ComponentType<

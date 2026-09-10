@@ -1,1 +1,1 @@
-export { ResourceBrowser, ResourceDetails } from './resource-browser.tsx';
+export { ResourceBrowser } from './resource-browser.tsx';

@@ -163,20 +163,10 @@ function StackNode({
       onOpenChange={onOpenChange}
       render={<SidebarMenuItem />}
     >
-      <div
-        className={`flex items-center rounded-md transition-colors ${open ? 'bg-sidebar-accent/50' : 'hover:bg-sidebar-accent/50'}`}
-      >
-        <CollapsibleTrigger
-          className="grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
-        >
-          <ChevronRight
-            className={`size-3.5 motion-safe:transition-transform motion-safe:duration-150 ${open ? 'rotate-90' : ''}`}
-          />
-        </CollapsibleTrigger>
+      <div className="group/stack flex items-center rounded-md hover:bg-sidebar-accent/50">
         <SidebarMenuButton
           isActive={active && activeStage === undefined}
-          className="h-9 min-w-0 flex-1 px-1.5"
+          className="h-10 min-w-0 flex-1 px-2.5 transition-colors duration-150"
           render={
             <NavigationLink
               stack={name}
@@ -191,9 +181,17 @@ function StackNode({
           <Layers className="size-3.5 text-muted-foreground" />
           <span className="truncate">{name}</span>
         </SidebarMenuButton>
+        <CollapsibleTrigger
+          className="mr-1 grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
+        >
+          <ChevronRight
+            className={`size-3.5 motion-safe:transition-transform motion-safe:duration-150 ${open ? 'rotate-90' : ''}`}
+          />
+        </CollapsibleTrigger>
       </div>
       <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden motion-safe:transition-[height,opacity] motion-safe:duration-200 data-ending-style:h-0 data-ending-style:opacity-0 data-starting-style:h-0 data-starting-style:opacity-0">
-        <SidebarMenuSub className="ml-3.5 mr-0 pr-0">
+        <SidebarMenuSub className="ml-4 mr-0 mt-1 gap-0.5 pr-0">
           {stages.pending && !stages.data && (
             <SidebarMenuSubItem>
               <span
@@ -224,7 +222,7 @@ function StackNode({
           {visibleStages.map((stageName) => (
             <SidebarMenuSubItem key={stageName}>
               <SidebarMenuSubButton
-                className="h-8"
+                className="h-8 rounded-md pl-3"
                 isActive={active && activeStage === stageName}
                 render={
                   <NavigationLink

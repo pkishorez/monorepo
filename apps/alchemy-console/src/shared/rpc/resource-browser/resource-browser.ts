@@ -5,14 +5,14 @@ import {
 } from '../../contracts/state-address/index.ts';
 import {
   resourceTarget,
-  resourceSummariesView,
   resourceStateView,
+  stageView,
 } from '../../contracts/resource-browser/index.ts';
 
 export const ResourceBrowser = RpcGroup.make(
-  Rpc.make('AlchemyStateStore.ListResourceSummaries', {
+  Rpc.make('AlchemyStateStore.GetStageView', {
     payload: readStageTarget,
-    success: resourceSummariesView,
+    success: stageView,
     error: StoreDetailsError,
   }),
   Rpc.make('AlchemyStateStore.GetResourceState', {

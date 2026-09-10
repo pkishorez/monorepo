@@ -36,12 +36,7 @@ function LandingPage() {
         </span>
         <AccountMenu />
       </header>
-      <Workspace
-        mode="landing"
-        StoreLink={StoreLink}
-        onStore={open}
-        onStoreCreated={open}
-      />
+      <Workspace mode="landing" StoreLink={StoreLink} onStoreCreated={open} />
     </div>
   );
 }

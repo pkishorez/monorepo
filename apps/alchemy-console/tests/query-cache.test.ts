@@ -58,7 +58,7 @@ it('shares results and in-flight requests between a child count and its screen',
     client.getQueryData(rpcQueryKeys.stages('team', 'console')),
   ).toBeUndefined();
   expect(
-    client.getQueryData(rpcQueryKeys.outputs('personal', 'console', 'dev')),
+    client.getQueryData(rpcQueryKeys.stageView('personal', 'console', 'dev')),
   ).toBeUndefined();
 });
 
