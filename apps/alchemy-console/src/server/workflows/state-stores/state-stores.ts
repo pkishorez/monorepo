@@ -30,7 +30,6 @@ const view = (store: typeof alchemyStateStoreSchema.Type) => ({
 
 export const create = (input: {
   name: string;
-  access?: 'view' | 'admin';
   connection: { kind: 'cloudflare'; accountId: string; apiToken: string };
 }) =>
   Effect.gen(function* () {
@@ -43,7 +42,7 @@ export const create = (input: {
       id,
       userId: user.id,
       name: input.name.trim(),
-      access: input.access ?? 'view',
+      access: resolved.access,
       connection: { ...input.connection, ...resolved },
       createdAt: now,
       updatedAt: now,
@@ -126,7 +125,6 @@ export const updateCredentials = (input: {
   id: string;
   accountId: string;
   apiToken: string;
-  access: 'view' | 'admin';
 }) =>
   Effect.gen(function* () {
     const { user } = yield* Authz.CurrentAuth;
@@ -141,7 +139,7 @@ export const updateCredentials = (input: {
         }),
       );
     }
-    const resolved = yield* discover(input);
+    const { access, ...resolved } = yield* discover(input);
     if (resolved.url !== existing.value.connection.url) {
       return yield* Effect.fail(
         new CloudflareDiscoveryError({
@@ -157,7 +155,7 @@ export const updateCredentials = (input: {
         apiToken: input.apiToken,
         ...resolved,
       },
-      access: input.access,
+      access,
       updatedAt: new Date().toISOString(),
     });
     return view(saved.value);

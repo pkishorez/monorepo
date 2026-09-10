@@ -44,6 +44,21 @@ const discoveryFetch = Object.assign(
   },
   { preconnect: () => {} },
 );
+const adminProbes = [
+  '/storage/kv/namespaces',
+  '/r2/buckets',
+  '/d1/database',
+  '/queues',
+];
+const adminFetch = Object.assign(
+  async (input: Parameters<typeof globalThis.fetch>[0]) => {
+    const url = new URL(String(input));
+    if (adminProbes.some((path) => url.pathname.endsWith(path)))
+      return Response.json({ success: true, result: [] });
+    return discoveryFetch(input);
+  },
+  { preconnect: () => {} },
+);
 const headers = (userId: string) => ({ headers: { cookie: userId } });
 const resolver = Layer.succeed(Authz.Resolver, {
   resolve: (request) =>
@@ -293,19 +308,23 @@ it('persists the raw token and removes the actual row on delete', async () => {
   );
 });
 
-it('upgrades an owned connection to admin and keeps replacement credentials private', async () => {
-  await run((client) =>
+it('detects admin access from the token and keeps replacement credentials private', async () => {
+  const created = await run((client) =>
     Effect.gen(function* () {
       const created = yield* client['AlchemyStateStore.Create'](
         { name: 'Store', connection },
         headers('alice'),
       );
       expect(created.access).toBe('view');
+      const admin = yield* client['AlchemyStateStore.Create'](
+        { name: 'Admin store', connection },
+        headers('alice'),
+      ).pipe(Effect.provideService(FetchHttpClient.Fetch, adminFetch));
+      expect(admin.access).toBe('admin');
       const input = {
         id: created.id,
         accountId: connection.accountId,
         apiToken: 'replacement-token',
-        access: 'admin' as const,
       };
       yield* client['AlchemyStateStore.UpdateCredentials'](
         input,
@@ -314,17 +333,19 @@ it('upgrades an owned connection to admin and keeps replacement credentials priv
       const saved = yield* client['AlchemyStateStore.UpdateCredentials'](
         input,
         headers('alice'),
-      );
+      ).pipe(Effect.provideService(FetchHttpClient.Fetch, adminFetch));
       expect(saved.access).toBe('admin');
       expect(saved.connection.apiToken).toBe('xxxxxxxx');
       expect(JSON.stringify(saved)).not.toContain('replacement-token');
       const downgraded = yield* client['AlchemyStateStore.UpdateCredentials'](
-        { ...input, access: 'view' },
+        input,
         headers('alice'),
       );
       expect(downgraded.access).toBe('view');
+      return created;
     }),
   );
+  expect(created.access).toBe('view');
 });
 
 it('rejects empty fields, unsupported adapters, and invalid account IDs', () => {

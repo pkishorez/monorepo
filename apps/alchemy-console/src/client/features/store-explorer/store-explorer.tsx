@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Input } from 'kui-toolkit/components/ui/input';
-import { QueryFeedback, Empty } from './explorer-view.tsx';
 import { Outputs } from './stage-outputs.tsx';
 import { ResourceDialog } from './resource-dialog.tsx';
 import {
@@ -15,6 +14,11 @@ import {
   LoaderCircle,
 } from 'kui-toolkit/lucide';
 import { Rpc } from '../../connections/rpc/index.ts';
+import {
+  QueryError,
+  ListSkeleton,
+  EmptyState,
+} from '../query-feedback/index.ts';
 import {
   useRpcQuery,
   rpcQueryKeys,
@@ -85,7 +89,7 @@ function ExplorerContent({
     name.toLocaleLowerCase().includes(filter.toLocaleLowerCase()),
   );
   const rowClass =
-    'group flex min-h-16 w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-primary';
+    'group flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring';
 
   const toolbar = (toolbarQuery: { pending: boolean; refresh: () => void }) => (
     <div className="grid h-24 grid-cols-1 content-between gap-2 sm:flex sm:h-12 sm:items-center sm:justify-between">
@@ -121,7 +125,7 @@ function ExplorerContent({
                 }
               }}
               onClick={() => setTab(item)}
-              className={`flex h-full items-center border-b-2 px-1 text-sm font-medium capitalize ${tab === item ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              className={`flex h-full items-center border-b-2 px-1 text-sm font-medium capitalize ${tab === item ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
             >
               {item}
               {item === 'resources' && query.data && (
@@ -134,9 +138,9 @@ function ExplorerContent({
         </div>
       )}
       {stage === undefined && (
-        <h1 className="text-sm font-medium">
+        <h1 className="text-base font-semibold tracking-tight">
           {level}{' '}
-          <span className="ml-2 text-muted-foreground tabular-nums">
+          <span className="ml-2 font-normal text-muted-foreground tabular-nums">
             {query.data ? names.length : '–'}
           </span>
         </h1>
@@ -167,7 +171,9 @@ function ExplorerContent({
           aria-label={`Refresh ${tab === 'outputs' ? 'outputs' : level.toLowerCase()}`}
           title={`Refresh ${tab === 'outputs' ? 'outputs' : level.toLowerCase()}`}
         >
-          <RefreshCw className={toolbarQuery.pending ? 'animate-spin' : ''} />
+          <RefreshCw
+            className={toolbarQuery.pending ? 'motion-safe:animate-spin' : ''}
+          />
         </Button>
       </div>
     </div>
@@ -187,19 +193,44 @@ function ExplorerContent({
           id="resources-panel"
           aria-labelledby={stage !== undefined ? 'resources-tab' : undefined}
         >
-          <QueryFeedback query={query} />
+          {query.error && (
+            <QueryError
+              message={query.error}
+              stale={query.data !== null}
+              pending={query.pending}
+              onRetry={query.refresh}
+            />
+          )}
+          {query.pending && !query.data && (
+            <ListSkeleton label={`Loading ${level.toLowerCase()}`} />
+          )}
           {query.data && names.length === 0 && (
-            <Empty
+            <EmptyState
+              icon={stage !== undefined ? Box : Layers}
               title={`No ${level.toLowerCase()} yet`}
               description={
                 stage !== undefined
-                  ? 'Resources will appear here after deployment.'
+                  ? 'Resources appear here after the first deployment to this stage.'
                   : `Deploy to this ${stack !== undefined ? 'stack' : 'store'}, then refresh to see what’s here.`
+              }
+              action={
+                <Button variant="outline" onClick={refresh}>
+                  Refresh
+                </Button>
               }
             />
           )}
           {names.length > 0 && visible.length === 0 && (
-            <Empty title="No matches" description="Try a different search." />
+            <EmptyState
+              icon={Search}
+              title={`No ${level.toLowerCase()} match “${filter}”`}
+              description="Check the spelling, or clear the search to see everything here."
+              action={
+                <Button variant="outline" onClick={() => setFilter('')}>
+                  Clear search
+                </Button>
+              }
+            />
           )}
           <div className="divide-y overflow-hidden rounded-lg border bg-card empty:hidden">
             {visible.map((name) => {
@@ -213,7 +244,10 @@ function ExplorerContent({
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium" title={name}>
+                    <span
+                      className="block truncate text-sm font-medium"
+                      title={name}
+                    >
                       {name}
                     </span>
                   </span>
@@ -296,7 +330,7 @@ function ChildCount({
     <span className="flex min-w-24 shrink-0 items-center justify-end gap-2 text-xs text-muted-foreground tabular-nums">
       {query.pending && (
         <LoaderCircle
-          className="size-3 animate-spin"
+          className="size-3 motion-safe:animate-spin"
           aria-label={`Loading ${unit} count`}
         />
       )}
@@ -338,7 +372,7 @@ export function StoreExplorer(
               <span aria-current="page" className="text-foreground">
                 {displayStoreName ?? (
                   <span
-                    className="inline-block h-4 w-24 animate-pulse rounded bg-muted"
+                    className="inline-block h-4 w-24 rounded-sm bg-muted motion-safe:animate-pulse"
                     aria-label="Loading store name"
                   />
                 )}

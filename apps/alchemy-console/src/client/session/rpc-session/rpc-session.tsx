@@ -63,9 +63,9 @@ export const useRpc = () => useContext(RpcContext);
 
 function message(error: unknown): string {
   if (typeof error !== 'object' || error === null)
-    return 'Something went wrong. Please try again.';
+    return 'The request failed before it reached the server. Retry.';
   if ('_tag' in error && error._tag === 'Unauthenticated')
-    return 'Your session expired. Please sign in again.';
+    return 'Your session expired. Sign in again to continue.';
   if (
     '_tag' in error &&
     (error._tag === 'StateStoreError' ||
@@ -93,10 +93,10 @@ function message(error: unknown): string {
       case 'unsupported-endpoint':
         return 'Use the Cloudflare Worker’s HTTPS workers.dev URL for this store.';
       case 'timeout':
-        return 'The store took too long to respond. Please try again.';
+        return 'The store took too long to respond. Retry in a moment.';
     }
   }
-  return 'Could not complete the request. Please try again.';
+  return 'The request didn’t complete. Retry.';
 }
 
 const refreshExpiredSession =

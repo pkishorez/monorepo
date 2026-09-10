@@ -1,4 +1,5 @@
-import { QueryFeedback, Value } from './explorer-view.tsx';
+import { QueryError, ListSkeleton } from '../query-feedback/index.ts';
+import { Value } from './explorer-view.tsx';
 
 export function Outputs({
   query,
@@ -17,7 +18,15 @@ export function Outputs({
       aria-labelledby="outputs-tab"
       className="space-y-4"
     >
-      <QueryFeedback query={query} />
+      {query.error && (
+        <QueryError
+          message={query.error}
+          stale={query.data !== null}
+          pending={query.pending}
+          onRetry={query.refresh}
+        />
+      )}
+      {query.pending && !query.data && <ListSkeleton label="Loading outputs" />}
       {query.data && <Value value={query.data.data} />}
     </section>
   );

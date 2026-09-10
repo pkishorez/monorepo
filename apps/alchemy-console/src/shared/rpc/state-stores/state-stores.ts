@@ -18,7 +18,6 @@ export const StateStores = RpcGroup.make(
       id: nonEmpty,
       accountId: createStateStoreInput.fields.connection.fields.accountId,
       apiToken: nonEmpty,
-      access: Schema.Literals(['view', 'admin']),
     },
     success: stateStoreView,
     error: StateStoreError,

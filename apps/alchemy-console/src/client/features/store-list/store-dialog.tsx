@@ -1,8 +1,15 @@
 import { Effect } from 'effect';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Input } from 'kui-toolkit/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from 'kui-toolkit/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -11,11 +18,49 @@ import {
   DialogDescription,
   DialogFooter,
 } from 'kui-toolkit/components/ui/dialog';
+import { ChevronDown, CircleAlert } from 'kui-toolkit/lucide';
 import { Rpc } from '../../connections/rpc/index.ts';
 import type { stateStoreView } from '../../../shared/contracts/state-stores/index.ts';
 import { useRpcAction, rpcQueryKeys } from '../../session/rpc-session/index.ts';
-import { TokenDialog } from './token-dialog.tsx';
 import { cloudflareTokenUrl } from './cloudflare-token-url.ts';
+
+type FieldName = 'name' | 'account' | 'token';
+
+function Field({
+  id,
+  label,
+  error,
+  aside,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  aside?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor={id} className="block text-sm font-medium">
+          {label}
+        </label>
+        {aside}
+      </div>
+      {children}
+      {error && (
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="flex items-start gap-1.5 text-sm text-destructive"
+        >
+          <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function StoreDialog({
   action,
@@ -42,13 +87,19 @@ export function StoreDialog({
       ? (action.store.connection.accountId ?? '')
       : '',
   );
-  const [access, setAccess] = useState<'view' | 'admin'>(
-    action.kind === 'credentials' ? action.store.access : 'view',
-  );
-  const [tokenDialog, setTokenDialog] = useState(false);
   const [token, setToken] = useState('');
-  const tokenUrl = cloudflareTokenUrl(accountId, access);
-  const [validation, setValidation] = useState<string | null>(null);
+  const validAccount = cloudflareTokenUrl(accountId) !== null;
+  const [validation, setValidation] = useState<{
+    field: FieldName;
+    message: string;
+  } | null>(null);
+  const fieldError = (field: FieldName) =>
+    validation?.field === field ? validation.message : undefined;
+  const fieldProps = (field: FieldName, fieldId: string) => ({
+    'aria-invalid': validation?.field === field || undefined,
+    'aria-describedby':
+      validation?.field === field ? `${fieldId}-error` : undefined,
+  });
   const request = useRpcAction(
     () =>
       Effect.gen(function* () {
@@ -69,13 +120,11 @@ export function StoreDialog({
             id: action.store.id,
             accountId: accountId.trim(),
             apiToken: token.trim(),
-            access,
           });
           return undefined;
         }
         const store = yield* rpc['AlchemyStateStore.Create']({
           name: name.trim(),
-          access,
           connection: {
             kind: 'cloudflare',
             accountId: accountId.trim(),
@@ -101,6 +150,14 @@ export function StoreDialog({
         : action.kind === 'credentials'
           ? 'Update token and access'
           : 'Delete store?';
+  const description =
+    action.kind === 'delete'
+      ? `Remove “${action.store.name}” and its saved token from this console. Its remote state stays intact.`
+      : action.kind === 'add'
+        ? 'We’ll find the Alchemy state store in this Cloudflare account.'
+        : action.kind === 'credentials'
+          ? 'Paste a new token. Its permissions decide whether this store can delete stages.'
+          : 'Give this connection a new name.';
 
   return (
     <Dialog
@@ -109,44 +166,34 @@ export function StoreDialog({
         if (!open && !request.pending) onClose();
       }}
     >
-      <DialogContent
-        showCloseButton={!request.pending}
-        className={action.kind === 'add' ? 'gap-8 p-6 sm:p-8' : undefined}
-      >
+      <DialogContent showCloseButton={!request.pending}>
         <DialogHeader>
-          <DialogTitle
-            className={action.kind === 'add' ? 'text-lg' : undefined}
-          >
-            {title}
-          </DialogTitle>
-          <DialogDescription
-            className={action.kind === 'add' ? 'sr-only' : undefined}
-          >
-            {action.kind === 'delete'
-              ? `Remove “${action.store.name}” and its saved token. Its remote state stays intact.`
-              : action.kind === 'add'
-                ? 'We’ll find your existing Alchemy state store in this account.'
-                : 'Give this connection a new name.'}
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <form
-          className={action.kind === 'add' ? 'space-y-6' : 'space-y-5'}
+          className="space-y-5"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
             setValidation(null);
             if (action.kind !== 'delete' && !name.trim()) {
-              setValidation('Enter a store name.');
+              setValidation({ field: 'name', message: 'Enter a store name.' });
               return;
             }
             if (connects) {
-              if (!tokenUrl) {
-                setValidation(
-                  'Enter a valid 32-character Cloudflare account ID.',
-                );
+              if (!validAccount) {
+                setValidation({
+                  field: 'account',
+                  message: 'Enter the 32-character account ID from Cloudflare.',
+                });
                 return;
               }
               if (!token.trim()) {
-                setValidation('Enter your Cloudflare API token.');
+                setValidation({
+                  field: 'token',
+                  message: 'Paste your Cloudflare API token.',
+                });
                 return;
               }
             }
@@ -154,39 +201,27 @@ export function StoreDialog({
           }}
         >
           {(action.kind === 'add' || action.kind === 'rename') && (
-            <div className="space-y-2">
-              <label
-                htmlFor={`${id}-name`}
-                className="block text-sm font-medium"
-              >
-                Name
-              </label>
+            <Field id={`${id}-name`} label="Name" error={fieldError('name')}>
               <Input
                 id={`${id}-name`}
-                className={
-                  action.kind === 'add' ? 'h-11 px-3 shadow-none' : undefined
-                }
                 autoFocus
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="Personal Cloudflare"
-                required
                 disabled={request.pending}
+                {...fieldProps('name', `${id}-name`)}
               />
-            </div>
+            </Field>
           )}
           {connects && (
             <>
-              <div className="space-y-2">
-                <label
-                  htmlFor={`${id}-account`}
-                  className="block text-sm font-medium"
-                >
-                  Cloudflare account ID
-                </label>
+              <Field
+                id={`${id}-account`}
+                label="Cloudflare account ID"
+                error={fieldError('account')}
+              >
                 <Input
                   id={`${id}-account`}
-                  className="h-11 px-3 shadow-none"
                   autoComplete="off"
                   spellCheck={false}
                   type="text"
@@ -201,71 +236,82 @@ export function StoreDialog({
                     action.kind === 'credentials' &&
                     action.store.connection.accountId !== null
                   }
-                  required
                   disabled={request.pending}
+                  {...fieldProps('account', `${id}-account`)}
                 />
-              </div>
-              <div className="space-y-2">
-                <label
-                  htmlFor={`${id}-access`}
-                  className="block text-sm font-medium"
-                >
-                  Console access
-                </label>
-                <select
-                  id={`${id}-access`}
-                  value={access}
-                  disabled={request.pending}
-                  onChange={(event) =>
-                    setAccess(event.target.value === 'admin' ? 'admin' : 'view')
-                  }
-                  className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-                >
-                  <option value="view">View only</option>
-                  <option value="admin">Admin — destroy stages</option>
-                </select>
-              </div>
-              {tokenUrl && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <label
-                      htmlFor={`${id}-token`}
-                      className="block text-sm font-medium"
-                    >
-                      Cloudflare API token
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setTokenDialog(true)}
-                      className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              </Field>
+              <Field
+                id={`${id}-token`}
+                label="Cloudflare API token"
+                error={fieldError('token')}
+                aside={
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      disabled={!validAccount || request.pending}
+                      render={
+                        <Button type="button" variant="outline" size="xs" />
+                      }
                     >
                       Create token
-                    </button>
-                  </div>
-                  <Input
-                    id={`${id}-token`}
-                    className="h-11 px-3 shadow-none"
-                    type="password"
-                    autoComplete="off"
-                    placeholder="Paste your API token"
-                    value={token}
-                    onChange={(event) => setToken(event.target.value)}
-                    required
-                    disabled={request.pending}
-                  />
-                </div>
-              )}
+                      <ChevronDown />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-64">
+                      {(['view', 'admin'] as const).map((access) => (
+                        <DropdownMenuItem
+                          key={access}
+                          render={
+                            <a
+                              href={cloudflareTokenUrl(accountId, access) ?? ''}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            />
+                          }
+                        >
+                          <span className="flex flex-col gap-0.5">
+                            <span>
+                              {access === 'view' ? 'View only' : 'Admin'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {access === 'view'
+                                ? 'Browse stacks, stages, and resources'
+                                : 'Browse state and delete stages'}
+                            </span>
+                          </span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                }
+              >
+                <Input
+                  id={`${id}-token`}
+                  type="password"
+                  autoComplete="off"
+                  placeholder="Paste your API token"
+                  value={token}
+                  onChange={(event) => setToken(event.target.value)}
+                  disabled={request.pending}
+                  {...fieldProps('token', `${id}-token`)}
+                />
+              </Field>
             </>
           )}
-          {(validation || request.error) && (
-            <p role="alert" className="text-sm text-destructive">
-              {validation ?? request.error}
+          {request.error && (
+            <p
+              role="alert"
+              className="flex items-start gap-1.5 text-sm text-destructive"
+            >
+              <CircleAlert
+                className="mt-0.5 size-4 shrink-0"
+                aria-hidden="true"
+              />
+              {request.error}
             </p>
           )}
-          <DialogFooter className={action.kind === 'add' ? 'pt-2' : undefined}>
+          <DialogFooter>
             <Button
               type="button"
-              variant={action.kind === 'add' ? 'ghost' : 'outline'}
+              variant="outline"
               disabled={request.pending}
               onClick={onClose}
             >
@@ -278,8 +324,10 @@ export function StoreDialog({
             >
               {request.pending
                 ? action.kind === 'add'
-                  ? 'Discovering store…'
-                  : 'Saving…'
+                  ? 'Finding store…'
+                  : action.kind === 'delete'
+                    ? 'Deleting…'
+                    : 'Saving…'
                 : action.kind === 'add'
                   ? 'Add store'
                   : action.kind === 'credentials'
@@ -291,14 +339,6 @@ export function StoreDialog({
           </DialogFooter>
         </form>
       </DialogContent>
-      {tokenDialog && (
-        <TokenDialog
-          accountId={accountId}
-          access={access}
-          onAccess={setAccess}
-          onClose={() => setTokenDialog(false)}
-        />
-      )}
     </Dialog>
   );
 }

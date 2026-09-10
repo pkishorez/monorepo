@@ -147,8 +147,12 @@
     },
     "client-features": {
       "paths": ["src/client/features"],
-      "description": "Owns login, store management and exploration as independent interactions; routes supply navigation.",
+      "description": "Owns login, store management and exploration as independent interactions over shared query feedback; routes supply navigation.",
       "modules": {
+        "src/client/features/query-feedback": {
+          "shared": true,
+          "exposed": false
+        },
         "src/client/features/auth-boundary": {
           "shared": false,
           "exposed": true
