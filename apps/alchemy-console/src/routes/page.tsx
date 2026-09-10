@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { StoreList } from '../client/features/store-list/index.ts';
+import { AccountMenu } from '../client/features/auth-boundary/index.ts';
+import { StoreLanding } from '../client/features/store-list/index.ts';
 
-export const Route = createFileRoute('/')({ component: StoresPage });
+export const Route = createFileRoute('/')({ component: LandingPage });
 
 function StoreLink({
   storeId,
@@ -10,19 +12,35 @@ function StoreLink({
 }: {
   storeId: string;
   className?: string;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   return <Link to="/stores/$storeId" params={{ storeId }} {...props} />;
 }
 
-function StoresPage() {
+function LandingPage() {
   const navigate = Route.useNavigate();
+  const open = useCallback(
+    (storeId: string) =>
+      void navigate({
+        to: '/stores/$storeId',
+        params: { storeId },
+        replace: true,
+      }),
+    [navigate],
+  );
   return (
-    <StoreList
-      StoreLink={StoreLink}
-      onStoreCreated={(storeId) => {
-        void navigate({ to: '/stores/$storeId', params: { storeId } });
-      }}
-    />
+    <div className="min-h-svh">
+      <header className="flex h-12 items-center justify-between border-b px-4 sm:px-6">
+        <span className="text-sm font-medium tracking-tight">
+          Alchemy Console
+        </span>
+        <AccountMenu />
+      </header>
+      <StoreLanding
+        StoreLink={StoreLink}
+        onStore={open}
+        onStoreCreated={open}
+      />
+    </div>
   );
 }

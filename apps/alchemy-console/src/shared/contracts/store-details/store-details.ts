@@ -51,6 +51,14 @@ const action = Schema.StructWithRest(
 
 export const persistedStateView = Schema.Union([resource, action]);
 
+// Row-level view of a resource; null type and status mean the state was unreadable or gone.
+export const resourceSummaryView = Schema.Struct({
+  fqn: Schema.String,
+  kind: Schema.Literals(['resource', 'action']),
+  type: Schema.NullOr(Schema.String),
+  status: Schema.NullOr(Schema.String),
+});
+
 export class StoreDetailsError extends Schema.Error<StoreDetailsError>(
   'alchemy-console/StoreDetailsError',
 )({

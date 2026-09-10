@@ -3,7 +3,6 @@ import {
   Scripts,
   Outlet,
   createRootRoute,
-  Link,
 } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { ThemeProvider } from 'next-themes';
@@ -14,22 +13,21 @@ export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      {
+        name: 'viewport',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+      },
       { title: 'Alchemy Console' },
     ],
     links: [{ rel: 'stylesheet', href: appCss }],
   }),
   shellComponent: RootDocument,
   component: () => (
-    <AuthBoundary HomeLink={HomeLink}>
+    <AuthBoundary>
       <Outlet />
     </AuthBoundary>
   ),
 });
-
-function HomeLink(props: { className?: string; children: ReactNode }) {
-  return <Link to="/" {...props} />;
-}
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (

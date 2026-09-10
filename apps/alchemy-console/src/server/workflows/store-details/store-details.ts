@@ -23,6 +23,7 @@ export const getDetails = (input: { storeId: string }, request: StateRequest) =>
         stacks: 'Listed stacks',
         stages: 'Listed stages',
         resources: 'Listed resources',
+        summaries: 'Listed resource summaries',
         outputs: 'Fetched stage outputs',
         resource: 'Fetched resource state',
       }[request.kind],

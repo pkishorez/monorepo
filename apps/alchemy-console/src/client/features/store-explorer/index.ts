@@ -1,1 +1,1 @@
-export { StoreExplorer } from './store-explorer.tsx';
+export { StoreExplorer, type ExplorerLocation } from './store-explorer.tsx';

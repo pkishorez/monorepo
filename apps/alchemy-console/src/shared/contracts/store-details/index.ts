@@ -1,1 +1,5 @@
-export { persistedStateView, StoreDetailsError } from './store-details.ts';
+export {
+  persistedStateView,
+  resourceSummaryView,
+  StoreDetailsError,
+} from './store-details.ts';

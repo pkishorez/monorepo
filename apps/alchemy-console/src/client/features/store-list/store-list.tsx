@@ -1,5 +1,5 @@
 import { Effect, Semaphore } from 'effect';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Input } from 'kui-toolkit/components/ui/input';
 import { Button } from 'kui-toolkit/components/ui/button';
@@ -17,7 +17,7 @@ import {
   Pencil,
   KeyRound,
   Trash2,
-  ChevronRight,
+  ArrowRight,
   LoaderCircle,
   RefreshCw,
   EllipsisVertical,
@@ -31,30 +31,71 @@ import {
   EmptyState,
 } from '../query-feedback/index.ts';
 import { StoreDialog } from './store-dialog.tsx';
+import { recallStore } from './last-store.ts';
 
 type Store = typeof stateStoreView.Type;
+type StoreLink = ComponentType<{
+  storeId: string;
+  className?: string;
+  children?: ReactNode;
+}>;
+
+const useStores = () =>
+  useRpcQuery(
+    Effect.flatMap(Rpc, (rpc) => rpc['AlchemyStateStore.List']({})),
+    rpcQueryKeys.stores,
+  );
+
+/** Sends a returning user straight into a store; shows the store list only when there is nothing to open. */
+export function StoreLanding({
+  StoreLink,
+  onStore,
+  onStoreCreated,
+}: {
+  StoreLink: StoreLink;
+  onStore: (storeId: string) => void;
+  onStoreCreated: (storeId: string) => void;
+}) {
+  const query = useStores();
+  const target = query.data?.length
+    ? (query.data.find((store) => store.id === recallStore()) ?? query.data[0])
+        ?.id
+    : undefined;
+  useEffect(() => {
+    if (target) onStore(target);
+  }, [target, onStore]);
+  if (query.data && query.data.length === 0)
+    return <StoreList StoreLink={StoreLink} onStoreCreated={onStoreCreated} />;
+  if (query.error)
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <QueryError
+          message={query.error}
+          pending={query.pending}
+          onRetry={query.refresh}
+        />
+      </div>
+    );
+  return (
+    <p role="status" className="p-8 text-sm text-muted-foreground">
+      Opening your store…
+    </p>
+  );
+}
 
 export function StoreList({
   StoreLink,
   onStoreCreated,
 }: {
-  StoreLink: ComponentType<{
-    storeId: string;
-    className?: string;
-    children: ReactNode;
-  }>;
+  StoreLink: StoreLink;
   onStoreCreated: (storeId: string) => void;
 }) {
-  const query = useRpcQuery(
-    Effect.flatMap(Rpc, (rpc) => rpc['AlchemyStateStore.List']({})),
-    rpcQueryKeys.stores,
-  );
+  const query = useStores();
   const [dialog, setDialog] = useState<
     | { kind: 'add' }
     | { kind: 'rename' | 'delete' | 'credentials'; store: Store }
     | null
   >(null);
-
   const [filter, setFilter] = useState('');
   const [countSlots] = useState(() => Semaphore.makeUnsafe(4));
   const refresh = () => {
@@ -67,14 +108,14 @@ export function StoreList({
   const empty = query.data?.length === 0;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-5 px-4 py-8 sm:px-6 sm:py-10">
-      <div className="flex h-8 items-center justify-between">
-        <h1 className="text-base font-semibold tracking-tight">
-          Stores{' '}
-          <span className="ml-2 font-normal text-muted-foreground tabular-nums">
-            {query.data ? query.data.length : '–'}
-          </span>
-        </h1>
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold tracking-tight">Stores</h1>
+          <p className="text-sm text-muted-foreground">
+            Each store is a saved connection to one Alchemy state endpoint.
+          </p>
+        </div>
         {!empty && (
           <Button size="sm" onClick={() => setDialog({ kind: 'add' })}>
             <Plus />
@@ -82,30 +123,32 @@ export function StoreList({
           </Button>
         )}
       </div>
-      <div className="flex h-24 items-end justify-end gap-2 sm:h-12 sm:items-center">
-        <div className="relative w-32 sm:w-56">
-          <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            aria-label="Search stores"
-            placeholder="Search…"
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            className="pl-9 shadow-none"
-          />
+      {!empty && !!query.data?.length && (
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:max-w-64">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+            <Input
+              aria-label="Search stores"
+              placeholder="Search stores"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              className="h-9 pl-8 shadow-none"
+            />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={query.pending}
+            onClick={refresh}
+            aria-label="Refresh stores"
+            title="Refresh stores"
+          >
+            <RefreshCw
+              className={query.pending ? 'motion-safe:animate-spin' : ''}
+            />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          disabled={query.pending}
-          onClick={refresh}
-          aria-label="Refresh stores"
-          title="Refresh stores"
-        >
-          <RefreshCw
-            className={query.pending ? 'motion-safe:animate-spin' : ''}
-          />
-        </Button>
-      </div>
+      )}
       {query.error && (
         <QueryError
           message={query.error}
@@ -141,33 +184,47 @@ export function StoreList({
         />
       )}
       {visible.length > 0 && (
-        <div className="divide-y overflow-hidden rounded-lg border bg-card">
+        <ul className="divide-y overflow-hidden rounded-lg border bg-card">
           {visible.map((store) => (
-            <article
+            <li
               key={store.id}
-              className="group relative flex min-h-16 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+              className="group relative flex min-h-14 items-center gap-3 px-3 py-2 transition-colors hover:bg-muted/40"
             >
               <Database className="size-4 shrink-0 text-muted-foreground" />
               <StoreLink
                 storeId={store.id}
-                className="min-w-0 flex-1 outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
+                className="min-w-0 flex-1 outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring"
               >
-                <h2 className="truncate text-sm font-medium" title={store.name}>
+                <span
+                  className="block truncate text-sm font-medium"
+                  title={store.name}
+                >
                   {store.name}
-                </h2>
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {store.access === 'admin' ? 'Admin access' : 'View access'}
+                  {store.connection.accountId && (
+                    <>
+                      {' · '}
+                      <span className="font-mono">
+                        {store.connection.accountId.slice(0, 8)}…
+                      </span>
+                    </>
+                  )}
+                </span>
               </StoreLink>
               <StackCount storeId={store.id} slots={countSlots} />
-              <ChevronRight
-                className="size-4 shrink-0 text-muted-foreground group-hover:text-foreground"
+              <ArrowRight
+                className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
                 aria-hidden="true"
               />
               <StoreMenu
                 store={store}
                 onSelect={(kind) => setDialog({ kind, store })}
               />
-            </article>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       {dialog && (
         <StoreDialog
@@ -179,7 +236,7 @@ export function StoreList({
           }}
         />
       )}
-    </main>
+    </div>
   );
 }
 
@@ -197,7 +254,7 @@ function StoreMenu({
           <Button
             variant="ghost"
             size="icon"
-            className="relative z-10 -mr-2 size-11 shrink-0"
+            className="relative z-10 shrink-0"
             aria-label={`Actions for ${store.name}`}
           />
         }
@@ -240,7 +297,7 @@ function StackCount({
     rpcQueryKeys.stacks(storeId),
   );
   return (
-    <span className="flex min-w-20 shrink-0 items-center justify-end gap-2 text-xs text-muted-foreground tabular-nums">
+    <span className="flex min-w-16 shrink-0 items-center justify-end gap-2 text-xs text-muted-foreground tabular-nums">
       {query.pending && (
         <LoaderCircle
           className="size-3 motion-safe:animate-spin"
