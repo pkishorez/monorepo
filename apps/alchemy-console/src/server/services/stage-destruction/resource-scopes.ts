@@ -10,14 +10,15 @@ import type { ResourceState } from 'alchemy/State';
 export const verifyZones = (
   connection: { accountId: string; apiToken: string },
   rows: readonly ResourceState[],
+  verified: Set<string> = new Set(),
 ) => {
   const zones = new Set<string>();
   const collect = (value: unknown): void => {
     if (!value || typeof value !== 'object') return;
     for (const [key, item] of Object.entries(value)) {
-      if ((key === 'zoneId' || key === 'zone_id') && typeof item === 'string')
-        zones.add(item);
-      else if (item && typeof item === 'object') collect(item);
+      if ((key === 'zoneId' || key === 'zone_id') && typeof item === 'string') {
+        if (!verified.has(item)) zones.add(item);
+      } else if (item && typeof item === 'object') collect(item);
     }
   };
   for (const row of rows) {
@@ -30,7 +31,9 @@ export const verifyZones = (
       getZone({ zoneId }).pipe(
         Effect.flatMap((zone) =>
           zone.account.id?.toLowerCase() === connection.accountId.toLowerCase()
-            ? Effect.void
+            ? Effect.sync(() => {
+                verified.add(zoneId);
+              })
             : Effect.fail(
                 new Error(
                   'The stage contains resources from a different Cloudflare account.',

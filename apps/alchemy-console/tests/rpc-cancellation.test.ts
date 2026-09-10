@@ -170,3 +170,78 @@ it('streams deletion progress through the real RPC host before completion', asyn
     database.close?.();
   }
 });
+
+it('streams preview analysis and the failing resource through the real RPC host', async () => {
+  vi.stubEnv('DEV', false);
+  const database = makeNodeSQLite({ path: ':memory:' });
+  const table = SQLite.make(appTable, { database });
+  mocks.makeDatabase.mockReturnValue(database);
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      yield* table.setup;
+      yield* stores.insert({
+        id: 'store',
+        userId: 'alice',
+        name: 'Store',
+        access: 'admin',
+        connection: {
+          kind: 'cloudflare',
+          accountId: 'a'.repeat(32),
+          apiToken: 'cloud-token',
+          authToken: 'state-token',
+          url: 'https://state.example.workers.dev',
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }).pipe(Effect.provide(table.layer)),
+  );
+  mocks.execute.mockImplementation((_input, _mode, emit) =>
+    Effect.sync(() => {
+      emit({ kind: 'analyzing', id: 'BankTable', type: 'AWS.DynamoDB.Table' });
+      return { error: 'not a Cloudflare resource', resource: 'BankTable' };
+    }),
+  );
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const host = new URL(request.url).hostname;
+      if (host === 'console.example') {
+        request.headers.set('cookie', 'session=test');
+        return handleRpc(request, {} as D1Database);
+      }
+      if (host === 'auth.kishore.app')
+        return Promise.resolve(
+          Response.json({
+            user: { id: 'alice' },
+            session: { id: 'session', userId: 'alice' },
+          }),
+        );
+      throw new Error('Unexpected request');
+    }),
+  );
+  const runtime = makeRpcRuntime('https://console.example/rpc');
+  try {
+    const context = await Effect.runPromise(runtime.contextEffect);
+    const seen = await Effect.runPromise(
+      Rpc.use((rpc) =>
+        rpc['AlchemyStateStore.PreviewStageDeletion']({
+          storeId: 'store',
+          stack: 'App',
+          stage: 'dev',
+        }).pipe(
+          Stream.filter((event) => event.kind !== 'heartbeat'),
+          Stream.runCollect,
+        ),
+      ).pipe(Effect.provide(context)),
+    );
+    expect([...seen]).toEqual([
+      { kind: 'analyzing', id: 'BankTable', type: 'AWS.DynamoDB.Table' },
+      { kind: 'failed', id: 'BankTable', message: 'not a Cloudflare resource' },
+    ]);
+  } finally {
+    await runtime.dispose();
+    database.close?.();
+  }
+});

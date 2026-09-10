@@ -17,11 +17,14 @@ import { Cli } from 'alchemy/Cli/Cli';
 import { apply } from 'alchemy/Apply';
 import { destructionRequest } from './request.ts';
 import type {
+  analysisEvent,
   deletionEvent,
   deletionPlan,
 } from '../../../shared/contracts/delete-stage/index.ts';
-import { prepare } from './prepare.ts';
+import { PrepareError, prepare, stageChanged } from './prepare.ts';
 import type { ResourceState } from 'alchemy/State';
+
+export type EngineEvent = typeof deletionEvent.Type | typeof analysisEvent.Type;
 const previousGenerations = (
   state: ResourceState,
 ): { type: string; action: 'delete' | 'retain' }[] =>
@@ -35,37 +38,38 @@ const previousGenerations = (
       ]
     : [];
 
-const safeFailure = (cause: Cause.Cause<unknown>) => {
+const safeFailure = (
+  cause: Cause.Cause<unknown>,
+  redact: (text: string) => string,
+): { error: string; resource: string | null } => {
   const error = Cause.squash(cause);
-  if (
-    error instanceof Error &&
-    [
-      'This stage contains resource types that cannot yet be deleted from a Worker.',
-      'The stage changed. Review a new deletion plan.',
-      'This stage no longer exists.',
-      'This stage contains unsupported or local resource types.',
-      'The stage contains resources from a different Cloudflare account.',
-    ].includes(error.message)
-  )
-    return error.message;
-  return 'Alchemy could not complete this operation. Check that the token covers every resource and zone, then refresh the stage and review a new plan before retrying. Remaining state has been preserved.';
+  if (error instanceof PrepareError)
+    return {
+      error: redact(error.message),
+      resource: error.resource === null ? null : redact(error.resource),
+    };
+  return {
+    error:
+      'Alchemy could not complete this operation. Check that the token covers every resource and zone, then refresh the stage and review a new plan before retrying. Remaining state has been preserved.',
+    resource: null,
+  };
 };
 
 export const execute = (
   input: typeof destructionRequest.Type,
   mode: 'preview' | 'delete',
-  emit: (event: typeof deletionEvent.Type) => void,
-) =>
-  Effect.gen(function* () {
+  emit: (event: EngineEvent) => void,
+) => {
+  const redact = (text: string) =>
+    [input.connection.apiToken, input.connection.authToken].reduce(
+      (s, secret) => s.replaceAll(secret, 'xxxxxxxx'),
+      text,
+    );
+  return Effect.gen(function* () {
     const state = yield* makeHttpStateStore({
       ...input.connection,
       id: 'http',
     });
-    const redact = (text: string) =>
-      [input.connection.apiToken, input.connection.authToken].reduce(
-        (s, secret) => s.replaceAll(secret, 'xxxxxxxx'),
-        text,
-      );
     const cli = {
       approvePlan: () => Effect.succeed(false),
       displayPlan: () => Effect.void,
@@ -110,7 +114,9 @@ export const execute = (
         }),
     };
     return yield* Effect.gen(function* () {
-      const { plan, fingerprint } = yield* prepare(input, state);
+      const { plan, fingerprint } = yield* prepare(input, state, (event) =>
+        emit({ ...event, id: redact(event.id), type: redact(event.type) }),
+      );
       const view: typeof deletionPlan.Type = {
         stack: input.stack,
         stage: input.stage,
@@ -143,9 +149,7 @@ export const execute = (
       };
       if (mode === 'preview') return view;
       if (!input.fingerprint || fingerprint !== input.fingerprint)
-        return yield* Effect.fail(
-          new Error('The stage changed. Review a new deletion plan.'),
-        );
+        return yield* Effect.fail(stageChanged());
       yield* apply(plan);
       emit({
         kind: 'complete',
@@ -199,9 +203,15 @@ export const execute = (
     ),
     Effect.provide(Logger.layer([])),
     Effect.catchCause((cause) => {
-      const message = safeFailure(cause);
+      const failure = safeFailure(cause, redact);
       if (mode === 'delete')
-        emit({ kind: 'failed', id: null, status: 'failed', message });
-      return Effect.succeed({ error: message });
+        emit({
+          kind: 'failed',
+          id: null,
+          status: 'failed',
+          message: failure.error,
+        });
+      return Effect.succeed(failure);
     }),
   );
+};

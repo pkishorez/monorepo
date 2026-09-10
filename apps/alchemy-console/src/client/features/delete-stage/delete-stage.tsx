@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { LoaderCircle, LockKeyhole, Trash2 } from 'kui-toolkit/lucide';
+import { LockKeyhole, Trash2 } from 'kui-toolkit/lucide';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,14 @@ import {
   type deletionPlan,
 } from '../../../shared/contracts/delete-stage/index.ts';
 import { PlanView } from './plan-view.tsx';
+import {
+  AnalysisView,
+  applyAnalysis,
+  markFailed,
+  resetAnalysis,
+  type Analysis,
+  type PreviewFailure,
+} from './analysis-view.tsx';
 
 type Target = { stack: string; stage: string };
 const Interaction = createContext<{
@@ -117,6 +125,10 @@ function DeletionDialog({
 }) {
   const [review, setReview] = useState(false);
   const [plan, setPlan] = useState<typeof deletionPlan.Type | null>(null);
+  const [analysis, setAnalysis] = useState<Analysis[]>([]);
+  const [previewFailure, setPreviewFailure] = useState<PreviewFailure | null>(
+    null,
+  );
   const [events, setEvents] = useState<
     Record<string, typeof deletionEvent.Type>
   >({});
@@ -128,15 +140,48 @@ function DeletionDialog({
   const client = useQueryClient();
   const preview = useRpcAction(
     () =>
-      Effect.flatMap(Rpc, (rpc) =>
-        rpc['AlchemyStateStore.PreviewStageDeletion']({
+      Effect.gen(function* () {
+        const rpc = yield* Rpc;
+        let settled = false;
+        yield* rpc['AlchemyStateStore.PreviewStageDeletion']({
           storeId,
           stack,
           stage,
-        }),
-      ),
-    setPlan,
+        }).pipe(
+          Stream.runForEach((event) =>
+            Effect.sync(() => {
+              if (event.kind === 'heartbeat') return;
+              if (event.kind === 'analyzing' || event.kind === 'analyzed')
+                setAnalysis((current) => applyAnalysis(current, event));
+              if (event.kind === 'plan') {
+                settled = true;
+                setPlan(event.plan);
+              }
+              if (event.kind === 'failed') {
+                settled = true;
+                setAnalysis((current) => markFailed(current, event.id));
+                setPreviewFailure({ id: event.id, message: event.message });
+              }
+            }),
+          ),
+        );
+        if (!settled)
+          return yield* Effect.fail(
+            new DeleteStageError({
+              code: 'remote-error',
+              reason:
+                'The connection ended before the plan was ready. Retry to analyze the stage again.',
+            }),
+          );
+      }),
+    () => {},
   );
+  const startPreview = () => {
+    setPlan(null);
+    setAnalysis(resetAnalysis);
+    setPreviewFailure(null);
+    preview.run(undefined);
+  };
   const deletion = useRpcAction(
     () =>
       Effect.gen(function* () {
@@ -190,6 +235,7 @@ function DeletionDialog({
   };
   const failed = terminal?.kind === 'failed' || !!deletion.error;
   const finished = attempted.current && !busy;
+  const planFailed = !plan && (!!previewFailure || !!preview.error);
   return (
     <Dialog
       open
@@ -217,9 +263,11 @@ function DeletionDialog({
                 ? 'Stage deleted'
                 : failed
                   ? 'Deletion did not finish'
-                  : review
-                    ? 'Review stage deletion'
-                    : 'Delete this stage?'}
+                  : planFailed
+                    ? 'Could not plan the deletion'
+                    : review
+                      ? 'Review stage deletion'
+                      : 'Delete this stage?'}
           </DialogTitle>
           <DialogDescription>
             {review
@@ -228,23 +276,16 @@ function DeletionDialog({
           </DialogDescription>
         </DialogHeader>
         {review && (
-          <div className="min-h-0 space-y-4 overflow-y-auto">
-            {preview.pending && (
-              <p
-                role="status"
-                className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground"
-              >
-                <LoaderCircle
-                  className="size-4 motion-safe:animate-spin"
-                  aria-hidden="true"
-                />
-                Preparing the deletion plan…
-              </p>
-            )}
-            {preview.error && (
-              <p role="alert" className="text-sm text-destructive">
-                {preview.error}
-              </p>
+          <div className="min-h-0 space-y-4 overflow-y-auto [scrollbar-gutter:stable]">
+            {!plan && (
+              <AnalysisView
+                entries={analysis}
+                failure={
+                  previewFailure ??
+                  (preview.error ? { id: null, message: preview.error } : null)
+                }
+                pending={preview.pending}
+              />
             )}
             {plan && <PlanView plan={plan} events={events} running={busy} />}
             {busy && activity && (
@@ -270,20 +311,23 @@ function DeletionDialog({
         <DialogFooter className="shrink-0">
           {!busy && (
             <Button variant="outline" onClick={close}>
-              {finished ? 'Close' : 'Cancel'}
+              {finished || planFailed ? 'Close' : 'Cancel'}
             </Button>
           )}
           {!review && (
             <Button
               onClick={() => {
                 setReview(true);
-                preview.run(undefined);
+                startPreview();
               }}
             >
               Review deletion
             </Button>
           )}
-          {review && !attempted.current && (
+          {review && planFailed && (
+            <Button onClick={startPreview}>Retry</Button>
+          )}
+          {review && !planFailed && !attempted.current && (
             <Button
               variant="destructive"
               disabled={!plan || preview.pending || busy}

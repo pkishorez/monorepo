@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite-plus';
+import { defineConfig, type SsrDepOptimizationConfig } from 'vite-plus';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -10,9 +10,13 @@ export default defineConfig({
   optimizeDeps: { force: true },
   ssr: {
     // Optimize the narrow engine entry so dev does not evaluate unused CLI/emulator exports.
+    // The SSR environment has its own optimizer that ignores the root `force`, so the
+    // pre-bundled engine goes stale whenever its source changes unless forced here too.
+    // Vite honors `force` at runtime even though the SSR config type omits it.
     optimizeDeps: {
       include: ['alchemy-console/stage-destruction-engine'],
-    },
+      force: true,
+    } as SsrDepOptimizationConfig,
     noExternal: ['kui-toolkit'],
     resolve: { mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'] },
   },

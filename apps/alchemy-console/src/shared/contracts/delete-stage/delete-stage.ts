@@ -32,6 +32,23 @@ export const deletionPlan = Schema.Struct({
   ),
 });
 
+export const analysisEvent = Schema.Struct({
+  kind: Schema.Literals(['analyzing', 'analyzed']),
+  id: Schema.String,
+  type: Schema.String,
+});
+
+export const previewEvent = Schema.Union([
+  analysisEvent,
+  Schema.Struct({
+    kind: Schema.Literal('failed'),
+    id: Schema.NullOr(Schema.String),
+    message: Schema.String,
+  }),
+  Schema.Struct({ kind: Schema.Literal('plan'), plan: deletionPlan }),
+  Schema.Struct({ kind: Schema.Literal('heartbeat') }),
+]);
+
 export const deletionEvent = Schema.Struct({
   kind: Schema.Literals(['progress', 'complete', 'failed', 'heartbeat']),
   id: Schema.NullOr(Schema.String),
