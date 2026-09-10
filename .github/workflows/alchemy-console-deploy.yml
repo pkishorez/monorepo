@@ -29,6 +29,8 @@ jobs:
       - run: pnpm --filter alchemy-console build
       - run: pnpm lint:syncpack && pnpm --filter alchemy-console lint
       - run: pnpm -C apps/alchemy-console exec alchemy cloudflare bootstrap
+      - name: Inspect alchemy-console state without a development port
+        run: env -u PORT pnpm -C apps/alchemy-console exec alchemy state stages --stack AlchemyConsole
       - run: pnpm -C apps/alchemy-console exec alchemy deploy --stage "$STAGE" --yes
   summary:
     needs: deploy
