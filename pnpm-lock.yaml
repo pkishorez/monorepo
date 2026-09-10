@@ -779,6 +779,9 @@ importers:
 
   packages/use-effect-ts:
     dependencies:
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.102.8(react@19.2.8)
       react:
         specifier: 19.2.8
         version: 19.2.8

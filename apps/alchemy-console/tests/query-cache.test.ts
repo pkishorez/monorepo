@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import { QueryObserver } from '@tanstack/react-query';
+import { effectQueryOptions } from 'use-effect-ts/query';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 import {
-  effectQueryOptions,
   makeQueryClient,
   rpcQueryKeys,
 } from '../src/client/session/rpc-session/query-cache.ts';
@@ -74,6 +74,30 @@ it('retains cached data when a background refresh fails', async () => {
     ),
   ).rejects.toEqual(failure);
   expect(client.getQueryData(rpcQueryKeys.stores)).toEqual(['personal']);
+});
+
+it('passes freshness, selection, and callback-enabled options through', () => {
+  const client = makeClient();
+  const key = ['query-options'] as const;
+  client.setQueryData(key, ['cached']);
+  const request = vi.fn(() => ['refetched']);
+  const enabled = vi.fn(() => true);
+  const observer = new QueryObserver(
+    client,
+    effectQueryOptions(key, Effect.sync(request), {
+      staleTime: Infinity,
+      enabled,
+      select: (rows) => rows.length,
+    }),
+  );
+  const unsubscribe = observer.subscribe(() => {});
+  expect(observer.getCurrentResult()).toMatchObject({
+    data: 1,
+    isFetching: false,
+  });
+  expect(enabled).toHaveBeenCalled();
+  expect(request).not.toHaveBeenCalled();
+  unsubscribe();
 });
 
 it('interrupts Effect work when its last query observer leaves', async () => {

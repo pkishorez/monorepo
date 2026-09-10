@@ -7,15 +7,11 @@ import { authClient } from '../../connections/auth/index.ts';
 
 import {
   QueryClientProvider,
-  useQuery,
+  useEffectQuery,
   useQueryClient,
-} from '@tanstack/react-query';
-import type { QueryKey } from '@tanstack/react-query';
-import {
-  effectQueryOptions,
-  makeQueryClient,
-  rpcQueryKeys,
-} from './query-cache.ts';
+} from 'use-effect-ts/query';
+import type { QueryKey } from 'use-effect-ts/query';
+import { makeQueryClient, rpcQueryKeys } from './query-cache.ts';
 
 type Connection =
   | { status: 'connecting' }
@@ -125,8 +121,7 @@ export function useRpcQuery<A, E>(
           ),
         )
       : Effect.die('RPC is not connected');
-  const result = useQuery({
-    ...effectQueryOptions(queryKey, effect),
+  const result = useEffectQuery(queryKey, effect, {
     enabled: connection.status === 'ready' && options.enabled !== false,
   });
 

@@ -1,6 +1,4 @@
-import { Cause, Effect, Exit } from 'effect';
-import { QueryClient, queryOptions } from '@tanstack/react-query';
-import type { QueryKey } from '@tanstack/react-query';
+import { QueryClient } from 'use-effect-ts/query';
 
 export const rpcQueryKeys = {
   stores: ['stores'] as const,
@@ -27,17 +25,3 @@ export const makeQueryClient = () =>
       },
     },
   });
-
-export function effectQueryOptions<A, E>(
-  queryKey: QueryKey,
-  effect: Effect.Effect<A, E>,
-) {
-  return queryOptions({
-    queryKey,
-    queryFn: async ({ signal }) => {
-      const exit = await Effect.runPromiseExit(effect, { signal });
-      if (Exit.isFailure(exit)) throw Cause.squash(exit.cause);
-      return exit.value;
-    },
-  });
-}
