@@ -1,0 +1,80 @@
+import { Schema } from 'effect';
+
+const name = Schema.String.check(
+  Schema.makeFilter((value) => value.length > 0 && value.length <= 512),
+);
+/** Stages whose names start with prod need an explicit acknowledgement before deletion. */
+export const isProtectedStage = (stage: string) =>
+  stage.toLowerCase().startsWith('prod');
+export const protectedStageAcknowledgement = 'I KNOW WHAT I AM DOING';
+export const acknowledgesProtectedStage = (
+  stage: string,
+  acknowledgement: string | undefined,
+) =>
+  !isProtectedStage(stage) || acknowledgement === protectedStageAcknowledgement;
+export const stageTarget = Schema.Struct({
+  storeId: name,
+  stack: name,
+  stage: name,
+});
+
+export const deletionPlan = Schema.Struct({
+  stack: Schema.String,
+  stage: Schema.String,
+  accountId: Schema.String,
+  fingerprint: Schema.String,
+  resources: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      type: Schema.String,
+      action: Schema.Literals(['delete', 'retain', 'forget']),
+      after: Schema.Array(Schema.String),
+      previous: Schema.Array(
+        Schema.Struct({
+          type: Schema.String,
+          action: Schema.Literals(['delete', 'retain']),
+        }),
+      ),
+    }),
+  ),
+});
+
+export const analysisEvent = Schema.Struct({
+  kind: Schema.Literals(['analyzing', 'analyzed']),
+  id: Schema.String,
+  type: Schema.String,
+});
+
+export const previewEvent = Schema.Union([
+  analysisEvent,
+  Schema.Struct({
+    kind: Schema.Literal('failed'),
+    id: Schema.NullOr(Schema.String),
+    message: Schema.String,
+  }),
+  Schema.Struct({ kind: Schema.Literal('plan'), plan: deletionPlan }),
+  Schema.Struct({ kind: Schema.Literal('heartbeat') }),
+]);
+
+export const deletionEvent = Schema.Struct({
+  kind: Schema.Literals(['progress', 'complete', 'failed', 'heartbeat']),
+  id: Schema.NullOr(Schema.String),
+  status: Schema.String,
+  message: Schema.String,
+});
+
+export class DeleteStageError extends Schema.Error<DeleteStageError>(
+  'alchemy-console/DeleteStageError',
+)({
+  _tag: Schema.tag('DeleteStageError'),
+  code: Schema.Literals([
+    'managed-stack',
+    'protected-stage',
+    'view-only',
+    'not-found',
+    'storage-error',
+    'remote-error',
+    'invalid-response',
+  ]),
+  reason: Schema.String,
+}) {}

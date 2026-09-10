@@ -48,7 +48,12 @@ jobs:
         run: timeout 30s bash -c 'until curl --silent --output /dev/null http://localhost:8090; do sleep 1; done'
 
       - name: Test
-        run: pnpm test
+        run: |
+          node --test .github/scripts/test-summary.test.mjs
+          node .github/scripts/test.mjs
+
+      - name: Worker integration test
+        run: pnpm --filter alchemy-console test:worker
 
       - name: Stories
         run: pnpm stories

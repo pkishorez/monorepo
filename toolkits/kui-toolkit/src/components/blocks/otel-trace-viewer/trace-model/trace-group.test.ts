@@ -43,3 +43,27 @@ describe('groupByTrace', () => {
     );
   });
 });
+
+it('includes children that outlive an interrupted root in trace duration', () => {
+  const root = { ...span('root', 0, null), endTime: 34 };
+  const child = { ...span('server', 53, 'root'), endTime: 15443 };
+  const [trace] = groupByTrace([root, child]);
+  expect(trace).toMatchObject({
+    startTime: 0,
+    endTime: 15443,
+    duration: 15443,
+  });
+  expect(trace?.roots[0]?.span.endTime).toBe(34);
+});
+
+it('keeps a trace running while a child outlives its completed root', () => {
+  const [trace] = groupByTrace([
+    span('root', 0, null),
+    { ...span('child', 1, 'root'), endTime: null, status: 'running' },
+  ]);
+  expect(trace).toMatchObject({
+    status: 'running',
+    endTime: null,
+    duration: null,
+  });
+});

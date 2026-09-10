@@ -3,7 +3,9 @@ import { HttpBody, HttpClient, HttpClientRequest } from 'effect/unstable/http';
 
 export interface ExportRequest {
   readonly url: string;
-  readonly body: unknown;
+  readonly body:
+    | { readonly resourceSpans: readonly unknown[] }
+    | { readonly resourceLogs: readonly unknown[] };
 }
 
 export interface RequestQueue {
@@ -18,25 +20,50 @@ export interface RequestQueue {
   ) => void;
 }
 
-type QueueItem =
-  | { readonly _tag: 'Request'; readonly request: ExportRequest }
-  | {
-      readonly _tag: 'ProvisionalSpan';
-      readonly spanKey: string;
-      readonly request: ExportRequest;
-    };
-
 interface RequestQueueOptions {
+  readonly batchInterval: Duration.Input;
+  readonly maxBatchSize: number;
   readonly retries: number;
   readonly requestTimeout: Duration.Input;
   readonly shutdownTimeout: Duration.Input;
 }
 
-/** Creates the ordered, non-batching transport used by development telemetry. */
+/** Creates the ordered, batching transport used by development telemetry. */
 export const makeRequestQueue = (options: RequestQueueOptions) =>
   Effect.gen(function* () {
-    const queue = yield* Queue.unbounded<QueueItem, Cause.Done>();
-    const pendingProvisionalSpans = new Set<string>();
+    const queue = yield* Queue.unbounded<ExportRequest, Cause.Done>();
+    const pending = new Map<string | symbol, ExportRequest>();
+    let closed = false;
+
+    // OTLP permits multiple resource groups in one request. Preserve each
+    // record's resource/scope metadata while combining requests by signal URL.
+    const flush = () => {
+      const batches = new Map<string, ExportRequest>();
+      for (const request of pending.values()) {
+        const previous = batches.get(request.url);
+        const body =
+          'resourceSpans' in request.body
+            ? {
+                resourceSpans: [
+                  ...(previous && 'resourceSpans' in previous.body
+                    ? previous.body.resourceSpans
+                    : []),
+                  ...request.body.resourceSpans,
+                ],
+              }
+            : {
+                resourceLogs: [
+                  ...(previous && 'resourceLogs' in previous.body
+                    ? previous.body.resourceLogs
+                    : []),
+                  ...request.body.resourceLogs,
+                ],
+              };
+        batches.set(request.url, { url: request.url, body });
+      }
+      pending.clear();
+      for (const batch of batches.values()) Queue.offerUnsafe(queue, batch);
+    };
     const client = HttpClient.filterStatusOk(yield* HttpClient.HttpClient).pipe(
       HttpClient.retryTransient({ times: options.retries }),
     );
@@ -55,45 +82,43 @@ export const makeRequestQueue = (options: RequestQueueOptions) =>
           Effect.withTracerEnabled(false),
         );
 
-    const process = (item: QueueItem) => {
-      if (item._tag === 'Request') return send(item.request);
-      if (!pendingProvisionalSpans.delete(item.spanKey)) return Effect.void;
-      return send(item.request);
-    };
-
     const worker = yield* Queue.take(queue).pipe(
-      Effect.flatMap(process),
+      Effect.flatMap(send),
       Effect.forever,
       Effect.catchCause(() => Effect.void),
       Effect.forkScoped({ startImmediately: true }),
     );
 
+    const timer = yield* Effect.sleep(options.batchInterval).pipe(
+      Effect.andThen(Effect.sync(flush)),
+      Effect.forever,
+      Effect.forkScoped({ startImmediately: true }),
+    );
+
     yield* Effect.addFinalizer(() =>
-      Queue.end(queue).pipe(
-        Effect.andThen(Fiber.await(worker)),
+      Effect.gen(function* () {
+        closed = true;
+        yield* Fiber.interrupt(timer);
+        flush();
+        yield* Queue.end(queue);
+        yield* Fiber.await(worker);
+      }).pipe(
         Effect.interruptible,
         Effect.timeoutOption(options.shutdownTimeout),
         Effect.asVoid,
       ),
     );
 
-    const offer = (request: ExportRequest) => {
-      Queue.offerUnsafe(queue, { _tag: 'Request', request });
+    const offer = (key: string | symbol, request: ExportRequest) => {
+      if (closed) return;
+      pending.set(key, request);
+      if (pending.size >= options.maxBatchSize) flush();
     };
 
     return {
-      offer,
-      offerProvisionalSpan(spanKey, request) {
-        pendingProvisionalSpans.add(spanKey);
-        Queue.offerUnsafe(queue, {
-          _tag: 'ProvisionalSpan',
-          spanKey,
-          request,
-        });
-      },
-      offerCompletedSpan(spanKey, request) {
-        pendingProvisionalSpans.delete(spanKey);
-        offer(request);
-      },
+      offer: (request) => offer(Symbol(), request),
+      offerProvisionalSpan: (spanKey, request) => offer(spanKey, request),
+      // Replace the provisional record if it has not been flushed yet.
+      offerCompletedSpan: (spanKey, request) => offer(spanKey, request),
     } satisfies RequestQueue;
   });

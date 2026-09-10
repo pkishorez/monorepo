@@ -1,0 +1,330 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts"],
+  "layers": {
+    "shared-contracts": {
+      "paths": ["src/shared/contracts"],
+      "description": "Defines browser-safe inputs, views and failures without storage or runtime implementations.",
+      "modules": {
+        "src/shared/contracts/state-stores": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/contracts/resource-browser": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/contracts/delete-stage": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/contracts/state-address": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/shared/contracts/stage-outputs": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "shared-rpc": {
+      "paths": ["src/shared/rpc"],
+      "description": "Declares capability-specific procedures over browser-safe schemas.",
+      "modules": {
+        "src/shared/rpc/state-browser": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/rpc/state-stores": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/rpc/resource-browser": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/rpc/delete-stage": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/shared/rpc/stage-deletion-preview": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "shared-api": {
+      "paths": ["src/shared/api"],
+      "description": "Composes the Console API and applies its inherited authentication policy once.",
+      "modules": {
+        "src/shared/api/console-api": {
+          "exposed": true
+        }
+      }
+    },
+    "server-entry": {
+      "paths": ["src/server.ts"],
+      "description": "Dispatches Worker requests to RPC or the web framework.",
+      "modules": {
+        "src/server.ts": {
+          "shared": false,
+          "exposed": false
+        }
+      }
+    },
+    "server-host": {
+      "paths": ["src/server/host"],
+      "description": "Builds database, HTTP, authentication and telemetry providers and hosts the RPC handlers.",
+      "modules": {
+        "src/server/host/rpc-host": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-handlers": {
+      "paths": ["src/server/handlers"],
+      "description": "Binds the authenticated API to the user-scoped operation boundary.",
+      "modules": {
+        "src/server/handlers/console-handlers": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-workflows": {
+      "paths": ["src/server/workflows"],
+      "description": "Owns user-scoped sequencing and failure policy over storage and independent external services.",
+      "moduleGraphs": {
+        "store-operations": {
+          "path": "src/server/workflows/store-operations",
+          "description": "Authorizes user-owned store operations and delegates to private capabilities.",
+          "modules": {
+            "store-operations": {
+              "exposed": true
+            },
+            "store-management": {},
+            "state-browser": {},
+            "resource-browser": {},
+            "stage-outputs": {},
+            "stage-deletion-preview": {},
+            "stage-deletion": {}
+          },
+          "rules": {
+            "store-operations": [
+              "store-management",
+              "state-browser",
+              "resource-browser",
+              "stage-outputs",
+              "stage-deletion-preview",
+              "stage-deletion"
+            ]
+          }
+        }
+      }
+    },
+    "server-services": {
+      "paths": ["src/server/services"],
+      "description": "Discovers Cloudflare connections or reads Alchemy state; neither service can import its peer or storage.",
+      "modules": {
+        "src/server/services/cloudflare-discovery": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/server/services/alchemy-state": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/server/services/stage-destruction": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-storage": {
+      "paths": ["src/server/storage"],
+      "description": "Owns the state-store table, schema evolution and entity binding consumed by workflows and the host.",
+      "modules": {
+        "src/server/storage/state-store-database": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/server/storage/stage-deletion-lock": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "server-telemetry": {
+      "paths": ["src/server/telemetry"],
+      "description": "Configures development telemetry for the Worker runtime.",
+      "modules": {
+        "src/server/telemetry": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "client-features": {
+      "paths": ["src/client/features"],
+      "description": "Owns the brand, authentication UI and the store workspace with private functional boundaries.",
+      "modules": {
+        "src/client/features/query-feedback": {
+          "shared": true,
+          "exposed": false
+        },
+        "src/client/features/brand": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/client/features/auth-boundary": {
+          "shared": false,
+          "exposed": true
+        }
+      },
+      "moduleGraphs": {
+        "store-console": {
+          "path": "src/client/features/store-console",
+          "description": "Composes store management, exploration and deletion through one workspace door.",
+          "modules": {
+            "workspace": {
+              "exposed": true
+            },
+            "store-management": {},
+            "state-browser": {},
+            "resource-browser": {},
+            "stage-deletion-preview": {},
+            "stage-deletion": {},
+            "state-view": {},
+            "store-query": {}
+          },
+          "rules": {
+            "workspace": [
+              "store-management",
+              "state-browser",
+              "resource-browser",
+              "stage-deletion",
+              "state-view",
+              "store-query"
+            ],
+            "store-management": ["state-browser", "store-query"],
+            "state-browser": ["state-view", "store-query"],
+            "resource-browser": ["state-view", "store-query"],
+            "stage-deletion": ["stage-deletion-preview", "store-query"],
+            "stage-deletion-preview": ["store-query"]
+          }
+        }
+      }
+    },
+    "client-session": {
+      "paths": ["src/client/session"],
+      "description": "Owns the RPC connection lifetime, private React context and query/action hooks for a signed-in session.",
+      "modules": {
+        "src/client/session/rpc-session": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "client-connections": {
+      "paths": ["src/client/connections"],
+      "description": "Connects to authentication and typed RPC; each connection is independent of its peer.",
+      "modules": {
+        "src/client/connections/auth": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/client/connections/rpc": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "client-telemetry": {
+      "paths": ["src/client/telemetry"],
+      "description": "Configures development telemetry for the browser runtime.",
+      "modules": {
+        "src/client/telemetry": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    },
+    "web-entry": {
+      "paths": ["src/router.tsx"],
+      "description": "Creates the framework router over the generated route tree.",
+      "modules": {
+        "src/router.tsx": {
+          "shared": false,
+          "exposed": false
+        }
+      }
+    },
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "Owns URLs, document composition and navigation while mounting independent client features.",
+      "modules": {
+        "src/routes/__root.tsx": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/routes/page.tsx": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/routes/stores/page.tsx": {
+          "shared": false,
+          "exposed": true
+        },
+        "src/routes/stores/$storeId/page.tsx": {
+          "shared": false,
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "shared": {
+      "description": "The common language: RPC protocols depend on pure contracts. Neither can reach a runtime.",
+      "rules": {
+        "shared-api": ["shared-rpc"],
+        "shared-rpc": ["shared-contracts"],
+        "shared-contracts": []
+      }
+    },
+    "server": {
+      "description": "A request enters the host, reaches a handler and runs a workflow over independent services and storage.",
+      "rules": {
+        "server-entry": ["server-host"],
+        "server-host": ["server-handlers", "server-telemetry"],
+        "server-handlers": ["shared-api", "server-workflows"],
+        "server-workflows": [
+          "server-services",
+          "server-storage",
+          "shared-contracts"
+        ],
+        "server-services": ["shared-contracts"],
+        "server-storage": [],
+        "server-telemetry": []
+      }
+    },
+    "client": {
+      "description": "Independent features use a session whose connections speak shared protocols; server implementations are unreachable.",
+      "rules": {
+        "client-features": ["client-session"],
+        "client-session": ["client-connections"],
+        "client-connections": ["shared-api", "client-telemetry"],
+        "client-telemetry": []
+      }
+    },
+    "routes": {
+      "description": "The router starts pages; pages bind URLs and navigation to client features.",
+      "rules": {
+        "web-entry": ["routes"],
+        "routes": ["client-features"]
+      }
+    }
+  }
+}
