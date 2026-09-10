@@ -59,7 +59,9 @@
       "paths": ["src/shared/api"],
       "description": "Composes the Console API and applies its inherited authentication policy once.",
       "modules": {
-        "src/shared/api/console-api": { "exposed": true }
+        "src/shared/api/console-api": {
+          "exposed": true
+        }
       }
     },
     "server-entry": {
@@ -100,7 +102,9 @@
           "path": "src/server/workflows/store-operations",
           "description": "Authorizes user-owned store operations and delegates to private capabilities.",
           "modules": {
-            "store-operations": { "exposed": true },
+            "store-operations": {
+              "exposed": true
+            },
             "store-management": {},
             "state-browser": {},
             "resource-browser": {},
@@ -165,11 +169,15 @@
     },
     "client-features": {
       "paths": ["src/client/features"],
-      "description": "Owns authentication UI and the store workspace with private functional boundaries.",
+      "description": "Owns the brand, authentication UI and the store workspace with private functional boundaries.",
       "modules": {
         "src/client/features/query-feedback": {
           "shared": true,
           "exposed": false
+        },
+        "src/client/features/brand": {
+          "shared": true,
+          "exposed": true
         },
         "src/client/features/auth-boundary": {
           "shared": false,
@@ -181,7 +189,9 @@
           "path": "src/client/features/store-console",
           "description": "Composes store management, exploration and deletion through one workspace door.",
           "modules": {
-            "workspace": { "exposed": true },
+            "workspace": {
+              "exposed": true
+            },
             "store-management": {},
             "state-browser": {},
             "resource-browser": {},

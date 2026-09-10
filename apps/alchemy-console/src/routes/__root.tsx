@@ -19,7 +19,17 @@ export const Route = createRootRoute({
       },
       { title: 'Alchemy Console' },
     ],
-    links: [{ rel: 'stylesheet', href: appCss }],
+    links: [
+      { rel: 'stylesheet', href: appCss },
+      { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+      {
+        rel: 'icon',
+        type: 'image/png',
+        sizes: '96x96',
+        href: '/favicon-96x96.png',
+      },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+    ],
   }),
   shellComponent: RootDocument,
   component: () => (

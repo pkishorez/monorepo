@@ -3,8 +3,15 @@ import { Schema } from 'effect';
 const name = Schema.String.check(
   Schema.makeFilter((value) => value.length > 0 && value.length <= 512),
 );
-export const canDeleteStage = (stage: string) =>
-  !stage.toLowerCase().startsWith('prod');
+/** Stages whose names start with prod need an explicit acknowledgement before deletion. */
+export const isProtectedStage = (stage: string) =>
+  stage.toLowerCase().startsWith('prod');
+export const protectedStageAcknowledgement = 'I KNOW WHAT I AM DOING';
+export const acknowledgesProtectedStage = (
+  stage: string,
+  acknowledgement: string | undefined,
+) =>
+  !isProtectedStage(stage) || acknowledgement === protectedStageAcknowledgement;
 export const stageTarget = Schema.Struct({
   storeId: name,
   stack: name,

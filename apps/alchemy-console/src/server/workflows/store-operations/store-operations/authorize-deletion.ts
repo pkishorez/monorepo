@@ -1,20 +1,27 @@
 import { Effect } from 'effect';
 import { Authz } from 'auth-toolkit/rpc';
 import {
-  canDeleteStage,
+  acknowledgesProtectedStage,
   DeleteStageError,
 } from '../../../../shared/contracts/delete-stage/index.ts';
 import { alchemyStateStoreEntity as stores } from '../../../storage/state-store-database/index.ts';
 
 type Target = { storeId: string; stack: string; stage: string };
-export const authorizeDeletion = (input: Target) =>
+type Intent =
+  | { kind: 'preview' }
+  | { kind: 'delete'; acknowledgement: string | undefined };
+export const authorizeDeletion = (input: Target, intent: Intent) =>
   Effect.gen(function* () {
     const { user } = yield* Authz.CurrentAuth;
-    if (!canDeleteStage(input.stage))
+    if (
+      intent.kind === 'delete' &&
+      !acknowledgesProtectedStage(input.stage, intent.acknowledgement)
+    )
       return yield* Effect.fail(
         new DeleteStageError({
           code: 'protected-stage',
-          reason: 'Stages whose names start with prod are protected.',
+          reason:
+            'Stages whose names start with prod need the acknowledgement phrase before deletion.',
         }),
       );
     const store = yield* stores

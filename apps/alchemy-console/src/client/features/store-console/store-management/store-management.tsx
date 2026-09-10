@@ -1,5 +1,5 @@
 import { Effect, Semaphore } from 'effect';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Input } from 'kui-toolkit/components/ui/input';
 import { Button } from 'kui-toolkit/components/ui/button';
@@ -30,7 +30,6 @@ import {
   EmptyState,
 } from '../../query-feedback/index.ts';
 import { StoreDialog } from './store-dialog.tsx';
-import { rememberStore } from './last-store.ts';
 import { StoreSwitcher as Switcher } from './store-switcher.tsx';
 import { StackCount } from '../state-browser/index.ts';
 
@@ -42,7 +41,6 @@ export function StoreSwitcher(
 ) {
   const query = useStores();
   const [adding, setAdding] = useState(false);
-  useEffect(() => rememberStore(props.storeId), [props.storeId]);
   return (
     <Switcher
       {...props}
@@ -70,16 +68,6 @@ const useStores = () =>
     Effect.flatMap(Rpc, (rpc) => rpc['AlchemyStateStore.List']({})),
     rpcQueryKeys.stores,
   );
-
-export function StoreLanding({
-  StoreLink,
-  onStoreCreated,
-}: {
-  StoreLink: StoreLink;
-  onStoreCreated: (storeId: string) => void;
-}) {
-  return <StoreList StoreLink={StoreLink} onStoreCreated={onStoreCreated} />;
-}
 
 export function StoreList({
   StoreLink,

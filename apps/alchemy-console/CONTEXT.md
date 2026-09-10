@@ -14,7 +14,8 @@ stages.
 **Stage**
 A deployed environment of a stack (for example `dev`, `preview`, `prod`). A
 stage owns resources and outputs. Stages whose names start with `prod` are
-protected from deletion in the console.
+protected: deleting one requires typing the acknowledgement phrase
+`I KNOW WHAT I AM DOING`, which the server checks again.
 
 **Resource**
 One unit of infrastructure recorded in a stage's state, identified by its

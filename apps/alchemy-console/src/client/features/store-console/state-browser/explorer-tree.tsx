@@ -16,13 +16,22 @@ import {
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger,
 } from 'kui-toolkit/components/ui/collapsible';
-import { ChevronRight, Layers, Search } from 'kui-toolkit/lucide';
+import {
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  Layers,
+  Search,
+} from 'kui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../store-query/index.ts';
 import type { NavigationLink } from '../state-view/index.ts';
 import type { namesView } from '../../../../shared/contracts/state-address/index.ts';
+
+// Sized so its icon sits in the same column as the chevron inside each stack row.
+const chevronButton =
+  'mr-1 grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 
 export function ExplorerTree({
   storeId,
@@ -42,8 +51,8 @@ export function ExplorerTree({
   NavigationLink: NavigationLink;
   filter: string;
   onFilterChange: (value: string) => void;
-  expanded: string | null;
-  onExpandedChange: (value: string | null) => void;
+  expanded: ReadonlySet<string>;
+  onExpandedChange: (value: ReadonlySet<string>) => void;
   slots: Semaphore.Semaphore;
   stacks: {
     data: typeof namesView.Type | null;
@@ -54,6 +63,13 @@ export function ExplorerTree({
 }) {
   const names = stacks.data?.data ?? [];
   const needle = filter.trim().toLocaleLowerCase();
+  const allOpen = names.length > 0 && names.every((name) => expanded.has(name));
+  const setOpen = (name: string, open: boolean) => {
+    const next = new Set(expanded);
+    if (open) next.add(name);
+    else next.delete(name);
+    onExpandedChange(next);
+  };
   return (
     <>
       <SidebarGroup className="pb-0">
@@ -69,7 +85,24 @@ export function ExplorerTree({
         </div>
       </SidebarGroup>
       <SidebarGroup>
-        <SidebarGroupLabel>Stacks</SidebarGroupLabel>
+        <div className="flex items-center">
+          <SidebarGroupLabel className="flex-1">Stacks</SidebarGroupLabel>
+          {names.length > 0 && (
+            <button
+              type="button"
+              className={chevronButton}
+              title={allOpen ? 'Collapse all stacks' : 'Expand all stacks'}
+              aria-label={allOpen ? 'Collapse all stacks' : 'Expand all stacks'}
+              onClick={() => onExpandedChange(new Set(allOpen ? [] : names))}
+            >
+              {allOpen ? (
+                <ChevronsDownUp className="size-3.5" />
+              ) : (
+                <ChevronsUpDown className="size-3.5" />
+              )}
+            </button>
+          )}
+        </div>
         <SidebarGroupContent>
           <SidebarMenu>
             {stacks.pending && !stacks.data && (
@@ -104,8 +137,8 @@ export function ExplorerTree({
                 active={stack === name}
                 activeStage={stack === name ? stage : undefined}
                 needle={needle}
-                open={expanded === name}
-                onOpenChange={(open) => onExpandedChange(open ? name : null)}
+                open={expanded.has(name)}
+                onOpenChange={(open) => setOpen(name, open)}
                 slots={slots}
                 NavigationLink={NavigationLink}
               />
@@ -163,33 +196,28 @@ function StackNode({
       onOpenChange={onOpenChange}
       render={<SidebarMenuItem />}
     >
-      <div className="group/stack flex items-center rounded-md hover:bg-sidebar-accent/50">
-        <SidebarMenuButton
-          isActive={active && activeStage === undefined}
-          className="h-10 min-w-0 flex-1 px-2.5 transition-colors duration-150"
-          render={
-            <NavigationLink
-              stack={name}
-              title={name}
-              onClick={() => {
-                onOpenChange(true);
-                closeOnMobile();
-              }}
-            />
-          }
-        >
-          <Layers className="size-3.5 text-muted-foreground" />
-          <span className="truncate">{name}</span>
-        </SidebarMenuButton>
-        <CollapsibleTrigger
-          className="mr-1 grid size-9 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-sidebar-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          aria-label={open ? `Collapse ${name}` : `Expand ${name}`}
-        >
-          <ChevronRight
-            className={`size-3.5 motion-safe:transition-transform motion-safe:duration-150 ${open ? 'rotate-90' : ''}`}
+      <SidebarMenuButton
+        isActive={active && activeStage === undefined}
+        className="h-10 min-w-0 pl-2.5 pr-[15px] transition-colors duration-150"
+        aria-expanded={open}
+        render={
+          <NavigationLink
+            stack={name}
+            title={name}
+            onClick={() => {
+              onOpenChange(!open);
+              closeOnMobile();
+            }}
           />
-        </CollapsibleTrigger>
-      </div>
+        }
+      >
+        <Layers className="size-3.5 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <ChevronRight
+          aria-hidden="true"
+          className={`size-3.5 shrink-0 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150 ${open ? 'rotate-90' : ''}`}
+        />
+      </SidebarMenuButton>
       <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden motion-safe:transition-[height,opacity] motion-safe:duration-200 data-ending-style:h-0 data-ending-style:opacity-0 data-starting-style:h-0 data-starting-style:opacity-0">
         <SidebarMenuSub className="ml-4 mr-0 mt-1 gap-0.5 pr-0">
           {stages.pending && !stages.data && (

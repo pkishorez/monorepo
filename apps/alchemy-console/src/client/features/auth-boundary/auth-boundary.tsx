@@ -3,12 +3,15 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useRunEffect } from 'use-effect-ts';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { Database, LoaderCircle } from 'kui-toolkit/lucide';
+import { GoogleButton } from 'kui-toolkit/components/ui/google-button';
+import { CircleAlert, LoaderCircle } from 'kui-toolkit/lucide';
+import { useTheme } from 'next-themes';
+import { LogoMark } from '../brand/index.ts';
 import { authClient } from '../../connections/auth/index.ts';
 import { ThemeToggle } from './theme-toggle.tsx';
 import { RpcProvider, useRpc } from '../../session/rpc-session/index.ts';
 
-function AuthButton({ action }: { action: 'login' | 'logout' }) {
+function useAuthAction(action: 'login' | 'logout') {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const active = useRef(false);
@@ -38,37 +41,108 @@ function AuthButton({ action }: { action: 'login' | 'logout' }) {
       ),
     ),
   );
+  const start = () => {
+    if (active.current) return;
+    active.current = true;
+    setPending(true);
+    setError(null);
+    loginError.dismiss();
+    void run();
+  };
+  return {
+    pending,
+    start,
+    error: error ?? loginError.error?.description ?? null,
+  };
+}
+
+function LogoutButton() {
+  const auth = useAuthAction('logout');
   return (
     <div className="space-y-2">
       <Button
-        variant={action === 'login' ? 'default' : 'ghost'}
-        size={action === 'login' ? 'default' : 'sm'}
-        disabled={pending}
-        onClick={() => {
-          if (active.current) return;
-          active.current = true;
-          setPending(true);
-          setError(null);
-          loginError.dismiss();
-          void run();
-        }}
+        variant="ghost"
+        size="sm"
+        disabled={auth.pending}
+        aria-busy={auth.pending || undefined}
+        onClick={auth.start}
       >
-        {pending
-          ? action === 'login'
-            ? 'Signing in…'
-            : 'Signing out…'
-          : action === 'login'
-            ? 'Continue with Google'
-            : 'Sign out'}
+        Sign out
       </Button>
-      {(error || loginError.error) && (
+      {auth.error && (
         <p role="alert" className="max-w-sm text-sm text-destructive">
-          {error ??
-            loginError.error?.description ??
-            'Sign in didn’t complete. Try again.'}
+          {auth.error}
         </p>
       )}
     </div>
+  );
+}
+
+function GoogleSignIn() {
+  const auth = useAuthAction('login');
+  const { resolvedTheme } = useTheme();
+  return (
+    <>
+      {/* The toolkit button centers itself; a shrink-wrapped parent keeps it on the card's left edge. */}
+      <div className="w-fit">
+        <GoogleButton
+          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          disabled={auth.pending}
+          aria-busy={auth.pending || undefined}
+          onClick={auth.start}
+        />
+      </div>
+      {auth.error && (
+        <p
+          role="alert"
+          className="flex items-start gap-1.5 text-sm text-destructive"
+        >
+          <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          {auth.error}
+        </p>
+      )}
+    </>
+  );
+}
+
+// One card for every pre-session state so the session check and the sign-in
+// prompt never reflow against each other. The action slot is fixed at the
+// Google button's height (40px) and only its contents change.
+function AuthScreen({
+  description,
+  action,
+}: {
+  description: string;
+  action: ReactNode;
+}) {
+  return (
+    <main className="relative grid min-h-svh place-items-center px-6 py-12">
+      {/* Mirrors the signed-in header so the theme toggle does not move after login. */}
+      <div className="absolute inset-x-0 top-0 flex h-12 items-center justify-end gap-2 px-4">
+        <ThemeToggle />
+        <Button
+          variant="ghost"
+          size="sm"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="invisible"
+        >
+          Sign out
+        </Button>
+      </div>
+      <section className="w-full max-w-sm space-y-6 rounded-xl bg-card p-8 shadow-raised">
+        <LogoMark className="size-12 rounded-xl" />
+        <div className="space-y-2">
+          <h1 className="text-2xl font-medium tracking-tight text-balance">
+            Alchemy Console
+          </h1>
+          <p className="text-sm text-muted-foreground text-pretty">
+            {description}
+          </p>
+        </div>
+        <div className="min-h-10 space-y-3">{action}</div>
+      </section>
+    </main>
   );
 }
 
@@ -99,7 +173,7 @@ export function AccountMenu() {
   return (
     <div className="flex items-center justify-between gap-2">
       <ThemeToggle />
-      <AuthButton action="logout" />
+      <LogoutButton />
     </div>
   );
 }
@@ -108,39 +182,21 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
   const session = authClient.useSession();
   if (session.isPending)
     return (
-      <main className="min-h-svh">
-        <header className="flex h-12 items-center justify-between border-b px-4 sm:px-6">
-          <span className="text-sm font-medium tracking-tight">
-            Alchemy Console
-          </span>
-          <ThemeToggle />
-        </header>
-        <div className="grid min-h-[calc(100svh-3rem)] place-items-center px-6 py-12">
-          <section className="grid w-full max-w-sm justify-items-center gap-5 rounded-xl bg-card px-8 py-10 text-center shadow-raised">
-            <div className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
-              <Database className="size-5" aria-hidden="true" />
-            </div>
-            <div className="space-y-1.5">
-              <h1 className="text-base font-semibold tracking-tight">
-                Alchemy Console
-              </h1>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Verifying your session before loading your stores.
-              </p>
-            </div>
-            <p
-              role="status"
-              className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
-            >
-              <LoaderCircle
-                className="size-3.5 motion-safe:animate-spin"
-                aria-hidden="true"
-              />
-              Checking session…
-            </p>
-          </section>
-        </div>
-      </main>
+      <AuthScreen
+        description="Your infrastructure, in one place."
+        action={
+          <p
+            role="status"
+            className="flex h-10 items-center gap-2 text-sm text-muted-foreground"
+          >
+            <LoaderCircle
+              className="size-4 motion-safe:animate-spin"
+              aria-hidden="true"
+            />
+            Checking your session…
+          </p>
+        }
+      />
     );
   if (session.error)
     return (
@@ -158,23 +214,10 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
     );
   if (!session.data)
     return (
-      <main className="grid min-h-svh place-items-center px-6">
-        <div className="absolute right-6 top-6">
-          <ThemeToggle />
-        </div>
-        <section className="w-full max-w-sm space-y-6 rounded-xl bg-card p-8 shadow-raised">
-          <Database className="size-6 text-muted-foreground" />
-          <div className="space-y-2">
-            <h1 className="text-2xl font-medium tracking-tight">
-              Alchemy Console
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Your infrastructure, in one place.
-            </p>
-          </div>
-          <AuthButton action="login" />
-        </section>
-      </main>
+      <AuthScreen
+        description="Your infrastructure, in one place."
+        action={<GoogleSignIn />}
+      />
     );
 
   return (

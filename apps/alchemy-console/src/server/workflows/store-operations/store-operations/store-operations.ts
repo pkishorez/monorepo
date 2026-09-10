@@ -101,16 +101,22 @@ export const getResourceState = (input: typeof resourceTarget.Type) =>
 
 export const preview = (input: typeof stageTarget.Type) =>
   Stream.unwrap(
-    authorizeDeletion(input).pipe(
+    authorizeDeletion(input, { kind: 'preview' }).pipe(
       Effect.map(deletionPreview.preview),
       Effect.withSpan('DeleteStage.preview'),
     ),
   );
 export const destroy = (
-  input: typeof stageTarget.Type & { fingerprint: string },
+  input: typeof stageTarget.Type & {
+    fingerprint: string;
+    acknowledgement?: string | undefined;
+  },
 ) =>
   Stream.unwrap(
-    authorizeDeletion(input).pipe(
+    authorizeDeletion(input, {
+      kind: 'delete',
+      acknowledgement: input.acknowledgement,
+    }).pipe(
       Effect.map((target) =>
         deletion.destroy({ ...target, fingerprint: input.fingerprint }),
       ),

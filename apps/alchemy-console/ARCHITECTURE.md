@@ -12,7 +12,7 @@ src/
     features/
       auth-boundary/                 Gates the application on login and connection
       store-console/                 Client module graph
-        workspace/                   Public door: landing, management and exploration
+        workspace/                   Public door: management and exploration
         store-management/            Saved connections, switching and credential dialogs
         state-browser/               Stack/stage accordion, overviews and resource counts
         resource-browser/            Resource summaries and state details
@@ -54,9 +54,8 @@ src/
 
 ## Follow a request
 
-`/` opens the last-used store (remembered in browser local storage under
-`alchemy-console-store`), or the first store; with no stores it shows the store
-list. `/stores` is the management page. A store URL supplies `storeId`; its
+`/` redirects to `/stores`, the management page, which lists every saved store
+and adds, renames, re-credentials or removes one. A store URL supplies `storeId`; its
 `stack`, `stage` and `resource` search parameters select what the workspace
 shows. Stack and stage names in the tree and ancestor breadcrumbs are links;
 the current breadcrumb is a location label. Refresh and direct links preserve
@@ -157,8 +156,11 @@ NDJSON RPC. Navigation and dismissal are blocked while it runs. Completion or
 failure refreshes cached state. Closing the browser or losing the connection can
 interrupt the request; there is no background job or reconnect protocol.
 
-Both the workflow and service reject case-insensitive `prod` prefixes. Every
-other nonempty stage name is eligible. Ownership and saved admin access are
+Stages with a case-insensitive `prod` prefix are protected: anyone with admin
+access can preview their deletion, but the delete request must carry the exact
+acknowledgement phrase `I KNOW WHAT I AM DOING`. The dialog asks for it after
+the plan is shown and the workflow rejects the request without it. Every other
+nonempty stage name deletes after the plan review alone. Ownership and saved admin access are
 checked on the server; credentials always come from the saved connection. Old
 connections default to view access. The token dialog offers the existing view
 template and a broad admin template, editable in Cloudflare. Console view access

@@ -1,8 +1,17 @@
 import { Effect, Stream } from 'effect';
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { LockKeyhole, Trash2 } from 'kui-toolkit/lucide';
+import { Input } from 'kui-toolkit/components/ui/input';
+import { ScrollArea } from 'kui-toolkit/components/ui/scroll-area';
+import { Trash2, TriangleAlert } from 'kui-toolkit/lucide';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +23,8 @@ import {
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcAction } from '../store-query/index.ts';
 import {
-  canDeleteStage,
+  isProtectedStage,
+  protectedStageAcknowledgement,
   DeleteStageError,
   type deletionEvent,
 } from '../../../../shared/contracts/delete-stage/index.ts';
@@ -65,24 +75,13 @@ export function DeleteStage({
   );
 }
 
-/** Protected stages show a lock to everyone; the delete button is admin-only. */
+/** The delete button is admin-only; protected stages ask for an acknowledgement in the dialog. */
 function StageAction({
   stack,
   stage,
   className,
 }: Target & { className?: string }) {
   const interaction = useContext(Interaction);
-  if (!canDeleteStage(stage))
-    return (
-      <span
-        role="img"
-        className="flex size-11 shrink-0 items-center justify-center text-muted-foreground"
-        title="Stages whose names start with prod are protected."
-        aria-label="Production stage is protected"
-      >
-        <LockKeyhole className="size-4" />
-      </span>
-    );
   if (!interaction?.admin) return null;
   return (
     <Button
@@ -116,6 +115,11 @@ function DeletionDialog({
   onSettled: () => void;
 }) {
   const [review, setReview] = useState(false);
+  const protectedStage = isProtectedStage(stage);
+  const [acknowledgement, setAcknowledgement] = useState('');
+  const acknowledged =
+    !protectedStage || acknowledgement === protectedStageAcknowledgement;
+  const acknowledgementId = useId();
   const preview = useDeletionPreview({ storeId, stack, stage });
   const { plan } = preview;
   const [events, setEvents] = useState<
@@ -137,6 +141,7 @@ function DeletionDialog({
           stack,
           stage,
           fingerprint: plan.fingerprint,
+          acknowledgement: protectedStage ? acknowledgement : undefined,
         }).pipe(
           Stream.runForEach((event) =>
             Effect.sync(() => {
@@ -216,31 +221,73 @@ function DeletionDialog({
             {review
               ? `${stack} / ${stage}`
               : `Delete “${stage}” from “${stack}”? You’ll review the plan before anything is removed.`}
+            {!review && protectedStage && (
+              <span className="mt-2 flex items-start gap-1.5 text-destructive">
+                <TriangleAlert
+                  className="mt-0.5 size-4 shrink-0"
+                  aria-hidden="true"
+                />
+                This looks like a production stage. You’ll have to type an
+                acknowledgement before deleting it.
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         {review && (
-          <div className="min-h-0 space-y-4 overflow-y-auto [scrollbar-gutter:stable]">
-            {!plan && <DeletionPreview preview={preview} />}
-            {plan && <PlanView plan={plan} events={events} running={busy} />}
-            {busy && activity && (
-              <p role="status" className="text-sm text-muted-foreground">
-                {activity}
-              </p>
-            )}
-            {busy && (
-              <p role="status" className="text-sm text-muted-foreground">
-                Keep this page open. The dialog unlocks when Alchemy finishes.
-              </p>
-            )}
-            {(terminal || deletion.error) && (
-              <p
-                role={failed ? 'alert' : 'status'}
-                className={failed ? 'text-sm text-destructive' : 'text-sm'}
-              >
-                {deletion.error ?? terminal?.message}
-              </p>
-            )}
-          </div>
+          <ScrollArea className="min-h-0">
+            <div className="space-y-4">
+              {!plan && <DeletionPreview preview={preview} />}
+              {plan && <PlanView plan={plan} events={events} running={busy} />}
+              {plan && protectedStage && !attempted.current && (
+                <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+                  <label
+                    htmlFor={acknowledgementId}
+                    className="block text-sm font-medium"
+                  >
+                    Type{' '}
+                    <span className="font-mono">
+                      {protectedStageAcknowledgement}
+                    </span>{' '}
+                    to delete this production stage
+                  </label>
+                  <Input
+                    id={acknowledgementId}
+                    autoComplete="off"
+                    spellCheck={false}
+                    autoCapitalize="characters"
+                    value={acknowledgement}
+                    onChange={(event) => setAcknowledgement(event.target.value)}
+                    placeholder={protectedStageAcknowledgement}
+                    aria-describedby={`${acknowledgementId}-hint`}
+                  />
+                  <p
+                    id={`${acknowledgementId}-hint`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    Exact match, all caps.
+                  </p>
+                </div>
+              )}
+              {busy && activity && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  {activity}
+                </p>
+              )}
+              {busy && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Keep this page open. The dialog unlocks when Alchemy finishes.
+                </p>
+              )}
+              {(terminal || deletion.error) && (
+                <p
+                  role={failed ? 'alert' : 'status'}
+                  className={failed ? 'text-sm text-destructive' : 'text-sm'}
+                >
+                  {deletion.error ?? terminal?.message}
+                </p>
+              )}
+            </div>
+          </ScrollArea>
         )}
         <DialogFooter className="shrink-0">
           {!busy && (
@@ -264,7 +311,7 @@ function DeletionDialog({
           {review && !planFailed && !attempted.current && (
             <Button
               variant="destructive"
-              disabled={!plan || preview.pending || busy}
+              disabled={!plan || preview.pending || busy || !acknowledged}
               onClick={() => {
                 attempted.current = true;
                 onBusyChange(true);

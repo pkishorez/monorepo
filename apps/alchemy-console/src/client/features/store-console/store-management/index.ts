@@ -1,6 +1,1 @@
-export {
-  StoreLanding,
-  StoreList,
-  StoreSwitcher,
-  useStore,
-} from './store-management.tsx';
+export { StoreList, StoreSwitcher, useStore } from './store-management.tsx';

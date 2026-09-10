@@ -1,5 +1,4 @@
 import { Schema } from 'effect';
-import { canDeleteStage } from '../../../shared/contracts/delete-stage/index.ts';
 
 const nonEmpty = Schema.String.check(
   Schema.makeFilter((s) => s.length > 0 && s.length <= 4096),
@@ -7,10 +6,7 @@ const nonEmpty = Schema.String.check(
 export const destructionRequest = Schema.Struct({
   stack: nonEmpty,
   stage: Schema.String.check(
-    Schema.makeFilter(
-      (stage) =>
-        stage.length > 0 && stage.length <= 512 && canDeleteStage(stage),
-    ),
+    Schema.makeFilter((stage) => stage.length > 0 && stage.length <= 512),
   ),
   fingerprint: Schema.optional(Schema.String),
   connection: Schema.Struct({

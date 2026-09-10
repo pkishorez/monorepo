@@ -1,5 +1,4 @@
 import type { ComponentType, ReactNode } from 'react';
-import { JsonTree } from 'kui-toolkit/components/blocks/json';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { RefreshCw } from 'kui-toolkit/lucide';
 
@@ -38,29 +37,6 @@ export type NavigationLink = ComponentType<
     children?: ReactNode;
   }
 >;
-
-export function Value({ title, value }: { title?: string; value: unknown }) {
-  return (
-    <section className="space-y-2">
-      {title && (
-        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {title}
-        </h3>
-      )}
-      <div className="overflow-auto rounded-md border bg-muted/20 p-3 [--chart-1:var(--foreground)] [--chart-2:var(--foreground)] [--chart-3:var(--foreground)] [--chart-4:var(--foreground)] [--chart-5:var(--foreground)]">
-        {value !== null && typeof value === 'object' ? (
-          <JsonTree value={value} collapsed={2} />
-        ) : (
-          <pre className="whitespace-pre-wrap break-all text-xs">
-            {value === undefined
-              ? 'Not available'
-              : JSON.stringify(value, null, 2)}
-          </pre>
-        )}
-      </div>
-    </section>
-  );
-}
 
 const tones: Record<string, string> = {
   created: 'bg-emerald-500',

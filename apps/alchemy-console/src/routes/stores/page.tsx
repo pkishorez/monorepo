@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { AccountMenu } from '../../client/features/auth-boundary/index.ts';
+import { Logo } from '../../client/features/brand/index.ts';
 import { Workspace } from '../../client/features/store-console/workspace/index.ts';
 
 export const Route = createFileRoute('/stores/')({ component: StoresPage });
@@ -20,9 +21,12 @@ function StoresPage() {
   const navigate = Route.useNavigate();
   return (
     <div className="min-h-svh">
-      <header className="flex h-12 items-center justify-between border-b px-4 sm:px-6">
-        <Link to="/" className="text-sm font-medium tracking-tight">
-          Alchemy Console
+      <header className="flex h-12 items-center justify-between border-b px-4">
+        <Link
+          to="/"
+          className="flex items-center rounded-sm hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        >
+          <Logo />
         </Link>
         <AccountMenu />
       </header>
