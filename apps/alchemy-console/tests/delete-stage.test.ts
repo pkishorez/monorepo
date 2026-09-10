@@ -64,11 +64,17 @@ const auth = {
   },
 };
 
+const collect = <A extends { kind: string }, E, R>(
+  stream: Stream.Stream<A, E, R>,
+) =>
+  Stream.runCollect(stream).pipe(
+    Effect.map((events) => [...events].filter((e) => e.kind !== 'heartbeat')),
+  );
 const run = <A, E>(
   operation: Effect.Effect<
     A,
     E,
-    Effect.Services<ReturnType<typeof preview>> | StageDeletionLock
+    Stream.Services<ReturnType<typeof preview>> | StageDeletionLock
   >,
   fetch: typeof globalThis.fetch,
   access: 'view' | 'admin' = 'admin',
@@ -129,26 +135,31 @@ it('rejects protected stages, other owners, and view-only access before invoking
     { preconnect: () => {} },
   );
   for (const stage of ['prod', 'prod-us', 'PRODUCTION']) {
-    const exit = await run(Effect.exit(preview({ ...target, stage })), fetch);
+    const exit = await run(
+      Effect.exit(collect(preview({ ...target, stage }))),
+      fetch,
+    );
     expect(Exit.isFailure(exit)).toBe(true);
   }
   expect(
     Exit.isFailure(
       await run(
-        Effect.exit(preview({ ...target, storeId: 'another-owner' })),
+        Effect.exit(collect(preview({ ...target, storeId: 'another-owner' }))),
         fetch,
       ),
     ),
   ).toBe(true);
   expect(
-    Exit.isFailure(await run(Effect.exit(preview(target)), fetch, 'view')),
+    Exit.isFailure(
+      await run(Effect.exit(collect(preview(target))), fetch, 'view'),
+    ),
   ).toBe(true);
   expect(fetch).not.toHaveBeenCalled();
   expect(native.execute).not.toHaveBeenCalled();
 });
 
-it('passes only saved credentials to Alchemy and returns the readable plan', async () => {
-  native.execute.mockImplementation((input, mode) =>
+it('passes only saved credentials to Alchemy and streams analysis before the plan', async () => {
+  native.execute.mockImplementation((input, mode, emit) =>
     Effect.sync(() => {
       expect(input).toMatchObject({
         stack: 'App',
@@ -161,10 +172,36 @@ it('passes only saved credentials to Alchemy and returns the readable plan', asy
         },
       });
       expect(mode).toBe('preview');
+      emit({ kind: 'analyzing', id: 'Worker', type: 'Cloudflare.Worker' });
+      emit({ kind: 'analyzed', id: 'Worker', type: 'Cloudflare.Worker' });
       return plan;
     }),
   );
-  expect(await run(preview(target), fetch)).toEqual(plan);
+  expect(await run(collect(preview(target)), fetch)).toEqual([
+    { kind: 'analyzing', id: 'Worker', type: 'Cloudflare.Worker' },
+    { kind: 'analyzed', id: 'Worker', type: 'Cloudflare.Worker' },
+    { kind: 'plan', plan },
+  ]);
+});
+
+it('reports which resource stopped planning', async () => {
+  native.execute.mockImplementation((_input, _mode, emit) =>
+    Effect.sync(() => {
+      emit({ kind: 'analyzing', id: 'BankTable', type: 'AWS.DynamoDB.Table' });
+      return {
+        error: 'AWS.DynamoDB.Table is not a Cloudflare resource.',
+        resource: 'BankTable',
+      };
+    }),
+  );
+  expect(await run(collect(preview(target)), fetch)).toEqual([
+    { kind: 'analyzing', id: 'BankTable', type: 'AWS.DynamoDB.Table' },
+    {
+      kind: 'failed',
+      id: 'BankTable',
+      message: 'AWS.DynamoDB.Table is not a Cloudflare resource.',
+    },
+  ]);
 });
 
 it('delivers progress before native deletion finishes and preserves partial failure', async () => {

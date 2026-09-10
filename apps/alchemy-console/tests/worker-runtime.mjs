@@ -88,6 +88,15 @@ try {
       result.events.map((event) => event.status),
       ['deleting', 'deleted', 'deleting', 'deleted', 'complete'],
     );
+    assert.deepEqual(
+      result.analysis.map((event) => `${event.kind}:${event.id}`),
+      [
+        'analyzing:Database',
+        'analyzed:Database',
+        'analyzing:Worker',
+        'analyzed:Worker',
+      ],
+    );
     const deletions = result.calls.filter((call) => call.startsWith('DELETE'));
     assert.equal(deletions.length, 2);
     assert.match(deletions[0], /workers\/scripts\/fake-worker$/);

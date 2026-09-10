@@ -98,14 +98,19 @@ export default {
       },
     };
     const events: unknown[] = [];
+    const analysis: unknown[] = [];
     const result = await Effect.runPromise(
       Effect.gen(function* () {
-        const plan = yield* execute(target, 'preview', () => {});
+        const plan = yield* execute(target, 'preview', (event) =>
+          analysis.push(event),
+        );
         if (!plan || 'error' in plan) return { plan };
         const result = yield* execute(
           { ...target, fingerprint: plan.fingerprint },
           'delete',
-          (event) => events.push(event),
+          (event) => {
+            if ('status' in event) events.push(event);
+          },
         );
         return { plan, result };
       }).pipe(
@@ -120,6 +125,7 @@ export default {
       ...result,
       calls,
       events,
+      analysis,
       deleted,
       remaining: Object.keys(rows),
     });

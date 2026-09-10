@@ -58,9 +58,11 @@ const authorize = (input: Target) =>
   });
 
 export const preview = (input: Target) =>
-  authorize(input).pipe(
-    Effect.flatMap(destruction.preview),
-    Effect.withSpan('DeleteStage.preview'),
+  Stream.unwrap(
+    authorize(input).pipe(
+      Effect.map(destruction.preview),
+      Effect.withSpan('DeleteStage.preview'),
+    ),
   );
 export const destroy = (input: Target & { fingerprint: string }) =>
   Stream.unwrap(

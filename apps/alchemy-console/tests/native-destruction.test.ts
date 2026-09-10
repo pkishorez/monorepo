@@ -1,4 +1,4 @@
-import { Context, Effect, Exit, Layer } from 'effect';
+import { Cause, Context, Effect, Exit, Layer } from 'effect';
 import { expect, it, vi } from 'vite-plus/test';
 import { InMemoryService } from 'alchemy/State/InMemoryState';
 import { State, type ResourceState } from 'alchemy/State';
@@ -10,7 +10,10 @@ import { Stack } from 'alchemy/Stack';
 import { Stage } from 'alchemy/Stage';
 import { Cli } from 'alchemy/Cli/Cli';
 import { apply } from 'alchemy/Apply';
-import { prepare } from '../src/server/services/stage-destruction/prepare.ts';
+import {
+  PrepareError,
+  prepare,
+} from '../src/server/services/stage-destruction/prepare.ts';
 
 const row = (id: string, options: Partial<ResourceState> = {}): ResourceState =>
   ({
@@ -48,9 +51,18 @@ it('uses native Alchemy ordering, retention, and final stage cleanup', async () 
           prod: { Production: row('Production') },
         },
       });
-      const { plan } = yield* prepare(input, state).pipe(
-        Effect.provideService(State, Effect.succeed(state)),
-      );
+      const analysis: string[] = [];
+      const { plan } = yield* prepare(input, state, (event) =>
+        analysis.push(`${event.kind}:${event.id}`),
+      ).pipe(Effect.provideService(State, Effect.succeed(state)));
+      expect(analysis).toEqual([
+        'analyzing:Database',
+        'analyzed:Database',
+        'analyzing:Retained',
+        'analyzed:Retained',
+        'analyzing:Worker',
+        'analyzed:Worker',
+      ]);
       expect(deleted).toEqual([]);
       yield* apply(plan).pipe(
         Effect.provideService(State, Effect.succeed(state)),
@@ -147,6 +159,64 @@ it('keeps unresolved native state after provider failure and blocks dependencies
         startApplySession: () =>
           Effect.succeed({ emit: () => Effect.void, done: () => Effect.void }),
       }),
+    ),
+  );
+});
+
+it('streams per-resource analysis and names the resource that blocks planning', async () => {
+  const events: unknown[] = [];
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const state = yield* InMemoryService({
+        App: {
+          dev: {
+            BankTable: row('BankTable', { resourceType: 'AWS.DynamoDB.Table' }),
+            Worker: row('Worker'),
+          },
+        },
+      });
+      const result = yield* Effect.exit(
+        prepare(input, state, (event) => events.push(event)).pipe(
+          Effect.provideService(State, Effect.succeed(state)),
+        ),
+      );
+      expect(Exit.isFailure(result)).toBe(true);
+      const error = Exit.isFailure(result) && Cause.squash(result.cause);
+      expect(error).toBeInstanceOf(PrepareError);
+      expect(error).toMatchObject({ resource: 'BankTable' });
+      expect((error as PrepareError).message).toContain('AWS.DynamoDB.Table');
+      expect((error as PrepareError).message).toContain('not a Cloudflare');
+      expect(events).toEqual([
+        { kind: 'analyzing', id: 'BankTable', type: 'AWS.DynamoDB.Table' },
+      ]);
+      const reason = (rows: Record<string, ResourceState>) =>
+        Effect.gen(function* () {
+          const state = yield* InMemoryService({ App: { dev: rows } });
+          const exit = yield* Effect.exit(
+            prepare(input, state).pipe(
+              Effect.provideService(State, Effect.succeed(state)),
+            ),
+          );
+          return Exit.isFailure(exit)
+            ? (Cause.squash(exit.cause) as Error).message
+            : '';
+        });
+      expect(
+        yield* reason({ Queue: row('Queue', { attr: { id: 'dev:1' } }) }),
+      ).toContain('local mode');
+      expect(
+        yield* reason({
+          Worker: row('Worker', { attr: { accountId: 'other' } }),
+        }),
+      ).toContain('different Cloudflare account');
+    }).pipe(
+      Effect.provide(
+        Layer.succeed(TestProvider, {
+          list: () => Effect.succeed([]),
+          reconcile: () => Effect.succeed({}),
+          delete: () => Effect.void,
+        }),
+      ),
     ),
   );
 });
