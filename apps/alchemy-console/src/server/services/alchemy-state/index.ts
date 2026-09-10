@@ -1,1 +1,1 @@
-export { read, type StateRequest } from './alchemy-state.ts';
+export { read, removeStack, type StateRequest } from './alchemy-state.ts';

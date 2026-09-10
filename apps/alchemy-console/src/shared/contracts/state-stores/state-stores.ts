@@ -37,6 +37,10 @@ export class StateStoreError extends Schema.Error<StateStoreError>(
   reason: Schema.optional(Schema.String),
   code: Schema.Literals([
     'not-found',
+    'managed-stack',
+    'view-only',
+    'non-empty',
+    'remote-error',
     'storage-error',
     'cloudflare-permission',
     'state-store-missing',

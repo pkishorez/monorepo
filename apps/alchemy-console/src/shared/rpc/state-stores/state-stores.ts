@@ -6,12 +6,18 @@ import {
   stateStoreView,
   StateStoreError,
 } from '../../contracts/state-stores/index.ts';
+import { stackTarget } from '../../contracts/state-address/index.ts';
 
 const nonEmpty = Schema.String.check(
   Schema.makeFilter((value) => value.trim().length > 0),
 );
 
 export const StateStores = RpcGroup.make(
+  Rpc.make('AlchemyStateStore.DeleteStack', {
+    payload: stackTarget,
+    success: Schema.Void,
+    error: StateStoreError,
+  }),
   Rpc.make('AlchemyStateStore.UpdateCredentials', {
     payload: {
       id: nonEmpty,

@@ -7,6 +7,7 @@ export const ConsoleHandlers = ConsoleApi.toLayer({
   'AlchemyStateStore.Rename': operations.rename,
   'AlchemyStateStore.UpdateCredentials': operations.updateCredentials,
   'AlchemyStateStore.Delete': operations.remove,
+  'AlchemyStateStore.DeleteStack': operations.deleteStack,
   'AlchemyStateStore.ListStacks': operations.listStacks,
   'AlchemyStateStore.ListStages': operations.listStages,
   'AlchemyStateStore.ListResources': operations.listResources,

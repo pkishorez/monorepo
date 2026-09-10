@@ -1,5 +1,5 @@
 import { Effect, Exit, Schema, Stream } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
 import { Authz } from 'auth-toolkit/rpc';
 import { SQLite } from 'std-toolkit/db/sqlite';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
@@ -11,6 +11,7 @@ import {
 import {
   preview,
   destroy,
+  deleteStack,
 } from '../src/server/workflows/store-operations/store-operations/index.ts';
 import {
   StageDeletionLock,
@@ -27,6 +28,11 @@ import {
   isProtectedStage,
   protectedStageAcknowledgement,
 } from '../src/shared/contracts/delete-stage/index.ts';
+import {
+  alchemyManagedStackName,
+  compareStackNames,
+  isAlchemyManagedStack,
+} from '../src/shared/contracts/state-address/index.ts';
 import { destructionRequest } from '../src/server/services/stage-destruction/request.ts';
 import {
   adminPermissions,
@@ -78,7 +84,9 @@ const run = <A, E>(
   operation: Effect.Effect<
     A,
     E,
-    Stream.Services<ReturnType<typeof preview>> | StageDeletionLock
+    | Stream.Services<ReturnType<typeof preview>>
+    | StageDeletionLock
+    | HttpClient.HttpClient
   >,
   fetch: typeof globalThis.fetch,
   access: 'view' | 'admin' = 'admin',
@@ -138,6 +146,70 @@ it('flags every prod prefix and requires the exact acknowledgement phrase', () =
       connection,
     }),
   ).toThrow();
+});
+
+it('classifies only the reserved Cloudflare state-store stack as Alchemy managed', () => {
+  expect(isAlchemyManagedStack(alchemyManagedStackName)).toBe(true);
+  expect(isAlchemyManagedStack('cloudflarestatestore')).toBe(false);
+  expect(isAlchemyManagedStack('App')).toBe(false);
+  expect(
+    ['Zebra', alchemyManagedStackName, 'App'].sort(compareStackNames),
+  ).toEqual([alchemyManagedStackName, 'App', 'Zebra']);
+});
+
+it('rejects generic preview and deletion for Alchemy-managed stacks', async () => {
+  native.execute.mockClear();
+  const request = { ...target, stack: alchemyManagedStackName };
+  const fetch = Object.assign(vi.fn(), { preconnect: () => {} });
+
+  const previewError = await run(Effect.flip(collect(preview(request))), fetch);
+  expect(previewError).toMatchObject({ code: 'managed-stack' });
+
+  const deletionError = await run(
+    Effect.flip(
+      collect(destroy({ ...request, fingerprint: 'not-applicable' })),
+    ),
+    fetch,
+  );
+  expect(deletionError).toMatchObject({ code: 'managed-stack' });
+  expect(fetch).not.toHaveBeenCalled();
+  expect(native.execute).not.toHaveBeenCalled();
+});
+
+it('deletes an empty application stack through Alchemy state', async () => {
+  const fetch = Object.assign(
+    vi.fn(async (input: Parameters<typeof globalThis.fetch>[0], init) => {
+      const path = new URL(String(input)).pathname;
+      if (path === '/state/stacks/Empty/stages')
+        return Response.json([], { status: 200 });
+      expect(path).toBe('/state/stacks/Empty');
+      expect(init?.method).toBe('DELETE');
+      return new Response(null, { status: 204 });
+    }),
+    { preconnect: () => {} },
+  );
+  await expect(
+    run(deleteStack({ storeId: 'store', stack: 'Empty' }), fetch),
+  ).resolves.toBeUndefined();
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it('refuses to delete a stack that has deployed stages', async () => {
+  const fetch = Object.assign(
+    vi.fn(async (input: Parameters<typeof globalThis.fetch>[0]) => {
+      expect(new URL(String(input)).pathname).toBe(
+        '/state/stacks/Application/stages',
+      );
+      return Response.json(['prod'], { status: 200 });
+    }),
+    { preconnect: () => {} },
+  );
+  const error = await run(
+    Effect.flip(deleteStack({ storeId: 'store', stack: 'Application' })),
+    fetch,
+  );
+  expect(error).toMatchObject({ code: 'non-empty' });
+  expect(fetch).toHaveBeenCalledOnce();
 });
 
 it('rejects unacknowledged protected stages, other owners, and view-only access before invoking Alchemy', async () => {

@@ -28,6 +28,8 @@ import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../store-query/index.ts';
 import type { NavigationLink } from '../state-view/index.ts';
 import type { namesView } from '../../../../shared/contracts/state-address/index.ts';
+import { isAlchemyManagedStack } from '../../../../shared/contracts/state-address/index.ts';
+import { ManagedStackBadge } from './managed-stack.tsx';
 
 // Sized so its icon sits in the same column as the chevron inside each stack row.
 const chevronButton =
@@ -172,6 +174,7 @@ function StackNode({
   onOpenChange: (open: boolean) => void;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
+  const managed = isAlchemyManagedStack(name);
   const stages = useRpcQuery(
     Effect.flatMap(Rpc, (rpc) =>
       rpc['AlchemyStateStore.ListStages']({ storeId, stack: name }),
@@ -179,6 +182,7 @@ function StackNode({
     rpcQueryKeys.stages(storeId, name),
   );
   const stageNames = stages.data?.data ?? [];
+  const empty = stages.data !== null && stageNames.length === 0;
   const stackMatches = name.toLocaleLowerCase().includes(needle);
   const visibleStages = needle
     ? stageNames.filter(
@@ -195,10 +199,11 @@ function StackNode({
       open={open}
       onOpenChange={onOpenChange}
       render={<SidebarMenuItem />}
+      className={`${managed ? 'rounded-md bg-primary/5' : ''} ${empty ? 'opacity-60' : ''}`}
     >
       <SidebarMenuButton
         isActive={active && activeStage === undefined}
-        className="h-10 min-w-0 pl-2.5 pr-[15px] transition-colors duration-150"
+        className={`h-10 min-w-0 pl-2.5 pr-[15px] transition-colors duration-150 ${managed ? 'hover:bg-primary/10 data-active:bg-primary/15' : ''}`}
         aria-expanded={open}
         render={
           <NavigationLink
@@ -211,15 +216,20 @@ function StackNode({
           />
         }
       >
-        <Layers className="size-3.5 text-muted-foreground" />
+        <Layers
+          className={`size-3.5 ${managed ? 'text-primary' : 'text-muted-foreground'}`}
+        />
         <span className="min-w-0 flex-1 truncate">{name}</span>
+        {managed && <ManagedStackBadge compact />}
         <ChevronRight
           aria-hidden="true"
           className={`size-3.5 shrink-0 text-muted-foreground motion-safe:transition-transform motion-safe:duration-150 ${open ? 'rotate-90' : ''}`}
         />
       </SidebarMenuButton>
       <CollapsibleContent className="h-(--collapsible-panel-height) overflow-hidden motion-safe:transition-[height,opacity] motion-safe:duration-200 data-ending-style:h-0 data-ending-style:opacity-0 data-starting-style:h-0 data-starting-style:opacity-0">
-        <SidebarMenuSub className="ml-4 mr-0 mt-1 gap-0.5 pr-0">
+        <SidebarMenuSub
+          className={`ml-4 mr-0 mt-1 gap-0.5 pr-0 ${managed ? 'border-primary/20' : ''}`}
+        >
           {stages.pending && !stages.data && (
             <SidebarMenuSubItem>
               <span
@@ -250,7 +260,7 @@ function StackNode({
           {visibleStages.map((stageName) => (
             <SidebarMenuSubItem key={stageName}>
               <SidebarMenuSubButton
-                className="h-8 rounded-md pl-3"
+                className={`h-8 rounded-md pl-3 ${managed ? 'hover:bg-primary/10 data-active:bg-primary/15' : ''}`}
                 isActive={active && activeStage === stageName}
                 render={
                   <NavigationLink

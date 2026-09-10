@@ -134,7 +134,7 @@ const action = {
   output: { clientSecret: 'action-secret' },
 };
 const fixtures: Record<string, unknown> = {
-  '/state/stacks': ['EmptyStack', 'App'],
+  '/state/stacks': ['EmptyStack', 'App', 'CloudflareStateStore'],
   '/state/stacks/EmptyStack/stages': [],
   '/state/stacks/App/stages': ['prod', 'empty'],
   '/state/stacks/App/stages/empty/output': null,
@@ -181,7 +181,7 @@ it('loads each level independently using the saved connection, with masked state
         );
         expect(stacks).toEqual({
           storeName: 'Store',
-          data: ['App', 'EmptyStack'],
+          data: ['CloudflareStateStore', 'App', 'EmptyStack'],
         });
         expect(fetch).toHaveBeenCalledTimes(1);
         const stages = yield* client['AlchemyStateStore.ListStages'](
