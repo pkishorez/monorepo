@@ -9,6 +9,11 @@
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
 }
 
+/* kui ships a near-square 0.2rem radius; this console wants visibly rounded controls. */
+:root {
+  --radius: 0.5rem;
+}
+
 @layer base {
   html {
     scrollbar-gutter: stable;

@@ -282,6 +282,9 @@
         "src/components/ui/aspect-ratio.tsx": {
           "exposed": true
         },
+        "src/components/ui/attachment.tsx": {
+          "exposed": true
+        },
         "src/components/ui/avatar.tsx": {
           "exposed": true
         },
@@ -289,6 +292,9 @@
           "exposed": true
         },
         "src/components/ui/breadcrumb.tsx": {
+          "exposed": true
+        },
+        "src/components/ui/bubble.tsx": {
           "exposed": true
         },
         "src/components/ui/button-group.tsx": {
@@ -378,6 +384,9 @@
         "src/components/ui/menubar.tsx": {
           "exposed": true
         },
+        "src/components/ui/marker.tsx": {
+          "exposed": true
+        },
         "src/components/ui/message-scroller.tsx": {
           "exposed": true
         },
@@ -397,6 +406,9 @@
           "exposed": true
         },
         "src/components/ui/progress.tsx": {
+          "exposed": true
+        },
+        "src/components/ui/questionnaire.tsx": {
           "exposed": true
         },
         "src/components/ui/radio-group.tsx": {
@@ -450,6 +462,9 @@
           "exposed": true
         },
         "src/components/ui/toggle-group.tsx": {
+          "exposed": true
+        },
+        "src/components/ui/toast.tsx": {
           "exposed": true
         },
         "src/components/ui/toggle.tsx": {

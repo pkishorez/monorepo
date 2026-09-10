@@ -43,7 +43,7 @@ const authorize = (input: Target) =>
         new DeleteStageError({
           code: 'view-only',
           reason:
-            'This connection has view access. Update its token and choose Admin to delete stages.',
+            'This connection has view access. Update its token with one that has admin permissions to delete stages.',
         }),
       );
     return {

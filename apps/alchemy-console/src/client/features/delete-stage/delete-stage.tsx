@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { LockKeyhole, Trash2 } from 'kui-toolkit/lucide';
+import { LoaderCircle, LockKeyhole, Trash2 } from 'kui-toolkit/lucide';
 import {
   Dialog,
   DialogContent,
@@ -74,9 +74,11 @@ export function DeleteStage({
 
 function StageAction({ stack, stage }: Target) {
   const interaction = useContext(Interaction);
+  if (!interaction?.admin) return null;
   if (!canDeleteStage(stage))
     return (
       <span
+        role="img"
         className="flex size-11 shrink-0 items-center justify-center text-muted-foreground"
         title="Stages whose names start with prod are protected."
         aria-label="Production stage is protected"
@@ -85,24 +87,16 @@ function StageAction({ stack, stage }: Target) {
       </span>
     );
   return (
-    <span
-      title={
-        interaction?.admin
-          ? `Delete ${stage}`
-          : 'Update this store’s token and choose Admin to delete stages.'
-      }
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-11 text-muted-foreground hover:text-destructive"
+      aria-label={`Delete stage ${stage}`}
+      title={`Delete ${stage}`}
+      onClick={() => interaction.select({ stack, stage })}
     >
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-11 text-muted-foreground hover:text-destructive"
-        disabled={!interaction?.admin}
-        aria-label={`Delete stage ${stage}`}
-        onClick={() => interaction?.select({ stack, stage })}
-      >
-        <Trash2 />
-      </Button>
-    </span>
+      <Trash2 />
+    </Button>
   );
 }
 
@@ -230,7 +224,7 @@ function DeletionDialog({
           <DialogDescription>
             {review
               ? `${stack} / ${stage}`
-              : `Would you really like to delete “${stage}” from “${stack}”? You’ll review the resources and deletion plan next.`}
+              : `Delete “${stage}” from “${stack}”? You’ll review the plan before anything is removed.`}
           </DialogDescription>
         </DialogHeader>
         {review && (
@@ -238,13 +232,17 @@ function DeletionDialog({
             {preview.pending && (
               <p
                 role="status"
-                className="py-8 text-center text-muted-foreground"
+                className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground"
               >
-                Preparing Alchemy’s deletion plan…
+                <LoaderCircle
+                  className="size-4 motion-safe:animate-spin"
+                  aria-hidden="true"
+                />
+                Preparing the deletion plan…
               </p>
             )}
             {preview.error && (
-              <p role="alert" className="text-destructive">
+              <p role="alert" className="text-sm text-destructive">
                 {preview.error}
               </p>
             )}
@@ -256,14 +254,13 @@ function DeletionDialog({
             )}
             {busy && (
               <p role="status" className="text-sm text-muted-foreground">
-                Keep this page open until Alchemy finishes. This dialog will
-                unlock when the operation ends.
+                Keep this page open. The dialog unlocks when Alchemy finishes.
               </p>
             )}
             {(terminal || deletion.error) && (
               <p
                 role={failed ? 'alert' : 'status'}
-                className={failed ? 'text-destructive' : 'text-sm'}
+                className={failed ? 'text-sm text-destructive' : 'text-sm'}
               >
                 {deletion.error ?? terminal?.message}
               </p>
@@ -278,13 +275,12 @@ function DeletionDialog({
           )}
           {!review && (
             <Button
-              variant="destructive"
               onClick={() => {
                 setReview(true);
                 preview.run(undefined);
               }}
             >
-              Yes, review deletion
+              Review deletion
             </Button>
           )}
           {review && !attempted.current && (

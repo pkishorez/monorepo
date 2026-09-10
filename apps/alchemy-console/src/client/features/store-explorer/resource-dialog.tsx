@@ -1,9 +1,11 @@
 import { Effect } from 'effect';
 import { Button } from 'kui-toolkit/components/ui/button';
+import { Badge } from 'kui-toolkit/components/ui/badge';
 import { RefreshCw } from 'kui-toolkit/lucide';
 import { Rpc } from '../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../../session/rpc-session/index.ts';
-import { QueryFeedback, Value } from './explorer-view.tsx';
+import { QueryError, ListSkeleton } from '../query-feedback/index.ts';
+import { Value } from './explorer-view.tsx';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +14,7 @@ import {
   DialogDescription,
 } from 'kui-toolkit/components/ui/dialog';
 import { JsonTree } from 'kui-toolkit/components/blocks/json';
+
 export function ResourceDialog({
   onClose,
   ...input
@@ -42,35 +45,52 @@ export function ResourceDialog({
       }}
     >
       <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="break-all pr-6">{input.resource}</DialogTitle>
-          <DialogDescription>
-            {input.stack} / {input.stage}
-          </DialogDescription>
+        <DialogHeader className="pr-8">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1.5">
+              <DialogTitle className="break-all">{input.resource}</DialogTitle>
+              <DialogDescription>
+                {input.stack} / {input.stage}
+              </DialogDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={query.refresh}
+              disabled={query.pending}
+              aria-label="Refresh resource state"
+              title="Refresh resource state"
+            >
+              <RefreshCw
+                className={query.pending ? 'motion-safe:animate-spin' : ''}
+              />
+            </Button>
+          </div>
         </DialogHeader>
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            onClick={query.refresh}
-            disabled={query.pending}
-          >
-            <RefreshCw className={query.pending ? 'animate-spin' : ''} />
-            Refresh state
-          </Button>
-        </div>
-        <QueryFeedback query={query} />
+        {query.error && (
+          <QueryError
+            message={query.error}
+            stale={query.data !== null}
+            pending={query.pending}
+            onRetry={query.refresh}
+          />
+        )}
+        {query.pending && !query.data && (
+          <ListSkeleton label="Loading resource state" />
+        )}
         {query.data && state === null && (
           <p className="py-8 text-sm text-muted-foreground">
-            This resource is no longer available. It may have been removed by a
-            deployment.
+            This resource is no longer in the store. A deployment may have
+            removed it. Close this dialog and refresh the list.
           </p>
         )}
         {state && (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium">
+              <Badge variant="secondary" className="capitalize">
                 {state.status}
-              </span>
+              </Badge>
               <span className="break-all text-sm text-muted-foreground">
                 {String(
                   state.kind === 'action'
@@ -87,7 +107,7 @@ export function ResourceDialog({
               title="Outputs"
               value={state.kind === 'action' ? state.output : state.attr}
             />
-            <details className="rounded-lg border p-4">
+            <details className="rounded-md border p-4">
               <summary className="cursor-pointer text-sm font-medium">
                 All state
               </summary>

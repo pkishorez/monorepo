@@ -140,14 +140,41 @@ export const discover = Effect.fn('CloudflareDiscovery.discover')(
         secrets,
       ),
     );
-    yield* Effect.logInfo('Resolved state store connection');
-    return { url, authToken };
+    const access = yield* detectAccess(request, secrets);
+    yield* Effect.logInfo('Resolved state store connection', { access });
+    return { url, authToken, access };
   },
   Effect.timeout('45 seconds'),
   Effect.catchTag('TimeoutError', () =>
     Effect.fail(failure('Discovery exceeded 45 seconds. Please retry.')),
   ),
 );
+
+// Alchemy deletes through these products; a token that can read all of them is treated as admin.
+const adminProbes = [
+  '/storage/kv/namespaces',
+  '/r2/buckets',
+  '/d1/database',
+  '/queues',
+] as const;
+
+const detectAccess = (
+  request: (path: string) => HttpClientRequest.HttpClientRequest,
+  secrets: ReadonlySet<string>,
+) =>
+  Effect.forEach(
+    adminProbes,
+    (path) =>
+      send(request(path), secrets).pipe(
+        Effect.as(true),
+        Effect.catch(() => Effect.succeed(false)),
+      ),
+    { concurrency: 'unbounded' },
+  ).pipe(
+    Effect.map((results) =>
+      results.every(Boolean) ? ('admin' as const) : ('view' as const),
+    ),
+  );
 
 const exchangePreviewToken = Effect.fn(function* (
   session: typeof previewSession.Type,
