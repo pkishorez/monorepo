@@ -69,6 +69,13 @@ export const resourceSummariesView = Schema.Struct({
   storeName: Schema.String,
   data: Schema.Array(resourceSummaryView),
 });
+export const stageView = Schema.Struct({
+  storeName: Schema.String,
+  data: Schema.Struct({
+    resources: Schema.Array(resourceSummaryView),
+    outputs: Schema.Json,
+  }),
+});
 export const resourceStateView = Schema.Struct({
   storeName: Schema.String,
   data: Schema.NullOr(persistedStateView),

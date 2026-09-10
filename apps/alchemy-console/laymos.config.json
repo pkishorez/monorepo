@@ -49,10 +49,6 @@
           "shared": false,
           "exposed": true
         },
-        "src/shared/rpc/stage-outputs": {
-          "shared": false,
-          "exposed": true
-        },
         "src/shared/rpc/stage-deletion-preview": {
           "shared": false,
           "exposed": true
@@ -189,7 +185,6 @@
             "store-management": {},
             "state-browser": {},
             "resource-browser": {},
-            "stage-outputs": {},
             "stage-deletion-preview": {},
             "stage-deletion": {},
             "state-view": {},
@@ -200,7 +195,6 @@
               "store-management",
               "state-browser",
               "resource-browser",
-              "stage-outputs",
               "stage-deletion",
               "state-view",
               "store-query"
@@ -208,7 +202,6 @@
             "store-management": ["state-browser", "store-query"],
             "state-browser": ["state-view", "store-query"],
             "resource-browser": ["state-view", "store-query"],
-            "stage-outputs": ["state-view", "store-query"],
             "stage-deletion": ["stage-deletion-preview", "store-query"],
             "stage-deletion-preview": ["store-query"]
           }

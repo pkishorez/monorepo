@@ -65,9 +65,13 @@ export function DeleteStage({
   );
 }
 
-function StageAction({ stack, stage }: Target) {
+/** Protected stages show a lock to everyone; the delete button is admin-only. */
+function StageAction({
+  stack,
+  stage,
+  className,
+}: Target & { className?: string }) {
   const interaction = useContext(Interaction);
-  if (!interaction?.admin) return null;
   if (!canDeleteStage(stage))
     return (
       <span
@@ -79,11 +83,12 @@ function StageAction({ stack, stage }: Target) {
         <LockKeyhole className="size-4" />
       </span>
     );
+  if (!interaction?.admin) return null;
   return (
     <Button
       variant="ghost"
       size="icon"
-      className="size-11 text-muted-foreground hover:text-destructive"
+      className={`size-11 text-muted-foreground hover:text-destructive ${className ?? ''}`}
       aria-label={`Delete stage ${stage}`}
       title={`Delete ${stage}`}
       onClick={() => interaction.select({ stack, stage })}

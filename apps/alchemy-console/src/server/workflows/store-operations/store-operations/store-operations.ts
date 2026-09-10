@@ -84,17 +84,19 @@ export const listResources = (input: typeof readStageTarget.Type) =>
   readStore(input, 'Listed resources', (connection) =>
     browser.listResources(connection, input.stack, input.stage),
   );
-export const listSummaries = (input: typeof readStageTarget.Type) =>
-  readStore(input, 'Listed resource summaries', (connection) =>
-    resources.listSummaries(connection, input),
+export const getStageView = (input: typeof readStageTarget.Type) =>
+  readStore(input, 'Fetched stage view', (connection) =>
+    Effect.all(
+      {
+        resources: resources.listSummaries(connection, input),
+        outputs: outputs.getOutputs(connection, input),
+      },
+      { concurrency: 'unbounded' },
+    ),
   );
 export const getResourceState = (input: typeof resourceTarget.Type) =>
   readStore(input, 'Fetched resource state', (connection) =>
     resources.getState(connection, input),
-  );
-export const getStageOutputs = (input: typeof readStageTarget.Type) =>
-  readStore(input, 'Fetched stage outputs', (connection) =>
-    outputs.getOutputs(connection, input),
   );
 
 export const preview = (input: typeof stageTarget.Type) =>

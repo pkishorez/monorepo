@@ -7,9 +7,8 @@ export {
   listStacks,
   listStages,
   listResources,
-  listSummaries,
+  getStageView,
   getResourceState,
-  getStageOutputs,
   preview,
   destroy,
 } from './store-operations.ts';

@@ -14,8 +14,7 @@ export const Route = createFileRoute('/stores/$storeId/')({
   validateSearch: (search: Record<string, unknown>): ExplorerLocation => {
     const stack = text(search.stack);
     const stage = stack !== undefined ? text(search.stage) : undefined;
-    const resource = stage !== undefined ? text(search.resource) : undefined;
-    return { stack, stage, resource };
+    return { stack, stage };
   },
   component: StorePage,
 });
@@ -24,7 +23,7 @@ function StorePage() {
   const [busy, setBusy] = useState(false);
   useBlocker({ shouldBlockFn: () => busy, enableBeforeUnload: () => busy });
   const { storeId } = Route.useParams();
-  const { stack, stage, resource } = Route.useSearch();
+  const { stack, stage } = Route.useSearch();
   const navigate = Route.useNavigate();
   const go = useCallback(
     (location: ExplorerLocation) =>
@@ -38,7 +37,6 @@ function StorePage() {
       onBusyChange={setBusy}
       stack={stack}
       stage={stage}
-      resource={resource}
       NavigationLink={NavigationLink}
       StoreLink={StoreLink}
       ManageLink={ManageLink}
@@ -76,7 +74,6 @@ function NavigationLink({
   home,
   stack,
   stage,
-  resource,
   ...props
 }: ExplorerLocation & {
   home?: boolean;
@@ -92,7 +89,7 @@ function NavigationLink({
     <Link
       to="/stores/$storeId"
       params={{ storeId }}
-      search={{ stack, stage, resource }}
+      search={{ stack, stage }}
       {...props}
     />
   );

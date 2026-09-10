@@ -12,8 +12,7 @@ import {
 } from 'kui-toolkit/components/ui/sidebar';
 import { ChevronRight } from 'kui-toolkit/lucide';
 import { StateTree, StateOverview } from '../state-browser/index.ts';
-import { ResourceBrowser, ResourceDetails } from '../resource-browser/index.ts';
-import { StageOutputs } from '../stage-outputs/index.ts';
+import { ResourceBrowser } from '../resource-browser/index.ts';
 import type { ExplorerLocation, NavigationLink } from '../state-view/index.ts';
 
 export function StoreExplorer({
@@ -21,10 +20,8 @@ export function StoreExplorer({
   storeName,
   stack,
   stage,
-  resource,
   NavigationLink,
   StageAction,
-  onNavigate,
   sidebarHeader,
   sidebarFooter,
 }: ExplorerLocation & {
@@ -32,7 +29,6 @@ export function StoreExplorer({
   storeName: string | null;
   NavigationLink: NavigationLink;
   StageAction: ComponentType<{ stack: string; stage: string }>;
-  onNavigate: (location: ExplorerLocation) => void;
   sidebarHeader: ReactNode;
   sidebarFooter: ReactNode;
 }) {
@@ -42,8 +38,6 @@ export function StoreExplorer({
       .filter(Boolean)
       .join(' · ');
   }, [stage, stack, storeName]);
-  const showDetail =
-    stack !== undefined && stage !== undefined && resource !== undefined;
   return (
     <SidebarProvider
       open={sidebarOpen}
@@ -71,7 +65,6 @@ export function StoreExplorer({
             storeName={storeName}
             stack={stack}
             stage={stage}
-            resource={resource}
             NavigationLink={NavigationLink}
           />
         </div>
@@ -93,32 +86,11 @@ export function StoreExplorer({
                   storeId={storeId}
                   stack={stack}
                   stage={stage}
-                  resource={resource}
-                  NavigationLink={NavigationLink}
                   StageAction={StageAction}
-                  outputs={
-                    <StageOutputs
-                      key={`${stack}/${stage}`}
-                      storeId={storeId}
-                      stack={stack}
-                      stage={stage}
-                    />
-                  }
                 />
               )}
             </div>
           </div>
-          {showDetail && (
-            <ResourceDetails
-              key={resource}
-              storeId={storeId}
-              stack={stack}
-              stage={stage}
-              resource={resource}
-              NavigationLink={NavigationLink}
-              onClose={() => onNavigate({ stack, stage })}
-            />
-          )}
         </div>
       </SidebarInset>
     </SidebarProvider>
@@ -129,7 +101,6 @@ function Breadcrumb({
   storeName,
   stack,
   stage,
-  resource,
   NavigationLink,
 }: ExplorerLocation & {
   storeName: string | null;
@@ -167,21 +138,8 @@ function Breadcrumb({
   if (stack !== undefined && stage !== undefined)
     crumbs.push({
       key: 'stage',
-      current: resource === undefined,
-      node:
-        resource === undefined ? (
-          stage
-        ) : (
-          <NavigationLink stack={stack} stage={stage} className={link}>
-            {stage}
-          </NavigationLink>
-        ),
-    });
-  if (stack !== undefined && stage !== undefined && resource !== undefined)
-    crumbs.push({
-      key: 'resource',
       current: true,
-      node: <span className="font-mono text-[13px]">{resource}</span>,
+      node: stage,
     });
   return (
     <nav aria-label="Breadcrumb" className="min-w-0 flex-1">

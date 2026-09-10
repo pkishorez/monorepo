@@ -2,7 +2,7 @@ import { Effect, Semaphore } from 'effect';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { Layers, LoaderCircle } from 'kui-toolkit/lucide';
+import { ChevronRight, Layers, LoaderCircle } from 'kui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../store-query/index.ts';
 import {
@@ -16,7 +16,14 @@ import {
   type NavigationLink,
 } from '../state-view/index.ts';
 
-type StageAction = ComponentType<{ stack: string; stage: string }>;
+type StageAction = ComponentType<{
+  stack: string;
+  stage: string;
+  className?: string;
+}>;
+
+/** Stages shown per card before the rest is folded behind a link to the stack. */
+const stagesPerCard = 6;
 
 /** Store level: every stack with its stages, so a stage is one click from the store. */
 export function StoreOverview({
@@ -41,7 +48,6 @@ export function StoreOverview({
   return (
     <div className="space-y-6">
       <PaneHeader
-        eyebrow="Store"
         title={storeName ?? 'Store'}
         meta={
           stacks.data
@@ -74,7 +80,7 @@ export function StoreOverview({
         />
       )}
       {names.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {names.map((name) => (
             <StackCard
               key={name}
@@ -111,51 +117,78 @@ function StackCard({
     rpcQueryKeys.stages(storeId, stack),
   );
   const names = stages.data?.data ?? [];
+  const shown = names.slice(0, stagesPerCard);
+  const hidden = names.length - shown.length;
   return (
-    <section className="flex min-h-32 flex-col rounded-lg border bg-card">
+    <section className="flex flex-col overflow-hidden rounded-lg bg-card shadow-raised">
       <NavigationLink
         stack={stack}
         title={stack}
-        className="flex items-center gap-2 border-b px-3 py-2.5 text-sm font-medium hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+        className="group/stack flex h-11 items-center gap-2 border-b bg-muted/30 px-3 text-sm font-medium focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
       >
-        <Layers className="size-4 text-muted-foreground" />
+        <Layers className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate">{stack}</span>
-        {stages.data && (
-          <span className="ml-auto text-xs font-normal text-muted-foreground tabular-nums">
-            {names.length} stage{names.length === 1 ? '' : 's'}
-          </span>
-        )}
+        <span className="ml-auto flex shrink-0 items-center gap-1 text-xs font-normal text-muted-foreground tabular-nums">
+          {stages.data &&
+            `${names.length} stage${names.length === 1 ? '' : 's'}`}
+          <ChevronRight
+            aria-hidden="true"
+            className="size-3.5 -translate-x-1 opacity-0 transition-[opacity,translate] duration-150 ease-out group-hover/stack:translate-x-0 group-hover/stack:opacity-100 group-focus-visible/stack:translate-x-0 group-focus-visible/stack:opacity-100 motion-reduce:transition-none"
+          />
+        </span>
       </NavigationLink>
       <ul className="flex flex-1 flex-col divide-y">
-        {stages.pending && !stages.data && (
-          <li className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-            <LoaderCircle className="size-3 motion-safe:animate-spin" />
-            Loading stages
-          </li>
-        )}
+        {stages.pending && !stages.data && <StageSkeleton />}
         {stages.error && !stages.data && (
-          <li className="px-3 py-2 text-xs text-destructive">{stages.error}</li>
+          <li className="px-3 py-3 text-xs text-destructive">{stages.error}</li>
         )}
         {stages.data && names.length === 0 && (
           <li className="px-3 py-3 text-xs text-muted-foreground">
             No stages deployed.
           </li>
         )}
-        {names.map((stage) => (
-          <li key={stage} className="flex items-center pr-1">
+        {shown.map((stage) => (
+          <li key={stage} className="group/row flex items-center pr-1">
             <NavigationLink
               stack={stack}
               stage={stage}
               title={stage}
-              className="flex h-9 min-w-0 flex-1 items-center gap-2 px-3 text-sm hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+              className="flex h-11 min-w-0 flex-1 items-center gap-3 px-3 text-sm hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
             >
               <span className="truncate">{stage}</span>
             </NavigationLink>
-            <StageAction stack={stack} stage={stage} />
+            <StageAction
+              stack={stack}
+              stage={stage}
+              className="opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none"
+            />
           </li>
         ))}
+        {hidden > 0 && (
+          <li>
+            <NavigationLink
+              stack={stack}
+              className="flex h-9 items-center px-3 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+            >
+              {hidden} more stage{hidden === 1 ? '' : 's'}
+            </NavigationLink>
+          </li>
+        )}
       </ul>
     </section>
+  );
+}
+
+function StageSkeleton() {
+  return (
+    <li role="status" aria-label="Loading stages" className="divide-y">
+      {[0, 1, 2].map((row) => (
+        <div key={row} className="flex h-11 items-center gap-3 px-3">
+          <span className="h-3.5 w-24 rounded-sm bg-muted motion-safe:animate-pulse" />
+          <span className="ml-auto h-3 w-16 rounded-sm bg-muted motion-safe:animate-pulse" />
+        </div>
+      ))}
+    </li>
   );
 }
 
@@ -215,7 +248,7 @@ export function StackOverview({
         />
       )}
       {names.length > 0 && (
-        <ul className="divide-y overflow-hidden rounded-lg border bg-card">
+        <ul className="divide-y overflow-hidden rounded-lg bg-card shadow-raised">
           {names.map((stage) => (
             <li key={stage} className="flex items-center pr-1">
               <NavigationLink

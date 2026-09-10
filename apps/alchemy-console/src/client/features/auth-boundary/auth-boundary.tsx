@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useRunEffect } from 'use-effect-ts';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { Database } from 'kui-toolkit/lucide';
+import { Database, LoaderCircle } from 'kui-toolkit/lucide';
 import { authClient } from '../../connections/auth/index.ts';
 import { ThemeToggle } from './theme-toggle.tsx';
 import { RpcProvider, useRpc } from '../../session/rpc-session/index.ts';
@@ -108,11 +108,39 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
   const session = authClient.useSession();
   if (session.isPending)
     return (
-      <div className="grid min-h-svh place-items-center">
-        <p role="status" className="text-sm text-muted-foreground">
-          Checking session…
-        </p>
-      </div>
+      <main className="min-h-svh">
+        <header className="flex h-12 items-center justify-between border-b px-4 sm:px-6">
+          <span className="text-sm font-medium tracking-tight">
+            Alchemy Console
+          </span>
+          <ThemeToggle />
+        </header>
+        <div className="grid min-h-[calc(100svh-3rem)] place-items-center px-6 py-12">
+          <section className="grid w-full max-w-sm justify-items-center gap-5 rounded-xl bg-card px-8 py-10 text-center shadow-raised">
+            <div className="grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground">
+              <Database className="size-5" aria-hidden="true" />
+            </div>
+            <div className="space-y-1.5">
+              <h1 className="text-base font-semibold tracking-tight">
+                Alchemy Console
+              </h1>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Verifying your session before loading your stores.
+              </p>
+            </div>
+            <p
+              role="status"
+              className="flex items-center gap-2 text-xs font-medium text-muted-foreground"
+            >
+              <LoaderCircle
+                className="size-3.5 motion-safe:animate-spin"
+                aria-hidden="true"
+              />
+              Checking session…
+            </p>
+          </section>
+        </div>
+      </main>
     );
   if (session.error)
     return (
@@ -134,7 +162,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
         <div className="absolute right-6 top-6">
           <ThemeToggle />
         </div>
-        <section className="w-full max-w-sm space-y-6 rounded-xl bg-card p-8 shadow-xs ring-1 ring-foreground/10">
+        <section className="w-full max-w-sm space-y-6 rounded-xl bg-card p-8 shadow-raised">
           <Database className="size-6 text-muted-foreground" />
           <div className="space-y-2">
             <h1 className="text-2xl font-medium tracking-tight">

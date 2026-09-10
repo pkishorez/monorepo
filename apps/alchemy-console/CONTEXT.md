@@ -18,16 +18,19 @@ protected from deletion in the console.
 
 **Resource**
 One unit of infrastructure recorded in a stage's state, identified by its
-fully qualified name. A resource has a type, a status, properties and outputs.
-An _action_ is a resource-like record produced by a one-off step; it has an
-action type instead of a resource type.
+fully qualified name. A resource has a type, a status, properties and
+attributes.
+
+**Action**
+A resource-like record produced by a one-off step. An action has an action
+type, status, input and output rather than resource properties and attributes.
 
 **Resource summary**
 The row-level view of a resource: its fully qualified name, kind, type and
 status. Enough to scan a stage without opening each resource.
 
 **Resource state**
-The full recorded state of one resource, including properties, outputs and
+The full recorded state of one resource, including properties, attributes and
 provider-specific fields, with secrets masked.
 
 **Outputs**
@@ -36,8 +39,7 @@ to any single resource.
 
 **Workspace**
 The screen for one store: a tree of stacks and stages beside a pane showing
-the selected stage's resources and outputs, with a resource's state opening in
-a detail panel alongside the list.
+the selected stage's resources, actions and outputs.
 
 **Access**
 What the saved credentials allow the console to do with a store: `view` reads

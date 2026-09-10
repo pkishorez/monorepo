@@ -221,7 +221,7 @@ it('loads each level independently using the saved connection, with masked state
           options(),
         );
         expect(gone.data).toBeNull();
-        const outputs = yield* client['AlchemyStateStore.GetStageOutputs'](
+        const stageView = yield* client['AlchemyStateStore.GetStageView'](
           input,
           options(),
         );
@@ -233,8 +233,10 @@ it('loads each level independently using the saved connection, with masked state
           'output-secret',
           'action-secret',
         ])
-          expect(JSON.stringify([bucket, task, outputs])).not.toContain(secret);
-        expect(fetch).toHaveBeenCalledTimes(7);
+          expect(JSON.stringify([bucket, task, stageView])).not.toContain(
+            secret,
+          );
+        expect(fetch).toHaveBeenCalledTimes(11);
       }),
     undefined,
     true,
@@ -254,7 +256,7 @@ it('loads each level independently using the saved connection, with masked state
     'Loaded state store from database',
     'Fetched resource state',
     'Loaded state store from database',
-    'Fetched stage outputs',
+    'Fetched stage view',
   ]);
 });
 
@@ -271,25 +273,33 @@ it('summarizes every resource in a stage with one call and masks nothing readabl
   });
   await run(fetch, (client) =>
     Effect.gen(function* () {
-      const summaries = yield* client[
-        'AlchemyStateStore.ListResourceSummaries'
-      ]({ storeId: 'store', stack: 'App', stage: 'prod' }, options());
-      expect(summaries).toEqual({
+      const stageView = yield* client['AlchemyStateStore.GetStageView'](
+        { storeId: 'store', stack: 'App', stage: 'prod' },
+        options(),
+      );
+      expect(stageView).toEqual({
         storeName: 'Store',
-        data: [
-          { fqn: 'Broken', kind: 'resource', type: null, status: null },
-          {
-            fqn: 'Bucket',
-            kind: 'resource',
-            type: 'Cloudflare.R2.Bucket',
-            status: 'replaced',
+        data: {
+          resources: [
+            { fqn: 'Broken', kind: 'resource', type: null, status: null },
+            {
+              fqn: 'Bucket',
+              kind: 'resource',
+              type: 'Cloudflare.R2.Bucket',
+              status: 'replaced',
+            },
+            { fqn: 'Gone', kind: 'resource', type: null, status: null },
+            { fqn: 'Task', kind: 'action', type: 'Sync', status: 'ran' },
+          ],
+          outputs: {
+            endpoint: 'https://app.example.com',
+            nested: { value: 'xxxxxxxx' },
+            echo: 'xxxxxxxx',
           },
-          { fqn: 'Gone', kind: 'resource', type: null, status: null },
-          { fqn: 'Task', kind: 'action', type: 'Sync', status: 'ran' },
-        ],
+        },
       });
-      expect(JSON.stringify(summaries)).not.toContain('secret');
-      expect(fetch).toHaveBeenCalledTimes(5);
+      expect(JSON.stringify(stageView)).not.toContain('secret');
+      expect(fetch).toHaveBeenCalledTimes(6);
     }),
   );
 });
@@ -319,10 +329,9 @@ it('does not access the remote store for another user, a missing store, or an in
           client['AlchemyStateStore.ListResources'](input, options(user)).pipe(
             Effect.asVoid,
           ),
-          client['AlchemyStateStore.GetStageOutputs'](
-            input,
-            options(user),
-          ).pipe(Effect.asVoid),
+          client['AlchemyStateStore.GetStageView'](input, options(user)).pipe(
+            Effect.asVoid,
+          ),
           client['AlchemyStateStore.GetResourceState'](
             input,
             options(user),

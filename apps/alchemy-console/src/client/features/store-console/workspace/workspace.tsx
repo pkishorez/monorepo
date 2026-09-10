@@ -37,7 +37,6 @@ export function Workspace(
         mode: 'landing' | 'management';
         StoreLink: StoreLink;
         onStoreCreated: (storeId: string) => void;
-        onStore?: (storeId: string) => void;
       },
 ) {
   if (props.mode === 'explore')
@@ -46,7 +45,6 @@ export function Workspace(
     return (
       <StoreLanding
         StoreLink={props.StoreLink}
-        onStore={props.onStore ?? props.onStoreCreated}
         onStoreCreated={props.onStoreCreated}
       />
     );
@@ -62,7 +60,6 @@ function ExploreWorkspace({
   storeId,
   stack,
   stage,
-  resource,
   StoreLink,
   ManageLink,
   NavigationLink,
@@ -93,10 +90,8 @@ function ExploreWorkspace({
           storeName={store?.name ?? null}
           stack={stack}
           stage={stage}
-          resource={resource}
           NavigationLink={NavigationLink}
           StageAction={StageAction}
-          onNavigate={onNavigate}
           sidebarHeader={
             <StoreSwitcher
               storeId={storeId}

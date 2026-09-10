@@ -10,9 +10,8 @@ export const ConsoleHandlers = ConsoleApi.toLayer({
   'AlchemyStateStore.ListStacks': operations.listStacks,
   'AlchemyStateStore.ListStages': operations.listStages,
   'AlchemyStateStore.ListResources': operations.listResources,
-  'AlchemyStateStore.ListResourceSummaries': operations.listSummaries,
+  'AlchemyStateStore.GetStageView': operations.getStageView,
   'AlchemyStateStore.GetResourceState': operations.getResourceState,
-  'AlchemyStateStore.GetStageOutputs': operations.getStageOutputs,
   'AlchemyStateStore.PreviewStageDeletion': operations.preview,
   'AlchemyStateStore.DeleteStage': operations.destroy,
 });
