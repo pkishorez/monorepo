@@ -143,28 +143,37 @@ export function ResourceBrowser({
               stage={stage}
             />
           )}
-          <section aria-labelledby="outputs-heading" className="space-y-3">
-            <SectionHeading
-              id="outputs-heading"
-              title="Outputs"
-              action={
-                query.data.data.outputs !== null && (
-                  <JsonButton
-                    title="Stage outputs"
-                    value={query.data.data.outputs}
-                    label="View outputs as JSON"
-                  />
-                )
-              }
-            />
-            <KeyValueTable
-              groups={[{ rows: flattenScalars(query.data.data.outputs) }]}
-              empty="This stage has no outputs."
-            />
-          </section>
+          <OutputsSection outputs={query.data.data.outputs} />
         </>
       )}
     </div>
+  );
+}
+
+function OutputsSection({ outputs }: { outputs: unknown }) {
+  const rows = flattenScalars(outputs);
+  return (
+    <section aria-labelledby="outputs-heading" className="space-y-3">
+      <SectionHeading
+        id="outputs-heading"
+        title="Outputs"
+        count={rows.length > 0 ? rows.length : undefined}
+        action={
+          outputs !== null && (
+            <JsonButton
+              title="Stage outputs"
+              value={outputs}
+              label="View outputs as JSON"
+            />
+          )
+        }
+      />
+      <KeyValueTable
+        groups={[{ rows }]}
+        empty="This stage has no outputs. They appear here after a deployment exports values."
+        className="rounded-lg bg-card shadow-raised"
+      />
+    </section>
   );
 }
 
@@ -303,6 +312,7 @@ function StateItem({
               <KeyValueTable
                 groups={stateGroups(summary, state)}
                 empty="No readable values. Open the JSON to see everything."
+                className="rounded-md border"
               />
             </div>
           )}
