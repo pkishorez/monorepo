@@ -1,5 +1,16 @@
 # kui-toolkit
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [[`c0dc89f`](https://github.com/pkishorez/monorepo/commit/c0dc89f3899267d87b239694d63cbbda880cb646), [`d7a9f63`](https://github.com/pkishorez/monorepo/commit/d7a9f63b89b3ad7b047fed220cc3d9e96dae1686), [`af17702`](https://github.com/pkishorez/monorepo/commit/af177027258ca535a6b085ede9fc967b73d4474a)]:
+  - use-effect-ts@0.0.11
+  - std-toolkit@0.0.10
+  - @pkishorez/lotel@0.0.10
+  - @pkishorez/effect-tracer@0.0.10
+  - laymos@0.0.10
+
 ## 0.0.1
 
 ### Patch Changes
