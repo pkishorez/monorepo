@@ -1,26 +1,19 @@
 import { Effect, FiberSet, Scope } from 'effect';
-import { useState } from 'react';
-import { useComponentScope } from './use-component-scope.js';
+import { useCallback, useRef } from 'react';
+import { useLazyScope } from './use-lazy-scope.js';
 
+/** Runs `fn` as a fiber owned by the component; every run is interrupted on unmount. */
 export function useRunEffect<Args extends any[], A, E>(
   fn: (...args: Args) => Effect.Effect<A, E, never>,
 ) {
-  const [fiberSet, setFiberSet] = useState<FiberSet.FiberSet | null>(null);
-  useComponentScope((scope) => {
-    const fiberSet = Effect.runSync(FiberSet.make().pipe(Scope.provide(scope)));
-    setFiberSet(fiberSet);
-  });
-
-  return (...args: Args) => {
-    if (!fiberSet) {
-      console.error(
-        'useRunEffect: No scope available, effect will not run. Consider using useComponentLifecycle to call initial run.',
-      );
-      throw new Error(
-        'useRunEffect: No scope available, effect will not run. Consider using useComponentLifecycle to call initial run.',
-      );
-    }
-
-    return Effect.runPromiseExit(FiberSet.run(fiberSet, fn(...args)));
-  };
+  const fnRef = useRef(fn);
+  fnRef.current = fn;
+  const fibers = useLazyScope((scope) =>
+    Effect.runSync(FiberSet.make().pipe(Scope.provide(scope))),
+  );
+  return useCallback(
+    (...args: Args) =>
+      Effect.runPromiseExit(FiberSet.run(fibers(), fnRef.current(...args))),
+    [fibers],
+  );
 }
