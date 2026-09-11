@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { JsonViewer } from 'kui-toolkit/components/blocks/json';
 import { Button } from 'kui-toolkit/components/ui/button';
@@ -9,51 +9,127 @@ import {
   DialogHeader,
   DialogTitle,
 } from 'kui-toolkit/components/ui/dialog';
-import { ScrollArea } from 'kui-toolkit/components/ui/scroll-area';
-import { Braces, ExternalLink } from 'kui-toolkit/lucide';
-import { isHttpUrl, type KeyValue, type Scalar } from './key-values.ts';
+import { Braces, Check, Copy, ExternalLink } from 'kui-toolkit/lucide';
+import {
+  clipboardText,
+  isHttpUrl,
+  type KeyValue,
+  type Scalar,
+} from './key-values.ts';
 
 export type KeyValueGroup = { title?: string; rows: ReadonlyArray<KeyValue> };
 
-function Cell({ value }: { value: Scalar }) {
+function ScalarCell({ value }: { value: Scalar }) {
   if (isHttpUrl(value))
     return (
       <a
         href={value}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex max-w-full items-start gap-1 underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground"
+        className="[overflow-wrap:anywhere] underline decoration-muted-foreground/50 underline-offset-2 transition-colors duration-150 hover:decoration-foreground"
       >
-        <span className="[overflow-wrap:anywhere]">{value}</span>
-        <ExternalLink className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+        {value}
+        <ExternalLink
+          className="ml-1 inline size-3 align-[-0.125em] text-muted-foreground"
+          aria-hidden="true"
+        />
       </a>
     );
-  const text =
-    value === null ? '—' : typeof value === 'boolean' ? String(value) : value;
-  return <span className="[overflow-wrap:anywhere]">{text}</span>;
+  if (value === null) return <span className="text-muted-foreground">—</span>;
+  if (typeof value === 'boolean')
+    return <span className="text-muted-foreground">{String(value)}</span>;
+  return <span className="[overflow-wrap:anywhere]">{value}</span>;
 }
 
-/** Two columns, no chrome. Group titles render as muted rows inside the same table. */
+function ValueCell({ value }: { value: KeyValue['value'] }) {
+  if (!Array.isArray(value)) return <ScalarCell value={value as Scalar} />;
+  return (
+    <ul className="space-y-0.5">
+      {value.map((item, index) => (
+        <li key={index}>
+          <ScalarCell value={item} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Splits `hash.bundle` into a quieter path and the leaf that differs between rows. */
+function KeyCell({ name }: { name: string }) {
+  const index = name.lastIndexOf('.');
+  const path = index === -1 ? '' : name.slice(0, index + 1);
+  const leaf = index === -1 ? name : name.slice(index + 1);
+  return (
+    <span className="block max-w-[14rem] truncate" title={name}>
+      {path && <span className="text-muted-foreground/60">{path}</span>}
+      {leaf}
+    </span>
+  );
+}
+
+function useCopied() {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const copy = (text: string) => {
+    void navigator.clipboard.writeText(text);
+    if (timer.current) clearTimeout(timer.current);
+    setCopied(true);
+    timer.current = setTimeout(() => setCopied(false), 1500);
+  };
+  return { copied, copy };
+}
+
+function CopyButton({ name, text }: { name: string; text: string }) {
+  const { copied, copy } = useCopied();
+  const label = copied ? `Copied ${name}` : `Copy ${name}`;
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      onClick={() => copy(text)}
+      aria-label={label}
+      title={label}
+      className="text-muted-foreground opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+    >
+      {copied ? <Check className="text-emerald-500" /> : <Copy />}
+    </Button>
+  );
+}
+
+/**
+ * Key column fits its longest key, values take the rest, and each row copies
+ * on hover. Group titles render as muted rows inside the same table so the
+ * columns line up across groups. Callers supply the surface via `className`.
+ */
 export function KeyValueTable({
   groups,
   empty,
+  className = '',
 }: {
   groups: ReadonlyArray<KeyValueGroup>;
   empty: string;
+  className?: string;
 }) {
   const filled = groups.filter((group) => group.rows.length > 0);
   if (filled.length === 0)
     return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
-    <ScrollArea className="max-h-[60dvh] rounded-md border">
-      <table className="w-full table-fixed text-left text-sm">
+    <div className={`overflow-x-auto ${className}`}>
+      <table className="w-full text-left">
         <tbody>
           {filled.map((group, index) => (
             <Rows key={group.title ?? index} group={group} />
           ))}
         </tbody>
       </table>
-    </ScrollArea>
+    </div>
   );
 }
 
@@ -63,7 +139,7 @@ function Rows({ group }: { group: KeyValueGroup }) {
       {group.title && (
         <tr className="bg-muted/40">
           <th
-            colSpan={2}
+            colSpan={3}
             scope="colgroup"
             className="px-3 py-1.5 text-xs font-medium text-muted-foreground"
           >
@@ -71,20 +147,28 @@ function Rows({ group }: { group: KeyValueGroup }) {
           </th>
         </tr>
       )}
-      {group.rows.map((row) => (
-        <tr key={row.key} className="border-t border-border/70">
-          <th
-            scope="row"
-            className="w-[35%] max-w-[12rem] truncate px-3 py-2 align-top font-mono text-xs font-normal text-muted-foreground"
-            title={row.key}
+      {group.rows.map((row) => {
+        const text = clipboardText(row.value);
+        return (
+          <tr
+            key={row.key}
+            className="group/row border-t border-border/70 transition-colors duration-150 first:border-t-0 hover:bg-muted/30"
           >
-            {row.key}
-          </th>
-          <td className="px-3 py-2 align-top font-mono text-xs tabular-nums">
-            <Cell value={row.value} />
-          </td>
-        </tr>
-      ))}
+            <th
+              scope="row"
+              className="w-px whitespace-nowrap py-2 pl-3 pr-6 align-baseline font-mono text-xs font-normal text-muted-foreground"
+            >
+              <KeyCell name={row.key} />
+            </th>
+            <td className="py-2 pr-2 align-baseline font-mono text-[13px] tabular-nums">
+              <ValueCell value={row.value} />
+            </td>
+            <td className="w-px py-1 pr-2 align-top">
+              {text !== null && <CopyButton name={row.key} text={text} />}
+            </td>
+          </tr>
+        );
+      })}
     </>
   );
 }

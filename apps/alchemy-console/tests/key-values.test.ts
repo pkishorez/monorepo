@@ -22,7 +22,7 @@ describe('key-value flattening', () => {
       { key: 'enabled', value: true },
       { key: 'count', value: null },
       { key: 'nested.url', value: 'https://x.dev' },
-      { key: 'tags', value: 'a, b' },
+      { key: 'tags', value: ['a', 'b'] },
     ]);
   });
 

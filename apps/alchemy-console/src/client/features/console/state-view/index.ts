@@ -6,7 +6,12 @@ export {
   type ExplorerLocation,
   type NavigationLink,
 } from './state-view.tsx';
-export { flattenScalars, isHttpUrl, type KeyValue } from './key-values.ts';
+export {
+  clipboardText,
+  flattenScalars,
+  isHttpUrl,
+  type KeyValue,
+} from './key-values.ts';
 export {
   JsonButton,
   KeyValueTable,
