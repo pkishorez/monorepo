@@ -106,9 +106,8 @@ function CopyButton({ name, text }: { name: string; text: string }) {
 
 /**
  * Key column fits its longest key, values stay on one line and the table
- * scrolls sideways when they overflow with the key column pinned, and each
- * row copies on hover. The surface must be `bg-card` so the pinned column
- * covers what scrolls beneath it. Group titles render as muted rows inside the same table so the
+ * scrolls sideways as a whole when they overflow, and each row copies on
+ * hover. Group titles render as muted rows inside the same table so the
  * columns line up across groups. Callers supply the surface via `className`.
  */
 export function KeyValueTable({
@@ -159,7 +158,7 @@ function Rows({ group }: { group: KeyValueGroup }) {
           >
             <th
               scope="row"
-              className="sticky left-0 w-px bg-card py-2 pl-3 pr-6 align-baseline font-mono text-xs font-normal text-muted-foreground transition-colors duration-150 group-hover/row:bg-[color-mix(in_oklab,var(--muted)_30%,var(--card))]"
+              className="w-px py-2 pl-3 pr-6 align-baseline font-mono text-xs font-normal text-muted-foreground"
             >
               <KeyCell name={row.key} />
             </th>
