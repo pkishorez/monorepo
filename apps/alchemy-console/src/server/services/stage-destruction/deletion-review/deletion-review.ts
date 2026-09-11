@@ -37,12 +37,21 @@ const generations = (row: ResourceState): ResourceState[] =>
     ? [row, ...generations(row.old)]
     : [row];
 
+export const isForgotten = (
+  forget: readonly { id: string; type: string }[] | null | undefined,
+  row: { fqn: string; resourceType: string },
+) =>
+  !!forget?.some(
+    (entry) => entry.id === row.fqn && entry.type === row.resourceType,
+  );
+
 export const prepare = (
   input: {
     stack: string;
     stage: string;
     connection: { accountId: string; apiToken: string };
     aws?: typeof awsConnection.Type | null;
+    forget?: readonly { id: string; type: string }[] | null;
   },
   state: StateService,
   emit: (event: typeof analysisEvent.Type) => void = () => {},
@@ -124,7 +133,11 @@ export const prepare = (
       resources.push({
         id: row.fqn,
         type: row.resourceType,
-        action: row.removalPolicy === 'retain' ? 'retain' : 'delete',
+        action: isForgotten(input.forget, row)
+          ? 'forget'
+          : row.removalPolicy === 'retain'
+            ? 'retain'
+            : 'delete',
         after: row.downstream,
         previous: versions.slice(1).map((old) => ({
           type: old.resourceType,

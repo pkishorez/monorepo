@@ -1,1 +1,6 @@
-export { prepare, PrepareError, stageChanged } from './deletion-review.ts';
+export {
+  isForgotten,
+  prepare,
+  PrepareError,
+  stageChanged,
+} from './deletion-review.ts';

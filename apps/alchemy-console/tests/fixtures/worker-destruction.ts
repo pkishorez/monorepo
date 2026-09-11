@@ -42,6 +42,7 @@ export default {
         { accountId, databaseId: 'fake-db' },
         ['Worker'],
       ),
+      Random: row('Random', 'Alchemy.Random', { value: 'x' }),
       Worker: row('Worker', 'Cloudflare.Worker', {
         accountId,
         workerName: 'fake-worker',
@@ -54,7 +55,14 @@ export default {
         tableId: 'table-id',
         tableArn,
       });
-    if (scenario === 'unsupported')
+    // A create interrupted before attributes were recorded: verify by props name.
+    if (scenario === 'interrupted' || scenario === 'interrupted-missing')
+      rows.Table = {
+        ...row('Table', 'AWS.DynamoDB.Table', undefined),
+        status: 'creating',
+        props: { tableName: 'fake-table' },
+      };
+    if (scenario === 'unsupported' || scenario === 'forget')
       rows.Custom = row('Custom', 'Custom.Resource', {});
     if (scenario === 'wrong-region')
       rows.Table = row('Table', 'AWS.DynamoDB.Table', {
@@ -109,8 +117,24 @@ export default {
             TableDescription: { TableStatus: 'DELETING' },
           });
         }
+        // Alchemy's recovery read for an interrupted create checks ownership tags.
+        if (operation === 'ListTagsOfResource')
+          return Response.json({
+            Tags: [
+              { Key: 'alchemy::stack', Value: 'App' },
+              { Key: 'alchemy::stage', Value: 'dev' },
+              { Key: 'alchemy::id', Value: 'Table' },
+            ],
+          });
+        if (operation === 'DescribeContinuousBackups')
+          return Response.json({ ContinuousBackupsDescription: {} });
+        if (operation === 'DescribeTimeToLive')
+          return Response.json({ TimeToLiveDescription: {} });
         if (operation === 'DescribeTable') {
-          if (tableDeleted && ++deletionPolls > 1)
+          if (
+            scenario === 'interrupted-missing' ||
+            (tableDeleted && ++deletionPolls > 1)
+          )
             return Response.json(
               {
                 __type:
@@ -167,7 +191,11 @@ export default {
           return Response.json(rows[id]);
         }
         if (request.method === 'DELETE') {
-          if (id === 'Table' && (!tableDeleted || deletionPolls < 2))
+          if (
+            id === 'Table' &&
+            scenario !== 'interrupted-missing' &&
+            (!tableDeleted || deletionPolls < 2)
+          )
             throw Error('Table state removed before AWS confirmed absence');
           delete rows[id];
           return new Response(null, { status: 204 });
@@ -196,7 +224,15 @@ export default {
         );
         if (!plan || 'error' in plan) return { plan };
         const result = yield* execute(
-          { ...target, fingerprint: plan.fingerprint },
+          {
+            ...target,
+            fingerprint: plan.fingerprint,
+            // The review shows the custom row as unsupported; the confirm request opts to ignore it.
+            forget:
+              scenario === 'forget'
+                ? [{ id: 'Custom', type: 'Custom.Resource' }]
+                : [],
+          },
           'delete',
           (event) => {
             if ('status' in event) events.push(event);

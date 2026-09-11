@@ -185,7 +185,8 @@ Plan/Apply. `deletion-review` inventories all resources and replacement
 generations, collecting blockers instead of stopping at the first one.
 `provider-catalog` supplies both review checks and runtime provider composition.
 Its Cloudflare and AWS members own their cloud-specific context, and AWS uses
-the DynamoDB member for the native table lifecycle and identity checks.
+the DynamoDB member for the native table lifecycle and identity checks. The
+`forget` member builds no-op providers for types the user chose to ignore.
 
 Each store has one optional AWS connection: null or a tagged object containing
 an access key ID, secret access key and region. Schema v5 migrates existing
@@ -196,7 +197,13 @@ under Additional connections. Session-token credentials are not supported.
 The review distinguishes unsupported types, supported DynamoDB tables missing
 AWS credentials, and configured resources blocked by identity or permissions.
 Any blocker disables confirmation and prevents native planning/apply on the
-server. There is no force or partial-cleanup option. Executable plans come from
+server. The only override is per resource: an unsupported row can be ignored
+with a checkbox in the review. The confirm request carries those choices, the
+server re-runs the review with them, `provider-catalog` registers a forget-only
+provider from the `forget` member for each ignored type, and Alchemy's native
+delete drops the state row without calling any cloud API. The fingerprint still
+binds the request to the reviewed state, and supported types never receive a
+forget-only provider, so a real provider cannot be shadowed. Executable plans come from
 Alchemy's native Plan.destroy; a blocked review is an inventory, not an
 executable Alchemy plan.
 

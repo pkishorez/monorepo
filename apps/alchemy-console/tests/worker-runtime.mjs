@@ -79,20 +79,33 @@ try {
   for (const response of responses) {
     assert.equal(response.status, 200);
     const result = await response.json();
-    assert.equal(result.plan.resources.length, 2);
+    assert.equal(result.plan.resources.length, 3);
+    assert.equal(result.plan.resources[1].type, 'Alchemy.Random');
+    assert.equal(result.plan.resources[1].readiness, 'ready');
     assert.deepEqual(result.plan.resources[0].after, ['Worker']);
     assert.equal(result.result, null);
     assert.equal(result.deleted, true);
     assert.deepEqual(result.remaining, []);
     assert.deepEqual(
       result.events.map((event) => event.status),
-      ['deleting', 'deleted', 'deleting', 'deleted', 'complete'],
+      // Worker and Random have no dependents and delete concurrently.
+      [
+        'deleting',
+        'deleting',
+        'deleted',
+        'deleted',
+        'deleting',
+        'deleted',
+        'complete',
+      ],
     );
     assert.deepEqual(
       result.analysis.map((event) => `${event.kind}:${event.id}`),
       [
         'analyzing:Database',
         'analyzed:Database',
+        'analyzing:Random',
+        'analyzed:Random',
         'analyzing:Worker',
         'analyzed:Worker',
       ],
@@ -144,6 +157,40 @@ try {
       ),
     );
   }
+  const interrupted = await (
+    await runtime.dispatchFetch('http://localhost/?aws=1&scenario=interrupted')
+  ).json();
+  assert.equal(interrupted.plan.executable, true, JSON.stringify(interrupted));
+  assert.equal(interrupted.tableDeleted, true, JSON.stringify(interrupted));
+  assert.equal(interrupted.deleted, true);
+  assert.deepEqual(interrupted.remaining, []);
+  const never = await (
+    await runtime.dispatchFetch(
+      'http://localhost/?aws=1&scenario=interrupted-missing',
+    )
+  ).json();
+  assert.equal(never.plan.executable, true, JSON.stringify(never));
+  assert.equal(never.tableDeleted, false);
+  assert.equal(never.deleted, true);
+  assert.deepEqual(never.remaining, []);
+  assert.ok(!never.calls.includes('AWS DeleteTable'));
+  console.log(
+    'Passed: interrupted table creates are verified by name and deleted or dropped.',
+  );
+  const forgotten = await (
+    await runtime.dispatchFetch('http://localhost/?aws=1&scenario=forget')
+  ).json();
+  assert.equal(forgotten.plan.executable, false, JSON.stringify(forgotten));
+  assert.equal(
+    forgotten.plan.resources.find((r) => r.id === 'Custom').readiness,
+    'unsupported',
+  );
+  assert.equal(forgotten.result, null, JSON.stringify(forgotten));
+  assert.equal(forgotten.deleted, true);
+  assert.deepEqual(forgotten.remaining, []);
+  console.log(
+    'Passed: unsupported resources chosen for forgetting are dropped from state without cloud calls.',
+  );
   const denied = await (
     await runtime.dispatchFetch('http://localhost/?aws=1&scenario=denied')
   ).json();

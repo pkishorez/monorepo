@@ -36,9 +36,18 @@ export const check = (
     return yield* dynamodb.check(row, connection.region, identity.Account);
   }).pipe(
     Effect.provide(environment(connection)),
-    Effect.catch(() =>
+    Effect.catch((error) =>
       Effect.succeed(
-        'Could not verify this table with the saved AWS credentials. Check the access keys and DynamoDB read permissions.',
+        `Could not verify this table with the saved AWS credentials: ${detail(error)}`,
       ),
     ),
   );
+
+// The AWS error text says whether the keys, the region, or DynamoDB permissions are the problem.
+const detail = (error: unknown) => {
+  const message =
+    error instanceof Error && error.message.trim()
+      ? error.message.trim()
+      : String(error);
+  return message.length > 400 ? `${message.slice(0, 400)}…` : message;
+};

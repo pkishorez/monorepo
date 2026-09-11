@@ -11,6 +11,9 @@ export const destructionRequest = Schema.Struct({
     Schema.makeFilter((stage) => stage.length > 0 && stage.length <= 512),
   ),
   fingerprint: Schema.optional(Schema.String),
+  forget: Schema.optional(
+    Schema.Array(Schema.Struct({ id: nonEmpty, type: nonEmpty })),
+  ),
   connection: Schema.Struct({
     url: Schema.String.check(
       Schema.makeFilter((value) => {
