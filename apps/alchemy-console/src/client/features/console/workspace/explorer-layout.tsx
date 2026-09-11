@@ -40,6 +40,7 @@ export function StoreExplorer({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const [sidebarResizing, setSidebarResizing] = useState(false);
   useEffect(() => {
     document.title = [stage, stack, storeName, 'Alchemy Console']
       .filter(Boolean)
@@ -49,7 +50,12 @@ export function StoreExplorer({
     <SidebarProvider
       open={sidebarOpen}
       onOpenChange={setSidebarOpen}
-      className="min-h-svh"
+      // The width transition is for opening and closing; a drag must track the cursor exactly.
+      className={`min-h-svh ${
+        sidebarResizing
+          ? '[&_[data-slot=sidebar-container]]:transition-none [&_[data-slot=sidebar-gap]]:transition-none'
+          : ''
+      }`}
       style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
     >
       <Sidebar collapsible="offcanvas">
@@ -76,6 +82,7 @@ export function StoreExplorer({
         <SidebarResizeHandle
           value={sidebarWidth}
           onValueChange={setSidebarWidth}
+          onResizingChange={setSidebarResizing}
         />
       </Sidebar>
       <SidebarInset className="min-w-0">
