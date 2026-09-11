@@ -1,4 +1,6 @@
 export {
+  awsConnection,
+  updateCredentialsInput,
   createStateStoreInput,
   stateStoreView,
   StateStoreError,

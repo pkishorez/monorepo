@@ -30,6 +30,9 @@ catalogs:
     '@dagrejs/dagre':
       specifier: 3.1.1
       version: 3.1.1
+    '@distilled.cloud/aws':
+      specifier: 1.0.0-rc.8
+      version: 1.0.0-rc.8
     '@distilled.cloud/cloudflare':
       specifier: 1.0.0-rc.8
       version: 1.0.0-rc.8
@@ -383,6 +386,9 @@ importers:
 
   apps/alchemy-console:
     dependencies:
+      '@distilled.cloud/aws':
+        specifier: 'catalog:'
+        version: 1.0.0-rc.8(effect@4.0.0-rc.112)
       '@distilled.cloud/cloudflare':
         specifier: 'catalog:'
         version: 1.0.0-rc.8(effect@4.0.0-rc.112)

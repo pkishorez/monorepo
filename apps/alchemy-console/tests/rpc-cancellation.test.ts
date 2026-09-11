@@ -8,9 +8,12 @@ import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
 const mocks = vi.hoisted(() => ({ makeDatabase: vi.fn(), execute: vi.fn() }));
-vi.mock('../src/server/services/stage-destruction/native-engine.ts', () => ({
-  execute: mocks.execute,
-}));
+vi.mock(
+  '../src/server/services/stage-destruction/alchemy-engine/index.ts',
+  () => ({
+    execute: mocks.execute,
+  }),
+);
 vi.mock('std-toolkit/db/sqlite/d1', () => ({
   makeD1SQLite: mocks.makeDatabase,
 }));
@@ -90,6 +93,7 @@ it('streams deletion progress through the real RPC host before completion', asyn
     Effect.gen(function* () {
       yield* table.setup;
       yield* stores.insert({
+        aws: null,
         id: 'store',
         userId: 'alice',
         name: 'Store',
@@ -179,6 +183,7 @@ it('streams preview analysis and the failing resource through the real RPC host'
     Effect.gen(function* () {
       yield* table.setup;
       yield* stores.insert({
+        aws: null,
         id: 'store',
         userId: 'alice',
         name: 'Store',

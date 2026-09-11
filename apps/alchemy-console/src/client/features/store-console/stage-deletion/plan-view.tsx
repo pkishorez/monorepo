@@ -31,6 +31,15 @@ export function PlanView({
   const retained = plan.resources.filter((r) => r.action === 'retain').length;
   return (
     <div className="space-y-4">
+      {!plan.executable && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/40 p-3 text-sm text-destructive"
+        >
+          Deletion is blocked. Resolve the resource issues below, then review
+          again. No resources have been deleted.
+        </p>
+      )}
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-md bg-muted/40 p-4 text-sm">
         <dt className="text-muted-foreground">Cloudflare account</dt>
         <dd className="break-all font-mono text-xs">{plan.accountId}</dd>
@@ -51,7 +60,7 @@ export function PlanView({
       </p>
       <ScrollArea className="max-h-72 rounded-md border">
         <div className="divide-y">
-          {plan.resources.map((resource) => {
+          {plan.resources.map((resource, index) => {
             const event = events[resource.id];
             const status = event?.status;
             const done = status === 'deleted' || status === 'retained';
@@ -62,9 +71,11 @@ export function PlanView({
               status !== 'fail' &&
               status !== 'skipped';
             return (
-              <div key={resource.id} className="flex gap-3 p-4">
+              <div key={`${resource.id}-${index}`} className="flex gap-3 p-4">
                 <span className="mt-0.5 shrink-0">
-                  {status === 'fail' || status === 'skipped' ? (
+                  {resource.readiness !== 'ready' ||
+                  status === 'fail' ||
+                  status === 'skipped' ? (
                     <CircleAlert className="size-4 text-destructive" />
                   ) : done ? (
                     <Check className="size-4" />
@@ -80,6 +91,18 @@ export function PlanView({
                   <p className="break-all text-sm font-medium">{resource.id}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {resource.type}
+                  </p>
+                  <p
+                    className={`mt-1 text-xs ${resource.reason ? 'text-destructive' : 'text-muted-foreground'}`}
+                  >
+                    {resource.readiness === 'ready'
+                      ? 'Supported and configured'
+                      : resource.readiness === 'missing-credentials'
+                        ? 'Supported · AWS connection needed'
+                        : resource.readiness === 'unsupported'
+                          ? 'Unsupported'
+                          : 'Blocked'}
+                    {resource.reason && ` — ${resource.reason}`}
                   </p>
                   {!!resource.after.length && (
                     <p className="mt-1 break-words text-xs text-muted-foreground">
@@ -126,9 +149,9 @@ export function PlanView({
       </ScrollArea>
       <p className="text-xs text-muted-foreground">
         Alchemy controls deletion order and updates state as it proceeds.
-        Retained resources stay in Cloudflare and are removed from Alchemy’s
-        tracking. Deleted resources and their data cannot be restored by this
-        dialog.
+        Retained resources stay in their cloud account and are removed from
+        Alchemy’s tracking. Deleted resources and their data cannot be restored
+        by this dialog.
       </p>
     </div>
   );

@@ -34,6 +34,7 @@ allowBuilds:
   '@prisma/client': false
 
 catalog:
+  '@distilled.cloud/aws': 1.0.0-rc.8
   '@distilled.cloud/cloudflare': 1.0.0-rc.8
   '@better-auth/drizzle-adapter': 1.7.2
   '@better-auth/infra': 0.4.5

@@ -23,14 +23,28 @@ Alchemy-managed stack.
 A deployed environment of a stack (for example `dev`, `preview`, `prod`). A
 stage owns resources and outputs. Stages whose names start with `prod` are
 protected: deleting one requires typing the acknowledgement phrase
-`I KNOW WHAT I AM DOING`, which the server checks again. Stage deletion is
-all-or-nothing: if any recorded resource cannot be safely managed, deletion
-does not begin.
+`I KNOW WHAT I AM DOING`, which the server checks again. Deletion begins only
+when every recorded resource can be managed. Execution can partially succeed;
+failed resources remain recorded for a later retry.
 
 **Resource**
 One unit of infrastructure recorded in a stage's state, identified by its
 fully qualified name. A resource has a type, a status, properties and
 attributes.
+
+**DynamoDB table**
+An AWS resource containing items. Deleting this resource during stage deletion
+means deleting the whole table and its data, rather than clearing its items
+while keeping the table.
+
+**AWS connection**
+An optional connection attached to a store that supplies access to one AWS
+account in one region. A store has at most one AWS connection, independently
+of its Cloudflare state-store connection.
+
+**Deletion review**
+A stage-wide summary of the intended outcome for each resource before deletion
+begins, including the reasons Console cannot delete particular resources.
 
 **Action**
 A resource-like record produced by a one-off step. An action has an action

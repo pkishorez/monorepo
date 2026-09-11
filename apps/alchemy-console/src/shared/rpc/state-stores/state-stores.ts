@@ -5,6 +5,7 @@ import {
   createStateStoreInput,
   stateStoreView,
   StateStoreError,
+  updateCredentialsInput,
 } from '../../contracts/state-stores/index.ts';
 import { stackTarget } from '../../contracts/state-address/index.ts';
 
@@ -19,11 +20,7 @@ export const StateStores = RpcGroup.make(
     error: StateStoreError,
   }),
   Rpc.make('AlchemyStateStore.UpdateCredentials', {
-    payload: {
-      id: nonEmpty,
-      accountId: createStateStoreInput.fields.connection.fields.accountId,
-      apiToken: nonEmpty,
-    },
+    payload: updateCredentialsInput,
     success: stateStoreView,
     error: StateStoreError,
   }),

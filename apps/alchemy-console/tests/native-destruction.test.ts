@@ -1,5 +1,6 @@
-import { Cause, Context, Effect, Exit, Layer } from 'effect';
+import { Context, Effect, Exit, Layer } from 'effect';
 import { expect, it, vi } from 'vite-plus/test';
+import { FetchHttpClient } from 'effect/unstable/http';
 import { InMemoryService } from 'alchemy/State/InMemoryState';
 import { State, type ResourceState } from 'alchemy/State';
 import type { ProviderService } from 'alchemy/Provider';
@@ -10,10 +11,7 @@ import { Stack } from 'alchemy/Stack';
 import { Stage } from 'alchemy/Stage';
 import { Cli } from 'alchemy/Cli/Cli';
 import { apply } from 'alchemy/Apply';
-import {
-  PrepareError,
-  prepare,
-} from '../src/server/services/stage-destruction/prepare.ts';
+import { prepare } from '../src/server/services/stage-destruction/deletion-review/index.ts';
 
 const row = (id: string, options: Partial<ResourceState> = {}): ResourceState =>
   ({
@@ -64,6 +62,7 @@ it('uses native Alchemy ordering, retention, and final stage cleanup', async () 
         'analyzed:Worker',
       ]);
       expect(deleted).toEqual([]);
+      if (!plan) throw new Error('Expected executable plan');
       yield* apply(plan).pipe(
         Effect.provideService(State, Effect.succeed(state)),
       );
@@ -75,6 +74,7 @@ it('uses native Alchemy ordering, retention, and final stage cleanup', async () 
       expect(events).toContain('retained');
     }).pipe(
       Effect.scoped,
+      Effect.provide(FetchHttpClient.layer),
       Effect.provide(
         Layer.succeed(TestProvider, {
           list: () => Effect.succeed([]),
@@ -127,7 +127,7 @@ it('keeps unresolved native state after provider failure and blocks dependencies
         Effect.provideService(State, Effect.succeed(state)),
       );
       const result = yield* Effect.exit(
-        apply(plan).pipe(Effect.provideService(State, Effect.succeed(state))),
+        apply(plan!).pipe(Effect.provideService(State, Effect.succeed(state))),
       );
       expect(Exit.isFailure(result)).toBe(true);
       expect(yield* state.listStages('App')).toContain('dev');
@@ -138,6 +138,7 @@ it('keeps unresolved native state after provider failure and blocks dependencies
       expect(deleteResource).not.toHaveBeenCalledWith('Database');
     }).pipe(
       Effect.scoped,
+      Effect.provide(FetchHttpClient.layer),
       Effect.provide(
         Layer.succeed(TestProvider, {
           list: () => Effect.succeed([]),
@@ -163,7 +164,7 @@ it('keeps unresolved native state after provider failure and blocks dependencies
   );
 });
 
-it('streams per-resource analysis and names the resource that blocks planning', async () => {
+it('reviews every resource and distinguishes missing credentials from unsupported types', async () => {
   const events: unknown[] = [];
   await Effect.runPromise(
     Effect.gen(function* () {
@@ -171,35 +172,35 @@ it('streams per-resource analysis and names the resource that blocks planning', 
         App: {
           dev: {
             BankTable: row('BankTable', { resourceType: 'AWS.DynamoDB.Table' }),
+            Custom: row('Custom', { resourceType: 'Custom.Resource' }),
             Worker: row('Worker'),
           },
         },
       });
-      const result = yield* Effect.exit(
-        prepare(input, state, (event) => events.push(event)).pipe(
-          Effect.provideService(State, Effect.succeed(state)),
-        ),
-      );
-      expect(Exit.isFailure(result)).toBe(true);
-      const error = Exit.isFailure(result) && Cause.squash(result.cause);
-      expect(error).toBeInstanceOf(PrepareError);
-      expect(error).toMatchObject({ resource: 'BankTable' });
-      expect((error as PrepareError).message).toContain('AWS.DynamoDB.Table');
-      expect((error as PrepareError).message).toContain('not a Cloudflare');
+      const result = yield* prepare(input, state, (event) =>
+        events.push(event),
+      ).pipe(Effect.provideService(State, Effect.succeed(state)));
+      expect(result.plan).toBeNull();
+      expect(result.resources.map((r) => [r.id, r.readiness])).toEqual([
+        ['BankTable', 'missing-credentials'],
+        ['Custom', 'unsupported'],
+        ['Worker', 'ready'],
+      ]);
       expect(events).toEqual([
         { kind: 'analyzing', id: 'BankTable', type: 'AWS.DynamoDB.Table' },
+        { kind: 'analyzed', id: 'BankTable', type: 'AWS.DynamoDB.Table' },
+        { kind: 'analyzing', id: 'Custom', type: 'Custom.Resource' },
+        { kind: 'analyzed', id: 'Custom', type: 'Custom.Resource' },
+        { kind: 'analyzing', id: 'Worker', type: 'Cloudflare.Test' },
+        { kind: 'analyzed', id: 'Worker', type: 'Cloudflare.Test' },
       ]);
       const reason = (rows: Record<string, ResourceState>) =>
         Effect.gen(function* () {
           const state = yield* InMemoryService({ App: { dev: rows } });
-          const exit = yield* Effect.exit(
-            prepare(input, state).pipe(
-              Effect.provideService(State, Effect.succeed(state)),
-            ),
+          const review = yield* prepare(input, state).pipe(
+            Effect.provideService(State, Effect.succeed(state)),
           );
-          return Exit.isFailure(exit)
-            ? (Cause.squash(exit.cause) as Error).message
-            : '';
+          return review.resources[0]?.reason ?? '';
         });
       expect(
         yield* reason({ Queue: row('Queue', { attr: { id: 'dev:1' } }) }),
@@ -210,6 +211,7 @@ it('streams per-resource analysis and names the resource that blocks planning', 
         }),
       ).toContain('different Cloudflare account');
     }).pipe(
+      Effect.provide(FetchHttpClient.layer),
       Effect.provide(
         Layer.succeed(TestProvider, {
           list: () => Effect.succeed([]),
@@ -233,12 +235,13 @@ it('checks previous generations before planning and detects state changes', asyn
       const state = yield* InMemoryService({
         App: { dev: { Worker: unsafe } },
       });
-      const result = yield* Effect.exit(
-        prepare(input, state).pipe(
-          Effect.provideService(State, Effect.succeed(state)),
-        ),
+      const result = yield* prepare(input, state).pipe(
+        Effect.provideService(State, Effect.succeed(state)),
       );
-      expect(Exit.isFailure(result)).toBe(true);
+      expect(result.plan).toBeNull();
+      expect(result.resources[0]?.reason).toContain(
+        'Previous version (Command)',
+      );
       yield* state.set({
         stack: 'App',
         stage: 'dev',
@@ -259,6 +262,7 @@ it('checks previous generations before planning and detects state changes', asyn
       );
       expect(after.fingerprint).not.toBe(before.fingerprint);
     }).pipe(
+      Effect.provide(FetchHttpClient.layer),
       Effect.provide(
         Layer.succeed(TestProvider, {
           list: () => Effect.succeed([]),

@@ -105,6 +105,54 @@ try {
   console.log(
     'Passed: native Alchemy preview, concurrent credential isolation, dependency order, streamed events and HTTP state cleanup inside workerd.',
   );
+  const awsResponses = await Promise.all(
+    ['a', 'b'].map((variant) =>
+      runtime.dispatchFetch(`http://localhost/?aws=1&variant=${variant}`),
+    ),
+  );
+  for (const response of awsResponses) {
+    const result = await response.json();
+    assert.equal(result.plan.executable, true, JSON.stringify(result));
+    assert.equal(result.result, null, JSON.stringify(result));
+    assert.equal(result.tableDeleted, true);
+    assert.ok(result.deletionPolls >= 2);
+    assert.equal(result.deleted, true);
+    assert.deepEqual(result.remaining, []);
+    assert.ok(result.calls.includes('AWS DeleteTable'));
+  }
+  console.log(
+    'Passed: native DynamoDB lifecycle, AWS request signing and concurrent region/credential isolation inside workerd; state removal waits for confirmed absence.',
+  );
+  for (const scenario of [
+    'unsupported',
+    'missing',
+    'wrong-region',
+    'wrong-account',
+  ]) {
+    const response = await runtime.dispatchFetch(
+      `http://localhost/?aws=1&scenario=${scenario}`,
+    );
+    const result = await response.json();
+    assert.equal(result.plan.executable, false, JSON.stringify(result));
+    assert.ok(result.plan.resources.length >= 3);
+    assert.equal(result.deleted, false);
+    assert.equal(result.tableDeleted, false);
+    assert.ok(result.result.error.includes('blocker'));
+    assert.ok(
+      !result.calls.some(
+        (call) => call.startsWith('DELETE') || call === 'AWS DeleteTable',
+      ),
+    );
+  }
+  const denied = await (
+    await runtime.dispatchFetch('http://localhost/?aws=1&scenario=denied')
+  ).json();
+  assert.equal(denied.plan.executable, true);
+  assert.equal(denied.deleted, false);
+  assert.deepEqual(denied.remaining, ['Table']);
+  console.log(
+    'Passed: backend blocks unsupported/missing/mismatched connections, and failed AWS deletion preserves table and stage state.',
+  );
 } finally {
   await runtime?.dispose();
   await rm(directory, { recursive: true, force: true });

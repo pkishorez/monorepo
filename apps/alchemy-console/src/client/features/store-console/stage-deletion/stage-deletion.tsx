@@ -326,7 +326,9 @@ function DeletionDialog({
           {review && !planFailed && !attempted.current && (
             <Button
               variant="destructive"
-              disabled={!plan || preview.pending || busy || !acknowledged}
+              disabled={
+                !plan?.executable || preview.pending || busy || !acknowledged
+              }
               onClick={() => {
                 attempted.current = true;
                 onBusyChange(true);
