@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from 'kui-toolkit/components/ui/dialog';
+import { ScrollArea } from 'kui-toolkit/components/ui/scroll-area';
 import { Braces, Check, Copy, ExternalLink } from 'kui-toolkit/lucide';
 import {
   clipboardText,
@@ -26,7 +27,7 @@ function ScalarCell({ value }: { value: Scalar }) {
         href={value}
         target="_blank"
         rel="noopener noreferrer"
-        className="[overflow-wrap:anywhere] underline decoration-muted-foreground/50 underline-offset-2 transition-colors duration-150 hover:decoration-foreground"
+        className="underline decoration-muted-foreground/50 underline-offset-2 transition-colors duration-150 hover:decoration-foreground"
       >
         {value}
         <ExternalLink
@@ -38,7 +39,7 @@ function ScalarCell({ value }: { value: Scalar }) {
   if (value === null) return <span className="text-muted-foreground">—</span>;
   if (typeof value === 'boolean')
     return <span className="text-muted-foreground">{String(value)}</span>;
-  return <span className="[overflow-wrap:anywhere]">{value}</span>;
+  return <>{value}</>;
 }
 
 function ValueCell({ value }: { value: KeyValue['value'] }) {
@@ -104,8 +105,10 @@ function CopyButton({ name, text }: { name: string; text: string }) {
 }
 
 /**
- * Key column fits its longest key, values take the rest, and each row copies
- * on hover. Group titles render as muted rows inside the same table so the
+ * Key column fits its longest key, values stay on one line and the table
+ * scrolls sideways when they overflow with the key column pinned, and each
+ * row copies on hover. The surface must be `bg-card` so the pinned column
+ * covers what scrolls beneath it. Group titles render as muted rows inside the same table so the
  * columns line up across groups. Callers supply the surface via `className`.
  */
 export function KeyValueTable({
@@ -121,15 +124,15 @@ export function KeyValueTable({
   if (filled.length === 0)
     return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
-    <div className={`overflow-x-auto ${className}`}>
-      <table className="w-full text-left">
+    <ScrollArea orientation="horizontal" className={className}>
+      <table className="w-full whitespace-nowrap text-left">
         <tbody>
           {filled.map((group, index) => (
             <Rows key={group.title ?? index} group={group} />
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollArea>
   );
 }
 
@@ -156,7 +159,7 @@ function Rows({ group }: { group: KeyValueGroup }) {
           >
             <th
               scope="row"
-              className="w-px whitespace-nowrap py-2 pl-3 pr-6 align-baseline font-mono text-xs font-normal text-muted-foreground"
+              className="sticky left-0 w-px bg-card py-2 pl-3 pr-6 align-baseline font-mono text-xs font-normal text-muted-foreground transition-colors duration-150 group-hover/row:bg-[color-mix(in_oklab,var(--muted)_30%,var(--card))]"
             >
               <KeyCell name={row.key} />
             </th>
