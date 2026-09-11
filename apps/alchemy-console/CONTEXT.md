@@ -3,9 +3,23 @@
 ## Terms
 
 **Store**
-A saved, user-owned connection to one Alchemy state endpoint on Cloudflare. A
+A named, user-owned Alchemy state location. A store lives in one provider
+(Cloudflare today), located through one provider credential, and may be
+granted further provider credentials for deleting the resources it records. A
 user picks a store; they rarely browse stores. Stores are managed (added,
-renamed, re-credentialed, removed) separately from exploring their contents.
+renamed, re-granted, removed) separately from exploring their contents.
+
+**Provider credential**
+A named, user-owned set of credentials for one account at one provider
+(Cloudflare or AWS today). Provider credentials are managed on their own
+settings screen, independently of any store. A credential records the account
+it belongs to, so Console can match a recorded resource to the credential that
+can delete it. One credential can serve many stores.
+
+**Grant**
+A store's permission to use one provider credential during deletion. A store's
+locating credential is always granted; further credentials are granted by the
+user per store.
 
 **Stack**
 A named application within a store, as Alchemy records it. A stack contains
@@ -37,19 +51,27 @@ An AWS resource containing items. Deleting this resource during stage deletion
 means deleting the whole table and its data, rather than clearing its items
 while keeping the table.
 
-**AWS connection**
-An optional connection attached to a store that supplies access to one AWS
-account in one region. A store has at most one AWS connection, independently
-of its Cloudflare state-store connection.
+**Credential selection**
+The deletion review's per-provider choice of which credential (and, for AWS,
+which region) the stage will be deleted with. Console proposes a default from
+the accounts and regions recorded on the stage's resources, falling back to the
+store's locating credential or the only granted option; the user can change it
+before confirming. One credential serves each provider for the whole stage.
+
+**Settings**
+The screen where a user manages their provider credentials, grouped by
+provider, independently of any store.
 
 **Ignore a resource**
-A per-resource checkbox in the deletion review for types Console cannot
-delete. On confirm, Alchemy removes the resource from the stage's state and
-leaves whatever the resource created in place.
+A per-resource checkbox in the deletion review for any resource Console cannot
+delete, whether the type is unsupported or the resource is blocked. On confirm,
+Alchemy removes the resource from the stage's state and leaves whatever the
+resource created in place, so it may become an orphan.
 
 **Deletion review**
 A stage-wide summary of the intended outcome for each resource before deletion
-begins, including the reasons Console cannot delete particular resources.
+begins, including the credential selection per provider and the reasons Console
+cannot delete particular resources.
 
 **Action**
 A resource-like record produced by a one-off step. An action has an action

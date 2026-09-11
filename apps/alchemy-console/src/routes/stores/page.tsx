@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { AccountMenu } from '../../client/features/auth-boundary/index.ts';
 import { Logo } from '../../client/features/brand/index.ts';
-import { Workspace } from '../../client/features/store-console/workspace/index.ts';
+import { Workspace } from '../../client/features/console/workspace/index.ts';
 
 export const Route = createFileRoute('/stores/')({ component: StoresPage });
 
@@ -15,6 +15,10 @@ function StoreLink({
   children?: ReactNode;
 }) {
   return <Link to="/stores/$storeId" params={{ storeId }} {...props} />;
+}
+
+function SettingsLink(props: { className?: string; children?: ReactNode }) {
+  return <Link to="/settings" {...props} />;
 }
 
 function StoresPage() {
@@ -33,6 +37,7 @@ function StoresPage() {
       <Workspace
         mode="management"
         StoreLink={StoreLink}
+        SettingsLink={SettingsLink}
         onStoreCreated={(storeId) => {
           void navigate({ to: '/stores/$storeId', params: { storeId } });
         }}

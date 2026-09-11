@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
-import { execute } from 'alchemy-console/stage-destruction-engine';
+import { execute } from 'alchemy-console/deletion-engine';
 export default {
   async fetch(request: Request) {
     const variant =
@@ -8,7 +8,6 @@ export default {
     const awsTest = new URL(request.url).searchParams.has('aws');
     const scenario = new URL(request.url).searchParams.get('scenario');
     const aws = {
-      type: 'aws' as const,
       accessKeyId: `AKIAFAKE${variant}`,
       secretAccessKey: `fake-secret-${variant}`,
       region: variant === 'a' ? 'us-east-1' : 'us-west-2',
@@ -204,16 +203,44 @@ export default {
       }
       throw Error('Unexpected mock state path: ' + path);
     };
+    const granted = awsTest && scenario !== 'missing';
     const target = {
-      aws: awsTest && scenario !== 'missing' ? aws : null,
       stack: 'App',
       stage: 'dev',
-      connection: {
-        accountId,
-        apiToken,
-        authToken,
-        url: 'https://state.example.workers.dev',
-      },
+      state: { authToken, url: 'https://state.example.workers.dev' },
+      stateCredentialId: 'cf',
+      available: [
+        {
+          id: 'cf',
+          name: 'Cloudflare',
+          account: accountId,
+          secret: { provider: 'cloudflare' as const, accountId, apiToken },
+        },
+        ...(granted
+          ? [
+              {
+                id: 'aws',
+                name: 'AWS',
+                account: awsAccount,
+                secret: {
+                  provider: 'aws' as const,
+                  accessKeyId: aws.accessKeyId,
+                  secretAccessKey: aws.secretAccessKey,
+                },
+              },
+            ]
+          : []),
+      ],
+      // The user confirmed the AWS credential and region in the review.
+      credentials: granted
+        ? [
+            {
+              provider: 'aws' as const,
+              credentialId: 'aws',
+              region: aws.region,
+            },
+          ]
+        : [],
     };
     const events: unknown[] = [];
     const analysis: unknown[] = [];

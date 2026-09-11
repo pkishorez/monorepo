@@ -1,15 +1,9 @@
 import { Authz } from 'auth-toolkit/rpc';
-import { StateStores } from '../../rpc/state-stores/index.ts';
-import { StateBrowser } from '../../rpc/state-browser/index.ts';
-import { ResourceBrowser } from '../../rpc/resource-browser/index.ts';
-import { StageDeletionPreview } from '../../rpc/stage-deletion-preview/index.ts';
-import { DeleteStage } from '../../rpc/delete-stage/index.ts';
+import { Credentials } from '../../rpc/credentials/index.ts';
+import { Stores } from '../../rpc/stores/index.ts';
+import { Explorer } from '../../rpc/explorer/index.ts';
+import { Deletion } from '../../rpc/deletion/index.ts';
 
 export const ConsoleApi = Authz.guard()(
-  StateStores.merge(
-    StateBrowser,
-    ResourceBrowser,
-    StageDeletionPreview,
-    DeleteStage,
-  ),
+  Credentials.merge(Stores, Explorer, Deletion),
 );

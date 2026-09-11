@@ -6,7 +6,7 @@ import {
   HttpClientResponse,
 } from 'effect/unstable/http';
 import { expect, it, vi } from 'vite-plus/test';
-import { discover } from '../src/server/services/cloudflare-discovery/index.ts';
+import { discover } from '../src/server/providers/cloudflare/discovery.ts';
 
 const accountId = 'a'.repeat(32);
 const apiToken = 'account-api-token';
@@ -83,7 +83,7 @@ it('times out the whole discovery after 45 seconds and interrupts the pending re
   expect(result).toMatchObject({
     _tag: 'Failure',
     failure: {
-      code: 'discovery-failed',
+      code: 'failed',
       reason: 'Discovery exceeded 45 seconds. Please retry.',
     },
   });
@@ -212,7 +212,7 @@ it.each([
     const messages = diagnostics.logs.flatMap((event) => event.message);
     expect(messages).toEqual(['Resolved state store connection']);
     expect(diagnostics.spans.map((span) => span.name)).toEqual([
-      'CloudflareDiscovery.discover',
+      'CloudflareProvider.discover',
     ]);
     const telemetry = JSON.stringify({
       logs: diagnostics.logs,
@@ -279,7 +279,7 @@ it('still reports a rejected upload after falling back from an unsuccessful exch
   expect(result).toMatchObject({
     _tag: 'Failure',
     failure: {
-      code: 'cloudflare-permission',
+      code: 'permission',
       reason: expect.stringContaining(
         'Binding AlchemyStateStoreToken to the preview Worker failed: Cloudflare returned HTTP 403. Missing Secrets Store Write permission',
       ),
@@ -299,7 +299,7 @@ it('reports permissions without reflecting Cloudflare error bodies or tokens', a
   expect(result).toMatchObject({
     _tag: 'Failure',
     failure: {
-      code: 'cloudflare-permission',
+      code: 'permission',
       reason: expect.stringContaining(
         'Reading the Workers subdomain failed: Cloudflare returned HTTP 403.',
       ),
@@ -321,7 +321,7 @@ it('does not create a missing Worker', async () => {
   expect(result).toMatchObject({
     _tag: 'Failure',
     failure: {
-      code: 'state-store-missing',
+      code: 'not-found',
       reason: expect.stringContaining(
         'Finding the alchemy-state-store Worker failed: Cloudflare returned HTTP 404.',
       ),
@@ -350,7 +350,7 @@ it('rejects redirects explicitly without following them or exposing their locati
   expect(result).toMatchObject({
     _tag: 'Failure',
     failure: {
-      code: 'discovery-failed',
+      code: 'failed',
       reason: expect.stringContaining('HTTP 302. Redirects are not followed'),
     },
   });
@@ -402,7 +402,7 @@ it('refuses an exchange URL outside Cloudflare before sending a request to it', 
   expect(result).toMatchObject({
     _tag: 'Failure',
     failure: {
-      code: 'discovery-failed',
+      code: 'failed',
       reason: expect.stringContaining(
         'Exchanging the Workers preview session failed:',
       ),
@@ -443,7 +443,7 @@ it('preserves structured Cloudflare errors while masking API and preview tokens'
   expect(result).toMatchObject({
     _tag: 'Failure',
     failure: {
-      code: 'cloudflare-permission',
+      code: 'permission',
       reason:
         'Binding AlchemyStateStoreToken to the preview Worker failed: Cloudflare returned HTTP 403. Secrets Store Write required. Submitted xxxxxxxx and xxxxxxxx (code 10000)',
     },
@@ -488,7 +488,7 @@ it.each([
     expect(result).toMatchObject({
       _tag: 'Failure',
       failure: {
-        code: 'discovery-failed',
+        code: 'failed',
         reason: expect.stringContaining(reason),
       },
     });

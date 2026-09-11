@@ -1,0 +1,15 @@
+export {
+  isProtectedStage,
+  protectedStageAcknowledgement,
+  acknowledgesProtectedStage,
+  forgottenResource,
+  awsRegion,
+  credentialChoice,
+  deletionOptions,
+  credentialSelection,
+  deletionPlan,
+  analysisEvent,
+  previewEvent,
+  deletionEvent,
+  DeletionError,
+} from './deletion.ts';
