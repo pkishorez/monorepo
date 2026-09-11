@@ -5,9 +5,12 @@ import { Button } from 'kui-toolkit/components/ui/button';
 import { Input } from 'kui-toolkit/components/ui/input';
 import { Checkbox } from 'kui-toolkit/components/ui/checkbox';
 import {
-  NativeSelect,
-  NativeSelectOption,
-} from 'kui-toolkit/components/ui/native-select';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from 'kui-toolkit/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -219,31 +222,48 @@ export function StoreDialog({
                   </Button>
                 }
               >
-                <NativeSelect
-                  className="w-full"
-                  id={`${id}-state`}
-                  value={stateCredentialId}
+                <Select
+                  value={stateCredentialId || null}
+                  items={Object.fromEntries(
+                    cloudflare.map((item) => [
+                      item.id,
+                      describeCredential(item),
+                    ]),
+                  )}
                   disabled={
                     request.pending ||
-                    (credentials.pending && !credentials.data)
+                    (credentials.pending && !credentials.data) ||
+                    !cloudflare.length
                   }
-                  onChange={(event) => {
-                    setStateCredentialId(event.target.value);
+                  onValueChange={(value) => {
+                    setStateCredentialId(value ?? '');
                     if (validation?.field === 'state') setValidation(null);
                   }}
-                  aria-invalid={validation?.field === 'state' || undefined}
                 >
-                  <NativeSelectOption value="">
-                    {cloudflare.length
-                      ? 'Choose a Cloudflare credential'
-                      : 'No Cloudflare credentials yet'}
-                  </NativeSelectOption>
-                  {cloudflare.map((item) => (
-                    <NativeSelectOption key={item.id} value={item.id}>
-                      {describeCredential(item)}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
+                  <SelectTrigger
+                    id={`${id}-state`}
+                    className="w-full"
+                    aria-invalid={validation?.field === 'state' || undefined}
+                  >
+                    <SelectValue
+                      placeholder={
+                        cloudflare.length
+                          ? 'Choose a Cloudflare credential'
+                          : 'No Cloudflare credentials yet'
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent
+                    alignItemWithTrigger={false}
+                    className="bg-[color-mix(in_oklch,var(--popover),var(--foreground)_5%)] shadow-lg ring-foreground/15"
+                  >
+                    {cloudflare.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {describeCredential(item)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </Field>
             )}
             {action.kind === 'edit' && state && (

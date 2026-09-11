@@ -10,6 +10,15 @@ export const providerLabels: Record<ProviderKind, string> = {
   cloudflare: 'Cloudflare',
   aws: 'AWS',
 };
+/** Which provider a resource type belongs to, by its `Cloudflare.` or `AWS.` prefix. */
+export const providerOfResourceType = (
+  resourceType: string,
+): ProviderKind | null =>
+  resourceType.startsWith('Cloudflare.')
+    ? 'cloudflare'
+    : resourceType.startsWith('AWS.')
+      ? 'aws'
+      : null;
 
 export const cloudflareAccountId = Schema.String.check(
   Schema.makeFilter((value) => /^[a-f0-9]{32}$/i.test(value)),
