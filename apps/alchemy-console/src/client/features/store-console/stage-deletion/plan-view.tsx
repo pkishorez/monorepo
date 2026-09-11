@@ -5,10 +5,11 @@ import {
   CircleAlert,
   Trash2,
 } from 'kui-toolkit/lucide';
-import { ScrollArea } from 'kui-toolkit/components/ui/scroll-area';
+import { Checkbox } from 'kui-toolkit/components/ui/checkbox';
 import type {
   deletionPlan,
   deletionEvent,
+  forgottenResource,
 } from '../../../../shared/contracts/delete-stage/index.ts';
 
 const statusLabel: Record<string, string> = {
@@ -22,22 +23,40 @@ export function PlanView({
   plan,
   events,
   running,
+  ignored,
+  onIgnoreChange,
 }: {
   plan: typeof deletionPlan.Type;
   events: Record<string, typeof deletionEvent.Type>;
   running: boolean;
+  ignored: (resource: typeof forgottenResource.Type) => boolean;
+  /** Present until deletion starts; unsupported rows can be ignored so Alchemy only drops their state. */
+  onIgnoreChange?: (
+    resource: typeof forgottenResource.Type,
+    ignore: boolean,
+  ) => void;
 }) {
   const deleted = plan.resources.filter((r) => r.action === 'delete').length;
   const retained = plan.resources.filter((r) => r.action === 'retain').length;
+  const forgotten = plan.resources.filter(
+    (r) =>
+      (r.action === 'forget' && r.type !== 'Action') ||
+      (r.readiness === 'unsupported' && ignored(r)),
+  ).length;
+  const unresolved = plan.resources.some(
+    (r) =>
+      r.readiness !== 'ready' && !(r.readiness === 'unsupported' && ignored(r)),
+  );
   return (
     <div className="space-y-4">
-      {!plan.executable && (
+      {!plan.executable && unresolved && (
         <p
           role="alert"
           className="rounded-md border border-destructive/40 p-3 text-sm text-destructive"
         >
           Deletion is blocked. Resolve the resource issues below, then review
-          again. No resources have been deleted.
+          again. Unsupported resources can be ignored instead. No resources have
+          been deleted.
         </p>
       )}
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 rounded-md bg-muted/40 p-4 text-sm">
@@ -52,17 +71,30 @@ export function PlanView({
         <span className="font-medium text-foreground">{deleted}</span> to delete
         {' · '}
         <span className="font-medium text-foreground">{retained}</span> to keep
+        {forgotten > 0 && (
+          <>
+            {' · '}
+            <span className="font-medium text-foreground">{forgotten}</span> to
+            remove from state
+          </>
+        )}
         {' · '}
         <span className="font-medium text-foreground">
           {plan.resources.length}
         </span>{' '}
         tracked
       </p>
-      <ScrollArea className="max-h-72 rounded-md border">
+      {/* The dialog body scrolls as a whole; a second capped region here would nest scrolling. */}
+      <div className="rounded-md border">
         <div className="divide-y">
           {plan.resources.map((resource, index) => {
             const event = events[resource.id];
             const status = event?.status;
+            const ignore =
+              resource.readiness === 'unsupported' && ignored(resource);
+            const forgets =
+              (resource.action === 'forget' && resource.type !== 'Action') ||
+              ignore;
             const done = status === 'deleted' || status === 'retained';
             const active =
               running &&
@@ -95,15 +127,35 @@ export function PlanView({
                   <p
                     className={`mt-1 text-xs ${resource.reason ? 'text-destructive' : 'text-muted-foreground'}`}
                   >
-                    {resource.readiness === 'ready'
-                      ? 'Supported and configured'
-                      : resource.readiness === 'missing-credentials'
-                        ? 'Supported · AWS connection needed'
-                        : resource.readiness === 'unsupported'
-                          ? 'Unsupported'
-                          : 'Blocked'}
+                    {forgets && resource.readiness === 'ready'
+                      ? 'Removed from Alchemy state only'
+                      : resource.readiness === 'ready'
+                        ? 'Supported and configured'
+                        : resource.readiness === 'missing-credentials'
+                          ? 'Supported · AWS connection needed'
+                          : resource.readiness === 'unsupported'
+                            ? 'Unsupported'
+                            : 'Blocked'}
                     {resource.reason && ` — ${resource.reason}`}
                   </p>
+                  {resource.readiness === 'unsupported' && onIgnoreChange && (
+                    <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs">
+                      <Checkbox
+                        className="mt-0.5"
+                        checked={ignore}
+                        onCheckedChange={(checked) =>
+                          onIgnoreChange(
+                            { id: resource.id, type: resource.type },
+                            checked === true,
+                          )
+                        }
+                      />
+                      <span>
+                        Ignore this resource and remove it from Alchemy state.
+                        Whatever it created stays as it is.
+                      </span>
+                    </label>
+                  )}
                   {!!resource.after.length && (
                     <p className="mt-1 break-words text-xs text-muted-foreground">
                       After: {resource.after.join(', ')}
@@ -132,8 +184,8 @@ export function PlanView({
                     ? statusLabel[status]
                     : resource.action === 'retain'
                       ? 'Keep'
-                      : resource.action === 'forget'
-                        ? 'Stop tracking'
+                      : forgets
+                        ? 'Remove from state'
                         : 'Delete'}
                 </span>
               </div>
@@ -146,7 +198,7 @@ export function PlanView({
             </p>
           )}
         </div>
-      </ScrollArea>
+      </div>
       <p className="text-xs text-muted-foreground">
         Alchemy controls deletion order and updates state as it proceeds.
         Retained resources stay in their cloud account and are removed from

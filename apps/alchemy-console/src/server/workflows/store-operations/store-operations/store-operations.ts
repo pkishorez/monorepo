@@ -9,7 +9,10 @@ import {
   type readStageTarget,
 } from '../../../../shared/contracts/state-address/index.ts';
 import type { resourceTarget } from '../../../../shared/contracts/resource-browser/index.ts';
-import type { stageTarget } from '../../../../shared/contracts/delete-stage/index.ts';
+import type {
+  deletionOptions,
+  stageTarget,
+} from '../../../../shared/contracts/delete-stage/index.ts';
 import { alchemyStateStoreEntity } from '../../../storage/state-store-database/index.ts';
 import * as management from '../store-management/index.ts';
 import * as browser from '../state-browser/index.ts';
@@ -162,18 +165,23 @@ export const deleteStack = (input: typeof stackTarget.Type) =>
     yield* Effect.logInfo('Deleted empty stack');
   }).pipe(Effect.withSpan('StoreOperations.deleteStack'));
 
-export const preview = (input: typeof stageTarget.Type) =>
+export const preview = (
+  input: typeof stageTarget.Type & typeof deletionOptions.Type,
+) =>
   Stream.unwrap(
     authorizeDeletion(input, { kind: 'preview' }).pipe(
-      Effect.map(deletionPreview.preview),
+      Effect.map((target) =>
+        deletionPreview.preview({ ...target, forget: input.forget }),
+      ),
       Effect.withSpan('DeleteStage.preview'),
     ),
   );
 export const destroy = (
-  input: typeof stageTarget.Type & {
-    fingerprint: string;
-    acknowledgement?: string | undefined;
-  },
+  input: typeof stageTarget.Type &
+    typeof deletionOptions.Type & {
+      fingerprint: string;
+      acknowledgement?: string | undefined;
+    },
 ) =>
   Stream.unwrap(
     authorizeDeletion(input, {
@@ -181,7 +189,11 @@ export const destroy = (
       acknowledgement: input.acknowledgement,
     }).pipe(
       Effect.map((target) =>
-        deletion.destroy({ ...target, fingerprint: input.fingerprint }),
+        deletion.destroy({
+          ...target,
+          forget: input.forget,
+          fingerprint: input.fingerprint,
+        }),
       ),
     ),
   );

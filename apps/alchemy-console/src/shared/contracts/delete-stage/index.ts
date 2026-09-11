@@ -1,6 +1,8 @@
 export {
   stageTarget,
+  deletionOptions,
   deletionPlan,
+  forgottenResource,
   deletionEvent,
   analysisEvent,
   previewEvent,

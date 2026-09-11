@@ -42,6 +42,11 @@ An optional connection attached to a store that supplies access to one AWS
 account in one region. A store has at most one AWS connection, independently
 of its Cloudflare state-store connection.
 
+**Ignore a resource**
+A per-resource checkbox in the deletion review for types Console cannot
+delete. On confirm, Alchemy removes the resource from the stage's state and
+leaves whatever the resource created in place.
+
 **Deletion review**
 A stage-wide summary of the intended outcome for each resource before deletion
 begins, including the reasons Console cannot delete particular resources.

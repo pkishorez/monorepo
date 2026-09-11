@@ -27,6 +27,7 @@ import {
   protectedStageAcknowledgement,
   DeleteStageError,
   type deletionEvent,
+  type forgottenResource,
 } from '../../../../shared/contracts/delete-stage/index.ts';
 import { isAlchemyManagedStack } from '../../../../shared/contracts/state-address/index.ts';
 import { PlanView } from './plan-view.tsx';
@@ -137,6 +138,31 @@ function DeletionDialog({
   const acknowledgementId = useId();
   const preview = useDeletionPreview({ storeId, stack, stage });
   const { plan } = preview;
+  // Unsupported resources the user chose to ignore: Alchemy drops their state on confirm.
+  const [forget, setForget] = useState<(typeof forgottenResource.Type)[]>([]);
+  const ignored = (resource: typeof forgottenResource.Type) =>
+    forget.some(
+      (entry) => entry.id === resource.id && entry.type === resource.type,
+    );
+  const setIgnored = (
+    resource: typeof forgottenResource.Type,
+    ignore: boolean,
+  ) =>
+    setForget((current) => [
+      ...current.filter(
+        (entry) => entry.id !== resource.id || entry.type !== resource.type,
+      ),
+      ...(ignore ? [resource] : []),
+    ]);
+  // Every blocker is either resolved by the server or an unsupported row the user chose to ignore.
+  const confirmable =
+    !!plan &&
+    (plan.executable ||
+      plan.resources.every(
+        (resource) =>
+          resource.readiness === 'ready' ||
+          (resource.readiness === 'unsupported' && ignored(resource)),
+      ));
   const [events, setEvents] = useState<
     Record<string, typeof deletionEvent.Type>
   >({});
@@ -156,6 +182,7 @@ function DeletionDialog({
           stack,
           stage,
           fingerprint: plan.fingerprint,
+          forget,
           acknowledgement: protectedStage ? acknowledgement : undefined,
         }).pipe(
           Stream.runForEach((event) =>
@@ -252,7 +279,15 @@ function DeletionDialog({
           <ScrollArea className="min-h-0">
             <div className="space-y-4">
               {!plan && <DeletionPreview preview={preview} />}
-              {plan && <PlanView plan={plan} events={events} running={busy} />}
+              {plan && (
+                <PlanView
+                  plan={plan}
+                  events={events}
+                  running={busy}
+                  ignored={ignored}
+                  onIgnoreChange={attempted.current ? undefined : setIgnored}
+                />
+              )}
               {plan && protectedStage && !attempted.current && (
                 <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
                   <label
@@ -327,7 +362,7 @@ function DeletionDialog({
             <Button
               variant="destructive"
               disabled={
-                !plan?.executable || preview.pending || busy || !acknowledged
+                !confirmable || preview.pending || busy || !acknowledged
               }
               onClick={() => {
                 attempted.current = true;

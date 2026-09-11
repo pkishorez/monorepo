@@ -149,13 +149,14 @@
             "provider-catalog": {},
             "cloudflare": {},
             "aws": {},
-            "dynamodb": {}
+            "dynamodb": {},
+            "forget": {}
           },
           "rules": {
             "stage-destruction": ["alchemy-engine"],
             "alchemy-engine": ["deletion-review", "provider-catalog"],
             "deletion-review": ["provider-catalog"],
-            "provider-catalog": ["cloudflare", "aws"],
+            "provider-catalog": ["cloudflare", "aws", "forget"],
             "aws": ["dynamodb"]
           }
         }

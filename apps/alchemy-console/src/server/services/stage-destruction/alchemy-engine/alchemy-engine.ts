@@ -18,6 +18,7 @@ import type {
 } from '../../../../shared/contracts/delete-stage/index.ts';
 import {
   PrepareError,
+  isForgotten,
   prepare,
   stageChanged,
 } from '../deletion-review/index.ts';
@@ -66,6 +67,7 @@ export const execute = (
       authToken: string;
     };
     aws?: typeof awsConnection.Type | null;
+    forget?: readonly { id: string; type: string }[] | null;
   },
   mode: 'preview' | 'delete',
   emit: (event: EngineEvent) => void,
@@ -162,8 +164,12 @@ export const execute = (
                     type: redact(node.resource.Type),
                     readiness: 'ready' as const,
                     reason: null,
-                    action:
-                      node.resource.RemovalPolicy === 'retain'
+                    action: isForgotten(input.forget, {
+                      fqn: node.resource.FQN,
+                      resourceType: node.resource.Type,
+                    })
+                      ? ('forget' as const)
+                      : node.resource.RemovalPolicy === 'retain'
                         ? ('retain' as const)
                         : ('delete' as const),
                     after: node.downstream.map(redact),

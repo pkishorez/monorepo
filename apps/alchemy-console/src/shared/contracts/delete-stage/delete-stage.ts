@@ -18,6 +18,12 @@ export const stageTarget = Schema.Struct({
   stage: name,
 });
 
+/** A resource the user chose to stop tracking: its state row is dropped and nothing behind it is touched. */
+export const forgottenResource = Schema.Struct({ id: name, type: name });
+export const deletionOptions = Schema.Struct({
+  forget: Schema.optional(Schema.Array(forgottenResource)),
+});
+
 export const deletionPlan = Schema.Struct({
   stack: Schema.String,
   stage: Schema.String,

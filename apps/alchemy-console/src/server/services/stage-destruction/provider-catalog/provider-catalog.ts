@@ -7,17 +7,37 @@ import { KeyPairProvider } from 'alchemy/KeyPair';
 import type { awsConnection } from '../../../../shared/contracts/state-stores/index.ts';
 import * as cloudflare from '../cloudflare/index.ts';
 import * as aws from '../aws/index.ts';
+import * as forget from '../forget/index.ts';
 
 type Connections = {
   connection: { accountId: string; apiToken: string };
   aws?: typeof awsConnection.Type | null;
+  // Resources the user chose to stop tracking instead of deleting.
+  forget?: readonly { id: string; type: string }[] | null;
 };
+// Random and KeyPair live only in state; deleting them drops the row.
+const supported = (type: string) =>
+  type.startsWith('Cloudflare.') ||
+  type === 'AWS.DynamoDB.Table' ||
+  ['Alchemy.Random', 'Alchemy.KeyPair'].includes(type);
+const forgotten = (input: Connections, row: ResourceState) =>
+  !supported(row.resourceType) &&
+  !!input.forget?.some(
+    (entry) => entry.id === row.fqn && entry.type === row.resourceType,
+  );
+
 export const providers = (input: Connections) =>
   Layer.mergeAll(
     cloudflare.providers(input.connection),
     aws.providers(input.aws),
     RandomProvider(),
     KeyPairProvider(),
+    // Only unsupported types get a forget-only provider, so a real provider is never shadowed.
+    forget.providers(
+      (input.forget ?? [])
+        .map((entry) => entry.type)
+        .filter((type) => !supported(type)),
+    ),
   );
 
 export const check = (input: Connections, row: ResourceState) =>
@@ -33,7 +53,9 @@ export const check = (input: Connections, row: ResourceState) =>
       readiness: 'blocked' as const,
       reason,
     });
-    if (!isCloudflare && !isDynamo && !['Random', 'KeyPair'].includes(type))
+    if (forgotten(input, row))
+      return { readiness: 'ready' as const, reason: null };
+    if (!supported(type))
       return unsupported(
         `Console does not support deleting ${type}. Use alchemy destroy from the project.`,
       );
