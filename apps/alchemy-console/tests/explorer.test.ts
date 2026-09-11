@@ -10,7 +10,6 @@ import { consoleTable } from '../src/server/storage/table/index.ts';
 import { storeEntity as stores } from '../src/server/storage/stores/index.ts';
 import { ConsoleApi } from '../src/shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../src/server/handlers/console-handlers/index.ts';
-import { DeletionLock } from '../src/server/storage/deletion-lock/index.ts';
 
 const token = 'private-store-token';
 const resolver = Layer.succeed(Authz.Resolver, {
@@ -84,12 +83,6 @@ const run = <A, E>(
       ),
       Effect.provide(
         ConsoleHandlers.pipe(
-          Layer.provide(
-            Layer.succeed(DeletionLock, {
-              acquire: () => Effect.die('Unexpected deletion'),
-              release: () => Effect.void,
-            }),
-          ),
           Layer.provide(table.layer),
           Layer.provide(FetchHttpClient.layer),
         ),

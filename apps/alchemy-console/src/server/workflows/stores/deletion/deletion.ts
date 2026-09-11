@@ -1,5 +1,4 @@
 import { Effect, Stream } from 'effect';
-import { DeletionLock } from '../../../storage/deletion-lock/index.ts';
 import {
   acknowledgesProtectedStage,
   DeletionError,
@@ -42,39 +41,4 @@ export const authorize = (
 export const preview = (request: Request) =>
   engine.preview(request).pipe(Stream.withSpan('Deletion.preview'));
 
-export const destroy = (request: Request) =>
-  Stream.unwrap(
-    Effect.gen(function* () {
-      const lock = yield* DeletionLock;
-      const key = JSON.stringify([
-        new URL(request.state.url).href,
-        request.stack,
-        request.stage,
-      ]);
-      const owner = crypto.randomUUID();
-      yield* Effect.acquireRelease(
-        lock.acquire(key, owner).pipe(
-          Effect.mapError(
-            () =>
-              new DeletionError({
-                code: 'storage-error',
-                reason: 'Could not lock this stage for deletion.',
-              }),
-          ),
-          Effect.flatMap((acquired) =>
-            acquired
-              ? Effect.void
-              : Effect.fail(
-                  new DeletionError({
-                    code: 'remote-error',
-                    reason:
-                      'Another deletion is running for this stage. Wait for it to finish before retrying.',
-                  }),
-                ),
-          ),
-        ),
-        () => lock.release(key, owner).pipe(Effect.ignore),
-      );
-      return engine.destroy(request);
-    }),
-  );
+export const destroy = (request: Request) => engine.destroy(request);

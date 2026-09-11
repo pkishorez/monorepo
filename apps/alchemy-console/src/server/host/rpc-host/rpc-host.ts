@@ -1,5 +1,4 @@
 import { Effect, Layer } from 'effect';
-import { makeDeletionLock } from '../../storage/deletion-lock/index.ts';
 import {
   authzCookies,
   authzLayer,
@@ -30,7 +29,6 @@ export function handleRpc(
 
   const database = makeD1SQLite({ database: binding });
   const table = SQLite.make(consoleTable, { database });
-  const deletionLock = makeDeletionLock(database);
 
   const http = FetchHttpClient.layer.pipe(
     Layer.provide(
@@ -40,11 +38,7 @@ export function handleRpc(
   );
 
   const dependencies = Layer.mergeAll(
-    ConsoleHandlers.pipe(
-      Layer.provide(table.layer),
-      Layer.provide(http),
-      Layer.provide(deletionLock.layer),
-    ),
+    ConsoleHandlers.pipe(Layer.provide(table.layer), Layer.provide(http)),
     authzLayer.pipe(
       Layer.provide(
         resolverLive({
@@ -70,8 +64,6 @@ export function handleRpc(
       scope,
     );
     return yield* Effect.gen(function* () {
-      yield* table.setup;
-      yield* deletionLock.setup;
       const rpc = yield* RpcServer.toHttpEffect(ConsoleApi);
       return yield* authzCookies(rpc).pipe(Effect.interruptible);
     }).pipe(Effect.provide(context));

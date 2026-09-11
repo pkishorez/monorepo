@@ -1,8 +1,37 @@
-import { AlchemyContext, Stack, Stage } from 'alchemy';
+import { Action, AlchemyContext, Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
+import { SQLite } from 'std-toolkit/db/sqlite';
+import type { TableSnapshot } from 'std-toolkit/snapshot';
+import { makeD1SQLite } from 'std-toolkit/db/sqlite/d1';
+import { consoleTable } from './src/server/storage/table/index.ts';
+// Entities register on the table as their modules load; the snapshot must see all of them.
+import './src/server/storage/credentials/index.ts';
+import './src/server/storage/stores/index.ts';
 
 const productionHost: string = 'alchemy.kishore.app';
+
+export const Database = Cloudflare.D1.Database(
+  'Database',
+  Effect.gen(function* () {
+    const stage = yield* Stage;
+    return { name: `alchemy-console-${stage}` };
+  }),
+);
+
+// Runs whenever the console table's schema changes.
+const PrepareDatabase = Action(
+  'PrepareDatabase',
+  Effect.gen(function* () {
+    const query = yield* Cloudflare.D1.QueryDatabase(Database);
+    return Effect.fn(function* (_schema: { snapshot: TableSnapshot }) {
+      const database = makeD1SQLite({ database: yield* query.raw });
+      const table = SQLite.make(consoleTable, { database });
+      yield* table.setup;
+      yield* consoleTable.verifySnapshot().pipe(Effect.provide(table.layer));
+    });
+  }).pipe(Effect.provide(Cloudflare.D1.QueryDatabaseLocal)),
+);
 
 export const Worker = Cloudflare.Website.Vite(
   'Worker',
@@ -20,12 +49,10 @@ export const Worker = Cloudflare.Website.Vite(
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
     }
-    const database = yield* Cloudflare.D1.Database('Database', {
-      name: `alchemy-console-${stage}`,
-    });
+    yield* PrepareDatabase({ snapshot: consoleTable.snapshot() });
 
     return {
-      env: { DB: database },
+      env: { DB: Database },
       compatibility: { date: '2026-07-01', flags: ['nodejs_compat'] },
       dev: dev ? { port } : undefined,
       domain: deployed

@@ -1,5 +1,6 @@
 import { Effect } from 'effect';
 import type { OtlpLogger, OtlpTracer } from 'effect/unstable/observability';
+import { SQLite } from 'std-toolkit/db/sqlite';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
@@ -10,6 +11,7 @@ vi.mock('std-toolkit/db/sqlite/d1', () => ({
 
 import { makeRpcRuntime, Rpc } from '../src/client/connections/rpc/index.ts';
 import { handleRpc } from '../src/server/host/rpc-host/index.ts';
+import { consoleTable } from '../src/server/storage/table/index.ts';
 import { telemetryLayer as clientTelemetry } from '../src/client/telemetry/index.ts';
 import { telemetryLayer as serverTelemetry } from '../src/server/telemetry/index.ts';
 
@@ -22,6 +24,7 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
   const traces: OtlpTracer.TraceData[] = [];
   const logs: OtlpLogger.LogsData[] = [];
   const database = makeNodeSQLite({ path: ':memory:' });
+  await Effect.runPromise(SQLite.make(consoleTable, { database }).setup);
   mocks.makeDatabase.mockReturnValue(database);
   const apiToken = 'private-cloudflare-token';
   const cookie = 'session=private-session-token';

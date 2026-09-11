@@ -120,12 +120,11 @@
     },
     "server-storage": {
       "paths": ["src/server/storage"],
-      "description": "Owns the console table, its entities and the deletion lock consumed by workflows and the host.",
+      "description": "Owns the console table and its entities consumed by workflows and the host.",
       "modules": {
         "src/server/storage/table": { "shared": true, "exposed": true },
         "src/server/storage/stores": { "exposed": true },
-        "src/server/storage/credentials": { "exposed": true },
-        "src/server/storage/deletion-lock": { "exposed": true }
+        "src/server/storage/credentials": { "exposed": true }
       }
     },
     "server-telemetry": {
