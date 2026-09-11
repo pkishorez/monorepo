@@ -312,7 +312,7 @@ function StateItem({
               <KeyValueTable
                 groups={stateGroups(summary, state)}
                 empty="No readable values. Open the JSON to see everything."
-                className="rounded-md border"
+                className="rounded-md border bg-card"
               />
             </div>
           )}
