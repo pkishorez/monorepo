@@ -2,6 +2,7 @@ export {
   providerKinds,
   providerKind,
   providerLabels,
+  providerOfResourceType,
   cloudflareAccountId,
   cloudflareSecret,
   awsSecret,
