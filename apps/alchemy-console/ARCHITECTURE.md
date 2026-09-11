@@ -163,7 +163,7 @@ and the workflow rejects the request without it. Every other nonempty stage name
 deletes after the plan review alone. Ownership and the presence of account
 credentials are checked on the server; credentials always come from the saved
 connection. There is no stored access level: every connection offers deletion.
-Planning validates state only; a missing Cloudflare permission fails at apply
+Planning checks state and cloud identity; a missing Cloudflare deletion permission fails at apply
 time on that resource, Alchemy skips its dependents, keeps the remaining state,
 and the same stage can be deleted again after the token is fixed. The
 token dialog offers a minimal Read template (Workers Scripts and Secrets Store,
@@ -173,11 +173,45 @@ by hand.
 
 The native service composes stock live providers for Workers and routes, D1,
 KV, R2 and its notifications/Sippy/catalog, Workflows, DNS records, Secrets Store,
-Hyperdrive, queue subscriptions, Random and KeyPair. Other resource types,
+Hyperdrive, queue subscriptions, Random, KeyPair and AWS DynamoDB tables. Other resource types,
 including Queues and queue consumers, currently block the entire stage during
 preview: those Alchemy providers still import local runtime initialization that
 fails in workerd. This check includes older replacement generations. Providers
 are never replaced with handwritten Cloudflare deletion calls.
+
+The `stage-destruction` service is a Laymos module graph. Its exposed member
+owns streaming and deadlines; `alchemy-engine` orchestrates review and native
+Plan/Apply. `deletion-review` inventories all resources and replacement
+generations, collecting blockers instead of stopping at the first one.
+`provider-catalog` supplies both review checks and runtime provider composition.
+Its Cloudflare and AWS members own their cloud-specific context, and AWS uses
+the DynamoDB member for the native table lifecycle and identity checks.
+
+Each store has one optional AWS connection: null or a tagged object containing
+an access key ID, secret access key and region. Schema v5 migrates existing
+stores to null. Returned credentials are masked; editing can preserve the saved
+connection, replace it, or explicitly remove it. The add/edit form exposes AWS
+under Additional connections. Session-token credentials are not supported.
+
+The review distinguishes unsupported types, supported DynamoDB tables missing
+AWS credentials, and configured resources blocked by identity or permissions.
+Any blocker disables confirmation and prevents native planning/apply on the
+server. There is no force or partial-cleanup option. Executable plans come from
+Alchemy's native Plan.destroy; a blocked review is an inventory, not an
+executable Alchemy plan.
+
+AWS calls use explicitly scoped Distilled credentials and region. STS verifies
+the account, and DescribeTable checks the persisted ARN/name/table ID before
+the native provider deletes by name. Region/account mismatches, missing table
+identity, and deletion protection block deletion. A retained table may keep
+deletion protection enabled. A reviewed fingerprint includes the AWS connection
+identity so changing keys or region requires a fresh review. No local AWS
+profile or emulator is initialized.
+
+AWS permissions include DescribeTable, DeleteTable, DescribeContributorInsights
+and CloudWatch DescribeInsightRules. Depending on the table configuration, the
+native lifecycle may also require UpdateContributorInsights and UpdateTable.
+Alchemy waits for ResourceNotFoundException before removing table state.
 
 Cloudflare credentials and account context are scoped to each operation through
 Alchemy/Distilled services. HTTP state uses Alchemy's native HTTP store and its

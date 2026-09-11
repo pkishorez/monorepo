@@ -4,7 +4,7 @@ import {
   deletionEvent,
   previewEvent,
   DeleteStageError,
-} from '../../../shared/contracts/delete-stage/index.ts';
+} from '../../../../shared/contracts/delete-stage/index.ts';
 import { execute } from 'alchemy-console/stage-destruction-engine';
 import { destructionRequest } from './request.ts';
 

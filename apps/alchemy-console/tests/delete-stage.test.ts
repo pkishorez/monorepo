@@ -19,7 +19,7 @@ import {
 } from '../src/server/storage/stage-deletion-lock/index.ts';
 const native = vi.hoisted(() => ({ execute: vi.fn() }));
 vi.mock(
-  '../src/server/services/stage-destruction/native-engine.ts',
+  '../src/server/services/stage-destruction/alchemy-engine/index.ts',
   () => native,
 );
 
@@ -33,7 +33,7 @@ import {
   compareStackNames,
   isAlchemyManagedStack,
 } from '../src/shared/contracts/state-address/index.ts';
-import { destructionRequest } from '../src/server/services/stage-destruction/request.ts';
+import { destructionRequest } from '../src/server/services/stage-destruction/stage-destruction/request.ts';
 import {
   readPermissions,
   writePermissions,
@@ -49,6 +49,7 @@ const connection = {
 };
 const target = { storeId: 'store', stack: 'App', stage: 'dev' };
 const plan = {
+  executable: true,
   stack: 'App',
   stage: 'dev',
   accountId: connection.accountId,
@@ -99,6 +100,7 @@ const run = <A, E>(
       yield* table.setup;
       yield* makeStageDeletionLock(database).setup;
       yield* stores.insert({
+        aws: null,
         id: 'store',
         userId: 'alice',
         name: 'Store',

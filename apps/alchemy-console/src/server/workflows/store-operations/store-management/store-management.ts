@@ -9,13 +9,25 @@ import {
   alchemyStateStoreEntity as stores,
   alchemyStateStoreSchema,
 } from '../../../storage/state-store-database/index.ts';
-import type { createStateStoreInput } from '../../../../shared/contracts/state-stores/index.ts';
+import type {
+  createStateStoreInput,
+  updateCredentialsInput,
+} from '../../../../shared/contracts/state-stores/index.ts';
 
 // Explicit projection keeps stored credentials out of every successful response.
 const view = (store: typeof alchemyStateStoreSchema.Type) => ({
   id: store.id,
   userId: store.userId,
   name: store.name,
+  aws:
+    store.aws === null
+      ? null
+      : {
+          type: 'aws' as const,
+          accessKeyId: 'xxxxxxxx' as const,
+          secretAccessKey: 'xxxxxxxx' as const,
+          region: store.aws.region,
+        },
   connection: {
     kind: store.connection.kind,
     accountId: store.connection.accountId,
@@ -40,6 +52,7 @@ export const create = (
       id,
       userId,
       name: input.name.trim(),
+      aws: input.aws ?? null,
       connection: { ...input.connection, ...resolved },
       createdAt: now,
       updatedAt: now,
@@ -117,11 +130,7 @@ export const remove = (userId: string, input: { id: string }) =>
 
 export const updateCredentials = (
   userId: string,
-  input: {
-    id: string;
-    accountId: string;
-    apiToken: string;
-  },
+  input: typeof updateCredentialsInput.Type,
 ) =>
   Effect.gen(function* () {
     const key = { userId, id: input.id };
@@ -135,7 +144,16 @@ export const updateCredentials = (
         }),
       );
     }
-    const resolved = yield* discover(input);
+    const apiToken =
+      input.apiToken.trim() || existing.value.connection.apiToken;
+    if (!apiToken)
+      return yield* Effect.fail(
+        new CloudflareDiscoveryError({
+          code: 'discovery-failed',
+          reason: 'Paste your Cloudflare API token.',
+        }),
+      );
+    const resolved = yield* discover({ accountId: input.accountId, apiToken });
     if (resolved.url !== existing.value.connection.url) {
       return yield* Effect.fail(
         new CloudflareDiscoveryError({
@@ -145,10 +163,11 @@ export const updateCredentials = (
       );
     }
     const saved = yield* stores.getAndUpdate(key, {
+      aws: input.aws === undefined ? existing.value.aws : input.aws,
       connection: {
         kind: 'cloudflare',
         accountId: input.accountId,
-        apiToken: input.apiToken,
+        apiToken,
         ...resolved,
       },
       updatedAt: new Date().toISOString(),

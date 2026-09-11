@@ -23,10 +23,18 @@ export const deletionPlan = Schema.Struct({
   stage: Schema.String,
   accountId: Schema.String,
   fingerprint: Schema.String,
+  executable: Schema.Boolean,
   resources: Schema.Array(
     Schema.Struct({
       id: Schema.String,
       type: Schema.String,
+      readiness: Schema.Literals([
+        'ready',
+        'unsupported',
+        'missing-credentials',
+        'blocked',
+      ]),
+      reason: Schema.NullOr(Schema.String),
       action: Schema.Literals(['delete', 'retain', 'forget']),
       after: Schema.Array(Schema.String),
       previous: Schema.Array(

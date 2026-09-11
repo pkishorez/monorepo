@@ -63,6 +63,7 @@ export const authorizeDeletion = (input: Target, intent: Intent) =>
     return {
       stack: input.stack,
       stage: input.stage,
+      aws: store.value.aws,
       connection: {
         ...connection,
         accountId: connection.accountId,

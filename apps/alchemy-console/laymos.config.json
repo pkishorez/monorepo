@@ -136,10 +136,28 @@
         "src/server/services/alchemy-state": {
           "shared": false,
           "exposed": true
-        },
-        "src/server/services/stage-destruction": {
-          "shared": false,
-          "exposed": true
+        }
+      },
+      "moduleGraphs": {
+        "stage-destruction": {
+          "path": "src/server/services/stage-destruction",
+          "description": "Reviews the complete stage and executes native Alchemy plans using explicitly scoped cloud providers.",
+          "modules": {
+            "stage-destruction": { "exposed": true },
+            "alchemy-engine": {},
+            "deletion-review": {},
+            "provider-catalog": {},
+            "cloudflare": {},
+            "aws": {},
+            "dynamodb": {}
+          },
+          "rules": {
+            "stage-destruction": ["alchemy-engine"],
+            "alchemy-engine": ["deletion-review", "provider-catalog"],
+            "deletion-review": ["provider-catalog"],
+            "provider-catalog": ["cloudflare", "aws"],
+            "aws": ["dynamodb"]
+          }
         }
       }
     },

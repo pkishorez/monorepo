@@ -59,6 +59,7 @@ const run = <A, E>(
     Effect.gen(function* () {
       yield* table.setup;
       yield* stores.insert({
+        aws: null,
         id: 'store',
         userId: 'alice',
         name: 'Store',

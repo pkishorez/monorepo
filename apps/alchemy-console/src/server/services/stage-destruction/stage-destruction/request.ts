@@ -1,9 +1,11 @@
 import { Schema } from 'effect';
+import { awsConnection } from '../../../../shared/contracts/state-stores/index.ts';
 
 const nonEmpty = Schema.String.check(
   Schema.makeFilter((s) => s.length > 0 && s.length <= 4096),
 );
 export const destructionRequest = Schema.Struct({
+  aws: Schema.optional(Schema.NullOr(awsConnection)),
   stack: nonEmpty,
   stage: Schema.String.check(
     Schema.makeFilter((stage) => stage.length > 0 && stage.length <= 512),

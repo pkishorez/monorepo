@@ -259,6 +259,7 @@ it('persists the raw token and removes the actual row on delete', async () => {
   const database = makeNodeSQLite({ path: ':memory:' });
   const table = SQLite.make(appTable, { database });
   const record = {
+    aws: null,
     id: 'one',
     userId: 'alice',
     name: 'Store',
@@ -270,7 +271,7 @@ it('persists the raw token and removes the actual row on delete', async () => {
     Effect.gen(function* () {
       yield* table.setup;
       const encoded = yield* alchemyStateStoreSchema.encode(record);
-      expect(encoded._v).toBe('v4');
+      expect(encoded._v).toBe('v5');
       expect(yield* alchemyStateStoreSchema.decode(encoded)).toEqual(record);
       yield* stores.insert(record);
       expect(
@@ -335,6 +336,61 @@ it('keeps replacement credentials private', async () => {
   );
 });
 
+it('saves, preserves, replaces and removes optional AWS credentials without returning keys', async () => {
+  await run((client) =>
+    Effect.gen(function* () {
+      const aws = {
+        type: 'aws' as const,
+        accessKeyId: 'AKIATESTPRIVATE',
+        secretAccessKey: 'aws-private-secret',
+        region: 'us-east-1',
+      };
+      const created = yield* client['AlchemyStateStore.Create'](
+        { name: 'AWS store', connection, aws },
+        headers('alice'),
+      );
+      expect(created.aws).toEqual({
+        ...aws,
+        accessKeyId: 'xxxxxxxx',
+        secretAccessKey: 'xxxxxxxx',
+      });
+      const update = {
+        id: created.id,
+        accountId: connection.accountId,
+        apiToken: '',
+      };
+      const preserved = yield* client['AlchemyStateStore.UpdateCredentials'](
+        update,
+        headers('alice'),
+      );
+      expect(preserved.aws).toEqual(created.aws);
+      const replacement = {
+        ...aws,
+        accessKeyId: 'AKIAREPLACEMENT',
+        secretAccessKey: 'replacement-aws-secret',
+        region: 'us-west-2',
+      };
+      yield* client['AlchemyStateStore.UpdateCredentials'](
+        { ...update, aws: replacement },
+        headers('bob'),
+      ).pipe(Effect.flip);
+      const saved = yield* client['AlchemyStateStore.UpdateCredentials'](
+        { ...update, aws: replacement },
+        headers('alice'),
+      );
+      expect(saved.aws?.region).toBe('us-west-2');
+      expect(JSON.stringify(saved)).not.toContain(replacement.secretAccessKey);
+      expect(JSON.stringify(saved)).not.toContain(replacement.accessKeyId);
+      const removed = yield* client['AlchemyStateStore.UpdateCredentials'](
+        { ...update, aws: null },
+        headers('alice'),
+      );
+      expect(removed.aws).toBeNull();
+      expect(removed.connection.apiToken).toBe('xxxxxxxx');
+    }),
+  );
+});
+
 it('rejects empty fields, unsupported adapters, and invalid account IDs', () => {
   const decode = Schema.decodeUnknownSync(createStateStoreInput);
   for (const input of [
@@ -369,6 +425,7 @@ it('migrates v1 URL/token connections without inventing account credentials', as
     apiToken: null,
   });
   expect(decoded).not.toHaveProperty('access');
+  expect(decoded.aws).toBeNull();
   const graded = await Effect.runPromise(
     alchemyStateStoreSchema.decode({
       ...legacy,

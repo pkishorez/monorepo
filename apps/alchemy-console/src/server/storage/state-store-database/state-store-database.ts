@@ -43,6 +43,20 @@ export const alchemyStateStoreSchema = EntityESchema.make(
     void access;
     return rest;
   })
+  .evolve(
+    'v5',
+    {
+      aws: Schema.NullOr(
+        Schema.Struct({
+          type: Schema.Literal('aws'),
+          accessKeyId: Schema.String,
+          secretAccessKey: Schema.String,
+          region: Schema.String,
+        }),
+      ),
+    },
+    (previous) => ({ ...previous, aws: null }),
+  )
   .build();
 
 export const appTable = StdTable.make('alchemy-console')

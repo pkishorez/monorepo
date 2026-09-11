@@ -261,7 +261,7 @@ function StoreMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onSelect('credentials')}>
           <KeyRound />
-          Update token
+          Edit connections
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

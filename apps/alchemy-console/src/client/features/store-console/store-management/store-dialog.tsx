@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { useQueryClient } from '@tanstack/react-query';
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Input } from 'kui-toolkit/components/ui/input';
@@ -27,7 +27,13 @@ import {
   cloudflareTokenUrl,
 } from './cloudflare-token-url.ts';
 
-type FieldName = 'name' | 'account' | 'token';
+type FieldName =
+  | 'name'
+  | 'account'
+  | 'token'
+  | 'accessKeyId'
+  | 'secretAccessKey'
+  | 'region';
 
 function Field({
   id,
@@ -91,6 +97,25 @@ export function StoreDialog({
       : '',
   );
   const [token, setToken] = useState('');
+  const savedAws = action.kind === 'credentials' ? action.store.aws : null;
+  const [awsEnabled, setAwsEnabled] = useState(!!savedAws);
+  const [replaceAws, setReplaceAws] = useState(!savedAws);
+  const [awsFields, setAwsFields] = useState({
+    accessKeyId: '',
+    secretAccessKey: '',
+    region: savedAws?.region ?? '',
+  });
+  const submitting = useRef(false);
+  const aws = !awsEnabled
+    ? null
+    : !replaceAws
+      ? undefined
+      : {
+          type: 'aws' as const,
+          accessKeyId: awsFields.accessKeyId.trim(),
+          secretAccessKey: awsFields.secretAccessKey.trim(),
+          region: awsFields.region.trim(),
+        };
   const validAccount = cloudflareTokenUrl(accountId) !== null;
   const [validation, setValidation] = useState<{
     field: FieldName;
@@ -123,11 +148,13 @@ export function StoreDialog({
             id: action.store.id,
             accountId: accountId.trim(),
             apiToken: token.trim(),
+            aws,
           });
           return undefined;
         }
         const store = yield* rpc['AlchemyStateStore.Create']({
           name: name.trim(),
+          aws: aws ?? null,
           connection: {
             kind: 'cloudflare',
             accountId: accountId.trim(),
@@ -135,7 +162,13 @@ export function StoreDialog({
           },
         });
         return store.id;
-      }),
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            submitting.current = false;
+          }),
+        ),
+      ),
     (storeId) => {
       void queryClient.invalidateQueries({ queryKey: rpcQueryKeys.stores });
       if (action.kind === 'delete') {
@@ -152,15 +185,15 @@ export function StoreDialog({
       : action.kind === 'rename'
         ? 'Rename store'
         : action.kind === 'credentials'
-          ? 'Update token'
+          ? 'Edit connections'
           : 'Delete store?';
   const description =
     action.kind === 'delete'
-      ? `Remove “${action.store.name}” and its saved token from this console. Its remote state stays intact.`
+      ? `Remove “${action.store.name}” and its saved credentials from this console. Its remote state stays intact.`
       : action.kind === 'add'
         ? 'We’ll find the Alchemy state store in this Cloudflare account.'
         : action.kind === 'credentials'
-          ? 'Paste a new token. Stage deletion uses it for every resource.'
+          ? 'Update Cloudflare access or the optional AWS connection used during stage deletion.'
           : 'Give this connection a new name.';
 
   return (
@@ -170,16 +203,25 @@ export function StoreDialog({
         if (!open && !request.pending) onClose();
       }}
     >
-      <DialogContent showCloseButton={!request.pending}>
+      <DialogContent
+        showCloseButton={!request.pending}
+        className="max-h-[85dvh] overflow-y-auto"
+        initialFocus={
+          typeof window !== 'undefined' && 'ontouchstart' in window
+            ? false
+            : undefined
+        }
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <form
-          className="space-y-5"
+          className="space-y-5 [&_input]:text-base [&_button]:active:scale-[0.97]"
           noValidate
           onSubmit={(event) => {
             event.preventDefault();
+            if (request.pending || submitting.current) return;
             setValidation(null);
             if (action.kind !== 'delete' && !name.trim()) {
               setValidation({ field: 'name', message: 'Enter a store name.' });
@@ -193,14 +235,42 @@ export function StoreDialog({
                 });
                 return;
               }
-              if (!token.trim()) {
+              if (
+                !token.trim() &&
+                (action.kind === 'add' || !action.store.connection.apiToken)
+              ) {
                 setValidation({
                   field: 'token',
                   message: 'Paste your Cloudflare API token.',
                 });
                 return;
               }
+              if (aws) {
+                for (const field of [
+                  'accessKeyId',
+                  'secretAccessKey',
+                  'region',
+                ] as const) {
+                  if (
+                    !aws[field] ||
+                    (field === 'region' &&
+                      !/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(aws.region))
+                  ) {
+                    setValidation({
+                      field,
+                      message:
+                        field === 'region'
+                          ? 'Enter an AWS region, such as us-east-1.'
+                          : field === 'accessKeyId'
+                            ? 'Enter your AWS access key ID.'
+                            : 'Enter your AWS secret access key.',
+                    });
+                    return;
+                  }
+                }
+              }
             }
+            submitting.current = true;
             request.run(undefined);
           }}
         >
@@ -208,9 +278,17 @@ export function StoreDialog({
             <Field id={`${id}-name`} label="Name" error={fieldError('name')}>
               <Input
                 id={`${id}-name`}
-                autoFocus
+                autoFocus={
+                  typeof window !== 'undefined' && !('ontouchstart' in window)
+                }
+                autoComplete="off"
+                spellCheck={false}
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => {
+                  setName(event.target.value);
+                  if (event.target.value.trim() && validation?.field === 'name')
+                    setValidation(null);
+                }}
                 placeholder="Personal Cloudflare"
                 disabled={request.pending}
                 {...fieldProps('name', `${id}-name`)}
@@ -307,13 +385,120 @@ export function StoreDialog({
                   id={`${id}-token`}
                   type="password"
                   autoComplete="off"
-                  placeholder="Paste your API token"
+                  placeholder={
+                    action.kind === 'credentials' &&
+                    action.store.connection.apiToken
+                      ? 'Leave blank to keep the saved token'
+                      : 'Paste your API token'
+                  }
+                  spellCheck={false}
+                  data-1p-ignore
                   value={token}
-                  onChange={(event) => setToken(event.target.value)}
+                  onChange={(event) => {
+                    setToken(event.target.value);
+                    if (
+                      validation?.field === 'token' &&
+                      event.target.value.trim()
+                    )
+                      setValidation(null);
+                  }}
                   disabled={request.pending}
                   {...fieldProps('token', `${id}-token`)}
                 />
               </Field>
+              <details
+                open={awsEnabled || undefined}
+                className="rounded-lg border p-4"
+              >
+                <summary className="cursor-pointer rounded-sm text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring">
+                  Additional connections
+                </summary>
+                <div className="mt-4 space-y-4">
+                  <label className="flex cursor-pointer items-center gap-3 text-sm font-medium">
+                    <input
+                      type="checkbox"
+                      checked={awsEnabled}
+                      disabled={request.pending}
+                      className="size-4 accent-primary focus-visible:outline-2 focus-visible:outline-ring"
+                      onChange={(event) => {
+                        setAwsEnabled(event.target.checked);
+                        setValidation(null);
+                      }}
+                    />
+                    AWS connection
+                  </label>
+                  <p className="text-sm text-muted-foreground">
+                    Optional. Allows Console to delete DynamoDB tables in one
+                    AWS account and region.
+                  </p>
+                  {awsEnabled && !replaceAws && (
+                    <div className="space-y-2">
+                      <p className="text-sm">
+                        AWS credentials saved · {savedAws?.region}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={request.pending}
+                        onClick={() => setReplaceAws(true)}
+                      >
+                        Replace AWS credentials
+                      </Button>
+                    </div>
+                  )}
+                  {awsEnabled &&
+                    replaceAws &&
+                    (['accessKeyId', 'secretAccessKey', 'region'] as const).map(
+                      (field) => (
+                        <Field
+                          key={field}
+                          id={`${id}-${field}`}
+                          label={
+                            field === 'accessKeyId'
+                              ? 'Access key ID'
+                              : field === 'secretAccessKey'
+                                ? 'Secret access key'
+                                : 'AWS region'
+                          }
+                          error={fieldError(field)}
+                        >
+                          <Input
+                            id={`${id}-${field}`}
+                            type={
+                              field === 'secretAccessKey' ? 'password' : 'text'
+                            }
+                            value={awsFields[field]}
+                            autoComplete="off"
+                            spellCheck={false}
+                            autoCapitalize="none"
+                            data-1p-ignore
+                            placeholder={
+                              field === 'region' ? 'us-east-1' : undefined
+                            }
+                            disabled={request.pending}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAwsFields((previous) => ({
+                                ...previous,
+                                [field]: value,
+                              }));
+                              if (
+                                validation?.field === field &&
+                                value.trim() &&
+                                (field !== 'region' ||
+                                  /^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(
+                                    value.trim(),
+                                  ))
+                              )
+                                setValidation(null);
+                            }}
+                            {...fieldProps(field, `${id}-${field}`)}
+                          />
+                        </Field>
+                      ),
+                    )}
+                </div>
+              </details>
             </>
           )}
           {request.error && (
@@ -351,7 +536,7 @@ export function StoreDialog({
                 : action.kind === 'add'
                   ? 'Add store'
                   : action.kind === 'credentials'
-                    ? 'Save token'
+                    ? 'Save connections'
                     : action.kind === 'delete'
                       ? 'Delete store'
                       : 'Save name'}

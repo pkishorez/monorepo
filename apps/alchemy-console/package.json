@@ -2,6 +2,7 @@
   "name": "alchemy-console",
   "version": "0.0.0",
   "dependencies": {
+    "@distilled.cloud/aws": "catalog:",
     "@distilled.cloud/cloudflare": "catalog:",
     "@pkishorez/effect-tracer": "workspace:*",
     "@tanstack/react-query": "catalog:",
@@ -47,6 +48,6 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    "./stage-destruction-engine": "./src/server/services/stage-destruction/native-engine.ts"
+    "./stage-destruction-engine": "./src/server/services/stage-destruction/alchemy-engine/index.ts"
   }
 }

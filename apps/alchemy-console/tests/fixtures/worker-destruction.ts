@@ -5,6 +5,16 @@ export default {
   async fetch(request: Request) {
     const variant =
       new URL(request.url).searchParams.get('variant') === 'b' ? 'b' : 'a';
+    const awsTest = new URL(request.url).searchParams.has('aws');
+    const scenario = new URL(request.url).searchParams.get('scenario');
+    const aws = {
+      type: 'aws' as const,
+      accessKeyId: `AKIAFAKE${variant}`,
+      secretAccessKey: `fake-secret-${variant}`,
+      region: variant === 'a' ? 'us-east-1' : 'us-west-2',
+    };
+    const awsAccount = variant === 'a' ? '111111111111' : '222222222222';
+    const tableArn = `arn:aws:dynamodb:${aws.region}:${awsAccount}:table/fake-table`;
     const accountId = variant.repeat(32);
     const apiToken = `fake-token-${variant}`;
     const authToken = `fake-state-${variant}`;
@@ -38,11 +48,88 @@ export default {
       }),
     };
     const calls: string[] = [];
+    if (awsTest)
+      rows.Table = row('Table', 'AWS.DynamoDB.Table', {
+        tableName: 'fake-table',
+        tableId: 'table-id',
+        tableArn,
+      });
+    if (scenario === 'unsupported')
+      rows.Custom = row('Custom', 'Custom.Resource', {});
+    if (scenario === 'wrong-region')
+      rows.Table = row('Table', 'AWS.DynamoDB.Table', {
+        tableName: 'fake-table',
+        tableArn: tableArn.replace(aws.region, 'eu-west-1'),
+      });
+    if (scenario === 'wrong-account')
+      rows.Table = row('Table', 'AWS.DynamoDB.Table', {
+        tableName: 'fake-table',
+        tableArn: tableArn.replace(awsAccount, '999999999999'),
+      });
+    let tableDeleted = false;
+    let deletionPolls = 0;
     let deleted = false;
     const mock = async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init),
         url = new URL(request.url);
       const path = url.pathname;
+      if (url.hostname.endsWith('.amazonaws.com')) {
+        const authorization = request.headers.get('authorization') ?? '';
+        if (
+          !authorization.includes(`Credential=${aws.accessKeyId}/`) ||
+          !authorization.includes(`/${aws.region}/`)
+        )
+          throw Error('wrong AWS credentials or region');
+        const body = await request.text();
+        const operation =
+          request.headers.get('x-amz-target')?.split('.').at(-1) ??
+          new URLSearchParams(body).get('Action');
+        calls.push(`AWS ${operation}`);
+        if (operation === 'GetCallerIdentity')
+          return new Response(
+            `<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><GetCallerIdentityResult><Account>${awsAccount}</Account><Arn>arn:aws:iam::${awsAccount}:user/test</Arn><UserId>test</UserId></GetCallerIdentityResult><ResponseMetadata><RequestId>test</RequestId></ResponseMetadata></GetCallerIdentityResponse>`,
+            { headers: { 'content-type': 'text/xml' } },
+          );
+        if (operation === 'DescribeInsightRules')
+          return Response.json({ InsightRules: [] });
+        if (operation === 'DescribeContributorInsights')
+          return Response.json({ ContributorInsightsStatus: 'DISABLED' });
+        if (operation === 'DeleteTable') {
+          if (scenario === 'denied')
+            return Response.json(
+              {
+                __type:
+                  'com.amazonaws.dynamodb.v20120810#AccessDeniedException',
+                message: 'denied',
+              },
+              { status: 400 },
+            );
+          tableDeleted = true;
+          return Response.json({
+            TableDescription: { TableStatus: 'DELETING' },
+          });
+        }
+        if (operation === 'DescribeTable') {
+          if (tableDeleted && ++deletionPolls > 1)
+            return Response.json(
+              {
+                __type:
+                  'com.amazonaws.dynamodb.v20120810#ResourceNotFoundException',
+                message: 'missing',
+              },
+              { status: 400 },
+            );
+          return Response.json({
+            Table: {
+              TableName: 'fake-table',
+              TableId: 'table-id',
+              TableArn: tableArn,
+              TableStatus: tableDeleted ? 'DELETING' : 'ACTIVE',
+            },
+          });
+        }
+        throw Error(`Unexpected AWS operation ${operation}`);
+      }
       if (url.hostname === 'api.cloudflare.com') {
         if (request.headers.get('authorization') !== `Bearer ${apiToken}`)
           throw Error('wrong API credentials');
@@ -80,6 +167,8 @@ export default {
           return Response.json(rows[id]);
         }
         if (request.method === 'DELETE') {
+          if (id === 'Table' && (!tableDeleted || deletionPolls < 2))
+            throw Error('Table state removed before AWS confirmed absence');
           delete rows[id];
           return new Response(null, { status: 204 });
         }
@@ -88,6 +177,7 @@ export default {
       throw Error('Unexpected mock state path: ' + path);
     };
     const target = {
+      aws: awsTest && scenario !== 'missing' ? aws : null,
       stack: 'App',
       stage: 'dev',
       connection: {
@@ -127,6 +217,8 @@ export default {
       events,
       analysis,
       deleted,
+      tableDeleted,
+      deletionPolls,
       remaining: Object.keys(rows),
     });
   },

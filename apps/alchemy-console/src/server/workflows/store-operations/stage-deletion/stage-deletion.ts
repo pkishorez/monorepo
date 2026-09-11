@@ -1,7 +1,7 @@
 import { Effect, Stream } from 'effect';
 import { StageDeletionLock } from '../../../storage/stage-deletion-lock/index.ts';
 import { DeleteStageError } from '../../../../shared/contracts/delete-stage/index.ts';
-import * as destruction from '../../../services/stage-destruction/index.ts';
+import * as destruction from '../../../services/stage-destruction/stage-destruction/index.ts';
 
 export const destroy = (target: Parameters<typeof destruction.destroy>[0]) =>
   Stream.unwrap(
