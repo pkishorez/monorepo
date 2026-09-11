@@ -191,7 +191,10 @@ export interface KeyedEntity<
   ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
   dangerouslyRemoveAllItems(
     confirmation: 'I KNOW WHAT I AM DOING',
-  ): TableEffect<{ readonly itemsDeleted: number }, Name>;
+  ): TableEffect<
+    { readonly itemsDeleted: number; readonly epoch: string },
+    Name
+  >;
   query<Pattern extends keyof Patterns & string>(
     pattern: Pattern,
     input: {

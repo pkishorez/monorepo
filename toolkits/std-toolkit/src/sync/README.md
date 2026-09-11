@@ -52,6 +52,11 @@ store — before serving anything, then records the new version. Bump it wheneve
 the Backend is wiped or re-shaped so devices that cached the old data don't keep
 showing it; leave it unset and nothing is ever cleared.
 
+It is a blunt, hand-edited knob. The backend already knows when one entity's
+replicas went stale: a StdTable renews that entity's epoch (`table.state()`)
+whenever its rows are wiped. A per-collection gate that reads the epoch instead
+of this constant is planned; see `docs/backlog.md` in the package root.
+
 Use `std.collection(config)` when you want Sync to create the TanStack
 collection. `createCollection(std.sync(config))` is also supported. Call
 `await std.dispose()` when the sync instance is no longer needed.

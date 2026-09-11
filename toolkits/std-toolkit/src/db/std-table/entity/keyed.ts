@@ -27,6 +27,7 @@ import type {
   AccessPatternMap,
   KeyedEntityDefinition,
 } from '../definition/index.js';
+import { modifyTableState, withNewEpochs } from '../state/index.js';
 import { queryEntity } from './query.js';
 import { broadcast, dbError, failReason, subscribe } from './effects.js';
 import type {
@@ -387,21 +388,26 @@ export const makeKeyedEntity = <
         yield* broadcast(deleted);
         return deleted;
       }).pipe(spanned('hardDelete', key)),
+    // Rows vanish without tombstones, so the entity's epoch moves: every
+    // replica must drop what it holds and refetch.
     dangerouslyRemoveAllItems: (_confirmation: 'I KNOW WHAT I AM DOING') =>
       Effect.gen(function* () {
         const contract = (yield* service).contract;
+        const operation = 'dangerouslyRemoveAllItems';
         const itemsDeleted = yield* contract
           .hardDeleteEntityItems(definition.name)
           .pipe(
             Effect.mapError((error) =>
-              dbError(
-                'dangerouslyRemoveAllItems',
-                error as ContractFailure,
-                definition.name,
-              ),
+              dbError(operation, error as ContractFailure, definition.name),
             ),
           );
-        return { itemsDeleted };
+        const state = yield* modifyTableState(contract, operation, (current) =>
+          withNewEpochs(current, [definition.name]),
+        );
+        return {
+          itemsDeleted,
+          epoch: state.entities[definition.name]?.epoch ?? '',
+        };
       }),
     query: (
       patternName: keyof Patterns & string,

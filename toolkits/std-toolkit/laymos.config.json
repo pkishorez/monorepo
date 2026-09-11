@@ -15,6 +15,7 @@
     "src/db/std-table/__tests__",
     "src/db/std-table/definition/__tests__",
     "src/db/std-table/enforcement/__tests__",
+    "src/db/std-table/state/__tests__",
     "src/db/std-table/entity/__tests__",
     "src/db/std-table/key/__tests__",
     "src/eschema/__tests__",
@@ -115,6 +116,15 @@
       "description": "Guard — table-level snapshot enforcement, baseline kept inside the table",
       "modules": {
         "src/db/std-table/enforcement": {
+          "exposed": true
+        }
+      }
+    },
+    "std-table.state": {
+      "paths": ["src/db/std-table/state"],
+      "description": "Record — the table state kept inside the table: approved baseline, entity epochs, backfill needs",
+      "modules": {
+        "src/db/std-table/state": {
           "exposed": true
         }
       }
@@ -766,13 +776,15 @@
         "std-table.table": [
           "std-table.entity",
           "std-table.enforcement",
+          "std-table.state",
           "core.public"
         ],
         "std-table.entity": [
           "core.public",
           "std-table.definition",
           "std-table.error",
-          "std-table.key"
+          "std-table.key",
+          "std-table.state"
         ],
         "std-table.definition": ["std-table.snapshot"],
         "std-table.snapshot": ["eschema.public", "snapshot.capture"],
@@ -781,6 +793,13 @@
         "std-table.enforcement": [
           "core.public",
           "std-table.snapshot",
+          "std-table.contract",
+          "std-table.error",
+          "std-table.state",
+          "snapshot.public"
+        ],
+        "std-table.state": [
+          "core.public",
           "std-table.contract",
           "std-table.error",
           "std-table.key",
