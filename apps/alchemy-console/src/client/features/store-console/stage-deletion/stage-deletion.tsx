@@ -37,20 +37,17 @@ import {
 
 type Target = { stack: string; stage: string };
 const Interaction = createContext<{
-  admin: boolean;
   select: (target: Target) => void;
 } | null>(null);
 
 export function DeleteStage({
   storeId,
-  admin,
   children,
   onBusyChange,
   onDeleted,
   onSettled,
 }: {
   storeId: string;
-  admin: boolean;
   children: (Action: ComponentType<Target>) => ReactNode;
   onBusyChange: (busy: boolean) => void;
   onDeleted: (target: Target) => void;
@@ -58,7 +55,7 @@ export function DeleteStage({
 }) {
   const [target, setTarget] = useState<Target | null>(null);
   return (
-    <Interaction value={{ admin, select: setTarget }}>
+    <Interaction value={{ select: setTarget }}>
       {children(StageAction)}
       {target && (
         <DeletionDialog
@@ -76,14 +73,14 @@ export function DeleteStage({
   );
 }
 
-/** The delete button is admin-only; protected stages ask for an acknowledgement in the dialog. */
+/** Protected stages ask for an acknowledgement in the dialog. */
 function StageAction({
   stack,
   stage,
   className,
 }: Target & { className?: string }) {
   const interaction = useContext(Interaction);
-  if (!interaction?.admin) return null;
+  if (!interaction) return null;
   if (isAlchemyManagedStack(stack))
     return (
       <span

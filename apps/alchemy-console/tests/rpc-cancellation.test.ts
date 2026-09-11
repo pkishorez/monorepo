@@ -93,7 +93,6 @@ it('streams deletion progress through the real RPC host before completion', asyn
         id: 'store',
         userId: 'alice',
         name: 'Store',
-        access: 'admin',
         connection: {
           kind: 'cloudflare',
           accountId: 'a'.repeat(32),
@@ -183,7 +182,6 @@ it('streams preview analysis and the failing resource through the real RPC host'
         id: 'store',
         userId: 'alice',
         name: 'Store',
-        access: 'admin',
         connection: {
           kind: 'cloudflare',
           accountId: 'a'.repeat(32),

@@ -156,16 +156,20 @@ NDJSON RPC. Navigation and dismissal are blocked while it runs. Completion or
 failure refreshes cached state. Closing the browser or losing the connection can
 interrupt the request; there is no background job or reconnect protocol.
 
-Stages with a case-insensitive `prod` prefix are protected: anyone with admin
-access can preview their deletion, but the delete request must carry the exact
-acknowledgement phrase `I KNOW WHAT I AM DOING`. The dialog asks for it after
-the plan is shown and the workflow rejects the request without it. Every other
-nonempty stage name deletes after the plan review alone. Ownership and saved admin access are
-checked on the server; credentials always come from the saved connection. Old
-connections default to view access. The token dialog offers the existing view
-template and a broad admin template, editable in Cloudflare. Console view access
-is an application restriction: discovery still requires some Cloudflare Edit
-permissions. Token templates cannot guarantee permission for every product.
+Stages with a case-insensitive `prod` prefix are protected: anyone can preview
+their deletion, but the delete request must carry the exact acknowledgement
+phrase `I KNOW WHAT I AM DOING`. The dialog asks for it after the plan is shown
+and the workflow rejects the request without it. Every other nonempty stage name
+deletes after the plan review alone. Ownership and the presence of account
+credentials are checked on the server; credentials always come from the saved
+connection. There is no stored access level: every connection offers deletion.
+Planning validates state only; a missing Cloudflare permission fails at apply
+time on that resource, Alchemy skips its dependents, keeps the remaining state,
+and the same stage can be deleted again after the token is fixed. The
+token dialog offers a minimal Read template (Workers Scripts and Secrets Store,
+which discovery needs) and a Write template adding KV, R2, D1, Queues, zone
+reads, DNS and Workers Routes. Hyperdrive has no template key and must be added
+by hand.
 
 The native service composes stock live providers for Workers and routes, D1,
 KV, R2 and its notifications/Sippy/catalog, Workflows, DNS records, Secrets Store,

@@ -50,21 +50,6 @@ const discoveryFetch = Object.assign(
   },
   { preconnect: () => {} },
 );
-const adminProbes = [
-  '/storage/kv/namespaces',
-  '/r2/buckets',
-  '/d1/database',
-  '/queues',
-];
-const adminFetch = Object.assign(
-  async (input: Parameters<typeof globalThis.fetch>[0]) => {
-    const url = new URL(String(input));
-    if (adminProbes.some((path) => url.pathname.endsWith(path)))
-      return Response.json({ success: true, result: [] });
-    return discoveryFetch(input);
-  },
-  { preconnect: () => {} },
-);
 const headers = (userId: string) => ({ headers: { cookie: userId } });
 const resolver = Layer.succeed(Authz.Resolver, {
   resolve: (request) =>
@@ -275,7 +260,6 @@ it('persists the raw token and removes the actual row on delete', async () => {
   const table = SQLite.make(appTable, { database });
   const record = {
     id: 'one',
-    access: 'view' as const,
     userId: 'alice',
     name: 'Store',
     connection,
@@ -286,7 +270,7 @@ it('persists the raw token and removes the actual row on delete', async () => {
     Effect.gen(function* () {
       yield* table.setup;
       const encoded = yield* alchemyStateStoreSchema.encode(record);
-      expect(encoded._v).toBe('v3');
+      expect(encoded._v).toBe('v4');
       expect(yield* alchemyStateStoreSchema.decode(encoded)).toEqual(record);
       yield* stores.insert(record);
       expect(
@@ -324,19 +308,13 @@ it('persists the raw token and removes the actual row on delete', async () => {
   );
 });
 
-it('detects admin access from the token and keeps replacement credentials private', async () => {
-  const created = await run((client) =>
+it('keeps replacement credentials private', async () => {
+  await run((client) =>
     Effect.gen(function* () {
       const created = yield* client['AlchemyStateStore.Create'](
         { name: 'Store', connection },
         headers('alice'),
       );
-      expect(created.access).toBe('view');
-      const admin = yield* client['AlchemyStateStore.Create'](
-        { name: 'Admin store', connection },
-        headers('alice'),
-      ).pipe(Effect.provideService(FetchHttpClient.Fetch, adminFetch));
-      expect(admin.access).toBe('admin');
       const input = {
         id: created.id,
         accountId: connection.accountId,
@@ -349,19 +327,12 @@ it('detects admin access from the token and keeps replacement credentials privat
       const saved = yield* client['AlchemyStateStore.UpdateCredentials'](
         input,
         headers('alice'),
-      ).pipe(Effect.provideService(FetchHttpClient.Fetch, adminFetch));
-      expect(saved.access).toBe('admin');
+      );
+      expect(saved).not.toHaveProperty('access');
       expect(saved.connection.apiToken).toBe('xxxxxxxx');
       expect(JSON.stringify(saved)).not.toContain('replacement-token');
-      const downgraded = yield* client['AlchemyStateStore.UpdateCredentials'](
-        input,
-        headers('alice'),
-      );
-      expect(downgraded.access).toBe('view');
-      return created;
     }),
   );
-  expect(created.access).toBe('view');
 });
 
 it('rejects empty fields, unsupported adapters, and invalid account IDs', () => {
@@ -397,4 +368,14 @@ it('migrates v1 URL/token connections without inventing account credentials', as
     accountId: null,
     apiToken: null,
   });
+  expect(decoded).not.toHaveProperty('access');
+  const graded = await Effect.runPromise(
+    alchemyStateStoreSchema.decode({
+      ...legacy,
+      _v: 'v3',
+      access: 'view',
+      connection: { ...legacy.connection, accountId: null, apiToken: null },
+    }),
+  );
+  expect(graded).not.toHaveProperty('access');
 });

@@ -1,33 +1,24 @@
 // https://developers.cloudflare.com/fundamentals/api/how-to/account-owned-token-template/
-export const adminPermissions = [
+export type TokenAccess = 'read' | 'write';
+
+// Discovery reads the state-store token through a preview Worker, so even
+// browsing needs Edit on Workers Scripts and Secrets Store.
+export const readPermissions = [
   ['workers_scripts', 'Workers Scripts', 'edit'],
   ['secrets_store', 'Secrets Store', 'edit'],
+] as const;
+
+// The products the console deletes through Alchemy, plus zone reads for
+// verifying resource ownership. Hyperdrive has no template key; add it by hand.
+export const writePermissions = [
+  ...readPermissions,
   ['workers_kv_storage', 'Workers KV Storage', 'edit'],
   ['workers_r2', 'Workers R2 Storage', 'edit'],
   ['d1', 'D1', 'edit'],
   ['queues', 'Queues', 'edit'],
-  ['page', 'Pages', 'edit'],
-  ['stream', 'Stream', 'edit'],
-  ['images', 'Images', 'edit'],
-  ['logs', 'Logs', 'edit'],
-  ['account_api_tokens', 'Account API Tokens', 'edit'],
-  ['account_settings', 'Account Settings', 'edit'],
-  ['workers_routes', 'Workers Routes (zones)', 'edit'],
+  ['zone', 'Zone (zones)', 'read'],
   ['dns', 'DNS (zones)', 'edit'],
-  ['zone', 'Zone', 'edit'],
-  ['zone_settings', 'Zone Settings', 'edit'],
-  ['firewall_services', 'Firewall Services', 'edit'],
-  ['page_rules', 'Page Rules', 'edit'],
-  ['ssl_and_certificates', 'SSL and Certificates', 'edit'],
-  ['access', 'Access Applications', 'edit'],
-  ['access_acct', 'Access Organizations', 'edit'],
-  ['access_custom_page', 'Access Custom Pages', 'edit'],
-  ['teams', 'Zero Trust', 'edit'],
-  ['cache', 'Cache', 'purge'],
-  ['account_analytics', 'Account Analytics', 'read'],
-  ['analytics', 'Zone Analytics', 'read'],
-  ['access_audit_log', 'Access Audit Logs', 'read'],
-  ['billing', 'Billing', 'read'],
+  ['workers_routes', 'Workers Routes (zones)', 'edit'],
 ] as const;
 
 // Forces the account picker; the chosen account's ID then appears in the URL
@@ -37,22 +28,18 @@ export const cloudflareAccountUrl =
 
 export function cloudflareTokenUrl(
   accountId: string,
-  access: 'view' | 'admin' = 'view',
+  access: TokenAccess = 'read',
 ) {
   const account = accountId.trim();
   if (!/^[a-f0-9]{32}$/i.test(account)) return null;
+  const permissions = access === 'write' ? writePermissions : readPermissions;
   const url = new URL('https://dash.cloudflare.com/profile/api-tokens');
   url.search = new URLSearchParams({
-    name: `Alchemy Console — ${access === 'admin' ? 'Admin' : 'View access'}`,
+    name: `Alchemy Console — ${access === 'write' ? 'Write' : 'Read'}`,
     accountId: account,
     zoneId: 'all',
     permissionGroupKeys: JSON.stringify(
-      access === 'admin'
-        ? adminPermissions.map(([key, , type]) => ({ key, type }))
-        : [
-            { key: 'workers_scripts', type: 'edit' },
-            { key: 'secrets_store', type: 'edit' },
-          ],
+      permissions.map(([key, , type]) => ({ key, type })),
     ),
   }).toString();
   return url.href;

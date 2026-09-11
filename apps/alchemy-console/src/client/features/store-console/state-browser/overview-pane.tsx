@@ -34,14 +34,12 @@ export function StoreOverview({
   storeName,
   NavigationLink,
   StageAction,
-  admin,
   onStackDeleted,
 }: {
   storeId: string;
   storeName: string | null;
   NavigationLink: NavigationLink;
   StageAction: StageAction;
-  admin: boolean;
   onStackDeleted: (stack: string) => void;
 }) {
   const [slots] = useState(() => Semaphore.makeUnsafe(4));
@@ -96,7 +94,6 @@ export function StoreOverview({
               slots={slots}
               NavigationLink={NavigationLink}
               StageAction={StageAction}
-              admin={admin}
               onStackDeleted={onStackDeleted}
             />
           ))}
@@ -112,7 +109,6 @@ function StackCard({
   slots,
   NavigationLink,
   StageAction,
-  admin,
   onStackDeleted,
 }: {
   storeId: string;
@@ -120,7 +116,6 @@ function StackCard({
   slots: Semaphore.Semaphore;
   NavigationLink: NavigationLink;
   StageAction: StageAction;
-  admin: boolean;
   onStackDeleted: (stack: string) => void;
 }) {
   const managed = isAlchemyManagedStack(stack);
@@ -169,7 +164,6 @@ function StackCard({
             <DeleteEmptyStackAction
               storeId={storeId}
               stack={stack}
-              admin={admin}
               onDeleted={onStackDeleted}
               className="opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-focus-within/row:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none"
             />
@@ -226,14 +220,12 @@ export function StackOverview({
   stack,
   NavigationLink,
   StageAction,
-  admin,
   onStackDeleted,
 }: {
   storeId: string;
   stack: string;
   NavigationLink: NavigationLink;
   StageAction: StageAction;
-  admin: boolean;
   onStackDeleted: (stack: string) => void;
 }) {
   const managed = isAlchemyManagedStack(stack);
@@ -271,7 +263,6 @@ export function StackOverview({
               <DeleteEmptyStackAction
                 storeId={storeId}
                 stack={stack}
-                admin={admin}
                 onDeleted={onStackDeleted}
               />
             )}

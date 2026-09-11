@@ -197,14 +197,12 @@ export function StoreList({
                   {store.name}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {store.access === 'admin' ? 'Admin access' : 'View access'}
-                  {store.connection.accountId && (
-                    <>
-                      {' · '}
-                      <span className="font-mono">
-                        {store.connection.accountId.slice(0, 8)}…
-                      </span>
-                    </>
+                  {store.connection.accountId ? (
+                    <span className="font-mono">
+                      {store.connection.accountId.slice(0, 8)}…
+                    </span>
+                  ) : (
+                    'No account credentials'
                   )}
                 </span>
               </StoreLink>
@@ -263,7 +261,7 @@ function StoreMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => onSelect('credentials')}>
           <KeyRound />
-          Update token and access
+          Update token
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

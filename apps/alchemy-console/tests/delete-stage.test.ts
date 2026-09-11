@@ -35,7 +35,8 @@ import {
 } from '../src/shared/contracts/state-address/index.ts';
 import { destructionRequest } from '../src/server/services/stage-destruction/request.ts';
 import {
-  adminPermissions,
+  readPermissions,
+  writePermissions,
   cloudflareTokenUrl,
 } from '../src/client/features/store-console/store-management/cloudflare-token-url.ts';
 
@@ -89,7 +90,7 @@ const run = <A, E>(
     | HttpClient.HttpClient
   >,
   fetch: typeof globalThis.fetch,
-  access: 'view' | 'admin' = 'admin',
+  credentials: 'account' | 'none' = 'account',
 ) => {
   const database = makeNodeSQLite({ path: ':memory:' });
   const table = SQLite.make(appTable, { database });
@@ -101,8 +102,10 @@ const run = <A, E>(
         id: 'store',
         userId: 'alice',
         name: 'Store',
-        access,
-        connection,
+        connection:
+          credentials === 'account'
+            ? connection
+            : { ...connection, accountId: null, apiToken: null },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -212,7 +215,7 @@ it('refuses to delete a stack that has deployed stages', async () => {
   expect(fetch).toHaveBeenCalledOnce();
 });
 
-it('rejects unacknowledged protected stages, other owners, and view-only access before invoking Alchemy', async () => {
+it('rejects unacknowledged protected stages, other owners, and missing credentials before invoking Alchemy', async () => {
   native.execute.mockClear();
   const fetch = Object.assign(
     vi.fn(async () => Response.json(plan)),
@@ -246,7 +249,7 @@ it('rejects unacknowledged protected stages, other owners, and view-only access 
   ).toBe(true);
   expect(
     Exit.isFailure(
-      await run(Effect.exit(collect(preview(target))), fetch, 'view'),
+      await run(Effect.exit(collect(preview(target))), fetch, 'none'),
     ),
   ).toBe(true);
   expect(fetch).not.toHaveBeenCalled();
@@ -372,32 +375,41 @@ it('delivers progress before native deletion finishes and preserves partial fail
   expect(seen).toEqual(['progress', 'failed']);
 });
 
-it('preselects the broad admin template and keeps the existing view permissions', () => {
-  const params = (access: 'admin' | 'view') =>
+it('offers minimal read and write token templates', () => {
+  const params = (access: 'read' | 'write') =>
     JSON.parse(
       new URL(
         cloudflareTokenUrl(connection.accountId, access)!,
       ).searchParams.get('permissionGroupKeys')!,
     );
-  expect(params('view')).toEqual([
+  expect(params('read')).toEqual([
     { key: 'workers_scripts', type: 'edit' },
     { key: 'secrets_store', type: 'edit' },
   ]);
-  expect(params('admin')).toHaveLength(adminPermissions.length);
+  expect(readPermissions).toHaveLength(2);
+  expect(params('write')).toEqual(
+    writePermissions.map(([key, , type]) => ({ key, type })),
+  );
   for (const key of [
     'workers_scripts',
+    'secrets_store',
     'd1',
     'workers_r2',
     'workers_kv_storage',
     'queues',
     'workers_routes',
     'dns',
-    'zone',
   ])
-    expect(params('admin')).toContainEqual({ key, type: 'edit' });
+    expect(params('write')).toContainEqual({ key, type: 'edit' });
+  expect(params('write')).toContainEqual({ key: 'zone', type: 'read' });
+  // No account-wide permissions: only the products Alchemy deletes through.
+  for (const key of ['account_settings', 'account_api_tokens', 'billing'])
+    expect(params('write').map((p: { key: string }) => p.key)).not.toContain(
+      key,
+    );
   expect(
     new URL(
-      cloudflareTokenUrl(connection.accountId, 'admin')!,
+      cloudflareTokenUrl(connection.accountId, 'write')!,
     ).searchParams.get('accountId'),
   ).toBe(connection.accountId);
 });
