@@ -12,10 +12,6 @@ import {
   destroy,
   deleteStack,
 } from '../src/server/workflows/stores/stores/index.ts';
-import {
-  DeletionLock,
-  makeDeletionLock,
-} from '../src/server/storage/deletion-lock/index.ts';
 const native = vi.hoisted(() => ({ execute: vi.fn() }));
 vi.mock('../src/server/services/deletion/engine/index.ts', () => native);
 
@@ -90,9 +86,7 @@ const run = <A, E>(
   operation: Effect.Effect<
     A,
     E,
-    | Stream.Services<ReturnType<typeof preview>>
-    | DeletionLock
-    | HttpClient.HttpClient
+    Stream.Services<ReturnType<typeof preview>> | HttpClient.HttpClient
   >,
   fetch: typeof globalThis.fetch,
 ) => {
@@ -102,7 +96,6 @@ const run = <A, E>(
   return Effect.runPromise(
     Effect.gen(function* () {
       yield* table.setup;
-      yield* makeDeletionLock(database).setup;
       yield* credentials.insert({
         id: 'cf',
         userId: 'alice',
@@ -135,7 +128,6 @@ const run = <A, E>(
       Effect.provide(table.layer),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
-      Effect.provide(makeDeletionLock(database).layer),
       Effect.provideService(Authz.CurrentAuth, auth),
       Effect.ensuring(Effect.sync(() => database.close?.())),
     ),

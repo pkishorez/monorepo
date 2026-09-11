@@ -65,7 +65,6 @@ src/
       table/                         The one console table
       stores/                        Store entity
       credentials/                   Credential entity
-      deletion-lock/                 Serializes console deletions across Worker instances
     telemetry/                       Configures Worker telemetry
 ```
 

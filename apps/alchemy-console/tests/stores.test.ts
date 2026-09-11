@@ -19,12 +19,6 @@ import { ConsoleApi } from '../src/shared/api/console-api/index.ts';
 import { createStoreInput } from '../src/shared/contracts/stores/index.ts';
 import { createCredentialInput } from '../src/shared/contracts/credentials/index.ts';
 import { ConsoleHandlers } from '../src/server/handlers/console-handlers/index.ts';
-import { DeletionLock } from '../src/server/storage/deletion-lock/index.ts';
-
-const unusedDeletionLock = Layer.succeed(DeletionLock, {
-  acquire: () => Effect.die('Unexpected deletion'),
-  release: () => Effect.void,
-});
 
 const accountId = 'a'.repeat(32);
 const apiToken = 'account-test-token';
@@ -118,12 +112,7 @@ const run = <A, E>(
       return yield* use(client);
     }).pipe(
       Effect.scoped,
-      Effect.provide(
-        ConsoleHandlers.pipe(
-          Layer.provide(table.layer),
-          Layer.provide(unusedDeletionLock),
-        ),
-      ),
+      Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
       Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, fetch),
@@ -478,12 +467,7 @@ it('persists raw secrets at schema v1 and removes the actual rows on delete', as
       ).toBeNull();
     }).pipe(
       Effect.scoped,
-      Effect.provide(
-        ConsoleHandlers.pipe(
-          Layer.provide(table.layer),
-          Layer.provide(unusedDeletionLock),
-        ),
-      ),
+      Effect.provide(ConsoleHandlers.pipe(Layer.provide(table.layer))),
       Effect.provide(authzLayer.pipe(Layer.provide(resolver))),
       Effect.provide(FetchHttpClient.layer),
       Effect.provideService(FetchHttpClient.Fetch, providerFetch),
