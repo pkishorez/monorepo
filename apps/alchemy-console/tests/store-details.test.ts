@@ -60,7 +60,6 @@ const run = <A, E>(
       yield* table.setup;
       yield* stores.insert({
         id: 'store',
-        access: 'view',
         userId: 'alice',
         name: 'Store',
         connection: {

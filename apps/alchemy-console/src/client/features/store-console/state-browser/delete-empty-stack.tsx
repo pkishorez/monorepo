@@ -17,13 +17,11 @@ import { useRpcAction } from '../store-query/index.ts';
 export function DeleteEmptyStackAction({
   storeId,
   stack,
-  admin,
   className,
   onDeleted,
 }: {
   storeId: string;
   stack: string;
-  admin: boolean;
   className?: string;
   onDeleted: (stack: string) => void;
 }) {
@@ -38,7 +36,7 @@ export function DeleteEmptyStackAction({
       onDeleted(stack);
     },
   );
-  if (!admin || isAlchemyManagedStack(stack)) return null;
+  if (isAlchemyManagedStack(stack)) return null;
   return (
     <>
       <Button

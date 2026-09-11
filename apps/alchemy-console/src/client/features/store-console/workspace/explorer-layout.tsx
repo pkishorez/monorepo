@@ -26,7 +26,6 @@ export function StoreExplorer({
   stage,
   NavigationLink,
   StageAction,
-  admin,
   onStackDeleted,
   sidebarHeader,
   sidebarFooter,
@@ -35,7 +34,6 @@ export function StoreExplorer({
   storeName: string | null;
   NavigationLink: NavigationLink;
   StageAction: ComponentType<{ stack: string; stage: string }>;
-  admin: boolean;
   onStackDeleted: (stack: string) => void;
   sidebarHeader: ReactNode;
   sidebarFooter: ReactNode;
@@ -117,7 +115,6 @@ export function StoreExplorer({
                   storeName={storeName}
                   NavigationLink={NavigationLink}
                   StageAction={StageAction}
-                  admin={admin}
                   onStackDeleted={onStackDeleted}
                 />
               ) : (

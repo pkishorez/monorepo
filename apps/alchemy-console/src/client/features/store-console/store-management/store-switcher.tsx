@@ -58,11 +58,13 @@ export function StoreSwitcher({
               )}
             </span>
             <span className="block truncate text-xs text-muted-foreground">
-              {current
-                ? current.access === 'admin'
-                  ? 'Admin access'
-                  : 'View access'
-                : 'Store'}
+              {current?.connection.accountId ? (
+                <span className="font-mono">
+                  {current.connection.accountId.slice(0, 8)}…
+                </span>
+              ) : (
+                'Store'
+              )}
             </span>
           </span>
           <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />

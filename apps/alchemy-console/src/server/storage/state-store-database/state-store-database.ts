@@ -37,6 +37,12 @@ export const alchemyStateStoreSchema = EntityESchema.make(
     ...previous,
     access: 'view' as const,
   }))
+  // Every connection may delete; planning checks the token per resource instead.
+  .evolve('v4', { access: null }, (previous) => {
+    const { access, ...rest } = previous;
+    void access;
+    return rest;
+  })
   .build();
 
 export const appTable = StdTable.make('alchemy-console')

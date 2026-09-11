@@ -52,6 +52,7 @@ to any single resource.
 The screen for one store: a tree of stacks and stages beside a pane showing
 the selected stage's resources, actions and outputs.
 
-**Access**
-What the saved credentials allow the console to do with a store: `view` reads
-state; `admin` also allows stage deletion.
+**Token template**
+A prefilled Cloudflare token form the console links to: `Read` covers browsing
+state; `Write` adds the products Alchemy deletes through. The console stores no
+access level; a missing permission surfaces when Alchemy deletes the resource.

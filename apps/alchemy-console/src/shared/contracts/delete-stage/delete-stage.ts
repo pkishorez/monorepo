@@ -70,7 +70,7 @@ export class DeleteStageError extends Schema.Error<DeleteStageError>(
   code: Schema.Literals([
     'managed-stack',
     'protected-stage',
-    'view-only',
+    'missing-credentials',
     'not-found',
     'storage-error',
     'remote-error',

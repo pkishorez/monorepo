@@ -51,13 +51,13 @@ export const authorizeDeletion = (input: Target, intent: Intent) =>
           reason: 'This store is no longer available.',
         }),
       );
-    const { connection, access } = store.value;
-    if (access !== 'admin' || !connection.apiToken || !connection.accountId)
+    const { connection } = store.value;
+    if (!connection.apiToken || !connection.accountId)
       return yield* Effect.fail(
         new DeleteStageError({
-          code: 'view-only',
+          code: 'missing-credentials',
           reason:
-            'This connection has view access. Update its token with one that has admin permissions to delete stages.',
+            'This connection has no Cloudflare account credentials. Update its token before deleting stages.',
         }),
       );
     return {

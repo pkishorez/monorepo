@@ -18,7 +18,6 @@ export const stateStoreView = Schema.Struct({
   id: Schema.String,
   userId: Schema.String,
   name: Schema.String,
-  access: Schema.Literals(['view', 'admin']),
   connection: Schema.Struct({
     kind: Schema.Literal('cloudflare'),
     accountId: Schema.NullOr(Schema.String),
@@ -38,7 +37,7 @@ export class StateStoreError extends Schema.Error<StateStoreError>(
   code: Schema.Literals([
     'not-found',
     'managed-stack',
-    'view-only',
+    'missing-credentials',
     'non-empty',
     'remote-error',
     'storage-error',

@@ -121,14 +121,6 @@ export const deleteStack = (input: typeof stackTarget.Type) =>
             'Alchemy-managed state infrastructure cannot be removed here.',
         }),
       );
-    if (store.value.access !== 'admin')
-      return yield* Effect.fail(
-        new StateStoreError({
-          code: 'view-only',
-          reason:
-            'This connection needs admin access to delete an empty stack.',
-        }),
-      );
     const stages = yield* read(store.value.connection, {
       kind: 'stages',
       stack: input.stack,

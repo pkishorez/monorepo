@@ -68,7 +68,6 @@ function ExploreWorkspace({
   return (
     <DeleteStage
       storeId={storeId}
-      admin={store?.access === 'admin'}
       onBusyChange={onBusyChange}
       onSettled={refresh}
       onDeleted={(deleted) => {
@@ -84,7 +83,6 @@ function ExploreWorkspace({
           stage={stage}
           NavigationLink={NavigationLink}
           StageAction={StageAction}
-          admin={store?.access === 'admin'}
           onStackDeleted={(deletedStack) => {
             refresh();
             if (stack === deletedStack) onNavigate({});

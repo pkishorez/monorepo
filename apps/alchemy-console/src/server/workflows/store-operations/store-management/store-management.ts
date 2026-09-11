@@ -16,7 +16,6 @@ const view = (store: typeof alchemyStateStoreSchema.Type) => ({
   id: store.id,
   userId: store.userId,
   name: store.name,
-  access: store.access,
   connection: {
     kind: store.connection.kind,
     accountId: store.connection.accountId,
@@ -41,7 +40,6 @@ export const create = (
       id,
       userId,
       name: input.name.trim(),
-      access: resolved.access,
       connection: { ...input.connection, ...resolved },
       createdAt: now,
       updatedAt: now,
@@ -137,7 +135,7 @@ export const updateCredentials = (
         }),
       );
     }
-    const { access, ...resolved } = yield* discover(input);
+    const resolved = yield* discover(input);
     if (resolved.url !== existing.value.connection.url) {
       return yield* Effect.fail(
         new CloudflareDiscoveryError({
@@ -153,7 +151,6 @@ export const updateCredentials = (
         apiToken: input.apiToken,
         ...resolved,
       },
-      access,
       updatedAt: new Date().toISOString(),
     });
     return view(saved.value);

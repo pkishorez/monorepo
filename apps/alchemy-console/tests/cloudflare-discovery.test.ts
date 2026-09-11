@@ -206,15 +206,11 @@ it.each([
       success: {
         url: 'https://alchemy-state-store.example.workers.dev',
         authToken: 'state-bearer-token',
-        access: exchange === 'success' ? 'admin' : 'view',
       },
     });
-    expect(fetch).toHaveBeenCalledTimes(exchange === 'none' ? 11 : 12);
+    expect(fetch).toHaveBeenCalledTimes(exchange === 'none' ? 7 : 8);
     const messages = diagnostics.logs.flatMap((event) => event.message);
-    expect(messages).toEqual([
-      'Resolved state store connection',
-      { access: exchange === 'success' ? 'admin' : 'view' },
-    ]);
+    expect(messages).toEqual(['Resolved state store connection']);
     expect(diagnostics.spans.map((span) => span.name)).toEqual([
       'CloudflareDiscovery.discover',
     ]);

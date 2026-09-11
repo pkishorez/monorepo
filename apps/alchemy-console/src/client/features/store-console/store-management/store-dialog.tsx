@@ -152,7 +152,7 @@ export function StoreDialog({
       : action.kind === 'rename'
         ? 'Rename store'
         : action.kind === 'credentials'
-          ? 'Update token and access'
+          ? 'Update token'
           : 'Delete store?';
   const description =
     action.kind === 'delete'
@@ -160,7 +160,7 @@ export function StoreDialog({
       : action.kind === 'add'
         ? 'We’ll find the Alchemy state store in this Cloudflare account.'
         : action.kind === 'credentials'
-          ? 'Paste a new token. Its permissions decide whether this store can delete stages.'
+          ? 'Paste a new token. Stage deletion uses it for every resource.'
           : 'Give this connection a new name.';
 
   return (
@@ -278,7 +278,7 @@ export function StoreDialog({
                       <ChevronDown />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-64">
-                      {(['view', 'admin'] as const).map((access) => (
+                      {(['read', 'write'] as const).map((access) => (
                         <DropdownMenuItem
                           key={access}
                           render={
@@ -290,13 +290,11 @@ export function StoreDialog({
                           }
                         >
                           <span className="flex flex-col gap-0.5">
-                            <span>
-                              {access === 'view' ? 'View only' : 'Admin'}
-                            </span>
+                            <span>{access === 'read' ? 'Read' : 'Write'}</span>
                             <span className="text-xs text-muted-foreground">
-                              {access === 'view'
+                              {access === 'read'
                                 ? 'Browse stacks, stages, and resources'
-                                : 'Browse state and delete stages'}
+                                : 'Browse and delete stages. Add Hyperdrive by hand if you use it.'}
                             </span>
                           </span>
                         </DropdownMenuItem>
@@ -353,7 +351,7 @@ export function StoreDialog({
                 : action.kind === 'add'
                   ? 'Add store'
                   : action.kind === 'credentials'
-                    ? 'Save token and access'
+                    ? 'Save token'
                     : action.kind === 'delete'
                       ? 'Delete store'
                       : 'Save name'}
