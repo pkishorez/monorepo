@@ -47,3 +47,10 @@ std-toolkit snapshot           # check against it
 `snapshot` reports only what changed and exits with status 1 when the declared
 storage contract differs from its approved baseline, making it suitable for
 GitHub Actions.
+
+A deployed table holds itself to the same promise with `table.verifySnapshot()`,
+which keeps its own baseline inside the table. That record, read with
+`table.state()`, also carries one epoch per entity (renewed when an entity's
+rows are wiped, so replicas know to start over) and every backfill still owed
+after a `requires-backfill` change. Open work on top of it is tracked in
+[`docs/backlog.md`](docs/backlog.md).

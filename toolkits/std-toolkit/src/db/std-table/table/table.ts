@@ -11,6 +11,7 @@ import type {
 import type { SnapshotIncompatible } from '../../../snapshot/index.js';
 import type { DatabaseError } from '../error/index.js';
 import type { EncodedItem, StdTableService } from '../contract/index.js';
+import type { TableState } from '../state/index.js';
 import {
   Table as DefinitionTable,
   type GlobalSecondaryIndex,
@@ -78,7 +79,14 @@ export interface StdTable<
   >;
   dangerouslyRemoveAllItems(
     confirmation: 'I KNOW WHAT I AM DOING',
-  ): TableEffect<{ readonly itemsDeleted: number }, Name>;
+  ): TableEffect<
+    {
+      readonly itemsDeleted: number;
+      readonly epochs: Readonly<Record<string, string>>;
+    },
+    Name
+  >;
+  state(): TableEffect<TableState, Name>;
   subscribe(): Stream.Stream<ChangeNotice>;
   scan(options?: ScanOptions): TableStream<EncodedItem, Name>;
   drift(item: EncodedItem): TableEffect<DriftResult, Name>;
