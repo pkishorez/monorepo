@@ -5,7 +5,7 @@ import { AccountMenu } from '../../../client/features/auth-boundary/index.ts';
 import {
   Workspace,
   type ExplorerLocation,
-} from '../../../client/features/store-console/workspace/index.ts';
+} from '../../../client/features/console/workspace/index.ts';
 
 const text = (value: unknown) =>
   typeof value === 'string' && value.length > 0 ? value : undefined;
@@ -40,6 +40,7 @@ function StorePage() {
       NavigationLink={NavigationLink}
       StoreLink={StoreLink}
       ManageLink={ManageLink}
+      SettingsLink={SettingsLink}
       onNavigate={go}
       onStoreCreated={(created) => {
         void navigate({
@@ -68,6 +69,10 @@ function StoreLink({
 
 function ManageLink(props: { className?: string; children?: ReactNode }) {
   return <Link to="/stores" {...props} />;
+}
+
+function SettingsLink(props: { className?: string; children?: ReactNode }) {
+  return <Link to="/settings" {...props} />;
 }
 
 function NavigationLink({

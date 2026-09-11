@@ -66,12 +66,12 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
     const context = await Effect.runPromise(runtime.contextEffect);
     const result = await Effect.runPromise(
       Effect.gen(function* () {
-        yield* Effect.logInfo('Submitted state store');
+        yield* Effect.logInfo('Submitted credential');
         const rpc = yield* Rpc;
-        return yield* rpc['AlchemyStateStore.Create']({
-          name: 'Test store',
-          connection: {
-            kind: 'cloudflare',
+        return yield* rpc['Credentials.Create']({
+          name: 'Test credential',
+          secret: {
+            provider: 'cloudflare',
             accountId: 'a'.repeat(32),
             apiToken,
           },
@@ -82,9 +82,9 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
         Effect.flip,
       ),
     );
-    expect(result).toMatchObject({ code: 'cloudflare-permission' });
+    expect(result).toMatchObject({ code: 'verification-failed' });
 
-    const list = Rpc.use((rpc) => rpc['AlchemyStateStore.List']({})).pipe(
+    const list = Rpc.use((rpc) => rpc['Stores.List']({})).pipe(
       Effect.provide(context),
     );
     expect(await Effect.runPromise(list)).toEqual([]);
@@ -110,16 +110,24 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
   expect(spans.some((span) => span.name === 'UI.query')).toBe(false);
   const ui = spans.find((span) => span.name === 'UI.action');
   const client = spans.find(
-    (span) => span.name === 'RpcClient.AlchemyStateStore.Create',
+    (span) => span.name === 'RpcClient.Credentials.Create',
   );
   const server = spans.find(
-    (span) => span.name === 'RpcServer.AlchemyStateStore.Create',
+    (span) => span.name === 'RpcServer.Credentials.Create',
   );
   const discovery = spans.find(
-    (span) => span.name === 'CloudflareDiscovery.discover',
+    (span) => span.name === 'CloudflareProvider.verify',
   );
-  const httpClient = spans.find((span) => span.name === 'http.client POST');
-  const httpServer = spans.find((span) => span.name === 'http.server POST');
+  // Two RPC calls run; follow the chain from the UI action rather than the first match.
+  const httpClient = spans.find(
+    (span) =>
+      span.name === 'http.client POST' && span.parentSpanId === client?.spanId,
+  );
+  const httpServer = spans.find(
+    (span) =>
+      span.name === 'http.server POST' &&
+      span.parentSpanId === httpClient?.spanId,
+  );
   expect(ui).toMatchObject({ service: 'alchemy-console-frontend' });
   expect(client).toMatchObject({
     traceId: ui?.traceId,
@@ -141,7 +149,7 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
   );
   expect(records).toContainEqual(
     expect.objectContaining({
-      body: { stringValue: 'Submitted state store' },
+      body: { stringValue: 'Submitted credential' },
       traceId: ui?.traceId,
       spanId: ui?.spanId,
     }),
@@ -150,8 +158,8 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
     true,
   );
   const exported = JSON.stringify({ traces, logs });
-  expect(exported).toContain('Could not create state store');
-  expect(exported).toContain('Listed state stores');
+  expect(exported).toContain('Could not create credential');
+  expect(exported).toContain('Listed stores');
   expect(exported).not.toContain('Discovery step');
   expect(exported).not.toContain(apiToken);
   expect(exported).not.toContain(cookie);

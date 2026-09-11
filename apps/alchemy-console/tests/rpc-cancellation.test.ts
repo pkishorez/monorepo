@@ -1,19 +1,14 @@
 import { Effect, Fiber, Stream } from 'effect';
 import { SQLite } from 'std-toolkit/db/sqlite';
-import {
-  appTable,
-  alchemyStateStoreEntity as stores,
-} from '../src/server/storage/state-store-database/index.ts';
+import { consoleTable } from '../src/server/storage/table/index.ts';
+import { storeEntity as stores } from '../src/server/storage/stores/index.ts';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
 const mocks = vi.hoisted(() => ({ makeDatabase: vi.fn(), execute: vi.fn() }));
-vi.mock(
-  '../src/server/services/stage-destruction/alchemy-engine/index.ts',
-  () => ({
-    execute: mocks.execute,
-  }),
-);
+vi.mock('../src/server/services/deletion/engine/index.ts', () => ({
+  execute: mocks.execute,
+}));
 vi.mock('std-toolkit/db/sqlite/d1', () => ({
   makeD1SQLite: mocks.makeDatabase,
 }));
@@ -65,10 +60,10 @@ it('cancels server work when the query fiber is interrupted', async () => {
     const context = await Effect.runPromise(runtime.contextEffect);
     const fiber = Effect.runFork(
       Rpc.use((rpc) =>
-        rpc['AlchemyStateStore.Create']({
+        rpc['Credentials.Create']({
           name: 'Test',
-          connection: {
-            kind: 'cloudflare',
+          secret: {
+            provider: 'cloudflare',
             accountId: 'a'.repeat(32),
             apiToken: 'test-token',
           },
@@ -87,23 +82,22 @@ it('cancels server work when the query fiber is interrupted', async () => {
 it('streams deletion progress through the real RPC host before completion', async () => {
   vi.stubEnv('DEV', false);
   const database = makeNodeSQLite({ path: ':memory:' });
-  const table = SQLite.make(appTable, { database });
+  const table = SQLite.make(consoleTable, { database });
   mocks.makeDatabase.mockReturnValue(database);
   await Effect.runPromise(
     Effect.gen(function* () {
       yield* table.setup;
       yield* stores.insert({
-        aws: null,
         id: 'store',
         userId: 'alice',
         name: 'Store',
-        connection: {
-          kind: 'cloudflare',
-          accountId: 'a'.repeat(32),
-          apiToken: 'cloud-token',
+        state: {
+          provider: 'cloudflare',
+          credentialId: 'cf',
           authToken: 'state-token',
           url: 'https://state.example.workers.dev',
         },
+        grants: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -144,7 +138,7 @@ it('streams deletion progress through the real RPC host before completion', asyn
     const seen: string[] = [];
     const result = Effect.runPromise(
       Rpc.use((rpc) =>
-        rpc['AlchemyStateStore.DeleteStage']({
+        rpc['Deletion.Delete']({
           storeId: 'store',
           stack: 'App',
           stage: 'dev',
@@ -177,23 +171,22 @@ it('streams deletion progress through the real RPC host before completion', asyn
 it('streams preview analysis and the failing resource through the real RPC host', async () => {
   vi.stubEnv('DEV', false);
   const database = makeNodeSQLite({ path: ':memory:' });
-  const table = SQLite.make(appTable, { database });
+  const table = SQLite.make(consoleTable, { database });
   mocks.makeDatabase.mockReturnValue(database);
   await Effect.runPromise(
     Effect.gen(function* () {
       yield* table.setup;
       yield* stores.insert({
-        aws: null,
         id: 'store',
         userId: 'alice',
         name: 'Store',
-        connection: {
-          kind: 'cloudflare',
-          accountId: 'a'.repeat(32),
-          apiToken: 'cloud-token',
+        state: {
+          provider: 'cloudflare',
+          credentialId: 'cf',
           authToken: 'state-token',
           url: 'https://state.example.workers.dev',
         },
+        grants: [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -229,7 +222,7 @@ it('streams preview analysis and the failing resource through the real RPC host'
     const context = await Effect.runPromise(runtime.contextEffect);
     const seen = await Effect.runPromise(
       Rpc.use((rpc) =>
-        rpc['AlchemyStateStore.PreviewStageDeletion']({
+        rpc['Deletion.Preview']({
           storeId: 'store',
           stack: 'App',
           stage: 'dev',

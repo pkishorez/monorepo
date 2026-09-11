@@ -38,6 +38,7 @@
   "scripts": {
     "build": "vp build",
     "dev": "portless run --force alchemy dev",
+    "dev:force": "alchemy unsafe nuke --local --yes && pnpm dev",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
@@ -48,6 +49,7 @@
   "sideEffects": false,
   "type": "module",
   "exports": {
-    "./stage-destruction-engine": "./src/server/services/stage-destruction/alchemy-engine/index.ts"
+    "./deletion-engine": "./src/server/services/deletion/engine/index.ts",
+    "./providers": "./src/server/providers/providers/index.ts"
   }
 }

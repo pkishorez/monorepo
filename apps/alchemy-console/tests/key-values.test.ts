@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import {
   flattenScalars,
   isHttpUrl,
-} from '../src/client/features/store-console/state-view/key-values.ts';
+} from '../src/client/features/console/state-view/key-values.ts';
 
 describe('key-value flattening', () => {
   it('keeps scalars, dots nested keys and skips deep or complex values', () => {

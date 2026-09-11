@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import { makeStageDeletionLock } from '../../storage/stage-deletion-lock/index.ts';
+import { makeDeletionLock } from '../../storage/deletion-lock/index.ts';
 import {
   authzCookies,
   authzLayer,
@@ -12,7 +12,7 @@ import { HttpEffect } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import { SQLite } from 'std-toolkit/db/sqlite';
 import { makeD1SQLite } from 'std-toolkit/db/sqlite/d1';
-import { appTable } from '../../storage/state-store-database/index.ts';
+import { consoleTable } from '../../storage/table/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';
 
 export function handleRpc(
@@ -29,8 +29,8 @@ export function handleRpc(
   }
 
   const database = makeD1SQLite({ database: binding });
-  const table = SQLite.make(appTable, { database });
-  const deletionLock = makeStageDeletionLock(database);
+  const table = SQLite.make(consoleTable, { database });
+  const deletionLock = makeDeletionLock(database);
 
   const http = FetchHttpClient.layer.pipe(
     Layer.provide(

@@ -9,12 +9,13 @@ export default defineConfig({
   // The optimized engine is local source; refresh it on each dev-server start.
   optimizeDeps: { force: true },
   ssr: {
-    // Optimize the narrow engine entry so dev does not evaluate unused CLI/emulator exports.
+    // Optimize the engine and provider entries together so dev never evaluates unused
+    // alchemy exports (the Cloudflare Worker module resolves a workerd binary at import).
     // The SSR environment has its own optimizer that ignores the root `force`, so the
     // pre-bundled engine goes stale whenever its source changes unless forced here too.
     // Vite honors `force` at runtime even though the SSR config type omits it.
     optimizeDeps: {
-      include: ['alchemy-console/stage-destruction-engine'],
+      include: ['alchemy-console/deletion-engine', 'alchemy-console/providers'],
       force: true,
     } as SsrDepOptimizationConfig,
     noExternal: ['kui-toolkit'],

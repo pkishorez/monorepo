@@ -5,21 +5,21 @@ import { StateApi } from 'alchemy/State/HttpStateApi';
 import {
   persistedStateView,
   resourceSummaryView,
-} from '../../../shared/contracts/resource-browser/index.ts';
+} from '../../../shared/contracts/resources/index.ts';
 import {
   compareStackNames,
-  StoreDetailsError,
-} from '../../../shared/contracts/state-address/index.ts';
+  BrowseError,
+} from '../../../shared/contracts/targets/index.ts';
 import { maskSecrets } from './mask-secrets.ts';
 
-const invalidState = () => new StoreDetailsError({ code: 'invalid-state' });
+const invalidState = () => new BrowseError({ code: 'invalid-state' });
 
 const connect = (connection: { url: string; authToken: string }) =>
   Effect.gen(function* () {
     // Only Cloudflare's public Worker endpoints; never forward tokens to redirects or private hosts.
     const endpoint = yield* Effect.try({
       try: () => new URL(connection.url),
-      catch: () => new StoreDetailsError({ code: 'unsupported-endpoint' }),
+      catch: () => new BrowseError({ code: 'unsupported-endpoint' }),
     });
     if (
       endpoint.protocol !== 'https:' ||
@@ -31,7 +31,7 @@ const connect = (connection: { url: string; authToken: string }) =>
       endpoint.hash
     )
       return yield* Effect.fail(
-        new StoreDetailsError({ code: 'unsupported-endpoint' }),
+        new BrowseError({ code: 'unsupported-endpoint' }),
       );
 
     return yield* HttpApiClient.make(StateApi, {
@@ -146,14 +146,14 @@ export const read = (
   }).pipe(
     Effect.catch((error) =>
       Effect.fail(
-        error instanceof StoreDetailsError
+        error instanceof BrowseError
           ? error
-          : new StoreDetailsError({ code: 'remote-error' }),
+          : new BrowseError({ code: 'remote-error' }),
       ),
     ),
     Effect.timeout('60 seconds'),
     Effect.catchTag('TimeoutError', () =>
-      Effect.fail(new StoreDetailsError({ code: 'timeout' })),
+      Effect.fail(new BrowseError({ code: 'timeout' })),
     ),
     Effect.withSpan(`AlchemyState.${request.kind}`),
   );
@@ -168,14 +168,14 @@ export const removeStack = (
   }).pipe(
     Effect.catch((error) =>
       Effect.fail(
-        error instanceof StoreDetailsError
+        error instanceof BrowseError
           ? error
-          : new StoreDetailsError({ code: 'remote-error' }),
+          : new BrowseError({ code: 'remote-error' }),
       ),
     ),
     Effect.timeout('60 seconds'),
     Effect.catchTag('TimeoutError', () =>
-      Effect.fail(new StoreDetailsError({ code: 'timeout' })),
+      Effect.fail(new BrowseError({ code: 'timeout' })),
     ),
     Effect.withSpan('AlchemyState.removeStack'),
   );

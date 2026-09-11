@@ -11,7 +11,15 @@ import { Stack } from 'alchemy/Stack';
 import { Stage } from 'alchemy/Stage';
 import { Cli } from 'alchemy/Cli/Cli';
 import { apply } from 'alchemy/Apply';
-import { prepare } from '../src/server/services/stage-destruction/deletion-review/index.ts';
+import {
+  prepare,
+  resourceRows,
+  snapshot,
+} from '../src/server/services/deletion/review/index.ts';
+import { select } from '../src/server/services/deletion/selection/index.ts';
+import { shadows } from '../src/server/services/deletion/forget/index.ts';
+import type { StateService } from 'alchemy/State';
+import type { analysisEvent } from '../src/shared/contracts/deletion/index.ts';
 
 const row = (id: string, options: Partial<ResourceState> = {}): ResourceState =>
   ({
@@ -28,11 +36,35 @@ const row = (id: string, options: Partial<ResourceState> = {}): ResourceState =>
     attr: { id },
     ...options,
   }) as ResourceState;
-const input = {
-  stack: 'App',
-  stage: 'dev',
-  connection: { accountId: 'a'.repeat(32), apiToken: 'test-token' },
+const target = { stack: 'App', stage: 'dev' };
+const cloudflare = {
+  id: 'cf',
+  name: 'Personal',
+  account: 'a'.repeat(32),
+  secret: {
+    provider: 'cloudflare' as const,
+    accountId: 'a'.repeat(32),
+    apiToken: 'test-token',
+  },
 };
+// Reviews the stage the way the engine does: snapshot, select credentials, prepare.
+const review = (
+  state: StateService,
+  emit?: (event: typeof analysisEvent.Type) => void,
+  forget?: readonly { id: string; type: string }[],
+) =>
+  Effect.gen(function* () {
+    const before = yield* snapshot(state, target);
+    const selections = select(resourceRows(before), {
+      available: [cloudflare],
+      stateCredentialId: cloudflare.id,
+    });
+    return yield* prepare(
+      { ...target, selections, before, forget },
+      state,
+      emit,
+    );
+  });
 
 it('uses native Alchemy ordering, retention, and final stage cleanup', async () => {
   const deleted: string[] = [];
@@ -50,7 +82,7 @@ it('uses native Alchemy ordering, retention, and final stage cleanup', async () 
         },
       });
       const analysis: string[] = [];
-      const { plan } = yield* prepare(input, state, (event) =>
+      const { plan } = yield* review(state, (event) =>
         analysis.push(`${event.kind}:${event.id}`),
       ).pipe(Effect.provideService(State, Effect.succeed(state)));
       expect(analysis).toEqual([
@@ -123,7 +155,7 @@ it('keeps unresolved native state after provider failure and blocks dependencies
           },
         },
       });
-      const { plan } = yield* prepare(input, state).pipe(
+      const { plan } = yield* review(state).pipe(
         Effect.provideService(State, Effect.succeed(state)),
       );
       const result = yield* Effect.exit(
@@ -177,9 +209,9 @@ it('reviews every resource and distinguishes missing credentials from unsupporte
           },
         },
       });
-      const result = yield* prepare(input, state, (event) =>
-        events.push(event),
-      ).pipe(Effect.provideService(State, Effect.succeed(state)));
+      const result = yield* review(state, (event) => events.push(event)).pipe(
+        Effect.provideService(State, Effect.succeed(state)),
+      );
       expect(result.plan).toBeNull();
       expect(result.resources.map((r) => [r.id, r.readiness])).toEqual([
         ['BankTable', 'missing-credentials'],
@@ -197,10 +229,10 @@ it('reviews every resource and distinguishes missing credentials from unsupporte
       const reason = (rows: Record<string, ResourceState>) =>
         Effect.gen(function* () {
           const state = yield* InMemoryService({ App: { dev: rows } });
-          const review = yield* prepare(input, state).pipe(
+          const result = yield* review(state).pipe(
             Effect.provideService(State, Effect.succeed(state)),
           );
-          return review.resources[0]?.reason ?? '';
+          return result.resources[0]?.reason ?? '';
         });
       expect(
         yield* reason({ Queue: row('Queue', { attr: { id: 'dev:1' } }) }),
@@ -235,7 +267,7 @@ it('checks previous generations before planning and detects state changes', asyn
       const state = yield* InMemoryService({
         App: { dev: { Worker: unsafe } },
       });
-      const result = yield* prepare(input, state).pipe(
+      const result = yield* review(state).pipe(
         Effect.provideService(State, Effect.succeed(state)),
       );
       expect(result.plan).toBeNull();
@@ -248,7 +280,7 @@ it('checks previous generations before planning and detects state changes', asyn
         fqn: 'Worker',
         value: row('Worker'),
       });
-      const before = yield* prepare(input, state).pipe(
+      const before = yield* review(state).pipe(
         Effect.provideService(State, Effect.succeed(state)),
       );
       yield* state.set({
@@ -257,7 +289,7 @@ it('checks previous generations before planning and detects state changes', asyn
         fqn: 'Worker',
         value: row('Worker', { props: { changed: true } }),
       });
-      const after = yield* prepare(input, state).pipe(
+      const after = yield* review(state).pipe(
         Effect.provideService(State, Effect.succeed(state)),
       );
       expect(after.fingerprint).not.toBe(before.fingerprint);
@@ -270,6 +302,81 @@ it('checks previous generations before planning and detects state changes', asyn
           delete: () => Effect.void,
         }),
       ),
+    ),
+  );
+});
+
+it('forgets a blocked row of a supported type without calling its provider', async () => {
+  const deleted: string[] = [];
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const state = yield* InMemoryService({
+        App: {
+          dev: {
+            Local: row('Local', {
+              attr: { id: 'dev:1' },
+              providerMode: 'local',
+            }),
+            Worker: row('Worker'),
+          },
+        },
+      });
+      const blocked = yield* review(state).pipe(
+        Effect.provideService(State, Effect.succeed(state)),
+      );
+      expect(blocked.plan).toBeNull();
+      expect(blocked.resources.map((r) => [r.id, r.readiness])).toEqual([
+        ['Local', 'blocked'],
+        ['Worker', 'ready'],
+      ]);
+      const forget = [{ id: 'Local', type: 'Cloudflare.Test' }];
+      const { plan, resources } = yield* review(state, undefined, forget).pipe(
+        Effect.provideService(State, Effect.succeed(state)),
+      );
+      expect(resources.map((r) => [r.id, r.readiness, r.action])).toEqual([
+        ['Local', 'ready', 'forget'],
+        ['Worker', 'ready', 'delete'],
+      ]);
+      if (!plan) throw new Error('Expected executable plan');
+      yield* apply(plan).pipe(
+        Effect.provideService(State, Effect.succeed(state)),
+      );
+      expect(deleted).toEqual(['Worker']);
+      expect(yield* state.listStages('App')).toEqual([]);
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(FetchHttpClient.layer),
+      Effect.provide(
+        (() => {
+          const real = Layer.succeed(TestProvider, {
+            list: () => Effect.succeed([]),
+            reconcile: () => Effect.succeed({}),
+            delete: ({ id }) =>
+              Effect.sync(() => {
+                deleted.push(id);
+              }),
+          });
+          const shadow = shadows([{ id: 'Local', type: 'Cloudflare.Test' }]);
+          return Layer.merge(real, Layer.provide(shadow, real));
+        })(),
+      ),
+      Effect.provideService(Stack, {
+        name: 'App',
+        stage: 'dev',
+        resources: {},
+        bindings: {},
+        actions: {},
+      }),
+      Effect.provideService(Stage, 'dev'),
+      Effect.provideService(Cli, {
+        approvePlan: () => Effect.succeed(false),
+        displayPlan: () => Effect.void,
+        startApplySession: () =>
+          Effect.succeed({
+            emit: () => Effect.void,
+            done: () => Effect.void,
+          }),
+      }),
     ),
   );
 });

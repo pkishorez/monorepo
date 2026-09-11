@@ -7,300 +7,230 @@
       "paths": ["src/shared/contracts"],
       "description": "Defines browser-safe inputs, views and failures without storage or runtime implementations.",
       "modules": {
-        "src/shared/contracts/state-stores": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/shared/contracts/resource-browser": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/shared/contracts/delete-stage": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/shared/contracts/state-address": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/shared/contracts/stage-outputs": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/shared/contracts/credentials": { "shared": true, "exposed": true },
+        "src/shared/contracts/stores": { "exposed": true },
+        "src/shared/contracts/targets": { "shared": true, "exposed": true },
+        "src/shared/contracts/resources": { "exposed": true },
+        "src/shared/contracts/deletion": { "exposed": true }
       }
     },
     "shared-rpc": {
       "paths": ["src/shared/rpc"],
       "description": "Declares capability-specific procedures over browser-safe schemas.",
       "modules": {
-        "src/shared/rpc/state-browser": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/shared/rpc/state-stores": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/shared/rpc/resource-browser": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/shared/rpc/delete-stage": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/shared/rpc/stage-deletion-preview": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/shared/rpc/credentials": { "exposed": true },
+        "src/shared/rpc/stores": { "exposed": true },
+        "src/shared/rpc/explorer": { "exposed": true },
+        "src/shared/rpc/deletion": { "exposed": true }
       }
     },
     "shared-api": {
       "paths": ["src/shared/api"],
       "description": "Composes the Console API and applies its inherited authentication policy once.",
       "modules": {
-        "src/shared/api/console-api": {
-          "exposed": true
-        }
+        "src/shared/api/console-api": { "exposed": true }
       }
     },
     "server-entry": {
       "paths": ["src/server.ts"],
       "description": "Dispatches Worker requests to RPC or the web framework.",
       "modules": {
-        "src/server.ts": {
-          "shared": false,
-          "exposed": false
-        }
+        "src/server.ts": {}
       }
     },
     "server-host": {
       "paths": ["src/server/host"],
       "description": "Builds database, HTTP, authentication and telemetry providers and hosts the RPC handlers.",
       "modules": {
-        "src/server/host/rpc-host": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/server/host/rpc-host": { "exposed": true }
       }
     },
     "server-handlers": {
       "paths": ["src/server/handlers"],
-      "description": "Binds the authenticated API to the user-scoped operation boundary.",
+      "description": "Binds the authenticated API to the user-scoped workflows.",
       "modules": {
-        "src/server/handlers/console-handlers": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/server/handlers/console-handlers": { "exposed": true }
       }
     },
     "server-workflows": {
       "paths": ["src/server/workflows"],
-      "description": "Owns user-scoped sequencing and failure policy over storage and independent external services.",
+      "description": "Owns user-scoped sequencing and failure policy over storage, providers and services.",
+      "modules": {
+        "src/server/workflows/credentials": { "exposed": true }
+      },
       "moduleGraphs": {
-        "store-operations": {
-          "path": "src/server/workflows/store-operations",
-          "description": "Authorizes user-owned store operations and delegates to private capabilities.",
+        "stores": {
+          "path": "src/server/workflows/stores",
+          "description": "Authorizes a user's store operations: management, browsing and stage deletion behind one door.",
           "modules": {
-            "store-operations": {
-              "exposed": true
-            },
-            "store-management": {},
-            "state-browser": {},
-            "resource-browser": {},
-            "stage-outputs": {},
-            "stage-deletion-preview": {},
-            "stage-deletion": {}
+            "stores": { "exposed": true },
+            "access": {},
+            "management": {},
+            "explorer": {},
+            "deletion": {}
           },
           "rules": {
-            "store-operations": [
-              "store-management",
-              "state-browser",
-              "resource-browser",
-              "stage-outputs",
-              "stage-deletion-preview",
-              "stage-deletion"
-            ]
+            "stores": ["access", "management", "explorer", "deletion"]
           }
         }
       }
     },
     "server-services": {
       "paths": ["src/server/services"],
-      "description": "Discovers Cloudflare connections or reads Alchemy state; neither service can import its peer or storage.",
+      "description": "Reads Alchemy state or runs Alchemy deletions; services never see storage or each other.",
       "modules": {
-        "src/server/services/cloudflare-discovery": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/server/services/alchemy-state": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/server/services/alchemy-state": { "exposed": true }
       },
       "moduleGraphs": {
-        "stage-destruction": {
-          "path": "src/server/services/stage-destruction",
-          "description": "Reviews the complete stage and executes native Alchemy plans using explicitly scoped cloud providers.",
+        "deletion": {
+          "path": "src/server/services/deletion",
+          "description": "Selects credentials, reviews every resource and executes native Alchemy plans.",
           "modules": {
-            "stage-destruction": { "exposed": true },
-            "alchemy-engine": {},
-            "deletion-review": {},
-            "provider-catalog": {},
-            "cloudflare": {},
-            "aws": {},
-            "dynamodb": {},
+            "deletion": { "exposed": true },
+            "engine": {},
+            "selection": {},
+            "review": {},
             "forget": {}
           },
           "rules": {
-            "stage-destruction": ["alchemy-engine"],
-            "alchemy-engine": ["deletion-review", "provider-catalog"],
-            "deletion-review": ["provider-catalog"],
-            "provider-catalog": ["cloudflare", "aws", "forget"],
-            "aws": ["dynamodb"]
+            "deletion": ["engine"],
+            "engine": ["review", "selection", "forget"],
+            "review": ["selection"]
+          }
+        }
+      }
+    },
+    "server-providers": {
+      "paths": ["src/server/providers"],
+      "description": "Owns what one cloud provider knows: verifying credentials, locating, checking and deleting its resources.",
+      "moduleGraphs": {
+        "providers": {
+          "path": "src/server/providers",
+          "description": "One door returns a provider by kind; providers never see each other.",
+          "modules": {
+            "providers": { "exposed": true },
+            "cloudflare": {},
+            "aws": {}
+          },
+          "rules": {
+            "providers": ["cloudflare", "aws"]
           }
         }
       }
     },
     "server-storage": {
       "paths": ["src/server/storage"],
-      "description": "Owns the state-store table, schema evolution and entity binding consumed by workflows and the host.",
+      "description": "Owns the console table, its entities and the deletion lock consumed by workflows and the host.",
       "modules": {
-        "src/server/storage/state-store-database": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/server/storage/stage-deletion-lock": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/server/storage/table": { "shared": true, "exposed": true },
+        "src/server/storage/stores": { "exposed": true },
+        "src/server/storage/credentials": { "exposed": true },
+        "src/server/storage/deletion-lock": { "exposed": true }
       }
     },
     "server-telemetry": {
       "paths": ["src/server/telemetry"],
       "description": "Configures development telemetry for the Worker runtime.",
       "modules": {
-        "src/server/telemetry": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/server/telemetry": { "exposed": true }
       }
     },
     "client-features": {
       "paths": ["src/client/features"],
-      "description": "Owns the brand, authentication UI and the store workspace with private functional boundaries.",
+      "description": "Owns the brand, authentication UI, credential settings and the store console with private functional boundaries.",
       "modules": {
-        "src/client/features/query-feedback": {
-          "shared": true,
-          "exposed": false
-        },
-        "src/client/features/brand": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/client/features/auth-boundary": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/client/features/query-feedback": { "shared": true },
+        "src/client/features/credentials": { "shared": true },
+        "src/client/features/settings": { "exposed": true },
+        "src/client/features/brand": { "shared": true, "exposed": true },
+        "src/client/features/auth-boundary": { "exposed": true }
       },
       "moduleGraphs": {
-        "store-console": {
-          "path": "src/client/features/store-console",
+        "console": {
+          "path": "src/client/features/console",
           "description": "Composes store management, exploration and deletion through one workspace door.",
           "modules": {
-            "workspace": {
-              "exposed": true
-            },
-            "store-management": {},
-            "state-browser": {},
-            "resource-browser": {},
-            "stage-deletion-preview": {},
-            "stage-deletion": {},
+            "workspace": { "exposed": true },
+            "stores": {},
+            "explorer": {},
+            "resources": {},
+            "deletion": {},
             "state-view": {},
-            "store-query": {}
+            "queries": {}
           },
           "rules": {
             "workspace": [
-              "store-management",
-              "state-browser",
-              "resource-browser",
-              "stage-deletion",
+              "stores",
+              "explorer",
+              "resources",
+              "deletion",
               "state-view",
-              "store-query"
+              "queries"
             ],
-            "store-management": ["state-browser", "store-query"],
-            "state-browser": ["state-view", "store-query"],
-            "resource-browser": ["state-view", "store-query"],
-            "stage-deletion": ["stage-deletion-preview", "store-query"],
-            "stage-deletion-preview": ["store-query"]
+            "stores": ["explorer", "queries"],
+            "explorer": ["state-view", "queries"],
+            "resources": ["state-view", "queries"],
+            "deletion": ["queries"]
+          }
+        }
+      }
+    },
+    "client-providers": {
+      "paths": ["src/client/providers"],
+      "description": "Provider-specific credential forms and identity formatting; pure UI with no session.",
+      "moduleGraphs": {
+        "credential-forms": {
+          "path": "src/client/providers",
+          "description": "One door renders a provider's credential fields; providers never see each other.",
+          "modules": {
+            "credential-forms": { "exposed": true },
+            "cloudflare": {},
+            "aws": {}
+          },
+          "rules": {
+            "credential-forms": ["cloudflare", "aws"]
           }
         }
       }
     },
     "client-session": {
       "paths": ["src/client/session"],
-      "description": "Owns the RPC connection lifetime, private React context and query/action hooks for a signed-in session.",
+      "description": "Owns the RPC connection lifetime, private React context, query/action hooks and user-facing error text for a signed-in session.",
       "modules": {
-        "src/client/session/rpc-session": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/client/session/rpc-session": { "exposed": true }
       }
     },
     "client-connections": {
       "paths": ["src/client/connections"],
       "description": "Connects to authentication and typed RPC; each connection is independent of its peer.",
       "modules": {
-        "src/client/connections/auth": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/client/connections/rpc": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/client/connections/auth": { "exposed": true },
+        "src/client/connections/rpc": { "exposed": true }
       }
     },
     "client-telemetry": {
       "paths": ["src/client/telemetry"],
       "description": "Configures development telemetry for the browser runtime.",
       "modules": {
-        "src/client/telemetry": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/client/telemetry": { "exposed": true }
       }
     },
     "web-entry": {
       "paths": ["src/router.tsx"],
       "description": "Creates the framework router over the generated route tree.",
       "modules": {
-        "src/router.tsx": {
-          "shared": false,
-          "exposed": false
-        }
+        "src/router.tsx": {}
       }
     },
     "routes": {
       "paths": ["src/routes"],
       "description": "Owns URLs, document composition and navigation while mounting independent client features.",
       "modules": {
-        "src/routes/__root.tsx": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/routes/page.tsx": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/routes/stores/page.tsx": {
-          "shared": false,
-          "exposed": true
-        },
-        "src/routes/stores/$storeId/page.tsx": {
-          "shared": false,
-          "exposed": true
-        }
+        "src/routes/__root.tsx": { "exposed": true },
+        "src/routes/page.tsx": { "exposed": true },
+        "src/routes/settings/page.tsx": { "exposed": true },
+        "src/routes/stores/page.tsx": { "exposed": true },
+        "src/routes/stores/$storeId/page.tsx": { "exposed": true }
       }
     }
   },
@@ -314,25 +244,28 @@
       }
     },
     "server": {
-      "description": "A request enters the host, reaches a handler and runs a workflow over independent services and storage.",
+      "description": "A request enters the host, reaches a handler and runs a workflow over providers, services and storage.",
       "rules": {
         "server-entry": ["server-host"],
         "server-host": ["server-handlers", "server-telemetry"],
         "server-handlers": ["shared-api", "server-workflows"],
         "server-workflows": [
           "server-services",
+          "server-providers",
           "server-storage",
           "shared-contracts"
         ],
-        "server-services": ["shared-contracts"],
+        "server-services": ["server-providers", "shared-contracts"],
+        "server-providers": ["shared-contracts"],
         "server-storage": [],
         "server-telemetry": []
       }
     },
     "client": {
-      "description": "Independent features use a session whose connections speak shared protocols; server implementations are unreachable.",
+      "description": "Features use a session whose connections speak shared protocols, and provider forms that know nothing above them.",
       "rules": {
-        "client-features": ["client-session"],
+        "client-features": ["client-session", "client-providers"],
+        "client-providers": [],
         "client-session": ["client-connections"],
         "client-connections": ["shared-api", "client-telemetry"],
         "client-telemetry": []

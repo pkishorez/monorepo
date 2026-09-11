@@ -8,75 +8,92 @@ describe the same story as the folders.
 src/
   router.tsx                         Starts the web router
   routes/                            Owns URLs, navigation and page composition
+    settings/page.tsx                Credential settings
+    stores/page.tsx                  Store list
+    stores/$storeId/page.tsx         Workspace for one store
   client/
+    providers/                       Client module graph: credential forms
+      credential-forms/              Public door: fields, validation and account formatting by provider
+      cloudflare/                    Account ID, API token and token templates
+      aws/                           Access key ID and secret access key
     features/
       auth-boundary/                 Gates the application on login and connection
-      store-console/                 Client module graph
+      credentials/                   Shared: credential queries and the add/edit/delete dialog
+      settings/                      Credential settings screen, grouped by provider
+      console/                       Client module graph
         workspace/                   Public door: management and exploration
-        store-management/            Saved connections, switching and credential dialogs
-        state-browser/               Stack/stage accordion, overviews and resource counts
-        resource-browser/            Resource summaries and state details
-        stage-outputs/               Stage outputs query and collapsible section
-        stage-deletion-preview/      Analysis stream, retry state and reviewed plan
-        stage-deletion/              Confirmations and deletion progress
-        store-query/                 Store cache addresses and safe error presentation
+        stores/                      Store list, switcher and the add/edit/delete store dialog
+        explorer/                    Stack/stage tree, overviews and resource counts
+        resources/                   Resource summaries and state details
+        deletion/                    Review, credential selection, confirmation and progress
+        queries/                     Store cache addresses
         state-view/                  Consistent state presentation and navigation props
-    session/rpc-session/             Owns connection lifetime and query/action hooks
+    session/rpc-session/             Owns connection lifetime, query/action hooks and user-facing error text
     connections/
       auth/                          Connects to the authentication service
       rpc/                           Creates the typed RPC runtime
     telemetry/                       Configures browser telemetry
   shared/
-    contracts/                       Defines pure inputs, views and failures
-    rpc/                             Defines six capability-specific RPC groups
+    contracts/                       credentials, stores, targets, resources, deletion
+    rpc/                             Credentials, Stores, Explorer and Deletion groups
     api/console-api/                 Merges the groups and guards the entire API
   server.ts                          Dispatches Worker requests
   server/
     host/rpc-host/                   Supplies providers and hosts RPC
-    handlers/console-handlers/       Binds the guarded API to operation implementations
+    handlers/console-handlers/       Binds the guarded API to workflows
     workflows/
-      store-operations/              Backend module graph
-        store-operations/            Public door: user-scoped access and safe failures
-        store-management/            Connection persistence, discovery and safe views
-        state-browser/               Separate list-stacks, list-stages and list-resources files
-        resource-browser/            Validated resource summaries and state
-        stage-outputs/               Validated outputs
-        stage-deletion-preview/      Preview of an authorized target
-        stage-deletion/              Leased execution of an authorized target
+      credentials/                   Verifies, lists, updates and removes a user's credentials
+      stores/                        Backend module graph
+        stores/                      Public door: user-scoped access and safe failures
+        access/                      Loads a store with the credentials it may use
+        management/                  Store creation through discovery, listing, grants, removal
+        explorer/                    Validated stacks, stages, resources, outputs and state
+        deletion/                    Policy, lease and delegation to the deletion service
     services/
-      cloudflare-discovery/          Resolves a connection through Cloudflare
       alchemy-state/                 Reads and masks remote Alchemy state
-      stage-destruction/             Runs Alchemy Plan.destroy and Apply in the Worker
-    storage/state-store-database/    Owns table, record evolution and entity binding
-    storage/stage-deletion-lock/     Serializes console deletions across Worker instances
+      deletion/                      Server module graph
+        deletion/                    Public door: preview and destroy streams
+        engine/                      Runs Alchemy Plan.destroy and Apply in the Worker
+        selection/                   Picks one credential per provider for the stage
+        review/                      Snapshots the stage and checks every resource
+        forget/                      Forget-only providers and per-resource shadows for ignored rows
+    providers/                       Server module graph
+      providers/                     Public door: verify, locate, check, layer, discovery by kind
+      cloudflare/                    Token verification, state-store discovery, zone checks, Alchemy layer
+      aws/                           STS verification, DynamoDB location and checks, Alchemy layer
+    storage/
+      table/                         The one console table
+      stores/                        Store entity
+      credentials/                   Credential entity
+      deletion-lock/                 Serializes console deletions across Worker instances
     telemetry/                       Configures Worker telemetry
 ```
 
 ## Follow a request
 
-`/` redirects to `/stores`, the management page, which lists every saved store
-and adds, renames, re-credentials or removes one. A store URL supplies `storeId`; its
-`stack`, `stage` and `resource` search parameters select what the workspace
-shows. Stack and stage names in the tree and ancestor breadcrumbs are links;
-the current breadcrumb is a location label. Refresh and direct links preserve
-the selection.
+`/settings` lists the user's provider credentials grouped by provider. Adding
+one sends `Credentials.Create`; the workflow asks the provider to verify the
+secret (a Workers-subdomain read for Cloudflare, STS for AWS), stores the
+confirmed account beside it, and never returns the secret. A credential that a
+store references cannot be deleted.
 
-The workspace is one screen: a sidebar tree of stacks and stages (a sheet on
-narrow viewports), a main pane, and a resource panel. With no stack selected the
-main pane shows every stack with its stages; with a stack, its stages and
-resource counts; with a stage, a resource table (name, type, status) and the
-stage outputs. Selecting a resource opens its state in a side panel on wide
-viewports and a bottom sheet on phones, without leaving the stage.
+`/` redirects to `/stores`, which lists every store and adds, edits or removes
+one. Adding a store picks the Cloudflare credential that hosts its state and
+any further credentials it may delete with; `Stores.Create` runs discovery
+through that credential and saves the state URL and token on the store. A
+store URL supplies `storeId`; its `stack` and `stage` search parameters select
+what the workspace shows.
 
-The signed-in session sends one of six authenticated RPCs: `ListStacks`,
-`ListStages`, `ListResources`, `ListResourceSummaries`, `GetStageOutputs`, or
-`GetResourceState` (each prefixed with `AlchemyStateStore.`). Each workflow
-loads the current user's saved connection and makes only the requested Alchemy
-state API calls. `ListResourceSummaries` lists a stage's resources and reads
-each state with up to four concurrent requests, returning only name, kind, type
-and status per row; unreadable or missing state yields null type and status. Creating
-a store resolves and saves its connection through Cloudflare discovery;
-ordinary reads reuse it without discovery or an extra verification request.
+The workspace is one screen: a sidebar tree of stacks and stages, a main pane
+and a resource panel. The signed-in session sends the `Explorer.*` RPCs; each
+loads the store and makes only the requested Alchemy state API calls.
+
+Deleting a stage streams `Deletion.Preview`. The engine snapshots the stage,
+selects one credential per provider (the user's choice, else the granted
+credential whose account matches the recorded resources, else the store's own
+credential), checks every resource with that credential, and returns a plan
+carrying the selection. The review always shows the selection; changing it
+re-plans. `Deletion.Delete` resends the same choices and the fingerprint.
 
 Opening a store loads stack names, and the tree eagerly loads each stack's
 stages with up to four concurrent requests. The tree behaves as a single-open
@@ -115,26 +132,23 @@ group once, so every procedure inherits authentication. The operation boundary
 still checks store ownership and deletion permissions. Capability declarations
 are not independently mounted.
 
-All procedure names have the `AlchemyStateStore.` prefix:
+Procedures are grouped by capability:
 
-| Capability       | Procedures                                                | Response                                                                  |
-| ---------------- | --------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Store management | `Create`, `List`, `Rename`, `UpdateCredentials`, `Delete` | Masked saved-store views, or void for removal                             |
-| State browser    | `ListStacks`, `ListStages`, `ListResources`               | `{ storeName, data: string[] }`                                           |
-| Resource browser | `ListResourceSummaries`, `GetResourceState`               | `{ storeName, data }` with validated summaries or nullable resource state |
-| Stage outputs    | `GetStageOutputs`                                         | `{ storeName, data: JSON }`                                               |
-| Deletion preview | `PreviewStageDeletion`                                    | Analysis, plan, failure and heartbeat events                              |
-| Stage deletion   | `DeleteStage`                                             | Progress, complete, failed and heartbeat events                           |
+| Group         | Procedures                                                                      | Response                                                                |
+| ------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `Credentials` | `Create`, `List`, `Update`, `Delete`                                            | Credential views (name, provider, account), never a secret              |
+| `Stores`      | `Create`, `List`, `Update`, `Delete`, `DeleteStack`                             | Store views (state credential and grants), or void for removal          |
+| `Explorer`    | `ListStacks`, `ListStages`, `ListResources`, `GetStageView`, `GetResourceState` | `{ storeName, data }` with validated names, summaries or resource state |
+| `Deletion`    | `Preview`, `Delete`                                                             | Analysis, plan, progress, complete, failed and heartbeat events         |
 
-There are thirteen procedures; the greeting API has been removed. Browsing
-keeps stacks and stages as separate calls so branch loading and cached reads
-remain independently addressable. Shared schemas own input and output shapes;
-the backend decodes remote state before returning it. Store-management failures
-use `StateStoreError`, read failures use `StoreDetailsError`, and deletion
-failures use `DeleteStageError`, in addition to inherited authentication errors.
+Shared schemas own input and output shapes; the backend decodes remote state
+before returning it. Credential failures use `CredentialError`, store failures
+`StoreError`, read failures `BrowseError`, and deletion failures
+`DeletionError`, in addition to inherited authentication errors.
 
-Preview accepts `{ storeId, stack, stage }`. Execution additionally requires
-the reviewed `fingerprint`; the backend prepares the plan again before applying.
+Preview accepts `{ storeId, stack, stage }` plus optional `forget` and
+`credentials` choices. Execution additionally requires the reviewed
+`fingerprint`; the backend prepares the plan again before applying.
 Preview ends with a plan or failure; execution ends with complete or failed.
 Heartbeats are not terminal results. The client reports a stream ending without
 a terminal result as an interrupted operation. Neither stream represents a
@@ -145,9 +159,11 @@ durable background job.
 Deletion runs inside the console Cloudflare Worker. There is no separate Node
 server, container, CLI invocation or executor secret. Node compatibility APIs
 satisfy Alchemy's platform imports; no child process is started. Vite prebundles the private
-`alchemy-console/stage-destruction-engine` entry in development, so the module
-loader never evaluates unused public CLI/emulator exports. Restart dev when
-changing this engine; forced optimization rebuilds its local source. Alchemy owns the
+`alchemy-console/deletion-engine` and `alchemy-console/providers` entries
+together in development, so the module loader never evaluates unused public
+CLI/emulator exports (the Cloudflare Worker module resolves a workerd binary at
+import). Restart dev when changing the engine, review or providers; forced
+optimization rebuilds their local source. Alchemy owns the
 plan, dependency ordering, retention, provider cleanup and state updates.
 
 The deletion member first asks for confirmation, then delegates streaming
@@ -160,16 +176,15 @@ Stages with a case-insensitive `prod` prefix are protected: anyone can preview
 their deletion, but the delete request must carry the exact acknowledgement
 phrase `I KNOW WHAT I AM DOING`. The dialog asks for it after the plan is shown
 and the workflow rejects the request without it. Every other nonempty stage name
-deletes after the plan review alone. Ownership and the presence of account
-credentials are checked on the server; credentials always come from the saved
-connection. There is no stored access level: every connection offers deletion.
-Planning checks state and cloud identity; a missing Cloudflare deletion permission fails at apply
-time on that resource, Alchemy skips its dependents, keeps the remaining state,
-and the same stage can be deleted again after the token is fixed. The
-token dialog offers a minimal Read template (Workers Scripts and Secrets Store,
-which discovery needs) and a Write template adding KV, R2, D1, Queues, zone
-reads, DNS and Workers Routes. Hyperdrive has no template key and must be added
-by hand.
+deletes after the plan review alone. Ownership is checked on the server, and
+the credentials always come from the store's saved state credential and grants.
+Planning checks state and cloud identity; a missing Cloudflare deletion
+permission fails at apply time on that resource, Alchemy skips its dependents,
+keeps the remaining state, and the same stage can be deleted again after the
+token is fixed. The Cloudflare credential form offers a minimal Read template
+(Workers Scripts and Secrets Store, which discovery needs) and a Write template
+adding KV, R2, D1, Queues, zone reads, DNS and Workers Routes. Hyperdrive has
+no template key and must be added by hand.
 
 The native service composes stock live providers for Workers and routes, D1,
 KV, R2 and its notifications/Sippy/catalog, Workflows, DNS records, Secrets Store,
@@ -179,31 +194,42 @@ preview: those Alchemy providers still import local runtime initialization that
 fails in workerd. This check includes older replacement generations. Providers
 are never replaced with handwritten Cloudflare deletion calls.
 
-The `stage-destruction` service is a Laymos module graph. Its exposed member
-owns streaming and deadlines; `alchemy-engine` orchestrates review and native
-Plan/Apply. `deletion-review` inventories all resources and replacement
-generations, collecting blockers instead of stopping at the first one.
-`provider-catalog` supplies both review checks and runtime provider composition.
-Its Cloudflare and AWS members own their cloud-specific context, and AWS uses
-the DynamoDB member for the native table lifecycle and identity checks. The
-`forget` member builds no-op providers for types the user chose to ignore.
+The `deletion` service is a Laymos module graph. Its exposed member owns
+streaming and deadlines; `engine` snapshots the stage, asks `selection` for one
+credential per provider, builds the Alchemy provider layer from that selection,
+and runs native Plan/Apply. `review` inventories all resources and replacement
+generations, collecting blockers instead of stopping at the first one, and
+asks the provider registry to check each row with its selected credential. The
+`forget` member builds no-op providers for ignored unsupported types and, for
+ignored rows of supported types, shadows the real provider so only those rows
+skip their cloud call.
 
-Each store has one optional AWS connection: null or a tagged object containing
-an access key ID, secret access key and region. Schema v5 migrates existing
-stores to null. Returned credentials are masked; editing can preserve the saved
-connection, replace it, or explicitly remove it. The add/edit form exposes AWS
-under Additional connections. Session-token credentials are not supported.
+Provider knowledge lives in the `providers` graph: `cloudflare` and `aws` each
+verify a secret and report its account, locate a recorded resource's account
+and region, check a row, and build the Alchemy layer. The registry door
+dispatches by kind, so the deletion service never names a provider. The client
+mirrors this with `credential-forms`: each provider declares its fields and how
+they become a secret.
 
-The review distinguishes unsupported types, supported DynamoDB tables missing
-AWS credentials, and configured resources blocked by identity or permissions.
+Credentials are user-owned and shared across stores. A store references the
+Cloudflare credential that hosts its state plus any granted credentials. AWS
+credentials carry no region; Alchemy provides one credential and one region
+per Apply, so deletion selects one credential per provider for the whole stage
+and derives the AWS region from the recorded table ARNs unless the user picks
+one. The selection is part of the plan and of its fingerprint.
+
+The review distinguishes unsupported types, resources whose provider has no
+selected credential or region, and resources blocked by identity or
+permissions.
 Any blocker disables confirmation and prevents native planning/apply on the
-server. The only override is per resource: an unsupported row can be ignored
-with a checkbox in the review. The confirm request carries those choices, the
-server re-runs the review with them, `provider-catalog` registers a forget-only
-provider from the `forget` member for each ignored type, and Alchemy's native
-delete drops the state row without calling any cloud API. The fingerprint still
-binds the request to the reviewed state, and supported types never receive a
-forget-only provider, so a real provider cannot be shadowed. Executable plans come from
+server. The only override is per resource: any non-ready row can be ignored
+with a checkbox in the review, behind a warning that whatever it created stays
+behind as an orphan. The confirm request carries those choices, the server
+re-runs the review treating ignored rows as ready, and the engine makes
+Alchemy's native delete drop their state rows without calling any cloud API:
+a forget-only provider for unsupported types, and a shadow over the real
+provider that skips only the ignored resources' deletes for supported types.
+The fingerprint still binds the request to the reviewed state. Executable plans come from
 Alchemy's native Plan.destroy; a blocked review is an inventory, not an
 executable Alchemy plan.
 
@@ -211,8 +237,8 @@ AWS calls use explicitly scoped Distilled credentials and region. STS verifies
 the account, and DescribeTable checks the persisted ARN/name/table ID before
 the native provider deletes by name. Region/account mismatches, missing table
 identity, and deletion protection block deletion. A retained table may keep
-deletion protection enabled. A reviewed fingerprint includes the AWS connection
-identity so changing keys or region requires a fresh review. No local AWS
+deletion protection enabled. A reviewed fingerprint includes the selected
+credential identities and region so changing either requires a fresh review. No local AWS
 profile or emulator is initialized.
 
 AWS permissions include DescribeTable, DeleteTable, DescribeContributorInsights
@@ -254,9 +280,13 @@ flowchart TD
   handlers --> api
   handlers --> workflows[Server workflows]
   workflows --> services[Server services]
+  workflows --> providers[Server providers]
   workflows --> storage[Server storage]
   workflows --> contracts[Shared contracts]
+  services --> providers
   services --> contracts
+  providers --> contracts
+  features --> forms[Client providers]
   api --> protocol[Shared RPC]
   protocol --> contracts
 ```
@@ -268,20 +298,21 @@ combined dependency policy: their rules are unioned and transitive.
 
 ## Isolation
 
-Each module graph has one exposed door: client `workspace` and backend
-`store-operations`. Its other members are private, reachable only through
+Each module graph has one exposed door: client `workspace` and
+`credential-forms`, backend `stores`, `deletion` and `providers`. Its other members are private, reachable only through
 declared, non-transitive graph edges. Every directory member has a thin
 `index.ts` exporting from its same-named implementation file. Neither graph
 has an index of its own, and neither crosses a layer boundary.
 
-| Independent peers                            | Where collaboration belongs    |
-| -------------------------------------------- | ------------------------------ |
-| Cloudflare discovery and Alchemy state       | Server workflows               |
-| Store management and remote-state operations | Backend store-operations graph |
-| Store management, browsing and deletion UI   | Client workspace graph         |
-| Login boundary and workspace                 | Routes                         |
-| Authentication and RPC connections           | Client session                 |
-| RPC handlers                                 | RPC host                       |
+| Independent peers                            | Where collaboration belongs |
+| -------------------------------------------- | --------------------------- |
+| Cloudflare and AWS providers                 | Providers registry          |
+| Credentials and stores                       | Server workflows            |
+| Store management and remote-state operations | Backend stores graph        |
+| Store management, browsing and deletion UI   | Client console graph        |
+| Login boundary and workspace                 | Routes                      |
+| Authentication and RPC connections           | Client session              |
+| RPC handlers                                 | RPC host                    |
 
 Services cannot import storage, workflows or handlers. Client code and routes
 cannot reach server implementations. Shared contracts cannot reach either
@@ -290,16 +321,18 @@ duplicating a shared contract or giving every workflow its own database.
 
 The RPC provider and hooks form one session capability. Their React context
 stays private inside that module. Session owns runtime/cache lifetime and
-session refresh; it has no store query keys or feature-specific error codes and
-does not invalidate store data after arbitrary actions. The client graph's
-`store-query` member owns the cache address hierarchy and safe error copy.
+session refresh and turns RPC failures into user-facing text; it has no store
+query keys and does not invalidate store data after arbitrary actions. The
+client graph's `queries` member owns the cache address hierarchy.
 Individual capabilities own their queries and mutation effects; the workspace
 coordinates effects spanning several capabilities. The storage module similarly owns its table,
 schema evolution and entity binding together. Its exports are used to build
 the database at the host and access records in workflows.
 
 The graph boundaries and rationale are recorded in
-`docs/adr/0001-capability-module-graphs.md`. Presentation primitives in
+`docs/adr/0001-capability-module-graphs.md`; user-owned credentials and
+per-deletion selection in
+`docs/adr/0002-user-owned-credentials-selected-per-deletion.md`. Presentation primitives in
 `query-feedback` remain shared with the surrounding client-feature layer;
 graph-private members cannot be imported through that shared surface.
 
