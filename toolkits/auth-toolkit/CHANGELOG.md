@@ -1,5 +1,13 @@
 # auth-toolkit
 
+## 0.0.3
+
+### Patch Changes
+
+- [`63d69a8`](https://github.com/pkishorez/monorepo/commit/63d69a86a55876525bd04067f7e6414261451443) Thanks [@pkishorez](https://github.com/pkishorez)! - Fix fresh D1 database deployments with Alchemy 2.0.0-beta.76 by upgrading Drizzle ORM and Kit to v1 RC and shipping one timestamped migration layout shared with in-memory SQLite. Use Better Auth's official Relations v2 adapter and schema generator, preserving the existing database helper APIs.
+- Updated dependencies []:
+  - rpc-toolkit@0.0.1
+
 ## 0.0.2
 
 ### Patch Changes
