@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { nextUlid } from '../../../core/index.js';
+import { ESchema } from '../../../eschema/index.js';
 import {
   SnapshotSubjectSchema,
   TableSnapshotSchema,
@@ -55,22 +56,27 @@ export interface StoredTableState {
   readonly updated: string | null;
 }
 
-const STATE_VERSION = 'v1';
 const CONFLICT_RETRIES = 3;
 
-const EntityStateSchema = Schema.Struct({ epoch: Schema.String });
-const BackfillNeedSchema = Schema.Struct({
-  subject: SnapshotSubjectSchema,
-  since: Schema.String,
-});
-const TableStateSchema = Schema.Struct({
-  _v: Schema.Literal(STATE_VERSION),
-  snapshot: Schema.NullOr(TableSnapshotSchema),
-  entities: Schema.Record(Schema.String, EntityStateSchema),
-  backfill: Schema.Array(BackfillNeedSchema),
-});
+// The record is an ESchema so its shape can evolve the way every stored row
+// does: append `.evolve('v2', delta, migrate)` and a record written at v1 still
+// reads. The snapshot rides as an opaque object because `TableSnapshotSchema`
+// carries a filter the ESchema field policy refuses; it is validated on its own
+// right after decode.
+const TableStateSchema = ESchema.make('StdTableState', {
+  snapshot: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+  entities: Schema.Record(
+    Schema.String,
+    Schema.Struct({ epoch: Schema.String }),
+  ),
+  backfill: Schema.Array(
+    Schema.Struct({ subject: SnapshotSubjectSchema, since: Schema.String }),
+  ),
+}).build();
 
-const decodeState = Schema.decodeUnknownEffect(TableStateSchema);
+const decodeSnapshot = Schema.decodeUnknownEffect(
+  Schema.NullOr(TableSnapshotSchema),
+);
 
 export const emptyTableState = (): TableState => ({
   snapshot: null,
@@ -98,7 +104,12 @@ const widenLegacyBaseline = (data: unknown): unknown =>
   data !== null &&
   'kind' in data &&
   data.kind === 'table'
-    ? { _v: STATE_VERSION, snapshot: data, entities: {}, backfill: [] }
+    ? {
+        _v: TableStateSchema.latestVersion,
+        snapshot: data,
+        entities: {},
+        backfill: [],
+      }
     : data;
 
 const sortedEntities = (
@@ -127,12 +138,15 @@ export const readTableState = (
       .getItem(TABLE_STATE_KEY, { consistent: true })
       .pipe(Effect.mapError((failure) => contractError(operation, failure)));
     if (item === null) return { state: emptyTableState(), updated: null };
-    const decoded = yield* decodeState(widenLegacyBaseline(item.data)).pipe(
+    const decoded = yield* TableStateSchema.decode(
+      widenLegacyBaseline(item.data),
+    ).pipe(Effect.mapError((cause) => dbError(operation, cause)));
+    const snapshot = yield* decodeSnapshot(decoded.snapshot).pipe(
       Effect.mapError((cause) => dbError(operation, cause)),
     );
     return {
       state: {
-        snapshot: decoded.snapshot,
+        snapshot,
         entities: decoded.entities,
         backfill: decoded.backfill,
       },
@@ -148,12 +162,13 @@ const writeTableState = (
 ): Effect.Effect<boolean, DatabaseError> =>
   Effect.gen(function* () {
     const updated = yield* nextUlid;
-    const data = {
-      _v: STATE_VERSION,
+    const data = (yield* TableStateSchema.encode({
       snapshot: state.snapshot,
       entities: sortedEntities(state.entities),
       backfill: state.backfill,
-    } as unknown as EncodedData;
+    }).pipe(
+      Effect.mapError((cause) => dbError(operation, cause)),
+    )) as unknown as EncodedData;
     const result = yield* contract
       .writeItem({
         item: {

@@ -10,6 +10,8 @@ A backfill need is one `requires-backfill` snapshot change — an added or edite
 
 A table wipe keeps the baseline. Wiping is about rows; the baseline is about the contract the code declares, and the two stay independent so `verifySnapshot` behaves the same before and after.
 
+The record is itself an ESchema (`StdTableState`, at `v1`), so its shape evolves the way every stored row does: a later field is an appended `evolve` step with a migration, and a record written today still reads. The snapshot rides inside it as an opaque field, validated against `TableSnapshotSchema` right after decode, because that schema carries a filter the ESchema field policy refuses. The ESchema is not registered on any table, so it never appears in a table's own snapshot.
+
 Every write of the record is guarded on the `_u` it read and retried a bounded number of times, the same optimistic loop enforcement already used, so an entity wipe and an enforcement run racing on one table recheck each other rather than overwrite. An update that leaves the state unchanged writes nothing.
 
 ## Consequences
