@@ -69,10 +69,12 @@ function ConversationPanel({
   };
 
   return (
-    <section className="flex min-h-[32rem] w-[min(90vw,42rem)] shrink-0 snap-center flex-col overflow-hidden rounded-2xl border bg-card shadow-sm">
-      <header className="flex items-center justify-between gap-4 border-b px-5 py-4">
-        <div>
-          <h2 className="text-lg font-semibold">{conversation.remoteId}</h2>
+    <section className="flex min-h-[70svh] w-[calc(100vw-2rem)] shrink-0 sm:min-h-[32rem] sm:w-[min(90vw,42rem)] snap-center flex-col overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <header className="flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-5 sm:py-4">
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold">
+            {conversation.remoteId}
+          </h2>
           <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
             <span
               className={`size-2 rounded-full ${statusTone[conversation.status._tag]}`}
@@ -86,7 +88,7 @@ function ConversationPanel({
         <button
           type="button"
           aria-label={`Close conversation with ${conversation.remoteId}`}
-          className="grid size-9 place-items-center rounded-lg border hover:bg-muted"
+          className="grid size-10 shrink-0 place-items-center rounded-lg border hover:bg-muted"
           onClick={onDisconnect}
         >
           <X className="size-4" />
@@ -94,7 +96,7 @@ function ConversationPanel({
       </header>
 
       <div
-        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-5"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 sm:p-5"
         aria-live="polite"
       >
         {conversation.messages.length === 0 ? (
@@ -132,7 +134,7 @@ function ConversationPanel({
         )}
       </div>
 
-      <footer className="border-t p-4">
+      <footer className="border-t p-3 sm:p-4">
         <button
           type="button"
           className="mb-3 text-xs text-muted-foreground hover:text-foreground"
@@ -157,14 +159,14 @@ function ConversationPanel({
             disabled={!connected}
             aria-label={`Message to ${conversation.remoteId}`}
             placeholder={connected ? 'Write a message…' : 'Connecting…'}
-            className="min-h-11 flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            className="min-h-11 min-w-0 flex-1 resize-none rounded-xl border bg-background px-3 py-2 text-base sm:text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
           />
           <button
             type="button"
             onClick={send}
             disabled={!connected || draft.trim().length === 0}
             aria-label={`Send to ${conversation.remoteId}`}
-            className="grid size-11 place-items-center rounded-xl bg-foreground text-background transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid size-11 shrink-0 place-items-center rounded-xl bg-foreground text-background transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Send className="size-4" />
           </button>
@@ -187,12 +189,14 @@ export function PeerSetup({
     if (valid) onSetup(normalized);
   };
   return (
-    <main className="grid min-h-svh place-items-center bg-background p-6">
+    <main className="grid min-h-svh place-items-center bg-background p-4 sm:p-6">
       <form
         onSubmit={submit}
-        className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm"
+        className="w-full max-w-md rounded-2xl border bg-card p-5 shadow-sm sm:p-6"
       >
-        <h1 className="text-2xl font-bold">Choose your Peer Identifier</h1>
+        <h1 className="text-xl font-bold sm:text-2xl">
+          Choose your Peer Identifier
+        </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Other Peers use this identifier to reach you through free public Nostr
           relays. It lasts only until this page closes.
@@ -203,7 +207,7 @@ export function PeerSetup({
           onChange={(event) => setId(event.target.value)}
           maxLength={64}
           placeholder="alice"
-          className="mt-5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-5 h-11 w-full rounded-xl border bg-background px-3 text-base sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <p className="mt-2 text-xs text-muted-foreground">
           Lowercase letters, numbers, hyphens, and underscores.
@@ -241,8 +245,8 @@ export function EffectWebRtcDemo({
   return (
     <main className="min-h-svh bg-background px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <header className="mb-5 flex items-start justify-between gap-3 sm:mb-6 sm:gap-4">
+          <div className="min-w-0">
             <a
               href="/demos"
               className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -250,8 +254,10 @@ export function EffectWebRtcDemo({
               <ArrowLeft className="size-4" />
               Demos
             </a>
-            <h1 className="text-3xl font-bold tracking-tight">Effect WebRTC</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Effect WebRTC
+            </h1>
+            <p className="mt-2 break-words text-sm text-muted-foreground">
               You are{' '}
               <strong className="text-foreground">{snapshot.localId}</strong> ·{' '}
               {snapshot.signaling}
@@ -260,25 +266,28 @@ export function EffectWebRtcDemo({
           <button
             type="button"
             onClick={onFlows}
-            className="mt-9 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"
+            className="mt-9 inline-flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium hover:bg-muted"
           >
             <Activity className="size-4" />
             Flows
           </button>
         </header>
 
-        <form onSubmit={connect} className="mb-6 flex max-w-lg gap-2">
+        <form
+          onSubmit={connect}
+          className="mb-5 flex w-full max-w-lg gap-2 sm:mb-6"
+        >
           <input
             value={remoteId}
             onChange={(event) => setRemoteId(event.target.value)}
             placeholder="Peer to chat with"
             maxLength={64}
-            className="h-11 flex-1 rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 min-w-0 flex-1 rounded-xl border bg-background px-3 text-base sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
             type="submit"
             disabled={!valid || snapshot.conversations.length >= 20}
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-foreground px-4 text-sm font-medium text-background disabled:opacity-40"
+            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-foreground px-4 text-sm font-medium text-background disabled:opacity-40"
           >
             <Plus className="size-4" />
             Connect
@@ -286,7 +295,7 @@ export function EffectWebRtcDemo({
         </form>
 
         {snapshot.conversations.length === 0 ? (
-          <div className="grid min-h-[30rem] place-items-center rounded-2xl border border-dashed text-center text-sm text-muted-foreground">
+          <div className="grid min-h-[20rem] place-items-center rounded-2xl border border-dashed px-4 text-center sm:min-h-[30rem] text-sm text-muted-foreground">
             <p>
               Enter a Peer Identifier to start a Conversation.
               <br />
@@ -294,7 +303,7 @@ export function EffectWebRtcDemo({
             </p>
           </div>
         ) : (
-          <div className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-4">
+          <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:gap-5 sm:px-0">
             {snapshot.conversations.map((conversation) => (
               <ConversationPanel
                 key={conversation.remoteId}
