@@ -110,17 +110,19 @@ const projectObservation = (observation: FlowObservation): ProjectionResult => {
 };
 
 export const projectObservations = (input: ProjectFlowInput): RecordedFlow => {
-  const projected = input.observations
-    .map((observation) => ({
-      result: projectObservation(observation),
-      timestamp: observation.timestamp,
-      order: observation.order,
-    }))
-    .sort(
-      (left, right) =>
-        left.order.localeCompare(right.order) ||
-        left.timestamp - right.timestamp,
-    );
+  const projected = input.observations.map((observation) => ({
+    result: projectObservation(observation),
+    timestamp: observation.timestamp,
+    order: observation.order,
+  }));
+  const causal = projected.every(({ order }) => order.includes(':'));
+  projected.sort((left, right) =>
+    causal
+      ? left.order.localeCompare(right.order) ||
+        left.timestamp - right.timestamp
+      : left.timestamp - right.timestamp ||
+        left.order.localeCompare(right.order),
+  );
   const items: RecordedFlowItem[] = [];
   const warnings: RecordedFlowWarning[] = [];
   for (const { result } of projected) {
