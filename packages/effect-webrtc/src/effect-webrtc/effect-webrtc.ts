@@ -316,7 +316,7 @@ const makeInternal: (
     .open(options.id)
     .pipe(Effect.mapError(asWebRtcError('make')));
   const lifecycle = {
-    answerTimeout: options.lifecycle?.answerTimeout ?? '2 seconds',
+    answerTimeout: options.lifecycle?.answerTimeout ?? '15 seconds',
     establishmentTimeout:
       options.lifecycle?.establishmentTimeout ?? '15 seconds',
     heartbeatInterval: options.lifecycle?.heartbeatInterval ?? '5 seconds',

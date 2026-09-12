@@ -10,8 +10,12 @@ import { makeEvent } from '../src/signaling/nostr/event.js';
 const relay = vi.hoisted(() => ({
   instance: undefined as
     | {
-        handlers?: { onevent: (event: ReturnType<typeof makeEvent>) => void };
+        handlers?: {
+          onevent: (event: ReturnType<typeof makeEvent>) => void;
+          onclose?: (reasons: ReadonlyArray<unknown>) => void;
+        };
         published?: ReadonlyArray<string>;
+        subscriptions: number;
       }
     | undefined,
 }));
@@ -19,6 +23,7 @@ const relay = vi.hoisted(() => ({
 vi.mock('nostr-tools/pool', () => ({
   SimplePool: class {
     readonly statuses = new Map<string, boolean>();
+    subscriptions = 0;
 
     constructor() {
       relay.instance = this;
@@ -36,8 +41,12 @@ vi.mock('nostr-tools/pool', () => ({
     subscribeMany(
       _urls: ReadonlyArray<string>,
       _filter: unknown,
-      handlers: { onevent: (event: ReturnType<typeof makeEvent>) => void },
+      handlers: {
+        onevent: (event: ReturnType<typeof makeEvent>) => void;
+        onclose?: (reasons: ReadonlyArray<unknown>) => void;
+      },
     ) {
+      this.subscriptions += 1;
       relay.instance!.handlers = handlers;
       return { close: () => undefined };
     }
@@ -98,5 +107,28 @@ describe('Nostr signaling provider', () => {
 
     expect(result.sender).toBe(PeerId.make('alice'));
     expect(relay.instance?.published).toHaveLength(2);
+  });
+
+  it('resubscribes after every relay closes during an outage', async () => {
+    const { layer } = await import('../src/signaling/nostr/nostr.js');
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const signaling = yield* Signaling;
+          yield* signaling.open(PeerId.make('bob'));
+          expect(relay.instance?.subscriptions).toBe(1);
+          relay.instance!.handlers!.onclose!([]);
+          yield* Effect.yieldNow;
+          expect(relay.instance?.subscriptions).toBe(2);
+        }).pipe(
+          Effect.provide(
+            layer({
+              relays: ['wss://one.example', 'wss://two.example'],
+              namespace: 'test',
+            }),
+          ),
+        ),
+      ),
+    );
   });
 });
