@@ -43,10 +43,16 @@
           "path": "src/platform",
           "modules": {
             "platform.ts": { "exposed": true },
-            "memory": { "exposed": true }
+            "browser-compatible.ts": { "exposed": false },
+            "browser": { "exposed": true },
+            "memory": { "exposed": true },
+            "werift": { "exposed": true }
           },
           "rules": {
-            "memory": ["platform.ts"]
+            "browser-compatible.ts": ["platform.ts"],
+            "browser": ["browser-compatible.ts"],
+            "memory": ["platform.ts"],
+            "werift": ["browser-compatible.ts"]
           }
         }
       }

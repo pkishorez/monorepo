@@ -33,6 +33,14 @@
       "types": "./dist/platform/memory/index.d.ts",
       "default": "./dist/platform/memory/index.js"
     },
+    "./platform/werift": {
+      "types": "./dist/platform/werift/index.d.ts",
+      "default": "./dist/platform/werift/index.js"
+    },
+    "./platform/browser": {
+      "types": "./dist/platform/browser/index.d.ts",
+      "default": "./dist/platform/browser/index.js"
+    },
     "./rpc": {
       "types": "./dist/rpc/index.d.ts",
       "default": "./dist/rpc/index.js"
@@ -50,7 +58,8 @@
     "effect": "4.0.0-rc.112"
   },
   "dependencies": {
-    "@pkishorez/effect-tracer": "workspace:*"
+    "@pkishorez/effect-tracer": "workspace:*",
+    "werift": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",

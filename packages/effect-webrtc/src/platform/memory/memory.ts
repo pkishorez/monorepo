@@ -129,6 +129,7 @@ export const layer: Layer.Layer<WebRtcPlatform> = Layer.effect(
               yield* pairConnections(connection, answerer);
             }),
           addIceCandidate: () => Effect.void,
+          completeIceCandidates: Effect.void,
           openDataChannel: Effect.gen(function* () {
             const channel = yield* dataChannel;
             connection.pendingChannels.push(channel);

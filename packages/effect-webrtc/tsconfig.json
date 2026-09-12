@@ -8,7 +8,9 @@
     "moduleResolution": "nodenext",
     "paths": {
       "effect-webrtc": ["./src/effect-webrtc/index.ts"],
+      "effect-webrtc/platform/browser": ["./src/platform/browser/index.ts"],
       "effect-webrtc/platform/memory": ["./src/platform/memory/index.ts"],
+      "effect-webrtc/platform/werift": ["./src/platform/werift/index.ts"],
       "effect-webrtc/signaling/memory": ["./src/signaling/memory/index.ts"]
     },
     "rootDir": ".",
