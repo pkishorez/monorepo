@@ -118,8 +118,8 @@ export const projectObservations = (input: ProjectFlowInput): RecordedFlow => {
     }))
     .sort(
       (left, right) =>
-        left.timestamp - right.timestamp ||
-        left.order.localeCompare(right.order),
+        left.order.localeCompare(right.order) ||
+        left.timestamp - right.timestamp,
     );
   const items: RecordedFlowItem[] = [];
   const warnings: RecordedFlowWarning[] = [];
