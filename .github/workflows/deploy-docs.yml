@@ -1,4 +1,4 @@
-name: Deploy
+name: deploy:docs
 
 on:
   push:
@@ -105,7 +105,7 @@ jobs:
             base="${{ github.event.before }}"
             if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
               deploy=true
-            elif git diff --name-only "$base" HEAD | grep -qxE '\.github/workflows/deploy\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml'; then
+            elif git diff --name-only "$base" HEAD | grep -qxE '\.github/workflows/deploy-docs\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml'; then
               deploy=true
             elif pnpm ls -r --depth -1 --parseable --filter "...[$base]" | grep -q '/apps/docs$'; then
               deploy=true
@@ -192,7 +192,7 @@ jobs:
 
   cleanup:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    uses: ./.github/workflows/cleanup.yml
+    uses: ./.github/workflows/cleanup-docs.yml
     with:
       stage: pr${{ github.event.number }}
     secrets: inherit
