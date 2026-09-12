@@ -1,4 +1,4 @@
-name: Release
+name: release:packages
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
 
       # Build and lint moved into ci:publish so they only run when there is
       # actually something to publish; versioning and release-PR creation
-      # don't need them, and test.yml already gates every push to main.
+      # don't need them, and test-monorepo.yml already gates every push to main.
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v2.1.1
