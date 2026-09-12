@@ -11,7 +11,7 @@ import {
   bootConversation,
   type ConversationRuntime,
 } from '../../runtime/index.ts';
-import { EffectWebRtcDemo } from '../../ui/index.ts';
+import { EffectWebRtcDemo, PeerSetup } from '../../ui/index.ts';
 
 function LiveConversation({
   runtime,
@@ -65,12 +65,14 @@ function BootedConversation({
 
 const Loading = () => (
   <main className="grid min-h-svh place-items-center bg-background text-sm text-muted-foreground">
-    Preparing Alice and Bob…
+    Connecting to Nostr relays…
   </main>
 );
 
 export function EffectWebRtcPage() {
-  const [boot] = useState(bootConversation);
+  const [boot, setBoot] = useState<Promise<ConversationRuntime> | null>(null);
+  if (boot === null)
+    return <PeerSetup onSetup={(id) => setBoot(bootConversation(id))} />;
   return (
     <Suspense fallback={<Loading />}>
       <BootedConversation boot={boot} />

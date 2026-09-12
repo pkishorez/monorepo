@@ -9,7 +9,7 @@ const demos = [
     name: 'effect-webrtc',
     title: 'Effect WebRTC',
     description:
-      'Connect two Peers with in-memory signaling, then exchange messages over a real WebRTC Data Channel.',
+      'Find Peers through Nostr relays, then exchange messages over real WebRTC Data Channels.',
     to: '/demos/effect-webrtc',
   },
   {

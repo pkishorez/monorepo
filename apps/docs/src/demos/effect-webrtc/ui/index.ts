@@ -1,2 +1,1 @@
-export { EffectWebRtcDemo } from './ui.tsx';
-export type { EffectWebRtcDemoProps } from './ui.tsx';
+export { EffectWebRtcDemo, PeerSetup } from './ui.tsx';

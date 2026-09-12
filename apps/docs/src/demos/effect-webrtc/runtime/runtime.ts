@@ -1,55 +1,54 @@
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
 import { Effect, Exit, Layer, ManagedRuntime, Scope, Stream } from 'effect';
-import { PeerId, WebRtc } from 'effect-webrtc';
+import {
+  PeerId,
+  WebRtc,
+  type PeerSession,
+  type SessionEvent,
+  type SessionStatus,
+} from 'effect-webrtc';
 import { layer as browserPlatform } from 'effect-webrtc/platform/browser';
-import { layer as memorySignaling } from 'effect-webrtc/signaling/memory';
+import { layer as nostrSignaling } from 'effect-webrtc/signaling/nostr';
 import { Messages } from '../contract/index.ts';
 
-type PeerName = 'Alice' | 'Bob';
-type ConnectionStatus =
-  | 'Disconnected'
-  | 'Connecting'
-  | 'Connected'
-  | 'Reconnecting';
 type Delivery = 'pending' | 'delivered' | 'failed';
 
 interface Message {
   readonly id: string;
-  readonly author: PeerName;
+  readonly author: string;
   readonly text: string;
   readonly delivery: Delivery;
 }
 
-interface PeerSnapshot {
-  readonly name: PeerName;
-  readonly status: ConnectionStatus;
+interface ConversationSnapshot {
+  readonly remoteId: string;
+  readonly status: SessionStatus;
   readonly messages: ReadonlyArray<Message>;
-  readonly error: string | null;
+  readonly activity: ReadonlyArray<string>;
 }
 
-export interface ConversationSnapshot {
-  readonly Alice: PeerSnapshot;
-  readonly Bob: PeerSnapshot;
+interface DemoSnapshot {
+  readonly localId: string;
+  readonly signaling: string;
+  readonly conversations: ReadonlyArray<ConversationSnapshot>;
 }
 
 export interface ConversationRuntime {
   readonly recorder: ReturnType<typeof makeTraceRecorder>;
-  readonly getSnapshot: () => ConversationSnapshot;
+  readonly getSnapshot: () => DemoSnapshot;
   readonly subscribe: (listener: () => void) => () => void;
-  readonly connect: (initiator: PeerName) => void;
-  readonly disconnect: (initiator: PeerName) => void;
-  readonly send: (author: PeerName, text: string) => void;
+  readonly connect: (remoteId: string) => void;
+  readonly disconnect: (remoteId: string) => void;
+  readonly send: (remoteId: string, text: string) => void;
   readonly dispose: () => Promise<void>;
 }
 
-const other = (name: PeerName): PeerName =>
-  name === 'Alice' ? 'Bob' : 'Alice';
+const relayUrls = [
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+  'wss://relay.primal.net',
+] as const;
 
-/**
- * Free public STUN so each Peer also learns a server-reflexive candidate.
- * Host-only candidates fail on iOS Safari over cellular, where the mDNS
- * names Safari hides addresses behind cannot be resolved.
- */
 const rtc = {
   iceServers: [
     {
@@ -58,17 +57,36 @@ const rtc = {
   ],
 } as const;
 
-const initialPeer = (name: PeerName): PeerSnapshot => ({
-  name,
-  status: 'Disconnected',
-  messages: [],
-  error: null,
-});
+const describeStatus = (status: SessionStatus) => {
+  if (status._tag === 'Connected') return 'Connected';
+  const phase = status.phase?.replaceAll('-', ' ') ?? 'waiting';
+  return `${status._tag}: ${phase}`;
+};
 
-export const bootConversation = async (): Promise<ConversationRuntime> => {
+const describeEvent = (event: SessionEvent) => {
+  switch (event._tag) {
+    case 'IceStateChanged':
+      return `ICE ${event.state}`;
+    case 'SessionClosed':
+      return `Session closed ${event.reason}`;
+    default:
+      return event._tag.replace(/([a-z])([A-Z])/g, '$1 $2');
+  }
+};
+
+export const bootConversation = async (
+  localId: string,
+): Promise<ConversationRuntime> => {
   const recorder = makeTraceRecorder();
   const managed = ManagedRuntime.make(
-    Layer.mergeAll(memorySignaling, browserPlatform, recorder.layer),
+    Layer.mergeAll(
+      nostrSignaling({
+        relays: relayUrls,
+        namespace: 'effect-webrtc-demo',
+      }),
+      browserPlatform,
+      recorder.layer,
+    ),
   );
   const scope = Effect.runSync(Scope.make());
   const runScoped = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
@@ -76,96 +94,170 @@ export const bootConversation = async (): Promise<ConversationRuntime> => {
   const run = <A, E>(effect: Effect.Effect<A, E>) =>
     managed.runPromise(effect).catch(() => undefined);
   const listeners = new Set<() => void>();
-  let snapshot: ConversationSnapshot = {
-    Alice: initialPeer('Alice'),
-    Bob: initialPeer('Bob'),
+  let snapshot: DemoSnapshot = {
+    localId,
+    signaling: 'Connecting to Nostr relays…',
+    conversations: [],
   };
-  const change = (
-    update: (current: ConversationSnapshot) => ConversationSnapshot,
-  ) =>
+
+  const change = (update: (current: DemoSnapshot) => DemoSnapshot) =>
     Effect.sync(() => {
       snapshot = update(snapshot);
       for (const listener of listeners) listener();
     });
-  const patchPeer = (
-    name: PeerName,
-    update: (peer: PeerSnapshot) => PeerSnapshot,
-  ) => change((current) => ({ ...current, [name]: update(current[name]) }));
-  const setBoth = (status: ConnectionStatus, error: string | null = null) =>
+  const patchConversation = (
+    remoteId: string,
+    update: (conversation: ConversationSnapshot) => ConversationSnapshot,
+  ) =>
     change((current) => ({
-      Alice: { ...current.Alice, status, error },
-      Bob: { ...current.Bob, status, error },
+      ...current,
+      conversations: current.conversations.map((conversation) =>
+        conversation.remoteId === remoteId
+          ? update(conversation)
+          : conversation,
+      ),
     }));
+  const ensureConversation = (remoteId: string, status: SessionStatus) =>
+    change((current) =>
+      current.conversations.some(
+        (conversation) => conversation.remoteId === remoteId,
+      )
+        ? current
+        : current.conversations.length >= 20
+          ? current
+          : {
+              ...current,
+              conversations: [
+                ...current.conversations,
+                { remoteId, status, messages: [], activity: [] },
+              ],
+            },
+    );
 
-  const receive = (recipient: PeerName) =>
-    Messages.toLayer({
-      SendMessage: ({ id, text }) =>
-        patchPeer(recipient, (peer) => ({
-          ...peer,
-          messages: [
-            ...peer.messages,
-            { id, author: other(recipient), text, delivery: 'delivered' },
-          ],
-        })).pipe(Effect.as({ id })),
+  const receive = Messages.toLayer({
+    SendMessage: ({ author, id, text }) =>
+      ensureConversation(author, {
+        _tag: 'Connecting',
+        role: 'Responder',
+        phase: 'negotiating',
+      }).pipe(
+        Effect.andThen(
+          patchConversation(author, (conversation) => ({
+            ...conversation,
+            messages: [
+              ...conversation.messages,
+              { id, author, text, delivery: 'delivered' },
+            ],
+          })),
+        ),
+        Effect.as({ id }),
+      ),
+  });
+
+  const peer = await managed.runPromise(
+    WebRtc.make({
+      id: PeerId.make(localId),
+      rtc,
+      serve: { contract: Messages, handlers: receive },
+    }).pipe(Effect.provideService(Scope.Scope, scope)),
+  );
+  type Remote = Effect.Success<ReturnType<typeof peer.connect>>;
+  const remotes = new Map<string, Remote>();
+  const watched = new Map<
+    string,
+    { readonly session: PeerSession; readonly scope: Scope.Closeable }
+  >();
+
+  const unwatch = (remoteId: string) =>
+    Effect.suspend(() => {
+      const entry = watched.get(remoteId);
+      watched.delete(remoteId);
+      remotes.delete(remoteId);
+      return entry === undefined
+        ? Effect.void
+        : Scope.close(entry.scope, Exit.void);
     });
 
-  const aliceId = PeerId.make('demo-alice');
-  const bobId = PeerId.make('demo-bob');
-  const alice = await managed.runPromise(
-    WebRtc.make({
-      id: aliceId,
-      rtc,
-      serve: { contract: Messages, handlers: receive('Alice') },
-    }).pipe(Effect.provideService(Scope.Scope, scope)),
-  );
-  const bob = await managed.runPromise(
-    WebRtc.make({
-      id: bobId,
-      rtc,
-      serve: { contract: Messages, handlers: receive('Bob') },
-    }).pipe(Effect.provideService(Scope.Scope, scope)),
-  );
-  type Remote = Effect.Success<ReturnType<typeof alice.connect>>;
-  const remotes: Partial<Record<PeerName, Remote>> = {};
-  let connectionWanted = false;
-
-  const watch = (name: PeerName, remote: Remote) =>
-    Stream.runForEach(remote.status, (status) =>
-      patchPeer(name, (peer) => ({
-        ...peer,
-        status:
-          status._tag === 'Connected'
-            ? 'Connected'
-            : status._tag === 'Connecting'
-              ? peer.status === 'Connected'
-                ? 'Reconnecting'
-                : 'Connecting'
-              : connectionWanted
-                ? 'Reconnecting'
-                : 'Disconnected',
-      })),
-    ).pipe(Effect.forkScoped({ startImmediately: true }), Effect.asVoid);
+  const watchSession = (session: PeerSession) =>
+    Effect.gen(function* () {
+      const remoteId = String(session.remoteId);
+      if (watched.get(remoteId)?.session === session) return;
+      yield* unwatch(remoteId);
+      const sessionScope = yield* Scope.make();
+      watched.set(remoteId, { session, scope: sessionScope });
+      yield* Stream.runForEach(session.status, (status) =>
+        (status._tag === 'Connected'
+          ? peer.getRemotePeer({ id: session.remoteId }).pipe(
+              Effect.tap((remote) =>
+                Effect.sync(() => remotes.set(remoteId, remote)),
+              ),
+              Effect.asVoid,
+            )
+          : Effect.void
+        ).pipe(
+          Effect.andThen(ensureConversation(remoteId, status)),
+          Effect.andThen(
+            patchConversation(remoteId, (conversation) => ({
+              ...conversation,
+              status,
+              activity: [
+                ...conversation.activity,
+                describeStatus(status),
+              ].slice(-100),
+            })),
+          ),
+        ),
+      ).pipe(Effect.forkIn(sessionScope, { startImmediately: true }));
+      yield* Stream.runForEach(session.events, (event) =>
+        patchConversation(remoteId, (conversation) => ({
+          ...conversation,
+          activity: [...conversation.activity, describeEvent(event)].slice(
+            -100,
+          ),
+        })),
+      ).pipe(Effect.forkIn(sessionScope, { startImmediately: true }));
+    });
 
   await runScoped(
-    Effect.all(
-      [
-        alice.onRemotePeer((remote) =>
-          Effect.sync(() => {
-            remotes.Alice = remote;
-          }).pipe(Effect.andThen(watch('Alice', remote))),
+    Effect.all([
+      Stream.runForEach(peer.sessions, (sessions) =>
+        Effect.forEach(
+          [...watched.keys()].filter(
+            (remoteId) =>
+              !sessions.some(
+                (session) => String(session.remoteId) === remoteId,
+              ),
+          ),
+          unwatch,
+          { discard: true },
+        ).pipe(
+          Effect.andThen(
+            Effect.forEach(sessions.slice(0, 20), watchSession, {
+              discard: true,
+            }),
+          ),
+          Effect.andThen(
+            Effect.forEach(
+              sessions.slice(20),
+              (session) => peer.disconnect(session.remoteId),
+              { discard: true },
+            ),
+          ),
         ),
-        bob.onRemotePeer((remote) =>
-          Effect.sync(() => {
-            remotes.Bob = remote;
-          }).pipe(Effect.andThen(watch('Bob', remote))),
-        ),
-      ],
-      { concurrency: 'unbounded' },
-    ).pipe(Effect.forkScoped({ startImmediately: true }), Effect.asVoid),
+      ),
+      Stream.runForEach(peer.signalingStatus, (status) =>
+        change((current) => ({
+          ...current,
+          signaling:
+            status._tag === 'Connecting'
+              ? 'Connecting to Nostr relays…'
+              : status._tag === 'Unavailable'
+                ? 'No Nostr relays available'
+                : `${status.connected}/${status.configured} Nostr relays connected`,
+        })),
+      ),
+    ]).pipe(Effect.forkScoped({ startImmediately: true }), Effect.asVoid),
   );
-
-  const ids = { Alice: aliceId, Bob: bobId } as const;
-  const peers = { Alice: alice, Bob: bob } as const;
 
   return {
     recorder,
@@ -174,63 +266,57 @@ export const bootConversation = async (): Promise<ConversationRuntime> => {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    connect: (initiator) => {
-      connectionWanted = true;
+    connect: (rawRemoteId) => {
+      const remoteId = rawRemoteId.trim().toLowerCase();
+      if (remoteId === localId || !/^[a-z0-9_-]{1,64}$/.test(remoteId)) return;
       void runScoped(
-        setBoth('Connecting').pipe(
-          Effect.andThen(
-            peers[initiator].connect({ id: ids[other(initiator)] }),
-          ),
-          Effect.tap((remote) =>
-            Effect.sync(() => {
-              remotes[initiator] = remote;
-            }),
-          ),
-          Effect.andThen(setBoth('Connected')),
-          Effect.catch((error) =>
-            Effect.sync(() => {
-              connectionWanted = false;
-            }).pipe(
-              Effect.andThen(setBoth('Disconnected', String(error))),
-              Effect.asVoid,
+        peer
+          .connect({ id: PeerId.make(remoteId) })
+          .pipe(
+            Effect.tap((remote) =>
+              Effect.sync(() => remotes.set(remoteId, remote)),
             ),
           ),
-        ),
       );
     },
-    disconnect: (initiator) => {
-      connectionWanted = false;
+    disconnect: (remoteId) => {
       void run(
-        peers[initiator].disconnect(ids[other(initiator)]).pipe(
-          Effect.tap(() =>
-            Effect.sync(() => {
-              delete remotes.Alice;
-              delete remotes.Bob;
-            }),
+        unwatch(remoteId).pipe(
+          Effect.andThen(peer.disconnect(PeerId.make(remoteId))),
+          Effect.andThen(
+            change((current) => ({
+              ...current,
+              conversations: current.conversations.filter(
+                (conversation) => conversation.remoteId !== remoteId,
+              ),
+            })),
           ),
-          Effect.andThen(setBoth('Disconnected')),
         ),
       );
     },
-    send: (author, raw) => {
+    send: (remoteId, raw) => {
       const text = raw.trim();
-      const remote = remotes[author];
-      if (text.length === 0 || text.length > 500 || remote === undefined)
+      const remote = remotes.get(remoteId);
+      if (remote === undefined || text.length === 0 || text.length > 500)
         return;
       const id = crypto.randomUUID();
       void run(
-        patchPeer(author, (peer) => ({
-          ...peer,
+        patchConversation(remoteId, (conversation) => ({
+          ...conversation,
           messages: [
-            ...peer.messages,
-            { id, author, text, delivery: 'pending' },
+            ...conversation.messages,
+            { id, author: localId, text, delivery: 'pending' },
           ],
         })).pipe(
-          Effect.andThen(remote.rpc.SendMessage({ id, text })),
           Effect.andThen(
-            patchPeer(author, (peer) => ({
-              ...peer,
-              messages: peer.messages.map((message) =>
+            Effect.suspend(() =>
+              remote.rpc.SendMessage({ id, author: localId, text }),
+            ),
+          ),
+          Effect.andThen(
+            patchConversation(remoteId, (conversation) => ({
+              ...conversation,
+              messages: conversation.messages.map((message) =>
                 message.id === id
                   ? { ...message, delivery: 'delivered' }
                   : message,
@@ -238,9 +324,9 @@ export const bootConversation = async (): Promise<ConversationRuntime> => {
             })),
           ),
           Effect.catch(() =>
-            patchPeer(author, (peer) => ({
-              ...peer,
-              messages: peer.messages.map((message) =>
+            patchConversation(remoteId, (conversation) => ({
+              ...conversation,
+              messages: conversation.messages.map((message) =>
                 message.id === id
                   ? { ...message, delivery: 'failed' }
                   : message,
@@ -251,6 +337,9 @@ export const bootConversation = async (): Promise<ConversationRuntime> => {
       );
     },
     dispose: async () => {
+      await managed.runPromise(
+        Effect.forEach([...watched.keys()], unwatch, { discard: true }),
+      );
       await managed.runPromise(Scope.close(scope, Exit.void));
       await managed.dispose();
     },

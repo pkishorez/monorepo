@@ -26,10 +26,12 @@
           "path": "src/signaling",
           "modules": {
             "signaling.ts": { "exposed": true },
-            "memory": { "exposed": true }
+            "memory": { "exposed": true },
+            "nostr": { "exposed": true }
           },
           "rules": {
-            "memory": ["signaling.ts"]
+            "memory": ["signaling.ts"],
+            "nostr": ["signaling.ts"]
           }
         }
       }
@@ -66,14 +68,14 @@
     },
     "rpc": {
       "paths": ["src/rpc"],
-      "description": "RPC — Effect RPC bound to one established RTC data channel.",
+      "description": "RPC — Effect RPC and session control frames bound to one established RTC data channel.",
       "modules": {
         "src/rpc": { "exposed": true }
       }
     },
     "effect-webrtc": {
       "paths": ["src/effect-webrtc"],
-      "description": "Facade — peers, maintained peer sessions, and typed remote RPC clients.",
+      "description": "Facade — the Peer Session state machine, maintained connections, and typed remote RPC clients.",
       "modules": {
         "src/effect-webrtc": { "exposed": true }
       }

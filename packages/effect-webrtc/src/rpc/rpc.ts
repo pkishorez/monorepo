@@ -1,5 +1,16 @@
 import { Activation } from '@pkishorez/effect-tracer/flow';
-import { Data, Effect, Layer, Option, Queue, Stream } from 'effect';
+import {
+  Clock,
+  Data,
+  Deferred,
+  Duration,
+  Effect,
+  Layer,
+  Option,
+  PubSub,
+  Queue,
+  Stream,
+} from 'effect';
 import type { Scope } from 'effect/Scope';
 import {
   RpcClient,
@@ -51,10 +62,27 @@ export interface RpcTransport {
     RpcTransportError | E,
     Scope | R | Rpc.Middleware<Local> | Rpc.ServicesServer<Local>
   >;
+  readonly events: Stream.Stream<RpcTransportEvent>;
+  readonly closeRemote: Effect.Effect<void>;
+}
+
+export type RpcTransportEvent =
+  | { readonly _tag: 'HeartbeatSent' | 'HeartbeatReceived' }
+  | { readonly _tag: 'HeartbeatTimedOut' }
+  | { readonly _tag: 'CloseReceived' };
+
+export interface RpcTransportOptions {
+  readonly heartbeatInterval: Duration.Input;
+  readonly heartbeatTimeout: Duration.Input;
 }
 
 const clientDestination = 0;
 const serverDestination = 1;
+const controlDestination = 2;
+const ping = 0;
+const pong = 1;
+const close = 2;
+const closeAcknowledged = 3;
 
 const frame = (
   destination: typeof clientDestination | typeof serverDestination,
@@ -86,6 +114,10 @@ const toClientError = (cause: unknown) =>
 const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
   channel: RtcDataChannel,
   peer: RpcPeerContext,
+  options: RpcTransportOptions = {
+    heartbeatInterval: '5 seconds',
+    heartbeatTimeout: '10 seconds',
+  },
 ) {
   const serialization = yield* RpcSerialization.RpcSerialization;
   const encodeClient = serialization.makeUnsafe();
@@ -99,6 +131,9 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
   >();
   const outgoingFlows = new Map<string | number, OutgoingRpcFlow>();
   const incomingFlows = new Map<string | number, IncomingRpcFlow>();
+  const events = yield* PubSub.unbounded<RpcTransportEvent>();
+  const closeAck = yield* Deferred.make<void>();
+  let awaitingHeartbeatSince: number | undefined;
   let serverHandler:
     | ((
         clientId: number,
@@ -116,6 +151,35 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
       );
     }),
   );
+
+  const sendControl = (message: number) =>
+    channel.send(new Uint8Array([controlDestination, message]));
+
+  const heartbeat = Effect.gen(function* () {
+    const now = yield* Clock.currentTimeMillis;
+    if (awaitingHeartbeatSince !== undefined) {
+      const timeout = Duration.toMillis(
+        Duration.fromInputUnsafe(options.heartbeatTimeout),
+      );
+      if (now - awaitingHeartbeatSince >= timeout) {
+        yield* PubSub.publish(events, {
+          _tag: 'HeartbeatTimedOut',
+        } satisfies RpcTransportEvent);
+        return;
+      }
+    } else {
+      awaitingHeartbeatSince = now;
+    }
+    yield* sendControl(ping);
+    yield* PubSub.publish(events, {
+      _tag: 'HeartbeatSent',
+    } satisfies RpcTransportEvent);
+  }).pipe(
+    Effect.delay(options.heartbeatInterval),
+    Effect.forever,
+    Effect.forkScoped({ startImmediately: true }),
+  );
+  yield* heartbeat;
 
   const clientProtocol = RpcClient.Protocol.of({
     codecFor: serialization.codecFor,
@@ -197,7 +261,24 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
     Effect.gen(function* () {
       const destination = input[0];
       const payload = input.subarray(1);
-      if (destination === clientDestination) {
+      if (destination === controlDestination) {
+        const control = input[1];
+        if (control === ping) {
+          yield* sendControl(pong);
+        } else if (control === pong) {
+          awaitingHeartbeatSince = undefined;
+          yield* PubSub.publish(events, {
+            _tag: 'HeartbeatReceived',
+          } satisfies RpcTransportEvent);
+        } else if (control === close) {
+          yield* sendControl(closeAcknowledged);
+          yield* PubSub.publish(events, {
+            _tag: 'CloseReceived',
+          } satisfies RpcTransportEvent);
+        } else if (control === closeAcknowledged) {
+          yield* Deferred.succeed(closeAck, undefined);
+        }
+      } else if (destination === clientDestination) {
         const messages = decodeServer.decode(
           payload,
         ) as ReadonlyArray<RpcMessage.FromClientEncoded>;
@@ -239,17 +320,29 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
     }).pipe(Effect.orDie),
   ).pipe(Effect.forkScoped({ startImmediately: true }));
 
-  return { clientProtocol, serverProtocol };
+  const closeRemote = sendControl(close).pipe(
+    Effect.andThen(Deferred.await(closeAck)),
+    Effect.timeout('1 second'),
+    Effect.ignore,
+  );
+
+  return {
+    clientProtocol,
+    serverProtocol,
+    events: Stream.fromPubSub(events),
+    closeRemote,
+  };
 });
 
 /** Opens the package-owned RPC Transport for one RTC Data Channel. */
 export const make = (
   peer: RpcPeerContext,
   channel: RtcDataChannel,
+  options?: RpcTransportOptions,
 ): Effect.Effect<RpcTransport, RpcTransportError, Scope> =>
-  makeProtocols(channel, peer).pipe(
+  makeProtocols(channel, peer, options).pipe(
     Effect.provide(RpcSerialization.layerJson),
-    Effect.map(({ clientProtocol, serverProtocol }) => {
+    Effect.map(({ clientProtocol, closeRemote, events, serverProtocol }) => {
       const consume = <Remote extends Rpc.Any>(
         remote: RpcGroup.RpcGroup<Remote>,
       ) =>
@@ -283,7 +376,7 @@ export const make = (
           ),
         );
 
-      return { consume, serve };
+      return { consume, serve, events, closeRemote };
     }),
     Effect.mapError(
       (cause) => new RpcTransportError({ operation: 'open', cause }),

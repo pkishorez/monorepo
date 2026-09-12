@@ -237,7 +237,7 @@
     },
     "effect-webrtc-ui": {
       "paths": ["src/demos/effect-webrtc/ui"],
-      "description": "Effect WebRTC demo — renders Peer panels from values and callbacks",
+      "description": "Effect WebRTC demo — renders setup and horizontally snapping Conversation panels from values and callbacks",
       "modules": {
         "src/demos/effect-webrtc/ui": {
           "exposed": true
@@ -246,7 +246,7 @@
     },
     "effect-webrtc-runtime": {
       "paths": ["src/demos/effect-webrtc/runtime"],
-      "description": "Effect WebRTC demo — owns both Peers, their Peer Session, Transcripts, and tracing",
+      "description": "Effect WebRTC demo — owns one local Peer, its Conversations, Transcripts, Nostr signaling, and tracing",
       "modules": {
         "src/demos/effect-webrtc/runtime": {
           "exposed": true
