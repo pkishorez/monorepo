@@ -3,6 +3,10 @@ import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { describe, expect, it } from 'vitest';
 import { PeerId, WebRtc } from '../src/effect-webrtc/index.js';
 import { layer as memoryPlatform } from '../src/platform/memory/index.js';
+import {
+  type RtcConfiguration,
+  WebRtcPlatform,
+} from '../src/platform/platform.js';
 import { layer as memorySignaling } from '../src/signaling/memory/index.js';
 
 describe('Peer orchestration', () => {
@@ -35,6 +39,38 @@ describe('Peer orchestration', () => {
     );
 
     expect(result).toBe('Hello, Ada');
+  });
+
+  it('passes each Peer RTC configuration to its Platform', async () => {
+    const seen: Array<RtcConfiguration | undefined> = [];
+    const recordingPlatform = Layer.effect(
+      WebRtcPlatform,
+      Effect.gen(function* () {
+        const platform = yield* WebRtcPlatform;
+        return WebRtcPlatform.of({
+          makeConnection: (configuration) => {
+            seen.push(configuration);
+            return platform.makeConnection(configuration);
+          },
+        });
+      }),
+    ).pipe(Layer.provide(memoryPlatform));
+    const stun = { iceServers: [{ urls: 'stun:stun.example:3478' }] };
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          yield* WebRtc.make({ id: PeerId.make('bob') });
+          const alice = yield* WebRtc.make({
+            id: PeerId.make('alice'),
+            rtc: stun,
+          });
+          yield* alice.connect({ id: PeerId.make('bob') });
+        }),
+      ).pipe(Effect.provide(Layer.merge(memorySignaling, recordingPlatform))),
+    );
+
+    expect(seen).toEqual([stun, undefined]);
   });
 
   it('exposes a duplex Remote Peer to the answering Peer', async () => {

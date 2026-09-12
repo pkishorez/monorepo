@@ -18,4 +18,6 @@ const bob = yield * alice.connect({ id: PeerId.make('bob') });
 yield * bob.rpc.SendMessage({ text: 'Hello' });
 ```
 
+Pass `rtc: { iceServers }` to `WebRtc.make` to reach Peers on other networks. Without ICE servers each Peer only offers host candidates, and browsers such as Safari hide those behind mDNS names that cannot be resolved across cellular links, so even two Peers on one device may fail to connect.
+
 `connect` starts a Peer Session. `getRemotePeer` finds or waits for one without starting negotiation. `getCurrentRemotePeers()` returns the available Remote Peers, and `onRemotePeer` observes each new logical Peer Session. When `contract` is omitted, these operations use `serve.contract`.

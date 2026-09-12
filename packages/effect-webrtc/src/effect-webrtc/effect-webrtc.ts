@@ -20,6 +20,7 @@ import type {
 } from '../negotiation/index.js';
 import { NegotiationMessage } from '../negotiation/index.js';
 import type {
+  RtcConfiguration,
   RtcConnection,
   RtcConnectionState,
   RtcDataChannel,
@@ -112,6 +113,11 @@ export interface Peer<DefaultRemote extends Rpc.Any | never = never> {
 
 interface BaseMakeOptions {
   readonly id: PeerIdType;
+  /**
+   * Passed to every RTC Connection this Peer creates. Without ICE servers,
+   * Peers only gather host candidates, which rarely reach across networks.
+   */
+  readonly rtc?: RtcConfiguration;
 }
 
 interface ServerMakeOptions<
@@ -474,7 +480,7 @@ const makeInternal: (
       const connection = yield* traced(
         attempt,
         'Create RTC connection',
-        platform.makeConnection(),
+        platform.makeConnection(options.rtc),
       );
       record.connection = connection;
       yield* watchDiagnostics(attempt, connection);
@@ -553,7 +559,7 @@ const makeInternal: (
     const connection = yield* traced(
       attempt,
       'Create RTC connection',
-      platform.makeConnection(),
+      platform.makeConnection(options.rtc),
     );
     record.connection = connection;
     yield* watchDiagnostics(attempt, connection);
