@@ -17,6 +17,7 @@ import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as DemosIndexRouteImport } from './routes/demos/index'
 import { Route as DemosBankRouteImport } from './routes/demos/bank'
+import { Route as DemosEffectWebrtcRouteImport } from './routes/demos/effect-webrtc'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -59,6 +60,11 @@ const DemosBankRoute = DemosBankRouteImport.update({
   path: '/demos/bank',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosEffectWebrtcRoute = DemosEffectWebrtcRouteImport.update({
+  id: '/demos/effect-webrtc',
+  path: '/demos/effect-webrtc',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/docs/$',
   path: '/docs/$',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/demos/bank': typeof DemosBankRoute
+  '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/demos/bank': typeof DemosBankRoute
+  '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog': typeof BlogIndexRoute
   '/demos': typeof DemosIndexRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/demos/bank': typeof DemosBankRoute
+  '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/api/source'
     | '/blog/$slug'
     | '/demos/bank'
+    | '/demos/effect-webrtc'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/api/source'
     | '/blog/$slug'
     | '/demos/bank'
+    | '/demos/effect-webrtc'
     | '/docs/$'
     | '/blog'
     | '/demos'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/api/source'
     | '/blog/$slug'
     | '/demos/bank'
+    | '/demos/effect-webrtc'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   ApiSourceRoute: typeof ApiSourceRoute
   BlogSlugRoute: typeof BlogSlugRoute
   DemosBankRoute: typeof DemosBankRoute
+  DemosEffectWebrtcRoute: typeof DemosEffectWebrtcRoute
   DocsSplatRoute: typeof DocsSplatRoute
   BlogIndexRoute: typeof BlogIndexRoute
   DemosIndexRoute: typeof DemosIndexRoute
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosBankRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/effect-webrtc': {
+      id: '/demos/effect-webrtc'
+      path: '/demos/effect-webrtc'
+      fullPath: '/demos/effect-webrtc'
+      preLoaderRoute: typeof DemosEffectWebrtcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/$': {
       id: '/docs/$'
       path: '/docs/$'
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSourceRoute: ApiSourceRoute,
   BlogSlugRoute: BlogSlugRoute,
   DemosBankRoute: DemosBankRoute,
+  DemosEffectWebrtcRoute: DemosEffectWebrtcRoute,
   DocsSplatRoute: DocsSplatRoute,
   BlogIndexRoute: BlogIndexRoute,
   DemosIndexRoute: DemosIndexRoute,

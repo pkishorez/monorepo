@@ -1,1 +1,1 @@
-Peers are named by identity, not fixed client and server roles. Bob can initiate a session with Alice just as Alice initiated one with Bob in the previous chapter. The swim lanes reverse naturally in the Flow visualization.
+Peers are named by identity, not fixed client and server roles. Bob initiates one Peer Session with Alice, and each side gets the other as a typed Remote Peer. Their RPC invocations can then move in either direction over the same Data Channel.

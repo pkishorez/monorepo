@@ -19,8 +19,8 @@ export const stoppingWorkEarly = Story.make({
             const bobId = PeerId.make('stopping-bob');
             yield* WebRtc.make({
               id: bobId,
-              provides: {
-                group: Activity,
+              serve: {
+                contract: Activity,
                 handlers: Activity.toLayer({
                   WatchActivity: () =>
                     Stream.unwrap(
@@ -36,7 +36,7 @@ export const stoppingWorkEarly = Story.make({
             });
             const bob = yield* alice.connect({
               id: bobId,
-              consumes: Activity,
+              contract: Activity,
             });
 
             let stopped = false;

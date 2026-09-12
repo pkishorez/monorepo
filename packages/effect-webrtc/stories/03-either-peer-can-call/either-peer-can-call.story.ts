@@ -11,33 +11,38 @@ export const eitherPeerCanCall = Story.make({
   questions: [
     Story.question('Does Alice always have to start the connection?', {
       answer:
-        'No. Here Alice provides the same profile API as before, but Bob initiates the session and calls her. The Flow follows the direction the peers actually use rather than assigning permanent client and server roles.',
+        'No. Bob initiates one Peer Session, then both Peers get a typed Remote Peer and call each other. The Flow follows each RPC invocation rather than assigning permanent client and server roles.',
       proof: Story.flow(
         Effect.scoped(
           Effect.gen(function* () {
             const aliceId = PeerId.make('either-side-alice');
-            yield* WebRtc.make({
+            const alice = yield* WebRtc.make({
               id: aliceId,
-              provides: {
-                group: Profiles,
+              serve: {
+                contract: Profiles,
                 handlers: profileHandlers('Alice'),
               },
             });
             const bob = yield* WebRtc.make({
               id: PeerId.make('either-side-bob'),
+              serve: {
+                contract: Profiles,
+                handlers: profileHandlers('Bob'),
+              },
             });
 
-            const alice = yield* bob.connect({
-              id: aliceId,
-              consumes: Profiles,
-            });
-            const profile = yield* alice.rpc.GetProfile({});
+            const aliceForBob = yield* bob.connect({ id: aliceId });
+            const bobForAlice = yield* alice.getRemotePeer({ id: bob.id });
+            const [aliceProfile, bobProfile] = yield* Effect.all([
+              aliceForBob.rpc.GetProfile({}),
+              bobForAlice.rpc.GetProfile({}),
+            ]);
 
             yield* Story.assert(
-              'Bob can initiate and call Alice',
-              profile.name === 'Alice' && profile.status === 'online',
+              'both Peers can call over Bob’s session',
+              aliceProfile.name === 'Alice' && bobProfile.name === 'Bob',
             );
-            return profile;
+            return { aliceProfile, bobProfile };
           }),
         ).pipe(Effect.provide(memoryWebRtc)),
         { mergeRelated: true },

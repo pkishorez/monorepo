@@ -3,6 +3,7 @@ export {
   flowAttributePrefix,
   flowAttributes,
   initFlow,
+  mergeRelatedFlows,
   projectFlow,
   type ActivationRef,
   FlowCarrierSchema,

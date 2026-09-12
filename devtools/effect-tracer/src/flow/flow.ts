@@ -7,6 +7,7 @@ import {
 } from './contract.js';
 import { deriveRecordedFlow } from './derive.js';
 import { writeFlowLog, type FlowLogLevel } from './log.js';
+import { mergeRelatedFlowRecords } from './merge-related-flows.js';
 import type { ProjectFlowInput } from './observation.js';
 import { projectObservations } from './projection.js';
 import type { FlowCarrier, MessageToken, RecordedFlowItem } from './schema.js';
@@ -251,6 +252,9 @@ export const projectFlow = (input: ProjectFlowInput) =>
 /** Derives Activations and whole-Flow warnings. */
 export const deriveFlow = (items: readonly RecordedFlowItem[]) =>
   deriveRecordedFlow(items);
+
+/** Combines each parent Flow and its descendants into one presentation Flow. */
+export const mergeRelatedFlows = mergeRelatedFlowRecords;
 
 export {
   Activation,

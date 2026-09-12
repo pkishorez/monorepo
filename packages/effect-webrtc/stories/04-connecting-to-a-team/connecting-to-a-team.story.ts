@@ -19,15 +19,15 @@ export const connectingToATeam = Story.make({
             const carolId = PeerId.make('team-carol');
             yield* WebRtc.make({
               id: bobId,
-              provides: {
-                group: Profiles,
+              serve: {
+                contract: Profiles,
                 handlers: profileHandlers('Bob'),
               },
             });
             yield* WebRtc.make({
               id: carolId,
-              provides: {
-                group: Profiles,
+              serve: {
+                contract: Profiles,
                 handlers: profileHandlers('Carol'),
               },
             });
@@ -37,8 +37,8 @@ export const connectingToATeam = Story.make({
 
             const [bob, carol] = yield* Effect.all(
               [
-                alice.connect({ id: bobId, consumes: Profiles }),
-                alice.connect({ id: carolId, consumes: Profiles }),
+                alice.connect({ id: bobId, contract: Profiles }),
+                alice.connect({ id: carolId, contract: Profiles }),
               ],
               { concurrency: 'unbounded' },
             );

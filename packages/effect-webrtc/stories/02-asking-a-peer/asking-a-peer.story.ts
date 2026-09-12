@@ -18,8 +18,8 @@ export const askingAPeer = Story.make({
             const bobId = PeerId.make('asking-bob');
             yield* WebRtc.make({
               id: bobId,
-              provides: {
-                group: Profiles,
+              serve: {
+                contract: Profiles,
                 handlers: profileHandlers('Bob'),
               },
             });
@@ -29,7 +29,7 @@ export const askingAPeer = Story.make({
 
             const bob = yield* alice.connect({
               id: bobId,
-              consumes: Profiles,
+              contract: Profiles,
             });
             const profile = yield* bob.rpc.GetProfile({});
 
