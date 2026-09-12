@@ -45,12 +45,43 @@ const commonFlowAttributes = (options: {
 
 const endOnce = (activation: ActivationRef) => {
   let ended = false;
-  return (outcome: ActivationOutcome) =>
+  return (outcome: ActivationOutcome, attributes?: FlowNoteAttributes) =>
     Effect.suspend(() => {
       if (ended) return Effect.void;
       ended = true;
-      return activation.end(outcome);
+      return activation.end(
+        outcome,
+        attributes === undefined ? undefined : { flowAttributes: attributes },
+      );
     });
+};
+
+export type FlowNoteLevel = 'debug' | 'info' | 'warning' | 'error';
+export type FlowNoteAttributes = Readonly<Record<string, unknown>>;
+
+/** Splits one ICE candidate line into the fields worth reading in a Flow. */
+const candidateAttributes = (candidate: string): FlowNoteAttributes => {
+  const fields = candidate.replace(/^candidate:/, '').split(' ');
+  const typeIndex = fields.indexOf('typ');
+  return {
+    candidate,
+    candidateType: typeIndex === -1 ? null : (fields[typeIndex + 1] ?? null),
+    protocol: fields[2] ?? null,
+    address: fields[4] ?? null,
+    port: fields[5] ?? null,
+  };
+};
+
+const negotiationAttributes = (
+  message: NegotiationMessage,
+): FlowNoteAttributes | undefined =>
+  message._tag === 'IceCandidate'
+    ? candidateAttributes(message.candidate)
+    : undefined;
+
+const negotiationLogOptions = (message: NegotiationMessage) => {
+  const attributes = negotiationAttributes(message);
+  return attributes === undefined ? {} : { flowAttributes: attributes };
 };
 
 export interface ConnectionAttemptFlow {
@@ -67,7 +98,18 @@ export interface ConnectionAttemptFlow {
   readonly observe: (incoming: NegotiationEnvelopeType) => void;
   readonly connected: Effect.Effect<void>;
   readonly transientDisconnected: Effect.Effect<void>;
-  readonly end: (outcome: ActivationOutcome) => Effect.Effect<void>;
+  /** Records one local diagnostic event in this Connection Attempt Flow. */
+  readonly note: (
+    message: string,
+    options?: {
+      readonly level?: FlowNoteLevel;
+      readonly attributes?: FlowNoteAttributes;
+    },
+  ) => Effect.Effect<void>;
+  readonly end: (
+    outcome: ActivationOutcome,
+    attributes?: FlowNoteAttributes,
+  ) => Effect.Effect<void>;
 }
 
 const makeConnectionAttempt = Effect.fn('WebRtcFlow.makeConnectionAttempt')(
@@ -112,17 +154,32 @@ const makeConnectionAttempt = Effect.fn('WebRtcFlow.makeConnectionAttempt')(
       flow,
       send: (message) =>
         flow
-          .send(participantName(options.remotePeerId), message._tag)
+          .send(
+            participantName(options.remotePeerId),
+            message._tag,
+            negotiationLogOptions(message),
+          )
           .pipe(Effect.map((token) => envelope(flow.carrier(token), message))),
       reply: (incoming, message) =>
         flow
-          .reply(incoming.flow.message, message._tag)
+          .reply(
+            incoming.flow.message,
+            message._tag,
+            negotiationLogOptions(message),
+          )
           .pipe(Effect.map((token) => envelope(flow.carrier(token), message))),
       observe: (incoming) => flow.observe(incoming.flow.message),
       connected: flow.log('RTC connected', { level: 'debug' }),
       transientDisconnected: flow.log('RTC transiently disconnected', {
         level: 'warning',
       }),
+      note: (message, noteOptions) =>
+        flow.log(message, {
+          level: noteOptions?.level ?? 'info',
+          ...(noteOptions?.attributes === undefined
+            ? {}
+            : { flowAttributes: noteOptions.attributes }),
+        }),
       end,
     } satisfies ConnectionAttemptFlow;
   },

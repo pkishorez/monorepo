@@ -20,11 +20,13 @@ import type {
 } from '../negotiation/index.js';
 import { NegotiationMessage } from '../negotiation/index.js';
 import type {
+  RtcConfiguration,
   RtcConnection,
   RtcConnectionState,
   RtcDataChannel,
+  RtcDiagnostic,
 } from '../platform/platform.js';
-import { WebRtcPlatform } from '../platform/platform.js';
+import { RtcError, WebRtcPlatform } from '../platform/platform.js';
 import { PeerId as PeerIdSchema } from '../peer-identity/index.js';
 import type { PeerId as PeerIdType } from '../peer-identity/index.js';
 import { make as makeRpcTransport } from '../rpc/index.js';
@@ -111,6 +113,11 @@ export interface Peer<DefaultRemote extends Rpc.Any | never = never> {
 
 interface BaseMakeOptions {
   readonly id: PeerIdType;
+  /**
+   * Passed to every RTC Connection this Peer creates. Without ICE servers,
+   * Peers only gather host candidates, which rarely reach across networks.
+   */
+  readonly rtc?: RtcConfiguration;
 }
 
 interface ServerMakeOptions<
@@ -180,6 +187,67 @@ interface InternalSession {
 const asWebRtcError =
   (operation: WebRtcError['operation']) => (cause: unknown) =>
     new WebRtcError(operation, cause);
+
+const errorAttributes = (error: unknown) =>
+  error instanceof RtcError
+    ? { operation: error.operation, error: String(error.cause) }
+    : { error: String(error) };
+
+/** Records a failed negotiation step in its Flow before the failure spreads. */
+const traced = <A, E, R>(
+  attempt: ConnectionAttemptFlow,
+  step: string,
+  effect: Effect.Effect<A, E, R>,
+) =>
+  effect.pipe(
+    Effect.tapError((error) =>
+      attempt.note(`${step} failed`, {
+        level: 'error',
+        attributes: { step, ...errorAttributes(error) },
+      }),
+    ),
+  );
+
+const diagnosticNote = (
+  attempt: ConnectionAttemptFlow,
+  diagnostic: RtcDiagnostic,
+) => {
+  switch (diagnostic._tag) {
+    case 'IceConnectionState':
+      return attempt.note(`ICE connection ${diagnostic.state}`, {
+        level:
+          diagnostic.state === 'failed'
+            ? 'error'
+            : diagnostic.state === 'disconnected'
+              ? 'warning'
+              : 'info',
+        attributes: { iceConnectionState: diagnostic.state },
+      });
+    case 'IceGatheringState':
+      return attempt.note(`ICE gathering ${diagnostic.state}`, {
+        attributes: { iceGatheringState: diagnostic.state },
+      });
+    case 'IceCandidateError':
+      return attempt.note('ICE candidate error', {
+        level: 'warning',
+        attributes: {
+          url: diagnostic.url,
+          errorCode: diagnostic.errorCode,
+          errorText: diagnostic.errorText,
+          address: diagnostic.address,
+          port: diagnostic.port,
+        },
+      });
+  }
+};
+
+const watchDiagnostics = (
+  attempt: ConnectionAttemptFlow,
+  connection: RtcConnection,
+) =>
+  Stream.runForEach(connection.diagnostics ?? Stream.empty, (diagnostic) =>
+    diagnosticNote(attempt, diagnostic),
+  ).pipe(Effect.forkScoped({ startImmediately: true }), Effect.asVoid);
 
 const makeInternal: (
   options: BaseMakeOptions | ServerMakeOptions<Rpc.Any, unknown, unknown>,
@@ -366,11 +434,16 @@ const makeInternal: (
           record.connected = false;
           record.transport = undefined;
           record.client = undefined;
-          yield* attempt.end(
-            rtcState === 'failed'
-              ? Activation.failed('RTC connection failed')
-              : Activation.completed(),
-          );
+          if (rtcState === 'failed') {
+            const report =
+              connection.report === undefined ? {} : yield* connection.report;
+            yield* attempt.end(
+              Activation.failed('RTC connection failed'),
+              report,
+            );
+          } else {
+            yield* attempt.end(Activation.completed());
+          }
           yield* SubscriptionRef.set(record.statusRef, {
             _tag: 'Disconnected',
             rtcState,
@@ -404,9 +477,18 @@ const makeInternal: (
       });
       record.peerSessionId = attempt.peerSessionId;
       record.attempt = attempt;
-      const connection = yield* platform.makeConnection();
+      const connection = yield* traced(
+        attempt,
+        'Create RTC connection',
+        platform.makeConnection(options.rtc),
+      );
       record.connection = connection;
-      const channel = yield* connection.openDataChannel;
+      yield* watchDiagnostics(attempt, connection);
+      const channel = yield* traced(
+        attempt,
+        'Open data channel',
+        connection.openDataChannel,
+      );
       yield* bind(record, channel, attempt);
       const offerSent = yield* Deferred.make<void>();
       yield* sendIce(
@@ -415,7 +497,11 @@ const makeInternal: (
         attempt,
         Deferred.await(offerSent),
       ).pipe(Effect.forkScoped({ startImmediately: true }));
-      const description = yield* connection.createOffer();
+      const description = yield* traced(
+        attempt,
+        'Create offer',
+        connection.createOffer(),
+      );
       const offer = yield* attempt.send(
         NegotiationMessage.make({ _tag: 'Offer', description }),
       );
@@ -470,10 +556,19 @@ const makeInternal: (
     record.boundSession = undefined;
     record.connected = false;
     record.connecting = true;
-    const connection = yield* platform.makeConnection();
+    const connection = yield* traced(
+      attempt,
+      'Create RTC connection',
+      platform.makeConnection(options.rtc),
+    );
     record.connection = connection;
-    const answerDescription = yield* connection.acceptOffer(
-      incoming.message._tag === 'Offer' ? incoming.message.description : '',
+    yield* watchDiagnostics(attempt, connection);
+    const answerDescription = yield* traced(
+      attempt,
+      'Accept offer',
+      connection.acceptOffer(
+        incoming.message._tag === 'Offer' ? incoming.message.description : '',
+      ),
     );
     const answer = yield* attempt.reply(
       incoming,
@@ -523,12 +618,20 @@ const makeInternal: (
     switch (envelope.message._tag) {
       case 'Answer':
         if (record.connection !== undefined) {
-          yield* record.connection.acceptAnswer(envelope.message.description);
+          yield* traced(
+            attempt,
+            'Accept answer',
+            record.connection.acceptAnswer(envelope.message.description),
+          );
         }
         break;
       case 'IceCandidate':
         if (record.connection !== undefined) {
-          yield* record.connection.addIceCandidate(envelope.message);
+          yield* traced(
+            attempt,
+            'Add ICE candidate',
+            record.connection.addIceCandidate(envelope.message),
+          );
         }
         break;
       case 'Close':
@@ -541,7 +644,11 @@ const makeInternal: (
         break;
       case 'IceCandidatesComplete':
         if (record.connection !== undefined) {
-          yield* record.connection.completeIceCandidates;
+          yield* traced(
+            attempt,
+            'Complete ICE candidates',
+            record.connection.completeIceCandidates,
+          );
         }
         break;
     }
