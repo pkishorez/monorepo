@@ -43,6 +43,7 @@ class FakePeerConnection extends EventTarget {
   iceConnectionState: RTCIceConnectionState = 'new';
   iceGatheringState: RTCIceGatheringState = 'new';
   signalingState: RTCSignalingState = 'stable';
+  localDescription: RTCSessionDescription | null = null;
   remoteDescription: RTCSessionDescription | null = null;
   stats: RTCStats[] = [];
   readonly addedCandidates: Array<RTCIceCandidateInit | null> = [];
@@ -64,7 +65,18 @@ class FakePeerConnection extends EventTarget {
     return { type: 'answer' as const, sdp: 'answer' };
   }
 
-  async setLocalDescription(_description: RTCSessionDescriptionInit) {}
+  async setLocalDescription(description: RTCSessionDescriptionInit) {
+    this.localDescription = {
+      type: description.type,
+      sdp: `${description.sdp}:with-candidates`,
+      toJSON: () => description,
+    } as RTCSessionDescription;
+    this.iceGatheringState = 'complete';
+    this.dispatchEvent(new Event('icegatheringstatechange'));
+    this.dispatchEvent(
+      Object.assign(new Event('icecandidate'), { candidate: null }),
+    );
+  }
 
   async setRemoteDescription(description: RTCSessionDescriptionInit) {
     this.remoteDescription = description as RTCSessionDescription;
@@ -188,6 +200,26 @@ describe('browser platform', () => {
         expect(peer.channels[0]!.sent).toEqual([Uint8Array.from([4, 5])]);
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
+  });
+
+  it('includes gathered ICE candidates in offer and answer SDP', async () => {
+    vi.stubGlobal('RTCPeerConnection', FakePeerConnection);
+
+    const descriptions = await Effect.runPromise(
+      Effect.gen(function* () {
+        const platform = yield* WebRtcPlatform;
+        const offerer = yield* platform.makeConnection();
+        const answerer = yield* platform.makeConnection();
+        const offer = yield* offerer.createOffer();
+        const answer = yield* answerer.acceptOffer(offer);
+        return { offer, answer };
+      }).pipe(Effect.scoped, Effect.provide(layer)),
+    );
+
+    expect(descriptions).toEqual({
+      offer: 'false:with-candidates',
+      answer: 'answer:with-candidates',
+    });
   });
 
   it('reports ICE progress and the candidate pairs behind a failure', async () => {

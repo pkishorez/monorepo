@@ -314,6 +314,33 @@ export const makeLayer = (
     const addNativeIceCandidate = (candidate: RTCIceCandidateInit | null) =>
       tryPromise('add-ice-candidate', () => native.addIceCandidate(candidate));
 
+    const awaitIceGathering = Effect.callback<void, RtcError>((resume) => {
+      if (native.iceGatheringState === 'complete') {
+        resume(Effect.void);
+        return;
+      }
+      const onComplete = () => {
+        if (native.iceGatheringState !== 'complete') return;
+        native.removeEventListener('icegatheringstatechange', onComplete);
+        resume(Effect.void);
+      };
+      native.addEventListener('icegatheringstatechange', onComplete);
+      return Effect.sync(() =>
+        native.removeEventListener('icegatheringstatechange', onComplete),
+      );
+    });
+
+    const localDescription = (operation: RtcError['operation']) =>
+      Effect.try({
+        try: () => {
+          const sdp = native.localDescription?.sdp;
+          if (sdp === undefined)
+            throw new Error('Local description has no SDP');
+          return sdp;
+        },
+        catch: (cause) => rtcError(operation, cause),
+      });
+
     const flushCandidates = Effect.suspend(() =>
       Effect.forEach(pendingCandidates.splice(0), addNativeIceCandidate, {
         discard: true,
@@ -372,25 +399,24 @@ export const makeLayer = (
       localIceCandidates: Stream.fromQueue(localCandidates),
       incomingDataChannels: Stream.fromQueue(incomingChannels),
       createOffer: (options) =>
-        tryPromise('create-offer', async () => {
-          const offer = await native.createOffer(options);
-          await native.setLocalDescription(offer);
-          if (offer.sdp === undefined) throw new Error('Offer has no SDP');
-          return offer.sdp;
+        Effect.gen(function* () {
+          yield* tryPromise('create-offer', async () => {
+            const offer = await native.createOffer(options);
+            await native.setLocalDescription(offer);
+          });
+          yield* awaitIceGathering;
+          return yield* localDescription('create-offer');
         }),
       acceptOffer: (offer) =>
         Effect.gen(function* () {
-          const answer = yield* tryPromise('accept-offer', async () => {
+          yield* tryPromise('accept-offer', async () => {
             await native.setRemoteDescription({ type: 'offer', sdp: offer });
             const description = await native.createAnswer();
             await native.setLocalDescription(description);
-            if (description.sdp === undefined) {
-              throw new Error('Answer has no SDP');
-            }
-            return description.sdp;
           });
+          yield* awaitIceGathering;
           yield* flushCandidates;
-          return answer;
+          return yield* localDescription('accept-offer');
         }),
       acceptAnswer: (answer) =>
         Effect.gen(function* () {
