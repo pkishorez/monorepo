@@ -65,11 +65,11 @@ export interface RtcConnection {
   readonly state: Stream.Stream<RtcConnectionState>;
   readonly localIceCandidates: Stream.Stream<IceCandidate, RtcError>;
   readonly incomingDataChannels: Stream.Stream<RtcDataChannel, RtcError>;
-  /** Creates and installs a local offer, returning its SDP. */
+  /** Creates and installs a local offer, returning SDP with gathered ICE candidates. */
   readonly createOffer: (options?: {
     readonly iceRestart?: boolean;
   }) => Effect.Effect<string, RtcError>;
-  /** Installs a remote offer and creates and installs the answering SDP. */
+  /** Installs a remote offer and returns answering SDP with gathered ICE candidates. */
   readonly acceptOffer: (offer: string) => Effect.Effect<string, RtcError>;
   /** Installs the remote answer to a locally-created offer. */
   readonly acceptAnswer: (answer: string) => Effect.Effect<void, RtcError>;
