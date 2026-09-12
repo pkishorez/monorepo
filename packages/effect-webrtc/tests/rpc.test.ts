@@ -1,5 +1,5 @@
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
-import { Deferred, Effect, Fiber, Queue, Schema, Stream } from 'effect';
+import { Deferred, Effect, Fiber, Option, Queue, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { describe, expect, it } from 'vitest';
 import {
@@ -154,6 +154,62 @@ describe('WebRTC RPC Transport', () => {
     expect(flow?.activations.map(({ outcome }) => outcome)).toEqual([
       'interrupted',
       'interrupted',
+    ]);
+  });
+
+  it('exchanges heartbeats and acknowledges a graceful close', async () => {
+    const events = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const [aliceChannel, bobChannel] = yield* makeChannelPair;
+          const context = {
+            peerSessionId: PeerSessionId.make('session-1'),
+            connectionAttemptId: ConnectionAttemptId.make('connection-1'),
+          };
+          const options = {
+            heartbeatInterval: '5 millis',
+            heartbeatTimeout: '20 millis',
+          } as const;
+          const alice = yield* make(
+            {
+              ...context,
+              localPeerId: PeerId.make('alice'),
+              remotePeerId: PeerId.make('bob'),
+            },
+            aliceChannel,
+            options,
+          );
+          const bob = yield* make(
+            {
+              ...context,
+              localPeerId: PeerId.make('bob'),
+              remotePeerId: PeerId.make('alice'),
+            },
+            bobChannel,
+            options,
+          );
+          const heartbeat = yield* Stream.runHead(
+            alice.events.pipe(
+              Stream.filter(({ _tag }) => _tag === 'HeartbeatReceived'),
+            ),
+          ).pipe(Effect.forkChild);
+          const remoteClose = yield* Stream.runHead(
+            bob.events.pipe(
+              Stream.filter(({ _tag }) => _tag === 'CloseReceived'),
+            ),
+          ).pipe(Effect.forkChild);
+
+          const heartbeatEvent = yield* Fiber.join(heartbeat);
+          yield* alice.closeRemote;
+          const closeEvent = yield* Fiber.join(remoteClose);
+          return [heartbeatEvent, closeEvent];
+        }),
+      ),
+    );
+
+    expect(events.map((event) => Option.getOrThrow(event)._tag)).toEqual([
+      'HeartbeatReceived',
+      'CloseReceived',
     ]);
   });
 });

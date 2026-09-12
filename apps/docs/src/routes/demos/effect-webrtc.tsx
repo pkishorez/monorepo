@@ -10,7 +10,7 @@ export const Route = createFileRoute('/demos/effect-webrtc')({
       {
         name: 'description',
         content:
-          'Connect Alice and Bob with in-memory signaling, then exchange messages over a real browser WebRTC Data Channel.',
+          'Find Peers through free public Nostr relays, then exchange messages over real browser WebRTC Data Channels.',
       },
     ],
   }),

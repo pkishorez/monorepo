@@ -25,6 +25,10 @@
       "types": "./dist/signaling/memory/index.d.ts",
       "default": "./dist/signaling/memory/index.js"
     },
+    "./signaling/nostr": {
+      "types": "./dist/signaling/nostr/index.d.ts",
+      "default": "./dist/signaling/nostr/index.js"
+    },
     "./platform": {
       "types": "./dist/platform/platform.d.ts",
       "default": "./dist/platform/platform.js"
@@ -59,6 +63,7 @@
   },
   "dependencies": {
     "@pkishorez/effect-tracer": "workspace:*",
+    "nostr-tools": "catalog:",
     "werift": "catalog:"
   },
   "devDependencies": {
