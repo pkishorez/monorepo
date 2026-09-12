@@ -4,24 +4,30 @@
   "ignoredPaths": ["src/routeTree.gen.ts", "src/styles", "src/types.d.ts"],
   "layers": {
     "entry": {
-      "paths": ["src/router.tsx", "src/start.ts", "src/server.ts"],
-      "description": "Host entries \u2014 TanStack Start server, router, worker forwarding",
+      "paths": [
+        "src/router.tsx",
+        "src/start.ts",
+        "src/server.ts",
+        "src/effect-webrtc-node.ts"
+      ],
+      "description": "Host entries — TanStack Start server, router, worker forwarding",
       "modules": {
         "src/router.tsx": {},
         "src/start.ts": {},
-        "src/server.ts": {}
+        "src/server.ts": {},
+        "src/effect-webrtc-node.ts": {}
       }
     },
     "routes": {
       "paths": ["src/routes"],
-      "description": "Route surface \u2014 pages and API handlers",
+      "description": "Route surface — pages and API handlers",
       "modules": {
         "src/routes": {}
       }
     },
     "infra": {
       "paths": ["src/infra"],
-      "description": "Deployable resources \u2014 each worker defined separately, composed by alchemy.run.ts",
+      "description": "Deployable resources — each worker defined separately, composed by alchemy.run.ts",
       "modules": {
         "src/infra": {}
       }
@@ -75,7 +81,7 @@
     },
     "bank-app": {
       "paths": ["src/demos/bank/app"],
-      "description": "Std Bank demo \u2014 the page: the Transfer draft, live queries, and the store catalog over the client and the UI",
+      "description": "Std Bank demo — the page: the Transfer draft, live queries, and the store catalog over the client and the UI",
       "moduleGraphs": {
         "bank-app": {
           "description": "Owns one path from user intent through the Transfer draft to rendering.",
@@ -94,7 +100,7 @@
     },
     "bank-ui": {
       "paths": ["src/demos/bank/ui"],
-      "description": "Std Bank demo \u2014 one dumb component: every fact as a prop, every act as a callback",
+      "description": "Std Bank demo — one dumb component: every fact as a prop, every act as a callback",
       "modules": {
         "src/demos/bank/ui": {
           "exposed": true
@@ -103,7 +109,7 @@
     },
     "bank-client": {
       "paths": ["src/demos/bank/client"],
-      "description": "Std Bank demo \u2014 the browser bank: one runtime per store over the RPC api",
+      "description": "Std Bank demo — the browser bank: one runtime per store over the RPC api",
       "moduleGraphs": {
         "bank-client": {
           "description": "Connects to a bank, syncs its collections, sends transfers, and exposes one runtime per store.",
@@ -148,7 +154,7 @@
     },
     "bank-server": {
       "paths": ["src/demos/bank/server"],
-      "description": "Std Bank demo \u2014 the bank as a service layer over any StdTable, and as a web handler",
+      "description": "Std Bank demo — the bank as a service layer over any StdTable, and as a web handler",
       "modules": {
         "src/demos/bank/server": {
           "exposed": true
@@ -157,7 +163,7 @@
     },
     "bank-rpc": {
       "paths": ["src/demos/bank/rpc"],
-      "description": "Std Bank demo \u2014 the wire: a contract naming two RPC groups, mutation handlers, and subscription handlers",
+      "description": "Std Bank demo — the wire: a contract naming two RPC groups, mutation handlers, and subscription handlers",
       "moduleGraphs": {
         "bank-rpc": {
           "description": "Moves the Bank functionality across a boundary without caring which boundary.",
@@ -182,7 +188,7 @@
     },
     "bank-std-table": {
       "paths": ["src/demos/bank/std-table"],
-      "description": "Std Bank demo \u2014 the single-table design and its entity bindings",
+      "description": "Std Bank demo — the single-table design and its entity bindings",
       "moduleGraphs": {
         "std-table": {
           "description": "Binds the domain to one StdTable: the topology and one entity per record kind.",
@@ -207,7 +213,7 @@
     },
     "bank-contract": {
       "paths": ["src/demos/bank/contract"],
-      "description": "Std Bank demo \u2014 schemas, name rules, domain refusals",
+      "description": "Std Bank demo — schemas, name rules, domain refusals",
       "modules": {
         "src/demos/bank/contract/account": {
           "exposed": true
@@ -244,6 +250,15 @@
         }
       }
     },
+    "effect-webrtc-node": {
+      "paths": ["src/demos/effect-webrtc/node"],
+      "description": "Effect WebRTC demo — a Node Peer CLI that connects to one browser Peer and exchanges Messages",
+      "modules": {
+        "src/demos/effect-webrtc/node": {
+          "exposed": true
+        }
+      }
+    },
     "effect-webrtc-runtime": {
       "paths": ["src/demos/effect-webrtc/runtime"],
       "description": "Effect WebRTC demo — owns one local Peer, its Conversations, Transcripts, Nostr signaling, and tracing",
@@ -267,7 +282,7 @@
     "docs-site": {
       "description": "Docs app: entries over routes over components over lib",
       "rules": {
-        "entry": ["components"],
+        "entry": ["components", "effect-webrtc-node"],
         "routes": ["components", "lib", "bank-app", "effect-webrtc-app"],
         "infra": ["bank-server", "bank-rpc", "bank-std-table"],
         "components": ["lib"]
@@ -290,10 +305,11 @@
       }
     },
     "effect-webrtc-demo": {
-      "description": "Effect WebRTC demo: page over the Conversation Runtime and UI over the Messages RPC Contract",
+      "description": "Effect WebRTC demo: page and Node Peer over the Conversation Runtime, UI, and Messages RPC Contract",
       "rules": {
         "effect-webrtc-app": ["effect-webrtc-runtime", "effect-webrtc-ui"],
-        "effect-webrtc-runtime": ["effect-webrtc-contract"]
+        "effect-webrtc-runtime": ["effect-webrtc-contract"],
+        "effect-webrtc-node": ["effect-webrtc-contract"]
       }
     }
   }

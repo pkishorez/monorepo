@@ -9,7 +9,12 @@ import {
 } from 'effect-webrtc';
 import { layer as browserPlatform } from 'effect-webrtc/platform/browser';
 import { layer as nostrSignaling } from 'effect-webrtc/signaling/nostr';
-import { Messages } from '../contract/index.ts';
+import {
+  Messages,
+  isPeerIdentifier,
+  rtc,
+  signaling,
+} from '../contract/index.ts';
 
 type Delivery = 'pending' | 'delivered' | 'failed';
 
@@ -43,20 +48,6 @@ export interface ConversationRuntime {
   readonly dispose: () => Promise<void>;
 }
 
-const relayUrls = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
-  'wss://relay.primal.net',
-] as const;
-
-const rtc = {
-  iceServers: [
-    {
-      urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'],
-    },
-  ],
-} as const;
-
 const describeStatus = (status: SessionStatus) => {
   if (status._tag === 'Connected') return 'Connected';
   const phase = status.phase?.replaceAll('-', ' ') ?? 'waiting';
@@ -79,14 +70,7 @@ export const bootConversation = async (
 ): Promise<ConversationRuntime> => {
   const recorder = makeTraceRecorder();
   const managed = ManagedRuntime.make(
-    Layer.mergeAll(
-      nostrSignaling({
-        relays: relayUrls,
-        namespace: 'effect-webrtc-demo',
-      }),
-      browserPlatform,
-      recorder.layer,
-    ),
+    Layer.mergeAll(nostrSignaling(signaling), browserPlatform, recorder.layer),
   );
   const scope = Effect.runSync(Scope.make());
   const runScoped = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
@@ -268,7 +252,7 @@ export const bootConversation = async (
     },
     connect: (rawRemoteId) => {
       const remoteId = rawRemoteId.trim().toLowerCase();
-      if (remoteId === localId || !/^[a-z0-9_-]{1,64}$/.test(remoteId)) return;
+      if (remoteId === localId || !isPeerIdentifier(remoteId)) return;
       void runScoped(
         peer
           .connect({ id: PeerId.make(remoteId) })
@@ -323,7 +307,7 @@ export const bootConversation = async (
               ),
             })),
           ),
-          Effect.catch(() =>
+          Effect.catchCause(() =>
             patchConversation(remoteId, (conversation) => ({
               ...conversation,
               messages: conversation.messages.map((message) =>
