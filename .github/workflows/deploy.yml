@@ -2,9 +2,9 @@ name: Deploy
 
 on:
   push:
-    branches: [main, std-toolkit/demo]
+    branches: [main]
   pull_request:
-    types: [closed]
+    types: [opened, reopened, synchronize, closed]
   workflow_dispatch:
     inputs:
       stage:
@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' || (github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -43,11 +43,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Pushes to main reconcile `prod` on docs.kishore.app, and pushes to
-      # std-toolkit/demo reconcile the long-lived `demo` stage on
-      # demo-docs.kishore.app. Everything else is a deliberate
-      # workflow_dispatch, where pr<N> previews live on pr<N>-docs.kishore.app
-      # and are destroyed when that PR closes.
+      # Pushes to main reconcile `prod` on docs.kishore.app. Pull requests
+      # reconcile `pr<N>` previews on pr<N>-docs.kishore.app and destroy them
+      # when the PR closes.
       - name: Compute stage
         id: stage
         env:
@@ -61,10 +59,10 @@ jobs:
             stage="$INPUT_STAGE"
           elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
             stage="prod"
-          elif [ "${{ github.ref }}" = "refs/heads/std-toolkit/demo" ]; then
-            stage="demo"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            stage="pr${{ github.event.number }}"
           else
-            echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main or std-toolkit/demo." >&2
+            echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main." >&2
             exit 1
           fi
           if [ "$stage" = "prod" ]; then
