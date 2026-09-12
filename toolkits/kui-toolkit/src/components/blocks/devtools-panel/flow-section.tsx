@@ -278,7 +278,10 @@ export function FlowSection({
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          className="h-[85vh] gap-0 overflow-hidden rounded-t-xl p-0"
+          // `max-h` rather than `h`: the Sheet's bottom-side variant sets
+          // `h-auto` with higher specificity, so a plain height never applied
+          // and the sheet grew past the viewport instead of scrolling inside.
+          className="max-h-[85svh] gap-0 overflow-hidden rounded-t-xl p-0"
         >
           <SheetTitle className="sr-only">
             {selectedItem?.name ?? 'Flow item'}
@@ -288,7 +291,10 @@ export function FlowSection({
             className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-muted-foreground/30"
           />
           <div
-            className={cn('min-h-0 flex-1 overflow-y-auto', scrollbarStyles)}
+            className={cn(
+              'min-h-0 flex-1 overflow-y-auto overscroll-contain',
+              scrollbarStyles,
+            )}
           >
             {selectedItem && (
               <FlowItemDetails

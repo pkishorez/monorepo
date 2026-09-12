@@ -40,7 +40,11 @@ class FakePeerConnection extends EventTarget {
   static instances: FakePeerConnection[] = [];
 
   connectionState: RTCPeerConnectionState = 'new';
+  iceConnectionState: RTCIceConnectionState = 'new';
+  iceGatheringState: RTCIceGatheringState = 'new';
+  signalingState: RTCSignalingState = 'stable';
   remoteDescription: RTCSessionDescription | null = null;
+  stats: RTCStats[] = [];
   readonly addedCandidates: Array<RTCIceCandidateInit | null> = [];
   readonly channels: FakeDataChannel[] = [];
 
@@ -85,6 +89,21 @@ class FakePeerConnection extends EventTarget {
   emitDataChannel(channel: FakeDataChannel) {
     this.dispatchEvent(
       Object.assign(new Event('datachannel'), { channel }) as Event,
+    );
+  }
+
+  async getStats() {
+    return new Map(this.stats.map((entry) => [entry.id, entry]));
+  }
+
+  setIceConnectionState(state: RTCIceConnectionState) {
+    this.iceConnectionState = state;
+    this.dispatchEvent(new Event('iceconnectionstatechange'));
+  }
+
+  emitIceCandidateError(detail: Record<string, unknown>) {
+    this.dispatchEvent(
+      Object.assign(new Event('icecandidateerror'), detail) as Event,
     );
   }
 
@@ -167,6 +186,107 @@ describe('browser platform', () => {
         peer.channels[0]!.open();
         yield* Fiber.join(sending);
         expect(peer.channels[0]!.sent).toEqual([Uint8Array.from([4, 5])]);
+      }).pipe(Effect.scoped, Effect.provide(layer)),
+    );
+  });
+
+  it('reports ICE progress and the candidate pairs behind a failure', async () => {
+    vi.stubGlobal('RTCPeerConnection', FakePeerConnection);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const platform = yield* WebRtcPlatform;
+        const connection = yield* platform.makeConnection();
+        const peer = FakePeerConnection.instances[0]!;
+
+        peer.setIceConnectionState('checking');
+        peer.emitIceCandidateError({
+          url: 'stun:one',
+          errorCode: 701,
+          errorText: 'STUN host lookup failed',
+          address: null,
+          port: null,
+        });
+        peer.setIceConnectionState('failed');
+        const diagnostics = yield* Stream.runCollect(
+          Stream.take(connection.diagnostics!, 3),
+        );
+        expect([...diagnostics]).toEqual([
+          { _tag: 'IceConnectionState', state: 'checking' },
+          {
+            _tag: 'IceCandidateError',
+            url: 'stun:one',
+            errorCode: 701,
+            errorText: 'STUN host lookup failed',
+            address: null,
+            port: null,
+          },
+          { _tag: 'IceConnectionState', state: 'failed' },
+        ]);
+
+        peer.stats = [
+          {
+            id: 'L1',
+            type: 'local-candidate',
+            timestamp: 0,
+            candidateType: 'host',
+            protocol: 'udp',
+            address: 'abc.local',
+            port: 5000,
+          } as RTCStats,
+          {
+            id: 'R1',
+            type: 'remote-candidate',
+            timestamp: 0,
+            candidateType: 'host',
+            protocol: 'udp',
+            address: 'def.local',
+            port: 6000,
+          } as RTCStats,
+          {
+            id: 'P1',
+            type: 'candidate-pair',
+            timestamp: 0,
+            localCandidateId: 'L1',
+            remoteCandidateId: 'R1',
+            state: 'failed',
+            requestsSent: 7,
+            responsesReceived: 0,
+          } as RTCStats,
+          {
+            id: 'T1',
+            type: 'transport',
+            timestamp: 0,
+            dtlsState: 'new',
+            iceState: 'failed',
+          } as RTCStats,
+        ];
+        expect(yield* connection.report!).toEqual({
+          connectionState: 'new',
+          iceConnectionState: 'failed',
+          iceGatheringState: 'new',
+          signalingState: 'stable',
+          localCandidates: ['host udp abc.local:5000'],
+          remoteCandidates: ['host udp def.local:6000'],
+          candidatePairs: [
+            {
+              id: 'P1',
+              state: 'failed',
+              nominated: false,
+              local: 'host udp abc.local:5000',
+              remote: 'host udp def.local:6000',
+              requestsSent: 7,
+              responsesReceived: 0,
+            },
+          ],
+          transports: [
+            {
+              dtlsState: 'new',
+              iceState: 'failed',
+              selectedCandidatePairId: null,
+            },
+          ],
+        });
       }).pipe(Effect.scoped, Effect.provide(layer)),
     );
   });

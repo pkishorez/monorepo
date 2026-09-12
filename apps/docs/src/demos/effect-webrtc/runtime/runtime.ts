@@ -45,6 +45,19 @@ export interface ConversationRuntime {
 const other = (name: PeerName): PeerName =>
   name === 'Alice' ? 'Bob' : 'Alice';
 
+/**
+ * Free public STUN so each Peer also learns a server-reflexive candidate.
+ * Host-only candidates fail on iOS Safari over cellular, where the mDNS
+ * names Safari hides addresses behind cannot be resolved.
+ */
+const rtc = {
+  iceServers: [
+    {
+      urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'],
+    },
+  ],
+} as const;
+
 const initialPeer = (name: PeerName): PeerSnapshot => ({
   name,
   status: 'Disconnected',
@@ -101,12 +114,14 @@ export const bootConversation = async (): Promise<ConversationRuntime> => {
   const alice = await managed.runPromise(
     WebRtc.make({
       id: aliceId,
+      rtc,
       serve: { contract: Messages, handlers: receive('Alice') },
     }).pipe(Effect.provideService(Scope.Scope, scope)),
   );
   const bob = await managed.runPromise(
     WebRtc.make({
       id: bobId,
+      rtc,
       serve: { contract: Messages, handlers: receive('Bob') },
     }).pipe(Effect.provideService(Scope.Scope, scope)),
   );

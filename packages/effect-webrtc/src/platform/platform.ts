@@ -23,6 +23,22 @@ export interface RtcConfiguration {
   }>;
 }
 
+/** Host-reported ICE progress that a Connection Attempt Flow records. */
+export type RtcDiagnostic =
+  | { readonly _tag: 'IceConnectionState'; readonly state: string }
+  | { readonly _tag: 'IceGatheringState'; readonly state: string }
+  | {
+      readonly _tag: 'IceCandidateError';
+      readonly url: string;
+      readonly errorCode: number;
+      readonly errorText: string;
+      readonly address: string | null;
+      readonly port: number | null;
+    };
+
+/** A JSON-friendly description of an RTC Connection's transport. */
+export type RtcConnectionReport = Readonly<Record<string, unknown>>;
+
 export class RtcError extends Data.TaggedError('RtcError')<{
   readonly operation:
     | 'create-connection'
@@ -64,6 +80,10 @@ export interface RtcConnection {
   readonly completeIceCandidates: Effect.Effect<void, RtcError>;
   readonly openDataChannel: Effect.Effect<RtcDataChannel, RtcError>;
   readonly close: Effect.Effect<void, RtcError>;
+  /** ICE progress for diagnostics. Platforms without it may omit it. */
+  readonly diagnostics?: Stream.Stream<RtcDiagnostic>;
+  /** Describes the transport, including ICE candidate pairs, on demand. */
+  readonly report?: Effect.Effect<RtcConnectionReport>;
 }
 
 interface WebRtcPlatformService {

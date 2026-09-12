@@ -3,8 +3,10 @@ import {
   type IceCandidate,
   type RtcConfiguration,
   type RtcConnection,
+  type RtcConnectionReport,
   type RtcConnectionState,
   type RtcDataChannel,
+  type RtcDiagnostic,
   RtcError,
   WebRtcPlatform,
 } from './platform.js';
@@ -35,6 +37,63 @@ const nativeConfiguration = (
             typeof server.urls === 'string' ? server.urls : [...server.urls],
         })),
       };
+
+/** The candidate stats fields read here; lib.dom does not declare them. */
+interface IceCandidateStats extends RTCStats {
+  readonly candidateType?: string;
+  readonly protocol?: string;
+  readonly address?: string | null;
+  readonly port?: number;
+}
+
+const describeCandidate = (candidate: IceCandidateStats | undefined) =>
+  candidate === undefined
+    ? null
+    : `${candidate.candidateType ?? '?'} ${candidate.protocol ?? '?'} ${candidate.address ?? '?'}:${candidate.port ?? '?'}`;
+
+const summarizeStats = (stats: RTCStatsReport) => {
+  const candidates = new Map<string, IceCandidateStats>();
+  const pairs: RTCIceCandidatePairStats[] = [];
+  const transports: Array<Record<string, unknown>> = [];
+  stats.forEach((entry: RTCStats) => {
+    switch (entry.type) {
+      case 'local-candidate':
+      case 'remote-candidate':
+        candidates.set(entry.id, entry as IceCandidateStats);
+        break;
+      case 'candidate-pair':
+        pairs.push(entry as RTCIceCandidatePairStats);
+        break;
+      case 'transport': {
+        const transport = entry as RTCTransportStats;
+        transports.push({
+          dtlsState: transport.dtlsState,
+          iceState: transport.iceState ?? null,
+          selectedCandidatePairId: transport.selectedCandidatePairId ?? null,
+        });
+        break;
+      }
+    }
+  });
+  const byType = (type: RTCStatsType) =>
+    [...candidates.values()]
+      .filter((candidate) => candidate.type === type)
+      .map(describeCandidate);
+  return {
+    localCandidates: byType('local-candidate'),
+    remoteCandidates: byType('remote-candidate'),
+    candidatePairs: pairs.map((pair) => ({
+      id: pair.id,
+      state: pair.state,
+      nominated: pair.nominated ?? false,
+      local: describeCandidate(candidates.get(pair.localCandidateId)),
+      remote: describeCandidate(candidates.get(pair.remoteCandidateId)),
+      requestsSent: pair.requestsSent ?? null,
+      responsesReceived: pair.responsesReceived ?? null,
+    })),
+    transports,
+  };
+};
 
 interface BrowserDataChannel extends RtcDataChannel {
   readonly shutdown: () => void;
@@ -167,6 +226,7 @@ export const makeLayer = (
       RtcDataChannel,
       RtcError | Cause.Done
     >();
+    const diagnostics = yield* Queue.unbounded<RtcDiagnostic, Cause.Done>();
     const channels = new Set<BrowserDataChannel>();
     const pendingCandidates: Array<RTCIceCandidateInit | null> = [];
     let lastState: RtcConnectionState | undefined;
@@ -204,10 +264,52 @@ export const makeLayer = (
       Queue.offerUnsafe(incomingChannels, channel);
     };
 
+    const onIceConnectionState = () => {
+      const state: unknown = native.iceConnectionState;
+      if (typeof state !== 'string') return;
+      Queue.offerUnsafe(diagnostics, { _tag: 'IceConnectionState', state });
+    };
+    const onIceGatheringState = () => {
+      const state: unknown = native.iceGatheringState;
+      if (typeof state !== 'string') return;
+      Queue.offerUnsafe(diagnostics, { _tag: 'IceGatheringState', state });
+    };
+    const onIceCandidateError = (event: Event) => {
+      const error = event as Partial<RTCPeerConnectionIceErrorEvent>;
+      Queue.offerUnsafe(diagnostics, {
+        _tag: 'IceCandidateError',
+        url: error.url ?? '',
+        errorCode: error.errorCode ?? 0,
+        errorText: error.errorText ?? '',
+        address: error.address ?? null,
+        port: error.port ?? null,
+      });
+    };
+
     native.addEventListener('connectionstatechange', emitState);
     native.addEventListener('icecandidate', onIceCandidate);
     native.addEventListener('datachannel', onDataChannel);
+    native.addEventListener('iceconnectionstatechange', onIceConnectionState);
+    native.addEventListener('icegatheringstatechange', onIceGatheringState);
+    native.addEventListener('icecandidateerror', onIceCandidateError);
     emitState();
+
+    const report: Effect.Effect<RtcConnectionReport> = Effect.promise(
+      async () => {
+        const base = {
+          connectionState: native.connectionState,
+          iceConnectionState: native.iceConnectionState ?? null,
+          iceGatheringState: native.iceGatheringState ?? null,
+          signalingState: native.signalingState ?? null,
+        };
+        if (typeof native.getStats !== 'function') return base;
+        try {
+          return { ...base, ...summarizeStats(await native.getStats()) };
+        } catch (cause) {
+          return { ...base, statsError: String(cause) };
+        }
+      },
+    );
 
     const addNativeIceCandidate = (candidate: RTCIceCandidateInit | null) =>
       tryPromise('add-ice-candidate', () => native.addIceCandidate(candidate));
@@ -250,9 +352,19 @@ export const makeLayer = (
       Queue.endUnsafe(states);
       Queue.endUnsafe(localCandidates);
       Queue.endUnsafe(incomingChannels);
+      Queue.endUnsafe(diagnostics);
       native.removeEventListener('connectionstatechange', emitState);
       native.removeEventListener('icecandidate', onIceCandidate);
       native.removeEventListener('datachannel', onDataChannel);
+      native.removeEventListener(
+        'iceconnectionstatechange',
+        onIceConnectionState,
+      );
+      native.removeEventListener(
+        'icegatheringstatechange',
+        onIceGatheringState,
+      );
+      native.removeEventListener('icecandidateerror', onIceCandidateError);
     });
 
     const connection: RtcConnection = {
@@ -301,6 +413,8 @@ export const makeLayer = (
         catch: (cause) => rtcError('open-data-channel', cause),
       }),
       close,
+      diagnostics: Stream.fromQueue(diagnostics),
+      report,
     };
 
     yield* Effect.addFinalizer(() => Effect.orDie(close));
