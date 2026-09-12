@@ -5,6 +5,8 @@ export const flowAttributes = {
   messageId: 'flow.message.id',
   messageReplyTo: 'flow.message.reply-to',
   messageTo: 'flow.message.to',
+  order: 'flow.order',
+  parentId: 'flow.parent.id',
   participantName: 'flow.participant.name',
 } as const;
 

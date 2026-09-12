@@ -18,6 +18,7 @@ describe('FlowSwimlane', () => {
     expect(markup).toContain('data-flow-item="activity"');
     expect(markup).toContain('data-flow-item="local-event"');
     expect(markup).toContain('data-flow-item="message"');
+    expect(markup).toContain('data-flow-message-connectors="true"');
     expect(markup).toContain('data-flow-activation="completed"');
     expect(markup).toContain('data-flow-item="activation-start"');
     expect(markup).toContain('client-a');
@@ -80,6 +81,87 @@ describe('FlowSwimlane', () => {
     expect(markup).toContain('data-selected="true"');
     expect(markup).toContain('Source of Truth write');
     expect(markup).not.toContain('data-flow-item="summary"');
+  });
+
+  it('highlights every enclosing Activation and thins nested rails', () => {
+    const flow: RecordedFlow = {
+      id: 'nested-flow',
+      latestTimestamp: 5,
+      warnings: [],
+      items: [
+        {
+          kind: 'activation-start',
+          id: 'rtc-start',
+          participantName: 'alice',
+          name: 'RTC connection',
+          timestamp: 1,
+          severity: 'info',
+        },
+        {
+          kind: 'activation-start',
+          id: 'rpc-start',
+          participantName: 'alice',
+          name: 'RPC GetProfile',
+          timestamp: 2,
+          severity: 'info',
+        },
+        {
+          kind: 'local-event',
+          id: 'selected-node',
+          participantName: 'alice',
+          name: 'Handle request',
+          timestamp: 3,
+          severity: 'info',
+        },
+        {
+          kind: 'activation-end',
+          id: 'rpc-end',
+          participantName: 'alice',
+          name: 'RPC completed',
+          timestamp: 4,
+          severity: 'info',
+          outcome: 'completed',
+        },
+        {
+          kind: 'activation-end',
+          id: 'rtc-end',
+          participantName: 'alice',
+          name: 'RTC completed',
+          timestamp: 5,
+          severity: 'info',
+          outcome: 'completed',
+        },
+      ],
+      activations: [
+        {
+          participantName: 'alice',
+          name: 'RTC connection',
+          startItemId: 'rtc-start',
+          endItemId: 'rtc-end',
+          startTimestamp: 1,
+          endTimestamp: 5,
+          outcome: 'completed',
+        },
+        {
+          participantName: 'alice',
+          name: 'RPC GetProfile',
+          startItemId: 'rpc-start',
+          endItemId: 'rpc-end',
+          startTimestamp: 2,
+          endTimestamp: 4,
+          outcome: 'completed',
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(
+      <FlowSwimlane flow={flow} selectedItemId="selected-node" />,
+    );
+
+    expect(markup.match(/data-highlighted="true"/g)).toHaveLength(2);
+    expect(markup).toContain('data-flow-activation-track="1"');
+    expect(markup).toContain('drop-shadow(0 0 7px');
+    expect(markup).toContain('width="5"');
   });
 
   it('renders every Participant Path segment in a compact sticky header', () => {
