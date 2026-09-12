@@ -18,8 +18,8 @@ export const doingWorkConcurrently = Story.make({
             const bobId = PeerId.make('concurrent-bob');
             yield* WebRtc.make({
               id: bobId,
-              provides: {
-                group: Profiles,
+              serve: {
+                contract: Profiles,
                 handlers: profileHandlers('Bob'),
               },
             });
@@ -28,7 +28,7 @@ export const doingWorkConcurrently = Story.make({
             });
             const bob = yield* alice.connect({
               id: bobId,
-              consumes: Profiles,
+              contract: Profiles,
             });
 
             const profiles = yield* Effect.all(

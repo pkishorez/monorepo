@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import type { TraceRecorder } from '@pkishorez/effect-tracer/recorder';
-import { flowAttributes } from '@pkishorez/effect-tracer/flow';
+import {
+  flowAttributes,
+  mergeRelatedFlows,
+} from '@pkishorez/effect-tracer/flow';
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
 import {
@@ -57,6 +60,7 @@ export function DevToolsPanel({
 }: DevToolsPanelProps) {
   const [filter, setFilter] = useState<Filter>(defaultFilter);
   const { spans, logs, flows } = useRecorderSnapshot(recorder);
+  const presentationFlows = useMemo(() => mergeRelatedFlows(flows), [flows]);
   const otelSpans = useMemo(
     () => attachCapturedLogs(spans, logs),
     [spans, logs],
@@ -74,7 +78,7 @@ export function DevToolsPanel({
   const hasTraces =
     filters.includes('traces') &&
     spans.some((span) => span.attributes[flowAttributes.id] === undefined);
-  const hasFlows = filters.includes('flows') && flows.length > 0;
+  const hasFlows = filters.includes('flows') && presentationFlows.length > 0;
   const showTabs = hasTraces && hasFlows;
   const activeFilter: Filter = !filters.includes('traces')
     ? 'flows'
@@ -127,7 +131,7 @@ export function DevToolsPanel({
           />
         ) : (
           <FlowSection
-            flows={flows}
+            flows={presentationFlows}
             spans={otelSpans}
             active={open}
             className="min-h-0 flex-1"

@@ -23,7 +23,7 @@ type OutgoingRpcFlow = Effect.Success<ReturnType<typeof startRpcInvocation>>;
 type IncomingRpcFlow = Effect.Success<ReturnType<typeof continueRpcInvocation>>;
 
 export class RpcTransportError extends Data.TaggedError('RpcTransportError')<{
-  readonly operation: 'consume' | 'provide' | 'duplex';
+  readonly operation: 'open' | 'consume' | 'serve';
   readonly cause: unknown;
 }> {}
 
@@ -40,27 +40,14 @@ export interface RpcBinding<Remote extends Rpc.Any> {
 
 export interface RpcTransport {
   readonly consume: <Remote extends Rpc.Any>(
-    channel: RtcDataChannel,
     remote: RpcGroup.RpcGroup<Remote>,
   ) => Effect.Effect<RpcBinding<Remote>, RpcTransportError, Scope>;
 
-  readonly provide: <Local extends Rpc.Any, E, R>(
-    channel: RtcDataChannel,
+  readonly serve: <Local extends Rpc.Any, E, R>(
     local: RpcGroup.RpcGroup<Local>,
     handlers: Layer.Layer<Rpc.ToHandler<Local>, E, R>,
   ) => Effect.Effect<
     void,
-    RpcTransportError | E,
-    Scope | R | Rpc.Middleware<Local> | Rpc.ServicesServer<Local>
-  >;
-
-  readonly duplex: <Local extends Rpc.Any, Remote extends Rpc.Any, E, R>(
-    channel: RtcDataChannel,
-    local: RpcGroup.RpcGroup<Local>,
-    handlers: Layer.Layer<Rpc.ToHandler<Local>, E, R>,
-    remote: RpcGroup.RpcGroup<Remote>,
-  ) => Effect.Effect<
-    RpcBinding<Remote>,
     RpcTransportError | E,
     Scope | R | Rpc.Middleware<Local> | Rpc.ServicesServer<Local>
   >;
@@ -255,67 +242,50 @@ const makeProtocols = Effect.fn('RpcTransport.makeProtocols')(function* (
   return { clientProtocol, serverProtocol };
 });
 
-/** Creates the package-owned RPC Transport for one active Peer Session. */
-export const make = (peer: RpcPeerContext): RpcTransport => {
-  const consume = <Remote extends Rpc.Any>(
-    channel: RtcDataChannel,
-    remote: RpcGroup.RpcGroup<Remote>,
-  ) =>
-    Effect.gen(function* () {
-      const protocols = yield* makeProtocols(channel, peer);
-      const client = yield* RpcClient.make(remote).pipe(
-        Effect.provideService(RpcClient.Protocol, protocols.clientProtocol),
-      );
-      return { client } satisfies RpcBinding<Remote>;
-    }).pipe(
-      Effect.provide(RpcSerialization.layerJson),
-      Effect.mapError(
-        (cause) => new RpcTransportError({ operation: 'consume', cause }),
-      ),
-    );
+/** Opens the package-owned RPC Transport for one RTC Data Channel. */
+export const make = (
+  peer: RpcPeerContext,
+  channel: RtcDataChannel,
+): Effect.Effect<RpcTransport, RpcTransportError, Scope> =>
+  makeProtocols(channel, peer).pipe(
+    Effect.provide(RpcSerialization.layerJson),
+    Effect.map(({ clientProtocol, serverProtocol }) => {
+      const consume = <Remote extends Rpc.Any>(
+        remote: RpcGroup.RpcGroup<Remote>,
+      ) =>
+        Effect.gen(function* () {
+          const client = yield* RpcClient.make(remote).pipe(
+            Effect.provideService(RpcClient.Protocol, clientProtocol),
+          );
+          return { client } satisfies RpcBinding<Remote>;
+        }).pipe(
+          Effect.provide(RpcSerialization.layerJson),
+          Effect.mapError(
+            (cause) => new RpcTransportError({ operation: 'consume', cause }),
+          ),
+        );
 
-  const provide = <Local extends Rpc.Any, E, R>(
-    channel: RtcDataChannel,
-    local: RpcGroup.RpcGroup<Local>,
-    handlers: Layer.Layer<Rpc.ToHandler<Local>, E, R>,
-  ) =>
-    Effect.gen(function* () {
-      const protocols = yield* makeProtocols(channel, peer);
-      yield* RpcServer.make(local).pipe(
-        Effect.provideService(RpcServer.Protocol, protocols.serverProtocol),
-        Effect.provide(handlers),
-        Effect.forkScoped({ startImmediately: true }),
-      );
-    }).pipe(
-      Effect.provide(RpcSerialization.layerJson),
-      Effect.mapError(
-        (cause) => new RpcTransportError({ operation: 'provide', cause }),
-      ),
-    );
+      const serve = <Local extends Rpc.Any, E, R>(
+        local: RpcGroup.RpcGroup<Local>,
+        handlers: Layer.Layer<Rpc.ToHandler<Local>, E, R>,
+      ) =>
+        Effect.gen(function* () {
+          yield* RpcServer.make(local).pipe(
+            Effect.provideService(RpcServer.Protocol, serverProtocol),
+            Effect.provide(handlers),
+            Effect.forkScoped({ startImmediately: true }),
+          );
+          yield* Effect.yieldNow;
+        }).pipe(
+          Effect.provide(RpcSerialization.layerJson),
+          Effect.mapError(
+            (cause) => new RpcTransportError({ operation: 'serve', cause }),
+          ),
+        );
 
-  const duplex = <Local extends Rpc.Any, Remote extends Rpc.Any, E, R>(
-    channel: RtcDataChannel,
-    local: RpcGroup.RpcGroup<Local>,
-    handlers: Layer.Layer<Rpc.ToHandler<Local>, E, R>,
-    remote: RpcGroup.RpcGroup<Remote>,
-  ) =>
-    Effect.gen(function* () {
-      const protocols = yield* makeProtocols(channel, peer);
-      yield* RpcServer.make(local).pipe(
-        Effect.provideService(RpcServer.Protocol, protocols.serverProtocol),
-        Effect.provide(handlers),
-        Effect.forkScoped({ startImmediately: true }),
-      );
-      const client = yield* RpcClient.make(remote).pipe(
-        Effect.provideService(RpcClient.Protocol, protocols.clientProtocol),
-      );
-      return { client } satisfies RpcBinding<Remote>;
-    }).pipe(
-      Effect.provide(RpcSerialization.layerJson),
-      Effect.mapError(
-        (cause) => new RpcTransportError({ operation: 'duplex', cause }),
-      ),
-    );
-
-  return { consume, provide, duplex };
-};
+      return { consume, serve };
+    }),
+    Effect.mapError(
+      (cause) => new RpcTransportError({ operation: 'open', cause }),
+    ),
+  );

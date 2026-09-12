@@ -225,6 +225,42 @@
           "exposed": true
         }
       }
+    },
+    "effect-webrtc-app": {
+      "paths": ["src/demos/effect-webrtc/app"],
+      "description": "Effect WebRTC demo — adapts the Conversation Runtime to the page and Flow diagnostics",
+      "modules": {
+        "src/demos/effect-webrtc/app/effect-webrtc-page": {
+          "exposed": true
+        }
+      }
+    },
+    "effect-webrtc-ui": {
+      "paths": ["src/demos/effect-webrtc/ui"],
+      "description": "Effect WebRTC demo — renders Peer panels from values and callbacks",
+      "modules": {
+        "src/demos/effect-webrtc/ui": {
+          "exposed": true
+        }
+      }
+    },
+    "effect-webrtc-runtime": {
+      "paths": ["src/demos/effect-webrtc/runtime"],
+      "description": "Effect WebRTC demo — owns both Peers, their Peer Session, Transcripts, and tracing",
+      "modules": {
+        "src/demos/effect-webrtc/runtime": {
+          "exposed": true
+        }
+      }
+    },
+    "effect-webrtc-contract": {
+      "paths": ["src/demos/effect-webrtc/contract"],
+      "description": "Effect WebRTC demo — the Messages RPC Contract",
+      "modules": {
+        "src/demos/effect-webrtc/contract": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
@@ -232,7 +268,7 @@
       "description": "Docs app: entries over routes over components over lib",
       "rules": {
         "entry": ["components"],
-        "routes": ["components", "lib", "bank-app"],
+        "routes": ["components", "lib", "bank-app", "effect-webrtc-app"],
         "infra": ["bank-server", "bank-rpc", "bank-std-table"],
         "components": ["lib"]
       }
@@ -251,6 +287,13 @@
         "bank-rpc": ["bank-std-table", "bank-contract"],
         "bank-std-table": ["bank-contract"],
         "bank-ui": ["bank-contract"]
+      }
+    },
+    "effect-webrtc-demo": {
+      "description": "Effect WebRTC demo: page over the Conversation Runtime and UI over the Messages RPC Contract",
+      "rules": {
+        "effect-webrtc-app": ["effect-webrtc-runtime", "effect-webrtc-ui"],
+        "effect-webrtc-runtime": ["effect-webrtc-contract"]
       }
     }
   }

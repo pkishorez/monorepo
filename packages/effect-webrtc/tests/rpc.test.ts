@@ -46,20 +46,26 @@ describe('WebRTC RPC Transport', () => {
             const peerSessionId = PeerSessionId.make('session-1');
             const connectionAttemptId =
               ConnectionAttemptId.make('connection-1');
-            const aliceTransport = make({
-              localPeerId: PeerId.make('alice'),
-              remotePeerId: PeerId.make('bob'),
-              peerSessionId,
-              connectionAttemptId,
-            });
-            const bobTransport = make({
-              localPeerId: PeerId.make('bob'),
-              remotePeerId: PeerId.make('alice'),
-              peerSessionId,
-              connectionAttemptId,
-            });
-            yield* bobTransport.provide(bobChannel, Api, handlers);
-            const { client } = yield* aliceTransport.consume(aliceChannel, Api);
+            const aliceTransport = yield* make(
+              {
+                localPeerId: PeerId.make('alice'),
+                remotePeerId: PeerId.make('bob'),
+                peerSessionId,
+                connectionAttemptId,
+              },
+              aliceChannel,
+            );
+            const bobTransport = yield* make(
+              {
+                localPeerId: PeerId.make('bob'),
+                remotePeerId: PeerId.make('alice'),
+                peerSessionId,
+                connectionAttemptId,
+              },
+              bobChannel,
+            );
+            yield* bobTransport.serve(Api, handlers);
+            const { client } = yield* aliceTransport.consume(Api);
             return yield* Effect.all(
               [
                 client.Echo({ value: 'private-request' }),
@@ -113,18 +119,24 @@ describe('WebRTC RPC Transport', () => {
               peerSessionId: PeerSessionId.make('session-1'),
               connectionAttemptId: ConnectionAttemptId.make('connection-1'),
             };
-            const aliceTransport = make({
-              ...context,
-              localPeerId: PeerId.make('alice'),
-              remotePeerId: PeerId.make('bob'),
-            });
-            const bobTransport = make({
-              ...context,
-              localPeerId: PeerId.make('bob'),
-              remotePeerId: PeerId.make('alice'),
-            });
-            yield* bobTransport.provide(bobChannel, Api, handlers);
-            const { client } = yield* aliceTransport.consume(aliceChannel, Api);
+            const aliceTransport = yield* make(
+              {
+                ...context,
+                localPeerId: PeerId.make('alice'),
+                remotePeerId: PeerId.make('bob'),
+              },
+              aliceChannel,
+            );
+            const bobTransport = yield* make(
+              {
+                ...context,
+                localPeerId: PeerId.make('bob'),
+                remotePeerId: PeerId.make('alice'),
+              },
+              bobChannel,
+            );
+            yield* bobTransport.serve(Api, handlers);
+            const { client } = yield* aliceTransport.consume(Api);
             const fiber = yield* client
               .Watch()
               .pipe(Stream.runDrain, Effect.forkChild);
