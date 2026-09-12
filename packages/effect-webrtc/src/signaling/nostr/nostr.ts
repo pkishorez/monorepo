@@ -3,6 +3,7 @@ import {
   Effect,
   Layer,
   PubSub,
+  Queue,
   Stream,
   SubscriptionRef,
 } from 'effect';
@@ -65,6 +66,7 @@ export const layer = (options: {
             });
             const incoming = yield* PubSub.unbounded<IncomingNegotiation>();
             const events = yield* PubSub.unbounded<SignalingEvent>();
+            const closedSubscriptions = yield* Queue.unbounded<number>();
             const status = yield* SubscriptionRef.make<SignalingStatus>({
               _tag: 'Connecting',
               configured: relays.length,
@@ -130,47 +132,70 @@ export const layer = (options: {
               Effect.forkScoped({ startImmediately: true }),
             );
 
-            const subscription = pool.subscribeMany(
-              relays,
-              { kinds: [kind], '#d': [namespace], '#t': [self] },
-              {
-                onauth: signAuth,
-                onevent: (event) => {
-                  try {
-                    const now = Math.floor(Date.now() / 1000);
-                    if (event.kind !== kind)
-                      throw new Error('Unexpected event kind');
-                    if (
-                      !event.tags.some(
-                        ([name, value]) => name === 'd' && value === namespace,
-                      ) ||
-                      !event.tags.some(
-                        ([name, value]) => name === 't' && value === self,
-                      )
-                    ) {
-                      throw new Error('Event is addressed to another Peer');
-                    }
-                    if (seen.has(event.id)) return;
-                    seen.set(event.id, now);
-                    for (const [id, receivedAt] of seen) {
-                      if (receivedAt < now - maxAgeSeconds) seen.delete(id);
-                    }
-                    const decoded = readEvent(event, now, maxAgeSeconds);
-                    PubSub.publishUnsafe(incoming, {
-                      sender: decoded.sender,
-                      envelope: decoded.envelope,
-                    });
-                  } catch (error) {
-                    PubSub.publishUnsafe(events, {
-                      _tag: 'RejectedEvent',
-                      reason: String(error),
-                    });
-                  }
+            const onEvent = (event: Parameters<typeof readEvent>[0]) => {
+              try {
+                const now = Math.floor(Date.now() / 1000);
+                if (event.kind !== kind)
+                  throw new Error('Unexpected event kind');
+                if (
+                  !event.tags.some(
+                    ([name, value]) => name === 'd' && value === namespace,
+                  ) ||
+                  !event.tags.some(
+                    ([name, value]) => name === 't' && value === self,
+                  )
+                ) {
+                  throw new Error('Event is addressed to another Peer');
+                }
+                if (seen.has(event.id)) return;
+                seen.set(event.id, now);
+                for (const [id, receivedAt] of seen) {
+                  if (receivedAt < now - maxAgeSeconds) seen.delete(id);
+                }
+                const decoded = readEvent(event, now, maxAgeSeconds);
+                PubSub.publishUnsafe(incoming, {
+                  sender: decoded.sender,
+                  envelope: decoded.envelope,
+                });
+              } catch (error) {
+                PubSub.publishUnsafe(events, {
+                  _tag: 'RejectedEvent',
+                  reason: String(error),
+                });
+              }
+            };
+
+            let subscription: ReturnType<typeof pool.subscribeMany> | undefined;
+            let subscriptionGeneration = 0;
+            const subscribe = () => {
+              const generation = ++subscriptionGeneration;
+              subscription = pool.subscribeMany(
+                relays,
+                { kinds: [kind], '#d': [namespace], '#t': [self] },
+                {
+                  onauth: signAuth,
+                  onevent: onEvent,
+                  onclose: () => {
+                    Queue.offerUnsafe(closedSubscriptions, generation);
+                  },
                 },
-              },
+              );
+            };
+            subscribe();
+            yield* Queue.take(closedSubscriptions).pipe(
+              Effect.flatMap((generation) =>
+                Effect.sync(() => {
+                  if (generation === subscriptionGeneration) subscribe();
+                }),
+              ),
+              Effect.forever,
+              Effect.forkScoped({ startImmediately: true }),
             );
             yield* Effect.addFinalizer(() =>
-              Effect.sync(() => subscription.close()),
+              Effect.promise(async () => {
+                subscriptionGeneration += 1;
+                await subscription?.close();
+              }),
             );
 
             const send = (recipient: PeerId, envelope: NegotiationEnvelope) =>
