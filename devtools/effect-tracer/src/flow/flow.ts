@@ -9,7 +9,7 @@ import { deriveRecordedFlow } from './derive.js';
 import { writeFlowLog, type FlowLogLevel } from './log.js';
 import type { ProjectFlowInput } from './observation.js';
 import { projectObservations } from './projection.js';
-import type { RecordedFlowItem } from './schema.js';
+import type { FlowCarrier, MessageToken, RecordedFlowItem } from './schema.js';
 
 interface FlowLogOptions {
   readonly attributes?: Readonly<Record<string, unknown>>;
@@ -19,13 +19,6 @@ interface FlowLogOptions {
 
 interface ActivationOptions extends FlowLogOptions {
   readonly name?: unknown;
-}
-
-/** Identifies one sent Message so a Reply can point back at it. */
-export interface MessageToken {
-  readonly id: string;
-  readonly from: string;
-  readonly to: string;
 }
 
 /** A started Activation. Ending it is the only thing you can do with it. */
@@ -59,7 +52,10 @@ interface Flow {
     token: MessageToken,
     message: unknown,
     options?: FlowLogOptions,
-  ) => Effect.Effect<void>;
+  ) => Effect.Effect<MessageToken>;
+  /** Advances this Participant's causal clock after receiving a Message. */
+  readonly observe: (token: MessageToken) => void;
+  readonly carrier: (token: MessageToken) => FlowCarrier;
   readonly activation: {
     readonly start: (
       name?: unknown,
@@ -72,7 +68,10 @@ interface Flow {
 }
 
 interface InitFlowOptions {
+  readonly flowAttributes?: Readonly<Record<string, unknown>>;
   readonly id: string;
+  readonly initialOrder?: number;
+  readonly parentId?: string;
   readonly participantName: string;
 }
 
@@ -95,9 +94,7 @@ const makeNamespacedFlowAttributes = (
     ]),
   );
 
-let messageCounter = 0;
-const nextMessageId = () =>
-  `m${(messageCounter += 1).toString(36)}-${Date.now().toString(36)}`;
+const nextMessageId = () => globalThis.crypto.randomUUID();
 
 const outcomeOfExit = (
   exit: Exit.Exit<unknown, unknown>,
@@ -120,8 +117,17 @@ const outcomeAttributes = (outcome: ActivationOutcome) => ({
 /** Creates an application-propagated Flow bound to the local Participant. */
 export const initFlow = (options: InitFlowOptions): Flow => {
   validateOptions(options);
+  let order = options.initialOrder ?? 0;
+  const nextOrder = () => (order += 1);
+  const observe = (token: MessageToken) => {
+    order = Math.max(order, token.order);
+  };
   const attributes = {
+    ...makeNamespacedFlowAttributes(options.flowAttributes),
     [flowAttributes.id]: options.id,
+    ...(options.parentId === undefined
+      ? {}
+      : { [flowAttributes.parentId]: options.parentId }),
     [flowAttributes.participantName]: options.participantName,
   };
 
@@ -131,12 +137,15 @@ export const initFlow = (options: InitFlowOptions): Flow => {
     logOptions: FlowLogOptions | undefined,
     own: Readonly<Record<string, unknown>>,
   ) =>
-    writeFlowLog(logOptions?.level ?? level ?? 'info', message, {
-      ...logOptions?.attributes,
-      ...makeNamespacedFlowAttributes(logOptions?.flowAttributes),
-      ...attributes,
-      ...own,
-    });
+    Effect.suspend(() =>
+      writeFlowLog(logOptions?.level ?? level ?? 'info', message, {
+        ...logOptions?.attributes,
+        ...makeNamespacedFlowAttributes(logOptions?.flowAttributes),
+        ...attributes,
+        [flowAttributes.order]: nextOrder(),
+        ...own,
+      }),
+    );
 
   const endActivation = (
     outcome: ActivationOutcome,
@@ -160,39 +169,67 @@ export const initFlow = (options: InitFlowOptions): Flow => {
   return {
     id: options.id,
     participantName: options.participantName,
-    withSpan: (name, spanOptions) =>
-      Effect.withSpan(name, {
-        attributes: {
-          ...spanOptions?.attributes,
-          ...makeNamespacedFlowAttributes(spanOptions?.flowAttributes),
-          ...attributes,
-        },
-      }),
+    withSpan: (name, spanOptions) => (effect) =>
+      Effect.suspend(() =>
+        effect.pipe(
+          Effect.withSpan(name, {
+            attributes: {
+              ...spanOptions?.attributes,
+              ...makeNamespacedFlowAttributes(spanOptions?.flowAttributes),
+              ...attributes,
+              [flowAttributes.order]: nextOrder(),
+            },
+          }),
+        ),
+      ),
     log: (message, logOptions) =>
       write(undefined, message, logOptions, {
         [flowAttributes.itemType]: flowItemTypes.localEvent,
       }),
-    send: (participantName, message, logOptions) => {
-      const id = nextMessageId();
-      return write(undefined, message, logOptions, {
-        [flowAttributes.itemType]: flowItemTypes.message,
-        [flowAttributes.messageId]: id,
-        [flowAttributes.messageTo]: participantName,
-      }).pipe(
-        Effect.as<MessageToken>({
-          from: options.participantName,
-          id,
-          to: participantName,
-        }),
-      );
-    },
-    reply: (token, message, logOptions) =>
-      write(undefined, message, logOptions, {
-        [flowAttributes.itemType]: flowItemTypes.message,
-        [flowAttributes.messageId]: nextMessageId(),
-        [flowAttributes.messageReplyTo]: token.id,
-        [flowAttributes.messageTo]: token.from,
+    send: (participantName, message, logOptions) =>
+      Effect.suspend(() => {
+        const id = nextMessageId();
+        const messageOrder = order + 1;
+        return write(undefined, message, logOptions, {
+          [flowAttributes.itemType]: flowItemTypes.message,
+          [flowAttributes.messageId]: id,
+          [flowAttributes.messageTo]: participantName,
+        }).pipe(
+          Effect.as<MessageToken>({
+            from: options.participantName,
+            id,
+            order: messageOrder,
+            to: participantName,
+          }),
+        );
       }),
+    reply: (token, message, logOptions) =>
+      Effect.suspend(() => {
+        observe(token);
+        const id = nextMessageId();
+        const messageOrder = order + 1;
+        return write(undefined, message, logOptions, {
+          [flowAttributes.itemType]: flowItemTypes.message,
+          [flowAttributes.messageId]: id,
+          [flowAttributes.messageReplyTo]: token.id,
+          [flowAttributes.messageTo]: token.from,
+        }).pipe(
+          Effect.as<MessageToken>({
+            from: options.participantName,
+            id,
+            order: messageOrder,
+            to: token.from,
+          }),
+        );
+      }),
+    observe,
+    carrier: (token) => ({
+      flowId: options.id,
+      message: token,
+      ...(options.parentId === undefined
+        ? {}
+        : { parentFlowId: options.parentId }),
+    }),
     activation: { start: startActivation },
     activated: (activationOptions) => (effect) =>
       Effect.uninterruptibleMask((restore) =>
@@ -232,6 +269,8 @@ export type { FlowObservation, ProjectFlowInput } from './observation.js';
 export {
   ActivationOutcomeKindSchema,
   FlowActivityStatusSchema,
+  FlowCarrierSchema,
+  FlowMessageTokenSchema,
   RecordedFlowActivationEndSchema,
   RecordedFlowActivationSchema,
   RecordedFlowActivationStartSchema,
@@ -245,6 +284,8 @@ export {
   RecordedFlowSeveritySchema,
   RecordedFlowWarningSchema,
   type FlowActivityStatus,
+  type FlowCarrier,
+  type MessageToken,
   type RecordedFlow,
   type RecordedFlowActivation,
   type RecordedFlowActivationEnd,

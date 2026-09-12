@@ -1,0 +1,97 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "storiesPath": "stories",
+  "layers": {
+    "peer-identity": {
+      "paths": ["src/peer-identity"],
+      "description": "Identity — canonical addressing of peers.",
+      "modules": {
+        "src/peer-identity": { "exposed": true }
+      }
+    },
+    "negotiation": {
+      "paths": ["src/negotiation"],
+      "description": "Protocol — platform-independent WebRTC negotiation messages.",
+      "modules": {
+        "src/negotiation": { "exposed": true }
+      }
+    },
+    "signaling": {
+      "paths": ["src/signaling"],
+      "description": "Signaling — the addressed negotiation exchange contract and its providers.",
+      "moduleGraphs": {
+        "signaling-providers": {
+          "description": "Defines signaling and the selectable providers that implement it.",
+          "path": "src/signaling",
+          "modules": {
+            "signaling.ts": { "exposed": true },
+            "memory": { "exposed": true }
+          },
+          "rules": {
+            "memory": ["signaling.ts"]
+          }
+        }
+      }
+    },
+    "platform": {
+      "paths": ["src/platform"],
+      "description": "Platform — the host WebRTC contract and its selectable implementations.",
+      "moduleGraphs": {
+        "webrtc-platforms": {
+          "description": "Defines host WebRTC primitives and the platforms that implement them.",
+          "path": "src/platform",
+          "modules": {
+            "platform.ts": { "exposed": true },
+            "memory": { "exposed": true }
+          },
+          "rules": {
+            "memory": ["platform.ts"]
+          }
+        }
+      }
+    },
+    "flow-tracing": {
+      "paths": ["src/flow-tracing"],
+      "description": "Observability — correlated connection and RPC swim lanes over Effect Tracer Flow.",
+      "modules": {
+        "src/flow-tracing": { "exposed": true }
+      }
+    },
+    "rpc": {
+      "paths": ["src/rpc"],
+      "description": "RPC — Effect RPC bound to one established RTC data channel.",
+      "modules": {
+        "src/rpc": { "exposed": true }
+      }
+    },
+    "effect-webrtc": {
+      "paths": ["src/effect-webrtc"],
+      "description": "Facade — peers, maintained peer sessions, and typed remote RPC clients.",
+      "modules": {
+        "src/effect-webrtc": { "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "effect-webrtc": {
+      "description": "The peer facade composes signaling, a host platform, and RPC over shared negotiation contracts.",
+      "rules": {
+        "peer-identity": [],
+        "negotiation": [],
+        "signaling": ["peer-identity", "negotiation"],
+        "platform": ["negotiation"],
+        "flow-tracing": ["peer-identity", "negotiation"],
+        "rpc": ["platform", "flow-tracing"],
+        "effect-webrtc": [
+          "peer-identity",
+          "negotiation",
+          "signaling",
+          "platform",
+          "flow-tracing",
+          "rpc"
+        ]
+      }
+    }
+  }
+}

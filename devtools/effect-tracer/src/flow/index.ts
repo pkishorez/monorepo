@@ -5,6 +5,7 @@ export {
   initFlow,
   projectFlow,
   type ActivationRef,
+  FlowCarrierSchema,
   type MessageToken,
   RecordedFlowSchema,
   type FlowObservation,

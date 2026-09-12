@@ -1,0 +1,1 @@
+Peers are named by identity, not fixed client and server roles. Bob can initiate a session with Alice just as Alice initiated one with Bob in the previous chapter. The swim lanes reverse naturally in the Flow visualization.

@@ -1,0 +1,24 @@
+{
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "compilerOptions": {
+    "types": [],
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "paths": {
+      "effect-webrtc": ["./src/effect-webrtc/index.ts"],
+      "effect-webrtc/platform/memory": ["./src/platform/memory/index.ts"],
+      "effect-webrtc/signaling/memory": ["./src/signaling/memory/index.ts"]
+    },
+    "rootDir": ".",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*", "stories/**/*"],
+  "exclude": ["node_modules"]
+}
