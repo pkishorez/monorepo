@@ -157,6 +157,7 @@ catalog:
   typescript: 7.0.2
   ulidx: 2.4.1
   vaul: 1.1.2
+  werift: 0.24.4
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vite-plus: 0.3.0
   vitest: 4.1.11

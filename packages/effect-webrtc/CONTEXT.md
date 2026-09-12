@@ -36,6 +36,14 @@ _Avoid_: Peer Session, RTC Connection
 The host-specific WebRTC capability used by Effect WebRTC. Browser and Node are different Platforms behind the same contract.
 _Avoid_: runtime, RTC provider
 
+**Browser Platform**:
+The Platform backed by native browser WebRTC APIs. Its module is safe to import when browser globals are absent, but RTC Connections can only be created in a supported browser context. It covers the browser main thread and does not own signaling, negotiation policy, reconnection, or media permissions.
+_Avoid_: web runtime, browser signaling
+
+**Werift Platform**:
+The Node Platform backed by Werift's browser-compatible WebRTC implementation. It supplies the same RTC Connection and RTC Data Channel contract as the Browser Platform.
+_Avoid_: Werift provider, Node runtime
+
 **RTC Connection**:
 The replaceable physical WebRTC connection inside one Peer Session.
 _Avoid_: Peer Session, signaling connection

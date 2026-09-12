@@ -60,6 +60,8 @@ export interface RtcConnection {
   readonly addIceCandidate: (
     candidate: IceCandidate,
   ) => Effect.Effect<void, RtcError>;
+  /** Signals that the remote Peer has no more ICE candidates. */
+  readonly completeIceCandidates: Effect.Effect<void, RtcError>;
   readonly openDataChannel: Effect.Effect<RtcDataChannel, RtcError>;
   readonly close: Effect.Effect<void, RtcError>;
 }

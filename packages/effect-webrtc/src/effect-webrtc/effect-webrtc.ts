@@ -455,6 +455,9 @@ const makeInternal: (
           }
           break;
         case 'IceCandidatesComplete':
+          if (record.connection !== undefined) {
+            yield* record.connection.completeIceCandidates;
+          }
           break;
       }
     });
