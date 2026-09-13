@@ -31,7 +31,7 @@ type Row = {
 
 /** Alchemy drops the state row of a forgotten resource and leaves what it created behind. */
 export const forgets = (resource: PlanResource, ignored: boolean) =>
-  (resource.action === 'forget' && resource.type !== 'Action') || ignored;
+  resource.action === 'forget' || ignored;
 
 /**
  * Rows keep the order they first appeared in during analysis, so a row that

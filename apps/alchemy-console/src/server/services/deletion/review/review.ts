@@ -177,18 +177,7 @@ export const prepare = (
     // Include detached and nested replacement generations, even if another row is blocked.
     for (const row of [...input.before.rows, ...input.before.replaced]) {
       if (!row) continue;
-      if (isActionState(row)) {
-        resources.push({
-          id: row.fqn,
-          type: 'Action',
-          action: 'forget',
-          after: [],
-          previous: [],
-          readiness: 'ready',
-          reason: null,
-        });
-        continue;
-      }
+      if (isActionState(row)) continue;
       emit({ kind: 'analyzing', id: row.fqn, type: row.resourceType });
       const versions = generations(row);
       const findings = yield* Effect.forEach(versions, (version) =>
