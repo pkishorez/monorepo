@@ -22,6 +22,8 @@ The command serves its bundled home page at `http://127.0.0.1:14400`. From
 there, open:
 
 - `/lotel` to inspect local OpenTelemetry traces, logs, and flows.
+  Open a flow and use **Copy Flow** to copy it as a Markdown report for a bug
+  report or an agent.
 - `/laymos` to explore the architecture of a local project.
 
 The same loopback server exposes its NDJSON RPC endpoint at `/rpc`, its health

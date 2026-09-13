@@ -39,8 +39,10 @@ import {
   SERVICE_ATTR_KEY,
 } from './filtering';
 import { useLotelStore } from './state';
+import { CopyFlowButton } from './copy-flow-button';
 import { FilterControls, FilterPills, GroupByControl } from './filter-bar';
 import { FlowFeed } from './flow-feed';
+import { flowStatusOf } from './flow-report';
 import { Header } from './header';
 import { TraceFeed } from './trace-feed';
 import { TraceWorkspace } from './trace-workspace';
@@ -49,7 +51,6 @@ const PAGE_SIZE = 30;
 
 type RecordedFlow = typeof RecordedFlowSchema.Type;
 type RecordedFlowItem = RecordedFlow['items'][number];
-type FlowStatus = 'active' | 'completed' | 'failed' | 'interrupted' | 'unknown';
 type TraceView = 'waterfall' | 'parallel' | 'narrative';
 type TelemetryView = 'flows' | 'traces';
 type FlowStatusFilter = 'active' | 'all' | 'failed';
@@ -715,6 +716,7 @@ function FlowWorkspace({
           {status} · {flow.items.length} item
           {flow.items.length === 1 ? '' : 's'}
         </span>
+        <CopyFlowButton flow={flow} />
         <Button variant="ghost" size="icon-sm" onClick={onClose}>
           <XIcon className="size-4" />
           <span className="sr-only">Close Flow</span>
@@ -1090,19 +1092,6 @@ function FlowStatusDot({ status }: { status: string }) {
       )}
     />
   );
-}
-
-function flowStatusOf(flow: RecordedFlow | undefined): FlowStatus {
-  if (!flow) return 'unknown';
-  if (flow.activations.some((activation) => activation.outcome === 'failed'))
-    return 'failed';
-  if (flow.activations.some((activation) => activation.outcome === null))
-    return 'active';
-  if (
-    flow.activations.some((activation) => activation.outcome === 'interrupted')
-  )
-    return 'interrupted';
-  return 'completed';
 }
 
 function WorkbenchEmpty({ kind }: { kind: string }) {
