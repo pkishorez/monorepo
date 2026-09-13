@@ -2,7 +2,7 @@ import { Context, Effect, Exit, Layer } from 'effect';
 import { expect, it, vi } from 'vite-plus/test';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { InMemoryService } from 'alchemy/State/InMemoryState';
-import { State, type ResourceState } from 'alchemy/State';
+import { State, type ActionState, type ResourceState } from 'alchemy/State';
 import type { ProviderService } from 'alchemy/Provider';
 class TestProvider extends Context.Service<TestProvider, ProviderService>()(
   'Cloudflare.Test',
@@ -36,6 +36,18 @@ const row = (id: string, options: Partial<ResourceState> = {}): ResourceState =>
     attr: { id },
     ...options,
   }) as ResourceState;
+const action = (id: string): ActionState => ({
+  kind: 'action',
+  actionType: id,
+  namespace: undefined,
+  fqn: id,
+  logicalId: id,
+  status: 'ran',
+  downstream: [],
+  inputHash: 'input',
+  input: {},
+  output: undefined,
+});
 const target = { stack: 'App', stage: 'dev' };
 const cloudflare = {
   id: 'cf',
@@ -81,10 +93,20 @@ it('uses native Alchemy ordering, retention, and final stage cleanup', async () 
           prod: { Production: row('Production') },
         },
       });
+      yield* state.set({
+        ...target,
+        fqn: 'PrepareDatabase',
+        value: action('PrepareDatabase'),
+      });
       const analysis: string[] = [];
-      const { plan } = yield* review(state, (event) =>
+      const { plan, resources } = yield* review(state, (event) =>
         analysis.push(`${event.kind}:${event.id}`),
       ).pipe(Effect.provideService(State, Effect.succeed(state)));
+      expect(resources.map(({ id }) => id)).toEqual([
+        'Database',
+        'Retained',
+        'Worker',
+      ]);
       expect(analysis).toEqual([
         'analyzing:Database',
         'analyzed:Database',

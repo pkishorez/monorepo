@@ -205,38 +205,28 @@ export const execute = (
                   type: redact(old.type),
                 })),
               }))
-            : [
-                ...Object.values(plan.deletions)
-                  .filter((node) => node !== undefined)
-                  .map((node) => ({
-                    id: redact(node.resource.FQN),
-                    type: redact(node.resource.Type),
-                    readiness: 'ready' as const,
-                    reason: null,
-                    action: isForgotten(input.forget, {
-                      fqn: node.resource.FQN,
-                      resourceType: node.resource.Type,
-                    })
-                      ? ('forget' as const)
-                      : node.resource.RemovalPolicy === 'retain'
-                        ? ('retain' as const)
-                        : ('delete' as const),
-                    after: node.downstream.map(redact),
-                    previous: previousGenerations(node.state).map((old) => ({
-                      ...old,
-                      type: redact(old.type),
-                    })),
-                  })),
-                ...Object.keys(plan.actionDeletions).map((id) => ({
-                  id: redact(id),
-                  type: 'Action',
+            : Object.values(plan.deletions)
+                .filter((node) => node !== undefined)
+                .map((node) => ({
+                  id: redact(node.resource.FQN),
+                  type: redact(node.resource.Type),
                   readiness: 'ready' as const,
                   reason: null,
-                  action: 'forget' as const,
-                  after: [],
-                  previous: [],
-                })),
-              ].sort((a, b) => a.id.localeCompare(b.id)),
+                  action: isForgotten(input.forget, {
+                    fqn: node.resource.FQN,
+                    resourceType: node.resource.Type,
+                  })
+                    ? ('forget' as const)
+                    : node.resource.RemovalPolicy === 'retain'
+                      ? ('retain' as const)
+                      : ('delete' as const),
+                  after: node.downstream.map(redact),
+                  previous: previousGenerations(node.state).map((old) => ({
+                    ...old,
+                    type: redact(old.type),
+                  })),
+                }))
+                .sort((a, b) => a.id.localeCompare(b.id)),
       };
       if (mode === 'preview') return view;
       if (!plan)
