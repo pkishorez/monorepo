@@ -1,0 +1,3 @@
+# RPC and AI Table are the public capabilities
+
+The package exposes the browser-safe `AiRpc` contract, the server-only `AiRpcLive` layer, and an `ai-toolkit/table` subpath containing the AI Table, its entity surfaces, and its evolving schemas. Claude Code, Codex, and the Harness Host remain private implementation modules configured through `AiRpcLive`; they are not separate package capabilities. This deliberately trades direct harness reuse for a smaller execution boundary while still letting applications construct, inspect, verify, and operate the dedicated AI Table through std-toolkit. Separate harness exports can be introduced later if a concrete non-RPC consumer appears.
