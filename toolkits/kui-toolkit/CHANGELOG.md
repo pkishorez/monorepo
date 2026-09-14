@@ -1,5 +1,17 @@
 # kui-toolkit
 
+## 0.0.2
+
+### Patch Changes
+
+- [`dff4ebc`](https://github.com/pkishorez/monorepo/commit/dff4ebcc9c6dfc7da4f14491513150b80a00e107) Thanks [@pkishorez](https://github.com/pkishorez)! - Style document scrollbars with a thin, theme-aware thumb and avoid reserving scrollbar space when it is not needed.
+- Updated dependencies [[`c0dc89f`](https://github.com/pkishorez/monorepo/commit/c0dc89f3899267d87b239694d63cbbda880cb646), [`d7a9f63`](https://github.com/pkishorez/monorepo/commit/d7a9f63b89b3ad7b047fed220cc3d9e96dae1686), [`af17702`](https://github.com/pkishorez/monorepo/commit/af177027258ca535a6b085ede9fc967b73d4474a)]:
+  - use-effect-ts@0.0.11
+  - std-toolkit@0.0.10
+  - @pkishorez/lotel@0.0.10
+  - @pkishorez/effect-tracer@0.0.10
+  - laymos@0.0.10
+
 ## 0.0.1
 
 ### Patch Changes

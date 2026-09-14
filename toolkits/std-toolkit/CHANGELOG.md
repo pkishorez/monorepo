@@ -1,5 +1,13 @@
 # std-toolkit
 
+## 0.0.10
+
+### Patch Changes
+
+- [`af17702`](https://github.com/pkishorez/monorepo/commit/af177027258ca535a6b085ede9fc967b73d4474a) Thanks [@pkishorez](https://github.com/pkishorez)! - Add a Cloudflare D1 SQLite driver with caller-owned bindings, StdTable setup and layers, and atomic conditional transactions.
+- Updated dependencies []:
+  - @pkishorez/effect-tracer@0.0.10
+
 ## 0.0.9
 
 ### Patch Changes
