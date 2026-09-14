@@ -1,0 +1,1 @@
+Alice, Bob, and Carol meet over deterministic in-memory signaling and RTC adapters. The public API is the same one an application uses with a real provider; the in-memory layers simply keep these stories fast and repeatable. Every chapter includes Flow visualizations so the connection and its RPC calls can be followed across peer swim lanes.

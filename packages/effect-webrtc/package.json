@@ -1,0 +1,78 @@
+{
+  "name": "effect-webrtc",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Effect-native peer sessions and RPC over WebRTC data channels",
+  "keywords": ["effect", "rpc", "webrtc", "peer-to-peer"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "packages/effect-webrtc"
+  },
+  "type": "module",
+  "files": ["README.md", "LICENSE", "dist/"],
+  "exports": {
+    ".": {
+      "types": "./dist/effect-webrtc/index.d.ts",
+      "default": "./dist/effect-webrtc/index.js"
+    },
+    "./signaling": {
+      "types": "./dist/signaling/signaling.d.ts",
+      "default": "./dist/signaling/signaling.js"
+    },
+    "./signaling/memory": {
+      "types": "./dist/signaling/memory/index.d.ts",
+      "default": "./dist/signaling/memory/index.js"
+    },
+    "./signaling/nostr": {
+      "types": "./dist/signaling/nostr/index.d.ts",
+      "default": "./dist/signaling/nostr/index.js"
+    },
+    "./platform": {
+      "types": "./dist/platform/platform.d.ts",
+      "default": "./dist/platform/platform.js"
+    },
+    "./platform/memory": {
+      "types": "./dist/platform/memory/index.d.ts",
+      "default": "./dist/platform/memory/index.js"
+    },
+    "./platform/werift": {
+      "types": "./dist/platform/werift/index.d.ts",
+      "default": "./dist/platform/werift/index.js"
+    },
+    "./platform/browser": {
+      "types": "./dist/platform/browser/index.d.ts",
+      "default": "./dist/platform/browser/index.js"
+    },
+    "./rpc": {
+      "types": "./dist/rpc/index.d.ts",
+      "default": "./dist/rpc/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "stories": "laymos stories",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.112"
+  },
+  "dependencies": {
+    "@pkishorez/effect-tracer": "workspace:*",
+    "nostr-tools": "catalog:",
+    "werift": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@typescript/native": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:typescript6",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

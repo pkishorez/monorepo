@@ -15,6 +15,7 @@ export type FlowLayoutActivation = {
   readonly startY: number;
   readonly endY: number;
   readonly open: boolean;
+  readonly track: number;
 };
 
 const minimumWidth = 520;
@@ -97,29 +98,40 @@ export const makeFlowLayout = (
     flowCanvasTopPadding + Math.max(1, items.length) * flowRowGap + 42;
   const laneEndY = height - 22;
 
-  const activations: FlowLayoutActivation[] = flow.activations.flatMap(
-    (activation) => {
-      if (!hierarchy.visibleParticipants.has(activation.participantName)) {
-        return [];
-      }
-      const startRow = rowByItemId.get(activation.startItemId);
-      if (startRow === undefined) return [];
-      const endRow =
-        activation.endItemId === null
-          ? undefined
-          : rowByItemId.get(activation.endItemId);
-      return [
-        {
-          participantName: activation.participantName,
-          name: activation.name,
-          outcome: activation.outcome,
-          startY: rowY(startRow),
-          endY: endRow === undefined ? laneEndY : rowY(endRow),
-          open: activation.endItemId === null,
-        },
-      ];
-    },
-  );
+  const activationCandidates = flow.activations.flatMap((activation) => {
+    if (!hierarchy.visibleParticipants.has(activation.participantName)) {
+      return [];
+    }
+    const startRow = rowByItemId.get(activation.startItemId);
+    if (startRow === undefined) return [];
+    const endRow =
+      activation.endItemId === null
+        ? undefined
+        : rowByItemId.get(activation.endItemId);
+    return [
+      {
+        participantName: activation.participantName,
+        name: activation.name,
+        outcome: activation.outcome,
+        startY: rowY(startRow),
+        endY: endRow === undefined ? laneEndY : rowY(endRow),
+        open: activation.endItemId === null,
+      },
+    ];
+  });
+  const trackEnds = new Map<string, number[]>();
+  const activations: FlowLayoutActivation[] = activationCandidates
+    .toSorted(
+      (left, right) => left.startY - right.startY || right.endY - left.endY,
+    )
+    .map((activation) => {
+      const ends = trackEnds.get(activation.participantName) ?? [];
+      const available = ends.findIndex((endY) => endY <= activation.startY);
+      const track = available === -1 ? ends.length : available;
+      ends[track] = activation.endY;
+      trackEnds.set(activation.participantName, ends);
+      return { ...activation, track };
+    });
 
   /** A Reply's elapsed time since the Message it answers, by item id. */
   const timestampByMessageId = new Map(

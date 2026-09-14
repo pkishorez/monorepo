@@ -1,0 +1,1 @@
+RPC rides on the data channel created for the peer session. The connection Flow explains how Alice reached Bob; the child RPC Flow follows one typed request and response without recording their payloads.
