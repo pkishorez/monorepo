@@ -81,15 +81,14 @@ with `codexCommand`. The current app-server approval response carries only its
 decision, not a denial reason; ai-toolkit retains that reason in the
 `codex.request.resolved` event even though it cannot forward it to Codex.
 
-`codex app-server generate-ts` and `generate-json-schema` emit the complete
-experimental protocol, but neither emits Effect Schema. The Codex adapter
-therefore keeps a narrow Effect schema for only the notifications it consumes;
-the pure translator and recorded fixtures are the compatibility boundary.
-Generate the official TypeScript bindings for inspection after upgrading Codex:
+`codex app-server generate-json-schema` emits the complete experimental
+protocol. Generate it after upgrading Codex with:
 
 ```sh
-pnpm --dir toolkits/ai-toolkit generate:codex-types
+pnpm --dir toolkits/ai-toolkit generate:codex-schema
 ```
 
-The disposable output is written to `src/harness/codex/generated` and is not
-published.
+The disposable JSON Schema output is written to
+`src/harness/codex/generated` and is not published. The Codex adapter currently
+keeps a narrow handwritten Effect schema for only the notifications it consumes;
+deriving that schema from the generated artifact is deferred.
