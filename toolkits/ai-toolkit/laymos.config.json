@@ -1,7 +1,7 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/**/*.test.ts"],
+  "ignoredPaths": ["src/**/*.test.ts", "src/harness/codex/generated"],
   "layers": {
     "harness": {
       "paths": ["src/harness"],

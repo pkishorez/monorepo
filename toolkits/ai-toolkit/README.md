@@ -85,3 +85,11 @@ decision, not a denial reason; ai-toolkit retains that reason in the
 experimental protocol, but neither emits Effect Schema. The Codex adapter
 therefore keeps a narrow Effect schema for only the notifications it consumes;
 the pure translator and recorded fixtures are the compatibility boundary.
+Generate the official TypeScript bindings for inspection after upgrading Codex:
+
+```sh
+pnpm --dir toolkits/ai-toolkit generate:codex-types
+```
+
+The disposable output is written to `src/harness/codex/generated` and is not
+published.

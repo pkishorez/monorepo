@@ -22,6 +22,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "fmt": "vp fmt",
+    "generate:codex-types": "rm -rf src/harness/codex/generated && codex app-server generate-ts --experimental --out src/harness/codex/generated",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit",
     "test": "vitest run"
