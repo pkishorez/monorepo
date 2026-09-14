@@ -9,7 +9,7 @@ import { consoleTable } from './src/server/storage/table/index.ts';
 import './src/server/storage/credentials/index.ts';
 import './src/server/storage/stores/index.ts';
 
-const productionHost: string = 'alchemy.kishore.app';
+const productionHost: string = 'console.kishore.app';
 
 export const Database = Cloudflare.D1.Database(
   'Database',
