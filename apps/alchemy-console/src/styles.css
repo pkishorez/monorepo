@@ -40,9 +40,6 @@
 }
 
 @layer base {
-  html {
-    scrollbar-gutter: stable;
-  }
   body {
     @apply min-h-svh bg-background font-sans text-foreground antialiased;
   }
