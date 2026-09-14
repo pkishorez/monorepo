@@ -10,6 +10,7 @@ export {
   SnapshotFormatRetired,
   SnapshotIdentityConflict,
   SnapshotIncompatible,
+  SnapshotSubjectSchema,
   TableSnapshotSchema,
 } from './domain/index.js';
 export type {

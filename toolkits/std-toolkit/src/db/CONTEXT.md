@@ -108,15 +108,27 @@ The in-memory conversion of an older **encoded item** into the latest decoded do
 _Avoid_: Read repair, automatic migration write-back.
 
 **Table scan**:
-A portable, table-wide walk of every physical row (`table.scan()`), returning raw **encoded item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially. Never yields the **Enforcement baseline** item — every other table operation is already scoped to a named entity, so scan is the one place that item would otherwise leak into.
+A portable, table-wide walk of every physical row (`table.scan()`), returning raw **encoded item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially. Never yields the **Table state** item — every other table operation is already scoped to a named entity, so scan is the one place that item would otherwise leak into.
 _Avoid_: Full table read, dump.
 
+**Table state**:
+The record a table keeps about itself, stored as a single reserved **encoded item** inside the table at a fixed key no real registered entity can produce, read through `table.state()`. It holds the **Enforcement baseline**, one **Entity epoch** per entity the table has enforced or wiped, and every **Backfill need** still owed. It is written only by **Table-level enforcement** and by **Hard deletion** of a whole entity or table, each guarded on the `_u` it read so competing writers recheck rather than overwrite. A table that never wrote one reads as empty: no baseline, no epochs, nothing owed.
+_Avoid_: Migration state, table metadata, enforcement item (it is more than the baseline now).
+
 **Enforcement baseline**:
-The `TableSnapshot` a table's own **Table-level enforcement** last accepted, stored as a single reserved **encoded item** inside the table itself at a fixed key no real registered entity can produce. It is read, diffed, and — only on a safe outcome — rewritten each time enforcement runs; it is not the file-based CLI baseline, and the two are never the same object.
+The `TableSnapshot` a table's own **Table-level enforcement** last accepted, held in the **Table state**. It is diffed, and — only on a safe outcome — moved forward each time enforcement runs; it is not the file-based CLI baseline, and the two are never the same object.
 _Avoid_: Approved snapshot file, contract file (both name the CLI's separate, file-based baseline).
 
+**Entity epoch**:
+A ULID in the **Table state**, one per entity, that changes whenever every replica of that entity must be dropped and refetched: minted when enforcement first sees the entity, renewed when the entity's rows are wiped by **Hard deletion** (rows vanished with no tombstone for a cursor to find). It is the backend-owned answer to sync's store-wide `version` knob, scoped to one entity. It is not the entity's ESchema **version** and never changes on a schema evolution, which **Read migration** already bridges.
+_Avoid_: Entity version (collides with eschema), sync version, generation.
+
+**Backfill need**:
+One `requires-backfill` snapshot change that **Table-level enforcement** accepted and nothing has repaired yet: the changed subject (an access pattern or a physical index) and the ULID of the enforcement run that recorded it, kept in the **Table state** until a backfill settles it or the table is wiped. An empty list means every stored row answers every access pattern the current contract declares.
+_Avoid_: Migration debt, pending migration, drift (which names one row's mismatch, not the table's obligation).
+
 **Table-level enforcement**:
-`table.verifySnapshot()` — a second, independent line of defense beyond the code-level CLI lint, since a file on disk can simply go unread. It diffs the table's current, code-derived snapshot against the **Enforcement baseline**: a `breaking` or `unverifiable` change rejects and leaves the baseline untouched; a `safe` or `requires-backfill` change (logged as a warning) moves the baseline forward; no baseline yet bootstraps instead of rejecting. It is a plain function a caller chooses to invoke — nothing wires it in automatically.
+`table.verifySnapshot()` — a second, independent line of defense beyond the code-level CLI lint, since a file on disk can simply go unread. It diffs the table's current, code-derived snapshot against the **Enforcement baseline**: a `breaking` or `unverifiable` change rejects and leaves the **Table state** untouched; a `safe` change moves the baseline forward; a `requires-backfill` change moves it forward too, logged as a warning and recorded as a **Backfill need**; no baseline yet bootstraps instead of rejecting. Every registered entity without an **Entity epoch** gets one. It is a plain function a caller chooses to invoke — nothing wires it in automatically.
 _Avoid_: Snapshot approval, deploy gate (as a separate mechanism — it is not).
 
 **Drift**:
@@ -147,7 +159,7 @@ StdTable `get` and `query` operations return tombstoned Entities by default, inc
 _Avoid_: Hidden tombstones, includeDeleted.
 
 **Hard deletion**:
-The portable, irreversible removal of one Entity or all items for an **entity surface**. `hardDelete` and `dangerouslyRemoveAllItems` require the explicit `I KNOW WHAT I AM DOING` confirmation; normal `delete` writes a tombstone.
+The portable, irreversible removal of one Entity, all items for an **entity surface**, or every item in a table. `hardDelete` and `dangerouslyRemoveAllItems` require the explicit `I KNOW WHAT I AM DOING` confirmation; normal `delete` writes a tombstone. Wiping an entity renews its **Entity epoch**; wiping a table renews every registered entity's epoch, settles every **Backfill need**, and keeps the **Enforcement baseline**, since the rows are gone but the contract is not. A single hard delete leaves the epoch alone: it broadcasts a tombstone to live subscribers, but a cursor-based reader that was away will never learn of it.
 _Avoid_: Delete (use for tombstoning).
 
 **Adapter-native operation**:

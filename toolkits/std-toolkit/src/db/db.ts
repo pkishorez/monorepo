@@ -6,6 +6,11 @@ export type {
 } from './std-table/definition/index.js';
 export type { QueryOptions, QueryPage } from './std-table/entity/index.js';
 export type { StdTableService } from './std-table/contract/index.js';
+export type {
+  BackfillNeed,
+  EntityState,
+  TableState,
+} from './std-table/state/index.js';
 export {
   DatabaseError,
   type DatabaseErrorReason,
