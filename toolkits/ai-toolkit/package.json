@@ -1,0 +1,48 @@
+{
+  "name": "ai-toolkit",
+  "version": "0.0.1",
+  "description": "Effect-native RPC runtime for stateful coding-agent harnesses over TanStack AI",
+  "license": "MIT",
+  "type": "module",
+  "files": ["dist", "README.md", "LICENSE"],
+  "exports": {
+    "./rpc": {
+      "types": "./dist/rpc/contract/index.d.ts",
+      "default": "./dist/rpc/contract/index.js"
+    },
+    "./rpc/live": {
+      "types": "./dist/rpc/live/index.d.ts",
+      "default": "./dist/rpc/live/index.js"
+    },
+    "./table": {
+      "types": "./dist/harness/table/index.d.ts",
+      "default": "./dist/harness/table/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "catalog:",
+    "@openai/codex": "catalog:",
+    "@tanstack/ai": "catalog:",
+    "std-toolkit": "workspace:*"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.112"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:typescript6",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": { "node": ">=24" }
+}
