@@ -1,0 +1,51 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/**/*.test.ts", "src/harness/codex/generated"],
+  "layers": {
+    "harness": {
+      "paths": ["src/harness"],
+      "description": "Stateful coding harness runtime and its application-supplied storage ports.",
+      "moduleGraphs": {
+        "harness": {
+          "description": "The host runs one Claude or Codex turn and records its durable output.",
+          "path": "src/harness",
+          "modules": {
+            "run-state": { "exposed": true },
+            "table": { "exposed": true },
+            "claude": {},
+            "codex": {},
+            "host": { "exposed": true }
+          },
+          "rules": {
+            "table": ["run-state"],
+            "claude": ["run-state"],
+            "codex": ["run-state"],
+            "host": ["run-state", "table", "claude", "codex"]
+          }
+        }
+      }
+    },
+    "rpc": {
+      "paths": ["src/rpc"],
+      "description": "Browser-safe Effect RPC declaration and server handler layer.",
+      "moduleGraphs": {
+        "rpc": {
+          "description": "One public group composed from common, Claude, and Codex calls.",
+          "path": "src/rpc",
+          "modules": {
+            "contract": { "exposed": true },
+            "live": { "exposed": true }
+          },
+          "rules": { "live": ["contract"] }
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "ai-toolkit": {
+      "description": "RPC forwards requests to the harness runtime.",
+      "rules": { "harness": [], "rpc": ["harness"] }
+    }
+  }
+}

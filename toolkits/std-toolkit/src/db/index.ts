@@ -1,8 +1,12 @@
 export {
   DatabaseError,
   StdTable,
+  type AccessPatternDefinition,
   type DatabaseErrorReason,
+  type GlobalSecondaryIndex,
+  type KeyedEntity,
   type KeyedEntityDefinition,
+  type PrimaryIndex,
   type QueryOptions,
   type QueryPage,
   type SingleEntityDefinition,
