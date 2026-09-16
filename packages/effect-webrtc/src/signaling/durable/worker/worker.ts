@@ -11,7 +11,7 @@ import {
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
 import { verifyRequest } from 'auth-toolkit/server';
-import { isTrustedOrigin } from 'auth-toolkit/worker';
+import { isTrustedOrigin, validateTrustedOrigins } from 'auth-toolkit/worker';
 import type { ConnectionSlot } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
 import {
@@ -37,6 +37,13 @@ const DurableConnectionSchema = Schema.Struct({
 
 export type DurableConnection = typeof DurableConnectionSchema.Type;
 
+export type RequestValue<A> = A | ((request: Request) => A);
+
+const resolveRequestValue = <A>(value: RequestValue<A>, request: Request): A =>
+  typeof value === 'function'
+    ? (value as (request: Request) => A)(request)
+    : value;
+
 const ConnectionContext = Context.Reference<DurableConnection>(
   'effect-webrtc/DurableConnection',
   {
@@ -60,8 +67,8 @@ const connectionFromSocket = (socket: cf.WebSocket) => {
 
 export const durableSignalingConnection = (
   options: {
-    readonly authWorkerUrl: string;
-    readonly trustedOrigins: ReadonlyArray<string>;
+    readonly authWorkerUrl: RequestValue<string>;
+    readonly trustedOrigins: RequestValue<ReadonlyArray<string>>;
   },
   state: Cloudflare.DurableObjectState['Service'],
 ): ConnectionSlot<DurableConnection> => ({
@@ -72,8 +79,13 @@ export const durableSignalingConnection = (
       const request = yield* HttpServerRequest.toWeb(serverRequest).pipe(
         Effect.mapError(() => HttpServerResponse.empty({ status: 400 })),
       );
+      const trustedOrigins = resolveRequestValue(
+        options.trustedOrigins,
+        request,
+      );
+      validateTrustedOrigins(trustedOrigins);
       const origin = request.headers.get('origin');
-      if (origin === null || !isTrustedOrigin(origin, options.trustedOrigins)) {
+      if (origin === null || !isTrustedOrigin(origin, trustedOrigins)) {
         return yield* reject(403);
       }
 
@@ -86,7 +98,7 @@ export const durableSignalingConnection = (
 
       const verified = yield* Effect.tryPromise(() =>
         verifyRequest({
-          authWorkerUrl: options.authWorkerUrl,
+          authWorkerUrl: resolveRequestValue(options.authWorkerUrl, request),
           request,
         }),
       ).pipe(Effect.mapError(() => HttpServerResponse.empty({ status: 503 })));

@@ -1,2 +1,8 @@
-export { bootConversation } from './runtime.ts';
-export type { ConversationRuntime } from './runtime.ts';
+export { bootConversation, bootConversationWith } from './runtime.ts';
+export type {
+  BootConversationOptions,
+  ConversationRuntime,
+  ConversationSnapshot,
+  DemoSnapshot,
+  Message,
+} from './runtime.ts';

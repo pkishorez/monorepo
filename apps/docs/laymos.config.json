@@ -276,6 +276,42 @@
           "exposed": true
         }
       }
+    },
+    "durable-webrtc-app": {
+      "paths": ["src/demos/durable-webrtc/app"],
+      "description": "Durable WebRTC demo — authenticates the user and boots one named peer",
+      "modules": {
+        "src/demos/durable-webrtc/app/durable-webrtc-page": {
+          "exposed": true
+        }
+      }
+    },
+    "durable-webrtc-auth": {
+      "paths": ["src/demos/durable-webrtc/auth"],
+      "description": "Durable WebRTC demo — browser auth client",
+      "modules": {
+        "src/demos/durable-webrtc/auth": {
+          "exposed": true
+        }
+      }
+    },
+    "durable-webrtc-runtime": {
+      "paths": ["src/demos/durable-webrtc/runtime"],
+      "description": "Durable WebRTC demo — composes authenticated Durable signaling with the conversation runtime",
+      "modules": {
+        "src/demos/durable-webrtc/runtime": {
+          "exposed": true
+        }
+      }
+    },
+    "durable-webrtc-ui": {
+      "paths": ["src/demos/durable-webrtc/ui"],
+      "description": "Durable WebRTC demo — peer profile, directory, and conversations",
+      "modules": {
+        "src/demos/durable-webrtc/ui": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
@@ -283,7 +319,13 @@
       "description": "Docs app: entries over routes over components over lib",
       "rules": {
         "entry": ["components", "effect-webrtc-node"],
-        "routes": ["components", "lib", "bank-app", "effect-webrtc-app"],
+        "routes": [
+          "components",
+          "lib",
+          "bank-app",
+          "effect-webrtc-app",
+          "durable-webrtc-app"
+        ],
         "infra": ["bank-server", "bank-rpc", "bank-std-table"],
         "components": ["lib"]
       }
@@ -310,6 +352,18 @@
         "effect-webrtc-app": ["effect-webrtc-runtime", "effect-webrtc-ui"],
         "effect-webrtc-runtime": ["effect-webrtc-contract"],
         "effect-webrtc-node": ["effect-webrtc-contract"]
+      }
+    },
+    "durable-webrtc-demo": {
+      "description": "Durable WebRTC demo: authenticated page over a Durable peer directory and shared WebRTC conversation runtime",
+      "rules": {
+        "durable-webrtc-app": [
+          "durable-webrtc-auth",
+          "durable-webrtc-runtime",
+          "durable-webrtc-ui"
+        ],
+        "durable-webrtc-runtime": ["effect-webrtc-runtime"],
+        "durable-webrtc-ui": ["durable-webrtc-runtime", "effect-webrtc-ui"]
       }
     }
   }

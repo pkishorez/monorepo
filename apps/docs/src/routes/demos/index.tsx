@@ -6,6 +6,13 @@ import { HomeHeader } from '@/components/home-header';
 
 const demos = [
   {
+    name: 'durable-webrtc',
+    title: 'Durable WebRTC',
+    description:
+      'Sign in, discover your active devices through a Durable Object, then chat directly over WebRTC.',
+    to: '/demos/durable-webrtc',
+  },
+  {
     name: 'effect-webrtc',
     title: 'Effect WebRTC',
     description:

@@ -7,6 +7,7 @@ import {
   type SessionEvent,
   type SessionStatus,
 } from 'effect-webrtc';
+import type { Signaling, SignalingStatus } from 'effect-webrtc/signaling';
 import { layer as browserPlatform } from 'effect-webrtc/platform/browser';
 import { layer as nostrSignaling } from 'effect-webrtc/signaling/nostr';
 import {
@@ -18,21 +19,21 @@ import {
 
 type Delivery = 'pending' | 'delivered' | 'failed';
 
-interface Message {
+export interface Message {
   readonly id: string;
   readonly author: string;
   readonly text: string;
   readonly delivery: Delivery;
 }
 
-interface ConversationSnapshot {
+export interface ConversationSnapshot {
   readonly remoteId: string;
   readonly status: SessionStatus;
   readonly messages: ReadonlyArray<Message>;
   readonly activity: ReadonlyArray<string>;
 }
 
-interface DemoSnapshot {
+export interface DemoSnapshot {
   readonly localId: string;
   readonly signaling: string;
   readonly conversations: ReadonlyArray<ConversationSnapshot>;
@@ -46,6 +47,21 @@ export interface ConversationRuntime {
   readonly disconnect: (remoteId: string) => void;
   readonly send: (remoteId: string, text: string) => void;
   readonly dispose: () => Promise<void>;
+}
+
+export interface ConversationSignaling {
+  readonly layer: Layer.Layer<Signaling>;
+  readonly describeStatus: (status: SignalingStatus) => string;
+}
+
+export interface BootConversationOptions {
+  readonly localId: string;
+  readonly signaling: Effect.Effect<
+    ConversationSignaling,
+    unknown,
+    Scope.Scope
+  >;
+  readonly initialSignaling: string;
 }
 
 const describeStatus = (status: SessionStatus) => {
@@ -65,12 +81,14 @@ const describeEvent = (event: SessionEvent) => {
   }
 };
 
-export const bootConversation = async (
-  localId: string,
-): Promise<ConversationRuntime> => {
+export const bootConversationWith = async ({
+  localId,
+  signaling: makeSignaling,
+  initialSignaling,
+}: BootConversationOptions): Promise<ConversationRuntime> => {
   const recorder = makeTraceRecorder();
   const managed = ManagedRuntime.make(
-    Layer.mergeAll(nostrSignaling(signaling), browserPlatform, recorder.layer),
+    Layer.mergeAll(browserPlatform, recorder.layer),
   );
   const scope = Effect.runSync(Scope.make());
   const runScoped = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
@@ -80,7 +98,7 @@ export const bootConversation = async (
   const listeners = new Set<() => void>();
   let snapshot: DemoSnapshot = {
     localId,
-    signaling: 'Connecting to Nostr relays…',
+    signaling: initialSignaling,
     conversations: [],
   };
 
@@ -138,12 +156,22 @@ export const bootConversation = async (
       ),
   });
 
+  const configuredSignaling = await runScoped(makeSignaling).catch(
+    async (error) => {
+      await managed.runPromise(Scope.close(scope, Exit.void));
+      await managed.dispose();
+      throw error;
+    },
+  );
   const peer = await managed.runPromise(
     WebRtc.make({
       id: PeerId.make(localId),
       rtc,
       serve: { contract: Messages, handlers: receive },
-    }).pipe(Effect.provideService(Scope.Scope, scope)),
+    }).pipe(
+      Effect.provide(configuredSignaling.layer),
+      Effect.provideService(Scope.Scope, scope),
+    ),
   );
   type Remote = Effect.Success<ReturnType<typeof peer.connect>>;
   const remotes = new Map<string, Remote>();
@@ -232,12 +260,7 @@ export const bootConversation = async (
       Stream.runForEach(peer.signalingStatus, (status) =>
         change((current) => ({
           ...current,
-          signaling:
-            status === 'Connecting'
-              ? 'Connecting to Nostr relays…'
-              : status === 'Unavailable'
-                ? 'No Nostr relays available'
-                : 'Nostr signaling available',
+          signaling: configuredSignaling.describeStatus(status),
         })),
       ),
     ]).pipe(Effect.forkScoped({ startImmediately: true }), Effect.asVoid),
@@ -329,3 +352,18 @@ export const bootConversation = async (
     },
   };
 };
+
+export const bootConversation = (localId: string) =>
+  bootConversationWith({
+    localId,
+    signaling: Effect.succeed({
+      layer: nostrSignaling(signaling),
+      describeStatus: (status: SignalingStatus) =>
+        status === 'Connecting'
+          ? 'Connecting to Nostr relays…'
+          : status === 'Unavailable'
+            ? 'No Nostr relays available'
+            : 'Nostr signaling available',
+    }),
+    initialSignaling: 'Connecting to Nostr relays…',
+  });

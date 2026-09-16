@@ -2,7 +2,7 @@ import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Activity, ArrowLeft, Plus, Send, X } from 'lucide-react';
 import type { SessionStatus } from 'effect-webrtc';
 
-interface ConversationSnapshot {
+export interface ConversationSnapshot {
   readonly remoteId: string;
   readonly status: SessionStatus;
   readonly messages: ReadonlyArray<{
@@ -41,14 +41,16 @@ const statusText = (conversation: ConversationSnapshot) => {
   return `${status._tag} · ${phase}`;
 };
 
-function ConversationPanel({
+export function ConversationPanel({
   conversation,
   localId,
+  title,
   onDisconnect,
   onSend,
 }: {
   readonly conversation: ConversationSnapshot;
   readonly localId: string;
+  readonly title?: string;
   readonly onDisconnect: () => void;
   readonly onSend: (text: string) => void;
 }) {
@@ -73,7 +75,7 @@ function ConversationPanel({
       <header className="flex items-center justify-between gap-4 border-b px-4 py-3 sm:px-5 sm:py-4">
         <div className="min-w-0">
           <h2 className="truncate text-lg font-semibold">
-            {conversation.remoteId}
+            {title ?? conversation.remoteId}
           </h2>
           <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
             <span

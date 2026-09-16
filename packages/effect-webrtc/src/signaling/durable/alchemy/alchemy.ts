@@ -6,6 +6,7 @@ import {
   durableSignalingConnection,
   durableSignalingHandlers,
   type DurableConnection,
+  type RequestValue,
 } from '../worker/index.js';
 
 type DurableSignalingRpc =
@@ -15,8 +16,8 @@ type DurableSignalingRpc =
 
 export interface DurableSignalingWorkerOptions {
   readonly main: string;
-  readonly authWorkerUrl: string;
-  readonly trustedOrigins: ReadonlyArray<string>;
+  readonly authWorkerUrl: RequestValue<string>;
+  readonly trustedOrigins: RequestValue<ReadonlyArray<string>>;
   readonly domain?: string;
   readonly dev?: { readonly port: number };
   readonly workersDev?: boolean;
@@ -25,7 +26,9 @@ export interface DurableSignalingWorkerOptions {
 export const DurableSignalingWorker =
   <Self>() =>
   (id: string, options: DurableSignalingWorkerOptions) => {
-    validateTrustedOrigins(options.trustedOrigins);
+    if (typeof options.trustedOrigins !== 'function') {
+      validateTrustedOrigins(options.trustedOrigins);
+    }
     return DurableRpcWorker<Self>()<
       DurableSignalingRpc,
       never,

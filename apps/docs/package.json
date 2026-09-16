@@ -21,6 +21,7 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "auth-toolkit": "workspace:*",
     "effect": "catalog:",
     "effect-webrtc": "workspace:*",
     "fumadocs-core": "catalog:",

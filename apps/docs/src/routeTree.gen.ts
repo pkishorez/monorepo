@@ -11,14 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiBlogRouteImport } from './routes/api/blog'
+import { Route as ApiDurableSignalingRouteImport } from './routes/api/durable-signaling'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiSourceRouteImport } from './routes/api/source'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as DemosIndexRouteImport } from './routes/demos/index'
 import { Route as DemosBankRouteImport } from './routes/demos/bank'
+import { Route as DemosDurableWebrtcRouteImport } from './routes/demos/durable-webrtc'
 import { Route as DemosEffectWebrtcRouteImport } from './routes/demos/effect-webrtc'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiBlogRoute = ApiBlogRouteImport.update({
   id: '/api/blog',
   path: '/api/blog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDurableSignalingRoute = ApiDurableSignalingRouteImport.update({
+  id: '/api/durable-signaling',
+  path: '/api/durable-signaling',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSearchRoute = ApiSearchRouteImport.update({
@@ -60,6 +68,11 @@ const DemosBankRoute = DemosBankRouteImport.update({
   path: '/demos/bank',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosDurableWebrtcRoute = DemosDurableWebrtcRouteImport.update({
+  id: '/demos/durable-webrtc',
+  path: '/demos/durable-webrtc',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemosEffectWebrtcRoute = DemosEffectWebrtcRouteImport.update({
   id: '/demos/effect-webrtc',
   path: '/demos/effect-webrtc',
@@ -70,94 +83,120 @@ const DocsSplatRoute = DocsSplatRouteImport.update({
   path: '/docs/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/blog': typeof ApiBlogRoute
+  '/api/durable-signaling': typeof ApiDurableSignalingRoute
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/demos/bank': typeof DemosBankRoute
+  '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/blog': typeof ApiBlogRoute
+  '/api/durable-signaling': typeof ApiDurableSignalingRoute
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/demos/bank': typeof DemosBankRoute
+  '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog': typeof BlogIndexRoute
   '/demos': typeof DemosIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/blog': typeof ApiBlogRoute
+  '/api/durable-signaling': typeof ApiDurableSignalingRoute
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/demos/bank': typeof DemosBankRoute
+  '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/api/blog'
+    | '/api/durable-signaling'
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
     | '/demos/bank'
+    | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api/blog'
+    | '/api/durable-signaling'
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
     | '/demos/bank'
+    | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/docs/$'
     | '/blog'
     | '/demos'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
     | '/api/blog'
+    | '/api/durable-signaling'
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
     | '/demos/bank'
+    | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiBlogRoute: typeof ApiBlogRoute
+  ApiDurableSignalingRoute: typeof ApiDurableSignalingRoute
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSourceRoute: typeof ApiSourceRoute
   BlogSlugRoute: typeof BlogSlugRoute
   DemosBankRoute: typeof DemosBankRoute
+  DemosDurableWebrtcRoute: typeof DemosDurableWebrtcRoute
   DemosEffectWebrtcRoute: typeof DemosEffectWebrtcRoute
   DocsSplatRoute: typeof DocsSplatRoute
   BlogIndexRoute: typeof BlogIndexRoute
   DemosIndexRoute: typeof DemosIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -174,6 +213,13 @@ declare module '@tanstack/react-router' {
       path: '/api/blog'
       fullPath: '/api/blog'
       preLoaderRoute: typeof ApiBlogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/durable-signaling': {
+      id: '/api/durable-signaling'
+      path: '/api/durable-signaling'
+      fullPath: '/api/durable-signaling'
+      preLoaderRoute: typeof ApiDurableSignalingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/search': {
@@ -218,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosBankRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/durable-webrtc': {
+      id: '/demos/durable-webrtc'
+      path: '/demos/durable-webrtc'
+      fullPath: '/demos/durable-webrtc'
+      preLoaderRoute: typeof DemosDurableWebrtcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/effect-webrtc': {
       id: '/demos/effect-webrtc'
       path: '/demos/effect-webrtc'
@@ -232,20 +285,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiBlogRoute: ApiBlogRoute,
+  ApiDurableSignalingRoute: ApiDurableSignalingRoute,
   ApiSearchRoute: ApiSearchRoute,
   ApiSourceRoute: ApiSourceRoute,
   BlogSlugRoute: BlogSlugRoute,
   DemosBankRoute: DemosBankRoute,
+  DemosDurableWebrtcRoute: DemosDurableWebrtcRoute,
   DemosEffectWebrtcRoute: DemosEffectWebrtcRoute,
   DocsSplatRoute: DocsSplatRoute,
   BlogIndexRoute: BlogIndexRoute,
   DemosIndexRoute: DemosIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
