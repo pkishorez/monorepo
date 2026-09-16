@@ -1,1 +1,1 @@
-export { PeerId } from './peer-identity.js';
+export { generatePeerId, PeerId } from './peer-identity.js';

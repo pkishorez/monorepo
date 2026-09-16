@@ -233,11 +233,11 @@ export const bootConversation = async (
         change((current) => ({
           ...current,
           signaling:
-            status._tag === 'Connecting'
+            status === 'Connecting'
               ? 'Connecting to Nostr relays…'
-              : status._tag === 'Unavailable'
+              : status === 'Unavailable'
                 ? 'No Nostr relays available'
-                : `${status.connected}/${status.configured} Nostr relays connected`,
+                : 'Nostr signaling available',
         })),
       ),
     ]).pipe(Effect.forkScoped({ startImmediately: true }), Effect.asVoid),

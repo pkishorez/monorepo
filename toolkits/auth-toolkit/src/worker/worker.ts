@@ -88,15 +88,20 @@ const matchesTrustedOrigin = (origin: string, pattern: string) => {
   return new RegExp(`^${source}$`, 'i').test(value);
 };
 
+export const validateTrustedOrigins = (patterns: ReadonlyArray<string>) =>
+  patterns.forEach(validateTrustedOrigin);
+
+export const isTrustedOrigin = (
+  origin: string,
+  patterns: ReadonlyArray<string>,
+) => patterns.some((pattern) => matchesTrustedOrigin(origin, pattern));
+
 const corsHeaders = (request: Request, trustedOrigins: string[]) => {
   // Vary: Origin even when untrusted, so a shared cache never serves one
   // origin's CORS response to another.
   const headers = new Headers({ Vary: 'Origin' });
   const origin = request.headers.get('Origin');
-  if (
-    !origin ||
-    !trustedOrigins.some((pattern) => matchesTrustedOrigin(origin, pattern))
-  ) {
+  if (!origin || !isTrustedOrigin(origin, trustedOrigins)) {
     return { allowed: false, headers };
   }
 
@@ -135,7 +140,7 @@ export const createAuthWorker = (
   auth: Auth<BetterAuthOptions>;
   handler: (request: Request) => Promise<Response>;
 } => {
-  config.trustedOrigins.forEach(validateTrustedOrigin);
+  validateTrustedOrigins(config.trustedOrigins);
 
   const modelOptions = authModelOptions(config);
   const dashApiKey = config.dashApiKey?.trim();

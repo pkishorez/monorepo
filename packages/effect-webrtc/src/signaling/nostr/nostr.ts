@@ -18,17 +18,12 @@ import {
   Signaling,
   SignalingError,
   type SignalingConnection,
-  type SignalingEvent,
   type SignalingStatus,
 } from '../signaling.js';
 import { kind, makeEvent, readEvent } from './event.js';
 
-const statusOf = (connected: number, configured: number): SignalingStatus =>
-  connected === 0
-    ? { _tag: 'Unavailable', configured }
-    : connected === configured
-      ? { _tag: 'Available', connected, configured }
-      : { _tag: 'Degraded', connected, configured };
+const statusOf = (connected: number): SignalingStatus =>
+  connected === 0 ? 'Unavailable' : 'Available';
 
 /** A multi-relay Nostr Signaling provider using ephemeral plaintext events. */
 export const layer = (options: {
@@ -65,12 +60,9 @@ export const layer = (options: {
               enableReconnect: true,
             });
             const incoming = yield* PubSub.unbounded<IncomingNegotiation>();
-            const events = yield* PubSub.unbounded<SignalingEvent>();
             const closedSubscriptions = yield* Queue.unbounded<number>();
-            const status = yield* SubscriptionRef.make<SignalingStatus>({
-              _tag: 'Connecting',
-              configured: relays.length,
-            });
+            const status =
+              yield* SubscriptionRef.make<SignalingStatus>('Connecting');
             const signAuth = async (template: EventTemplate) =>
               finalizeEvent(template, secretKey);
             const seen = new Map<string, number>();
@@ -78,10 +70,7 @@ export const layer = (options: {
             yield* Effect.addFinalizer(() =>
               Effect.sync(() => {
                 pool.destroy();
-              }).pipe(
-                Effect.andThen(PubSub.shutdown(incoming)),
-                Effect.andThen(PubSub.shutdown(events)),
-              ),
+              }).pipe(Effect.andThen(PubSub.shutdown(incoming))),
             );
 
             const connect = (relay: string) =>
@@ -90,40 +79,19 @@ export const layer = (options: {
                   pool.ensureRelay(relay, { connectionTimeout: openTimeout }),
                 catch: (cause) =>
                   new SignalingError({ operation: 'open', cause }),
-              }).pipe(
-                Effect.tap(() =>
-                  Effect.sync(() => {
-                    PubSub.publishUnsafe(events, {
-                      _tag: 'RelayConnected',
-                      relay,
-                    });
-                  }),
-                ),
-              );
+              });
 
             yield* Effect.raceAll(relays.map(connect));
 
-            let previousStatuses = pool.listConnectionStatus();
             const refreshStatus = Effect.sync(() => {
               const statuses = pool.listConnectionStatus();
-              for (const relay of relays) {
-                const before = previousStatuses.get(relay) === true;
-                const after = statuses.get(relay) === true;
-                if (before !== after) {
-                  PubSub.publishUnsafe(events, {
-                    _tag: after ? 'RelayConnected' : 'RelayDisconnected',
-                    relay,
-                  });
-                }
-              }
-              previousStatuses = statuses;
               const connected = relays.filter(
                 (relay) => statuses.get(relay) === true,
               ).length;
               return connected;
             }).pipe(
               Effect.flatMap((connected) =>
-                SubscriptionRef.set(status, statusOf(connected, relays.length)),
+                SubscriptionRef.set(status, statusOf(connected)),
               ),
               Effect.delay('1 second'),
               Effect.forever,
@@ -157,12 +125,7 @@ export const layer = (options: {
                   sender: decoded.sender,
                   envelope: decoded.envelope,
                 });
-              } catch (error) {
-                PubSub.publishUnsafe(events, {
-                  _tag: 'RejectedEvent',
-                  reason: String(error),
-                });
-              }
+              } catch {}
             };
 
             let subscription: ReturnType<typeof pool.subscribeMany> | undefined;
@@ -224,7 +187,6 @@ export const layer = (options: {
               send,
               incoming: Stream.fromPubSub(incoming),
               status: SubscriptionRef.changes(status),
-              events: Stream.fromPubSub(events),
             } satisfies SignalingConnection;
           }),
       });

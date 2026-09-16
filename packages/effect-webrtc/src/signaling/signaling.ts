@@ -29,21 +29,7 @@ export interface IncomingNegotiation {
   readonly envelope: Envelope;
 }
 
-export type SignalingStatus =
-  | { readonly _tag: 'Connecting'; readonly configured: number }
-  | {
-      readonly _tag: 'Available' | 'Degraded';
-      readonly connected: number;
-      readonly configured: number;
-    }
-  | { readonly _tag: 'Unavailable'; readonly configured: number };
-
-export type SignalingEvent =
-  | {
-      readonly _tag: 'RelayConnected' | 'RelayDisconnected';
-      readonly relay: string;
-    }
-  | { readonly _tag: 'RejectedEvent'; readonly reason: string };
+export type SignalingStatus = 'Connecting' | 'Available' | 'Unavailable';
 
 /** One Peer's scoped connection to a Signaling provider. */
 export interface SignalingConnection {
@@ -54,7 +40,9 @@ export interface SignalingConnection {
   ) => Effect.Effect<void, PeerUnavailable | SignalingError>;
   readonly incoming: Stream.Stream<IncomingNegotiation, SignalingError>;
   readonly status: Stream.Stream<SignalingStatus>;
-  readonly events: Stream.Stream<SignalingEvent>;
+  readonly waitForPeer?: (
+    peerId: PeerIdentifier,
+  ) => Effect.Effect<void, SignalingError>;
 }
 
 interface SignalingService {

@@ -1,1 +1,5 @@
-export { createAuthWorker } from './worker.js';
+export {
+  createAuthWorker,
+  isTrustedOrigin,
+  validateTrustedOrigins,
+} from './worker.js';

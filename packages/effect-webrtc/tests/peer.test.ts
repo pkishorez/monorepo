@@ -1,4 +1,4 @@
-import { Deferred, Effect, Layer, Schema } from 'effect';
+import { Deferred, Effect, Layer, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { describe, expect, it } from 'vitest';
 import { PeerId, WebRtc } from '../src/effect-webrtc/index.js';
@@ -8,8 +8,53 @@ import {
   WebRtcPlatform,
 } from '../src/platform/platform.js';
 import { layer as memorySignaling } from '../src/signaling/memory/index.js';
+import { Signaling } from '../src/signaling/signaling.js';
 
 describe('Peer orchestration', () => {
+  it('waits for provider availability before creating an offer', async () => {
+    let connections = 0;
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const waiting = yield* Deferred.make<void>();
+          const signaling = Layer.succeed(
+            Signaling,
+            Signaling.of({
+              open: (peerId) =>
+                Effect.succeed({
+                  peerId,
+                  send: () => Effect.void,
+                  incoming: Stream.never,
+                  status: Stream.succeed('Available'),
+                  waitForPeer: () =>
+                    Deferred.succeed(waiting, undefined).pipe(
+                      Effect.andThen(Effect.never),
+                    ),
+                }),
+            }),
+          );
+          const platform = Layer.succeed(
+            WebRtcPlatform,
+            WebRtcPlatform.of({
+              makeConnection: () => {
+                connections += 1;
+                return Effect.never;
+              },
+            }),
+          );
+          const peer = yield* WebRtc.make({ id: PeerId.make('alice') }).pipe(
+            Effect.provide(Layer.merge(signaling, platform)),
+          );
+          yield* peer
+            .connect({ id: PeerId.make('bob') })
+            .pipe(Effect.forkScoped({ startImmediately: true }));
+          yield* Deferred.await(waiting);
+          expect(connections).toBe(0);
+        }),
+      ),
+    );
+  });
+
   it('negotiates one session and carries Effect RPC', async () => {
     const Greet = Rpc.make('Greet', {
       payload: { name: Schema.String },

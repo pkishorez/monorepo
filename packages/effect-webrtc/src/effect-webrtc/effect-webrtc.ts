@@ -33,10 +33,7 @@ import { PeerId as PeerIdSchema } from '../peer-identity/index.js';
 import type { PeerId as PeerIdType } from '../peer-identity/index.js';
 import { make as makeRpcTransport } from '../rpc/index.js';
 import { Signaling } from '../signaling/signaling.js';
-import type {
-  SignalingEvent,
-  SignalingStatus,
-} from '../signaling/signaling.js';
+import type { SignalingStatus } from '../signaling/signaling.js';
 import {
   transition,
   type ConnectionPhase,
@@ -126,7 +123,6 @@ export interface GetRemotePeer<DefaultRemote extends Rpc.Any | never> {
 export interface Peer<DefaultRemote extends Rpc.Any | never = never> {
   readonly id: PeerIdType;
   readonly signalingStatus: Stream.Stream<SignalingStatus>;
-  readonly signalingEvents: Stream.Stream<SignalingEvent>;
   readonly connect: Connect<DefaultRemote>;
   readonly getRemotePeer: GetRemotePeer<DefaultRemote>;
   readonly getCurrentRemotePeers: () => Effect.Effect<
@@ -611,6 +607,10 @@ const makeInternal: (
   ): Effect.Effect<void, never, Scope.Scope> {
     return Effect.gen(function* () {
       if (record.connected || record.connecting || !record.intent) return;
+      if (signaling.waitForPeer !== undefined) {
+        yield* signaling.waitForPeer(record.remoteId);
+        if (record.connected || record.connecting || !record.intent) return;
+      }
       const attemptScope = yield* replaceAttemptScope(record);
       yield* Effect.gen(function* () {
         record.connecting = true;
@@ -1013,7 +1013,6 @@ const makeInternal: (
   return {
     id: options.id,
     signalingStatus: signaling.status,
-    signalingEvents: signaling.events,
     connect,
     getRemotePeer,
     getCurrentRemotePeers,

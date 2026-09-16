@@ -21,3 +21,46 @@ yield * bob.rpc.SendMessage({ text: 'Hello' });
 Pass `rtc: { iceServers }` to `WebRtc.make` to reach Peers on other networks. Without ICE servers each Peer only offers host candidates, and browsers such as Safari hide those behind mDNS names that cannot be resolved across cellular links, so even two Peers on one device may fail to connect.
 
 `connect` starts a Peer Session. `getRemotePeer` finds or waits for one without starting negotiation. `getCurrentRemotePeers()` returns the available Remote Peers, and `onRemotePeer` observes each new logical Peer Session. When `contract` is omitted, these operations use `serve.contract`.
+
+## Durable signaling
+
+The Durable provider is an authenticated, browser-only signaling service backed by one hibernating Cloudflare Durable Object. Deploy it beside an Auth Toolkit worker:
+
+```ts
+import { DurableSignalingWorker } from 'effect-webrtc/signaling/durable/alchemy';
+
+export default class SignalingWorker extends DurableSignalingWorker<SignalingWorker>()(
+  'SignalingWorker',
+  {
+    main: import.meta.filename,
+    authWorkerUrl: 'https://auth.example.com',
+    trustedOrigins: ['https://app.example.com'],
+  },
+) {}
+```
+
+Then open one signaling connection for one local peer and provide its layer to `WebRtc.make`:
+
+```ts
+import { DurableSignaling } from 'effect-webrtc/signaling/durable';
+
+const durable =
+  yield *
+  DurableSignaling.connect({
+    url: 'https://signaling.example.com',
+    peerId: generatePeerId(),
+    name: 'My laptop',
+    mode: 'Connectable',
+  });
+
+const peer =
+  yield *
+  WebRtc.make({ id: durable.peerId }).pipe(
+    Effect.provide(durable.signalingLayer),
+  );
+
+const peers = yield * durable.listPeers;
+yield * peer.connect({ id: peers[0]!.peerId });
+```
+
+`Connectable` peers accept new offers. `Private` peers appear in the same user's directory and may initiate connections, but silently ignore new inbound offers. Peers belonging to different authenticated users are never visible or routable.

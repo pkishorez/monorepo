@@ -9,8 +9,12 @@ An endpoint that owns a unique Peer Identifier and can maintain sessions with re
 _Avoid_: client, user, device
 
 **Peer Identifier**:
-An application-defined value that uniquely addresses one Peer within a Signaling Provider's namespace. Effect WebRTC assigns it no identity or authorization meaning.
+A value that uniquely addresses one Peer within a Signaling Provider's namespace. How it is assigned is provider-specific; Effect WebRTC assigns it no User identity or authorization meaning.
 _Avoid_: user ID, connection ID
+
+**Peer Name**:
+A required human-readable label for recognizing a Peer in its User's Peer Directory. It need not be unique and is never used to route negotiation messages.
+_Avoid_: Peer Identifier, username
 
 **Peer Session**:
 The logical one-to-one relationship between two Peers. It may outlive and replace the underlying WebRTC connection while connection intent remains active.
@@ -31,6 +35,42 @@ _Avoid_: signaling server (not every provider is a server)
 **Signaling Connection**:
 A Peer's connection to its Signaling Provider, through which it exchanges negotiation messages for any of its Peer Sessions.
 _Avoid_: Peer Session, RTC Connection
+
+**Durable Signaling Provider**:
+The opinionated authenticated Signaling Provider in which every Peer belongs to exactly one User and can discover or negotiate only with that User's Peers.
+_Avoid_: generic signaling server, public signaling provider
+
+**Peer Directory**:
+The private collection of currently present Peers belonging to one User, including the information needed to identify and present each Peer. A User cannot inspect or address another User's Peer Directory.
+_Avoid_: peer registry, global directory
+
+**Peer Descriptor**:
+The directory representation of a present Peer: its Peer Identifier, Peer Name, and whether it is Connectable or Private.
+_Avoid_: Peer, connection record
+
+**Peer Presence**:
+The period during which a Peer has an authenticated Signaling Connection and therefore appears in its User's Peer Directory. Presence ends with that connection and is not stored for later discovery.
+_Avoid_: registration, account device
+
+**Peer Availability**:
+The condition in which an addressed Peer is both present and Connectable, so a new Peer Session may be initiated with it.
+_Avoid_: delivery readiness, online status
+
+**Peer Wait**:
+A pending one-shot subscription that completes when an addressed Peer becomes available. It represents waiting Connection Intent without polling or retaining past presence.
+_Avoid_: presence polling, connection attempt
+
+**Signaling Acceptance**:
+Confirmation that the Durable Signaling Provider received a valid signaling request. It makes no claim that the addressed Peer was present, received the message, or acted on it.
+_Avoid_: delivery, acknowledgment
+
+**Connectable Peer**:
+A Peer that accepts new Peer Sessions initiated by other Peers in its User's Peer Directory.
+_Avoid_: listed peer, server
+
+**Private Peer**:
+A Peer that may initiate Peer Sessions but does not accept new Peer Sessions initiated by other Peers. It remains visible in its User's complete Peer Directory and can receive negotiation messages for sessions it initiated.
+_Avoid_: unlisted peer, client
 
 **Platform**:
 The host-specific WebRTC capability used by Effect WebRTC. Browser and Node are different Platforms behind the same contract.

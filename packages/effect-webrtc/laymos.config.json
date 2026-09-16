@@ -27,11 +27,21 @@
           "modules": {
             "signaling.ts": { "exposed": true },
             "memory": { "exposed": true },
-            "nostr": { "exposed": true }
+            "nostr": { "exposed": true },
+            "durable/index.ts": { "exposed": true },
+            "durable/durable.ts": { "exposed": true },
+            "durable/rpc": { "exposed": true },
+            "durable/worker": { "exposed": true },
+            "durable/alchemy": { "exposed": true }
           },
           "rules": {
             "memory": ["signaling.ts"],
-            "nostr": ["signaling.ts"]
+            "nostr": ["signaling.ts"],
+            "durable/index.ts": ["durable/durable.ts", "durable/rpc"],
+            "durable/durable.ts": ["signaling.ts", "durable/rpc"],
+            "durable/rpc": [],
+            "durable/worker": ["durable/rpc"],
+            "durable/alchemy": ["durable/rpc", "durable/worker"]
           }
         }
       }

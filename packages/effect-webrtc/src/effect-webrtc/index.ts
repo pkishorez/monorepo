@@ -1,4 +1,5 @@
 export { PeerId, WebRtcError, WebRtc } from './effect-webrtc.js';
+export { generatePeerId } from '../peer-identity/index.js';
 export type {
   ConnectionPhase,
   NegotiationRole,

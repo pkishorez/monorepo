@@ -29,6 +29,22 @@
       "types": "./dist/signaling/nostr/index.d.ts",
       "default": "./dist/signaling/nostr/index.js"
     },
+    "./signaling/durable": {
+      "types": "./dist/signaling/durable/index.d.ts",
+      "default": "./dist/signaling/durable/index.js"
+    },
+    "./signaling/durable/rpc": {
+      "types": "./dist/signaling/durable/rpc/index.d.ts",
+      "default": "./dist/signaling/durable/rpc/index.js"
+    },
+    "./signaling/durable/worker": {
+      "types": "./dist/signaling/durable/worker/index.d.ts",
+      "default": "./dist/signaling/durable/worker/index.js"
+    },
+    "./signaling/durable/alchemy": {
+      "types": "./dist/signaling/durable/alchemy/index.d.ts",
+      "default": "./dist/signaling/durable/alchemy/index.js"
+    },
     "./platform": {
       "types": "./dist/platform/platform.d.ts",
       "default": "./dist/platform/platform.js"
@@ -59,16 +75,26 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "alchemy": "2.0.0-beta.76",
     "effect": "4.0.0-rc.112"
+  },
+  "peerDependenciesMeta": {
+    "alchemy": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@pkishorez/effect-tracer": "workspace:*",
+    "@cloudflare/workers-types": "catalog:",
+    "auth-toolkit": "workspace:*",
     "nostr-tools": "catalog:",
+    "rpc-toolkit": "workspace:*",
     "werift": "catalog:"
   },
   "devDependencies": {
     "@tsconfig/node22": "catalog:",
     "@typescript/native": "catalog:",
+    "alchemy": "catalog:",
     "effect": "catalog:",
     "laymos": "workspace:*",
     "typescript": "catalog:typescript6",

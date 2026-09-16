@@ -794,12 +794,21 @@ importers:
 
   packages/effect-webrtc:
     dependencies:
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20260904.1
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../../devtools/effect-tracer
+      auth-toolkit:
+        specifier: workspace:*
+        version: link:../../toolkits/auth-toolkit
       nostr-tools:
         specifier: 'catalog:'
         version: 2.25.2(@typescript/typescript6@6.0.2)
+      rpc-toolkit:
+        specifier: workspace:*
+        version: link:../../toolkits/rpc-toolkit
       werift:
         specifier: 'catalog:'
         version: 0.24.4(supports-color@10.2.2)
@@ -810,6 +819,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
+      alchemy:
+        specifier: 'catalog:'
+        version: 2.0.0-beta.76(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/node@26.4.1)(@types/react@19.2.18)(@typescript/typescript6@6.0.2)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(drizzle-kit@1.0.0-rc.4)(drizzle-orm@1.0.0-rc.4(@cloudflare/workers-types@5.20260904.1)(@effect/sql-d1@4.0.0-rc.112(effect@4.0.0-rc.112))(@effect/sql-sqlite-do@4.0.0-rc.112(effect@4.0.0-rc.112))(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(@types/pg@8.23.1)(better-sqlite3@13.0.3)(bun-types@1.4.1)(effect@4.0.0-rc.112)(pg@8.23.0)(valibot@1.2.0(@typescript/typescript6@6.0.2))(zod@4.4.3))(effect@4.0.0-rc.112)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(pg@8.23.0)(vitest@4.1.11)(ws@8.21.3)
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112

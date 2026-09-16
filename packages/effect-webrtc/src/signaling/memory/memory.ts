@@ -47,12 +47,7 @@ export const layer: Layer.Layer<Signaling> = Layer.effect(
           peerId: self,
           send,
           incoming: Stream.fromPubSub(inbox),
-          status: Stream.succeed({
-            _tag: 'Available' as const,
-            connected: 1,
-            configured: 1,
-          }),
-          events: Stream.empty,
+          status: Stream.succeed('Available'),
         } satisfies SignalingConnection;
       });
 

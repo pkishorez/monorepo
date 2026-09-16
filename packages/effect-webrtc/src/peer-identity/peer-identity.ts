@@ -4,3 +4,5 @@ import { Schema } from 'effect';
 export const PeerId = Schema.String.pipe(Schema.brand('effect-webrtc/PeerId'));
 
 export type PeerId = typeof PeerId.Type;
+
+export const generatePeerId = (): PeerId => PeerId.make(crypto.randomUUID());
