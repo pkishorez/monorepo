@@ -492,9 +492,6 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: 'catalog:'
         version: 5.3.0
-      '@pkishorez/effect-tracer':
-        specifier: workspace:*
-        version: link:../../devtools/effect-tracer
       '@tanstack/react-db':
         specifier: 'catalog:'
         version: 0.3.0(react@19.2.8)(typescript@7.0.2)
@@ -537,9 +534,6 @@ importers:
       std-toolkit:
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit
-      use-effect-ts:
-        specifier: workspace:*
-        version: link:../../packages/use-effect-ts
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'

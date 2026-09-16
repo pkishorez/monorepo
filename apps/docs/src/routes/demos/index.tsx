@@ -4,15 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import { baseOptions } from '@/lib/layout.shared';
 import { HomeHeader } from '@/components/home-header';
 
-const demos = [
-  {
-    name: 'bank',
-    title: 'Bank',
-    description:
-      'Bank as anyone, send money to anyone — one atomic commit per transfer, on screen before the server answers, over any store.',
-    to: '/demos/bank',
-  },
-] as const;
+const demos = [] as const;
 
 export const Route = createFileRoute('/demos/')({
   component: DemosIndex,

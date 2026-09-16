@@ -15,7 +15,6 @@
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "kui-toolkit": "workspace:*",
-    "@pkishorez/effect-tracer": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-router-devtools": "catalog:",
@@ -28,7 +27,6 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "std-toolkit": "workspace:*",
-    "use-effect-ts": "workspace:*",
     "rpc-toolkit": "workspace:*"
   },
   "devDependencies": {
