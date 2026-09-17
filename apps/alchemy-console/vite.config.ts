@@ -22,11 +22,7 @@ export default defineConfig({
     resolve: { mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'] },
   },
   server: {
-    allowedHosts: [
-      '.alchemy.local.kishore.app',
-      '.alchemy.local.kishore.localhost',
-      '.alchemy.local.kishore.rocks',
-    ],
+    allowedHosts: ['.console.kishore.computer'],
   },
   plugins: [
     tailwindcss(),
