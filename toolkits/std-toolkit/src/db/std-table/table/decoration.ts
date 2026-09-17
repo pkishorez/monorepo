@@ -45,6 +45,12 @@ import {
   type AnyTransactOp,
 } from '../entity/index.js';
 import { verifyTableSnapshot } from '../enforcement/index.js';
+import {
+  modifyTableState,
+  readTableState,
+  withNewEpochs,
+  withoutBackfillNeeds,
+} from '../state/index.js';
 import { scanStream } from './scan.js';
 import type { ScanOptions, StdTable } from './table.js';
 
@@ -253,18 +259,39 @@ export const decorateTable = <Name extends string>(
       changesOrEmpty().pipe(
         Stream.withSpan('StdTable.subscribe', { attributes }),
       ),
+    // Wiping the rows takes the state record with them; it is put back with
+    // the approved snapshot it held, nothing owed, and a new epoch for every
+    // registered entity, since every replica of every entity is now stale.
     dangerouslyRemoveAllItems(_confirmation: 'I KNOW WHAT I AM DOING') {
       return Effect.gen(function* () {
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;
-        const itemsDeleted = yield* contract
+        const operation = 'dangerouslyRemoveAllItems';
+        const before = yield* readTableState(contract, operation);
+        const removed = yield* contract
           .hardDeleteAllItems()
           .pipe(
             Effect.mapError((error) =>
-              dbError('dangerouslyRemoveAllItems', error as ContractFailure),
+              dbError(operation, error as ContractFailure),
             ),
           );
-        return { itemsDeleted };
+        // The count is of the caller's rows; the record is not one of them.
+        const itemsDeleted = removed - (before.updated === null ? 0 : 1);
+        const names = definition.registeredEntities.map(({ name }) => name);
+        const state = yield* modifyTableState(contract, operation, () =>
+          withNewEpochs(withoutBackfillNeeds(before.state), names),
+        );
+        const epochs = Object.fromEntries(
+          names.map((name) => [name, state.entities[name]?.epoch ?? '']),
+        );
+        return { itemsDeleted, epochs };
+      });
+    },
+    state() {
+      return Effect.gen(function* () {
+        const contract = (yield* StdTableService(definition.logicalName))
+          .contract;
+        return (yield* readTableState(contract, 'state')).state;
       });
     },
     scan(options?: ScanOptions) {

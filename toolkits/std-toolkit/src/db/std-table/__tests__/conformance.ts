@@ -952,7 +952,7 @@ export const runConformanceSuite = (
           });
           expect(
             yield* item.dangerouslyRemoveAllItems('I KNOW WHAT I AM DOING'),
-          ).toEqual({ itemsDeleted: 1 });
+          ).toMatchObject({ itemsDeleted: 1 });
           expect(
             yield* item.get({ itemId: 'remove', category: 'a' }),
           ).toBeNull();
@@ -963,7 +963,7 @@ export const runConformanceSuite = (
             yield* conformanceTable.dangerouslyRemoveAllItems(
               'I KNOW WHAT I AM DOING',
             ),
-          ).toEqual({ itemsDeleted: 1 });
+          ).toMatchObject({ itemsDeleted: 1 });
           expect(
             yield* otherItem.get({ itemId: 'keep', category: 'a' }),
           ).toBeNull();
