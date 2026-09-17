@@ -7,12 +7,7 @@ import {
   transformLog,
   transformSpan,
 } from 'kui-toolkit/components/blocks/otel-trace-viewer';
-import type {
-  OtelEvent,
-  OtelSpan,
-  TraceGroup,
-} from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import { Button } from 'kui-toolkit/components/ui/button';
+import type { OtelEvent } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
 import { SearchIcon } from 'kui-toolkit/lucide';
 import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
 import { cn } from 'kui-toolkit/lib/utils';
@@ -401,14 +396,6 @@ function WorkbenchEmpty({ kind }: { kind: string }) {
           Choose a recent {kind.toLowerCase()} from the list to inspect it.
         </p>
       </div>
-    </div>
-  );
-}
-
-function CenteredMessage({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-      {children}
     </div>
   );
 }

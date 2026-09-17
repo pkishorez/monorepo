@@ -25,6 +25,8 @@ export function makeBrowserApplicationLive({
     endpoints: {
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
+      '/flow': 'Flow Tool.',
+      '/monoverse': 'Monoverse Tool.',
       '/laymos': 'Laymos Tool.',
       '/rpc': 'Typed RPC endpoint.',
       '/v1/traces': 'OTLP/HTTP Trace ingestion.',
@@ -35,6 +37,8 @@ export function makeBrowserApplicationLive({
   const exactRoutes = Layer.mergeAll(
     HttpRouter.add('GET', '/', indexResponse),
     HttpRouter.add('GET', '/lotel', indexResponse),
+    HttpRouter.add('GET', '/flow', indexResponse),
+    HttpRouter.add('GET', '/monoverse', indexResponse),
     HttpRouter.add('GET', '/laymos', indexResponse),
     HttpRouter.add('GET', '/health', health),
   );
