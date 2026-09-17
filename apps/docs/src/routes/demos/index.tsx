@@ -6,6 +6,13 @@ import { HomeHeader } from '@/components/home-header';
 
 const demos = [
   {
+    name: 'ai-toolkit',
+    title: 'AI Toolkit',
+    description:
+      'Run Claude and Codex, answer tool requests, and inspect the typed messages synced back from the playground server.',
+    to: '/demos/ai-toolkit',
+  },
+  {
     name: 'durable-webrtc',
     title: 'Durable WebRTC',
     description:
@@ -18,13 +25,6 @@ const demos = [
     description:
       'Find Peers through Nostr relays, then exchange messages over real WebRTC Data Channels.',
     to: '/demos/effect-webrtc',
-  },
-  {
-    name: 'bank',
-    title: 'Bank',
-    description:
-      'Bank as anyone, send money to anyone — one atomic commit per transfer, on screen before the server answers, over any store.',
-    to: '/demos/bank',
   },
 ] as const;
 
