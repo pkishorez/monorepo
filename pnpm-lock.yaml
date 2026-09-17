@@ -622,15 +622,15 @@ importers:
       laymos:
         specifier: workspace:*
         version: link:../laymos
-      monoverse:
-        specifier: workspace:*
-        version: link:../monoverse
       std-toolkit:
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit
       typescript:
         specifier: catalog:typescript6
         version: '@typescript/typescript6@6.0.2'
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.0
     devDependencies:
       '@pkishorez/effect-tracer':
         specifier: workspace:*
@@ -827,34 +827,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.4.1
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vitest:
-        specifier: 4.1.11
-        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
-
-  devtools/monoverse:
-    dependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1))
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.0
-    devDependencies:
-      '@tsconfig/node22':
-        specifier: 'catalog:'
-        version: 22.0.6
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.4.1
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112
-      laymos:
-        specifier: workspace:*
-        version: link:../laymos
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
@@ -1214,9 +1186,6 @@ importers:
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
-      monoverse:
-        specifier: workspace:*
-        version: link:../../devtools/monoverse
       react-cosmos:
         specifier: 'catalog:'
         version: 7.4.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(supports-color@10.2.2)

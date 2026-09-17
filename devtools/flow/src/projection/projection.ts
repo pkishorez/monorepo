@@ -103,7 +103,11 @@ export const projectJournal = (journal: Journal): Projection => {
   const openActivations = new Map<string, OpenActivation>();
   const openWaits = new Map<string, OpenWait>();
   const participants = new Set<string>();
-  const messageIds = new Set<string>();
+  const messageIds = new Set(
+    journal.entries.flatMap((entry) =>
+      entry.kind === 'message' ? [entry.messageId] : [],
+    ),
+  );
   let latestTimestamp = 0;
   let closed = false;
   let failed = false;
@@ -133,7 +137,6 @@ export const projectJournal = (journal: Journal): Projection => {
     switch (item.kind) {
       case 'message': {
         participants.add(item.destination);
-        messageIds.add(item.messageId);
         if (item.replyTo !== undefined && !messageIds.has(item.replyTo)) {
           warnings.push({
             itemId: item.id,
@@ -168,11 +171,13 @@ export const projectJournal = (journal: Journal): Projection => {
       }
       case 'activation-end': {
         const current = openActivations.get(item.participantName);
-        if (!current) {
+        if (!current || current.activationId !== item.activationId) {
           warnings.push({
             itemId: item.id,
             kind: 'activation-orphan-end',
-            message: 'Activation ended while none was open.',
+            message: current
+              ? `Activation ended while a different Activation "${current.name}" was open.`
+              : 'Activation ended while none was open.',
           });
           break;
         }

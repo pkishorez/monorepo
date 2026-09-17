@@ -44,9 +44,9 @@
     "effect": "catalog:",
     "env-paths": "catalog:",
     "laymos": "workspace:*",
-    "monoverse": "workspace:*",
     "std-toolkit": "workspace:*",
-    "typescript": "catalog:typescript6"
+    "typescript": "catalog:typescript6",
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "kui-toolkit": "workspace:*",

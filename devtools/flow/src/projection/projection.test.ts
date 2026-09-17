@@ -105,3 +105,80 @@ describe('projectJournal', () => {
     ).toEqual(['root', 'child']);
   });
 });
+
+describe('distributed journal projection', () => {
+  it.each(['recorded', 'clock'] as const)(
+    'resolves replies against the whole %s journal',
+    (ordering) => {
+      const projection = projectJournal({
+        flowId: 'f',
+        ordering,
+        entries: [
+          entry('message', {
+            participantName: 'server',
+            destination: 'client',
+            messageId: 'reply',
+            replyTo: 'request',
+          }),
+          entry('message', {
+            participantName: 'client',
+            destination: 'server',
+            messageId: 'request',
+          }),
+        ],
+      });
+      expect(projection.warnings).toEqual([]);
+    },
+  );
+
+  it('does not close another activation or its wait when an overlapped activation ends', () => {
+    const entries = [
+      entry('activation-start', {
+        participantName: 'a',
+        activationId: 'first',
+      }),
+      entry('activation-start', {
+        participantName: 'a',
+        activationId: 'second',
+      }),
+      entry('wait', { participantName: 'a' }),
+      entry('activation-end', {
+        participantName: 'a',
+        activationId: 'first',
+        outcome: 'failed',
+      }),
+    ];
+    const pending = projectJournal({
+      flowId: 'f',
+      ordering: 'recorded',
+      entries,
+    });
+    expect(pending.activations[1]).toMatchObject({
+      activationId: 'second',
+      endItemId: null,
+      outcome: null,
+    });
+    expect(pending.waits[0]?.endItemId).toBeNull();
+    expect(pending.warnings.map((warning) => warning.kind)).toEqual([
+      'activation-overlap',
+      'activation-orphan-end',
+    ]);
+
+    const end = entry('activation-end', {
+      participantName: 'a',
+      activationId: 'second',
+      outcome: 'completed',
+    });
+    const completed = projectJournal({
+      flowId: 'f',
+      ordering: 'recorded',
+      entries: [...entries, end],
+    });
+    expect(completed.activations[1]).toMatchObject({
+      activationId: 'second',
+      endItemId: end.id,
+      outcome: 'completed',
+    });
+    expect(completed.waits[0]?.endItemId).toBe(end.id);
+  });
+});

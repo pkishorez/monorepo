@@ -1,4 +1,4 @@
-import type { MonorepoAnalysis, Package } from 'monoverse/schema';
+import type { MonorepoAnalysis, Package } from '../analysis';
 
 import { Layers, Lock, TriangleAlert } from '#lib/lucide';
 import { Badge } from '#components/ui/badge';

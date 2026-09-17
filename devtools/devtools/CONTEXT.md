@@ -55,7 +55,7 @@ _Avoid_: Architecture Tool.
 **Monoverse**:
 The DevTools Tool and domain for understanding one pnpm monorepo as a whole:
 its packages, their dependencies, and their changes. See the
-[Monoverse context](../monoverse/CONTEXT.md).
+[Monoverse context](./docs/monoverse.md).
 _Avoid_: Monorepo Tool, Workspace Tool.
 
 **Lotel**:

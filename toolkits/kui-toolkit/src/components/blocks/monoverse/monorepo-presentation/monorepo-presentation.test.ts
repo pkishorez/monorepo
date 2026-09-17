@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import type { MonorepoAnalysis, Package } from 'monoverse/schema';
+import type { MonorepoAnalysis, Package } from '../analysis';
 
 import {
   groupHue,

@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
-import { MonorepoAnalysisSchema } from '../domain/schema/index.js';
+import { MonorepoAnalysisSchema } from './monorepo-schema.js';
 
 export class InvalidMonorepoPathError extends Schema.TaggedError<InvalidMonorepoPathError>(
   'InvalidMonorepoPathError',

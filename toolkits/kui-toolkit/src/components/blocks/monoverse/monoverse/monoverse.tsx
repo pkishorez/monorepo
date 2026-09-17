@@ -1,10 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Effect } from 'effect';
-import type {
-  DependencyKind,
-  MonorepoAnalysis,
-  Package,
-} from 'monoverse/schema';
+import type { DependencyKind, MonorepoAnalysis, Package } from '../analysis';
 import { useComponentLifecycle } from 'use-effect-ts';
 
 import {
@@ -522,3 +518,11 @@ function failureMessage(error: MonoverseLoadError): string {
     (error.path === undefined ? error._tag : `${error._tag}: ${error.path}`)
   );
 }
+
+export type {
+  DependencyKind,
+  MonorepoAnalysis,
+  Package,
+  PackageCycleViolation,
+  PackageDependency,
+} from '../analysis';

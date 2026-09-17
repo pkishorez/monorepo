@@ -39,4 +39,11 @@ export {
   MonorepoReadFailure,
   MonoverseRpc,
   NotPnpmWorkspaceError,
-} from 'monoverse/rpc';
+} from './monoverse.js';
+export type {
+  DependencyKind,
+  MonorepoAnalysis,
+  Package,
+  PackageCycleViolation,
+  PackageDependency,
+} from './monorepo-schema.js';

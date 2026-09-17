@@ -94,7 +94,6 @@
     "effect": "catalog:",
     "globals": "catalog:",
     "laymos": "workspace:*",
-    "monoverse": "workspace:*",
     "react-cosmos": "catalog:",
     "react-cosmos-plugin-vite": "catalog:",
     "std-toolkit": "workspace:*",
@@ -112,7 +111,6 @@
     "@tanstack/react-query": "^5.101.4",
     "effect": "^4.0.0-rc.112",
     "laymos": "workspace:^",
-    "monoverse": "workspace:^",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "std-toolkit": "workspace:^",
@@ -148,9 +146,6 @@
       "optional": true
     },
     "@pkishorez/flow": {
-      "optional": true
-    },
-    "monoverse": {
       "optional": true
     }
   },
