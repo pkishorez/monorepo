@@ -1,4 +1,4 @@
-name: release:packages
+name: 📦 release:packages
 
 on:
   push:

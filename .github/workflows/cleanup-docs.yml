@@ -1,4 +1,4 @@
-name: cleanup:docs
+name: 🧹 cleanup:docs
 
 on:
   workflow_call:
