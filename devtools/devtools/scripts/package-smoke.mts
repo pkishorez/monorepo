@@ -34,6 +34,8 @@ try {
     endpoints: {
       '/': 'DevTools browser application.',
       '/lotel': 'Lotel Tool.',
+      '/flow': 'Flow Tool.',
+      '/monoverse': 'Monoverse Tool.',
       '/laymos': 'Laymos Tool.',
       '/rpc': 'Typed RPC endpoint.',
       '/v1/traces': 'OTLP/HTTP Trace ingestion.',
@@ -41,7 +43,14 @@ try {
     },
   });
 
-  for (const route of ['/', '/lotel', '/laymos', '/not-found']) {
+  for (const route of [
+    '/',
+    '/lotel',
+    '/flow',
+    '/monoverse',
+    '/laymos',
+    '/not-found',
+  ]) {
     const response = await fetch(`${origin}${route}`, {
       headers: { accept: 'text/html' },
     });
