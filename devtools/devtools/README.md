@@ -22,7 +22,9 @@ kstack devtools
 `kstack` on its own prints help. `kstack devtools` serves its bundled home
 page at `http://127.0.0.1:14400`. From there, open:
 
-- `/lotel` to inspect local OpenTelemetry traces, logs, and flows.
+- `/lotel` to inspect local OpenTelemetry traces and logs.
+- `/flow` to inspect Flow Journals as swim lanes, export them, and merge
+  journals recorded by different clients.
 - `/laymos` to explore the architecture of a local project.
 
 The same loopback server exposes its NDJSON RPC endpoint at `/rpc`, its health

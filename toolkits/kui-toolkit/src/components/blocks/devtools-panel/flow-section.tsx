@@ -5,7 +5,7 @@ import {
   useState,
   type ComponentProps,
 } from 'react';
-import { RecordedFlowSchema } from '@pkishorez/effect-tracer/flow';
+import type { Projection } from '@pkishorez/flow';
 import { Button } from '#components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '#components/ui/dialog';
 import { Sheet, SheetContent, SheetTitle } from '#components/ui/sheet';
@@ -16,7 +16,7 @@ import { FlowItemDetails, FlowSwimlane } from '../flow-swimlane/flow-swimlane';
 import { TraceViewer } from '../otel-trace-viewer/trace-viewer';
 import { FlowPeekBar } from './flow-peek-bar';
 
-type RecordedFlow = typeof RecordedFlowSchema.Type;
+type RecordedFlow = Projection;
 type RecordedFlowItem = RecordedFlow['items'][number];
 
 interface TraceTarget {
@@ -26,10 +26,11 @@ interface TraceTarget {
 
 interface FlowSectionProps {
   readonly flows: readonly RecordedFlow[];
-  /** Every recorded span, so an activity can open the trace it belongs to. */
+  /** Every recorded span, so an Entry with a Trace Link can open its trace. */
   readonly spans: ComponentProps<typeof TraceViewer>['spans'];
   /** False while the host keeps the section mounted but hidden; overlays close and hotkeys go quiet. */
   readonly active?: boolean;
+  readonly emptyMessage?: string;
   readonly className?: string;
 }
 
@@ -67,7 +68,7 @@ const summarize = (flow: RecordedFlow): FlowSummary => {
   // A Std Sync flow opens on its root participant (no "/" yet), so tell it
   // apart from an app interaction by the collections it readies.
   const syncFlow = flow.items.some(
-    (item) => item.kind === 'local-event' && item.name === 'Collection ready',
+    (item) => item.kind === 'event' && item.name === 'Collection ready',
   );
   const interaction =
     opener !== undefined &&
@@ -77,12 +78,12 @@ const summarize = (flow: RecordedFlow): FlowSummary => {
   let rows: number | null = null;
   let leadership: string | null = null;
   for (const item of flow.items) {
-    if (item.kind === 'local-event' && item.name === 'Collection ready') {
+    if (item.kind === 'event' && item.name === 'Collection ready') {
       const value = item.attributes?.rows ?? item.attributes?.entityCount;
       if (typeof value === 'number') rows = (rows ?? 0) + value;
     }
     if (
-      item.kind === 'local-event' &&
+      item.kind === 'event' &&
       typeof item.attributes?.leadership === 'string'
     ) {
       leadership = item.attributes.leadership;
@@ -121,6 +122,7 @@ export function FlowSection({
   flows,
   spans,
   active = true,
+  emptyMessage = 'No flows recorded yet.',
   className,
 }: FlowSectionProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -190,7 +192,7 @@ export function FlowSection({
           className,
         )}
       >
-        No flows recorded yet.
+        {emptyMessage}
       </div>
     );
   }
@@ -253,7 +255,11 @@ export function FlowSection({
             )}
           >
             {selectedItem ? (
-              <FlowItemDetails item={selectedItem} onOpenTrace={setTrace} />
+              <FlowItemDetails
+                item={selectedItem}
+                flow={selected ?? undefined}
+                onOpenTrace={setTrace}
+              />
             ) : (
               <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
                 Select a flow item to inspect its attributes
@@ -299,6 +305,7 @@ export function FlowSection({
             {selectedItem && (
               <FlowItemDetails
                 item={selectedItem}
+                flow={selected ?? undefined}
                 onClose={() => setInspecting(false)}
                 onOpenTrace={setTrace}
               />

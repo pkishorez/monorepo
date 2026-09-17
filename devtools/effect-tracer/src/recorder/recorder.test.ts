@@ -2,15 +2,9 @@ import { Clock, Deferred, Effect, Fiber } from 'effect';
 import { describe, expect, it } from 'vitest';
 
 import { makeTraceRecorder } from './recorder.js';
-import type { CapturedSpan, TraceRecorder } from './recorder.js';
-import { Activation, initFlow } from '../flow/flow.js';
+import type { CapturedSpan } from './recorder.js';
 
 const names = (spans: readonly CapturedSpan[]) => spans.map(({ name }) => name);
-
-const token = (flow: ReturnType<TraceRecorder['snapshotFlow']>) =>
-  flow?.items.find(
-    (item) => item.kind === 'message' && item.destination === 'server',
-  )?.messageId;
 
 describe('makeTraceRecorder', () => {
   it('keeps emission order when spans and logs share a millisecond', async () => {
@@ -24,15 +18,14 @@ describe('makeTraceRecorder', () => {
       sleep: () => Effect.void,
     };
     const recorder = makeTraceRecorder();
-    const flow = initFlow({ id: 'call-123', participantName: 'client' });
 
     await Effect.runPromise(
       recorder.instrument(
         Effect.gen(function* () {
-          yield* flow.log('First');
-          yield* Effect.void.pipe(flow.withSpan('Second'));
-          yield* flow.log('Third');
-          yield* Effect.void.pipe(flow.withSpan('Fourth'));
+          yield* Effect.log('First');
+          yield* Effect.void.pipe(Effect.withSpan('Second'));
+          yield* Effect.log('Third');
+          yield* Effect.void.pipe(Effect.withSpan('Fourth'));
         }).pipe(Effect.provideService(Clock.Clock, frozen)),
       ),
     );
@@ -43,63 +36,9 @@ describe('makeTraceRecorder', () => {
       'First',
       'Third',
     ]);
-    expect(
-      recorder.snapshotFlow('call-123')?.items.map(({ name }) => name),
-    ).toEqual(['First', 'Second', 'Third', 'Fourth']);
-  });
-
-  it('exposes recorded Flow activities, events, messages, and Activations', async () => {
-    const recorder = makeTraceRecorder();
-    const client = initFlow({ id: 'call-123', participantName: 'client-a' });
-    const server = initFlow({ id: 'call-123', participantName: 'server' });
-
-    await Effect.runPromise(
-      recorder.instrument(
-        Effect.gen(function* () {
-          const activation = yield* server.activation.start('Session');
-          yield* Effect.sleep('1 millis').pipe(client.withSpan('Create offer'));
-          yield* client.log('Offer ready');
-          const token = yield* client.send('server', { type: 'offer' });
-          yield* Effect.sleep('1 millis').pipe(server.withSpan('Accept offer'));
-          yield* server.reply(token, 'Offer accepted');
-          yield* activation.end(Activation.completed());
-        }),
-      ),
+    expect(trace.logs.map(({ sequence }) => sequence)).toEqual(
+      trace.logs.map(({ sequence }) => sequence).sort((a, b) => a - b),
     );
-
-    const flow = recorder.snapshotFlow('call-123');
-    expect(flow?.items.filter(({ kind }) => kind === 'activity')).toHaveLength(
-      2,
-    );
-    expect(
-      flow?.items.filter(({ kind }) => kind === 'local-event'),
-    ).toHaveLength(1);
-    expect(flow?.items).toContainEqual(
-      expect.objectContaining({
-        kind: 'activity',
-        participantName: 'client-a',
-        name: 'Create offer',
-      }),
-    );
-    expect(flow?.items).toContainEqual(
-      expect.objectContaining({ kind: 'message', destination: 'server' }),
-    );
-    expect(flow?.items).toContainEqual(
-      expect.objectContaining({
-        kind: 'message',
-        destination: 'client-a',
-        replyTo: token(flow),
-      }),
-    );
-    expect(flow?.activations).toEqual([
-      expect.objectContaining({
-        participantName: 'server',
-        name: 'Session',
-        outcome: 'completed',
-      }),
-    ]);
-    expect(flow?.warnings).toEqual([]);
-    expect(recorder.snapshotFlows()).toHaveLength(1);
   });
 
   it('records spans nested under their parent', async () => {
@@ -138,44 +77,6 @@ describe('makeTraceRecorder', () => {
     expect(span?.status).toBe('success');
     expect(span?.attributes.orderId).toBe('order-1');
     expect(span?.endTime).not.toBeNull();
-  });
-
-  it('attaches nested plain logs to their Flow activity', async () => {
-    const recorder = makeTraceRecorder();
-    const flow = initFlow({ id: 'probe', participantName: 'worker' });
-
-    await Effect.runPromise(
-      recorder.instrument(
-        flow.withSpan('Doing work')(
-          Effect.log('direct detail').pipe(
-            Effect.andThen(
-              Effect.logWarning('nested detail').pipe(
-                Effect.withSpan('plain-span'),
-              ),
-            ),
-            Effect.andThen(
-              flow.withSpan('Inner activity')(Effect.log('owned elsewhere')),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    const [recorded] = recorder.snapshotFlows();
-    const activities = (recorded?.items ?? []).filter(
-      (item) => item.kind === 'activity',
-    );
-    const outer = activities.find(({ name }) => name === 'Doing work');
-    const inner = activities.find(({ name }) => name === 'Inner activity');
-    expect(
-      outer?.logs?.map(({ message, severity }) => [message, severity]),
-    ).toEqual([
-      ['direct detail', 'info'],
-      ['nested detail', 'warning'],
-    ]);
-    expect(inner?.logs?.map(({ message }) => message)).toEqual([
-      'owned elsewhere',
-    ]);
   });
 
   it('marks a failed span as an error', async () => {

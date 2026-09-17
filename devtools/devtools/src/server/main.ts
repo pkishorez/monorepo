@@ -21,7 +21,7 @@ const { version: VERSION } = createRequire(import.meta.url)(
 ) as { version: string };
 const DEFAULT_DB_PATH = path.join(
   envPaths('devtools', { suffix: '' }).data,
-  'lotel.sqlite',
+  'devtools.sqlite',
 );
 
 const openInBrowser = (url: string) => {
@@ -42,7 +42,9 @@ const port = Flag.integer('port').pipe(
 );
 
 const db = Flag.string('db').pipe(
-  Flag.withDescription('Path to the telemetry database'),
+  Flag.withDescription(
+    'Path to the DevTools database (traces, logs, and flows)',
+  ),
   Flag.withFallbackConfig(Config.string('DEVTOOLS_DB')),
   Flag.withDefault(DEFAULT_DB_PATH),
 );
@@ -60,7 +62,7 @@ const devtoolsCommand = Command.make(
 
     yield* Effect.gen(function* () {
       console.log(`devtools running on ${devtoolsUrl}`);
-      console.log(`lotel storage: ${path.resolve(db)}`);
+      console.log(`storage: ${path.resolve(db)}`);
       console.log(`open: ${devtoolsUrl}`);
       if (open) openInBrowser(devtoolsUrl);
       yield* Effect.never;

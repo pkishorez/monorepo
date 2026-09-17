@@ -1,6 +1,5 @@
 import { Effect, Stream } from 'effect';
 import { DevtoolsRpc } from '../../rpc/index.js';
-import { FlowEntitySchema } from '@pkishorez/lotel/flow';
 import { LogEntitySchema, SpanEntitySchema } from '@pkishorez/lotel/telemetry';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { DecodedEntity } from 'std-toolkit/core';
@@ -19,10 +18,8 @@ type RpcByTag<Tag extends string> = Extract<
 >;
 type SpanList = Rpc.Success<RpcByTag<'ListSpans'>>;
 type LogList = Rpc.Success<RpcByTag<'ListLogs'>>;
-type FlowList = Rpc.Success<RpcByTag<'ListFlows'>>;
 export type SpanRecord = SpanList['items'][number]['value'];
 export type LogRecord = LogList['items'][number]['value'];
-export type FlowRecord = FlowList['items'][number]['value'];
 type UpdateCursor = Rpc.Payload<RpcByTag<'ListSpans'>>['_u'];
 
 /**
@@ -100,18 +97,7 @@ export function buildTelemetryCollections() {
     },
   });
 
-  const flows = std.collection({
-    schema: FlowEntitySchema,
-    sync: {
-      total: {
-        strategy: newToOldStrategy<FlowRecord>((client, query) =>
-          client.ListFlows(query),
-        ),
-      },
-    },
-  });
-
-  return { traces, logs, flows };
+  return { traces, logs };
 }
 
 export type TelemetryCollections = ReturnType<typeof buildTelemetryCollections>;

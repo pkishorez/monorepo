@@ -32,7 +32,7 @@ export const oldToNew = <TItem extends object, R = never>(
     return Effect.gen(function* () {
       const cursor = (yield* ctx.getState)
         .cursor as DecodedEntity<TItem> | null;
-      yield* ctx.flow.log(
+      yield* ctx.flow.event(
         cursor === null
           ? 'Opening the source from the beginning'
           : 'Opening the source after the last synced Entity',

@@ -23,7 +23,7 @@ export const superviseStrategy = <A, E, R, RReport>(args: {
       Effect.all(
         [
           args.flow
-            ? args.flow.log(message, {
+            ? args.flow.event(message, {
                 attributes: {
                   leadership: state,
                   leadershipIdentity: args.identity,

@@ -1,3 +1,5 @@
-import { RecordedFlowSchema } from '@pkishorez/effect-tracer/flow';
+import type { Projection } from '@pkishorez/flow';
 
-export type RecordedFlow = typeof RecordedFlowSchema.Type;
+/** The Projection of one Journal: the only shape the swim lane renders. */
+export type RecordedFlow = Projection;
+export type RecordedFlowItem = Projection['items'][number];

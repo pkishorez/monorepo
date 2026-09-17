@@ -1,0 +1,69 @@
+{
+  "$schema": "../laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "layers": {
+    "public-api": {
+      "paths": ["src/index.ts"],
+      "description": "The package door: Flow, FlowTelemetry, Journal, and Projection",
+      "modules": {
+        "src/index.ts": {}
+      }
+    },
+    "participant": {
+      "paths": ["src/flow"],
+      "description": "Writes Entries on behalf of Participants",
+      "modules": {
+        "src/flow": { "exposed": true }
+      }
+    },
+    "telemetry": {
+      "paths": ["src/telemetry"],
+      "description": "The sink a running process writes its Entries into",
+      "moduleGraphs": {
+        "flow-telemetry": {
+          "description": "One optional sink per runtime: none, memory, or remote.",
+          "path": "src/telemetry",
+          "modules": {
+            "index.ts": { "exposed": true },
+            "telemetry.ts": {},
+            "memory.ts": {},
+            "remote.ts": {}
+          },
+          "rules": {
+            "index.ts": ["telemetry.ts", "memory.ts", "remote.ts"],
+            "memory.ts": ["telemetry.ts"],
+            "remote.ts": ["telemetry.ts"]
+          }
+        }
+      }
+    },
+    "transport": {
+      "paths": ["src/rpc", "src/client"],
+      "description": "The typed contract between a process and a Flow Store, and its browser client",
+      "modules": {
+        "src/rpc": { "shared": true, "exposed": true },
+        "src/client": { "exposed": true }
+      }
+    },
+    "domain": {
+      "paths": ["src/journal", "src/projection"],
+      "description": "Entries, Journals, merge, and the view-shaped Projection; no I/O",
+      "modules": {
+        "src/journal": { "shared": true, "exposed": true },
+        "src/projection": { "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "architecture": {
+      "rules": {
+        "public-api": ["participant", "telemetry", "domain"],
+        "participant": ["telemetry", "domain"],
+        "telemetry": ["transport", "domain"],
+        "transport": ["domain"],
+        "domain": []
+      }
+    }
+  }
+}

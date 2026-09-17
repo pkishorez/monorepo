@@ -9,6 +9,7 @@ import { NodeHttpServer, NodeServices } from '@effect/platform-node';
 import { LotelOtlpHttpLive, LotelRpcLive } from '@pkishorez/lotel';
 import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
 import { DevtoolsRpc } from '../../rpc/index.js';
+import { FlowRpcLive, sqliteFlowStoreLayer } from '../flow-store/index.js';
 import { DevtoolsHandlersLive } from '../handlers.js';
 import { makeBrowserApplicationLive } from './browser-application.js';
 import { makeRequestAccessLive } from './request-access.js';
@@ -25,7 +26,7 @@ type Options = {
   readonly skipUiCheck?: boolean;
 };
 
-/** Builds the one loopback server that hosts DevTools and both Tools. */
+/** Builds the one loopback server that hosts DevTools and every Tool. */
 export function makeLocalDevtoolsServer(options: Options) {
   const uiRoot = options.uiRoot ?? DEFAULT_UI_ROOT;
   const canonicalOrigin = `http://${HOST}:${options.port}`;
@@ -44,7 +45,9 @@ export function makeLocalDevtoolsServer(options: Options) {
           makeRequestAccessLive({ port: options.port, canonicalOrigin }),
         ),
       ).pipe(
+        // Lotel and Flow keep separate tables in the one DevTools database.
         Layer.provide(sqliteTelemetryStoreLayer({ path: options.db })),
+        Layer.provide(sqliteFlowStoreLayer({ path: options.db })),
         Layer.provide(
           NodeHttpServer.layer(createServer, {
             host: HOST,
@@ -63,7 +66,9 @@ function makeRpcRouteLive() {
     path: '/rpc',
     protocol: 'http',
   }).pipe(
-    Layer.provide(Layer.merge(DevtoolsHandlersLive, LotelRpcLive)),
+    Layer.provide(
+      Layer.mergeAll(DevtoolsHandlersLive, LotelRpcLive, FlowRpcLive),
+    ),
     Layer.provide(RpcSerialization.layerNdjson),
   );
 }

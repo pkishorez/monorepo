@@ -7,52 +7,63 @@ import {
   type RecordedFlow,
 } from '../flow-presentation';
 
-type RecordedFlowActivity = Extract<
-  RecordedFlow['items'][number],
-  { kind: 'activity' }
->;
-type FlowActivityStatus = RecordedFlowActivity['status'];
-type RecordedFlowSeverity = Extract<
-  RecordedFlow['items'][number],
-  { severity: unknown }
->['severity'];
+type RecordedFlowItem = RecordedFlow['items'][number];
+type RecordedFlowSeverity = RecordedFlowItem['severity'];
 
-const activityWidth = 196;
-const itemHeight = 48;
+const checkWidth = 196;
+const itemHeight = 40;
 const localEventWidth = 170;
+const markerWidth = 196;
 const summaryHeight = 58;
 const summaryWidth = 196;
 const messageHeight = 28;
 const messageMaxWidth = 208;
 
+// Line guidelines, kept deliberately small:
+//
+// - Thin solid line: the Participant's lifeline. It exists; nothing is running.
+// - Wide solid line: an Activation is in place. `primary` while it is still
+//   open, grey once it ended, `destructive` when it failed.
+// - Wide dotted line: the Activation is waiting (Wait until Resume, or to the
+//   bottom while the Wait is open). Same colour as its rail.
+// - Dimming: only a lifeline that never recorded anything. Nothing fades or
+//   stripes; an open Activation simply runs to the bottom at full strength.
+//
+// Two colours only: `primary` marks what is running or selected, `destructive`
+// marks what went wrong. Everything else is shape and grey.
+const neutral = 'var(--color-muted-foreground)';
+const failure = 'var(--color-destructive)';
+const emphasis = 'var(--color-primary)';
+
 const eventColor: Record<RecordedFlowSeverity, string> = {
-  debug: 'var(--color-muted-foreground)',
-  error: 'var(--color-destructive)',
-  info: 'var(--color-primary)',
+  debug: neutral,
+  error: failure,
+  info: 'var(--color-foreground)',
   warning: 'var(--color-foreground)',
 };
 
-const activityColor: Record<FlowActivityStatus, string> = {
-  error: 'var(--color-destructive)',
-  interrupted: 'var(--color-amber-500)',
-  running: 'var(--color-primary)',
-  success: 'var(--color-positive)',
-  unset: 'var(--color-border)',
-};
-
-const messageColor = 'var(--color-primary)';
+const checkColor = (passed: boolean) => (passed ? neutral : failure);
+const messageColor = 'var(--color-foreground)';
 
 type ActivationOutcome = RecordedFlow['activations'][number]['outcome'];
 
 const activationColor: Record<NonNullable<ActivationOutcome>, string> = {
-  completed: 'var(--color-positive)',
-  failed: 'var(--color-destructive)',
-  interrupted: 'var(--color-amber-500)',
+  completed: neutral,
+  failed: failure,
+  interrupted: neutral,
+};
+
+const markerWord: Record<string, string> = {
+  'activation-start': 'Start',
+  'activation-end': 'End',
+  wait: 'Wait',
+  resume: 'Resume',
+  close: 'Closed',
 };
 
 const railWidth = 9;
 const railTrackGap = 12;
-const openRailColor = 'var(--color-primary)';
+const openRailColor = emphasis;
 
 const formatDuration = (milliseconds: number) => {
   if (milliseconds < 0.001) return `${Math.round(milliseconds * 1_000_000)} ns`;
@@ -66,17 +77,11 @@ export function FlowCanvas({
   layout,
   selectedItemId,
   onItemClick,
-  onActivityClick,
 }: {
   readonly flowId: string;
   readonly layout: FlowLayout;
   readonly selectedItemId?: string | null | undefined;
-  readonly onItemClick?:
-    | ((item: RecordedFlow['items'][number]) => void)
-    | undefined;
-  readonly onActivityClick?:
-    | ((activity: RecordedFlowActivity) => void)
-    | undefined;
+  readonly onItemClick?: ((item: RecordedFlowItem) => void) | undefined;
 }) {
   const markerId = useId().replaceAll(':', '');
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
@@ -89,20 +94,17 @@ export function FlowCanvas({
     participants,
     replyLatency,
     silentParticipants,
+    waits,
     width,
   } = layout;
 
-  const selectedStepIndex = items.findIndex((item) =>
-    item.members.some(({ id }) => id === selectedItemId),
-  );
-  const selectedStep = items[selectedStepIndex];
-  const selectedStepY =
-    selectedStep === undefined
-      ? undefined
-      : flowCanvasTopPadding + selectedStepIndex * flowRowGap + flowRowGap / 2;
-  const selectedBounds = (() => {
-    if (selectedStep === undefined || selectedStepY === undefined) return null;
-    const y = selectedStepY;
+  /** The card rectangle of one step, used for the selection ring and warning badges. */
+  const stepBounds = (
+    selectedStep: (typeof items)[number],
+    selectedStepIndex: number,
+  ) => {
+    const y =
+      flowCanvasTopPadding + selectedStepIndex * flowRowGap + flowRowGap / 2;
     const x = laneX.get(selectedStep.participantName)!;
     if (selectedStep.kind === 'message') {
       const destinationX = laneX.get(selectedStep.destination)!;
@@ -117,12 +119,12 @@ export function FlowCanvas({
         width: width + 14,
       };
     }
-    if (selectedStep.kind === 'activity') {
+    if (selectedStep.kind === 'check') {
       return {
         height: itemHeight + 14,
-        left: x - activityWidth / 2 - 7,
+        left: x - checkWidth / 2 - 7,
         top: y - itemHeight / 2 - 7,
-        width: activityWidth + 14,
+        width: checkWidth + 14,
       };
     }
     if (selectedStep.kind === 'summary') {
@@ -135,13 +137,16 @@ export function FlowCanvas({
     }
     if (
       selectedStep.kind === 'activation-start' ||
-      selectedStep.kind === 'activation-end'
+      selectedStep.kind === 'activation-end' ||
+      selectedStep.kind === 'wait' ||
+      selectedStep.kind === 'resume' ||
+      selectedStep.kind === 'close'
     ) {
       return {
         height: 38,
-        left: x - localEventWidth / 2 - 7,
+        left: x - markerWidth / 2 - 7,
         top: y - 19,
-        width: localEventWidth + 14,
+        width: markerWidth + 14,
       };
     }
     return {
@@ -150,7 +155,38 @@ export function FlowCanvas({
       top: y - 21,
       width: localEventWidth + 14,
     };
-  })();
+  };
+
+  const selectedStepIndex = items.findIndex((item) =>
+    item.members.some(({ id }) => id === selectedItemId),
+  );
+  const selectedStep = items[selectedStepIndex];
+  const selectedStepY =
+    selectedStep === undefined
+      ? undefined
+      : flowCanvasTopPadding + selectedStepIndex * flowRowGap + flowRowGap / 2;
+  const selectedBounds =
+    selectedStep === undefined
+      ? null
+      : stepBounds(selectedStep, selectedStepIndex);
+
+  /** Warned steps get a numbered badge on the card's top-right corner. */
+  const warningBadges = items.flatMap((item, index) => {
+    const warning = item.members
+      .map(({ id }) => layout.warningByItemId.get(id))
+      .find((found) => found !== undefined);
+    if (warning === undefined) return [];
+    const bounds = stepBounds(item, index);
+    return [
+      {
+        id: item.id,
+        number: warning.number,
+        message: warning.message,
+        x: bounds.left + bounds.width - 7,
+        y: bounds.top + 7,
+      },
+    ];
+  });
 
   return (
     <LayoutGroup id={`flow-selection-${flowId}`}>
@@ -213,14 +249,13 @@ export function FlowCanvas({
                   x2={x}
                   y2={laneEndY}
                   stroke="var(--color-muted-foreground)"
-                  strokeOpacity={0.5}
-                  strokeDasharray={silent ? '2 5' : '5 5'}
+                  strokeOpacity={silent ? 0.25 : 0.5}
                 />
               </g>
             );
           })}
 
-          {activations.map((activation, index) => {
+          {activations.map((activation) => {
             const x =
               laneX.get(activation.participantName)! +
               activation.track * railTrackGap;
@@ -233,8 +268,9 @@ export function FlowCanvas({
               selectedStepY <= activation.endY;
             const color = activation.outcome
               ? activationColor[activation.outcome]
-              : openRailColor;
-            const gradientId = `${markerId}-rail-${index}`;
+              : activation.open
+                ? openRailColor
+                : neutral;
             return (
               <g
                 key={`${activation.participantName}-${activation.startY}`}
@@ -242,14 +278,6 @@ export function FlowCanvas({
                 data-flow-activation-track={activation.track}
                 data-highlighted={highlighted || undefined}
               >
-                {activation.open && (
-                  <defs>
-                    <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={color} stopOpacity={0.85} />
-                      <stop offset="100%" stopColor={color} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                )}
                 <rect
                   x={x - (activationRailWidth + 10) / 2}
                   y={activation.startY}
@@ -272,7 +300,7 @@ export function FlowCanvas({
                   width={activationRailWidth}
                   height={Math.max(2, activation.endY - activation.startY)}
                   rx={activationRailWidth / 2}
-                  fill={activation.open ? `url(#${gradientId})` : color}
+                  fill={color}
                   style={{
                     fillOpacity: activation.open || highlighted ? 1 : 0.7,
                     transition: highlighted
@@ -300,14 +328,20 @@ export function FlowCanvas({
                       : 'opacity 120ms ease-in',
                   }}
                 />
-                {!activation.open && (
+                {!activation.open && activation.outcome !== null && (
                   <rect
                     x={x - activationRailWidth}
                     y={activation.endY - 2}
                     width={activationRailWidth * 2}
                     height={4}
                     rx={2}
-                    fill={color}
+                    fill={
+                      activation.outcome === 'interrupted'
+                        ? 'var(--color-card)'
+                        : color
+                    }
+                    stroke={color}
+                    strokeWidth={1.5}
                   />
                 )}
               </g>
@@ -358,6 +392,29 @@ export function FlowCanvas({
             })}
           </g>
 
+          {waits.map((wait) => {
+            const x = laneX.get(wait.participantName)!;
+            return (
+              <g
+                key={`wait-${wait.participantName}-${wait.startY}`}
+                data-flow-wait={wait.open ? 'open' : 'resumed'}
+              >
+                <line
+                  x1={x}
+                  y1={wait.startY + 4}
+                  x2={x}
+                  y2={wait.endY - 4}
+                  stroke="var(--color-card)"
+                  strokeWidth={railWidth + 2}
+                  strokeDasharray="4 5"
+                >
+                  <title>
+                    {`Waiting: ${wait.name}${wait.open ? '' : ' (resumed)'}`}
+                  </title>
+                </line>
+              </g>
+            );
+          })}
           {items.map((item, index) => {
             const selectedMember = item.members.find(
               ({ id }) => id === selectedItemId,
@@ -521,7 +578,7 @@ export function FlowCanvas({
                       fontSize={10}
                       fill="var(--color-muted-foreground)"
                     >
-                      {`↩ ${formatDuration(latency)}`}
+                      {formatDuration(latency)}
                     </text>
                   )}
                   <rect
@@ -545,28 +602,25 @@ export function FlowCanvas({
                       style={{ color: messageColor }}
                       title={`${item.participantName} → ${item.destination}: ${label}`}
                     >
-                      {label}
+                      {item.replyTo === undefined ? label : `↩ ${label}`}
                     </div>
                   </foreignObject>
                 </g>
               );
             }
 
-            if (item.kind === 'activity') {
-              const clickable =
-                onItemClick !== undefined || onActivityClick !== undefined;
-              const activate = () => {
-                onItemClick?.(item.members[0]!);
-                onActivityClick?.(item);
-              };
+            if (item.kind === 'check') {
+              const color = checkColor(item.passed);
+              const activate = () => onItemClick?.(item.members[0]!);
               return (
                 <g
                   key={item.id}
-                  data-flow-item="activity"
+                  data-flow-item="check"
+                  data-flow-check={item.passed ? 'passed' : 'failed'}
                   data-selected={selected || undefined}
-                  role={clickable ? 'button' : undefined}
-                  tabIndex={clickable ? 0 : undefined}
-                  aria-label={clickable ? `Open ${label} activity` : undefined}
+                  role={onItemClick ? 'button' : undefined}
+                  tabIndex={onItemClick ? 0 : undefined}
+                  aria-label={onItemClick ? `Open ${label} check` : undefined}
                   onClick={activate}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') activate();
@@ -576,7 +630,7 @@ export function FlowCanvas({
                   }}
                   onMouseLeave={() => setHoveredItemId(null)}
                   style={{
-                    cursor: clickable ? 'pointer' : 'default',
+                    cursor: onItemClick ? 'pointer' : 'default',
                     outline: 'none',
                   }}
                 >
@@ -595,33 +649,34 @@ export function FlowCanvas({
                     style={{ transition: 'fill 120ms ease-out' }}
                   />
                   <rect
-                    x={x - activityWidth / 2}
+                    x={x - checkWidth / 2}
                     y={y - itemHeight / 2}
-                    width={activityWidth}
+                    width={checkWidth}
                     height={itemHeight}
-                    rx={9}
-                    fill={`color-mix(in oklab, ${activityColor[item.status]} 7%, var(--color-card))`}
-                    stroke={activityColor[item.status]}
-                    strokeWidth={1.5}
+                    rx={itemHeight / 2}
+                    fill="var(--color-card)"
+                    stroke={color}
+                    strokeWidth={item.passed ? 1 : 1.5}
                   />
                   <foreignObject
-                    x={x - activityWidth / 2 + 10}
-                    y={y - itemHeight / 2 + 5}
-                    width={activityWidth - 20}
-                    height={itemHeight - 10}
+                    x={x - checkWidth / 2 + 10}
+                    y={y - itemHeight / 2 + 4}
+                    width={checkWidth - 20}
+                    height={itemHeight - 8}
                   >
                     <div
-                      className="flex h-full min-w-0 flex-col items-center justify-center text-foreground"
-                      title={label}
+                      className="flex h-full min-w-0 items-center justify-center gap-1.5 text-foreground"
+                      title={`${label}: ${item.passed ? 'held' : 'did not hold'}`}
                     >
-                      <span className="w-full truncate text-center text-xs font-semibold">
+                      <span
+                        className="shrink-0 text-xs font-bold"
+                        style={{ color }}
+                      >
+                        {item.passed ? '✓' : '✕'}
+                      </span>
+                      <span className="min-w-0 truncate text-xs font-semibold">
                         {label}
                       </span>
-                      {item.duration !== null && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatDuration(item.duration)}
-                        </span>
-                      )}
                     </div>
                   </foreignObject>
                 </g>
@@ -630,12 +685,21 @@ export function FlowCanvas({
 
             if (
               item.kind === 'activation-start' ||
-              item.kind === 'activation-end'
+              item.kind === 'activation-end' ||
+              item.kind === 'wait' ||
+              item.kind === 'resume' ||
+              item.kind === 'close'
             ) {
               const boundaryColor =
                 item.kind === 'activation-end'
                   ? activationColor[item.outcome]
-                  : openRailColor;
+                  : item.kind === 'activation-start'
+                    ? openRailColor
+                    : neutral;
+              const word =
+                item.kind === 'activation-end'
+                  ? `End · ${item.outcome}`
+                  : markerWord[item.kind]!;
               const activate = () => onItemClick?.(item.members[0]!);
               return (
                 <g
@@ -671,43 +735,48 @@ export function FlowCanvas({
                     style={{ transition: 'fill 120ms ease-out' }}
                   />
                   <rect
-                    x={x - localEventWidth / 2}
+                    x={x - markerWidth / 2}
                     y={y - 12}
-                    width={localEventWidth}
+                    width={markerWidth}
                     height={24}
                     rx={4}
-                    fill={`color-mix(in oklab, ${boundaryColor} 14%, var(--color-card))`}
+                    fill="var(--color-card)"
                     stroke={boundaryColor}
-                    strokeWidth={1.5}
+                    strokeWidth={item.kind === 'activation-start' ? 1.5 : 1}
                   />
                   <foreignObject
-                    x={x - localEventWidth / 2 + 8}
+                    x={x - markerWidth / 2 + 8}
                     y={y - 11}
-                    width={localEventWidth - 16}
+                    width={markerWidth - 16}
                     height={22}
                   >
                     <div
-                      className="truncate text-center text-[11px] leading-[22px] font-semibold tracking-wide uppercase"
-                      style={{ color: boundaryColor }}
-                      title={label}
+                      className="flex items-baseline justify-center gap-1.5 truncate text-center leading-[22px]"
+                      title={`${word}: ${label}`}
                     >
-                      {item.kind === 'activation-start'
-                        ? `▸ ${label}`
-                        : `■ ${label}`}
+                      <span
+                        className="shrink-0 text-[9px] font-semibold tracking-wider uppercase"
+                        style={{ color: boundaryColor }}
+                      >
+                        {word}
+                      </span>
+                      <span className="min-w-0 truncate text-[11px] font-medium text-foreground">
+                        {label}
+                      </span>
                     </div>
                   </foreignObject>
                 </g>
               );
             }
 
-            const color = eventColor[item.severity];
+            const color = eventColor[item.severity as RecordedFlowSeverity];
             const activate = () =>
               onItemClick?.(selectedMember ?? item.members[0]!);
 
             return (
               <g
                 key={item.id}
-                data-flow-item="local-event"
+                data-flow-item="event"
                 data-selected={selected || undefined}
                 role={onItemClick ? 'button' : undefined}
                 tabIndex={onItemClick ? 0 : undefined}
@@ -766,6 +835,34 @@ export function FlowCanvas({
               </g>
             );
           })}
+
+          {warningBadges.map((badge) => (
+            <g
+              key={`warning-${badge.id}`}
+              data-flow-warning={badge.number}
+              className="pointer-events-none"
+            >
+              <circle
+                cx={badge.x}
+                cy={badge.y}
+                r={9}
+                fill={failure}
+                stroke="var(--color-card)"
+                strokeWidth={2}
+              />
+              <text
+                x={badge.x}
+                y={badge.y + 3.5}
+                textAnchor="middle"
+                fontSize={10}
+                fontWeight={700}
+                fill="var(--color-destructive-foreground, white)"
+              >
+                {badge.number}
+              </text>
+              <title>{`Warning ${badge.number}: ${badge.message}`}</title>
+            </g>
+          ))}
 
           {items.length === 0 && (
             <text

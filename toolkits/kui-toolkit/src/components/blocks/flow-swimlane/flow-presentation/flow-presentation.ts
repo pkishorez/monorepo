@@ -18,6 +18,15 @@ export type FlowLayoutActivation = {
   readonly track: number;
 };
 
+/** One Participant's Wait placed in row space. */
+export type FlowLayoutWait = {
+  readonly participantName: string;
+  readonly name: string;
+  readonly startY: number;
+  readonly endY: number;
+  readonly open: boolean;
+};
+
 const minimumWidth = 520;
 const minimumSidePadding = 24;
 export const flowCanvasTopPadding = 24;
@@ -45,9 +54,8 @@ export const makeFlowLayout = (
     readonly collapsedSummaryIds?: ReadonlySet<string>;
   } = {},
 ) => {
-  const chronologicalItems = flow.items.toSorted(
-    (left, right) => left.timestamp - right.timestamp,
-  );
+  // The Projection already carries the Journal's order; the clock is display only.
+  const chronologicalItems = flow.items;
   const hierarchy = makeParticipantHierarchy(
     orderedParticipantNames(chronologicalItems),
     options,
@@ -133,6 +141,35 @@ export const makeFlowLayout = (
       return { ...activation, track };
     });
 
+  const waits: FlowLayoutWait[] = flow.waits.flatMap((wait) => {
+    if (!hierarchy.visibleParticipants.has(wait.participantName)) return [];
+    const startRow = rowByItemId.get(wait.startItemId);
+    if (startRow === undefined) return [];
+    const endRow =
+      wait.endItemId === null ? undefined : rowByItemId.get(wait.endItemId);
+    const startY = rowY(startRow);
+    // A Wait is a texture of its Activation's rail, so it never outruns it.
+    const rail = activations.find(
+      (activation) =>
+        activation.participantName === wait.participantName &&
+        activation.startY <= startY &&
+        activation.endY >= startY,
+    );
+    const endY = Math.min(
+      endRow === undefined ? laneEndY : rowY(endRow),
+      rail?.endY ?? laneEndY,
+    );
+    return [
+      {
+        participantName: wait.participantName,
+        name: wait.name,
+        startY,
+        endY,
+        open: wait.endItemId === null,
+      },
+    ];
+  });
+
   /** A Reply's elapsed time since the Message it answers, by item id. */
   const timestampByMessageId = new Map(
     flow.items.flatMap((item) =>
@@ -149,6 +186,14 @@ export const makeFlowLayout = (
         ? []
         : [[item.id, item.timestamp - sent] as const];
     }),
+  );
+
+  /** Each warned Entry with its 1-based number, as shown on its card. */
+  const warningByItemId = new Map(
+    flow.warnings.map((warning, index) => [
+      warning.itemId,
+      { ...warning, number: index + 1 },
+    ]),
   );
 
   /** Participants that only ever receive Messages and record nothing. */
@@ -186,6 +231,8 @@ export const makeFlowLayout = (
     rowByItemId,
     sidePadding,
     silentParticipants,
+    waits,
+    warningByItemId,
     width,
   };
 };

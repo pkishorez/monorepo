@@ -11,6 +11,7 @@
   "fixed": [
     [
       "@pkishorez/effect-tracer",
+      "@pkishorez/flow",
       "std-toolkit",
       "@pkishorez/lotel",
       "laymos",

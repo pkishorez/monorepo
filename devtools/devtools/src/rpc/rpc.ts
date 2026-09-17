@@ -1,5 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { FlowRpc } from '@pkishorez/flow/rpc';
 import { LotelRpc } from '@pkishorez/lotel/rpc';
 import {
   ArchitectureAnalysisSchema,
@@ -215,4 +216,4 @@ export const DevtoolsToolRpc = RpcGroup.make(
   }),
 );
 
-export const DevtoolsRpc = LotelRpc.merge(DevtoolsToolRpc);
+export const DevtoolsRpc = LotelRpc.merge(FlowRpc).merge(DevtoolsToolRpc);

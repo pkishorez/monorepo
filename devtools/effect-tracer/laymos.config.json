@@ -7,10 +7,6 @@
       "paths": ["src"],
       "description": "Effect tracing, recording, and telemetry export",
       "modules": {
-        "src/flow": {
-          "shared": true,
-          "exposed": true
-        },
         "src/sequence": {
           "shared": true
         },

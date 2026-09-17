@@ -4,9 +4,7 @@ import { Effect, Layer } from 'effect';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import type { TelemetryStoreShape } from '../telemetry-store.js';
 import { TelemetryStoreError } from '../telemetry-store.js';
-import { prepareFlowLog, prepareFlowSpan } from '../../../domain/flow/index.js';
 import { makeSqliteEntities } from './entities.js';
-import { writeFlowRecord } from './flow-write.js';
 import type { DecodedEntity } from 'std-toolkit/core';
 import type {
   SpanRecord,
@@ -94,11 +92,9 @@ export const makeSqliteTelemetryStore = (path: string) =>
       }),
       (driver) => Effect.sync(() => driver.close?.()),
     );
-    const { table, spans, logs, flows, layer, setup } =
-      makeSqliteEntities(database);
+    const { table, spans, logs, layer, setup } = makeSqliteEntities(database);
     type SpanQueryOptions = NonNullable<Parameters<typeof spans.query>[2]>;
     type LogQueryOptions = NonNullable<Parameters<typeof logs.query>[2]>;
-    type FlowQueryOptions = NonNullable<Parameters<typeof flows.query>[2]>;
     const provideSqlite = <A, E>(
       effect: Effect.Effect<A, E, Layer.Success<typeof layer>>,
     ) => Effect.provide(effect, layer);
@@ -107,26 +103,19 @@ export const makeSqliteTelemetryStore = (path: string) =>
 
     return {
       saveSpans: (records) =>
-        Effect.forEach(records, (record) => {
-          const prepared = prepareFlowSpan(record);
-          const indexed = prepared.record;
+        Effect.forEach(records, (input) => {
+          // Flow fields remain in the stored shape for older rows; new rows never set them.
+          const record = { ...input, flowId: null, participantName: null };
           return provideSqlite(
             spans.get({ traceId: record.traceId, spanId: record.spanId }).pipe(
               Effect.flatMap((existing) =>
-                writeFlowRecord(
-                  { table, flows },
-                  {
-                    flowId: indexed.flowId,
-                    latestTimeUnixNano: prepared.latestTimeUnixNano,
-                    recordOperation: existing
-                      ? spans.getAndUpdateOp(
-                          { traceId: record.traceId, spanId: record.spanId },
-                          indexed,
-                          { lastWriteWins: true },
-                        )
-                      : spans.insertOp(indexed),
-                  },
-                ),
+                existing
+                  ? spans.getAndUpdate(
+                      { traceId: record.traceId, spanId: record.spanId },
+                      record,
+                      { lastWriteWins: true },
+                    )
+                  : spans.insert(record),
               ),
               Effect.as(true),
               Effect.catch(() => Effect.succeed(false)),
@@ -135,23 +124,14 @@ export const makeSqliteTelemetryStore = (path: string) =>
         }).pipe(Effect.map(countResults)),
 
       insertLogs: (records) =>
-        Effect.forEach(records, (record) => {
-          const prepared = prepareFlowLog(record);
-          const indexed = prepared.record;
-          return provideSqlite(
-            writeFlowRecord(
-              { table, flows },
-              {
-                flowId: indexed.flowId,
-                latestTimeUnixNano: prepared.latestTimeUnixNano,
-                recordOperation: logs.insertOp(indexed),
-              },
-            ),
+        Effect.forEach(records, (input) =>
+          provideSqlite(
+            logs.insert({ ...input, flowId: null, participantName: null }),
           ).pipe(
             Effect.as(true),
             Effect.catch(() => Effect.succeed(false)),
-          );
-        }).pipe(Effect.map(countResults)),
+          ),
+        ).pipe(Effect.map(countResults)),
 
       listSpans: (_u, limit) =>
         provideSqlite(
@@ -177,19 +157,6 @@ export const makeSqliteTelemetryStore = (path: string) =>
               ),
             limit,
           ).pipe(Effect.mapError((cause) => storeError('listLogs', cause))),
-        ),
-
-      listFlows: (_u, limit) =>
-        provideSqlite(
-          readPages(
-            (options?: FlowQueryOptions) =>
-              flows.query(
-                'timeline',
-                { pk: {}, ...cursorCondition(_u) },
-                options,
-              ),
-            limit,
-          ).pipe(Effect.mapError((cause) => storeError('listFlows', cause))),
         ),
 
       listRecentTraceIds: (limit) =>
@@ -243,33 +210,6 @@ export const makeSqliteTelemetryStore = (path: string) =>
           ).pipe(
             Effect.map(({ items }) => [...items]),
             Effect.mapError((cause) => storeError('findLogsByTrace', cause)),
-          ),
-        ),
-
-      findFlow: (flowId) =>
-        provideSqlite(
-          flows
-            .get({ flowId })
-            .pipe(Effect.mapError((cause) => storeError('findFlow', cause))),
-        ),
-
-      findSpansByFlow: (flowId) =>
-        provideSqlite(
-          readPages((options?: SpanQueryOptions) =>
-            spans.query('byFlow', { pk: { flowId }, '>': null }, options),
-          ).pipe(
-            Effect.map(({ items }) => [...items]),
-            Effect.mapError((cause) => storeError('findSpansByFlow', cause)),
-          ),
-        ),
-
-      findLogsByFlow: (flowId) =>
-        provideSqlite(
-          readPages((options?: LogQueryOptions) =>
-            logs.query('byFlow', { pk: { flowId }, '>': null }, options),
-          ).pipe(
-            Effect.map(({ items }) => [...items]),
-            Effect.mapError((cause) => storeError('findLogsByFlow', cause)),
           ),
         ),
 

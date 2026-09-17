@@ -14,21 +14,23 @@ const baseJsonViewStyle = {
   '--w-rjv-arrow-color': 'var(--muted-foreground)',
   '--w-rjv-edit-color': 'var(--muted-foreground)',
   '--w-rjv-info-color': 'var(--muted-foreground)',
-  '--w-rjv-update-color': 'var(--chart-4)',
+  '--w-rjv-update-color': 'var(--muted-foreground)',
   '--w-rjv-curlybraces-color': 'var(--muted-foreground)',
   '--w-rjv-brackets-color': 'var(--muted-foreground)',
   '--w-rjv-quotes-color': 'var(--muted-foreground)',
+  // Values are content: full foreground in both themes. Only nothing-values
+  // are dimmed, and only the broken ones are red.
   '--w-rjv-quotes-string-color': 'var(--foreground)',
   '--w-rjv-type-string-color': 'var(--foreground)',
-  '--w-rjv-type-int-color': 'var(--chart-2)',
-  '--w-rjv-type-float-color': 'var(--chart-2)',
-  '--w-rjv-type-bigint-color': 'var(--chart-2)',
-  '--w-rjv-type-boolean-color': 'var(--chart-1)',
-  '--w-rjv-type-date-color': 'var(--chart-3)',
-  '--w-rjv-type-url-color': 'var(--chart-3)',
-  '--w-rjv-type-null-color': 'var(--destructive)',
-  '--w-rjv-type-nan-color': 'var(--destructive)',
+  '--w-rjv-type-int-color': 'var(--foreground)',
+  '--w-rjv-type-float-color': 'var(--foreground)',
+  '--w-rjv-type-bigint-color': 'var(--foreground)',
+  '--w-rjv-type-boolean-color': 'var(--foreground)',
+  '--w-rjv-type-date-color': 'var(--foreground)',
+  '--w-rjv-type-url-color': 'var(--foreground)',
+  '--w-rjv-type-null-color': 'var(--muted-foreground)',
   '--w-rjv-type-undefined-color': 'var(--muted-foreground)',
+  '--w-rjv-type-nan-color': 'var(--destructive)',
 } as React.CSSProperties;
 
 function normalizeJsonStrings(value: unknown): unknown {

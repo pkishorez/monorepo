@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, Maximize2, X } from 'lucide-react';
 import type { StoryReport } from 'laymos';
+import { projectJournal, type Projection } from '@pkishorez/flow';
 
 import {
   FlowItemDetails,
@@ -24,14 +25,14 @@ import { cn } from '#lib/utils';
 
 export type QuestionReport = StoryReport['questions'][number];
 type QuestionSection = QuestionReport['sections'][number];
-type RecordedFlow = Extract<QuestionSection, { kind: 'flow' }>['flow'];
+type RecordedFlow = Projection;
 
 export type Verdict = StoryReport['verdict'];
 
 const statusIconStyles = {
-  passed: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
-  failed: 'bg-red-500/15 text-red-600 dark:text-red-400',
-  errored: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  passed: 'bg-positive/15 text-positive',
+  failed: 'bg-destructive/15 text-destructive',
+  errored: 'bg-muted text-foreground',
 } as const;
 
 const statusMarks = { passed: '✓', failed: '✕', errored: '!' } as const;
@@ -72,10 +73,10 @@ export function VerdictDot({
         verdict === undefined
           ? 'bg-muted-foreground/25'
           : verdict === 'passed'
-            ? 'bg-emerald-500'
+            ? 'bg-positive'
             : verdict === 'failed'
-              ? 'bg-red-500'
-              : 'bg-amber-500',
+              ? 'bg-destructive'
+              : 'bg-foreground/60',
         className,
       )}
     />
@@ -170,7 +171,7 @@ function ResultBlock({
 
 const artifactStyles = {
   trace: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  flow: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  flow: 'bg-muted text-foreground',
 } as const;
 
 function FlowArtifactBody({
@@ -228,7 +229,7 @@ function FlowArtifactBody({
         </div>
         <div className={cn('min-h-0 flex-1 overflow-y-auto', scrollbarStyles)}>
           {selected ? (
-            <FlowItemDetails item={selected} />
+            <FlowItemDetails item={selected} flow={flow} />
           ) : (
             <div className="flex h-full items-center justify-center px-6 text-center text-xs text-muted-foreground">
               Select a flow item to inspect its attributes
@@ -254,11 +255,11 @@ function ArtifactDialog({
         className="flex h-[92vh] max-h-[92vh] w-[min(96vw,110rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[110rem]"
       >
         <DialogTitle className="sr-only">
-          {section.kind === 'flow' ? section.flow.id : 'Captured trace'}
+          {section.kind === 'flow' ? section.journal.flowId : 'Captured trace'}
         </DialogTitle>
         {section.kind === 'flow' ? (
           <FlowArtifactBody
-            flow={section.flow as RecordedFlow}
+            flow={projectJournal(section.journal)}
             onClose={onClose}
           />
         ) : (
@@ -303,7 +304,7 @@ function ArtifactCard({ section }: { readonly section: QuestionSection }) {
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {section.kind === 'trace'
             ? `${section.trace.spans.length} span${section.trace.spans.length === 1 ? '' : 's'}`
-            : `${section.flow.items.length} item${section.flow.items.length === 1 ? '' : 's'}`}
+            : `${section.journal.entries.length} entr${section.journal.entries.length === 1 ? 'y' : 'ies'}`}
         </span>
         <Maximize2 className="size-3.5 shrink-0 text-muted-foreground" />
       </button>

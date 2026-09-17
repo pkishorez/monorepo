@@ -1,8 +1,8 @@
 import { Context, Duration, Effect } from 'effect';
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { FlowTelemetry } from '@pkishorez/flow';
 
 import type { QuestionSection } from './schema/index.js';
-import { mergeRelatedFlows } from './merge-related-flows.js';
 
 export class StoryContext extends Context.Service<
   StoryContext,
@@ -80,23 +80,19 @@ export const Story = {
 
   flow<A, E, R>(
     effect: Effect.Effect<A, E, R>,
-    options?: { readonly mergeRelated?: boolean },
+    _options?: { readonly mergeRelated?: boolean },
   ): Effect.Effect<A, E, R | StoryContext> {
     return Effect.gen(function* () {
       const context = yield* StoryContext;
-      const recorder = makeTraceRecorder();
-      return yield* recorder
-        .instrument(effect)
-        .pipe(
-          Effect.onExit(() =>
-            Effect.forEach(
-              options?.mergeRelated
-                ? mergeRelatedFlows(recorder.snapshotFlows())
-                : recorder.snapshotFlows(),
-              (flow) => context.beginSection({ kind: 'flow', flow }),
-            ),
+      const sink = FlowTelemetry.makeMemory();
+      return yield* effect.pipe(
+        Effect.provideService(FlowTelemetry, sink),
+        Effect.onExit(() =>
+          Effect.forEach(sink.journals(), (journal) =>
+            context.beginSection({ kind: 'flow', journal }),
           ),
-        );
+        ),
+      );
     });
   },
 

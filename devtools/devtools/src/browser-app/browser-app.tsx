@@ -12,6 +12,7 @@ import { Toaster } from 'kui-toolkit/components/ui/sonner';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { ArrowRightIcon, MoonIcon, SunIcon } from 'kui-toolkit/lucide';
 import { DevtoolsRpcProvider } from '../client/devtools-rpc/index.js';
+import { Flow } from '../ui/flow/flow/index.js';
 import { Lotel } from '../ui/lotel/lotel/index.js';
 import { Laymos, LaymosHeader } from '../ui/laymos/laymos/index.js';
 
@@ -34,6 +35,7 @@ function Shell() {
   const matchRoute = useMatchRoute();
   const onLaymos = matchRoute({ to: '/laymos' }) !== false;
   const onLotel = matchRoute({ to: '/lotel' }) !== false;
+  const onFlow = matchRoute({ to: '/flow' }) !== false;
 
   useEffect(() => applyTheme(theme), [theme]);
 
@@ -49,6 +51,7 @@ function Shell() {
           </Link>
           <nav className="ml-6 flex items-center gap-1">
             <ToolLink to="/lotel">Lotel</ToolLink>
+            <ToolLink to="/flow">Flow</ToolLink>
             <ToolLink to="/laymos">Laymos</ToolLink>
           </nav>
         </div>
@@ -67,7 +70,7 @@ function Shell() {
             to="/"
             className="flex h-11 min-w-0 flex-1 items-center px-2 text-sm font-medium tracking-tight"
           >
-            {onLotel ? 'Lotel' : 'DevTools'}
+            {onLotel ? 'Lotel' : onFlow ? 'Flow' : 'DevTools'}
           </Link>
         )}
         <ThemeButton
@@ -81,9 +84,10 @@ function Shell() {
       </main>
       <nav
         aria-label="Tools"
-        className="grid shrink-0 grid-cols-2 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
+        className="grid shrink-0 grid-cols-3 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
       >
         <MobileToolLink to="/lotel">Lotel</MobileToolLink>
+        <MobileToolLink to="/flow">Flow</MobileToolLink>
         <MobileToolLink to="/laymos">Laymos</MobileToolLink>
       </nav>
       <Toaster />
@@ -126,7 +130,7 @@ function ToolLink({
   to,
   children,
 }: {
-  to: '/lotel' | '/laymos';
+  to: '/lotel' | '/flow' | '/laymos';
   children: string;
 }) {
   return (
@@ -143,7 +147,7 @@ function MobileToolLink({
   to,
   children,
 }: {
-  to: '/lotel' | '/laymos';
+  to: '/lotel' | '/flow' | '/laymos';
   children: string;
 }) {
   return (
@@ -168,7 +172,12 @@ function Home() {
           <ToolRow
             to="/lotel"
             title="Lotel"
-            description="Traces, Logs, and Flows from local OpenTelemetry data."
+            description="Traces and Logs from local OpenTelemetry data."
+          />
+          <ToolRow
+            to="/flow"
+            title="Flow"
+            description="Journals of what happened across Participants, as swim lanes."
           />
           <ToolRow
             to="/laymos"
@@ -189,7 +198,7 @@ function ToolRow({
   title,
   description,
 }: {
-  to: '/lotel' | '/laymos';
+  to: '/lotel' | '/flow' | '/laymos';
   title: string;
   description: string;
 }) {
@@ -241,18 +250,30 @@ const lotelRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/lotel',
   validateSearch: (search: Record<string, unknown>) => ({
-    view: search.view === 'flows' ? ('flows' as const) : ('traces' as const),
     trace: typeof search.trace === 'string' ? search.trace : undefined,
-    flow: typeof search.flow === 'string' ? search.flow : undefined,
+    span: typeof search.span === 'string' ? search.span : undefined,
   }),
   component: Lotel,
+});
+const flowRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/flow',
+  validateSearch: (search: Record<string, unknown>) => ({
+    flow: typeof search.flow === 'string' ? search.flow : undefined,
+  }),
+  component: Flow,
 });
 const laymosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/laymos',
   component: Laymos,
 });
-const routeTree = rootRoute.addChildren([indexRoute, lotelRoute, laymosRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  lotelRoute,
+  flowRoute,
+  laymosRoute,
+]);
 const router = createRouter({ routeTree });
 
 declare module '@tanstack/react-router' {

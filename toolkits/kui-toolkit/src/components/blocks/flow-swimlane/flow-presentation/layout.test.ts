@@ -3,19 +3,25 @@ import { makeFlowLayout, type RecordedFlow } from './flow-presentation';
 
 const flowOf = (items: RecordedFlow['items']): RecordedFlow => ({
   id: 'flow',
+  ordering: 'recorded',
   latestTimestamp: 0,
+  status: 'quiet',
+  participants: [...new Set(items.map((item) => item.participantName))],
   items,
   activations: [],
+  waits: [],
   warnings: [],
 });
 
 describe('makeFlowLayout', () => {
-  it('orders unlike items and discovers message destination lanes', () => {
+  it('keeps the Journal order and discovers message destination lanes', () => {
     const layout = makeFlowLayout(
       flowOf([
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'event',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'client-a',
           name: 'Ready',
           timestamp: 100,
@@ -24,6 +30,8 @@ describe('makeFlowLayout', () => {
         {
           kind: 'message',
           id: 'message',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'client-a',
           destination: 'server',
           messageId: 'm1',
@@ -35,7 +43,7 @@ describe('makeFlowLayout', () => {
     );
 
     expect(layout.participants).toEqual(['client-a', 'server']);
-    expect(layout.items.map(({ id }) => id)).toEqual(['message', 'event']);
+    expect(layout.items.map(({ id }) => id)).toEqual(['event', 'message']);
   });
 
   it('summarizes every globally adjacent run from one Participant', () => {
@@ -43,48 +51,60 @@ describe('makeFlowLayout', () => {
     const layout = makeFlowLayout(
       flowOf([
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'first',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'global',
           name: syncWrite,
           timestamp: 1,
           severity: 'info',
         },
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'second',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'global',
           name: syncWrite,
           timestamp: 2,
           severity: 'info',
         },
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'middle',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'global',
           name: 'Merge',
           timestamp: 2.5,
           severity: 'info',
         },
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'partition',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'partition',
           name: 'Ready',
           timestamp: 3,
           severity: 'info',
         },
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'ready',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'global',
           name: 'Ready',
           timestamp: 4,
           severity: 'info',
         },
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'third',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'global',
           name: syncWrite,
           timestamp: 5,
@@ -117,10 +137,13 @@ describe('makeFlowLayout', () => {
     ): RecordedFlow['items'][number] => {
       const item = {
         id,
+        flowId: 'flow',
+        sequence: timestamp,
         participantName: 'alice',
         name: id,
         timestamp,
         severity: 'info' as const,
+        activationId: id.replace(/-(start|end)$/, ''),
       };
       return kind === 'activation-end'
         ? { ...item, kind, outcome: 'completed' }
@@ -135,6 +158,7 @@ describe('makeFlowLayout', () => {
       ]),
       activations: [
         {
+          activationId: 'outer',
           participantName: 'alice',
           name: 'RTC connection',
           startItemId: 'outer-start',
@@ -144,6 +168,7 @@ describe('makeFlowLayout', () => {
           outcome: 'completed',
         },
         {
+          activationId: 'nested',
           participantName: 'alice',
           name: 'RPC GetProfile',
           startItemId: 'nested-start',
@@ -164,10 +189,15 @@ describe('makeFlowLayout', () => {
   it('removes hidden Participant activity and Messages involving it', () => {
     const flow: RecordedFlow = {
       id: 'hidden-flow',
+      ordering: 'recorded',
       latestTimestamp: 3,
+      status: 'quiet',
+      participants: [],
+      waits: [],
       warnings: [],
       activations: [
         {
+          activationId: 'tab',
           participantName: 'browser/tab',
           name: 'Tab lifecycle',
           startItemId: 'tab-event',
@@ -179,8 +209,10 @@ describe('makeFlowLayout', () => {
       ],
       items: [
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'backend-event',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'backend',
           name: 'Ready',
           timestamp: 1,
@@ -189,6 +221,8 @@ describe('makeFlowLayout', () => {
         {
           kind: 'message',
           id: 'message',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'backend',
           destination: 'browser/tab',
           messageId: 'm1',
@@ -197,8 +231,10 @@ describe('makeFlowLayout', () => {
           severity: 'info',
         },
         {
-          kind: 'local-event',
+          kind: 'event',
           id: 'tab-event',
+          flowId: 'flow',
+          sequence: 0,
           participantName: 'browser/tab',
           name: 'Received',
           timestamp: 3,

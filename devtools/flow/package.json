@@ -1,0 +1,54 @@
+{
+  "name": "@pkishorez/flow",
+  "version": "0.0.9",
+  "private": false,
+  "description": "Flow journals for Effect programs: participants record what happened, DevTools shows it as a swim lane",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo"
+  },
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./rpc": {
+      "types": "./dist/rpc/index.d.ts",
+      "default": "./dist/rpc/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check src package.json tsconfig.json laymos.config.json && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vp test src",
+    "test:watch": "vp test src --watch"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.112"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

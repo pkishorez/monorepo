@@ -1,4 +1,4 @@
-import { Activation } from '@pkishorez/effect-tracer/flow';
+import { Activation } from '@pkishorez/flow';
 import {
   Clock,
   Data,

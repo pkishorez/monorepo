@@ -16,7 +16,6 @@ import { FlowItemDetails as FlowItemDetailsView } from '../flow-item-details';
 import { makeFlowLayout, type RecordedFlow } from '../flow-presentation';
 
 type RecordedFlowItem = RecordedFlow['items'][number];
-type RecordedFlowActivity = Extract<RecordedFlowItem, { kind: 'activity' }>;
 
 interface FlowSwimlaneProps {
   readonly flow: RecordedFlow;
@@ -24,7 +23,6 @@ interface FlowSwimlaneProps {
   readonly selectedItemId?: string | null;
   readonly onSelectionChange?: (item: RecordedFlowItem | null) => void;
   readonly onItemClick?: (item: RecordedFlowItem) => void;
-  readonly onActivityClick?: (activity: RecordedFlowActivity) => void;
   readonly scrollSelectionIntoView?: boolean;
   readonly collapsedSummaryIds?: ReadonlySet<string>;
   readonly onCollapsedSummaryIdsChange?: (ids: ReadonlySet<string>) => void;
@@ -46,14 +44,13 @@ const ignoresFlowShortcuts = (target: EventTarget | null) =>
   (target.matches('button, input, select, textarea') ||
     target.isContentEditable);
 
-/** Renders a canonical Recorded Flow as an interactive hierarchical swim lane. */
+/** Renders a Flow Projection as an interactive hierarchical swim lane. */
 export function FlowSwimlane({
   flow,
   className,
   selectedItemId,
   onSelectionChange,
   onItemClick,
-  onActivityClick,
   scrollSelectionIntoView = true,
   collapsedSummaryIds: controlledCollapsedSummaryIds,
   onCollapsedSummaryIdsChange,
@@ -165,19 +162,17 @@ export function FlowSwimlane({
       return;
     }
 
-    const chronological = flow.items.toSorted(
-      (left, right) => left.timestamp - right.timestamp,
-    );
-    const selectedIndex = chronological.findIndex(
+    const ordered = flow.items;
+    const selectedIndex = ordered.findIndex(
       ({ id }) => id === activeSelectedId,
     );
     const visibleIds = new Set(
       layout.items.flatMap((item) => item.members.map(({ id }) => id)),
     );
-    const next = chronological.find(
+    const next = ordered.find(
       (item, index) => index > selectedIndex && visibleIds.has(item.id),
     );
-    const previous = chronological.findLast(
+    const previous = ordered.findLast(
       (item, index) => index < selectedIndex && visibleIds.has(item.id),
     );
     select(next ?? previous ?? null);
@@ -330,7 +325,6 @@ export function FlowSwimlane({
           layout={layout}
           selectedItemId={activeSelectedId}
           onItemClick={selectFromClick}
-          onActivityClick={onActivityClick}
         />
       </div>
     </div>

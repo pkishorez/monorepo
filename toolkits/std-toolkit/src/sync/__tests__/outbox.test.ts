@@ -1,4 +1,4 @@
-import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { FlowTelemetry, projectJournal } from '@pkishorez/flow';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import type { DecodedEntity } from '../../core/index.js';
@@ -233,12 +233,12 @@ describe('outbox', () => {
   });
 
   it('narrates enqueue, flight, and leadership inside the collection flow', async () => {
-    const recorder = makeTraceRecorder();
+    const sink = FlowTelemetry.makeMemory();
     const runtime = {
       runSync: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runSync(recorder.instrument(effect)),
+        Effect.runSync(Effect.provideService(effect, FlowTelemetry, sink)),
       runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runPromise(recorder.instrument(effect)),
+        Effect.runPromise(Effect.provideService(effect, FlowTelemetry, sink)),
     };
     const { inMemoryLeadership } =
       await import('../platform/leadership/in-memory/index.js');
@@ -262,18 +262,16 @@ describe('outbox', () => {
     const tx = todos.insert({ id: 'a', title: 'A', done: false });
     await vi.waitFor(() =>
       expect(
-        recorder
-          .snapshotFlows()[0]
-          ?.items.some((item) => item.name === 'Enqueue'),
+        sink.journals()[0]?.entries.some((item) => item.name === 'Enqueue'),
       ).toBe(true),
     );
     net.set(true);
     await tx.isPersisted.promise;
     await std.dispose();
 
-    const flows = recorder.snapshotFlows();
+    const flows = sink.journals();
     expect(flows).toHaveLength(1);
-    const items = flows[0]!.items;
+    const items = flows[0]!.entries;
     const byParticipant = (participant: string) =>
       items
         .filter((item) => item.participantName === participant)
@@ -294,7 +292,7 @@ describe('outbox', () => {
     expect(names.indexOf('Queue 1 entry')).toBeLessThan(
       names.indexOf('Enqueue'),
     );
-    expect(flows[0]!.warnings).toEqual([]);
+    expect(projectJournal(flows[0]!).warnings).toEqual([]);
   });
 
   it("is byte-for-byte today's behavior when the outbox is off", async () => {

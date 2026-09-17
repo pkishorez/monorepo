@@ -1,4 +1,4 @@
-import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { FlowTelemetry, projectJournal } from '@pkishorez/flow';
 import { Deferred, Effect, Fiber, Option, Queue, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { describe, expect, it } from 'vitest';
@@ -37,58 +37,57 @@ describe('WebRTC RPC Transport', () => {
     const handlers = Api.toLayer({
       Echo: ({ value }) => Effect.succeed(`response:${value}`),
     });
-    const recorder = makeTraceRecorder();
+    const sink = FlowTelemetry.makeMemory();
     const result = await Effect.runPromise(
-      recorder.instrument(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const [aliceChannel, bobChannel] = yield* makeChannelPair;
-            const peerSessionId = PeerSessionId.make('session-1');
-            const connectionAttemptId =
-              ConnectionAttemptId.make('connection-1');
-            const aliceTransport = yield* make(
-              {
-                localPeerId: PeerId.make('alice'),
-                remotePeerId: PeerId.make('bob'),
-                peerSessionId,
-                connectionAttemptId,
-              },
-              aliceChannel,
-            );
-            const bobTransport = yield* make(
-              {
-                localPeerId: PeerId.make('bob'),
-                remotePeerId: PeerId.make('alice'),
-                peerSessionId,
-                connectionAttemptId,
-              },
-              bobChannel,
-            );
-            yield* bobTransport.serve(Api, handlers);
-            const { client } = yield* aliceTransport.consume(Api);
-            return yield* Effect.all(
-              [
-                client.Echo({ value: 'private-request' }),
-                client.Echo({ value: 'second-private-request' }),
-              ],
-              { concurrency: 'unbounded' },
-            );
-          }),
-        ),
-      ),
+      Effect.scoped(
+        Effect.gen(function* () {
+          const [aliceChannel, bobChannel] = yield* makeChannelPair;
+          const peerSessionId = PeerSessionId.make('session-1');
+          const connectionAttemptId = ConnectionAttemptId.make('connection-1');
+          const aliceTransport = yield* make(
+            {
+              localPeerId: PeerId.make('alice'),
+              remotePeerId: PeerId.make('bob'),
+              peerSessionId,
+              connectionAttemptId,
+            },
+            aliceChannel,
+          );
+          const bobTransport = yield* make(
+            {
+              localPeerId: PeerId.make('bob'),
+              remotePeerId: PeerId.make('alice'),
+              peerSessionId,
+              connectionAttemptId,
+            },
+            bobChannel,
+          );
+          yield* bobTransport.serve(Api, handlers);
+          const { client } = yield* aliceTransport.consume(Api);
+          return yield* Effect.all(
+            [
+              client.Echo({ value: 'private-request' }),
+              client.Echo({ value: 'second-private-request' }),
+            ],
+            { concurrency: 'unbounded' },
+          );
+        }),
+      ).pipe(Effect.provideService(FlowTelemetry, sink)),
     );
 
     expect(result).toEqual([
       'response:private-request',
       'response:second-private-request',
     ]);
-    const flows = recorder.snapshotFlows();
+    const flows = sink.journals().map(projectJournal);
     expect(flows).toHaveLength(2);
     for (const flow of flows) {
-      expect(flow.parentFlowId).toBe('connection-1');
       expect(
         new Set(flow.items.map(({ participantName }) => participantName)),
       ).toEqual(new Set(['peer:alice', 'peer:bob']));
+      expect(flow.items[0]?.attributes).toMatchObject({
+        connectionAttemptId: 'connection-1',
+      });
       expect(flow.warnings).toEqual([]);
     }
     expect(JSON.stringify(flows)).not.toContain('private-request');
@@ -108,46 +107,45 @@ describe('WebRTC RPC Transport', () => {
           Deferred.succeed(started, undefined).pipe(Effect.as(Stream.never)),
         ),
     });
-    const recorder = makeTraceRecorder();
+    const sink = FlowTelemetry.makeMemory();
 
     await Effect.runPromise(
-      recorder.instrument(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const [aliceChannel, bobChannel] = yield* makeChannelPair;
-            const context = {
-              peerSessionId: PeerSessionId.make('session-1'),
-              connectionAttemptId: ConnectionAttemptId.make('connection-1'),
-            };
-            const aliceTransport = yield* make(
-              {
-                ...context,
-                localPeerId: PeerId.make('alice'),
-                remotePeerId: PeerId.make('bob'),
-              },
-              aliceChannel,
-            );
-            const bobTransport = yield* make(
-              {
-                ...context,
-                localPeerId: PeerId.make('bob'),
-                remotePeerId: PeerId.make('alice'),
-              },
-              bobChannel,
-            );
-            yield* bobTransport.serve(Api, handlers);
-            const { client } = yield* aliceTransport.consume(Api);
-            const fiber = yield* client
-              .Watch()
-              .pipe(Stream.runDrain, Effect.forkChild);
-            yield* Deferred.await(started);
-            yield* Fiber.interrupt(fiber);
-          }),
-        ),
-      ),
+      Effect.scoped(
+        Effect.gen(function* () {
+          const [aliceChannel, bobChannel] = yield* makeChannelPair;
+          const context = {
+            peerSessionId: PeerSessionId.make('session-1'),
+            connectionAttemptId: ConnectionAttemptId.make('connection-1'),
+          };
+          const aliceTransport = yield* make(
+            {
+              ...context,
+              localPeerId: PeerId.make('alice'),
+              remotePeerId: PeerId.make('bob'),
+            },
+            aliceChannel,
+          );
+          const bobTransport = yield* make(
+            {
+              ...context,
+              localPeerId: PeerId.make('bob'),
+              remotePeerId: PeerId.make('alice'),
+            },
+            bobChannel,
+          );
+          yield* bobTransport.serve(Api, handlers);
+          const { client } = yield* aliceTransport.consume(Api);
+          const fiber = yield* client
+            .Watch()
+            .pipe(Stream.runDrain, Effect.forkChild);
+          yield* Deferred.await(started);
+          yield* Fiber.interrupt(fiber);
+        }),
+      ).pipe(Effect.provideService(FlowTelemetry, sink)),
     );
 
-    const [flow] = recorder.snapshotFlows();
+    const [journal] = sink.journals();
+    const flow = journal === undefined ? undefined : projectJournal(journal);
     expect(flow?.items.filter(({ kind }) => kind === 'message')).toHaveLength(
       2,
     );

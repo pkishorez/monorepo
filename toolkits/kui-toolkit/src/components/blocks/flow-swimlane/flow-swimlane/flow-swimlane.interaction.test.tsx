@@ -18,7 +18,9 @@ const localEvent = (
   timestamp: number,
 ): RecordedFlowItem => ({
   id,
-  kind: 'local-event',
+  flowId: 'interactive-flow',
+  sequence: timestamp,
+  kind: 'event',
   name,
   participantName,
   severity: 'info',
@@ -33,6 +35,8 @@ const message = (
   timestamp: number,
 ): RecordedFlowItem => ({
   id,
+  flowId: 'interactive-flow',
+  sequence: timestamp,
   kind: 'message',
   name,
   participantName,
@@ -44,9 +48,13 @@ const message = (
 
 const flowOf = (items: RecordedFlow['items']): RecordedFlow => ({
   id: 'interactive-flow',
+  ordering: 'recorded',
   latestTimestamp: items.at(-1)?.timestamp ?? 0,
+  status: 'quiet',
+  participants: [...new Set(items.map((item) => item.participantName))],
   items,
   activations: [],
+  waits: [],
   warnings: [],
 });
 
@@ -290,9 +298,9 @@ describe('FlowSwimlane interactions', () => {
     );
 
     expect(viewport.textContent).not.toContain('hidden step');
-    expect(
-      viewport.querySelectorAll('[data-flow-item="local-event"]'),
-    ).toHaveLength(4);
+    expect(viewport.querySelectorAll('[data-flow-item="event"]')).toHaveLength(
+      4,
+    );
     const collapseAll = [...host.querySelectorAll('button')].find(
       (button) => button.textContent === 'Collapse all',
     )!;
@@ -305,9 +313,9 @@ describe('FlowSwimlane interactions', () => {
     key(viewport, 'j');
     key(viewport, 'Enter');
     expect(viewport.textContent).not.toContain('hidden step');
-    expect(
-      viewport.querySelectorAll('[data-flow-item="local-event"]'),
-    ).toHaveLength(4);
+    expect(viewport.querySelectorAll('[data-flow-item="event"]')).toHaveLength(
+      4,
+    );
 
     key(viewport, 'j');
     expect(host.querySelector('output')?.getAttribute('data-selected-id')).toBe(
@@ -355,9 +363,9 @@ describe('FlowSwimlane interactions', () => {
     expect(
       viewport.querySelectorAll('[data-flow-item="summary"]'),
     ).toHaveLength(0);
-    expect(
-      viewport.querySelectorAll('[data-flow-item="local-event"]'),
-    ).toHaveLength(4);
+    expect(viewport.querySelectorAll('[data-flow-item="event"]')).toHaveLength(
+      4,
+    );
     expect(host.querySelector('output')?.getAttribute('data-selected-id')).toBe(
       'second',
     );

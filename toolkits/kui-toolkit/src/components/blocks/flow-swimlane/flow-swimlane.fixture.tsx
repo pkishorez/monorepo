@@ -2,68 +2,78 @@ import { makeFlowExampleFixtures } from './examples';
 import { FlowSwimlane } from './flow-swimlane';
 import type { RecordedFlow } from './flow-presentation';
 
+const worker =
+  'browser:alice/comments.comment/{postid=a-very-long-partition-identity-that-wraps-cleanly}.partition-worker';
+
+const entry = <K extends RecordedFlow['items'][number]['kind']>(
+  kind: K,
+  fields: Omit<
+    Extract<RecordedFlow['items'][number], { kind: K }>,
+    'kind' | 'flowId' | 'sequence' | 'severity'
+  > & { severity?: 'info' | 'warning' | 'error' | 'debug' },
+): RecordedFlow['items'][number] =>
+  ({
+    kind,
+    flowId: 'participant-hierarchy',
+    sequence: fields.timestamp,
+    severity: 'info',
+    ...fields,
+  }) as RecordedFlow['items'][number];
+
 const hierarchyFlow: RecordedFlow = {
   id: 'participant-hierarchy',
+  ordering: 'recorded',
   latestTimestamp: 7,
+  status: 'quiet',
+  participants: [
+    'browser:alice',
+    'browser:alice/comments.comment',
+    worker,
+    'backend',
+  ],
   activations: [],
+  waits: [],
   warnings: [],
   items: [
-    {
+    entry('event', {
       id: 'browser-open',
-      kind: 'local-event',
       name: 'Tab opened',
       participantName: 'browser:alice',
-      severity: 'info',
       timestamp: 1,
-    },
-    {
+    }),
+    entry('message', {
       id: 'subscribe',
-      kind: 'message',
       messageId: 'subscribe-1',
       name: 'Subscribe',
       participantName: 'browser:alice',
       destination: 'browser:alice/comments.comment',
-      severity: 'info',
       timestamp: 2,
-    },
-    {
+    }),
+    entry('check', {
       id: 'strategy-attempt',
-      kind: 'activity',
       name: 'Strategy attempt',
-      participantName:
-        'browser:alice/comments.comment/{postid=a-very-long-partition-identity-that-wraps-cleanly}.partition-worker',
-      duration: 24,
-      status: 'success',
-      traceId: 'trace-1',
-      spanId: 'span-1',
+      participantName: worker,
+      passed: true,
       timestamp: 4,
-    },
-    {
+    }),
+    entry('event', {
       id: 'first-write',
-      kind: 'local-event',
       name: 'Sync Replica write',
-      participantName:
-        'browser:alice/comments.comment/{postid=a-very-long-partition-identity-that-wraps-cleanly}.partition-worker',
-      severity: 'info',
+      participantName: worker,
       timestamp: 5,
-    },
-    {
+    }),
+    entry('event', {
       id: 'second-write',
-      kind: 'local-event',
       name: 'Sync Replica write',
-      participantName:
-        'browser:alice/comments.comment/{postid=a-very-long-partition-identity-that-wraps-cleanly}.partition-worker',
-      severity: 'info',
+      participantName: worker,
       timestamp: 6,
-    },
-    {
+    }),
+    entry('event', {
       id: 'backend-ready',
-      kind: 'local-event',
       name: 'Ready',
       participantName: 'backend',
-      severity: 'info',
       timestamp: 7,
-    },
+    }),
   ],
 };
 

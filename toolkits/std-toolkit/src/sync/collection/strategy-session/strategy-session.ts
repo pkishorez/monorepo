@@ -164,7 +164,7 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
                   attributes: { ...attributes, session },
                 }),
                 Effect.tap(() =>
-                  strategyFlow.log('Sync session completed', {
+                  strategyFlow.event('Sync session completed', {
                     attributes: { ...attributes, session },
                   }),
                 ),
@@ -172,9 +172,9 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
           },
           onError: (cause) =>
             strategyFlow
-              .log('Sync session failed', {
+              .event('Sync session failed', {
                 attributes: { ...attributes, cause: String(cause) },
-                level: 'error',
+                severity: 'error',
               })
               .pipe(
                 Effect.andThen(
@@ -189,9 +189,9 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
               ),
           onDefect: (cause) =>
             strategyFlow
-              .log('Sync session defect', {
+              .event('Sync session defect', {
                 attributes: { ...attributes, cause: String(cause) },
-                level: 'error',
+                severity: 'error',
               })
               .pipe(
                 Effect.andThen(
@@ -248,9 +248,9 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
               }).pipe(cadenceFlow!.withSpan('Cadence attempt', { attributes })),
             onError: (cause) =>
               cadenceFlow!
-                .log('Cadence failure', {
+                .event('Cadence failure', {
                   attributes: { ...attributes, cause: String(cause) },
-                  level: 'error',
+                  severity: 'error',
                 })
                 .pipe(
                   Effect.andThen(
@@ -264,9 +264,9 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
                 ),
             onDefect: (cause) =>
               cadenceFlow!
-                .log('Cadence defect', {
+                .event('Cadence defect', {
                   attributes: { ...attributes, cause: String(cause) },
-                  level: 'error',
+                  severity: 'error',
                 })
                 .pipe(
                   Effect.andThen(

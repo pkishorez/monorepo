@@ -9,11 +9,7 @@ import {
   References,
   Tracer,
 } from 'effect';
-import { RecordedFlowSchema } from '../flow/index.js';
 import { nextSequence } from '../sequence/index.js';
-import { projectRecordedFlow, recordedFlowIds } from './flow-snapshot.js';
-
-type RecordedFlow = typeof RecordedFlowSchema.Type;
 
 const DEFAULT_MAX_SPANS = 2_000;
 
@@ -35,10 +31,12 @@ export type TraceLogLevel =
   | 'Trace';
 
 /** A span's lifecycle state. */
-export type CapturedSpanStatus = Extract<
-  RecordedFlow['items'][number],
-  { kind: 'activity' }
->['status'];
+export type CapturedSpanStatus =
+  | 'error'
+  | 'interrupted'
+  | 'running'
+  | 'success'
+  | 'unset';
 
 /** An event captured during a span. */
 export interface CapturedEvent {
@@ -132,10 +130,6 @@ export interface TraceRecorder {
   readonly layer: Layer.Layer<never>;
   /** Everything recorded so far. Safe to call at any point, including mid-run. */
   readonly snapshot: () => CapturedTrace;
-  /** Returns one Flow derived from its recorded spans and logs. */
-  readonly snapshotFlow: (flowId: string) => RecordedFlow | null;
-  /** Returns every Flow currently represented in the recording. */
-  readonly snapshotFlows: () => readonly RecordedFlow[];
 }
 
 type NativeSpanOptions = ConstructorParameters<typeof Tracer.NativeSpan>[0];
@@ -271,13 +265,6 @@ export function makeTraceRecorder(
       Logger.layer([logger]),
     ),
     snapshot,
-    snapshotFlow: (flowId) => projectRecordedFlow(snapshot(), flowId),
-    snapshotFlows: () => {
-      const trace = snapshot();
-      return recordedFlowIds(trace)
-        .map((flowId) => projectRecordedFlow(trace, flowId))
-        .filter((flow) => flow !== null);
-    },
   };
 }
 

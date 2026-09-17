@@ -501,6 +501,9 @@ importers:
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../../devtools/effect-tracer
+      '@pkishorez/flow':
+        specifier: workspace:*
+        version: link:../../devtools/flow
       '@tanstack/react-db':
         specifier: 'catalog:'
         version: 0.3.0(react@19.2.8)(typescript@7.0.2)
@@ -601,6 +604,9 @@ importers:
       '@effect/platform-node-shared':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)
+      '@pkishorez/flow':
+        specifier: workspace:*
+        version: link:../flow
       '@pkishorez/lotel':
         specifier: workspace:*
         version: link:../lotel
@@ -739,6 +745,24 @@ importers:
         specifier: 4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
 
+  devtools/flow:
+    devDependencies:
+      '@tsconfig/node22':
+        specifier: 'catalog:'
+        version: 22.0.6
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.4.1
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
+
   devtools/laymos:
     dependencies:
       '@effect/platform-node':
@@ -750,6 +774,9 @@ importers:
       '@pkishorez/effect-tracer':
         specifier: workspace:*
         version: link:../effect-tracer
+      '@pkishorez/flow':
+        specifier: workspace:*
+        version: link:../flow
       oxc-parser:
         specifier: 'catalog:'
         version: 0.148.0
@@ -781,9 +808,6 @@ importers:
 
   devtools/lotel:
     dependencies:
-      '@pkishorez/effect-tracer':
-        specifier: workspace:*
-        version: link:../effect-tracer
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
@@ -809,9 +833,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20260904.1
-      '@pkishorez/effect-tracer':
+      '@pkishorez/flow':
         specifier: workspace:*
-        version: link:../../devtools/effect-tracer
+        version: link:../../devtools/flow
       auth-toolkit:
         specifier: workspace:*
         version: link:../../toolkits/auth-toolkit
@@ -999,6 +1023,9 @@ importers:
       '@fontsource-variable/jetbrains-mono':
         specifier: 'catalog:'
         version: 5.3.0
+      '@pkishorez/flow':
+        specifier: workspace:*
+        version: link:../../devtools/flow
       '@shadcn/react':
         specifier: 'catalog:'
         version: 0.3.1(@types/react@19.2.18)(react@19.2.8)
@@ -1223,9 +1250,9 @@ importers:
       '@effect/platform-node-shared':
         specifier: 'catalog:'
         version: 4.0.0-rc.112(effect@4.0.0-rc.112)
-      '@pkishorez/effect-tracer':
+      '@pkishorez/flow':
         specifier: workspace:*
-        version: link:../../devtools/effect-tracer
+        version: link:../../devtools/flow
       '@standard-schema/spec':
         specifier: 'catalog:'
         version: 1.1.0
@@ -1248,6 +1275,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20260904.1
+      '@pkishorez/effect-tracer':
+        specifier: workspace:*
+        version: link:../../devtools/effect-tracer
       '@tanstack/query-db-collection':
         specifier: 'catalog:'
         version: 1.2.5(@tanstack/query-core@5.102.8)(typescript@7.0.2)

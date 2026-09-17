@@ -18,7 +18,7 @@ export const makeReset =
     startDrain: () => void;
   }) =>
   async (): Promise<void> => {
-    await args.runner.runPromise(args.flow.sync.log('Reset'));
+    await args.runner.runPromise(args.flow.sync.event('Reset'));
     await args.stopDrain();
     args.outbox?.rejectWaiters('the Std Sync was reset');
     const handles = args.tracker.all();

@@ -11,7 +11,9 @@ const event = (
   name = 'Write',
 ): RecordedFlowItem => ({
   id,
-  kind: 'local-event',
+  flowId: 'flow',
+  sequence: Number(id),
+  kind: 'event',
   name,
   participantName,
   severity: 'info',
@@ -20,6 +22,8 @@ const event = (
 
 const message = (id: string, participantName: string): RecordedFlowItem => ({
   id,
+  flowId: 'flow',
+  sequence: Number(id),
   kind: 'message',
   destination: 'backend',
   messageId: id,

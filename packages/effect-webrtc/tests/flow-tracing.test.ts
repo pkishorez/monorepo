@@ -1,16 +1,13 @@
-import { Effect, Logger, References } from 'effect';
+import { Activation, FlowTelemetry, projectJournal } from '@pkishorez/flow';
+import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { Activation } from '@pkishorez/effect-tracer/flow';
 import { startConnectionAttempt } from '../src/flow-tracing/index.js';
 import { NegotiationMessage } from '../src/negotiation/index.js';
 import { PeerId } from '../src/peer-identity/index.js';
 
 describe('Connection Attempt Flow', () => {
   it('records ICE candidate details, diagnostics, and the failure report', async () => {
-    const annotations: Readonly<Record<string, unknown>>[] = [];
-    const logger = Logger.make<unknown, void>((options) => {
-      annotations.push(options.fiber.getRef(References.CurrentLogAnnotations));
-    });
+    const sink = FlowTelemetry.makeMemory();
 
     await Effect.runPromise(
       Effect.scoped(
@@ -37,25 +34,31 @@ describe('Connection Attempt Flow', () => {
             candidatePairs: [{ state: 'failed' }],
           });
         }),
-      ).pipe(Effect.withLogger(logger)),
+      ).pipe(Effect.provideService(FlowTelemetry, sink)),
     );
 
-    const [, candidate, note, end] = annotations;
+    const flow = projectJournal(sink.journals()[0]!);
+    const [, candidate, note, end] = flow.items;
     expect(candidate).toMatchObject({
-      'flow.item.type': 'message',
-      'flowattr.candidateType': 'host',
-      'flowattr.protocol': 'udp',
-      'flowattr.address': '4d3a.local',
-      'flowattr.port': '56245',
+      kind: 'message',
+      attributes: {
+        candidateType: 'host',
+        protocol: 'udp',
+        address: '4d3a.local',
+        port: '56245',
+      },
     });
     expect(note).toMatchObject({
-      'flow.item.type': 'local-event',
-      'flowattr.iceConnectionState': 'failed',
+      kind: 'event',
+      attributes: { iceConnectionState: 'failed' },
     });
     expect(end).toMatchObject({
-      'flow.activation.outcome': 'failed',
-      'flowattr.error': 'RTC connection failed',
-      'flowattr.candidatePairs': [{ state: 'failed' }],
+      kind: 'activation-end',
+      outcome: 'failed',
+      attributes: {
+        error: 'RTC connection failed',
+        candidatePairs: [{ state: 'failed' }],
+      },
     });
   });
 });

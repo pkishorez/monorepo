@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
-import { RecordedFlowSchema } from '@pkishorez/effect-tracer/flow';
+import { JournalSchema } from '@pkishorez/flow';
 
-export { RecordedFlowSchema };
+export { JournalSchema };
 
 const JsonValueSchema: Schema.Codec<JsonValue> = Schema.Union([
   Schema.String,
@@ -84,12 +84,12 @@ export const QuestionSectionSchema = Schema.Union([
   }),
   Schema.Struct({
     kind: Schema.Literal('flow'),
-    flow: RecordedFlowSchema,
+    journal: JournalSchema,
   }),
 ]).annotate({
   title: 'Question Section',
   description:
-    "One captured artifact of a Question's proof run: a trace or a flow.",
+    "One captured artifact of a Question's proof run: a trace or a Flow Journal.",
 });
 
 export const StoryVerdictSchema = Schema.Literals([
@@ -122,7 +122,7 @@ export const StoryReportSchema = Schema.Struct({
 });
 
 export type CapturedTrace = typeof CapturedTraceSchema.Type;
-export type RecordedFlow = typeof RecordedFlowSchema.Type;
+export type Journal = typeof JournalSchema.Type;
 export type StoryAssertion = typeof StoryAssertionSchema.Type;
 export type QuestionSection = typeof QuestionSectionSchema.Type;
 export type QuestionReport = typeof QuestionReportSchema.Type;

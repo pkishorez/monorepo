@@ -7,6 +7,7 @@
       "packages": ["kui-toolkit"],
       "dependencies": [
         "@pkishorez/effect-tracer",
+        "@pkishorez/flow",
         "@pkishorez/lotel",
         "laymos",
         "std-toolkit",
@@ -49,6 +50,7 @@
         "kstack",
         "@pkishorez/effect-tracer",
         "effect-webrtc",
+        "@pkishorez/flow",
         "laymos",
         "@pkishorez/lotel",
         "kui-toolkit",
@@ -113,6 +115,7 @@
         "kstack",
         "@pkishorez/effect-tracer",
         "effect-webrtc",
+        "@pkishorez/flow",
         "laymos",
         "@pkishorez/lotel",
         "kui-toolkit",

@@ -1,39 +1,29 @@
 import { Effect } from 'effect';
-import { Activation, initFlow } from '@pkishorez/effect-tracer/flow';
+import { Activation, Flow } from '@pkishorez/flow';
 import type { FlowScenario } from './scenarios';
 
 const checkoutSuccess = (): FlowScenario => ({
   id: 'checkout-501',
   title: 'Checkout succeeds',
   program: () => {
-    const browser = initFlow({
-      id: 'checkout-501',
-      participantName: 'browser',
-    });
-    const checkout = initFlow({
-      id: 'checkout-501',
-      participantName: 'checkout-api',
-    });
-    const inventory = initFlow({
-      id: 'checkout-501',
-      participantName: 'inventory',
-    });
-    const payments = initFlow({
-      id: 'checkout-501',
-      participantName: 'payments',
-    });
+    const flow = Flow.make({ id: 'checkout-501' });
+    const browser = flow.participant('browser');
+    const checkout = flow.participant('checkout-api');
+    const inventory = flow.participant('inventory');
+    const payments = flow.participant('payments');
     return Effect.gen(function* () {
       const activation = yield* checkout.activation.start('Checkout');
-      yield* browser.send('checkout-api', 'Submit cart');
-      yield* Effect.sleep('3 millis').pipe(checkout.withSpan('Validate cart'));
-      yield* checkout.send('inventory', 'Reserve items');
-      yield* Effect.sleep('4 millis').pipe(inventory.withSpan('Reserve stock'));
-      yield* inventory.send('checkout-api', 'Stock reserved');
-      yield* checkout.send('payments', 'Authorize payment');
-      yield* Effect.sleep('5 millis').pipe(payments.withSpan('Charge card'));
-      yield* payments.send('checkout-api', 'Payment authorized');
-      yield* checkout.send('browser', 'Order confirmed');
+      yield* browser.send(checkout, 'Submit cart');
+      yield* checkout.event('Validate cart');
+      const reserve = yield* checkout.send(inventory, 'Reserve items');
+      yield* inventory.activated('Reserve stock')(Effect.sleep('4 millis'));
+      yield* inventory.reply(reserve, 'Stock reserved');
+      const charge = yield* checkout.send(payments, 'Authorize payment');
+      yield* payments.activated('Charge card')(Effect.sleep('5 millis'));
+      yield* payments.reply(charge, 'Payment authorized');
+      yield* checkout.send(browser, 'Order confirmed');
       yield* activation.end(Activation.completed());
+      yield* checkout.close();
     });
   },
 });
@@ -42,30 +32,24 @@ const paymentDecline = (): FlowScenario => ({
   id: 'payment-502',
   title: 'Payment is declined',
   program: () => {
-    const checkout = initFlow({
-      id: 'payment-502',
-      participantName: 'checkout-api',
-    });
-    const gateway = initFlow({
-      id: 'payment-502',
-      participantName: 'payment-gateway',
-    });
-    const browser = initFlow({
-      id: 'payment-502',
-      participantName: 'browser',
-    });
+    const flow = Flow.make({ id: 'payment-502' });
+    const checkout = flow.participant('checkout-api');
+    const gateway = flow.participant('payment-gateway');
+    const browser = flow.participant('browser');
     return Effect.gen(function* () {
       const activation = yield* checkout.activation.start('Checkout');
-      yield* checkout.send('payment-gateway', 'Authorize card');
+      yield* checkout.send(gateway, 'Authorize card');
       yield* Effect.fail('insufficient funds').pipe(
         Effect.withSpan('issuer.authorize'),
-        gateway.withSpan('Authorize payment'),
+        gateway.activated('Authorize payment'),
         Effect.ignore,
       );
-      yield* gateway.log('Issuer declined transaction', { level: 'error' });
-      yield* gateway.send('checkout-api', 'Payment declined');
-      yield* checkout.send('browser', 'Choose another payment method');
-      yield* browser.log('Payment form reopened', { level: 'warning' });
+      yield* gateway.event('Issuer declined transaction', {
+        severity: 'error',
+      });
+      yield* gateway.send(checkout, 'Payment declined');
+      yield* checkout.send(browser, 'Choose another payment method');
+      yield* browser.event('Payment form reopened', { severity: 'warning' });
       yield* activation.end(Activation.failed('scenario failed'));
     });
   },
@@ -75,33 +59,22 @@ const orderFulfillment = (): FlowScenario => ({
   id: 'order-fulfillment-503',
   title: 'Order fulfillment',
   program: () => {
-    const orders = initFlow({
-      id: 'order-fulfillment-503',
-      participantName: 'orders',
-    });
-    const warehouse = initFlow({
-      id: 'order-fulfillment-503',
-      participantName: 'warehouse',
-    });
-    const shipping = initFlow({
-      id: 'order-fulfillment-503',
-      participantName: 'shipping',
-    });
-    const customer = initFlow({
-      id: 'order-fulfillment-503',
-      participantName: 'customer',
-    });
+    const flow = Flow.make({ id: 'order-fulfillment-503' });
+    const orders = flow.participant('orders');
+    const warehouse = flow.participant('warehouse');
+    const shipping = flow.participant('shipping');
+    const customer = flow.participant('customer');
     return Effect.gen(function* () {
       const activation = yield* orders.activation.start('Fulfillment');
-      yield* Effect.sleep('2 millis').pipe(orders.withSpan('Create order'));
-      yield* orders.send('warehouse', 'Request fulfillment');
-      yield* Effect.sleep('5 millis').pipe(warehouse.withSpan('Pick and pack'));
-      yield* warehouse.send('shipping', 'Parcel ready');
-      yield* Effect.sleep('3 millis').pipe(shipping.withSpan('Buy label'));
-      yield* shipping.send('warehouse', 'Tracking assigned');
-      yield* warehouse.send('orders', 'Order shipped');
-      yield* shipping.send('customer', 'Delivery notification');
-      yield* customer.log('Tracking link displayed');
+      yield* orders.event('Create order');
+      yield* orders.send(warehouse, 'Request fulfillment');
+      yield* warehouse.activated('Pick and pack')(Effect.sleep('5 millis'));
+      const label = yield* warehouse.send(shipping, 'Parcel ready');
+      yield* shipping.event('Buy label');
+      yield* shipping.reply(label, 'Tracking assigned');
+      yield* warehouse.send(orders, 'Order shipped');
+      yield* shipping.send(customer, 'Delivery notification');
+      yield* customer.event('Tracking link displayed');
       yield* activation.end(Activation.completed());
     });
   },

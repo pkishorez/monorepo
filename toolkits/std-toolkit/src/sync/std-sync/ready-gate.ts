@@ -32,7 +32,7 @@ export const makeReadyGate = <R>(args: {
             attributes: { collections: collections.size },
           }),
           Effect.andThen(
-            args.flow.sync.log('Ready Gate opened', {
+            args.flow.sync.event('Ready Gate opened', {
               attributes: { collections: collections.size },
             }),
           ),

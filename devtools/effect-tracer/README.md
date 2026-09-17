@@ -2,9 +2,9 @@
 
 Effect tracing tools for in-process recording and OTLP export.
 
-Capture Effect spans and logs inside your own process, model correlated work as
-flows, and export telemetry over OTLP/HTTP — without pulling in a telemetry
-server.
+Capture Effect spans and logs inside your own process and export telemetry
+over OTLP/HTTP — without pulling in a telemetry server. Flows live in
+[`@pkishorez/flow`](../flow/README.md).
 
 ```sh
 npm install @pkishorez/effect-tracer
@@ -25,21 +25,10 @@ const recorder = makeTraceRecorder({ maxSpans: 2000 });
 await Effect.runPromise(recorder.instrument(program));
 
 recorder.snapshot(); // every captured span and log
-recorder.snapshotFlows(); // captured work grouped by flow
 ```
 
 Options: `maxSpans` (default `2000`), the `onSpanEnd` / `onLog` / `onTruncated`
 streaming callbacks, and `formatValue`.
-
-## `@pkishorez/effect-tracer/flow`
-
-Model correlated work across participants. Flow events are emitted as OTel span
-attributes under `flow.*` and `flowattr.*`, so any OTLP backend carries them,
-and `projectFlow` turns recorded spans and logs back into a `RecordedFlow`
-swim-lane shape.
-
-Exports `initFlow`, `Activation`, `projectFlow`, `flowAttributes`,
-`flowAttributePrefix`, and `RecordedFlowSchema`.
 
 ## `@pkishorez/effect-tracer/telemetry`
 

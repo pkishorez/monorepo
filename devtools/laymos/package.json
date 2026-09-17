@@ -65,6 +65,7 @@
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
     "@pkishorez/effect-tracer": "workspace:*",
+    "@pkishorez/flow": "workspace:*",
     "oxc-parser": "catalog:",
     "oxc-resolver": "catalog:",
     "tsx": "catalog:",
