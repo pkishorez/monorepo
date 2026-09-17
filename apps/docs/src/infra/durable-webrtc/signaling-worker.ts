@@ -6,11 +6,18 @@ const requestOrigin = (request: Request) => {
   return origin;
 };
 
+const authWorkerUrl = (request: Request) => {
+  const origin = requestOrigin(request);
+  return new URL(origin).hostname.endsWith('.kishore.computer')
+    ? origin
+    : 'https://auth.kishore.app';
+};
+
 export default class SignalingWorker extends DurableSignalingWorker<SignalingWorker>()(
   'DurableSignalingWorker',
   {
     main: import.meta.filename,
-    authWorkerUrl: requestOrigin,
+    authWorkerUrl,
     trustedOrigins: (request) => [requestOrigin(request)],
     workersDev: false,
   },

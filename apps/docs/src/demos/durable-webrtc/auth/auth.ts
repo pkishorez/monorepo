@@ -2,5 +2,7 @@ import { createAuthClient } from 'auth-toolkit/client';
 
 export const authClient = createAuthClient({
   baseURL:
-    typeof window === 'undefined' ? 'http://localhost' : window.location.origin,
+    import.meta.env.DEV && typeof window !== 'undefined'
+      ? window.location.origin
+      : 'https://auth.kishore.app',
 });

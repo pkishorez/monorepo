@@ -51,7 +51,9 @@ export const Website = Cloudflare.Website.Vite(
       dev: devConfigFor(isLocal),
       domain: domainFor(stage),
       env: {
-        DURABLE_WEBRTC_AUTH: durableWebRtc.auth,
+        ...('auth' in durableWebRtc
+          ? { DURABLE_WEBRTC_AUTH: durableWebRtc.auth }
+          : {}),
         DURABLE_WEBRTC_SIGNALING: durableWebRtc.signaling,
         VITE_BANK_SQLITE_DO_URL: urlOf('SqliteDO', sqliteDo),
         VITE_BANK_DYNAMO_DO_URL: urlOf('DynamoDO', dynamoDo),
