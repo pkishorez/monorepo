@@ -290,6 +290,8 @@ const monoverseRoute = createRoute({
 const laymosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/laymos',
+  validateSearch: (search: Record<string, unknown>): { project?: string } =>
+    typeof search.project === 'string' ? { project: search.project } : {},
   component: Laymos,
 });
 const routeTree = rootRoute.addChildren([

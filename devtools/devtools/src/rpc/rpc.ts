@@ -17,6 +17,7 @@ import {
   FileDiffSchema,
 } from 'laymos/change-set-schema';
 import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
+import { ProjectRegistryRpc } from './project-registry.js';
 
 export class InvalidProjectPath extends Schema.TaggedError<InvalidProjectPath>(
   'InvalidProjectPath',
@@ -219,4 +220,5 @@ export const DevtoolsToolRpc = RpcGroup.make(
 
 export const DevtoolsRpc = LotelRpc.merge(FlowRpc)
   .merge(DevtoolsToolRpc)
-  .merge(MonoverseRpc);
+  .merge(MonoverseRpc)
+  .merge(ProjectRegistryRpc);

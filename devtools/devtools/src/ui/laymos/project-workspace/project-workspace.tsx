@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Cause, Effect, Stream } from 'effect';
 import type { StoryReport } from 'laymos';
 import { useRunEffect } from 'use-effect-ts';
@@ -39,10 +39,13 @@ export function LaymosProjectWorkspace({
   projectPath,
   reloadNonce = 0,
   className,
+  renderAnalysisError,
 }: {
   projectPath: string;
   reloadNonce?: number;
   className?: string;
+  /** Replaces the default analysis error view; return null to keep it. */
+  renderAnalysisError?: (error: unknown) => ReactNode | null;
 }) {
   const runtime = useDevtoolsRuntime();
   const storyRun = useStoryRun(runtime, projectPath);
@@ -69,6 +72,8 @@ export function LaymosProjectWorkspace({
       ),
   });
   const [baseRef, setBaseRef] = useState('HEAD');
+  // A Base ref chosen on one Worktree rarely means the same on another.
+  useEffect(() => setBaseRef('HEAD'), [projectPath]);
   const changesQuery = useQuery({
     queryKey: ['devtools-changes', 'laymos', projectPath, baseRef],
     retry: false,
@@ -110,6 +115,8 @@ export function LaymosProjectWorkspace({
   }, [changesQuery.error]);
 
   if (query.error) {
+    const custom = renderAnalysisError?.(query.error);
+    if (custom) return <>{custom}</>;
     return (
       <AnalysisMessage
         title="Could not analyze project"

@@ -11,6 +11,10 @@ import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
 import { DevtoolsRpc } from '../../rpc/index.js';
 import { FlowRpcLive, sqliteFlowStoreLayer } from '../flow-store/index.js';
 import { DevtoolsHandlersLive, MonoverseHandlersLive } from '../handlers.js';
+import {
+  ProjectRegistryRpcLive,
+  sqliteProjectRegistryLayer,
+} from '../project-registry/index.js';
 import { makeBrowserApplicationLive } from './browser-application.js';
 import { makeRequestAccessLive } from './request-access.js';
 
@@ -45,9 +49,11 @@ export function makeLocalDevtoolsServer(options: Options) {
           makeRequestAccessLive({ port: options.port, canonicalOrigin }),
         ),
       ).pipe(
-        // Lotel and Flow keep separate tables in the one DevTools database.
+        // Lotel, Flow, and the Project registry keep separate tables in the
+        // one DevTools database.
         Layer.provide(sqliteTelemetryStoreLayer({ path: options.db })),
         Layer.provide(sqliteFlowStoreLayer({ path: options.db })),
+        Layer.provide(sqliteProjectRegistryLayer({ path: options.db })),
         Layer.provide(
           NodeHttpServer.layer(createServer, {
             host: HOST,
@@ -72,6 +78,7 @@ function makeRpcRouteLive() {
         MonoverseHandlersLive,
         LotelRpcLive,
         FlowRpcLive,
+        ProjectRegistryRpcLive,
       ),
     ),
     Layer.provide(RpcSerialization.layerNdjson),
