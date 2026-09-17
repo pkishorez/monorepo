@@ -44,7 +44,7 @@ jobs:
         run: |
           case "$RESULT" in
             success)
-              host='alchemy.kishore.app'
+              host='console.kishore.app'
               if [ "$STAGE" != prod ]; then host="$STAGE-$host"; fi
               echo "$STAGE deployed: https://$host" >> "$GITHUB_STEP_SUMMARY"
               ;;
