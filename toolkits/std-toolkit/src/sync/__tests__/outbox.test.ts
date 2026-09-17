@@ -1,3 +1,4 @@
+import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
 import { FlowTelemetry, projectJournal } from '@pkishorez/flow';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
@@ -233,12 +234,15 @@ describe('outbox', () => {
   });
 
   it('narrates enqueue, flight, and leadership inside the collection flow', async () => {
+    const recorder = makeTraceRecorder();
     const sink = FlowTelemetry.makeMemory();
+    const instrument = <A, E>(effect: Effect.Effect<A, E, never>) =>
+      recorder.instrument(Effect.provideService(effect, FlowTelemetry, sink));
     const runtime = {
       runSync: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runSync(Effect.provideService(effect, FlowTelemetry, sink)),
+        Effect.runSync(instrument(effect)),
       runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runPromise(Effect.provideService(effect, FlowTelemetry, sink)),
+        Effect.runPromise(instrument(effect)),
     };
     const { inMemoryLeadership } =
       await import('../platform/leadership/in-memory/index.js');
@@ -262,7 +266,7 @@ describe('outbox', () => {
     const tx = todos.insert({ id: 'a', title: 'A', done: false });
     await vi.waitFor(() =>
       expect(
-        sink.journals()[0]?.entries.some((item) => item.name === 'Enqueue'),
+        recorder.snapshot().spans.some((span) => span.name === 'Enqueue'),
       ).toBe(true),
     );
     net.set(true);
@@ -277,20 +281,27 @@ describe('outbox', () => {
         .filter((item) => item.participantName === participant)
         .map((item) => item.name);
     expect(byParticipant('story/outbox')).toEqual(
-      expect.arrayContaining([
-        'Enqueue',
-        'Back online',
-        'Send Queue',
-        'Delivered',
-      ]),
+      expect.arrayContaining(['Back online', 'Send Queue', 'Delivered']),
     );
     expect(byParticipant('story/outbox/drainer')).toEqual(
-      expect.arrayContaining(['Leadership acquired', 'Request', 'Delivered']),
+      expect.arrayContaining(['Leadership acquired', 'Delivered']),
     );
     expect(byParticipant('story/todo')).toContain('Queue 1 entry');
-    const names = items.map((item) => item.name);
-    expect(names.indexOf('Queue 1 entry')).toBeLessThan(
-      names.indexOf('Enqueue'),
+    expect(recorder.snapshot().spans).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Enqueue',
+          attributes: expect.objectContaining({
+            'flow.participant.name': 'story/outbox',
+          }),
+        }),
+        expect.objectContaining({
+          name: 'Request',
+          attributes: expect.objectContaining({
+            'flow.participant.name': 'story/outbox/drainer',
+          }),
+        }),
+      ]),
     );
     expect(projectJournal(flows[0]!).warnings).toEqual([]);
   });

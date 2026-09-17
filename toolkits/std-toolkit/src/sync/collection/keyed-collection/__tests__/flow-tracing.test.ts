@@ -173,9 +173,9 @@ describe('collection flow tracing', () => {
     );
     await vi.waitFor(() =>
       expect(
-        sink
-          .journals()[0]
-          ?.entries.filter((item) => item.name === 'Write to Sync Replica'),
+        recorder
+          .snapshot()
+          .spans.filter((span) => span.name === 'Write to Sync Replica'),
       ).toHaveLength(2),
     );
     mounted.unloadSubset(subset);

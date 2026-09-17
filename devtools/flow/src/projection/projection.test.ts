@@ -69,4 +69,39 @@ describe('projectJournal', () => {
     });
     expect(failed.status).toBe('failed');
   });
+
+  it('preserves journal order when timestamps match', () => {
+    const projection = projectJournal({
+      flowId: 'f',
+      ordering: 'recorded',
+      entries: [
+        entry('activation-start', {
+          participantName: 'root',
+          activationId: 'root',
+          timestamp: 1,
+        }),
+        entry('activation-start', {
+          participantName: 'child',
+          activationId: 'child',
+          timestamp: 1,
+        }),
+        entry('activation-end', {
+          participantName: 'child',
+          activationId: 'child',
+          outcome: 'completed',
+          timestamp: 1,
+        }),
+        entry('wait', { participantName: 'root', timestamp: 1 }),
+        entry('wait', { participantName: 'child', timestamp: 1 }),
+        entry('resume', { participantName: 'child', timestamp: 1 }),
+      ],
+    });
+
+    expect(
+      projection.activations.map(({ participantName }) => participantName),
+    ).toEqual(['root', 'child']);
+    expect(
+      projection.waits.map(({ participantName }) => participantName),
+    ).toEqual(['root', 'child']);
+  });
 });

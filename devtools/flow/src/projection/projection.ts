@@ -94,6 +94,9 @@ interface OpenWait {
  * unanswered Wait is a state, never a Warning.
  */
 export const projectJournal = (journal: Journal): Projection => {
+  const entryOrder = new Map(
+    journal.entries.map((entry, index) => [entry.id, index]),
+  );
   const warnings: ProjectionWarning[] = [];
   const activations: ProjectedActivation[] = [];
   const waits: ProjectedWait[] = [];
@@ -252,8 +255,14 @@ export const projectJournal = (journal: Journal): Projection => {
     });
   }
 
-  activations.sort((left, right) => left.startTimestamp - right.startTimestamp);
-  waits.sort((left, right) => left.startTimestamp - right.startTimestamp);
+  activations.sort(
+    (left, right) =>
+      entryOrder.get(left.startItemId)! - entryOrder.get(right.startItemId)!,
+  );
+  waits.sort(
+    (left, right) =>
+      entryOrder.get(left.startItemId)! - entryOrder.get(right.startItemId)!,
+  );
 
   const active = activations.some((activation) => activation.outcome === null);
   const status = failed
