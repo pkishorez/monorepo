@@ -1,4 +1,4 @@
-import { Effect, Layer, Option, PubSub, Stream } from 'effect';
+import { Context, Effect, Layer, Option, PubSub, Stream } from 'effect';
 import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import {
   layerWebSocketProtocol,
@@ -59,24 +59,21 @@ export const connect = (
       url: url.toString(),
       serialization: RpcSerialization.layerJson,
     });
-    const runtime = yield* Effect.gen(function* () {
-      const client = yield* RpcClient.make(DurableSignalingRpcs);
-      const connection = yield* RpcConnection;
-      return { client, connection };
-    }).pipe(Effect.provide(protocol));
-
-    yield* runtime.connection.connectionStatus.pipe(
-      Stream.filter((status) => status === 'connected'),
-      Stream.runHead,
-      Effect.timeout('10 seconds'),
-      Effect.mapError(signalingError('open')),
-      Effect.flatMap(
-        Option.match({
-          onNone: () => Effect.fail(signalingError('open')('Connection ended')),
-          onSome: () => Effect.void,
-        }),
-      ),
+    const context = yield* Layer.build(protocol);
+    const client = yield* RpcClient.make(DurableSignalingRpcs).pipe(
+      Effect.provide(context),
     );
+    const runtime = {
+      client,
+      connection: Context.get(context, RpcConnection),
+    };
+
+    yield* runtime.client
+      .ListPeers()
+      .pipe(
+        Effect.timeout('10 seconds'),
+        Effect.mapError(signalingError('open')),
+      );
 
     const inbox = yield* PubSub.unbounded<IncomingNegotiation>();
     yield* Effect.addFinalizer(() => PubSub.shutdown(inbox));

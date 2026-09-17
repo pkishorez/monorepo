@@ -143,7 +143,8 @@ function AuthenticatedDemo({
         if (active) setRuntime(next);
         else void next.dispose();
       },
-      () => {
+      (error) => {
+        console.error('Failed to start durable WebRTC demo', error);
         if (active) setBootError('Couldn’t connect to the signaling server.');
       },
     );
