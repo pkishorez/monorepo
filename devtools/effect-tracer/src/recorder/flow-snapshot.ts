@@ -6,7 +6,11 @@ import {
   type FlowObservation,
   type RecordedFlowAttributeValue,
 } from '../flow/index.js';
-import { sequenceOrder, tracerAttributePrefix } from '../sequence/index.js';
+import {
+  readSequence,
+  sequenceOrder,
+  tracerAttributePrefix,
+} from '../sequence/index.js';
 import type {
   CapturedLog,
   CapturedSpan,
@@ -61,6 +65,11 @@ const displayAttributes = (
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 };
 
+const observationOrder = (value: unknown, fallback: string) => {
+  const order = readSequence(value);
+  return order === null ? fallback : `${sequenceOrder(order)}:${fallback}`;
+};
+
 const activityObservation = (
   span: CapturedSpan,
   flowId: string,
@@ -79,7 +88,7 @@ const activityObservation = (
       : {}),
     name: span.name,
     timestamp: span.startTime,
-    order,
+    order: observationOrder(span.attributes[flowAttributes.order], order),
     ...(attributes ? { attributes } : {}),
     ...(logs.length > 0 ? { logs } : {}),
     duration:
@@ -111,7 +120,7 @@ const eventObservation = (
       : {}),
     name: text(log.message) || 'Event',
     timestamp: log.timestamp,
-    order,
+    order: observationOrder(log.annotations[flowAttributes.order], order),
     ...(attributes ? { attributes } : {}),
     severity: severity(log.level),
     ...(typeof itemType === 'string' ? { itemType } : {}),
@@ -191,6 +200,13 @@ export const projectRecordedFlow = (
   if (observations.length === 0) return null;
 
   const projected = projectFlow({ id, latestTimestamp: 0, observations });
+  const parent = [...trace.spans, ...trace.logs]
+    .map((record) =>
+      'attributes' in record ? record.attributes : record.annotations,
+    )
+    .find((attributes) => attributes[flowAttributes.id] === id)?.[
+    flowAttributes.parentId
+  ];
   const latestTimestamp = Math.max(
     0,
     ...projected.items.map((item) =>
@@ -199,5 +215,9 @@ export const projectRecordedFlow = (
         : item.timestamp,
     ),
   );
-  return { ...projected, latestTimestamp };
+  return {
+    ...projected,
+    ...(typeof parent === 'string' ? { parentFlowId: parent } : {}),
+    latestTimestamp,
+  };
 };

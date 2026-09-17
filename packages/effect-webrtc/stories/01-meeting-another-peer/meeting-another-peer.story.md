@@ -1,0 +1,1 @@
+Alice and Bob do not need a server to carry their application data. Signaling introduces them, the WebRTC platform establishes a direct data channel, and `connect` completes when that session is ready. The Flow shows the offer, answer, and connection state from both sides.

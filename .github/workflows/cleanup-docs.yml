@@ -1,4 +1,4 @@
-name: Cleanup
+name: cleanup:docs
 
 on:
   workflow_call:
@@ -69,10 +69,9 @@ jobs:
       - name: Build
         run: pnpm --filter docs... run build
 
-      # Previews are only ever created by a deliberate dispatch, so most PRs
-      # close with no stage to destroy. Ask the state store first and skip
-      # quietly when there is nothing there; if the store cannot answer,
-      # attempt the destroy anyway rather than leave resources running.
+      # Ask the state store first and skip quietly when there is nothing to
+      # destroy; if the store cannot answer, attempt the destroy anyway rather
+      # than leave resources running.
       - name: Look for the stage
         id: lookup
         run: |

@@ -3,6 +3,7 @@ import * as Output from 'alchemy/Output';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import { Config, Effect } from 'effect';
 import { BankTable, DynamoDO, SqliteDO } from './bank/index.ts';
+import { DurableWebRtc } from './durable-webrtc/index.ts';
 import {
   assertStageIsSafe,
   devConfigFor,
@@ -43,12 +44,17 @@ export const Website = Cloudflare.Website.Vite(
 
     const sqliteDo = yield* SqliteDO;
     const dynamoDo = yield* DynamoDO;
+    const durableWebRtc = yield* DurableWebRtc;
 
     return {
       compatibility: { date: '2025-07-04', flags: ['nodejs_compat'] },
       dev: devConfigFor(isLocal),
       domain: domainFor(stage),
       env: {
+        ...('auth' in durableWebRtc
+          ? { DURABLE_WEBRTC_AUTH: durableWebRtc.auth }
+          : {}),
+        DURABLE_WEBRTC_SIGNALING: durableWebRtc.signaling,
         VITE_BANK_SQLITE_DO_URL: urlOf('SqliteDO', sqliteDo),
         VITE_BANK_DYNAMO_DO_URL: urlOf('DynamoDO', dynamoDo),
       },

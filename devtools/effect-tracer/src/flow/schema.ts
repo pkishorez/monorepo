@@ -1,5 +1,18 @@
 import { Schema } from 'effect';
 
+export const FlowMessageTokenSchema = Schema.Struct({
+  id: Schema.String,
+  from: Schema.String,
+  order: Schema.Number,
+  to: Schema.String,
+});
+
+export const FlowCarrierSchema = Schema.Struct({
+  flowId: Schema.String,
+  message: FlowMessageTokenSchema,
+  parentFlowId: Schema.optional(Schema.String),
+});
+
 export type RecordedFlowAttributeValue =
   | string
   | number
@@ -125,6 +138,7 @@ export const RecordedFlowWarningSchema = Schema.Struct({
 
 export const RecordedFlowSchema = Schema.Struct({
   id: Schema.String,
+  parentFlowId: Schema.optional(Schema.String),
   latestTimestamp: Schema.Number,
   items: Schema.Array(RecordedFlowItemSchema),
   activations: Schema.Array(RecordedFlowActivationSchema),
@@ -135,6 +149,8 @@ export const RecordedFlowSchema = Schema.Struct({
 });
 
 export type FlowActivityStatus = typeof FlowActivityStatusSchema.Type;
+export type MessageToken = typeof FlowMessageTokenSchema.Type;
+export type FlowCarrier = typeof FlowCarrierSchema.Type;
 export type RecordedFlowSeverity = typeof RecordedFlowSeveritySchema.Type;
 export type RecordedFlowActivityLog = typeof RecordedFlowActivityLogSchema.Type;
 export type RecordedFlowActivity = typeof RecordedFlowActivitySchema.Type;
