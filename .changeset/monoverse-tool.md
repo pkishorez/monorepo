@@ -1,5 +1,5 @@
 ---
-'@pkishorez/devtools': minor
+'kstack': minor
 'kui-toolkit': minor
 ---
 

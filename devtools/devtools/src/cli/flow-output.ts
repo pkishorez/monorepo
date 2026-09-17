@@ -1,110 +1,122 @@
-import type { RecordedFlowSchema } from '@pkishorez/lotel/flow';
+import type { Entry, Projection } from '@pkishorez/flow';
 import {
   formatAttributes,
   formatMillis,
   isoTime,
-  nanosToMillis,
   offsetColumn,
 } from './output.js';
 
-type RecordedFlow = typeof RecordedFlowSchema.Type;
-type RecordedFlowItem = RecordedFlow['items'][number];
-
-type StoredFlow = {
-  readonly value: {
-    readonly flowId: string;
-    readonly latestTimeUnixNano: string;
-  };
-};
-
-export type FlowListInput = { readonly items: ReadonlyArray<StoredFlow> };
-
-export type SimpleFlowEntry = {
+export type SimpleFlow = {
   readonly flowId: string;
+  readonly status: Projection['status'];
+  readonly participants: ReadonlyArray<string>;
+  readonly entries: number;
   readonly latestTime: string | null;
 };
 
-/** Reduces stored Flow Entities to their identity and latest activity. */
-export const simplifyFlowList = (list: FlowListInput) => ({
-  items: list.items.map((flow) => ({
-    flowId: flow.value.flowId,
-    latestTime: isoTime(nanosToMillis(flow.value.latestTimeUnixNano)),
-  })),
+/** Reduces Projections to their identity, status, and latest activity. */
+export const simplifyFlowList = (
+  projections: ReadonlyArray<Projection>,
+  limit?: number,
+) => ({
+  items: [...projections]
+    .sort((left, right) => right.latestTimestamp - left.latestTimestamp)
+    .slice(0, limit)
+    .map((projection) => ({
+      flowId: projection.id,
+      status: projection.status,
+      participants: projection.participants,
+      entries: projection.items.length,
+      latestTime: isoTime(projection.latestTimestamp),
+    })),
 });
 
 export const renderFlowListText = (list: {
-  readonly items: ReadonlyArray<SimpleFlowEntry>;
+  readonly items: ReadonlyArray<SimpleFlow>;
 }) =>
   list.items.length === 0
     ? 'No Flows stored.'
     : list.items
-        .map((flow) => `${flow.flowId}  latest ${flow.latestTime ?? '?'}`)
+        .map(
+          (flow) =>
+            `${flow.flowId}  [${flow.status}]  ${flow.entries} entries  latest ${flow.latestTime ?? '?'}  ${flow.participants.join(', ')}`,
+        )
         .join('\n');
 
-const itemLine = (item: RecordedFlowItem, start: number) => {
-  const offset = offsetColumn(item.timestamp, start);
-  const attributes = item.attributes ? formatAttributes(item.attributes) : '';
-  const tail = attributes ? `  ${attributes}` : '';
-  switch (item.kind) {
-    case 'activity': {
-      const status =
-        item.status === 'running'
-          ? '[running]'
-          : `[${item.status} ${formatMillis(item.duration)}]`;
-      const logs = (item.logs ?? []).map(
-        (log) =>
-          `${offsetColumn(log.timestamp, start)}    · ${log.severity.toUpperCase()} ${log.message}${log.attributes ? `  ${formatAttributes(log.attributes)}` : ''}`,
-      );
-      return [
-        `${offset}${item.participantName} ▸ ${item.name} ${status}${tail}`,
-        ...logs,
-      ];
-    }
+const entryLine = (entry: Entry) => {
+  switch (entry.kind) {
+    case 'event':
+      return `• ${entry.severity} ${entry.name}`;
     case 'message': {
-      const reply = item.replyTo ? ` (reply to ${item.replyTo})` : '';
-      return [
-        `${offset}${item.participantName} → ${item.destination}: ${item.name}${reply}${tail}`,
-      ];
+      const reply = entry.replyTo ? ` (reply to ${entry.replyTo})` : '';
+      return `→ ${entry.destination}: ${entry.name}${reply}`;
     }
-    case 'local-event':
-      return [
-        `${offset}${item.participantName} • ${item.severity} ${item.name}${tail}`,
-      ];
     case 'activation-start':
-      return [
-        `${offset}${item.participantName} ⏵ activation start: ${item.name}${tail}`,
-      ];
+      return `⏵ activation start: ${entry.name}`;
     case 'activation-end':
-      return [
-        `${offset}${item.participantName} ⏹ activation end (${item.outcome}): ${item.name}${tail}`,
-      ];
+      return `⏹ activation end (${entry.outcome}): ${entry.name}`;
+    case 'wait':
+      return `⏸ wait: ${entry.name}`;
+    case 'resume':
+      return `⏯ resume: ${entry.name}`;
+    case 'check':
+      return `${entry.passed ? '✓' : '✗'} check: ${entry.name}`;
+    case 'close':
+      return `⏏ close: ${entry.name}`;
   }
 };
 
-/** Renders a Recorded Flow as one chronological line per Flow Item. */
-export const renderFlowText = (flow: RecordedFlow) => {
-  const participants = [
-    ...new Set(flow.items.map((item) => item.participantName)),
-  ];
-  const start = flow.items[0]?.timestamp ?? flow.latestTimestamp;
+const itemLine = (entry: Entry, start: number) => {
+  const attributes = entry.attributes ? formatAttributes(entry.attributes) : '';
+  const tail = attributes ? `  ${attributes}` : '';
+  return `${offsetColumn(entry.timestamp, start)}${entry.participantName} ${entryLine(entry)}${tail}`;
+};
+
+const activationLine = (
+  activation: Projection['activations'][number],
+  start: number,
+) => {
+  const duration =
+    activation.endTimestamp === null
+      ? '[running]'
+      : `[${activation.outcome ?? 'unknown'} ${formatMillis(activation.endTimestamp - activation.startTimestamp)}]`;
+  return `${offsetColumn(activation.startTimestamp, start)}${activation.participantName} ▸ ${activation.name} ${duration}`;
+};
+
+/** Renders a Flow Projection as one chronological line per Entry. */
+export const renderFlowText = (projection: Projection) => {
+  const start = projection.items[0]?.timestamp ?? projection.latestTimestamp;
   const lines = [
-    `Flow ${flow.id}${flow.parentFlowId ? ` (parent ${flow.parentFlowId})` : ''}`,
+    `Flow ${projection.id} (${projection.ordering} order)`,
     [
-      `participants ${participants.join(', ') || '(none)'}`,
-      `${flow.items.length} items`,
-      `${flow.activations.length} activations`,
-      `latest ${isoTime(flow.latestTimestamp) ?? '?'}`,
+      `participants ${projection.participants.join(', ') || '(none)'}`,
+      `${projection.items.length} entries`,
+      `${projection.activations.length} activations`,
+      `${projection.waits.length} waits`,
+      `status ${projection.status}`,
+      `latest ${isoTime(projection.latestTimestamp) ?? '?'}`,
     ].join(' · '),
     '',
-    ...flow.items.flatMap((item) => itemLine(item, start)),
+    ...projection.items.map((entry) => itemLine(entry, start)),
   ];
-  if (flow.warnings.length > 0) {
-    lines.push('', 'Warnings:');
-    for (const warning of flow.warnings) {
-      lines.push(
-        `  - ${warning.recordType} ${warning.recordId}: ${warning.message}`,
-      );
-    }
+  if (projection.activations.length > 0) {
+    lines.push(
+      '',
+      'Activations:',
+      ...projection.activations.map(
+        (activation) => `  ${activationLine(activation, start)}`,
+      ),
+    );
+  }
+  if (projection.warnings.length > 0) {
+    lines.push(
+      '',
+      'Warnings:',
+      ...projection.warnings.map(
+        (warning) =>
+          `  - ${warning.kind} ${warning.itemId}: ${warning.message}`,
+      ),
+    );
   }
   return lines.join('\n');
 };
