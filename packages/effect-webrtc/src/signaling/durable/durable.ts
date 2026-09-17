@@ -29,10 +29,8 @@ export interface DurableSignalingOptions {
 
 export interface DurableSignaling {
   readonly peerId: PeerId;
-  readonly listPeers: Effect.Effect<
-    ReadonlyArray<PeerDescriptor>,
-    SignalingError
-  >;
+  readonly debugInstanceValue: Effect.Effect<number, SignalingError>;
+  readonly peers: Stream.Stream<ReadonlyArray<PeerDescriptor>, SignalingError>;
   readonly waitForPeer: (
     peerId: PeerId,
   ) => Effect.Effect<PeerDescriptor, SignalingError>;
@@ -68,12 +66,15 @@ export const connect = (
       connection: Context.get(context, RpcConnection),
     };
 
-    yield* runtime.client
-      .ListPeers()
-      .pipe(
-        Effect.timeout('10 seconds'),
-        Effect.mapError(signalingError('open')),
-      );
+    const peers = runtime.connection
+      .keepSubscribed(() => runtime.client.SubscribePeers())
+      .pipe(Stream.mapError(signalingError('receive')));
+
+    yield* peers.pipe(
+      Stream.runHead,
+      Effect.timeout('10 seconds'),
+      Effect.mapError(signalingError('open')),
+    );
 
     const inbox = yield* PubSub.unbounded<IncomingNegotiation>();
     yield* Effect.addFinalizer(() => PubSub.shutdown(inbox));
@@ -132,9 +133,10 @@ export const connect = (
 
     return {
       peerId: options.peerId,
-      listPeers: runtime.client
-        .ListPeers()
+      debugInstanceValue: runtime.client
+        .DebugInstanceValue()
         .pipe(Effect.mapError(signalingError('receive'))),
+      peers,
       waitForPeer,
       signalingLayer,
     };

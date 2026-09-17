@@ -13,6 +13,10 @@ import {
 } from '../../runtime/index.ts';
 import { EffectWebRtcDemo, PeerSetup } from '../../ui/index.ts';
 
+const chatNameKey = 'effect-webrtc-chat-name';
+const validChatName = (value: string | null): value is string =>
+  value !== null && /^[a-z0-9_-]{1,64}$/.test(value);
+
 function LiveConversation({
   runtime,
 }: {
@@ -71,9 +75,19 @@ const Loading = () => (
 );
 
 export function EffectWebRtcPage() {
-  const [boot, setBoot] = useState<Promise<ConversationRuntime> | null>(null);
+  const [boot, setBoot] = useState<Promise<ConversationRuntime> | null>(() => {
+    const saved = localStorage.getItem(chatNameKey);
+    return validChatName(saved) ? bootConversation(saved) : null;
+  });
   if (boot === null)
-    return <PeerSetup onSetup={(id) => setBoot(bootConversation(id))} />;
+    return (
+      <PeerSetup
+        onSetup={(id) => {
+          localStorage.setItem(chatNameKey, id);
+          setBoot(bootConversation(id));
+        }}
+      />
+    );
   return (
     <Suspense fallback={<Loading />}>
       <BootedConversation boot={boot} />

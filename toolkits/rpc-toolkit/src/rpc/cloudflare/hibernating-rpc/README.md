@@ -46,7 +46,7 @@ This package gives that recovery back, on the server, invisibly.
 ## The mental model
 
 Your object keeps dying and waking up. On wake it has an open socket and knows nothing.
-Two sticky notes survive on each socket:
+Two kinds of sticky notes can survive on each socket:
 
 |                      | question it answers | written by                       | changes?   |
 | -------------------- | ------------------- | -------------------------------- | ---------- |
@@ -58,8 +58,8 @@ socket map — is internal and never surfaces.
 
 **Three rules:**
 
-1. A streaming handler is **re-run from the top** every time the object wakes. It is not
-   resumed. Read the checkpoint first and continue from it.
+1. Every streaming handler is **re-run from the top** when the object wakes. If it has
+   resumable progress, read its checkpoint first and continue from it.
 2. Sticky notes are **tiny** — Cloudflare gives ~2 KB per socket, shared by the connection
    value _and_ every in-flight stream on that socket. Store a cursor, never a payload.
 3. `StreamCheckpoint` exists **only inside streaming RPC handlers**. Anywhere else it dies.
@@ -388,9 +388,6 @@ single wake. If the object dies mid-request the client's promise never settles.
 
 **`webSocketError` is not handled.** Only `fetch`, `webSocketMessage`, and `webSocketClose`
 are wired.
-
-**`close` does not wait for wake-up replay.** A disconnect arriving while persisted streams
-are being restored can race the replay.
 
 **Beta surface.** Built on `effect/unstable/rpc`. The peer range will need bumping as the
 beta moves.

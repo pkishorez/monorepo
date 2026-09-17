@@ -13,18 +13,11 @@ const demos = [
     to: '/demos/ai-toolkit',
   },
   {
-    name: 'durable-webrtc',
-    title: 'Durable WebRTC',
+    name: 'webrtc',
+    title: 'WebRTC Chat',
     description:
-      'Sign in, discover your active devices through a Durable Object, then chat directly over WebRTC.',
-    to: '/demos/durable-webrtc',
-  },
-  {
-    name: 'effect-webrtc',
-    title: 'Effect WebRTC',
-    description:
-      'Find Peers through Nostr relays, then exchange messages over real WebRTC Data Channels.',
-    to: '/demos/effect-webrtc',
+      'Chat directly over WebRTC, using Nostr or your signed-in devices to find each other.',
+    to: '/demos/webrtc',
   },
 ] as const;
 

@@ -1,1 +1,1 @@
-export { DurableChat, PeerProfile } from './ui.tsx';
+export { DurableChat, PeerProfile, TransportSwitch } from './ui.tsx';

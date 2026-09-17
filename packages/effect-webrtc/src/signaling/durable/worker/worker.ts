@@ -152,8 +152,9 @@ const comparePeers = (left: PeerDescriptor, right: PeerDescriptor) =>
 
 export const durableSignalingHandlers = Effect.gen(function* () {
   const entries = yield* Ref.make(new Map<string, Entry>());
-  const changes = yield* PubSub.unbounded<void>();
+  const changes = yield* PubSub.unbounded<void>({ replay: 1 });
   const waits = yield* Ref.make(new Map<string, number>());
+  let debugInstanceValue = 0;
 
   const keyOf = ({ userId, peerId }: DurableConnection) =>
     `${userId}\u0000${peerId}`;
@@ -204,7 +205,17 @@ export const durableSignalingHandlers = Effect.gen(function* () {
     );
 
   return DurableSignalingRpcs.toLayer({
-    ListPeers: () => Effect.flatMap(ConnectionContext, list),
+    DebugInstanceValue: () => Effect.sync(() => debugInstanceValue++),
+    SubscribePeers: () =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const self = yield* ConnectionContext;
+          return Stream.concat(
+            Stream.make(undefined),
+            Stream.fromPubSub(changes),
+          ).pipe(Stream.mapEffect(() => list(self)));
+        }),
+      ),
     WaitForPeer: ({ peerId }) =>
       Stream.unwrap(
         Effect.gen(function* () {

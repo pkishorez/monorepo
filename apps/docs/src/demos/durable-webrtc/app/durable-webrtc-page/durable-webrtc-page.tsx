@@ -5,19 +5,18 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
-import {
-  generatePeerId,
-  PeerId,
-  type PeerId as PeerIdentifier,
-} from 'effect-webrtc';
+import { generatePeerId, type PeerId as PeerIdentifier } from 'effect-webrtc';
 import type { PeerMode } from 'effect-webrtc/signaling/durable';
+import { useTheme } from 'fumadocs-ui/provider/base';
+import { DevToolsPanel } from 'kui-toolkit/components/blocks/devtools-panel';
+import { GoogleButton } from 'kui-toolkit/components/ui/google-button';
 import { LoaderCircle } from 'lucide-react';
 import { authClient } from '../../auth/index.ts';
 import {
   bootDurableConversation,
   type DurableConversationRuntime,
 } from '../../runtime/index.ts';
-import { DurableChat, PeerProfile } from '../../ui/index.ts';
+import { DurableChat, PeerProfile, TransportSwitch } from '../../ui/index.ts';
 
 function CenteredCard({ children }: { readonly children: ReactNode }) {
   return (
@@ -29,7 +28,22 @@ function CenteredCard({ children }: { readonly children: ReactNode }) {
   );
 }
 
+interface DeviceProfile {
+  readonly name: string;
+  readonly mode: PeerMode;
+  readonly peerId: PeerIdentifier;
+}
+
+const deviceNameKey = (userId: string) =>
+  `durable-webrtc-device-name:${userId}`;
+
+const storedDeviceName = (userId: string): string => {
+  const name = localStorage.getItem(deviceNameKey(userId)) ?? '';
+  return name.trim().length > 0 && name.length <= 80 ? name : '';
+};
+
 function SignIn() {
+  const { resolvedTheme } = useTheme();
   const loginError = authClient.useLoginError();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,23 +66,25 @@ function SignIn() {
 
   return (
     <CenteredCard>
-      <p className="text-sm font-medium text-muted-foreground">WebRTC demo</p>
-      <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+      <TransportSwitch transport="durable" />
+      <p className="mt-6 text-sm font-medium text-muted-foreground">
+        WebRTC demo
+      </p>
+      <h1 className="mt-1 text-2xl font-semibold tracking-tight">
         Chat between your devices
       </h1>
       <p className="mt-3 text-sm leading-6 text-muted-foreground">
         Sign in to discover only your active peers. Signaling uses a dedicated
         Durable Object; messages travel peer to peer.
       </p>
-      <button
-        type="button"
-        onClick={() => void signIn()}
-        disabled={pending}
-        aria-busy={pending || undefined}
-        className="mt-6 flex h-11 w-full items-center justify-center rounded-xl border bg-background text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
-      >
-        {pending ? 'Opening Google…' : 'Continue with Google'}
-      </button>
+      <div className="mt-6 w-fit">
+        <GoogleButton
+          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          onClick={() => void signIn()}
+          disabled={pending}
+          aria-busy={pending || undefined}
+        />
+      </div>
       {(error ?? loginError.error?.description) ? (
         <p role="alert" className="mt-3 text-sm text-destructive">
           {error ?? loginError.error?.description}
@@ -87,6 +103,7 @@ function LiveConversation({
   readonly name: string;
   readonly onSignOut: () => void;
 }) {
+  const [flows, setFlows] = useState(false);
   const mounted = useRef(false);
   const snapshot = useSyncExternalStore(
     runtime.subscribe,
@@ -105,15 +122,25 @@ function LiveConversation({
   }, [runtime]);
 
   return (
-    <DurableChat
-      snapshot={snapshot}
-      localName={name}
-      onConnect={runtime.connect}
-      onDisconnect={runtime.disconnect}
-      onSend={runtime.send}
-      onRefresh={runtime.refreshPeers}
-      onSignOut={onSignOut}
-    />
+    <>
+      <DurableChat
+        snapshot={snapshot}
+        localName={name}
+        onConnect={runtime.connect}
+        onDisconnect={runtime.disconnect}
+        onSend={runtime.send}
+        onSignOut={onSignOut}
+        onFlows={() => setFlows(true)}
+        onProbeInstance={runtime.probeInstance}
+      />
+      <DevToolsPanel
+        runtime={runtime.runtime}
+        recorder={runtime.recorder}
+        filters={['flows']}
+        open={flows}
+        onClose={() => setFlows(false)}
+      />
+    </>
   );
 }
 
@@ -124,11 +151,7 @@ function AuthenticatedDemo({
   readonly userId: string;
   readonly accountName: string;
 }) {
-  const [profile, setProfile] = useState<{
-    readonly name: string;
-    readonly mode: PeerMode;
-    readonly peerId: PeerIdentifier;
-  } | null>(null);
+  const [profile, setProfile] = useState<DeviceProfile | null>(null);
   const [runtime, setRuntime] = useState<DurableConversationRuntime | null>(
     null,
   );
@@ -159,14 +182,11 @@ function AuthenticatedDemo({
     return (
       <PeerProfile
         accountName={accountName}
+        initialName={storedDeviceName(userId)}
         onSignOut={signOut}
         onJoin={(name, mode) => {
-          const key = `durable-webrtc-peer:${userId}`;
-          const existing = sessionStorage.getItem(key);
-          const peerId =
-            existing === null ? generatePeerId() : PeerId.make(existing);
-          sessionStorage.setItem(key, peerId);
-          setProfile({ name, mode, peerId });
+          localStorage.setItem(deviceNameKey(userId), name);
+          setProfile({ name, mode, peerId: generatePeerId() });
         }}
       />
     );

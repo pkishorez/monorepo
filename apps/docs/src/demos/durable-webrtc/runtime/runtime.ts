@@ -1,4 +1,4 @@
-import { Effect } from 'effect';
+import { Effect, Fiber, Stream } from 'effect';
 import type { PeerId } from 'effect-webrtc';
 import {
   DurableSignaling,
@@ -22,7 +22,7 @@ export interface DurableConversationRuntime extends Omit<
   'getSnapshot'
 > {
   readonly getSnapshot: () => DurableDemoSnapshot;
-  readonly refreshPeers: () => void;
+  readonly probeInstance: () => Promise<number>;
 }
 
 export interface DurableConversationOptions {
@@ -83,24 +83,23 @@ export const bootDurableConversation = async ({
     listeners.forEach((listener) => listener());
   };
   const unsubscribeConversation = conversation.subscribe(notify);
-
-  const refreshPeers = () => {
-    directory = 'loading';
-    notify();
-    void Effect.runPromise(connection.listPeers).then(
-      (next) => {
-        peers = next;
-        directory = 'ready';
-        notify();
-      },
-      () => {
-        directory = 'error';
-        notify();
-      },
-    );
-  };
-
-  refreshPeers();
+  const peerSubscription = Effect.runFork(
+    connection.peers.pipe(
+      Stream.runForEach((next) =>
+        Effect.sync(() => {
+          peers = next;
+          directory = 'ready';
+          notify();
+        }),
+      ),
+      Effect.catch(() =>
+        Effect.sync(() => {
+          directory = 'error';
+          notify();
+        }),
+      ),
+    ),
+  );
 
   return {
     ...conversation,
@@ -109,13 +108,10 @@ export const bootDurableConversation = async ({
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    connect: (remoteId) => {
-      conversation.connect(remoteId);
-      refreshPeers();
-    },
-    refreshPeers,
+    probeInstance: () => Effect.runPromise(connection.debugInstanceValue),
     dispose: async () => {
       unsubscribeConversation();
+      await Effect.runPromise(Fiber.interrupt(peerSubscription));
       await conversation.dispose();
     },
   };

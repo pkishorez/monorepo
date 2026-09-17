@@ -210,14 +210,24 @@ export const makeHibernatingWebSocketRpc = Effect.fnUntraced(function* <
       return effect;
     }
 
+    if (Option.isNone(findHandler(attachment, request.id))) {
+      saveAttachment(
+        socket,
+        putHandler(attachment, new PersistedHandler({ request })),
+      );
+    }
+
     return Effect.provideService(
       effect,
       CheckpointStorage,
       makeStreamCheckpoint({
         get: () =>
-          Option.map(
+          Option.flatMap(
             findHandler(readAttachment(socket), request.id),
-            ({ state }) => state,
+            (handler) =>
+              Object.hasOwn(handler, 'state')
+                ? Option.some(handler.state)
+                : Option.none(),
           ),
         put: (state) =>
           saveAttachment(
@@ -353,6 +363,7 @@ export const makeHibernatingWebSocketRpc = Effect.fnUntraced(function* <
       }),
     close: (socket: HibernatingSocket, code: number, reason: string) =>
       Effect.gen(function* () {
+        yield* Effect.promise(() => restored);
         const attachment = readAttachment(socket);
         sockets.delete(attachment.clientId);
         yield* Queue.offer(disconnects, attachment.clientId);

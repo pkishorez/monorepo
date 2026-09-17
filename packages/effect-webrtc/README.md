@@ -42,6 +42,7 @@ export default class SignalingWorker extends DurableSignalingWorker<SignalingWor
 Then open one signaling connection for one local peer and provide its layer to `WebRtc.make`:
 
 ```ts
+import { Effect, Stream } from 'effect';
 import { DurableSignaling } from 'effect-webrtc/signaling/durable';
 
 const durable =
@@ -59,8 +60,11 @@ const peer =
     Effect.provide(durable.signalingLayer),
   );
 
-const peers = yield * durable.listPeers;
-yield * peer.connect({ id: peers[0]!.peerId });
+yield *
+  durable.peers.pipe(
+    Stream.runForEach((peers) => Effect.log('Active peers', peers)),
+  );
 ```
 
 `Connectable` peers accept new offers. `Private` peers appear in the same user's directory and may initiate connections, but silently ignore new inbound offers. Peers belonging to different authenticated users are never visible or routable.
+The `peers` stream emits the current directory immediately and again whenever one of that user's connections joins or leaves.
