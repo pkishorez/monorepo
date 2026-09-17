@@ -11,8 +11,8 @@ The umbrella through which developers access all local development tools.
 _Avoid_: Tool suite, admin panel.
 
 **Tool**:
-A self-contained developer capability presented through DevTools. Lotel and
-Laymos are Tools.
+A self-contained developer capability presented through DevTools. Lotel, Flow,
+and Laymos are Tools.
 
 **Tool Scope**:
 Whether a Tool works with repository-wide information or information from one
@@ -32,6 +32,15 @@ _Avoid_: Architecture Tool.
 The DevTools Tool and domain for receiving and inspecting local OpenTelemetry
 data. See the [Lotel context](../lotel/CONTEXT.md).
 _Avoid_: Telemetry Tool, OTel Tool.
+
+**Flow**:
+The DevTools Tool for receiving Flow Entries and inspecting Journals as swim
+lanes. See the [Flow context](../flow/CONTEXT.md).
+_Avoid_: Flows tab, Swim lane Tool.
+
+**Flow Store**:
+The DevTools persistence of Flow Entries. It shares the one DevTools database
+with Lotel's Telemetry Store but keeps its own table.
 
 **DevTools URL**:
 The canonical `127.0.0.1` loopback address through which a developer or

@@ -1,8 +1,10 @@
 import {
-  initFlow,
+  Flow,
   type ActivationRef,
+  type EntryOptions,
   type MessageToken,
-} from '@pkishorez/effect-tracer/flow';
+  type Participant,
+} from '@pkishorez/flow';
 import { Effect } from 'effect';
 import {
   partitionSyncAddress,
@@ -12,13 +14,11 @@ import {
 
 export type ActivationOutcome = Parameters<ActivationRef['end']>[0];
 
-type FlowLogOptions = {
-  readonly attributes?: Readonly<Record<string, unknown>>;
-  readonly level?: 'debug' | 'error' | 'info' | 'warning';
-};
+export type FlowEntryOptions = EntryOptions;
 
+/** What a Strategy or a narrator may record: Events and named spans. */
 export type StrategyFlow = {
-  log: (message: unknown, options?: FlowLogOptions) => Effect.Effect<void>;
+  event: (name: string, options?: FlowEntryOptions) => Effect.Effect<void>;
   withSpan: (
     name: string,
     options?: {
@@ -27,21 +27,24 @@ export type StrategyFlow = {
   ) => <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
 };
 
+/** One Sync lane: a Flow Participant plus a span helper that names the lane. */
 export type FlowParticipant = StrategyFlow & {
   readonly name: string;
   send: (
     participantName: string,
-    message: unknown,
-    options?: FlowLogOptions,
+    name: string,
+    options?: FlowEntryOptions,
   ) => Effect.Effect<MessageToken>;
   reply: (
     token: MessageToken,
-    message: unknown,
-    options?: FlowLogOptions,
+    name: string,
+    options?: FlowEntryOptions,
   ) => Effect.Effect<void>;
-  observe: (token: MessageToken) => void;
   activation: {
-    start: (name?: unknown) => Effect.Effect<ActivationRef>;
+    start: (
+      name: string,
+      options?: FlowEntryOptions,
+    ) => Effect.Effect<ActivationRef>;
   };
   activated: (
     name: string,
@@ -68,7 +71,7 @@ export type FlowPlacement = {
 
 // One Flow per Std Sync: the sync is the root participant, every collection
 // hangs under it, and one Drainer serves them all.
-export type FlowLane = ReturnType<typeof initFlow>;
+export type FlowLane = Participant;
 
 export type SyncFlow = {
   readonly id: string;
@@ -81,30 +84,28 @@ export type SyncFlow = {
   participant: (name: string) => FlowLane;
 };
 
-const participant = (id: string, name: string): FlowParticipant => {
-  const flow = initFlow({ id, participantName: name });
-  return {
-    name,
-    activated: (activationName) => flow.activated({ name: activationName }),
-    activation: { start: flow.activation.start },
-    log: flow.log,
-    observe: flow.observe,
-    reply: flow.reply,
-    send: flow.send,
-    withSpan: flow.withSpan,
-  };
-};
+const participant = (lane: Participant): FlowParticipant => ({
+  name: lane.name,
+  activated: (activationName) => lane.activated(activationName),
+  activation: { start: lane.activation.start },
+  event: lane.event,
+  reply: lane.reply,
+  send: lane.send,
+  // Spans stay ordinary tracing; they only carry the lane so Lotel can name it.
+  withSpan: (name, options) =>
+    Effect.withSpan(name, {
+      attributes: {
+        ...options?.attributes,
+        'flow.id': lane.flowId,
+        'flow.participant.name': lane.name,
+      },
+    }),
+});
 
 export const makeSyncFlow = (placement: FlowPlacement): SyncFlow => {
   const { id, participantPrefix: root } = placement;
-  const participants = new Map<string, FlowParticipant>();
-  const get = (name: string) => {
-    const existing = participants.get(name);
-    if (existing) return existing;
-    const created = participant(id, name);
-    participants.set(name, created);
-    return created;
-  };
+  const flow = Flow.make({ id });
+  const get = (name: string) => participant(flow.participant(name));
   // One Outbox and one Drainer per Std Sync; collections and actions only
   // message them.
   const outbox = get(`${root}/outbox`);
@@ -114,14 +115,14 @@ export const makeSyncFlow = (placement: FlowPlacement): SyncFlow => {
     const existing = lanes.get(base);
     if (existing) return existing;
     const collection = get(base);
-    const flow: CollectionFlow = {
+    const collectionFlow: CollectionFlow = {
       id,
       collection,
       participant: (name) => get(`${base}/${name}`),
       outbox: { collection, outbox, drainer },
     };
-    lanes.set(base, flow);
-    return flow;
+    lanes.set(base, collectionFlow);
+    return collectionFlow;
   };
 
   return {
@@ -129,7 +130,7 @@ export const makeSyncFlow = (placement: FlowPlacement): SyncFlow => {
     sync: get(root),
     outbox,
     drainer,
-    participant: (name) => initFlow({ id, participantName: `${root}/${name}` }),
+    participant: (name) => flow.participant(`${root}/${name}`),
     collection: (localName) => lane(`${root}/${localName}`),
     action: (name) => lane(`${root}/actions/${name}`),
   };

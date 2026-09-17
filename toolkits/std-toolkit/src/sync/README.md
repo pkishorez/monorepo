@@ -250,7 +250,7 @@ run: (ctx) =>
   api.fetchPage().pipe(
     ctx.flow.withSpan('Fetch page'),
     Effect.tap((page) =>
-      ctx.flow.log('Page fetched', {
+      ctx.flow.event('Page fetched', {
         attributes: { entityCount: page.length },
       }),
     ),

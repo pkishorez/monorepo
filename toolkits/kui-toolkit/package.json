@@ -40,6 +40,7 @@
     "@emotion/is-prop-valid": "catalog:",
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
+    "@pkishorez/flow": "workspace:*",
     "@shadcn/react": "catalog:",
     "@shikijs/langs": "catalog:",
     "@shikijs/themes": "catalog:",
@@ -102,6 +103,7 @@
   },
   "peerDependencies": {
     "@pkishorez/effect-tracer": "workspace:^",
+    "@pkishorez/flow": "workspace:^",
     "@pkishorez/lotel": "workspace:^",
     "@tanstack/react-db": "^0.3.0",
     "@tanstack/react-query": "^5.101.4",
@@ -139,6 +141,9 @@
       "optional": true
     },
     "zustand": {
+      "optional": true
+    },
+    "@pkishorez/flow": {
       "optional": true
     }
   },

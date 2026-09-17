@@ -1,4 +1,5 @@
 import { ScanSearch, XIcon } from 'lucide-react';
+import type { ProjectionWarningKind } from '@pkishorez/flow';
 
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
@@ -7,53 +8,144 @@ import type { RecordedFlow } from '../flow-presentation';
 
 type RecordedFlowItem = RecordedFlow['items'][number];
 
-const kindStyles: Record<RecordedFlowItem['kind'], string> = {
-  activity: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
-  'activation-end': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  'activation-start': 'bg-primary/10 text-primary',
-  'local-event': 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  message: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-};
-
 const kindLabels: Record<RecordedFlowItem['kind'], string> = {
-  activity: 'activity',
-  'activation-end': 'activation end',
-  'activation-start': 'activation start',
-  'local-event': 'event',
-  message: 'message',
-};
-
-const statusColor: Record<string, string> = {
-  error: 'text-destructive',
-  interrupted: 'text-amber-600 dark:text-amber-500',
-  running: 'text-primary',
-  success: 'text-positive',
-  unset: 'text-muted-foreground',
-};
-
-const outcomeColor: Record<string, string> = {
-  completed: 'text-positive',
-  failed: 'text-destructive',
-  interrupted: 'text-amber-600 dark:text-amber-500',
-};
-
-const severityDot: Record<string, string> = {
-  debug: 'bg-muted-foreground/60',
-  error: 'bg-destructive',
-  info: 'bg-primary',
-  warning: 'bg-amber-500',
-};
-
-const formatDuration = (milliseconds: number) => {
-  if (milliseconds < 1) return `${Math.round(milliseconds * 1_000)} µs`;
-  if (milliseconds < 1_000) return `${milliseconds.toFixed(2)} ms`;
-  return `${(milliseconds / 1_000).toFixed(2)} s`;
+  'activation-end': 'Activation ended',
+  'activation-start': 'Activation started',
+  check: 'Check',
+  close: 'Flow closed',
+  event: 'Event',
+  message: 'Message',
+  resume: 'Resumed',
+  wait: 'Waiting',
 };
 
 const formatTime = (timestamp: number) => {
   const date = new Date(timestamp);
   const pad = (value: number, width = 2) => String(value).padStart(width, '0');
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
+};
+
+const formatDuration = (milliseconds: number) => {
+  if (milliseconds < 1) return `${Math.round(milliseconds * 1_000)} µs`;
+  if (milliseconds < 1_000) return `${milliseconds.toFixed(0)} ms`;
+  return `${(milliseconds / 1_000).toFixed(2)} s`;
+};
+
+const lastSegment = (participantName: string) =>
+  participantName.split('/').pop() ?? participantName;
+
+/**
+ * One plain sentence about what the Entry means, resolved against the rest of
+ * the Flow when it points at another Entry.
+ */
+const describe = (
+  item: RecordedFlowItem,
+  flow: RecordedFlow | undefined,
+): { readonly sentence: string; readonly failed: boolean } => {
+  const who = lastSegment(item.participantName);
+  switch (item.kind) {
+    case 'event':
+      return {
+        sentence:
+          item.severity === 'error'
+            ? `${who} reported an error.`
+            : item.severity === 'warning'
+              ? `${who} raised a warning.`
+              : `Something happened inside ${who}.`,
+        failed: item.severity === 'error',
+      };
+    case 'message': {
+      const answered =
+        item.replyTo === undefined
+          ? undefined
+          : flow?.items.find(
+              (other) =>
+                other.kind === 'message' && other.messageId === item.replyTo,
+            );
+      if (item.replyTo !== undefined) {
+        const latency =
+          answered === undefined
+            ? ''
+            : ` after ${formatDuration(item.timestamp - answered.timestamp)}`;
+        return {
+          sentence: `${who} replied to ${lastSegment(item.destination)}${answered ? ` about "${answered.name}"` : ''}${latency}.`,
+          failed: item.severity === 'error',
+        };
+      }
+      return {
+        sentence: `${who} sent this to ${lastSegment(item.destination)}.`,
+        failed: false,
+      };
+    }
+    case 'activation-start':
+      return { sentence: `${who} became active.`, failed: false };
+    case 'activation-end': {
+      const activation = flow?.activations.find(
+        (candidate) => candidate.activationId === item.activationId,
+      );
+      const name = activation ? `"${activation.name}"` : 'its activation';
+      const took =
+        activation && activation.endTimestamp !== null
+          ? ` after ${formatDuration(activation.endTimestamp - activation.startTimestamp)}`
+          : '';
+      const verb =
+        item.outcome === 'completed'
+          ? 'completed'
+          : item.outcome === 'failed'
+            ? 'failed'
+            : 'was interrupted';
+      return {
+        sentence: `${who}'s ${name} ${verb}${took}.`,
+        failed: item.outcome === 'failed',
+      };
+    }
+    case 'wait':
+      return {
+        sentence: `${who} paused itself: ${item.name}.`,
+        failed: false,
+      };
+    case 'resume':
+      return { sentence: `${who} continued on its own.`, failed: false };
+    case 'check':
+      return {
+        sentence: item.passed
+          ? `${who} confirmed "${item.name}".`
+          : `${who} found that "${item.name}" did not hold.`,
+        failed: !item.passed,
+      };
+    case 'close':
+      return {
+        sentence: `${who} considers this Flow finished.`,
+        failed: false,
+      };
+  }
+};
+
+/** Why each warning happens and what the author should change. */
+const warningGuide: Record<
+  ProjectionWarningKind,
+  { readonly why: string; readonly prevent: string }
+> = {
+  'activation-overlap': {
+    why: 'A Participant can be alive in only one Activation at a time. The earlier one was still open when this one started, so the projector ended it here without an outcome.',
+    prevent:
+      'End the previous Activation before starting the next, or wrap the work in `activated(...)` so the end is written for you. If two things really run at once, give the second its own lane with a child Participant name such as `worker/retry`.',
+  },
+  'activation-orphan-end': {
+    why: 'An Activation End arrived, but this Participant had no open Activation to end. Its start was never recorded, or it was already ended.',
+    prevent:
+      'Keep the `ActivationRef` returned by `activation.start` and call `end` on it exactly once, or use `activated(...)` which pairs start and end automatically.',
+  },
+  'reply-unknown': {
+    why: 'This Reply answers a Message id that is not in the Journal. The Message was recorded in another Flow, was never recorded, or its Entries were lost.',
+    prevent:
+      'Reply with the `MessageToken` returned by `send` in the same Flow. When the token crosses a process, carry it in the payload and make sure both sides use the same Flow id.',
+  },
+  'resume-without-wait': {
+    why: 'A Resume was recorded, but this Participant was not waiting. Its Wait was already resumed, replaced, or ended by the Activation End.',
+    prevent:
+      'Pair every `wait` with one `resume` on the same Participant, or use `waiting(...)` so the pair is written around the effect.',
+  },
 };
 
 function SectionLabel({ children }: { readonly children: React.ReactNode }) {
@@ -64,16 +156,38 @@ function SectionLabel({ children }: { readonly children: React.ReactNode }) {
   );
 }
 
-/** Detail pane for one selected Flow item: identity, timing, and attributes. */
+function Row({
+  label,
+  children,
+  title,
+}: {
+  readonly label: string;
+  readonly children: React.ReactNode;
+  readonly title?: string;
+}) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 truncate" title={title}>
+        {children}
+      </dd>
+    </>
+  );
+}
+
+/** Detail pane for one selected Entry: what it means, then its attributes. */
 export function FlowItemDetails({
   item,
+  flow,
   onClose,
   onOpenTrace,
   className,
 }: {
   readonly item: RecordedFlowItem;
+  /** The whole Flow, so replies and activation ends can name what they answer. */
+  readonly flow?: RecordedFlow | undefined;
   readonly onClose?: () => void;
-  /** Offered on activities, which are spans in a trace the host can show. */
+  /** Offered when the Entry carries a Trace Link the host can show. */
   readonly onOpenTrace?: (target: {
     readonly traceId: string;
     readonly spanId: string;
@@ -82,43 +196,34 @@ export function FlowItemDetails({
 }) {
   const attributes = item.attributes ?? {};
   const hasAttributes = Object.keys(attributes).length > 0;
-  const logs = item.kind === 'activity' ? (item.logs ?? []) : [];
+  const traceLink =
+    item.traceId !== undefined && item.spanId !== undefined
+      ? { traceId: item.traceId, spanId: item.spanId }
+      : null;
+  const { sentence, failed } = describe(item, flow);
+  const warningIndex =
+    flow?.warnings.findIndex((warning) => warning.itemId === item.id) ?? -1;
+  const warning = warningIndex === -1 ? null : flow!.warnings[warningIndex]!;
 
   return (
     <div className={cn('flex flex-col', className)}>
       <div className="flex items-center gap-3 border-b border-border px-6 py-4">
         <span
           className={cn(
-            'shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider',
-            kindStyles[item.kind],
+            'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+            failed
+              ? 'bg-destructive/10 text-destructive'
+              : 'bg-muted text-muted-foreground',
           )}
         >
           {kindLabels[item.kind]}
         </span>
         <span
-          className="min-w-0 flex-1 truncate font-mono text-sm font-medium"
+          className="min-w-0 flex-1 truncate text-sm font-medium"
           title={item.name}
         >
           {item.name}
         </span>
-        {item.kind === 'activity' && item.duration !== null && (
-          <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-            {formatDuration(item.duration)}
-          </span>
-        )}
-        {item.kind === 'activity' && onOpenTrace && (
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={() =>
-              onOpenTrace({ traceId: item.traceId, spanId: item.spanId })
-            }
-            className="shrink-0"
-          >
-            <ScanSearch />
-            Open trace
-          </Button>
-        )}
         {onClose && (
           <Button
             variant="ghost"
@@ -133,94 +238,79 @@ export function FlowItemDetails({
       </div>
 
       <div className="flex flex-col gap-8 px-6 py-6">
+        <p
+          className={cn(
+            'text-sm leading-relaxed',
+            failed ? 'text-destructive' : 'text-foreground',
+          )}
+        >
+          {sentence}
+        </p>
+
+        {warning && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+            <p className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-destructive">
+              <span className="flex size-5 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
+                {warningIndex + 1}
+              </span>
+              Warning
+            </p>
+            <p className="text-sm leading-relaxed text-foreground">
+              {warning.message}
+            </p>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Why
+            </p>
+            <p className="mt-1 text-sm leading-relaxed">
+              {warningGuide[warning.kind].why}
+            </p>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              How to prevent it
+            </p>
+            <p className="mt-1 text-sm leading-relaxed">
+              {warningGuide[warning.kind].prevent}
+            </p>
+          </div>
+        )}
+
         <div>
-          <SectionLabel>Overview</SectionLabel>
+          <SectionLabel>Where and when</SectionLabel>
           <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-xs">
-            {item.kind === 'message' ? (
-              <>
-                <dt className="text-muted-foreground">From</dt>
-                <dd className="truncate font-mono" title={item.participantName}>
-                  {item.participantName}
-                </dd>
-                <dt className="text-muted-foreground">To</dt>
-                <dd className="truncate font-mono" title={item.destination}>
-                  {item.destination}
-                </dd>
-              </>
-            ) : (
-              <>
-                <dt className="text-muted-foreground">Participant</dt>
-                <dd className="truncate font-mono" title={item.participantName}>
-                  {item.participantName}
-                </dd>
-              </>
+            <Row label="Participant" title={item.participantName}>
+              <span className="font-mono">{item.participantName}</span>
+            </Row>
+            {item.kind === 'message' && (
+              <Row label="To" title={item.destination}>
+                <span className="font-mono">{item.destination}</span>
+              </Row>
             )}
-            {item.kind === 'activity' && (
-              <>
-                <dt className="text-muted-foreground">Status</dt>
-                <dd
-                  className={cn(
-                    'font-mono capitalize',
-                    statusColor[item.status],
-                  )}
-                >
-                  {item.status}
-                </dd>
-              </>
+            <Row label="Time" title={new Date(item.timestamp).toISOString()}>
+              <span className="font-mono tabular-nums">
+                {formatTime(item.timestamp)}
+              </span>
+            </Row>
+            {item.origin !== undefined && (
+              <Row label="Recorded by" title={item.origin}>
+                <span className="font-mono">{item.origin}</span>
+              </Row>
             )}
-            {item.kind === 'activation-end' && (
-              <>
-                <dt className="text-muted-foreground">Outcome</dt>
-                <dd
-                  className={cn(
-                    'font-mono capitalize',
-                    outcomeColor[item.outcome],
-                  )}
-                >
-                  {item.outcome}
-                </dd>
-              </>
-            )}
-            {item.kind === 'message' && item.replyTo !== undefined && (
-              <>
-                <dt className="text-muted-foreground">Replies to</dt>
-                <dd className="truncate font-mono" title={item.replyTo}>
-                  {item.replyTo}
-                </dd>
-              </>
-            )}
-            {item.kind !== 'activity' && (
-              <>
-                <dt className="text-muted-foreground">Severity</dt>
-                <dd className="font-mono capitalize">{item.severity}</dd>
-              </>
-            )}
-            <dt className="text-muted-foreground">Time</dt>
-            <dd
-              className="font-mono tabular-nums"
-              title={new Date(item.timestamp).toISOString()}
-            >
-              {formatTime(item.timestamp)}
-            </dd>
-            {item.kind === 'activity' && (
-              <>
-                <dt className="text-muted-foreground">Duration</dt>
-                <dd className="font-mono tabular-nums">
-                  {item.duration === null
-                    ? 'running'
-                    : formatDuration(item.duration)}
-                </dd>
-              </>
+            {item.severity !== 'info' && (
+              <Row label="Severity">
+                <span className="capitalize">{item.severity}</span>
+              </Row>
             )}
           </dl>
-          {(item.kind === 'activity' || item.kind === 'activation-end') &&
-            (item.kind === 'activity'
-              ? item.status === 'interrupted'
-              : item.outcome === 'interrupted') && (
-              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                Stopped by lifecycle teardown — not a failure.
-              </p>
-            )}
+          {traceLink && onOpenTrace && (
+            <Button
+              variant="outline"
+              size="xs"
+              className="mt-4"
+              onClick={() => onOpenTrace(traceLink)}
+            >
+              <ScanSearch />
+              Open the trace this ran in
+            </Button>
+          )}
         </div>
 
         {hasAttributes && (
@@ -228,46 +318,6 @@ export function FlowItemDetails({
             <SectionLabel>Attributes</SectionLabel>
             <JsonTree value={attributes} />
           </div>
-        )}
-
-        {logs.length > 0 && (
-          <div>
-            <SectionLabel>Logs</SectionLabel>
-            <div className="flex flex-col gap-4">
-              {logs.map((log, index) => (
-                <div key={index} className="flex flex-col gap-1.5">
-                  <div className="flex items-start gap-2.5">
-                    <span
-                      className={cn(
-                        'mt-1 size-2 shrink-0 rounded-full',
-                        severityDot[log.severity] ?? 'bg-muted-foreground/60',
-                      )}
-                    />
-                    <span className="min-w-0 flex-1 break-words text-sm leading-relaxed">
-                      {log.message}
-                    </span>
-                    <span
-                      className="shrink-0 tabular-nums text-xs text-muted-foreground"
-                      title={new Date(log.timestamp).toISOString()}
-                    >
-                      {formatTime(log.timestamp)}
-                    </span>
-                  </div>
-                  {log.attributes && (
-                    <div className="pl-4.5">
-                      <JsonTree value={log.attributes} />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {!hasAttributes && logs.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No attributes or logs.
-          </p>
         )}
       </div>
     </div>

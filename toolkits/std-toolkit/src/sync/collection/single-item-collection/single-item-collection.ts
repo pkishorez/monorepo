@@ -312,7 +312,7 @@ export const buildSingleItemCollection = <
       flow.collection.activation.start('Collection lifecycle'),
     );
     config.runner.runSync(
-      flow.collection.log('Collection start', {
+      flow.collection.event('Collection start', {
         attributes: { collection: collectionName, strategy: strategy.name },
       }),
     );
@@ -343,7 +343,7 @@ export const buildSingleItemCollection = <
               return true;
             });
             if (!ready) return;
-            yield* flow.collection.log('Collection ready', {
+            yield* flow.collection.event('Collection ready', {
               attributes: { collection: collectionName, rows: projected },
             });
             yield* startLifecycle();
@@ -357,9 +357,9 @@ export const buildSingleItemCollection = <
                 })
                 .pipe(
                   Effect.andThen(
-                    flow.collection.log('Collection init failure', {
+                    flow.collection.event('Collection init failure', {
                       attributes: { cause: String(error) },
-                      level: 'error',
+                      severity: 'error',
                     }),
                   ),
                   Effect.andThen(
@@ -386,7 +386,7 @@ export const buildSingleItemCollection = <
         projector = null;
         collectionUpdate = null;
         await config.runner.runPromise(
-          flow.collection.log('Collection cleanup', {
+          flow.collection.event('Collection cleanup', {
             attributes: { collection: collectionName },
           }),
         );

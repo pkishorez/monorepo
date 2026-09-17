@@ -46,6 +46,7 @@ function LiveConversation({
         onFlows={() => setFlows(true)}
       />
       <DevToolsPanel
+        runtime={runtime.runtime}
         recorder={runtime.recorder}
         filters={['flows']}
         open={flows}

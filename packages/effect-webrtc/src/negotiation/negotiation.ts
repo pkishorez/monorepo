@@ -1,5 +1,18 @@
 import { Schema } from 'effect';
-import { FlowCarrierSchema } from '@pkishorez/effect-tracer/flow';
+
+export const FlowMessageTokenSchema = Schema.Struct({
+  id: Schema.String,
+  from: Schema.String,
+  to: Schema.String,
+});
+
+export const FlowCarrierSchema = Schema.Struct({
+  flowId: Schema.String,
+  message: FlowMessageTokenSchema,
+  parentFlowId: Schema.optional(Schema.String),
+});
+
+export type FlowCarrier = typeof FlowCarrierSchema.Type;
 
 export const PeerSessionId = Schema.String.pipe(
   Schema.brand('effect-webrtc/PeerSessionId'),

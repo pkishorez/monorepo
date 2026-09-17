@@ -424,7 +424,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
           flow.collection.activation.start('Collection lifecycle'),
         );
         runner.runSync(
-          flow.collection.log('Collection start', {
+          flow.collection.event('Collection start', {
             attributes: {
               collection: collectionName,
               ...(config.total ? { strategy: config.total.strategy.name } : {}),
@@ -474,7 +474,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
                 return true;
               });
               if (!ready) return;
-              yield* flow.collection.log('Collection ready', {
+              yield* flow.collection.event('Collection ready', {
                 attributes: { collection: collectionName, rows: projected },
               });
               if (config.total) {
@@ -492,9 +492,9 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
                   })
                   .pipe(
                     Effect.andThen(
-                      flow.collection.log('Collection init failure', {
+                      flow.collection.event('Collection init failure', {
                         attributes: { cause: String(error) },
-                        level: 'error',
+                        severity: 'error',
                       }),
                     ),
                     Effect.andThen(
@@ -603,7 +603,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
           nativeCollection = null;
           activePartitions.clear();
           await runner.runPromise(
-            flow.collection.log('Collection cleanup', {
+            flow.collection.event('Collection cleanup', {
               attributes: { collection: collectionName },
             }),
           );

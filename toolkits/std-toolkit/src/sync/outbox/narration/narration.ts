@@ -65,13 +65,12 @@ export const narrateOutbox = (flow: OutboxFlow | null) => ({
               },
             },
           );
-          flow.outbox.observe(token);
           return yield* enqueue.pipe(
             Effect.andThen(effect),
             Effect.tap(() => flow.outbox.reply(token, 'Delivered')),
             Effect.tapError((error) =>
               flow.outbox.reply(token, `Failed: ${failureText(error)}`, {
-                level: 'error',
+                severity: 'error',
               }),
             ),
           );
@@ -131,7 +130,7 @@ export const narrateRequest = <R>(
           : `Failed: ${failureText(Cause.squash(exit.cause))}`;
     yield* flow.drainer.reply(token, message, {
       attributes: { ...attributes, outcome },
-      level: outcome === 'failed' ? 'error' : 'info',
+      severity: outcome === 'failed' ? 'error' : 'info',
     });
     return exit;
   });

@@ -35,21 +35,14 @@ implementation rather than a hard dependency of the domain.
 The `LotelRpc` group on its own, for frontends and other clients that must not
 pull in the server implementation.
 
-Procedures: `SaveSpans`, `InsertLogs`, `ListSpans`, `ListLogs`, `ListFlows`,
-`ListTraces`, `GetTrace`, `GetFlow`, and `ClearTelemetry`. `ListTraces` returns
-Trace Summaries for the most recently updated Traces, newest first. Failures are typed —
-`TraceNotFound`, `FlowNotFound`, and `LotelRpcError`.
+Procedures: `SaveSpans`, `InsertLogs`, `ListSpans`, `ListLogs`, `ListTraces`,
+`GetTrace`, and `ClearTelemetry`. `ListTraces` returns Trace Summaries for the
+most recently updated Traces, newest first. Failures are typed —
+`TraceNotFound` and `LotelRpcError`.
 
 ## `@pkishorez/lotel/telemetry`
 
 Span, log, and trace schemas plus their error types.
-
-## `@pkishorez/lotel/flow`
-
-Flow schemas and projection. Spans and logs carrying the
-[`@pkishorez/effect-tracer`](https://www.npmjs.com/package/@pkishorez/effect-tracer)
-flow attributes are indexed into a `Flow` as they are ingested, listed with
-`ListFlows`, and projected into a swim-lane `RecordedFlow` with `GetFlow`.
 
 ## `@pkishorez/lotel/sqlite`
 

@@ -1,6 +1,5 @@
 import { StdTable } from 'std-toolkit/db';
 import { SQLite, type SQLiteDriver } from 'std-toolkit/db/sqlite';
-import { FlowEntitySchema } from '../../../domain/flow/index.js';
 import {
   LogEntitySchema,
   SpanEntitySchema,
@@ -11,7 +10,6 @@ const table = StdTable.make('lotel')
   .gsi('timeline', 'timelinePk', 'timelineSk')
   .gsi('span-trace', 'spanTracePk', 'spanTraceSk')
   .gsi('trace', 'tracePk', 'traceSk')
-  .gsi('flow', 'flowPk', 'flowSk')
   .build();
 
 const spans = table
@@ -19,7 +17,6 @@ const spans = table
   .primary({ pk: ['traceId'] })
   .index('timeline', 'timeline', { pk: [] })
   .index('span-trace', 'byTrace', { pk: ['traceId'] })
-  .index('flow', 'byFlow', { pk: ['flowId'] })
   .build();
 
 const logs = table
@@ -27,13 +24,6 @@ const logs = table
   .primary()
   .index('timeline', 'timeline', { pk: [] })
   .index('trace', 'byTrace', { pk: ['traceId'] })
-  .index('flow', 'byFlow', { pk: ['flowId'] })
-  .build();
-
-const flows = table
-  .entity(FlowEntitySchema)
-  .primary()
-  .index('timeline', 'timeline', { pk: [] })
   .build();
 
 /** @internal */
@@ -43,7 +33,6 @@ export const makeSqliteEntities = (database: SQLiteDriver) => {
     table,
     spans,
     logs,
-    flows,
     layer: configured.layer,
     setup: configured.setup,
   };

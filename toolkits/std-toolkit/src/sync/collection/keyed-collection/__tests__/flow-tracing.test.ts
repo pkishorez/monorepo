@@ -1,4 +1,5 @@
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { FlowTelemetry, projectJournal } from '@pkishorez/flow';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import { EntityESchema } from '../../../../eschema/index.js';
@@ -88,11 +89,14 @@ describe('collection flow tracing', () => {
 
   it('records one collection flow with stable global and partition lanes', async () => {
     const recorder = makeTraceRecorder();
+    const sink = FlowTelemetry.makeMemory();
+    const instrument = <A, E>(effect: Effect.Effect<A, E, never>) =>
+      recorder.instrument(Effect.provideService(effect, FlowTelemetry, sink));
     const runtime = {
       runSync: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runSync(recorder.instrument(effect)),
+        Effect.runSync(instrument(effect)),
       runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runPromise(recorder.instrument(effect)),
+        Effect.runPromise(instrument(effect)),
     } satisfies EffectRuntime<never>;
     const entity: DecodedEntity<typeof schema.Type> = {
       value: { id: 'comment-1', postId: 'post-1', body: 'Hello' },
@@ -102,13 +106,13 @@ describe('collection flow tracing', () => {
       name,
       state: noStrategyState(),
       run: (ctx: {
-        flow: { log: (message: unknown) => Effect.Effect<void> };
+        flow: { event: (name: string) => Effect.Effect<void> };
         applyToSyncReplica: (
           entities: DecodedEntity<typeof schema.Type>[],
         ) => Effect.Effect<void, unknown>;
       }) =>
         ctx.flow
-          .log('Custom strategy working')
+          .event('Custom strategy working')
           .pipe(
             Effect.andThen(
               writes
@@ -162,16 +166,16 @@ describe('collection flow tracing', () => {
     mounted.loadSubset(subset);
     await vi.waitFor(() =>
       expect(
-        recorder
-          .snapshotFlows()[0]
-          ?.items.filter((item) => item.name === 'Custom strategy working'),
+        sink
+          .journals()[0]
+          ?.entries.filter((item) => item.name === 'Custom strategy working'),
       ).toHaveLength(2),
     );
     await vi.waitFor(() =>
       expect(
-        recorder
-          .snapshotFlows()[0]
-          ?.items.filter((item) => item.name === 'Write to Sync Replica'),
+        sink
+          .journals()[0]
+          ?.entries.filter((item) => item.name === 'Write to Sync Replica'),
       ).toHaveLength(2),
     );
     mounted.unloadSubset(subset);
@@ -179,15 +183,15 @@ describe('collection flow tracing', () => {
     mounted.loadSubset(subset);
     await vi.waitFor(() =>
       expect(
-        recorder
-          .snapshotFlows()[0]
-          ?.items.filter((item) => item.name === 'Custom strategy working'),
+        sink
+          .journals()[0]
+          ?.entries.filter((item) => item.name === 'Custom strategy working'),
       ).toHaveLength(3),
     );
     mounted.unloadSubset(subset);
     await mounted.cleanup();
 
-    const flows = recorder.snapshotFlows();
+    const flows = sink.journals().map(projectJournal);
     expect(flows).toHaveLength(1);
     const flow = flows[0]!;
     expect(flow.id).toBe('sync-story::test');
@@ -271,19 +275,15 @@ describe('collection flow tracing', () => {
       0, 1,
     ]);
     expect(syncWrites.map((log) => log.annotations.received)).toEqual([1, 1]);
+    const spans = recorder.snapshot().spans;
     expect(
-      flow.items.filter(
-        (item) =>
-          item.kind === 'activity' && item.name === 'Write to Sync Replica',
-      ),
+      spans.filter((span) => span.name === 'Write to Sync Replica'),
     ).toHaveLength(2);
     expect(
       new Set(
-        flow.items
-          .filter(
-            (item) => item.kind === 'activity' && item.name === 'Sync session',
-          )
-          .map(({ participantName }) => participantName),
+        spans
+          .filter((span) => span.name === 'Sync session')
+          .map((span) => span.attributes['flow.participant.name']),
       ),
     ).toEqual(
       new Set([
@@ -295,11 +295,14 @@ describe('collection flow tracing', () => {
 
   it('keeps one active flow across repeated collection starts and cleanups', async () => {
     const recorder = makeTraceRecorder();
+    const sink = FlowTelemetry.makeMemory();
+    const instrument = <A, E>(effect: Effect.Effect<A, E, never>) =>
+      recorder.instrument(Effect.provideService(effect, FlowTelemetry, sink));
     const runtime = {
       runSync: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runSync(recorder.instrument(effect)),
+        Effect.runSync(instrument(effect)),
       runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
-        Effect.runPromise(recorder.instrument(effect)),
+        Effect.runPromise(instrument(effect)),
     } satisfies EffectRuntime<never>;
     const built = createStdSync({ name: 'comments', runtime }).sync({ schema });
 
@@ -324,7 +327,7 @@ describe('collection flow tracing', () => {
       await mounted.cleanup();
     }
 
-    const flows = recorder.snapshotFlows();
+    const flows = sink.journals().map(projectJournal);
     expect(flows).toHaveLength(1);
     expect(flows[0]?.id).toMatch(/^comments::[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
     expect(

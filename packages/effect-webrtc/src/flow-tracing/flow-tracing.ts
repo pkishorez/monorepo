@@ -1,27 +1,27 @@
 import {
   Activation,
-  FlowCarrierSchema,
-  initFlow,
-} from '@pkishorez/effect-tracer/flow';
+  Flow,
+  type ActivationOutcome,
+  type ActivationRef,
+  type FlowInstance,
+  type MessageToken,
+} from '@pkishorez/flow';
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect/Scope';
 import type {
   ConnectionAttemptId as ConnectionAttemptIdType,
+  FlowCarrier,
   NegotiationEnvelope as NegotiationEnvelopeType,
   NegotiationMessage,
   PeerSessionId as PeerSessionIdType,
 } from '../negotiation/index.js';
 import {
   ConnectionAttemptId,
+  FlowCarrierSchema,
   NegotiationEnvelope,
   PeerSessionId,
 } from '../negotiation/index.js';
 import type { PeerId } from '../peer-identity/index.js';
-
-type Flow = ReturnType<typeof initFlow>;
-type ActivationRef = Effect.Success<ReturnType<Flow['activation']['start']>>;
-type ActivationOutcome = Parameters<ActivationRef['end']>[0];
-type FlowCarrier = typeof FlowCarrierSchema.Type;
 
 export const participantName = (peerId: PeerId) => `peer:${peerId}`;
 
@@ -43,16 +43,18 @@ const commonFlowAttributes = (options: {
   remotePeerId: options.remotePeerId,
 });
 
-const endOnce = (activation: ActivationRef) => {
+const endOnce = (
+  activation: ActivationRef,
+  baseAttributes: FlowNoteAttributes,
+) => {
   let ended = false;
   return (outcome: ActivationOutcome, attributes?: FlowNoteAttributes) =>
     Effect.suspend(() => {
       if (ended) return Effect.void;
       ended = true;
-      return activation.end(
-        outcome,
-        attributes === undefined ? undefined : { flowAttributes: attributes },
-      );
+      return activation.end(outcome, {
+        attributes: { ...baseAttributes, ...attributes },
+      });
     });
 };
 
@@ -79,15 +81,20 @@ const negotiationAttributes = (
     ? candidateAttributes(message.candidate)
     : undefined;
 
-const negotiationLogOptions = (message: NegotiationMessage) => {
-  const attributes = negotiationAttributes(message);
-  return attributes === undefined ? {} : { flowAttributes: attributes };
-};
+const makeCarrier = (
+  flowId: string,
+  message: MessageToken,
+  parentFlowId?: string,
+): FlowCarrier => ({
+  flowId,
+  message,
+  ...(parentFlowId === undefined ? {} : { parentFlowId }),
+});
 
 export interface ConnectionAttemptFlow {
   readonly peerSessionId: PeerSessionIdType;
   readonly connectionAttemptId: ConnectionAttemptIdType;
-  readonly flow: Flow;
+  readonly flow: FlowInstance;
   readonly send: (
     message: NegotiationMessage,
   ) => Effect.Effect<NegotiationEnvelopeType>;
@@ -95,7 +102,6 @@ export interface ConnectionAttemptFlow {
     incoming: NegotiationEnvelopeType,
     message: NegotiationMessage,
   ) => Effect.Effect<NegotiationEnvelopeType>;
-  readonly observe: (incoming: NegotiationEnvelopeType) => void;
   readonly connected: Effect.Effect<void>;
   readonly transientDisconnected: Effect.Effect<void>;
   /** Records one local diagnostic event in this Connection Attempt Flow. */
@@ -118,21 +124,17 @@ const makeConnectionAttempt = Effect.fn('WebRtcFlow.makeConnectionAttempt')(
     readonly remotePeerId: PeerId;
     readonly peerSessionId: PeerSessionIdType;
     readonly connectionAttemptId: ConnectionAttemptIdType;
-    readonly carrier?: FlowCarrier;
   }) {
-    const flow = initFlow({
-      id: options.connectionAttemptId,
-      participantName: participantName(options.localPeerId),
-      ...(options.carrier === undefined
-        ? {}
-        : { initialOrder: options.carrier.message.order }),
-      flowAttributes: {
-        kind: 'webrtc.connection-attempt',
-        ...commonFlowAttributes(options),
-      },
+    const flow = Flow.make({ id: options.connectionAttemptId });
+    const participant = flow.participant(participantName(options.localPeerId));
+    const attributes = {
+      kind: 'webrtc.connection-attempt',
+      ...commonFlowAttributes(options),
+    };
+    const activation = yield* participant.activation.start('RTC connection', {
+      attributes,
     });
-    const activation = yield* flow.activation.start('RTC connection');
-    const end = endOnce(activation);
+    const end = endOnce(activation, attributes);
     yield* Effect.addFinalizer(() =>
       end(Activation.interrupted('RTC connection scope closed')),
     );
@@ -153,32 +155,43 @@ const makeConnectionAttempt = Effect.fn('WebRtcFlow.makeConnectionAttempt')(
       connectionAttemptId: options.connectionAttemptId,
       flow,
       send: (message) =>
-        flow
-          .send(
-            participantName(options.remotePeerId),
-            message._tag,
-            negotiationLogOptions(message),
-          )
-          .pipe(Effect.map((token) => envelope(flow.carrier(token), message))),
+        participant
+          .send(participantName(options.remotePeerId), message._tag, {
+            attributes: {
+              ...attributes,
+              ...negotiationAttributes(message),
+            },
+          })
+          .pipe(
+            Effect.map((token) =>
+              envelope(makeCarrier(flow.id, token), message),
+            ),
+          ),
       reply: (incoming, message) =>
-        flow
-          .reply(
-            incoming.flow.message,
-            message._tag,
-            negotiationLogOptions(message),
-          )
-          .pipe(Effect.map((token) => envelope(flow.carrier(token), message))),
-      observe: (incoming) => flow.observe(incoming.flow.message),
-      connected: flow.log('RTC connected', { level: 'debug' }),
-      transientDisconnected: flow.log('RTC transiently disconnected', {
-        level: 'warning',
+        participant
+          .reply(incoming.flow.message, message._tag, {
+            attributes: {
+              ...attributes,
+              ...negotiationAttributes(message),
+            },
+          })
+          .pipe(
+            Effect.map((token) =>
+              envelope(makeCarrier(flow.id, token), message),
+            ),
+          ),
+      connected: participant.event('RTC connected', {
+        attributes,
+        severity: 'debug',
+      }),
+      transientDisconnected: participant.event('RTC transiently disconnected', {
+        attributes,
+        severity: 'warning',
       }),
       note: (message, noteOptions) =>
-        flow.log(message, {
-          level: noteOptions?.level ?? 'info',
-          ...(noteOptions?.attributes === undefined
-            ? {}
-            : { flowAttributes: noteOptions.attributes }),
+        participant.event(message, {
+          attributes: { ...attributes, ...noteOptions?.attributes },
+          severity: noteOptions?.level ?? 'info',
         }),
       end,
     } satisfies ConnectionAttemptFlow;
@@ -222,7 +235,6 @@ export const continueConnectionAttempt = (options: {
       remotePeerId: options.remotePeerId,
       peerSessionId: incoming.peerSessionId,
       connectionAttemptId: incoming.connectionAttemptId,
-      carrier: incoming.flow,
     });
   });
 
@@ -244,7 +256,7 @@ const decodeCarrier = (encoded: string) =>
   );
 
 export interface OutgoingRpcFlow {
-  readonly flow: Flow;
+  readonly flow: FlowInstance;
   readonly headers: ReadonlyArray<readonly [string, string]>;
   readonly end: (outcome: ActivationOutcome) => Effect.Effect<void>;
 }
@@ -257,27 +269,32 @@ export const startRpcInvocation = Effect.fn('WebRtcFlow.startRpcInvocation')(
     readonly connectionAttemptId: ConnectionAttemptIdType;
     readonly rpcTag: string;
   }): Effect.fn.Return<OutgoingRpcFlow> {
-    const flow = initFlow({
-      id: globalThis.crypto.randomUUID(),
-      parentId: options.connectionAttemptId,
-      participantName: participantName(options.localPeerId),
-      flowAttributes: {
-        kind: 'webrtc.rpc-invocation',
-        rpcTag: options.rpcTag,
-        ...commonFlowAttributes(options),
-      },
-    });
-    const activation = yield* flow.activation.start(`RPC ${options.rpcTag}`);
-    const end = endOnce(activation);
-    const request = yield* flow.send(
+    const flow = Flow.make({ id: globalThis.crypto.randomUUID() });
+    const participant = flow.participant(participantName(options.localPeerId));
+    const attributes = {
+      kind: 'webrtc.rpc-invocation',
+      rpcTag: options.rpcTag,
+      ...commonFlowAttributes(options),
+    };
+    const activation = yield* participant.activation.start(
+      `RPC ${options.rpcTag}`,
+      { attributes },
+    );
+    const end = endOnce(activation, attributes);
+    const request = yield* participant.send(
       participantName(options.remotePeerId),
       `RPC ${options.rpcTag}`,
-      { level: 'info' },
+      { attributes },
     );
     return {
       flow,
       headers: [
-        [rpcFlowHeaders.carrier, JSON.stringify(flow.carrier(request))],
+        [
+          rpcFlowHeaders.carrier,
+          JSON.stringify(
+            makeCarrier(flow.id, request, options.connectionAttemptId),
+          ),
+        ],
         [rpcFlowHeaders.peerSessionId, options.peerSessionId],
       ],
       end,
@@ -286,7 +303,7 @@ export const startRpcInvocation = Effect.fn('WebRtcFlow.startRpcInvocation')(
 );
 
 export interface IncomingRpcFlow {
-  readonly flow: Flow;
+  readonly flow: FlowInstance;
   readonly reply: (outcome: ActivationOutcome) => Effect.Effect<void>;
 }
 
@@ -333,29 +350,27 @@ export const continueRpcInvocation = Effect.fn(
     });
   }
 
-  const flow = initFlow({
-    id: carrier.flowId,
-    parentId: connectionAttemptId,
-    initialOrder: carrier.message.order,
-    participantName: participantName(options.localPeerId),
-    flowAttributes: {
-      kind: 'webrtc.rpc-invocation',
-      rpcTag: options.rpcTag,
-      peerSessionId,
-      connectionAttemptId,
-      remotePeerId: options.remotePeerId,
-    },
-  });
-  const activation = yield* flow.activation.start(
+  const flow = Flow.make({ id: carrier.flowId });
+  const participant = flow.participant(participantName(options.localPeerId));
+  const attributes = {
+    kind: 'webrtc.rpc-invocation',
+    rpcTag: options.rpcTag,
+    peerSessionId,
+    connectionAttemptId,
+    remotePeerId: options.remotePeerId,
+  };
+  const activation = yield* participant.activation.start(
     `Handle RPC ${options.rpcTag}`,
+    { attributes },
   );
-  const end = endOnce(activation);
+  const end = endOnce(activation, attributes);
   return {
     flow,
     reply: (outcome) =>
-      flow
+      participant
         .reply(carrier.message, `RPC ${outcome.kind}`, {
-          level: outcome.kind === 'failed' ? 'error' : 'info',
+          attributes,
+          severity: outcome.kind === 'failed' ? 'error' : 'info',
         })
         .pipe(Effect.andThen(end(outcome)), Effect.asVoid),
   } satisfies IncomingRpcFlow;

@@ -1,29 +1,26 @@
 import { ChevronUp, X } from 'lucide-react';
-import type { RecordedFlowSchema } from '@pkishorez/effect-tracer/flow';
+import type { Projection } from '@pkishorez/flow';
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
 
-type RecordedFlowItem = (typeof RecordedFlowSchema.Type)['items'][number];
+type RecordedFlowItem = Projection['items'][number];
 
 const kindDot: Record<RecordedFlowItem['kind'], string> = {
-  activity: 'bg-violet-500',
-  'activation-end': 'bg-emerald-500',
+  'activation-end': 'bg-muted-foreground',
   'activation-start': 'bg-primary',
-  'local-event': 'bg-sky-500',
-  message: 'bg-amber-500',
-};
-
-const formatDuration = (milliseconds: number) => {
-  if (milliseconds < 1) return `${Math.round(milliseconds * 1_000)} µs`;
-  if (milliseconds < 1_000) return `${milliseconds.toFixed(0)} ms`;
-  return `${(milliseconds / 1_000).toFixed(2)} s`;
+  check: 'bg-muted-foreground',
+  close: 'bg-muted-foreground',
+  event: 'bg-muted-foreground',
+  message: 'bg-foreground',
+  resume: 'bg-muted-foreground',
+  wait: 'bg-muted-foreground',
 };
 
 const summaryOf = (item: RecordedFlowItem): string | null => {
-  if (item.kind === 'activity')
-    return item.duration === null ? 'running' : formatDuration(item.duration);
   if (item.kind === 'activation-end') return item.outcome;
   if (item.kind === 'message') return `→ ${item.destination}`;
+  if (item.kind === 'check') return item.passed ? 'held' : 'did not hold';
+  if (item.kind === 'wait') return 'waiting';
   return null;
 };
 

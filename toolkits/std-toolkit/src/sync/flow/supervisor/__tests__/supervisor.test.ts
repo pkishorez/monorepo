@@ -19,7 +19,7 @@ describe('strategy lifecycle', () => {
     const messages: string[] = [];
     const states: string[] = [];
     const flow: StrategyFlow = {
-      log: (message, options) =>
+      event: (message, options) =>
         Effect.sync(() => {
           messages.push(String(message));
           states.push(String(options?.attributes?.leadership));

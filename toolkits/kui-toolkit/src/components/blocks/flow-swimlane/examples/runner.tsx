@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Effect } from 'effect';
-import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { FlowTelemetry, projectJournal } from '@pkishorez/flow';
 import type { RecordedFlow } from '../flow-presentation';
 import { FlowSwimlane } from '../flow-swimlane';
 import type { flowScenarios } from './scenarios';
 
 type FlowScenario = (typeof flowScenarios)[number];
+
+/** Runs one scenario against a memory sink and projects what it recorded. */
+export const recordScenario = (scenario: FlowScenario) => {
+  const sink = FlowTelemetry.makeMemory();
+  return Effect.runPromise(
+    scenario.program().pipe(Effect.provideService(FlowTelemetry, sink)),
+  ).then(() => {
+    const journal = sink.journal(scenario.id);
+    return journal ? projectJournal(journal) : null;
+  });
+};
 
 export function FlowScenarioView({ scenario }: { scenario: FlowScenario }) {
   const [flow, setFlow] = useState<RecordedFlow | null>(null);
@@ -13,11 +24,9 @@ export function FlowScenarioView({ scenario }: { scenario: FlowScenario }) {
 
   useEffect(() => {
     let active = true;
-    const recorder = makeTraceRecorder({ requireFinishedSpans: true });
-    Effect.runPromise(recorder.instrument(scenario.program())).then(
-      () => {
+    recordScenario(scenario).then(
+      (recorded) => {
         if (!active) return;
-        const recorded = recorder.snapshotFlow(scenario.id);
         if (recorded) setFlow(recorded);
         else setError(`Flow ${scenario.id} was not recorded.`);
       },

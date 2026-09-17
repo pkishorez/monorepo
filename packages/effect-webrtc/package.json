@@ -84,7 +84,7 @@
     }
   },
   "dependencies": {
-    "@pkishorez/effect-tracer": "workspace:*",
+    "@pkishorez/flow": "workspace:*",
     "@cloudflare/workers-types": "catalog:",
     "auth-toolkit": "workspace:*",
     "nostr-tools": "catalog:",

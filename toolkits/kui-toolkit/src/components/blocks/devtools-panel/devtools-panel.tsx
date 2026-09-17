@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import type { TraceRecorder } from '@pkishorez/effect-tracer/recorder';
-import {
-  flowAttributes,
-  mergeRelatedFlows,
-} from '@pkishorez/effect-tracer/flow';
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
 import {
@@ -12,6 +8,7 @@ import {
   TraceViewer,
 } from '../otel-trace-viewer/trace-viewer';
 import { FlowSection } from './flow-section';
+import { useFlowProjections, type PanelRuntime } from './use-flow-projections';
 import { useRecorderSnapshot } from './use-recorder-snapshot';
 
 type Filter = 'traces' | 'flows';
@@ -26,8 +23,14 @@ export interface DevToolsPanelProps {
   readonly open: boolean;
   /** Called when the developer dismisses the panel, via its close button or Escape. */
   readonly onClose: () => void;
-  /** The Recorder to show. Its `layer` should already be provided into the app's Runtime. */
-  readonly recorder: TraceRecorder;
+  /**
+   * The app's Runtime. The panel asks it for its Flow Telemetry and follows
+   * whatever that is: a memory sink directly, a remote sink through the Flow
+   * Store it forwards to.
+   */
+  readonly runtime: PanelRuntime;
+  /** The Recorder whose Traces to show. Its `layer` should already be provided into the Runtime. */
+  readonly recorder?: TraceRecorder | undefined;
   /**
    * Which tab is active when both Traces and Flows are recorded. Ignored
    * when only one kind is present - that one shows with no tab bar at all.
@@ -41,7 +44,8 @@ export interface DevToolsPanelProps {
 }
 
 /**
- * Shows the Traces and Flows a `TraceRecorder` has captured, live. Fully
+ * Shows the Traces a `TraceRecorder` captured and the Flows the Runtime
+ * records, live. Fully
  * controlled: the host decides when it is open and how it gets closed, so it
  * can wire its own trigger without colliding with one this panel would own.
  *
@@ -53,14 +57,15 @@ export interface DevToolsPanelProps {
 export function DevToolsPanel({
   open,
   onClose,
+  runtime,
   recorder,
   defaultFilter = 'traces',
   filters = ['traces', 'flows'],
   className,
 }: DevToolsPanelProps) {
   const [filter, setFilter] = useState<Filter>(defaultFilter);
-  const { spans, logs, flows } = useRecorderSnapshot(recorder);
-  const presentationFlows = useMemo(() => mergeRelatedFlows(flows), [flows]);
+  const { spans, logs } = useRecorderSnapshot(recorder);
+  const { flows, source } = useFlowProjections(runtime);
   const otelSpans = useMemo(
     () => attachCapturedLogs(spans, logs),
     [spans, logs],
@@ -75,10 +80,8 @@ export function DevToolsPanel({
     return () => document.removeEventListener('keydown', closeOnEscape);
   }, [open, onClose]);
 
-  const hasTraces =
-    filters.includes('traces') &&
-    spans.some((span) => span.attributes[flowAttributes.id] === undefined);
-  const hasFlows = filters.includes('flows') && presentationFlows.length > 0;
+  const hasTraces = filters.includes('traces') && spans.length > 0;
+  const hasFlows = filters.includes('flows') && flows.length > 0;
   const showTabs = hasTraces && hasFlows;
   const activeFilter: Filter = !filters.includes('traces')
     ? 'flows'
@@ -131,10 +134,15 @@ export function DevToolsPanel({
           />
         ) : (
           <FlowSection
-            flows={presentationFlows}
+            flows={flows}
             spans={otelSpans}
             active={open}
             className="min-h-0 flex-1"
+            emptyMessage={
+              source === 'none'
+                ? 'No Flow Telemetry is provided to this Runtime.'
+                : 'No flows recorded yet.'
+            }
           />
         )}
       </div>

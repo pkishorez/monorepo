@@ -80,7 +80,7 @@ export const makeOutbox = <R>(args: {
   const offConnectivity = connectivity.subscribe(() => {
     const online = connectivity.isOnline();
     args.runner.runSync(
-      flow.log(online ? 'Back online' : 'Went offline', {
+      flow.event(online ? 'Back online' : 'Went offline', {
         attributes: { online },
       }),
     );

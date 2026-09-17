@@ -8,7 +8,7 @@ import type { StrategyContext } from '../../index.js';
 type Item = { id: string };
 
 const flow = {
-  log: () => Effect.void,
+  event: () => Effect.void,
   state: () => Effect.void,
   withSpan:
     () =>

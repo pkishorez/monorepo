@@ -1,5 +1,7 @@
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { FlowTelemetry } from '@pkishorez/flow';
 import { Effect, Exit, Layer, ManagedRuntime, Scope, Stream } from 'effect';
+import type { PanelRuntime } from 'kui-toolkit/components/blocks/devtools-panel';
 import {
   PeerId,
   WebRtc,
@@ -41,6 +43,7 @@ export interface DemoSnapshot {
 
 export interface ConversationRuntime {
   readonly recorder: ReturnType<typeof makeTraceRecorder>;
+  readonly runtime: PanelRuntime;
   readonly getSnapshot: () => DemoSnapshot;
   readonly subscribe: (listener: () => void) => () => void;
   readonly connect: (remoteId: string) => void;
@@ -88,7 +91,11 @@ export const bootConversationWith = async ({
 }: BootConversationOptions): Promise<ConversationRuntime> => {
   const recorder = makeTraceRecorder();
   const managed = ManagedRuntime.make(
-    Layer.mergeAll(browserPlatform, recorder.layer),
+    Layer.mergeAll(
+      browserPlatform,
+      recorder.layer,
+      FlowTelemetry.layerMemory({ origin: localId }),
+    ),
   );
   const scope = Effect.runSync(Scope.make());
   const runScoped = <A, E>(effect: Effect.Effect<A, E, Scope.Scope>) =>
@@ -268,6 +275,7 @@ export const bootConversationWith = async ({
 
   return {
     recorder,
+    runtime: managed,
     getSnapshot: () => snapshot,
     subscribe: (listener) => {
       listeners.add(listener);

@@ -15,3 +15,8 @@ export {
   SourceFileReadError,
   StoriesUnavailableError,
 } from './rpc.js';
+export {
+  FlowEntryEntitySchema,
+  FlowEntryListSchema,
+  type FlowEntryRecord,
+} from './flow-entry.js';

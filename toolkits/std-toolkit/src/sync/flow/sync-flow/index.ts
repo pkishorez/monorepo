@@ -7,6 +7,7 @@ export {
   partitionParticipantName,
   type ActivationOutcome,
   type CollectionFlow,
+  type FlowEntryOptions,
   type FlowParticipant,
   type FlowLane,
   type FlowPlacement,
@@ -14,8 +15,5 @@ export {
   type SyncFlow,
   type StrategyFlow,
 } from './sync-flow.js';
-export type {
-  ActivationRef,
-  MessageToken,
-} from '@pkishorez/effect-tracer/flow';
-export { Activation } from '@pkishorez/effect-tracer/flow';
+export type { ActivationRef, MessageToken } from '@pkishorez/flow';
+export { Activation } from '@pkishorez/flow';

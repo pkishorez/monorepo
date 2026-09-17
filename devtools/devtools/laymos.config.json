@@ -16,26 +16,47 @@
       "paths": ["src/browser-app"],
       "description": "Composes the DevTools home and Tool routes",
       "modules": {
-        "src/browser-app": { "exposed": true }
+        "src/browser-app": {
+          "exposed": true
+        }
       }
     },
     "tool-interface": {
       "paths": ["src/ui"],
       "description": "Owns the complete browser interaction for each Tool",
       "modules": {
-        "src/ui/laymos/laymos": { "exposed": true }
+        "src/ui/laymos/laymos": {
+          "exposed": true
+        }
       },
       "moduleGraphs": {
         "lotel": {
-          "description": "Synchronizes and presents Traces, Log Records, and Flows",
+          "description": "Synchronizes and presents Traces and Log Records",
           "path": "src/ui/lotel",
           "modules": {
-            "lotel": { "exposed": true },
+            "lotel": {
+              "exposed": true
+            },
             "collections.ts": {},
             "viewer": {}
           },
           "rules": {
             "lotel": ["collections.ts", "viewer"],
+            "viewer": ["collections.ts"]
+          }
+        },
+        "flow": {
+          "description": "Synchronizes Flow Entries and presents Journals as swim lanes",
+          "path": "src/ui/flow",
+          "modules": {
+            "flow": {
+              "exposed": true
+            },
+            "collections.ts": {},
+            "viewer": {}
+          },
+          "rules": {
+            "flow": ["collections.ts", "viewer"],
             "viewer": ["collections.ts"]
           }
         }
@@ -45,7 +66,9 @@
       "paths": ["src/client"],
       "description": "Connects browser Tools to same-origin DevTools RPC",
       "modules": {
-        "src/client/devtools-rpc": { "exposed": true }
+        "src/client/devtools-rpc": {
+          "exposed": true
+        }
       }
     },
     "server-host": {
@@ -66,25 +89,47 @@
         "src/server/get-laymos-module-source",
         "src/server/get-laymos-source-files",
         "src/server/get-laymos-stories",
-        "src/server/run-laymos-stories"
+        "src/server/run-laymos-stories",
+        "src/server/flow-store"
       ],
-      "description": "Fulfils the Laymos RPC contract with local Project behavior",
+      "description": "Fulfils the Laymos and Flow RPC contracts with local Project behavior and the Flow Store",
       "modules": {
-        "src/server/handlers.ts": { "exposed": true },
-        "src/server/analyze-laymos-project": { "shared": true },
-        "src/server/get-laymos-changes": { "shared": true },
-        "src/server/get-laymos-documentation": { "shared": true },
-        "src/server/get-laymos-module-source": { "shared": true },
-        "src/server/get-laymos-source-files": { "shared": true },
-        "src/server/get-laymos-stories": { "shared": true },
-        "src/server/run-laymos-stories": { "shared": true }
+        "src/server/handlers.ts": {
+          "exposed": true
+        },
+        "src/server/analyze-laymos-project": {
+          "shared": true
+        },
+        "src/server/get-laymos-changes": {
+          "shared": true
+        },
+        "src/server/get-laymos-documentation": {
+          "shared": true
+        },
+        "src/server/get-laymos-module-source": {
+          "shared": true
+        },
+        "src/server/get-laymos-source-files": {
+          "shared": true
+        },
+        "src/server/get-laymos-stories": {
+          "shared": true
+        },
+        "src/server/run-laymos-stories": {
+          "shared": true
+        },
+        "src/server/flow-store": {
+          "exposed": true
+        }
       }
     },
     "rpc-contract": {
       "paths": ["src/rpc"],
       "description": "Defines the typed contract shared by the browser and local server",
       "modules": {
-        "src/rpc": { "exposed": true }
+        "src/rpc": {
+          "exposed": true
+        }
       }
     }
   },

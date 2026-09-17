@@ -1,6 +1,6 @@
 # Participant Activations replace Flow lifecycle
 
-**Status:** accepted (amends ADR-0002)
+**Status:** superseded by [flow ADR-0001](../../../flow/docs/adr/0001-journal-entries-are-their-own-records.md); Flows are no longer OpenTelemetry records and no longer live in lotel
 
 A Participant occupies its swim lane for the whole Flow but is rarely alive for
 all of it: a partition worker keeps one stable lane across repeated

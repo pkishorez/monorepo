@@ -5,10 +5,7 @@ import type {
   SpanRecord,
   UpdateCursor,
 } from '../../domain/telemetry-schema/index.js';
-import { FlowEntitySchema } from '../../domain/flow/index.js';
 import { makeSqliteTelemetryStore } from './sqlite/index.js';
-
-type FlowEntity = typeof FlowEntitySchema.Type;
 
 interface BatchWriteResult {
   accepted: number;
@@ -37,10 +34,6 @@ export interface TelemetryStoreShape {
     _u: UpdateCursor,
     limit?: number,
   ): Effect.Effect<{ items: DecodedEntity<LogRecord>[] }, TelemetryStoreError>;
-  listFlows(
-    _u: UpdateCursor,
-    limit?: number,
-  ): Effect.Effect<{ items: DecodedEntity<FlowEntity>[] }, TelemetryStoreError>;
   /** Trace IDs ordered from most recently updated Span to oldest. */
   listRecentTraceIds(
     limit: number,
@@ -50,15 +43,6 @@ export interface TelemetryStoreShape {
   ): Effect.Effect<DecodedEntity<SpanRecord>[], TelemetryStoreError>;
   findLogsByTrace(
     traceId: string,
-  ): Effect.Effect<DecodedEntity<LogRecord>[], TelemetryStoreError>;
-  findFlow(
-    flowId: string,
-  ): Effect.Effect<DecodedEntity<FlowEntity> | null, TelemetryStoreError>;
-  findSpansByFlow(
-    flowId: string,
-  ): Effect.Effect<DecodedEntity<SpanRecord>[], TelemetryStoreError>;
-  findLogsByFlow(
-    flowId: string,
   ): Effect.Effect<DecodedEntity<LogRecord>[], TelemetryStoreError>;
   clearTelemetry: Effect.Effect<number, TelemetryStoreError>;
 }

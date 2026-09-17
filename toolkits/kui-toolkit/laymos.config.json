@@ -71,7 +71,7 @@
       },
       "moduleGraphs": {
         "recorded-flow-explorer": {
-          "description": "Presents a Recorded Flow as an interactive hierarchical swimlane",
+          "description": "Presents a Flow Projection as an interactive hierarchical swimlane",
           "path": "src/components/blocks/flow-swimlane",
           "modules": {
             "flow-swimlane": {
@@ -201,7 +201,7 @@
     },
     "devtools-panel": {
       "paths": ["src/components/blocks/devtools-panel"],
-      "description": "Shows Traces and Flows recorded from a running Effect program",
+      "description": "Shows Traces from a Recorder and Flows from a Runtime's Flow Telemetry",
       "modules": {
         "src/components/blocks/devtools-panel": {
           "exposed": true

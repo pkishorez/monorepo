@@ -13,11 +13,6 @@ import {
   TraceNotFound,
   TraceSummaryListSchema,
 } from '../../domain/telemetry-schema/index.js';
-import {
-  FlowListSchema,
-  FlowNotFound,
-  RecordedFlowSchema,
-} from '../../domain/flow/index.js';
 import { Schema } from 'effect';
 
 export const makeLotelRpc = () =>
@@ -46,11 +41,6 @@ export const makeLotelRpc = () =>
       success: LogListSchema,
       error: LotelRpcError,
     }),
-    Rpc.make('ListFlows', {
-      payload: ListPayloadSchema,
-      success: FlowListSchema,
-      error: LotelRpcError,
-    }),
     Rpc.make('ListTraces', {
       payload: ListTracesPayloadSchema,
       success: TraceSummaryListSchema,
@@ -60,11 +50,6 @@ export const makeLotelRpc = () =>
       payload: { traceId: Schema.String },
       success: TraceDetailsSchema,
       error: Schema.Union([TraceNotFound, LotelRpcError]),
-    }),
-    Rpc.make('GetFlow', {
-      payload: { flowId: Schema.String },
-      success: RecordedFlowSchema,
-      error: Schema.Union([FlowNotFound, LotelRpcError]),
     }),
     Rpc.make('ClearTelemetry', {
       payload: {},

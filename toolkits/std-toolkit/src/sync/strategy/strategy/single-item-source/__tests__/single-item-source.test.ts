@@ -11,7 +11,7 @@ import { singleItemSourceStrategy } from '../index.js';
 type Settings = { theme: string };
 
 const flow = {
-  log: () => Effect.void,
+  event: () => Effect.void,
   state: () => Effect.void,
   withSpan:
     () =>
