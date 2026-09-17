@@ -2,7 +2,7 @@
 '@pkishorez/flow': patch
 '@pkishorez/effect-tracer': patch
 '@pkishorez/lotel': patch
-'@pkishorez/devtools': patch
+'kstack': patch
 'laymos': patch
 'std-toolkit': patch
 'kui-toolkit': patch
@@ -13,7 +13,7 @@ Flows become their own package, `@pkishorez/flow`. A Flow is an append-only Jour
 Breaking changes (this remains a patch release):
 
 - `@pkishorez/effect-tracer` removes `./flow` and `TraceRecorder.snapshotFlow` / `snapshotFlows`; use `@pkishorez/flow` Journals, Telemetry, and Projections instead.
-- `@pkishorez/lotel` removes `./flow`, `ListFlows`, `GetFlow`, and the flow methods on `TelemetryStore`. `@pkishorez/devtools` therefore replaces those procedures in `DevtoolsRpc` with `WriteFlowEntries`, `ListFlowEntries`, and `ClearFlows`; Lotel now stores traces and logs only.
+- `@pkishorez/lotel` removes `./flow`, `ListFlows`, `GetFlow`, and the flow methods on `TelemetryStore`. `kstack` therefore replaces those procedures in `DevtoolsRpc` with `WriteFlowEntries`, `ListFlowEntries`, and `ClearFlows`; Lotel now stores traces and logs only.
 - `laymos` changes flow story sections from `{ kind: 'flow', flow }` to `{ kind: 'flow', journal }`, replaces the exported `RecordedFlow` schema/type with `Journal`, and no longer derives flows from trace-recorder data.
 - `std-toolkit` changes its exported sync flow contract: `FlowLane` is now a Flow `Participant`, `log` becomes `event`, `level` becomes `severity`, `participantName` / `id` become `name` / `flowId`, message and activation names must be strings, and `activated` takes the name directly.
 - `kui-toolkit` requires `runtime` on `DevToolsPanel`, changes the swim-lane input from the old recorded-flow shape to a Flow `Projection`, and removes `onActivityClick`.

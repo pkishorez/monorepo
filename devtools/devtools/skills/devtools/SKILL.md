@@ -30,8 +30,8 @@ reachable through `kstack`. Use `laymos` directly for that.
    interleaved in time. Use `--format json` (the default) when you need to
    filter with `jq` or inspect attributes.
 6. If a span carries a `flowId`, the work crosses Participants. Pivot with
-   `kstack get-flow <flow-id> --format text` to see the swim-lane view as a
-   chronological list of Activities, Messages, and Activations.
+   `kstack get-flow <flow-id> --format text` to see the Journal projected as a
+   chronological list of Entries, with its Activations and Warnings.
 7. If nothing shows up after a retry, the app is probably not exporting to
    the DevTools URL. Check its telemetry layer's endpoint before looking
    further.
@@ -48,7 +48,7 @@ Telemetry commands accept `--url <base-url>` and `--format json|text`
 | `kstack list-traces [--limit N]`                  | Recent Trace Summaries, newest first. Default 20.                                                        |
 | `kstack get-trace <trace-id>`                     | One Trace: flat span list with `parentSpanId`, each span's logs, and trace-level logs that name no span. |
 | `kstack list-flows [--limit N]`                   | Recent Flows, newest first. Default 20.                                                                  |
-| `kstack get-flow <flow-id>`                       | One Recorded Flow: `items` in time order, `activations`, `warnings`.                                     |
+| `kstack get-flow <flow-id>`                       | One Flow Projection: `items` in recorded order, `activations`, `waits`, `warnings`.                      |
 | `kstack skills`                                   | List the skills shipped with kstack.                                                                     |
 | `kstack skills devtools [--install DIR]`          | Print this skill, or write it to `DIR/devtools/SKILL.md`.                                                |
 
@@ -83,10 +83,14 @@ aligned.
 `narrative` is the span's stated intent, written when it started. The outcome
 is in `status`, `statusMessage`, and the logs, never in the narrative.
 
-`get-flow` returns the Recorded Flow unchanged: `id`, `parentFlowId`,
-`latestTimestamp` (epoch ms), `items[]` (kinds `activity`, `message`,
-`local-event`, `activation-start`, `activation-end`), `activations[]`, and
-`warnings[]`.
+`get-flow` returns the Flow Projection: `id`, `ordering` (`recorded` or
+`clock`), `latestTimestamp` (epoch ms), `status` (`active`, `failed`, `quiet`,
+or `closed`), `participants[]`, `items[]` (the Journal's Entries, kinds
+`event`, `message`, `activation-start`, `activation-end`, `wait`, `resume`,
+`check`, `close`), `activations[]`, `waits[]`, and `warnings[]`.
+
+`list-flows` returns one row per Flow: `flowId`, `status`, `participants[]`,
+`entries`, and `latestTime`.
 
 ## Installing this skill
 

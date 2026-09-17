@@ -42,14 +42,14 @@ Commands cover Traces and Flows only. Laymos has its own `laymos` CLI.
 kstack list-traces [--limit 20]   # recent Trace Summaries, newest first
 kstack get-trace <trace-id>       # one Trace: spans in start order with their logs
 kstack list-flows [--limit 20]    # recent Flows, newest first
-kstack get-flow <flow-id>         # one Recorded Flow in time order
+kstack get-flow <flow-id>         # one Flow Projection in recorded order
 kstack skills                     # list the skills shipped with kstack
 kstack skills devtools            # print the devtools skill
 kstack skills --install DIR       # copy every shipped skill into DIR/<name>/
 ```
 
 Output is JSON by default. `--format text` renders a Trace as its Narrative
-view and a Flow as one chronological line per Flow Item. A missing Trace or
+view and a Flow as one chronological line per Journal Entry. A missing Trace or
 Flow, or an unreachable server, is written to stderr with a nonzero exit.
 
 The server URL comes from `--url`, then `DEVTOOLS_URL`, then `DEVTOOLS_PORT`

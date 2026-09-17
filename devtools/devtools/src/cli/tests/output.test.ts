@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { projectJournal, type Entry, type Journal } from '@pkishorez/flow';
 import { renderFlowText, simplifyFlowList } from '../flow-output.js';
 import {
   renderTraceSummariesText,
@@ -163,69 +164,117 @@ describe('trace output', () => {
 });
 
 describe('flow output', () => {
-  test('simplifies the Flow catalog', () => {
-    expect(
-      simplifyFlowList({
-        items: [{ value: { flowId: 'call-1', latestTimeUnixNano: ms(2_000) } }],
-      }),
-    ).toEqual({
-      items: [{ flowId: 'call-1', latestTime: '1970-01-01T00:00:02.000Z' }],
+  const entry = (
+    over: Partial<Entry> & Pick<Entry, 'kind' | 'id' | 'name'>,
+  ): Entry =>
+    ({
+      flowId: 'call-1',
+      participantName: 'client',
+      sequence: 0,
+      timestamp: 1_000,
+      severity: 'info',
+      ...over,
+    }) as Entry;
+
+  const journal = (entries: ReadonlyArray<Entry>): Journal => ({
+    flowId: 'call-1',
+    entries,
+    ordering: 'recorded',
+  });
+
+  test('summarises Flows newest first', () => {
+    const quiet = projectJournal(
+      journal([entry({ kind: 'event', id: 'a', name: 'started' })]),
+    );
+    const later = projectJournal({
+      flowId: 'call-2',
+      ordering: 'recorded',
+      entries: [
+        entry({
+          kind: 'event',
+          id: 'b',
+          name: 'started',
+          flowId: 'call-2',
+          timestamp: 2_000,
+        }),
+      ],
+    });
+    expect(simplifyFlowList([quiet, later])).toEqual({
+      items: [
+        {
+          flowId: 'call-2',
+          status: 'quiet',
+          participants: ['client'],
+          entries: 1,
+          latestTime: '1970-01-01T00:00:02.000Z',
+        },
+        {
+          flowId: 'call-1',
+          status: 'quiet',
+          participants: ['client'],
+          entries: 1,
+          latestTime: '1970-01-01T00:00:01.000Z',
+        },
+      ],
     });
   });
 
-  test('renders a Recorded Flow as chronological lines', () => {
-    const text = renderFlowText({
-      id: 'call-1',
-      latestTimestamp: 1_300,
-      activations: [],
-      warnings: [
-        { recordType: 'log', recordId: 'log-x', message: 'End without Start' },
-      ],
-      items: [
-        {
-          kind: 'activity',
-          id: 'a',
-          participantName: 'client',
-          name: 'Create offer',
-          timestamp: 1_000,
-          duration: 50,
-          status: 'success',
-          traceId: 't',
-          spanId: 's',
-          logs: [{ timestamp: 1_010, severity: 'info', message: 'sdp ready' }],
-        },
-        {
-          kind: 'message',
-          id: 'b',
-          participantName: 'client',
-          name: 'Offer',
-          timestamp: 1_150,
-          severity: 'info',
-          destination: 'server',
-          messageId: 'm1',
-        },
-        {
-          kind: 'activation-end',
-          id: 'c',
-          participantName: 'server',
-          name: 'done',
-          timestamp: 1_300,
-          severity: 'info',
-          outcome: 'completed',
-        },
-      ],
-    });
+  test('renders a Flow Projection as chronological lines', () => {
+    const text = renderFlowText(
+      projectJournal(
+        journal([
+          entry({
+            kind: 'activation-start',
+            id: 'a',
+            name: 'Create offer',
+            activationId: 'act-1',
+          }),
+          entry({
+            kind: 'event',
+            id: 'b',
+            name: 'sdp ready',
+            timestamp: 1_010,
+          }),
+          entry({
+            kind: 'message',
+            id: 'c',
+            name: 'Offer',
+            timestamp: 1_150,
+            messageId: 'm1',
+            destination: 'server',
+          }),
+          entry({
+            kind: 'activation-end',
+            id: 'd',
+            name: 'Create offer',
+            timestamp: 1_300,
+            activationId: 'act-1',
+            outcome: 'completed',
+          }),
+          entry({
+            kind: 'resume',
+            id: 'e',
+            name: 'Answer',
+            timestamp: 1_400,
+          }),
+        ]),
+      ),
+    );
     expect(text).toMatchInlineSnapshot(`
-      "Flow call-1
-      participants client, server · 3 items · 0 activations · latest 1970-01-01T00:00:01.300Z
+      "Flow call-1 (recorded order)
+      participants client, server · 5 entries · 1 activations · 0 waits · status quiet · latest 1970-01-01T00:00:01.400Z
 
-      +0.0ms     client ▸ Create offer [success 50.0ms]
-      +10.0ms        · INFO sdp ready
+      +0.0ms     client ⏵ activation start: Create offer
+      +10.0ms    client • info sdp ready
       +150.0ms   client → server: Offer
-      +300.0ms   server ⏹ activation end (completed): done
+      +300.0ms   client ⏹ activation end (completed): Create offer
+      +400.0ms   client ⏯ resume: Answer
+
+      Activations:
+        +0.0ms     client ▸ Create offer [completed 300.0ms]
 
       Warnings:
-        - log log-x: End without Start"
+        - resume-without-wait e: Resumed while no Wait was open."
     `);
   });
 });
