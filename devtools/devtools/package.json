@@ -44,6 +44,7 @@
     "effect": "catalog:",
     "env-paths": "catalog:",
     "laymos": "workspace:*",
+    "monoverse": "workspace:*",
     "std-toolkit": "workspace:*",
     "typescript": "catalog:typescript6"
   },

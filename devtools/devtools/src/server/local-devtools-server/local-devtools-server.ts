@@ -10,7 +10,7 @@ import { LotelOtlpHttpLive, LotelRpcLive } from '@pkishorez/lotel';
 import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
 import { DevtoolsRpc } from '../../rpc/index.js';
 import { FlowRpcLive, sqliteFlowStoreLayer } from '../flow-store/index.js';
-import { DevtoolsHandlersLive } from '../handlers.js';
+import { DevtoolsHandlersLive, MonoverseHandlersLive } from '../handlers.js';
 import { makeBrowserApplicationLive } from './browser-application.js';
 import { makeRequestAccessLive } from './request-access.js';
 
@@ -67,7 +67,12 @@ function makeRpcRouteLive() {
     protocol: 'http',
   }).pipe(
     Layer.provide(
-      Layer.mergeAll(DevtoolsHandlersLive, LotelRpcLive, FlowRpcLive),
+      Layer.mergeAll(
+        DevtoolsHandlersLive,
+        MonoverseHandlersLive,
+        LotelRpcLive,
+        FlowRpcLive,
+      ),
     ),
     Layer.provide(RpcSerialization.layerNdjson),
   );

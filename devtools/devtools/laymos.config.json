@@ -27,6 +27,12 @@
       "modules": {
         "src/ui/laymos/laymos": {
           "exposed": true
+        },
+        "src/ui/laymos/project-workspace": {
+          "shared": true
+        },
+        "src/ui/monoverse/monoverse": {
+          "exposed": true
         }
       },
       "moduleGraphs": {
@@ -84,6 +90,7 @@
       "paths": [
         "src/server/handlers.ts",
         "src/server/analyze-laymos-project",
+        "src/server/analyze-monorepo",
         "src/server/get-laymos-changes",
         "src/server/get-laymos-documentation",
         "src/server/get-laymos-module-source",
@@ -92,12 +99,15 @@
         "src/server/run-laymos-stories",
         "src/server/flow-store"
       ],
-      "description": "Fulfils the Laymos and Flow RPC contracts with local Project behavior and the Flow Store",
+      "description": "Fulfils the Laymos, Monoverse, and Flow RPC contracts with local Project and Monorepo behavior and the Flow Store",
       "modules": {
         "src/server/handlers.ts": {
           "exposed": true
         },
         "src/server/analyze-laymos-project": {
+          "shared": true
+        },
+        "src/server/analyze-monorepo": {
           "shared": true
         },
         "src/server/get-laymos-changes": {

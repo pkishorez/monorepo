@@ -1,0 +1,229 @@
+import type { FormEvent, KeyboardEvent } from 'react';
+import { useState } from 'react';
+import { Button } from 'kui-toolkit/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from 'kui-toolkit/components/ui/collapsible';
+import { Input } from 'kui-toolkit/components/ui/input';
+import { Label } from 'kui-toolkit/components/ui/label';
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  CopyIcon,
+  FolderIcon,
+  FolderPlusIcon,
+  PlusIcon,
+  Trash2Icon,
+} from 'kui-toolkit/lucide';
+import { cn } from 'kui-toolkit/utils';
+import { useMonorepoStore } from './monorepo-store';
+
+/**
+ * The Monoverse Monorepo picker: add a Monorepo by its absolute root path, open
+ * an existing one, or delete it. Rendered inline in the empty state and inside
+ * the navigation dialog. `onSelected` receives the chosen path so the caller can
+ * put it in the URL.
+ */
+export function MonorepoManager({
+  onSelected,
+}: {
+  onSelected?: (path: string) => void;
+}) {
+  const monorepos = useMonorepoStore((s) => s.monorepos);
+  const selectedPath = useMonorepoStore((s) => s.selectedPath);
+  const addMonorepo = useMonorepoStore((s) => s.addMonorepo);
+  const removeMonorepo = useMonorepoStore((s) => s.removeMonorepo);
+  const selectMonorepo = useMonorepoStore((s) => s.selectMonorepo);
+
+  const [pathDraft, setPathDraft] = useState('');
+  const [labelDraft, setLabelDraft] = useState('');
+  const [copiedPath, setCopiedPath] = useState<string>();
+
+  const pathValid = pathDraft.trim().length > 0;
+
+  const handleAdd = (e: FormEvent) => {
+    e.preventDefault();
+    const path = pathDraft.trim();
+    if (!path) return;
+    addMonorepo({ path, label: labelDraft.trim() || undefined });
+    setPathDraft('');
+    setLabelDraft('');
+  };
+
+  const handleSelect = (path: string) => {
+    selectMonorepo(path);
+    onSelected?.(path);
+  };
+
+  const copyPath = async (path: string) => {
+    await navigator.clipboard.writeText(path);
+    setCopiedPath(path);
+    window.setTimeout(() => {
+      setCopiedPath((current) => (current === path ? undefined : current));
+    }, 2_000);
+  };
+
+  const submitOnEnter = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && pathValid) {
+      e.preventDefault();
+      handleAdd(e);
+    }
+  };
+
+  const [addOpen, setAddOpen] = useState(false);
+
+  const addForm = (
+    <form onSubmit={handleAdd} className="space-y-2">
+      <div className="space-y-1.5">
+        <Label htmlFor="monoverse-add-path" className="sr-only">
+          Absolute monorepo root path
+        </Label>
+        <Input
+          id="monoverse-add-path"
+          value={pathDraft}
+          onChange={(e) => setPathDraft(e.target.value)}
+          onKeyDown={submitOnEnter}
+          placeholder="/Users/you/repo"
+          className="h-11 font-mono text-base sm:h-9 sm:text-sm"
+        />
+      </div>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Label htmlFor="monoverse-add-label" className="sr-only">
+          Monorepo label
+        </Label>
+        <Input
+          id="monoverse-add-label"
+          value={labelDraft}
+          onChange={(e) => setLabelDraft(e.target.value)}
+          onKeyDown={submitOnEnter}
+          placeholder="Label (optional)"
+          className="h-11 text-base sm:h-9 sm:text-sm"
+        />
+        <Button
+          type="submit"
+          className="min-h-11 sm:min-h-0"
+          disabled={!pathValid}
+        >
+          <PlusIcon className="size-4" />
+          Add
+        </Button>
+      </div>
+    </form>
+  );
+
+  // With no monorepos yet, the form is the whole screen: show it directly rather
+  // than tucking it behind a disclosure and stacking redundant empty states.
+  // The shell already supplies the heading, so render just the form here.
+  if (monorepos.length === 0) {
+    return (
+      <div className="rounded-lg border border-border/60 p-4">{addForm}</div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Monorepo selection is the primary action: list it first and give it room. */}
+      <section className="space-y-2.5">
+        <ul className="space-y-1.5">
+          {monorepos.map((p) => {
+            const active = p.path === selectedPath;
+            return (
+              <li
+                key={p.path}
+                className={cn(
+                  'group flex items-center gap-2 rounded-lg border px-2.5 py-2 text-sm transition-colors',
+                  active
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-border/60 hover:bg-muted/60',
+                )}
+              >
+                <button
+                  type="button"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 text-left focus-visible:outline-none"
+                  onClick={() => handleSelect(p.path)}
+                >
+                  <span
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-md',
+                      active
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {active ? (
+                      <CheckIcon className="size-4" />
+                    ) : (
+                      <FolderIcon className="size-4" />
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">
+                      {p.label ?? p.path.split('/').pop()}
+                    </span>
+                    <span className="block truncate font-mono text-xs text-muted-foreground">
+                      {p.path}
+                    </span>
+                  </span>
+                </button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title={
+                    copiedPath === p.path ? 'Copied' : 'Copy monorepo path'
+                  }
+                  aria-label={
+                    copiedPath === p.path
+                      ? 'Monorepo path copied'
+                      : 'Copy monorepo path'
+                  }
+                  className="size-10 shrink-0 text-muted-foreground sm:size-7"
+                  onClick={() => void copyPath(p.path)}
+                >
+                  {copiedPath === p.path ? (
+                    <CheckIcon className="size-4" />
+                  ) : (
+                    <CopyIcon className="size-4" />
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title="Remove monorepo"
+                  aria-label="Remove monorepo"
+                  className="size-10 shrink-0 text-muted-foreground hover:text-destructive sm:size-7 sm:opacity-0 sm:transition-opacity sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
+                  onClick={() => removeMonorepo(p.path)}
+                >
+                  <Trash2Icon className="size-4" />
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {/* Adding a monorepo is occasional setup: tuck the form behind a disclosure. */}
+      <Collapsible
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        className="rounded-lg border border-border/60"
+      >
+        <CollapsibleTrigger className="group flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium outline-none">
+          <FolderPlusIcon className="size-3.5 text-muted-foreground" />
+          <span>Add a monorepo</span>
+          <ChevronDownIcon className="ml-auto size-4 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-3 border-t border-border/60 px-3 py-4">
+          <p className="text-xs text-muted-foreground">
+            Point DevTools at a pnpm workspace root by its absolute filesystem
+            path.
+          </p>
+          {addForm}
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}

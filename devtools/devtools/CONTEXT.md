@@ -12,7 +12,12 @@ _Avoid_: Tool suite, admin panel.
 
 **Tool**:
 A self-contained developer capability presented through DevTools. Lotel, Flow,
-and Laymos are Tools.
+Laymos, and Monoverse are Tools.
+
+**Tool family**:
+The purpose a Tool serves: Lotel and Flow are telemetry Tools; Laymos and
+Monoverse are project-understanding Tools. Tools in one family link to each
+other; families do not share domains.
 
 **Tool Scope**:
 Whether a Tool works with repository-wide information or information from one
@@ -27,6 +32,12 @@ _Avoid_: Workspace when referring to one selected source folder.
 The DevTools Tool and domain for describing and analyzing the architecture of a
 Project.
 _Avoid_: Architecture Tool.
+
+**Monoverse**:
+The DevTools Tool and domain for understanding one pnpm monorepo as a whole:
+its packages, their dependencies, and their changes. See the
+[Monoverse context](../monoverse/CONTEXT.md).
+_Avoid_: Monorepo Tool, Workspace Tool.
 
 **Lotel**:
 The DevTools Tool and domain for receiving and inspecting local OpenTelemetry

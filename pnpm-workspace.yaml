@@ -167,6 +167,7 @@ catalog:
   vitest: 4.1.11
   wrangler: 4.129.0
   xstate: 5.32.6
+  yaml: 2.9.0
   yoctocolors: 2.2.0
   zustand: 5.0.15
 
