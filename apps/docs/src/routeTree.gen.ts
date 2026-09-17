@@ -17,7 +17,7 @@ import { Route as ApiSourceRouteImport } from './routes/api/source'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as DemosIndexRouteImport } from './routes/demos/index'
-import { Route as DemosBankRouteImport } from './routes/demos/bank'
+import { Route as DemosAiToolkitRouteImport } from './routes/demos/ai-toolkit'
 import { Route as DemosDurableWebrtcRouteImport } from './routes/demos/durable-webrtc'
 import { Route as DemosEffectWebrtcRouteImport } from './routes/demos/effect-webrtc'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
@@ -63,9 +63,9 @@ const DemosIndexRoute = DemosIndexRouteImport.update({
   path: '/demos/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemosBankRoute = DemosBankRouteImport.update({
-  id: '/demos/bank',
-  path: '/demos/bank',
+const DemosAiToolkitRoute = DemosAiToolkitRouteImport.update({
+  id: '/demos/ai-toolkit',
+  path: '/demos/ai-toolkit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemosDurableWebrtcRoute = DemosDurableWebrtcRouteImport.update({
@@ -96,7 +96,7 @@ export interface FileRoutesByFullPath {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/demos/bank': typeof DemosBankRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
@@ -111,7 +111,7 @@ export interface FileRoutesByTo {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/demos/bank': typeof DemosBankRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
@@ -127,7 +127,7 @@ export interface FileRoutesById {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/demos/bank': typeof DemosBankRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
@@ -144,7 +144,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
-    | '/demos/bank'
+    | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/docs/$'
@@ -159,7 +159,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
-    | '/demos/bank'
+    | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/docs/$'
@@ -174,7 +174,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
-    | '/demos/bank'
+    | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/docs/$'
@@ -190,7 +190,7 @@ export interface RootRouteChildren {
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSourceRoute: typeof ApiSourceRoute
   BlogSlugRoute: typeof BlogSlugRoute
-  DemosBankRoute: typeof DemosBankRoute
+  DemosAiToolkitRoute: typeof DemosAiToolkitRoute
   DemosDurableWebrtcRoute: typeof DemosDurableWebrtcRoute
   DemosEffectWebrtcRoute: typeof DemosEffectWebrtcRoute
   DocsSplatRoute: typeof DocsSplatRoute
@@ -257,11 +257,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demos/bank': {
-      id: '/demos/bank'
-      path: '/demos/bank'
-      fullPath: '/demos/bank'
-      preLoaderRoute: typeof DemosBankRouteImport
+    '/demos/ai-toolkit': {
+      id: '/demos/ai-toolkit'
+      path: '/demos/ai-toolkit'
+      fullPath: '/demos/ai-toolkit'
+      preLoaderRoute: typeof DemosAiToolkitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos/durable-webrtc': {
@@ -302,7 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchRoute: ApiSearchRoute,
   ApiSourceRoute: ApiSourceRoute,
   BlogSlugRoute: BlogSlugRoute,
-  DemosBankRoute: DemosBankRoute,
+  DemosAiToolkitRoute: DemosAiToolkitRoute,
   DemosDurableWebrtcRoute: DemosDurableWebrtcRoute,
   DemosEffectWebrtcRoute: DemosEffectWebrtcRoute,
   DocsSplatRoute: DocsSplatRoute,

@@ -37,6 +37,8 @@ import {
   type OutboxRuntime,
 } from '../outbox/outbox/index.js';
 import type { StdSyncPlatform } from '../platform/contract/index.js';
+import type { Collection } from '@tanstack/react-db';
+import type { CollectionItem } from '../domain/collection-item/index.js';
 import {
   makeEffectRunner,
   type EffectRuntime,
@@ -482,3 +484,9 @@ export { syncStore } from '../domain/stored-entity/index.js';
 export type { SyncStoreLayer } from '../platform/sync-store/index.js';
 export type { LeadershipLayer } from '../platform/leadership/index.js';
 export type { StdSyncPlatform } from '../platform/contract/index.js';
+
+/** Public read surface returned by a keyed std-sync collection. */
+export type SyncedCollection<T extends object> = Collection<
+  CollectionItem<T>,
+  string
+>;

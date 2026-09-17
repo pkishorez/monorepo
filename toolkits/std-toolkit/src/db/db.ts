@@ -1,10 +1,17 @@
 export { StdTable } from './std-table/table/index.js';
 export type {
+  AccessPatternDefinition,
+  GlobalSecondaryIndex,
   KeyedEntityDefinition,
+  PrimaryIndex,
   SingleEntityDefinition,
   TableDefinition,
 } from './std-table/definition/index.js';
-export type { QueryOptions, QueryPage } from './std-table/entity/index.js';
+export type {
+  KeyedEntity,
+  QueryOptions,
+  QueryPage,
+} from './std-table/entity/index.js';
 export type { StdTableService } from './std-table/contract/index.js';
 export {
   DatabaseError,

@@ -79,159 +79,6 @@
         }
       }
     },
-    "bank-app": {
-      "paths": ["src/demos/bank/app"],
-      "description": "Std Bank demo — the page: the Transfer draft, live queries, and the store catalog over the client and the UI",
-      "moduleGraphs": {
-        "bank-app": {
-          "description": "Owns one path from user intent through the Transfer draft to rendering.",
-          "path": "src/demos/bank/app",
-          "modules": {
-            "draft": {},
-            "bank-page": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "bank-page": ["draft"]
-          }
-        }
-      }
-    },
-    "bank-ui": {
-      "paths": ["src/demos/bank/ui"],
-      "description": "Std Bank demo — one dumb component: every fact as a prop, every act as a callback",
-      "modules": {
-        "src/demos/bank/ui": {
-          "exposed": true
-        }
-      }
-    },
-    "bank-client": {
-      "paths": ["src/demos/bank/client"],
-      "description": "Std Bank demo — the browser bank: one runtime per store over the RPC api",
-      "moduleGraphs": {
-        "bank-client": {
-          "description": "Connects to a bank, syncs its collections, sends transfers, and exposes one runtime per store.",
-          "path": "src/demos/bank/client",
-          "modules": {
-            "live-value.ts": {},
-            "api": {},
-            "diagnostics": {},
-            "sync": {},
-            "interaction-flow": {},
-            "transfers": {},
-            "admin": {},
-            "stores": {},
-            "bank": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "diagnostics": ["live-value.ts"],
-            "sync": ["api", "diagnostics"],
-            "transfers": [
-              "api",
-              "sync",
-              "diagnostics",
-              "live-value.ts",
-              "interaction-flow"
-            ],
-            "admin": ["api", "sync", "diagnostics", "interaction-flow"],
-            "stores": ["api"],
-            "bank": [
-              "api",
-              "diagnostics",
-              "sync",
-              "transfers",
-              "admin",
-              "stores",
-              "live-value.ts"
-            ]
-          }
-        }
-      }
-    },
-    "bank-server": {
-      "paths": ["src/demos/bank/server"],
-      "description": "Std Bank demo — the bank as a service layer over any StdTable, and as a web handler",
-      "modules": {
-        "src/demos/bank/server": {
-          "exposed": true
-        }
-      }
-    },
-    "bank-rpc": {
-      "paths": ["src/demos/bank/rpc"],
-      "description": "Std Bank demo — the wire: a contract naming two RPC groups, mutation handlers, and subscription handlers",
-      "moduleGraphs": {
-        "bank-rpc": {
-          "description": "Moves the Bank functionality across a boundary without caring which boundary.",
-          "path": "src/demos/bank/rpc",
-          "modules": {
-            "contract": {
-              "exposed": true
-            },
-            "mutations": {
-              "exposed": true
-            },
-            "subscriptions": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "mutations": ["contract"],
-            "subscriptions": ["contract"]
-          }
-        }
-      }
-    },
-    "bank-std-table": {
-      "paths": ["src/demos/bank/std-table"],
-      "description": "Std Bank demo — the single-table design and its entity bindings",
-      "moduleGraphs": {
-        "std-table": {
-          "description": "Binds the domain to one StdTable: the topology and one entity per record kind.",
-          "path": "src/demos/bank/std-table",
-          "modules": {
-            "table": {
-              "exposed": true
-            },
-            "entities/account": {
-              "exposed": true
-            },
-            "entities/transfer": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "entities/account": ["table"],
-            "entities/transfer": ["table"]
-          }
-        }
-      }
-    },
-    "bank-contract": {
-      "paths": ["src/demos/bank/contract"],
-      "description": "Std Bank demo — schemas, name rules, domain refusals",
-      "modules": {
-        "src/demos/bank/contract/account": {
-          "exposed": true
-        },
-        "src/demos/bank/contract/transfer": {
-          "exposed": true
-        },
-        "src/demos/bank/contract/name": {
-          "exposed": true
-        },
-        "src/demos/bank/contract/refusal": {
-          "exposed": true
-        },
-        "src/demos/bank/contract/tuning": {
-          "exposed": true
-        }
-      }
-    },
     "effect-webrtc-app": {
       "paths": ["src/demos/effect-webrtc/app"],
       "description": "Effect WebRTC demo — adapts the Conversation Runtime to the page and Flow diagnostics",
@@ -312,6 +159,33 @@
           "exposed": true
         }
       }
+    },
+    "ai-playground-app": {
+      "paths": ["src/demos/ai-toolkit/app"],
+      "description": "AI playground screen joining live records to the presentation layer.",
+      "modules": {
+        "src/demos/ai-toolkit/app": {
+          "exposed": true
+        }
+      }
+    },
+    "ai-playground-client": {
+      "paths": ["src/demos/ai-toolkit/client"],
+      "description": "Fixed remote WebSocket connection and playground actions.",
+      "modules": {
+        "src/demos/ai-toolkit/client": {
+          "exposed": true
+        }
+      }
+    },
+    "ai-playground-ui": {
+      "paths": ["src/demos/ai-toolkit/ui"],
+      "description": "Typed renderers for every persisted AI message part.",
+      "modules": {
+        "src/demos/ai-toolkit/ui": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
@@ -322,28 +196,12 @@
         "routes": [
           "components",
           "lib",
-          "bank-app",
           "effect-webrtc-app",
-          "durable-webrtc-app"
+          "durable-webrtc-app",
+          "ai-playground-app"
         ],
-        "infra": ["bank-server", "bank-rpc", "bank-std-table"],
+        "infra": [],
         "components": ["lib"]
-      }
-    },
-    "std-bank": {
-      "description": "Std Bank demo: app over client over server over rpc over table over the contract, with the UI beside them",
-      "rules": {
-        "bank-app": ["bank-client", "bank-ui", "bank-contract"],
-        "bank-client": [
-          "bank-server",
-          "bank-rpc",
-          "bank-std-table",
-          "bank-contract"
-        ],
-        "bank-server": ["bank-rpc", "bank-std-table", "bank-contract"],
-        "bank-rpc": ["bank-std-table", "bank-contract"],
-        "bank-std-table": ["bank-contract"],
-        "bank-ui": ["bank-contract"]
       }
     },
     "effect-webrtc-demo": {
@@ -364,6 +222,14 @@
         ],
         "durable-webrtc-runtime": ["effect-webrtc-runtime"],
         "durable-webrtc-ui": ["durable-webrtc-runtime", "effect-webrtc-ui"]
+      }
+    },
+    "ai-playground": {
+      "description": "Docs AI playground: app over the remote client and typed UI.",
+      "rules": {
+        "ai-playground-app": ["ai-playground-client", "ai-playground-ui"],
+        "ai-playground-client": [],
+        "ai-playground-ui": []
       }
     }
   }

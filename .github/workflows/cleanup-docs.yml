@@ -25,16 +25,11 @@ jobs:
       # Supplied explicitly so Alchemy skips the STS GetCallerIdentity it
       # would otherwise use to discover the account id.
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      BANK_AWS_ACCESS_KEY_ID: ${{ secrets.BANK_AWS_ACCESS_KEY_ID }}
-      BANK_AWS_SECRET_ACCESS_KEY: ${{ secrets.BANK_AWS_SECRET_ACCESS_KEY }}
-      BANK_ADMIN_KEY: ${{ secrets.BANK_ADMIN_KEY }}
       # Destroy also evaluates apps/docs/alchemy.run.ts, whose accident-guard
       # refuses deployed stages without this opt-in.
       ALLOW_DEPLOY: 'true'
       # workflow_call passes a stage directly; workflow_dispatch takes a PR number.
       STAGE: ${{ inputs.stage || format('pr{0}', inputs.pr) }}
-      # Non-production stages own isolated tables named <stage>-std-bank-v4.
-      BANK_DYNAMODB_TABLE: ${{ format('{0}-std-bank-v4', inputs.stage || format('pr{0}', inputs.pr)) }}
     steps:
       - name: Validate stage
         run: |
@@ -63,8 +58,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --filter docs...
 
-      # Workspace packages docs consumes export dist, so alchemy.run.ts (and
-      # anything it imports, like the bank demo's contract) needs it built
+      # Workspace packages docs consumes export dist, so they need to be built
       # before any alchemy command runs — mirrors deploy.yml's Build step.
       - name: Build
         run: pnpm --filter docs... run build

@@ -1,8 +1,0 @@
-export {
-  CATCH_UP_PAGE_SIZE,
-  LEDGER_PAGE_SIZE,
-  OPEN_CONCURRENCY,
-  PUSH_BATCH_SIZE,
-  PUSH_BATCH_WINDOW_MS,
-  SEED_BURST,
-} from './tuning.ts';

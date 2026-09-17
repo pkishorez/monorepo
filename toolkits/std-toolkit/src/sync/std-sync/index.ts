@@ -22,4 +22,5 @@ export {
   type SyncEvent,
   type SyncStoreLayer,
   type SyncReporter,
+  type SyncedCollection,
 } from './std-sync.js';
