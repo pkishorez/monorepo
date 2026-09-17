@@ -40,3 +40,26 @@ instrumented application accesses one running DevTools instance.
 **Ingestion**:
 The receipt of Span Records and Log Records from an instrumented application.
 Metrics are outside the Telemetry Tool's scope.
+
+**kstack**:
+The command-line program through which developers start the DevTools Server
+and run Client Commands. It is the package and binary name; DevTools remains
+the name of what it hosts.
+_Avoid_: DevTools CLI, devtools binary.
+
+**DevTools Server**:
+One running DevTools instance, reachable at a DevTools URL, that serves the UI,
+RPC, and Ingestion.
+_Avoid_: Dev server, daemon.
+
+**Client Command**:
+A `kstack` subcommand that serves nothing itself and reads Lotel telemetry
+from a DevTools Server. Client Commands cover Traces and Flows only; Laymos is
+reached through its own CLI.
+_Avoid_: CLI command, query command.
+
+**Trace Summary**:
+One row describing a Trace as a whole: its identity, root operation, service,
+timing, span count, and error count. It is what a listing of recent Traces
+returns.
+_Avoid_: Trace header, trace row.

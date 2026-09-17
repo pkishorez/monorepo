@@ -1,9 +1,10 @@
 {
-  "name": "@pkishorez/devtools",
+  "name": "kstack",
   "version": "0.0.9",
   "private": false,
-  "description": "Local DevTools server for telemetry and architecture analysis",
+  "description": "kstack CLI: the local DevTools server and its telemetry Client Commands",
   "keywords": [
+    "kstack",
     "devtools",
     "effect",
     "rpc"
@@ -18,10 +19,11 @@
     "./rpc": "./src/rpc/index.ts"
   },
   "bin": {
-    "devtools": "dist/server/main.mjs"
+    "kstack": "dist/server/main.mjs"
   },
   "files": [
     "dist",
+    "skills",
     "src/rpc",
     "README.md",
     "LICENSE"

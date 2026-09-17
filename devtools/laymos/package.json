@@ -34,6 +34,11 @@
       "types": "./dist/story/schema/index.d.ts",
       "import": "./dist/story/schema/index.js",
       "default": "./dist/story/schema/index.js"
+    },
+    "./skills-command": {
+      "types": "./dist/skills-command/index.d.ts",
+      "import": "./dist/skills-command/index.js",
+      "default": "./dist/skills-command/index.js"
     }
   },
   "bin": {
@@ -42,6 +47,7 @@
   "files": [
     "bin",
     "dist",
+    "skills",
     "schema.json",
     "README.md",
     "LICENSE"

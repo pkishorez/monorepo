@@ -46,7 +46,7 @@
       "dependencies": [
         "ai-toolkit",
         "auth-toolkit",
-        "@pkishorez/devtools",
+        "kstack",
         "@pkishorez/effect-tracer",
         "effect-webrtc",
         "laymos",
@@ -110,7 +110,7 @@
       "dependencies": [
         "ai-toolkit",
         "auth-toolkit",
-        "@pkishorez/devtools",
+        "kstack",
         "@pkishorez/effect-tracer",
         "effect-webrtc",
         "laymos",

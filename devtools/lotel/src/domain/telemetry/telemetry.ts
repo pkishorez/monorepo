@@ -4,7 +4,11 @@ import {
   ExportTraceServiceRequestSchema,
   NewLogRecordSchema,
 } from '../telemetry-schema/index.js';
-import type { LogRecord, SpanRecord } from '../telemetry-schema/index.js';
+import type {
+  LogRecord,
+  SpanRecord,
+  TraceSummary,
+} from '../telemetry-schema/index.js';
 
 type ExportLogsServiceRequest = typeof ExportLogsServiceRequestSchema.Type;
 type ExportTraceServiceRequest = typeof ExportTraceServiceRequestSchema.Type;
@@ -123,3 +127,54 @@ export const makeTraceDetails = (
     return compared || left.meta._u.localeCompare(right.meta._u);
   }),
 });
+
+const SERVICE_NAME_KEY = 'service.name';
+
+const serviceNameOf = (record: SpanRecord) =>
+  record.context.resource?.attributes?.find(
+    (attribute) => attribute.key === SERVICE_NAME_KEY,
+  )?.value?.stringValue ?? null;
+
+const timeText = (value: string | number | undefined) =>
+  value === undefined ? null : String(value);
+
+/** Summarises the stored Spans of one Trace into a Trace Summary. */
+export const makeTraceSummary = (
+  traceId: string,
+  spans: DecodedEntity<SpanRecord>[],
+): TraceSummary => {
+  const records = spans.map((span) => span.value);
+  const knownSpanIds = new Set(records.map((record) => record.spanId));
+  const root =
+    records.find(
+      (record) =>
+        !record.span.parentSpanId ||
+        !knownSpanIds.has(record.span.parentSpanId),
+    ) ?? records[0];
+  const starts = records.map((record) => record.span.startTimeUnixNano);
+  const ends = records.map((record) => record.span.endTimeUnixNano);
+  const running = ends.some((end) => end === undefined);
+  const earliest = starts.reduce<string | number | undefined>(
+    (min, start) => (compareTime(start, min) < 0 ? start : min),
+    undefined,
+  );
+  const latest = running
+    ? undefined
+    : ends.reduce<string | number | undefined>(
+        (max, end) =>
+          max === undefined || compareTime(end, max) > 0 ? end : max,
+        undefined,
+      );
+
+  return {
+    traceId,
+    name: root?.span.name ?? null,
+    serviceName: root ? serviceNameOf(root) : null,
+    startTimeUnixNano: timeText(earliest),
+    endTimeUnixNano: timeText(latest),
+    spanCount: records.length,
+    errorCount: records.filter((record) => record.span.status?.code === 2)
+      .length,
+    running,
+  };
+};

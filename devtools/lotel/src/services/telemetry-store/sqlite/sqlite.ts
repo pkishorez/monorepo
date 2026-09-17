@@ -7,7 +7,16 @@ import { TelemetryStoreError } from '../telemetry-store.js';
 import { prepareFlowLog, prepareFlowSpan } from '../../../domain/flow/index.js';
 import { makeSqliteEntities } from './entities.js';
 import { writeFlowRecord } from './flow-write.js';
-import type { UpdateCursor } from '../../../domain/telemetry-schema/index.js';
+import type { DecodedEntity } from 'std-toolkit/core';
+import type {
+  SpanRecord,
+  UpdateCursor,
+} from '../../../domain/telemetry-schema/index.js';
+
+/** Spans read per page while walking the timeline for recent Traces. */
+const RECENT_TRACE_PAGE_SIZE = 200;
+/** Upper bound of Spans inspected for one recent-Trace listing. */
+const RECENT_TRACE_SCAN_CAP = 10_000;
 
 const storeError = (operation: string, cause: unknown) =>
   new TelemetryStoreError({ operation, cause: String(cause) });
@@ -181,6 +190,40 @@ export const makeSqliteTelemetryStore = (path: string) =>
               ),
             limit,
           ).pipe(Effect.mapError((cause) => storeError('listFlows', cause))),
+        ),
+
+      listRecentTraceIds: (limit) =>
+        provideSqlite(
+          Effect.gen(function* () {
+            const traceIds: string[] = [];
+            const seen = new Set<string>();
+            let scanned = 0;
+            let after: DecodedEntity<SpanRecord> | undefined;
+            while (traceIds.length < limit && scanned < RECENT_TRACE_SCAN_CAP) {
+              const page = yield* spans.query(
+                'timeline',
+                { pk: {}, '<': null },
+                {
+                  limit: RECENT_TRACE_PAGE_SIZE,
+                  ...(after !== undefined && { after }),
+                },
+              );
+              for (const item of page.items) {
+                scanned += 1;
+                const traceId = item.value.traceId;
+                if (seen.has(traceId)) continue;
+                seen.add(traceId);
+                traceIds.push(traceId);
+                if (traceIds.length >= limit) break;
+              }
+              const last = page.items.at(-1);
+              if (!page.hasMore || last === undefined) break;
+              after = last;
+            }
+            return traceIds;
+          }).pipe(
+            Effect.mapError((cause) => storeError('listRecentTraceIds', cause)),
+          ),
         ),
 
       findSpansByTrace: (traceId) =>

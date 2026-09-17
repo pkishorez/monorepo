@@ -4,7 +4,7 @@ A local telemetry store for Effect applications: ingest OTLP traces and logs,
 then query them back over a typed RPC surface.
 
 lotel is a library, not a server. It gives you layers you host inside your own
-process — `@pkishorez/devtools` does exactly that.
+process — `kstack` does exactly that.
 
 ```sh
 npm install @pkishorez/lotel
@@ -36,7 +36,8 @@ The `LotelRpc` group on its own, for frontends and other clients that must not
 pull in the server implementation.
 
 Procedures: `SaveSpans`, `InsertLogs`, `ListSpans`, `ListLogs`, `ListFlows`,
-`GetTrace`, `GetFlow`, and `ClearTelemetry`. Failures are typed —
+`ListTraces`, `GetTrace`, `GetFlow`, and `ClearTelemetry`. `ListTraces` returns
+Trace Summaries for the most recently updated Traces, newest first. Failures are typed —
 `TraceNotFound`, `FlowNotFound`, and `LotelRpcError`.
 
 ## `@pkishorez/lotel/telemetry`

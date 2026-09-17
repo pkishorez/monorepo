@@ -4,6 +4,7 @@ import { HttpApi, HttpApiBuilder } from 'effect/unstable/httpapi';
 import {
   logRecordsFromRequest,
   makeTraceDetails,
+  makeTraceSummary,
   spanRecordsFromRequest,
 } from '../../domain/telemetry/index.js';
 import {
@@ -69,6 +70,20 @@ const insertLogs = (
     return yield* store.insertLogs(identified);
   });
 
+const DEFAULT_RECENT_TRACE_LIMIT = 20;
+
+const listTraces = (limit: number) =>
+  Effect.gen(function* () {
+    const store = yield* TelemetryStore;
+    const traceIds = yield* store.listRecentTraceIds(limit);
+    const items = yield* Effect.forEach(traceIds, (traceId) =>
+      Effect.map(store.findSpansByTrace(traceId), (spans) =>
+        makeTraceSummary(traceId, spans),
+      ),
+    );
+    return { items };
+  });
+
 const getTrace = (traceId: string) =>
   Effect.gen(function* () {
     const store = yield* TelemetryStore;
@@ -105,6 +120,10 @@ export const LotelRpcLive = LotelRpc.toLayer({
     ),
   ListFlows: ({ _u, limit }) =>
     Effect.flatMap(TelemetryStore, (store) => store.listFlows(_u, limit)).pipe(
+      Effect.mapError(toRpcError),
+    ),
+  ListTraces: ({ limit }) =>
+    listTraces(limit ?? DEFAULT_RECENT_TRACE_LIMIT).pipe(
       Effect.mapError(toRpcError),
     ),
   GetTrace: ({ traceId }) =>

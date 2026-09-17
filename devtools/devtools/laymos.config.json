@@ -9,7 +9,7 @@
       "modules": {
         "src/browser.tsx": {},
         "src/server/main.ts": {},
-        "src/cli/get-trace.ts": { "shared": true }
+        "src/cli": { "shared": true }
       }
     },
     "browser-application": {

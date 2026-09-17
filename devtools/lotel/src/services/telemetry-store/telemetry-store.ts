@@ -41,6 +41,10 @@ export interface TelemetryStoreShape {
     _u: UpdateCursor,
     limit?: number,
   ): Effect.Effect<{ items: DecodedEntity<FlowEntity>[] }, TelemetryStoreError>;
+  /** Trace IDs ordered from most recently updated Span to oldest. */
+  listRecentTraceIds(
+    limit: number,
+  ): Effect.Effect<string[], TelemetryStoreError>;
   findSpansByTrace(
     traceId: string,
   ): Effect.Effect<DecodedEntity<SpanRecord>[], TelemetryStoreError>;
