@@ -1,10 +1,7 @@
 {
   "$schema": "../laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": [
-    "src/ui/laymos/layer-inspection/fixtures",
-    "src/ui/laymos/module-inspection/fixtures"
-  ],
+  "ignoredPaths": [],
   "layers": {
     "entry": {
       "paths": ["src/browser.tsx", "src/server/main.ts", "src/cli"],
@@ -25,6 +22,9 @@
     "tool-interface": {
       "paths": ["src/ui"],
       "description": "Owns the complete browser interaction for each Tool",
+      "modules": {
+        "src/ui/laymos/laymos": { "exposed": true }
+      },
       "moduleGraphs": {
         "lotel": {
           "description": "Synchronizes and presents Traces, Log Records, and Flows",
@@ -37,58 +37,6 @@
           "rules": {
             "lotel": ["collections.ts", "viewer"],
             "viewer": ["collections.ts"]
-          }
-        },
-        "laymos": {
-          "description": "Loads and presents Project architecture, source, changes, documentation, and Stories",
-          "path": "src/ui/laymos",
-          "modules": {
-            "laymos": { "exposed": true },
-            "analysis-explorer": {},
-            "analysis-presentation": {},
-            "architecture-graph": {},
-            "architecture-tree": {},
-            "architecture-workspace": {},
-            "layer-inspection": {},
-            "module-inspection": {},
-            "module-source": {},
-            "project-changes": {},
-            "story-inspection": {}
-          },
-          "rules": {
-            "laymos": ["analysis-explorer"],
-            "analysis-explorer": [
-              "analysis-presentation",
-              "architecture-tree",
-              "architecture-workspace",
-              "layer-inspection",
-              "module-inspection",
-              "module-source"
-            ],
-            "analysis-presentation": ["project-changes"],
-            "architecture-graph": ["analysis-presentation"],
-            "architecture-workspace": [
-              "analysis-presentation",
-              "architecture-graph",
-              "architecture-tree",
-              "layer-inspection",
-              "module-inspection",
-              "module-source",
-              "project-changes",
-              "story-inspection"
-            ],
-            "layer-inspection": [
-              "analysis-presentation",
-              "architecture-graph",
-              "architecture-tree"
-            ],
-            "module-inspection": [
-              "analysis-presentation",
-              "architecture-graph",
-              "architecture-tree",
-              "project-changes"
-            ],
-            "module-source": ["analysis-presentation", "architecture-graph"]
           }
         }
       }

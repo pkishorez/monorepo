@@ -28,7 +28,13 @@ import {
 } from '#components/ui/resizable';
 import { Spinner } from '#components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
-import { ChevronsDownUp, ChevronsUpDown, RefreshCw } from '#lib/lucide';
+import {
+  ArrowLeft,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  RefreshCw,
+} from '#lib/lucide';
+import { useIsMobile } from '#hooks/use-mobile';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
@@ -172,14 +178,14 @@ export function ModuleSourceExplorer({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="flex h-[88vh] w-[min(1440px,95vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
+      <DialogContent className="flex h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[88vh] sm:w-[min(1440px,95vw)] sm:max-w-none sm:rounded-lg">
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}
           className="flex min-h-0 flex-1 flex-col gap-0"
         >
-          <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pe-14">
-            <div className="flex min-w-0 items-center gap-3">
+          <DialogHeader className="shrink-0 border-b border-border px-3 py-3 pe-12 sm:px-5 sm:py-4 sm:pe-14">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <DialogTitle className="min-w-0 flex-1 truncate font-mono text-sm">
                 {request.title}
               </DialogTitle>
@@ -187,6 +193,7 @@ export function ModuleSourceExplorer({
                 type="button"
                 variant="outline"
                 size="sm"
+                className="min-h-10 sm:min-h-0"
                 onClick={reloadSource}
                 disabled={state.kind === 'loading'}
               >
@@ -302,7 +309,12 @@ function DocumentationTab({ state }: { readonly state: DocumentationState }) {
   }
 
   return (
-    <div className={cn('min-h-0 flex-1 overflow-y-auto p-6', scrollbarStyles)}>
+    <div
+      className={cn(
+        'min-h-0 flex-1 overflow-y-auto p-4 sm:p-6',
+        scrollbarStyles,
+      )}
+    >
       <div className="mx-auto max-w-3xl">
         {state.documentation.path !== undefined && (
           <p className="mb-4 font-mono text-xs text-muted-foreground">
@@ -362,95 +374,127 @@ function SnapshotView({
     selectedPath === undefined
       ? undefined
       : tree.treePathBySourcePath.get(selectedPath);
+  const [mobileFileOpen, setMobileFileOpen] = useState(false);
+  const isMobile = useIsMobile();
 
-  return (
-    <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-      <ResizablePanel defaultSize="24%" minSize="15%" maxSize="45%">
-        <nav
-          aria-label="Module source files"
-          className="flex size-full min-h-0 flex-col"
+  const fileNavigation = (
+    <nav
+      aria-label="Module source files"
+      className="flex size-full min-h-0 flex-col"
+    >
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className="size-10 sm:size-8"
+          aria-label={
+            allExpanded ? 'Collapse all folders' : 'Expand all folders'
+          }
+          title={allExpanded ? 'Collapse all folders' : 'Expand all folders'}
+          onClick={() =>
+            setExpanded(allExpanded ? [] : expandAll(visiblePaths))
+          }
         >
-          <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              aria-label={
-                allExpanded ? 'Collapse all folders' : 'Expand all folders'
-              }
-              title={
-                allExpanded ? 'Collapse all folders' : 'Expand all folders'
-              }
-              onClick={() =>
-                setExpanded(allExpanded ? [] : expandAll(visiblePaths))
-              }
-            >
-              {allExpanded ? (
-                <ChevronsDownUp className="size-3.5" />
-              ) : (
-                <ChevronsUpDown className="size-3.5" />
-              )}
-            </Button>
-            {hasChanges && (
-              <select
-                aria-label="Unchanged files"
-                className="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-                value={unchanged}
-                onChange={(event) =>
-                  setUnchanged(event.target.value as UnchangedMode)
-                }
-              >
-                <option value="show">Show unchanged</option>
-                <option value="dim">Dim unchanged</option>
-                <option value="hide">Hide unchanged</option>
-              </select>
-            )}
-          </div>
-          <div
-            className={cn(
-              'min-h-0 flex-1 overflow-y-auto p-3',
-              scrollbarStyles,
-            )}
+          {allExpanded ? (
+            <ChevronsDownUp className="size-3.5" />
+          ) : (
+            <ChevronsUpDown className="size-3.5" />
+          )}
+        </Button>
+        {hasChanges && (
+          <select
+            aria-label="Unchanged files"
+            className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-2 text-base font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 sm:h-8 sm:text-xs"
+            value={unchanged}
+            onChange={(event) =>
+              setUnchanged(event.target.value as UnchangedMode)
+            }
           >
-            <FileTree
-              files={visiblePaths}
-              expanded={expanded}
-              onExpandedChange={setExpanded}
-              highlightedPaths={
-                selectedTreePath === undefined ? [] : [selectedTreePath]
-              }
-              iconClassNameForPath={(treePath) =>
-                changeAccent(folderStatus.get(treePath))
-              }
-              classNameForPath={(treePath) =>
-                folderStatus.has(treePath)
-                  ? 'font-medium'
-                  : hasChanges && unchanged === 'dim'
-                    ? 'opacity-40'
-                    : undefined
-              }
-              onPathClick={(treePath) => {
-                const sourcePath = tree.sourcePathByTreePath.get(treePath);
-                if (sourcePath !== undefined) setSelectedPath(sourcePath);
-              }}
-            />
+            <option value="show">Show unchanged</option>
+            <option value="dim">Dim unchanged</option>
+            <option value="hide">Hide unchanged</option>
+          </select>
+        )}
+      </div>
+      <div
+        className={cn('min-h-0 flex-1 overflow-y-auto p-3', scrollbarStyles)}
+      >
+        <FileTree
+          files={visiblePaths}
+          expanded={expanded}
+          onExpandedChange={setExpanded}
+          highlightedPaths={
+            selectedTreePath === undefined ? [] : [selectedTreePath]
+          }
+          iconClassNameForPath={(treePath) =>
+            changeAccent(folderStatus.get(treePath))
+          }
+          classNameForPath={(treePath) =>
+            folderStatus.has(treePath)
+              ? 'font-medium'
+              : hasChanges && unchanged === 'dim'
+                ? 'opacity-40'
+                : undefined
+          }
+          onPathClick={(treePath) => {
+            const sourcePath = tree.sourcePathByTreePath.get(treePath);
+            if (sourcePath !== undefined) {
+              setSelectedPath(sourcePath);
+              if (isMobile) setMobileFileOpen(true);
+            }
+          }}
+        />
+      </div>
+    </nav>
+  );
+
+  const fileContent =
+    selected === undefined ? (
+      <div className="grid size-full place-items-center text-sm text-muted-foreground">
+        No source files
+      </div>
+    ) : (
+      <div className="flex size-full min-h-0 flex-col">
+        {isMobile && (
+          <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-10"
+              aria-label="Back to source files"
+              onClick={() => setMobileFileOpen(false)}
+            >
+              <ArrowLeft className="size-4" />
+            </Button>
+            <span className="min-w-0 flex-1 truncate font-mono text-xs">
+              {selected.path}
+            </span>
           </div>
-        </nav>
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize="76%" minSize="40%">
-        {selected === undefined ? (
-          <div className="grid size-full place-items-center text-sm text-muted-foreground">
-            No source files
-          </div>
-        ) : (
+        )}
+        <div className="min-h-0 flex-1">
           <FileView
             key={selected.path}
             file={selected}
             status={changedPaths?.get(selected.path)}
             loadFileDiff={loadFileDiff}
           />
-        )}
+        </div>
+      </div>
+    );
+
+  return isMobile ? (
+    <div className="min-h-0 flex-1">
+      {mobileFileOpen ? fileContent : fileNavigation}
+    </div>
+  ) : (
+    <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+      <ResizablePanel defaultSize="24%" minSize="15%" maxSize="45%">
+        {fileNavigation}
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel defaultSize="76%" minSize="40%">
+        {fileContent}
       </ResizablePanel>
     </ResizablePanelGroup>
   );

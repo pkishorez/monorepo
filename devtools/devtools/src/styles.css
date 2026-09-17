@@ -19,6 +19,15 @@ body,
 body {
   margin: 0;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+button,
+a,
+input,
+select {
+  touch-action: manipulation;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -41,6 +41,7 @@ interface LayerGraphProps extends LayerInteraction {
   readonly showLayerConnections?: boolean;
   readonly onLayerGraphActivate?: (graphId: string) => void;
   readonly onLayerGraphOpen?: (graphId: string) => void;
+  readonly onInspect?: () => void;
   readonly activeViolationPair?: LayerViolationPair;
   readonly onClearFocus?: () => void;
   readonly className?: string;
@@ -82,7 +83,7 @@ function GraphCanvas(props: LayerGraphProps) {
   return (
     <div
       className={cn(
-        'h-96 w-full min-h-64 overflow-hidden rounded-lg border border-border bg-background',
+        'h-96 w-full touch-none overflow-hidden rounded-lg border border-border bg-background',
         props.className,
       )}
       aria-label={props.ariaLabel ?? 'Layer architecture'}
@@ -98,6 +99,8 @@ function GraphCanvas(props: LayerGraphProps) {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
+        panOnDrag
+        nodeClickDistance={4}
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
         onNodeClick={(_, node) => {
@@ -122,6 +125,25 @@ function GraphCanvas(props: LayerGraphProps) {
           event.preventDefault();
           node.data.onHoverChange?.(undefined);
           node.data.onOpen?.(node.id);
+        }}
+        onNodeDoubleClick={(event, node) => {
+          event.preventDefault();
+          if (props.onInspect !== undefined) {
+            if (node.type === 'graph-header') {
+              props.onLayerGraphActivate?.(node.id.slice('graph:'.length));
+            } else if (node.type === 'layer' && node.data.activationEnabled) {
+              node.data.onHoverChange?.(undefined);
+              node.data.onActivate?.(node.id);
+            }
+            props.onInspect();
+            return;
+          }
+          if (node.type === 'graph-header') {
+            props.onLayerGraphOpen?.(node.id.slice('graph:'.length));
+          } else if (node.type === 'layer' && node.data.openEnabled) {
+            node.data.onHoverChange?.(undefined);
+            node.data.onOpen?.(node.id);
+          }
         }}
         onPaneClick={() => {
           props.onLayerHoverChange?.(undefined);
@@ -174,7 +196,7 @@ function GraphHeader({ data }: NodeProps<GraphHeaderNode>) {
         )}
         title={
           data.openable
-            ? "Right-click to explore this LayerGraph's source"
+            ? "Double-click or right-click to explore this LayerGraph's source"
             : data.description
         }
       >
@@ -209,7 +231,7 @@ function LayerNode({ id, data }: NodeProps<LayerGraphNode>) {
         type="button"
         disabled={!data.activationEnabled}
         className={cn(
-          'nodrag nopan grid h-full w-full place-items-center rounded-lg border border-border bg-card px-4 text-sm font-semibold text-card-foreground shadow-sm outline-none transition-all',
+          'nodrag grid h-full w-full place-items-center rounded-lg border border-border bg-card px-4 text-sm font-semibold text-card-foreground shadow-sm outline-none transition-colors',
           data.related && 'border-primary/70 bg-primary/5',
           data.focused && selectedNodeClass,
           data.violation &&
