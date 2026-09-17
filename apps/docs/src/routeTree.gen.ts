@@ -16,6 +16,7 @@ import { Route as ApiSourceRouteImport } from './routes/api/source'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as DemosIndexRouteImport } from './routes/demos/index'
+import { Route as DemosAiToolkitRouteImport } from './routes/demos/ai-toolkit'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -53,6 +54,11 @@ const DemosIndexRoute = DemosIndexRouteImport.update({
   path: '/demos/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosAiToolkitRoute = DemosAiToolkitRouteImport.update({
+  id: '/demos/ai-toolkit',
+  path: '/demos/ai-toolkit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/docs/$',
   path: '/docs/$',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog': typeof BlogIndexRoute
   '/demos': typeof DemosIndexRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/ai-toolkit'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/ai-toolkit'
     | '/docs/$'
     | '/blog'
     | '/demos'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/ai-toolkit'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSourceRoute: typeof ApiSourceRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  DemosAiToolkitRoute: typeof DemosAiToolkitRoute
   DocsSplatRoute: typeof DocsSplatRoute
   BlogIndexRoute: typeof BlogIndexRoute
   DemosIndexRoute: typeof DemosIndexRoute
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/ai-toolkit': {
+      id: '/demos/ai-toolkit'
+      path: '/demos/ai-toolkit'
+      fullPath: '/demos/ai-toolkit'
+      preLoaderRoute: typeof DemosAiToolkitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/$': {
       id: '/docs/$'
       path: '/docs/$'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchRoute: ApiSearchRoute,
   ApiSourceRoute: ApiSourceRoute,
   BlogSlugRoute: BlogSlugRoute,
+  DemosAiToolkitRoute: DemosAiToolkitRoute,
   DocsSplatRoute: DocsSplatRoute,
   BlogIndexRoute: BlogIndexRoute,
   DemosIndexRoute: DemosIndexRoute,

@@ -2,118 +2,90 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import {
   AiErrorSchema,
+  CLAUDE_MODELS,
+  CODEX_MODELS,
   ClaudeAnswerSchema,
-  ClaudeRunChunkSchema,
   CodexAnswerSchema,
-  CodexRunChunkSchema,
-  RunChunkSchema,
-  ThreadStateSchema,
   UserTurnSchema,
-} from '../../harness/run-state/index.js';
+} from '../../runtime/protocol/index.js';
 
 export {
-  AGENT_EVENT_NAMES,
-  CLAUDE_EVENTS,
-  CODEX_EVENTS,
-  COMMON_EVENTS,
+  CLAUDE_MODELS,
+  CLAUDE_PARTS,
+  CODEX_MODELS,
+  CODEX_PARTS,
+  COMMON_PARTS,
+  CUSTOM_PART_NAMES,
   HarnessFailed,
-  HostMismatch,
+  RUN_STATUSES,
   RequestNotFound,
   RunConflict,
-  RunLogFailed,
   RunNotFound,
+  THREAD_STATUSES,
   ThreadBusy,
   ThreadNotFound,
-} from '../../harness/run-state/index.js';
+} from '../../runtime/protocol/index.js';
 export type {
-  AgentChunk,
-  AgentEvent,
+  AgentQuestion,
   AiCustomPart,
   AiMessagePart,
   Answer,
   ClaudeAnswer,
-  ClaudeEvent,
+  ClaudePart,
   CodexAnswer,
-  CodexEvent,
-  CommonEvent,
-  PendingRequest,
-  RunChunk,
+  CodexPart,
+  CommonPart,
+  HarnessId,
   RunStatus,
-  ThreadState,
   ThreadStatus,
   UserTurn,
-} from '../../harness/run-state/index.js';
+} from '../../runtime/protocol/index.js';
 
-const ThinkingSchema = Schema.Struct({
-  budgetTokens: Schema.Int,
-});
+const ClaudeOptions = {
+  permissionMode: Schema.optional(
+    Schema.Literals([
+      'default',
+      'acceptEdits',
+      'bypassPermissions',
+      'dontAsk',
+      'auto',
+    ]),
+  ),
+  allowDangerouslySkipPermissions: Schema.optional(Schema.Boolean),
+  maxTurns: Schema.optional(Schema.Int),
+  permissionTimeoutMs: Schema.optional(Schema.Int),
+};
 
+const ThinkingOptions = {
+  thinking: Schema.optional(Schema.Struct({ budgetTokens: Schema.Int })),
+};
+
+const claudeStartPayload = <
+  Model extends (typeof CLAUDE_MODELS)[number],
+  Options extends Schema.Struct.Fields,
+>(
+  model: Model,
+  options: Options,
+) =>
+  Schema.Struct({
+    threadId: Schema.String,
+    runId: Schema.String,
+    message: UserTurnSchema,
+    model: Schema.Literal(model),
+    options: Schema.Struct(options),
+  });
+
+// Haiku does not support extended thinking.
 const ClaudeStartPayload = Schema.Union([
-  Schema.Struct({
-    threadId: Schema.String,
-    runId: Schema.String,
-    message: UserTurnSchema,
-    model: Schema.Literal('claude-opus-4-6'),
-    options: Schema.Struct({
-      thinking: Schema.optional(ThinkingSchema),
-      permissionMode: Schema.optional(
-        Schema.Literals([
-          'default',
-          'acceptEdits',
-          'bypassPermissions',
-          'plan',
-          'dontAsk',
-          'auto',
-        ]),
-      ),
-      allowDangerouslySkipPermissions: Schema.optional(Schema.Boolean),
-      maxTurns: Schema.optional(Schema.Int),
-      permissionTimeoutMs: Schema.optional(Schema.Int),
-    }),
+  claudeStartPayload('claude-opus-4-6', {
+    ...ThinkingOptions,
+    ...ClaudeOptions,
   }),
-  Schema.Struct({
-    threadId: Schema.String,
-    runId: Schema.String,
-    message: UserTurnSchema,
-    model: Schema.Literal('claude-sonnet-4-6'),
-    options: Schema.Struct({
-      thinking: Schema.optional(ThinkingSchema),
-      permissionMode: Schema.optional(
-        Schema.Literals([
-          'default',
-          'acceptEdits',
-          'bypassPermissions',
-          'plan',
-          'dontAsk',
-          'auto',
-        ]),
-      ),
-      allowDangerouslySkipPermissions: Schema.optional(Schema.Boolean),
-      maxTurns: Schema.optional(Schema.Int),
-      permissionTimeoutMs: Schema.optional(Schema.Int),
-    }),
+  claudeStartPayload('claude-sonnet-4-6', {
+    ...ThinkingOptions,
+    ...ClaudeOptions,
   }),
-  Schema.Struct({
-    threadId: Schema.String,
-    runId: Schema.String,
-    message: UserTurnSchema,
-    model: Schema.Literal('claude-haiku-4-5'),
-    options: Schema.Struct({
-      permissionMode: Schema.optional(
-        Schema.Literals([
-          'default',
-          'acceptEdits',
-          'bypassPermissions',
-          'plan',
-          'dontAsk',
-          'auto',
-        ]),
-      ),
-      allowDangerouslySkipPermissions: Schema.optional(Schema.Boolean),
-      maxTurns: Schema.optional(Schema.Int),
-      permissionTimeoutMs: Schema.optional(Schema.Int),
-    }),
-  }),
+  claudeStartPayload('claude-haiku-4-5', ClaudeOptions),
 ]);
 
 const CodexOptionsSchema = Schema.Struct({
@@ -129,52 +101,18 @@ const CodexOptionsSchema = Schema.Struct({
   requestTimeoutMs: Schema.optional(Schema.Int),
 });
 
-const CodexStartPayload = Schema.Union([
-  Schema.Struct({
-    threadId: Schema.String,
-    runId: Schema.String,
-    message: UserTurnSchema,
-    model: Schema.Literal('gpt-5.3-codex'),
-    options: CodexOptionsSchema,
-  }),
-  Schema.Struct({
-    threadId: Schema.String,
-    runId: Schema.String,
-    message: UserTurnSchema,
-    model: Schema.Literal('gpt-5.1-codex-mini'),
-    options: CodexOptionsSchema,
-  }),
-]);
+const CodexStartPayload = Schema.Struct({
+  threadId: Schema.String,
+  runId: Schema.String,
+  message: UserTurnSchema,
+  model: Schema.Literals(CODEX_MODELS),
+  options: CodexOptionsSchema,
+});
 
 export type ClaudeStartInput = typeof ClaudeStartPayload.Type;
 export type CodexStartInput = typeof CodexStartPayload.Type;
 
 export const AiRpcError = AiErrorSchema;
-
-const WatchRun = Rpc.make('watchRun', {
-  payload: Schema.Struct({
-    runId: Schema.String,
-    after: Schema.optional(Schema.Int),
-  }),
-  success: RunChunkSchema,
-  error: AiRpcError,
-  stream: true,
-});
-
-const WatchThread = Rpc.make('watchThread', {
-  payload: Schema.Struct({
-    threadId: Schema.String,
-    after: Schema.optional(
-      Schema.Struct({
-        runId: Schema.String,
-        sequence: Schema.Int,
-      }),
-    ),
-  }),
-  success: RunChunkSchema,
-  error: AiRpcError,
-  stream: true,
-});
 
 const CancelRun = Rpc.make('cancelRun', {
   payload: Schema.Struct({
@@ -185,17 +123,10 @@ const CancelRun = Rpc.make('cancelRun', {
   error: AiRpcError,
 });
 
-const GetThread = Rpc.make('getThread', {
-  payload: Schema.Struct({ threadId: Schema.String }),
-  success: ThreadStateSchema,
-  error: AiRpcError,
-});
-
 const ClaudeStart = Rpc.make('claudeStart', {
   payload: ClaudeStartPayload,
-  success: ClaudeRunChunkSchema,
+  success: Schema.Void,
   error: AiRpcError,
-  stream: true,
 });
 
 const ClaudeRespond = Rpc.make('claudeRespond', {
@@ -210,9 +141,8 @@ const ClaudeRespond = Rpc.make('claudeRespond', {
 
 const CodexStart = Rpc.make('codexStart', {
   payload: CodexStartPayload,
-  success: CodexRunChunkSchema,
+  success: Schema.Void,
   error: AiRpcError,
-  stream: true,
 });
 
 const CodexRespond = Rpc.make('codexRespond', {
@@ -225,14 +155,9 @@ const CodexRespond = Rpc.make('codexRespond', {
   error: AiRpcError,
 });
 
-export class CommonRpc extends RpcGroup.make(
-  WatchRun,
-  WatchThread,
-  CancelRun,
-  GetThread,
-) {}
-
+export class CommonRpc extends RpcGroup.make(CancelRun) {}
 export class ClaudeRpc extends RpcGroup.make(ClaudeStart, ClaudeRespond) {}
 export class CodexRpc extends RpcGroup.make(CodexStart, CodexRespond) {}
 
+/** The execution contract. Every observable fact arrives through the AI Table. */
 export class AiRpc extends CommonRpc.merge(ClaudeRpc).merge(CodexRpc) {}

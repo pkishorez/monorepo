@@ -1,55 +1,66 @@
 # ai-toolkit
 
-Effect RPC for long-running Claude Code and Codex turns, executed through
-TanStack AI `chat()`.
+Effect-native runtime for long-running Claude Code and Codex turns. A harness
+writes into a Transcript, the Transcript persists Message rows into the AI
+Table, and clients read the table. There is no stream to subscribe to.
 
 ## Vocabulary
 
-- A **harness** is the stateful coding process: `claude` or `codex`.
-- A **model** is the model selected for one run inside that harness. It is not
-  an adapter, process, thread, or session.
-- A **thread** is the application's stable conversation and working directory.
-- A **run** is one complete user turn, including permission and question waits.
-- A **session id** is the harness-owned resume handle. It is never a thread id.
+See `CONTEXT.md` for the full glossary. The short version:
 
-## Invariants
+- A **Coding Harness** is the stateful coding process: `claude` or `codex`.
+- A **Thread** is the application's conversation and working directory. It
+  carries a live **Thread Status**: `idle`, `running`, `waiting-question`,
+  `waiting-approval`, `cancelled`, or `failed`.
+- A **Run** is one complete user turn, including permission and question
+  waits, with its own lifecycle status.
+- A **Message** is one immutable flush of a Run's Transcript. A long answer is
+  several Messages; `toUiConversation` folds them back into turns.
+- A **Transcript** is the only surface a harness writes through.
 
-- One turn is one run. A question suspends that run; it does not create a
-  continuation run.
-- Output is detachable and replayable. Answers and cancellation are separate,
-  idempotent RPC calls.
-- Run ids are minted by the client.
-- Every permission/question wait and every run has a timeout.
-- A run belongs to one host. A durable `RunLog` implementation must reject a
-  claim held by another host, fail orphaned runs in `recover(hostId)`, and fail
-  expired waiting runs in `sweep(hostId, waitingBefore)`.
-- The AI table stores only threads, runs, and completed messages. Partial AG-UI
-  chunks belong in `RunLog`, not in the table.
+## How a turn flows
+
+```
+browser ──claudeStart──► rpc/live ──► host ──► claude runner ──writes──► Transcript
+                                                 │  asks                    │ flush every 200ms
+                                                 ▼                          ▼
+                                        interaction-mailbox           table.messages
+                                                                            │
+browser ◄────────────────────── subscribeMessages / sync ◄──────────────────┘
+```
+
+1. `claudeStart` or `codexStart` inserts a Run and the user Message, marks the
+   Thread `running`, and returns.
+2. The runner streams deltas into the Transcript. Every 200ms, or at once for a
+   question or approval, the buffered parts become one Message row.
+3. A permission or question parks in the mailbox and flips the Thread to
+   `waiting-approval` or `waiting-question`. `claudeRespond` or `codexRespond`
+   resolves it; the Resolution is recorded as a user Message.
+4. When the harness ends, the Run gets `completed`, `failed`, or `cancelled`,
+   and the Thread returns to `idle` or keeps the failure until the next Run.
+5. At startup the host runs the Bootstrap Sweep: every Run still `running` or
+   `waiting` becomes `cancelled`, along with its Thread.
 
 ## Public modules
 
 ```ts
-import { AiRpc } from 'ai-toolkit/rpc';
-import { AiRpcLive, RunLog } from 'ai-toolkit/rpc/live';
+import { AiRpc, COMMON_PARTS } from 'ai-toolkit/rpc';
+import { AiRpcLive } from 'ai-toolkit/rpc/live';
 import { aiTable, threads, runs, messages } from 'ai-toolkit/table';
+import { toUiConversation } from 'ai-toolkit/client';
+import {
+  AiPlaygroundServerRpc,
+  makePlaygroundSync,
+} from 'ai-toolkit/playground';
 ```
 
-`AiRpc` contains four common calls (`watchRun`, `watchThread`, `cancelRun`,
-`getThread`) and the harness-specific calls (`claudeStart`, `claudeRespond`,
-`codexStart`, `codexRespond`). Claude and Codex response types intentionally do
-not share a reduced approval type.
+`AiRpc` holds `cancelRun` plus the harness calls `claudeStart`,
+`claudeRespond`, `codexStart`, and `codexRespond`. Nothing is observed through
+RPC; every fact is a row in the AI Table.
 
-`AiRpcLive.layer({ hostId })` requires two application-provided layers:
-
-1. `StdTableService<'ai-toolkit'>`, created from the exported `aiTable` with a
-   std-toolkit database adapter.
-2. `RunLog`, whose durable implementation owns replay, tailing, host claims,
-   startup orphan recovery, and the persisted side of TTL expiry. The host
-   calls `sweep` every `sweepIntervalMs` (one minute by default) using
-   `waitingTtlMs` (15 minutes by default). Live latches still use their own
-   per-request timeout.
-
-For local development, `AiRpcLive.memory({ hostId })` supplies the run log:
+`AiRpcLive.layer()` needs one application-provided layer, the
+`StdTableService<'ai-toolkit'>` built from the exported `aiTable` with any
+std-toolkit database adapter:
 
 ```ts
 import { Layer } from 'effect';
@@ -57,38 +68,37 @@ import { Memory } from 'std-toolkit/db/memory';
 import { AiRpcLive } from 'ai-toolkit/rpc/live';
 import { aiTable } from 'ai-toolkit/table';
 
-const AiLive = AiRpcLive.memory({ hostId: 'local' }).pipe(
+const AiLive = AiRpcLive.layer().pipe(
   Layer.provide(Memory.make(aiTable).layer),
 );
 ```
 
-Thread creation remains application-controlled through the exported `threads`
-entity. Run configuration is stored on each run, so successive turns may choose
+Thread creation stays application-controlled through the exported `threads`
+entity. Run configuration is stored on each Run, so successive turns may choose
 different models, reasoning effort, and access levels.
+
+## Table layout
+
+GSI1 holds per-Thread feeds (`runs.byThreadUpdate`, `messages.byThreadUpdate`).
+GSI2 holds global feeds (`threads.byUpdate`, `runs.byUpdate`). GSI3 to GSI5 are
+declared and unused. Every feed sorts by `_u`, so a client can ask for
+everything changed since its cursor.
+
+## Playground
+
+`ai-toolkit serve --port 3001` starts the Playground Server: memory storage,
+the AI RPC, and the demo-only Playground RPC on one HTTP endpoint at `/rpc`.
+Threads run in the directory the server was started from. Tuning values such
+as the flush interval live in `src/runtime/constants.ts`.
 
 ## Upstream boundaries
 
-TanStack AI's `BaseTextAdapter` currently also requires `model` and
-`structuredOutput`; both harness adapters implement that current surface.
-TanStack's custom-event union is closed, so ai-toolkit performs one documented
-cast at each `chat()` boundary and exports its own narrowing `AgentChunk` type.
+The persisted part shape is TanStack AI's `UIMessage` part union plus
+ai-toolkit's custom parts, so TanStack's UI packages can render a stored
+Message. `@tanstack/ai` is a devDependency only; `parts.test.ts` holds the
+shape promise at compile time.
 
-Claude uses `@anthropic-ai/claude-agent-sdk`. Its current thinking control is
-`maxThinkingTokens`, so the RPC's `thinking.budgetTokens` maps to that field.
-Codex uses the duplex `codex app-server` JSON-RPC protocol, not
-`codex exec --json`. The Codex binary must be available on `PATH`, or supplied
-with `codexCommand`. The current app-server approval response carries only its
-decision, not a denial reason; ai-toolkit retains that reason in the
-`codex.request.resolved` event even though it cannot forward it to Codex.
-
-`codex app-server generate-json-schema` emits the complete experimental
-protocol. Generate it after upgrading Codex with:
-
-```sh
-pnpm --dir toolkits/ai-toolkit generate:codex-schema
-```
-
-The disposable JSON Schema output is written to
-`src/harness/codex/generated` and is not published. The Codex adapter currently
-keeps a narrow handwritten Effect schema for only the notifications it consumes;
-deriving that schema from the generated artifact is deferred.
+Claude uses `@anthropic-ai/claude-agent-sdk` with partial messages enabled, so
+text and thinking arrive as deltas. `thinking.budgetTokens` maps to
+`maxThinkingTokens`. Codex uses the duplex `codex app-server` JSON-RPC protocol.
+The Codex binary must be on `PATH`, or supplied through `codexCommand`.

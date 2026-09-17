@@ -4,7 +4,15 @@ import { ArrowRight } from 'lucide-react';
 import { baseOptions } from '@/lib/layout.shared';
 import { HomeHeader } from '@/components/home-header';
 
-const demos = [] as const;
+const demos = [
+  {
+    name: 'ai-toolkit',
+    title: 'AI Toolkit',
+    description:
+      'Run Claude and Codex, answer tool requests, and inspect the typed messages synced back from the playground server.',
+    to: '/demos/ai-toolkit',
+  },
+] as const;
 
 export const Route = createFileRoute('/demos/')({
   component: DemosIndex,

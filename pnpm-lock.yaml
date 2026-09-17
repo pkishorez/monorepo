@@ -504,6 +504,9 @@ importers:
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.168.49(@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.7)(supports-color@10.2.2)
+      ai-toolkit:
+        specifier: workspace:*
+        version: link:../../toolkits/ai-toolkit
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
@@ -810,16 +813,19 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 'catalog:'
         version: 0.3.270(@anthropic-ai/sdk@0.125.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(supports-color@10.2.2)(zod@4.4.3))(zod@4.4.3)
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1))
       '@openai/codex':
         specifier: 'catalog:'
         version: 0.154.0
-      '@tanstack/ai':
-        specifier: 'catalog:'
-        version: 0.54.0(@opentelemetry/api@1.9.1)(zod@4.4.3)
       std-toolkit:
         specifier: workspace:*
         version: link:../std-toolkit
     devDependencies:
+      '@tanstack/ai':
+        specifier: 'catalog:'
+        version: 0.54.0(@opentelemetry/api@1.9.1)(zod@4.4.3)
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.6

@@ -9,10 +9,5 @@
     "rootDir": "src",
     "allowImportingTsExtensions": false
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/**/*.test.ts",
-    "src/harness/codex/generated"
-  ]
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
 }

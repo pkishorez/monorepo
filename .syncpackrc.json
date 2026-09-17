@@ -44,6 +44,7 @@
     {
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
+        "ai-toolkit",
         "auth-toolkit",
         "@pkishorez/devtools",
         "@pkishorez/effect-tracer",
@@ -106,6 +107,7 @@
     {
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
+        "ai-toolkit",
         "auth-toolkit",
         "@pkishorez/devtools",
         "@pkishorez/effect-tracer",

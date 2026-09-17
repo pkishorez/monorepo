@@ -5,7 +5,7 @@
   "layers": {
     "entry": {
       "paths": ["src/router.tsx", "src/start.ts", "src/server.ts"],
-      "description": "Host entries \u2014 TanStack Start server, router, worker forwarding",
+      "description": "Host entries — TanStack Start server, router, worker forwarding",
       "modules": {
         "src/router.tsx": {},
         "src/start.ts": {},
@@ -14,14 +14,14 @@
     },
     "routes": {
       "paths": ["src/routes"],
-      "description": "Route surface \u2014 pages and API handlers",
+      "description": "Route surface — pages and API handlers",
       "modules": {
         "src/routes": {}
       }
     },
     "infra": {
       "paths": ["src/infra"],
-      "description": "Deployable resources \u2014 each worker defined separately, composed by alchemy.run.ts",
+      "description": "Deployable resources — each worker defined separately, composed by alchemy.run.ts",
       "modules": {
         "src/infra": {}
       }
@@ -72,6 +72,33 @@
           "exposed": true
         }
       }
+    },
+    "ai-playground-app": {
+      "paths": ["src/demos/ai-toolkit/app"],
+      "description": "AI playground screen joining live records to the presentation layer.",
+      "modules": {
+        "src/demos/ai-toolkit/app": {
+          "exposed": true
+        }
+      }
+    },
+    "ai-playground-client": {
+      "paths": ["src/demos/ai-toolkit/client"],
+      "description": "Fixed remote WebSocket connection and playground actions.",
+      "modules": {
+        "src/demos/ai-toolkit/client": {
+          "exposed": true
+        }
+      }
+    },
+    "ai-playground-ui": {
+      "paths": ["src/demos/ai-toolkit/ui"],
+      "description": "Typed renderers for every persisted AI message part.",
+      "modules": {
+        "src/demos/ai-toolkit/ui": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
@@ -79,9 +106,17 @@
       "description": "Docs app: entries over routes over components over lib",
       "rules": {
         "entry": ["components"],
-        "routes": ["components", "lib"],
+        "routes": ["components", "lib", "ai-playground-app"],
         "infra": [],
         "components": ["lib"]
+      }
+    },
+    "ai-playground": {
+      "description": "Docs AI playground: app over the remote client and typed UI.",
+      "rules": {
+        "ai-playground-app": ["ai-playground-client", "ai-playground-ui"],
+        "ai-playground-client": [],
+        "ai-playground-ui": []
       }
     }
   }

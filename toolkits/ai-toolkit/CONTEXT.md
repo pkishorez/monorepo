@@ -21,20 +21,28 @@ The application-owned conversation identity and stable execution context for one
 _Avoid_: session, harness thread
 
 **Run**:
-One user turn, from the initial request through all questions and approvals to one terminal outcome. Its identity is minted by the client, and it owns that turn's Language Model, reasoning, access, and harness-specific configuration.
+One user turn, from the initial request through all questions and approvals to one terminal outcome. Its identity is minted by the client, and it owns that turn's Language Model, reasoning, access, and harness-specific configuration. A Run carries its own lifecycle status: running, waiting, completed, failed, or cancelled.
 _Avoid_: continuation run, iteration, request
 
+**Thread Status**:
+The live state of a Thread, updated on every Run transition: idle, running, waiting-question, waiting-approval, cancelled, or failed. A finished Run returns the Thread to idle; a cancelled or failed Run leaves that outcome on the Thread until the next Run starts.
+_Avoid_: interrupted, streaming flag, message status
+
+**Cancelled**:
+A Run stopped from outside the Coding Harness while otherwise healthy: a user cancel, a server shutdown, or the bootstrap sweep finding an orphaned Run.
+_Avoid_: interrupted, aborted, failed
+
+**Failed**:
+A Run the Coding Harness itself ended abnormally: an SDK error, a dead process, or a timeout.
+_Avoid_: cancelled, error state
+
 **Message**:
-A completed conversation entry assembled from a Run's streamed events. A Message contains renderable parts such as text, thinking, tool calls, and tool results; it is not an AG-UI event.
-_Avoid_: chunk, event, delta
+An immutable record of one flush from a Run's Transcript: a role and the parts collected since the previous flush, such as text, thinking, tool calls, tool results, and typed interactions. A long turn is several Messages; consumers fold consecutive Messages of one Run and role into a rendered turn. The same Message shape is stored, synced, and rendered.
+_Avoid_: chunk, event, delta, AG-UI event, turn
 
-**Run Event**:
-One AG-UI protocol event emitted while a Run is active, including typed common and harness-specific custom events.
-_Avoid_: message, message part
-
-**Durable Run Log**:
-The ordered replay source for a Run's events while clients detach and reconnect. It is operational stream state, separate from persisted completed Messages.
-_Avoid_: message store, transcript
+**Transcript**:
+The single writing surface a Coding Harness has during a Run. A harness appends text, thinking, tool calls, tool results, and harness-specific parts to it; the Transcript batches those writes by time and size and persists each batch as one Message. A harness never touches storage directly.
+_Avoid_: stream, assembly, processor, run log
 
 **Harness Thread**:
 The opaque, harness-owned conversation identity used to resume native context. It is distinct from the application-owned Thread and may participate in provider-specific session lineage.
@@ -57,5 +65,17 @@ The sole non-terminal Run belonging to a Thread. It is either executing or waiti
 _Avoid_: current request
 
 **Run State**:
-The facts describing Threads and Runs, including configuration, native identities, execution status, and terminal outcomes. Pending Interaction Requests belong to live runtime state, while event sequence belongs to the Durable Run Log.
+The facts describing Threads and Runs, including configuration, native identities, execution status, and terminal outcomes. Pending Interaction Requests belong to live runtime state.
 _Avoid_: model, database model, agent state
+
+**Playground Server**:
+A local, ephemeral Harness Host used to exercise the public RPC from a browser demo against the directory in which the server was started.
+_Avoid_: production host, docs server
+
+**Playground RPC**:
+Demo-only operations for creating and querying Playground Server state. It is separate from the execution-focused public AI RPC.
+_Avoid_: AI RPC, admin API
+
+**Bootstrap Sweep**:
+The startup step of the Harness Host that reads every Run still running or waiting, marks each cancelled, and sets its Thread Status to cancelled.
+_Avoid_: recovery, orphan reaper, garbage collection
