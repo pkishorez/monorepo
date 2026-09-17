@@ -1,4 +1,4 @@
-name: test:monorepo
+name: 🧪 test:monorepo
 
 on:
   pull_request:
