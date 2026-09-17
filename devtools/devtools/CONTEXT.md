@@ -28,6 +28,25 @@ _Avoid_: Project scope when the Tool is repository-wide.
 A source folder selected for analysis by a Project-scoped Tool.
 _Avoid_: Workspace when referring to one selected source folder.
 
+**Worktree**:
+One git checkout of the repository a Project lives in. The primary checkout
+and every linked checkout are Worktrees alike; a Project belongs to exactly one.
+_Avoid_: Checkout, branch folder, clone.
+
+**Worktree sibling**:
+The Project at the same repository-relative path under another Worktree of the
+same repository. A sibling may be absent when that Worktree does not contain
+the path. Switching Worktree means selecting a Worktree sibling; the Project
+stays identified by its own folder.
+_Avoid_: Worktree variant, alternate project, mirror.
+
+**Project registry**:
+The list of Projects a developer has registered with DevTools, kept by the
+DevTools server and shared by every browser on the machine. Each entry belongs
+to one Tool and names one folder; the Worktree currently being analysed is not
+part of the entry.
+_Avoid_: Saved projects, recent projects, project list.
+
 **Laymos**:
 The DevTools Tool and domain for describing and analyzing the architecture of a
 Project.
