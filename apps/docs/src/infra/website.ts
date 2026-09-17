@@ -24,9 +24,6 @@ export const Website = Cloudflare.Website.Vite(
       dev: devConfigFor(isLocal),
       domain: domainFor(stage),
       env: {
-        ...('auth' in durableWebRtc
-          ? { DURABLE_WEBRTC_AUTH: durableWebRtc.auth }
-          : {}),
         DURABLE_WEBRTC_SIGNALING: durableWebRtc.signaling,
       },
     };

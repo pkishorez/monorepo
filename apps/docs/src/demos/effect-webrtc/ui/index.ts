@@ -1,2 +1,8 @@
-export { ConversationPanel, EffectWebRtcDemo, PeerSetup } from './ui.tsx';
-export type { ConversationSnapshot } from './ui.tsx';
+export {
+  ConversationPanel,
+  EffectWebRtcDemo,
+  PeerSetup,
+  TransportSwitch,
+  WebRtcChat,
+} from './ui.tsx';
+export type { ChatPeer, ConversationSnapshot } from './ui.tsx';

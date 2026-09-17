@@ -9,7 +9,7 @@ const requestOrigin = (request: Request) => {
 const authWorkerUrl = (request: Request) => {
   const origin = requestOrigin(request);
   return new URL(origin).hostname.endsWith('.kishore.computer')
-    ? origin
+    ? 'https://auth.kishore.computer'
     : 'https://auth.kishore.app';
 };
 

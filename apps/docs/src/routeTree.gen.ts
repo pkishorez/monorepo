@@ -20,8 +20,8 @@ import { Route as DemosIndexRouteImport } from './routes/demos/index'
 import { Route as DemosAiToolkitRouteImport } from './routes/demos/ai-toolkit'
 import { Route as DemosDurableWebrtcRouteImport } from './routes/demos/durable-webrtc'
 import { Route as DemosEffectWebrtcRouteImport } from './routes/demos/effect-webrtc'
+import { Route as DemosWebrtcRouteImport } from './routes/demos/webrtc'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -78,14 +78,14 @@ const DemosEffectWebrtcRoute = DemosEffectWebrtcRouteImport.update({
   path: '/demos/effect-webrtc',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosWebrtcRoute = DemosWebrtcRouteImport.update({
+  id: '/demos/webrtc',
+  path: '/demos/webrtc',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: '/docs/$',
   path: '/docs/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -99,10 +99,10 @@ export interface FileRoutesByFullPath {
   '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
+  '/demos/webrtc': typeof DemosWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -114,10 +114,10 @@ export interface FileRoutesByTo {
   '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
+  '/demos/webrtc': typeof DemosWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog': typeof BlogIndexRoute
   '/demos': typeof DemosIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -130,10 +130,10 @@ export interface FileRoutesById {
   '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
+  '/demos/webrtc': typeof DemosWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
   '/demos/': typeof DemosIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -147,10 +147,10 @@ export interface FileRouteTypes {
     | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
+    | '/demos/webrtc'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
-    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -162,10 +162,10 @@ export interface FileRouteTypes {
     | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
+    | '/demos/webrtc'
     | '/docs/$'
     | '/blog'
     | '/demos'
-    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
@@ -177,10 +177,10 @@ export interface FileRouteTypes {
     | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
+    | '/demos/webrtc'
     | '/docs/$'
     | '/blog/'
     | '/demos/'
-    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -193,10 +193,10 @@ export interface RootRouteChildren {
   DemosAiToolkitRoute: typeof DemosAiToolkitRoute
   DemosDurableWebrtcRoute: typeof DemosDurableWebrtcRoute
   DemosEffectWebrtcRoute: typeof DemosEffectWebrtcRoute
+  DemosWebrtcRoute: typeof DemosWebrtcRoute
   DocsSplatRoute: typeof DocsSplatRoute
   BlogIndexRoute: typeof BlogIndexRoute
   DemosIndexRoute: typeof DemosIndexRoute
-  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -278,18 +278,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosEffectWebrtcRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/webrtc': {
+      id: '/demos/webrtc'
+      path: '/demos/webrtc'
+      fullPath: '/demos/webrtc'
+      preLoaderRoute: typeof DemosWebrtcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/docs/$': {
       id: '/docs/$'
       path: '/docs/$'
       fullPath: '/docs/$'
       preLoaderRoute: typeof DocsSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -305,10 +305,10 @@ const rootRouteChildren: RootRouteChildren = {
   DemosAiToolkitRoute: DemosAiToolkitRoute,
   DemosDurableWebrtcRoute: DemosDurableWebrtcRoute,
   DemosEffectWebrtcRoute: DemosEffectWebrtcRoute,
+  DemosWebrtcRoute: DemosWebrtcRoute,
   DocsSplatRoute: DocsSplatRoute,
   BlogIndexRoute: BlogIndexRoute,
   DemosIndexRoute: DemosIndexRoute,
-  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

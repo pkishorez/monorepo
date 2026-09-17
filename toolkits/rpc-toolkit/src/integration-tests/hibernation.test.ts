@@ -44,6 +44,107 @@ function socket(seed: unknown = null) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+it('replays every in-flight stream without requiring a checkpoint', async () => {
+  vi.stubGlobal('WebSocketRequestResponsePair', class {});
+  let starts = 0;
+  const Plain = RpcGroup.make(
+    Rpc.make('watch', { success: Schema.Number, stream: true }),
+  );
+  const boot = (target: ReturnType<typeof socket>) =>
+    Effect.runPromise(
+      makeHibernatingWebSocketRpc({
+        group: Plain,
+        layer: Plain.toLayer({
+          watch: () =>
+            Stream.unwrap(
+              Effect.sync(() => {
+                starts++;
+                return Stream.never;
+              }),
+            ),
+        }),
+        state: {
+          getWebSockets: () => Effect.succeed([target.port]),
+          setWebSocketAutoResponse: () => Effect.void,
+        },
+        upgrade: () =>
+          Effect.succeed([HttpServerResponse.empty(), target.port] as const),
+      }).pipe(Effect.provide(RpcSerialization.layerJson)),
+    );
+
+  const first = socket();
+  const firstServer = await boot(first);
+  await Effect.runPromise(
+    firstServer.message(
+      first.port,
+      JSON.stringify({
+        _tag: 'Request',
+        id: '0',
+        tag: 'watch',
+        payload: null,
+        headers: [],
+      }),
+    ),
+  );
+  await vi.waitFor(() => expect(starts).toBe(1));
+  const saved = first.snapshot();
+  expect(saved.handlers).toHaveLength(1);
+
+  const resumed = socket(saved);
+  const resumedServer = await boot(resumed);
+  await vi.waitFor(() => expect(starts).toBe(2));
+
+  await Effect.runPromise(firstServer.close(first.port, 1000, 'done'));
+  await Effect.runPromise(resumedServer.close(resumed.port, 1000, 'done'));
+});
+
+it('restores a stream before processing the close event that woke the object', async () => {
+  vi.stubGlobal('WebSocketRequestResponsePair', class {});
+  const events: string[] = [];
+  const Plain = RpcGroup.make(
+    Rpc.make('watch', { success: Schema.Number, stream: true }),
+  );
+  const resumed = socket({
+    clientId: 1,
+    handlers: [
+      {
+        request: {
+          _tag: 'Request',
+          id: 'close-race',
+          tag: 'watch',
+          payload: null,
+          headers: [],
+        },
+      },
+    ],
+  });
+  const server = await Effect.runPromise(
+    makeHibernatingWebSocketRpc({
+      group: Plain,
+      layer: Plain.toLayer({
+        watch: () =>
+          Stream.unwrap(
+            Effect.sync(() => {
+              events.push('start');
+              return Stream.never.pipe(
+                Stream.ensuring(Effect.sync(() => events.push('stop'))),
+              );
+            }),
+          ),
+      }),
+      state: {
+        getWebSockets: () => Effect.succeed([resumed.port]),
+        setWebSocketAutoResponse: () => Effect.void,
+      },
+      upgrade: () =>
+        Effect.succeed([HttpServerResponse.empty(), resumed.port] as const),
+    }).pipe(Effect.provide(RpcSerialization.layerJson)),
+  );
+
+  await Effect.runPromise(server.close(resumed.port, 1000, 'closed'));
+  await vi.waitFor(() => expect(events).toEqual(['start', 'stop']));
+});
+
 it('rechecks authorization on replay, preserves checkpoints, and never trusts a client replay header', async () => {
   vi.stubGlobal('WebSocketRequestResponsePair', class {});
   let allowed = true;

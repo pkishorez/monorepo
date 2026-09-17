@@ -43,8 +43,12 @@ export class NegotiationTooLarge extends Schema.TaggedError<NegotiationTooLarge>
 ) {}
 
 export class DurableSignalingRpcs extends RpcGroup.make(
-  Rpc.make('ListPeers', {
+  Rpc.make('DebugInstanceValue', {
+    success: Schema.Number,
+  }),
+  Rpc.make('SubscribePeers', {
     success: Schema.Array(PeerDescriptor),
+    stream: true,
   }),
   Rpc.make('WaitForPeer', {
     payload: { peerId: DurablePeerId },

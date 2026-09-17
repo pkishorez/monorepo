@@ -18,7 +18,7 @@ export class PersistedHandler extends Schema.Class<PersistedHandler>(
   'PersistedHandler',
 )({
   request: HandlerRequest,
-  state: Schema.Unknown,
+  state: Schema.optionalKey(Schema.Unknown),
 }) {}
 
 /**
