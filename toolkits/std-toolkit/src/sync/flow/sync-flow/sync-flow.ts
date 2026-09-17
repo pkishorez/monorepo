@@ -39,6 +39,7 @@ export type FlowParticipant = StrategyFlow & {
     message: unknown,
     options?: FlowLogOptions,
   ) => Effect.Effect<void>;
+  observe: (token: MessageToken) => void;
   activation: {
     start: (name?: unknown) => Effect.Effect<ActivationRef>;
   };
@@ -87,6 +88,7 @@ const participant = (id: string, name: string): FlowParticipant => {
     activated: (activationName) => flow.activated({ name: activationName }),
     activation: { start: flow.activation.start },
     log: flow.log,
+    observe: flow.observe,
     reply: flow.reply,
     send: flow.send,
     withSpan: flow.withSpan,

@@ -1,0 +1,3 @@
+# Keep provider topology out of the Signaling contract
+
+The shared Signaling Connection exposes addressed send and receive, a coarse `Connecting | Available | Unavailable` status, and an optional `waitForPeer` capability. It does not expose endpoint counts, degraded status, provider events, or rejected-message diagnostics: those described Nostr's relay topology rather than signaling itself and forced unrelated providers to imitate it. Durable signaling implements `waitForPeer` so the common WebRTC state machine can avoid polling before a fresh attempt, while Nostr omits the capability and retains timeout-based retry.

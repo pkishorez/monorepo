@@ -30,7 +30,9 @@ export interface DurableRpcWorkerOptions<Rpcs extends Rpc.Any, A = never> {
    */
   readonly init?: Effect.Effect<unknown>;
   /** Per-connection value resolved from the upgrade request and provided to every handler. */
-  readonly connection?: ConnectionSlot<A>;
+  readonly connection?:
+    | ConnectionSlot<A>
+    | ((state: Cloudflare.DurableObjectState['Service']) => ConnectionSlot<A>);
   /** @default true — the worker's URL is how clients reach the RPC socket. */
   readonly workersDev?: boolean;
   readonly domain?: string;
@@ -91,6 +93,10 @@ export const DurableRpcWorker =
       Effect.gen(function* () {
         const state = yield* Cloudflare.DurableObjectState;
         yield* options.init ?? Effect.void;
+        const connection =
+          typeof options.connection === 'function'
+            ? options.connection(state)
+            : options.connection;
 
         return Effect.gen(function* () {
           const layer = yield* handlers;
@@ -99,7 +105,7 @@ export const DurableRpcWorker =
             upgrade: Cloudflare.upgrade,
             group: options.schema,
             layer,
-            connection: options.connection,
+            connection,
           }).pipe(
             Effect.provide(options.serialization ?? RpcSerialization.layerJson),
             Effect.orDie,

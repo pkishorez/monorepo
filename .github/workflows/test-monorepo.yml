@@ -1,4 +1,4 @@
-name: Monorepo Tests
+name: test:monorepo
 
 on:
   pull_request:

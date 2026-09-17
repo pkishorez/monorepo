@@ -109,6 +109,58 @@ describe('makeFlowLayout', () => {
     ]);
   });
 
+  it('places overlapping Activations on separate tracks', () => {
+    const boundary = (
+      id: string,
+      timestamp: number,
+      kind: 'activation-start' | 'activation-end',
+    ): RecordedFlow['items'][number] => {
+      const item = {
+        id,
+        participantName: 'alice',
+        name: id,
+        timestamp,
+        severity: 'info' as const,
+      };
+      return kind === 'activation-end'
+        ? { ...item, kind, outcome: 'completed' }
+        : { ...item, kind };
+    };
+    const layout = makeFlowLayout({
+      ...flowOf([
+        boundary('outer-start', 1, 'activation-start'),
+        boundary('nested-start', 2, 'activation-start'),
+        boundary('nested-end', 3, 'activation-end'),
+        boundary('outer-end', 4, 'activation-end'),
+      ]),
+      activations: [
+        {
+          participantName: 'alice',
+          name: 'RTC connection',
+          startItemId: 'outer-start',
+          endItemId: 'outer-end',
+          startTimestamp: 1,
+          endTimestamp: 4,
+          outcome: 'completed',
+        },
+        {
+          participantName: 'alice',
+          name: 'RPC GetProfile',
+          startItemId: 'nested-start',
+          endItemId: 'nested-end',
+          startTimestamp: 2,
+          endTimestamp: 3,
+          outcome: 'completed',
+        },
+      ],
+    });
+
+    expect(layout.activations.map(({ name, track }) => [name, track])).toEqual([
+      ['RTC connection', 0],
+      ['RPC GetProfile', 1],
+    ]);
+  });
+
   it('removes hidden Participant activity and Messages involving it', () => {
     const flow: RecordedFlow = {
       id: 'hidden-flow',

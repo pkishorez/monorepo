@@ -1,0 +1,1 @@
+Streaming RPC follows normal Effect cancellation. Alice interrupts the fiber draining Bob’s stream, the transport carries that interruption to Bob, and the invocation’s Flow records the interrupted outcome without tracing individual stream chunks.

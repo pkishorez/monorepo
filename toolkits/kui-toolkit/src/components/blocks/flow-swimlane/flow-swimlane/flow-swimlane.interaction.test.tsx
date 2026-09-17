@@ -157,7 +157,7 @@ describe('FlowSwimlane interactions', () => {
       ),
     ).toEqual(['browser', 'backend']);
     const line = host.querySelector(
-      '[data-flow-item="message"][data-selected="true"] [data-flow-message-line]',
+      '[data-flow-message-connectors] [data-flow-message-line]',
     );
     expect(line?.getAttribute('stroke-width')).toBe('4');
     expect(
@@ -170,7 +170,9 @@ describe('FlowSwimlane interactions', () => {
     ).toHaveLength(1);
     expect(
       host
-        .querySelector('[data-flow-item="message"] [data-flow-message-line]')
+        .querySelector(
+          '[data-flow-message-connectors] [data-flow-message-line]',
+        )
         ?.getAttribute('stroke-width'),
     ).toBe('1.5');
     expect(

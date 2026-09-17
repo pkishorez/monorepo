@@ -1,4 +1,4 @@
-name: Cleanup alchemy-console preview
+name: cleanup:alchemy-console
 on:
   pull_request:
     types: [closed]

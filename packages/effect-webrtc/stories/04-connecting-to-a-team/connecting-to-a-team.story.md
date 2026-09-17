@@ -1,0 +1,1 @@
+A peer is not limited to one remote partner. Alice keeps separate sessions with Bob and Carol, and each pair gets its own negotiation and RPC Flows. The diagrams make those boundaries visible even while the calls run concurrently.

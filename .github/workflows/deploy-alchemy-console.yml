@@ -1,4 +1,4 @@
-name: Deploy alchemy-console
+name: deploy:alchemy-console
 on:
   push:
     branches: [main]

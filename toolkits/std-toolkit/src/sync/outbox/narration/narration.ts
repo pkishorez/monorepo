@@ -65,6 +65,7 @@ export const narrateOutbox = (flow: OutboxFlow | null) => ({
               },
             },
           );
+          flow.outbox.observe(token);
           return yield* enqueue.pipe(
             Effect.andThen(effect),
             Effect.tap(() => flow.outbox.reply(token, 'Delivered')),

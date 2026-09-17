@@ -51,6 +51,7 @@ const activationColor: Record<NonNullable<ActivationOutcome>, string> = {
 };
 
 const railWidth = 9;
+const railTrackGap = 12;
 const openRailColor = 'var(--color-primary)';
 
 const formatDuration = (milliseconds: number) => {
@@ -95,10 +96,13 @@ export function FlowCanvas({
     item.members.some(({ id }) => id === selectedItemId),
   );
   const selectedStep = items[selectedStepIndex];
+  const selectedStepY =
+    selectedStep === undefined
+      ? undefined
+      : flowCanvasTopPadding + selectedStepIndex * flowRowGap + flowRowGap / 2;
   const selectedBounds = (() => {
-    if (selectedStep === undefined) return null;
-    const y =
-      flowCanvasTopPadding + selectedStepIndex * flowRowGap + flowRowGap / 2;
+    if (selectedStep === undefined || selectedStepY === undefined) return null;
+    const y = selectedStepY;
     const x = laneX.get(selectedStep.participantName)!;
     if (selectedStep.kind === 'message') {
       const destinationX = laneX.get(selectedStep.destination)!;
@@ -217,7 +221,16 @@ export function FlowCanvas({
           })}
 
           {activations.map((activation, index) => {
-            const x = laneX.get(activation.participantName)!;
+            const x =
+              laneX.get(activation.participantName)! +
+              activation.track * railTrackGap;
+            const activationRailWidth = activation.track === 0 ? railWidth : 5;
+            const highlighted =
+              selectedStep !== undefined &&
+              selectedStepY !== undefined &&
+              selectedStep.participantName === activation.participantName &&
+              selectedStepY >= activation.startY &&
+              selectedStepY <= activation.endY;
             const color = activation.outcome
               ? activationColor[activation.outcome]
               : openRailColor;
@@ -226,6 +239,8 @@ export function FlowCanvas({
               <g
                 key={`${activation.participantName}-${activation.startY}`}
                 data-flow-activation={activation.outcome ?? 'open'}
+                data-flow-activation-track={activation.track}
+                data-highlighted={highlighted || undefined}
               >
                 {activation.open && (
                   <defs>
@@ -236,23 +251,60 @@ export function FlowCanvas({
                   </defs>
                 )}
                 <rect
-                  x={x - railWidth / 2}
+                  x={x - (activationRailWidth + 10) / 2}
                   y={activation.startY}
-                  width={railWidth}
+                  width={activationRailWidth + 10}
                   height={Math.max(2, activation.endY - activation.startY)}
-                  rx={railWidth / 2}
+                  rx={(activationRailWidth + 10) / 2}
+                  fill={color}
+                  fillOpacity={0.32}
+                  style={{
+                    filter: `drop-shadow(0 0 7px ${color})`,
+                    opacity: highlighted ? 1 : 0,
+                    transition: highlighted
+                      ? 'opacity 180ms ease-out'
+                      : 'opacity 120ms ease-in',
+                  }}
+                />
+                <rect
+                  x={x - activationRailWidth / 2}
+                  y={activation.startY}
+                  width={activationRailWidth}
+                  height={Math.max(2, activation.endY - activation.startY)}
+                  rx={activationRailWidth / 2}
                   fill={activation.open ? `url(#${gradientId})` : color}
-                  fillOpacity={activation.open ? 1 : 0.85}
+                  style={{
+                    fillOpacity: activation.open || highlighted ? 1 : 0.7,
+                    transition: highlighted
+                      ? 'fill-opacity 180ms ease-out'
+                      : 'fill-opacity 120ms ease-in',
+                  }}
                 >
                   <title>
                     {`${activation.name} — ${activation.outcome ?? 'still active'}`}
                   </title>
                 </rect>
+                <rect
+                  x={x - activationRailWidth / 4}
+                  y={activation.startY + 2}
+                  width={Math.max(1, activationRailWidth / 4)}
+                  height={Math.max(0, activation.endY - activation.startY - 4)}
+                  rx={activationRailWidth / 8}
+                  fill="var(--color-foreground)"
+                  fillOpacity={0.55}
+                  pointerEvents="none"
+                  style={{
+                    opacity: highlighted ? 1 : 0,
+                    transition: highlighted
+                      ? 'opacity 180ms ease-out'
+                      : 'opacity 120ms ease-in',
+                  }}
+                />
                 {!activation.open && (
                   <rect
-                    x={x - railWidth}
+                    x={x - activationRailWidth}
                     y={activation.endY - 2}
-                    width={railWidth * 2}
+                    width={activationRailWidth * 2}
                     height={4}
                     rx={2}
                     fill={color}
@@ -261,6 +313,50 @@ export function FlowCanvas({
               </g>
             );
           })}
+
+          <g data-flow-message-connectors pointerEvents="none">
+            {items.map((item, index) => {
+              if (item.kind !== 'message') return null;
+              const selected = item.members.some(
+                ({ id }) => id === selectedItemId,
+              );
+              const y =
+                flowCanvasTopPadding + index * flowRowGap + flowRowGap / 2;
+              const x = laneX.get(item.participantName)!;
+              const destinationX = laneX.get(item.destination)!;
+              return (
+                <g key={item.id}>
+                  <line
+                    data-flow-message-halo
+                    data-active={selected || undefined}
+                    x1={x}
+                    y1={y}
+                    x2={destinationX}
+                    y2={y}
+                    stroke={messageColor}
+                    strokeOpacity={selected ? 0.3 : 0}
+                    strokeWidth={12}
+                    strokeLinecap="round"
+                    style={{ transition: 'stroke-opacity 140ms ease-out' }}
+                  />
+                  <line
+                    data-flow-message-line
+                    x1={x}
+                    y1={y}
+                    x2={destinationX}
+                    y2={y}
+                    stroke={messageColor}
+                    strokeWidth={selected ? 4 : 1.5}
+                    strokeDasharray={
+                      item.replyTo === undefined ? undefined : '6 4'
+                    }
+                    markerEnd={`url(#${markerId}-arrow)`}
+                    style={{ transition: 'stroke-width 140ms ease-out' }}
+                  />
+                </g>
+              );
+            })}
+          </g>
 
           {items.map((item, index) => {
             const selectedMember = item.members.find(
@@ -416,33 +512,6 @@ export function FlowCanvas({
                           : 'transparent'
                     }
                     style={{ transition: 'fill 120ms ease-out' }}
-                  />
-                  <line
-                    data-flow-message-halo
-                    data-active={selected || undefined}
-                    x1={x}
-                    y1={y}
-                    x2={destinationX}
-                    y2={y}
-                    stroke={messageColor}
-                    strokeOpacity={selected ? 0.3 : 0}
-                    strokeWidth={12}
-                    strokeLinecap="round"
-                    style={{ transition: 'stroke-opacity 140ms ease-out' }}
-                  />
-                  <line
-                    data-flow-message-line
-                    x1={x}
-                    y1={y}
-                    x2={destinationX}
-                    y2={y}
-                    stroke={messageColor}
-                    strokeWidth={selected ? 4 : 1.5}
-                    strokeDasharray={
-                      item.replyTo === undefined ? undefined : '6 4'
-                    }
-                    markerEnd={`url(#${markerId}-arrow)`}
-                    style={{ transition: 'stroke-width 140ms ease-out' }}
                   />
                   {latency !== undefined && (
                     <text
