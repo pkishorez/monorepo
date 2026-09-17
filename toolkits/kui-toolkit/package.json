@@ -13,6 +13,7 @@
     "./components/blocks/er-diagram": "./src/components/blocks/er-diagram/er-diagram/index.ts",
     "./components/blocks/flow-swimlane": "./src/components/blocks/flow-swimlane/flow-swimlane/index.ts",
     "./components/blocks/laymos": "./src/components/blocks/laymos/analysis-explorer/index.ts",
+    "./components/blocks/monoverse": "./src/components/blocks/monoverse/monoverse/index.ts",
     "./components/blocks/otel-trace-viewer": "./src/components/blocks/otel-trace-viewer/trace-viewer/index.ts",
     "./components/blocks/std-toolkit-studio": "./src/components/blocks/std-toolkit-studio/std-toolkit-studio/index.ts",
     "./components/blocks/*": "./src/components/blocks/*/index.ts",
@@ -31,7 +32,8 @@
     "cosmos-export": "cosmos-export",
     "dev": "cosmos",
     "lint": "vp check && tsc --noEmit && pnpm lint:laymos",
-    "lint:laymos": "laymos lint"
+    "lint:laymos": "laymos lint",
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
@@ -92,6 +94,7 @@
     "effect": "catalog:",
     "globals": "catalog:",
     "laymos": "workspace:*",
+    "monoverse": "workspace:*",
     "react-cosmos": "catalog:",
     "react-cosmos-plugin-vite": "catalog:",
     "std-toolkit": "workspace:*",
@@ -109,6 +112,7 @@
     "@tanstack/react-query": "^5.101.4",
     "effect": "^4.0.0-rc.112",
     "laymos": "workspace:^",
+    "monoverse": "workspace:^",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "std-toolkit": "workspace:^",
@@ -144,6 +148,9 @@
       "optional": true
     },
     "@pkishorez/flow": {
+      "optional": true
+    },
+    "monoverse": {
       "optional": true
     }
   },

@@ -96,7 +96,7 @@ export interface GitOptions {
 
 export const defaultGitOptions: GitOptions = {
   showChanges: true,
-  includeUnchanged: false,
+  includeUnchanged: true,
 };
 
 // The Base ref 'HEAD' means the working tree's uncommitted changes; any other
@@ -228,12 +228,20 @@ export function LaymosShell({
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 sm:px-5">
         <TabsList variant="line" className="h-12">
-          <TabsTrigger value={layersModulesTabId}>
+          <TabsTrigger
+            value={layersModulesTabId}
+            className="font-mono text-xs lowercase"
+          >
             <span className="md:hidden">Architecture</span>
             <span className="hidden md:inline">{'Layers <> Modules'}</span>
           </TabsTrigger>
           {stories !== undefined && (
-            <TabsTrigger value={storiesTabId}>Stories</TabsTrigger>
+            <TabsTrigger
+              value={storiesTabId}
+              className="font-mono text-xs lowercase"
+            >
+              Stories
+            </TabsTrigger>
           )}
         </TabsList>
         <div ref={setToolbar} className="flex items-center gap-2" />
@@ -320,7 +328,7 @@ export function LayersModulesExperience({
       )
     : allLayerGraphs;
   const [showLayerConnections, setShowLayerConnections] = useState(true);
-  const [showModuleConnections, setShowModuleConnections] = useState(true);
+  const [showModuleConnections, setShowModuleConnections] = useState(false);
   const [isolateGraph, setIsolateGraph] = useState(false);
   const [activeLayerId, setActiveLayerId] = useState<string>();
   const [hoveredLayerId, setHoveredLayerId] = useState<string>();

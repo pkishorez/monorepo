@@ -1,5 +1,6 @@
-import { DevtoolsToolRpc } from '../rpc/index.js';
+import { DevtoolsToolRpc, MonoverseRpc } from '../rpc/index.js';
 import { analyzeLaymosProject } from './analyze-laymos-project/index.js';
+import { analyzeMonorepo } from './analyze-monorepo/index.js';
 import {
   getLaymosBranches,
   getLaymosChanges,
@@ -27,4 +28,8 @@ export const DevtoolsHandlersLive = DevtoolsToolRpc.toLayer({
   GetLaymosStories: ({ projectPath }) => getLaymosStories(projectPath),
   RunLaymosStories: ({ projectPath, scope }) =>
     runLaymosStories(projectPath, scope),
+});
+
+export const MonoverseHandlersLive = MonoverseRpc.toLayer({
+  AnalyzeMonorepo: ({ monorepoPath }) => analyzeMonorepo(monorepoPath),
 });

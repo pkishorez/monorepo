@@ -1,0 +1,48 @@
+{
+  "name": "monoverse",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Reads one pnpm monorepo and describes its Packages, their dependencies, and their cycles.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/domain/schema/index.d.ts",
+      "default": "./dist/domain/schema/index.js"
+    },
+    "./rpc": {
+      "types": "./dist/rpc/index.d.ts",
+      "default": "./dist/rpc/index.js"
+    }
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "fmt": "vp fmt",
+    "lint": "vp check src package.json tsconfig.json laymos.config.json && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@effect/platform-node": "catalog:",
+    "yaml": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "effect": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.112"
+  }
+}

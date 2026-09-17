@@ -205,10 +205,19 @@ export function ModuleSourceExplorer({
               Browse the documentation and source files of this scope.
             </DialogDescription>
             <TabsList variant="line" className="mt-1">
-              <TabsTrigger value={documentationTabId} disabled={docUnavailable}>
+              <TabsTrigger
+                value={documentationTabId}
+                disabled={docUnavailable}
+                className="font-mono text-xs lowercase"
+              >
                 Documentation
               </TabsTrigger>
-              <TabsTrigger value={filesTabId}>Files</TabsTrigger>
+              <TabsTrigger
+                value={filesTabId}
+                className="font-mono text-xs lowercase"
+              >
+                Files
+              </TabsTrigger>
             </TabsList>
           </DialogHeader>
           <TabsContent

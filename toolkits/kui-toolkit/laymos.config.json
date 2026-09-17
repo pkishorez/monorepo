@@ -5,9 +5,9 @@
     "src/components/blocks/devtools-panel/devtools-panel.fixture.tsx",
     "src/components/blocks/er-diagram/er-diagram.fixture.tsx",
     "src/components/blocks/er-diagram/fixtures",
-    "src/components/blocks/hello.tsx",
     "src/components/blocks/flow-swimlane/examples",
     "src/components/blocks/flow-swimlane/flow-swimlane.fixture.tsx",
+    "src/components/blocks/hello.tsx",
     "src/components/blocks/laymos/analysis-explorer/fixtures",
     "src/components/blocks/laymos/layer-inspection/details/fixtures",
     "src/components/blocks/laymos/layer-inspection/fixtures",
@@ -19,6 +19,7 @@
     "src/components/blocks/laymos/module-inspection/tree/fixtures",
     "src/components/blocks/laymos/module-inspection/violation/fixtures",
     "src/components/blocks/laymos/story-inspection/fixtures",
+    "src/components/blocks/monoverse/monoverse/monoverse.fixture.tsx",
     "src/components/blocks/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
     "src/components/blocks/std-toolkit-studio/std-toolkit-studio.fixture.tsx",
     "src/cosmos.decorator.tsx",
@@ -262,6 +263,38 @@
               "project-changes"
             ],
             "module-source": ["analysis-presentation", "architecture-graph"]
+          }
+        }
+      }
+    },
+    "monorepo-analysis": {
+      "paths": ["src/components/blocks/monoverse"],
+      "description": "Monorepo exploration components composed from reusable Blocks",
+      "moduleGraphs": {
+        "monorepo-explorer": {
+          "description": "Lets consumers explore one Monorepo Analysis through the Package rank stack, Package tree, Package focus, and Embedded Laymos",
+          "path": "src/components/blocks/monoverse",
+          "modules": {
+            "monoverse": {
+              "exposed": true
+            },
+            "monorepo-presentation": {},
+            "monorepo-canvas": {},
+            "package-tree": {},
+            "package-details": {},
+            "laymos-drilldown": {}
+          },
+          "rules": {
+            "monoverse": [
+              "monorepo-presentation",
+              "monorepo-canvas",
+              "package-tree",
+              "package-details",
+              "laymos-drilldown"
+            ],
+            "monorepo-canvas": ["monorepo-presentation"],
+            "package-tree": ["monorepo-presentation"],
+            "package-details": ["monorepo-presentation"]
           }
         }
       }
@@ -530,6 +563,7 @@
       "rules": {
         "studio": ["blocks"],
         "architecture-analysis": ["blocks"],
+        "monorepo-analysis": ["blocks"],
         "devtools-panel": ["blocks"],
         "blocks": ["ui"],
         "form": ["ui"],

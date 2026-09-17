@@ -20,3 +20,9 @@ export {
   FlowEntryListSchema,
   type FlowEntryRecord,
 } from './flow-entry.js';
+export {
+  InvalidMonorepoPathError,
+  MonorepoReadFailure,
+  MonoverseRpc,
+  NotPnpmWorkspaceError,
+} from 'monoverse/rpc';

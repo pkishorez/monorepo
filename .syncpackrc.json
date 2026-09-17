@@ -10,6 +10,7 @@
         "@pkishorez/flow",
         "@pkishorez/lotel",
         "laymos",
+        "monoverse",
         "std-toolkit",
         "use-effect-ts"
       ],
@@ -52,6 +53,7 @@
         "effect-webrtc",
         "@pkishorez/flow",
         "laymos",
+        "monoverse",
         "@pkishorez/lotel",
         "kui-toolkit",
         "rpc-toolkit",
