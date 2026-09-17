@@ -6,7 +6,13 @@ import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { getTraceCommand } from '../cli/get-trace.js';
+import {
+  getFlowCommand,
+  getTraceCommand,
+  listFlowsCommand,
+  listTracesCommand,
+  skillsCommand,
+} from '../cli/index.js';
 import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
 
 const HOST = '127.0.0.1';
@@ -46,7 +52,7 @@ const open = Flag.boolean('open').pipe(
   Flag.withDefault(false),
 );
 
-const command = Command.make(
+const devtoolsCommand = Command.make(
   'devtools',
   { port, db, open },
   Effect.fn(function* ({ port, db, open }) {
@@ -70,8 +76,23 @@ const command = Command.make(
     );
   }),
 ).pipe(
-  Command.withDescription('Local DevTools application'),
-  Command.withSubcommands([getTraceCommand]),
+  Command.withDescription(
+    'Run the DevTools Server: UI, RPC, and OTLP ingestion on loopback',
+  ),
+);
+
+const command = Command.make('kstack').pipe(
+  Command.withDescription(
+    'kstack: the local DevTools Server and its telemetry Client Commands',
+  ),
+  Command.withSubcommands([
+    devtoolsCommand,
+    listTracesCommand,
+    getTraceCommand,
+    listFlowsCommand,
+    getFlowCommand,
+    skillsCommand,
+  ]),
 );
 
 command.pipe(

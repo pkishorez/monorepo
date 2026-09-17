@@ -443,4 +443,81 @@ describe('lotel', () => {
     expect(result.spans.items).toEqual([]);
     expect(result.logs.items).toEqual([]);
   });
+
+  it('lists recent Trace Summaries newest first', async () => {
+    const service = (name: string) => ({
+      resource: {
+        attributes: [{ key: 'service.name', value: { stringValue: name } }],
+      },
+    });
+    const result = await run(
+      withClient((client) =>
+        Effect.gen(function* () {
+          yield* client.SaveSpans({
+            records: [
+              {
+                traceId: 'trace-old',
+                spanId: 'old-root',
+                span: {
+                  name: 'GET /old',
+                  startTimeUnixNano: '1000',
+                  endTimeUnixNano: '1500',
+                },
+                context: service('api'),
+              },
+              {
+                traceId: 'trace-old',
+                spanId: 'old-child',
+                span: {
+                  name: 'db.query',
+                  parentSpanId: 'old-root',
+                  startTimeUnixNano: '1100',
+                  endTimeUnixNano: '1200',
+                  status: { code: 2, message: 'boom' },
+                },
+                context: service('api'),
+              },
+            ],
+          });
+          yield* client.SaveSpans({
+            records: [
+              {
+                traceId: 'trace-new',
+                spanId: 'new-root',
+                span: { name: 'POST /new', startTimeUnixNano: '2000' },
+                context: service('worker'),
+              },
+            ],
+          });
+          const all = yield* client.ListTraces({});
+          const one = yield* client.ListTraces({ limit: 1 });
+          return { all, one };
+        }),
+      ),
+    );
+
+    expect(result.all.items).toEqual([
+      {
+        traceId: 'trace-new',
+        name: 'POST /new',
+        serviceName: 'worker',
+        startTimeUnixNano: '2000',
+        endTimeUnixNano: null,
+        spanCount: 1,
+        errorCount: 0,
+        running: true,
+      },
+      {
+        traceId: 'trace-old',
+        name: 'GET /old',
+        serviceName: 'api',
+        startTimeUnixNano: '1000',
+        endTimeUnixNano: '1500',
+        spanCount: 2,
+        errorCount: 1,
+        running: false,
+      },
+    ]);
+    expect(result.one.items.map((item) => item.traceId)).toEqual(['trace-new']);
+  });
 });

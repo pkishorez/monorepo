@@ -94,6 +94,27 @@ export const LogListSchema = Schema.Struct({
   items: Schema.Array(EntitySchema(LogEntitySchema)),
 });
 
+export const TraceSummarySchema = Schema.Struct({
+  traceId: Schema.String,
+  name: Schema.NullOr(Schema.String),
+  serviceName: Schema.NullOr(Schema.String),
+  startTimeUnixNano: Schema.NullOr(Schema.String),
+  endTimeUnixNano: Schema.NullOr(Schema.String),
+  spanCount: Schema.Number,
+  errorCount: Schema.Number,
+  running: Schema.Boolean,
+});
+
+export type TraceSummary = typeof TraceSummarySchema.Type;
+
+export const ListTracesPayloadSchema = Schema.Struct({
+  limit: Schema.optional(Schema.Number),
+});
+
+export const TraceSummaryListSchema = Schema.Struct({
+  items: Schema.Array(TraceSummarySchema),
+});
+
 export const TraceDetailsSchema = Schema.Struct({
   traceId: Schema.String,
   spans: Schema.Array(EntitySchema(SpanEntitySchema)),

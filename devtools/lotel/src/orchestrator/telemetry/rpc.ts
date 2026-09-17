@@ -3,6 +3,7 @@ import {
   BatchWriteResultSchema,
   ClearTelemetryResultSchema,
   ListPayloadSchema,
+  ListTracesPayloadSchema,
   LogListSchema,
   LotelRpcError,
   NewLogRecordSchema,
@@ -10,6 +11,7 @@ import {
   SpanListSchema,
   TraceDetailsSchema,
   TraceNotFound,
+  TraceSummaryListSchema,
 } from '../../domain/telemetry-schema/index.js';
 import {
   FlowListSchema,
@@ -47,6 +49,11 @@ export const makeLotelRpc = () =>
     Rpc.make('ListFlows', {
       payload: ListPayloadSchema,
       success: FlowListSchema,
+      error: LotelRpcError,
+    }),
+    Rpc.make('ListTraces', {
+      payload: ListTracesPayloadSchema,
+      success: TraceSummaryListSchema,
       error: LotelRpcError,
     }),
     Rpc.make('GetTrace', {

@@ -16,6 +16,7 @@ const server = spawn(
   process.execPath,
   [
     'dist/server/main.mjs',
+    'devtools',
     '--port',
     String(port),
     '--db',
@@ -86,6 +87,29 @@ try {
     'true',
   );
 
+  const skills = await runClient(['skills', '--format', 'json']);
+  assert.deepEqual(
+    JSON.parse(skills).map((skill: { name: string }) => skill.name),
+    ['devtools'],
+  );
+  const skill = await runClient(['skills', 'devtools']);
+  assert.match(skill, /^---\nname: devtools\n/);
+  await runClient([
+    'skills',
+    'devtools',
+    '--install',
+    path.join(testRoot, 'skills'),
+  ]);
+  assert.match(
+    await readFile(
+      path.join(testRoot, 'skills', 'devtools', 'SKILL.md'),
+      'utf8',
+    ),
+    /^---\nname: devtools\n/,
+  );
+  const traces = await runClient(['list-traces', '--url', origin]);
+  assert.deepEqual(JSON.parse(traces), { items: [] });
+
   console.log('packaged DevTools server smoke test passed');
 } finally {
   server.kill('SIGTERM');
@@ -100,6 +124,24 @@ try {
     }),
   ]);
   await rm(testRoot, { recursive: true, force: true });
+}
+
+async function runClient(args: string[]): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(process.execPath, ['dist/server/main.mjs', ...args], {
+      stdio: ['ignore', 'pipe', 'inherit'],
+    });
+    let output = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+    child.once('error', reject);
+    child.once('exit', (code) =>
+      code === 0
+        ? resolve(output)
+        : reject(new Error(`kstack ${args.join(' ')} exited with ${code}`)),
+    );
+  });
 }
 
 async function availablePort(): Promise<number> {

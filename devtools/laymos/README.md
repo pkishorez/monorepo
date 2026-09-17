@@ -139,6 +139,7 @@ laymos [--config <path>] inspect project [--json]
 laymos [--config <path>] inspect layer <layer-name> [--json]
 laymos [--config <path>] inspect file <file-path> [--recursive] [--json]
 laymos [--config <path>] inspect module <module-path> [--json]
+laymos skills [<name>] [--install <dir>] [--format json|text]
 ```
 
 `lint` checks every architectural rule; `lint layers` checks Layer coverage,
@@ -160,6 +161,13 @@ and prints its configured kind, source shape, observed kind, public entry
 points, and dependency tree. Add `--json` to any inspect command for stable tool
 output. If the selected Module participates in a dependency cycle, inspection
 stops and directs the user to `lint modules`.
+
+`skills` lists the agent skills shipped with laymos: `laymos`, `to-laymos`,
+`domain-modeling`, and `deep-module`. `skills <name>` prints that skill's
+`SKILL.md`; `--install <dir>` copies every skill, or only the named one, into
+`<dir>/<name>/` with its reference files, overwriting an existing copy. Re-run
+it after upgrading so the installed skills match the CLI. The same command is
+exported as `laymos/skills-command` and powers `kstack skills`.
 
 The active inspection target is green in both trees. All commands use
 `sourceRoots` and `ignoredPaths` from the config. Config paths default to

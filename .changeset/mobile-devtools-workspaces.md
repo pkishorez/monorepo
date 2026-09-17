@@ -1,5 +1,5 @@
 ---
-'@pkishorez/devtools': patch
+'kstack': patch
 'kui-toolkit': patch
 ---
 

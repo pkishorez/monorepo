@@ -12,8 +12,12 @@
     "contract": {
       "paths": ["src/architecture-analysis-schema", "src/change-set-schema"],
       "modules": {
-        "src/architecture-analysis-schema": { "exposed": true },
-        "src/change-set-schema": { "exposed": true }
+        "src/architecture-analysis-schema": {
+          "exposed": true
+        },
+        "src/change-set-schema": {
+          "exposed": true
+        }
       }
     },
     "cli": {
@@ -30,13 +34,27 @@
           "path": "src/orchestrator",
           "modules": {
             "load-project": {},
-            "analyze-project": { "exposed": true },
-            "inspect": { "exposed": true },
-            "load-module-source": { "exposed": true },
-            "load-documentation": { "exposed": true },
-            "load-source-files": { "exposed": true },
-            "load-changes": { "exposed": true },
-            "run-stories": { "exposed": true }
+            "analyze-project": {
+              "exposed": true
+            },
+            "inspect": {
+              "exposed": true
+            },
+            "load-module-source": {
+              "exposed": true
+            },
+            "load-documentation": {
+              "exposed": true
+            },
+            "load-source-files": {
+              "exposed": true
+            },
+            "load-changes": {
+              "exposed": true
+            },
+            "run-stories": {
+              "exposed": true
+            }
           },
           "rules": {
             "analyze-project": ["load-project"],
@@ -51,19 +69,29 @@
     "domain": {
       "paths": ["src/domain"],
       "modules": {
-        "src/domain/file-graph": { "shared": true, "exposed": true },
-        "src/domain/project-config": { "shared": true, "exposed": true }
+        "src/domain/file-graph": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/domain/project-config": {
+          "shared": true,
+          "exposed": true
+        }
       },
       "moduleGraphs": {
         "architecture-analysis": {
           "description": "Derives the complete Layer and Module analysis of one project.",
           "path": "src/domain/architecture-analysis",
           "modules": {
-            "index.ts": { "exposed": true },
+            "index.ts": {
+              "exposed": true
+            },
             "architecture-analysis.ts": {},
             "layer-rules.ts": {},
             "layers": {},
-            "modules": { "exposed": true }
+            "modules": {
+              "exposed": true
+            }
           },
           "rules": {
             "index.ts": ["architecture-analysis.ts"],
@@ -76,9 +104,15 @@
     "services": {
       "paths": ["src/services"],
       "modules": {
-        "src/services/config": { "exposed": true },
-        "src/services/file-cruiser": { "exposed": true },
-        "src/services/git": { "exposed": true }
+        "src/services/config": {
+          "exposed": true
+        },
+        "src/services/file-cruiser": {
+          "exposed": true
+        },
+        "src/services/git": {
+          "exposed": true
+        }
       }
     },
     "story": {
@@ -88,14 +122,27 @@
           "description": "Defines Stories and the contract their runs report.",
           "path": "src/story",
           "modules": {
-            "index.ts": { "exposed": true },
-            "schema": { "exposed": true },
+            "index.ts": {
+              "exposed": true
+            },
+            "schema": {
+              "exposed": true
+            },
             "story.ts": {}
           },
           "rules": {
             "index.ts": ["story.ts"],
             "story.ts": ["schema"]
           }
+        }
+      }
+    },
+    "skills-command": {
+      "paths": ["src/skills-command"],
+      "description": "Builds the skills subcommand shared by laymos and kstack",
+      "modules": {
+        "src/skills-command": {
+          "exposed": true
         }
       }
     }
@@ -105,11 +152,12 @@
       "rules": {
         "public-api": ["orchestrator", "contract", "story"],
         "contract": [],
-        "cli": ["orchestrator", "story"],
+        "cli": ["orchestrator", "story", "skills-command"],
         "orchestrator": ["services", "contract", "story"],
         "domain": ["contract"],
         "services": ["domain", "contract"],
-        "story": []
+        "story": [],
+        "skills-command": []
       }
     }
   }
