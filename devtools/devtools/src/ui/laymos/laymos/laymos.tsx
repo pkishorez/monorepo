@@ -18,12 +18,12 @@ import {
 } from 'kui-toolkit/lucide';
 import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
 import { cn } from 'kui-toolkit/lib/utils';
+import { Laymos as AnalysisExplorer } from 'kui-toolkit/components/blocks/laymos';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,
   type DevtoolsRuntime,
 } from '../../../client/devtools-rpc/index.js';
-import { Laymos as AnalysisExplorer } from '../analysis-explorer/index.js';
 import { ProjectManager } from './project-manager';
 import { ProjectDialog } from './project-dialog';
 import { useProjectStore } from './project-store';
@@ -288,7 +288,7 @@ function ProjectChrome({
           children
         ) : (
           <div className={`h-full overflow-auto ${scrollbarStyles}`}>
-            <div className="mx-auto max-w-2xl space-y-6 p-8">
+            <div className="mx-auto max-w-2xl space-y-6 p-4 sm:p-8">
               {projects.length === 0 ? (
                 <AnalysisMessage
                   title="No projects added"
@@ -319,7 +319,7 @@ export function LaymosHeader() {
     ? (selected.label ?? selected.path.split('/').pop() ?? selected.path)
     : null;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex min-w-0 items-center gap-1">
       <ProjectSwitcher
         label={selectedLabel}
         onClick={() => setDialogOpen(true)}
@@ -328,9 +328,10 @@ export function LaymosHeader() {
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-muted-foreground hover:text-foreground"
+          className="size-10 shrink-0 text-muted-foreground hover:text-foreground md:size-8"
           onClick={requestReload}
           disabled={isReloading}
+          aria-label={isReloading ? 'Reloading project' : 'Reload project'}
           title={isReloading ? 'Reloading…' : 'Reload'}
         >
           <RotateCwIcon
@@ -355,7 +356,7 @@ function ProjectSwitcher({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex h-8 w-64 items-center gap-2 rounded-md border border-border/60 px-2.5 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+        'flex h-10 min-w-0 max-w-64 flex-1 items-center gap-2 rounded-md border border-border/60 px-2.5 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 md:h-8 md:w-64',
         label ? 'text-foreground' : 'text-muted-foreground',
       )}
     >

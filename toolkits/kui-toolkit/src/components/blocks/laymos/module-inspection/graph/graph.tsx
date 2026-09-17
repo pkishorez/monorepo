@@ -61,6 +61,7 @@ interface ModuleGraphProps {
   readonly onLayerOpen?: (layerId: string) => void;
   readonly onLayerGraphActivate?: (graphId: string) => void;
   readonly onLayerGraphOpen?: (graphId: string) => void;
+  readonly onInspect?: () => void;
   readonly onClearFocus?: () => void;
   readonly className?: string;
 }
@@ -107,7 +108,7 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
   return (
     <div
       className={cn(
-        'h-96 w-full min-h-64 overflow-hidden rounded-lg border border-border bg-background',
+        'h-96 w-full touch-none overflow-hidden rounded-lg border border-border bg-background',
         props.className,
       )}
       aria-label="Module architecture"
@@ -123,6 +124,8 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
+        panOnDrag
+        nodeClickDistance={4}
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
         onNodeClick={(event, node) => {
@@ -167,6 +170,33 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
             );
           }
         }}
+        onNodeDoubleClick={(event, node) => {
+          event.preventDefault();
+          if (props.onInspect !== undefined) {
+            if (node.type === 'module') {
+              props.onModuleActivate?.(node.id);
+            } else if (node.type === 'module-layer') {
+              props.onLayerActivate?.(node.id);
+            } else if (node.type === 'module-graph-header') {
+              props.onLayerGraphActivate?.(
+                node.id.slice('module-graph-header:'.length),
+              );
+            }
+            props.onInspect();
+            return;
+          }
+          if (node.type === 'module') {
+            props.onModuleOpen?.(node.id);
+          } else if (node.type === 'module-band') {
+            props.onModuleGraphOpen?.(node.id.slice('module-band:'.length));
+          } else if (node.type === 'module-layer') {
+            props.onLayerOpen?.(node.id);
+          } else if (node.type === 'module-graph-header') {
+            props.onLayerGraphOpen?.(
+              node.id.slice('module-graph-header:'.length),
+            );
+          }
+        }}
         onNodeMouseEnter={(_, node) => {
           if (
             props.activeModuleId !== undefined &&
@@ -202,7 +232,9 @@ function LayerContainer({ data }: NodeProps<LayerContainerNode>) {
   return (
     <section
       title={
-        data.openable ? "Right-click to explore this Layer's source" : undefined
+        data.openable
+          ? "Double-click or right-click to explore this Layer's source"
+          : undefined
       }
       className={cn(
         'h-full w-full cursor-pointer rounded-xl border border-border bg-muted/20 shadow-sm',
@@ -327,7 +359,7 @@ function ConfiguredModule({ data }: NodeProps<ConfiguredModuleNode>) {
       />
       <button
         type="button"
-        className="nodrag nopan flex h-[58px] w-full items-center gap-2 rounded-lg px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
+        className="nodrag flex h-[58px] w-full items-center gap-2 rounded-lg px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40"
       >
         <span className="min-w-0 flex-1 truncate text-xs font-semibold">
           {data.label}
@@ -344,7 +376,7 @@ function ConfiguredModule({ data }: NodeProps<ConfiguredModuleNode>) {
 function ModuleBand({ data }: NodeProps<ModuleBandNode>) {
   return (
     <div
-      title="Right-click to explore this Module Graph's source"
+      title="Double-click or right-click to explore this Module Graph's source"
       className={cn(
         'h-full w-full cursor-context-menu rounded-xl border border-dashed border-border bg-muted/10',
         data.violation && 'border-destructive bg-destructive/5',

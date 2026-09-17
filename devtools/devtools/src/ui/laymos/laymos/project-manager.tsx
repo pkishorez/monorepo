@@ -82,17 +82,26 @@ export function ProjectManager({ onSelected }: { onSelected?: () => void }) {
           onChange={(e) => setPathDraft(e.target.value)}
           onKeyDown={submitOnEnter}
           placeholder="/Users/you/repo/packages/some-pkg"
-          className="font-mono text-sm"
+          className="h-11 font-mono text-base sm:h-9 sm:text-sm"
         />
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Label htmlFor="devtools-add-label" className="sr-only">
+          Project label
+        </Label>
         <Input
+          id="devtools-add-label"
           value={labelDraft}
           onChange={(e) => setLabelDraft(e.target.value)}
           onKeyDown={submitOnEnter}
           placeholder="Label (optional)"
+          className="h-11 text-base sm:h-9 sm:text-sm"
         />
-        <Button type="submit" disabled={!pathValid}>
+        <Button
+          type="submit"
+          className="min-h-11 sm:min-h-0"
+          disabled={!pathValid}
+        >
           <PlusIcon className="size-4" />
           Add
         </Button>
@@ -128,7 +137,7 @@ export function ProjectManager({ onSelected }: { onSelected?: () => void }) {
               >
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left focus-visible:outline-none"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 text-left focus-visible:outline-none"
                   onClick={() => handleSelect(p.path)}
                 >
                   <span
@@ -164,7 +173,7 @@ export function ProjectManager({ onSelected }: { onSelected?: () => void }) {
                       ? 'Project path copied'
                       : 'Copy project path'
                   }
-                  className="size-7 shrink-0 text-muted-foreground"
+                  className="size-10 shrink-0 text-muted-foreground sm:size-7"
                   onClick={() => void copyPath(p.path)}
                 >
                   {copiedPath === p.path ? (
@@ -178,7 +187,8 @@ export function ProjectManager({ onSelected }: { onSelected?: () => void }) {
                   variant="ghost"
                   size="icon"
                   title="Remove project"
-                  className="size-7 shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                  aria-label="Remove project"
+                  className="size-10 shrink-0 text-muted-foreground hover:text-destructive sm:size-7 sm:opacity-0 sm:transition-opacity sm:focus-visible:opacity-100 sm:group-hover:opacity-100"
                   onClick={() => removeProject(p.path)}
                 >
                   <Trash2Icon className="size-4" />
@@ -195,7 +205,7 @@ export function ProjectManager({ onSelected }: { onSelected?: () => void }) {
         onOpenChange={setAddOpen}
         className="rounded-lg border border-border/60"
       >
-        <CollapsibleTrigger className="group flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium outline-none">
+        <CollapsibleTrigger className="group flex min-h-11 w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium outline-none">
           <FolderPlusIcon className="size-3.5 text-muted-foreground" />
           <span>Add a project</span>
           <ChevronDownIcon className="ml-auto size-4 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180" />

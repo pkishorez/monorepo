@@ -36,8 +36,8 @@ export default defineConfig({
     ],
   },
   server: {
-    host: '127.0.0.1',
-    port: 5173,
+    host: true,
+    port: Number(process.env.DEVTOOLS_UI_PORT ?? '5173'),
     strictPort: true,
     proxy: {
       '/health': backendProxy(),

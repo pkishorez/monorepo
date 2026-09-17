@@ -35,7 +35,7 @@ export function TraceWorkspace({
 }) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-4">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:h-11 sm:gap-3 sm:px-4">
         <StatusDot status={trace.status} />
         <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium">
           {trace.name}
@@ -84,7 +84,13 @@ export function TraceWorkspace({
             <BookOpenText className="size-3.5" />
           </IconToggle>
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={onClose}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="size-10 sm:size-8"
+          aria-label="Back to traces"
+          onClick={onClose}
+        >
           <XIcon className="size-4" />
           <span className="sr-only">Close Trace</span>
         </Button>

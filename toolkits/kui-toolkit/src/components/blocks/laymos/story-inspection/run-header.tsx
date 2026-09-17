@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '#lib/lucide';
 import type { StoryTree } from 'laymos';
 
 import { Button } from '#components/ui/button';
@@ -24,8 +24,8 @@ export function RunHeader({
   const summary = runSummary(tree, reports);
   const scoped = selection !== undefined && selection.id !== tree.title;
   return (
-    <div className={cn('flex items-center gap-3', className)}>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className={cn('flex items-center gap-2 sm:gap-3', className)}>
+      <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
         {reports === undefined ? (
           <span>
             {summary.total} stor{summary.total === 1 ? 'y' : 'ies'}
@@ -53,6 +53,7 @@ export function RunHeader({
         <Button
           size="sm"
           variant="outline"
+          className="min-h-11 sm:min-h-0"
           onClick={() => onRun()}
           disabled={running === true}
         >
@@ -62,6 +63,7 @@ export function RunHeader({
       {onRun !== undefined && (
         <Button
           size="sm"
+          className="min-h-11 sm:min-h-0"
           onClick={() => onRun(scoped ? selection.id : undefined)}
           disabled={running === true}
         >

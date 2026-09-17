@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ChevronRight, FileText, PanelLeft } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ChevronRight, FileText, PanelLeft } from '#lib/lucide';
 import type { PanelImperativeHandle } from 'react-resizable-panels';
 import type { StoryTree } from 'laymos';
 
@@ -11,6 +11,7 @@ import {
 import { Button } from '#components/ui/button';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
+import { useIsMobile } from '#hooks/use-mobile';
 
 import {
   countQuestions,
@@ -44,6 +45,8 @@ export function StoriesDocsSite({
   const selected = nodes.get(selectedId) ?? nodes.get(tree.title);
   const sidebarRef = useRef<PanelImperativeHandle | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavigation, setMobileNavigation] = useState(true);
+  const isMobile = useIsMobile();
   const [expandedChapterId, setExpandedChapterId] = useState<
     string | undefined
   >();
@@ -59,28 +62,96 @@ export function StoriesDocsSite({
   // when the same row is clicked again after collapsing it.
   const selectNode = (id: string) => {
     setSelectedId(id);
+    if (isMobile) setMobileNavigation(false);
     const chapterId = chapterIdOf(nodes, nodes.get(id));
     if (chapterId !== undefined) setExpandedChapterId(chapterId);
   };
+
+  const navigation = (
+    <nav className={cn('h-full overflow-y-auto py-2.5', scrollbarStyles)}>
+      <SidebarGroup
+        id={tree.title}
+        group={tree}
+        nesting={0}
+        reports={reports}
+        changedPaths={changedPaths}
+        selectedId={selected?.id}
+        expandedChapterId={expandedChapterId}
+        onExpandedChapterChange={setExpandedChapterId}
+        onSelect={selectNode}
+      />
+    </nav>
+  );
+
+  const content = (
+    <div
+      className={cn(
+        'h-full overflow-y-auto p-4 sm:px-8 sm:py-6',
+        scrollbarStyles,
+      )}
+    >
+      {selected !== undefined && (
+        <div className="mx-auto max-w-3xl">
+          <NodePage
+            node={selected}
+            reports={reports}
+            running={running}
+            onRun={onRun}
+            onSelect={selectNode}
+          />
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className={cn('flex min-h-0 flex-col', className)}>
       <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2 sm:px-4">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={() => {
-              const panel = sidebarRef.current;
-              if (panel === null) return;
-              if (panel.isCollapsed()) panel.expand();
-              else panel.collapse();
-            }}
-            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          >
-            <PanelLeft className="size-4" />
-          </Button>
-          <span className="truncate text-sm font-semibold">{tree.title}</span>
+          {(!isMobile || !mobileNavigation) && (
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="size-11 sm:size-8"
+              aria-label={
+                isMobile
+                  ? 'Back to Stories'
+                  : sidebarCollapsed
+                    ? 'Show sidebar'
+                    : 'Hide sidebar'
+              }
+              onClick={() => {
+                if (isMobile) {
+                  setMobileNavigation(true);
+                  return;
+                }
+                const panel = sidebarRef.current;
+                if (panel === null) return;
+                if (panel.isCollapsed()) panel.expand();
+                else panel.collapse();
+              }}
+              title={
+                isMobile
+                  ? 'Back to Stories'
+                  : sidebarCollapsed
+                    ? 'Show sidebar'
+                    : 'Hide sidebar'
+              }
+            >
+              {isMobile ? (
+                <ArrowLeft className="size-4" />
+              ) : (
+                <PanelLeft className="size-4" />
+              )}
+            </Button>
+          )}
+          <span className="truncate text-sm font-semibold">
+            {isMobile && !mobileNavigation && selected !== undefined
+              ? selected.kind === 'group'
+                ? selected.group.title
+                : selected.story.title
+              : tree.title}
+          </span>
         </div>
         <RunHeader
           tree={tree}
@@ -100,52 +171,32 @@ export function StoriesDocsSite({
           }
         />
       </div>
-      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
-        <ResizablePanel
-          panelRef={sidebarRef}
-          collapsible
-          collapsedSize="0%"
-          defaultSize="22%"
-          minSize="160px"
-          maxSize="40%"
-          onResize={(size) => setSidebarCollapsed(size.asPercentage === 0)}
+      {isMobile ? (
+        <div className="min-h-0 flex-1">
+          {mobileNavigation ? navigation : content}
+        </div>
+      ) : (
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="min-h-0 flex-1"
         >
-          <nav className={cn('h-full overflow-y-auto py-2.5', scrollbarStyles)}>
-            <SidebarGroup
-              id={tree.title}
-              group={tree}
-              nesting={0}
-              reports={reports}
-              changedPaths={changedPaths}
-              selectedId={selected?.id}
-              expandedChapterId={expandedChapterId}
-              onExpandedChapterChange={setExpandedChapterId}
-              onSelect={selectNode}
-            />
-          </nav>
-        </ResizablePanel>
-        <ResizableHandle />
-        <ResizablePanel defaultSize="78%" minSize="50%">
-          <div
-            className={cn(
-              'h-full overflow-y-auto p-4 sm:px-8 sm:py-6',
-              scrollbarStyles,
-            )}
+          <ResizablePanel
+            panelRef={sidebarRef}
+            collapsible
+            collapsedSize="0%"
+            defaultSize="22%"
+            minSize="160px"
+            maxSize="40%"
+            onResize={(size) => setSidebarCollapsed(size.asPercentage === 0)}
           >
-            {selected !== undefined && (
-              <div className="mx-auto max-w-3xl">
-                <NodePage
-                  node={selected}
-                  reports={reports}
-                  running={running}
-                  onRun={onRun}
-                  onSelect={selectNode}
-                />
-              </div>
-            )}
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+            {navigation}
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel defaultSize="78%" minSize="50%">
+            {content}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      )}
     </div>
   );
 }
@@ -224,26 +275,14 @@ function SidebarGroup({
         selected={selectedId === id}
         emphasized
         onSelect={() => onSelect(id)}
-        toggle={
-          <span
-            onClick={(event) => {
-              event.stopPropagation();
-              if (chapter) {
-                onExpandedChapterChange(open ? undefined : id);
-              } else {
-                setGroupOpen((value) => !value);
-              }
-            }}
-            className="rounded p-0.5 text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <ChevronRight
-              className={cn(
-                'size-3.5 transition-transform',
-                open && 'rotate-90',
-              )}
-            />
-          </span>
-        }
+        expanded={open}
+        onToggle={() => {
+          if (chapter) {
+            onExpandedChapterChange(open ? undefined : id);
+          } else {
+            setGroupOpen((value) => !value);
+          }
+        }}
       />
       {open && group.stories.map(storyRow)}
       {open &&
@@ -275,7 +314,8 @@ function SidebarRow({
   leaf = false,
   emphasized = false,
   onSelect,
-  toggle,
+  expanded,
+  onToggle,
 }: {
   readonly label: string;
   readonly depth: number;
@@ -286,15 +326,19 @@ function SidebarRow({
   readonly leaf?: boolean;
   readonly emphasized?: boolean;
   readonly onSelect: () => void;
-  readonly toggle?: ReactNode;
+  readonly expanded?: boolean;
+  readonly onToggle?: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={() => {
+        onToggle?.();
+        onSelect();
+      }}
       style={{ paddingLeft: `${12 + depth * 14}px` }}
       className={cn(
-        'flex w-full items-center gap-2 py-1.5 pr-3 text-left text-sm transition-colors',
+        'flex min-h-11 w-full items-center gap-2 py-1.5 pr-3 text-left text-sm transition-colors sm:min-h-0',
         selected
           ? 'bg-accent font-medium text-accent-foreground'
           : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -302,8 +346,15 @@ function SidebarRow({
       )}
     >
       <span className="flex size-4.5 shrink-0 items-center justify-center">
-        {toggle ??
-          (leaf && (
+        {onToggle !== undefined ? (
+          <ChevronRight
+            className={cn(
+              'size-3.5 text-muted-foreground/70 transition-transform',
+              expanded === true && 'rotate-90',
+            )}
+          />
+        ) : (
+          leaf && (
             <span
               className={cn(
                 'flex size-4 items-center justify-center rounded border',
@@ -314,7 +365,8 @@ function SidebarRow({
             >
               <FileText className="size-2.5" />
             </span>
-          ))}
+          )
+        )}
       </span>
       <VerdictDot verdict={verdict} />
       <span className="min-w-0 flex-1 truncate">{label}</span>

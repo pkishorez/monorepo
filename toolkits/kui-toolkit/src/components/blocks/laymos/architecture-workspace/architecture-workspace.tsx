@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type {
   ArchitectureAnalysis,
   Branch,
@@ -10,8 +11,12 @@ import {
   ChevronDown,
   GitBranch,
   Network,
+  PanelRightOpen,
+  Search,
   SlidersHorizontal,
 } from '#lib/lucide';
+import { Button } from '#components/ui/button';
+import { Input } from '#components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -29,6 +34,14 @@ import {
   ResizablePanelGroup,
 } from '#components/ui/resizable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '#components/ui/sheet';
+import { useIsMobile } from '#hooks/use-mobile';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
@@ -116,6 +129,7 @@ interface LayersModulesProps {
   readonly baseRef?: string;
   readonly onBaseRefChange?: (baseRef: string) => void;
   readonly stories?: StoriesTabProps;
+  readonly toolbarContainer?: HTMLElement | null;
   readonly className?: string;
 }
 
@@ -202,24 +216,27 @@ export function LaymosShell({
 }: LayersModulesProps) {
   const { changes } = view;
   const [activeTab, setActiveTab] = useState(layersModulesTabId);
+  const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
   return (
     <Tabs
       value={activeTab}
       onValueChange={setActiveTab}
       className={cn(
-        'flex min-h-0 flex-col gap-0 overflow-hidden rounded-xl border border-border bg-background shadow-sm',
+        'flex min-h-0 flex-col gap-0 overflow-hidden bg-background md:rounded-xl md:border md:border-border md:shadow-sm',
         className,
       )}
     >
-      <div className="border-b border-border px-4 pb-2.5 pt-2 sm:px-5">
-        <TabsList variant="line">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 sm:px-5">
+        <TabsList variant="line" className="h-12">
           <TabsTrigger value={layersModulesTabId}>
-            {'Layers <> Modules'}
+            <span className="md:hidden">Architecture</span>
+            <span className="hidden md:inline">{'Layers <> Modules'}</span>
           </TabsTrigger>
           {stories !== undefined && (
             <TabsTrigger value={storiesTabId}>Stories</TabsTrigger>
           )}
         </TabsList>
+        <div ref={setToolbar} className="flex items-center gap-2" />
       </div>
       <TabsContent
         value={layersModulesTabId}
@@ -227,6 +244,7 @@ export function LaymosShell({
       >
         <LayersModulesExperience
           {...view}
+          toolbarContainer={activeTab === layersModulesTabId ? toolbar : null}
           className="flex-1 rounded-none border-0 shadow-none"
         />
       </TabsContent>
@@ -266,6 +284,7 @@ export function LayersModulesExperience({
   loadFileDiff,
   loadDocumentation,
   changes,
+  toolbarContainer,
   className,
 }: LayersModulesProps) {
   const [activeGraphId, setActiveGraphId] = useState(allGraphsId);
@@ -308,6 +327,8 @@ export function LayersModulesExperience({
   const [activeModuleId, setActiveModuleId] = useState<string>();
   const [activeViolationId, setActiveViolationId] = useState<string>();
   const [sourceRequest, setSourceRequest] = useState<SourceOpenRequest>();
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   // A LayerGraph every one of whose Layers is hosted elsewhere draws no lane,
   // so offering it would be a selection with nothing to show.
@@ -407,6 +428,7 @@ export function LayersModulesExperience({
     setActiveLayerId(undefined);
     setActiveModuleId(undefined);
     setActiveViolationId(undefined);
+    setMobileInspectorOpen(false);
   };
   const activateLayer = (layerId: string) => {
     setHoveredLayerId(undefined);
@@ -442,11 +464,15 @@ export function LayersModulesExperience({
   };
   const openModuleSource = (moduleId: string) => {
     const request = moduleSourceRequest(modules, moduleId);
-    if (request !== undefined) setSourceRequest(request);
+    if (request !== undefined) {
+      setMobileInspectorOpen(false);
+      setSourceRequest(request);
+    }
   };
   const openModuleGraphSource = (graphId: string) => {
     const graph = moduleGraphs.find(({ id }) => id === graphId);
     if (graph !== undefined) {
+      setMobileInspectorOpen(false);
       setSourceRequest({
         title: graph.path,
         pathPrefixes: [graph.path],
@@ -461,6 +487,7 @@ export function LayersModulesExperience({
   const openLayerSource = (layerId: string) => {
     const layer = allLayers.find(({ id }) => id === layerId);
     if (layer !== undefined) {
+      setMobileInspectorOpen(false);
       setSourceRequest({
         title: layer.id,
         pathPrefixes: layer.scopes.map(({ path }) => path),
@@ -476,6 +503,7 @@ export function LayersModulesExperience({
       .filter(({ id }) => hostedLayerIds.has(id))
       .flatMap(({ scopes }) => scopes.map(({ path }) => path));
     if (pathPrefixes.length > 0) {
+      setMobileInspectorOpen(false);
       setSourceRequest({
         title: graphId,
         pathPrefixes,
@@ -484,223 +512,283 @@ export function LayersModulesExperience({
     }
   };
 
+  const toolbar = (
+    <>
+      <ViewOptionsMenu
+        options={{
+          showModules,
+          showLayerConnections,
+          showModuleConnections,
+          isolateGraph,
+        }}
+        isolatingGraph={isolatedLayerGraphId !== undefined}
+        onChange={(next) => {
+          if (next.showModules !== showModules) {
+            toggleShowModules(next.showModules);
+          }
+          setShowLayerConnections(next.showLayerConnections);
+          setShowModuleConnections(next.showModuleConnections);
+          if (next.isolateGraph !== isolateGraph) {
+            clearFocus();
+            setIsolateGraph(next.isolateGraph);
+          }
+        }}
+      />
+      {gitAvailable && onGitOptionsChange !== undefined && (
+        <GitOptionsMenu
+          options={gitOptions}
+          baseRef={baseRef}
+          branches={branches}
+          hasChangedModules={hasChangedModules}
+          onOptionsChange={(next) => {
+            clearFocus();
+            onGitOptionsChange(next);
+          }}
+          onBaseRefChange={
+            onBaseRefChange === undefined
+              ? undefined
+              : (next) => {
+                  clearFocus();
+                  onBaseRefChange(next);
+                }
+          }
+        />
+      )}
+      <LayerGraphMenu
+        graphIds={drawnGraphIds}
+        value={activeGraphId}
+        onChange={(graphId) => {
+          clearFocus();
+          setActiveGraphId(graphId);
+        }}
+      />
+    </>
+  );
+
+  const graphView = showModules ? (
+    <ModuleGraph
+      className="min-h-0 flex-1 rounded-none border-0"
+      layers={layers}
+      rules={rules}
+      layerGraphs={layerGraphs}
+      activeLayerGraphId={selectedGraph?.id}
+      isolatedLayerGraphId={isolatedLayerGraphId}
+      modules={modules}
+      moduleGraphs={visibleModuleGraphs}
+      dependencies={dependencies}
+      focusedLayerId={activeLayerId}
+      showLayerConnections={showLayerConnections}
+      showModuleConnections={showModuleConnections}
+      activeModuleId={activeModuleId}
+      activeViolation={activeViolation}
+      onModuleActivate={activateModule}
+      onModuleOpen={openModuleSource}
+      onModuleGraphOpen={openModuleGraphSource}
+      onLayerActivate={activateLayer}
+      onLayerOpen={openLayerSource}
+      onLayerGraphActivate={activateLayerGraph}
+      onLayerGraphOpen={openLayerGraphSource}
+      onInspect={isMobile ? () => setMobileInspectorOpen(true) : undefined}
+      onClearFocus={clearFocus}
+    />
+  ) : (
+    <LayerGraph
+      className="min-h-0 flex-1 rounded-none border-0"
+      layers={layers}
+      rules={visibleRules}
+      layerGraphs={layerGraphs}
+      activeLayerGraphId={selectedGraph?.id}
+      isolatedLayerGraphId={isolatedLayerGraphId}
+      showLayerConnections={showLayerConnections}
+      activeLayerId={activeLayerId}
+      hoveredLayerId={hoveredLayerId}
+      activeViolationPair={activeViolationPair}
+      onLayerHoverChange={(id) => {
+        if (layerFocus.hoverEnabled) setHoveredLayerId(id);
+      }}
+      onLayerActivate={activateLayer}
+      onLayerOpen={openLayerSource}
+      onLayerGraphActivate={activateLayerGraph}
+      onLayerGraphOpen={openLayerGraphSource}
+      onInspect={isMobile ? () => setMobileInspectorOpen(true) : undefined}
+      onClearFocus={clearFocus}
+    />
+  );
+
+  const treeView = showModules ? (
+    <>
+      <ArchitectureTreeLegend title="Modules" boundaryLabel="Module" />
+      <ModuleTree
+        modules={visibleModules}
+        layerIdsByPath={layerIdsByBoundaryPath(visibleLayers)}
+        activeLayerId={activeLayerId}
+        activeModuleId={activeModuleId}
+        highlightedModuleIds={moduleFocus.highlightedModuleIds}
+        activeViolation={activeViolation}
+        onModuleActivate={activateModule}
+        onModuleOpen={openModuleSource}
+        onLayerActivate={activateLayer}
+      />
+    </>
+  ) : (
+    <>
+      <ArchitectureTreeLegend title="Scopes" boundaryLabel="Layer" />
+      <LayerScopeTree
+        layers={visibleLayers}
+        activeLayerId={
+          activeViolationPair === undefined ? activeLayerId : undefined
+        }
+        onLayerActivate={activateLayer}
+      />
+    </>
+  );
+
+  const violationsView = showModules ? (
+    <>
+      <SectionLabel>Module violations</SectionLabel>
+      <ModuleViolationsList
+        violations={visibleModuleViolations}
+        activeViolationId={activeViolationId}
+        onActiveViolationChange={activateViolation}
+      />
+    </>
+  ) : (
+    <>
+      <SectionLabel>Violations</SectionLabel>
+      <LayerViolationsList
+        violationPairs={visibleViolationPairs}
+        coverageViolations={visibleCoverageViolations}
+        activeViolationGroupId={activeViolationId}
+        onActiveViolationGroupChange={activateViolation}
+      />
+    </>
+  );
+
   return (
     <>
       <div
         className={cn(
-          'flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm',
+          'flex min-h-0 flex-col overflow-hidden bg-background md:rounded-xl md:border md:border-border md:shadow-sm',
           className,
         )}
       >
-        <header className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
-          <p className="min-w-0 text-xs text-muted-foreground">
-            Select a Layer or Module to reveal connections. Right-click a
-            Module, Module Graph, Layer, or LayerGraph to explore its source.
-          </p>
-          <div className="flex flex-wrap items-center gap-4">
-            <ViewOptionsMenu
-              options={{
-                showModules,
-                showLayerConnections,
-                showModuleConnections,
-                isolateGraph,
-              }}
-              isolatingGraph={isolatedLayerGraphId !== undefined}
-              onChange={(next) => {
-                if (next.showModules !== showModules) {
-                  toggleShowModules(next.showModules);
-                }
-                setShowLayerConnections(next.showLayerConnections);
-                setShowModuleConnections(next.showModuleConnections);
-                if (next.isolateGraph !== isolateGraph) {
-                  clearFocus();
-                  setIsolateGraph(next.isolateGraph);
-                }
-              }}
-            />
-            {gitAvailable && onGitOptionsChange !== undefined && (
-              <GitOptionsMenu
-                options={gitOptions}
-                baseRef={baseRef}
-                branches={branches}
-                hasChangedModules={hasChangedModules}
-                onOptionsChange={(next) => {
-                  clearFocus();
-                  onGitOptionsChange(next);
-                }}
-                onBaseRefChange={
-                  onBaseRefChange === undefined
-                    ? undefined
-                    : (next) => {
-                        clearFocus();
-                        onBaseRefChange(next);
-                      }
-                }
-              />
-            )}
-            <LayerGraphMenu
-              graphIds={drawnGraphIds}
-              value={activeGraphId}
-              onChange={(graphId) => {
-                clearFocus();
-                setActiveGraphId(graphId);
-              }}
-            />
-          </div>
-        </header>
+        {toolbarContainer ? (
+          createPortal(toolbar, toolbarContainer)
+        ) : (
+          <header className="flex h-12 shrink-0 items-center justify-end gap-2 border-b border-border px-4 sm:px-5">
+            {toolbar}
+          </header>
+        )}
 
-        <ResizablePanelGroup
-          orientation="horizontal"
-          className="min-h-[760px] flex-1"
-        >
-          <ResizablePanel defaultSize="75%" minSize="50%">
-            <section className="flex size-full min-h-0 min-w-0 flex-col">
-              <div className="flex min-h-11 items-center justify-between gap-4 border-b border-border px-4">
-                <p className="truncate text-xs text-muted-foreground">
-                  {selectedGraph?.description ?? 'All direct Rules'}
-                </p>
-                {showModules ? (
-                  <ModuleLegend />
-                ) : (
-                  <span className="shrink-0 text-[11px] text-muted-foreground">
-                    Pan · zoom · select
-                  </span>
-                )}
-              </div>
-              {showModules ? (
-                <ModuleGraph
-                  className="min-h-[515px] flex-1 rounded-none border-0"
-                  layers={layers}
-                  rules={rules}
-                  layerGraphs={layerGraphs}
-                  activeLayerGraphId={selectedGraph?.id}
-                  isolatedLayerGraphId={isolatedLayerGraphId}
-                  modules={modules}
-                  moduleGraphs={visibleModuleGraphs}
-                  dependencies={dependencies}
-                  focusedLayerId={activeLayerId}
-                  showLayerConnections={showLayerConnections}
-                  showModuleConnections={showModuleConnections}
-                  activeModuleId={activeModuleId}
-                  activeViolation={activeViolation}
-                  onModuleActivate={activateModule}
-                  onModuleOpen={openModuleSource}
-                  onModuleGraphOpen={openModuleGraphSource}
-                  onLayerActivate={activateLayer}
-                  onLayerOpen={openLayerSource}
-                  onLayerGraphActivate={activateLayerGraph}
-                  onLayerGraphOpen={openLayerGraphSource}
-                  onClearFocus={clearFocus}
-                />
-              ) : (
-                <LayerGraph
-                  className="min-h-[515px] flex-1 rounded-none border-0"
-                  layers={layers}
-                  rules={visibleRules}
-                  layerGraphs={layerGraphs}
-                  activeLayerGraphId={selectedGraph?.id}
-                  isolatedLayerGraphId={isolatedLayerGraphId}
-                  showLayerConnections={showLayerConnections}
-                  activeLayerId={activeLayerId}
-                  hoveredLayerId={hoveredLayerId}
-                  activeViolationPair={activeViolationPair}
-                  onLayerHoverChange={(id) => {
-                    if (layerFocus.hoverEnabled) setHoveredLayerId(id);
-                  }}
-                  onLayerActivate={activateLayer}
-                  onLayerOpen={openLayerSource}
-                  onLayerGraphActivate={activateLayerGraph}
-                  onLayerGraphOpen={openLayerGraphSource}
-                  onClearFocus={clearFocus}
-                />
-              )}
-            </section>
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize="25%" minSize="20%" maxSize="50%">
-            <aside className="size-full min-w-0">
-              <ResizablePanelGroup orientation="vertical" className="min-h-0">
-                <ResizablePanel defaultSize="60%" minSize="20%">
-                  <section
-                    className={cn(
-                      'size-full overflow-y-auto p-4',
-                      scrollbarStyles,
-                    )}
-                  >
-                    {showModules ? (
-                      <>
-                        <ArchitectureTreeLegend
-                          title="Modules"
-                          boundaryLabel="Module"
-                        />
-                        <ModuleTree
-                          modules={visibleModules}
-                          layerIdsByPath={layerIdsByBoundaryPath(visibleLayers)}
-                          activeLayerId={activeLayerId}
-                          activeModuleId={activeModuleId}
-                          highlightedModuleIds={
-                            moduleFocus.highlightedModuleIds
-                          }
-                          activeViolation={activeViolation}
-                          onModuleActivate={activateModule}
-                          onModuleOpen={openModuleSource}
-                          onLayerActivate={activateLayer}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <ArchitectureTreeLegend
-                          title="Scopes"
-                          boundaryLabel="Layer"
-                        />
-                        <LayerScopeTree
-                          layers={visibleLayers}
-                          activeLayerId={
-                            activeViolationPair === undefined
-                              ? activeLayerId
-                              : undefined
-                          }
-                          onLayerActivate={activateLayer}
-                        />
-                      </>
-                    )}
-                  </section>
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize="40%" minSize="20%">
-                  <section
-                    className={cn(
-                      'size-full overflow-y-auto p-4',
-                      scrollbarStyles,
-                    )}
-                  >
-                    {showModules ? (
-                      <>
-                        <SectionLabel>Module violations</SectionLabel>
-                        <ModuleViolationsList
-                          violations={visibleModuleViolations}
-                          activeViolationId={activeViolationId}
-                          onActiveViolationChange={activateViolation}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <SectionLabel>Violations</SectionLabel>
-                        <LayerViolationsList
-                          violationPairs={visibleViolationPairs}
-                          coverageViolations={visibleCoverageViolations}
-                          activeViolationGroupId={activeViolationId}
-                          onActiveViolationGroupChange={activateViolation}
-                        />
-                      </>
-                    )}
-                  </section>
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            </aside>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+        {isMobile ? (
+          <section className="flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-11 items-center gap-2 border-b border-border px-3">
+              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {selectedGraph?.description ?? 'All direct Rules'}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="size-10 shrink-0"
+                aria-label="Open architecture details"
+                onClick={() => setMobileInspectorOpen(true)}
+              >
+                <PanelRightOpen className="size-4" />
+              </Button>
+            </div>
+            {graphView}
+          </section>
+        ) : (
+          <ResizablePanelGroup
+            orientation="horizontal"
+            className="min-h-[760px] flex-1"
+          >
+            <ResizablePanel defaultSize="75%" minSize="50%">
+              <section className="flex size-full min-h-0 min-w-0 flex-col">
+                <div className="flex min-h-11 items-center justify-between gap-4 border-b border-border px-4">
+                  <p className="truncate text-xs text-muted-foreground">
+                    {selectedGraph?.description ?? 'All direct Rules'}
+                  </p>
+                  {showModules ? (
+                    <ModuleLegend />
+                  ) : (
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      Pan · zoom · select
+                    </span>
+                  )}
+                </div>
+                {graphView}
+              </section>
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize="25%" minSize="20%" maxSize="50%">
+              <aside className="size-full min-w-0">
+                <ResizablePanelGroup orientation="vertical" className="min-h-0">
+                  <ResizablePanel defaultSize="60%" minSize="20%">
+                    <section
+                      className={cn(
+                        'size-full overflow-y-auto p-4',
+                        scrollbarStyles,
+                      )}
+                    >
+                      {treeView}
+                    </section>
+                  </ResizablePanel>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel defaultSize="40%" minSize="20%">
+                    <section
+                      className={cn(
+                        'size-full overflow-y-auto p-4',
+                        scrollbarStyles,
+                      )}
+                    >
+                      {violationsView}
+                    </section>
+                  </ResizablePanel>
+                </ResizablePanelGroup>
+              </aside>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
+      <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[78dvh] gap-0 overflow-hidden rounded-t-2xl pb-[env(safe-area-inset-bottom)] md:hidden"
+        >
+          <SheetHeader className="border-b border-border pb-3 pe-14">
+            <SheetTitle>Architecture details</SheetTitle>
+            <SheetDescription>
+              Select an item to focus it. Open source from the selected item.
+            </SheetDescription>
+            {activeModuleId !== undefined ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2 self-start"
+                onClick={() => openModuleSource(activeModuleId)}
+              >
+                Open Module source
+              </Button>
+            ) : activeLayerId !== undefined ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2 self-start"
+                onClick={() => openLayerSource(activeLayerId)}
+              >
+                Open Layer source
+              </Button>
+            ) : null}
+          </SheetHeader>
+          <div className={cn('min-h-0 overflow-y-auto p-4', scrollbarStyles)}>
+            {treeView}
+            <div className="mt-6 border-t border-border pt-4">
+              {violationsView}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
       {sourceRequest !== undefined && (
         <ModuleSourceExplorer
           key={`${sourceRequest.pathPrefixes.join('\0')}:${sourceRequest.initialFilePath ?? ''}`}
@@ -779,14 +867,16 @@ function ViewOptionsMenu({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-9 min-w-56 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-        <span className="flex min-w-0 items-center gap-2">
-          <SlidersHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">
-            {viewSummary(options, isolatingGraph)}
-          </span>
+      <DropdownMenuTrigger
+        aria-label="View options"
+        title="View options"
+        className="flex size-10 items-center justify-center gap-2 rounded-md border border-border/60 bg-background text-sm text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 md:h-8 md:w-auto md:max-w-56 md:justify-between md:px-2.5"
+      >
+        <SlidersHorizontal className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="hidden truncate md:inline">
+          {viewSummary(options, isolatingGraph)}
         </span>
-        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        <ChevronDown className="hidden size-3.5 shrink-0 text-muted-foreground md:block" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuGroup>
@@ -864,14 +954,16 @@ function LayerGraphMenu({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-9 min-w-56 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-        <span className="flex min-w-0 items-center gap-2">
-          <Network className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">
-            {value === allGraphsId ? 'All LayerGraphs' : value}
-          </span>
+      <DropdownMenuTrigger
+        aria-label="Choose LayerGraph"
+        title="Choose LayerGraph"
+        className="flex size-10 items-center justify-center gap-2 rounded-md border border-border/60 bg-background text-sm text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 md:h-8 md:w-auto md:max-w-56 md:justify-between md:px-2.5"
+      >
+        <Network className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="hidden truncate md:inline">
+          {value === allGraphsId ? 'All LayerGraphs' : value}
         </span>
-        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        <ChevronDown className="hidden size-3.5 shrink-0 text-muted-foreground md:block" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
@@ -905,6 +997,10 @@ function GitOptionsMenu({
   readonly onOptionsChange: (options: GitOptions) => void;
   readonly onBaseRefChange?: (baseRef: string) => void;
 }) {
+  const [branchSearch, setBranchSearch] = useState('');
+  const filteredBranches = branches.filter(({ name }) =>
+    name.toLocaleLowerCase().includes(branchSearch.trim().toLocaleLowerCase()),
+  );
   const comparing =
     baseRef === uncommittedBaseRef ? 'Uncommitted changes' : baseRef;
   const summary = !options.showChanges
@@ -913,24 +1009,44 @@ function GitOptionsMenu({
       ? comparing
       : `No changes · ${comparing}`;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="flex h-9 min-w-56 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
-        <span className="flex min-w-0 items-center gap-2">
-          <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{summary}</span>
-        </span>
-        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (!open) setBranchSearch('');
+      }}
+    >
+      <DropdownMenuTrigger
+        aria-label="Git comparison options"
+        title="Git comparison options"
+        className="flex size-10 items-center justify-center gap-2 rounded-md border border-border/60 bg-background text-sm text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 md:h-8 md:w-auto md:max-w-56 md:justify-between md:px-2.5"
+      >
+        <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="hidden truncate md:inline">{summary}</span>
+        <ChevronDown className="hidden size-3.5 shrink-0 text-muted-foreground md:block" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent
+        align="end"
+        className="w-[min(20rem,calc(100vw-1rem))]"
+      >
         <DropdownMenuGroup>
           <DropdownMenuLabel>Git changes</DropdownMenuLabel>
           <DropdownMenuCheckboxItem
+            className="min-h-11 md:min-h-8"
             checked={options.showChanges}
             onCheckedChange={(showChanges) =>
               onOptionsChange({ ...options, showChanges })
             }
           >
             Show git changes
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            className="min-h-11 md:min-h-8"
+            checked={options.includeUnchanged}
+            disabled={!options.showChanges}
+            onCheckedChange={(includeUnchanged) =>
+              onOptionsChange({ ...options, includeUnchanged })
+            }
+          >
+            Include unchanged modules
           </DropdownMenuCheckboxItem>
         </DropdownMenuGroup>
         {options.showChanges && onBaseRefChange !== undefined && (
@@ -942,32 +1058,54 @@ function GitOptionsMenu({
                 value={baseRef}
                 onValueChange={onBaseRefChange}
               >
-                <DropdownMenuRadioItem value={uncommittedBaseRef}>
+                <DropdownMenuRadioItem
+                  className="min-h-11 md:min-h-8"
+                  value={uncommittedBaseRef}
+                >
                   Uncommitted changes
                 </DropdownMenuRadioItem>
-                {branches.map((branch) => (
-                  <DropdownMenuRadioItem key={branch.name} value={branch.name}>
-                    {branch.name}
-                    {branch.current ? ' (current)' : ''}
-                  </DropdownMenuRadioItem>
-                ))}
+                {branches.length > 0 && (
+                  <div
+                    className="relative px-1.5 py-1"
+                    onKeyDown={(event) => event.stopPropagation()}
+                  >
+                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={branchSearch}
+                      onChange={(event) => setBranchSearch(event.target.value)}
+                      placeholder="Search branches…"
+                      aria-label="Search branches"
+                      className="h-11 pl-9 text-base md:h-9 md:text-sm"
+                    />
+                  </div>
+                )}
+                <div className="max-h-56 overflow-y-auto">
+                  {filteredBranches.map((branch) => (
+                    <DropdownMenuRadioItem
+                      className="min-h-11 md:min-h-8"
+                      key={branch.name}
+                      value={branch.name}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {branch.name}
+                      </span>
+                      {branch.current && (
+                        <span className="text-xs text-muted-foreground">
+                          Current
+                        </span>
+                      )}
+                    </DropdownMenuRadioItem>
+                  ))}
+                  {filteredBranches.length === 0 && branches.length > 0 && (
+                    <p className="px-2 py-3 text-center text-sm text-muted-foreground">
+                      No matching branches
+                    </p>
+                  )}
+                </div>
               </DropdownMenuRadioGroup>
             </DropdownMenuGroup>
           </>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Scope</DropdownMenuLabel>
-          <DropdownMenuCheckboxItem
-            checked={options.includeUnchanged}
-            disabled={!options.showChanges}
-            onCheckedChange={(includeUnchanged) =>
-              onOptionsChange({ ...options, includeUnchanged })
-            }
-          >
-            Include unchanged
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

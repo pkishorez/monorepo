@@ -33,12 +33,13 @@ function Shell() {
 
   const matchRoute = useMatchRoute();
   const onLaymos = matchRoute({ to: '/laymos' }) !== false;
+  const onLotel = matchRoute({ to: '/lotel' }) !== false;
 
   useEffect(() => applyTheme(theme), [theme]);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      <header className="grid h-11 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-border/50 px-4">
+      <header className="hidden h-11 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-border/50 px-4 md:grid">
         <div className="flex items-center">
           <Link
             to="/"
@@ -54,28 +55,70 @@ function Shell() {
         <div className="flex items-center justify-center">
           {onLaymos ? <LaymosHeader /> : null}
         </div>
-        <Button
-          className="justify-self-end text-muted-foreground/70 hover:text-foreground"
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Toggle theme"
-          title="Toggle theme"
-          onClick={() =>
-            setTheme((value) => (value === 'dark' ? 'light' : 'dark'))
-          }
-        >
-          {theme === 'dark' ? (
-            <SunIcon className="size-3.5" />
-          ) : (
-            <MoonIcon className="size-3.5" />
-          )}
-        </Button>
+        <ThemeButton theme={theme} onToggle={() => setTheme(toggleTheme)} />
+      </header>
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border/50 px-2 md:hidden">
+        {onLaymos ? (
+          <div className="flex min-w-0 flex-1 items-center">
+            <LaymosHeader />
+          </div>
+        ) : (
+          <Link
+            to="/"
+            className="flex h-11 min-w-0 flex-1 items-center px-2 text-sm font-medium tracking-tight"
+          >
+            {onLotel ? 'Lotel' : 'DevTools'}
+          </Link>
+        )}
+        <ThemeButton
+          theme={theme}
+          className="size-11 shrink-0"
+          onToggle={() => setTheme(toggleTheme)}
+        />
       </header>
       <main className="min-h-0 flex-1 overflow-hidden">
         <Outlet />
       </main>
+      <nav
+        aria-label="Tools"
+        className="grid shrink-0 grid-cols-2 border-t border-border/60 bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] md:hidden"
+      >
+        <MobileToolLink to="/lotel">Lotel</MobileToolLink>
+        <MobileToolLink to="/laymos">Laymos</MobileToolLink>
+      </nav>
       <Toaster />
     </div>
+  );
+}
+
+function toggleTheme(value: Theme): Theme {
+  return value === 'dark' ? 'light' : 'dark';
+}
+
+function ThemeButton({
+  theme,
+  onToggle,
+  className,
+}: {
+  theme: Theme;
+  onToggle: () => void;
+  className?: string;
+}) {
+  return (
+    <Button
+      className={`justify-self-end text-muted-foreground/70 hover:text-foreground ${className ?? ''}`}
+      size="icon-sm"
+      variant="ghost"
+      aria-label={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}
+      title={`Use ${theme === 'dark' ? 'light' : 'dark'} theme`}
+      onClick={onToggle}
+    >
+      {theme === 'dark' ? (
+        <SunIcon className="size-3.5" />
+      ) : (
+        <MoonIcon className="size-3.5" />
+      )}
+    </Button>
   );
 }
 
@@ -96,10 +139,27 @@ function ToolLink({
   );
 }
 
+function MobileToolLink({
+  to,
+  children,
+}: {
+  to: '/lotel' | '/laymos';
+  children: string;
+}) {
+  return (
+    <Link
+      to={to}
+      className="my-1 flex min-h-11 items-center justify-center rounded-lg text-sm font-medium text-muted-foreground transition-colors active:bg-muted data-[status=active]:bg-muted data-[status=active]:text-foreground"
+    >
+      {children}
+    </Link>
+  );
+}
+
 function Home() {
   return (
     <div className="h-full overflow-auto">
-      <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-6 py-16">
+      <div className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-5 py-10 sm:px-6 sm:py-16">
         <h1 className="text-xl font-medium tracking-tight">DevTools</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
           Runtime telemetry and architecture for local Projects.

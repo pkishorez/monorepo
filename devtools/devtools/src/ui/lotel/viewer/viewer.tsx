@@ -235,6 +235,8 @@ export function Viewer({
   const selectedFlow = selectedFlowId
     ? (recordedFlowsById.get(selectedFlowId) ?? null)
     : null;
+  const detailOpen =
+    view === 'traces' ? selectedTrace !== null : selectedFlowId !== null;
 
   useEffect(() => setSelectedFlowItem(null), [selectedFlowId]);
 
@@ -375,7 +377,7 @@ export function Viewer({
 
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
-      <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:gap-3 sm:px-4">
         <div className="flex items-center rounded-md bg-muted/50 p-0.5">
           <ViewTab active={view === 'traces'} onClick={() => setView('traces')}>
             Traces
@@ -397,7 +399,10 @@ export function Viewer({
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           style={{ width: listWidth }}
-          className="flex shrink-0 flex-col overflow-hidden bg-muted/10"
+          className={cn(
+            'flex shrink-0 flex-col overflow-hidden bg-muted/10 max-md:!w-full',
+            detailOpen && 'max-md:hidden',
+          )}
         >
           <ListFilters
             view={view}
@@ -460,11 +465,16 @@ export function Viewer({
         </aside>
 
         <div
-          className="w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/30"
+          className="hidden w-1 shrink-0 cursor-col-resize bg-border transition-colors hover:bg-primary/30 md:block"
           onMouseDown={onListDividerMouseDown}
         />
 
-        <main className="min-w-0 flex-1 overflow-hidden">
+        <main
+          className={cn(
+            'min-w-0 flex-1 overflow-hidden',
+            detailOpen ? 'max-md:block' : 'max-md:hidden',
+          )}
+        >
           {view === 'traces' ? (
             selectedTrace ? (
               <TraceWorkspace
@@ -521,7 +531,7 @@ function ViewTab({
       type="button"
       aria-pressed={active}
       className={cn(
-        'rounded px-3 py-1 text-xs font-medium text-muted-foreground transition-colors',
+        'min-h-10 rounded px-3 py-1 text-xs font-medium text-muted-foreground transition-colors md:min-h-0',
         active && 'bg-background text-foreground shadow-sm',
       )}
       onClick={onClick}
@@ -566,13 +576,13 @@ function ListFilters({
 }) {
   return (
     <div className="flex shrink-0 flex-col gap-2 border-b border-border p-3">
-      <label className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-2">
+      <label className="flex h-11 items-center gap-2 rounded-md border border-border bg-background px-3 md:h-8 md:px-2">
         <SearchIcon className="size-3.5 text-muted-foreground" />
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder={`Search ${view}`}
-          className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-xs"
         />
       </label>
       {view === 'traces' ? (
@@ -623,7 +633,7 @@ function ListFilters({
                 status: event.target.value as typeof filters.status,
               })
             }
-            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            className="h-11 rounded-md border border-border bg-background px-2 text-base md:h-8 md:text-xs"
           >
             <option value="all">All statuses</option>
             <option value="error">Errors</option>
@@ -636,7 +646,7 @@ function ListFilters({
             onChange={(event) =>
               onFlowStatusChange(event.target.value as FlowStatusFilter)
             }
-            className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+            className="h-11 rounded-md border border-border bg-background px-2 text-base md:h-8 md:text-xs"
           >
             <option value="all">All statuses</option>
             <option value="failed">Failed</option>
@@ -647,7 +657,7 @@ function ListFilters({
           aria-label="Service"
           value={selectedService ?? ''}
           onChange={(event) => onServiceChange(event.target.value)}
-          className="h-8 min-w-0 rounded-md border border-border bg-background px-2 text-xs"
+          className="h-11 min-w-0 rounded-md border border-border bg-background px-2 text-base md:h-8 md:text-xs"
         >
           <option value="">All services</option>
           {services.map((service) => (
@@ -705,17 +715,23 @@ function FlowWorkspace({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex h-11 shrink-0 items-center gap-3 border-b border-border px-4">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:h-11 sm:gap-3 sm:px-4">
         <FlowStatusDot status={status} />
         <GitBranchIcon className="size-4 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-mono text-sm font-medium">
           {flow.id}
         </span>
-        <span className="text-xs capitalize text-muted-foreground">
+        <span className="hidden text-xs capitalize text-muted-foreground sm:inline">
           {status} · {flow.items.length} item
           {flow.items.length === 1 ? '' : 's'}
         </span>
-        <Button variant="ghost" size="icon-sm" onClick={onClose}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="size-10 sm:size-8"
+          aria-label="Back to flows"
+          onClick={onClose}
+        >
           <XIcon className="size-4" />
           <span className="sr-only">Close Flow</span>
         </Button>
