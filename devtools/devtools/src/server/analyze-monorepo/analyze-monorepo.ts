@@ -5,7 +5,7 @@ import { Effect } from 'effect';
 import {
   analyzeMonorepo as analyzeMonorepoEngine,
   type AnalyzeMonorepoError,
-} from 'monoverse';
+} from './engine.js';
 import {
   InvalidMonorepoPathError,
   MonorepoReadFailure,

@@ -80,3 +80,33 @@ describe('buildPackageGraph', () => {
     ]);
   });
 });
+
+test('skips dense acyclic paths even when they lead into a cycle', () => {
+  const names = Array.from({ length: 64 }, (_, index) => `p${index}`);
+  const graph = buildPackageGraph([
+    ...names.map((name, index) =>
+      manifest(name, `p/${name}`, {
+        runtime: [...names.slice(index + 1), 'x'],
+      }),
+    ),
+    manifest('x', 'p/x', { runtime: ['y'] }),
+    manifest('y', 'p/y', { runtime: ['x'] }),
+  ]);
+  expect(graph.violations).toEqual([{ packages: ['x', 'y'] }]);
+});
+
+test('retains all overlapping cycles and their direction', () => {
+  const graph = buildPackageGraph([
+    manifest('c', 'p/c', { runtime: ['a', 'b', 'leaf'] }),
+    manifest('b', 'p/b', { runtime: ['a', 'c'] }),
+    manifest('a', 'p/a', { runtime: ['b', 'c'] }),
+    manifest('leaf', 'p/leaf'),
+  ]);
+  expect(graph.violations).toEqual([
+    { packages: ['a', 'b'] },
+    { packages: ['a', 'b', 'c'] },
+    { packages: ['a', 'c'] },
+    { packages: ['a', 'c', 'b'] },
+    { packages: ['b', 'c'] },
+  ]);
+});

@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { FlowRpc } from '@pkishorez/flow/rpc';
 import { LotelRpc } from '@pkishorez/lotel/rpc';
-import { MonoverseRpc } from 'monoverse/rpc';
+import { MonoverseRpc } from './monoverse.js';
 import {
   ArchitectureAnalysisSchema,
   ConfigValidationIssueSchema,

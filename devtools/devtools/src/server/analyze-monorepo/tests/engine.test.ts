@@ -1,9 +1,12 @@
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Effect } from 'effect';
 import { describe, expect, test } from 'vitest';
 
-import { analyzeMonorepo } from '../index.js';
+import { analyzeMonorepo } from '../engine.js';
 
 function fixture(name: string): string {
   return fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
@@ -50,4 +53,32 @@ describe('analyzeMonorepo', () => {
     );
     expect(error._tag).toBe('MonorepoReadError');
   });
+});
+
+test('recursive workspace discovery skips missing manifests but rejects malformed manifests', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'monoverse-discovery-'));
+  try {
+    await mkdir(join(root, 'packages/core/src'), { recursive: true });
+    await writeFile(
+      join(root, 'pnpm-workspace.yaml'),
+      'packages:\n  - packages/**\n',
+    );
+    await writeFile(
+      join(root, 'packages/core/package.json'),
+      '{"name":"core"}',
+    );
+    const analysis = await Effect.runPromise(analyzeMonorepo(root));
+    expect(analysis.packages.map((pkg) => pkg.name)).toEqual(['core']);
+    await writeFile(join(root, 'packages/core/src/package.json'), '{');
+    const error = await Effect.runPromise(
+      analyzeMonorepo(root).pipe(Effect.flip),
+    );
+    expect(error).toMatchObject({
+      _tag: 'ManifestError',
+      reason: 'parse',
+      path: join(root, 'packages/core/src/package.json'),
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

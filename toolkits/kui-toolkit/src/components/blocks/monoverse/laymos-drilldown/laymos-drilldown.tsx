@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Package } from 'monoverse/schema';
+import type { Package } from '../analysis';
 
 import { ChevronLeft, Layers } from '#lib/lucide';
 import { AnimatePresence, motion, useReducedMotion } from '#lib/motion';

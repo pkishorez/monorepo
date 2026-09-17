@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { MonorepoAnalysis, Package } from 'monoverse/schema';
+import type { MonorepoAnalysis, Package } from '../analysis';
 
 import { Monoverse, type RenderLaymos } from './monoverse';
 

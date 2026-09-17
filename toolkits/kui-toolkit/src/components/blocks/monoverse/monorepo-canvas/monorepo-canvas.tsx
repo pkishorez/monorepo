@@ -14,7 +14,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import { useMemo } from 'react';
-import type { DependencyKind, Package } from 'monoverse/schema';
+import type { DependencyKind, Package } from '../analysis';
 
 import { Layers, TriangleAlert } from '#lib/lucide';
 import {

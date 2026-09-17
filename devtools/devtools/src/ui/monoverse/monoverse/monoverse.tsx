@@ -135,7 +135,7 @@ function MonorepoView({
   const worktrees = useWorktrees(monorepoPath);
   // A Worktree may hold the folder but not the workspace file: from the
   // developer's view the Monorepo is not there either.
-  const [notWorkspace, setNotWorkspace] = useState(false);
+  const [notWorkspaceAt, setNotWorkspaceAt] = useState<number | null>(null);
 
   const loadAnalysis = useCallback(
     () =>
@@ -145,10 +145,12 @@ function MonorepoView({
           const client = yield* DevtoolsClient;
           return yield* client.AnalyzeMonorepo({ monorepoPath });
         }).pipe(
-          Effect.tap(() => Effect.sync(() => setNotWorkspace(false))),
+          Effect.tap(() => Effect.sync(() => setNotWorkspaceAt(null))),
           Effect.tapError((error) =>
             Effect.sync(() =>
-              setNotWorkspace(error._tag === 'NotPnpmWorkspaceError'),
+              setNotWorkspaceAt(
+                error._tag === 'NotPnpmWorkspaceError' ? reloadNonce : null,
+              ),
             ),
           ),
           // Transport failures carry structured reasons; the block wants text.
@@ -159,10 +161,10 @@ function MonorepoView({
           ),
         ),
       ),
-    [runtime, monorepoPath],
+    [runtime, monorepoPath, reloadNonce],
   );
 
-  if (notWorkspace && worktrees.data) {
+  if (notWorkspaceAt === reloadNonce && worktrees.data) {
     return (
       <MissingProjectState
         noun="monorepo"

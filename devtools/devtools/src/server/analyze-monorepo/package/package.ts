@@ -2,8 +2,8 @@ import { join } from 'node:path';
 
 import { Effect, FileSystem } from 'effect';
 
-import type { PackageManifest } from '../../domain/package-graph/index.js';
-import type { DependencyKind } from '../../domain/schema/index.js';
+import type { PackageManifest } from '../package-graph/index.js';
+import type { DependencyKind } from '../../../rpc/index.js';
 import { ManifestError } from './errors.js';
 
 const fields: Readonly<Record<DependencyKind, string>> = {
@@ -15,7 +15,7 @@ const fields: Readonly<Record<DependencyKind, string>> = {
 
 /**
  * Reads one `package.json` and keeps what Monoverse needs from it. A manifest
- * without a name cannot be depended on by name and yields nothing.
+ * that is missing or has no name yields nothing.
  */
 export function readPackageManifest(
   monorepoRoot: string,
@@ -28,14 +28,17 @@ export function readPackageManifest(
   const manifestPath = join(monorepoRoot, packagePath, 'package.json');
   return Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    const text = yield* fileSystem
-      .readFileString(manifestPath)
-      .pipe(
-        Effect.mapError(
-          (cause) =>
-            new ManifestError({ reason: 'read', path: manifestPath, cause }),
-        ),
-      );
+    const text = yield* fileSystem.readFileString(manifestPath).pipe(
+      Effect.catchIf(
+        (cause) => cause.reason._tag === 'NotFound',
+        () => Effect.succeed(undefined),
+      ),
+      Effect.mapError(
+        (cause) =>
+          new ManifestError({ reason: 'read', path: manifestPath, cause }),
+      ),
+    );
+    if (text === undefined) return undefined;
     const json = yield* Effect.try({
       try: () => JSON.parse(text) as unknown,
       catch: (cause) =>

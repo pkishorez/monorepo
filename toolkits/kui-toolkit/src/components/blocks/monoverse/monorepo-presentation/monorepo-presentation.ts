@@ -3,7 +3,7 @@ import type {
   MonorepoAnalysis,
   Package,
   PackageCycleViolation,
-} from 'monoverse/schema';
+} from '../analysis';
 
 export const dependencyKinds: readonly DependencyKind[] = [
   'runtime',

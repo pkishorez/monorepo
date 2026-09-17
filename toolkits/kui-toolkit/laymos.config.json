@@ -282,7 +282,8 @@
             "monorepo-canvas": {},
             "package-tree": {},
             "package-details": {},
-            "laymos-drilldown": {}
+            "laymos-drilldown": {},
+            "analysis.ts": {}
           },
           "rules": {
             "monoverse": [
@@ -290,11 +291,14 @@
               "monorepo-canvas",
               "package-tree",
               "package-details",
-              "laymos-drilldown"
+              "laymos-drilldown",
+              "analysis.ts"
             ],
-            "monorepo-canvas": ["monorepo-presentation"],
-            "package-tree": ["monorepo-presentation"],
-            "package-details": ["monorepo-presentation"]
+            "monorepo-canvas": ["monorepo-presentation", "analysis.ts"],
+            "package-tree": ["monorepo-presentation", "analysis.ts"],
+            "package-details": ["monorepo-presentation", "analysis.ts"],
+            "monorepo-presentation": ["analysis.ts"],
+            "laymos-drilldown": ["analysis.ts"]
           }
         }
       }

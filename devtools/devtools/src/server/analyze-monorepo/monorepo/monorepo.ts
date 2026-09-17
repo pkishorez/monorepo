@@ -4,7 +4,7 @@ import { basename, join, matchesGlob, relative, sep } from 'node:path';
 import { Effect, FileSystem } from 'effect';
 import { parse } from 'yaml';
 
-import type { PackageManifest } from '../../domain/package-graph/index.js';
+import type { PackageManifest } from '../package-graph/index.js';
 import { ManifestError, readPackageManifest } from '../package/index.js';
 import { MonorepoReadError } from './errors.js';
 

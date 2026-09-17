@@ -3,7 +3,7 @@ import type {
   Package,
   PackageCycleViolation,
   PackageDependency,
-} from '../schema/index.js';
+} from '../../../rpc/index.js';
 
 /** What the package service reads from one manifest; no graph knowledge yet. */
 export type PackageManifest = {
@@ -82,40 +82,47 @@ export function findCycles(
       pkg.dependencies.map((dependency) => dependency.name),
     ]),
   );
-  const seen = new Set<string>();
-  const cycles: PackageCycleViolation[] = [];
-  const stack: string[] = [];
-  const onStack = new Set<string>();
-
-  function visit(name: string) {
-    stack.push(name);
-    onStack.add(name);
-    for (const next of edges.get(name) ?? []) {
-      if (onStack.has(next)) {
-        const cycle = rotate(stack.slice(stack.indexOf(next)));
-        const key = cycle.join(' -> ');
-        if (!seen.has(key)) {
-          seen.add(key);
-          cycles.push({ packages: cycle });
-        }
-        continue;
-      }
-      visit(next);
+  const predecessors = new Map<string, string[]>();
+  for (const [name, dependencies] of edges) {
+    for (const dependency of dependencies) {
+      const incoming = predecessors.get(dependency) ?? [];
+      incoming.push(name);
+      predecessors.set(dependency, incoming);
     }
-    stack.pop();
-    onStack.delete(name);
   }
+  const cycles: PackageCycleViolation[] = [];
 
-  for (const name of edges.keys()) visit(name);
+  for (const start of edges.keys()) {
+    // A cycle starts at its smallest name and only visits nodes that can return
+    // to it. This avoids enumerating every path through acyclic dependencies.
+    const canReturn = new Set([start]);
+    const pending = [start];
+    while (pending.length > 0) {
+      for (const previous of predecessors.get(pending.pop()!) ?? []) {
+        if (previous.localeCompare(start) < 0 || canReturn.has(previous))
+          continue;
+        canReturn.add(previous);
+        pending.push(previous);
+      }
+    }
+    const path = [start];
+    const onPath = new Set(path);
+    function visit(name: string) {
+      for (const next of edges.get(name) ?? []) {
+        if (next === start) {
+          cycles.push({ packages: [...path] });
+        } else if (canReturn.has(next) && !onPath.has(next)) {
+          path.push(next);
+          onPath.add(next);
+          visit(next);
+          onPath.delete(next);
+          path.pop();
+        }
+      }
+    }
+    visit(start);
+  }
   return cycles.sort((left, right) =>
     left.packages.join().localeCompare(right.packages.join()),
   );
-}
-
-function rotate(cycle: readonly string[]): string[] {
-  let start = 0;
-  cycle.forEach((name, index) => {
-    if (name.localeCompare(cycle[start]!) < 0) start = index;
-  });
-  return [...cycle.slice(start), ...cycle.slice(0, start)];
 }

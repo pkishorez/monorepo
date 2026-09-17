@@ -1,4 +1,4 @@
-import type { Package } from 'monoverse/schema';
+import type { Package } from '../analysis';
 
 import { FolderIcon, Layers, PackageIcon, TriangleAlert } from '#lib/lucide';
 import { Button } from '#components/ui/button';

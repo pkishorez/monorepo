@@ -3,13 +3,13 @@ import { isAbsolute, resolve } from 'node:path';
 import { NodeServices } from '@effect/platform-node';
 import { Effect, FileSystem } from 'effect';
 
-import { buildPackageGraph } from '../domain/package-graph/index.js';
-import type { MonorepoAnalysis } from '../domain/schema/index.js';
+import { buildPackageGraph } from './package-graph/index.js';
+import type { MonorepoAnalysis } from '../../rpc/index.js';
 import {
   loadMonorepo,
   type ManifestError,
   type MonorepoReadError,
-} from '../services/monorepo/index.js';
+} from './monorepo/index.js';
 import { InvalidMonorepoPath } from './errors.js';
 
 export type AnalyzeMonorepoError =
