@@ -1,0 +1,3 @@
+# The Migration Recipe is role-independent
+
+The generator config includes every plugin the toolkit supports (Admin, JWT, the OAuth provider, device authorization), so every deployment's Primary Database carries the Authorization Server Role's tables even when only the Identity Role is enabled at runtime. Which plugins actually run is a runtime choice made by the Auth Worker's config, not by the schema. We chose this over per-role migration sets because one Common and one linear migration history is the drift protection the SQLite Dialect Group already relies on, a deployment can switch the role on without a migration step, and empty tables cost nothing on D1.

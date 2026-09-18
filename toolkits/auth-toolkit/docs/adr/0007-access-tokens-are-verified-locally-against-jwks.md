@@ -1,0 +1,3 @@
+# Access Tokens are verified locally against JWKS
+
+A Resource Server verifies an Access Token by checking its signature against the Auth Worker's JWKS with cached keys, plus issuer, audience, expiry, and DPoP binding when present. It does not call the introspection endpoint, so revoking a token takes effect only when the token expires; access tokens are therefore short-lived and refresh tokens carry the long life. We chose this because cookie verification already costs one round-trip per request and we did not want tokens to cost a second kind; introspection can be added per Resource Server if a real revocation requirement appears. A request carrying both a cookie and an Access Token is treated as the token and never falls back to the cookie.

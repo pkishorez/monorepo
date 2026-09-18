@@ -1,6 +1,11 @@
 import { betterAuth, type Auth, type BetterAuthOptions } from 'better-auth';
 import { dash } from '@better-auth/infra';
-import { authModelOptions } from './auth-model.js';
+import {
+  authModelOptions,
+  authorizationServerOptions,
+  type AuthorizationServerConfig,
+} from './auth-model.js';
+import { servePages, type Branding, type PagesApp } from './pages.js';
 
 type ValidateUser = NonNullable<
   NonNullable<BetterAuthOptions['user']>['validateUserInfo']
@@ -10,6 +15,8 @@ interface AuthWorkerConfig {
   /** The Auth Worker's own deployed URL. */
   baseURL: string;
   secret: string;
+  /** The name, and optionally the logo, the pages show. */
+  branding: Branding;
   /** Build with a Primary Database provider from `database/*`, e.g.
    * `d1PrimaryDatabase(env.DB)` or `memoryPrimaryDatabase()` for tests. */
   database: BetterAuthOptions['database'];
@@ -19,15 +26,24 @@ interface AuthWorkerConfig {
   /** The Shared Cookie Domain, e.g. `.example.com`, so every subdomain's
    * Direct Session Check can read the session cookie. Omit to keep the
    * cookie scoped to the Auth Worker's own origin only. */
-  cookieDomain?: string;
+  cookieDomain?: string | undefined;
   /** Cookie Cache TTL, in seconds. @default 300 (5 minutes) */
-  cookieCacheMaxAge?: number;
+  cookieCacheMaxAge?: number | undefined;
   /** Enables Better Auth Infrastructure's Dash plugin when non-empty. */
-  dashApiKey?: string;
+  dashApiKey?: string | undefined;
   /** Accepts or rejects identities during registration, account linking, and
    * fresh provider sign-in. */
-  validateUser?: ValidateUser;
+  validateUser?: ValidateUser | undefined;
+  /** Enables the Authorization Server Role: Client Applications obtain Access
+   * Tokens for the listed Resource Servers through consent or the device
+   * flow. Omit to run the Identity Role only. */
+  authorizationServer?: AuthorizationServerConfig | undefined;
+  /** The pages app. The built `auth-toolkit/worker` door supplies it; only
+   * source imports (tests) leave it out. */
+  pages?: PagesApp | undefined;
 }
+
+const API_PATH = '/api/auth';
 
 const CORS_METHODS = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS';
 
@@ -143,6 +159,9 @@ export const createAuthWorker = (
   validateTrustedOrigins(config.trustedOrigins);
 
   const modelOptions = authModelOptions(config);
+  const authorizationServer = config.authorizationServer
+    ? authorizationServerOptions(config.authorizationServer)
+    : undefined;
   const dashApiKey = config.dashApiKey?.trim();
 
   const auth = betterAuth({
@@ -156,8 +175,10 @@ export const createAuthWorker = (
       : undefined,
     plugins: [
       ...(modelOptions.plugins ?? []),
+      ...(authorizationServer?.plugins ?? []),
       ...(dashApiKey ? [dash({ apiKey: dashApiKey })] : []),
     ],
+    disabledPaths: authorizationServer?.disabledPaths,
     advanced: config.cookieDomain
       ? {
           crossSubDomainCookies: {
@@ -168,7 +189,16 @@ export const createAuthWorker = (
       : undefined,
   }) as Auth<BetterAuthOptions>;
 
+  const { authorizationServer: role, branding, pages } = config;
+
   const handler = async (request: Request) => {
+    const { pathname } = new URL(request.url);
+    if (pathname !== API_PATH && !pathname.startsWith(`${API_PATH}/`)) {
+      return role && pages
+        ? servePages(pages, request, branding)
+        : new Response('Not found', { status: 404 });
+    }
+
     const { allowed, headers: cors } = corsHeaders(
       request,
       config.trustedOrigins,

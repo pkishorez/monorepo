@@ -50,6 +50,7 @@ export default {
     const { handler } = createAuthWorker({
       baseURL: 'https://auth.example.com',
       secret: env.AUTH_SECRET,
+      branding: { appName: 'Example' }, // what the pages show
       database: d1PrimaryDatabase(env.DB),
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
@@ -158,17 +159,70 @@ for (const cookie of verified.refreshedCookies) {
 `auth-toolkit/server` is the vanilla server API. Effect integrations live in
 separate subpaths, so vanilla consumers do not need to install Effect. For
 protecting Effect RPCs declaratively, see
-[`rpc` and `server/rpc`](./src/server/rpc/README.md).
+[`rpc` and `server/rpc`](./src/server/effect/rpc/README.md).
 
 ### 4. Protect an Effect HTTP API
 
 Attach `Authz.guard()` from `auth-toolkit/http-api` to Effect HTTP API endpoints
 to provide typed Current Auth to their handlers, and provide `authzLayer` and `resolverLive` from
 `auth-toolkit/http-api/server` next to them. See
-[`http-api` and `server/http-api`](./src/server/http-api/README.md) for setup,
+[`http-api` and `server/http-api`](./src/server/effect/http-api/README.md) for setup,
 policies, testing, errors, and refreshed-cookie relay.
 
-### 5. Sign in / check session from the frontend
+### 5. Turn on the Authorization Server Role
+
+By default the Auth Worker plays only the Identity Role: browsers sign in and
+Consumer Backends verify Sessions. Add `authorizationServer` to let a Client
+Application (an MCP client, a CLI) obtain an Access Token for a Resource Server
+on a User's behalf:
+
+```ts
+const { handler } = createAuthWorker({
+  ...identityConfig,
+  // Each part is a string, or the value plus inline CSS over the pages' own.
+  branding: {
+    appName: { name: 'Example', style: { letterSpacing: '-0.02em' } },
+    logoUrl: 'https://example.com/logo.svg', // also the favicon
+  },
+  authorizationServer: {
+    resources: ['https://api.example.com'], // each Resource Server's audience
+    scopes: [{ name: 'notes:write', description: 'Create and edit notes' }],
+  },
+});
+```
+
+This runs Better Auth's OAuth provider with the device authorization grant and
+the JWT plugin for signing keys. Access Tokens are JWTs bound to one resource
+and carry the User's `email` and `name`. Dynamic client registration is off.
+The same `handler` then also serves `/login`, `/consent`, and `/device`: a
+TanStack Start app on kui-toolkit that ships prebuilt inside this package, with
+its assets embedded, so the Worker needs no assets binding and no build. The
+schema always contains the OAuth tables, so switching the role on needs no
+migration.
+
+### 6. Accept Access Tokens on a Consumer Backend
+
+`resolverLive` verifies Sessions by default. Give it this backend's `resource`
+to make it a Resource Server that also accepts Access Tokens:
+
+```ts
+resolverLive({
+  authWorkerUrl: 'https://auth.example.com',
+  resource: 'https://api.example.com',
+});
+```
+
+A request with an `Authorization` header is treated as an Access Token,
+verified locally against the Auth Worker's JWKS (cached keys; issuer, audience,
+expiry), and never falls back to the cookie. Without `resource`, such a request
+is Unauthenticated. `Authz.CurrentAuth` is then a Principal:
+`{ kind: 'session', user, session }` or `{ kind: 'token', user, client, scopes }`.
+Policies that read `user.id`, `user.email`, or `user.name` work for both;
+`Authz.scope('notes:write')` requires a Token Principal carrying the Scope.
+For a hand-rolled host, `verifyAccessToken` from `auth-toolkit/server/access-token`
+does the same check.
+
+### 7. Sign in / check session from the frontend
 
 The browser talks to the Auth Worker directly (not proxied through your
 app backend), so point it at the Auth Worker's own URL:
@@ -241,6 +295,7 @@ import { memoryPrimaryDatabase } from 'auth-toolkit/database/memory';
 const { handler } = createAuthWorker({
   baseURL: 'http://localhost:8787',
   secret: 'test-secret',
+  branding: { appName: 'Example' },
   database: memoryPrimaryDatabase(),
   google: { clientId: 'test', clientSecret: 'test' },
   trustedOrigins: ['http://localhost:5173'],
@@ -259,18 +314,19 @@ concurrent calls, cookie refresh, and failure cases.
 
 ## Subpaths
 
-| Subpath           | What it gives you                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `worker`          | `createAuthWorker(config)` — assembles the Auth Worker                                |
-| `server`          | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend                |
-| `rpc`             | `Authz` — the RPC Auth Cannotation, safe for shared contracts                         |
-| `http-api`        | `Authz` — the HTTP API Auth Cannotation, safe for shared contracts                    |
-| `rpc/server`      | `authzLayer`, `resolverLive(...)` — see [`rpc`](./src/server/rpc/README.md)           |
-| `http-api/server` | `authzLayer`, `resolverLive(...)` — see [`http-api`](./src/server/http-api/README.md) |
-| `client`          | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out   |
-| `database/d1`     | Production Primary Database Provider using a D1 binding                               |
-| `database/memory` | In-memory Primary Database Provider, for tests                                        |
-| `alchemy/d1`      | Alchemy resource for provisioning D1 and applying migrations                          |
+| Subpath               | What it gives you                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------- |
+| `worker`              | `createAuthWorker(config)` — assembles the Auth Worker                                       |
+| `server`              | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend                       |
+| `server/access-token` | `verifyAccessToken(...)` — local Access Token verification for a Resource Server             |
+| `rpc`                 | `Authz` — the RPC Auth Cannotation, safe for shared contracts                                |
+| `http-api`            | `Authz` — the HTTP API Auth Cannotation, safe for shared contracts                           |
+| `rpc/server`          | `authzLayer`, `resolverLive(...)` — see [`rpc`](./src/server/effect/rpc/README.md)           |
+| `http-api/server`     | `authzLayer`, `resolverLive(...)` — see [`http-api`](./src/server/effect/http-api/README.md) |
+| `client`              | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out          |
+| `database/d1`         | Production Primary Database Provider using a D1 binding                                      |
+| `database/memory`     | In-memory Primary Database Provider, for tests                                               |
+| `alchemy/d1`          | Alchemy resource for provisioning D1 and applying migrations                                 |
 
 ## Migrations
 

@@ -28,28 +28,32 @@
       "default": "./dist/client/index.js"
     },
     "./server": {
-      "types": "./dist/server/verification/index.d.ts",
-      "default": "./dist/server/verification/index.js"
+      "types": "./dist/server/verification/session/index.d.ts",
+      "default": "./dist/server/verification/session/index.js"
+    },
+    "./server/access-token": {
+      "types": "./dist/server/verification/access-token/index.d.ts",
+      "default": "./dist/server/verification/access-token/index.js"
     },
     "./rpc": {
-      "types": "./dist/server/rpc/authz.d.ts",
-      "default": "./dist/server/rpc/authz.js"
+      "types": "./dist/server/effect/rpc/authz.d.ts",
+      "default": "./dist/server/effect/rpc/authz.js"
     },
     "./rpc/server": {
-      "types": "./dist/server/rpc/index.d.ts",
-      "default": "./dist/server/rpc/index.js"
+      "types": "./dist/server/effect/rpc/index.d.ts",
+      "default": "./dist/server/effect/rpc/index.js"
     },
     "./http-api": {
-      "types": "./dist/server/http-api/authz.d.ts",
-      "default": "./dist/server/http-api/authz.js"
+      "types": "./dist/server/effect/http-api/authz.d.ts",
+      "default": "./dist/server/effect/http-api/authz.js"
     },
     "./http-api/server": {
-      "types": "./dist/server/http-api/index.d.ts",
-      "default": "./dist/server/http-api/index.js"
+      "types": "./dist/server/effect/http-api/index.d.ts",
+      "default": "./dist/server/effect/http-api/index.js"
     },
     "./worker": {
       "types": "./dist/worker/index.d.ts",
-      "default": "./dist/worker/index.js"
+      "default": "./dist/app/worker.js"
     },
     "./database/d1": {
       "types": "./dist/infra/primary/sqlite/d1/database/index.d.ts",
@@ -65,20 +69,27 @@
     }
   },
   "scripts": {
-    "build": "rm -rf ./dist && tsc -p tsconfig.build.json && cp -R src/infra/primary/sqlite/migration/migrations dist/infra/primary/sqlite/migration/",
+    "build": "rm -rf ./dist && vite build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/infra/primary/sqlite/migration/migrations dist/infra/primary/sqlite/migration/",
     "db:generate": "auth generate --config ./auth.generate.ts --output ./src/infra/primary/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
-    "lint:tsc": "tsc --noEmit",
+    "lint:tsc": "tsc --noEmit && tsc -p tsconfig.app.json --noEmit",
     "stories": "laymos stories",
     "test": "vitest run"
   },
   "dependencies": {
+    "@better-auth/cimd": "catalog:",
     "@better-auth/drizzle-adapter": "catalog:",
     "@better-auth/infra": "catalog:",
+    "@better-auth/mcp": "catalog:",
+    "@better-auth/oauth-provider": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
+    "kui-toolkit": "workspace:*",
+    "next-themes": "catalog:",
     "rpc-toolkit": "workspace:*"
   },
   "peerDependencies": {
@@ -106,17 +117,24 @@
     "@tsconfig/node22": "catalog:",
     "@types/better-sqlite3": "catalog:",
     "@types/node": "catalog:",
+    "@tailwindcss/vite": "catalog:",
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "@typescript/native": "catalog:",
     "alchemy": "catalog:",
     "auth": "catalog:",
     "better-sqlite3": "catalog:",
     "drizzle-kit": "catalog:",
     "effect": "catalog:",
+    "jose": "catalog:",
     "laymos": "workspace:*",
     "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

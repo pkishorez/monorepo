@@ -15,7 +15,7 @@ If a phase needs an earlier one, do that one first and say so.
 
 ## Infrastructure
 
-Auth has two instances: production, and a local one for local dev. Nothing else. Both come from the same package: an Auth Worker with its D1 database, set up by the primitive.
+Auth has two instances: production, and a local one for local dev. Nothing else. Both come from the same package: an Auth Worker with its D1 database, set up by the primitive. With the Authorization Server Role on, the same handler also serves the login, consent, and device pages, which ship prebuilt inside auth-toolkit.
 
 Ask for the production URL and the local URL. Suggest the local URL as the production host with its last label replaced by `computer`. From each host, suggest the defaults: the cookie domain is the host minus its first label, and every origin under it is trusted. Suggest a cookie cache of 5 minutes. Ask if the user wants any changes. Confirm before creating files.
 
@@ -31,7 +31,7 @@ To guard a group or a request with login, pipe it through `Authz.guard()`. To gu
 
 If the RPC host does not provide `authzLayer` yet, set that up first.
 
-Who may sign in is decided in the Auth Worker. Who may call an RPC is decided in the app.
+Who may sign in is decided in the Auth Worker. Who may call an RPC is decided in the app. Whether an app accepts Access Tokens from MCP clients or CLIs is the `resource` on its `resolverLive`; the Auth Worker lists that same URL in `authorizationServer.resources`.
 
 ## Verification
 

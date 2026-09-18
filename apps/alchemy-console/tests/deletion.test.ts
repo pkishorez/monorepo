@@ -65,6 +65,7 @@ const user = {
   updatedAt: new Date(),
 };
 const auth = {
+  kind: 'session' as const,
   user,
   session: {
     id: 'session',

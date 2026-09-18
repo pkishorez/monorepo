@@ -39,8 +39,13 @@ catalog:
   '@tanstack/ai': 0.54.0
   '@distilled.cloud/aws': 1.0.0-rc.8
   '@distilled.cloud/cloudflare': 1.0.0-rc.8
+  '@better-auth/cimd': 1.7.2
   '@better-auth/drizzle-adapter': 1.7.2
+  '@better-auth/mcp': 1.7.2
+  '@better-auth/oauth-provider': 1.7.2
   '@better-auth/infra': 0.4.5
+  jose: 6.2.12
+  zod: 4.4.3
   '@base-ui/react': 1.8.0
   '@ast-grep/napi': 0.45.3
   '@vitest/utils': 4.1.11
