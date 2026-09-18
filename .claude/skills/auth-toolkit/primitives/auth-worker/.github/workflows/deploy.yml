@@ -8,6 +8,7 @@ on:
     paths:
       - '__APP_PATH__/**'
       - 'toolkits/auth-toolkit/**'
+      - 'toolkits/kui-toolkit/**'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
 

@@ -20,6 +20,7 @@ const resolver = Layer.succeed(Authz.Resolver, {
       const now = new Date();
       return {
         currentAuth: {
+          kind: 'session' as const,
           user: {
             id,
             name: id,

@@ -31,6 +31,8 @@ Nearest Wins: an RPC's own policy beats its group's; an RPC without one inherits
 
 Sign-in restrictions ("only company accounts may log in") are not endpoint policies. Send those to the auth-worker phase.
 
+Accepting Access Tokens (from an MCP client or a CLI) is a Resource Server decision: give `resolverLive` this app's `resource`, the audience URL listed in the Auth Worker's `authorizationServer.resources`. Then `Authz.CurrentAuth` is a Principal with `kind: 'session' | 'token'`, and `Authz.scope('name')` guards an RPC by Scope. Without `resource`, a request carrying a token is `Unauthenticated`.
+
 ## Files
 
 Adds:
@@ -98,7 +100,10 @@ const TestResolver = Layer.succeed(
   Authz.Resolver,
   Authz.Resolver.of({
     resolve: () =>
-      Effect.succeed({ currentAuth: { user, session }, refreshedCookies: [] }),
+      Effect.succeed({
+        currentAuth: { kind: 'session', user, session },
+        refreshedCookies: [],
+      }),
   }),
 );
 const TestAuthz = authzLayer.pipe(Layer.provide(TestResolver));

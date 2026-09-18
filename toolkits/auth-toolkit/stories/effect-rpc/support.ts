@@ -11,6 +11,7 @@ export const resolvedAuth = (
   refreshedCookies: ReadonlyArray<string> = [],
 ) => ({
   currentAuth: {
+    kind: 'session' as const,
     session: { id: `session-${userId}` } as Session,
     user: { id: userId } as User,
   },

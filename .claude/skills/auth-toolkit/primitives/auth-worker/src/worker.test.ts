@@ -3,6 +3,8 @@ import { createAuthWorker } from 'auth-toolkit/worker';
 import { describe, expect, it } from 'vitest';
 import {
   authConfigFor,
+  authorizationServer,
+  branding,
   cookieCacheMaxAge,
   localHost,
   productionHost,
@@ -17,6 +19,8 @@ const workerFor = (host: string) =>
     database: memoryPrimaryDatabase(),
     google: { clientId: 'test', clientSecret: 'test' },
     cookieCacheMaxAge,
+    branding,
+    authorizationServer,
   }).handler;
 
 describe.each([productionHost, localHost])('auth worker at %s', (host) => {
@@ -51,5 +55,17 @@ describe.each([productionHost, localHost])('auth worker at %s', (host) => {
   it('serves the Better Auth health route', async () => {
     const response = await handler(new Request(`https://${host}/api/auth/ok`));
     expect(response.status).toBe(200);
+  });
+
+  it('publishes its Authorization Server metadata', async () => {
+    const response = await handler(
+      new Request(
+        `https://${host}/api/auth/.well-known/oauth-authorization-server`,
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(((await response.json()) as { issuer: string }).issuer).toBe(
+      `https://${host}/api/auth`,
+    );
   });
 });

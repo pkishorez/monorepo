@@ -1,9 +1,16 @@
 import { spawn } from 'node:child_process';
 
-const server = spawn('pnpm', ['exec', 'tsx', 'src/server/main.ts'], {
-  stdio: 'inherit',
-  env: { ...process.env, DEVTOOLS_SKIP_UI_CHECK: '1' },
-});
+const args = process.argv.slice(2);
+const serverArgs = args.length > 0 ? args : ['devtools'];
+
+const server = spawn(
+  'pnpm',
+  ['exec', 'tsx', 'src/server/main.ts', ...serverArgs],
+  {
+    stdio: 'inherit',
+    env: { ...process.env, DEVTOOLS_SKIP_UI_CHECK: '1' },
+  },
+);
 const browser = spawn('pnpm', ['exec', 'vp', 'dev'], {
   stdio: 'inherit',
 });

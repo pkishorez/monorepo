@@ -2,11 +2,15 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "storiesPath": "stories",
-  "ignoredPaths": ["src/infra/primary/sqlite/migration/migrations"],
+  "ignoredPaths": [
+    "src/infra/primary/sqlite/migration/migrations",
+    "src/app/routeTree.gen.ts",
+    "src/app/types.d.ts"
+  ],
   "layers": {
     "infra.primary.sqlite": {
       "paths": ["src/infra/primary/sqlite"],
-      "description": "SQLite-dialect Primary Database providers — a future non-SQLite dialect (e.g. Postgres) would be a sibling layer under infra/primary, not a member here",
+      "description": "SQLite-dialect Primary Database providers \u2014 a future non-SQLite dialect (e.g. Postgres) would be a sibling layer under infra/primary, not a member here",
       "moduleGraphs": {
         "sqlite": {
           "description": "D1 runtime database, D1 deployment resource, and memory database are independent doors built on separate private schema and migration modules.",
@@ -38,16 +42,51 @@
     },
     "worker": {
       "paths": ["src/worker"],
-      "description": "Public — createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database, with Cookie Cache, Google OAuth, Admin, optional Dash and User Admission Policy, and origin and cookie settings. Consumers choose D1 or the memory database without coupling the worker to a provider.",
+      "description": "Public \u2014 createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, optional Dash, User Admission Policy, origins and cookies) and, with the Authorization Server Role on, serves the pages app the built door embeds",
       "modules": {
         "src/worker": {
           "exposed": true
         }
       }
     },
+    "ui": {
+      "paths": ["src/ui"],
+      "description": "The pages the Auth Worker serves (account, consent, device approval) and the shell they share, built on kui-toolkit",
+      "moduleGraphs": {
+        "ui": {
+          "description": "Three page doors over one shell (card, brand, theme toggle), one same-origin Better Auth client, and one Scope list shared by consent and device approval.",
+          "path": "src/ui",
+          "modules": {
+            "pages/account": {
+              "exposed": true
+            },
+            "pages/consent": {
+              "exposed": true
+            },
+            "pages/device": {
+              "exposed": true
+            },
+            "shell": {
+              "exposed": true
+            },
+            "client": {
+              "exposed": false
+            },
+            "scope-list": {
+              "exposed": false
+            }
+          },
+          "rules": {
+            "pages/account": ["shell", "client"],
+            "pages/consent": ["shell", "client", "scope-list"],
+            "pages/device": ["shell", "client", "scope-list"]
+          }
+        }
+      }
+    },
     "client": {
       "paths": ["src/client"],
-      "description": "Public — Direct Session Check: React hooks for session state, sign-in, and sign-out",
+      "description": "Public \u2014 Direct Session Check: React hooks for session state, sign-in, and sign-out",
       "modules": {
         "src/client": {
           "exposed": true
@@ -56,56 +95,75 @@
     },
     "server": {
       "paths": ["src/server"],
-      "description": "Public — Server-Side Verification: forwards a Consumer Backend's request to the Auth Worker and returns a Verify Payload, plus each Sibling's Auth Cannotation: its Declaration (safe for contract code shared with the browser) and its Server Implementation",
+      "description": "Public \u2014 Server-Side Verification and Access Token verification, the Current Auth identity they resolve to, and the Effect RPC and HTTP API integrations that declare each Sibling's Auth Cannotation",
       "moduleGraphs": {
         "server": {
-          "description": "Server-Side Verification is the vanilla door; the Current Auth Resolver wraps it for Effect; each Sibling module declares its Auth Cannotation in an interior authz file (reached by the package's contract subpath) beside its Server Implementation, both over a shared Current Auth identity.",
+          "description": "Two verification doors (session, access token) feed one Current Auth module, whose interior resolver picks a proof per request; each Effect integration declares its Auth Cannotation in an interior authz file beside its Server Implementation.",
           "path": "src/server",
           "modules": {
-            "verification": {
+            "verification/session": {
+              "exposed": true
+            },
+            "verification/access-token": {
               "exposed": true
             },
             "current-auth": {
               "exposed": false
             },
-            "current-auth-resolver": {
-              "exposed": false
-            },
-            "refreshed-cookies": {
-              "exposed": false
-            },
-            "rpc": {
+            "effect/rpc": {
               "exposed": true
             },
-            "http-api": {
+            "effect/http-api": {
               "exposed": true
             }
           },
           "rules": {
-            "current-auth-resolver": ["verification", "current-auth"],
-            "rpc": [
-              "current-auth",
-              "current-auth-resolver",
-              "refreshed-cookies"
+            "current-auth": [
+              "verification/session",
+              "verification/access-token"
             ],
-            "http-api": [
-              "current-auth",
-              "current-auth-resolver",
-              "refreshed-cookies"
-            ]
+            "effect/rpc": ["current-auth"],
+            "effect/http-api": ["current-auth"]
           }
+        }
+      }
+    },
+    "app": {
+      "paths": ["src/app"],
+      "description": "The pages app: a TanStack Start site rendering the ui pages, built by Vite into dist/app and embedded into the worker door by scripts/bundle-app.mts",
+      "modules": {
+        "src/app/server.ts": {
+          "exposed": true
+        },
+        "src/app/router.tsx": {},
+        "src/app/routes/__root.tsx": {
+          "exposed": true
+        },
+        "src/app/routes/page.tsx": {
+          "exposed": true
+        },
+        "src/app/routes/login.tsx": {
+          "exposed": true
+        },
+        "src/app/routes/consent.tsx": {
+          "exposed": true
+        },
+        "src/app/routes/device.tsx": {
+          "exposed": true
         }
       }
     }
   },
   "layerGraphs": {
     "auth-toolkit": {
-      "description": "Independently consumed doors — worker, client, server, and the infra providers each stand alone; the consumer wires providers into the worker itself, so no Layer here imports another.",
+      "description": "Independently consumed doors \u2014 worker, client, server, and the infra providers stand alone; the app composes ui and is embedded into the worker door at build time, never imported by it.",
       "rules": {
         "infra.primary.sqlite": [],
         "worker": [],
+        "ui": [],
         "client": [],
-        "server": []
+        "server": [],
+        "app": ["ui"]
       }
     }
   }

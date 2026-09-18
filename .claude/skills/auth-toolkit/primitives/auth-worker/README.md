@@ -2,9 +2,11 @@
 
 One Cloudflare Worker running `createAuthWorker` on D1. It has two instances: production, deployed by GitHub Actions, and local, started with `pnpm dev`. Apps in every deployed stage use production; apps in local dev use local.
 
+The Worker plays the Identity Role for every browser app and, when `authorizationServer` in `infra/config.ts` is set, the Authorization Server Role: the same handler serves `/login`, `/consent`, and `/device` so Client Applications (MCP clients, CLIs) can obtain Access Tokens. The pages ship inside auth-toolkit; nothing here is built.
+
 ## Ask
 
-Ask for the production host. Derive the local host by replacing its last label with `computer`, and show it. Suggest a Cookie Cache TTL of 300 seconds. Ask whether sign-in is limited to certain accounts. Confirm before creating files.
+Ask for the production host. Derive the local host by replacing its last label with `computer`, and show it. Suggest a Cookie Cache TTL of 300 seconds. Ask whether sign-in is limited to certain accounts. Ask which Resource Servers (audience URLs) Access Tokens are for, and which Scopes beyond OpenID's; an empty list keeps the role on but unused. Confirm before creating files.
 
 Everything else is derived per instance: the cookie domain is the host minus its first label, and every origin under it is trusted. The user can edit `infra/config.ts` later.
 
@@ -13,6 +15,7 @@ Everything else is derived per instance: the cookie domain is the host minus its
 | Placeholder                | Example                 |
 | -------------------------- | ----------------------- |
 | `__APP_NAME__`             | `auth`                  |
+| `__APP_TITLE__`            | `Kishore`               |
 | `__APP_PATH__`             | `apps/auth`             |
 | `__STACK_NAME__`           | `Auth`                  |
 | `__PRODUCTION_HOST__`      | `auth.kishore.app`      |
@@ -21,11 +24,13 @@ Everything else is derived per instance: the cookie domain is the host minus its
 | `__COOKIE_CACHE_SECONDS__` | `300`                   |
 | `__PRODUCTION_BRANCH__`    | `main`                  |
 
+`__APP_TITLE__` is what the pages show as the application name; `branding.logoUrl` in `infra/config.ts` adds a logo beside it.
+
 ## Files
 
 Copy this folder to `apps/__APP_NAME__`. Copy `.github/workflows/deploy.yml` to `.github/workflows/__APP_NAME__-deploy.yml` at the repository root. Delete this README from the copy.
 
-- `infra/config.ts`: the two hosts, the TTL, and how the rest derives.
+- `infra/config.ts`: the two hosts, the TTL, the Authorization Server Role, and how the rest derives.
 - `infra/auth-worker.ts`: the Worker and its D1 database. Migrations ship with auth-toolkit and apply on deploy.
 - `src/worker.ts`: `createAuthWorker` on D1.
 - `src/worker.test.ts`: boots both instances on the in-memory Provider.
@@ -57,4 +62,4 @@ Layers: `infra` (paths `infra`; `infra/auth-worker.ts` exposed; `infra/config.ts
 
 ## Verify
 
-`pnpm lint` and `pnpm test` pass. `pnpm dev` answers `https://<local host>/api/auth/ok` with 200. After CI deploys, the production host answers the same.
+`pnpm lint` and `pnpm test` pass. `pnpm dev` answers `https://<local host>/api/auth/ok` with 200 and, with the Authorization Server Role on, `https://<local host>/login` with the sign-in page. After CI deploys, the production host answers the same.

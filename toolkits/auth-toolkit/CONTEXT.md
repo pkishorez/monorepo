@@ -5,8 +5,44 @@ Curated building blocks over better-auth for standing up one shared Auth Worker 
 ## Language
 
 **Auth Worker**:
-The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation.
+The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation. Always plays the Identity Role; optionally also the Authorization Server Role, in which case it also serves the login, consent, and device approval pages itself.
 _Avoid_: auth server (ambiguous with any backend that merely talks to it), backend
+
+**Identity Role**:
+The Auth Worker's always-on job: signing Users in and answering "who is this" for a browser Session. Every deployment has it.
+_Avoid_: identity provider, IdP (implies a federation protocol the toolkit does not expose)
+
+**Authorization Server Role**:
+The Auth Worker's opt-in job: letting a Client Application obtain an Access Token to act on a User's behalf, covering client registration, consent, token issuance, and token verification. Off unless a deployment configures it.
+_Avoid_: OAuth provider (collides with Provider), authorization mode
+
+**Client Application**:
+A program other than the browser that holds an Access Token to act for a User: an MCP client, a CLI, or an approved third-party web app. Whether it registered itself or was approved by hand does not change what it is.
+_Avoid_: client (reserved for the browser side), Provider, third party (some Client Applications are first-party)
+
+**Resource Server**:
+A Consumer Backend that accepts Access Tokens as well as browser Sessions. Every Resource Server is a Consumer Backend; not every Consumer Backend is a Resource Server. An MCP server is one kind of Resource Server.
+_Avoid_: API, protected resource (the OAuth wire term; fine in protocol prose, not for the service)
+
+**Principal**:
+Whoever Current Auth represents for one request. Always names a User; how the User was established (a Session or an Access Token) is part of the Principal, never hidden from it.
+_Avoid_: caller, subject
+
+**Session Principal**:
+A Principal established by a browser Session. Carries the User and the Session. What every Consumer Backend saw before the Authorization Server Role existed.
+_Avoid_: cookie user, web principal
+
+**Token Principal**:
+A Principal established by an Access Token. Carries the User, the Client Application acting for them, and the granted Scopes. Has no Session.
+_Avoid_: bearer (better-auth's `bearer` plugin means something else), API user
+
+**Access Token**:
+The credential the Authorization Server Role issues to a Client Application for one Resource Server, presented in the Authorization header. Short-lived; a refresh token renews it.
+_Avoid_: bearer token, JWT (the format, not the concept), API key
+
+**Scope**:
+A named permission a User grants a Client Application at consent time and an Access Token carries. A Resource Server may require Scopes through an Authorization Policy; a Session Principal has none.
+_Avoid_: permission (reserved for what an Authorization Policy decides), role
 
 **Consumer Backend**:
 Any service (other than the Auth Worker itself) that needs to know whether an incoming request is authenticated. Talks to the Auth Worker over HTTP via the server subpath's client — it never touches the Primary Database directly.
@@ -57,8 +93,8 @@ What Server-Side Verification returns to a Consumer Backend: the validated sessi
 _Avoid_: response (too generic)
 
 **Current Auth**:
-The verified User and Session available while handling one authenticated request in a Consumer Backend.
-_Avoid_: current user (omits the Session), auth context (easily confused with Effect's Context)
+The verified Principal available while handling one authenticated request in a Consumer Backend.
+_Avoid_: current user (omits how the User was established), auth context (easily confused with Effect's Context)
 
 **Current Auth Resolver**:
 The replaceable server capability that resolves Current Auth and refreshed cookies from an incoming request. Its production implementation performs Server-Side Verification against the Auth Worker.
