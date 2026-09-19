@@ -77,7 +77,7 @@
     }
   },
   "scripts": {
-    "build": "rm -rf ./dist && vite build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/infra/primary/sqlite/migration/migrations dist/infra/primary/sqlite/migration/",
+    "build": "rm -rf ./dist && vp build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/infra/primary/sqlite/migration/migrations dist/infra/primary/sqlite/migration/",
     "db:generate": "auth generate --config ./auth.generate.ts --output ./src/infra/primary/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
