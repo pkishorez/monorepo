@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '#components/ui/avatar';
 
 import { ActionButton, type Action } from '../action-button';
-import { BrandLink, type Branding } from '../screen-frame';
+import { BrandLink, MaskedEmail, type Branding } from '../screen-frame';
 
 export interface UserView {
   name: string;
@@ -37,11 +37,11 @@ export function AccountHeader({
         </Avatar>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <h1 className="truncate text-xl font-semibold tracking-tight">
-            {name}
+            {user.name || <MaskedEmail email={user.email} />}
           </h1>
           {user.name ? (
             <p className="truncate text-sm text-muted-foreground">
-              {user.email}
+              <MaskedEmail email={user.email} />
             </p>
           ) : null}
         </div>

@@ -5,10 +5,12 @@ import { Toaster } from '#components/ui/sonner';
 import { cn } from '#lib/utils';
 
 import { BrandLink, type Branding } from './brand';
+import { EmailToggle, MaskedEmail } from './email-privacy';
 import { Loader } from './loader';
 import { ThemeToggle } from './theme-toggle';
 
 export { BrandLink, brandName, type Branding } from './brand';
+export { MaskedEmail, useEmailPrivacy } from './email-privacy';
 
 const ACCENT =
   '[--primary:var(--sidebar-active-foreground)] [--primary-foreground:var(--sidebar-active)] [--ring:var(--sidebar-active-foreground)]';
@@ -41,7 +43,10 @@ export function ScreenFrame({
         'flex min-h-svh items-center justify-center px-4 pt-16 pb-6 sm:p-6',
       )}
     >
-      <ThemeToggle />
+      <div className="fixed top-4 right-4 z-10 flex gap-1">
+        <EmailToggle />
+        <ThemeToggle />
+      </div>
       <Toaster position="bottom-center" richColors />
       {loading ? (
         <Loader branding={branding} />
@@ -72,7 +77,9 @@ export function ScreenFrame({
             <p className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
               <span className="truncate">
                 Signed in as{' '}
-                <span className="text-foreground">{account.email}</span>
+                <span className="text-foreground">
+                  <MaskedEmail email={account.email} />
+                </span>
               </span>
               <Button
                 variant="link"

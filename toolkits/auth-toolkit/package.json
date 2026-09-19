@@ -100,7 +100,8 @@
     "kui-toolkit": "workspace:*",
     "next-themes": "catalog:",
     "rpc-toolkit": "workspace:*",
-    "use-sync-external-store": "catalog:"
+    "use-sync-external-store": "catalog:",
+    "zustand": "catalog:"
   },
   "peerDependencies": {
     "alchemy": "2.0.0-beta.76",

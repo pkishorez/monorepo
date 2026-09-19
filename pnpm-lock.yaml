@@ -1001,6 +1001,9 @@ importers:
       use-sync-external-store:
         specifier: 'catalog:'
         version: 1.6.0(react@19.2.8)
+      zustand:
+        specifier: 'catalog:'
+        version: 5.0.15(@types/react@19.2.18)(immer@11.1.8)(react@19.2.8)(use-sync-external-store@1.6.0(react@19.2.8))
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
