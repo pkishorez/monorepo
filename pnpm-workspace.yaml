@@ -166,6 +166,7 @@ catalog:
   type-fest: 5.9.0
   typescript: 7.0.2
   ulidx: 2.4.1
+  use-sync-external-store: 1.6.0
   vaul: 1.1.2
   werift: 0.24.4
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0

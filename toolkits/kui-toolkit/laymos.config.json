@@ -2,6 +2,12 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [
+    "src/components/blocks/auth/consent-screen.fixture.tsx",
+    "src/components/blocks/auth/device-screen.fixture.tsx",
+    "src/components/blocks/auth/fixtures",
+    "src/components/blocks/auth/home-screen.fixture.tsx",
+    "src/components/blocks/auth/login-screen.fixture.tsx",
+    "src/components/blocks/auth/not-found-screen.fixture.tsx",
     "src/components/blocks/devtools-panel/devtools-panel.fixture.tsx",
     "src/components/blocks/er-diagram/er-diagram.fixture.tsx",
     "src/components/blocks/er-diagram/fixtures",
@@ -29,6 +35,7 @@
   "layers": {
     "blocks": {
       "paths": [
+        "src/components/blocks/auth",
         "src/components/blocks/diff-viewer",
         "src/components/blocks/er-diagram",
         "src/components/blocks/file-tree",
@@ -71,6 +78,32 @@
         }
       },
       "moduleGraphs": {
+        "auth-screens": {
+          "description": "The Auth Worker's four screens (Home Page, Login Screen, Consent Screen, Device Screen) as pure views: state in, actions out, one frame and one loader",
+          "path": "src/components/blocks/auth",
+          "modules": {
+            "auth-screens": {
+              "exposed": true
+            },
+            "screen-frame": {},
+            "action-button": {},
+            "disclosure-list": {},
+            "session-list": {},
+            "grant-list": {},
+            "scope-list": {}
+          },
+          "rules": {
+            "auth-screens": [
+              "screen-frame",
+              "action-button",
+              "session-list",
+              "grant-list",
+              "scope-list"
+            ],
+            "session-list": ["action-button", "disclosure-list"],
+            "grant-list": ["action-button", "disclosure-list", "scope-list"]
+          }
+        },
         "recorded-flow-explorer": {
           "description": "Presents a Flow Projection as an interactive hierarchical swimlane",
           "path": "src/components/blocks/flow-swimlane",

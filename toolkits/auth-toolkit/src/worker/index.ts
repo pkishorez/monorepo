@@ -3,7 +3,13 @@ export {
   isTrustedOrigin,
   validateTrustedOrigins,
 } from './worker.js';
-export type { Branding, BrandStyle, EmbeddedAsset, PagesApp } from './pages.js';
+export type {
+  Branding,
+  BrandStyle,
+  EmbeddedAsset,
+  PagesApp,
+  PagesContext,
+} from './pages.js';
 export {
   AUTH_PAGES,
   type AuthorizationServerConfig,

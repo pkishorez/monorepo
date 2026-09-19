@@ -91,6 +91,7 @@
     "@better-auth/infra": "catalog:",
     "@better-auth/mcp": "catalog:",
     "@better-auth/oauth-provider": "catalog:",
+    "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "@cloudflare/workers-types": "catalog:",
@@ -98,7 +99,8 @@
     "drizzle-orm": "catalog:",
     "kui-toolkit": "workspace:*",
     "next-themes": "catalog:",
-    "rpc-toolkit": "workspace:*"
+    "rpc-toolkit": "workspace:*",
+    "use-sync-external-store": "catalog:"
   },
   "peerDependencies": {
     "alchemy": "2.0.0-beta.76",

@@ -223,11 +223,20 @@ const { handler } = createAuthWorker({
 
 This runs Better Auth's OAuth provider and the JWT plugin for signing keys. Access Tokens are JWTs bound to one resource
 and carry the User's `email` and `name`. Dynamic client registration is off.
-The same `handler` then also serves `/consent`, next to the `/login` and
+The same `handler` then also serves `/consent`, next to the `/`, `/login`, and
 `/device` pages every deployment has: a TanStack Start app on kui-toolkit that
 ships prebuilt inside this package, with its assets embedded, so the Worker
 needs no assets binding and no build. The schema always contains the OAuth
 tables, so switching the role on needs no migration.
+
+`/` is the Home Page. A signed-in User sees every Session on their account,
+each browser and CLI with when it signed in, when it was last active, and
+when it expires, and can revoke any of them. With this role on, it also lists
+the apps they allowed on `/consent`, and revoking one also revokes its refresh
+tokens. Access Tokens already issued are JWTs that Resource Servers verify on
+their own, so they last until they expire: one hour, better-auth's default.
+A signed-out visitor goes to `/login`, and a signed-in one on `/login` goes
+back to where they came from.
 
 ### 6. Accept Access Tokens on a Consumer Backend
 
@@ -337,6 +346,7 @@ login.pipe(
     CliAuth.layer({
       authWorkerUrl: 'https://auth.example.com',
       app: 'example',
+      version: '1.0.0',
     }),
   ),
   Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer)),
@@ -348,7 +358,8 @@ login.pipe(
 in a terminal, polls until the User approves, and stores the Session in
 `~/.local/state/<app>/auth.json`. `logout` ends the Session at the Auth Worker and
 deletes the file. `whoami` asks the Auth Worker who the Session belongs to.
-`token` reads it.
+`token` reads it. Every request names the CLI as `<app>/<version>`, which is
+how the Session appears on the Home Page; `version` is optional.
 
 Provide `CliAuth.rpcSession` next to an RPC client, over HTTP or WebSocket,
 and every call carries the Session:
@@ -361,7 +372,9 @@ Layer.mergeAll(
 ```
 
 No Session, or a dead one, fails with `SignedOut`; a denied or expired code
-fails `login` with `DeviceLoginFailed`. There is nothing to refresh: the token
+fails `login` with `DeviceLoginFailed`. Auth Worker failures distinguish an
+unreachable service, a 5xx response, a rejected request, and an incompatible
+response. Each has a `message` fit to print. There is nothing to refresh: the token
 never changes, and the Auth Worker slides its expiry whenever it is used.
 
 On the server nothing changes. A Resource Server first verifies a bearer as an

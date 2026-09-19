@@ -26,7 +26,7 @@ If a phase needs an earlier one, do that one first and say so.
 
 ## Infrastructure
 
-Auth has two instances: production, and a local one for local dev. Nothing else. Both come from the same package: an Auth Worker with its D1 database, set up by the primitive. The same handler serves the login and device pages on every deployment, and the consent page with the Authorization Server Role on; all ship prebuilt inside auth-toolkit.
+Auth has two instances: production, and a local one for local dev. Nothing else. Both come from the same package: an Auth Worker with its D1 database, set up by the primitive. The same handler serves the Home Page, login, and device pages on every deployment, and the consent page with the Authorization Server Role on; all ship prebuilt inside auth-toolkit.
 
 Ask for the production URL and the local URL. Suggest the local URL as the production host with its last label replaced by `computer`. From each host, suggest the defaults: the cookie domain is the host minus its first label, and every origin under it is trusted. Suggest a cookie cache of 5 minutes. Ask if the user wants any changes. Confirm before creating files.
 
@@ -46,7 +46,7 @@ Who may sign in is decided in the Auth Worker. Who may call an RPC is decided in
 
 ## CLI
 
-A CLI is First-Party. `CliAuth` from `auth-toolkit/cli` is an Effect service: `CliAuth.layer({ authWorkerUrl, app })` needs `HttpClient`, `FileSystem`, and `Path` (`FetchHttpClient.layer` and `NodeServices.layer`). `login` runs Device Login and stores the Session in `$XDG_STATE_HOME/<app>/auth.json` (`~/.local/state/<app>/auth.json` by default); `logout`, `whoami`, and `token` do what they say. Provide `CliAuth.rpcSession` next to an RPC client and every call carries the Session. A missing or dead Session fails with `SignedOut`; the remedy is `login`. The Auth Worker needs nothing new. The `cli` primitive is the template: a CLI plus the small guarded RPC server it calls.
+A CLI is First-Party. `CliAuth` from `auth-toolkit/cli` is an Effect service: `CliAuth.layer({ authWorkerUrl, app, version })` needs `HttpClient`, `FileSystem`, and `Path` (`FetchHttpClient.layer` and `NodeServices.layer`). `login` runs Device Login and stores the Session in `$XDG_STATE_HOME/<app>/auth.json` (`~/.local/state/<app>/auth.json` by default); `logout`, `whoami`, and `token` do what they say. Provide `CliAuth.rpcSession` next to an RPC client and every call carries the Session. A missing or dead Session fails with `SignedOut`; the remedy is `login`. Connection, 5xx, rejected-request, and incompatible-response failures have their own `AuthWorker*` errors; print their `message`. The Auth Worker needs nothing new. The `cli` primitive is the template: a CLI plus the small guarded RPC server it calls.
 
 ## MCP Server
 

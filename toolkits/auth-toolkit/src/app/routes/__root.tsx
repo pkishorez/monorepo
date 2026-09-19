@@ -1,33 +1,73 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  ClientOnly,
+  HeadContent,
+  Scripts,
+  createRootRoute,
+} from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
 import { ThemeProvider } from 'next-themes';
-import type { ReactNode } from 'react';
-import { brandLogo, brandName, ThemeToggle } from '../../ui/shell/index.js';
+import { lazy, useState, type ReactNode } from 'react';
+
 import appCss from '../styles.css?url';
 
-const getBranding = createServerFn().handler(({ context }) => context.branding);
+const getContext = createServerFn().handler(({ context }) => ({
+  branding: context.branding,
+  authorizationServer: context.authorizationServer,
+}));
+
+type Context = Awaited<ReturnType<typeof getContext>>;
+
+const titleOf = ({ branding: { appName } }: Context) =>
+  typeof appName === 'string' ? appName : appName.name;
+
+const iconOf = ({ branding: { logoUrl } }: Context) =>
+  typeof logoUrl === 'string' ? logoUrl : logoUrl?.url;
 
 export const Route = createRootRoute({
-  loader: () => getBranding(),
+  loader: () => getContext(),
   head: ({ loaderData }) => {
-    const logo = loaderData ? brandLogo(loaderData) : undefined;
+    const icon = loaderData ? iconOf(loaderData) : undefined;
     return {
       meta: [
         { charSet: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         { name: 'color-scheme', content: 'dark light' },
-        { title: loaderData ? brandName(loaderData) : 'Sign in' },
+        { title: loaderData ? titleOf(loaderData) : 'Sign in' },
       ],
       links: [
         { rel: 'stylesheet', href: appCss },
-        ...(logo ? [{ rel: 'icon', href: logo.url }] : []),
+        ...(icon
+          ? [
+              { rel: 'icon', href: icon },
+              { rel: 'preload', as: 'image', href: icon },
+            ]
+          : []),
       ],
     };
   },
   shellComponent: RootDocument,
+  notFoundComponent: NotFound,
 });
 
+// Pages render in the browser only; the server bundle cannot load the UI block.
+const NotFoundScreen = lazy(() =>
+  import('kui-toolkit/components/blocks/auth').then((block) => ({
+    default: block.NotFoundScreen,
+  })),
+);
+
+function NotFound() {
+  const { branding } = Route.useLoaderData();
+  return (
+    <ClientOnly>
+      <NotFoundScreen branding={branding} />
+    </ClientOnly>
+  );
+}
+
 function RootDocument({ children }: { children: ReactNode }) {
+  const [queries] = useState(() => new QueryClient());
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -40,8 +80,7 @@ function RootDocument({ children }: { children: ReactNode }) {
           enableSystem={false}
           disableTransitionOnChange
         >
-          <ThemeToggle />
-          {children}
+          <QueryClientProvider client={queries}>{children}</QueryClientProvider>
         </ThemeProvider>
         <Scripts />
       </body>

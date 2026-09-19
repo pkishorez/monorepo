@@ -51,13 +51,16 @@
     },
     "ui": {
       "paths": ["src/ui"],
-      "description": "The pages the Auth Worker serves (account, consent, device login) and the shell they share, built on kui-toolkit",
+      "description": "Connects the Auth Worker's data to the kui-toolkit auth screens; owns no markup of its own",
       "moduleGraphs": {
         "ui": {
-          "description": "Three page doors over one shell (card, brand, theme toggle), one same-origin Better Auth client, and one Scope list for consent.",
+          "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth client, the User's Sessions and Grants, and one rule for which screen a visitor may see.",
           "path": "src/ui",
           "modules": {
-            "pages/account": {
+            "pages/home": {
+              "exposed": true
+            },
+            "pages/login": {
               "exposed": true
             },
             "pages/consent": {
@@ -66,20 +69,22 @@
             "pages/device": {
               "exposed": true
             },
-            "shell": {
-              "exposed": true
-            },
             "client": {
               "exposed": false
             },
-            "scope-list": {
+            "user-access": {
+              "exposed": false
+            },
+            "screen-routing": {
               "exposed": false
             }
           },
           "rules": {
-            "pages/account": ["shell", "client"],
-            "pages/consent": ["shell", "client", "scope-list"],
-            "pages/device": ["shell", "client"]
+            "pages/home": ["client", "user-access", "screen-routing"],
+            "pages/login": ["client", "screen-routing"],
+            "pages/consent": ["client", "screen-routing"],
+            "pages/device": ["client", "screen-routing"],
+            "user-access": ["client"]
           }
         }
       }
@@ -157,6 +162,9 @@
           "exposed": true
         },
         "src/app/routes/device.tsx": {
+          "exposed": true
+        },
+        "src/app/routes/error.tsx": {
           "exposed": true
         }
       }

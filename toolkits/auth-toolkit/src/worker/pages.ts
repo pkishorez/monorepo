@@ -14,12 +14,16 @@ export interface Branding {
     | undefined;
 }
 
+export interface PagesContext {
+  branding: Branding;
+  authorizationServer?:
+    | { scopes: Readonly<Record<string, string>> }
+    | undefined;
+}
+
 /** Supplied by the built `worker` door; absent when imported from source. */
 export interface PagesApp {
-  fetch: (
-    request: Request,
-    context: { branding: Branding },
-  ) => Promise<Response>;
+  fetch: (request: Request, context: PagesContext) => Promise<Response>;
   assets: Readonly<Record<string, EmbeddedAsset>>;
 }
 
@@ -37,10 +41,10 @@ const assetResponse = (asset: EmbeddedAsset) =>
 export const servePages = (
   pages: PagesApp,
   request: Request,
-  branding: Branding,
+  context: PagesContext,
 ): Promise<Response> => {
   const asset = pages.assets[new URL(request.url).pathname];
   return asset
     ? Promise.resolve(assetResponse(asset))
-    : pages.fetch(request, { branding });
+    : pages.fetch(request, context);
 };

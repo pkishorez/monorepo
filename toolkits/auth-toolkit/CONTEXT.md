@@ -5,7 +5,7 @@ Curated building blocks over better-auth for standing up one shared Auth Worker 
 ## Language
 
 **Auth Worker**:
-The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation. Always plays the Identity Role and serves the login and Device Login pages; optionally also the Authorization Server Role, in which case it also serves the consent page.
+The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation. Always plays the Identity Role and serves the Home Page, the Login Screen, and the Device Screen; optionally also the Authorization Server Role, in which case it also serves the Consent Screen.
 _Avoid_: auth server (ambiguous with any backend that merely talks to it), backend
 
 **First-Party**:
@@ -19,6 +19,22 @@ _Avoid_: external app, integration
 **Identity Role**:
 The Auth Worker's always-on job: signing Users in and answering "who is this" for a Session, whether it arrives as a browser cookie or a Device Login token. Every deployment has it.
 _Avoid_: identity provider, IdP (implies a federation protocol the toolkit does not expose)
+
+**Home Page**:
+The Auth Worker's page at `/`. Shows the signed-in User who they are, their Sessions, and their Grants, and lets them revoke any of them. A signed-out visitor is sent to the Login Screen; there is nothing to see.
+_Avoid_: dashboard (collides with better-auth's hosted dashboard), account page
+
+**Login Screen**:
+The Auth Worker's page at `/login`. Only ever about signing in: either plainly, or "to continue" when a Third-Party authorization brought the User here. A User who is already signed in and has nothing to continue is sent to the Home Page.
+_Avoid_: sign-in page, home
+
+**Consent Screen**:
+The Auth Worker's page at `/consent`, served with the Authorization Server Role on, where the User grants or denies a Client Application its requested Scopes.
+_Avoid_: consent page, authorize page
+
+**Device Screen**:
+The Auth Worker's page at `/device`, where the User enters and approves a Device Login code.
+_Avoid_: device page, verification page
 
 **Device Login**:
 How a First-Party program without a browser, such as a CLI, obtains a Session: it shows a code and URL, the User approves the code in a browser on the Auth Worker's device page, and the program receives a Session token. Always a Session, never an Access Token; no Client Registration, Scopes, or consent are involved.
@@ -35,6 +51,10 @@ _Avoid_: OAuth provider (collides with Provider), authorization mode
 **Client Application**:
 A Third-Party program that holds an Access Token to act for a User: an MCP client or an approved third-party web app. A First-Party CLI is not one; it holds a Session through Device Login. Whether it registered itself or was approved by hand does not change what it is.
 _Avoid_: client (reserved for the browser side), Provider, third party (some Client Applications are first-party)
+
+**Grant**:
+The standing permission a User has given one Client Application: which Scopes it may use on the User's behalf. Created when the User accepts on the Consent Screen. Revoking it on the Home Page stops the Client Application from obtaining new Access Tokens; the ones it already holds last until they expire. One Grant per Client Application per User. Grants are Third-Party only; a Session is never a Grant.
+_Avoid_: consent (the act of granting, not the record), connected app, authorization
 
 **Resource Server**:
 A Consumer Backend that accepts Access Tokens as well as browser Sessions. Every Resource Server is a Consumer Backend; not every Consumer Backend is a Resource Server. An MCP server is one kind of Resource Server.

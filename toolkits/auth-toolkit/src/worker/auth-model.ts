@@ -6,6 +6,7 @@ import {
   oauthProvider,
 } from '@better-auth/oauth-provider';
 import { workerClientMetadataFetch } from './client-metadata-fetch.js';
+import { grantRevocation } from './plugins/index.js';
 
 interface AuthModelConfig {
   google: { clientId: string; clientSecret: string };
@@ -42,6 +43,7 @@ export const AUTH_PAGES = {
   login: '/login',
   consent: '/consent',
   device: '/device',
+  error: '/error',
 } as const;
 
 export const authModelOptions = (config: AuthModelConfig): BetterAuthOptions =>
@@ -62,6 +64,7 @@ export const authModelOptions = (config: AuthModelConfig): BetterAuthOptions =>
     rateLimit: {
       enabled: false,
     },
+    onAPIError: { errorURL: AUTH_PAGES.error },
     plugins: [
       admin(),
       bearer(),
@@ -96,6 +99,7 @@ export const authorizationServerOptions = (
         customAccessTokenClaims: ({ user }) =>
           user ? { email: user.email, name: user.name } : {},
       }) as BetterAuthPlugin,
+      grantRevocation(),
       ...(allowsClientMetadataDocuments(registration)
         ? [
             cimd({

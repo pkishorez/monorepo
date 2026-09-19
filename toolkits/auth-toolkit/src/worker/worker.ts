@@ -6,7 +6,12 @@ import {
   type AuthorizationServerConfig,
 } from './auth-model.js';
 import { normalizeClientRegistration } from './client-registration.js';
-import { servePages, type Branding, type PagesApp } from './pages.js';
+import {
+  servePages,
+  type Branding,
+  type PagesApp,
+  type PagesContext,
+} from './pages.js';
 
 type ValidateUser = NonNullable<
   NonNullable<BetterAuthOptions['user']>['validateUserInfo']
@@ -169,6 +174,16 @@ export const createAuthWorker = (
   }) as Auth<BetterAuthOptions>;
 
   const { authorizationServer: role, branding, pages } = config;
+  const pagesContext: PagesContext = {
+    branding,
+    authorizationServer: role
+      ? {
+          scopes: Object.fromEntries(
+            (role.scopes ?? []).map((scope) => [scope.name, scope.description]),
+          ),
+        }
+      : undefined,
+  };
 
   const handler = async (request: Request) => {
     const { pathname } = new URL(request.url);
@@ -178,7 +193,7 @@ export const createAuthWorker = (
       (role !== undefined && pathname.startsWith(WELL_KNOWN_PATH));
     if (!isAuthPath) {
       return pages
-        ? servePages(pages, request, branding)
+        ? servePages(pages, request, pagesContext)
         : new Response('Not found', { status: 404 });
     }
 

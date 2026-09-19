@@ -5,5 +5,5 @@ const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/device')({
   ssr: false,
-  component: () => <DevicePage branding={root.useLoaderData()} />,
+  component: () => <DevicePage branding={root.useLoaderData().branding} />,
 });

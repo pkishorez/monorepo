@@ -77,11 +77,16 @@ describe('Device Login', () => {
     ).json()) as { device_code: string; user_code: string };
 
     const poll = () =>
-      post(handler, '/device/token', {
-        grant_type: DEVICE_CODE_GRANT,
-        device_code: code.device_code,
-        client_id: 'demo',
-      });
+      post(
+        handler,
+        '/device/token',
+        {
+          grant_type: DEVICE_CODE_GRANT,
+          device_code: code.device_code,
+          client_id: 'demo',
+        },
+        { 'user-agent': 'demo/1.2.0' },
+      );
     expect(await (await poll()).json()).toMatchObject({
       error: 'authorization_pending',
     });
@@ -110,17 +115,31 @@ describe('Device Login', () => {
       bearer,
     );
     expect(approved.status).toBe(200);
+    const lookUp = async () =>
+      (
+        (await (
+          await get(handler, `/device?user_code=${code.user_code}`, bearer)
+        ).json()) as { status?: string }
+      ).status;
+    expect(await lookUp()).toBe('approved');
 
     const issued = (await (await poll()).json()) as {
       access_token: string;
       token_type: string;
     };
     expect(issued.token_type).toBe('Bearer');
+    expect(await lookUp()).not.toBe('approved');
 
     const me = await get(handler, '/get-session', {
       authorization: `Bearer ${issued.access_token}`,
     });
     expect(await me.json()).toMatchObject({ user: { id: user.id } });
+    const sessions = await get(handler, '/list-sessions', {
+      authorization: `Bearer ${issued.access_token}`,
+    });
+    expect(await sessions.json()).toContainEqual(
+      expect.objectContaining({ userAgent: 'demo/1.2.0' }),
+    );
     const out = await post(
       handler,
       '/sign-out',
