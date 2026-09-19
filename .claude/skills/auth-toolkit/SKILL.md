@@ -3,20 +3,30 @@ name: auth-toolkit
 description: Everything related to auth and authorisation
 ---
 
+## The one idea
+
+Every program that asks the Auth Worker "who is this" is either First-Party or Third-Party, and that split decides everything else.
+
+- First-Party: a program the user owns, where the User signs in to the product. A web app or their own CLI. The Identity Role handles it, the credential is a Session, backends see a Session Principal. Nothing to register, nothing to consent to.
+- Third-Party: a program they did not write that wants to act as the User against their server, such as an MCP client. The Authorization Server Role handles it: the program is a Client Application, the User consents to Scopes, the credential is an Access Token bound to one Resource Server, backends see a Token Principal.
+
+Say which one the request is before picking a phase. Never bring Scopes, resources, or client registration into a First-Party story.
+
 ## Phases
 
 Pick one phase from the request. Each phase has a primitive in `primitives/`. Follow its README.
 
 - Creating or updating the auth infrastructure: use `auth-worker`.
-- Adding login to an app: use `client`.
+- Adding login to a web app: use `client`.
 - Requiring login or a permission on an API: use `server-rpc`.
+- Signing a CLI in (Device Login): use `cli`.
 - Offering tools to MCP clients behind login: use `mcp-server`.
 
 If a phase needs an earlier one, do that one first and say so.
 
 ## Infrastructure
 
-Auth has two instances: production, and a local one for local dev. Nothing else. Both come from the same package: an Auth Worker with its D1 database, set up by the primitive. With the Authorization Server Role on, the same handler also serves the login, consent, and device pages, which ship prebuilt inside auth-toolkit.
+Auth has two instances: production, and a local one for local dev. Nothing else. Both come from the same package: an Auth Worker with its D1 database, set up by the primitive. The same handler serves the login and device pages on every deployment, and the consent page with the Authorization Server Role on; all ship prebuilt inside auth-toolkit.
 
 Ask for the production URL and the local URL. Suggest the local URL as the production host with its last label replaced by `computer`. From each host, suggest the defaults: the cookie domain is the host minus its first label, and every origin under it is trusted. Suggest a cookie cache of 5 minutes. Ask if the user wants any changes. Confirm before creating files.
 
@@ -32,7 +42,11 @@ To guard a group or a request with login, pipe it through `Authz.guard()`. To gu
 
 If the RPC host does not provide `authzLayer` yet, set that up first.
 
-Who may sign in is decided in the Auth Worker. Who may call an RPC is decided in the app. Whether an app accepts Access Tokens from MCP clients or CLIs is the `resource` on its `resolverLive`; the Auth Worker lists that same URL in `authorizationServer.resources`.
+Who may sign in is decided in the Auth Worker. Who may call an RPC is decided in the app. A CLI's Device Login token is a Session and is accepted by every guard with no opt-in. Whether an app accepts Access Tokens from MCP clients is the `resource` on its `resolverLive`; the Auth Worker lists that same URL in `authorizationServer.resources`.
+
+## CLI
+
+A CLI is First-Party. `CliAuth` from `auth-toolkit/cli` is an Effect service: `CliAuth.layer({ authWorkerUrl, app })` needs `HttpClient`, `FileSystem`, and `Path` (`FetchHttpClient.layer` and `NodeServices.layer`). `login` runs Device Login and stores the Session in `$XDG_STATE_HOME/<app>/auth.json` (`~/.local/state/<app>/auth.json` by default); `logout`, `whoami`, and `token` do what they say. Provide `CliAuth.rpcSession` next to an RPC client and every call carries the Session. A missing or dead Session fails with `SignedOut`; the remedy is `login`. The Auth Worker needs nothing new. The `cli` primitive is the template: a CLI plus the small guarded RPC server it calls.
 
 ## MCP Server
 

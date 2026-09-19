@@ -10,7 +10,7 @@
   "layers": {
     "infra.primary.sqlite": {
       "paths": ["src/infra/primary/sqlite"],
-      "description": "SQLite-dialect Primary Database providers — a future non-SQLite dialect (e.g. Postgres) would be a sibling layer under infra/primary, not a member here",
+      "description": "SQLite-dialect Primary Database providers \u2014 a future non-SQLite dialect (e.g. Postgres) would be a sibling layer under infra/primary, not a member here",
       "moduleGraphs": {
         "sqlite": {
           "description": "D1 runtime database, D1 deployment resource, and memory database are independent doors built on separate private schema and migration modules.",
@@ -42,7 +42,7 @@
     },
     "worker": {
       "paths": ["src/worker"],
-      "description": "Public — createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, optional Dash, User Admission Policy, origins and cookies) and, with the Authorization Server Role on, serves the pages app the built door embeds",
+      "description": "Public \u2014 createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, Device Login, optional Dash, User Admission Policy, origins and cookies) and serves the pages app the built door embeds",
       "modules": {
         "src/worker": {
           "exposed": true
@@ -51,10 +51,10 @@
     },
     "ui": {
       "paths": ["src/ui"],
-      "description": "The pages the Auth Worker serves (account, consent, device approval) and the shell they share, built on kui-toolkit",
+      "description": "The pages the Auth Worker serves (account, consent, device login) and the shell they share, built on kui-toolkit",
       "moduleGraphs": {
         "ui": {
-          "description": "Three page doors over one shell (card, brand, theme toggle), one same-origin Better Auth client, and one Scope list shared by consent and device approval.",
+          "description": "Three page doors over one shell (card, brand, theme toggle), one same-origin Better Auth client, and one Scope list for consent.",
           "path": "src/ui",
           "modules": {
             "pages/account": {
@@ -79,14 +79,14 @@
           "rules": {
             "pages/account": ["shell", "client"],
             "pages/consent": ["shell", "client", "scope-list"],
-            "pages/device": ["shell", "client", "scope-list"]
+            "pages/device": ["shell", "client"]
           }
         }
       }
     },
     "client": {
       "paths": ["src/client"],
-      "description": "Public — Direct Session Check: React hooks for session state, sign-in, and sign-out",
+      "description": "Public \u2014 Direct Session Check: React hooks for session state, sign-in, and sign-out",
       "modules": {
         "src/client": {
           "exposed": true
@@ -95,7 +95,7 @@
     },
     "server": {
       "paths": ["src/server"],
-      "description": "Public — Server-Side Verification and Access Token verification, the Current Auth identity they resolve to, the Effect RPC and HTTP API integrations that declare each Sibling's Auth Cannotation, and the MCP Server door that accepts only Token Principals",
+      "description": "Public \u2014 Server-Side Verification and Access Token verification, the Current Auth identity they resolve to, the Effect RPC and HTTP API integrations that declare each Sibling's Auth Cannotation, and the MCP Server door that accepts only Token Principals",
       "moduleGraphs": {
         "server": {
           "description": "Two verification doors (session, access token) feed one Current Auth module; access-token and mcp share the auth-worker module for the Auth Worker's issuer, JWKS URL, and Access Token claims, whose interior resolver picks a proof per request; each Effect integration declares its Auth Cannotation in an interior authz file beside its Server Implementation; the mcp door verifies Access Tokens on its own wire terms and speaks Current Auth's Token Principal.",
@@ -160,18 +160,28 @@
           "exposed": true
         }
       }
+    },
+    "cli": {
+      "paths": ["src/cli"],
+      "description": "Public \u2014 Effect-only: a First-Party CLI's Device Login, its Session Store, and the Session on every RPC call",
+      "modules": {
+        "src/cli": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
     "auth-toolkit": {
-      "description": "Independently consumed doors — worker, client, server, and the infra providers stand alone; the app composes ui and is embedded into the worker door at build time, never imported by it.",
+      "description": "Independently consumed doors \u2014 worker, client, server, cli, and the infra providers stand alone; the app composes ui and is embedded into the worker door at build time, never imported by it.",
       "rules": {
         "infra.primary.sqlite": [],
         "worker": [],
         "ui": [],
         "client": [],
         "server": [],
-        "app": ["ui"]
+        "app": ["ui"],
+        "cli": []
       }
     }
   }

@@ -41,6 +41,38 @@ describe('verifyRequest', () => {
     });
   });
 
+  it('forwards a Device Login token instead of the cookie and reports no refreshed cookies', async () => {
+    mocks.getSession.mockImplementation(
+      async ({ fetchOptions }: { fetchOptions: { onSuccess: Function } }) => {
+        fetchOptions.onSuccess({
+          response: new Response(null, {
+            headers: { 'set-cookie': 'better-auth.session_token=x' },
+          }),
+        });
+        return { data: { session: { id: 's1' }, user: { id: 'u1' } } };
+      },
+    );
+    const request = new Request('https://api.example.com/whoami', {
+      headers: {
+        authorization: 'Bearer opaque',
+        cookie: 'session=abc',
+        'x-forwarded-for': '203.0.113.1',
+      },
+    });
+
+    const verified = await verifyRequest({
+      authWorkerUrl: 'https://auth.example.com',
+      request,
+    });
+
+    const [{ fetchOptions }] = mocks.getSession.mock.calls[0]!;
+    expect(fetchOptions.headers).toEqual({
+      authorization: 'Bearer opaque',
+      'x-forwarded-for': '203.0.113.1',
+    });
+    expect(verified?.refreshedCookies).toEqual([]);
+  });
+
   it('throws when the Auth Worker responds with an error status', async () => {
     mocks.getSession.mockResolvedValueOnce({
       data: null,

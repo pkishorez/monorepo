@@ -8,8 +8,8 @@ import {
   cookieCacheMaxAge,
 } from '../infra/config.ts';
 
-// The handler owns every path: Better Auth under /api/auth, and, with the
-// Authorization Server Role on, the login, consent, and device pages.
+// The handler owns every path: Better Auth under /api/auth, the login and
+// device pages, and, with the Authorization Server Role on, the consent page.
 export default {
   fetch(request, env) {
     const { handler } = createAuthWorker({

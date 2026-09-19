@@ -1,0 +1,78 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src", "infra"],
+  "layers": {
+    "infra": {
+      "paths": ["infra"],
+      "description": "The API Worker resource and the hosts, RPC path, and app name both instances derive from.",
+      "modules": {
+        "infra/api-worker.ts": {
+          "exposed": true
+        },
+        "infra/config.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "shared": {
+      "paths": ["src/shared"],
+      "description": "The RPC contract the CLI and the server agree on, with its Auth Cannotation. Browser-safe.",
+      "modules": {
+        "src/shared/rpc/greeting": {
+          "exposed": true
+        }
+      }
+    },
+    "server": {
+      "paths": ["src/server"],
+      "description": "The Consumer Backend: the handlers read Current Auth; the host runs Server-Side Verification and serves the group over HTTP.",
+      "moduleGraphs": {
+        "server": {
+          "description": "The host wraps the handlers; handlers know nothing about HTTP.",
+          "path": "src/server",
+          "modules": {
+            "rpc-host": {
+              "exposed": true
+            },
+            "handlers": {
+              "exposed": false
+            }
+          },
+          "rules": {
+            "rpc-host": ["handlers"]
+          }
+        }
+      }
+    },
+    "cli": {
+      "paths": ["src/cli"],
+      "description": "The CLI: Device Login and the Session Store from auth-toolkit, an RPC client that carries the Session, and the commands.",
+      "modules": {
+        "src/cli/main.ts": {},
+        "src/cli/client.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "entry": {
+      "paths": ["src/entry"],
+      "description": "One file per host, each a few lines around the RPC host: Cloudflare Worker, Node via srvx.",
+      "modules": {
+        "src/entry/cloudflare.ts": {},
+        "src/entry/node.ts": {}
+      }
+    }
+  },
+  "layerGraphs": {
+    "cli-app": {
+      "description": "Entries and the CLI read configuration from infra. The server and the CLI share only the contract. Dependencies point down.",
+      "rules": {
+        "entry": ["server", "infra"],
+        "server": ["shared"],
+        "cli": ["shared", "infra"]
+      }
+    }
+  }
+}

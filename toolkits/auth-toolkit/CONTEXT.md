@@ -5,19 +5,35 @@ Curated building blocks over better-auth for standing up one shared Auth Worker 
 ## Language
 
 **Auth Worker**:
-The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation. Always plays the Identity Role; optionally also the Authorization Server Role, in which case it also serves the login, consent, and device approval pages itself.
+The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation. Always plays the Identity Role and serves the login and Device Login pages; optionally also the Authorization Server Role, in which case it also serves the consent page.
 _Avoid_: auth server (ambiguous with any backend that merely talks to it), backend
 
+**First-Party**:
+A program the deployment owns, in which the User signs in to the product itself: a web app or a CLI. Served by the Identity Role alone; its credential is a Session and there is nothing to register or consent to.
+_Avoid_: internal app, our client
+
+**Third-Party**:
+A program the deployment does not own that wants to act as the User against a Resource Server, such as an MCP client. Served by the Authorization Server Role; it is a Client Application, the User consents to Scopes, and its credential is an Access Token. The First-Party/Third-Party split, not web/CLI/MCP, decides which role and which credential apply.
+_Avoid_: external app, integration
+
 **Identity Role**:
-The Auth Worker's always-on job: signing Users in and answering "who is this" for a browser Session. Every deployment has it.
+The Auth Worker's always-on job: signing Users in and answering "who is this" for a Session, whether it arrives as a browser cookie or a Device Login token. Every deployment has it.
 _Avoid_: identity provider, IdP (implies a federation protocol the toolkit does not expose)
 
+**Device Login**:
+How a First-Party program without a browser, such as a CLI, obtains a Session: it shows a code and URL, the User approves the code in a browser on the Auth Worker's device page, and the program receives a Session token. Always a Session, never an Access Token; no Client Registration, Scopes, or consent are involved.
+_Avoid_: device flow, device authorization grant (the Third-Party OAuth grant, which the toolkit does not offer), CLI auth
+
+**Session Store**:
+Where a First-Party CLI keeps its Device Login Session token between runs: the CLI's cookie jar. Holds the token and the User it belongs to, keyed by Auth Worker; nothing in it goes stale, because the token never changes and the Auth Worker slides its expiry on use.
+_Avoid_: credentials file (ties the concept to one storage), token cache (nothing is cached; it is the credential itself)
+
 **Authorization Server Role**:
-The Auth Worker's opt-in job: letting a Client Application obtain an Access Token to act on a User's behalf, covering client registration, consent, token issuance, and token verification. Off unless a deployment configures it.
+The Auth Worker's opt-in job: letting a Third-Party Client Application obtain an Access Token to act on a User's behalf, covering client registration, consent, token issuance, and token verification. Off unless a deployment configures it.
 _Avoid_: OAuth provider (collides with Provider), authorization mode
 
 **Client Application**:
-A program other than the browser that holds an Access Token to act for a User: an MCP client, a CLI, or an approved third-party web app. Whether it registered itself or was approved by hand does not change what it is.
+A Third-Party program that holds an Access Token to act for a User: an MCP client or an approved third-party web app. A First-Party CLI is not one; it holds a Session through Device Login. Whether it registered itself or was approved by hand does not change what it is.
 _Avoid_: client (reserved for the browser side), Provider, third party (some Client Applications are first-party)
 
 **Resource Server**:
@@ -41,7 +57,7 @@ Whoever Current Auth represents for one request. Always names a User; how the Us
 _Avoid_: caller, subject
 
 **Session Principal**:
-A Principal established by a browser Session. Carries the User and the Session. What every Consumer Backend saw before the Authorization Server Role existed.
+A Principal established by a Session, whether it arrived as a browser cookie or a Device Login token. Carries the User and the Session. Every First-Party program yields one.
 _Avoid_: cookie user, web principal
 
 **Token Principal**:

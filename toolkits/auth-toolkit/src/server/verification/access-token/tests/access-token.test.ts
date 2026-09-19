@@ -59,6 +59,16 @@ describe('verifyAccessToken', () => {
     expect(verified).toBeNull();
   });
 
+  it('rejects an opaque Session token as an Access Token', async () => {
+    stubJwks();
+    const verified = await verifyAccessToken({
+      authWorkerUrl,
+      resource,
+      request: withToken('opaque-session-token'),
+    });
+    expect(verified).toBeNull();
+  });
+
   it('turns a valid token into a user, client, and scopes', async () => {
     stubJwks();
     const verified = await verifyAccessToken({

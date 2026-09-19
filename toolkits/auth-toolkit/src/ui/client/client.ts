@@ -1,7 +1,5 @@
-import {
-  oauthDeviceAuthorizationClient,
-  oauthProviderClient,
-} from '@better-auth/oauth-provider/client';
+import { oauthProviderClient } from '@better-auth/oauth-provider/client';
+import { deviceAuthorizationClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 
 interface Failure {
@@ -26,7 +24,12 @@ interface SessionState {
  * internals and break the package's declarations. */
 export interface AuthorizationClient {
   useSession: () => SessionState;
-  signIn: { social: (input: { provider: 'google' }) => Promise<unknown> };
+  signIn: {
+    social: (input: {
+      provider: 'google';
+      callbackURL?: string | undefined;
+    }) => Promise<unknown>;
+  };
   signOut: () => Promise<unknown>;
   oauth2: {
     publicClient: (input: {
@@ -38,7 +41,6 @@ export interface AuthorizationClient {
     (input: { query: { user_code: string } }): Result<{
       status: string;
       client_id?: string | undefined;
-      scope?: string | undefined;
     }>;
     approve: (input: { userCode: string }) => Result<unknown>;
     deny: (input: { userCode: string }) => Result<unknown>;
@@ -47,7 +49,7 @@ export interface AuthorizationClient {
 
 export const createAuthorizationClient = (): AuthorizationClient =>
   createAuthClient({
-    plugins: [oauthProviderClient(), oauthDeviceAuthorizationClient()],
+    plugins: [oauthProviderClient(), deviceAuthorizationClient()],
   });
 
 export const pageQuery = () =>

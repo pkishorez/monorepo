@@ -1,29 +1,59 @@
 # auth-toolkit
 
-Curated `better-auth` building blocks for one shared Auth Worker, plus a
-client subpath for React session hooks and a server subpath for
-backend-to-backend verification. See `CONTEXT.md` for the vocabulary used
-below (Auth Worker, Provider, Consumer Backend, etc).
+Curated `better-auth` building blocks: one shared Auth Worker, and the few
+doors every kind of program needs to be signed in against it. See
+`CONTEXT.md` for the vocabulary used below (Auth Worker, Consumer Backend,
+Session, Access Token, and so on).
 
-## The shape of it
+## The one idea
 
-One Cloudflare Worker (the **Auth Worker**) owns sign-in, sign-out, and
-session validation. A Primary Database Provider supplies all persisted auth state:
+One Cloudflare Worker, the **Auth Worker**, owns sign-in, sign-out, and
+session validation over a Primary Database. Everything else asks it "who is
+this?" instead of touching auth state.
 
-```
-Primary Database Provider ─▶ createAuthWorker(...) ─▶ Auth Worker
-```
+There are only two kinds of program that ask, and the split between them
+decides everything else:
 
-Everything else talks to that one worker instead of touching auth state
-directly:
+- **First-Party**: a program you own, where the User signs in to your
+  product. A web app or your own CLI. The Auth Worker's always-on
+  **Identity Role** handles it, the credential is a **Session**, and every
+  Consumer Backend sees a **Session Principal**. Nothing to register, nothing
+  to consent to.
+- **Third-Party**: a program you did not write that wants to act as the User
+  against your server, such as an MCP client. That needs the opt-in
+  **Authorization Server Role**: the program becomes a Client Application,
+  the User consents to Scopes, it receives an **Access Token** for one
+  Resource Server, and backends see a **Token Principal**.
 
-- Your **frontend** uses `client` to call the Auth Worker straight from the
-  browser (sign-in, sign-out, `useSession`).
-- Any other **backend** ("Consumer Backend") uses `server` to forward an
-  incoming request's cookies to the Auth Worker and find out who's making
-  the request.
+Web, CLI, and MCP are not three systems. They are three stories on that one
+split.
 
-Only the Auth Worker's entrypoint imports concrete Providers.
+## Three stories
+
+### A web app
+
+Add the sign-in button from `auth-toolkit/client`. The browser cookie carries
+the Session. Guard RPC or HTTP handlers with `Authz.guard()` from
+`auth-toolkit/rpc` or `auth-toolkit/http-api` and they see who is logged in.
+Steps 1, 3, 4, and 7 below.
+
+### Your own CLI
+
+The CLI runs **Device Login** from `auth-toolkit/cli`: it prints a code and a
+URL and opens the browser; the User approves on the Auth Worker's device page;
+the CLI receives a Session token and keeps it in its Session Store. Every
+later call carries that token as a bearer, and the same `Authz.guard()` sees
+the same Session Principal a browser produces. No registration, no Scopes, no
+consent, no opt-in on the backend. Step 8 below.
+
+### An MCP Server for Claude or Codex
+
+Turn on the Authorization Server Role, list the MCP Server as a resource, and
+wrap it with `createMcpResourceServer` from `auth-toolkit/server/mcp`. The
+MCP client discovers the Auth Worker, registers itself, the User consents
+once, and the tools receive a Token Principal. You hand the client one URL.
+Steps 5 and 6 below. This is the only story that needs the rest of the
+Authorization Server vocabulary.
 
 ## Usage
 
@@ -191,14 +221,13 @@ const { handler } = createAuthWorker({
 });
 ```
 
-This runs Better Auth's OAuth provider with the device authorization grant and
-the JWT plugin for signing keys. Access Tokens are JWTs bound to one resource
+This runs Better Auth's OAuth provider and the JWT plugin for signing keys. Access Tokens are JWTs bound to one resource
 and carry the User's `email` and `name`. Dynamic client registration is off.
-The same `handler` then also serves `/login`, `/consent`, and `/device`: a
-TanStack Start app on kui-toolkit that ships prebuilt inside this package, with
-its assets embedded, so the Worker needs no assets binding and no build. The
-schema always contains the OAuth tables, so switching the role on needs no
-migration.
+The same `handler` then also serves `/consent`, next to the `/login` and
+`/device` pages every deployment has: a TanStack Start app on kui-toolkit that
+ships prebuilt inside this package, with its assets embedded, so the Worker
+needs no assets binding and no build. The schema always contains the OAuth
+tables, so switching the role on needs no migration.
 
 ### 6. Accept Access Tokens on a Consumer Backend
 
@@ -217,6 +246,8 @@ verified locally against the Auth Worker's JWKS (cached keys; issuer, audience,
 expiry), and never falls back to the cookie. Without `resource`, such a request
 is Unauthenticated. `Authz.CurrentAuth` is then a Principal:
 `{ kind: 'session', user, session }` or `{ kind: 'token', user, client, scopes }`.
+A CLI's Device Login token is a Session, not an Access Token: it is accepted
+without `resource` (see step 8).
 Policies that read `user.id`, `user.email`, or `user.name` work for both;
 `Authz.scope('notes:write')` requires a Token Principal carrying the Scope.
 For a hand-rolled host, `verifyAccessToken` from `auth-toolkit/server/access-token`
@@ -283,6 +314,63 @@ This only works if the Auth Worker's `trustedOrigins` includes your app's
 origin (step 1). The exported handler uses that list for both Better Auth's
 origin validation and credentialed CORS responses.
 
+### 8. Sign a CLI in with Device Login
+
+`auth-toolkit/cli` is Effect-only. `CliAuth` is the CLI's equivalent of the
+browser: it keeps the Session, attaches it to every call, and drops it on
+sign-out.
+
+```ts
+import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import { CliAuth } from 'auth-toolkit/cli';
+import { Console, Effect, Layer } from 'effect';
+import { FetchHttpClient } from 'effect/unstable/http';
+
+const login = Effect.gen(function* () {
+  const auth = yield* CliAuth;
+  const user = yield* auth.login;
+  yield* Console.log(`Signed in as ${user.email}`);
+});
+
+login.pipe(
+  Effect.provide(
+    CliAuth.layer({
+      authWorkerUrl: 'https://auth.example.com',
+      app: 'example',
+    }),
+  ),
+  Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer)),
+  NodeRuntime.runMain,
+);
+```
+
+`login` prints the code and the device page URL, opens the browser when run
+in a terminal, polls until the User approves, and stores the Session in
+`~/.local/state/<app>/auth.json`. `logout` ends the Session at the Auth Worker and
+deletes the file. `whoami` asks the Auth Worker who the Session belongs to.
+`token` reads it.
+
+Provide `CliAuth.rpcSession` next to an RPC client, over HTTP or WebSocket,
+and every call carries the Session:
+
+```ts
+Layer.mergeAll(
+  Layer.effect(NotesRpc, RpcClient.make(Notes)).pipe(Layer.provide(transport)),
+  CliAuth.rpcSession,
+);
+```
+
+No Session, or a dead one, fails with `SignedOut`; a denied or expired code
+fails `login` with `DeviceLoginFailed`. There is nothing to refresh: the token
+never changes, and the Auth Worker slides its expiry whenever it is used.
+
+On the server nothing changes. A Resource Server first verifies a bearer as an
+Access Token; if that fails, `resolverLive` forwards the same credential to the
+Auth Worker as a Session. A backend without a resource checks only for a
+Session. The Auth Worker needs nothing new either: Device Login is part of the
+Identity Role, and the `/login` and `/device` pages are served on every
+deployment.
+
 ### Testing
 
 Swap in the in-memory Primary Database Provider in place of D1 — same
@@ -319,11 +407,13 @@ concurrent calls, cookie refresh, and failure cases.
 | `worker`              | `createAuthWorker(config)` — assembles the Auth Worker                                       |
 | `server`              | `verifyRequest(...)` — Server-Side Verification for a Consumer Backend                       |
 | `server/access-token` | `verifyAccessToken(...)` — local Access Token verification for a Resource Server             |
+| `server/mcp`          | `createMcpResourceServer(...)` — an MCP Server that accepts only Access Tokens               |
 | `rpc`                 | `Authz` — the RPC Auth Cannotation, safe for shared contracts                                |
 | `http-api`            | `Authz` — the HTTP API Auth Cannotation, safe for shared contracts                           |
 | `rpc/server`          | `authzLayer`, `resolverLive(...)` — see [`rpc`](./src/server/effect/rpc/README.md)           |
 | `http-api/server`     | `authzLayer`, `resolverLive(...)` — see [`http-api`](./src/server/effect/http-api/README.md) |
 | `client`              | `createAuthClient(config)` — session, Google sign-in, redirect errors, and sign-out          |
+| `cli`                 | `CliAuth` — Device Login, the Session Store, and the Session on every RPC call (Effect)      |
 | `database/d1`         | Production Primary Database Provider using a D1 binding                                      |
 | `database/memory`     | In-memory Primary Database Provider, for tests                                               |
 | `alchemy/d1`          | Alchemy resource for provisioning D1 and applying migrations                                 |

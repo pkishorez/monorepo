@@ -105,6 +105,26 @@ export const verification = sqliteTable(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 );
 
+export const deviceCode = sqliteTable(
+  'device_code',
+  {
+    id: text('id').primaryKey(),
+    deviceCode: text('device_code').notNull(),
+    userCode: text('user_code').notNull(),
+    userId: text('user_id'),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    status: text('status').notNull(),
+    lastPolledAt: integer('last_polled_at', { mode: 'timestamp_ms' }),
+    pollingInterval: integer('polling_interval'),
+    clientId: text('client_id'),
+    scope: text('scope'),
+  },
+  (table) => [
+    uniqueIndex('deviceCode_deviceCode_uidx').on(table.deviceCode),
+    uniqueIndex('deviceCode_userCode_uidx').on(table.userCode),
+  ],
+);
+
 export const jwks = sqliteTable('jwks', {
   id: text('id').primaryKey(),
   publicKey: text('public_key').notNull(),
@@ -316,34 +336,13 @@ export const oauthClientAssertion = sqliteTable('oauth_client_assertion', {
   expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
 });
 
-export const deviceCode = sqliteTable(
-  'device_code',
-  {
-    id: text('id').primaryKey(),
-    deviceCode: text('device_code').notNull(),
-    userCode: text('user_code').notNull(),
-    userId: text('user_id'),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-    status: text('status').notNull(),
-    lastPolledAt: integer('last_polled_at', { mode: 'timestamp_ms' }),
-    pollingInterval: integer('polling_interval'),
-    clientId: text('client_id'),
-    scope: text('scope'),
-    resources: text('resources', { mode: 'json' }),
-    oauthClientId: text('oauth_client_id'),
-  },
-  (table) => [
-    uniqueIndex('deviceCode_deviceCode_uidx').on(table.deviceCode),
-    uniqueIndex('deviceCode_userCode_uidx').on(table.userCode),
-  ],
-);
-
 export const authRelations = defineRelationsPart(
   {
     user,
     session,
     account,
     verification,
+    deviceCode,
     jwks,
     oauthClient,
     oauthResource,
@@ -352,7 +351,6 @@ export const authRelations = defineRelationsPart(
     oauthAccessToken,
     oauthConsent,
     oauthClientAssertion,
-    deviceCode,
   },
   (r) => ({
     user: {
