@@ -13,8 +13,8 @@ export interface VerifyPayload {
 interface VerifyRequestOptions {
   /** The Auth Worker's own deployed URL. */
   authWorkerUrl: string;
-  /** The incoming request being authenticated — only its `cookie` and
-   * `x-forwarded-*` headers are forwarded, server-to-server. */
+  /** The incoming request being authenticated — only its `authorization` or
+   * `cookie` and `x-forwarded-*` headers are forwarded, server-to-server. */
   request: Request;
 }
 
@@ -22,10 +22,13 @@ export const verifyRequest = async ({
   authWorkerUrl,
   request,
 }: VerifyRequestOptions): Promise<VerifyPayload | null> => {
+  const authorization = request.headers.get('authorization');
   const cookie = request.headers.get('cookie');
-  if (!cookie) return null;
+  if (!authorization && !cookie) return null;
 
-  const headers: Record<string, string> = { cookie };
+  const headers: Record<string, string> = authorization
+    ? { authorization }
+    : { cookie: cookie! };
   for (const [name, value] of request.headers) {
     if (name.toLowerCase().startsWith('x-forwarded-')) {
       headers[name] = value;
@@ -38,7 +41,9 @@ export const verifyRequest = async ({
     fetchOptions: {
       headers,
       onSuccess: ({ response }) => {
-        refreshedCookies = response.headers.getSetCookie();
+        if (!authorization) {
+          refreshedCookies = response.headers.getSetCookie();
+        }
       },
     },
   });

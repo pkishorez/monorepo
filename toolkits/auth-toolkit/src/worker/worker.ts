@@ -177,7 +177,7 @@ export const createAuthWorker = (
       pathname.startsWith(`${API_PATH}/`) ||
       (role !== undefined && pathname.startsWith(WELL_KNOWN_PATH));
     if (!isAuthPath) {
-      return role && pages
+      return pages
         ? servePages(pages, request, branding)
         : new Response('Not found', { status: 404 });
     }

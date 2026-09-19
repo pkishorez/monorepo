@@ -29,7 +29,7 @@ describe('Authorization Server Role', () => {
     expect((await get(handler, '/jwks')).status).toBe(404);
   });
 
-  it('publishes discovery metadata, keys, and the device flow when configured', async () => {
+  it('publishes discovery metadata and keys when configured', async () => {
     const { handler } = createAuthWorker({
       ...config,
       database: memoryPrimaryDatabase(),
@@ -52,7 +52,7 @@ describe('Authorization Server Role', () => {
     };
     expect(body.issuer).toBe(`${baseURL}/api/auth`);
     expect(body.scopes_supported).toContain('notes:read');
-    expect(body.grant_types_supported).toContain(
+    expect(body.grant_types_supported).not.toContain(
       'urn:ietf:params:oauth:grant-type:device_code',
     );
     expect(body.registration_endpoint).toBeUndefined();
@@ -253,15 +253,17 @@ describe('the pages app', () => {
     );
   });
 
-  it('answers 404 outside Better Auth when the role is off', async () => {
+  it('serves the pages with the Identity Role alone, but not discovery', async () => {
     const identityOnly = createAuthWorker({
       ...config,
       database: memoryPrimaryDatabase(),
       pages,
     });
-    const response = await identityOnly.handler(
-      new Request(`${baseURL}/login`),
+    const login = await identityOnly.handler(new Request(`${baseURL}/login`));
+    expect(login.status).toBe(200);
+    const discovery = await identityOnly.handler(
+      new Request(`${baseURL}/api/auth/.well-known/oauth-authorization-server`),
     );
-    expect(response.status).toBe(404);
+    expect(discovery.status).toBe(404);
   });
 });

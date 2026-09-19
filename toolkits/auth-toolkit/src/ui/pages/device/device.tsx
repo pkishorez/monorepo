@@ -1,30 +1,31 @@
 import { Button } from 'kui-toolkit/components/ui/button';
+import { GoogleButton } from 'kui-toolkit/components/ui/google-button';
 import { Input } from 'kui-toolkit/components/ui/input';
 import { Spinner } from 'kui-toolkit/components/ui/spinner';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useTheme } from 'next-themes';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { createAuthorizationClient, pageQuery } from '../../client/index.js';
-import { brandName, PageShell, type Branding } from '../../shell/index.js';
-import { ScopeList, type ScopeDescriptions } from '../../scope-list/index.js';
+import { PageShell, type Branding } from '../../shell/index.js';
 
 interface DevicePageProps {
   branding: Branding;
-  scopes?: ScopeDescriptions;
 }
 
 type Step =
   | { status: 'enter'; error?: string | undefined }
   | { status: 'checking'; userCode: string }
-  | { status: 'confirm'; userCode: string; clientId: string; scope: string }
+  | { status: 'confirm'; userCode: string; clientId: string }
   | { status: 'done'; approved: boolean };
 
 const normalizeCode = (raw: string) => raw.trim().toUpperCase();
 
-export function DevicePage({ branding, scopes = {} }: DevicePageProps) {
-  const appName = brandName(branding);
+export function DevicePage({ branding }: DevicePageProps) {
   const client = useMemo(createAuthorizationClient, []);
   const { data: session, isPending } = client.useSession();
-  const [code, setCode] = useState(() => pageQuery().get('user_code') ?? '');
+  const { theme } = useTheme();
+  const [prefilled] = useState(() => pageQuery().get('user_code') ?? '');
+  const [code, setCode] = useState(prefilled);
   const [step, setStep] = useState<Step>({ status: 'enter' });
   const [busy, setBusy] = useState(false);
 
@@ -47,10 +48,14 @@ export function DevicePage({ branding, scopes = {} }: DevicePageProps) {
     setStep({
       status: 'confirm',
       userCode,
-      clientId: data.client_id ?? 'A device',
-      scope: data.scope ?? '',
+      clientId: data.client_id ?? 'Unknown client',
     });
   };
+
+  const signedIn = !isPending && session !== null;
+  useEffect(() => {
+    if (signedIn && prefilled) void check(prefilled);
+  }, [signedIn, prefilled]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -79,15 +84,37 @@ export function DevicePage({ branding, scopes = {} }: DevicePageProps) {
       ? { email: session.user.email, signOut: () => client.signOut() }
       : undefined;
 
+  if (!isPending && !session) {
+    return (
+      <PageShell
+        branding={branding}
+        title="Sign in"
+        description="Sign in to continue."
+      >
+        <div className="flex h-10 items-center justify-center">
+          <GoogleButton
+            theme={theme === 'light' ? 'light' : 'dark'}
+            onClick={() =>
+              client.signIn.social({
+                provider: 'google',
+                callbackURL: window.location.href,
+              })
+            }
+          />
+        </div>
+      </PageShell>
+    );
+  }
+
   if (step.status === 'done') {
     return (
       <PageShell
         branding={branding}
-        title={step.approved ? 'Device connected' : 'Request denied'}
+        title={step.approved ? 'Signed in' : 'Sign-in denied'}
         description={
           step.approved
-            ? 'You can return to the device. This page can be closed.'
-            : 'The device was not given access. This page can be closed.'
+            ? 'You can return to your device. This page can be closed.'
+            : 'You can close this page.'
         }
         signedInAs={signedInAs}
       >
@@ -100,8 +127,8 @@ export function DevicePage({ branding, scopes = {} }: DevicePageProps) {
     return (
       <PageShell
         branding={branding}
-        title="Allow this device?"
-        description={`${step.clientId} wants to access your ${appName} account.`}
+        title="Do you want to sign in?"
+        description="Confirm that this code matches the one shown on your device."
         signedInAs={signedInAs}
         footer={
           <div className="grid grid-cols-2 gap-2">
@@ -113,15 +140,22 @@ export function DevicePage({ branding, scopes = {} }: DevicePageProps) {
               Deny
             </Button>
             <Button disabled={busy} onClick={() => answer(step.userCode, true)}>
-              {busy ? <Spinner /> : 'Allow'}
+              {busy ? <Spinner /> : 'Sign in'}
             </Button>
           </div>
         }
       >
-        <ScopeList
-          requested={step.scope.split(' ').filter(Boolean)}
-          descriptions={scopes}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="rounded-lg border bg-muted/50 px-4 py-3 text-center">
+            <p className="text-xs font-medium text-muted-foreground uppercase">
+              Client
+            </p>
+            <p className="mt-1 text-lg font-semibold">{step.clientId}</p>
+          </div>
+          <p className="rounded-lg border bg-muted/50 px-4 py-6 text-center font-mono text-3xl font-bold tracking-[0.2em] tabular-nums">
+            {step.userCode}
+          </p>
+        </div>
       </PageShell>
     );
   }
@@ -131,7 +165,7 @@ export function DevicePage({ branding, scopes = {} }: DevicePageProps) {
     <PageShell
       loading={isPending}
       branding={branding}
-      title="Connect a device"
+      title="Sign in"
       description="Enter the code shown on the device."
       signedInAs={signedInAs}
     >
@@ -143,7 +177,7 @@ export function DevicePage({ branding, scopes = {} }: DevicePageProps) {
           autoFocus
           autoComplete="one-time-code"
           spellCheck={false}
-          className="h-11 text-center font-mono text-base tracking-[0.2em] tabular-nums uppercase placeholder:tracking-normal placeholder:normal-case"
+          className="h-14 text-center font-mono text-xl font-bold tracking-[0.2em] tabular-nums uppercase placeholder:font-normal placeholder:tracking-normal placeholder:normal-case"
           aria-label="Device code"
         />
         {step.status === 'enter' && step.error ? (

@@ -17,6 +17,7 @@ import { auth } from '../current-auth.js';
 import { resolverLive } from '../resolver.js';
 
 const authWorkerUrl = 'https://auth.example.com';
+const jwt = 'eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ1MSJ9.c2ln';
 const session = { id: 's1' };
 const user = { id: 'u1', email: 'ada@example.com', name: 'Ada' };
 
@@ -61,7 +62,7 @@ describe('resolverLive', () => {
   it('resolves a Token Principal when the backend is a Resource Server', async () => {
     const resolved = await resolveWith(
       { authWorkerUrl, resource: 'https://api.example.com' },
-      { authorization: 'Bearer t', cookie: 'session=abc' },
+      { authorization: `Bearer ${jwt}`, cookie: 'session=abc' },
     );
     expect(resolved).toEqual({
       currentAuth: {
@@ -77,20 +78,54 @@ describe('resolverLive', () => {
 
   it('never falls back to the cookie when a token is presented', async () => {
     mocks.verifyAccessToken.mockResolvedValue(null);
+    mocks.verifyRequest.mockResolvedValue(null);
     const resolved = await resolveWith(
       { authWorkerUrl, resource: 'https://api.example.com' },
-      { authorization: 'Bearer bad', cookie: 'session=abc' },
+      { authorization: `Bearer ${jwt}`, cookie: 'session=abc' },
     );
     expect(resolved).toBeNull();
-    expect(mocks.verifyRequest).not.toHaveBeenCalled();
+    expect(mocks.verifyRequest).toHaveBeenCalledOnce();
   });
 
   it('rejects a token when no resource is configured', async () => {
+    mocks.verifyRequest.mockResolvedValue(null);
     const resolved = await resolveWith(
       { authWorkerUrl },
-      { authorization: 'Bearer t' },
+      { authorization: `Bearer ${jwt}` },
     );
     expect(resolved).toBeNull();
     expect(mocks.verifyAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('resolves a Session Principal from a Device Login token, on any backend', async () => {
+    mocks.verifyRequest.mockResolvedValue({
+      session,
+      user,
+      refreshedCookies: [],
+    });
+    const resolved = await resolveWith(
+      { authWorkerUrl },
+      { authorization: 'Bearer opaque-session-token' },
+    );
+    expect(resolved).toEqual({
+      currentAuth: { kind: 'session', session, user },
+      refreshedCookies: [],
+    });
+    expect(mocks.verifyAccessToken).not.toHaveBeenCalled();
+    const [{ request }] = mocks.verifyRequest.mock.calls[0]!;
+    expect(request.headers.get('authorization')).toBe(
+      'Bearer opaque-session-token',
+    );
+  });
+
+  it('resolves a Session Principal on a Resource Server after Access Token verification declines it', async () => {
+    mocks.verifyAccessToken.mockResolvedValue(null);
+    const resolved = await resolveWith(
+      { authWorkerUrl, resource: 'https://api.example.com' },
+      { authorization: 'Bearer opaque-session-token' },
+    );
+    expect(resolved?.currentAuth).toEqual({ kind: 'session', session, user });
+    expect(mocks.verifyAccessToken).toHaveBeenCalledOnce();
+    expect(mocks.verifyRequest).toHaveBeenCalledOnce();
   });
 });

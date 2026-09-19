@@ -2,7 +2,7 @@
   "name": "auth-toolkit",
   "version": "0.0.2",
   "private": false,
-  "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1), a client subpath for React session hooks, and a server subpath for backend-to-backend verification",
+  "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1), a client subpath for React session hooks, a cli subpath for Device Login, and a server subpath for backend-to-backend verification",
   "keywords": [
     "better-auth",
     "auth",
@@ -54,6 +54,10 @@
     "./http-api/server": {
       "types": "./dist/server/effect/http-api/index.d.ts",
       "default": "./dist/server/effect/http-api/index.js"
+    },
+    "./cli": {
+      "types": "./dist/cli/index.d.ts",
+      "default": "./dist/cli/index.js"
     },
     "./worker": {
       "types": "./dist/worker/index.d.ts",

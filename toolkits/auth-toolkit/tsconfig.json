@@ -8,6 +8,7 @@
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
     "paths": {
+      "auth-toolkit/cli": ["./src/cli/index.ts"],
       "auth-toolkit/http-api": ["./src/server/effect/http-api/authz.ts"],
       "auth-toolkit/http-api/server": ["./src/server/effect/http-api/index.ts"],
       "auth-toolkit/rpc": ["./src/server/effect/rpc/authz.ts"],

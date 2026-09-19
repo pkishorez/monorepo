@@ -13,40 +13,42 @@ interface ResolverConfig {
   resource?: string;
 }
 
-const hasAuthorizationHeader = (request: Request) =>
-  request.headers.has('authorization');
+const bearerToken = (request: Request): string | null => {
+  const header = request.headers.get('authorization');
+  const match = header ? /^bearer\s+(\S+)$/i.exec(header) : null;
+  return match?.[1] ?? null;
+};
 
-/** Resolves Current Auth from either credential. A request carrying an
- * `Authorization` header is treated as an Access Token and never falls back
- * to its cookie; without a `resource` such a request has no valid Principal. */
-const resolve = (
+const resolve = async (
   { authWorkerUrl, resource }: ResolverConfig,
   request: Request,
 ): Promise<CurrentAuthResolution | null> => {
-  if (hasAuthorizationHeader(request)) {
-    if (resource === undefined) return Promise.resolve(null);
-    return verifyAccessToken({ authWorkerUrl, resource, request }).then(
-      (verified) =>
-        verified === null
-          ? null
-          : {
-              currentAuth: { kind: 'token', ...verified },
-              refreshedCookies: [],
-            },
-    );
+  const token = bearerToken(request);
+  if (token !== null && resource !== undefined) {
+    const verified = await verifyAccessToken({
+      authWorkerUrl,
+      resource,
+      request,
+    });
+    if (verified !== null) {
+      return {
+        currentAuth: { kind: 'token', ...verified },
+        refreshedCookies: [],
+      };
+    }
   }
-  return verifyRequest({ authWorkerUrl, request }).then((verified) =>
-    verified === null
-      ? null
-      : {
-          currentAuth: {
-            kind: 'session',
-            session: verified.session,
-            user: verified.user,
-          },
-          refreshedCookies: verified.refreshedCookies,
+
+  const verified = await verifyRequest({ authWorkerUrl, request });
+  return verified === null
+    ? null
+    : {
+        currentAuth: {
+          kind: 'session',
+          session: verified.session,
+          user: verified.user,
         },
-  );
+        refreshedCookies: verified.refreshedCookies,
+      };
 };
 
 export const resolverLive = (config: ResolverConfig) =>

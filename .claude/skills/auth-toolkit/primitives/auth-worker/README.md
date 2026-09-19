@@ -2,7 +2,7 @@
 
 One Cloudflare Worker running `createAuthWorker` on D1. It has two instances: production, deployed by GitHub Actions, and local, started with `pnpm dev`. Apps in every deployed stage use production; apps in local dev use local.
 
-The Worker plays the Identity Role for every browser app and, when `authorizationServer` in `infra/config.ts` is set, the Authorization Server Role: the same handler serves `/login`, `/consent`, and `/device` so Client Applications (MCP clients, CLIs) can obtain Access Tokens. The pages ship inside auth-toolkit; nothing here is built.
+The Worker plays the Identity Role for every First-Party program: browser apps by cookie, CLIs by Device Login. The same handler serves `/login` and `/device`. When `authorizationServer` in `infra/config.ts` is set it also plays the Authorization Server Role and serves `/consent`, so Third-Party Client Applications (MCP clients) can obtain Access Tokens. The pages ship inside auth-toolkit; nothing here is built.
 
 ## Ask
 

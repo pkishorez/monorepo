@@ -124,20 +124,20 @@ describe('createAuthWorker', () => {
     expect(options.verification.storeInDatabase).toBe(true);
   });
 
-  it('always installs Admin and installs Dash only with a non-empty API key', () => {
+  it('always installs Admin, Bearer, and Device Login, and Dash only with a non-empty API key', () => {
     createAuthWorker(config);
     expect(
       mocks.betterAuth.mock.calls[0]?.[0].plugins.map(
         (plugin: { id: string }) => plugin.id,
       ),
-    ).toEqual(['admin']);
+    ).toEqual(['admin', 'bearer', 'device-authorization']);
 
     createAuthWorker({ ...config, dashApiKey: '  dash-key  ' });
     expect(
       mocks.betterAuth.mock.calls[1]?.[0].plugins.map(
         (plugin: { id: string }) => plugin.id,
       ),
-    ).toEqual(['admin', 'dash']);
+    ).toEqual(['admin', 'bearer', 'device-authorization', 'dash']);
     expect(
       mocks.betterAuth.mock.calls[1]?.[0].plugins.find(
         (plugin: { id: string }) => plugin.id === 'dash',
@@ -149,7 +149,7 @@ describe('createAuthWorker', () => {
       mocks.betterAuth.mock.calls[2]?.[0].plugins.map(
         (plugin: { id: string }) => plugin.id,
       ),
-    ).toEqual(['admin']);
+    ).toEqual(['admin', 'bearer', 'device-authorization']);
   });
 
   it('passes the optional User Admission Policy to Better Auth', () => {

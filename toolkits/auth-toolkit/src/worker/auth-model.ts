@@ -1,9 +1,8 @@
 import type { BetterAuthOptions, BetterAuthPlugin } from 'better-auth';
-import { admin, jwt } from 'better-auth/plugins';
+import { admin, bearer, deviceAuthorization, jwt } from 'better-auth/plugins';
 import { cimd } from '@better-auth/cimd';
 import {
   DEFAULT_OAUTH_SCOPES,
-  oauthDeviceAuthorization,
   oauthProvider,
 } from '@better-auth/oauth-provider';
 import { workerClientMetadataFetch } from './client-metadata-fetch.js';
@@ -39,7 +38,7 @@ const allowsDynamicRegistration = (registration: ClientRegistration) =>
 const allowsClientMetadataDocuments = (registration: ClientRegistration) =>
   registration === 'cimd' || registration === 'dynamic+cimd';
 
-export const AUTHORIZATION_SERVER_PAGES = {
+export const AUTH_PAGES = {
   login: '/login',
   consent: '/consent',
   device: '/device',
@@ -63,7 +62,11 @@ export const authModelOptions = (config: AuthModelConfig): BetterAuthOptions =>
     rateLimit: {
       enabled: false,
     },
-    plugins: [admin()],
+    plugins: [
+      admin(),
+      bearer(),
+      deviceAuthorization({ verificationUri: AUTH_PAGES.device }),
+    ],
   }) satisfies BetterAuthOptions;
 
 export const authorizationServerOptions = (
@@ -74,8 +77,8 @@ export const authorizationServerOptions = (
     plugins: [
       jwt({ disableSettingJwtHeader: true }),
       oauthProvider({
-        loginPage: AUTHORIZATION_SERVER_PAGES.login,
-        consentPage: AUTHORIZATION_SERVER_PAGES.consent,
+        loginPage: AUTH_PAGES.login,
+        consentPage: AUTH_PAGES.consent,
         // The schema generator's mock adapter has no tables to seed.
         ...(config.resources.length > 0
           ? {
@@ -92,9 +95,6 @@ export const authorizationServerOptions = (
           allowsDynamicRegistration(registration),
         customAccessTokenClaims: ({ user }) =>
           user ? { email: user.email, name: user.name } : {},
-      }) as BetterAuthPlugin,
-      oauthDeviceAuthorization({
-        verificationUri: AUTHORIZATION_SERVER_PAGES.device,
       }) as BetterAuthPlugin,
       ...(allowsClientMetadataDocuments(registration)
         ? [
