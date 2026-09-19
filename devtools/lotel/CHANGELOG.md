@@ -1,5 +1,25 @@
 # @pkishorez/lotel
 
+## 0.0.10
+
+### Patch Changes
+
+- [`bd18d2f`](https://github.com/pkishorez/monorepo/commit/bd18d2f8f99594de5acb47d0bba69517a6db9fe0) Thanks [@pkishorez](https://github.com/pkishorez)! - Rename `@pkishorez/devtools` to `kstack`. The binary is now `kstack`: `kstack devtools` runs the DevTools Server, and the Client Commands `kstack list-traces`, `kstack get-trace`, `kstack list-flows`, and `kstack get-flow` read Traces and Flows from it as simplified JSON or readable text. `kstack skills` lists the shipped agent skills, `kstack skills devtools` prints one, and `--install <dir>` copies one or all of them into `<dir>/<name>/`. laymos gains the same `laymos skills` command shipping the `laymos`, `to-laymos`, `domain-modeling`, and `deep-module` skills, and exports the shared command builder as `laymos/skills-command`. The server URL resolves from `--url`, `DEVTOOLS_URL`, or `DEVTOOLS_PORT`. The RPC contract export moves to `kstack/rpc`. lotel gains a `ListTraces` RPC that returns Trace Summaries for the most recently updated Traces.
+
+- [#44](https://github.com/pkishorez/monorepo/pull/44) [`7134458`](https://github.com/pkishorez/monorepo/commit/7134458c8c2c2cf08ceb66868b1bdf2445e3c179) Thanks [@kishorenuma](https://github.com/kishorenuma)! - Flows become their own package, `@pkishorez/flow`. A Flow is an append-only Journal of Entries that Participants record at runtime: events, messages and replies, activations with an outcome, waits and resumes, checks, and a close hint. Entries go to an optional Flow Telemetry sink (`FlowTelemetry.layer` forwards them to DevTools, `FlowTelemetry.layerMemory` keeps them for tests and Stories); `projectJournal` derives the swim-lane view and `mergeJournals` combines journals recorded by different clients.
+
+  Breaking changes (this remains a patch release):
+
+  - `@pkishorez/effect-tracer` removes `./flow` and `TraceRecorder.snapshotFlow` / `snapshotFlows`; use `@pkishorez/flow` Journals, Telemetry, and Projections instead.
+  - `@pkishorez/lotel` removes `./flow`, `ListFlows`, `GetFlow`, and the flow methods on `TelemetryStore`. `kstack` therefore replaces those procedures in `DevtoolsRpc` with `WriteFlowEntries`, `ListFlowEntries`, and `ClearFlows`; Lotel now stores traces and logs only.
+  - `laymos` changes flow story sections from `{ kind: 'flow', flow }` to `{ kind: 'flow', journal }`, replaces the exported `RecordedFlow` schema/type with `Journal`, and no longer derives flows from trace-recorder data.
+  - `std-toolkit` changes its exported sync flow contract: `FlowLane` is now a Flow `Participant`, `log` becomes `event`, `level` becomes `severity`, `participantName` / `id` become `name` / `flowId`, message and activation names must be strings, and `activated` takes the name directly.
+  - `kui-toolkit` requires `runtime` on `DevToolsPanel`, changes the swim-lane input from the old recorded-flow shape to a Flow `Projection`, and removes `onActivityClick`.
+  - `@pkishorez/effect-tracer`, `laymos`, and `std-toolkit` now require `effect@4.0.0-rc.112` instead of `4.0.0-rc.110`; `std-toolkit` also requires `alchemy@2.0.0-beta.76` instead of `2.0.0-beta.72`.
+
+- Updated dependencies [[`7134458`](https://github.com/pkishorez/monorepo/commit/7134458c8c2c2cf08ceb66868b1bdf2445e3c179), [`af17702`](https://github.com/pkishorez/monorepo/commit/af177027258ca535a6b085ede9fc967b73d4474a)]:
+  - std-toolkit@0.0.10
+
 ## 0.0.9
 
 ### Patch Changes
