@@ -1,8 +1,12 @@
 import handler from '@tanstack/react-start/server-entry';
-import type { Branding } from '../ui/shell/index.js';
+import type {
+  Branding,
+  ScopeDescriptions,
+} from 'kui-toolkit/components/blocks/auth';
 
 export interface PagesContext {
   branding: Branding;
+  authorizationServer?: { scopes: ScopeDescriptions } | undefined;
 }
 
 export default async (

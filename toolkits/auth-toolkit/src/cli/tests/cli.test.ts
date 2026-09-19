@@ -14,12 +14,14 @@ const user = { id: 'u1', email: 'ada@example.com', name: 'Ada' };
 const fakeAuthWorker = (answers: string[]) => {
   const live = new Set(['env-token']);
   const calls: string[] = [];
+  const agents: Array<string | null> = [];
   const json = (body: unknown, status = 200) => Response.json(body, { status });
   const fetch: typeof globalThis.fetch = async (input, init) => {
     const request = new Request(input, init);
     const path = new URL(request.url).pathname.replace('/api/auth', '');
     const token = request.headers.get('authorization')?.slice(7);
     calls.push(path);
+    agents.push(request.headers.get('user-agent'));
     switch (path) {
       case '/device/code':
         return json({
@@ -43,17 +45,18 @@ const fakeAuthWorker = (answers: string[]) => {
         return json({}, 404);
     }
   };
-  return { fetch, calls, live };
+  return { fetch, calls, live, agents };
 };
 
 const run = <A, E>(
   worker: ReturnType<typeof fakeAuthWorker>,
   use: (auth: CliAuth['Service']) => Effect.Effect<A, E, CliAuth>,
+  version?: string,
 ) =>
   Effect.runPromiseExit(
     Effect.flatMap(CliAuth, use).pipe(
       Effect.provide(
-        CliAuth.layer({ authWorkerUrl, app: 'demo cli' }).pipe(
+        CliAuth.layer({ authWorkerUrl, app: 'demo cli', version }).pipe(
           Layer.provide(NodeServices.layer),
           Layer.provide(
             FetchHttpClient.layer.pipe(
@@ -96,6 +99,71 @@ describe('CliAuth', () => {
     expect((await stat(file)).mode & 0o777).toBe(0o600);
     expect(await run(worker, (auth) => auth.whoami)).toEqual(
       Exit.succeed(user),
+    );
+  });
+
+  it('names itself to the Auth Worker so the Home Page can list it', async () => {
+    const named = fakeAuthWorker(['issued']);
+    await run(named, (auth) => auth.login);
+    expect(new Set(named.agents)).toEqual(new Set(['demo cli']));
+
+    const versioned = fakeAuthWorker(['issued']);
+    await run(versioned, (auth) => auth.login, '1.2.0');
+    expect(new Set(versioned.agents)).toEqual(new Set(['demo cli/1.2.0']));
+  });
+
+  it('distinguishes unavailable, unreachable, rejected, and invalid responses', async () => {
+    const down = fakeAuthWorker([]);
+    down.fetch = async () => new Response('Bad gateway', { status: 502 });
+    const failed = await run(down, (auth) => auth.login);
+    expect(failed).toMatchObject(
+      Exit.fail({ _tag: 'AuthWorkerUnavailable', status: 502 }),
+    );
+
+    const offline = fakeAuthWorker([]);
+    offline.fetch = async () => {
+      throw new TypeError('fetch failed');
+    };
+    const unreachable = await run(offline, (auth) => auth.login);
+    expect(unreachable).toMatchObject(
+      Exit.fail({ _tag: 'AuthWorkerUnreachable' }),
+    );
+
+    const rejected = fakeAuthWorker([]);
+    rejected.fetch = async () => new Response('Bad request', { status: 400 });
+    expect(await run(rejected, (auth) => auth.login)).toMatchObject(
+      Exit.fail({ _tag: 'AuthWorkerRejected', status: 400 }),
+    );
+
+    const invalid = fakeAuthWorker(['issued']);
+    const fetch = invalid.fetch;
+    invalid.fetch = async (input, init) => {
+      const request = new Request(input, init);
+      return new URL(request.url).pathname.endsWith('/get-session')
+        ? new Response('not json')
+        : fetch(input, init);
+    };
+    expect(await run(invalid, (auth) => auth.login)).toMatchObject(
+      Exit.fail({ _tag: 'InvalidAuthWorkerResponse' }),
+    );
+  });
+
+  it('reports the Auth Worker going down while the device is polling', async () => {
+    const worker = fakeAuthWorker(['authorization_pending']);
+    const fetch = worker.fetch;
+    let polls = 0;
+    worker.fetch = async (input, init) => {
+      const request = new Request(input, init);
+      if (
+        new URL(request.url).pathname.endsWith('/device/token') &&
+        ++polls > 1
+      ) {
+        return new Response('Service unavailable', { status: 503 });
+      }
+      return fetch(input, init);
+    };
+    expect(await run(worker, (auth) => auth.login)).toMatchObject(
+      Exit.fail({ _tag: 'AuthWorkerUnavailable', status: 503 }),
     );
   });
 

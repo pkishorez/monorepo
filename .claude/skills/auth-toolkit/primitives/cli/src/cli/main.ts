@@ -49,17 +49,25 @@ const program = Effect.gen(function* () {
   }
 });
 
-const signedOut = Effect.andThen(
-  Console.error('Not signed in. Run: pnpm cli login'),
-  Effect.sync(() => {
-    process.exitCode = 1;
-  }),
-);
+const fail = (message: string) =>
+  Effect.andThen(
+    Console.error(message),
+    Effect.sync(() => {
+      process.exitCode = 1;
+    }),
+  );
+
+const signedOut = fail('Not signed in. Run: pnpm cli login');
 
 program.pipe(
   Effect.catchTags({
     SignedOut: () => signedOut,
     Unauthenticated: () => signedOut,
+    AuthWorkerRejected: (error) => fail(error.message),
+    AuthWorkerUnreachable: (error) => fail(error.message),
+    AuthWorkerUnavailable: (error) => fail(error.message),
+    DeviceLoginFailed: (error) => fail(error.message),
+    InvalidAuthWorkerResponse: (error) => fail(error.message),
   }),
   Effect.provide(CliAuth.layer({ authWorkerUrl, app: appName })),
   Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer)),

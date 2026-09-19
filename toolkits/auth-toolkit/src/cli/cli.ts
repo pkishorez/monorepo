@@ -7,13 +7,29 @@ import {
   Layer,
   Path,
 } from 'effect';
-import { Headers, HttpClient, HttpClientError } from 'effect/unstable/http';
+import { Headers, HttpClient } from 'effect/unstable/http';
 import { RpcClient } from 'effect/unstable/rpc';
 import { spawn } from 'node:child_process';
-import { DeviceLoginFailed, makeAuthWorker, type User } from './auth-worker.js';
+import {
+  AuthWorkerRejected,
+  AuthWorkerUnreachable,
+  AuthWorkerUnavailable,
+  DeviceLoginFailed,
+  InvalidAuthWorkerResponse,
+  makeAuthWorker,
+  type AuthWorkerFailure,
+  type User,
+} from './auth-worker.js';
 import { makeSessionStore } from './session-store.js';
 
-export { DeviceLoginFailed };
+export {
+  AuthWorkerRejected,
+  AuthWorkerUnreachable,
+  AuthWorkerUnavailable,
+  DeviceLoginFailed,
+  InvalidAuthWorkerResponse,
+};
+export type { AuthWorkerFailure } from './auth-worker.js';
 
 export class SignedOut extends Data.TaggedError('SignedOut') {
   override get message() {
@@ -35,9 +51,18 @@ const openBrowser = (url: string) =>
       .unref();
   });
 
-const make = ({ authWorkerUrl, app }: { authWorkerUrl: string; app: string }) =>
+interface CliAuthConfig {
+  authWorkerUrl: string;
+  app: string;
+  version?: string | undefined;
+}
+
+const make = ({ authWorkerUrl, app, version }: CliAuthConfig) =>
   Effect.gen(function* () {
-    const authWorker = yield* makeAuthWorker(authWorkerUrl);
+    const authWorker = yield* makeAuthWorker(
+      authWorkerUrl,
+      version ? `${app}/${version}` : app,
+    );
     const store = yield* makeSessionStore(app, authWorkerUrl);
 
     const token = store.read.pipe(
@@ -86,20 +111,16 @@ export class CliAuth extends Context.Service<
   {
     readonly login: Effect.Effect<
       User,
-      DeviceLoginFailed | HttpClientError.HttpClientError | SignedOut
+      DeviceLoginFailed | AuthWorkerFailure | SignedOut
     >;
     readonly logout: Effect.Effect<void>;
     readonly token: Effect.Effect<string, SignedOut>;
-    readonly whoami: Effect.Effect<
-      User,
-      SignedOut | HttpClientError.HttpClientError
-    >;
+    readonly whoami: Effect.Effect<User, SignedOut | AuthWorkerFailure>;
   }
 >()('auth-toolkit/CliAuth') {
-  static readonly layer = (config: {
-    authWorkerUrl: string;
-    app: string;
-  }): Layer.Layer<
+  static readonly layer = (
+    config: CliAuthConfig,
+  ): Layer.Layer<
     CliAuth,
     never,
     HttpClient.HttpClient | FileSystem.FileSystem | Path.Path

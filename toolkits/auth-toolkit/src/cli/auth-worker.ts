@@ -1,13 +1,59 @@
 import { Data, Duration, Effect, Schedule, Schema } from 'effect';
 import {
   HttpClient,
+  HttpClientError,
   HttpClientRequest,
   HttpClientResponse,
 } from 'effect/unstable/http';
 
 export class DeviceLoginFailed extends Data.TaggedError('DeviceLoginFailed')<{
   readonly reason: 'expired' | 'denied';
-}> {}
+}> {
+  override get message() {
+    return this.reason === 'denied'
+      ? 'Sign-in was denied in the browser.'
+      : 'The sign-in code expired before it was approved. Run login again.';
+  }
+}
+
+export class AuthWorkerUnreachable extends Data.TaggedError(
+  'AuthWorkerUnreachable',
+)<{ readonly url: string }> {
+  override get message() {
+    return `Could not reach the sign-in service at ${this.url}. Check your connection and try again.`;
+  }
+}
+
+export class AuthWorkerUnavailable extends Data.TaggedError(
+  'AuthWorkerUnavailable',
+)<{ readonly url: string; readonly status: number }> {
+  override get message() {
+    return `The sign-in service at ${this.url} is temporarily unavailable (HTTP ${this.status}). Try again in a moment.`;
+  }
+}
+
+export class AuthWorkerRejected extends Data.TaggedError('AuthWorkerRejected')<{
+  readonly url: string;
+  readonly status: number;
+}> {
+  override get message() {
+    return `The sign-in service at ${this.url} rejected the request (HTTP ${this.status}). Check its URL and configuration.`;
+  }
+}
+
+export class InvalidAuthWorkerResponse extends Data.TaggedError(
+  'InvalidAuthWorkerResponse',
+)<{ readonly url: string }> {
+  override get message() {
+    return `The sign-in service at ${this.url} returned a response this CLI could not understand. The service and CLI may be incompatible.`;
+  }
+}
+
+export type AuthWorkerFailure =
+  | AuthWorkerUnreachable
+  | AuthWorkerUnavailable
+  | AuthWorkerRejected
+  | InvalidAuthWorkerResponse;
 
 class Pending extends Data.TaggedError('Pending') {}
 
@@ -33,12 +79,12 @@ const DeviceToken = Schema.Struct({
 
 const SessionBody = Schema.NullOr(Schema.Struct({ user: User }));
 
-const tokenOrFailure = ({
-  access_token,
-  error,
-}: typeof DeviceToken.Type): Effect.Effect<
+const tokenOrFailure = (
+  { access_token, error }: typeof DeviceToken.Type,
+  rejected: AuthWorkerRejected,
+): Effect.Effect<
   string,
-  Pending | DeviceLoginFailed
+  Pending | DeviceLoginFailed | AuthWorkerRejected | InvalidAuthWorkerResponse
 > => {
   if (access_token) return Effect.succeed(access_token);
   switch (error) {
@@ -47,15 +93,41 @@ const tokenOrFailure = ({
       return Effect.fail(new Pending());
     case 'access_denied':
       return Effect.fail(new DeviceLoginFailed({ reason: 'denied' }));
-    default:
+    case 'expired_token':
       return Effect.fail(new DeviceLoginFailed({ reason: 'expired' }));
+    default:
+      return Effect.fail(
+        error ? rejected : new InvalidAuthWorkerResponse({ url: rejected.url }),
+      );
   }
 };
 
-export const makeAuthWorker = (authWorkerUrl: string) =>
-  Effect.map(HttpClient.HttpClient, (client) => {
+export const makeAuthWorker = (authWorkerUrl: string, userAgent: string) =>
+  Effect.map(HttpClient.HttpClient, (base) => {
+    const client = base.pipe(
+      HttpClient.mapRequest(
+        HttpClientRequest.setHeader('user-agent', userAgent),
+      ),
+    );
     const url = (path: string) =>
       `${authWorkerUrl.replace(/\/$/, '')}/api/auth${path}`;
+
+    const responseFailure = (status: number) =>
+      status >= 500
+        ? new AuthWorkerUnavailable({ url: authWorkerUrl, status })
+        : new AuthWorkerRejected({ url: authWorkerUrl, status });
+
+    const requestFailure = ({ reason }: HttpClientError.HttpClientError) =>
+      Effect.fail(
+        'response' in reason
+          ? responseFailure(reason.response.status)
+          : new AuthWorkerUnreachable({ url: authWorkerUrl }),
+      );
+
+    const expectOk = (response: HttpClientResponse.HttpClientResponse) =>
+      response.status >= 200 && response.status < 300
+        ? Effect.succeed(response)
+        : Effect.fail(responseFailure(response.status));
 
     const post = (path: string, body: unknown) =>
       client.execute(
@@ -66,9 +138,15 @@ export const makeAuthWorker = (authWorkerUrl: string) =>
 
     const deviceCode = (clientId: string) =>
       post('/device/code', { client_id: clientId }).pipe(
-        Effect.flatMap(HttpClientResponse.filterStatusOk),
-        Effect.flatMap(HttpClientResponse.schemaBodyJson(DeviceCode)),
-        Effect.catchTag('SchemaError', Effect.die),
+        Effect.catchTag('HttpClientError', requestFailure),
+        Effect.flatMap(expectOk),
+        Effect.flatMap((response) =>
+          HttpClientResponse.schemaBodyJson(DeviceCode)(response).pipe(
+            Effect.mapError(
+              () => new InvalidAuthWorkerResponse({ url: authWorkerUrl }),
+            ),
+          ),
+        ),
       );
 
     // The schedule already keeps to the interval, so `slow_down` just waits.
@@ -78,9 +156,34 @@ export const makeAuthWorker = (authWorkerUrl: string) =>
         device_code: code.device_code,
         client_id: clientId,
       }).pipe(
-        Effect.flatMap(HttpClientResponse.schemaBodyJson(DeviceToken)),
-        Effect.catchTag('SchemaError', Effect.die),
-        Effect.flatMap(tokenOrFailure),
+        Effect.catchTag('HttpClientError', requestFailure),
+        Effect.flatMap((response) =>
+          Effect.gen(function* () {
+            if (response.status >= 500) {
+              return yield* Effect.fail(responseFailure(response.status));
+            }
+            if (
+              response.status !== 400 &&
+              (response.status < 200 || response.status >= 300)
+            ) {
+              return yield* Effect.fail(responseFailure(response.status));
+            }
+            const body = yield* HttpClientResponse.schemaBodyJson(DeviceToken)(
+              response,
+            ).pipe(
+              Effect.mapError(
+                () => new InvalidAuthWorkerResponse({ url: authWorkerUrl }),
+              ),
+            );
+            return yield* tokenOrFailure(
+              body,
+              new AuthWorkerRejected({
+                url: authWorkerUrl,
+                status: response.status,
+              }),
+            );
+          }),
+        ),
         Effect.retry({
           while: (error) => error._tag === 'Pending',
           schedule: Schedule.spaced(Duration.seconds(code.interval)),
@@ -98,8 +201,15 @@ export const makeAuthWorker = (authWorkerUrl: string) =>
           ),
         )
         .pipe(
-          Effect.flatMap(HttpClientResponse.schemaBodyJson(SessionBody)),
-          Effect.catchTag('SchemaError', Effect.die),
+          Effect.catchTag('HttpClientError', requestFailure),
+          Effect.flatMap(expectOk),
+          Effect.flatMap((response) =>
+            HttpClientResponse.schemaBodyJson(SessionBody)(response).pipe(
+              Effect.mapError(
+                () => new InvalidAuthWorkerResponse({ url: authWorkerUrl }),
+              ),
+            ),
+          ),
           Effect.map((body) => body?.user),
         );
 

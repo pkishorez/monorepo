@@ -354,6 +354,9 @@ catalogs:
     ulidx:
       specifier: 2.4.1
       version: 2.4.1
+    use-sync-external-store:
+      specifier: 1.6.0
+      version: 1.6.0
     vaul:
       specifier: 1.1.2
       version: 1.1.2
@@ -971,6 +974,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20260904.1
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.102.8(react@19.2.8)
       '@tanstack/react-router':
         specifier: 'catalog:'
         version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -992,6 +998,9 @@ importers:
       rpc-toolkit:
         specifier: workspace:*
         version: link:../rpc-toolkit
+      use-sync-external-store:
+        specifier: 'catalog:'
+        version: 1.6.0(react@19.2.8)
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'

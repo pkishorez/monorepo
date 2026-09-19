@@ -1,192 +1,126 @@
-import { Button } from 'kui-toolkit/components/ui/button';
-import { GoogleButton } from 'kui-toolkit/components/ui/google-button';
-import { Input } from 'kui-toolkit/components/ui/input';
-import { Spinner } from 'kui-toolkit/components/ui/spinner';
-import { useTheme } from 'next-themes';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import {
+  DeviceScreen,
+  type Branding,
+  type DeviceState,
+} from 'kui-toolkit/components/blocks/auth';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 
-import { createAuthorizationClient, pageQuery } from '../../client/index.js';
-import { PageShell, type Branding } from '../../shell/index.js';
+import {
+  createAuthorizationClient,
+  pageQuery,
+  unwrap,
+  type AuthorizationClient,
+} from '../../client/index.js';
+import { useScreenRoute } from '../../screen-routing/index.js';
 
-interface DevicePageProps {
-  branding: Branding;
-}
-
-type Step =
-  | { status: 'enter'; error?: string | undefined }
-  | { status: 'checking'; userCode: string }
-  | { status: 'confirm'; userCode: string; clientId: string }
-  | { status: 'done'; approved: boolean };
+const NOT_WAITING =
+  'That code is not waiting for approval. Check it and try again.';
 
 const normalizeCode = (raw: string) => raw.trim().toUpperCase();
 
-export function DevicePage({ branding }: DevicePageProps) {
+const lookUp = async (client: AuthorizationClient, raw: string) => {
+  const userCode = normalizeCode(raw);
+  const found = await unwrap(
+    client.device({ query: { user_code: userCode } }),
+    NOT_WAITING,
+  );
+  if (found?.status !== 'pending') throw new Error(NOT_WAITING);
+  return { userCode, clientId: found.client_id ?? 'Unknown device' };
+};
+
+export function DevicePage({ branding }: { branding: Branding }) {
   const client = useMemo(createAuthorizationClient, []);
-  const { data: session, isPending } = client.useSession();
-  const { theme } = useTheme();
+  const session = client.useSession();
+  const show = useScreenRoute('device', session);
   const [prefilled] = useState(() => pageQuery().get('user_code') ?? '');
-  const [code, setCode] = useState(prefilled);
-  const [step, setStep] = useState<Step>({ status: 'enter' });
-  const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<DeviceState>(
+    prefilled ? { status: 'loading' } : { status: 'enter' },
+  );
 
-  const check = async (raw: string) => {
-    const userCode = normalizeCode(raw);
-    setStep({ status: 'checking', userCode });
-    const { data, error } = await client.device({
-      query: { user_code: userCode },
-    });
-    if (!data || data.status !== 'pending') {
-      setStep({
-        status: 'enter',
-        error:
-          error?.error_description ??
-          error?.message ??
-          'That code is not waiting for approval.',
-      });
-      return;
-    }
-    setStep({
-      status: 'confirm',
-      userCode,
-      clientId: data.client_id ?? 'Unknown client',
-    });
-  };
-
-  const signedIn = !isPending && session !== null;
   useEffect(() => {
-    if (signedIn && prefilled) void check(prefilled);
-  }, [signedIn, prefilled]);
+    if (!show || !prefilled) return;
+    let current = true;
+    lookUp(client, prefilled).then(
+      (found) => current && setStep({ status: 'confirm', ...found }),
+      (cause: Error) =>
+        current &&
+        setStep({ status: 'enter', code: prefilled, error: cause.message }),
+    );
+    return () => {
+      current = false;
+    };
+  }, [client, show, prefilled]);
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    void check(code);
-  };
-
-  const answer = async (userCode: string, approved: boolean) => {
-    setBusy(true);
-    const result = approved
-      ? await client.device.approve({ userCode })
-      : await client.device.deny({ userCode });
-    setBusy(false);
-    if (result.error) {
-      setStep({
-        status: 'enter',
-        error: result.error.error_description ?? result.error.message,
+  const finishing = step.status === 'finishing' ? step : undefined;
+  const claimed = useQuery({
+    queryKey: ['auth-toolkit', 'device-claim', finishing?.userCode],
+    enabled: finishing !== undefined,
+    refetchInterval: (query) => (query.state.data ? false : 2000),
+    queryFn: async () => {
+      const { data } = await client.device({
+        query: { user_code: finishing!.userCode },
       });
+      return data?.status !== 'approved';
+    },
+  }).data;
+
+  useEffect(() => {
+    if (!finishing) return;
+    if (claimed) {
+      setStep({ status: 'done', approved: true, clientId: finishing.clientId });
       return;
     }
-    setStep({ status: 'done', approved });
+    const timer = setTimeout(
+      () => setStep({ status: 'stalled', clientId: finishing.clientId }),
+      60_000,
+    );
+    return () => clearTimeout(timer);
+  }, [finishing, claimed]);
+
+  const check = async (code: string) => {
+    const found = await lookUp(client, code);
+    setStep({ status: 'confirm', ...found });
   };
 
-  const signedInAs = isPending
-    ? 'pending'
-    : session
-      ? { email: session.user.email, signOut: () => client.signOut() }
-      : undefined;
+  const answer = async (approved: boolean) => {
+    if (step.status !== 'confirm') return;
+    const { userCode, clientId } = step;
+    try {
+      await unwrap(
+        approved
+          ? client.device.approve({ userCode })
+          : client.device.deny({ userCode }),
+        NOT_WAITING,
+      );
+      setStep(
+        approved
+          ? { status: 'finishing', userCode, clientId }
+          : { status: 'done', approved, clientId },
+      );
+    } catch (cause) {
+      setStep({
+        status: 'enter',
+        code: userCode,
+        error: (cause as Error).message,
+      });
+    }
+  };
 
-  if (!isPending && !session) {
-    return (
-      <PageShell
-        branding={branding}
-        title="Sign in"
-        description="Sign in to continue."
-      >
-        <div className="flex h-10 items-center justify-center">
-          <GoogleButton
-            theme={theme === 'light' ? 'light' : 'dark'}
-            onClick={() =>
-              client.signIn.social({
-                provider: 'google',
-                callbackURL: window.location.href,
-              })
-            }
-          />
-        </div>
-      </PageShell>
-    );
-  }
-
-  if (step.status === 'done') {
-    return (
-      <PageShell
-        branding={branding}
-        title={step.approved ? 'Signed in' : 'Sign-in denied'}
-        description={
-          step.approved
-            ? 'You can return to your device. This page can be closed.'
-            : 'You can close this page.'
-        }
-        signedInAs={signedInAs}
-      >
-        {null}
-      </PageShell>
-    );
-  }
-
-  if (step.status === 'confirm') {
-    return (
-      <PageShell
-        branding={branding}
-        title="Do you want to sign in?"
-        description="Confirm that this code matches the one shown on your device."
-        signedInAs={signedInAs}
-        footer={
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => answer(step.userCode, false)}
-            >
-              Deny
-            </Button>
-            <Button disabled={busy} onClick={() => answer(step.userCode, true)}>
-              {busy ? <Spinner /> : 'Sign in'}
-            </Button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <div className="rounded-lg border bg-muted/50 px-4 py-3 text-center">
-            <p className="text-xs font-medium text-muted-foreground uppercase">
-              Client
-            </p>
-            <p className="mt-1 text-lg font-semibold">{step.clientId}</p>
-          </div>
-          <p className="rounded-lg border bg-muted/50 px-4 py-6 text-center font-mono text-3xl font-bold tracking-[0.2em] tabular-nums">
-            {step.userCode}
-          </p>
-        </div>
-      </PageShell>
-    );
-  }
-
-  const checking = step.status === 'checking';
   return (
-    <PageShell
-      loading={isPending}
+    <DeviceScreen
       branding={branding}
-      title="Sign in"
-      description="Enter the code shown on the device."
-      signedInAs={signedInAs}
-    >
-      <form onSubmit={submit} className="flex flex-col gap-3">
-        <Input
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          placeholder="Code from the device"
-          autoFocus
-          autoComplete="one-time-code"
-          spellCheck={false}
-          className="h-14 text-center font-mono text-xl font-bold tracking-[0.2em] tabular-nums uppercase placeholder:font-normal placeholder:tracking-normal placeholder:normal-case"
-          aria-label="Device code"
-        />
-        {step.status === 'enter' && step.error ? (
-          <p className="text-sm text-destructive">{step.error}</p>
-        ) : null}
-        <Button type="submit" disabled={checking || code.trim() === ''}>
-          {checking ? <Spinner /> : 'Continue'}
-        </Button>
-      </form>
-    </PageShell>
+      state={show ? step : { status: 'loading' }}
+      account={
+        session.data
+          ? {
+              email: session.data.user.email,
+              onSignOut: () => void client.signOut(),
+            }
+          : undefined
+      }
+      onCheck={check}
+      onAnswer={answer}
+    />
   );
 }

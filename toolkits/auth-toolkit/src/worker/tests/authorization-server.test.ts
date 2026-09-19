@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { memoryPrimaryDatabase } from '../../infra/primary/sqlite/memory/index.js';
-import type { Branding } from '../pages.js';
+import type { PagesContext } from '../pages.js';
 import { createAuthWorker } from '../worker.js';
 
 const baseURL = 'https://auth.example.com';
@@ -211,10 +211,10 @@ describe('Client Registration', () => {
 
 describe('the pages app', () => {
   const pages = {
-    fetch: (request: Request, context: { branding: Branding }) =>
+    fetch: (request: Request, context: PagesContext) =>
       Promise.resolve(
         new Response(
-          `${String(context.branding.appName)}:${new URL(request.url).pathname}`,
+          `${String(context.branding.appName)}:${new URL(request.url).pathname}:${Object.keys(context.authorizationServer?.scopes ?? {}).join(',')}`,
         ),
       ),
     assets: {
@@ -225,17 +225,20 @@ describe('the pages app', () => {
   const withPages = createAuthWorker({
     ...config,
     database: memoryPrimaryDatabase(),
-    authorizationServer: { resources: [] },
+    authorizationServer: {
+      resources: [],
+      scopes: [{ name: 'notes:read', description: 'Read your notes' }],
+    },
     pages,
   });
 
   it('renders pages and server-function calls with the app name', async () => {
     const login = await withPages.handler(new Request(`${baseURL}/login`));
-    expect(await login.text()).toBe('Example:/login');
+    expect(await login.text()).toBe('Example:/login:notes:read');
     const fn = await withPages.handler(
       new Request(`${baseURL}/_serverFn/x`, { method: 'POST' }),
     );
-    expect(await fn.text()).toBe('Example:/_serverFn/x');
+    expect(await fn.text()).toBe('Example:/_serverFn/x:notes:read');
   });
 
   it('serves embedded text and binary assets as immutable', async () => {
@@ -265,5 +268,96 @@ describe('the pages app', () => {
       new Request(`${baseURL}/api/auth/.well-known/oauth-authorization-server`),
     );
     expect(discovery.status).toBe(404);
+  });
+});
+
+describe('Grant revocation', () => {
+  it('revokes the tokens issued under a Grant, and only its owner can', async () => {
+    const { auth, handler } = createAuthWorker({
+      ...config,
+      database: memoryPrimaryDatabase(),
+      authorizationServer: { resources: ['https://api.example.com'] },
+    });
+    const { adapter, internalAdapter } = await auth.$context;
+    const signIn = async (email: string) => {
+      const user = await internalAdapter.createUser(
+        { name: email, email, emailVerified: true },
+        { method: 'email-password' },
+      );
+      const session = await internalAdapter.createSession(user.id);
+      return { user, authorization: `Bearer ${session.token}` };
+    };
+    const owner = await signIn('ada@example.com');
+    const stranger = await signIn('bob@example.com');
+
+    await adapter.create({
+      model: 'oauthClient',
+      data: { clientId: 'notes-app', redirectUris: ['https://notes.dev/cb'] },
+    });
+    const now = new Date();
+    const consent = await adapter.create<{ id: string }>({
+      model: 'oauthConsent',
+      data: {
+        clientId: 'notes-app',
+        userId: owner.user.id,
+        scopes: ['openid'],
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    await adapter.create({
+      model: 'oauthRefreshToken',
+      data: {
+        token: 'refresh-1',
+        clientId: 'notes-app',
+        userId: owner.user.id,
+        scopes: ['openid'],
+        createdAt: now,
+      },
+    });
+    const refresh = () =>
+      adapter.findOne<{ revoked: Date | null }>({
+        model: 'oauthRefreshToken',
+        where: [{ field: 'token', value: 'refresh-1' }],
+      });
+    const revoke = (authorization: string) =>
+      handler(
+        new Request(`${baseURL}/api/auth/oauth2/delete-consent`, {
+          method: 'POST',
+          headers: { authorization, 'content-type': 'application/json' },
+          body: JSON.stringify({ id: consent.id }),
+        }),
+      );
+
+    const listed = await handler(
+      new Request(`${baseURL}/api/auth/oauth2/get-consents`, {
+        headers: { authorization: owner.authorization },
+      }),
+    );
+    expect(await listed.json()).toEqual([
+      expect.objectContaining({ clientId: 'notes-app', scopes: ['openid'] }),
+    ]);
+    expect((await revoke(stranger.authorization)).status).toBe(401);
+    expect((await refresh())?.revoked).toBeFalsy();
+
+    expect((await revoke(owner.authorization)).status).toBe(200);
+    expect((await refresh())?.revoked).toBeTruthy();
+  });
+});
+
+describe('errors', () => {
+  it('sends every Better Auth error to the Error Screen with its details', async () => {
+    const { handler } = createAuthWorker({
+      ...config,
+      database: memoryPrimaryDatabase(),
+    });
+    const response = await get(
+      handler,
+      '/error?error=state_mismatch&error_description=Sign-in+expired',
+    );
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(
+      '/error?error=state_mismatch&error_description=Sign-in+expired',
+    );
   });
 });

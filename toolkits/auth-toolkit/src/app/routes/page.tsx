@@ -1,9 +1,14 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { AccountPage } from '../../ui/pages/account/index.js';
+import { HomePage } from '../../ui/pages/home/index.js';
 
 const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/')({
   ssr: false,
-  component: () => <AccountPage branding={root.useLoaderData()} />,
+  component: function Home() {
+    const { branding, authorizationServer } = root.useLoaderData();
+    return (
+      <HomePage branding={branding} scopes={authorizationServer?.scopes} />
+    );
+  },
 });

@@ -1,9 +1,9 @@
 import { createFileRoute, getRouteApi } from '@tanstack/react-router';
-import { AccountPage } from '../../ui/pages/account/index.js';
+import { LoginPage } from '../../ui/pages/login/index.js';
 
 const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/login')({
   ssr: false,
-  component: () => <AccountPage branding={root.useLoaderData()} />,
+  component: () => <LoginPage branding={root.useLoaderData().branding} />,
 });

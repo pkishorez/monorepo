@@ -27,6 +27,18 @@ const walk = (dir: string): string[] =>
     return statSync(path).isDirectory() ? walk(path) : [path];
   });
 
+// workerd has no import.meta.url, so a CommonJS dependency inlined next to an
+// external `require` crashes every request. Keep such packages external by
+// listing them as dependencies of this package.
+const requiring = walk(join(root, 'server')).filter((path) =>
+  readFileSync(path, 'utf8').includes('createRequire('),
+);
+if (requiring.length > 0) {
+  throw new Error(
+    `The server bundle calls createRequire, which fails in workerd: ${requiring.map((path) => relative(root, path)).join(', ')}`,
+  );
+}
+
 const entries = walk(client)
   .filter((path) => !path.endsWith('.html'))
   .map((path) => {
