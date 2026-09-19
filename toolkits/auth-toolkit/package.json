@@ -35,6 +35,10 @@
       "types": "./dist/server/verification/access-token/index.d.ts",
       "default": "./dist/server/verification/access-token/index.js"
     },
+    "./server/mcp": {
+      "types": "./dist/server/mcp/index.d.ts",
+      "default": "./dist/server/mcp/index.js"
+    },
     "./rpc": {
       "types": "./dist/server/effect/rpc/authz.d.ts",
       "default": "./dist/server/effect/rpc/authz.js"
@@ -131,10 +135,8 @@
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "tailwindcss": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
-    "vitest": "catalog:",
-    "zod": "catalog:"
+    "vitest": "catalog:"
   }
 }

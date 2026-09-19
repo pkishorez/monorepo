@@ -24,6 +24,18 @@ _Avoid_: client (reserved for the browser side), Provider, third party (some Cli
 A Consumer Backend that accepts Access Tokens as well as browser Sessions. Every Resource Server is a Consumer Backend; not every Consumer Backend is a Resource Server. An MCP server is one kind of Resource Server.
 _Avoid_: API, protected resource (the OAuth wire term; fine in protocol prose, not for the service)
 
+**MCP Server**:
+A Resource Server that speaks the Model Context Protocol over stateless Streamable HTTP and accepts only Token Principals; a browser Session is never accepted there. Every MCP Server is a Resource Server; the reverse is not true.
+_Avoid_: MCP endpoint (that is one route of it), tool server, MCP app
+
+**Protected Resource Metadata**:
+The discovery document a Resource Server publishes about itself: which Authorization Server issues its Access Tokens and which Scopes it understands. An MCP client reads it, after an unauthenticated challenge, to find the Auth Worker. Published by the Resource Server, never by the Auth Worker.
+_Avoid_: resource metadata (ambiguous with the Auth Worker's own metadata), well-known (the path, not the concept)
+
+**Client Registration**:
+How a Client Application becomes known to the Authorization Server Role before its first authorization: registered by hand by an Administrator, self-registered at runtime (Dynamic Client Registration), or identified by a metadata document it hosts at its own URL (Client ID Metadata Document). Which one applies is a deployment decision; the resulting Client Application is the same.
+_Avoid_: DCR (fine in protocol prose, not for the concept), client onboarding, app registration
+
 **Principal**:
 Whoever Current Auth represents for one request. Always names a User; how the User was established (a Session or an Access Token) is part of the Principal, never hidden from it.
 _Avoid_: caller, subject

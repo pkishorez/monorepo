@@ -10,7 +10,7 @@
   "layers": {
     "infra.primary.sqlite": {
       "paths": ["src/infra/primary/sqlite"],
-      "description": "SQLite-dialect Primary Database providers \u2014 a future non-SQLite dialect (e.g. Postgres) would be a sibling layer under infra/primary, not a member here",
+      "description": "SQLite-dialect Primary Database providers — a future non-SQLite dialect (e.g. Postgres) would be a sibling layer under infra/primary, not a member here",
       "moduleGraphs": {
         "sqlite": {
           "description": "D1 runtime database, D1 deployment resource, and memory database are independent doors built on separate private schema and migration modules.",
@@ -42,7 +42,7 @@
     },
     "worker": {
       "paths": ["src/worker"],
-      "description": "Public \u2014 createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, optional Dash, User Admission Policy, origins and cookies) and, with the Authorization Server Role on, serves the pages app the built door embeds",
+      "description": "Public — createAuthWorker(config) assembles Better Auth over a consumer-provided Primary Database (Cookie Cache, Google, Admin, optional Dash, User Admission Policy, origins and cookies) and, with the Authorization Server Role on, serves the pages app the built door embeds",
       "modules": {
         "src/worker": {
           "exposed": true
@@ -86,7 +86,7 @@
     },
     "client": {
       "paths": ["src/client"],
-      "description": "Public \u2014 Direct Session Check: React hooks for session state, sign-in, and sign-out",
+      "description": "Public — Direct Session Check: React hooks for session state, sign-in, and sign-out",
       "modules": {
         "src/client": {
           "exposed": true
@@ -95,10 +95,10 @@
     },
     "server": {
       "paths": ["src/server"],
-      "description": "Public \u2014 Server-Side Verification and Access Token verification, the Current Auth identity they resolve to, and the Effect RPC and HTTP API integrations that declare each Sibling's Auth Cannotation",
+      "description": "Public — Server-Side Verification and Access Token verification, the Current Auth identity they resolve to, the Effect RPC and HTTP API integrations that declare each Sibling's Auth Cannotation, and the MCP Server door that accepts only Token Principals",
       "moduleGraphs": {
         "server": {
-          "description": "Two verification doors (session, access token) feed one Current Auth module, whose interior resolver picks a proof per request; each Effect integration declares its Auth Cannotation in an interior authz file beside its Server Implementation.",
+          "description": "Two verification doors (session, access token) feed one Current Auth module; access-token and mcp share the auth-worker module for the Auth Worker's issuer, JWKS URL, and Access Token claims, whose interior resolver picks a proof per request; each Effect integration declares its Auth Cannotation in an interior authz file beside its Server Implementation; the mcp door verifies Access Tokens on its own wire terms and speaks Current Auth's Token Principal.",
           "path": "src/server",
           "modules": {
             "verification/session": {
@@ -110,10 +110,16 @@
             "current-auth": {
               "exposed": false
             },
+            "auth-worker": {
+              "exposed": false
+            },
             "effect/rpc": {
               "exposed": true
             },
             "effect/http-api": {
+              "exposed": true
+            },
+            "mcp": {
               "exposed": true
             }
           },
@@ -123,7 +129,9 @@
               "verification/access-token"
             ],
             "effect/rpc": ["current-auth"],
-            "effect/http-api": ["current-auth"]
+            "effect/http-api": ["current-auth"],
+            "verification/access-token": ["auth-worker"],
+            "mcp": ["current-auth", "auth-worker"]
           }
         }
       }
@@ -156,7 +164,7 @@
   },
   "layerGraphs": {
     "auth-toolkit": {
-      "description": "Independently consumed doors \u2014 worker, client, server, and the infra providers stand alone; the app composes ui and is embedded into the worker door at build time, never imported by it.",
+      "description": "Independently consumed doors — worker, client, server, and the infra providers stand alone; the app composes ui and is embedded into the worker door at build time, never imported by it.",
       "rules": {
         "infra.primary.sqlite": [],
         "worker": [],
