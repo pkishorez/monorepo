@@ -1,0 +1,55 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src", "infra"],
+  "layers": {
+    "infra": {
+      "paths": ["infra"],
+      "description": "The MCP Worker resource and the hosts, endpoint path, and Scopes both instances derive from.",
+      "modules": {
+        "infra/mcp-worker.ts": {
+          "exposed": true
+        },
+        "infra/config.ts": {
+          "shared": true,
+          "exposed": true
+        }
+      }
+    },
+    "tools": {
+      "paths": ["src/tools"],
+      "description": "What this MCP Server offers: the tools, built fresh for one Token Principal. Knows nothing about HTTP or auth.",
+      "modules": {
+        "src/tools": {
+          "exposed": true
+        }
+      }
+    },
+    "resource-server": {
+      "paths": ["src/resource-server"],
+      "description": "The Resource Server: one fetch handler that publishes discovery, admits only valid Access Tokens, and serves the tools over stateless MCP.",
+      "modules": {
+        "src/resource-server": {
+          "exposed": true
+        }
+      }
+    },
+    "entry": {
+      "paths": ["src/entry"],
+      "description": "One file per host, each a few lines around the Resource Server: Cloudflare Worker, Node via srvx, Vercel Function.",
+      "modules": {
+        "src/entry/cloudflare.ts": {},
+        "src/entry/node.ts": {},
+        "src/entry/vercel.ts": {}
+      }
+    }
+  },
+  "layerGraphs": {
+    "mcp-server": {
+      "description": "Entries read configuration from infra and hand requests to the Resource Server, which serves the tools. Dependencies point down; tools never see the transport.",
+      "rules": {
+        "entry": ["resource-server", "infra"],
+        "resource-server": ["tools"]
+      }
+    }
+  }
+}

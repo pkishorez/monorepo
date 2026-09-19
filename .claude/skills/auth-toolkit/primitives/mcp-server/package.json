@@ -1,0 +1,34 @@
+{
+  "name": "__APP_NAME__",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "portless run --force alchemy dev",
+    "dev:node": "portless run --force node src/entry/node.ts",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
+    "lint:tsc": "tsc --noEmit",
+    "lint:laymos": "laymos lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "catalog:",
+    "alchemy": "catalog:",
+    "auth-toolkit": "catalog:",
+    "effect": "catalog:",
+    "srvx": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@modelcontextprotocol/client": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "jose": "catalog:",
+    "laymos": "catalog:",
+    "typescript": "catalog:typescript6",
+    "vitest": "catalog:"
+  }
+}

@@ -5,6 +5,7 @@ import {
   authorizationServerOptions,
   type AuthorizationServerConfig,
 } from './auth-model.js';
+import { normalizeClientRegistration } from './client-registration.js';
 import { servePages, type Branding, type PagesApp } from './pages.js';
 
 type ValidateUser = NonNullable<
@@ -12,48 +13,29 @@ type ValidateUser = NonNullable<
 >;
 
 interface AuthWorkerConfig {
-  /** The Auth Worker's own deployed URL. */
   baseURL: string;
   secret: string;
-  /** The name, and optionally the logo, the pages show. */
   branding: Branding;
-  /** Build with a Primary Database provider from `database/*`, e.g.
-   * `d1PrimaryDatabase(env.DB)` or `memoryPrimaryDatabase()` for tests. */
   database: BetterAuthOptions['database'];
   google: { clientId: string; clientSecret: string };
-  /** Origins allowed a Direct Session Check — supports `*.example.com`. */
   trustedOrigins: string[];
-  /** The Shared Cookie Domain, e.g. `.example.com`, so every subdomain's
-   * Direct Session Check can read the session cookie. Omit to keep the
-   * cookie scoped to the Auth Worker's own origin only. */
   cookieDomain?: string | undefined;
-  /** Cookie Cache TTL, in seconds. @default 300 (5 minutes) */
   cookieCacheMaxAge?: number | undefined;
-  /** Enables Better Auth Infrastructure's Dash plugin when non-empty. */
   dashApiKey?: string | undefined;
-  /** Accepts or rejects identities during registration, account linking, and
-   * fresh provider sign-in. */
   validateUser?: ValidateUser | undefined;
-  /** Enables the Authorization Server Role: Client Applications obtain Access
-   * Tokens for the listed Resource Servers through consent or the device
-   * flow. Omit to run the Identity Role only. */
   authorizationServer?: AuthorizationServerConfig | undefined;
-  /** The pages app. The built `auth-toolkit/worker` door supplies it; only
-   * source imports (tests) leave it out. */
   pages?: PagesApp | undefined;
 }
 
 const API_PATH = '/api/auth';
+const REGISTRATION_PATH = `${API_PATH}/oauth2/register`;
+const WELL_KNOWN_PATH = '/.well-known/';
 
 const CORS_METHODS = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS';
 
 const escapeRegExp = (value: string) =>
   value.replace(/[|\\{}()[\]^$+*?.-]/g, '\\$&');
 
-/** Rejects a trustedOrigins entry that can never match anything, e.g. a
- * scheme-less exact pattern or a wildcard pattern with a stray path/query.
- * Thrown from `createAuthWorker` itself, so a bad config fails at startup
- * instead of silently never granting CORS access. */
 const validateTrustedOrigin = (pattern: string) => {
   const hasWildcard = pattern.includes('*') || pattern.includes('?');
   const usage =
@@ -94,7 +76,6 @@ const matchesTrustedOrigin = (origin: string, pattern: string) => {
     } catch {
       return false;
     }
-    // A scheme-less pattern never grants a plaintext origin credentialed CORS.
     if (url.protocol !== 'https:') return false;
     value = url.host;
   }
@@ -113,8 +94,6 @@ export const isTrustedOrigin = (
 ) => patterns.some((pattern) => matchesTrustedOrigin(origin, pattern));
 
 const corsHeaders = (request: Request, trustedOrigins: string[]) => {
-  // Vary: Origin even when untrusted, so a shared cache never serves one
-  // origin's CORS response to another.
   const headers = new Headers({ Vary: 'Origin' });
   const origin = request.headers.get('Origin');
   if (!origin || !isTrustedOrigin(origin, trustedOrigins)) {
@@ -193,7 +172,11 @@ export const createAuthWorker = (
 
   const handler = async (request: Request) => {
     const { pathname } = new URL(request.url);
-    if (pathname !== API_PATH && !pathname.startsWith(`${API_PATH}/`)) {
+    const isAuthPath =
+      pathname === API_PATH ||
+      pathname.startsWith(`${API_PATH}/`) ||
+      (role !== undefined && pathname.startsWith(WELL_KNOWN_PATH));
+    if (!isAuthPath) {
       return role && pages
         ? servePages(pages, request, branding)
         : new Response('Not found', { status: 404 });
@@ -207,7 +190,11 @@ export const createAuthWorker = (
       return new Response(null, { status: allowed ? 204 : 403, headers: cors });
     }
 
-    const response = await auth.handler(request);
+    const response = await auth.handler(
+      pathname === REGISTRATION_PATH
+        ? await normalizeClientRegistration(request)
+        : request,
+    );
     return withCorsHeaders(response, cors);
   };
 

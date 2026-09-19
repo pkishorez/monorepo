@@ -67,6 +67,146 @@ describe('Authorization Server Role', () => {
     const token = await get(handler, '/token');
     expect(token.status).toBe(404);
   });
+
+  it('serves the same metadata at the RFC 8414 path-inserted URL', async () => {
+    const { handler } = createAuthWorker({
+      ...config,
+      database: memoryPrimaryDatabase(),
+      authorizationServer: { resources: [] },
+    });
+    const inserted = await handler(
+      new Request(`${baseURL}/.well-known/oauth-authorization-server/api/auth`),
+    );
+    expect(inserted.status).toBe(200);
+    expect(((await inserted.json()) as { issuer: string }).issuer).toBe(
+      `${baseURL}/api/auth`,
+    );
+  });
+});
+
+describe('Client Registration', () => {
+  const metadataFor = async (
+    clientRegistration: 'manual' | 'dynamic' | 'cimd' | 'dynamic+cimd',
+  ) => {
+    const { handler } = createAuthWorker({
+      ...config,
+      database: memoryPrimaryDatabase(),
+      authorizationServer: {
+        resources: ['https://mcp.example.com/mcp'],
+        clientRegistration,
+      },
+    });
+    const response = await get(
+      handler,
+      '/.well-known/oauth-authorization-server',
+    );
+    const metadata = (await response.json()) as {
+      registration_endpoint?: string;
+      client_id_metadata_document_supported?: boolean;
+    };
+    return { handler, metadata };
+  };
+
+  it('is manual by default: no registration endpoint, no metadata documents', async () => {
+    const { metadata, handler } = await metadataFor('manual');
+    expect(metadata.registration_endpoint).toBeUndefined();
+    expect(metadata.client_id_metadata_document_supported).toBeUndefined();
+    const attempt = await handler(
+      new Request(`${baseURL}/api/auth/oauth2/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          client_name: 'inspector',
+          redirect_uris: ['http://localhost:6274/oauth/callback'],
+          token_endpoint_auth_method: 'none',
+        }),
+      }),
+    );
+    expect(attempt.status).toBeGreaterThanOrEqual(400);
+  });
+
+  const register = (
+    handler: (request: Request) => Promise<Response>,
+    body: Record<string, unknown>,
+  ) =>
+    handler(
+      new Request(`${baseURL}/api/auth/oauth2/register`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    );
+
+  const inspector = {
+    redirect_uris: [
+      'http://localhost:6274/oauth/callback',
+      'http://localhost:6274/oauth/callback/debug',
+    ],
+    token_endpoint_auth_method: 'none',
+    grant_types: ['authorization_code', 'refresh_token'],
+    response_types: ['code'],
+    client_name: 'MCP Inspector',
+    client_uri: 'https://github.com/modelcontextprotocol/inspector',
+  };
+
+  it('dynamic registers an MCP client unauthenticated, as a native app', async () => {
+    const { metadata, handler } = await metadataFor('dynamic');
+    expect(metadata.registration_endpoint).toBe(
+      `${baseURL}/api/auth/oauth2/register`,
+    );
+    expect(metadata.client_id_metadata_document_supported).toBeUndefined();
+    const registered = await register(handler, inspector);
+    expect(registered.status).toBe(201);
+    const client = (await registered.json()) as {
+      client_id: string;
+      client_secret?: string;
+      application_type?: string;
+      redirect_uris: string[];
+    };
+    expect(client.client_id).toBeTruthy();
+    expect(client.client_secret).toBeUndefined();
+    expect(client.application_type).toBe('native');
+    expect(client.redirect_uris).toEqual(inspector.redirect_uris);
+  });
+
+  it('dynamic still holds web clients to https redirects', async () => {
+    const { handler } = await metadataFor('dynamic');
+    const web = await register(handler, {
+      ...inspector,
+      redirect_uris: ['https://app.example.com/callback'],
+    });
+    expect(web.status).toBe(201);
+    expect(
+      ((await web.json()) as { application_type?: string }).application_type,
+    ).toBe('web');
+    const mixed = await register(handler, {
+      ...inspector,
+      redirect_uris: [
+        'http://localhost:6274/oauth/callback',
+        'http://evil.example.com/callback',
+      ],
+    });
+    expect(mixed.status).toBe(400);
+    const declaredWeb = await register(handler, {
+      ...inspector,
+      application_type: 'web',
+    });
+    expect(declaredWeb.status).toBe(400);
+  });
+
+  it('cimd advertises metadata documents without a registration endpoint', async () => {
+    const { metadata } = await metadataFor('cimd');
+    expect(metadata.client_id_metadata_document_supported).toBe(true);
+    expect(metadata.registration_endpoint).toBeUndefined();
+  });
+
+  it('dynamic+cimd advertises both', async () => {
+    const { metadata } = await metadataFor('dynamic+cimd');
+    expect(metadata.client_id_metadata_document_supported).toBe(true);
+    expect(metadata.registration_endpoint).toBe(
+      `${baseURL}/api/auth/oauth2/register`,
+    );
+  });
 });
 
 describe('the pages app', () => {

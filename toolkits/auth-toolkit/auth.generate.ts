@@ -17,7 +17,6 @@ const identity = authModelOptions({
   },
 });
 const authorizationServer = authorizationServerOptions({
-  appName: 'auth-generate-fixture',
   resources: [],
 });
 

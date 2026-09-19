@@ -10,6 +10,7 @@ Pick one phase from the request. Each phase has a primitive in `primitives/`. Fo
 - Creating or updating the auth infrastructure: use `auth-worker`.
 - Adding login to an app: use `client`.
 - Requiring login or a permission on an API: use `server-rpc`.
+- Offering tools to MCP clients behind login: use `mcp-server`.
 
 If a phase needs an earlier one, do that one first and say so.
 
@@ -32,6 +33,10 @@ To guard a group or a request with login, pipe it through `Authz.guard()`. To gu
 If the RPC host does not provide `authzLayer` yet, set that up first.
 
 Who may sign in is decided in the Auth Worker. Who may call an RPC is decided in the app. Whether an app accepts Access Tokens from MCP clients or CLIs is the `resource` on its `resolverLive`; the Auth Worker lists that same URL in `authorizationServer.resources`.
+
+## MCP Server
+
+An MCP Server is a Resource Server that accepts only Access Tokens. `createMcpResourceServer` from `auth-toolkit/server/mcp` wraps the protocol handler: it publishes the Protected Resource Metadata MCP clients follow to the Auth Worker, refuses every request without a valid token for this exact `resource`, and hands the Token Principal to the tools. The Auth Worker lists the resource, the Scopes, and sets `clientRegistration: 'dynamic+cimd'` so clients can register themselves. The `mcp-server` primitive is the template; keep deployed instances identical to it.
 
 ## Verification
 
