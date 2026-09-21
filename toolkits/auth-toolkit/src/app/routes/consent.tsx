@@ -6,9 +6,14 @@ const root = getRouteApi('__root__');
 export const Route = createFileRoute('/consent')({
   ssr: false,
   component: function Consent() {
-    const { branding, authorizationServer } = root.useLoaderData();
+    const { branding, authorizationServer, multiSession } =
+      root.useLoaderData();
     return (
-      <ConsentPage branding={branding} scopes={authorizationServer?.scopes} />
+      <ConsentPage
+        branding={branding}
+        scopes={authorizationServer?.scopes}
+        multiSession={multiSession}
+      />
     );
   },
 });

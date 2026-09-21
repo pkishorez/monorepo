@@ -1,7 +1,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from '#components/ui/avatar';
 
 import { ActionButton, type Action } from '../action-button';
-import { BrandLink, MaskedEmail, type Branding } from '../screen-frame';
+import { MaskedEmail } from '../email-privacy';
+import { BrandLink, type Branding } from '../screen-frame';
 
 export interface UserView {
   name: string;
@@ -24,7 +25,8 @@ export function AccountHeader({
 }: {
   branding: Branding;
   user: UserView;
-  onSignOut: Action;
+  /** Absent when the account switcher owns sign-out. */
+  onSignOut: Action | undefined;
 }) {
   const name = user.name || user.email;
   return (
@@ -45,14 +47,16 @@ export function AccountHeader({
             </p>
           ) : null}
         </div>
-        <ActionButton
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          action={onSignOut}
-        >
-          Sign out
-        </ActionButton>
+        {onSignOut ? (
+          <ActionButton
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            action={onSignOut}
+          >
+            Sign out
+          </ActionButton>
+        ) : null}
       </div>
     </header>
   );

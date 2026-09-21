@@ -1,5 +1,11 @@
 import type { BetterAuthOptions, BetterAuthPlugin } from 'better-auth';
-import { admin, bearer, deviceAuthorization, jwt } from 'better-auth/plugins';
+import {
+  admin,
+  bearer,
+  deviceAuthorization,
+  jwt,
+  multiSession,
+} from 'better-auth/plugins';
 import { cimd } from '@better-auth/cimd';
 import {
   DEFAULT_OAUTH_SCOPES,
@@ -11,7 +17,27 @@ import { grantRevocation } from './plugins/index.js';
 interface AuthModelConfig {
   google: { clientId: string; clientSecret: string };
   cookieCacheMaxAge?: number | undefined;
+  multiSession?: MultiSessionConfig | undefined;
 }
+
+/** Several Signed-in Accounts per browser, switchable from the Auth Worker's
+ * pages. Off unless `enabled` is true: one account per browser, no switcher. */
+export interface MultiSessionConfig {
+  /** @default false */
+  enabled?: boolean | undefined;
+  /** @default 5 */
+  maximumAccounts?: number | undefined;
+}
+
+export const DEFAULT_MAXIMUM_ACCOUNTS = 5;
+
+/** The account limit when Signed-in Accounts are on, else `undefined`. */
+export const multiSessionAccounts = (
+  config: MultiSessionConfig | undefined,
+): number | undefined =>
+  config?.enabled === true
+    ? (config.maximumAccounts ?? DEFAULT_MAXIMUM_ACCOUNTS)
+    : undefined;
 
 export interface ScopeDefinition {
   name: string;
@@ -46,8 +72,11 @@ export const AUTH_PAGES = {
   error: '/error',
 } as const;
 
-export const authModelOptions = (config: AuthModelConfig): BetterAuthOptions =>
-  ({
+export const authModelOptions = (
+  config: AuthModelConfig,
+): BetterAuthOptions => {
+  const maximumAccounts = multiSessionAccounts(config.multiSession);
+  return {
     socialProviders: {
       google: { ...config.google, prompt: 'select_account' },
     },
@@ -69,8 +98,12 @@ export const authModelOptions = (config: AuthModelConfig): BetterAuthOptions =>
       admin(),
       bearer(),
       deviceAuthorization({ verificationUri: AUTH_PAGES.device }),
+      ...(maximumAccounts !== undefined
+        ? [multiSession({ maximumSessions: maximumAccounts })]
+        : []),
     ],
-  }) satisfies BetterAuthOptions;
+  } satisfies BetterAuthOptions;
+};
 
 export const authorizationServerOptions = (
   config: AuthorizationServerConfig,

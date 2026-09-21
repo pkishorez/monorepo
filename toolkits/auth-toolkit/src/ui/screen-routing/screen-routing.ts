@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 
 import { routeFor, type Screen, type Visitor } from './route.js';
 
-export { returnDestination } from './route.js';
+export { ADD_ACCOUNT, RETURN_TO, returnDestination } from './route.js';
 
 const visitorOf = (session: { data: unknown; isPending: boolean }): Visitor =>
   session.isPending ? 'unknown' : session.data ? 'signed-in' : 'signed-out';

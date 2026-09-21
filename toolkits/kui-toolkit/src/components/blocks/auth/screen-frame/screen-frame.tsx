@@ -4,13 +4,14 @@ import { Button } from '#components/ui/button';
 import { Toaster } from '#components/ui/sonner';
 import { cn } from '#lib/utils';
 
+import { AccountSwitcher, type AccountsView } from '../account-switcher';
+import { EmailToggle, MaskedEmail } from '../email-privacy';
 import { BrandLink, type Branding } from './brand';
-import { EmailToggle, MaskedEmail } from './email-privacy';
 import { Loader } from './loader';
 import { ThemeToggle } from './theme-toggle';
 
 export { BrandLink, brandName, type Branding } from './brand';
-export { MaskedEmail, useEmailPrivacy } from './email-privacy';
+export { MaskedEmail, useEmailPrivacy } from '../email-privacy';
 
 const ACCENT =
   '[--primary:var(--sidebar-active-foreground)] [--primary-foreground:var(--sidebar-active)] [--ring:var(--sidebar-active-foreground)]';
@@ -23,7 +24,11 @@ interface ScreenFrameProps {
   header?: ReactNode;
   children?: ReactNode;
   footer?: ReactNode;
-  account?: { email: string; onSignOut: () => void } | undefined;
+  /** Who is acting on this screen. `onSignOut` only where the screen owns
+   * sign-out; with an account switcher present it lives in the switcher. */
+  account?: { email: string; onSignOut?: (() => void) | undefined } | undefined;
+  /** Shown top-right when the deployment allows several Signed-in Accounts. */
+  accounts?: AccountsView | undefined;
 }
 
 export function ScreenFrame({
@@ -35,6 +40,7 @@ export function ScreenFrame({
   children,
   footer,
   account,
+  accounts,
 }: ScreenFrameProps) {
   return (
     <main
@@ -43,7 +49,8 @@ export function ScreenFrame({
         'flex min-h-svh items-center justify-center px-4 pt-16 pb-6 sm:p-6',
       )}
     >
-      <div className="fixed top-4 right-4 z-10 flex gap-1">
+      <div className="fixed top-4 right-4 z-10 flex items-center gap-1">
+        {accounts ? <AccountSwitcher accounts={accounts} /> : null}
         <EmailToggle />
         <ThemeToggle />
       </div>
@@ -81,14 +88,16 @@ export function ScreenFrame({
                   <MaskedEmail email={account.email} />
                 </span>
               </span>
-              <Button
-                variant="link"
-                size="xs"
-                className="relative h-auto shrink-0 p-0 text-xs text-muted-foreground before:absolute before:-inset-2 hover:text-foreground"
-                onClick={account.onSignOut}
-              >
-                Sign out
-              </Button>
+              {account.onSignOut ? (
+                <Button
+                  variant="link"
+                  size="xs"
+                  className="relative h-auto shrink-0 p-0 text-xs text-muted-foreground before:absolute before:-inset-2 hover:text-foreground"
+                  onClick={account.onSignOut}
+                >
+                  Sign out
+                </Button>
+              ) : null}
             </p>
           ) : null}
         </div>
