@@ -1,5 +1,8 @@
 import { oauthProviderClient } from '@better-auth/oauth-provider/client';
-import { deviceAuthorizationClient } from 'better-auth/client/plugins';
+import {
+  deviceAuthorizationClient,
+  multiSessionClient,
+} from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 
 interface Failure {
@@ -12,14 +15,17 @@ type Result<T> = Promise<{ data: T | null; error: Failure | null }>;
 
 type Timestamp = Date | string;
 
+export interface UserRecord {
+  id: string;
+  email: string;
+  name: string;
+  image?: string | null | undefined;
+}
+
 interface SessionState {
   data: {
-    user: {
-      email: string;
-      name: string;
-      image?: string | null | undefined;
-    };
-    session: { id: string };
+    user: UserRecord;
+    session: { id: string; token: string };
   } | null;
   isPending: boolean;
 }
@@ -70,11 +76,24 @@ export interface AuthorizationClient {
     approve: (input: { userCode: string }) => Result<unknown>;
     deny: (input: { userCode: string }) => Result<unknown>;
   };
+  /** Present only when the Auth Worker allows several Signed-in Accounts;
+   * the endpoints 404 otherwise. */
+  multiSession: {
+    listDeviceSessions: () => Result<
+      Array<{ user: UserRecord; session: { id: string; token: string } }>
+    >;
+    setActive: (input: { sessionToken: string }) => Result<unknown>;
+    revoke: (input: { sessionToken: string }) => Result<unknown>;
+  };
 }
 
 export const createAuthorizationClient = (): AuthorizationClient =>
   createAuthClient({
-    plugins: [oauthProviderClient(), deviceAuthorizationClient()],
+    plugins: [
+      oauthProviderClient(),
+      deviceAuthorizationClient(),
+      multiSessionClient(),
+    ],
   });
 
 export class AuthorizationClientError extends Error {

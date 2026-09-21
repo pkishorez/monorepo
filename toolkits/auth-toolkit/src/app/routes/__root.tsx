@@ -26,6 +26,7 @@ const getContext = createServerFn().handler(({ context }) => ({
   branding: context.branding,
   authorizationServer: context.authorizationServer,
   theme: getTheme(),
+  multiSession: context.multiSession,
 }));
 
 type Context = Awaited<ReturnType<typeof getContext>>;

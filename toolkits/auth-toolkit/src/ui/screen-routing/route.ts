@@ -13,6 +13,8 @@ interface Location {
 }
 
 export const RETURN_TO = 'return_to';
+/** Set when a signed-in User is adding another Signed-in Account. */
+export const ADD_ACCOUNT = 'add_account';
 
 const sameOriginPath = (value: string | null) =>
   value?.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\')
@@ -32,8 +34,9 @@ export const routeFor = (
 ): Route => {
   if (visitor === 'unknown') return { kind: 'wait' };
   if (screen === 'login') {
-    const continuing = new URLSearchParams(location.search).has('client_id');
-    return visitor === 'signed-out' || continuing
+    const query = new URLSearchParams(location.search);
+    const staying = query.has('client_id') || query.has(ADD_ACCOUNT);
+    return visitor === 'signed-out' || staying
       ? { kind: 'show' }
       : { kind: 'go', to: returnDestination(location.search) };
   }

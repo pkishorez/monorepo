@@ -14,5 +14,6 @@ export {
   AUTH_PAGES,
   type AuthorizationServerConfig,
   type ClientRegistration,
+  type MultiSessionConfig,
   type ScopeDefinition,
 } from './auth-model.js';

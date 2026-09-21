@@ -219,6 +219,7 @@ export const authWorker = await Cloudflare.Worker('auth-worker', {
 - Swap `database` for `memoryPrimaryDatabase()` in tests. The same migrations run.
 - `d1PrimaryDatabaseResource` applies pending migrations on every `alchemy deploy`.
 - Add `authorizationServer` only when a Third-Party program needs Access Tokens. See [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md).
+- Add `multiSession: { enabled: true }` to let a browser hold several Signed-in Accounts and switch between them from every page. See [ADR 0012](./docs/adr/0012-account-switch-is-browser-wide.md).
 
 ### Guard an Effect RPC on a Consumer Backend
 

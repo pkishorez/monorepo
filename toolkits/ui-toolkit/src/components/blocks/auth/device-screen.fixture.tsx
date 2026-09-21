@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { DeviceScreen, type DeviceState } from './auth-screens';
-import { account, branding, pause } from './fixtures/data';
+import { account, accountsView, branding, pause } from './fixtures/data';
 
 const NOT_WAITING =
   'That code is not waiting for approval. Check it and try again.';
@@ -70,6 +70,20 @@ export default {
       account={account}
       onCheck={quiet}
       onAnswer={quiet}
+    />
+  ),
+  'several Signed-in Accounts': (
+    <DeviceScreen
+      branding={branding}
+      state={{
+        status: 'confirm',
+        userCode: 'WDJB-MJHT',
+        clientId: 'northwind-cli',
+      }}
+      account={{ email: account.email }}
+      accounts={accountsView(3)}
+      onCheck={() => pause()}
+      onAnswer={() => pause(2000)}
     />
   ),
   'enter a code': (

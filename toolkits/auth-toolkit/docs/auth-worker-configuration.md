@@ -19,6 +19,7 @@ inherits whether or not it sets anything. Vocabulary follows
 | `dashApiKey`          | Connects the Worker to Better Auth Infrastructure (Dash). Absent or blank leaves Dash disabled.                                                                                                                            |
 | `validateUser`        | The User Admission Policy. See below.                                                                                                                                                                                      |
 | `authorizationServer` | Turns on the Authorization Server Role. See below.                                                                                                                                                                         |
+| `multiSession`        | Lets a browser hold several Signed-in Accounts. Off unless `enabled` is true. See below.                                                                                                                                   |
 
 ## Always on
 
@@ -60,6 +61,17 @@ authorizationServer: {
 - Access Tokens are JWTs bound to one resource and carry the User's `email` and `name`. Resource Servers verify them locally against the Worker's JWKS, so revoking a Grant stops new tokens but does not recall issued ones. They last one hour, better-auth's default. See [ADR 0007](./adr/0007-access-tokens-are-verified-locally-against-jwks.md).
 - The JWT plugin's `/api/auth/token` route is disabled (404), so a Session cannot mint a JWT for itself. Access Tokens come only from the OAuth provider's token endpoint after consent.
 - The schema always contains the OAuth tables, so turning the role on needs no migration. See [ADR 0008](./adr/0008-the-migration-recipe-is-role-independent.md).
+
+## Signed-in Accounts
+
+```ts
+multiSession: { enabled: true, maximumAccounts: 3 }
+```
+
+- Off by default; `{}` and `{ enabled: false }` also mean off, and every page is then exactly as without the option.
+- `maximumAccounts` caps the Signed-in Accounts per browser, default 5. The account switcher hides "Add another account" at the cap.
+- With it on, every page shows an account switcher top-right: switch in place, add another account, sign out of the active one, or sign out of all. Sign-out moves there from the page bodies.
+- An Account Switch rewrites the session cookie, so it changes the User for every First-Party app on the Shared Cookie Domain at once, and a consumer app's `signOut()` signs out every account. A browser holds one Signed-in Account per User. See [ADR 0012](./adr/0012-account-switch-is-browser-wide.md).
 
 ## Consumer Backend behaviour worth knowing
 

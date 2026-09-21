@@ -15,10 +15,15 @@ import {
   type AuthorizationClient,
 } from '../../client/index.js';
 import { useScreenRoute } from '../../screen-routing/index.js';
+import {
+  useSignedInAccounts,
+  type MultiSessionOptions,
+} from '../../signed-in-accounts/index.js';
 
 interface ConsentPageProps {
   branding: Branding;
   scopes: ScopeDescriptions | undefined;
+  multiSession: MultiSessionOptions | undefined;
 }
 
 const useClientName = (client: AuthorizationClient, clientId: string) =>
@@ -35,10 +40,15 @@ const useClientName = (client: AuthorizationClient, clientId: string) =>
     },
   });
 
-export function ConsentPage({ branding, scopes }: ConsentPageProps) {
+export function ConsentPage({
+  branding,
+  scopes,
+  multiSession,
+}: ConsentPageProps) {
   const client = useMemo(createAuthorizationClient, []);
   const session = client.useSession();
   const show = useScreenRoute('consent', session);
+  const accounts = useSignedInAccounts(client, session.data, multiSession);
   const query = useMemo(pageQuery, []);
   const clientId = query.get('client_id') ?? '';
   const requested = (query.get('scope') ?? '').split(' ').filter(Boolean);
@@ -74,10 +84,11 @@ export function ConsentPage({ branding, scopes }: ConsentPageProps) {
         session.data
           ? {
               email: session.data.user.email,
-              onSignOut: () => void client.signOut(),
+              onSignOut: multiSession ? undefined : () => void client.signOut(),
             }
           : undefined
       }
+      accounts={accounts}
       onAnswer={answer}
     />
   );

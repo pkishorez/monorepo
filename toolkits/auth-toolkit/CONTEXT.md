@@ -21,8 +21,24 @@ The Auth Worker's always-on job: signing Users in and answering "who is this" fo
 _Avoid_: identity provider, IdP (implies a federation protocol the toolkit does not expose)
 
 **Home Page**:
-The Auth Worker's page at `/`. Shows the signed-in User who they are, their Sessions, and their Grants, and lets them revoke any of them. A signed-out visitor is sent to the Login Screen; there is nothing to see.
+The Auth Worker's page at `/`. Shows the Active Account who they are, their Sessions, and their Grants, and lets them revoke any of them. A signed-out visitor is sent to the Login Screen; there is nothing to see.
 _Avoid_: dashboard (collides with better-auth's hosted dashboard), account page
+
+**Session**:
+One signed-in instance of a User with an expiry: one browser or one CLI holding a credential the Identity Role recognises. A User has as many Sessions as places they are signed in. A Session is never a Grant.
+_Avoid_: login (the act, not the record), token (the credential that proves a Session, not the Session itself)
+
+**Signed-in Account**:
+A User who has signed in within this browser and whom the browser can switch to without signing in again. Held by exactly one Session; a browser holds at most one Signed-in Account per User, up to a configured limit.
+_Avoid_: device session (better-auth's term; collides with Device Login), profile, multi-session (implementation name)
+
+**Active Account**:
+The one Signed-in Account the browser currently acts as. Every First-Party web app on the Shared Cookie Domain, and the Consent Screen and Device Screen, see the Active Account and no other.
+_Avoid_: current user, current session (a Session, not an account)
+
+**Account Switch**:
+Making a different Signed-in Account the Active Account. Happens only on the Auth Worker's pages and takes effect in every First-Party web app on the Shared Cookie Domain at once. Signing out a Signed-in Account removes it entirely; there is no "signed out but remembered" state.
+_Avoid_: switch user, set active (the endpoint, not the concept)
 
 **Login Screen**:
 The Auth Worker's page at `/login`. Only ever about signing in: either plainly, or "to continue" when a Third-Party authorization brought the User here. A User who is already signed in and has nothing to continue is sent to the Home Page.

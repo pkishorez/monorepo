@@ -3,7 +3,9 @@ import { dash } from '@better-auth/infra';
 import {
   authModelOptions,
   authorizationServerOptions,
+  multiSessionAccounts,
   type AuthorizationServerConfig,
+  type MultiSessionConfig,
 } from './auth-model.js';
 import { normalizeClientRegistration } from './client-registration.js';
 import {
@@ -26,6 +28,7 @@ interface AuthWorkerConfig {
   trustedOrigins: string[];
   cookieDomain?: string | undefined;
   cookieCacheMaxAge?: number | undefined;
+  multiSession?: MultiSessionConfig | undefined;
   dashApiKey?: string | undefined;
   validateUser?: ValidateUser | undefined;
   authorizationServer?: AuthorizationServerConfig | undefined;
@@ -174,8 +177,11 @@ export const createAuthWorker = (
   }) as Auth<BetterAuthOptions>;
 
   const { authorizationServer: role, branding, pages } = config;
+  const maximumAccounts = multiSessionAccounts(config.multiSession);
   const pagesContext: PagesContext = {
     branding,
+    multiSession:
+      maximumAccounts !== undefined ? { maximumAccounts } : undefined,
     authorizationServer: role
       ? {
           scopes: Object.fromEntries(

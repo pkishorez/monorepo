@@ -19,6 +19,8 @@ export interface PagesContext {
   authorizationServer?:
     | { scopes: Readonly<Record<string, string>> }
     | undefined;
+  /** Present when the browser may hold several Signed-in Accounts. */
+  multiSession?: { maximumAccounts: number } | undefined;
 }
 
 /** Supplied by the built `worker` door; absent when imported from source. */
