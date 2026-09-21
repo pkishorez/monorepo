@@ -88,6 +88,12 @@ Monorepo in place of the project picker. Closing it returns to the canvas
 exactly as it was left. It never adds the Project to the Laymos Tool's own
 list.
 
+**Package README**:
+The `README.md` at a Package's folder root, opened over the canvas by
+right-clicking the Package; links to other markdown files inside the same
+Package open on top of it, one dialog per file.
+_Avoid_: docs, documentation panel
+
 **Package tree**:
 The side list of a Monorepo's Packages grouped under their Package groups,
 mirroring the Laymos architecture tree. Selecting there and selecting on the

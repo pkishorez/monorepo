@@ -55,6 +55,10 @@ import {
   resolvePackageFocus,
 } from '../monorepo-presentation';
 import { PackageDetails } from '../package-details';
+import {
+  PackageReadmeStack,
+  type PackageReadmeDocuments,
+} from '../package-readme';
 import { PackageTree } from '../package-tree';
 
 export type MonoverseLoadError = {
@@ -88,8 +92,21 @@ export type MonoverseProps = {
   // Controlled: which Package is open in Embedded Laymos.
   openPackage?: string | null;
   onOpenPackageChange?: (name: string | null) => void;
+  // Controlled: the Package README stack (relative paths, bottom first) open
+  // over the canvas for the selected Package.
+  readmeStack?: readonly string[];
+  onReadmeStackChange?: (stack: readonly string[]) => void;
+  // Selects the Package and opens its README in one step. Defaults to doing
+  // both through the two callbacks above.
+  onOpenReadme?: (name: string) => void;
+  // The host loads each stacked file; a missing entry shows as loading.
+  readmeDocuments?: PackageReadmeDocuments;
   className?: string;
 };
+
+const packageReadmePath = 'README.md';
+const noDocuments: PackageReadmeDocuments = {};
+const noReadmeStack: readonly string[] = [];
 
 type LoadState =
   | { readonly kind: 'loading' }
@@ -105,6 +122,10 @@ export function Monoverse({
   onSelectedPackageChange,
   openPackage: controlledOpen,
   onOpenPackageChange,
+  readmeStack: controlledReadmeStack,
+  onReadmeStackChange,
+  onOpenReadme,
+  readmeDocuments = noDocuments,
   className,
 }: MonoverseProps) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
@@ -122,8 +143,18 @@ export function Monoverse({
   const [selected, setSelected] = useControllable(
     controlledSelected,
     onSelectedPackageChange,
+    null,
   );
-  const [open, setOpen] = useControllable(controlledOpen, onOpenPackageChange);
+  const [open, setOpen] = useControllable(
+    controlledOpen,
+    onOpenPackageChange,
+    null,
+  );
+  const [readmeStack, setReadmeStack] = useControllable(
+    controlledReadmeStack,
+    onReadmeStackChange,
+    noReadmeStack,
+  );
 
   useComponentLifecycle(
     Effect.suspend(loadAnalysis).pipe(
@@ -230,6 +261,15 @@ export function Monoverse({
   const openLaymos = (name: string) => {
     if (byName.get(name)?.hasLaymos) setOpen(name);
   };
+  const openReadme = (name: string) => {
+    if (!byName.has(name)) return;
+    if (onOpenReadme !== undefined) {
+      onOpenReadme(name);
+      return;
+    }
+    setSelected(name);
+    setReadmeStack([packageReadmePath]);
+  };
 
   const canvas = (
     <MonorepoCanvas
@@ -242,6 +282,7 @@ export function Monoverse({
       onHoverChange={setHoveredPackage}
       onSelect={setSelected}
       onOpenLaymos={openLaymos}
+      onOpenReadme={openReadme}
       onInspect={isMobile ? () => setInspectorOpen(true) : undefined}
     />
   );
@@ -268,6 +309,7 @@ export function Monoverse({
         pkg={selectedPkg}
         onSelect={setSelected}
         onOpenLaymos={openLaymos}
+        onOpenReadme={openReadme}
       />
     );
 
@@ -376,6 +418,15 @@ export function Monoverse({
           })
         }
       />
+      {selectedPkg !== undefined && readmeStack.length > 0 && (
+        <PackageReadmeStack
+          pkg={selectedPkg}
+          stack={readmeStack}
+          documents={readmeDocuments}
+          onPush={(path) => setReadmeStack([...readmeStack, path])}
+          onPop={() => setReadmeStack(readmeStack.slice(0, -1))}
+        />
+      )}
     </div>
   );
 }
@@ -498,15 +549,16 @@ export function MonoverseHeader({
   );
 }
 
-function useControllable(
-  controlled: string | null | undefined,
-  onChange: ((name: string | null) => void) | undefined,
-): [string | null, (name: string | null) => void] {
-  const [internal, setInternal] = useState<string | null>(null);
+function useControllable<T>(
+  controlled: T | undefined,
+  onChange: ((value: T) => void) | undefined,
+  initial: T,
+): [T, (value: T) => void] {
+  const [internal, setInternal] = useState<T>(initial);
   const value = controlled === undefined ? internal : controlled;
-  const set = (name: string | null) => {
-    if (controlled === undefined) setInternal(name);
-    onChange?.(name);
+  const set = (next: T) => {
+    if (controlled === undefined) setInternal(next);
+    onChange?.(next);
   };
   return [value, set];
 }
@@ -526,3 +578,7 @@ export type {
   PackageCycleViolation,
   PackageDependency,
 } from '../analysis';
+export type {
+  PackageReadmeDocument,
+  PackageReadmeDocuments,
+} from '../package-readme';

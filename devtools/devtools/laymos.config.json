@@ -99,6 +99,7 @@
         "src/server/get-laymos-module-source",
         "src/server/get-laymos-source-files",
         "src/server/get-laymos-stories",
+        "src/server/get-package-readme",
         "src/server/run-laymos-stories",
         "src/server/flow-store",
         "src/server/project-registry",
@@ -128,6 +129,9 @@
           "shared": true
         },
         "src/server/get-laymos-stories": {
+          "shared": true
+        },
+        "src/server/get-package-readme": {
           "shared": true
         },
         "src/server/run-laymos-stories": {

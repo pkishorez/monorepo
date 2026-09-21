@@ -17,13 +17,6 @@ import { useMemo } from 'react';
 import type { DependencyKind, Package } from '../analysis';
 
 import { Layers, TriangleAlert } from '#lib/lucide';
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '#components/ui/context-menu';
 import { cn } from '#lib/utils';
 
 import {
@@ -62,9 +55,6 @@ export interface PackageNodeData extends Record<string, unknown> {
   readonly emphasis: PackageEmphasis;
   readonly focused: boolean;
   readonly selected: boolean;
-  readonly onHoverChange: (name: string | null) => void;
-  readonly onSelect: (name: string | null) => void;
-  readonly onOpenLaymos: (name: string) => void;
 }
 
 export interface RankContainerNodeData extends Record<string, unknown> {
@@ -86,6 +76,8 @@ interface MonorepoCanvasProps {
   readonly onHoverChange: (name: string | null) => void;
   readonly onSelect: (name: string | null) => void;
   readonly onOpenLaymos: (name: string) => void;
+  // Right-click opens the Package README over the canvas.
+  readonly onOpenReadme: (name: string) => void;
   // Compact screens: a double-tap selects the Package and opens the host's
   // details sheet instead of Embedded Laymos, which stays one tap away there.
   readonly onInspect?: () => void;
@@ -114,6 +106,7 @@ function Canvas({
   onHoverChange,
   onSelect,
   onOpenLaymos,
+  onOpenReadme,
   onInspect,
   className,
 }: MonorepoCanvasProps) {
@@ -151,9 +144,6 @@ function Canvas({
         emphasis: packageEmphasis(focus, name),
         focused: focus.focusedPackage === name,
         selected: selectedPackage === name,
-        onHoverChange,
-        onSelect,
-        onOpenLaymos,
       },
     })),
   ];
@@ -240,6 +230,12 @@ function Canvas({
             return;
           }
           if (laymosByName.get(node.id)) onOpenLaymos(node.id);
+        }}
+        onNodeContextMenu={(event, node) => {
+          event.preventDefault();
+          if (node.type !== 'package') return;
+          onHoverChange(null);
+          onOpenReadme(node.id);
         }}
         onNodeMouseEnter={(_, node) => {
           if (node.type === 'package') onHoverChange(node.id);
@@ -355,7 +351,7 @@ function RankContainerNode({ data }: NodeProps<RankContainerGraphNode>) {
   );
 }
 
-function PackageNode({ id, data }: NodeProps<PackageGraphNode>) {
+function PackageNode({ data }: NodeProps<PackageGraphNode>) {
   const { decoration, emphasis } = data;
   const groupColor = `oklch(0.72 0.14 ${decoration.groupHue})`;
 
@@ -377,82 +373,55 @@ function PackageNode({ id, data }: NodeProps<PackageGraphNode>) {
         position={Position.Bottom}
         className="!size-1 !border-0 !bg-transparent"
       />
-      <ContextMenu>
-        <ContextMenuTrigger
-          className={cn(
-            'nodrag flex h-full w-full cursor-pointer flex-col justify-center gap-1 rounded-lg border border-border bg-card px-3 text-card-foreground shadow-sm outline-none transition-[border-color,background-color,box-shadow] duration-200',
-            emphasis === 'emphasized' &&
-              !data.focused &&
-              'border-primary/70 bg-primary/5',
-            data.focused &&
-              !data.selected &&
-              'border-primary ring-2 ring-primary/25',
-            data.selected && selectedNodeClass,
-            decoration.inCycle &&
-              !data.focused &&
-              !data.selected &&
-              'border-destructive/70 ring-2 ring-destructive/20',
-          )}
-          title={
-            decoration.hasLaymos
-              ? 'Double-click or right-click to open in Laymos'
-              : undefined
-          }
-        >
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold">
-              {data.label}
-            </span>
-            {decoration.inCycle && (
-              <TriangleAlert
-                className="size-3.5 shrink-0 text-destructive"
-                aria-label="Package cycle violation"
-              />
-            )}
-            {decoration.hasLaymos && (
-              <Layers
-                className="size-3.5 shrink-0 text-primary"
-                aria-label="Laymos badge"
-              />
-            )}
-          </div>
-          <span
-            className="inline-flex w-fit items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium leading-4"
-            style={{
-              borderColor: `color-mix(in oklch, ${groupColor} 45%, transparent)`,
-              color: groupColor,
-              backgroundColor: `color-mix(in oklch, ${groupColor} 10%, transparent)`,
-            }}
-          >
-            {decoration.group}
+      <div
+        className={cn(
+          'nodrag flex h-full w-full cursor-pointer flex-col justify-center gap-1 rounded-lg border border-border bg-card px-3 text-card-foreground shadow-sm outline-none transition-[border-color,background-color,box-shadow] duration-200',
+          emphasis === 'emphasized' &&
+            !data.focused &&
+            'border-primary/70 bg-primary/5',
+          data.focused &&
+            !data.selected &&
+            'border-primary ring-2 ring-primary/25',
+          data.selected && selectedNodeClass,
+          decoration.inCycle &&
+            !data.focused &&
+            !data.selected &&
+            'border-destructive/70 ring-2 ring-destructive/20',
+        )}
+        title={
+          decoration.hasLaymos
+            ? 'Double-click to open in Laymos. Right-click for the README.'
+            : 'Right-click for the README'
+        }
+      >
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 flex-1 truncate font-mono text-xs font-semibold">
+            {data.label}
           </span>
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
+          {decoration.inCycle && (
+            <TriangleAlert
+              className="size-3.5 shrink-0 text-destructive"
+              aria-label="Package cycle violation"
+            />
+          )}
           {decoration.hasLaymos && (
-            <>
-              <ContextMenuItem
-                onClick={() => {
-                  data.onHoverChange(null);
-                  data.onOpenLaymos(id);
-                }}
-              >
-                <Layers />
-                Open in Laymos
-              </ContextMenuItem>
-              <ContextMenuSeparator />
-            </>
+            <Layers
+              className="size-3.5 shrink-0 text-primary"
+              aria-label="Laymos badge"
+            />
           )}
-          {data.selected ? (
-            <ContextMenuItem onClick={() => data.onSelect(null)}>
-              Clear focus
-            </ContextMenuItem>
-          ) : (
-            <ContextMenuItem onClick={() => data.onSelect(id)}>
-              Focus
-            </ContextMenuItem>
-          )}
-        </ContextMenuContent>
-      </ContextMenu>
+        </div>
+        <span
+          className="inline-flex w-fit items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium leading-4"
+          style={{
+            borderColor: `color-mix(in oklch, ${groupColor} 45%, transparent)`,
+            color: groupColor,
+            backgroundColor: `color-mix(in oklch, ${groupColor} 10%, transparent)`,
+          }}
+        >
+          {decoration.group}
+        </span>
+      </div>
     </div>
   );
 }
