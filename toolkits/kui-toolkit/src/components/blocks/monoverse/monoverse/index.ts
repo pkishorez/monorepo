@@ -8,5 +8,7 @@ export type {
   LoadMonorepoAnalysis,
   MonoverseLoadError,
   MonoverseProps,
+  PackageReadmeDocument,
+  PackageReadmeDocuments,
   RenderLaymos,
 } from './monoverse';

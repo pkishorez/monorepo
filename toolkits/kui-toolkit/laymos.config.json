@@ -315,6 +315,7 @@
             "monorepo-canvas": {},
             "package-tree": {},
             "package-details": {},
+            "package-readme": {},
             "laymos-drilldown": {},
             "analysis.ts": {}
           },
@@ -324,6 +325,7 @@
               "monorepo-canvas",
               "package-tree",
               "package-details",
+              "package-readme",
               "laymos-drilldown",
               "analysis.ts"
             ],
@@ -331,6 +333,7 @@
             "package-tree": ["monorepo-presentation", "analysis.ts"],
             "package-details": ["monorepo-presentation", "analysis.ts"],
             "monorepo-presentation": ["analysis.ts"],
+            "package-readme": ["analysis.ts"],
             "laymos-drilldown": ["analysis.ts"]
           }
         }

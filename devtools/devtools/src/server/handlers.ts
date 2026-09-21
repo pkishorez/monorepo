@@ -10,6 +10,7 @@ import { getLaymosDocumentation } from './get-laymos-documentation/index.js';
 import { getLaymosModuleSource } from './get-laymos-module-source/index.js';
 import { getLaymosSourceFiles } from './get-laymos-source-files/index.js';
 import { getLaymosStories } from './get-laymos-stories/index.js';
+import { getPackageReadme } from './get-package-readme/index.js';
 import { runLaymosStories } from './run-laymos-stories/index.js';
 
 export const DevtoolsHandlersLive = DevtoolsToolRpc.toLayer({
@@ -32,4 +33,6 @@ export const DevtoolsHandlersLive = DevtoolsToolRpc.toLayer({
 
 export const MonoverseHandlersLive = MonoverseRpc.toLayer({
   AnalyzeMonorepo: ({ monorepoPath }) => analyzeMonorepo(monorepoPath),
+  GetPackageReadme: ({ monorepoRoot, packagePath, relativePath }) =>
+    getPackageReadme(monorepoRoot, packagePath, relativePath),
 });

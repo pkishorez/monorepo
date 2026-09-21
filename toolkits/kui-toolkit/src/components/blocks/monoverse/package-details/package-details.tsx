@@ -1,6 +1,6 @@
 import type { MonorepoAnalysis, Package } from '../analysis';
 
-import { Layers, Lock, TriangleAlert } from '#lib/lucide';
+import { BookOpen, Layers, Lock, TriangleAlert } from '#lib/lucide';
 import { Badge } from '#components/ui/badge';
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
@@ -17,6 +17,7 @@ interface PackageDetailsProps {
   readonly pkg: Package;
   readonly onSelect: (name: string | null) => void;
   readonly onOpenLaymos: (name: string) => void;
+  readonly onOpenReadme: (name: string) => void;
   readonly className?: string;
 }
 
@@ -25,6 +26,7 @@ export function PackageDetails({
   pkg,
   onSelect,
   onOpenLaymos,
+  onOpenReadme,
   className,
 }: PackageDetailsProps) {
   const relations = packageRelations(analysis, pkg.name);
@@ -37,6 +39,16 @@ export function PackageDetails({
           <h3 className="min-w-0 flex-1 break-all font-mono text-sm font-semibold">
             {pkg.name}
           </h3>
+          <Button
+            size="xs"
+            variant="outline"
+            aria-label="Open README"
+            title="Open README"
+            onClick={() => onOpenReadme(pkg.name)}
+          >
+            <BookOpen />
+            README
+          </Button>
           {pkg.hasLaymos && (
             <Button
               size="xs"

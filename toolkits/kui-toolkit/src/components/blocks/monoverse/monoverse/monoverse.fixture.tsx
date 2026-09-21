@@ -1,7 +1,11 @@
 import { Effect } from 'effect';
 import type { MonorepoAnalysis, Package } from '../analysis';
 
-import { Monoverse, type RenderLaymos } from './monoverse';
+import {
+  Monoverse,
+  type PackageReadmeDocuments,
+  type RenderLaymos,
+} from './monoverse';
 
 function pkg(
   name: string,
@@ -86,6 +90,26 @@ const renderLaymos: RenderLaymos = ({ projectPath, pkg: target }) => (
   </div>
 );
 
+const readmeDocuments: PackageReadmeDocuments = {
+  'README.md': {
+    kind: 'ready',
+    markdown: [
+      '# Package README',
+      '',
+      'Right-click any Package to open this. Relative markdown links stack:',
+      '[eschema](src/eschema/README.md), [core](src/core/README.md).',
+      '',
+      'Other links open elsewhere: [source](src/index.ts),',
+      '[the web](https://example.com).',
+    ].join('\n'),
+  },
+  'src/eschema/README.md': {
+    kind: 'ready',
+    markdown: '# eschema\n\nSibling: [core](../core/README.md).',
+  },
+  'src/core/README.md': { kind: 'missing' },
+};
+
 function Frame({ children }: { readonly children: React.ReactNode }) {
   return (
     <div className="flex h-screen flex-col bg-muted/20 p-6">{children}</div>
@@ -100,6 +124,7 @@ export default {
         monorepoPath="/repo"
         loadAnalysis={() => Effect.succeed(analysis)}
         renderLaymos={renderLaymos}
+        readmeDocuments={readmeDocuments}
       />
     </Frame>
   ),

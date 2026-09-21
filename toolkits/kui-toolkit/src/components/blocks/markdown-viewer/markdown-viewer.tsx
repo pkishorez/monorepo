@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import type { ComponentProps, MouseEvent } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -9,15 +9,31 @@ import { cn } from '#lib/utils';
 export function MarkdownViewer({
   children,
   className,
+  onLinkClick,
 }: {
   readonly children: string;
   readonly className?: string;
+  // Return true to take over the navigation for that href.
+  readonly onLinkClick?: (href: string) => boolean | void;
 }) {
   return (
     <div className={cn('prose dark:prose-invert max-w-none', className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          a: ({ href, children, node: _node, ...rest }) => (
+            <a
+              href={href}
+              {...rest}
+              onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+                if (href !== undefined && onLinkClick?.(href) === true) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              {children}
+            </a>
+          ),
           pre: ({ children }) => <>{children}</>,
           code: MarkdownCode,
           table: ({ children }) => (

@@ -277,6 +277,18 @@ const flowRoute = createRoute({
   }),
   component: Flow,
 });
+// The Package README stack: one relative path per open dialog, bottom first.
+function readmeStack(value: unknown): readonly string[] | undefined {
+  if (typeof value === 'string') return [value];
+  if (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((entry) => typeof entry === 'string')
+  ) {
+    return value;
+  }
+  return undefined;
+}
 const monoverseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/monoverse',
@@ -284,6 +296,7 @@ const monoverseRoute = createRoute({
     monorepo: typeof search.monorepo === 'string' ? search.monorepo : undefined,
     package: typeof search.package === 'string' ? search.package : undefined,
     laymos: typeof search.laymos === 'string' ? search.laymos : undefined,
+    readme: readmeStack(search.readme),
   }),
   component: Monoverse,
 });
