@@ -6,9 +6,14 @@ const root = getRouteApi('__root__');
 export const Route = createFileRoute('/')({
   ssr: false,
   component: function Home() {
-    const { branding, authorizationServer } = root.useLoaderData();
+    const { branding, authorizationServer, multiSession } =
+      root.useLoaderData();
     return (
-      <HomePage branding={branding} scopes={authorizationServer?.scopes} />
+      <HomePage
+        branding={branding}
+        scopes={authorizationServer?.scopes}
+        multiSession={multiSession}
+      />
     );
   },
 });

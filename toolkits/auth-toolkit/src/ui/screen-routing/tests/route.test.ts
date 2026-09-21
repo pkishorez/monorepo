@@ -57,6 +57,14 @@ describe('routeFor', () => {
   });
 });
 
+describe('routeFor, adding an account', () => {
+  it('keeps a signed-in User on the Login Screen while adding another account', () => {
+    expect(
+      routeFor('login', 'signed-in', at('/login?add_account=1&return_to=%2F')),
+    ).toEqual({ kind: 'show' });
+  });
+});
+
 describe('returnDestination', () => {
   it('only returns to paths on this origin', () => {
     expect(returnDestination('?return_to=%2Fdevice')).toBe('/device');

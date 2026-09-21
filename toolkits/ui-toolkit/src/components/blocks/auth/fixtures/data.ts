@@ -1,8 +1,10 @@
 import type {
+  AccountsView,
   Branding,
   GrantView,
   ScopeDescriptions,
   SessionView,
+  SignedInAccount,
   UserView,
 } from '../auth-screens';
 
@@ -97,3 +99,32 @@ export const account = {
   email: user.email,
   onSignOut: () => undefined,
 };
+
+export const signedInAccounts: SignedInAccount[] = [
+  { id: 'a-ada', name: 'Ada Lovelace', email: 'ada@northwind.dev' },
+  { id: 'a-work', name: 'Ada Lovelace', email: 'ada.lovelace@numastays.com' },
+  { id: 'a-nameless', name: '', email: 'ops@northwind.dev' },
+  {
+    id: 'a-charles',
+    name: 'Charles Babbage',
+    email: 'charles.babbage@analytical-engines.example.org',
+  },
+  { id: 'a-mary', name: 'Mary Somerville', email: 'mary@northwind.dev' },
+];
+
+const noop = () => undefined;
+
+/** Static switcher props: every action waits, nothing changes. */
+export const accountsView = (
+  count: number,
+  overrides: Partial<AccountsView> = {},
+): AccountsView => ({
+  active: signedInAccounts[0]!,
+  others: signedInAccounts.slice(1, count),
+  canAdd: count < 5,
+  onSwitch: () => pause(),
+  onAdd: noop,
+  onSignOut: () => pause(),
+  onSignOutAll: () => pause(),
+  ...overrides,
+});
