@@ -141,7 +141,6 @@
             "trace-list": {},
             "trace-dock": {},
             "waterfall-view": {},
-            "parallel-view": {},
             "narrative-view": {},
             "span-inspection": {}
           },
@@ -164,16 +163,10 @@
               "trace-model",
               "trace-presentation",
               "waterfall-view",
-              "parallel-view",
               "narrative-view",
               "span-inspection"
             ],
             "waterfall-view": ["trace-model", "trace-presentation"],
-            "parallel-view": [
-              "trace-model",
-              "trace-presentation",
-              "waterfall-view"
-            ],
             "narrative-view": ["trace-model", "trace-presentation"],
             "span-inspection": ["trace-model", "trace-presentation"]
           }
