@@ -7,4 +7,5 @@ export {
   type AuthorizationClient,
   type GrantRecord,
   type SessionRecord,
+  type UserRecord,
 } from './client.js';

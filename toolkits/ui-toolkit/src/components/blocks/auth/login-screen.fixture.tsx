@@ -1,5 +1,5 @@
 import { LoginScreen } from './auth-screens';
-import { branding, pause, plainBranding } from './fixtures/data';
+import { accountsView, branding, pause, plainBranding } from './fixtures/data';
 
 const signIn = () => pause(2000);
 
@@ -33,6 +33,14 @@ export default {
         continuing: true,
         error: 'The app sent an invalid request. Go back and try again.',
       }}
+      onSignIn={signIn}
+    />
+  ),
+  'add another account': (
+    <LoginScreen
+      branding={branding}
+      state={{ status: 'ready', continuing: false, adding: true }}
+      accounts={accountsView(2)}
       onSignIn={signIn}
     />
   ),

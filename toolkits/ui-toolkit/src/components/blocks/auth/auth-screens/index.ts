@@ -5,6 +5,7 @@ export {
   HomeScreen,
   LoginScreen,
   NotFoundScreen,
+  type AccountsView,
   type Branding,
   type ConsentState,
   type DeviceState,
@@ -13,5 +14,6 @@ export {
   type LoginState,
   type ScopeDescriptions,
   type SessionView,
+  type SignedInAccount,
   type UserView,
 } from './auth-screens';

@@ -13,6 +13,15 @@ import {
   type AuthorizationClient,
 } from '../../client/index.js';
 import { useScreenRoute } from '../../screen-routing/index.js';
+import {
+  useSignedInAccounts,
+  type MultiSessionOptions,
+} from '../../signed-in-accounts/index.js';
+
+interface DevicePageProps {
+  branding: Branding;
+  multiSession: MultiSessionOptions | undefined;
+}
 
 const NOT_WAITING =
   'That code is not waiting for approval. Check it and try again.';
@@ -29,10 +38,11 @@ const lookUp = async (client: AuthorizationClient, raw: string) => {
   return { userCode, clientId: found.client_id ?? 'Unknown device' };
 };
 
-export function DevicePage({ branding }: { branding: Branding }) {
+export function DevicePage({ branding, multiSession }: DevicePageProps) {
   const client = useMemo(createAuthorizationClient, []);
   const session = client.useSession();
   const show = useScreenRoute('device', session);
+  const accounts = useSignedInAccounts(client, session.data, multiSession);
   const [prefilled] = useState(() => pageQuery().get('user_code') ?? '');
   const [step, setStep] = useState<DeviceState>(
     prefilled ? { status: 'loading' } : { status: 'enter' },
@@ -115,10 +125,11 @@ export function DevicePage({ branding }: { branding: Branding }) {
         session.data
           ? {
               email: session.data.user.email,
-              onSignOut: () => void client.signOut(),
+              onSignOut: multiSession ? undefined : () => void client.signOut(),
             }
           : undefined
       }
+      accounts={accounts}
       onCheck={check}
       onAnswer={answer}
     />

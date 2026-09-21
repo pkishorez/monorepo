@@ -8,17 +8,23 @@ import { useMemo } from 'react';
 
 import { createAuthorizationClient } from '../../client/index.js';
 import { useScreenRoute } from '../../screen-routing/index.js';
+import {
+  useSignedInAccounts,
+  type MultiSessionOptions,
+} from '../../signed-in-accounts/index.js';
 import { useUserAccess } from '../../user-access/index.js';
 
 interface HomePageProps {
   branding: Branding;
   scopes: ScopeDescriptions | undefined;
+  multiSession: MultiSessionOptions | undefined;
 }
 
-export function HomePage({ branding, scopes }: HomePageProps) {
+export function HomePage({ branding, scopes, multiSession }: HomePageProps) {
   const client = useMemo(createAuthorizationClient, []);
   const session = client.useSession();
   const show = useScreenRoute('home', session);
+  const accounts = useSignedInAccounts(client, session.data, multiSession);
   const access = useUserAccess(client, {
     currentSessionId: session.data?.session.id,
     grants: scopes !== undefined,
@@ -45,7 +51,8 @@ export function HomePage({ branding, scopes }: HomePageProps) {
       branding={branding}
       state={state}
       scopeDescriptions={scopes}
-      onSignOut={() => client.signOut()}
+      accounts={accounts}
+      onSignOut={accounts ? accounts.onSignOut : () => client.signOut()}
       onReauthenticate={() =>
         client.signIn.social({
           provider: 'google',

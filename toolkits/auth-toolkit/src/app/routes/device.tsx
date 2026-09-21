@@ -5,5 +5,8 @@ const root = getRouteApi('__root__');
 
 export const Route = createFileRoute('/device')({
   ssr: false,
-  component: () => <DevicePage branding={root.useLoaderData().branding} />,
+  component: function Device() {
+    const { branding, multiSession } = root.useLoaderData();
+    return <DevicePage branding={branding} multiSession={multiSession} />;
+  },
 });
