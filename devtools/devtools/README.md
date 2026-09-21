@@ -1,98 +1,162 @@
 # kstack
 
-The `kstack` CLI runs a local DevTools Server for inspecting OpenTelemetry
-data and Laymos project architecture, and reads the telemetry back through
-Client Commands.
+kstack CLI: the local DevTools server and its telemetry Client Commands
+
+## Big picture
+
+Local development produces traces, logs, and Flow Journals, and a project's
+architecture lives in a `laymos.config.json`. kstack gives all of that one
+place. `kstack devtools` starts a loopback server that bundles the browser UI,
+a typed RPC endpoint, and OTLP/HTTP ingestion. Every other subcommand is a
+Client Command that reads Traces and Flows back from a running server as JSON
+or text, so a shell or a coding agent can query telemetry without a browser.
+
+The server hosts four Tools. Lotel stores and shows OpenTelemetry data using
+[@pkishorez/lotel](../lotel/README.md). Flow stores Journal Entries from
+[@pkishorez/flow](../flow/README.md) and draws them as swim lanes. Laymos and
+Monoverse analyze one project or one pnpm monorepo through
+[laymos](../laymos/README.md). Applications send telemetry with
+[@pkishorez/effect-tracer](../effect-tracer/README.md).
+
+Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
+[docs/monoverse.md](./docs/monoverse.md). Decisions are in
+[docs/adr/](./docs/adr/). The agent skill shipped with the package is in
+[skills/devtools/SKILL.md](./skills/devtools/SKILL.md).
+
+## Install
+
+```sh
+npm i -g kstack
+```
+
+Or run it without installing: `npx kstack devtools`.
+
+kstack has no peer dependencies. The `kstack/rpc` subpath is source
+TypeScript and needs `effect` in the consuming project.
+
+## Exports
+
+### `kstack/rpc`
+
+The RPC contract the server fulfils and the browser and Client Commands call.
+It merges the Lotel, Flow, Laymos, Monoverse, and Project registry groups.
+
+| Export                             | What it does                                                                                              |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `DevtoolsRpc`                      | The full RPC group served at `/rpc`.                                                                      |
+| `DevtoolsToolRpc`                  | The Laymos procedures: analyze, module source, source files, docs, branches, changes, file diff, stories. |
+| `MonoverseRpc`                     | The `AnalyzeMonorepo` and `GetPackageReadme` procedures.                                                  |
+| `ProjectRegistryRpc`               | List, add, update, remove registered Projects and resolve their Worktrees.                                |
+| `InvalidProjectPath`               | Error for a relative, missing, or non-directory project path.                                             |
+| `ConfigReadError`                  | Error when `laymos.config.json` could not be read.                                                        |
+| `ConfigParseError`                 | Error when the config is not valid JSON.                                                                  |
+| `ConfigSchemaError`                | Error when the config does not match the schema.                                                          |
+| `ConfigValidationError`            | Error carrying the config's validation issues.                                                            |
+| `SourceAnalysisError`              | Error when the source tree could not be analyzed.                                                         |
+| `ModuleSourceNotFoundError`        | Error for an unknown Configured Module.                                                                   |
+| `ModuleSourceReadError`            | Error when a Module's file could not be read.                                                             |
+| `SourceFileReadError`              | Error when a requested source file could not be read.                                                     |
+| `DocumentationScopeNotFoundError`  | Error for a documentation scope the config does not declare.                                              |
+| `DocumentationReadError`           | Error when a docs markdown file could not be read.                                                        |
+| `StoriesUnavailableError`          | Error when the Story tree could not be loaded, with the reason.                                           |
+| `GitUnavailableError`              | Error when the project is not a repository or git failed.                                                 |
+| `InvalidMonorepoPathError`         | Error for a relative, missing, or non-directory monorepo path.                                            |
+| `NotPnpmWorkspaceError`            | Error when the folder has no `pnpm-workspace.yaml`.                                                       |
+| `MonorepoReadFailure`              | Error when workspace or manifest files could not be read or parsed.                                       |
+| `PackageReadmeNotFoundError`       | Error when the requested markdown file does not exist in the Package.                                     |
+| `PackageReadmeOutsidePackageError` | Error when the relative path escapes the Package folder.                                                  |
+| `PackageReadmeReadError`           | Error when the markdown file could not be read.                                                           |
+| `ProjectRegistryError`             | Error for a missing entry, an invalid path, or a store failure.                                           |
+| `RegistryToolSchema`               | `monoverse` or `laymos`: which Tool a registry entry belongs to.                                          |
+| `ProjectEntrySchema`               | One registered Project with its Worktree resolution.                                                      |
+| `ProjectEntryEntitySchema`         | The stored form of a registry entry.                                                                      |
+| `WorktreeSchema`                   | One git Worktree of a repository.                                                                         |
+| `WorktreeResolutionSchema`         | Every Worktree of the Project's repository and which one it is in.                                        |
+| `FlowEntryEntitySchema`            | How the Flow Store keeps one Entry, keyed by id and indexed by Flow id.                                   |
+| `FlowEntryListSchema`              | A page of stored Flow Entries.                                                                            |
+
+### CLI
+
+| Command                                    | What it does                                                                |
+| ------------------------------------------ | --------------------------------------------------------------------------- |
+| `kstack devtools [--port] [--db] [--open]` | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`. |
+| `kstack list-traces [--limit 20]`          | Lists recent Trace Summaries, newest first.                                 |
+| `kstack get-trace <trace-id>`              | Returns one Trace: spans in start order with their Log Records.             |
+| `kstack list-flows [--limit 20]`           | Lists recent Flows, newest first.                                           |
+| `kstack get-flow <flow-id>`                | Returns one Flow Projection in recorded order.                              |
+| `kstack skills [<name>] [--install <dir>]` | Lists, prints, or installs the shipped agent skill.                         |
+
+Client Commands take `--url` and `--format json|text`. The server URL comes
+from `--url`, then `DEVTOOLS_URL`, then `DEVTOOLS_PORT` on `127.0.0.1`, then
+`http://127.0.0.1:14400`. `kstack devtools` reads `DEVTOOLS_PORT` and
+`DEVTOOLS_DB` when the flags are absent.
 
 ## Usage
 
-Start the DevTools Server with `npx`:
+### Start the server and send telemetry to it
 
-```bash
-npx kstack devtools
+Run the server, then point an application's telemetry layer at it. Traces,
+logs, and Flow Entries from every process land in one SQLite file.
+
+```sh
+kstack devtools --open
+# devtools running on http://127.0.0.1:14400
 ```
 
-Or install it globally and run the `kstack` command:
+```ts
+import { Effect, Layer, ManagedRuntime } from 'effect';
+import { makeDevTelemetryLayer } from '@pkishorez/effect-tracer/telemetry/dev-telemetry';
+import { FlowTelemetry } from '@pkishorez/flow';
 
-```bash
-npm i -g kstack
-kstack devtools
+const endpoint = 'http://127.0.0.1:14400';
+
+// One runtime per process; each names itself so lanes stay apart.
+const runtimeFor = (origin: string) =>
+  ManagedRuntime.make(
+    Layer.merge(
+      FlowTelemetry.layer({ endpoint, origin }),
+      makeDevTelemetryLayer({ endpoint, serviceName: origin }),
+    ),
+  );
+
+const server = runtimeFor('server:api-1');
+
+await server.runPromise(
+  Effect.log('order accepted').pipe(Effect.withSpan('handle-order')),
+);
+
+// Disposing drains the last batch.
+await server.dispose();
 ```
 
-`kstack` on its own prints help. `kstack devtools` serves its bundled home
-page at `http://127.0.0.1:14400`. From there, open:
+How it works:
 
-- `/lotel` to inspect local OpenTelemetry traces and logs.
-- `/flow` to inspect Flow Journals as swim lanes, export them, and merge
-  journals recorded by different clients.
-- `/laymos` to explore the architecture of a local project.
+- The server listens on loopback only and serves `/`, `/lotel`, `/flow`,
+  `/laymos`, `/monoverse`, `/rpc`, `/health`, `/v1/traces`, and `/v1/logs`.
+- `makeDevTelemetryLayer` posts OTLP/HTTP JSON to `/v1/traces` and `/v1/logs`.
+- `FlowTelemetry.layer` posts Flow Entries to `/rpc`; Entries recorded inside
+  a span carry its trace id, so the Flow view links to the trace.
 
-The same loopback server exposes its NDJSON RPC endpoint at `/rpc`, its health
-endpoint at `/health`, and its OTLP/HTTP ingestion endpoints at `/v1/traces`
-and `/v1/logs`. The UI is part of this package; it does not redirect to or
-depend on a hosted application.
+### Read telemetry back from a shell
 
-## Client Commands
+Client Commands query the running server. JSON is the default so output can be
+piped; `--format text` renders a Trace as its Narrative and a Flow as one
+line per Entry.
 
-Every `kstack` subcommand other than `devtools` is a Client Command: it reads
-from a running DevTools Server instead of serving anything itself. Client
-Commands cover Traces and Flows only. Laymos has its own `laymos` CLI.
+```sh
+kstack list-traces --limit 5
+kstack get-trace 4bf92f3577b34da6a3ce929d0e0e4736 --format text
+kstack list-flows
+kstack get-flow order:42 --format text
 
-```bash
-kstack list-traces [--limit 20]   # recent Trace Summaries, newest first
-kstack get-trace <trace-id>       # one Trace: spans in start order with their logs
-kstack list-flows [--limit 20]    # recent Flows, newest first
-kstack get-flow <flow-id>         # one Flow Projection in recorded order
-kstack skills                     # list the skills shipped with kstack
-kstack skills devtools            # print the devtools skill
-kstack skills --install DIR       # copy every shipped skill into DIR/<name>/
-```
-
-Output is JSON by default. `--format text` renders a Trace as its Narrative
-view and a Flow as one chronological line per Journal Entry. A missing Trace or
-Flow, or an unreachable server, is written to stderr with a nonzero exit.
-
-The server URL comes from `--url`, then `DEVTOOLS_URL`, then `DEVTOOLS_PORT`
-on `127.0.0.1`, then `http://127.0.0.1:14400`.
-
-### Agent skill
-
-The package ships a skill for coding agents at
-`skills/devtools/SKILL.md`. Install it into a project with:
-
-```bash
+# Install the agent skill so a coding agent knows these commands.
 kstack skills devtools --install .claude/skills
 ```
 
-## Analyze a Laymos project
+How it works:
 
-The `AnalyzeLaymosProject` RPC accepts `{ projectPath }`, where `projectPath`
-is an absolute path or starts with `~/`. It reads `laymos.config.json` from that
-folder and returns Laymos `ArchitectureAnalysis` directly. Maps and Sets use
-Effect Schema's canonical JSON encoding on the wire.
-
-Invalid paths, Config read/parse/schema/validation failures, and source
-analysis failures are separate tagged RPC errors.
-
-## Inspect a Laymos Module
-
-The `GetLaymosModuleSource` RPC accepts `{ projectPath, modulePath }`. It runs a
-fresh Architecture Analysis and returns the paths and textual contents of only
-the supported source files assigned to that Configured Module.
-
-Unknown Modules and source read failures are separate tagged RPC errors.
-
-## Configuration
-
-| Variable        | Default                        | Description                                      |
-| --------------- | ------------------------------ | ------------------------------------------------ |
-| `DEVTOOLS_PORT` | `14400`                        | Port to listen on; Client Commands also read it. |
-| `DEVTOOLS_DB`   | OS-specific DevTools data path | Telemetry SQLite file path.                      |
-| `DEVTOOLS_URL`  | derived from `DEVTOOLS_PORT`   | Server URL used by Client Commands.              |
-
-Use `kstack devtools --open` to open the home page in your default browser.
-`--port` and `--db` override the matching environment variables.
-
-## Library exports
-
-- `kstack/rpc` — the RPC group definition and its tagged errors.
+- Each command opens an Effect RPC client over NDJSON against `DevtoolsRpc`
+  at `<url>/rpc`.
+- A missing Trace or Flow, or an unreachable server, is written to stderr
+  with a nonzero exit.
+- Laymos is not covered by Client Commands; use the `laymos` CLI.

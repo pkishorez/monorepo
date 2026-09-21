@@ -1,5 +1,6 @@
 {
   "name": "alchemy-console",
+  "description": "Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials.",
   "version": "0.0.0",
   "dependencies": {
     "@distilled.cloud/aws": "catalog:",
