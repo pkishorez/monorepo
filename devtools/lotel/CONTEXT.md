@@ -31,10 +31,6 @@ Records that do not identify a Span.
 The Trace visualization that lays Spans out as duration bars against a shared
 time axis, nested by parent. It answers where the time went.
 
-**Parallel view**:
-The Trace visualization that lays Spans out as one track per tree depth,
-grouping overlapping Spans into lanes. It answers what ran concurrently.
-
 **Narrative view**:
 The Trace visualization that reads a Trace as a chronological story: each Span
 is a headline whose Log Records and child Spans interleave in time order, and

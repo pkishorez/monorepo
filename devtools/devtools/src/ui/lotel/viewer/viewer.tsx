@@ -8,6 +8,7 @@ import {
   transformSpan,
 } from 'kui-toolkit/components/blocks/otel-trace-viewer';
 import type { OtelEvent } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import type { TraceView } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
 import { SearchIcon } from 'kui-toolkit/lucide';
 import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
 import { cn } from 'kui-toolkit/lib/utils';
@@ -31,8 +32,6 @@ import { TraceFeed } from './trace-feed';
 import { TraceWorkspace } from './trace-workspace';
 
 const PAGE_SIZE = 30;
-
-type TraceView = 'waterfall' | 'parallel' | 'narrative';
 
 export function Viewer({
   collections,

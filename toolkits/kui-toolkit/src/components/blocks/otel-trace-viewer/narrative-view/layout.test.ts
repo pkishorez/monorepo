@@ -66,37 +66,36 @@ describe('buildNarrativeItems', () => {
       buildNarrativeItems(parent).map((item) =>
         item.kind === 'event'
           ? `event@${item.timestamp}`
-          : `spans@${item.timestamp}:${item.nodes.map((n) => n.span.spanId).join(',')}`,
+          : `span@${item.timestamp}:${item.node.span.spanId}`,
       ),
-    ).toEqual(['event@5', 'spans@10:early', 'spans@40:late', 'event@60']);
+    ).toEqual(['event@5', 'span@10:early', 'span@40:late', 'event@60']);
   });
 
-  it('groups overlapping siblings into one parallel item', () => {
+  it('lists overlapping siblings one after another by start time', () => {
     const parent = node('parent', 0, { endTime: 100 }, [
       node('a', 10, { endTime: 50 }),
       node('b', 20, { endTime: 60 }),
       node('after', 70),
     ]);
 
-    const items = buildNarrativeItems(parent);
     expect(
-      items.map((item) =>
-        item.kind === 'spans'
-          ? item.nodes.map((n) => n.span.spanId).join(',')
-          : 'event',
+      buildNarrativeItems(parent).map((item) =>
+        item.kind === 'span' ? item.node.span.spanId : 'event',
       ),
-    ).toEqual(['a,b', 'after']);
+    ).toEqual(['a', 'b', 'after']);
   });
 
-  it('treats a running child as overlapping everything after it', () => {
+  it('keeps a running child at its start time', () => {
     const parent = node('parent', 0, { endTime: null }, [
       node('running', 10, { endTime: null }),
       node('later', 500),
     ]);
 
-    const items = buildNarrativeItems(parent);
-    expect(items).toHaveLength(1);
-    expect(items[0]!.kind === 'spans' && items[0]!.nodes).toHaveLength(2);
+    expect(
+      buildNarrativeItems(parent).map((item) =>
+        item.kind === 'span' ? item.node.span.spanId : 'event',
+      ),
+    ).toEqual(['running', 'later']);
   });
 });
 

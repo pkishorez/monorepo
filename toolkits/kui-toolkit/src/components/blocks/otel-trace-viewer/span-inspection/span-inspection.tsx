@@ -10,7 +10,6 @@ import { formatDuration, isLog, spanDuration } from '../trace-model';
 import { AttributeSection } from './attribute-section';
 import { LogSpanDetail as LogSpanDetailView } from './log-span-detail';
 import { LogSection } from './log-section';
-import { OverlapSpanSummary as OverlapSpanSummaryView } from './overlap-span-summary';
 
 interface SpanDetailProps {
   span: OtelSpan;
@@ -20,12 +19,6 @@ interface SpanDetailProps {
 
 export function LogSpanDetail(props: ComponentProps<typeof LogSpanDetailView>) {
   return <LogSpanDetailView {...props} />;
-}
-
-export function OverlapSpanSummary(
-  props: ComponentProps<typeof OverlapSpanSummaryView>,
-) {
-  return <OverlapSpanSummaryView {...props} />;
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {

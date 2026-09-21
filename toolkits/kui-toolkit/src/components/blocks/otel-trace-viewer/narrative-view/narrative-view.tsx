@@ -1,4 +1,4 @@
-import { ChevronRightIcon, Layers3, MessageSquareTextIcon } from 'lucide-react';
+import { ChevronRightIcon, MessageSquareTextIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { cn } from '#lib/utils';
@@ -175,32 +175,10 @@ function NarrativeSpan({
                   onLogClick ? () => onLogClick(span, item.event) : undefined
                 }
               />
-            ) : item.nodes.length > 1 ? (
-              <div
-                key={`parallel:${item.nodes[0]!.span.spanId}`}
-                className="flex flex-col gap-1 rounded-lg border border-border/50 bg-muted/20 p-2"
-              >
-                <span className="flex items-center gap-1.5 px-1 pb-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  <Layers3 aria-hidden className="size-3" />
-                  in parallel · {item.nodes.length}
-                </span>
-                {item.nodes.map((child) => (
-                  <NarrativeSpan
-                    key={child.span.spanId}
-                    node={child}
-                    parentStart={span.startTime}
-                    openSpanIds={openSpanIds}
-                    selectedSpanId={selectedSpanId}
-                    onToggle={onToggle}
-                    selectedLog={selectedLog}
-                    onLogClick={onLogClick}
-                  />
-                ))}
-              </div>
             ) : (
               <NarrativeSpan
-                key={item.nodes[0]!.span.spanId}
-                node={item.nodes[0]!}
+                key={item.node.span.spanId}
+                node={item.node}
                 parentStart={span.startTime}
                 openSpanIds={openSpanIds}
                 selectedSpanId={selectedSpanId}
