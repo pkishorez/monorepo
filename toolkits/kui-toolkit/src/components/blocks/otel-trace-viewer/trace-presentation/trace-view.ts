@@ -1,1 +1,1 @@
-export type TraceView = 'waterfall' | 'parallel' | 'narrative';
+export type TraceView = 'waterfall' | 'narrative';

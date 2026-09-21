@@ -204,7 +204,7 @@ function fixtureLog(
   };
 }
 
-const overlappingSpans: OtelSpan[] = [
+const checkoutSpans: OtelSpan[] = [
   {
     traceId: 'checkout-demo',
     spanId: 'root',
@@ -726,10 +726,10 @@ export default {
       <TraceList traces={groupByTrace(spans)} onSelectTrace={() => {}} />
     </div>
   ),
-  'overlapping-spans': (
+  'checkout-trace': (
     <div className="p-6 max-w-5xl mx-auto">
       <TraceList
-        traces={groupByTrace(overlappingSpans)}
+        traces={groupByTrace(checkoutSpans)}
         onSelectTrace={() => {}}
       />
     </div>
@@ -746,7 +746,7 @@ export default {
   ),
   dock: (
     <TraceDock
-      trace={groupByTrace(overlappingSpans)[0]!}
+      trace={groupByTrace(checkoutSpans)[0]!}
       settings={dockSettings}
       onSettingsChange={() => {}}
       onClose={() => {}}
@@ -754,16 +754,7 @@ export default {
   ),
   viewer: (
     <div className="min-h-screen bg-muted/30 p-6">
-      <TraceViewer className="h-[640px]" spans={overlappingSpans} />
-    </div>
-  ),
-  'viewer-parallel': (
-    <div className="min-h-screen bg-muted/30 p-6">
-      <TraceViewer
-        className="h-[640px]"
-        defaultView="parallel"
-        spans={overlappingSpans}
-      />
+      <TraceViewer className="h-[640px]" spans={checkoutSpans} />
     </div>
   ),
   'viewer-narrative': (
@@ -771,7 +762,7 @@ export default {
       <TraceViewer
         className="h-[640px]"
         defaultView="narrative"
-        spans={overlappingSpans}
+        spans={checkoutSpans}
       />
     </div>
   ),

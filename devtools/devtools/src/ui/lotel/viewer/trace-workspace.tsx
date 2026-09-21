@@ -1,18 +1,16 @@
 import { TraceDock } from 'kui-toolkit/components/blocks/otel-trace-viewer';
 import type { TraceGroup } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import type { TraceView } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
 import { Button } from 'kui-toolkit/components/ui/button';
 import {
   AlertTriangleIcon,
   BookOpenText,
   ChartNoAxesGantt,
   GitBranchIcon,
-  Layers3,
   XIcon,
 } from 'kui-toolkit/lucide';
 import { cn } from 'kui-toolkit/lib/utils';
 import { useLotelStore } from './state';
-
-type TraceView = 'waterfall' | 'parallel' | 'narrative';
 
 export function TraceWorkspace({
   trace,
@@ -68,13 +66,6 @@ export function TraceWorkspace({
             onClick={() => onViewChange('waterfall')}
           >
             <ChartNoAxesGantt className="size-3.5" />
-          </IconToggle>
-          <IconToggle
-            active={view === 'parallel'}
-            label="Parallel"
-            onClick={() => onViewChange('parallel')}
-          >
-            <Layers3 className="size-3.5" />
           </IconToggle>
           <IconToggle
             active={view === 'narrative'}

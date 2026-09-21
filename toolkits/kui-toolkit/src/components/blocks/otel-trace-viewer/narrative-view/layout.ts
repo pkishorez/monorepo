@@ -16,35 +16,10 @@ export type NarrativeItem =
       readonly event: OtelEvent;
     }
   | {
-      readonly kind: 'spans';
+      readonly kind: 'span';
       readonly timestamp: number;
-      /** More than one node means the spans ran in parallel. */
-      readonly nodes: readonly SpanNode[];
+      readonly node: SpanNode;
     };
-
-/** Group siblings whose time ranges (transitively) overlap. */
-function clusterByOverlap(children: readonly SpanNode[]): SpanNode[][] {
-  const sorted = [...children].sort(
-    (left, right) =>
-      left.span.startTime - right.span.startTime ||
-      left.span.spanId.localeCompare(right.span.spanId),
-  );
-  const clusters: SpanNode[][] = [];
-  let clusterEnd = Number.NEGATIVE_INFINITY;
-
-  for (const node of sorted) {
-    const end = node.span.endTime ?? Number.POSITIVE_INFINITY;
-    if (clusters.length === 0 || node.span.startTime >= clusterEnd) {
-      clusters.push([node]);
-      clusterEnd = end;
-    } else {
-      clusters.at(-1)!.push(node);
-      clusterEnd = Math.max(clusterEnd, end);
-    }
-  }
-
-  return clusters;
-}
 
 /**
  * A span's story: its own events and its children, interleaved in the order
@@ -56,12 +31,8 @@ export function buildNarrativeItems(node: SpanNode): NarrativeItem[] {
     timestamp: event.timestamp,
     event,
   }));
-  for (const cluster of clusterByOverlap(node.children)) {
-    items.push({
-      kind: 'spans',
-      timestamp: cluster[0]!.span.startTime,
-      nodes: cluster,
-    });
+  for (const child of node.children) {
+    items.push({ kind: 'span', timestamp: child.span.startTime, node: child });
   }
   return items.sort((left, right) => left.timestamp - right.timestamp);
 }

@@ -8,12 +8,7 @@ import { cn } from '#lib/utils';
 import { StatusDot } from '../trace-presentation';
 import { Gantt } from '../waterfall-view';
 import { Narrative } from '../narrative-view';
-import { ParallelTimeline } from '../parallel-view';
-import {
-  LogSpanDetail,
-  OverlapSpanSummary,
-  SpanDetail,
-} from '../span-inspection';
+import { LogSpanDetail, SpanDetail } from '../span-inspection';
 import type { OtelEvent, OtelSpan } from '../trace-model';
 import { collectSpans, formatDuration, type TraceGroup } from '../trace-model';
 import type { TraceView } from '../trace-presentation';
@@ -49,29 +44,12 @@ export function TraceDock({
   view = 'waterfall',
 }: TraceDockProps) {
   const orderedSpans = useMemo(() => collectSpans(trace.roots), [trace.roots]);
-  const [overlapCandidates, setOverlapCandidates] = useState<
-    readonly OtelSpan[] | null
-  >(null);
-  const [choosingOverlap, setChoosingOverlap] = useState(false);
-  const [focusedParallelSpanId, setFocusedParallelSpanId] = useState<
-    string | null
-  >(null);
-  const [hoveredOverlapSpanId, setHoveredOverlapSpanId] = useState<
-    string | null
-  >(null);
   const [selectedLog, setSelectedLog] = useState<{
     readonly span: OtelSpan;
     readonly event: OtelEvent;
   } | null>(null);
   const [hoveredLog, setHoveredLog] = useState<OtelEvent | null>(null);
   const [focusWaterfallPath, setFocusWaterfallPath] = useState(false);
-  const highlightedOverlapSpanIds = useMemo(
-    () =>
-      choosingOverlap && overlapCandidates
-        ? new Set(overlapCandidates.map((span) => span.spanId))
-        : new Set<string>(),
-    [choosingOverlap, overlapCandidates],
-  );
   const selectedSpan = useMemo(() => {
     if (!sidebarAlwaysOpen && !settings.sidebarOpen) return null;
     if (orderedSpans.length === 0) return null;
@@ -90,10 +68,6 @@ export function TraceDock({
   widthRef.current = settings.sidebarWidth;
 
   useEffect(() => {
-    setOverlapCandidates(null);
-    setChoosingOverlap(false);
-    setFocusedParallelSpanId(null);
-    setHoveredOverlapSpanId(null);
     setSelectedLog(null);
     setHoveredLog(null);
   }, [trace.traceId, view]);
@@ -122,51 +96,6 @@ export function TraceDock({
   );
 
   function handleSpanClick(span: OtelSpan) {
-    setOverlapCandidates(null);
-    setChoosingOverlap(false);
-    setFocusedParallelSpanId(null);
-    setHoveredOverlapSpanId(null);
-    setSelectedLog(null);
-    setHoveredLog(null);
-    if (
-      view === 'parallel' &&
-      !sidebarAlwaysOpen &&
-      settings.sidebarOpen &&
-      settings.selectedSpanId === span.spanId
-    ) {
-      onSettingsChange({ ...settings, sidebarOpen: false });
-    } else {
-      onSettingsChange({
-        ...settings,
-        sidebarOpen: true,
-        selectedSpanId: span.spanId,
-      });
-    }
-  }
-
-  function handleOverlapClick(spans: readonly OtelSpan[]) {
-    setOverlapCandidates(spans);
-    setChoosingOverlap(true);
-    setFocusedParallelSpanId(null);
-    setHoveredOverlapSpanId(null);
-    setSelectedLog(null);
-    setHoveredLog(null);
-    onSettingsChange({
-      ...settings,
-      sidebarOpen: true,
-    });
-  }
-
-  function cancelOverlap() {
-    setOverlapCandidates(null);
-    setChoosingOverlap(false);
-    setHoveredOverlapSpanId(null);
-  }
-
-  function selectOverlap(span: OtelSpan) {
-    setChoosingOverlap(false);
-    setFocusedParallelSpanId(span.spanId);
-    setHoveredOverlapSpanId(null);
     setSelectedLog(null);
     setHoveredLog(null);
     onSettingsChange({
@@ -242,23 +171,6 @@ export function TraceDock({
                 onSettingsChange({ ...settings, nameColWidth: next })
               }
             />
-          ) : view === 'parallel' ? (
-            <ParallelTimeline
-              trace={trace}
-              selectedSpanId={
-                choosingOverlap ? null : (selectedSpan?.spanId ?? null)
-              }
-              focusedSpanId={focusedParallelSpanId}
-              highlightedOverlapSpanIds={highlightedOverlapSpanIds}
-              hoveredOverlapSpanId={hoveredOverlapSpanId}
-              onSpanClick={handleSpanClick}
-              onOverlapClick={handleOverlapClick}
-              onOverlapCancel={cancelOverlap}
-              onOverlapHover={(span) =>
-                setHoveredOverlapSpanId(span?.spanId ?? null)
-              }
-              onOverlapSelect={selectOverlap}
-            />
           ) : (
             <Narrative
               trace={trace}
@@ -287,9 +199,7 @@ export function TraceDock({
               )}
             >
               <div className={cn('h-full overflow-y-auto', scrollbarStyles)}>
-                {choosingOverlap && overlapCandidates ? (
-                  <OverlapSpanSummary spans={overlapCandidates} />
-                ) : selectedLog && view !== 'parallel' ? (
+                {selectedLog ? (
                   <LogSpanDetail
                     event={selectedLog.event}
                     span={selectedLog.span}

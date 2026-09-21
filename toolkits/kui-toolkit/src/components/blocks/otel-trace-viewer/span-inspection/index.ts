@@ -1,5 +1,1 @@
-export {
-  LogSpanDetail,
-  OverlapSpanSummary,
-  SpanDetail,
-} from './span-inspection';
+export { LogSpanDetail, SpanDetail } from './span-inspection';

@@ -2,7 +2,6 @@ import {
   BookOpenText,
   ChartNoAxesGantt,
   ChevronDown,
-  Layers3,
   Maximize2,
   Minimize2,
   X,
@@ -60,12 +59,6 @@ const VIEW_MODES = [
     label: 'Waterfall',
     title: 'Waterfall view',
     icon: ChartNoAxesGantt,
-  },
-  {
-    view: 'parallel',
-    label: 'Parallel',
-    title: 'Parallel spans view',
-    icon: Layers3,
   },
   {
     view: 'narrative',
