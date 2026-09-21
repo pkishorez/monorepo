@@ -1,49 +1,175 @@
 # std-toolkit
 
-Single-table design toolkit — database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration.
+Single-table design toolkit: database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration
+
+## Big picture
+
+Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
+
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot`, `studio-rpc`, and the CLI inspect and guard the resulting storage contract.
+
+Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Snapshot CLI](docs/snapshot-cli.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder is a guided walkthrough that runs as tests.
 
 ## Install
 
 ```sh
-npm install std-toolkit
+npm install std-toolkit effect
 ```
 
-Peer dependencies (install what you use):
+Node 24 or later. Peer dependencies:
 
-```sh
-npm install effect                     # required by all subpaths
-npm install @tanstack/react-db react   # required by sync
+- `effect` (required): every subpath is built on Effect Services, Layers, and Schema.
+- `@tanstack/react-db` (optional): `std-toolkit/sync` creates and drives TanStack DB Collections.
+- `react` (optional): required by `@tanstack/react-db`; only needed when you use `std-toolkit/sync`.
+- `alchemy` (optional): only `std-toolkit/db/dynamodb/alchemy` imports it, to declare the DynamoDB table as an Alchemy resource.
+
+## Exports
+
+### `std-toolkit/core`
+
+See [src/core/README.md](src/core/README.md).
+
+### `std-toolkit/eschema`
+
+See [src/eschema/README.md](src/eschema/README.md).
+
+### `std-toolkit/snapshot`
+
+| Export                     | What it does                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `Snapshot.capture`         | Captures an ESchema into a JSON-safe snapshot of every encoded and decoded version.      |
+| `Snapshot.decode`          | Decodes a stored JSON value into a contract snapshot, failing on retired formats.        |
+| `Snapshot.restore`         | Rebuilds working ESchemas from snapshot definitions without the original source.         |
+| `Snapshot.inspect`         | Lists the limitations in a snapshot that cannot be verified from its data.               |
+| `Snapshot.diff`            | Compares a baseline and a current snapshot into classified semantic changes.             |
+| `Snapshot.render`          | Renders a snapshot as stable human-readable text.                                        |
+| `Snapshot.renderChanges`   | Renders a list of changes as human-readable text.                                        |
+| `ESchemaSnapshotSchema`    | Effect Schema for a single ESchema snapshot.                                             |
+| `TableSnapshotSchema`      | Effect Schema for a table snapshot: topology, entities, and access patterns.             |
+| `ContractSnapshotSchema`   | Effect Schema union of the ESchema and table snapshot shapes.                            |
+| `SnapshotDecodeError`      | Error raised when a stored snapshot cannot be decoded.                                   |
+| `SnapshotFormatRetired`    | Decode error for a snapshot written in a format that is no longer supported.             |
+| `SnapshotIdentityConflict` | Error raised when two distinct ESchemas share one snapshot identity.                     |
+| `SnapshotIncompatible`     | Error raised by table-level enforcement when a change would break the approved baseline. |
+
+### `std-toolkit/studio-rpc`
+
+See [src/studio-rpc/README.md](src/studio-rpc/README.md).
+
+### `std-toolkit/db`
+
+| Export          | What it does                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| `StdTable.make` | Starts a table builder from a logical name; chain `primary`, `lsi`, `gsi`, then `build`.          |
+| `DatabaseError` | Tagged error every StdTable operation fails with, carrying a `reason` such as a failed condition. |
+
+The built `StdTable` exposes `entity`, `singleEntity`, `transact`, `scan`, `subscribe`, `snapshot`, `verifySnapshot`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
+
+### `std-toolkit/db/dynamodb`
+
+See [src/db/dynamodb/README.md](src/db/dynamodb/README.md).
+
+### `std-toolkit/db/dynamodb/alchemy`
+
+See [src/db/dynamodb/alchemy/README.md](src/db/dynamodb/alchemy/README.md).
+
+### `std-toolkit/db/idb`
+
+See [src/db/idb/README.md](src/db/idb/README.md).
+
+### `std-toolkit/db/memory`
+
+See [src/db/memory/README.md](src/db/memory/README.md).
+
+### `std-toolkit/db/sqlite`
+
+See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the driver entrypoints `./db/sqlite/node`, `./db/sqlite/bun`, `./db/sqlite/better-sqlite3`, `./db/sqlite/d1`, and `./db/sqlite/durable-object`.
+
+### `std-toolkit/sync`
+
+See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced`, `./sync/leadership/in-memory`, and `./sync/platform/browser`.
+
+## Usage
+
+### Define a schema, store it in a table, sync it to the browser
+
+The same `Task` schema serves storage and sync. The table is realized in memory here; swapping `Memory.make(table)` for a SQLite, IndexedDB, or DynamoDB adapter changes nothing else. The sync instance polls the table for changes and projects them into a TanStack DB Collection. Lifted from stories 01, 03, and 25.
+
+```ts
+import { createLiveQueryCollection, eq } from '@tanstack/react-db';
+import { Effect, Schedule, Schema } from 'effect';
+import { StdTable } from 'std-toolkit/db';
+import { Memory } from 'std-toolkit/db/memory';
+import { EntityESchema } from 'std-toolkit/eschema';
+import { createStdSync, syncStore, syncStrategy } from 'std-toolkit/sync';
+import { inMemoryLeadership } from 'std-toolkit/sync/leadership/in-memory';
+
+// 1. The shape of a task; `taskId` identifies one.
+const Task = EntityESchema.make('Task', 'taskId', {
+  boardId: Schema.String,
+  title: Schema.String,
+  status: Schema.Literals(['open', 'done']),
+}).build();
+
+// 2. A table, and Task bound to it: `boardId` fills the partition key.
+const table = StdTable.make('board').primary('pk', 'sk').build();
+const task = table
+  .entity(Task)
+  .primary({ pk: ['boardId'] })
+  .build();
+const board = Memory.make(table);
+
+// 3. The server side of sync: tasks on one board changed after `cursor`.
+const changesOn = (boardId: string, cursor: { meta: { _u: string } } | null) =>
+  task.query('primary', { pk: { boardId }, '>=': null }).pipe(
+    Effect.map((page) =>
+      page.items
+        .filter((item) => cursor === null || item.meta._u > cursor.meta._u)
+        .sort((a, b) => (a.meta._u < b.meta._u ? -1 : 1)),
+    ),
+    Effect.provide(board.layer),
+  );
+
+// 4. A sync instance and a Collection that reads one board at a time.
+const app = createStdSync({
+  name: 'board',
+  platform: {
+    storeLayer: Memory.make(syncStore).layer,
+    leadershipLayer: inMemoryLeadership(),
+  },
+});
+const tasks = app.collection({
+  schema: Task,
+  sync: {
+    partitions: {
+      boardId: (boardId) => ({
+        strategy: syncStrategy.oldToNew({
+          source: ({ poll }) =>
+            poll({
+              fetch: ({ cursor }) => changesOn(boardId, cursor),
+              schedule: Schedule.spaced('1 second'),
+            }),
+        }),
+      }),
+    },
+  },
+  onInsert: (items) =>
+    Effect.forEach(items, (item) => task.insert(item)).pipe(
+      Effect.provide(board.layer),
+    ),
+});
+
+// 5. A live query for the `work` board starts the sync for that partition.
+const screen = createLiveQueryCollection({
+  query: (q) =>
+    q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
+  startSync: true,
+});
 ```
 
-## Subpaths
-
-| Subpath                                                                     | Description                                                                   |
-| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [`std-toolkit/core`](src/core/README.md)                                    | Entity codecs and shared decoded application primitives                       |
-| [`std-toolkit/eschema`](src/eschema/README.md)                              | Versioned, self-migrating schemas built on Effect Schema                      |
-| [`std-toolkit/snapshot`](src/eschema/README.md#semantic-contract-snapshots) | Semantic contract decoding, inspection, comparison, and rendering             |
-| [`std-toolkit/studio-rpc`](src/studio-rpc/README.md)                        | Runtime-discovered, read-only StdTable access for Studio                      |
-| `std-toolkit/db`                                                            | Portable Table and Entity definitions and operations                          |
-| [`std-toolkit/db/dynamodb`](src/db/dynamodb/README.md)                      | DynamoDB binding, setup, expression builder, and native operations            |
-| [`std-toolkit/db/sqlite`](src/db/sqlite/README.md)                          | SQLite binding and setup with separate environment driver entrypoints         |
-| [`std-toolkit/db/idb`](src/db/idb/README.md)                                | IndexedDB binding and explicit Store setup                                    |
-| [`std-toolkit/db/memory`](src/db/memory/README.md)                          | Dependency-free, ephemeral Memory adapter for any JavaScript runtime          |
-| [`std-toolkit/sync`](src/sync/README.md)                                    | TanStack DB sync with local replicas, paced writes, and best-effort Peer Sync |
-
-## Requirements
-
-Node ≥ 24
-
-## Contract snapshots
-
-Default-export a schema or table snapshot from `std-toolkit.snapshot.ts`, then
-approve and verify the committed `std-toolkit.snapshot.json` baseline:
-
-```sh
-std-toolkit snapshot approve   # write the baseline
-std-toolkit snapshot           # check against it
-```
-
-`snapshot` reports only what changed and exits with status 1 when the declared
-storage contract differs from its approved baseline, making it suitable for
-GitHub Actions.
+- `EntityESchema.make(...).build()` produces a schema that encodes with a `_v` stamp and decodes any past version to the latest shape.
+- `table.entity(Task).primary({ pk: ['boardId'] })` maps schema fields to the table's key attributes; the sort key is always the id field.
+- `Memory.make(table).layer` satisfies the `StdTableService<'board'>` requirement of every `task.*` call. Any other adapter's layer does the same.
+- `createStdSync` needs a platform only to persist its replica (`syncStore` is itself a StdTable) and to elect a leader. In a real page use `browser()` from `std-toolkit/sync/platform/browser`.
+- A partition worker starts when a TanStack query filters on `boardId`. `cursor` is exclusive: return entities strictly after it.
+- `onInsert` writes through to the same table, so the next poll confirms the optimistic row.

@@ -1,76 +1,161 @@
 # @pkishorez/effect-tracer
 
-Effect tracing tools for in-process recording and OTLP export.
+Effect tracing tools for in-process recording and OTLP export
 
-Capture Effect spans and logs inside your own process and export telemetry
-over OTLP/HTTP — without pulling in a telemetry server. Flows live in
-[`@pkishorez/flow`](../flow/README.md).
+## Big picture
+
+Effect programs already emit spans and logs through `Effect.withSpan` and
+`Effect.log`. This package gives that output two destinations. The recorder
+keeps spans and logs in memory inside the process, in emission order, so a
+test, a Story, or an in-app panel can read them back as plain data. The
+telemetry layers export them over OTLP/HTTP to a collector such as the
+[kstack](../devtools/README.md) DevTools Server, which stores them with
+[@pkishorez/lotel](../lotel/README.md).
+
+The full telemetry layer uses the OpenTelemetry SDK and also exports metrics.
+The dev-telemetry layer does the same job for local development with
+`effect/unstable/observability` and `fetch`, batching every 100 ms and
+exporting provisional spans while they run.
+
+[laymos](../laymos/README.md) Stories use the recorder to attach traces to
+reports, and `apps/docs` uses it to drive a live trace panel.
+
+## Install
 
 ```sh
-npm install @pkishorez/effect-tracer
+pnpm add @pkishorez/effect-tracer
 ```
 
-Requires `effect@4.0.0-rc.110` as a peer dependency.
+Peer dependencies:
 
-## `@pkishorez/effect-tracer/recorder`
+- `effect` (`4.0.0-rc.112`): the recorder installs an Effect Tracer and
+  Logger, and the layers are Effect Layers.
 
-Record spans and logs in-process. `instrument` installs a Tracer and Logger for
-the duration of an effect; the snapshot methods read back what was captured.
+## Exports
+
+### `@pkishorez/effect-tracer/recorder`
+
+Runs anywhere Effect runs, including the browser.
+
+| Export                  | What it does                                                                                        |
+| ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `makeTraceRecorder`     | Creates a recorder with `instrument`, `layer`, and `snapshot`; options cap spans and stream events. |
+| `sequenceAttribute`     | The span attribute name (`tracer.sequence`) that carries emission order.                            |
+| `tracerAttributePrefix` | The prefix (`tracer.`) of attributes this package adds to spans.                                    |
+| `sequenceOrder`         | Pads a sequence number so string sorting matches numeric order.                                     |
+| `readSequence`          | Parses a sequence attribute value back to a number, or null.                                        |
+
+### `@pkishorez/effect-tracer/telemetry`
+
+Node. Uses the OpenTelemetry SDK.
+
+| Export               | What it does                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| `makeTelemetryLayer` | Builds one Layer exporting traces, logs, and metrics over OTLP/HTTP; each signal can be toggled. |
+
+### `@pkishorez/effect-tracer/telemetry/dev-telemetry`
+
+Runs anywhere `fetch` exists.
+
+| Export                  | What it does                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| `makeDevTelemetryLayer` | Builds a batching OTLP/HTTP Layer for local development; stamps `deployment.environment: local`. |
+
+## Usage
+
+### Record a program and read its spans back
+
+Wrap an Effect with `instrument`, run it, then read the snapshot. Spans and
+logs come back in the order they were emitted, even inside one millisecond.
 
 ```ts
+import { Effect } from 'effect';
 import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
 
-const recorder = makeTraceRecorder({ maxSpans: 2000 });
+const recorder = makeTraceRecorder();
 
-await Effect.runPromise(recorder.instrument(program));
+await Effect.runPromise(
+  recorder.instrument(
+    Effect.gen(function* () {
+      yield* Effect.log('First');
+      yield* Effect.void.pipe(Effect.withSpan('child-a'));
+      yield* Effect.void.pipe(Effect.withSpan('child-b'));
+    }).pipe(Effect.withSpan('parent')),
+  ),
+);
 
-recorder.snapshot(); // every captured span and log
+const { spans, logs, truncated } = recorder.snapshot();
+spans.map(({ name }) => name); // ['parent', 'child-a', 'child-b']
+spans[1]?.parentSpanId === spans[0]?.spanId; // true
+logs[0]?.message; // 'First'
 ```
 
-Options: `maxSpans` (default `2000`), the `onSpanEnd` / `onLog` / `onTruncated`
-streaming callbacks, and `formatValue`.
+How it works:
 
-## `@pkishorez/effect-tracer/telemetry`
+- `instrument` installs the recorder's Tracer and Logger for that Effect
+  only; nothing outside it is recorded.
+- Every span and log gets a `sequence` so ties on the clock keep order.
+- `maxSpans` (default 2000) stops recording and sets `truncated`; use
+  `onSpanEnd` and `onLog` to stream instead of snapshotting.
 
-A single Effect `Layer` exporting traces, logs, and metrics over OTLP/HTTP via
-the OpenTelemetry SDK.
+### Record every Effect a runtime runs
+
+For a long-lived runtime such as a browser demo, provide `recorder.layer`
+once instead of wrapping each Effect.
 
 ```ts
-import { makeTelemetryLayer } from '@pkishorez/effect-tracer/telemetry';
+import { Layer, ManagedRuntime } from 'effect';
+import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
+import { FlowTelemetry } from '@pkishorez/flow';
 
-const TelemetryLive = makeTelemetryLayer({
-  serviceName: 'my-service',
-  endpoint: 'http://localhost:14400',
-});
+const recorder = makeTraceRecorder();
+
+const runtime = ManagedRuntime.make(
+  Layer.mergeAll(
+    recorder.layer,
+    FlowTelemetry.layerMemory({ origin: 'browser' }),
+  ),
+);
+
+// Later, from a panel:
+recorder.snapshot().spans;
 ```
 
-Toggle signals individually with the `traces`, `logs`, and `metrics` options.
+How it works:
 
-## `@pkishorez/effect-tracer/telemetry/dev-telemetry`
+- `recorder.layer` is `Layer<never>`; it sets the Tracer and Logger
+  references in the runtime.
+- `snapshot()` is safe mid-run; running spans report `status: 'running'`.
 
-The same job for local development, built on `effect/unstable/observability`
-and `FetchHttpClient` instead of the OpenTelemetry SDK. Batches updates every
-100 ms or when 100 records are buffered, and stamps `deployment.environment: local`.
-Traces and logs use separate requests. Spans that finish within a batch window
-replace their provisional update; longer spans export both running and completed
-states. Shutdown drains pending records within `shutdownTimeout`.
+### Export to a local DevTools Server
+
+Point the dev layer at a running `kstack devtools` and every span and log in
+the runtime shows up in the Lotel Tool.
 
 ```ts
-import { Layer } from 'effect';
+import { Effect, Layer, ManagedRuntime } from 'effect';
 import { makeDevTelemetryLayer } from '@pkishorez/effect-tracer/telemetry/dev-telemetry';
 
-const DevTelemetryLive = import.meta.env.DEV
-  ? makeDevTelemetryLayer({
-      serviceName: 'my-service',
-      batchInterval: '100 millis',
-      maxBatchSize: 100,
-    })
-  : Layer.empty;
+const runtime = ManagedRuntime.make(
+  makeDevTelemetryLayer({
+    endpoint: 'http://127.0.0.1:14400',
+    serviceName: 'server:api-1',
+  }),
+);
+
+await runtime.runPromise(
+  Effect.log('order accepted').pipe(Effect.withSpan('handle-order')),
+);
+
+// Disposing drains pending batches within shutdownTimeout.
+await runtime.dispose();
 ```
 
-Adds `batchInterval`, `maxBatchSize`, `retries`, `requestTimeout`, and `shutdownTimeout` on top of the shared
-options.
+How it works:
 
-## License
-
-MIT
+- Traces post to `/v1/traces` and logs to `/v1/logs` as OTLP/HTTP JSON.
+- Batches flush every `batchInterval` (100 ms) or at `maxBatchSize` (100).
+- A span that ends within a batch window replaces its provisional record;
+  longer spans export both running and completed states.
+- `makeTelemetryLayer` is the production counterpart with the OpenTelemetry
+  SDK and metrics.

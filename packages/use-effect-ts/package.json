@@ -2,6 +2,7 @@
   "name": "use-effect-ts",
   "version": "0.0.10",
   "private": false,
+  "description": "React hooks that run Effect programs inside a component's lifetime and cache Effect results with TanStack Query.",
   "repository": "pkishorez/monorepo",
   "type": "module",
   "exports": {

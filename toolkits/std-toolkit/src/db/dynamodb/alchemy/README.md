@@ -1,36 +1,41 @@
-# DynamoDB Alchemy integration
+# std-toolkit/db/dynamodb/alchemy
 
-Declares an alchemy-managed DynamoDB table from the same shape your app's raw
-SDK client already uses, so the two can never drift apart.
+Declares an Alchemy-managed DynamoDB table from the same topology the DynamoDB adapter uses, so infrastructure and code cannot drift.
 
-## Scenario
+## Big picture
 
-Your app talks to DynamoDB with `std-toolkit`'s `DynamoDB.getTableDefinition`
-locally, and on deployed stages you also want alchemy to own creating,
-tracking, and tearing down that same table.
+`DynamoDB.getTableDefinition` already describes the physical table the adapter expects. This entrypoint turns that description into an `alchemy/AWS/DynamoDB` `Table` resource, mapping the key schema, attribute definitions, billing mode, and local and global secondary indexes. The ordinary DynamoDB entrypoint never imports Alchemy. Deployment lifecycle belongs to Alchemy. The decision is [ADR 0010](../../../../docs/adr/0010-dynamodb-owns-alchemy-resource-provisioning.md).
+
+## Install
+
+See the [top README](../../../../README.md). This subpath needs the optional peer `alchemy` at the version declared there.
+
+## Exports
+
+### `std-toolkit/db/dynamodb/alchemy`
+
+| Export              | What it does                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------- |
+| `makeDynamoDBTable` | Creates an Alchemy DynamoDB `Table` resource from a topology, a logical `resourceId`, and a `tableName`. |
 
 ## Usage
 
+### Provision the adapter's table with Alchemy
+
 ```ts
+import { Effect } from 'effect';
+import { DynamoDB } from 'std-toolkit/db/dynamodb';
 import { makeDynamoDBTable } from 'std-toolkit/db/dynamodb/alchemy';
-import { DynamoDB as StdDynamoDB } from 'std-toolkit/db/dynamodb';
 
-const topology = StdDynamoDB.getTableDefinition(myTable);
+const topology = DynamoDB.getTableDefinition(table);
 
-Effect.gen(function* () {
+const provision = Effect.gen(function* () {
   yield* makeDynamoDBTable(topology, {
-    resourceId: 'MyTable',
-    tableName: 'my-table-name',
+    resourceId: 'BoardTable',
+    tableName: 'board-production',
   });
 });
 ```
 
-`resourceId` is the alchemy logical id (how alchemy tracks the resource
-across deploys); `tableName` is the real DynamoDB table name.
-
-## Status
-
-Alchemy is an optional peer dependency. Install the version declared by
-STD Toolkit when using this entry point. The ordinary DynamoDB entry point
-does not import Alchemy. Resource mapping tests cover both local and global
-secondary indexes; deployment lifecycle behavior belongs to Alchemy.
+- `resourceId` is the Alchemy logical id that tracks the resource across deploys.
+- `tableName` is the real DynamoDB table name; pass the same value to `DynamoDB.make`.

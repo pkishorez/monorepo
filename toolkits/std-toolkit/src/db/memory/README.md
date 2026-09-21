@@ -1,18 +1,43 @@
-# Memory
+# std-toolkit/db/memory
 
-Use the same StdTable definitions and operations in any JavaScript runtime without configuring a database or platform binding.
+Dependency-free, ephemeral in-memory adapter that implements the full StdTable contract in any JavaScript runtime.
+
+## Big picture
+
+Memory has no config, setup, teardown, or platform binding. Each `Memory.make` call creates one isolated empty table; reusing its layer shares that state, and all state is gone when the table is unreachable. Reads are strongly consistent and writes are atomic, so it is the default for tests, stories, and the sync instance's Sync Store. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+
+## Install
+
+See the [top README](../../../README.md).
+
+## Exports
+
+### `std-toolkit/db/memory`
+
+| Export        | What it does                                                           |
+| ------------- | ---------------------------------------------------------------------- |
+| `Memory.make` | Realizes a StdTable in process memory; returns an object with `layer`. |
+
+## Usage
+
+### Run a program in memory
+
+Lifted from story 02.
 
 ```ts
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import { StdTable } from 'std-toolkit/db';
 import { Memory } from 'std-toolkit/db/memory';
 
-const people = StdTable.make('people').primary('pk', 'sk').build();
-const peopleMemory = Memory.make(people);
+const table = StdTable.make('board').primary('pk', 'sk').build();
+const memory = Memory.make(table);
 
-await Effect.runPromise(program.pipe(Effect.provide(peopleMemory.layer)));
+const program = Stream.runCollect(table.scan());
+
+const rows = await Effect.runPromise(
+  program.pipe(Effect.provide(memory.layer)),
+);
 ```
 
-Each `Memory.make` call creates one isolated empty adapter table. Reusing its layer shares that state. A different `Memory.make` call starts empty, and all state is lost when the adapter table becomes unreachable.
-
-Memory implements the complete StdTable contract with strongly consistent reads and atomic writes. It has no config, setup, teardown, or adapter-specific dependency.
+- The program never names a database; the layer decides where it runs.
+- Call `Memory.make(table)` again for a fresh empty table.

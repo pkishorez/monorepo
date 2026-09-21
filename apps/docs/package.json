@@ -1,5 +1,6 @@
 {
   "name": "docs",
+  "description": "Documentation site for the monorepo, with live demos of its workspace packages, published at docs.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,
