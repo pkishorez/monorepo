@@ -1,5 +1,13 @@
 # std-toolkit
 
+## 0.0.11
+
+### Patch Changes
+
+- [`b7a5d3d`](https://github.com/pkishorez/monorepo/commit/b7a5d3de83d2490b054370eb3d3e1ae957e8e795) Thanks [@pkishorez](https://github.com/pkishorez)! - Republish under a new version: npm will not accept 0.0.10 again after it was staged and never released.
+- Updated dependencies []:
+  - @pkishorez/flow@0.0.11
+
 ## 0.0.10
 
 ### Patch Changes

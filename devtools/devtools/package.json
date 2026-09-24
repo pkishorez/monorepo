@@ -1,6 +1,6 @@
 {
   "name": "@pkishorez/devtools",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": false,
   "description": "Local DevTools server for telemetry and architecture analysis, with Client Commands for reading it back",
   "keywords": [

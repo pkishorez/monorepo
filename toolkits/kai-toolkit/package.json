@@ -1,6 +1,6 @@
 {
   "name": "kai-toolkit",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Effect-native runtime for stateful coding-agent harnesses whose Messages live in a StdTable",
   "repository": {
     "type": "git",

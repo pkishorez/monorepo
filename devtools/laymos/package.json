@@ -1,6 +1,6 @@
 {
   "name": "laymos",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": false,
   "description": "Enforces architectural dependency rules and explores source dependencies.",
   "repository": {
