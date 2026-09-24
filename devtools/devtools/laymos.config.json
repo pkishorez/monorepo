@@ -4,18 +4,34 @@
   "ignoredPaths": [],
   "layers": {
     "entry": {
-      "paths": [
-        "src/browser.tsx",
-        "src/snapshot.tsx",
-        "src/server/main.ts",
-        "src/cli"
-      ],
-      "description": "Starts the browser application, the Snapshot page, and the local DevTools process",
+      "paths": ["src/browser.tsx", "src/snapshot.tsx", "src/server/main.ts"],
+      "description": "Starts the browser application, the Snapshot page, and the local DevTools process with its subcommands",
       "modules": {
         "src/browser.tsx": {},
         "src/snapshot.tsx": {},
-        "src/server/main.ts": {},
-        "src/cli": {
+        "src/server/main.ts": {}
+      }
+    },
+    "cli": {
+      "paths": ["src/cli"],
+      "description": "Runs the devtools subcommands: Client Commands that read Traces and Flows back, the shipped skills, and Snapshots",
+      "modules": {
+        "src/cli/traces": {
+          "exposed": true
+        },
+        "src/cli/flows": {
+          "exposed": true
+        },
+        "src/cli/snapshot": {
+          "exposed": true
+        },
+        "src/cli/skills.ts": {
+          "exposed": true
+        },
+        "src/cli/client-command": {
+          "shared": true
+        },
+        "src/cli/text-format.ts": {
           "shared": true
         }
       }
@@ -188,7 +204,8 @@
   "layerGraphs": {
     "devtools": {
       "rules": {
-        "entry": ["browser-application", "server-host", "domain"],
+        "entry": ["browser-application", "server-host", "cli"],
+        "cli": ["domain", "rpc-contract"],
         "browser-application": ["tool-interface", "browser-client"],
         "tool-interface": ["browser-client", "rpc-contract", "domain"],
         "browser-client": ["rpc-contract"],
