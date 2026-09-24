@@ -19,11 +19,11 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 
 These packages share a fixed Changesets version and are released together.
 
-| Workspace                                  | Package                                                              | Purpose                                                                                                                   |
-| ------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [`devtools/devtools`](./devtools/devtools) | [`kstack`](https://www.npmjs.com/package/kstack)                     | The `kstack` CLI: local DevTools server plus Client Commands for reading traces and flows.                                |
-| [`devtools/laymos`](./devtools/laymos)     | [`laymos`](https://www.npmjs.com/package/laymos)                     | Declares and enforces TypeScript architecture as layers.                                                                  |
-| [`devtools/lotel`](./devtools/lotel)       | [`@pkishorez/lotel`](https://www.npmjs.com/package/@pkishorez/lotel) | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development. |
+| Workspace                                  | Package                                                                    | Purpose                                                                                                                   |
+| ------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [`devtools/devtools`](./devtools/devtools) | [`@pkishorez/devtools`](https://www.npmjs.com/package/@pkishorez/devtools) | Local DevTools server for traces, logs, flows, and architecture, plus Client Commands for reading traces and flows.       |
+| [`devtools/laymos`](./devtools/laymos)     | [`laymos`](https://www.npmjs.com/package/laymos)                           | Declares and enforces TypeScript architecture as layers.                                                                  |
+| [`devtools/lotel`](./devtools/lotel)       | [`@pkishorez/lotel`](https://www.npmjs.com/package/@pkishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development. |
 
 ### Toolkits
 

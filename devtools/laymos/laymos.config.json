@@ -139,7 +139,7 @@
     },
     "skills-command": {
       "paths": ["src/skills-command"],
-      "description": "Builds the skills subcommand shared by laymos and kstack",
+      "description": "Builds the skills subcommand shared by laymos and @pkishorez/devtools",
       "modules": {
         "src/skills-command": {
           "exposed": true

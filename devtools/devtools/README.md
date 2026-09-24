@@ -1,14 +1,15 @@
-# kstack
+# @pkishorez/devtools
 
-kstack CLI: the local DevTools server and its telemetry Client Commands
+Local DevTools server for telemetry and architecture analysis, with Client
+Commands for reading it back
 
 ## Big picture
 
 Local development produces traces, logs, and Flow Journals, and a project's
-architecture lives in a `laymos.config.json`. kstack gives all of that one
-place. `kstack devtools` starts a loopback server that bundles the browser UI,
-a typed RPC endpoint, and OTLP/HTTP ingestion. Every other subcommand is a
-Client Command that reads Traces and Flows back from a running server as JSON
+architecture lives in a `laymos.config.json`. DevTools gives all of that one
+place. `devtools` starts a loopback server that bundles the browser UI, a
+typed RPC endpoint, and OTLP/HTTP ingestion. Every subcommand is a Client
+Command that reads Traces and Flows back from a running server as JSON
 or text, so a shell or a coding agent can query telemetry without a browser.
 
 The server hosts four Tools. Lotel stores and shows OpenTelemetry data using
@@ -26,17 +27,17 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
 ## Install
 
 ```sh
-npm i -g kstack
+npm i -g @pkishorez/devtools
 ```
 
-Or run it without installing: `npx kstack devtools`.
+Or run it without installing: `npx @pkishorez/devtools`.
 
-kstack has no peer dependencies. The `kstack/rpc` subpath is source
+The package has no peer dependencies. The `@pkishorez/devtools/rpc` subpath is source
 TypeScript and needs `effect` in the consuming project.
 
 ## Exports
 
-### `kstack/rpc`
+### `@pkishorez/devtools/rpc`
 
 The RPC contract the server fulfils and the browser and Client Commands call.
 It merges the Lotel, Flow, Laymos, Monoverse, and Project registry groups.
@@ -77,19 +78,19 @@ It merges the Lotel, Flow, Laymos, Monoverse, and Project registry groups.
 
 ### CLI
 
-| Command                                    | What it does                                                                |
-| ------------------------------------------ | --------------------------------------------------------------------------- |
-| `kstack devtools [--port] [--db] [--open]` | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`. |
-| `kstack list-traces [--limit 20]`          | Lists recent Trace Summaries, newest first.                                 |
-| `kstack get-trace <trace-id>`              | Returns one Trace: spans in start order with their Log Records.             |
-| `kstack list-flows [--limit 20]`           | Lists recent Flows, newest first.                                           |
-| `kstack get-flow <flow-id>`                | Returns one Flow Projection in recorded order.                              |
-| `kstack skills [<name>] [--install <dir>]` | Lists, prints, or installs the shipped agent skill.                         |
+| Command                                      | What it does                                                                |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| `devtools [--port] [--db] [--open]`          | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`. |
+| `devtools list-traces [--limit 20]`          | Lists recent Trace Summaries, newest first.                                 |
+| `devtools get-trace <trace-id>`              | Returns one Trace: spans in start order with their Log Records.             |
+| `devtools list-flows [--limit 20]`           | Lists recent Flows, newest first.                                           |
+| `devtools get-flow <flow-id>`                | Returns one Flow Projection in recorded order.                              |
+| `devtools skills [<name>] [--install <dir>]` | Lists, prints, or installs the shipped agent skill.                         |
 
 Client Commands take `--url` and `--format json|text`. The server URL comes
 from `--url`, then `DEVTOOLS_URL`, then `DEVTOOLS_PORT` on `127.0.0.1`, then
-`http://127.0.0.1:14400`. `kstack devtools` reads `DEVTOOLS_PORT` and
-`DEVTOOLS_DB` when the flags are absent.
+`http://127.0.0.1:14400`. The server reads `DEVTOOLS_PORT` and `DEVTOOLS_DB`
+when the flags are absent.
 
 ## Usage
 
@@ -99,7 +100,7 @@ Run the server, then point an application's telemetry layer at it. Traces,
 logs, and Flow Entries from every process land in one SQLite file.
 
 ```sh
-kstack devtools --open
+devtools --open
 # devtools running on http://127.0.0.1:14400
 ```
 
@@ -144,13 +145,13 @@ piped; `--format text` renders a Trace as its Narrative and a Flow as one
 line per Entry.
 
 ```sh
-kstack list-traces --limit 5
-kstack get-trace 4bf92f3577b34da6a3ce929d0e0e4736 --format text
-kstack list-flows
-kstack get-flow order:42 --format text
+devtools list-traces --limit 5
+devtools get-trace 4bf92f3577b34da6a3ce929d0e0e4736 --format text
+devtools list-flows
+devtools get-flow order:42 --format text
 
 # Install the agent skill so a coding agent knows these commands.
-kstack skills devtools --install .claude/skills
+devtools skills devtools --install .claude/skills
 ```
 
 How it works:

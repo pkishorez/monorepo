@@ -7,5 +7,5 @@ const SKILLS_ROOT = fileURLToPath(new URL('../../skills/', import.meta.url));
 export const skillsCommand = makeSkillsCommand({
   skillsRoot: SKILLS_ROOT,
   names: ['devtools'],
-  cliName: 'kstack',
+  cliName: 'devtools',
 });

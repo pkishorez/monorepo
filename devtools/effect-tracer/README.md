@@ -9,7 +9,7 @@ Effect programs already emit spans and logs through `Effect.withSpan` and
 keeps spans and logs in memory inside the process, in emission order, so a
 test, a Story, or an in-app panel can read them back as plain data. The
 telemetry layers export them over OTLP/HTTP to a collector such as the
-[kstack](../devtools/README.md) DevTools Server, which stores them with
+[@pkishorez/devtools](../devtools/README.md) DevTools Server, which stores them with
 [@pkishorez/lotel](../lotel/README.md).
 
 The full telemetry layer uses the OpenTelemetry SDK and also exports metrics.
@@ -129,7 +129,7 @@ How it works:
 
 ### Export to a local DevTools Server
 
-Point the dev layer at a running `kstack devtools` and every span and log in
+Point the dev layer at a running `devtools` and every span and log in
 the runtime shows up in the Lotel Tool.
 
 ```ts

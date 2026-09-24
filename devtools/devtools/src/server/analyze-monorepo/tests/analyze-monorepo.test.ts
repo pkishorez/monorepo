@@ -36,6 +36,8 @@ describe('analyzeMonorepo', () => {
     ).pipe(Effect.runPromise);
 
     expect(analysis.packages.length).toBeGreaterThan(0);
-    expect(analysis.packages.some((pkg) => pkg.name === 'kstack')).toBe(true);
+    expect(
+      analysis.packages.some((pkg) => pkg.name === '@pkishorez/devtools'),
+    ).toBe(true);
   });
 });

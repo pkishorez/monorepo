@@ -10,7 +10,7 @@ that something, as a library: an OTLP/HTTP ingestion group, an RPC group for
 writing and reading Span Records and Log Records, and a SQLite Telemetry Store
 behind a service interface. It runs no server of its own.
 
-[kstack](../devtools/README.md) hosts these layers inside its DevTools Server
+[@pkishorez/devtools](../devtools/README.md) hosts these layers inside its DevTools Server
 and adds the browser UI. [@pkishorez/effect-tracer](../effect-tracer/README.md)
 is the sending side. Flows are a separate Tool in
 [@pkishorez/flow](../flow/README.md); lotel's records carry a Flow id and
@@ -91,7 +91,7 @@ Node.
 ### Host lotel in your own server
 
 Serve the RPC group and OTLP ingestion on one HTTP server, backed by one
-SQLite file. This is what kstack does.
+SQLite file. This is what `@pkishorez/devtools` does.
 
 ```ts
 import { createServer } from 'node:http';

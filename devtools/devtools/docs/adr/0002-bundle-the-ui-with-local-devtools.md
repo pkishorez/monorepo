@@ -11,7 +11,7 @@ connection handoff.
 - The DevTools package contains every browser asset, including fonts and icons.
 - Browser assets are emitted as ordinary hashed files under `dist/ui`, beside
   the server executable, rather than encoded into it.
-- The UI source and browser build live inside `kstack`; there is no
+- The UI source and browser build live inside `@pkishorez/devtools`; there is no
   separately versioned UI package.
 - Lotel- and Laymos-specific screens and components are owned by DevTools.
   Generic visual primitives may remain a build-time dependency and are compiled
