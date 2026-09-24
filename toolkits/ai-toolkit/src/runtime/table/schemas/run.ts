@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
 import { EntityESchema } from 'std-toolkit/eschema';
-import { HARNESS_IDS, RUN_STATUSES } from '../../protocol/index.js';
+import { claude, codex, common } from '../../protocol/index.js';
 
-const ClaudeRunDataSchema = Schema.Struct({
+const ClaudeRunDataV1Schema = Schema.Struct({
   type: Schema.Literal('claude'),
   model: Schema.String,
   thinking: Schema.NullOr(Schema.Struct({ budgetTokens: Schema.Number })),
@@ -13,7 +13,7 @@ const ClaudeRunDataSchema = Schema.Struct({
   inputHash: Schema.String,
 });
 
-const CodexRunDataSchema = Schema.Struct({
+const CodexRunDataV1Schema = Schema.Struct({
   type: Schema.Literal('codex'),
   model: Schema.String,
   reasoningEffort: Schema.NullOr(Schema.String),
@@ -23,14 +23,35 @@ const CodexRunDataSchema = Schema.Struct({
   inputHash: Schema.String,
 });
 
+const RunDataV1Schema = Schema.Union([
+  ClaudeRunDataV1Schema,
+  CodexRunDataV1Schema,
+]);
+
+const RunDataV2Schema = Schema.Union([
+  Schema.Struct({
+    ...ClaudeRunDataV1Schema.fields,
+    facts: Schema.NullOr(claude.schemas.runFacts),
+  }),
+  Schema.Struct({
+    ...CodexRunDataV1Schema.fields,
+    facts: Schema.NullOr(codex.schemas.runFacts),
+  }),
+]);
+
 export const RunSchema = EntityESchema.make('AiRun', 'id', {
   threadId: Schema.String,
-  harness: Schema.Literals(HARNESS_IDS),
-  status: Schema.Literals(RUN_STATUSES),
+  harness: Schema.Literals(common.harnessIds),
+  status: Schema.Literals(common.runStatuses),
   hostId: Schema.String,
   startedAt: Schema.Number,
   finishedAt: Schema.NullOr(Schema.Number),
-  data: Schema.Union([ClaudeRunDataSchema, CodexRunDataSchema]),
-}).build();
+  data: RunDataV1Schema,
+})
+  .evolve('v2', { data: RunDataV2Schema }, (run) => ({
+    ...run,
+    data: { ...run.data, facts: null },
+  }))
+  .build();
 
 export type Run = typeof RunSchema.Type;

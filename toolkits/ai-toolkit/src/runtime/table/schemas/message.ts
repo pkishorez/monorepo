@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { EntityESchema } from 'std-toolkit/eschema';
-import { AiMessagePartSchema } from '../../protocol/index.js';
+import { common } from '../../protocol/index.js';
 
 export const MESSAGE_ROLES = ['system', 'user', 'assistant'] as const;
 export type MessageRole = (typeof MESSAGE_ROLES)[number];
@@ -12,7 +12,7 @@ export const MessageSchema = EntityESchema.make('AiMessage', 'id', {
   role: Schema.Literals(MESSAGE_ROLES),
   createdAt: Schema.Number,
   data: Schema.Struct({
-    parts: Schema.Array(AiMessagePartSchema),
+    parts: Schema.Array(common.schemas.messagePart),
     metadata: Schema.NullOr(Schema.Unknown),
   }),
 }).build();

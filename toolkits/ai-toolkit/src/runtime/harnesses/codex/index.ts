@@ -1,1 +1,1 @@
-export { codexRun } from './codex.js';
+export { Codex } from './codex.js';

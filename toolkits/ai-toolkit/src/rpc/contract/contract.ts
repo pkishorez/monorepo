@@ -1,45 +1,16 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import {
-  AiErrorSchema,
-  CLAUDE_MODELS,
-  CODEX_MODELS,
-  ClaudeAnswerSchema,
-  CodexAnswerSchema,
-  UserTurnSchema,
+  claude,
+  codex,
+  common,
+  type ClaudeProtocol,
+  type CodexProtocol,
+  type CommonProtocol,
 } from '../../runtime/protocol/index.js';
 
-export {
-  CLAUDE_MODELS,
-  CLAUDE_PARTS,
-  CODEX_MODELS,
-  CODEX_PARTS,
-  COMMON_PARTS,
-  CUSTOM_PART_NAMES,
-  HarnessFailed,
-  RUN_STATUSES,
-  RequestNotFound,
-  RunConflict,
-  RunNotFound,
-  THREAD_STATUSES,
-  ThreadBusy,
-  ThreadNotFound,
-} from '../../runtime/protocol/index.js';
-export type {
-  AgentQuestion,
-  AiCustomPart,
-  AiMessagePart,
-  Answer,
-  ClaudeAnswer,
-  ClaudePart,
-  CodexAnswer,
-  CodexPart,
-  CommonPart,
-  HarnessId,
-  RunStatus,
-  ThreadStatus,
-  UserTurn,
-} from '../../runtime/protocol/index.js';
+export { claude, codex, common };
+export type { ClaudeProtocol, CodexProtocol, CommonProtocol };
 
 const ClaudeOptions = {
   permissionMode: Schema.optional(
@@ -61,7 +32,7 @@ const ThinkingOptions = {
 };
 
 const claudeStartPayload = <
-  Model extends (typeof CLAUDE_MODELS)[number],
+  Model extends (typeof claude.models)[number],
   Options extends Schema.Struct.Fields,
 >(
   model: Model,
@@ -70,7 +41,7 @@ const claudeStartPayload = <
   Schema.Struct({
     threadId: Schema.String,
     runId: Schema.String,
-    message: UserTurnSchema,
+    message: common.schemas.userTurn,
     model: Schema.Literal(model),
     options: Schema.Struct(options),
   });
@@ -104,15 +75,15 @@ const CodexOptionsSchema = Schema.Struct({
 const CodexStartPayload = Schema.Struct({
   threadId: Schema.String,
   runId: Schema.String,
-  message: UserTurnSchema,
-  model: Schema.Literals(CODEX_MODELS),
+  message: common.schemas.userTurn,
+  model: Schema.Literals(codex.models),
   options: CodexOptionsSchema,
 });
 
 export type ClaudeStartInput = typeof ClaudeStartPayload.Type;
 export type CodexStartInput = typeof CodexStartPayload.Type;
 
-export const AiRpcError = AiErrorSchema;
+export const AiRpcError = common.schemas.aiError;
 
 const CancelRun = Rpc.make('cancelRun', {
   payload: Schema.Struct({
@@ -133,9 +104,14 @@ const ClaudeRespond = Rpc.make('claudeRespond', {
   payload: Schema.Struct({
     runId: Schema.String,
     requestId: Schema.String,
-    answer: ClaudeAnswerSchema,
+    answer: claude.schemas.answer,
   }),
   success: Schema.Void,
+  error: AiRpcError,
+});
+
+const ClaudeGetAccountUsage = Rpc.make('claudeGetAccountUsage', {
+  success: claude.schemas.accountUsage,
   error: AiRpcError,
 });
 
@@ -149,15 +125,28 @@ const CodexRespond = Rpc.make('codexRespond', {
   payload: Schema.Struct({
     runId: Schema.String,
     requestId: Schema.String,
-    answer: CodexAnswerSchema,
+    answer: codex.schemas.answer,
   }),
   success: Schema.Void,
   error: AiRpcError,
 });
 
-export class CommonRpc extends RpcGroup.make(CancelRun) {}
-export class ClaudeRpc extends RpcGroup.make(ClaudeStart, ClaudeRespond) {}
-export class CodexRpc extends RpcGroup.make(CodexStart, CodexRespond) {}
+const CodexGetAccountUsage = Rpc.make('codexGetAccountUsage', {
+  success: codex.schemas.accountUsage,
+  error: AiRpcError,
+});
 
-/** The execution contract. Every observable fact arrives through the AI Table. */
+export class CommonRpc extends RpcGroup.make(CancelRun) {}
+export class ClaudeRpc extends RpcGroup.make(
+  ClaudeStart,
+  ClaudeRespond,
+  ClaudeGetAccountUsage,
+) {}
+export class CodexRpc extends RpcGroup.make(
+  CodexStart,
+  CodexRespond,
+  CodexGetAccountUsage,
+) {}
+
+/** Run facts arrive through the AI Table; account usage is read live. */
 export class AiRpc extends CommonRpc.merge(ClaudeRpc).merge(CodexRpc) {}

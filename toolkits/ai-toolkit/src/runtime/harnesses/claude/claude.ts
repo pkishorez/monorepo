@@ -2,20 +2,29 @@ import {
   query,
   type Options,
   type PermissionResult,
+  type SDKResultMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import { Effect, Option, Schema } from 'effect';
 import { INTERACTION_TIMEOUT_MS } from '../../constants.js';
 import type { Mailbox } from '../../interaction-mailbox/index.js';
 import {
-  COMMON_PARTS,
-  customPart,
-  type AgentQuestion,
-  type ClaudeAnswer,
-  type ClaudeRunInput,
-  type HarnessContext,
-  type RunOutcome,
+  claude,
+  common,
+  type ClaudeProtocol,
+  type CommonProtocol,
 } from '../../protocol/index.js';
 import { ClaudeTranslator } from './translate.js';
+import { readClaudeAccountUsage } from './account-usage.js';
+
+const COMMON_PARTS = common.parts;
+const CLAUDE_PARTS = claude.parts;
+const customPart = common.customPart;
+type AgentQuestion = CommonProtocol['AgentQuestion'];
+type ClaudeAnswer = ClaudeProtocol['Answer'];
+type ClaudeRunInput = ClaudeProtocol['RunInput'];
+type ClaudeRunFacts = ClaudeProtocol['RunFacts'];
+type HarnessContext = CommonProtocol['HarnessContext'];
+type RunOutcome = CommonProtocol['RunOutcome'];
 
 const ClaudeQuestionInputSchema = Schema.Struct({
   questions: Schema.Array(
@@ -107,7 +116,55 @@ const errorMessage = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause);
 
 /** Runs one Claude Code turn, writing everything it produces to the Transcript. */
-export const claudeRun = async (
+const factsFrom = async (
+  result: SDKResultMessage,
+  live: ReturnType<typeof query>,
+): Promise<ClaudeRunFacts> => {
+  let context: ClaudeRunFacts['context'] = null;
+  try {
+    const value = await live.getContextUsage({ detail: 'summary' });
+    context = {
+      model: value.model,
+      totalTokens: value.totalTokens,
+      maxTokens: value.maxTokens,
+      rawMaxTokens: value.rawMaxTokens,
+      percentage: value.percentage,
+      categories: value.categories.map(({ name, tokens, kind }) => ({
+        name,
+        tokens,
+        kind,
+      })),
+    };
+  } catch {
+    // The result remains valid when an older Claude runtime lacks this query.
+  }
+  return {
+    type: 'claude',
+    totalCostUsd: result.total_cost_usd,
+    durationMs: result.duration_ms,
+    apiDurationMs: result.duration_api_ms,
+    turns: result.num_turns,
+    models: Object.fromEntries(
+      Object.entries(result.modelUsage).map(([model, usage]) => [
+        model,
+        {
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          thinkingTokens: usage.thinkingTokens ?? null,
+          cacheReadInputTokens: usage.cacheReadInputTokens,
+          cacheCreationInputTokens: usage.cacheCreationInputTokens,
+          webSearchRequests: usage.webSearchRequests,
+          costUsd: usage.costUSD,
+          contextWindow: usage.contextWindow,
+          maxOutputTokens: usage.maxOutputTokens,
+        },
+      ]),
+    ),
+    context,
+  };
+};
+
+const run = async (
   input: ClaudeRunInput,
   context: HarnessContext,
   mailbox: Mailbox<ClaudeAnswer>,
@@ -171,7 +228,7 @@ export const claudeRun = async (
           cancelAnswer: { behavior: 'deny', message: 'Run cancelled' },
           onResolved: (resolved) =>
             context.transcript.resolution(
-              customPart(COMMON_PARTS.PERMISSION_RESOLVED, {
+              customPart(CLAUDE_PARTS.PERMISSION_RESOLVED, {
                 requestId,
                 toolCallId: details.toolUseID,
                 answer: resolved,
@@ -184,20 +241,28 @@ export const claudeRun = async (
   };
 
   let outcome: RunOutcome | undefined;
+  const live = query({ prompt: input.message.content, options: sdkOptions });
   try {
-    for await (const event of query({
-      prompt: input.message.content,
-      options: sdkOptions,
-    })) {
+    for await (const event of live) {
       const signal = translator.apply(event);
       if (signal === undefined) continue;
       if (signal.type === 'session') await context.session(signal.sessionId);
-      else outcome = signal;
+      else {
+        outcome =
+          event.type === 'result'
+            ? { ...signal, facts: await factsFrom(event, live) }
+            : signal;
+      }
     }
-    return outcome ?? { type: 'completed' };
+    return outcome ?? { type: 'completed', facts: null };
   } catch (cause) {
-    return { type: 'failed', message: errorMessage(cause) };
+    return { type: 'failed', message: errorMessage(cause), facts: null };
   } finally {
     context.signal.removeEventListener('abort', abort);
   }
 };
+
+export const Claude = {
+  run,
+  accountUsage: readClaudeAccountUsage,
+} as const;
