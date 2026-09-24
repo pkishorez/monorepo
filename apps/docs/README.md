@@ -13,8 +13,8 @@ at [docs.kishore.app](https://docs.kishore.app).
 It also hosts the interactive demos under `/demos`, with their code in
 `src/demos`. Each demo exercises a workspace package end to end:
 
-- `ai-toolkit`: a chat playground over `ai-toolkit/rpc`, `ai-toolkit/table`
-  and `ai-toolkit/client`.
+- `kai-toolkit`: a chat playground over `kai-toolkit/rpc`, `kai-toolkit/table`
+  and `kai-toolkit/client`.
 - `effect-webrtc`: browser to browser and browser to Node peers over
   `effect-webrtc/signaling`, with a Node peer in `src/effect-webrtc-node.ts`
   (`pnpm --filter docs webrtc:node`).

@@ -18,7 +18,7 @@
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "@pkishorez/effect-tracer": "workspace:*",
     "@pkishorez/flow": "workspace:*",
-    "ai-toolkit": "workspace:*",
+    "kai-toolkit": "workspace:*",
     "kui-toolkit": "workspace:*",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
