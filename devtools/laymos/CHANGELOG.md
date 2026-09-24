@@ -1,5 +1,13 @@
 # laymos
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @pkishorez/effect-tracer@0.0.11
+  - @pkishorez/flow@0.0.11
+
 ## 0.0.10
 
 ### Patch Changes

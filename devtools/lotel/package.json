@@ -1,6 +1,6 @@
 {
   "name": "@pkishorez/lotel",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "private": false,
   "description": "Telemetry contracts and orchestration for DevTools",
   "repository": {
