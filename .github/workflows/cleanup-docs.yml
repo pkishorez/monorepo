@@ -1,11 +1,8 @@
 name: 🧹 cleanup:docs
 
 on:
-  workflow_call:
-    inputs:
-      stage:
-        required: true
-        type: string
+  pull_request:
+    types: [closed]
   workflow_dispatch:
     inputs:
       pr:
@@ -13,8 +10,17 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: docs-pr${{ inputs.pr || github.event.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   cleanup:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'preview:docs')
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -22,23 +28,16 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ vars.AWS_REGION }}
-      # Supplied explicitly so Alchemy skips the STS GetCallerIdentity it
-      # would otherwise use to discover the account id.
+      # Lets Alchemy skip the STS account lookup.
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      # Destroy also evaluates apps/docs/alchemy.run.ts, whose accident-guard
-      # refuses deployed stages without this opt-in.
+      # Opt-in required by the accident guard in apps/docs/alchemy.run.ts.
       ALLOW_DEPLOY: 'true'
-      # workflow_call passes a stage directly; workflow_dispatch takes a PR number.
-      STAGE: ${{ inputs.stage || format('pr{0}', inputs.pr) }}
+      STAGE: pr${{ inputs.pr || github.event.number }}
     steps:
       - name: Validate stage
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && ! echo "${{ inputs.pr }}" | grep -qE '^[0-9]+$'; then
             echo "PR number must be numeric, got '${{ inputs.pr }}'." >&2
-            exit 1
-          fi
-          if [ "$STAGE" = "prod" ]; then
-            echo "Refusing to destroy the '$STAGE' stage." >&2
             exit 1
           fi
 
@@ -54,18 +53,12 @@ jobs:
           node-version: 24.18.0
           cache: pnpm
 
-      # Destroy only needs the docs project and its workspace deps.
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --filter docs...
 
-      # Workspace packages docs consumes export dist, so they need to be built
-      # before any alchemy command runs — mirrors deploy.yml's Build step.
       - name: Build
         run: pnpm --filter docs... run build
 
-      # Ask the state store first and skip quietly when there is nothing to
-      # destroy; if the store cannot answer, attempt the destroy anyway rather
-      # than leave resources running.
       - name: Look for the stage
         id: lookup
         run: |
@@ -95,6 +88,12 @@ jobs:
         run: |
           echo "::warning::alchemy destroy failed for stage '$STAGE' — force-clearing alchemy state so the stage does not linger. Some cloud resources may need manual cleanup."
           pnpm -C apps/docs exec alchemy state clear --stack Docs --stage "$STAGE" --yes
+
+      - name: Remove preview label
+        if: steps.destroy.outcome != 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${STAGE#pr}/labels/preview:docs" --silent || true
 
       - name: Fail if destroy failed
         if: steps.destroy.outcome == 'failure'

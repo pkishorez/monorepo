@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [opened, reopened, synchronize]
   workflow_dispatch:
     inputs:
       stage:
@@ -13,12 +13,46 @@ on:
         type: string
 
 concurrency:
-  group: deploy-${{ inputs.stage || github.ref }}
+  group: docs-${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
+  detect:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      affected: ${{ steps.affected.outputs.affected }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+
+      - name: Check docs affected
+        id: affected
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'affected=true' >> "$GITHUB_OUTPUT"
+          else
+            .github/scripts/affected.sh apps/docs .github/workflows/deploy-docs.yml "$BASE"
+          fi
+
   deploy:
-    if: github.event_name != 'pull_request' || (github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository)
+    needs: detect
+    if: needs.detect.outputs.affected == 'true'
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -26,51 +60,28 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_REGION: ${{ vars.AWS_REGION }}
-      # Supplied explicitly so Alchemy skips the STS GetCallerIdentity it
-      # would otherwise use to discover the account id.
+      # Lets Alchemy skip the STS account lookup.
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-      # Opt through the accident-guard in apps/docs/alchemy.run.ts — deployed
-      # stages refuse to reconcile without it.
+      # Opt-in required by the accident guard in apps/docs/alchemy.run.ts.
       ALLOW_DEPLOY: 'true'
+      STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
     permissions:
       contents: read
+      pull-requests: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      # Pushes to main reconcile `prod` on docs.kishore.app. Pull requests
-      # reconcile `pr<N>` previews on pr<N>-docs.kishore.app and destroy them
-      # when the PR closes.
-      - name: Compute stage
-        id: stage
-        env:
-          INPUT_STAGE: ${{ inputs.stage }}
+      - name: Validate stage
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            if ! printf '%s' "$INPUT_STAGE" | grep -qxE 'prod|demo|pr[0-9]+'; then
-              echo "::error::Stage must be 'prod', 'demo' or 'pr<N>', got '$INPUT_STAGE'." >&2
-              exit 1
-            fi
-            stage="$INPUT_STAGE"
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            stage="prod"
-          elif [ "${{ github.event_name }}" = "pull_request" ]; then
-            stage="pr${{ github.event.number }}"
-          else
+          if ! printf '%s' "$STAGE" | grep -qxE 'prod|demo|pr[0-9]+'; then
+            echo "::error::Stage must be 'prod', 'demo' or 'pr<N>', got '$STAGE'." >&2
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
             echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main." >&2
             exit 1
           fi
-          if [ "$stage" = "prod" ]; then
-            docs_host="docs.kishore.app"
-          else
-            docs_host="$stage-docs.kishore.app"
-          fi
-          {
-            echo "stage=$stage"
-            echo "docs_url=https://$docs_host"
-          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -84,78 +95,51 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # A dispatch is an explicit request, so it always deploys. A push
-      # deploys only when docs or something it depends on changed: workspace
-      # packages via pnpm's changed-since filter (docs ∈ changed ∪ dependents),
-      # plus root files the graph can't attribute (this workflow, lockfile,
-      # catalogs). Unknown base (force-push, first run) deploys to be safe.
-      - name: Check docs affected
-        id: changes
-        run: |
-          deploy=false
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            deploy=true
-          else
-            base="${{ github.event.before }}"
-            if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
-              deploy=true
-            elif git diff --name-only "$base" HEAD | grep -qxE '\.github/workflows/deploy-docs\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml'; then
-              deploy=true
-            elif pnpm ls -r --depth -1 --parseable --filter "...[$base]" | grep -q '/apps/docs$'; then
-              deploy=true
-            fi
-          fi
-          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
-
-      # Workspace packages the docs site consumes export source, but building
-      # the workspace mirrors test.yml and keeps dist-consuming deps working.
       - name: Build
-        if: steps.changes.outputs.deploy == 'true'
         run: pnpm build
 
-      # Bootstrap is idempotent (adopts an existing state store), so it's safe
-      # on every deploy.
       - name: Bootstrap Alchemy state store
-        if: steps.changes.outputs.deploy == 'true'
         run: pnpm -C apps/docs exec alchemy cloudflare bootstrap
 
       - name: Deploy docs
-        id: deploy_docs
-        if: steps.changes.outputs.deploy == 'true'
         run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes
+
+      - name: Mark PR as having a preview
+        if: startsWith(env.STAGE, 'pr')
         env:
-          STAGE: ${{ steps.stage.outputs.stage }}
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/issues/${STAGE#pr}/labels" -f 'labels[]=preview:docs' --silent
 
       - name: State tree
-        if: steps.changes.outputs.deploy == 'true' && always()
+        if: always()
         run: pnpm -C apps/docs exec alchemy state tree || true
 
+  summary:
+    needs: [detect, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
       - name: Job summary
-        if: always()
         env:
-          STAGE: ${{ steps.stage.outputs.stage }}
-          DOCS_URL: ${{ steps.stage.outputs.docs_url }}
-          DOCS_OUTCOME: ${{ steps.deploy_docs.outcome }}
+          STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+          AFFECTED: ${{ needs.detect.outputs.affected }}
+          RESULT: ${{ needs.deploy.result }}
         run: |
-          icon() {
-            case "$1" in
-              success) echo "✅ deployed" ;;
-              failure) echo "❌ failed" ;;
-              skipped) echo "⏭️ unchanged" ;;
-              *) echo "$1" ;;
-            esac
-          }
+          if [ "$STAGE" = "prod" ]; then
+            docs_url="https://docs.kishore.app"
+          else
+            docs_url="https://$STAGE-docs.kishore.app"
+          fi
+          case "$RESULT" in
+            success) status="✅ deployed" ;;
+            failure) status="❌ failed" ;;
+            skipped) if [ "$AFFECTED" = false ]; then status="⏭️ unchanged, skipped"; else status="⏭️ not eligible"; fi ;;
+            *) status="$RESULT" ;;
+          esac
           {
             echo "## Deploy — \`$STAGE\`"
             echo ""
             echo "| App | Status | URL |"
             echo "| --- | --- | --- |"
-            echo "| docs | $(icon "$DOCS_OUTCOME") | $DOCS_URL |"
+            echo "| docs | $status | $docs_url |"
           } >> "$GITHUB_STEP_SUMMARY"
-
-  cleanup:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    uses: ./.github/workflows/cleanup-docs.yml
-    with:
-      stage: pr${{ github.event.number }}
-    secrets: inherit
