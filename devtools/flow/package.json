@@ -1,6 +1,6 @@
 {
   "name": "@pkishorez/flow",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "private": false,
   "description": "Flow journals for Effect programs: participants record what happened, DevTools shows it as a swim lane",
   "repository": {

@@ -1,5 +1,11 @@
 # rpc-toolkit
 
+## 0.0.2
+
+### Patch Changes
+
+- [`2503956`](https://github.com/pkishorez/monorepo/commit/2503956177145ac7d3766e6742cfa648a83ddc21) Thanks [@pkishorez](https://github.com/pkishorez)! - Persist every active streaming RPC automatically and restore it through Hibernation Replay, even when the handler does not use `StreamCheckpoint`. A close event waits for replay before it interrupts restored calls, which prevents a disconnected connection from being restored after its close was already processed. `StreamCheckpoint` remains available only for streams that need resumable progress.
+
 ## 0.0.1
 
 ### Patch Changes
