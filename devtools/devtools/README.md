@@ -84,15 +84,15 @@ It merges the Lotel, Flow, Laymos, git, Monoverse, and Project registry groups.
 
 ### CLI
 
-| Command                                          | What it does                                                                  |
-| ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `devtools [--port] [--db] [--open]`              | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`.   |
-| `devtools list-traces [--limit 20]`              | Lists recent Trace Summaries, newest first.                                   |
-| `devtools get-trace <trace-id>`                  | Returns one Trace: spans in start order with their Log Records.               |
-| `devtools list-flows [--limit 20]`               | Lists recent Flows, newest first.                                             |
-| `devtools get-flow <flow-id>`                    | Returns one Flow Projection in recorded order.                                |
-| `devtools skills [<name>] [--install <dir>]`     | Lists, prints, or installs the shipped agent skill.                           |
-| `devtools snapshot [--project] [--base] [--out]` | Draws a Project's changed Modules to a PNG with headless Chromium, no server. |
+| Command                                          | What it does                                                                                                       |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `devtools [--port] [--db] [--open]`              | Runs the DevTools Server: UI, RPC, and OTLP ingestion on `127.0.0.1:14400`.                                        |
+| `devtools list-traces [--limit 20]`              | Lists recent Trace Summaries, newest first.                                                                        |
+| `devtools get-trace <trace-id>`                  | Returns one Trace: spans in start order with their Log Records.                                                    |
+| `devtools list-flows [--limit 20]`               | Lists recent Flows, newest first.                                                                                  |
+| `devtools get-flow <flow-id>`                    | Returns one Flow Projection in recorded order.                                                                     |
+| `devtools skills [<name>] [--install <dir>]`     | Lists, prints, or installs the shipped agent skill.                                                                |
+| `devtools snapshot [--project] [--base] [--out]` | Draws a Project's changed Modules to a PNG with headless Chromium, no server. `--all` draws every changed Project. |
 
 Client Commands take `--url` and `--format json|text`. The server URL comes
 from `--url`, then `DEVTOOLS_URL`, then `DEVTOOLS_PORT` on `127.0.0.1`, then
@@ -180,15 +180,24 @@ Snapshot page from disk in headless Chromium, so nothing listens on a port.
 devtools snapshot --project toolkits/kui-toolkit --base origin/main \
   --out .snapshots/kui-toolkit.png --only-changed
 # {
+#   "project": "toolkits/kui-toolkit",
+#   "title": "kui-toolkit",
 #   "baseRef": "c08fd1c…",
 #   "modules": 132,
 #   "changedModules": 4,
-#   "out": "/…/.snapshots/kui-toolkit.png",
-#   "width": 512,
-#   "height": 806,
+#   "drawn": "changed",
 #   "scale": 2,
-#   "drawn": "changed"
+#   "images": [
+#     { "theme": "dark", "out": "/…/.snapshots/kui-toolkit.png", "width": 512, "height": 806 }
+#   ]
 # }
+
+# Every Project under this folder that the branch changed, in both themes.
+devtools snapshot --all --base origin/main --only-changed --theme both \
+  --out-dir .snapshots
+# [ { "project": "toolkits/kui-toolkit", …, "images": [
+#     { "theme": "dark", "out": "/…/.snapshots/toolkits%2Fkui-toolkit-dark.png", … },
+#     { "theme": "light", "out": "/…/.snapshots/toolkits%2Fkui-toolkit-light.png", … } ] } ]
 ```
 
 How it works:
@@ -202,7 +211,15 @@ How it works:
 - `--only-changed` writes nothing when no Module changed; otherwise a Project
   with no changed Module is drawn in full. `--include-unchanged` always draws
   every Module. The drawing is dark like DevTools; `--theme light` or
-  `DEVTOOLS_THEME=light` draws it light.
+  `DEVTOOLS_THEME=light` draws it light, and `--theme both` writes a `-dark`
+  and a `-light` file.
+- `--all` finds every `laymos.config.json` under the current folder, skipping
+  `fixtures/` and git-ignored folders, keeps the Projects the commits touched,
+  and writes one PNG per Project into `--out-dir` (default `.snapshots`),
+  named after its folder. It cannot be combined with `--project`, `--out`, or
+  `--title`. The pictures share one browser, and a Project that fails is
+  reported with an `error` while the rest are still drawn; the exit code is
+  then 1.
 - Chromium comes from Playwright's own install when present, else the system
   Chrome, Chromium, or Edge; `--browser` or `DEVTOOLS_BROWSER` names an
   executable directly. GitHub's Ubuntu runners ship Chrome, so CI installs
