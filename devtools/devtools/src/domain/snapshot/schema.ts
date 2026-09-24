@@ -2,9 +2,7 @@ import { Schema } from 'effect';
 import { ArchitectureAnalysisSchema } from 'laymos/architecture-analysis-schema';
 import { ChangeSetSchema } from 'laymos/change-set-schema';
 
-export const SnapshotThemeSchema = Schema.Literals(['light', 'dark']);
-
-export type SnapshotTheme = typeof SnapshotThemeSchema.Type;
+export const snapshotThemes = ['dark', 'light'] as const;
 
 /**
  * What the Snapshot page draws: one Architecture Analysis, the Change set to
@@ -13,7 +11,7 @@ export type SnapshotTheme = typeof SnapshotThemeSchema.Type;
  */
 export const SnapshotRequestSchema = Schema.Struct({
   title: Schema.String,
-  theme: SnapshotThemeSchema,
+  theme: Schema.Literals(snapshotThemes),
   includeUnchanged: Schema.Boolean,
   maxWidth: Schema.Number,
   maxHeight: Schema.Number,

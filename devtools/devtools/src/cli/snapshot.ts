@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { Config, Console, Effect, Option, Schema } from 'effect';
+import { Config, Console, Effect, Option } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import {
   analyzeProject,
@@ -9,11 +9,9 @@ import {
   CruiseError,
   GitError,
   loadChangeSet,
-  type ArchitectureAnalysis,
-  type ChangeSet,
 } from 'laymos';
 
-import { SnapshotRequestJson, type SnapshotRequest } from '../rpc/index.js';
+import { planSnapshot, snapshotThemes } from '../domain/snapshot/index.js';
 import { renderSnapshot, SnapshotRenderError } from './snapshot-render.js';
 
 const project = Flag.directory('project', { mustExist: true }).pipe(
@@ -61,10 +59,10 @@ const scale = Flag.integer('scale').pipe(
   Flag.withDescription('Device pixels per CSS pixel in the PNG'),
   Flag.withDefault(2),
 );
-const theme = Flag.choice('theme', ['light', 'dark']).pipe(
+const theme = Flag.choice('theme', snapshotThemes).pipe(
   Flag.withDescription('Color theme of the drawing: dark, or light'),
-  Flag.withFallbackConfig(Config.literals(['light', 'dark'], 'DEVTOOLS_THEME')),
-  Flag.withDefault('dark' as const),
+  Flag.withFallbackConfig(Config.literals(snapshotThemes, 'DEVTOOLS_THEME')),
+  Flag.withDefault(snapshotThemes[0]),
 );
 const browser = Flag.string('browser').pipe(
   Flag.withDescription(
@@ -104,39 +102,40 @@ export const snapshotCommand = Command.make(
     const projectDir = resolve(flags.project);
     const configPath = join(projectDir, 'laymos.config.json');
     const analysis = yield* analyzeProject(configPath);
-    const changes = committedOnly(yield* loadChangeSet(projectDir, flags.base));
-    const changedModules = countChangedModules(analysis, changes);
+    const plan = planSnapshot(
+      analysis,
+      yield* loadChangeSet(projectDir, flags.base),
+      flags,
+    );
     const summary = {
-      baseRef: changes.baseRef,
-      modules: analysis.moduleAnalysis.modules.length,
-      changedModules,
+      baseRef: plan.changes.baseRef,
+      modules: plan.modules,
+      changedModules: plan.changedModules,
     };
-    if (flags.onlyChanged && changedModules === 0) {
+    if (plan.drawn === 'none') {
       yield* Console.log(
-        JSON.stringify({ ...summary, drawn: 'none' }, null, 2),
+        JSON.stringify({ ...summary, drawn: plan.drawn }, null, 2),
       );
       return;
     }
-    const request: SnapshotRequest = {
-      title: Option.getOrElse(flags.title, () => basename(projectDir)),
-      theme: flags.theme,
-      includeUnchanged: flags.includeUnchanged,
-      maxWidth: flags.maxWidth,
-      maxHeight: flags.maxHeight,
-      analysis,
-      changes,
-      baseLabel: flags.base,
-    };
-    const rendered = yield* renderSnapshot({
-      payload: Schema.encodeSync(SnapshotRequestJson)(request),
-      theme: flags.theme,
-      maxWidth: flags.maxWidth,
-      maxHeight: flags.maxHeight,
-      scale: flags.scale,
-      uiRoot: Option.getOrUndefined(flags.uiRoot),
-      browser: Option.getOrUndefined(flags.browser),
-      timeoutMs: flags.timeout,
-    });
+    const rendered = yield* renderSnapshot(
+      {
+        title: Option.getOrElse(flags.title, () => basename(projectDir)),
+        theme: flags.theme,
+        includeUnchanged: plan.drawn === 'all',
+        maxWidth: flags.maxWidth,
+        maxHeight: flags.maxHeight,
+        analysis,
+        changes: plan.changes,
+        baseLabel: flags.base,
+      },
+      {
+        scale: flags.scale,
+        uiRoot: Option.getOrUndefined(flags.uiRoot),
+        browser: Option.getOrUndefined(flags.browser),
+        timeoutMs: flags.timeout,
+      },
+    );
     const outPath = resolve(flags.out);
     yield* Effect.tryPromise(async () => {
       await mkdir(dirname(outPath), { recursive: true });
@@ -150,8 +149,7 @@ export const snapshotCommand = Command.make(
           width: rendered.width,
           height: rendered.height,
           scale: flags.scale,
-          drawn:
-            flags.includeUnchanged || changedModules === 0 ? 'all' : 'changed',
+          drawn: plan.drawn,
         },
         null,
         2,
@@ -200,23 +198,4 @@ function describeSnapshotError(error: unknown): string {
     }
   }
   return error instanceof Error ? error.message : String(error);
-}
-
-// The Modules a Change set touches, by the analysis's own file membership.
-function countChangedModules(
-  analysis: ArchitectureAnalysis,
-  changes: ChangeSet,
-): number {
-  const touched = new Set<string>();
-  for (const { path } of changes.files) {
-    const owner = analysis.moduleAnalysis.membership.get(path);
-    if (owner !== undefined) touched.add(owner);
-  }
-  return touched.size;
-}
-
-// A Snapshot shows what the branch's commits changed; work not yet committed
-// is left unmarked.
-function committedOnly(changes: ChangeSet): ChangeSet {
-  return { ...changes, files: changes.files.filter((file) => file.committed) };
 }

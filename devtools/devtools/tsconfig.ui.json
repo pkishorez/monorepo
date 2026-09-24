@@ -12,6 +12,7 @@
     "src/browser-app/**/*",
     "src/browser-globals.d.ts",
     "src/client/**/*",
+    "src/domain/**/*",
     "src/rpc/**/*",
     "src/ui/**/*"
   ],

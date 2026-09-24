@@ -81,9 +81,6 @@ It merges the Lotel, Flow, Laymos, git, Monoverse, and Project registry groups.
 | `WorktreeResolutionSchema`         | Every Worktree of the Project's repository and which one it is in.                 |
 | `FlowEntryEntitySchema`            | How the Flow Store keeps one Entry, keyed by id and indexed by Flow id.            |
 | `FlowEntryListSchema`              | A page of stored Flow Entries.                                                     |
-| `SnapshotRequestSchema`            | What one Snapshot draws: analysis, Change set, theme, size limits, and caption.    |
-| `SnapshotRequestJson`              | The JSON codec of a Snapshot Request that crosses from the command into the page.  |
-| `SnapshotThemeSchema`              | `light` or `dark`: the theme a Snapshot is drawn in.                               |
 
 ### CLI
 

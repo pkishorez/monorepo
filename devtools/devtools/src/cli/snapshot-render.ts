@@ -5,6 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { Data, Effect } from 'effect';
 import type { Browser, BrowserType } from 'playwright-core';
 
+import {
+  requestScript,
+  type SnapshotRequest,
+} from '../domain/snapshot/index.js';
+
 // Two levels below the package root from both `src/cli/` and `dist/server/`.
 const DEFAULT_UI_ROOT = fileURLToPath(new URL('../ui/', import.meta.url));
 // A name no network answers; the page and its assets come from disk.
@@ -36,11 +41,6 @@ export class SnapshotRenderError extends Data.TaggedError(
 }> {}
 
 export interface RenderSnapshotOptions {
-  /** The JSON Snapshot Request the page decodes. */
-  readonly payload: unknown;
-  readonly theme: 'light' | 'dark';
-  readonly maxWidth: number;
-  readonly maxHeight: number;
   /** Device pixels per CSS pixel in the PNG. */
   readonly scale: number;
   /** Folder holding the built page; defaults to the package's `dist/ui`. */
@@ -64,10 +64,11 @@ export interface RenderedSnapshot {
  * straight from `uiRoot` through a request route.
  */
 export function renderSnapshot(
+  request: SnapshotRequest,
   options: RenderSnapshotOptions,
 ): Effect.Effect<RenderedSnapshot, SnapshotRenderError> {
   return Effect.tryPromise({
-    try: () => render(options),
+    try: () => render(request, options),
     catch: (cause) =>
       cause instanceof SnapshotRenderError
         ? cause
@@ -78,7 +79,10 @@ export function renderSnapshot(
   });
 }
 
-async function render(options: RenderSnapshotOptions) {
+async function render(
+  request: SnapshotRequest,
+  options: RenderSnapshotOptions,
+) {
   const uiRoot = options.uiRoot ?? DEFAULT_UI_ROOT;
   await assertSnapshotPage(uiRoot);
   const { chromium } = await loadPlaywright();
@@ -86,11 +90,11 @@ async function render(options: RenderSnapshotOptions) {
   try {
     const context = await browser.newContext({
       viewport: {
-        width: options.maxWidth + 64,
-        height: options.maxHeight + 160,
+        width: request.maxWidth + 64,
+        height: request.maxHeight + 160,
       },
       deviceScaleFactor: options.scale,
-      colorScheme: options.theme,
+      colorScheme: request.theme,
       reducedMotion: 'reduce',
     });
     const page = await context.newPage();
@@ -118,9 +122,7 @@ async function render(options: RenderSnapshotOptions) {
       }
     });
     // Scripts are strings: this file compiles without DOM types.
-    await page.addInitScript(
-      `window.__DEVTOOLS_SNAPSHOT__ = ${JSON.stringify(options.payload)};`,
-    );
+    await page.addInitScript(requestScript(request));
     await page.goto(`${ORIGIN}/snapshot.html`, { waitUntil: 'load' });
 
     const settled = page.locator(

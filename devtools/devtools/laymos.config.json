@@ -174,18 +174,28 @@
           "exposed": true
         }
       }
+    },
+    "domain": {
+      "paths": ["src/domain"],
+      "description": "Decides what a Snapshot draws and defines the request the command hands the Snapshot page",
+      "modules": {
+        "src/domain/snapshot": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
     "devtools": {
       "rules": {
-        "entry": ["browser-application", "server-host"],
+        "entry": ["browser-application", "server-host", "domain"],
         "browser-application": ["tool-interface", "browser-client"],
-        "tool-interface": ["browser-client", "rpc-contract"],
+        "tool-interface": ["browser-client", "rpc-contract", "domain"],
         "browser-client": ["rpc-contract"],
         "server-host": ["server-handlers", "rpc-contract"],
         "server-handlers": ["rpc-contract"],
-        "rpc-contract": []
+        "rpc-contract": [],
+        "domain": []
       }
     }
   }
