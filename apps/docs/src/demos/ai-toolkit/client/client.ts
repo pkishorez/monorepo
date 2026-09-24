@@ -1,11 +1,11 @@
 import { Context, Effect, Layer, Scope } from 'effect';
 import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import {
-  CODEX_MODELS,
-  CLAUDE_MODELS,
-  type ClaudeAnswer,
+  claude,
+  codex,
+  type ClaudeProtocol,
   type ClaudeStartInput,
-  type CodexAnswer,
+  type CodexProtocol,
   type CodexStartInput,
 } from 'ai-toolkit/rpc';
 import type { Thread } from 'ai-toolkit/table';
@@ -22,8 +22,10 @@ import {
 
 const SERVER_URL = 'wss://ai-toolkit.kishore.computer/rpc';
 
-type ClaudeModel = (typeof CLAUDE_MODELS)[number];
-type CodexModel = (typeof CODEX_MODELS)[number];
+type ClaudeAnswer = ClaudeProtocol['Answer'];
+type CodexAnswer = CodexProtocol['Answer'];
+type ClaudeModel = (typeof claude.models)[number];
+type CodexModel = (typeof codex.models)[number];
 
 const claudeInput = (
   threadId: string,

@@ -10,19 +10,26 @@ import { Check, ChevronRight, X } from 'lucide-react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import type { Message, Thread } from 'ai-toolkit/table';
 import {
-  CLAUDE_PARTS,
-  CODEX_PARTS,
-  COMMON_PARTS,
-  type AiCustomPart,
-  type AiMessagePart,
-  type ClaudeAnswer,
-  type CodexAnswer,
+  claude,
+  codex,
+  common,
+  type ClaudeProtocol,
+  type CodexProtocol,
+  type CommonProtocol,
 } from 'ai-toolkit/rpc';
 import {
   toUiConversation,
   type AiUiActivity,
   type AiUiQuestionInteraction,
 } from 'ai-toolkit/client';
+
+type AiCustomPart = CommonProtocol['AiCustomPart'];
+type AiMessagePart = CommonProtocol['AiMessagePart'];
+type ClaudeAnswer = ClaudeProtocol['Answer'];
+type CodexAnswer = CodexProtocol['Answer'];
+const CLAUDE_PARTS = claude.parts;
+const CODEX_PARTS = codex.parts;
+const COMMON_PARTS = common.parts;
 
 type ThreadStatus = Thread['status'];
 
@@ -325,7 +332,7 @@ function CustomPart({
           )}
         </>,
       );
-    case COMMON_PARTS.PERMISSION_RESOLVED:
+    case CLAUDE_PARTS.PERMISSION_RESOLVED:
       if (part.data.answer.behavior === 'answer') {
         return card(
           'Answer',
@@ -591,7 +598,7 @@ export function Conversation({
       for (const part of message.data.parts) {
         if (part.type !== 'custom') continue;
         if (
-          part.name === COMMON_PARTS.PERMISSION_RESOLVED ||
+          part.name === CLAUDE_PARTS.PERMISSION_RESOLVED ||
           part.name === CODEX_PARTS.REQUEST_RESOLVED
         )
           ids.add(part.data.requestId);
