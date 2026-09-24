@@ -39,3 +39,5 @@ Private apps skip Install and Exports; their Usage says how to run them.
 
 Warnings and runbooks that do not fit move to `docs/*.md` inside the Package
 and are linked from Big picture. Prose that repeats `CONTEXT.md` is cut.
+
+<!-- ci skip test -->
