@@ -2,6 +2,11 @@
   "name": "kai-toolkit",
   "version": "0.0.2",
   "description": "Effect-native runtime for stateful coding-agent harnesses whose Messages live in a StdTable",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "toolkits/kai-toolkit"
+  },
   "license": "MIT",
   "type": "module",
   "bin": {
