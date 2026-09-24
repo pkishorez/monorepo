@@ -3,10 +3,13 @@ import { defaultBroadcaster } from 'std-toolkit/core';
 import { Memory } from 'std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
 import { FLUSH_MIN_CHARS } from '../constants.js';
-import { COMMON_PARTS, customPart } from '../protocol/index.js';
+import { claude, common } from '../protocol/index.js';
 import { aiTable, messages } from '../table/index.js';
 import { makeTranscript } from './transcript.js';
 
+const COMMON_PARTS = common.parts;
+const CLAUDE_PARTS = claude.parts;
+const customPart = common.customPart;
 const storage = Layer.merge(Memory.make(aiTable).layer, defaultBroadcaster);
 
 const rowsOf = (threadId: string) =>
@@ -64,7 +67,7 @@ describe('Transcript', () => {
           }),
         );
         transcript.writer.resolution(
-          customPart(COMMON_PARTS.PERMISSION_RESOLVED, {
+          customPart(CLAUDE_PARTS.PERMISSION_RESOLVED, {
             requestId: 'q1',
             answer: { behavior: 'allow' },
           }),

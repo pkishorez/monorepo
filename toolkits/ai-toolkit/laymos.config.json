@@ -22,8 +22,12 @@
             },
             "transcript": {},
             "interaction-mailbox": {},
-            "harnesses/claude": {},
-            "harnesses/codex": {},
+            "harnesses/claude": {
+              "exposed": true
+            },
+            "harnesses/codex": {
+              "exposed": true
+            },
             "host": {
               "exposed": true
             }

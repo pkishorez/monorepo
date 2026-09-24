@@ -5,25 +5,16 @@ import type {
   AiToolCallPart,
   AiToolResultPart,
 } from './parts.js';
+import type { ClaudeProtocol } from './claude/index.js';
+import type { CodexProtocol } from './codex/index.js';
+import type { RunFacts } from './usage.js';
+
+type ClaudeRunInput = ClaudeProtocol['RunInput'];
+type CodexRunInput = CodexProtocol['RunInput'];
 
 export type HarnessId = 'claude' | 'codex';
 
 export const HARNESS_IDS = ['claude', 'codex'] as const;
-
-export const CLAUDE_MODELS = [
-  'claude-opus-4-6',
-  'claude-sonnet-4-6',
-  'claude-haiku-4-5',
-] as const;
-
-export const CODEX_MODELS = [
-  'gpt-6-astra',
-  'gpt-5.6-sol',
-  'gpt-5.6-terra',
-  'gpt-5.6-luna',
-  'gpt-5.5',
-  'gpt-5.3-codex',
-] as const;
 
 export const RUN_STATUSES = [
   'running',
@@ -54,57 +45,10 @@ export const ACTIVE_THREAD_STATUSES: ReadonlyArray<ThreadStatus> = [
   'waiting-approval',
 ];
 
-export interface UserTurn {
-  readonly id: string;
-  readonly content: string;
-}
-
 export const UserTurnSchema = Schema.Struct({
   id: Schema.String,
   content: Schema.String,
 });
-
-interface RunInput {
-  readonly threadId: string;
-  readonly runId: string;
-  readonly message: UserTurn;
-  readonly model: string;
-}
-
-export interface ClaudeRunInput extends RunInput {
-  readonly options: {
-    readonly thinking?: { readonly budgetTokens: number } | undefined;
-    readonly permissionMode?:
-      | 'default'
-      | 'acceptEdits'
-      | 'bypassPermissions'
-      | 'dontAsk'
-      | 'auto'
-      | undefined;
-    readonly allowDangerouslySkipPermissions?: boolean | undefined;
-    readonly maxTurns?: number | undefined;
-    readonly permissionTimeoutMs?: number | undefined;
-  };
-}
-
-export interface CodexRunInput extends RunInput {
-  readonly options: {
-    readonly reasoningEffort?:
-      | 'minimal'
-      | 'low'
-      | 'medium'
-      | 'high'
-      | 'xhigh'
-      | undefined;
-    readonly approvalPolicy?: 'untrusted' | 'on-request' | 'never' | undefined;
-    readonly sandbox?:
-      | 'read-only'
-      | 'workspace-write'
-      | 'danger-full-access'
-      | undefined;
-    readonly requestTimeoutMs?: number | undefined;
-  };
-}
 
 export type StartInput =
   | ({ readonly harness: 'claude' } & ClaudeRunInput)
@@ -136,8 +80,12 @@ export interface HarnessContext {
 }
 
 export type RunOutcome =
-  | { readonly type: 'completed' }
-  | { readonly type: 'failed'; readonly message: string };
+  | { readonly type: 'completed'; readonly facts: RunFacts | null }
+  | {
+      readonly type: 'failed';
+      readonly message: string;
+      readonly facts: RunFacts | null;
+    };
 
 export class RunConflict extends Schema.TaggedError<RunConflict>()(
   'RunConflict',
@@ -179,3 +127,5 @@ export const AiErrorSchema = Schema.Union([
 ]);
 
 export type AiError = typeof AiErrorSchema.Type;
+
+export type { UserTurn } from './shared.js';

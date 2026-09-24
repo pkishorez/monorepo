@@ -1,10 +1,16 @@
 import { Option, Schema } from 'effect';
 import {
-  CODEX_PARTS,
-  customPart,
-  type RunOutcome,
-  type TranscriptWriter,
+  codex,
+  common,
+  type CodexProtocol,
+  type CommonProtocol,
 } from '../../protocol/index.js';
+
+const CODEX_PARTS = codex.parts;
+const customPart = common.customPart;
+type RunOutcome = CommonProtocol['RunOutcome'];
+type CodexRunFacts = CodexProtocol['RunFacts'];
+type TranscriptWriter = CommonProtocol['TranscriptWriter'];
 
 const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) =>
   Schema.StructWithRest(Schema.Struct(fields), [
@@ -23,6 +29,30 @@ const CodexItemSchema = open({
 });
 
 const CodexEventSchema = Schema.Union([
+  open({
+    method: Schema.Literal('thread/tokenUsage/updated'),
+    params: open({
+      tokenUsage: open({
+        total: open({
+          totalTokens: Schema.Number,
+          inputTokens: Schema.Number,
+          cachedInputTokens: Schema.Number,
+          cacheWriteInputTokens: Schema.Number,
+          outputTokens: Schema.Number,
+          reasoningOutputTokens: Schema.Number,
+        }),
+        last: open({
+          totalTokens: Schema.Number,
+          inputTokens: Schema.Number,
+          cachedInputTokens: Schema.Number,
+          cacheWriteInputTokens: Schema.Number,
+          outputTokens: Schema.Number,
+          reasoningOutputTokens: Schema.Number,
+        }),
+        modelContextWindow: Schema.NullOr(Schema.Number),
+      }),
+    }),
+  }),
   open({
     method: Schema.Literal('thread/started'),
     params: open({ thread: open({ id: Schema.String }) }),
@@ -70,6 +100,10 @@ const readableError = (message: string): string => {
 
 export type CodexSignal =
   | { readonly type: 'session'; readonly sessionId: string }
+  | {
+      readonly type: 'usage';
+      readonly usage: NonNullable<CodexRunFacts['tokenUsage']>;
+    }
   | RunOutcome;
 
 /** Writes one Codex app-server notification into the Transcript. */
@@ -83,6 +117,10 @@ export const applyCodexEvent = (
 
   if (method === 'thread/started') {
     return { type: 'session', sessionId: params.thread.id };
+  }
+
+  if (method === 'thread/tokenUsage/updated') {
+    return { type: 'usage', usage: params.tokenUsage };
   }
 
   if (method === 'item/started') {
@@ -151,9 +189,10 @@ export const applyCodexEvent = (
           params.turn.error === undefined || params.turn.error === null
             ? 'Codex turn failed'
             : readableError(params.turn.error.message),
+        facts: null,
       };
     }
-    return { type: 'completed' };
+    return { type: 'completed', facts: null };
   }
 
   return undefined;

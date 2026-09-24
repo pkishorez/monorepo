@@ -1,10 +1,16 @@
 import {
-  CODEX_PARTS,
-  COMMON_PARTS,
-  type AiCustomPart,
-  type AiMessagePart,
+  claude,
+  codex,
+  common,
+  type CommonProtocol,
 } from '../../runtime/protocol/index.js';
 import type { Message } from '../../runtime/table/index.js';
+
+type AiCustomPart = CommonProtocol['AiCustomPart'];
+type AiMessagePart = CommonProtocol['AiMessagePart'];
+const CODEX_PARTS = codex.parts;
+const CLAUDE_PARTS = claude.parts;
+const COMMON_PARTS = common.parts;
 
 /** One rendered turn: consecutive Message rows of one Run and role, folded. */
 export interface AiUiMessage {
@@ -23,7 +29,7 @@ type QuestionPart = Extract<
 type QuestionResolutionPart =
   | Extract<
       AiCustomPart,
-      { readonly name: typeof COMMON_PARTS.PERMISSION_RESOLVED }
+      { readonly name: typeof CLAUDE_PARTS.PERMISSION_RESOLVED }
     >
   | Extract<
       AiCustomPart,
@@ -125,13 +131,13 @@ const isQuestionResolution = (
   part: AiMessagePart,
 ): part is QuestionResolutionPart =>
   part.type === 'custom' &&
-  (part.name === COMMON_PARTS.PERMISSION_RESOLVED ||
+  (part.name === CLAUDE_PARTS.PERMISSION_RESOLVED ||
     part.name === CODEX_PARTS.REQUEST_RESOLVED);
 
 const resolvedAnswers = (
   resolution: QuestionResolutionPart | undefined,
 ): Readonly<Record<string, ReadonlyArray<string>>> | undefined => {
-  if (resolution?.name === COMMON_PARTS.PERMISSION_RESOLVED) {
+  if (resolution?.name === CLAUDE_PARTS.PERMISSION_RESOLVED) {
     return resolution.data.answer.behavior === 'answer'
       ? resolution.data.answer.answers
       : undefined;

@@ -2,16 +2,19 @@ import { Effect, Layer, Schedule } from 'effect';
 import { defaultBroadcaster } from 'std-toolkit/core';
 import { Memory } from 'std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
-import type { HarnessContext, RunOutcome } from '../protocol/index.js';
+import type { CommonProtocol } from '../protocol/index.js';
 import { aiTable, messages, runs, threads } from '../table/index.js';
 import { HarnessHost } from './host.js';
 
+type HarnessContext = CommonProtocol['HarnessContext'];
+type RunOutcome = CommonProtocol['RunOutcome'];
+
 const say =
-  (text: string) =>
+  (text: string, facts: RunOutcome['facts'] = null) =>
   async (_input: unknown, context: HarnessContext): Promise<RunOutcome> => {
     await context.session('native-session');
     context.transcript.text(text);
-    return { type: 'completed' };
+    return { type: 'completed', facts };
   };
 
 const storage = Layer.merge(Memory.make(aiTable).layer, defaultBroadcaster);
@@ -64,11 +67,30 @@ describe('HarnessHost', () => {
           { limit: 10 },
         );
         return { run, thread: thread?.value, stored: stored.items };
-      }).pipe(Effect.provide(hostWith(say('hello'))), Effect.scoped),
+      }).pipe(
+        Effect.provide(
+          hostWith(
+            say('hello', {
+              type: 'claude',
+              totalCostUsd: 0.01,
+              durationMs: 100,
+              apiDurationMs: 80,
+              turns: 1,
+              models: {},
+              context: null,
+            }),
+          ),
+        ),
+        Effect.scoped,
+      ),
     );
 
     expect(result.run.status).toBe('completed');
     expect(result.run.hostId).toBe('test');
+    expect(result.run.data.facts).toMatchObject({
+      type: 'claude',
+      totalCostUsd: 0.01,
+    });
     expect(result.thread).toMatchObject({
       status: 'idle',
       activeRunId: null,
@@ -111,6 +133,7 @@ describe('HarnessHost', () => {
             maxTurns: null,
             permissionTimeoutMs: null,
             inputHash: '{}',
+            facts: null,
           },
         });
         yield* Effect.scoped(

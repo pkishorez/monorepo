@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { COMMON_PARTS } from '../../runtime/protocol/index.js';
+import { claude, common } from '../../runtime/protocol/index.js';
 import type { Message } from '../../runtime/table/index.js';
 import { toUiConversation, toUiMessages } from './message.js';
 
+const COMMON_PARTS = common.parts;
+const CLAUDE_PARTS = claude.parts;
 let clock = 0;
 const message = (
   id: string,
@@ -72,7 +74,7 @@ describe('toUiConversation', () => {
       message('answer', 'user', [
         {
           type: 'custom',
-          name: COMMON_PARTS.PERMISSION_RESOLVED,
+          name: CLAUDE_PARTS.PERMISSION_RESOLVED,
           data: {
             requestId: 'request-1',
             toolCallId: 'tool-1',

@@ -1,1 +1,1 @@
-export { claudeRun } from './claude.js';
+export { Claude } from './claude.js';

@@ -1,32 +1,34 @@
 import { Context, Effect, Fiber, Layer, Semaphore } from 'effect';
 import type { StdTableService } from 'std-toolkit/db';
 import { HOST_ID, RUN_TIMEOUT_MS } from '../constants.js';
-import { claudeRun } from '../harnesses/claude/index.js';
-import { codexRun } from '../harnesses/codex/index.js';
+import { Claude } from '../harnesses/claude/index.js';
+import { Codex } from '../harnesses/codex/index.js';
 import {
   makeMailbox,
   type MailboxPending,
 } from '../interaction-mailbox/index.js';
 import {
-  ACTIVE_THREAD_STATUSES,
-  COMMON_PARTS,
-  HarnessFailed,
-  RequestNotFound,
-  RunConflict,
-  RunNotFound,
-  ThreadBusy,
-  customPart,
-  type AiError,
-  type ClaudeAnswer,
-  type CodexAnswer,
-  type HarnessContext,
-  type HarnessId,
-  type RunOutcome,
-  type StartInput,
-  type ThreadStatus,
+  common,
+  type ClaudeProtocol,
+  type CodexProtocol,
+  type CommonProtocol,
 } from '../protocol/index.js';
 import { makeTranscript } from '../transcript/index.js';
 import * as records from './records.js';
+
+const ACTIVE_THREAD_STATUSES = common.activeThreadStatuses;
+const COMMON_PARTS = common.parts;
+const { HarnessFailed, RequestNotFound, RunConflict, RunNotFound, ThreadBusy } =
+  common.errors;
+const customPart = common.customPart;
+type AiError = CommonProtocol['AiError'];
+type ClaudeAnswer = ClaudeProtocol['Answer'];
+type CodexAnswer = CodexProtocol['Answer'];
+type HarnessContext = CommonProtocol['HarnessContext'];
+type HarnessId = CommonProtocol['HarnessId'];
+type RunOutcome = CommonProtocol['RunOutcome'];
+type StartInput = CommonProtocol['StartInput'];
+type ThreadStatus = CommonProtocol['ThreadStatus'];
 
 type Table = StdTableService<'ai-toolkit'>;
 type AnswerOf<H extends HarnessId> = H extends 'claude'
@@ -55,8 +57,8 @@ export interface HarnessHostConfig {
 }
 
 export interface HarnessRunners {
-  readonly claude: typeof claudeRun;
-  readonly codex: typeof codexRun;
+  readonly claude: typeof Claude.run;
+  readonly codex: typeof Codex.run;
 }
 
 export interface HarnessHostShape {
@@ -94,7 +96,7 @@ export class HarnessHost extends Context.Service<
 >()('ai-toolkit/HarnessHost') {
   static layer(
     config: HarnessHostConfig = {},
-    runners: HarnessRunners = { claude: claudeRun, codex: codexRun },
+    runners: HarnessRunners = { claude: Claude.run, codex: Codex.run },
   ): Layer.Layer<HarnessHost, never, Table> {
     return Layer.effect(
       HarnessHost,
@@ -152,6 +154,7 @@ export class HarnessHost extends Context.Service<
               catch: (cause): RunOutcome => ({
                 type: 'failed',
                 message: errorMessage(cause),
+                facts: null,
               }),
             }).pipe(
               Effect.catch((failure) => Effect.succeed(failure)),
@@ -160,7 +163,11 @@ export class HarnessHost extends Context.Service<
                 orElse: () =>
                   Effect.sync((): RunOutcome => {
                     controller.abort('Run timed out');
-                    return { type: 'failed', message: 'Run timed out' };
+                    return {
+                      type: 'failed',
+                      message: 'Run timed out',
+                      facts: null,
+                    };
                   }),
               }),
             );
@@ -178,7 +185,7 @@ export class HarnessHost extends Context.Service<
               : outcome.type === 'completed'
                 ? 'completed'
                 : 'failed';
-            yield* records.setRunStatus(input, status);
+            yield* records.finishRun(input, status, outcome.facts);
             yield* records.setThreadStatus(
               input.threadId,
               status === 'completed' ? 'idle' : status,

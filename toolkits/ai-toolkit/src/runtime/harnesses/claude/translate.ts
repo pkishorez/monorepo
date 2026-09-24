@@ -1,11 +1,11 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import {
-  CLAUDE_PARTS,
-  COMMON_PARTS,
-  customPart,
-  type RunOutcome,
-  type TranscriptWriter,
-} from '../../protocol/index.js';
+import { claude, common, type CommonProtocol } from '../../protocol/index.js';
+
+const CLAUDE_PARTS = claude.parts;
+const COMMON_PARTS = common.parts;
+const customPart = common.customPart;
+type RunOutcome = CommonProtocol['RunOutcome'];
+type TranscriptWriter = CommonProtocol['TranscriptWriter'];
 
 export type ClaudeSignal =
   | { readonly type: 'session'; readonly sessionId: string }
@@ -44,9 +44,10 @@ export class ClaudeTranslator {
               event.subtype === 'success'
                 ? event.result
                 : event.errors.join('\n') || event.subtype,
+            facts: null,
           };
         }
-        return { type: 'completed' };
+        return { type: 'completed', facts: null };
       default:
         return undefined;
     }

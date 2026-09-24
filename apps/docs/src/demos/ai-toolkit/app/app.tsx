@@ -18,7 +18,7 @@ import {
 import { Link } from '@tanstack/react-router';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Textarea } from 'kui-toolkit/components/ui/textarea';
-import { CLAUDE_MODELS, CODEX_MODELS } from 'ai-toolkit/rpc';
+import { claude, codex } from 'ai-toolkit/rpc';
 import type { Thread } from 'ai-toolkit/table';
 import { aiPlayground, type AiPlaygroundClient } from '../client/index.js';
 import {
@@ -36,9 +36,9 @@ function Playground({ client }: { readonly client: AiPlaygroundClient }) {
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [claudeModel, setClaudeModel] =
-    useState<(typeof CLAUDE_MODELS)[number]>('claude-sonnet-4-6');
+    useState<(typeof claude.models)[number]>('claude-sonnet-4-6');
   const [codexModel, setCodexModel] =
-    useState<(typeof CODEX_MODELS)[number]>('gpt-6-astra');
+    useState<(typeof codex.models)[number]>('gpt-6-astra');
   const { data: threadRows } = useLiveQuery((q) =>
     q
       .from({ thread: client.threads })
@@ -183,13 +183,13 @@ function Playground({ client }: { readonly client: AiPlaygroundClient }) {
                   className="h-11 max-w-48 rounded-md border bg-background px-2 text-base text-foreground sm:h-9 sm:text-sm"
                   value={claudeModel}
                   onChange={(event) => {
-                    const model = CLAUDE_MODELS.find(
+                    const model = claude.models.find(
                       (candidate) => candidate === event.target.value,
                     );
                     if (model !== undefined) setClaudeModel(model);
                   }}
                 >
-                  {CLAUDE_MODELS.map((model) => (
+                  {claude.models.map((model) => (
                     <option key={model}>{model}</option>
                   ))}
                 </select>
@@ -198,13 +198,13 @@ function Playground({ client }: { readonly client: AiPlaygroundClient }) {
                   className="h-11 max-w-48 rounded-md border bg-background px-2 text-base text-foreground sm:h-9 sm:text-sm"
                   value={codexModel}
                   onChange={(event) => {
-                    const model = CODEX_MODELS.find(
+                    const model = codex.models.find(
                       (candidate) => candidate === event.target.value,
                     );
                     if (model !== undefined) setCodexModel(model);
                   }}
                 >
-                  {CODEX_MODELS.map((model) => (
+                  {codex.models.map((model) => (
                     <option key={model}>{model}</option>
                   ))}
                 </select>

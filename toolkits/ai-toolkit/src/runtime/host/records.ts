@@ -2,15 +2,7 @@ import { Effect } from 'effect';
 import type { DecodedEntity } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
 import { SYNC_PAGE_SIZE } from '../constants.js';
-import {
-  ACTIVE_RUN_STATUSES,
-  ACTIVE_THREAD_STATUSES,
-  HarnessFailed,
-  ThreadNotFound,
-  type RunStatus,
-  type StartInput,
-  type ThreadStatus,
-} from '../protocol/index.js';
+import { common, type CommonProtocol } from '../protocol/index.js';
 import {
   messages,
   runs,
@@ -18,6 +10,16 @@ import {
   type Run,
   type Thread,
 } from '../table/index.js';
+
+const ACTIVE_RUN_STATUSES = common.activeRunStatuses;
+const ACTIVE_THREAD_STATUSES = common.activeThreadStatuses;
+const { HarnessFailed, ThreadNotFound } = common.errors;
+type RunStatus = CommonProtocol['RunStatus'];
+type RunFacts = CommonProtocol['RunFacts'];
+type StartInput = CommonProtocol['StartInput'];
+type ThreadStatus = CommonProtocol['ThreadStatus'];
+type HarnessFailed = CommonProtocol['HarnessFailed'];
+type ThreadNotFound = CommonProtocol['ThreadNotFound'];
 
 type Table = StdTableService<'ai-toolkit'>;
 
@@ -75,6 +77,7 @@ export const insertRun = (
               maxTurns: input.options.maxTurns ?? null,
               permissionTimeoutMs: input.options.permissionTimeoutMs ?? null,
               inputHash,
+              facts: null,
             }
           : {
               type: 'codex',
@@ -84,6 +87,7 @@ export const insertRun = (
               sandbox: input.options.sandbox ?? 'workspace-write',
               requestTimeoutMs: input.options.requestTimeoutMs ?? null,
               inputHash,
+              facts: null,
             },
     })
     .pipe(Effect.asVoid, Effect.mapError(failed(input)));
@@ -118,6 +122,32 @@ export const setRunStatus = (
           ? {}
           : { finishedAt: Date.now() }),
       },
+      { lastWriteWins: true },
+    )
+    .pipe(Effect.asVoid, Effect.ignore);
+
+export const finishRun = (
+  input: StartInput,
+  status: Exclude<RunStatus, 'running' | 'waiting'>,
+  facts: RunFacts | null,
+): Effect.Effect<void, never, Table> =>
+  runs
+    .getAndUpdate(
+      { threadId: input.threadId, id: input.runId },
+      (run) => ({
+        status,
+        finishedAt: Date.now(),
+        data:
+          run.data.type === 'claude'
+            ? {
+                ...run.data,
+                facts: facts?.type === 'claude' ? facts : run.data.facts,
+              }
+            : {
+                ...run.data,
+                facts: facts?.type === 'codex' ? facts : run.data.facts,
+              },
+      }),
       { lastWriteWins: true },
     )
     .pipe(Effect.asVoid, Effect.ignore);

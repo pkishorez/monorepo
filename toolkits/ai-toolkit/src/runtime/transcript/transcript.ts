@@ -1,14 +1,13 @@
 import { Effect, Queue } from 'effect';
 import type { StdTableService } from 'std-toolkit/db';
 import { FLUSH_MIN_CHARS } from '../constants.js';
-import type {
-  AiCustomPart,
-  AiMessagePart,
-  TranscriptWriter,
-} from '../protocol/index.js';
+import { type CommonProtocol } from '../protocol/index.js';
 import { messages, type MessageRole } from '../table/index.js';
 
 type Table = StdTableService<'ai-toolkit'>;
+type AiCustomPart = CommonProtocol['AiCustomPart'];
+type AiMessagePart = CommonProtocol['AiMessagePart'];
+type TranscriptWriter = CommonProtocol['TranscriptWriter'];
 
 interface Entry {
   readonly role: MessageRole;

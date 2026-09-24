@@ -1,8 +1,10 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import { describe, expect, it } from 'vitest';
-import { CLAUDE_PARTS } from '../../protocol/index.js';
+import { claude } from '../../protocol/index.js';
 import { recordingTranscript } from '../../transcript/index.js';
 import { ClaudeTranslator } from './translate.js';
+
+const CLAUDE_PARTS = claude.parts;
 
 const assistant = (
   id: string,
@@ -103,13 +105,13 @@ describe('ClaudeTranslator', () => {
         is_error: true,
         errors: ['boom'],
       } as unknown as SDKMessage),
-    ).toEqual({ type: 'failed', message: 'boom' });
+    ).toEqual({ type: 'failed', message: 'boom', facts: null });
     expect(
       translator.apply({
         type: 'result',
         subtype: 'success',
         is_error: false,
       } as unknown as SDKMessage),
-    ).toEqual({ type: 'completed' });
+    ).toEqual({ type: 'completed', facts: null });
   });
 });

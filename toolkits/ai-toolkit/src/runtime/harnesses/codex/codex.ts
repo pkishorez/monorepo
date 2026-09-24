@@ -4,16 +4,23 @@ import { Effect, Option, Schema } from 'effect';
 import { CODEX_COMMAND, INTERACTION_TIMEOUT_MS } from '../../constants.js';
 import type { Mailbox } from '../../interaction-mailbox/index.js';
 import {
-  CODEX_PARTS,
-  COMMON_PARTS,
-  customPart,
-  type AgentQuestion,
-  type CodexAnswer,
-  type CodexRunInput,
-  type HarnessContext,
-  type RunOutcome,
+  codex,
+  common,
+  type CodexProtocol,
+  type CommonProtocol,
 } from '../../protocol/index.js';
 import { applyCodexEvent } from './translate.js';
+import { readCodexAccountUsage } from './account-usage.js';
+
+const CODEX_PARTS = codex.parts;
+const COMMON_PARTS = common.parts;
+const customPart = common.customPart;
+type AgentQuestion = CommonProtocol['AgentQuestion'];
+type CodexAnswer = CodexProtocol['Answer'];
+type CodexRunInput = CodexProtocol['RunInput'];
+type CodexRunFacts = CodexProtocol['RunFacts'];
+type HarnessContext = CommonProtocol['HarnessContext'];
+type RunOutcome = CommonProtocol['RunOutcome'];
 
 const JsonRpcEnvelopeSchema = Schema.StructWithRest(
   Schema.Struct({
@@ -45,6 +52,29 @@ const CodexQuestionsSchema = Schema.Array(
 const decodeEnvelope = Schema.decodeUnknownSync(JsonRpcEnvelopeSchema);
 const decodeThreadResponse = Schema.decodeUnknownSync(ThreadResponseSchema);
 const decodeQuestions = Schema.decodeUnknownOption(CodexQuestionsSchema);
+const decodeThreadCost = Schema.decodeUnknownOption(
+  Schema.StructWithRest(
+    Schema.Struct({
+      threadUsage: Schema.optional(
+        Schema.NullOr(
+          Schema.StructWithRest(
+            Schema.Struct({
+              estimatedUsageCreditsMicros: Schema.Union([
+                Schema.String,
+                Schema.Number,
+              ]),
+              estimatedUsageUsdMicros: Schema.NullOr(
+                Schema.Union([Schema.String, Schema.Number]),
+              ),
+            }),
+            [Schema.Record(Schema.String, Schema.Unknown)],
+          ),
+        ),
+      ),
+    }),
+    [Schema.Record(Schema.String, Schema.Unknown)],
+  ),
+);
 
 interface PendingCall {
   readonly resolve: (value: unknown) => void;
@@ -62,6 +92,8 @@ class CodexSession {
   #nextId = 1;
   #sessionReported = false;
   #terminal = false;
+  #threadId: string | undefined;
+  #tokenUsage: CodexRunFacts['tokenUsage'] = null;
 
   constructor(
     private readonly input: CodexRunInput,
@@ -127,14 +159,43 @@ class CodexSession {
     return this.#finished;
   }
 
+  async facts(): Promise<CodexRunFacts> {
+    let threadCost: CodexRunFacts['threadCost'] = null;
+    if (this.#threadId !== undefined) {
+      try {
+        const response = await this.#request('account/usage/read', {
+          threadId: this.#threadId,
+        });
+        const decoded = decodeThreadCost(response);
+        const usage = Option.isSome(decoded) ? decoded.value.threadUsage : null;
+        if (usage !== undefined && usage !== null) {
+          threadCost = {
+            estimatedUsageCreditsMicros: String(
+              usage.estimatedUsageCreditsMicros,
+            ),
+            estimatedUsageUsdMicros:
+              usage.estimatedUsageUsdMicros === null
+                ? null
+                : String(usage.estimatedUsageUsdMicros),
+          };
+        }
+      } catch {
+        // Token usage is still useful when account-backed cost is unavailable.
+      }
+    }
+    return { type: 'codex', tokenUsage: this.#tokenUsage, threadCost };
+  }
+
   close(): void {
     this.#process.kill();
-    this.#end({ type: 'failed', message: 'Run cancelled' });
+    this.#rejectPending(new Error('Codex app-server closed'));
+    this.#end({ type: 'failed', message: 'Run cancelled', facts: null });
   }
 
   async #session(sessionId: string): Promise<void> {
     if (this.#sessionReported) return;
     this.#sessionReported = true;
+    this.#threadId = sessionId;
     await this.context.session(sessionId);
   }
 
@@ -178,9 +239,10 @@ class CodexSession {
         if (signal === undefined) continue;
         if (signal.type === 'session') {
           await this.#session(signal.sessionId);
+        } else if (signal.type === 'usage') {
+          this.#tokenUsage = signal.usage;
         } else {
           this.#end(signal);
-          this.#process.kill();
         }
       }
       if (!this.#terminal && !this.context.signal.aborted) {
@@ -194,11 +256,15 @@ class CodexSession {
   }
 
   #fail(cause: unknown): void {
-    if (this.#terminal) return;
     const error = cause instanceof Error ? cause : new Error(String(cause));
+    this.#rejectPending(error);
+    if (this.#terminal) return;
+    this.#end({ type: 'failed', message: error.message, facts: null });
+  }
+
+  #rejectPending(error: Error): void {
     for (const pending of this.#pending.values()) pending.reject(error);
     this.#pending.clear();
-    this.#end({ type: 'failed', message: error.message });
   }
 
   async #handleServerRequest(
@@ -338,7 +404,7 @@ class CodexSession {
 }
 
 /** Runs one Codex turn through the app-server, writing to the Transcript. */
-export const codexRun = async (
+const run = async (
   input: CodexRunInput,
   context: HarnessContext,
   mailbox: Mailbox<CodexAnswer>,
@@ -347,10 +413,16 @@ export const codexRun = async (
   const session = new CodexSession(input, context, mailbox, command);
   try {
     await session.start();
-    return await session.finished();
+    const outcome = await session.finished();
+    return { ...outcome, facts: await session.facts() };
   } catch (cause) {
-    return { type: 'failed', message: errorMessage(cause) };
+    return { type: 'failed', message: errorMessage(cause), facts: null };
   } finally {
     session.close();
   }
 };
+
+export const Codex = {
+  run,
+  accountUsage: readCodexAccountUsage,
+} as const;

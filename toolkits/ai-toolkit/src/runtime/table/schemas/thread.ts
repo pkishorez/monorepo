@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { EntityESchema } from 'std-toolkit/eschema';
-import { HARNESS_IDS, THREAD_STATUSES } from '../../protocol/index.js';
+import { common } from '../../protocol/index.js';
 
 const ThreadDataSchema = Schema.Union([
   Schema.Struct({
@@ -14,9 +14,9 @@ const ThreadDataSchema = Schema.Union([
 ]);
 
 export const ThreadSchema = EntityESchema.make('AiThread', 'id', {
-  harness: Schema.Literals(HARNESS_IDS),
+  harness: Schema.Literals(common.harnessIds),
   cwd: Schema.String,
-  status: Schema.Literals(THREAD_STATUSES),
+  status: Schema.Literals(common.threadStatuses),
   activeRunId: Schema.NullOr(Schema.String),
   data: ThreadDataSchema,
 }).build();
