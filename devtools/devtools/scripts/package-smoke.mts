@@ -150,18 +150,19 @@ async function smokeSnapshot() {
     throw new Error(`devtools ${args.join(' ')} failed: ${result.stderr}`);
   }
   const summary = JSON.parse(result.stdout) as {
-    width: number;
-    height: number;
     scale: number;
     drawn: string;
+    images: Array<{ width: number; height: number }>;
   };
   // A dirty working tree draws the changed Modules; a clean one draws all.
   assert.ok(summary.drawn === 'all' || summary.drawn === 'changed');
-  assert.ok(summary.width >= 480 && summary.height >= 240);
+  const [image] = summary.images;
+  assert.ok(image !== undefined);
+  assert.ok(image.width >= 480 && image.height >= 240);
   const png = await readFile(out);
   assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
-  assert.equal(png.readUInt32BE(16), summary.width * summary.scale);
-  assert.equal(png.readUInt32BE(20), summary.height * summary.scale);
+  assert.equal(png.readUInt32BE(16), image.width * summary.scale);
+  assert.equal(png.readUInt32BE(20), image.height * summary.scale);
 }
 
 async function runClient(args: string[]): Promise<string> {

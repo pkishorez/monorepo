@@ -1,0 +1,24 @@
+name: pr-media
+description: Attach local images to a pull request in one comment that each run edits.
+inputs:
+  token:
+    description: Personal access token with write access to the repository; uploads the files and writes the comment.
+    required: true
+  markdown:
+    description: The comment; each path from files in it becomes the attachment's URL.
+    default: ''
+  files:
+    description: Local files to attach, one per line.
+    default: ''
+  id:
+    description: Names the comment; defaults to the job id.
+    default: ''
+  create:
+    description: Create the comment when it does not exist yet; false only edits an existing one.
+    default: 'true'
+outputs:
+  markdown:
+    description: The Markdown as posted, its file paths replaced by URLs.
+runs:
+  using: node24
+  main: src/main.ts

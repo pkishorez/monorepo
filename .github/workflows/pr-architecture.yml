@@ -1,0 +1,44 @@
+name: 🖼️ pr:architecture
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+permissions:
+  contents: read
+concurrency:
+  group: pr-architecture-pr${{ github.event.number }}
+  cancel-in-progress: true
+jobs:
+  detect:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      affected: ${{ steps.affected.outputs.affected }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Check Laymos Projects affected
+        id: affected
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: .github/scripts/laymos-affected.sh "$BASE"
+  draw:
+    needs: detect
+    if: needs.detect.outputs.affected == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter '@pkishorez/devtools^...' run build
+      - run: pnpm --filter @pkishorez/devtools build
+      - uses: ./actions/laymos
+        with:
+          token: ${{ secrets.PR_MEDIA_TOKEN }}
+          devtools-bin: ${{ github.workspace }}/devtools/devtools/dist/server/main.mjs

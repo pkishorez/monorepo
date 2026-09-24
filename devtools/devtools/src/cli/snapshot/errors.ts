@@ -13,6 +13,10 @@ export class SnapshotRenderError extends Data.TaggedError(
   readonly message: string;
 }> {}
 
+export class SnapshotUsageError extends Data.TaggedError('SnapshotUsageError')<{
+  readonly message: string;
+}> {}
+
 // Analysis, git, browser, and file failures all end the command the same way:
 // one line on stderr and a failed exit, like the Client Commands.
 export function reportSnapshotError(error: unknown) {
@@ -25,8 +29,13 @@ export function reportSnapshotError(error: unknown) {
   );
 }
 
-function describeSnapshotError(error: unknown): string {
-  if (error instanceof SnapshotRenderError) return error.message;
+export function describeSnapshotError(error: unknown): string {
+  if (
+    error instanceof SnapshotRenderError ||
+    error instanceof SnapshotUsageError
+  ) {
+    return error.message;
+  }
   if (error instanceof ConfigError) {
     return error.reason === 'validation'
       ? [

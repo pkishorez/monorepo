@@ -1,0 +1,30 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "layers": {
+    "entry": {
+      "paths": ["src/main.ts"],
+      "description": "Posts a placeholder, draws the changed Projects, and posts the comment through pr-media",
+      "modules": {
+        "src/main.ts": {}
+      }
+    },
+    "steps": {
+      "paths": ["src/draw.ts", "src/comment.ts"],
+      "description": "Runs devtools snapshot against the base branch and turns its result into the comment",
+      "modules": {
+        "src/draw.ts": { "exposed": true },
+        "src/comment.ts": { "shared": true, "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "laymos": {
+      "rules": {
+        "entry": ["steps"],
+        "steps": []
+      }
+    }
+  }
+}

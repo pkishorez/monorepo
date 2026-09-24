@@ -1,11 +1,17 @@
 import { Config } from 'effect';
 import { Flag } from 'effect/unstable/cli';
 
-import { snapshotThemes } from '../../domain/snapshot/index.js';
+import { snapshotThemeChoices } from '../../domain/snapshot/index.js';
 
 const project = Flag.directory('project', { mustExist: true }).pipe(
-  Flag.withDescription('Project folder holding laymos.config.json'),
-  Flag.withDefault('.'),
+  Flag.withDescription('Project folder holding laymos.config.json; default .'),
+  Flag.optional,
+);
+const all = Flag.boolean('all').pipe(
+  Flag.withDescription(
+    'Draw every Project under the current folder that the commits changed, skipping fixtures and git-ignored folders',
+  ),
+  Flag.withDefault(false),
 );
 const base = Flag.string('base').pipe(
   Flag.withDescription(
@@ -15,8 +21,14 @@ const base = Flag.string('base').pipe(
 );
 const out = Flag.file('out').pipe(
   Flag.withAlias('o'),
-  Flag.withDescription('PNG file to write'),
-  Flag.withDefault('laymos-snapshot.png'),
+  Flag.withDescription('PNG file to write; default laymos-snapshot.png'),
+  Flag.optional,
+);
+const outDir = Flag.string('out-dir').pipe(
+  Flag.withDescription(
+    'With --all, the folder for one PNG per Project; default .snapshots',
+  ),
+  Flag.optional,
 );
 const title = Flag.string('title').pipe(
   Flag.withDescription(
@@ -48,10 +60,14 @@ const scale = Flag.integer('scale').pipe(
   Flag.withDescription('Device pixels per CSS pixel in the PNG'),
   Flag.withDefault(2),
 );
-const theme = Flag.choice('theme', snapshotThemes).pipe(
-  Flag.withDescription('Color theme of the drawing: dark, or light'),
-  Flag.withFallbackConfig(Config.literals(snapshotThemes, 'DEVTOOLS_THEME')),
-  Flag.withDefault(snapshotThemes[0]),
+const theme = Flag.choice('theme', snapshotThemeChoices).pipe(
+  Flag.withDescription(
+    'Color theme of the drawing: dark, light, or both as -dark and -light files',
+  ),
+  Flag.withFallbackConfig(
+    Config.literals(snapshotThemeChoices, 'DEVTOOLS_THEME'),
+  ),
+  Flag.withDefault(snapshotThemeChoices[0]),
 );
 const browser = Flag.string('browser').pipe(
   Flag.withDescription(
@@ -72,8 +88,10 @@ const timeout = Flag.integer('timeout').pipe(
 
 export const snapshotFlags = {
   project,
+  all,
   base,
   out,
+  outDir,
   title,
   includeUnchanged,
   onlyChanged,

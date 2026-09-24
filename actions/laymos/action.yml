@@ -1,0 +1,39 @@
+name: laymos
+description: Draw the Laymos Projects a pull request changed and keep one comment with the pictures up to date.
+inputs:
+  token:
+    description: Personal access token with write access to the repository; attaches the pictures and writes the comment.
+    required: true
+  base:
+    description: Branch to compare with; defaults to the pull request's target, else the default branch.
+    default: ${{ github.base_ref || github.event.repository.default_branch }}
+  working-directory:
+    description: Folder to search for Laymos Projects.
+    default: .
+  theme:
+    description: "dark, light, or both (the comment follows the reader's theme)."
+    default: both
+  only-changed:
+    description: Leave out a changed Project when none of its Modules changed.
+    default: 'true'
+  include-unchanged:
+    description: Draw every Module of a changed Project, not only the changed ones.
+    default: 'false'
+  devtools-version:
+    description: '@pkishorez/devtools version to run from npm.'
+    default: latest
+  devtools-bin:
+    description: A built devtools entry to run instead of the npm package; wins over devtools-version.
+    default: ''
+  browser:
+    description: Chrome or Chromium executable; the runner's Chrome is used by default.
+    default: ''
+  id:
+    description: Names the comment.
+    default: laymos
+outputs:
+  markdown:
+    description: The comment as posted.
+runs:
+  using: node24
+  main: src/main.ts

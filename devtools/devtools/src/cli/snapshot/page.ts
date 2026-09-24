@@ -8,6 +8,8 @@ import {
   requestScript,
   type SnapshotRequest,
 } from '../../domain/snapshot/index.js';
+import type { Browser, Page } from 'playwright-core';
+
 import { openBrowser } from './browser.js';
 import { SnapshotRenderError } from './errors.js';
 
@@ -47,18 +49,30 @@ interface RenderedSnapshot {
   readonly height: number;
 }
 
-/**
- * Opens the bundled Snapshot page from disk in headless Chromium, hands it the
- * Snapshot Request, waits for the drawing to settle, and captures it as PNG.
- * No server listens: the page and its assets are served to the browser
- * straight from `uiRoot` through a request route.
- */
-export function renderSnapshot(
-  request: SnapshotRequest,
-  options: RenderSnapshotOptions,
-): Effect.Effect<RenderedSnapshot, SnapshotRenderError> {
+export function openSnapshotRenderer(options: RenderSnapshotOptions) {
+  const uiRoot = options.uiRoot ?? DEFAULT_UI_ROOT;
+  return Effect.acquireRelease(
+    attempt(async () => {
+      await assertSnapshotPage(uiRoot);
+      return openBrowser(options.browser);
+    }),
+    (browser) => Effect.promise(() => browser.close()),
+  ).pipe(
+    Effect.map(
+      (browser) =>
+        (
+          request: SnapshotRequest,
+        ): Effect.Effect<RenderedSnapshot, SnapshotRenderError> =>
+          attempt(() => render(browser, uiRoot, request, options)),
+    ),
+  );
+}
+
+function attempt<A>(
+  run: () => Promise<A>,
+): Effect.Effect<A, SnapshotRenderError> {
   return Effect.tryPromise({
-    try: () => render(request, options),
+    try: run,
     catch: (cause) =>
       cause instanceof SnapshotRenderError
         ? cause
@@ -70,94 +84,95 @@ export function renderSnapshot(
 }
 
 async function render(
+  browser: Browser,
+  uiRoot: string,
   request: SnapshotRequest,
   options: RenderSnapshotOptions,
-) {
-  const uiRoot = options.uiRoot ?? DEFAULT_UI_ROOT;
-  await assertSnapshotPage(uiRoot);
-  const browser = await openBrowser(options.browser);
+): Promise<RenderedSnapshot> {
+  const context = await browser.newContext({
+    viewport: {
+      width: request.maxWidth + 64,
+      height: request.maxHeight + 160,
+    },
+    deviceScaleFactor: options.scale,
+    colorScheme: request.theme,
+    reducedMotion: 'reduce',
+  });
   try {
-    const context = await browser.newContext({
-      viewport: {
-        width: request.maxWidth + 64,
-        height: request.maxHeight + 160,
-      },
-      deviceScaleFactor: options.scale,
-      colorScheme: request.theme,
-      reducedMotion: 'reduce',
-    });
-    const page = await context.newPage();
-    const pageErrors: string[] = [];
-    page.on('pageerror', (error) => pageErrors.push(error.message));
-    page.on('console', (message) => {
-      if (message.type() === 'error') pageErrors.push(message.text());
-    });
-    await page.route(`${ORIGIN}/**`, async (route) => {
-      const pathname = new URL(route.request().url()).pathname;
-      const file = join(
-        uiRoot,
-        normalize(pathname).replace(/^(\.\.[/\\])+/, ''),
-      );
-      try {
-        const body = await readFile(file);
-        await route.fulfill({
-          body,
-          contentType:
-            contentTypes[extname(file)] ?? 'application/octet-stream',
-        });
-      } catch {
-        pageErrors.push(`Missing file: ${file}`);
-        await route.fulfill({ status: 404, body: `Not found: ${pathname}` });
-      }
-    });
-    // Scripts are strings: this file compiles without DOM types.
-    await page.addInitScript(requestScript(request));
-    await page.goto(`${ORIGIN}/snapshot.html`, { waitUntil: 'load' });
-
-    const settled = page.locator(
-      '[data-devtools-snapshot="ready"], [data-devtools-snapshot="error"]',
-    );
-    try {
-      await settled.waitFor({ state: 'attached', timeout: options.timeoutMs });
-    } catch {
-      throw new SnapshotRenderError({
-        reason: 'timeout',
-        message:
-          `The Snapshot page did not settle within ${options.timeoutMs}ms.` +
-          (pageErrors.length > 0
-            ? ` Page errors: ${pageErrors.join('; ')}`
-            : ''),
-      });
-    }
-    if ((await settled.getAttribute('data-devtools-snapshot')) === 'error') {
-      throw new SnapshotRenderError({
-        reason: 'page-error',
-        message: (await settled.textContent()) ?? 'The Snapshot page failed.',
-      });
-    }
-    await page.evaluate('document.fonts.ready.then(() => undefined)');
-    const box = await settled.boundingBox();
-    if (box === null) {
-      throw new SnapshotRenderError({
-        reason: 'page-error',
-        message: 'The Snapshot element has no size.',
-      });
-    }
-    const width = Math.ceil(box.width);
-    const height = Math.ceil(box.height);
-    await page.setViewportSize({ width, height });
-    await page.evaluate(
-      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))',
-    );
-    const png = await settled.screenshot({
-      type: 'png',
-      animations: 'disabled',
-      caret: 'hide',
-    });
-    return { png, width, height };
+    return await capture(await context.newPage(), uiRoot, request, options);
   } finally {
-    await browser.close();
+    await context.close();
   }
+}
+
+async function capture(
+  page: Page,
+  uiRoot: string,
+  request: SnapshotRequest,
+  options: RenderSnapshotOptions,
+): Promise<RenderedSnapshot> {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') pageErrors.push(message.text());
+  });
+  await page.route(`${ORIGIN}/**`, async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const file = join(uiRoot, normalize(pathname).replace(/^(\.\.[/\\])+/, ''));
+    try {
+      const body = await readFile(file);
+      await route.fulfill({
+        body,
+        contentType: contentTypes[extname(file)] ?? 'application/octet-stream',
+      });
+    } catch {
+      pageErrors.push(`Missing file: ${file}`);
+      await route.fulfill({ status: 404, body: `Not found: ${pathname}` });
+    }
+  });
+  // Scripts are strings: this file compiles without DOM types.
+  await page.addInitScript(requestScript(request));
+  await page.goto(`${ORIGIN}/snapshot.html`, { waitUntil: 'load' });
+
+  const settled = page.locator(
+    '[data-devtools-snapshot="ready"], [data-devtools-snapshot="error"]',
+  );
+  try {
+    await settled.waitFor({ state: 'attached', timeout: options.timeoutMs });
+  } catch {
+    throw new SnapshotRenderError({
+      reason: 'timeout',
+      message:
+        `The Snapshot page did not settle within ${options.timeoutMs}ms.` +
+        (pageErrors.length > 0 ? ` Page errors: ${pageErrors.join('; ')}` : ''),
+    });
+  }
+  if ((await settled.getAttribute('data-devtools-snapshot')) === 'error') {
+    throw new SnapshotRenderError({
+      reason: 'page-error',
+      message: (await settled.textContent()) ?? 'The Snapshot page failed.',
+    });
+  }
+  await page.evaluate('document.fonts.ready.then(() => undefined)');
+  const box = await settled.boundingBox();
+  if (box === null) {
+    throw new SnapshotRenderError({
+      reason: 'page-error',
+      message: 'The Snapshot element has no size.',
+    });
+  }
+  const width = Math.ceil(box.width);
+  const height = Math.ceil(box.height);
+  await page.setViewportSize({ width, height });
+  await page.evaluate(
+    'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))',
+  );
+  const png = await settled.screenshot({
+    type: 'png',
+    animations: 'disabled',
+    caret: 'hide',
+  });
+  return { png, width, height };
 }
 
 async function assertSnapshotPage(uiRoot: string) {
