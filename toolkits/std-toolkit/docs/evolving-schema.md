@@ -117,6 +117,21 @@ Any ESchema can be wrapped as a plain Effect Schema with `toSchema(eschema)`,
 so evolving schemas compose inside ordinary structs — a versioned value inside
 a versioned entity inside a table row.
 
+## While you are still developing
+
+Nothing freezes a version except an approved snapshot. Until then the latest
+step is yours to edit, so a new field goes into the next `evolve` and is
+changed as often as needed. There is no draft or trial mechanism on top of
+this: the next version _is_ the trial.
+
+What makes that cheap is where the rows live. Develop against the Memory
+adapter, on the server and in the browser, so every reload or restart starts
+from an empty store and a dropped or rewritten step leaves nothing behind. A
+durable database keeps rows stamped with a version you may later delete, and
+code without that version cannot read them. Point a trial version at a durable
+store only once it is approved and shipped; from then on it is a version like
+any other and gets a real migration.
+
 ## Limitations
 
 Evolving schemas move migration from deploy time to read time. That trade has

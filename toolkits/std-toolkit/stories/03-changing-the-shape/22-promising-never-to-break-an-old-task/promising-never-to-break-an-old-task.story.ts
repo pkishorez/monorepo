@@ -7,8 +7,6 @@ import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { Board } from '../../02-more-ways-in/11-keeping-boards-and-tasks-in-the-same-table/keeping-boards-and-tasks-in-the-same-table.story.js';
 import { TaskV2 } from '../17-adding-a-field-to-tasks-that-already-exist/adding-a-field-to-tasks-that-already-exist.story.js';
-import { TaskV4 } from '../18-removing-and-renaming-fields/removing-and-renaming-fields.story.js';
-import { TaskTryingDueDate } from '../19-trying-a-new-field-before-committing-to-it/trying-a-new-field-before-committing-to-it.story.js';
 
 // The mistake this chapter guards against: priority written into the first version instead of added as a step. Rows already saved at v1 have no priority, and this shape still calls itself v1.
 const TaskEditedInPlace = EntityESchema.make('Task', 'taskId', {
@@ -115,7 +113,7 @@ export const promisingNeverToBreakAnOldTask = Story.make({
       'What does a captured shape look like, and can something that has never seen `Task` read a task from it?',
       {
         answer:
-          'Plain JSON: a snapshot (a written-down description of every version of a shape, both as stored and as the app sees it) with nothing in it that only the original code could run. `Snapshot.restore` rebuilds a working shape from that JSON alone, and it accepts and refuses tasks exactly like the original; a draft is not a version, so it never appears in a snapshot.',
+          'Plain JSON: a snapshot (a written-down description of every version of a shape, both as stored and as the app sees it) with nothing in it that only the original code could run. `Snapshot.restore` rebuilds a working shape from that JSON alone, and it accepts and refuses tasks exactly like the original.',
         proof: Story.trace(
           Effect.gen(function* () {
             // Capture Task, and push it through JSON as a file or a wire would.
@@ -129,11 +127,6 @@ export const promisingNeverToBreakAnOldTask = Story.make({
             const isTask = Schema.is(v1.decoded);
             // Render the snapshot as text for a human to read.
             const rendered = Snapshot.render(captured);
-            // A draft in place changes nothing in the snapshot.
-            const draftChanges = Snapshot.diff(
-              Snapshot.capture(TaskV4),
-              Snapshot.capture(TaskTryingDueDate),
-            );
             yield* Story.assert(
               'the JSON round trip changes nothing',
               JSON.stringify(json) === JSON.stringify(captured),
@@ -141,10 +134,6 @@ export const promisingNeverToBreakAnOldTask = Story.make({
             yield* Story.assert(
               'the rebuilt shape accepts a task and refuses a wrong one',
               isTask(lastYearsTask) && !isTask({ taskId: 't1', title: 7 }),
-            );
-            yield* Story.assert(
-              'the draft is invisible to the snapshot',
-              draftChanges.length === 0,
             );
             return {
               root: json.root,
