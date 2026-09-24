@@ -13,6 +13,9 @@ import {
   architectureTreeBoundaryKind,
   architectureTreeBoundaryState,
   architectureTreeBranch,
+  architectureTreeBranchIcon,
+  architectureTreeGuide,
+  architectureTreeGuideIndent,
   architectureTreeIndent,
   architectureTreeList,
   architectureTreeSelectedStyle,
@@ -134,10 +137,7 @@ function ModuleNodes({
           node.moduleId === undefined
             ? undefined
             : changeStatusByModuleId.get(node.moduleId);
-        const Icon =
-          node.children.length > 0 || !node.name.includes('.')
-            ? FolderIcon
-            : FileIcon;
+        const Icon = isFolder(node) ? FolderIcon : FileIcon;
         return (
           <li key={node.path} role="treeitem" aria-label={node.path}>
             <button
@@ -170,7 +170,9 @@ function ModuleNodes({
               }}
             >
               {!isModule ? (
-                <Icon className="size-3.5 shrink-0" />
+                <span className={architectureTreeBranchIcon}>
+                  <Icon className="size-3.5" />
+                </span>
               ) : (
                 <span
                   className={architectureTreeBoundaryIcon(
@@ -187,7 +189,14 @@ function ModuleNodes({
               )}
             </button>
             {node.children.length > 0 && (
-              <div>
+              <div className="relative">
+                <span
+                  aria-hidden
+                  className={architectureTreeGuide}
+                  style={{
+                    insetInlineStart: architectureTreeGuideIndent(depth),
+                  }}
+                />
                 <ModuleNodes
                   nodes={node.children}
                   changeStatusByModuleId={changeStatusByModuleId}
@@ -244,14 +253,22 @@ function buildModuleTree(
 
   const freeze = (nodes: ReadonlyMap<string, MutableNode>): ModuleTreeNode[] =>
     [...nodes.values()]
-      .sort((left, right) => left.name.localeCompare(right.name))
       .map((node) => ({
         name: node.name,
         path: node.path,
         ...(node.moduleId === undefined ? {} : { moduleId: node.moduleId }),
         children: freeze(node.children),
-      }));
+      }))
+      .sort(
+        (left, right) =>
+          Number(isFolder(right)) - Number(isFolder(left)) ||
+          left.name.localeCompare(right.name),
+      );
   return freeze(roots);
+}
+
+function isFolder(node: ModuleTreeNode): boolean {
+  return node.children.length > 0 || !node.name.includes('.');
 }
 
 function modulesForViolation(violation?: ModuleViolation): ReadonlySet<string> {

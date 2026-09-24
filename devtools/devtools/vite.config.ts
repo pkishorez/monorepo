@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type ProxyOptions } from 'vite-plus';
 import viteReact from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -22,6 +23,12 @@ export default defineConfig({
   build: {
     outDir: 'dist/ui',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        index: fileURLToPath(new URL('./index.html', import.meta.url)),
+        snapshot: fileURLToPath(new URL('./snapshot.html', import.meta.url)),
+      },
+    },
   },
   define: {
     __DEVTOOLS_VERSION__: JSON.stringify(packageJson.version),

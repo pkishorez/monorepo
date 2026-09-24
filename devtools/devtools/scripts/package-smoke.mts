@@ -118,6 +118,8 @@ try {
   const traces = await runClient(['list-traces', '--url', origin]);
   assert.deepEqual(JSON.parse(traces), { items: [] });
 
+  await smokeSnapshot();
+
   console.log('packaged DevTools server smoke test passed');
 } finally {
   server.kill('SIGTERM');
@@ -134,21 +136,60 @@ try {
   await rm(testRoot, { recursive: true, force: true });
 }
 
+// Draws this package against HEAD. A machine without any Chromium skips the
+// capture with a note instead of failing, since the browser is not ours.
+async function smokeSnapshot() {
+  const out = path.join(testRoot, 'snapshot.png');
+  const args = ['snapshot', '--project', '.', '--base', 'HEAD', '--out', out];
+  const result = await runClientResult(args);
+  if (result.code !== 0) {
+    if (/No Chromium could be started/.test(result.stderr)) {
+      console.log('snapshot smoke skipped: no Chromium on this machine');
+      return;
+    }
+    throw new Error(`devtools ${args.join(' ')} failed: ${result.stderr}`);
+  }
+  const summary = JSON.parse(result.stdout) as {
+    width: number;
+    height: number;
+    scale: number;
+    drawn: string;
+  };
+  // A dirty working tree draws the changed Modules; a clean one draws all.
+  assert.ok(summary.drawn === 'all' || summary.drawn === 'changed');
+  assert.ok(summary.width >= 480 && summary.height >= 240);
+  const png = await readFile(out);
+  assert.equal(png.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  assert.equal(png.readUInt32BE(16), summary.width * summary.scale);
+  assert.equal(png.readUInt32BE(20), summary.height * summary.scale);
+}
+
 async function runClient(args: string[]): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+  const result = await runClientResult(args);
+  if (result.code !== 0) {
+    throw new Error(`devtools ${args.join(' ')} exited with ${result.code}`);
+  }
+  return result.stdout;
+}
+
+async function runClientResult(
+  args: string[],
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ['dist/server/main.mjs', ...args], {
-      stdio: ['ignore', 'pipe', 'inherit'],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let output = '';
+    let stdout = '';
+    let stderr = '';
     child.stdout.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+      process.stderr.write(chunk);
     });
     child.once('error', reject);
-    child.once('exit', (code) =>
-      code === 0
-        ? resolve(output)
-        : reject(new Error(`devtools ${args.join(' ')} exited with ${code}`)),
-    );
+    child.once('exit', (code) => resolve({ code: code ?? 1, stdout, stderr }));
   });
 }
 

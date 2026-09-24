@@ -4,12 +4,36 @@
   "ignoredPaths": [],
   "layers": {
     "entry": {
-      "paths": ["src/browser.tsx", "src/server/main.ts", "src/cli"],
-      "description": "Starts the browser application and the local DevTools process",
+      "paths": ["src/browser.tsx", "src/snapshot.tsx", "src/server/main.ts"],
+      "description": "Starts the browser application, the Snapshot page, and the local DevTools process with its subcommands",
       "modules": {
         "src/browser.tsx": {},
-        "src/server/main.ts": {},
-        "src/cli": { "shared": true }
+        "src/snapshot.tsx": {},
+        "src/server/main.ts": {}
+      }
+    },
+    "cli": {
+      "paths": ["src/cli"],
+      "description": "Runs the devtools subcommands: Client Commands that read Traces and Flows back, the shipped skills, and Snapshots",
+      "modules": {
+        "src/cli/traces": {
+          "exposed": true
+        },
+        "src/cli/flows": {
+          "exposed": true
+        },
+        "src/cli/snapshot": {
+          "exposed": true
+        },
+        "src/cli/skills.ts": {
+          "exposed": true
+        },
+        "src/cli/client-command": {
+          "shared": true
+        },
+        "src/cli/text-format.ts": {
+          "shared": true
+        }
       }
     },
     "browser-application": {
@@ -33,6 +57,9 @@
         },
         "src/ui/git-changes": {
           "shared": true
+        },
+        "src/ui/laymos/snapshot": {
+          "exposed": true
         },
         "src/ui/project-selection": {
           "shared": true
@@ -163,18 +190,29 @@
           "exposed": true
         }
       }
+    },
+    "domain": {
+      "paths": ["src/domain"],
+      "description": "Decides what a Snapshot draws and defines the request the command hands the Snapshot page",
+      "modules": {
+        "src/domain/snapshot": {
+          "exposed": true
+        }
+      }
     }
   },
   "layerGraphs": {
     "devtools": {
       "rules": {
-        "entry": ["browser-application", "server-host"],
+        "entry": ["browser-application", "server-host", "cli"],
+        "cli": ["domain", "rpc-contract"],
         "browser-application": ["tool-interface", "browser-client"],
-        "tool-interface": ["browser-client", "rpc-contract"],
+        "tool-interface": ["browser-client", "rpc-contract", "domain"],
         "browser-client": ["rpc-contract"],
         "server-host": ["server-handlers", "rpc-contract"],
         "server-handlers": ["rpc-contract"],
-        "rpc-contract": []
+        "rpc-contract": [],
+        "domain": []
       }
     }
   }

@@ -11,7 +11,7 @@ import {
   type NodeProps,
   type NodeTypes,
 } from '@xyflow/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Layers3, Lock, Network, Share2 } from '#lib/lucide';
 import { cn } from '#lib/utils';
 
@@ -63,7 +63,18 @@ interface ModuleGraphProps {
   readonly onLayerGraphOpen?: (graphId: string) => void;
   readonly onInspect?: () => void;
   readonly onClearFocus?: () => void;
+  /**
+   * Off renders a still picture: no pan, zoom, controls, or pointer handlers.
+   * A snapshot or print wants the drawing alone.
+   */
+  readonly interactive?: boolean;
+  /**
+   * Called once the canvas has laid out and fitted its nodes, with the size
+   * of the drawn content in canvas pixels at zoom 1.
+   */
+  readonly onFitted?: (bounds: { width: number; height: number }) => void;
   readonly className?: string;
+  readonly style?: CSSProperties;
 }
 
 const nodeTypes = {
@@ -95,13 +106,26 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
   );
   const reactFlow = useReactFlow<ModuleGraphNode>();
   const visibleNodes = layout.nodes.map(({ id }) => id).join('\0');
+  const interactive = props.interactive ?? true;
+  const { onFitted } = props;
 
   useEffect(() => {
+    let cancelled = false;
     const frame = requestAnimationFrame(() => {
-      void reactFlow.fitView({ padding: 0.16, maxZoom: 1.05, duration: 0 });
+      void reactFlow
+        .fitView({ padding: 0.16, maxZoom: 1.05, duration: 0 })
+        .then(() => {
+          if (cancelled || onFitted === undefined) return;
+          const ids = visibleNodes.split('\0').filter((id) => id !== '');
+          const { width, height } = reactFlow.getNodesBounds(ids);
+          onFitted({ width, height });
+        });
     });
-    return () => cancelAnimationFrame(frame);
-  }, [reactFlow, visibleNodes]);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
+  }, [reactFlow, visibleNodes, onFitted]);
 
   useEffect(() => setHoveredModuleId(undefined), [props.activeModuleId]);
 
@@ -111,6 +135,7 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
         'h-96 w-full touch-none overflow-hidden rounded-lg border border-border bg-background',
         props.className,
       )}
+      style={props.style}
       aria-label="Module architecture"
     >
       <ReactFlow<ModuleGraphNode>
@@ -124,7 +149,10 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        panOnDrag
+        panOnDrag={interactive}
+        zoomOnScroll={interactive}
+        zoomOnPinch={interactive}
+        panOnScroll={false}
         nodeClickDistance={4}
         zoomOnDoubleClick={false}
         proOptions={{ hideAttribution: true }}
@@ -219,10 +247,12 @@ function ModuleGraphCanvas(props: ModuleGraphProps) {
           gap={28}
           size={1}
         />
-        <Controls
-          showInteractive={false}
-          className="!border-border !bg-background !shadow-sm [&>button]:!border-border [&>button]:!bg-background [&>button]:!fill-foreground"
-        />
+        {interactive && (
+          <Controls
+            showInteractive={false}
+            className="!border-border !bg-background !shadow-sm [&>button]:!border-border [&>button]:!bg-background [&>button]:!fill-foreground"
+          />
+        )}
       </ReactFlow>
     </div>
   );

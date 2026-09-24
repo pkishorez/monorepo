@@ -97,6 +97,18 @@ from a DevTools Server. Client Commands cover Traces and Flows only; Laymos is
 reached through its own CLI.
 _Avoid_: CLI command, query command.
 
+**Snapshot**:
+A still picture of one Project's Architecture Analysis with its Change set
+marked, drawn by the bundled Snapshot page in a headless browser and written
+as PNG by `devtools snapshot`. No DevTools Server is involved; the command
+hands the page a Snapshot Request and the page reports when it has settled.
+_Avoid_: Screenshot of DevTools, export.
+
+**Snapshot Request**:
+What one Snapshot draws: the Architecture Analysis, the Change set, the theme,
+and the largest size the picture may take. It is the only input the Snapshot
+page has.
+
 **Trace Summary**:
 One row describing a Trace as a whole: its identity, root operation, service,
 timing, span count, and error count. It is what a listing of recent Traces
