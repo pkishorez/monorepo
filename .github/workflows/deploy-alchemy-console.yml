@@ -4,20 +4,59 @@ on:
     branches: [main]
   pull_request:
     types: [opened, reopened, synchronize]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage to deploy: prod, or pr<N> for a preview of that PR'
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
-  group: alchemy-console-${{ github.event_name == 'pull_request' && format('pr{0}', github.event.number) || 'prod' }}
+  group: alchemy-console-${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
   cancel-in-progress: false
 jobs:
-  deploy:
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+  detect:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    outputs:
+      affected: ${{ steps.affected.outputs.affected }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+      - name: Check alchemy-console affected
+        id: affected
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            echo 'affected=true' >> "$GITHUB_OUTPUT"
+          else
+            .github/scripts/affected.sh apps/alchemy-console .github/workflows/deploy-alchemy-console.yml "$BASE"
+          fi
+  deploy:
+    needs: detect
+    if: needs.detect.outputs.affected == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     env:
-      STAGE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.number) || 'prod' }}
+      STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
+      - name: Validate stage
+        run: |
+          if ! printf '%s\n' "$STAGE" | grep -qxE 'prod|pr[0-9]+'; then
+            echo "::error::Stage must be 'prod' or 'pr<N>', got '$STAGE'."
+            exit 1
+          fi
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
@@ -27,20 +66,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter 'alchemy-console^...' run build
       - run: pnpm --filter alchemy-console build
-      - run: pnpm lint:syncpack && pnpm --filter alchemy-console lint
       - run: pnpm -C apps/alchemy-console exec alchemy cloudflare bootstrap
       - name: Inspect alchemy-console state without a development port
         run: env -u PORT pnpm -C apps/alchemy-console exec alchemy state stages --stack AlchemyConsole
       - run: pnpm -C apps/alchemy-console exec alchemy deploy --stage "$STAGE" --yes
+      - name: Mark PR as having a preview
+        if: startsWith(env.STAGE, 'pr')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/issues/${STAGE#pr}/labels" -f 'labels[]=preview:console' --silent
   summary:
-    needs: deploy
+    needs: [detect, deploy]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Deployment summary
         env:
+          AFFECTED: ${{ needs.detect.outputs.affected }}
           RESULT: ${{ needs.deploy.result }}
-          STAGE: ${{ github.event_name == 'pull_request' && format('pr{0}', github.event.number) || 'prod' }}
+          STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
         run: |
           case "$RESULT" in
             success)
@@ -48,6 +92,12 @@ jobs:
               if [ "$STAGE" != prod ]; then host="$STAGE-$host"; fi
               echo "$STAGE deployed: https://$host" >> "$GITHUB_STEP_SUMMARY"
               ;;
-            skipped) echo "$STAGE deployment skipped: this event is not eligible for deployment." >> "$GITHUB_STEP_SUMMARY" ;;
+            skipped)
+              if [ "$AFFECTED" = false ]; then
+                echo "$STAGE deployment skipped: alchemy-console is unchanged." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "$STAGE deployment skipped: this event is not eligible for deployment." >> "$GITHUB_STEP_SUMMARY"
+              fi
+              ;;
             *) echo "$STAGE deployment $RESULT. Review the deployment job." >> "$GITHUB_STEP_SUMMARY" ;;
           esac

@@ -27,24 +27,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          # Pin to 24.18.0 (matches local): 24.17.0's CVE-2026-48931 fix
-          # (response queue poisoning guard) broke node-fetch@2 with false
-          # ERR_STREAM_PREMATURE_CLOSE errors, which crashed changesets'
-          # get-github-info GraphQL calls. 24.18.0 (nodejs/node#64004) fixes it.
+          # 24.17.0 breaks node-fetch@2 used by changesets (nodejs/node#64004).
           node-version: 24.18.0
           cache: pnpm
 
-      # Pin npm: npm@latest (12.0.0) ships a broken libnpmpublish that can't
-      # resolve its own `sigstore` module, which breaks provenance publishing
-      # (NPM_CONFIG_PROVENANCE). 11.16.0 is the last known-good release.
+      # npm 12.0.0 breaks provenance publishing.
       - run: npm install -g npm@11.16.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Build and lint moved into ci:publish so they only run when there is
-      # actually something to publish; versioning and release-PR creation
-      # don't need them, and test-monorepo.yml already gates every push to main.
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v2.1.1

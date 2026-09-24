@@ -10,12 +10,13 @@ on:
         type: string
 permissions:
   contents: read
+  pull-requests: write
 concurrency:
   group: alchemy-console-pr${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.number }}
   cancel-in-progress: false
 jobs:
   cleanup:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'preview:console')
     runs-on: ubuntu-latest
     env:
       STAGE: pr${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.number }}
@@ -52,6 +53,10 @@ jobs:
       - name: Destroy preview
         if: steps.preview.outputs.exists == 'true'
         run: pnpm -C apps/alchemy-console exec alchemy destroy --stage "$STAGE" --yes
+      - name: Remove preview label
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${STAGE#pr}/labels/preview:console" --silent || true
       - name: Cleanup summary
         if: always()
         env:
