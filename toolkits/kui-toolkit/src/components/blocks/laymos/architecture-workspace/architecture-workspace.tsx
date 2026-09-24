@@ -498,26 +498,6 @@ export function LayersModulesExperience({
 
   const toolbar = (
     <>
-      <ViewOptionsMenu
-        options={{
-          showModules,
-          showLayerConnections,
-          showModuleConnections,
-          isolateGraph,
-        }}
-        isolatingGraph={isolatedLayerGraphId !== undefined}
-        onChange={(next) => {
-          if (next.showModules !== showModules) {
-            toggleShowModules(next.showModules);
-          }
-          setShowLayerConnections(next.showLayerConnections);
-          setShowModuleConnections(next.showModuleConnections);
-          if (next.isolateGraph !== isolateGraph) {
-            clearFocus();
-            setIsolateGraph(next.isolateGraph);
-          }
-        }}
-      />
       {gitAvailable && onGitOptionsChange !== undefined && (
         <ChangesMenu
           options={gitOptions}
@@ -539,6 +519,26 @@ export function LayersModulesExperience({
           }
         />
       )}
+      <ViewOptionsMenu
+        options={{
+          showModules,
+          showLayerConnections,
+          showModuleConnections,
+          isolateGraph,
+        }}
+        isolatingGraph={isolatedLayerGraphId !== undefined}
+        onChange={(next) => {
+          if (next.showModules !== showModules) {
+            toggleShowModules(next.showModules);
+          }
+          setShowLayerConnections(next.showLayerConnections);
+          setShowModuleConnections(next.showModuleConnections);
+          if (next.isolateGraph !== isolateGraph) {
+            clearFocus();
+            setIsolateGraph(next.isolateGraph);
+          }
+        }}
+      />
       <LayerGraphMenu
         graphIds={drawnGraphIds}
         value={activeGraphId}

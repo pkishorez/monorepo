@@ -1,0 +1,40 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "layers": {
+    "entry": {
+      "paths": ["src/main.ts", "src/pr-media.ts"],
+      "description": "Reads the inputs, uploads the files, and writes the comment",
+      "modules": {
+        "src/main.ts": {},
+        "src/pr-media.ts": { "shared": true }
+      }
+    },
+    "steps": {
+      "paths": ["src/steps"],
+      "description": "Upload files as attachments; link them in the Markdown and keep one comment",
+      "modules": {
+        "src/steps/upload.ts": { "exposed": true },
+        "src/steps/comment.ts": { "exposed": true }
+      }
+    },
+    "platform": {
+      "paths": ["src/github.ts", "src/action.ts"],
+      "description": "Talks to GitHub's REST API and to the Actions runner",
+      "modules": {
+        "src/github.ts": { "exposed": true },
+        "src/action.ts": { "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "pr-media": {
+      "rules": {
+        "entry": ["steps", "platform"],
+        "steps": ["platform"],
+        "platform": []
+      }
+    }
+  }
+}
