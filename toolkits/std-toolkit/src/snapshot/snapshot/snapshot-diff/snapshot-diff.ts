@@ -3,6 +3,7 @@ import type {
   ESchemaDefinition,
   ESchemaSnapshot,
   ESchemaVersion,
+  GoldenStep,
   SnapshotChange,
   SnapshotImpact,
   SnapshotEdit,
@@ -11,6 +12,7 @@ import type {
   TableEntitySnapshot,
   TableIndexSnapshot,
   TableSnapshot,
+  TableSnapshotFile,
 } from '../../domain/index.js';
 import { compareStrings, stableStringify } from '../../domain/index.js';
 import { validateTableSnapshot as validateTable } from '../snapshot-decoder/index.js';
@@ -655,4 +657,58 @@ function diffSnapshot(
   );
 }
 
-export { diffSnapshot };
+const stepKey = (step: GoldenStep): string =>
+  `${step.schema}\u0000${step.from}\u0000${step.to}`;
+
+/**
+ * Golden rows pin what a migration step does to real values. A stored input
+ * whose output moved means the step was rewritten, or is not pure: breaking,
+ * since rows already written now decode to something else. Steps only one
+ * side has are already reported by the snapshot diff as an added or removed
+ * version, so they produce nothing here.
+ */
+function diffGoldenRows(
+  previous: readonly GoldenStep[],
+  current: readonly GoldenStep[],
+): readonly SnapshotChange[] {
+  const before = new Map(previous.map((step) => [stepKey(step), step]));
+  const changes: SnapshotChange[] = [];
+  for (const step of current) {
+    const prior = before.get(stepKey(step));
+    if (prior === undefined) continue;
+    const priorOutputs = new Map(
+      prior.rows.map((row) => [stable(row.input), row.output]),
+    );
+    const edits: SnapshotEdit[] = [];
+    step.rows.forEach((row, index) => {
+      const expected = priorOutputs.get(stable(row.input));
+      if (expected === undefined) return;
+      if (stable(expected) !== stable(row.output)) {
+        edits.push(edit([`row ${index}`], expected, row.output, 'contract'));
+      }
+    });
+    if (edits.length > 0) {
+      changes.push(
+        change(
+          { kind: 'migration', name: step.schema, version: step.to },
+          'edited',
+          'breaking',
+          edits,
+        ),
+      );
+    }
+  }
+  return changes;
+}
+
+function diffTableSnapshotFile(
+  previous: TableSnapshotFile,
+  current: TableSnapshotFile,
+): readonly SnapshotChange[] {
+  return sortChanges([
+    ...diffSnapshot(previous.snapshot, current.snapshot),
+    ...diffGoldenRows(previous.goldenRows, current.goldenRows),
+  ]);
+}
+
+export { diffSnapshot, diffTableSnapshotFile };

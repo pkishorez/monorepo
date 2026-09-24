@@ -19,7 +19,7 @@ describe('snapshot compatibility', () => {
     const snapshot = Snapshot.capture(parent);
 
     expect(sha256(JSON.stringify(snapshot))).toBe(
-      'c02b09257a6dc722fd06a860d82e719807e8ad4b7c806ab6820e6574b4b6e1e2',
+      'b7e3e672171a58f4263921f90c5d776c6f0f37aa95e9c89260fa977179b6afc6',
     );
     expect(sha256(Snapshot.render(snapshot))).toBe(
       'a29fafa982a7005005326721325ad8c81d54473ea5bd540b0c5c38a9e450e755',

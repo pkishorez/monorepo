@@ -4,6 +4,7 @@ import {
   contractLayer,
   type StdTableService,
 } from '../std-table/contract/index.js';
+import { setupTable, type SetupError } from '../std-table/enforcement/index.js';
 import {
   makeDynamoDBClient,
   type DynamoDBCredentialsInput,
@@ -18,8 +19,8 @@ import {
 import { makeTableContract } from './table/index.js';
 import {
   DynamoDBNativeError,
+  ensureDynamoTable,
   getTableDefinition,
-  setupDynamoTable,
 } from './setup/index.js';
 
 export interface DynamoDBConfig {
@@ -31,13 +32,18 @@ export interface DynamoDBConfig {
 
 type DynamoTable<Name extends string = string> = Pick<
   TableDefinition<Name>,
-  'logicalName' | 'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
+  | 'logicalName'
+  | 'primary'
+  | 'localSecondaryIndexes'
+  | 'globalSecondaryIndexes'
+  | 'snapshot'
 >;
 
 export interface DynamoDBTable<Name extends string = string> {
   readonly tableName: string;
   readonly layer: Layer.Layer<StdTableService<Name> | DynamoTableService<Name>>;
-  readonly setup: ReturnType<typeof setupDynamoTable>;
+  /** Creates the table when missing, then runs table-level enforcement. */
+  readonly setup: Effect.Effect<void, DynamoDBNativeError | SetupError>;
   readonly teardown: Effect.Effect<void, DynamoDBNativeError>;
 }
 
@@ -53,7 +59,13 @@ const make = <Name extends string>(
       contractLayer(table.logicalName, contract),
       makeNativeService(table.logicalName, client, config.tableName),
     ),
-    setup: setupDynamoTable(client, table, config.tableName),
+    // Suspended so entities registered after `make` are part of the snapshot.
+    setup: Effect.suspend(() =>
+      setupTable(contract, table.snapshot(), {
+        ensure: ensureDynamoTable(client, table, config.tableName),
+        reconcile: Effect.void,
+      }),
+    ),
     teardown: client.deleteTable({ TableName: config.tableName }).pipe(
       Effect.asVoid,
       Effect.mapError(

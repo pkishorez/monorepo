@@ -30,11 +30,9 @@ describe('SQLite setup', () => {
 
   it('additively creates missing index columns without backfilling', async () => {
     const database = makeNodeSQLite({ path: ':memory:' });
-    await Effect.runPromise(
-      database.run(
-        'CREATE TABLE items (pk TEXT NOT NULL, sk TEXT NOT NULL, _e TEXT NOT NULL, _v TEXT NOT NULL, _u TEXT NOT NULL, _d INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (pk, sk))',
-      ),
-    );
+    // A first deploy without the index, then a row written under that shape.
+    const before = StdTable.make('items').primary('pk', 'sk').build();
+    await Effect.runPromise(SQLite.make(before, { database }).setup);
     await Effect.runPromise(
       database.run(
         'INSERT INTO items (pk, sk, _e, _v, _u, _d, data) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -53,6 +51,7 @@ describe('SQLite setup', () => {
         ],
       ),
     );
+    // The next deploy adds a GSI: requires-backfill, accepted, columns added.
     const table = StdTable.make('items')
       .primary('pk', 'sk')
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
@@ -65,9 +64,34 @@ describe('SQLite setup', () => {
       expect.arrayContaining(['GSI1PK', 'GSI1SK']),
     );
     const rows = await Effect.runPromise(
-      database.all('SELECT GSI1PK, GSI1SK FROM items'),
+      database.all("SELECT GSI1PK, GSI1SK FROM items WHERE _e = 'Record'"),
     );
     expect(rows).toEqual([{ GSI1PK: null, GSI1SK: null }]);
+  });
+
+  it('refuses a table that already holds rows but no baseline', async () => {
+    const database = makeNodeSQLite({ path: ':memory:' });
+    await Effect.runPromise(
+      database.run(
+        'CREATE TABLE items (pk TEXT NOT NULL, sk TEXT NOT NULL, _e TEXT NOT NULL, _v TEXT NOT NULL, _u TEXT NOT NULL, _d INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (pk, sk))',
+      ),
+    );
+    await Effect.runPromise(
+      database.run(
+        'INSERT INTO items (pk, sk, _e, _v, _u, _d, data) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['p', 's', 'Record', 'v1', '01CURRENT', 0, '{"_v":"v1"}'],
+      ),
+    );
+    const table = StdTable.make('items').primary('pk', 'sk').build();
+
+    const result = await Effect.runPromise(
+      SQLite.make(table, { database }).setup.pipe(Effect.result),
+    );
+
+    expect(result).toMatchObject({
+      _tag: 'Failure',
+      failure: { _tag: 'BaselineMissing' },
+    });
   });
 
   it('rejects an existing table with an incompatible base schema', async () => {

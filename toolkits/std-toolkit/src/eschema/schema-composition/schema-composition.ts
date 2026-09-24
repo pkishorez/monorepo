@@ -26,7 +26,21 @@ export function toSchema(eschema: AnyESchema | AnyValueESchema): Schema.Top {
   const identifier = isValue
     ? `ValueESchema_${eschema.name}`
     : `ESchema_${eschema.name}`;
-  const encodedSchema = eschema.schema.annotate({ identifier });
+  // The encoded side is what persists: the nested value's fields plus its
+  // version stamp (a value ESchema persists as its envelope). Decoding and
+  // encoding pass straight through to the ESchema, so this shape is only
+  // read by structural consumers such as capture and generated rows.
+  const encodedSchema = (
+    isValue
+      ? Schema.Struct({
+          _v: Schema.Literal(eschema.latestVersion),
+          value: eschema.schema,
+        })
+      : Schema.Struct({
+          ...(eschema as AnyESchema).fields,
+          _v: Schema.Literal(eschema.latestVersion),
+        })
+  ).annotate({ identifier });
   const toIssue = (input: unknown, error: ESchemaError) =>
     new SchemaIssue.InvalidValue(
       {
@@ -42,6 +56,9 @@ export function toSchema(eschema: AnyESchema | AnyValueESchema): Schema.Top {
           decode: SchemaGetter.passthrough({ strict: false }),
           encode: SchemaGetter.passthrough({ strict: false }),
         }),
+      // Generated values of a version that nests this ESchema must hold a
+      // real persisted nested value, not an opaque declaration.
+      toArbitrary: () => Schema.toArbitrary(Schema.toEncoded(encodedSchema)),
     },
   ).annotate({
     eschemaIdentity: eschema.name,

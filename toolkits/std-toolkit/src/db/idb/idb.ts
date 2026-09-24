@@ -1,12 +1,14 @@
+import { Effect } from 'effect';
 import { contractLayer } from '../std-table/contract/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
+import { setupTable, type SetupError } from '../std-table/enforcement/index.js';
 import {
   makeIDBDatabase,
   type IDBDatabaseConfig,
   type IDBConnection,
 } from './database/index.js';
 import { makeTableContract } from './table/index.js';
-import { setupIDBTable } from './upgrade/index.js';
+import { ensureIDBStore, reconcileIDBStore } from './upgrade/index.js';
 
 export interface IDBConfig {
   readonly database: IDBConnection;
@@ -25,7 +27,8 @@ type TableSource<Name extends string> = Pick<
 export interface IDBTable<Name extends string> {
   readonly storeName: string;
   readonly layer: ReturnType<typeof contractLayer<Name>>;
-  readonly setup: ReturnType<typeof setupIDBTable>;
+  /** Creates the store, runs table-level enforcement, then upgrades indexes. */
+  readonly setup: Effect.Effect<void, unknown | SetupError>;
 }
 
 const make = <Name extends string>(
@@ -37,7 +40,13 @@ const make = <Name extends string>(
   return {
     storeName,
     layer: contractLayer(table.logicalName, contract),
-    setup: setupIDBTable(config.database, table, storeName),
+    // Suspended so entities registered after `make` are part of the snapshot.
+    setup: Effect.suspend(() =>
+      setupTable(contract, table.snapshot(), {
+        ensure: ensureIDBStore(config.database, storeName),
+        reconcile: reconcileIDBStore(config.database, table, storeName),
+      }),
+    ),
   };
 };
 

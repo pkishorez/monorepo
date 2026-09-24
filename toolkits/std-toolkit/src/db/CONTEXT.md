@@ -41,8 +41,8 @@ The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTab
 _Avoid_: Configured adapter (retired term), instance, storage, public binding.
 
 **Adapter setup**:
-An adapter-specific, explicit preparation of a physical table or store through an **adapter table**. Its reconciliation and failure behavior belongs to the adapter, and creating or providing a layer never runs it automatically.
-_Avoid_: Automatic setup, layer initialization.
+An explicit preparation of a physical table or store through an **adapter table**, and the only door to it. It creates the physical table if missing, runs **Table-level enforcement**, reconciles physical topology only once enforcement has accepted the current shape, and commits the **Enforcement baseline** last. A refusal leaves data, topology, and baseline untouched. Creating or providing a layer never runs setup. Memory's setup exists for parity and does nothing, since a Memory table lives and dies with one process and has no rows from an earlier shape to protect.
+_Avoid_: Automatic setup, layer initialization, verifySnapshot (retired; enforcement is no longer a separate call).
 
 **Encoded item**:
 The portable database form of an **EncodedEntity** as it crosses the **StdTable contract**: derived pk/sk, the entity metadata, eschema-encoded data, and derived secondary-index keys (`EncodedItem`, with `EncodedKey` for a key pair alone). Everything is encoded before an adapter sees it, and its flat layout mirrors the physical row so adapters translate native value representations, not structure.
@@ -112,12 +112,20 @@ A portable, table-wide walk of every physical row (`table.scan()`), returning ra
 _Avoid_: Full table read, dump.
 
 **Enforcement baseline**:
-The `TableSnapshot` a table's own **Table-level enforcement** last accepted, stored as a single reserved **encoded item** inside the table itself at a fixed key no real registered entity can produce. It is read, diffed, and — only on a safe outcome — rewritten each time enforcement runs; it is not the file-based CLI baseline, and the two are never the same object.
-_Avoid_: Approved snapshot file, contract file (both name the CLI's separate, file-based baseline).
+The `TableSnapshot` a table's own **Table-level enforcement** last accepted, stored as a single reserved **encoded item** inside the table itself at a fixed key no real registered entity can produce. It is read through the **Snapshot document format** reader, diffed, and rewritten only when enforcement accepts. It holds the schema contract only, never golden rows. It is the only baseline the toolkit keeps. Wiping the table removes it along with every row, so the next setup starts from nothing.
+_Avoid_: Approved snapshot file, contract file (retired CLI terms).
+
+**Version floor**:
+Per registered entity, the lowest **version** any stored row of that entity may still carry; everything on disk is at or above it. **Adapter setup** sets a newly registered entity's floor to its latest version, since it has no rows yet, and never raises an existing floor. Only a completed table-wide rewrite raises it. Kept beside the **Enforcement baseline**, never inside the snapshot, so it never affects a diff. A known floor is what will one day make retiring versions below it provably safe.
+_Avoid_: Minimum version, current version, data version.
+
+**Owed backfill**:
+A `requires-backfill` change that **Table-level enforcement** accepted and no table-wide rewrite has repaired yet: stored rows may carry index keys the current derivation would not produce. Setup appends one on each such acceptance and prunes any whose subject no longer exists. An owed backfill never blocks setup or the application; it is a visible debt, settled by a scan that runs **Drift** and **Reindex** across every row. Kept beside the **Enforcement baseline**, never inside the snapshot.
+_Avoid_: Pending migration, backfill flag, stale rows (a row below the **Version floor** is by design, not debt).
 
 **Table-level enforcement**:
-`table.verifySnapshot()` — a second, independent line of defense beyond the code-level CLI lint, since a file on disk can simply go unread. It diffs the table's current, code-derived snapshot against the **Enforcement baseline**: a `breaking` or `unverifiable` change rejects and leaves the baseline untouched; a `safe` or `requires-backfill` change (logged as a warning) moves the baseline forward; no baseline yet bootstraps instead of rejecting. It is a plain function a caller chooses to invoke — nothing wires it in automatically.
-_Avoid_: Snapshot approval, deploy gate (as a separate mechanism — it is not).
+The guarantee that a deployed table never absorbs a shape it cannot prove compatible with the rows it already holds. It always runs inside **Adapter setup** and cannot be skipped, forced, or bypassed. It diffs the table's current, code-derived snapshot against the **Enforcement baseline**: a `breaking` or `unverifiable` change refuses; a `safe` or `requires-backfill` change (logged as a warning) moves the baseline forward; no baseline on an empty table bootstraps; no baseline on a table that already holds any row, tombstones included, refuses. The only ways past a refusal are a new logical table or a wipe.
+_Avoid_: Snapshot approval, deploy gate (as a separate mechanism — it is not), escape hatch, force flag.
 
 **Drift**:
 The mismatch between a stored **encoded item**'s secondary-index keys and what the current entity registration would derive for the same decoded value (`table.drift(item)`). A difference confined to `_v` or the encoded payload, with keys unchanged, is not Drift, since it already self-heals through **Read migration**. A primary partition-key or sort-key difference violates **Entity key immutability** and fails with `PrimaryKeyDrift`; it is never returned as repairable Drift. Detected only for keyed entities; a **SingleEntity** has no secondary indexes to drift.

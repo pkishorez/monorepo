@@ -4,18 +4,21 @@ export type {
   RestoredESchemaVersion,
 } from './restore/eschema-restore/index.js';
 export {
-  ContractSnapshotSchema,
-  ESchemaSnapshotSchema,
+  ESchemaSnapshotESchema,
+  SnapshotChangeSchema,
   SnapshotDecodeError,
-  SnapshotFormatRetired,
   SnapshotIdentityConflict,
   SnapshotIncompatible,
-  TableSnapshotSchema,
+  TableSnapshotESchema,
+  TableSnapshotFileESchema,
 } from './domain/index.js';
 export type {
   ContractSnapshot,
   ESchemaDefinition,
   ESchemaSnapshot,
+  GoldenRow,
+  GoldenStep,
+  JsonValue,
   SnapshotChange,
   SnapshotImpact,
   SnapshotDiagnostic,
@@ -27,5 +30,6 @@ export type {
   TableEntitySnapshot,
   TableIndexSnapshot,
   TableSnapshot,
+  TableSnapshotFile,
   TableTopologySnapshot,
 } from './domain/index.js';

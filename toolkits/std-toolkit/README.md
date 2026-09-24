@@ -6,9 +6,9 @@ Single-table design toolkit: database-agnostic sync over single-table item colle
 
 Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
 
-`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot`, `studio-rpc`, and the CLI inspect and guard the resulting storage contract.
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot` and `studio-rpc` inspect and guard the resulting storage contract; every adapter's `setup` enforces it against the baseline kept inside the table, and `std-toolkit/snapshot/vitest` is the one test a table needs.
 
-Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Snapshot CLI](docs/snapshot-cli.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder is a guided walkthrough that runs as tests.
+Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder is a guided walkthrough that runs as tests.
 
 ## Install
 
@@ -35,22 +35,46 @@ See [src/eschema/README.md](src/eschema/README.md).
 
 ### `std-toolkit/snapshot`
 
-| Export                     | What it does                                                                             |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| `Snapshot.capture`         | Captures an ESchema into a JSON-safe snapshot of every encoded and decoded version.      |
-| `Snapshot.decode`          | Decodes a stored JSON value into a contract snapshot, failing on retired formats.        |
-| `Snapshot.restore`         | Rebuilds working ESchemas from snapshot definitions without the original source.         |
-| `Snapshot.inspect`         | Lists the limitations in a snapshot that cannot be verified from its data.               |
-| `Snapshot.diff`            | Compares a baseline and a current snapshot into classified semantic changes.             |
-| `Snapshot.render`          | Renders a snapshot as stable human-readable text.                                        |
-| `Snapshot.renderChanges`   | Renders a list of changes as human-readable text.                                        |
-| `ESchemaSnapshotSchema`    | Effect Schema for a single ESchema snapshot.                                             |
-| `TableSnapshotSchema`      | Effect Schema for a table snapshot: topology, entities, and access patterns.             |
-| `ContractSnapshotSchema`   | Effect Schema union of the ESchema and table snapshot shapes.                            |
-| `SnapshotDecodeError`      | Error raised when a stored snapshot cannot be decoded.                                   |
-| `SnapshotFormatRetired`    | Decode error for a snapshot written in a format that is no longer supported.             |
-| `SnapshotIdentityConflict` | Error raised when two distinct ESchemas share one snapshot identity.                     |
-| `SnapshotIncompatible`     | Error raised by table-level enforcement when a change would break the approved baseline. |
+| Export                     | What it does                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `Snapshot.capture`         | Captures an ESchema into a JSON-safe snapshot of every encoded and decoded version.              |
+| `Snapshot.decode`          | Reads a stored snapshot document, migrating older document formats forward.                      |
+| `Snapshot.decodeTableFile` | Reads a committed table snapshot file: the contract plus its golden rows.                        |
+| `Snapshot.restore`         | Rebuilds working ESchemas from snapshot definitions without the original source.                 |
+| `Snapshot.inspect`         | Lists the limitations in a snapshot that cannot be verified from its data.                       |
+| `Snapshot.diff`            | Compares a baseline and a current snapshot into classified semantic changes.                     |
+| `Snapshot.diffTableFile`   | Compares two table snapshot files, adding a breaking change for every migration step that moved. |
+| `Snapshot.render`          | Renders a snapshot as stable human-readable text.                                                |
+| `Snapshot.renderChanges`   | Renders a list of changes as human-readable text.                                                |
+| `ESchemaSnapshotESchema`   | The ESchema of a single ESchema snapshot document.                                               |
+| `TableSnapshotESchema`     | The ESchema of a table snapshot document: topology, entities, access patterns, schemas.          |
+| `TableSnapshotFileESchema` | The ESchema of the file a test suite commits per table: the table snapshot plus golden rows.     |
+| `SnapshotDecodeError`      | Error raised when a stored snapshot cannot be decoded.                                           |
+| `SnapshotIdentityConflict` | Error raised when two distinct ESchemas share one snapshot identity.                             |
+| `SnapshotIncompatible`     | Error raised by table-level enforcement when a change would break the approved baseline.         |
+
+### `std-toolkit/snapshot/vitest`
+
+The recommended test for a table, in one call. It needs `vitest` as a peer.
+
+```ts
+import { expectTableSnapshot } from 'std-toolkit/snapshot/vitest';
+import { it } from 'vitest';
+import { table } from '../src/table.js';
+
+it('keeps the table in step with its committed snapshot', async () => {
+  await expectTableSnapshot(table, './fixtures/table.snapshot.json');
+});
+```
+
+The file holds the table's schema contract and twenty **golden rows** per migration step: generated values of the previous version and what the step turns them into. A rewritten or impure migration changes a stored output and fails as `breaking`; an appended version adds rows and is `safe`. On a mismatch the failure lists every change with its classification. `vitest -u` accepts the current document, like any file snapshot. Rows are drawn once when a step first enters the file and replayed from the file afterwards, so they never enter a table and a generator change never looks like a rewrite.
+
+| Export                     | What it does                                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------------- |
+| `expectTableSnapshot`      | Captures the table's snapshot file with the committed one as prior and file-snapshots it. |
+| `captureTableSnapshotFile` | The same capture without Vitest: contract plus golden rows, replaying a prior file.       |
+| `captureGoldenRows`        | Only the golden rows.                                                                     |
+| `GoldenRowError`           | Error raised when a version cannot generate values or a migration fails on one.           |
 
 ### `std-toolkit/studio-rpc`
 
@@ -63,7 +87,7 @@ See [src/studio-rpc/README.md](src/studio-rpc/README.md).
 | `StdTable.make` | Starts a table builder from a logical name; chain `primary`, `lsi`, `gsi`, then `build`.          |
 | `DatabaseError` | Tagged error every StdTable operation fails with, carrying a `reason` such as a failed condition. |
 
-The built `StdTable` exposes `entity`, `singleEntity`, `transact`, `scan`, `subscribe`, `snapshot`, `verifySnapshot`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
+The built `StdTable` exposes `entity`, `singleEntity`, `transact`, `scan`, `subscribe`, `snapshot`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. Enforcement is not a method: every adapter's `setup` runs it (see below). `BaselineMissing` is the error setup fails with when a table already holds rows but no baseline. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
 
 ### `std-toolkit/db/dynamodb`
 

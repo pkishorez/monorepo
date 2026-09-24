@@ -1,9 +1,10 @@
 import { Effect, Match, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { StdTable } from 'std-toolkit/db';
+import { SQLite } from 'std-toolkit/db/sqlite';
+import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import { EntityESchema } from 'std-toolkit/eschema';
 import { Snapshot } from 'std-toolkit/snapshot';
-import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { Board } from '../../02-more-ways-in/11-keeping-boards-and-tasks-in-the-same-table/keeping-boards-and-tasks-in-the-same-table.story.js';
 import { TaskV2 } from '../17-adding-a-field-to-tasks-that-already-exist/adding-a-field-to-tasks-that-already-exist.story.js';
@@ -79,23 +80,26 @@ withIndex
   .primary({ pk: ['boardId'] })
   .build();
 
-// The fourth renames the key attributes: every stored row sits under attributes this table would never look up.
-const renamedKeys = StdTable.make('board')
-  .primary('partition', 'sort')
+// The fourth moves Task to a different partition key: every stored row sits under a key this table would never look up.
+const rekeyedTasks = StdTable.make('board')
+  .primary('pk', 'sk')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
-renamedKeys
+rekeyedTasks
   .entity(Task)
-  .primary({ pk: ['boardId'] })
+  .primary({ pk: ['title'] })
   .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['status', 'title'] })
   .build();
-renamedKeys
+rekeyedTasks
   .entity(Board)
   .primary({ pk: ['boardId'] })
   .build();
 
-// Runs a program against a brand-new, empty copy of the first deploy in memory; every later deploy shares its name, so it reaches the same table.
-const onFirstDeploy = fresh('memory', firstDeploy);
+// Every deploy's `setup` on one SQLite database that lives in this process: the same physical table each time, as in production.
+const deploy = (
+  database: ReturnType<typeof makeNodeSQLite>,
+  table: Parameters<typeof SQLite.make>[0],
+) => SQLite.make(table, { database }).setup;
 
 // What each deploy registered, by name.
 const namesOn = (deploy: {
@@ -148,7 +152,7 @@ export const promisingNeverToBreakAnOldTask = Story.make({
       'How does the diff describe a correct change, and how does it describe an edit to a version that already shipped?',
       {
         answer:
-          'Adding v2 as a step is reported as `safe`; writing the field into v1 is `breaking`, and the proof of why is that a row saved last year no longer decodes through the edited shape. A snapshot records shapes, not the steps between them, so a rewritten step is the one mistake it cannot see: the same row quietly decodes to two different values, and only the habit of never touching a step that has run prevents it.',
+          "Adding v2 as a step is reported as `safe`; writing the field into v1 is `breaking`, and the proof of why is that a row saved last year no longer decodes through the edited shape. A snapshot records shapes, not the steps between them, so a rewritten step is invisible to the shape diff: the same row quietly decodes to two different values. That is what the golden rows in a table's test file exist for: `expectTableSnapshot` from `std-toolkit/snapshot/vitest` draws twenty values of each version, runs each step once, and commits the results beside the shapes, so a rewritten step changes a stored result and fails as `breaking` in CI.",
         proof: Story.trace(
           Effect.gen(function* () {
             // Compare last year's shape with the one that adds v2.
@@ -188,7 +192,7 @@ export const promisingNeverToBreakAnOldTask = Story.make({
                 afterEdit.priority === 'high',
             );
             yield* Story.assert(
-              'a rewritten step is invisible to the diff, yet changes what a row means',
+              'a rewritten step is invisible to the shape diff, yet changes what a row means',
               unseen.length === 0 && before.priority !== after.priority,
             );
             return {
@@ -205,52 +209,51 @@ export const promisingNeverToBreakAnOldTask = Story.make({
       'How does the table hold itself to the promise on its first deploy, on a safe change, and on a breaking one?',
       {
         answer:
-          '`verifySnapshot` keeps the approved shape inside the table itself: the first call writes it, a safe change moves it forward, a change that only needs stored rows repaired goes through with a warning, and a breaking change is refused with `SnapshotIncompatible` while the approved shape stays where it was. The same check runs against a committed file in CI as `std-toolkit snapshot`, after `std-toolkit snapshot approve` has written the baseline from a `std-toolkit.snapshot.ts` that default-exports `table.snapshot()`.',
-        proof: onFirstDeploy(
-          Story.trace(
-            Effect.gen(function* () {
-              // The first deploy: nothing to compare against, so the current shape becomes the approved one.
-              yield* firstDeploy.verifySnapshot();
-              // The same shape again simply matches.
-              yield* firstDeploy.verifySnapshot();
-              // Board joins the table: safe, and the approved shape moves forward to include it.
-              yield* withBoard.verifySnapshot();
-              // Going back to the narrower shape is now refused: the approved shape expects Board.
-              const revert = yield* firstDeploy
-                .verifySnapshot()
-                .pipe(Effect.flip);
-              // Task gains a way in by person: rows need repairing, which is a warning, not a refusal.
-              yield* withIndex.verifySnapshot();
-              // The key attributes are renamed: refused, and the approved shape is untouched.
-              const refused = yield* renamedKeys
-                .verifySnapshot()
-                .pipe(Effect.flip);
-              yield* withIndex.verifySnapshot();
-              const refusedChanges = Match.value(refused).pipe(
-                Match.tag('SnapshotIncompatible', ({ changes }) => changes),
-                Match.orElse(() => []),
-              );
-              yield* Story.assert(
-                'the safe change moved the approved shape forward',
-                revert._tag === 'SnapshotIncompatible',
-              );
-              yield* Story.assert(
-                'the breaking change was refused',
-                refusedChanges.length > 0 &&
-                  refusedChanges.every(({ impact }) => impact === 'breaking'),
-              );
-              return {
-                deploys: {
-                  first: namesOn(firstDeploy),
-                  withBoard: namesOn(withBoard),
-                  withIndex: namesOn(withIndex),
-                  renamedKeys: namesOn(renamedKeys),
-                },
-                revert: revert._tag,
-                refused: Snapshot.renderChanges(refusedChanges),
-              };
-            }),
-          ),
+          "Every adapter's `setup` runs the check; there is no separate call to forget and no flag around it. It creates the physical table if missing, reads the approved shape kept inside the table itself, and diffs the current one against it before touching any index. The first deploy writes the shape; a safe change moves it forward; a change that only needs stored rows repaired goes through with a warning and is remembered as owed; a breaking change is refused with `SnapshotIncompatible` while data, indexes, and the approved shape stay where they were. A table that already holds rows but no approved shape is refused too, since nothing can prove those rows match the code.",
+        proof: Story.trace(
+          Effect.gen(function* () {
+            const database = makeNodeSQLite({ path: ':memory:' });
+            // The first deploy: nothing to compare against, so the current shape becomes the approved one.
+            yield* deploy(database, firstDeploy);
+            // The same shape again simply matches.
+            yield* deploy(database, firstDeploy);
+            // Board joins the table: safe, and the approved shape moves forward to include it.
+            yield* deploy(database, withBoard);
+            // Going back to the narrower shape is now refused: the approved shape expects Board.
+            const revert = yield* deploy(database, firstDeploy).pipe(
+              Effect.flip,
+            );
+            // Task gains a way in by person: rows need repairing, which is a warning, not a refusal.
+            yield* deploy(database, withIndex);
+            // Task is re-keyed: refused, and the approved shape is untouched.
+            const refused = yield* deploy(database, rekeyedTasks).pipe(
+              Effect.flip,
+            );
+            yield* deploy(database, withIndex);
+            const refusedChanges = Match.value(refused).pipe(
+              Match.tag('SnapshotIncompatible', ({ changes }) => changes),
+              Match.orElse(() => []),
+            );
+            yield* Story.assert(
+              'the safe change moved the approved shape forward',
+              revert._tag === 'SnapshotIncompatible',
+            );
+            yield* Story.assert(
+              'the breaking change was refused',
+              refusedChanges.length > 0 &&
+                refusedChanges.every(({ impact }) => impact === 'breaking'),
+            );
+            return {
+              deploys: {
+                first: namesOn(firstDeploy),
+                withBoard: namesOn(withBoard),
+                withIndex: namesOn(withIndex),
+                rekeyedTasks: namesOn(rekeyedTasks),
+              },
+              revert: revert._tag,
+              refused: Snapshot.renderChanges(refusedChanges),
+            };
+          }),
         ),
       },
     ),

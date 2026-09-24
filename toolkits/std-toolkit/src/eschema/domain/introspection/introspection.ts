@@ -6,6 +6,8 @@ export type ESchemaKind = 'struct' | 'entity' | 'value';
 export interface ESchemaEvolutionIntrospection {
   readonly version: string;
   readonly schema: Schema.Top;
+  /** The step that reaches this version from the one before; `null` for the first. */
+  readonly migration: ((previous: unknown) => unknown) | null;
 }
 
 export interface ESchemaIntrospection {

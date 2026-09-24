@@ -13,12 +13,16 @@ One semantically coherent difference between two **ESchema snapshots**, with its
 _Avoid_: Overall status, snapshot result.
 
 **snapshot verification**:
-A check that the current contract exactly matches its approved baseline. Missing baselines and all differences require approval; each difference retains its independent safety classification.
-_Avoid_: Safety assessment, snapshot diff.
+A comparison of a current contract with an earlier capture of it, yielding **ESchema snapshot changes** that each keep their own safety classification. Snapshot provides only the comparison; the baseline it compares against and the decision what to do with the result belong to the caller. The one baseline the toolkit itself keeps is db's **Enforcement baseline**. A committed file snapshot in a test suite is a recommended reviewing aid, not a toolkit mechanism.
+_Avoid_: Safety assessment, snapshot diff, snapshot approval, approved snapshot file, contract file (the file-based CLI baseline is retired).
 
-**snapshot approval**:
-The explicit acceptance and storage of the current contract as the new baseline, independent of the safety classification of its changes. This is the CLI's file-based baseline only. db's Table-level enforcement is a distinct mechanism, gated by classification: it stores its own baseline inside the table and only ever moves it forward on a `safe` or `requires-backfill` diff, never unconditionally.
-_Avoid_: Safe change, automatic acceptance.
+**Golden row**:
+One generated value of a **version** together with what the next version's migration turns it into, both kept in their encoded forms. Rows exist only in a test suite's committed table snapshot file, never in a table's Enforcement baseline and never as table items. They are drawn once, when a migration step first enters that file, and replayed from the file afterwards, so a rewritten or impure migration changes a stored output and is a breaking **ESchema snapshot change**. Adding a version adds rows and never touches existing ones. Authors never write rows by hand.
+_Avoid_: Sample, fixture, example data, migration hash.
+
+**Snapshot document format**:
+The versioned shape of a stored snapshot itself, distinct from the **versions** of the schemas it describes. A snapshot written under an older format is read forward into the current one, so a stored snapshot never becomes unreadable because the toolkit moved on.
+_Avoid_: Retired format, snapshot schema version.
 
 **snapshot limitation**:
 An aspect of the current contract whose behavior cannot be verified from snapshot data. The only limitation a field can still carry is a constructor default — it changes `Schema.make(...)` convenience construction, not decode/encode fidelity, so eschema tracks it rather than refusing it. Every other limitation this term once covered — an unnamed transformation, filter, or declared type — can no longer occur: eschema refuses that field the moment it is defined, before a snapshot ever sees it. An approved unchanged limitation remains visible without causing verification to fail.

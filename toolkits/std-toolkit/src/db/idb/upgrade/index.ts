@@ -1,1 +1,1 @@
-export { makeIDBSetup, setupIDBTable } from './setup.js';
+export { ensureIDBStore, makeIDBSetup, reconcileIDBStore } from './setup.js';

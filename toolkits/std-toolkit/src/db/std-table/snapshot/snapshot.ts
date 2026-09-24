@@ -82,7 +82,6 @@ export const createLogicalTableSnapshot = (
     .sort((left, right) => compare(left.name, right.name));
 
   return {
-    _v: 'v2',
     kind: 'table',
     logicalName: table.logicalName,
     topology: {

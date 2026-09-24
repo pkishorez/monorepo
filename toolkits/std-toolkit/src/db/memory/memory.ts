@@ -1,4 +1,4 @@
-import type { Layer } from 'effect';
+import { Effect, type Layer } from 'effect';
 import type { TableDefinition } from '../std-table/definition/index.js';
 import {
   contractLayer,
@@ -14,6 +14,12 @@ type TableSource<Name extends string> = Pick<
 
 export interface MemoryTable<Name extends string> {
   readonly layer: Layer.Layer<StdTableService<Name>>;
+  /**
+   * Present so every adapter table has the same shape; does nothing. A
+   * Memory table lives and dies with one process, so there are no rows from
+   * an earlier shape for enforcement to protect.
+   */
+  readonly setup: Effect.Effect<void>;
 }
 
 const make = <Name extends string>(
@@ -22,6 +28,7 @@ const make = <Name extends string>(
   const items = new Map<string, EncodedItem>();
   return {
     layer: contractLayer(table.logicalName, makeTableContract(table, items)),
+    setup: Effect.void,
   };
 };
 

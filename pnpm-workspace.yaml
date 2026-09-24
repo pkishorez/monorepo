@@ -133,7 +133,6 @@ catalog:
   gray-matter: 4.0.3
   idb: 8.0.3
   input-otp: 1.5.0
-  jiti: 2.7.0
   kleur: 4.1.5
   lucide-react: 1.41.0
   esbuild: 0.28.2

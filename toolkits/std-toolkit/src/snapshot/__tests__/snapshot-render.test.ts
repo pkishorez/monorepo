@@ -47,7 +47,6 @@ describe('snapshot rendering', () => {
       ESchema.make('Item', { value: Schema.String }).build(),
     );
     const table: TableSnapshot = {
-      _v: 'v2',
       kind: 'table',
       logicalName: 'app',
       topology: {

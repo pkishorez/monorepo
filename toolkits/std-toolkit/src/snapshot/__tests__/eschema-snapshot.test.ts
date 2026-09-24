@@ -126,12 +126,6 @@ describe('ESchema semantic snapshots', () => {
     await expect(
       Effect.runPromise(Snapshot.decode(malformed)),
     ).rejects.toBeInstanceOf(SnapshotDecodeError);
-
-    const unstamped = JSON.parse(JSON.stringify(snapshot));
-    delete unstamped._v;
-    await expect(
-      Effect.runPromise(Snapshot.decode(unstamped)),
-    ).rejects.toBeInstanceOf(SnapshotDecodeError);
   });
 
   it('sorts definitions and fields without sorting meaningful schema order', () => {

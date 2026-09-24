@@ -4,7 +4,7 @@ IndexedDB adapter that realizes a StdTable on a reusable in-browser database con
 
 ## Big picture
 
-IDB implements the StdTable contract on top of one IndexedDB database. Each StdTable becomes an object store with indexes for its secondary indexes. Setup is explicit and performs the versioned store and index upgrade; providing the layer never runs it. Divergences from the DynamoDB topology are in [CONTEXT.md](CONTEXT.md); the shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md). The browser sync preset uses this adapter for its Sync Store.
+IDB implements the StdTable contract on top of one IndexedDB database. Each StdTable becomes an object store with indexes for its secondary indexes. Setup is explicit: it creates the store, runs table-level enforcement against the baseline stored inside it, and only then performs the versioned index upgrade; providing the layer never runs it. Divergences from the DynamoDB topology are in [CONTEXT.md](CONTEXT.md); the shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md). The browser sync preset uses this adapter for its Sync Store.
 
 ## Install
 

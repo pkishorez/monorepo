@@ -144,7 +144,6 @@ function table(
   entities: readonly Entity[],
 ): TableSnapshot {
   return {
-    _v: 'v2',
     kind: 'table',
     logicalName,
     topology: {

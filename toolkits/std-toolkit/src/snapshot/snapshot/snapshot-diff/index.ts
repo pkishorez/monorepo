@@ -1,1 +1,1 @@
-export { diffSnapshot } from './snapshot-diff.js';
+export { diffSnapshot, diffTableSnapshotFile } from './snapshot-diff.js';

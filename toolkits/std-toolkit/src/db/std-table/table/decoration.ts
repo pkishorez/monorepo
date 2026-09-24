@@ -44,7 +44,7 @@ import {
   makeSingleEntity,
   type AnyTransactOp,
 } from '../entity/index.js';
-import { verifyTableSnapshot } from '../enforcement/index.js';
+import { ENFORCEMENT_KEY } from '../key/index.js';
 import { scanStream } from './scan.js';
 import type { ScanOptions, StdTable } from './table.js';
 
@@ -253,18 +253,21 @@ export const decorateTable = <Name extends string>(
       changesOrEmpty().pipe(
         Stream.withSpan('StdTable.subscribe', { attributes }),
       ),
+    // A wipe takes the enforcement baseline with it, so the next setup
+    // starts from nothing; the count reports rows only, never that item.
     dangerouslyRemoveAllItems(_confirmation: 'I KNOW WHAT I AM DOING') {
       return Effect.gen(function* () {
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;
-        const itemsDeleted = yield* contract
+        const fail = (error: ContractFailure) =>
+          dbError('dangerouslyRemoveAllItems', error);
+        const baseline = yield* contract
+          .getItem(ENFORCEMENT_KEY, { consistent: true })
+          .pipe(Effect.mapError(fail));
+        const deleted = yield* contract
           .hardDeleteAllItems()
-          .pipe(
-            Effect.mapError((error) =>
-              dbError('dangerouslyRemoveAllItems', error as ContractFailure),
-            ),
-          );
-        return { itemsDeleted };
+          .pipe(Effect.mapError(fail));
+        return { itemsDeleted: deleted - (baseline === null ? 0 : 1) };
       });
     },
     scan(options?: ScanOptions) {
@@ -313,13 +316,6 @@ export const decorateTable = <Name extends string>(
           );
         const drifted = !sameKeys(item.keys, currentForm.keys);
         return { drifted, currentForm };
-      });
-    },
-    verifySnapshot() {
-      return Effect.gen(function* () {
-        const contract = (yield* StdTableService(definition.logicalName))
-          .contract;
-        yield* verifyTableSnapshot(contract, definition.snapshot());
       });
     },
     reindex(currentForm: EncodedItem) {

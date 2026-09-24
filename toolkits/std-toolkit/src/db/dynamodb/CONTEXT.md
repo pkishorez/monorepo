@@ -23,8 +23,9 @@ The adapter's **native item**: the physical representation of an **encoded item*
 The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and a **DynamoDB item** (`itemSchema(table): Schema<NativeItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed items fail as parse errors. It performs no I/O.
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
-**Create-only setup**:
-The setup operation creates the physical table from the declared topology. If the table already exists, setup fails with the DynamoDB `CreateTable` failure. It does not inspect, reconcile, or update an existing table.
+**Create-if-missing setup**:
+The physical half of this adapter's **Adapter setup**: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is; setup does not inspect, reconcile, or update its topology. **Table-level enforcement** runs between the two, as on every adapter.
+_Avoid_: Create-only setup (retired: an existing table no longer fails setup).
 
 **DynamoDB-native service**:
 The Table-scoped requirement for expression updates and batch writes. Portable Entity operations do not depend on it.

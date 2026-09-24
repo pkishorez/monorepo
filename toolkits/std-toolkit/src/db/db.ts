@@ -14,6 +14,13 @@ export type {
 } from './std-table/entity/index.js';
 export type { StdTableService } from './std-table/contract/index.js';
 export {
+  BaselineMissing,
+  TableBaselineESchema,
+  type PhysicalSetup,
+  type SetupError,
+  type TableBaseline,
+} from './std-table/enforcement/index.js';
+export {
   DatabaseError,
   type DatabaseErrorReason,
   type TransactOperation,

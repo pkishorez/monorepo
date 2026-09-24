@@ -4,8 +4,11 @@ import {
   restoreESchemaDefinitions,
   type RestoredESchema,
 } from '../restore/eschema-restore/index.js';
-import { decodeSnapshot } from './snapshot-decoder/index.js';
-import { diffSnapshot } from './snapshot-diff/index.js';
+import {
+  decodeSnapshot,
+  decodeTableSnapshotFile,
+} from './snapshot-decoder/index.js';
+import { diffSnapshot, diffTableSnapshotFile } from './snapshot-diff/index.js';
 import { inspectSnapshot } from './snapshot-inspector/index.js';
 import {
   renderSnapshot,
@@ -27,9 +30,11 @@ function restore(
 export const Snapshot = {
   capture,
   decode: decodeSnapshot,
+  decodeTableFile: decodeTableSnapshotFile,
   restore,
   inspect: inspectSnapshot,
   diff: diffSnapshot,
+  diffTableFile: diffTableSnapshotFile,
   render: renderSnapshot,
   renderChanges: renderSnapshotChanges,
 } as const;

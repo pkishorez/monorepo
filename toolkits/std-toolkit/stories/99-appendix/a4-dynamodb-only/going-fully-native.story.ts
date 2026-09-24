@@ -51,7 +51,7 @@ export const goingFullyNative = Story.make({
       'How do I do something the native operations do not offer?',
       {
         answer:
-          'Ask the layer for `dynamoTableService(table.logicalName)`: it holds the typed client and the physical table name, and with those the whole DynamoDB API is yours. Here that is a scan of every row, which the portable table does not offer.',
+          'Ask the layer for `dynamoTableService(table.logicalName)`: it holds the typed client and the physical table name, and with those the whole DynamoDB API is yours. Here that is a scan of every row, which the portable table does not offer. A raw scan also shows the one record every table keeps for itself, its approved shape, which the portable `scan` hides.',
         proof: onDynamoDB(
           Story.trace(
             Effect.gen(function* () {
@@ -68,13 +68,15 @@ export const goingFullyNative = Story.make({
                 (item) =>
                   unmarshall(item as Parameters<typeof unmarshall>[0])._e,
               );
+              // Three tasks, plus the one record the table keeps for itself: its approved shape, written by `setup`.
               yield* Story.assert(
                 'the scan sees every row the ordinary writes made',
-                scanned.Count === 3,
+                entities.filter((entity) => entity === 'Task').length === 3,
               );
               yield* Story.assert(
-                'and each row is stamped as a Task',
-                entities.every((entity) => entity === 'Task'),
+                "and one more: the table's own approved-shape record",
+                scanned.Count === 4 &&
+                  entities.filter((entity) => entity !== 'Task').length === 1,
               );
               return {
                 count: scanned.Count,

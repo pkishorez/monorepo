@@ -137,11 +137,13 @@ any other and gets a real migration.
 Evolving schemas move migration from deploy time to read time. That trade has
 sharp edges worth knowing before you rely on it.
 
-- **It will not stop you editing history.** Shipped versions and shipped
-  migrations are contracts with the rows already written, but nothing at
-  runtime or in the types detects that you changed v1's fields after rows were
-  written. The schema happily decodes new data and silently fails on old data.
-  The snapshot module exists precisely to catch this in review.
+- **The types will not stop you editing history.** Shipped versions and
+  shipped migrations are contracts with the rows already written, but nothing
+  in the types detects that you changed v1's fields or rewrote the v1→v2 step
+  after rows were written. Two things do: the table's own `setup` refuses a
+  changed version against the baseline it keeps inside the table, and the
+  per-table test (`expectTableSnapshot`) refuses both a changed version and a
+  rewritten step, the latter through golden rows. See "Shipping" below.
 - **Migrations only run on read.** A row written at v1 stays a v1 row on disk
   until something decodes and re-encodes it. If you delete the v1→v2 migration
   from your code, unread v1 rows become undecodable.
@@ -167,9 +169,33 @@ sharp edges worth knowing before you rely on it.
   row must decode to the same value today, tomorrow, and on every replica.
 - **Model absence with `Schema.NullOr`,** never optional fields — the builder
   forbids optionals so that every version has exactly one canonical shape.
-- **Snapshot your contracts.** Capture an approved snapshot in review and diff
-  against it in CI; appended versions classify as `safe`, edits to approved
-  versions as `breaking`.
+- **Commit a table snapshot.** One `expectTableSnapshot` test per table keeps
+  every version and every migration step under review; appended versions
+  classify as `safe`, edits to approved versions and rewritten steps as
+  `breaking`.
+
+## Shipping
+
+Every adapter's `setup` is the only door to a physical table, and it enforces
+the contract on the way in. It creates the table if missing, reads the
+baseline the table keeps inside itself, diffs the current shape against it,
+and only then reconciles indexes and commits the new baseline. A `breaking`
+or `unverifiable` change is refused with `SnapshotIncompatible`, and nothing
+is touched. A table that already holds rows but has no baseline is refused
+with `BaselineMissing`, since nothing can prove those rows match the code.
+There is no flag around any of this.
+
+The two ways past a refusal are both honest about the data:
+
+- **A new logical table.** Declare the new shape under a new name and move the
+  rows across yourself.
+- **A wipe.** `dangerouslyRemoveAllItems` takes the baseline with it, so the
+  next `setup` starts from an empty table and bootstraps.
+
+Beside the baseline the table records two facts for later tooling: a
+**version floor** per entity (the lowest version any stored row may still
+carry) and the **owed backfills** it accepted as `requires-backfill`. A
+table-wide rewrite through `drift` and `reindex` is what settles both.
 
 Every edge case above is proven in the runnable stories under
-`stories/evolving-schema/`.
+`stories/03-changing-the-shape/`.

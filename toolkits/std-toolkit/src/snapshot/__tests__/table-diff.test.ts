@@ -9,7 +9,6 @@ const schema = EntityESchema.make('User', 'id', {
 
 function table(): TableSnapshot {
   return {
-    _v: 'v2',
     kind: 'table',
     logicalName: 'app',
     topology: {
@@ -351,11 +350,6 @@ describe('table snapshot diff', () => {
     await expect(
       Effect.runPromise(Snapshot.decode(crossKindIndex)),
     ).rejects.toThrow(/Dangling lsi index ref: GSI1/);
-
-    const legacy = { ...clone(), _v: 'v1' };
-    await expect(Effect.runPromise(Snapshot.decode(legacy))).rejects.toThrow(
-      /retired "v1" format/,
-    );
   });
 
   it('rejects malformed nested table fields', async () => {

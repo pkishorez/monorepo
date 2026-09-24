@@ -19,16 +19,16 @@ export const Database = Cloudflare.D1.Database(
   }),
 );
 
-// Runs whenever the console table's schema changes.
+// Runs whenever the console table's schema changes. `setup` creates the
+// table if missing and enforces the stored baseline; a breaking change
+// refuses here and the deploy stops.
 const PrepareDatabase = Action(
   'PrepareDatabase',
   Effect.gen(function* () {
     const query = yield* Cloudflare.D1.QueryDatabase(Database);
     return Effect.fn(function* (_schema: { snapshot: TableSnapshot }) {
       const database = makeD1SQLite({ database: yield* query.raw });
-      const table = SQLite.make(consoleTable, { database });
-      yield* table.setup;
-      yield* consoleTable.verifySnapshot().pipe(Effect.provide(table.layer));
+      yield* SQLite.make(consoleTable, { database }).setup;
     });
   }).pipe(Effect.provide(Cloudflare.D1.QueryDatabaseLocal)),
 );

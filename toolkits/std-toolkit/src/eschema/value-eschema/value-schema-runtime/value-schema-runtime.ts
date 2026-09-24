@@ -48,7 +48,11 @@ export function makeValueSchemaRuntime<
     name: input.name,
     kind: 'value',
     idField: null,
-    evolutions: evolutions.map(({ version, schema }) => ({ version, schema })),
+    evolutions: evolutions.map(({ version, schema, migration }) => ({
+      version,
+      schema,
+      migration,
+    })),
   }));
 
   const schema = (): TLatest => {

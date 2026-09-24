@@ -339,6 +339,8 @@ function subjectLabel(change: SnapshotChange): string {
       return `ESchema ${subject.name ?? ''}`.trim();
     case 'version':
       return `${subject.name ?? 'ESchema'} ${subject.version ?? ''}`.trim();
+    case 'migration':
+      return `Migration ${subject.name ?? 'ESchema'} → ${subject.version ?? ''}`.trim();
     case 'entity':
       return `Entity ${subject.name ?? ''}`.trim();
     case 'primary-index':

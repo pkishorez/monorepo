@@ -4,7 +4,7 @@ SQLite adapter that realizes a StdTable over a driver for Node, Bun, better-sqli
 
 ## Big picture
 
-One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and produces a layer plus an explicit `setup` that creates the physical table and indexes; providing the layer never changes the schema. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and produces a layer plus an explicit `setup` that creates the physical table, runs table-level enforcement against the baseline stored inside it, and only then adds missing index columns and indexes; providing the layer never changes the schema. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 

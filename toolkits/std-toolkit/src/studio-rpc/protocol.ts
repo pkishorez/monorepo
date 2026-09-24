@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 import { EntityMetaSchema, SingleEntityMetaSchema } from '../core/index.js';
 import { EncodedDataSchema } from '../db/std-table/contract/index.js';
-import { TableSnapshotSchema } from '../snapshot/index.js';
+import { TableSnapshotESchema } from '../snapshot/index.js';
 
 const StringRecordSchema = Schema.Record(Schema.String, Schema.String);
 
@@ -129,7 +129,7 @@ const QueryEntitiesError = Schema.Union([
 ]);
 
 export const GetTableSnapshotRpc = Rpc.make('Studio.GetTableSnapshot', {
-  success: TableSnapshotSchema,
+  success: TableSnapshotESchema.schema,
   error: StudioSnapshotFailed,
 });
 

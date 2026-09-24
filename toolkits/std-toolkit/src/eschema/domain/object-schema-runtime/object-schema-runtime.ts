@@ -45,9 +45,10 @@ export function makeObjectSchemaRuntime<
     name: input.name,
     kind: input.kind,
     idField: input.idField,
-    evolutions: evolutions.map(({ version, schema }) => ({
+    evolutions: evolutions.map(({ version, schema, migration }) => ({
       version,
       schema: struct(schema),
+      migration,
     })),
   }));
 

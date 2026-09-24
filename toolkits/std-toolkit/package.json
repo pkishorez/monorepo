@@ -21,9 +21,6 @@
   },
   "license": "MIT",
   "type": "module",
-  "bin": {
-    "std-toolkit": "bin/std-toolkit.mjs"
-  },
   "exports": {
     "./db": {
       "types": "./dist/db/index.d.ts",
@@ -77,6 +74,10 @@
       "types": "./dist/snapshot/index.d.ts",
       "default": "./dist/snapshot/index.js"
     },
+    "./snapshot/vitest": {
+      "types": "./dist/snapshot/vitest/index.d.ts",
+      "default": "./dist/snapshot/vitest/index.js"
+    },
     "./studio-rpc": {
       "types": "./dist/studio-rpc/index.d.ts",
       "default": "./dist/studio-rpc/index.js"
@@ -103,7 +104,6 @@
     }
   },
   "files": [
-    "bin",
     "dist",
     "src",
     "README.md",
@@ -129,7 +129,6 @@
     "@standard-schema/spec": "catalog:",
     "aws4fetch": "catalog:",
     "idb": "catalog:",
-    "jiti": "catalog:",
     "type-fest": "catalog:",
     "ulidx": "catalog:"
   },
@@ -158,7 +157,8 @@
     "@tanstack/react-db": ">=0.1.64",
     "effect": "4.0.0-rc.112",
     "react": "^18 || ^19",
-    "alchemy": "2.0.0-beta.76"
+    "alchemy": "2.0.0-beta.76",
+    "vitest": "catalog:"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-db": {
@@ -168,6 +168,9 @@
       "optional": true
     },
     "alchemy": {
+      "optional": true
+    },
+    "vitest": {
       "optional": true
     }
   },

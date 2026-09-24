@@ -77,7 +77,7 @@ export const swappingMemoryForSqliteIndexeddbDynamodb = Story.make({
     ),
     Story.question('What does each database need before the first write?', {
       answer:
-        'A `setup`, run once, that creates the physical table (memory needs nothing). IndexedDB is built from a database connection and the same `table`; DynamoDB is built from a table name, region and credentials, and because that table is a real one it also has a `teardown` that deletes it when you are done. In both cases the program is run the same way, wrapped in the layer.',
+        'A `setup`, run once, that creates the physical table and checks its shape against the one it approved last time (memory has a `setup` too, and it does nothing: nothing outlives the process). IndexedDB is built from a database connection and the same `table`; DynamoDB is built from a table name, region and credentials, and because that table is a real one it also has a `teardown` that deletes it when you are done. In both cases the program is run the same way, wrapped in the layer.',
       proof: Story.trace(
         Effect.gen(function* () {
           // A private IndexedDB (a fake one here; in a browser this is `window.indexedDB`).

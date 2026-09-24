@@ -91,7 +91,6 @@ const singleDefinition = (
 });
 
 const base = {
-  _v: 'v2' as const,
   kind: 'table' as const,
   topology: {
     primary: { pk: 'pk', sk: 'sk' },

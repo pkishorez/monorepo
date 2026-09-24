@@ -4,7 +4,7 @@ Dependency-free, ephemeral in-memory adapter that implements the full StdTable c
 
 ## Big picture
 
-Memory has no config, setup, teardown, or platform binding. Each `Memory.make` call creates one isolated empty table; reusing its layer shares that state, and all state is gone when the table is unreachable. Reads are strongly consistent and writes are atomic, so it is the default for tests, stories, and the sync instance's Sync Store. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+Memory has no config, teardown, or platform binding, and its `setup` does nothing: it exists so every adapter table has the same shape, and a Memory table has no rows from an earlier shape to protect. Each `Memory.make` call creates one isolated empty table; reusing its layer shares that state, and all state is gone when the table is unreachable. Reads are strongly consistent and writes are atomic, so it is the default for tests, stories, and the sync instance's Sync Store. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 

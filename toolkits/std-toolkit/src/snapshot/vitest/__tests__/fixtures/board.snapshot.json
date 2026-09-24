@@ -1,0 +1,957 @@
+{
+  "snapshot": {
+    "kind": "table",
+    "logicalName": "board",
+    "topology": {
+      "primary": {
+        "pk": "pk",
+        "sk": "sk"
+      },
+      "localSecondaryIndexes": [],
+      "globalSecondaryIndexes": [
+        {
+          "name": "GSI1",
+          "pk": "GSI1PK",
+          "sk": "GSI1SK"
+        }
+      ]
+    },
+    "entities": [
+      {
+        "name": "Task",
+        "kind": "keyed",
+        "schema": "Task",
+        "idField": "taskId",
+        "primary": {
+          "pk": [
+            "boardId"
+          ],
+          "sk": [
+            "taskId"
+          ]
+        },
+        "accessPatterns": [
+          {
+            "name": "byTitle",
+            "kind": "gsi",
+            "index": "GSI1",
+            "pk": [
+              "title"
+            ],
+            "sk": [
+              "taskId"
+            ]
+          },
+          {
+            "name": "primary",
+            "kind": "primary",
+            "pk": [
+              "boardId"
+            ],
+            "sk": [
+              "taskId"
+            ]
+          }
+        ]
+      }
+    ],
+    "schemas": [
+      {
+        "identity": "Address",
+        "kind": "struct",
+        "idField": null,
+        "versions": [
+          {
+            "version": "v1",
+            "encoded": {
+              "references": {},
+              "representation": {
+                "_tag": "Objects",
+                "checks": [],
+                "indexSignatures": [],
+                "propertySignatures": [
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "_v"
+                    },
+                    "type": {
+                      "_tag": "Literal",
+                      "checks": [],
+                      "literal": {
+                        "type": "string",
+                        "value": "v1"
+                      }
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "city"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  }
+                ]
+              }
+            },
+            "decoded": {
+              "references": {},
+              "representation": {
+                "_tag": "Objects",
+                "checks": [],
+                "indexSignatures": [],
+                "propertySignatures": [
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "city"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  }
+                ]
+              }
+            },
+            "transformations": [],
+            "unverifiable": []
+          }
+        ]
+      },
+      {
+        "identity": "Task",
+        "kind": "entity",
+        "idField": "taskId",
+        "versions": [
+          {
+            "version": "v1",
+            "encoded": {
+              "references": {},
+              "representation": {
+                "_tag": "Objects",
+                "checks": [],
+                "indexSignatures": [],
+                "propertySignatures": [
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "_v"
+                    },
+                    "type": {
+                      "_tag": "Literal",
+                      "checks": [],
+                      "literal": {
+                        "type": "string",
+                        "value": "v1"
+                      }
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "address"
+                    },
+                    "type": {
+                      "_tag": "ESchemaRef",
+                      "identity": "Address"
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "boardId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "taskId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "title"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  }
+                ]
+              }
+            },
+            "decoded": {
+              "references": {
+                "ESchema_Address": {
+                  "_tag": "Unknown",
+                  "checks": []
+                }
+              },
+              "representation": {
+                "_tag": "Objects",
+                "checks": [],
+                "indexSignatures": [],
+                "propertySignatures": [
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "address"
+                    },
+                    "type": {
+                      "_tag": "ESchemaRef",
+                      "identity": "Address"
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "boardId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "taskId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "title"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  }
+                ]
+              }
+            },
+            "transformations": [],
+            "unverifiable": []
+          },
+          {
+            "version": "v2",
+            "encoded": {
+              "references": {},
+              "representation": {
+                "_tag": "Objects",
+                "checks": [],
+                "indexSignatures": [],
+                "propertySignatures": [
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "_v"
+                    },
+                    "type": {
+                      "_tag": "Literal",
+                      "checks": [],
+                      "literal": {
+                        "type": "string",
+                        "value": "v2"
+                      }
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "address"
+                    },
+                    "type": {
+                      "_tag": "ESchemaRef",
+                      "identity": "Address"
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "boardId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "priority"
+                    },
+                    "type": {
+                      "_tag": "Union",
+                      "checks": [],
+                      "mode": "anyOf",
+                      "types": [
+                        {
+                          "_tag": "Literal",
+                          "checks": [],
+                          "literal": {
+                            "type": "string",
+                            "value": "low"
+                          }
+                        },
+                        {
+                          "_tag": "Literal",
+                          "checks": [],
+                          "literal": {
+                            "type": "string",
+                            "value": "high"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "taskId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "title"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  }
+                ]
+              }
+            },
+            "decoded": {
+              "references": {
+                "ESchema_Address": {
+                  "_tag": "Unknown",
+                  "checks": []
+                }
+              },
+              "representation": {
+                "_tag": "Objects",
+                "checks": [],
+                "indexSignatures": [],
+                "propertySignatures": [
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "address"
+                    },
+                    "type": {
+                      "_tag": "ESchemaRef",
+                      "identity": "Address"
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "boardId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "priority"
+                    },
+                    "type": {
+                      "_tag": "Union",
+                      "checks": [],
+                      "mode": "anyOf",
+                      "types": [
+                        {
+                          "_tag": "Literal",
+                          "checks": [],
+                          "literal": {
+                            "type": "string",
+                            "value": "low"
+                          }
+                        },
+                        {
+                          "_tag": "Literal",
+                          "checks": [],
+                          "literal": {
+                            "type": "string",
+                            "value": "high"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "taskId"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  },
+                  {
+                    "isMutable": false,
+                    "isOptional": false,
+                    "name": {
+                      "type": "string",
+                      "value": "title"
+                    },
+                    "type": {
+                      "_tag": "String",
+                      "checks": []
+                    }
+                  }
+                ]
+              }
+            },
+            "transformations": [],
+            "unverifiable": []
+          }
+        ]
+      }
+    ],
+    "_v": "v1"
+  },
+  "goldenRows": [
+    {
+      "schema": "Task",
+      "from": "v1",
+      "to": "v2",
+      "rows": [
+        {
+          "input": {
+            "boardId": "}[b+|.e*",
+            "title": "zI1?r:+O",
+            "address": {
+              "city": "\"Mg^s$#Mz!",
+              "_v": "v1"
+            },
+            "taskId": "(p{`IlU,Ul",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "}[b+|.e*",
+            "title": "zI1?r:+O",
+            "address": {
+              "city": "\"Mg^s$#Mz!",
+              "_v": "v1"
+            },
+            "taskId": "(p{`IlU,Ul",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "kb",
+            "title": "key",
+            "address": {
+              "city": "u3{",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "kb",
+            "title": "key",
+            "address": {
+              "city": "u3{",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "%.",
+            "title": "\"}.",
+            "address": {
+              "city": "bind",
+              "_v": "v1"
+            },
+            "taskId": "hf!5#Vmg",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "%.",
+            "title": "\"}.",
+            "address": {
+              "city": "bind",
+              "_v": "v1"
+            },
+            "taskId": "hf!5#Vmg",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "|#*",
+            "title": "=$W^'kT]'",
+            "address": {
+              "city": "H^__look",
+              "_v": "v1"
+            },
+            "taskId": "Q0(",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "|#*",
+            "title": "=$W^'kT]'",
+            "address": {
+              "city": "H^__look",
+              "_v": "v1"
+            },
+            "taskId": "Q0(",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "8ya",
+            "title": "",
+            "address": {
+              "city": "L2N+v@*X",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "8ya",
+            "title": "",
+            "address": {
+              "city": "L2N+v@*X",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "-vr=1KxUj>",
+            "title": "",
+            "address": {
+              "city": "r+Hg$#TzgK",
+              "_v": "v1"
+            },
+            "taskId": "W",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "-vr=1KxUj>",
+            "title": "",
+            "address": {
+              "city": "r+Hg$#TzgK",
+              "_v": "v1"
+            },
+            "taskId": "W",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "toLocal",
+            "title": "X_",
+            "address": {
+              "city": "$Ge",
+              "_v": "v1"
+            },
+            "taskId": "valueOf",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "toLocal",
+            "title": "X_",
+            "address": {
+              "city": "$Ge",
+              "_v": "v1"
+            },
+            "taskId": "valueOf",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "",
+            "title": ":",
+            "address": {
+              "city": "O",
+              "_v": "v1"
+            },
+            "taskId": " %ke__def",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "",
+            "title": ":",
+            "address": {
+              "city": "O",
+              "_v": "v1"
+            },
+            "taskId": " %ke__def",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "QCvhO",
+            "title": "key",
+            "address": {
+              "city": "length",
+              "_v": "v1"
+            },
+            "taskId": "-%A>OL",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "QCvhO",
+            "title": "key",
+            "address": {
+              "city": "length",
+              "_v": "v1"
+            },
+            "taskId": "-%A>OL",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "9JXi",
+            "title": "j%0YJ",
+            "address": {
+              "city": ",$3sdWfg7]",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "9JXi",
+            "title": "j%0YJ",
+            "address": {
+              "city": ",$3sdWfg7]",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "-Mhoio@",
+            "title": "V/fia",
+            "address": {
+              "city": "$",
+              "_v": "v1"
+            },
+            "taskId": "OWry",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "-Mhoio@",
+            "title": "V/fia",
+            "address": {
+              "city": "$",
+              "_v": "v1"
+            },
+            "taskId": "OWry",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "DC=](140u",
+            "title": "*g!nlP.nk",
+            "address": {
+              "city": "&sd4zz#yz+",
+              "_v": "v1"
+            },
+            "taskId": "\"#",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "DC=](140u",
+            "title": "*g!nlP.nk",
+            "address": {
+              "city": "&sd4zz#yz+",
+              "_v": "v1"
+            },
+            "taskId": "\"#",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "N ",
+            "title": "i79h!b",
+            "address": {
+              "city": "^dp",
+              "_v": "v1"
+            },
+            "taskId": "v",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "N ",
+            "title": "i79h!b",
+            "address": {
+              "city": "^dp",
+              "_v": "v1"
+            },
+            "taskId": "v",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "",
+            "title": "DA?",
+            "address": {
+              "city": "w_BX|O_35J",
+              "_v": "v1"
+            },
+            "taskId": "GU",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "",
+            "title": "DA?",
+            "address": {
+              "city": "w_BX|O_35J",
+              "_v": "v1"
+            },
+            "taskId": "GU",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "J",
+            "title": " {_look",
+            "address": {
+              "city": "C_T1gj>mo",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "J",
+            "title": " {_look",
+            "address": {
+              "city": "C_T1gj>mo",
+              "_v": "v1"
+            },
+            "taskId": "",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "_~$e x",
+            "title": "Hn4a;",
+            "address": {
+              "city": "='*@?4",
+              "_v": "v1"
+            },
+            "taskId": "v>-",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "_~$e x",
+            "title": "Hn4a;",
+            "address": {
+              "city": "='*@?4",
+              "_v": "v1"
+            },
+            "taskId": "v>-",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "",
+            "title": "v",
+            "address": {
+              "city": "r<WA1n(&",
+              "_v": "v1"
+            },
+            "taskId": "l\\u",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "",
+            "title": "v",
+            "address": {
+              "city": "r<WA1n(&",
+              "_v": "v1"
+            },
+            "taskId": "l\\u",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "W]&$&",
+            "title": "",
+            "address": {
+              "city": "cG;2j}pZOk",
+              "_v": "v1"
+            },
+            "taskId": "a7>0r",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "W]&$&",
+            "title": "",
+            "address": {
+              "city": "cG;2j}pZOk",
+              "_v": "v1"
+            },
+            "taskId": "a7>0r",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "d?`I<E",
+            "title": "]",
+            "address": {
+              "city": "Jn6}!}!zO",
+              "_v": "v1"
+            },
+            "taskId": "c8'\\];hQY",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "d?`I<E",
+            "title": "]",
+            "address": {
+              "city": "Jn6}!}!zO",
+              "_v": "v1"
+            },
+            "taskId": "c8'\\];hQY",
+            "priority": "low",
+            "_v": "v2"
+          }
+        },
+        {
+          "input": {
+            "boardId": "WCw",
+            "title": "%=I",
+            "address": {
+              "city": "A",
+              "_v": "v1"
+            },
+            "taskId": "!namefT#c",
+            "_v": "v1"
+          },
+          "output": {
+            "boardId": "WCw",
+            "title": "%=I",
+            "address": {
+              "city": "A",
+              "_v": "v1"
+            },
+            "taskId": "!namefT#c",
+            "priority": "low",
+            "_v": "v2"
+          }
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

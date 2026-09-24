@@ -4,7 +4,7 @@ DynamoDB adapter with setup, teardown, a typed expression builder, and adapter-n
 
 ## Big picture
 
-DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies both the StdTable operations and a typed native service for expression-builder updates and batch writes. `setup` attempts `CreateTable`, `teardown` deletes it, and providing the layer never does either. Divergences and native semantics are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md). Provisioning through Alchemy is a separate entrypoint: [alchemy/README.md](alchemy/README.md).
+DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies both the StdTable operations and a typed native service for expression-builder updates and batch writes. `setup` creates the table if it is missing, waits for it to be active, and runs table-level enforcement against the baseline stored inside it; it does not reconcile the topology of an existing table. `teardown` deletes the table. Providing the layer never does either. Divergences and native semantics are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md). Provisioning through Alchemy is a separate entrypoint: [alchemy/README.md](alchemy/README.md).
 
 ## Install
 

@@ -23,13 +23,22 @@ const tableIndexes = (table: TableSource): readonly IDBIndexDefinition[] => [
   })),
 ];
 
-export const setupIDBTable = (
-  database: {
-    readonly setup: (
-      storeName: string,
-      indexes: readonly IDBIndexDefinition[],
-    ) => Effect.Effect<void, unknown>;
-  },
+interface UpgradeableDatabase {
+  readonly setup: (
+    storeName: string,
+    indexes: readonly IDBIndexDefinition[],
+  ) => Effect.Effect<void, unknown>;
+}
+
+/** Creates the store (with its entity index) when missing; touches nothing else. */
+export const ensureIDBStore = (
+  database: UpgradeableDatabase,
+  storeName: string,
+) => database.setup(storeName, []);
+
+/** Adds or replaces the secondary indexes the topology declares. */
+export const reconcileIDBStore = (
+  database: UpgradeableDatabase,
   table: TableSource,
   storeName: string,
 ) => database.setup(storeName, tableIndexes(table));

@@ -92,7 +92,6 @@ describe('portable Table definition', () => {
     const snapshot = makeSnapshot(false, 'light');
     expect(snapshot).toEqual(makeSnapshot(true, 'dark'));
     expect(snapshot).toMatchObject({
-      _v: 'v2',
       kind: 'table',
       logicalName: 'people',
       topology: {
