@@ -35,6 +35,22 @@ export default defineConfig({
       'react-dom',
     ],
   },
+  optimizeDeps: {
+    // The source viewer loads these grammars lazily, per file type. Bundling
+    // them up front stops a first JSON or CSS file from failing while Vite
+    // re-optimizes mid-session.
+    include: [
+      'kui-toolkit > @shikijs/langs/css',
+      'kui-toolkit > @shikijs/langs/html',
+      'kui-toolkit > @shikijs/langs/javascript',
+      'kui-toolkit > @shikijs/langs/json',
+      'kui-toolkit > @shikijs/langs/jsx',
+      'kui-toolkit > @shikijs/langs/markdown',
+      'kui-toolkit > @shikijs/langs/tsx',
+      'kui-toolkit > @shikijs/langs/typescript',
+      'kui-toolkit > @shikijs/langs/yaml',
+    ],
+  },
   server: {
     host: true,
     port: Number(process.env.DEVTOOLS_UI_PORT ?? '5173'),

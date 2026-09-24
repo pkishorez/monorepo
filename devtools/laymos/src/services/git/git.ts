@@ -5,7 +5,12 @@ import type {
   ChangeSet,
   FileDiff,
 } from '../../change-set-schema/index.js';
-import { listBranches, readChangeSet, readFileDiff } from './changed-paths.js';
+import {
+  listBranches,
+  listKnownFiles,
+  readChangeSet,
+  readFileDiff,
+} from './changed-paths.js';
 import { GitError } from './errors.js';
 
 export class Git extends Context.Service<
@@ -23,6 +28,11 @@ export class Git extends Context.Service<
     readonly branches: (
       baseDir: string,
     ) => Effect.Effect<readonly Branch[], GitError>;
+    // Every path git knows beneath the folder, tracked or untracked but not
+    // ignored, relative to it; paths deleted from the working tree are left out.
+    readonly knownFiles: (
+      baseDir: string,
+    ) => Effect.Effect<readonly string[], GitError>;
   }
 >()('Git') {}
 
@@ -43,6 +53,11 @@ export const GitLive = Layer.succeed(Git)({
   branches: (baseDir) =>
     Effect.tryPromise({
       try: () => listBranches(baseDir),
+      catch: (cause) => asGitError(cause, baseDir),
+    }),
+  knownFiles: (baseDir) =>
+    Effect.tryPromise({
+      try: () => listKnownFiles(baseDir),
       catch: (cause) => asGitError(cause, baseDir),
     }),
 });

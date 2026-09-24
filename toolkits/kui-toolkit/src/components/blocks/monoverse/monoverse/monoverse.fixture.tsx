@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Effect } from 'effect';
+import type { ChangeSet, FileDiff } from 'laymos';
 import type { MonorepoAnalysis, Package } from '../analysis';
 
 import {
@@ -110,6 +112,100 @@ const readmeDocuments: PackageReadmeDocuments = {
   'src/core/README.md': { kind: 'missing' },
 };
 
+function packageFiles(pkg: Package) {
+  return [
+    {
+      path: `${pkg.path}/package.json`,
+      content: JSON.stringify({ name: pkg.name, version: '0.1.0' }, null, 2),
+    },
+    {
+      path: `${pkg.path}/src/index.ts`,
+      content: `export const name = '${pkg.name}';\nexport const ready = true;\n`,
+    },
+    { path: `${pkg.path}/logo.png`, content: '', binary: true },
+  ];
+}
+
+const loadPackageFiles = (pkg: Package) =>
+  Effect.succeed({ files: packageFiles(pkg) });
+
+const knownFiles = analysis.packages.flatMap((pkg) =>
+  packageFiles(pkg).map(({ path }) => path),
+);
+
+const [changedPackage, newPackage] = analysis.packages;
+
+const changes: ChangeSet = {
+  baseRef: 'HEAD',
+  files: [
+    {
+      path: `${changedPackage!.path}/src/index.ts`,
+      status: 'modified',
+      committed: false,
+      uncommitted: true,
+    },
+    ...packageFiles(newPackage!).map(({ path }) => ({
+      path,
+      status: 'added' as const,
+      committed: false,
+      uncommitted: true,
+    })),
+  ],
+};
+
+const loadFileDiff = (path: string) =>
+  Effect.succeed<FileDiff>({
+    path,
+    hunks: [
+      {
+        header: '@@ -1,2 +1,2 @@',
+        oldStart: 1,
+        newStart: 1,
+        lines: [
+          {
+            kind: 'context',
+            content: `export const name = '${changedPackage!.name}';`,
+            oldNumber: 1,
+            newNumber: 1,
+          },
+          {
+            kind: 'removed',
+            content: 'export const ready = false;',
+            oldNumber: 2,
+          },
+          {
+            kind: 'added',
+            content: 'export const ready = true;',
+            newNumber: 2,
+          },
+        ],
+      },
+    ],
+  });
+
+function WithChanges() {
+  const [baseRef, setBaseRef] = useState('HEAD');
+  return (
+    <Monoverse
+      className="flex-1"
+      monorepoPath="/repo"
+      loadAnalysis={() => Effect.succeed(analysis)}
+      renderLaymos={renderLaymos}
+      readmeDocuments={readmeDocuments}
+      loadPackageFiles={loadPackageFiles}
+      changes={{ ...changes, baseRef }}
+      knownFiles={knownFiles}
+      branches={[
+        { name: 'main', remote: false, current: false },
+        { name: 'feature', remote: false, current: true },
+      ]}
+      baseRef={baseRef}
+      onBaseRefChange={setBaseRef}
+      loadFileDiff={loadFileDiff}
+    />
+  );
+}
+
 function Frame({ children }: { readonly children: React.ReactNode }) {
   return (
     <div className="flex h-screen flex-col bg-muted/20 p-6">{children}</div>
@@ -125,7 +221,13 @@ export default {
         loadAnalysis={() => Effect.succeed(analysis)}
         renderLaymos={renderLaymos}
         readmeDocuments={readmeDocuments}
+        loadPackageFiles={loadPackageFiles}
       />
+    </Frame>
+  ),
+  'git changes': (
+    <Frame>
+      <WithChanges />
     </Frame>
   ),
   'slow load': (
@@ -137,6 +239,7 @@ export default {
           Effect.succeed(analysis).pipe(Effect.delay('2 seconds'))
         }
         renderLaymos={renderLaymos}
+        loadPackageFiles={loadPackageFiles}
       />
     </Frame>
   ),
@@ -153,6 +256,7 @@ export default {
           })
         }
         renderLaymos={renderLaymos}
+        loadPackageFiles={loadPackageFiles}
       />
     </Frame>
   ),
@@ -165,6 +269,7 @@ export default {
           Effect.succeed({ ...analysis, packages: [], violations: [] })
         }
         renderLaymos={renderLaymos}
+        loadPackageFiles={loadPackageFiles}
       />
     </Frame>
   ),

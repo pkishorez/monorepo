@@ -12,7 +12,7 @@ export const ChangedPathSchema = Schema.Struct({
 }).annotate({
   title: 'Changed Path',
   description:
-    "One path a Base ref changed, relative to the Config's folder, and how it changed. A path may carry both committed work since the Base ref and uncommitted work in the working tree.",
+    'One path a Base ref changed, relative to the folder it was measured in, and how it changed. A path may carry both committed work since the Base ref and uncommitted work in the working tree.',
 });
 
 export type ChangedPath = typeof ChangedPathSchema.Type;
@@ -23,7 +23,7 @@ export const ChangeSetSchema = Schema.Struct({
 }).annotate({
   title: 'Change Set',
   description:
-    "The added and modified paths between a Base ref and the working tree, relative to the Config's folder. It decorates an Architecture Analysis and never alters the analysis universe.",
+    "The added and modified paths between a Base ref and the working tree, relative to the folder it was measured in: a Laymos Project's Config folder or a Monorepo root. It decorates an analysis and never alters what that analysis covers.",
 });
 
 export type ChangeSet = typeof ChangeSetSchema.Type;

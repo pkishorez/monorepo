@@ -23,4 +23,12 @@ describe('initialSourceFile', () => {
   test('falls back to the first file for an Entry Module', () => {
     expect(initialSourceFile(files, undefined)).toBe('src/shared/index.ts');
   });
+
+  test('prefers the first changed file over the entry point', () => {
+    const changed = new Map([['src/shared/public/index.ts', 'modified']]);
+
+    expect(initialSourceFile(files, entryPoint, undefined, changed)).toBe(
+      'src/shared/public/index.ts',
+    );
+  });
 });

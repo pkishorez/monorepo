@@ -16,6 +16,7 @@ import {
   useDevtoolsRuntime,
   type DevtoolsRuntime,
 } from '../../../client/devtools-rpc/index.js';
+import { useGitChanges } from '../../git-changes/index.js';
 
 // Laymos wants Effect-returning loaders (streamed straight into its Effect
 // pipelines), so run against the runtime's already-built context instead of
@@ -33,16 +34,21 @@ function provideRuntime<A, E>(
  * The full Laymos view of one Project: analysis, changes against a Base ref,
  * Stories, and source. The Laymos Tool renders it for its selected Project;
  * Monoverse renders it as Embedded Laymos over its canvas. `reloadNonce`
- * changing refetches everything and drops Story reports.
+ * changing refetches everything and drops Story reports. A host that shares
+ * its Base ref, as Monoverse does, passes it in.
  */
 export function LaymosProjectWorkspace({
   projectPath,
   reloadNonce = 0,
+  baseRef: hostBaseRef,
+  onBaseRefChange,
   className,
   renderAnalysisError,
 }: {
   projectPath: string;
   reloadNonce?: number;
+  baseRef?: string;
+  onBaseRefChange?: (baseRef: string) => void;
   className?: string;
   /** Replaces the default analysis error view; return null to keep it. */
   renderAnalysisError?: (error: unknown) => ReactNode | null;
@@ -71,30 +77,10 @@ export function LaymosProjectWorkspace({
         }),
       ),
   });
-  const [baseRef, setBaseRef] = useState('HEAD');
-  // A Base ref chosen on one Worktree rarely means the same on another.
-  useEffect(() => setBaseRef('HEAD'), [projectPath]);
-  const changesQuery = useQuery({
-    queryKey: ['devtools-changes', 'laymos', projectPath, baseRef],
-    retry: false,
-    queryFn: () =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const client = yield* DevtoolsClient;
-          return yield* client.GetLaymosChanges({ projectPath, baseRef });
-        }),
-      ),
-  });
-  const branchesQuery = useQuery({
-    queryKey: ['devtools-branches', 'laymos', projectPath],
-    retry: false,
-    queryFn: () =>
-      runtime.runPromise(
-        Effect.gen(function* () {
-          const client = yield* DevtoolsClient;
-          return yield* client.GetLaymosBranches({ projectPath });
-        }),
-      ),
+  const git = useGitChanges(projectPath, {
+    reloadNonce,
+    baseRef: hostBaseRef,
+    onBaseRefChange,
   });
 
   const seenReloadNonce = useRef(reloadNonce);
@@ -103,16 +89,8 @@ export function LaymosProjectWorkspace({
     seenReloadNonce.current = reloadNonce;
     void query.refetch();
     void storiesQuery.refetch();
-    void changesQuery.refetch();
     storyRun.reset();
   }, [reloadNonce]);
-
-  useEffect(() => {
-    if (!changesQuery.error) return;
-    toast.warning('Git changes are unavailable', {
-      description: messageOf(changesQuery.error),
-    });
-  }, [changesQuery.error]);
 
   if (query.error) {
     const custom = renderAnalysisError?.(query.error);
@@ -135,10 +113,10 @@ export function LaymosProjectWorkspace({
   return (
     <AnalysisExplorer
       analysis={query.data}
-      changes={changesQuery.error ? undefined : changesQuery.data}
-      branches={branchesQuery.error ? undefined : branchesQuery.data}
-      baseRef={baseRef}
-      onBaseRefChange={setBaseRef}
+      changes={git.changes}
+      branches={git.branches}
+      baseRef={git.baseRef}
+      onBaseRefChange={git.setBaseRef}
       loadSourceFiles={(pathPrefixes) =>
         provideRuntime(
           runtime,
@@ -151,19 +129,7 @@ export function LaymosProjectWorkspace({
           }),
         )
       }
-      loadFileDiff={(path) =>
-        provideRuntime(
-          runtime,
-          Effect.gen(function* () {
-            const client = yield* DevtoolsClient;
-            return yield* client.GetLaymosFileDiff({
-              projectPath,
-              path,
-              baseRef,
-            });
-          }),
-        )
-      }
+      loadFileDiff={git.loadFileDiff}
       loadDocumentation={(scope) =>
         provideRuntime(
           runtime,

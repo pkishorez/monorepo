@@ -9,14 +9,11 @@ import type {
 
 import {
   ChevronDown,
-  GitBranch,
   Network,
   PanelRightOpen,
-  Search,
   SlidersHorizontal,
 } from '#lib/lucide';
 import { Button } from '#components/ui/button';
-import { Input } from '#components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -85,24 +82,15 @@ import {
   type LoadSourceFiles,
   type SourceOpenRequest,
 } from '../module-source';
-import { changedPathsUnder, type ChangeIndex } from '../project-changes';
+import {
+  ChangesMenu,
+  changedPathsUnder,
+  defaultGitOptions,
+  uncommittedBaseRef,
+  type GitOptions,
+} from '../../git-changes';
+import type { ChangeIndex } from '../project-changes';
 import { StoriesDocsSite, type StoryReports } from '../story-inspection';
-
-export interface GitOptions {
-  // Off hides the change overlay entirely, whatever git reports.
-  readonly showChanges: boolean;
-  readonly includeUnchanged: boolean;
-}
-
-export const defaultGitOptions: GitOptions = {
-  showChanges: true,
-  includeUnchanged: true,
-};
-
-// The Base ref 'HEAD' means the working tree's uncommitted changes; any other
-// value is a branch name, whose Change set already carries uncommitted work
-// on top, since a Base ref diffs against the working tree, never a commit.
-export const uncommittedBaseRef = 'HEAD';
 
 const allGraphsId = 'all';
 const layersModulesTabId = 'layers-modules';
@@ -543,11 +531,12 @@ export function LayersModulesExperience({
         }}
       />
       {gitAvailable && onGitOptionsChange !== undefined && (
-        <GitOptionsMenu
+        <ChangesMenu
           options={gitOptions}
           baseRef={baseRef}
           branches={branches}
-          hasChangedModules={hasChangedModules}
+          hasChanges={hasChangedModules}
+          ownerLabel="modules"
           onOptionsChange={(next) => {
             clearFocus();
             onGitOptionsChange(next);
@@ -807,7 +796,7 @@ export function LayersModulesExperience({
           changedPaths={
             changes === undefined
               ? undefined
-              : changedPathsUnder(changes, sourceRequest.pathPrefixes)
+              : changedPathsUnder(changes.files, sourceRequest.pathPrefixes)
           }
           onClose={() => setSourceRequest(undefined)}
         />
@@ -985,135 +974,6 @@ function LayerGraphMenu({
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function GitOptionsMenu({
-  options,
-  baseRef,
-  branches,
-  hasChangedModules,
-  onOptionsChange,
-  onBaseRefChange,
-}: {
-  readonly options: GitOptions;
-  readonly baseRef: string;
-  readonly branches: readonly Branch[];
-  readonly hasChangedModules: boolean;
-  readonly onOptionsChange: (options: GitOptions) => void;
-  readonly onBaseRefChange?: (baseRef: string) => void;
-}) {
-  const [branchSearch, setBranchSearch] = useState('');
-  const filteredBranches = branches.filter(({ name }) =>
-    name.toLocaleLowerCase().includes(branchSearch.trim().toLocaleLowerCase()),
-  );
-  const comparing =
-    baseRef === uncommittedBaseRef ? 'Uncommitted changes' : baseRef;
-  const summary = !options.showChanges
-    ? 'Git changes off'
-    : hasChangedModules
-      ? comparing
-      : `No changes · ${comparing}`;
-  return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (!open) setBranchSearch('');
-      }}
-    >
-      <DropdownMenuTrigger
-        aria-label="Git comparison options"
-        title="Git comparison options"
-        className="flex size-10 items-center justify-center gap-2 rounded-md border border-border/60 bg-background text-sm text-foreground outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/40 md:h-8 md:w-auto md:max-w-56 md:justify-between md:px-2.5"
-      >
-        <GitBranch className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="hidden truncate md:inline">{summary}</span>
-        <ChevronDown className="hidden size-3.5 shrink-0 text-muted-foreground md:block" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-[min(20rem,calc(100vw-1rem))]"
-      >
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>Git changes</DropdownMenuLabel>
-          <DropdownMenuCheckboxItem
-            className="min-h-11 md:min-h-8"
-            checked={options.showChanges}
-            onCheckedChange={(showChanges) =>
-              onOptionsChange({ ...options, showChanges })
-            }
-          >
-            Show git changes
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuCheckboxItem
-            className="min-h-11 md:min-h-8"
-            checked={options.includeUnchanged}
-            disabled={!options.showChanges}
-            onCheckedChange={(includeUnchanged) =>
-              onOptionsChange({ ...options, includeUnchanged })
-            }
-          >
-            Include unchanged modules
-          </DropdownMenuCheckboxItem>
-        </DropdownMenuGroup>
-        {options.showChanges && onBaseRefChange !== undefined && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Compare against</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={baseRef}
-                onValueChange={onBaseRefChange}
-              >
-                <DropdownMenuRadioItem
-                  className="min-h-11 md:min-h-8"
-                  value={uncommittedBaseRef}
-                >
-                  Uncommitted changes
-                </DropdownMenuRadioItem>
-                {branches.length > 0 && (
-                  <div
-                    className="relative px-1.5 py-1"
-                    onKeyDown={(event) => event.stopPropagation()}
-                  >
-                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      value={branchSearch}
-                      onChange={(event) => setBranchSearch(event.target.value)}
-                      placeholder="Search branches…"
-                      aria-label="Search branches"
-                      className="h-11 pl-9 text-base md:h-9 md:text-sm"
-                    />
-                  </div>
-                )}
-                <div className="max-h-56 overflow-y-auto">
-                  {filteredBranches.map((branch) => (
-                    <DropdownMenuRadioItem
-                      className="min-h-11 md:min-h-8"
-                      key={branch.name}
-                      value={branch.name}
-                    >
-                      <span className="min-w-0 flex-1 truncate">
-                        {branch.name}
-                      </span>
-                      {branch.current && (
-                        <span className="text-xs text-muted-foreground">
-                          Current
-                        </span>
-                      )}
-                    </DropdownMenuRadioItem>
-                  ))}
-                  {filteredBranches.length === 0 && branches.length > 0 && (
-                    <p className="px-2 py-3 text-center text-sm text-muted-foreground">
-                      No matching branches
-                    </p>
-                  )}
-                </div>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuGroup>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

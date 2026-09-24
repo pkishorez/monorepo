@@ -1,7 +1,7 @@
 import { FileIcon, FolderIcon } from '#lib/lucide';
 import { cn } from '#lib/utils';
 
-import { ChangeBadge } from '../../project-changes';
+import { ChangeBadge } from '../../../git-changes';
 import type {
   ChangeStatus,
   Module,

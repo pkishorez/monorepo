@@ -4,8 +4,8 @@ export {
   dependencyKindLabels,
   dependencyKinds,
   edgeEmphasis,
-  groupHue,
   groupPackages,
+  packageChangeStatuses,
   packageCycles,
   packageEmphasis,
   packageEdgeId,
@@ -16,6 +16,7 @@ export {
   visibleEdges,
 } from './monorepo-presentation';
 export type {
+  MonorepoChanges,
   MonorepoView,
   PackageDecoration,
   PackageEdge,

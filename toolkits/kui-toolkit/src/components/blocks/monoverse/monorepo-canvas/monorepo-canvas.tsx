@@ -19,6 +19,8 @@ import type { DependencyKind, Package } from '../analysis';
 import { Layers, TriangleAlert } from '#lib/lucide';
 import { cn } from '#lib/utils';
 
+import { ChangeBadge, changeSurfaceClass } from '../../git-changes';
+
 import {
   edgeEmphasis,
   packageEmphasis,
@@ -29,7 +31,7 @@ import {
 } from '../monorepo-presentation';
 
 const nodeWidth = 200;
-const nodeHeight = 60;
+const nodeHeight = 44;
 const siblingGap = 28;
 // Rows inside one rank container.
 const rowGap = 36;
@@ -353,7 +355,6 @@ function RankContainerNode({ data }: NodeProps<RankContainerGraphNode>) {
 
 function PackageNode({ data }: NodeProps<PackageGraphNode>) {
   const { decoration, emphasis } = data;
-  const groupColor = `oklch(0.72 0.14 ${decoration.groupHue})`;
 
   return (
     <div
@@ -383,15 +384,16 @@ function PackageNode({ data }: NodeProps<PackageGraphNode>) {
             !data.selected &&
             'border-primary ring-2 ring-primary/25',
           data.selected && selectedNodeClass,
-          decoration.inCycle &&
-            !data.focused &&
+          !data.focused &&
             !data.selected &&
-            'border-destructive/70 ring-2 ring-destructive/20',
+            (decoration.inCycle
+              ? 'border-destructive/70 ring-2 ring-destructive/20'
+              : changeSurfaceClass(decoration.changeStatus)),
         )}
         title={
           decoration.hasLaymos
-            ? 'Double-click to open in Laymos. Right-click for the README.'
-            : 'Right-click for the README'
+            ? 'Double-click to open in Laymos. Right-click for the README and files.'
+            : 'Right-click for the README and files'
         }
       >
         <div className="flex min-w-0 items-center gap-1.5">
@@ -404,6 +406,9 @@ function PackageNode({ data }: NodeProps<PackageGraphNode>) {
               aria-label="Package cycle violation"
             />
           )}
+          {decoration.changeStatus !== undefined && (
+            <ChangeBadge status={decoration.changeStatus} />
+          )}
           {decoration.hasLaymos && (
             <Layers
               className="size-3.5 shrink-0 text-primary"
@@ -411,16 +416,6 @@ function PackageNode({ data }: NodeProps<PackageGraphNode>) {
             />
           )}
         </div>
-        <span
-          className="inline-flex w-fit items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium leading-4"
-          style={{
-            borderColor: `color-mix(in oklch, ${groupColor} 45%, transparent)`,
-            color: groupColor,
-            backgroundColor: `color-mix(in oklch, ${groupColor} 10%, transparent)`,
-          }}
-        >
-          {decoration.group}
-        </span>
       </div>
     </div>
   );

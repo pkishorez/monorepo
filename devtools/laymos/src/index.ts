@@ -14,6 +14,7 @@ export {
 } from './orchestrator/load-documentation/index.js';
 // Node consumers use this high-level capability to read arbitrary source files by path.
 export {
+  loadFolderFiles,
   loadSourceFiles,
   SourceFileReadError,
 } from './orchestrator/load-source-files/index.js';
@@ -68,6 +69,7 @@ export {
   loadBranches,
   loadChangeSet,
   loadFileDiff,
+  loadKnownFiles,
 } from './orchestrator/load-changes/index.js';
 // Change set callers distinguish a missing repository from a failed git command.
 export { GitError } from './services/git/index.js';

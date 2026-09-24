@@ -40,10 +40,12 @@
         "src/components/blocks/er-diagram",
         "src/components/blocks/file-tree",
         "src/components/blocks/flow-swimlane",
+        "src/components/blocks/git-changes",
         "src/components/blocks/json",
         "src/components/blocks/markdown-viewer",
         "src/components/blocks/otel-trace-viewer",
         "src/components/blocks/sequence",
+        "src/components/blocks/source-explorer",
         "src/components/blocks/source-viewer",
         "src/components/blocks/state-machine-visualizer",
         "src/components/blocks/swim-lane"
@@ -51,9 +53,14 @@
       "description": "Feature-level components composed from UI primitives",
       "modules": {
         "src/components/blocks/diff-viewer": {
+          "shared": true,
           "exposed": true
         },
         "src/components/blocks/file-tree": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/components/blocks/git-changes": {
           "exposed": true
         },
         "src/components/blocks/json": {
@@ -64,6 +71,9 @@
           "exposed": true
         },
         "src/components/blocks/sequence": {
+          "exposed": true
+        },
+        "src/components/blocks/source-explorer": {
           "exposed": true
         },
         "src/components/blocks/source-viewer": {
@@ -285,8 +295,7 @@
             "module-inspection": [
               "analysis-presentation",
               "architecture-graph",
-              "architecture-tree",
-              "project-changes"
+              "architecture-tree"
             ],
             "module-source": ["analysis-presentation", "architecture-graph"]
           }
@@ -298,7 +307,7 @@
       "description": "Monorepo exploration components composed from reusable Blocks",
       "moduleGraphs": {
         "monorepo-explorer": {
-          "description": "Lets consumers explore one Monorepo Analysis through the Package rank stack, Package tree, Package focus, and Embedded Laymos",
+          "description": "Lets consumers explore one Monorepo Analysis through the Package rank stack, Package tree, Package focus, Changed Packages, each Package's README and files, and Embedded Laymos",
           "path": "src/components/blocks/monoverse",
           "modules": {
             "monoverse": {
@@ -309,6 +318,7 @@
             "package-tree": {},
             "package-details": {},
             "package-readme": {},
+            "package-source": {},
             "laymos-drilldown": {},
             "analysis.ts": {}
           },
@@ -319,6 +329,7 @@
               "package-tree",
               "package-details",
               "package-readme",
+              "package-source",
               "laymos-drilldown",
               "analysis.ts"
             ],
@@ -327,6 +338,7 @@
             "package-details": ["monorepo-presentation", "analysis.ts"],
             "monorepo-presentation": ["analysis.ts"],
             "package-readme": ["analysis.ts"],
+            "package-source": ["package-readme", "analysis.ts"],
             "laymos-drilldown": ["analysis.ts"]
           }
         }

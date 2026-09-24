@@ -2,8 +2,9 @@ import { describe, expect, test } from 'vitest';
 import type { MonorepoAnalysis, Package } from '../analysis';
 
 import {
-  groupHue,
+  buildMonorepoView,
   groupPackages,
+  packageChangeStatuses,
   packageCycles,
   packageRelations,
   rankPackages,
@@ -179,10 +180,74 @@ describe('decorations and details', () => {
       { packages: ['a', 'b'] },
     ]);
   });
+});
 
-  test('derives a stable hue per Package group', () => {
-    expect(groupHue('apps')).toBe(groupHue('apps'));
-    expect(groupHue('apps')).toBeGreaterThanOrEqual(0);
-    expect(groupHue('apps')).toBeLessThan(360);
+describe('packageChangeStatuses', () => {
+  const packages = [pkg('ui'), pkg('ui-kit'), pkg('std'), pkg('fresh')];
+  const knownFiles = [
+    'packages/ui/a.ts',
+    'packages/ui/b.ts',
+    'packages/ui-kit/a.ts',
+    'packages/std/a.ts',
+    'packages/fresh/a.ts',
+    'packages/fresh/package.json',
+    'README.md',
+  ];
+
+  test('rolls changed files up to the Package folder that holds them', () => {
+    const actual = packageChangeStatuses(
+      packages,
+      new Map([
+        ['packages/ui/a.ts', 'added'],
+        ['packages/fresh/a.ts', 'added'],
+        ['packages/fresh/package.json', 'added'],
+        ['README.md', 'modified'],
+      ]),
+      knownFiles,
+    );
+
+    expect(Object.fromEntries(actual)).toEqual({
+      ui: 'modified',
+      fresh: 'added',
+    });
+  });
+
+  test('a file belongs to the deepest Package folder holding it', () => {
+    const actual = packageChangeStatuses(
+      [
+        pkg('outer', [], { path: 'apps/outer' }),
+        pkg('inner', [], { path: 'apps/outer/inner' }),
+      ],
+      new Map([['apps/outer/inner/a.ts', 'added']]),
+      ['apps/outer/a.ts', 'apps/outer/inner/a.ts'],
+    );
+
+    expect(Object.fromEntries(actual)).toEqual({ inner: 'added' });
+  });
+});
+
+describe('buildMonorepoView', () => {
+  const all = new Set(['runtime', 'dev', 'peer', 'optional'] as const);
+
+  test('hiding unchanged Packages ranks only the changed ones', () => {
+    const view = buildMonorepoView(analysis, all, {
+      statuses: new Map([['ui', 'modified']]),
+      includeUnchanged: false,
+    });
+
+    expect(view.packages.map(({ name }) => name)).toEqual(['ui']);
+    expect(view.edges).toEqual([]);
+    expect(view.rankStack).toEqual({ ranks: [], isolated: ['ui'] });
+    expect(view.decorations.get('ui')?.changeStatus).toBe('modified');
+  });
+
+  test('keeps every Package when unchanged ones are included', () => {
+    const view = buildMonorepoView(analysis, all, {
+      statuses: new Map([['ui', 'modified']]),
+      includeUnchanged: true,
+    });
+
+    expect(view.packages).toHaveLength(analysis.packages.length);
+    expect(view.decorations.get('std')?.changeStatus).toBeUndefined();
   });
 });

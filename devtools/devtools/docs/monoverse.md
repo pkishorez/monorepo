@@ -52,7 +52,14 @@ previews a focus; click makes it durable. Transitive reach is not emphasized.
 A Package with at least one added or modified tracked file beneath its folder
 in the Monorepo's Change set, measured against one Base ref with the same
 meaning as in Laymos. Files outside every Package belong to none and are not
-shown.
+shown. One Base ref applies to the whole Monoverse view, and Embedded Laymos
+opens measured against it.
+
+**Package change status**:
+A Package's derived standing in the Change set, by the same rule as a Laymos
+Module change status: added when every file beneath it is added, modified when
+any file beneath it is added or modified, and otherwise unchanged.
+_Avoid_: new package (for a Package that merely has a new manifest)
 
 **Affected Package**:
 A Package that is not itself changed but depends, directly or transitively, on
@@ -84,8 +91,10 @@ Project's architecture is healthy.
 **Embedded Laymos**:
 The full Laymos view of one Package's Project, opened over the Monoverse
 canvas without leaving it, with the Project fixed and a crumb back to the
-Monorepo in place of the project picker. Closing it returns to the canvas
-exactly as it was left. It never adds the Project to the Laymos Tool's own
+Monorepo in place of the project picker. It opens from the Package on the
+canvas or from the Package's dialog, and closing it returns to exactly where it
+was opened: the canvas as it was left, and the dialog on the same tab and
+file. It never adds the Project to the Laymos Tool's own
 list.
 
 **Package README**:
@@ -93,6 +102,13 @@ The `README.md` at a Package's folder root, opened over the canvas by
 right-clicking the Package; links to other markdown files inside the same
 Package open on top of it, one dialog per file.
 _Avoid_: docs, documentation panel
+
+**Package files**:
+The files git knows beneath a Package's folder (tracked, plus untracked ones
+not ignored), browsable beside the Package README, with each changed file
+marked and viewable as its diff against the Base ref. The Monoverse
+counterpart of a Laymos Module's source files.
+_Avoid_: code changes tab, source
 
 **Package tree**:
 The side list of a Monorepo's Packages grouped under their Package groups,

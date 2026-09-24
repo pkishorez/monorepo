@@ -4,6 +4,8 @@ import { FolderIcon, Layers, PackageIcon, TriangleAlert } from '#lib/lucide';
 import { Button } from '#components/ui/button';
 import { cn } from '#lib/utils';
 
+import { ChangeBadge } from '../../git-changes';
+
 import {
   groupPackages,
   packageEmphasis,
@@ -81,6 +83,9 @@ export function PackageTree({
                     <span className="min-w-0 flex-1 truncate text-start">
                       {pkg.name}
                     </span>
+                    {decoration?.changeStatus !== undefined && (
+                      <ChangeBadge status={decoration.changeStatus} />
+                    )}
                     {decoration?.inCycle && (
                       <TriangleAlert
                         className="size-3.5 shrink-0 text-destructive"

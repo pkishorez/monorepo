@@ -13,6 +13,7 @@ import {
   useDevtoolsRuntime,
   type DevtoolsRuntime,
 } from '../../../client/devtools-rpc/index.js';
+import { useGitChanges } from '../../git-changes/index.js';
 import { LaymosProjectWorkspace } from '../../laymos/project-workspace/index.js';
 import {
   MissingProjectState,
@@ -153,6 +154,8 @@ function MonorepoView({
   onSelectMonorepo: (path: string) => void;
 }) {
   const worktrees = useWorktrees(monorepoPath);
+  // One Base ref for the whole view; Embedded Laymos is measured against it.
+  const git = useGitChanges(monorepoPath, { reloadNonce, knownFiles: true });
   // A Worktree may hold the folder but not the workspace file: from the
   // developer's view the Monorepo is not there either.
   const [notWorkspaceAt, setNotWorkspaceAt] = useState<number | null>(null);
@@ -199,6 +202,21 @@ function MonorepoView({
     [runtime, monorepoPath, reloadNonce],
   );
 
+  const loadPackageFiles = useCallback(
+    (pkg: Package) =>
+      provideRuntime(
+        runtime,
+        Effect.gen(function* () {
+          const client = yield* DevtoolsClient;
+          return yield* client.GetPackageFiles({
+            monorepoRoot: monorepoPath,
+            packagePath: pkg.path,
+          });
+        }),
+      ),
+    [runtime, monorepoPath],
+  );
+
   if (notWorkspaceAt === reloadNonce && worktrees.data) {
     return (
       <MissingProjectState
@@ -221,6 +239,8 @@ function MonorepoView({
             <LaymosProjectWorkspace
               projectPath={projectPath}
               reloadNonce={reloadNonce}
+              baseRef={git.baseRef}
+              onBaseRefChange={git.setBaseRef}
             />
           )}
           selectedPackage={search.package ?? null}
@@ -239,6 +259,13 @@ function MonorepoView({
             setSearch({ package: name, readme: [packageReadmePath] })
           }
           readmeDocuments={readmeDocuments}
+          loadPackageFiles={loadPackageFiles}
+          changes={git.changes}
+          knownFiles={git.knownFiles}
+          branches={git.branches}
+          baseRef={git.baseRef}
+          onBaseRefChange={git.setBaseRef}
+          loadFileDiff={git.loadFileDiff}
           className="h-full"
         />
       </div>
