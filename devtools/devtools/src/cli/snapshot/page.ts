@@ -2,15 +2,17 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Data, Effect } from 'effect';
-import type { Browser, BrowserType } from 'playwright-core';
+import { Effect } from 'effect';
 
 import {
   requestScript,
   type SnapshotRequest,
-} from '../domain/snapshot/index.js';
+} from '../../domain/snapshot/index.js';
+import { openBrowser } from './browser.js';
+import { SnapshotRenderError } from './errors.js';
 
-// Two levels below the package root from both `src/cli/` and `dist/server/`.
+// The bundled page beside the built server, `dist/ui/`; running from source
+// passes --ui-root.
 const DEFAULT_UI_ROOT = fileURLToPath(new URL('../ui/', import.meta.url));
 // A name no network answers; the page and its assets come from disk.
 const ORIGIN = 'http://devtools.snapshot';
@@ -28,19 +30,7 @@ const contentTypes: Readonly<Record<string, string>> = {
   '.ttf': 'font/ttf',
 };
 
-export class SnapshotRenderError extends Data.TaggedError(
-  'SnapshotRenderError',
-)<{
-  readonly reason:
-    | 'playwright-missing'
-    | 'no-browser'
-    | 'ui-missing'
-    | 'page-error'
-    | 'timeout';
-  readonly message: string;
-}> {}
-
-export interface RenderSnapshotOptions {
+interface RenderSnapshotOptions {
   /** Device pixels per CSS pixel in the PNG. */
   readonly scale: number;
   /** Folder holding the built page; defaults to the package's `dist/ui`. */
@@ -50,7 +40,7 @@ export interface RenderSnapshotOptions {
   readonly timeoutMs: number;
 }
 
-export interface RenderedSnapshot {
+interface RenderedSnapshot {
   readonly png: Uint8Array;
   /** CSS pixels; the PNG is `scale` times larger on each side. */
   readonly width: number;
@@ -85,8 +75,7 @@ async function render(
 ) {
   const uiRoot = options.uiRoot ?? DEFAULT_UI_ROOT;
   await assertSnapshotPage(uiRoot);
-  const { chromium } = await loadPlaywright();
-  const browser = await launch(chromium, options.browser);
+  const browser = await openBrowser(options.browser);
   try {
     const context = await browser.newContext({
       viewport: {
@@ -182,52 +171,5 @@ async function assertSnapshotPage(uiRoot: string) {
   throw new SnapshotRenderError({
     reason: 'ui-missing',
     message: `The bundled Snapshot page is missing at ${page}. Build the package, or pass --ui-root.`,
-  });
-}
-
-async function loadPlaywright(): Promise<typeof import('playwright-core')> {
-  try {
-    return await import('playwright-core');
-  } catch {
-    throw new SnapshotRenderError({
-      reason: 'playwright-missing',
-      message:
-        'playwright-core is not installed. Add it next to @pkishorez/devtools: `pnpm add -D playwright-core`.',
-    });
-  }
-}
-
-// Playwright's own Chromium when it is installed, else a system Chrome or
-// Chromium, so a CI runner that ships Chrome needs no download step.
-async function launch(
-  chromium: BrowserType,
-  executablePath: string | undefined,
-): Promise<Browser> {
-  const attempts: ReadonlyArray<Parameters<BrowserType['launch']>[0]> =
-    executablePath === undefined
-      ? [
-          {},
-          { channel: 'chrome' },
-          { channel: 'chromium' },
-          { channel: 'msedge' },
-        ]
-      : [{ executablePath }];
-  const failures: string[] = [];
-  for (const attempt of attempts) {
-    try {
-      return await chromium.launch({ headless: true, ...attempt });
-    } catch (cause) {
-      failures.push(
-        String(cause instanceof Error ? cause.message : cause).split('\n')[0] ??
-          '',
-      );
-    }
-  }
-  throw new SnapshotRenderError({
-    reason: 'no-browser',
-    message:
-      executablePath === undefined
-        ? `No Chromium could be started. Install one with \`npx playwright-core install chromium\`, or point --browser (DEVTOOLS_BROWSER) at a Chrome or Chromium executable. Tried: ${failures.join(' | ')}`
-        : `Could not start the browser at ${executablePath}: ${failures.join(' | ')}`,
   });
 }

@@ -4,7 +4,7 @@ import {
   formatMillis,
   isoTime,
   offsetColumn,
-} from './output.js';
+} from '../text-format.js';
 
 export type SimpleFlow = {
   readonly flowId: string;

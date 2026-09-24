@@ -6,14 +6,7 @@ import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import {
-  getFlowCommand,
-  getTraceCommand,
-  listFlowsCommand,
-  listTracesCommand,
-  skillsCommand,
-  snapshotCommand,
-} from '../cli/index.js';
+import { subcommands } from '../cli/index.js';
 import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
 
 const HOST = '127.0.0.1';
@@ -82,14 +75,7 @@ const command = Command.make(
   Command.withDescription(
     'Run the DevTools Server: UI, RPC, and OTLP ingestion on loopback',
   ),
-  Command.withSubcommands([
-    listTracesCommand,
-    getTraceCommand,
-    listFlowsCommand,
-    getFlowCommand,
-    skillsCommand,
-    snapshotCommand,
-  ]),
+  Command.withSubcommands(subcommands),
 );
 
 command.pipe(

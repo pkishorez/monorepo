@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'vitest';
 import { projectJournal, type Entry, type Journal } from '@pkishorez/flow';
-import { renderFlowText, simplifyFlowList } from '../flow-output.js';
+import { renderFlowText, simplifyFlowList } from '../flows/output.js';
 import {
-  renderTraceSummariesText,
-  renderTraceText,
   simplifyTrace,
   simplifyTraceSummary,
   traceJson,
-} from '../trace-output.js';
+} from '../traces/simplify.js';
+import { renderTraceSummariesText, renderTraceText } from '../traces/text.js';
 
 const ms = (millis: number) => String(BigInt(millis) * 1_000_000n);
 const service = (name: string) => ({
