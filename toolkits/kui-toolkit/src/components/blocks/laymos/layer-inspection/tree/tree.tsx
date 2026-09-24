@@ -13,6 +13,7 @@ import {
   architectureTreeBoundaryKind,
   architectureTreeBoundaryState,
   architectureTreeBranch,
+  architectureTreeBranchIcon,
   architectureTreeGuide,
   architectureTreeGuideIndent,
   architectureTreeIndent,
@@ -136,7 +137,9 @@ function ScopeRow({
           className={architectureTreeBranch}
           style={{ paddingInlineStart: indentation }}
         >
-          <Icon className="size-3.5 shrink-0 opacity-70" />
+          <span className={architectureTreeBranchIcon}>
+            <Icon className="size-3.5 opacity-70" />
+          </span>
           <span className="truncate">{node.name}</span>
         </div>
       ) : (

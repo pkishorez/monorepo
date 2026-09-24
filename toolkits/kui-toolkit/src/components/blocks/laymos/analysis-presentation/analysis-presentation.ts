@@ -60,6 +60,49 @@ export function combineLayerGraphRules(
   }));
 }
 
+/**
+ * The part of a model a Change set touched: changed Modules, the Layers that
+ * hold them or changed themselves, and the Module and Layer Graphs still
+ * connected to what remains. Undefined when no analyzed Module changed, so a
+ * caller can fall back to the whole model instead of showing an empty canvas.
+ */
+export function changedArchitecture(
+  model: Pick<
+    LaymosPresentationModel,
+    'layers' | 'layerGraphs' | 'modules' | 'moduleGraphs'
+  >,
+): ChangedArchitecture | undefined {
+  const modules = model.modules.filter(
+    ({ changeStatus }) => changeStatus !== undefined,
+  );
+  if (modules.length === 0) return undefined;
+  const changedLayerIds = new Set(modules.map(({ layerId }) => layerId));
+  const moduleIds = new Set(modules.map(({ id }) => id));
+  const moduleGraphs = model.moduleGraphs.filter(({ memberIds }) =>
+    memberIds.some((id) => moduleIds.has(id)),
+  );
+  const layers = model.layers.filter(
+    ({ id, changeStatus }) =>
+      changedLayerIds.has(id) || changeStatus !== undefined,
+  );
+  const layerIds = new Set(layers.map(({ id }) => id));
+  // A Layer Graph whose Layers are all unchanged has nothing to show.
+  const layerGraphs = model.layerGraphs.filter(({ rules }) =>
+    rules.some(
+      ({ fromLayerId, toLayerIds }) =>
+        layerIds.has(fromLayerId) || toLayerIds.some((id) => layerIds.has(id)),
+    ),
+  );
+  return { layers, layerGraphs, modules, moduleGraphs };
+}
+
+export interface ChangedArchitecture {
+  readonly layers: readonly Layer[];
+  readonly layerGraphs: readonly NamedLayerGraph[];
+  readonly modules: readonly Module[];
+  readonly moduleGraphs: readonly ModuleGraph[];
+}
+
 export function layersReferencedByRules(
   layers: readonly Layer[],
   rules: readonly LayerRule[],

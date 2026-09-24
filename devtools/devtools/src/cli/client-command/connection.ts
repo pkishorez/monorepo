@@ -1,4 +1,4 @@
-import { Config, Console, Effect, Layer } from 'effect';
+import { Config, Effect, Layer } from 'effect';
 import { Flag } from 'effect/unstable/cli';
 import {
   RpcClient,
@@ -7,7 +7,7 @@ import {
   type RpcGroup,
 } from 'effect/unstable/rpc';
 import { NodeHttpClient } from '@effect/platform-node';
-import { DevtoolsRpc } from '../rpc/index.js';
+import { DevtoolsRpc } from '../../rpc/index.js';
 
 const DEFAULT_PORT = 14400;
 const urlForPort = (port: number) => `http://127.0.0.1:${port}`;
@@ -51,36 +51,5 @@ export const withDevtoolsClient = <A, E>(
         Layer.provide(RpcSerialization.layerNdjson),
         Layer.provide(NodeHttpClient.layerUndici),
       ),
-    ),
-  );
-
-type KnownError =
-  | { readonly _tag: 'TraceNotFound'; readonly traceId: string }
-  | { readonly _tag: 'FlowRpcError'; readonly message: string }
-  | { readonly _tag: 'LotelRpcError'; readonly message: string }
-  | RpcClientError.RpcClientError;
-
-/** Formats lookup and transport failures for stderr. */
-export const formatClientError = (error: KnownError, baseUrl: string) => {
-  switch (error._tag) {
-    case 'TraceNotFound':
-      return `Trace not found: ${error.traceId}`;
-    case 'FlowRpcError':
-    case 'LotelRpcError':
-      return error.message;
-    case 'RpcClientError':
-      return error.reason._tag === 'HttpError'
-        ? `Could not reach a DevTools Server at ${baseUrl} (${error.reason.kind}). Start one with \`devtools\` or pass --url.`
-        : `RPC request failed: ${error.reason.message}`;
-  }
-};
-
-/** Prints a Client Command failure to stderr and marks the process as failed. */
-export const reportClientError = (error: KnownError, baseUrl: string) =>
-  Console.error(formatClientError(error, baseUrl)).pipe(
-    Effect.andThen(
-      Effect.sync(() => {
-        process.exitCode = 1;
-      }),
     ),
   );

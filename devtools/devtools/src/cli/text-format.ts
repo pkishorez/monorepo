@@ -1,23 +1,3 @@
-import { Console } from 'effect';
-import { Flag } from 'effect/unstable/cli';
-
-export type OutputFormat = 'json' | 'text';
-
-export const formatFlag = Flag.choice('format', ['json', 'text']).pipe(
-  Flag.withDescription('Output as machine-readable JSON or readable text'),
-  Flag.withDefault('json' as OutputFormat),
-);
-
-/** Prints `value` as pretty JSON or through `renderText`, by format. */
-export const print = <A>(
-  format: OutputFormat,
-  value: A,
-  renderText: (value: A) => string,
-) =>
-  Console.log(
-    format === 'json' ? JSON.stringify(value, null, 2) : renderText(value),
-  );
-
 const NANOS_PER_MILLI = 1_000_000n;
 
 /** Converts an OTLP unix-nano time to epoch milliseconds, or null. */
@@ -59,3 +39,15 @@ export const formatAttributes = (attributes: Record<string, unknown>) => {
     )
     .join(' ');
 };
+
+/** Orders items by a time, unknown times last. */
+export const byTime =
+  <T>(time: (item: T) => number | null) =>
+  (left: T, right: T) => {
+    const l = time(left);
+    const r = time(right);
+    if (l === null && r === null) return 0;
+    if (l === null) return 1;
+    if (r === null) return -1;
+    return l - r;
+  };

@@ -42,15 +42,16 @@ Telemetry commands accept `--url <base-url>` and `--format json|text`
 (JSON by default). `devtools skills` lists as text by default and accepts
 `--format json`.
 
-| Command                                    | Purpose                                                                                                  |
-| ------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `devtools [--port N] [--db PATH] [--open]` | Run the DevTools Server.                                                                                 |
-| `devtools list-traces [--limit N]`         | Recent Trace Summaries, newest first. Default 20.                                                        |
-| `devtools get-trace <trace-id>`            | One Trace: flat span list with `parentSpanId`, each span's logs, and trace-level logs that name no span. |
-| `devtools list-flows [--limit N]`          | Recent Flows, newest first. Default 20.                                                                  |
-| `devtools get-flow <flow-id>`              | One Flow Projection: `items` in recorded order, `activations`, `waits`, `warnings`.                      |
-| `devtools skills`                          | List the skills shipped with the package.                                                                |
-| `devtools skills devtools [--install DIR]` | Print this skill, or write it to `DIR/devtools/SKILL.md`.                                                |
+| Command                                                       | Purpose                                                                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `devtools [--port N] [--db PATH] [--open]`                    | Run the DevTools Server.                                                                                 |
+| `devtools list-traces [--limit N]`                            | Recent Trace Summaries, newest first. Default 20.                                                        |
+| `devtools get-trace <trace-id>`                               | One Trace: flat span list with `parentSpanId`, each span's logs, and trace-level logs that name no span. |
+| `devtools list-flows [--limit N]`                             | Recent Flows, newest first. Default 20.                                                                  |
+| `devtools get-flow <flow-id>`                                 | One Flow Projection: `items` in recorded order, `activations`, `waits`, `warnings`.                      |
+| `devtools skills`                                             | List the skills shipped with the package.                                                                |
+| `devtools skills devtools [--install DIR]`                    | Print this skill, or write it to `DIR/devtools/SKILL.md`.                                                |
+| `devtools snapshot [--project DIR] [--base REF] [--out FILE]` | Draw the Project's changed Modules to a PNG with headless Chromium; no server needed.                    |
 
 Exit status is nonzero and the reason goes to stderr when a Trace or Flow is
 missing or no server answers.

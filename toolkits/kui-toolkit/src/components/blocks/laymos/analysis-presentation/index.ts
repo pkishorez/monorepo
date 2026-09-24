@@ -1,9 +1,11 @@
 export {
   buildPresentationModel,
+  changedArchitecture,
   combineLayerGraphRules,
   layersReferencedByRules,
 } from './analysis-presentation';
 export type {
+  ChangedArchitecture,
   Layer,
   LayerCoverageViolation,
   LayerDependencyViolation,

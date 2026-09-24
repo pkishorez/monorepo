@@ -5,6 +5,7 @@ export {
   architectureTreeBoundaryKind,
   architectureTreeBoundaryState,
   architectureTreeBranch,
+  architectureTreeBranchIcon,
   architectureTreeGuide,
   architectureTreeGuideIndent,
   architectureTreeIndent,

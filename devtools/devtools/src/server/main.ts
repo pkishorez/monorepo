@@ -6,13 +6,10 @@ import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import {
-  getFlowCommand,
-  getTraceCommand,
-  listFlowsCommand,
-  listTracesCommand,
-  skillsCommand,
-} from '../cli/index.js';
+import { getFlowCommand, listFlowsCommand } from '../cli/flows/index.js';
+import { skillsCommand } from '../cli/skills.js';
+import { snapshotCommand } from '../cli/snapshot/index.js';
+import { getTraceCommand, listTracesCommand } from '../cli/traces/index.js';
 import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
 
 const HOST = '127.0.0.1';
@@ -87,6 +84,7 @@ const command = Command.make(
     listFlowsCommand,
     getFlowCommand,
     skillsCommand,
+    snapshotCommand,
   ]),
 );
 

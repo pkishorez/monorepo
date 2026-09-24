@@ -288,6 +288,9 @@ catalogs:
     oxc-resolver:
       specifier: 11.24.2
       version: 11.24.2
+    playwright-core:
+      specifier: 1.63.0
+      version: 1.63.0
     react:
       specifier: 19.2.8
       version: 19.2.8
@@ -683,6 +686,9 @@ importers:
       kui-toolkit:
         specifier: workspace:*
         version: link:../../toolkits/kui-toolkit
+      playwright-core:
+        specifier: 'catalog:'
+        version: 1.63.0
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -8524,6 +8530,11 @@ packages:
 
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
+
+  playwright-core@1.63.0:
+    resolution: {integrity: sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   pngjs@7.0.0:
     resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
@@ -17519,6 +17530,8 @@ snapshots:
       confbox: 0.2.4
       exsolve: 1.1.0
       pathe: 2.0.3
+
+  playwright-core@1.63.0: {}
 
   pngjs@7.0.0: {}
 
