@@ -1,6 +1,6 @@
 {
   "name": "ai-toolkit",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Effect-native runtime for stateful coding-agent harnesses whose Messages live in a StdTable",
   "license": "MIT",
   "type": "module",

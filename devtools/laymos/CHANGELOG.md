@@ -1,5 +1,23 @@
 # laymos
 
+## 0.0.10
+
+### Patch Changes
+
+- [`2503956`](https://github.com/pkishorez/monorepo/commit/2503956177145ac7d3766e6742cfa648a83ddc21) Thanks [@pkishorez](https://github.com/pkishorez)! - Add `laymos skills`, which lists, prints, or installs the shipped `laymos`, `to-laymos`, `domain-modeling`, and `deep-module` agent skills. The shared command builder is exported as `laymos/skills-command`.
+
+  Add `loadFolderFiles` and `loadKnownFiles`.
+
+  Breaking:
+
+  - Flow story sections change from `{ kind: 'flow', flow }` to `{ kind: 'flow', journal }`, the exported `RecordedFlow` schema and type are replaced by `@pkishorez/flow`'s `Journal`, and flows are no longer derived from trace-recorder data.
+  - The git loaders take a folder in place of a config path.
+  - Requires `effect@4.0.0-rc.112` instead of `4.0.0-rc.110`.
+
+- Updated dependencies [[`2503956`](https://github.com/pkishorez/monorepo/commit/2503956177145ac7d3766e6742cfa648a83ddc21), [`2503956`](https://github.com/pkishorez/monorepo/commit/2503956177145ac7d3766e6742cfa648a83ddc21)]:
+  - @pkishorez/effect-tracer@0.0.10
+  - @pkishorez/flow@0.0.10
+
 ## 0.0.9
 
 ### Patch Changes

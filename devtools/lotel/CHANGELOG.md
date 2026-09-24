@@ -1,5 +1,16 @@
 # @pkishorez/lotel
 
+## 0.0.10
+
+### Patch Changes
+
+- [`2503956`](https://github.com/pkishorez/monorepo/commit/2503956177145ac7d3766e6742cfa648a83ddc21) Thanks [@pkishorez](https://github.com/pkishorez)! - Add a `ListTraces` RPC that returns Trace Summaries for the most recently updated Traces.
+
+  Breaking: Lotel now stores traces and logs only. Flows move to `@pkishorez/flow`, so `./flow`, `ListFlows`, `GetFlow`, and the flow methods on `TelemetryStore` are removed.
+
+- Updated dependencies [[`2503956`](https://github.com/pkishorez/monorepo/commit/2503956177145ac7d3766e6742cfa648a83ddc21)]:
+  - std-toolkit@0.0.10
+
 ## 0.0.9
 
 ### Patch Changes
