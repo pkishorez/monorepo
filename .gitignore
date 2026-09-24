@@ -14,3 +14,6 @@ dist
 /.claude/issues
 .pnpm-store
 x.md
+
+# Pictures the pr:architecture workflow draws
+.snapshots

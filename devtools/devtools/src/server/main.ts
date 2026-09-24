@@ -12,6 +12,7 @@ import {
   listFlowsCommand,
   listTracesCommand,
   skillsCommand,
+  snapshotCommand,
 } from '../cli/index.js';
 import { makeLocalDevtoolsServer } from './local-devtools-server/index.js';
 
@@ -87,6 +88,7 @@ const command = Command.make(
     listFlowsCommand,
     getFlowCommand,
     skillsCommand,
+    snapshotCommand,
   ]),
 );
 

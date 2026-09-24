@@ -4,12 +4,20 @@
   "ignoredPaths": [],
   "layers": {
     "entry": {
-      "paths": ["src/browser.tsx", "src/server/main.ts", "src/cli"],
-      "description": "Starts the browser application and the local DevTools process",
+      "paths": [
+        "src/browser.tsx",
+        "src/snapshot.tsx",
+        "src/server/main.ts",
+        "src/cli"
+      ],
+      "description": "Starts the browser application, the Snapshot page, and the local DevTools process",
       "modules": {
         "src/browser.tsx": {},
+        "src/snapshot.tsx": {},
         "src/server/main.ts": {},
-        "src/cli": { "shared": true }
+        "src/cli": {
+          "shared": true
+        }
       }
     },
     "browser-application": {
@@ -33,6 +41,9 @@
         },
         "src/ui/git-changes": {
           "shared": true
+        },
+        "src/ui/laymos/snapshot": {
+          "exposed": true
         },
         "src/ui/project-selection": {
           "shared": true

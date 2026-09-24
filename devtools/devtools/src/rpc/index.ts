@@ -52,3 +52,10 @@ export type {
   PackageCycleViolation,
   PackageDependency,
 } from './monorepo-schema.js';
+export {
+  SnapshotRequestJson,
+  SnapshotRequestSchema,
+  SnapshotThemeSchema,
+  type SnapshotRequest,
+  type SnapshotTheme,
+} from './snapshot-schema.js';

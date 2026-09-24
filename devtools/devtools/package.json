@@ -50,6 +50,7 @@
   "devDependencies": {
     "kui-toolkit": "workspace:*",
     "@pkishorez/effect-tracer": "workspace:*",
+    "playwright-core": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",
@@ -69,6 +70,14 @@
     "vite": "catalog:",
     "vitest": "catalog:",
     "zustand": "catalog:"
+  },
+  "peerDependencies": {
+    "playwright-core": "1.63.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright-core": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

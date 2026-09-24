@@ -44,6 +44,7 @@ import { cn } from '#lib/utils';
 
 import {
   buildPresentationModel,
+  changedArchitecture,
   layersReferencedByRules,
   type Layer,
   type LayerCoverageViolation,
@@ -267,7 +268,7 @@ export function LayersModulesExperience({
   layerViolationPairs = [],
   layerCoverageViolations = [],
   modules: allModules,
-  moduleGraphs = [],
+  moduleGraphs: allModuleGraphs = [],
   dependencies,
   moduleViolations = [],
   gitOptions = defaultGitOptions,
@@ -285,36 +286,23 @@ export function LayersModulesExperience({
 }: LayersModulesProps) {
   const [activeGraphId, setActiveGraphId] = useState(allGraphsId);
   const [showModules, setShowModules] = useState(true);
-  // A change set touching no analyzed file would otherwise empty the whole view.
   const hasChangedModules = allModules.some(
     ({ changeStatus }) => changeStatus !== undefined,
   );
-  const changesOnly =
-    changes !== undefined && !gitOptions.includeUnchanged && hasChangedModules;
-  const modules = changesOnly
-    ? allModules.filter(({ changeStatus }) => changeStatus !== undefined)
-    : allModules;
-  const changedLayerIds = new Set(modules.map(({ layerId }) => layerId));
-  const visibleModuleGraphs = moduleGraphs.filter(({ memberIds }) =>
-    memberIds.some((id) => modules.some((module) => module.id === id)),
-  );
-  const layers = changesOnly
-    ? allLayers.filter(
-        ({ id, changeStatus }) =>
-          changedLayerIds.has(id) || changeStatus !== undefined,
-      )
-    : allLayers;
-  const visibleLayerIdSet = new Set(layers.map(({ id }) => id));
-  // A LayerGraph whose Layers are all unchanged has nothing to show.
-  const layerGraphs = changesOnly
-    ? allLayerGraphs.filter(({ rules: graphRules }) =>
-        graphRules.some(
-          ({ fromLayerId, toLayerIds }) =>
-            visibleLayerIdSet.has(fromLayerId) ||
-            toLayerIds.some((id) => visibleLayerIdSet.has(id)),
-        ),
-      )
-    : allLayerGraphs;
+  // A change set touching no analyzed file would otherwise empty the whole view.
+  const changed =
+    changes !== undefined && !gitOptions.includeUnchanged
+      ? changedArchitecture({
+          layers: allLayers,
+          layerGraphs: allLayerGraphs,
+          modules: allModules,
+          moduleGraphs: allModuleGraphs,
+        })
+      : undefined;
+  const modules = changed?.modules ?? allModules;
+  const visibleModuleGraphs = changed?.moduleGraphs ?? allModuleGraphs;
+  const layers = changed?.layers ?? allLayers;
+  const layerGraphs = changed?.layerGraphs ?? allLayerGraphs;
   const [showLayerConnections, setShowLayerConnections] = useState(true);
   const [showModuleConnections, setShowModuleConnections] = useState(false);
   const [isolateGraph, setIsolateGraph] = useState(false);
@@ -466,7 +454,7 @@ export function LayersModulesExperience({
     }
   };
   const openModuleGraphSource = (graphId: string) => {
-    const graph = moduleGraphs.find(({ id }) => id === graphId);
+    const graph = allModuleGraphs.find(({ id }) => id === graphId);
     if (graph !== undefined) {
       setMobileInspectorOpen(false);
       setSourceRequest({

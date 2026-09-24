@@ -99,6 +99,7 @@ Views over a Laymos `ArchitectureAnalysis`. `Laymos` composes the rest.
 | `ModuleTree`           | Lists modules grouped by layer with highlight and activation callbacks.                    |
 | `ModuleViolationsList` | Lists module visibility violations and reports which one is active.                        |
 | `ModuleLegend`         | Explains the markers used in the module graph.                                             |
+| `ArchitectureSnapshot` | Draws a still module graph of the changed modules, sized to its content, for a screenshot. |
 
 ### `kui-toolkit/components/blocks/monoverse`
 
