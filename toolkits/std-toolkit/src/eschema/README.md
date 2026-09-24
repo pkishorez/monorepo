@@ -16,18 +16,16 @@ See the [top README](../../README.md).
 
 ### `std-toolkit/eschema`
 
-| Export                 | What it does                                                                                       |
-| ---------------------- | -------------------------------------------------------------------------------------------------- |
-| `ESchema.make`         | Starts a builder for a named object schema; chain `evolve`, optionally `draft`, then `build`.      |
-| `EntityESchema.make`   | Starts a builder for a keyed entity schema with a name and an id field.                            |
-| `ValueESchema.make`    | Starts a builder for a versioned single value.                                                     |
-| `DraftedESchema`       | Class of an object schema whose latest step is a draft; produced by `.draft(...).build()`.         |
-| `DraftedEntityESchema` | Class of a keyed entity schema whose latest step is a draft.                                       |
-| `toSchema`             | Converts an ESchema or ValueESchema into a plain Effect Schema for composing inside other schemas. |
-| `fromType`             | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
-| `id`                   | Marks a `Schema.String` field with an identifier annotation.                                       |
-| `metaSchema`           | Effect Schema for the `_v` stamp alone.                                                            |
-| `ESchemaError`         | Tagged error raised when decode or encode fails.                                                   |
+| Export               | What it does                                                                                       |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `ESchema.make`       | Starts a builder for a named object schema; chain `evolve`, then `build`.                          |
+| `EntityESchema.make` | Starts a builder for a keyed entity schema with a name and an id field.                            |
+| `ValueESchema.make`  | Starts a builder for a versioned single value.                                                     |
+| `toSchema`           | Converts an ESchema or ValueESchema into a plain Effect Schema for composing inside other schemas. |
+| `fromType`           | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
+| `id`                 | Marks a `Schema.String` field with an identifier annotation.                                       |
+| `metaSchema`         | Effect Schema for the `_v` stamp alone.                                                            |
+| `ESchemaError`       | Tagged error raised when decode or encode fails.                                                   |
 
 Every built schema exposes `name`, `latestVersion`, `fields`, `schema`, `decode`, `encode`, `makePartial`, `getDescriptor`, and the Standard Schema `~standard` interface. `EntityESchema` adds `idField`.
 
@@ -74,22 +72,19 @@ const encoded = await Effect.runPromise(Task.encode(decoded));
 
 ### Try a new field before committing to a version
 
-`draft` layers a field on top of the latest version without creating a new version. `forward` fills it on read, `backward` strips it on write. Lifted from story 19.
+There is no trial mechanism: append the next `evolve` step and edit it freely until it is approved by a snapshot. Develop against the Memory adapter, on the server and in the browser alike, so a dropped step leaves no rows behind; a durable database keeps rows stamped with the trial version, and code that no longer has that version cannot read them. Lifted from story 19.
 
 ```ts
 const TaskTryingDueDate = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
 })
-  .draft(
-    { dueDate: Schema.NullOr(Schema.String) },
-    {
-      forward: (v1) => ({ ...v1, dueDate: null }),
-      backward: ({ dueDate: _dueDate, ...v1 }) => v1,
-    },
-  )
+  .evolve('v2', { dueDate: Schema.NullOr(Schema.String) }, (v1) => ({
+    ...v1,
+    dueDate: null,
+  }))
   .build();
 ```
 
-- The result is a `DraftedEntityESchema`; storage never sees `dueDate`.
-- Committing the draft is a source edit: turn `draft` into `evolve('v2', ...)`, keep `forward`, drop `backward`.
+- Dropping the idea is deleting the `evolve('v2', ...)` line.
+- Keeping it is approving the snapshot; from then on v2 is frozen like any shipped version.

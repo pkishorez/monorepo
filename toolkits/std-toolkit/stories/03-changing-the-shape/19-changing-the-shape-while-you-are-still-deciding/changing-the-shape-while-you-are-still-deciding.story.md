@@ -1,0 +1,1 @@
+Someone suggests a due date on every task, but the team is not sure it will stay. Version 4 has shipped and its shape is frozen, so the due date has to go somewhere. This chapter appends the next version, tries it against a board that lives only in memory, and shows why that board, and not a real database, is the place to change your mind.

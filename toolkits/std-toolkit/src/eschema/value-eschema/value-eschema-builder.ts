@@ -6,7 +6,6 @@ import type {
   ValueSchemaDecoded,
 } from '../domain/schema-model/index.js';
 import type { ValueESchema } from './value-eschema.js';
-import { DraftedValueESchemaBuilder } from './drafted-value-eschema-builder.js';
 
 export class ValueESchemaBuilder<
   TVersion extends string,
@@ -32,29 +31,6 @@ export class ValueESchemaBuilder<
       [...this.evolutions, { version, schema, migration }],
       version,
       this.finish,
-    );
-  }
-
-  draft<S extends ValueSchema>(
-    schema: S & ForbidUndefinedValue<S>,
-    migrations: {
-      readonly forward: (
-        previous: ValueSchemaDecoded<TLatest>,
-      ) => ValueSchemaDecoded<S>;
-      readonly backward: (
-        draft: ValueSchemaDecoded<S>,
-      ) => ValueSchemaDecoded<TLatest>;
-    },
-  ): DraftedValueESchemaBuilder<TVersion, TLatest, S> {
-    return new DraftedValueESchemaBuilder<TVersion, TLatest, S>(
-      this.name,
-      this.evolutions,
-      this.version,
-      {
-        schema,
-        forward: migrations.forward,
-        backward: migrations.backward,
-      },
     );
   }
 
