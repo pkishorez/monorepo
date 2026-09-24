@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const args = process.argv.slice(2);
-const serverArgs = args.length > 0 ? args : ['devtools'];
+const serverArgs = process.argv.slice(2);
 
 const server = spawn(
   'pnpm',
