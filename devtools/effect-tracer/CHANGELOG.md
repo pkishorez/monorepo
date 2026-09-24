@@ -1,5 +1,14 @@
 # @pkishorez/effect-tracer
 
+## 0.0.10
+
+### Patch Changes
+
+- [`2503956`](https://github.com/pkishorez/monorepo/commit/2503956177145ac7d3766e6742cfa648a83ddc21) Thanks [@pkishorez](https://github.com/pkishorez)! - Breaking:
+
+  - Removes `./flow` and `TraceRecorder.snapshotFlow` / `snapshotFlows`; use `@pkishorez/flow` Journals, Telemetry, and Projections instead.
+  - Requires `effect@4.0.0-rc.112` instead of `4.0.0-rc.110`.
+
 ## 0.0.9
 
 ## 0.0.8
