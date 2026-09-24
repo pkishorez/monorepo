@@ -210,7 +210,8 @@ How it works:
   captured at `--scale` device pixels per CSS pixel (2).
 - `--only-changed` writes nothing when no Module changed; otherwise a Project
   with no changed Module is drawn in full. `--include-unchanged` always draws
-  every Module. `--theme dark` matches the DevTools dark theme.
+  every Module. The drawing is dark like DevTools; `--theme light` or
+  `DEVTOOLS_THEME=light` draws it light.
 - Chromium comes from Playwright's own install when present, else the system
   Chrome, Chromium, or Edge; `--browser` or `DEVTOOLS_BROWSER` names an
   executable directly. GitHub's Ubuntu runners ship Chrome, so the workflow

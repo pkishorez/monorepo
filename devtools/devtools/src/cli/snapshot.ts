@@ -62,8 +62,9 @@ const scale = Flag.integer('scale').pipe(
   Flag.withDefault(2),
 );
 const theme = Flag.choice('theme', ['light', 'dark']).pipe(
-  Flag.withDescription('Color theme of the drawing'),
-  Flag.withDefault('light' as const),
+  Flag.withDescription('Color theme of the drawing: dark, or light'),
+  Flag.withFallbackConfig(Config.literals(['light', 'dark'], 'DEVTOOLS_THEME')),
+  Flag.withDefault('dark' as const),
 );
 const browser = Flag.string('browser').pipe(
   Flag.withDescription(
