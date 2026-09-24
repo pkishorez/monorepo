@@ -35,6 +35,12 @@ the full Exports table and links it.
 
 Private apps skip Install and Exports; their Usage says how to run them.
 
+## GitHub actions
+
+Packages under `actions/` are GitHub actions. Install is the `uses:` line and
+the `permissions:` the action needs; Exports has an `Inputs` and an `Outputs`
+table instead of subpaths.
+
 ## What does not fit
 
 Warnings and runbooks that do not fit move to `docs/*.md` inside the Package

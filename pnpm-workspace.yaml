@@ -1,4 +1,5 @@
 packages:
+  - actions/*
   - apps/*
   - devtools/*
   - packages/*
