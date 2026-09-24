@@ -23,6 +23,11 @@ export const architectureTreeBoundary =
 const architectureTreeBoundaryIconBase =
   'grid size-5 shrink-0 place-items-center text-muted-foreground';
 
+// Every row's icon sits in the same box, so rows at one depth line up whether
+// they are plain folders, Layers or Modules.
+export const architectureTreeBranchIcon =
+  'grid size-5 shrink-0 place-items-center';
+
 export const architectureTreeGuide = 'absolute inset-y-0 w-px bg-border/70';
 
 export function architectureTreeSelectedStyle(): CSSProperties {
@@ -32,12 +37,17 @@ export function architectureTreeSelectedStyle(): CSSProperties {
   };
 }
 
+const INDENT_STEP_REM = 1;
+const ROW_START_REM = 0.25;
+// Half the icon box, so a guide drops from the middle of its parent's icon.
+const ICON_CENTER_REM = 0.625;
+
 export function architectureTreeIndent(depth: number): string {
-  return `${depth * 0.8 + 0.25}rem`;
+  return `${depth * INDENT_STEP_REM + ROW_START_REM}rem`;
 }
 
 export function architectureTreeGuideIndent(depth: number): string {
-  return `${depth * 0.8 + 0.68}rem`;
+  return `${depth * INDENT_STEP_REM + ROW_START_REM + ICON_CENTER_REM}rem`;
 }
 
 export function layerIdsByBoundaryPath(
