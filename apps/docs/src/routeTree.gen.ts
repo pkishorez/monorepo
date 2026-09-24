@@ -17,7 +17,7 @@ import { Route as ApiSourceRouteImport } from './routes/api/source'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as DemosIndexRouteImport } from './routes/demos/index'
-import { Route as DemosAiToolkitRouteImport } from './routes/demos/ai-toolkit'
+import { Route as DemosKaiToolkitRouteImport } from './routes/demos/kai-toolkit'
 import { Route as DemosDurableWebrtcRouteImport } from './routes/demos/durable-webrtc'
 import { Route as DemosEffectWebrtcRouteImport } from './routes/demos/effect-webrtc'
 import { Route as DemosWebrtcRouteImport } from './routes/demos/webrtc'
@@ -63,9 +63,9 @@ const DemosIndexRoute = DemosIndexRouteImport.update({
   path: '/demos/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DemosAiToolkitRoute = DemosAiToolkitRouteImport.update({
-  id: '/demos/ai-toolkit',
-  path: '/demos/ai-toolkit',
+const DemosKaiToolkitRoute = DemosKaiToolkitRouteImport.update({
+  id: '/demos/kai-toolkit',
+  path: '/demos/kai-toolkit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemosDurableWebrtcRoute = DemosDurableWebrtcRouteImport.update({
@@ -96,7 +96,7 @@ export interface FileRoutesByFullPath {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
+  '/demos/kai-toolkit': typeof DemosKaiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/demos/webrtc': typeof DemosWebrtcRoute
@@ -111,7 +111,7 @@ export interface FileRoutesByTo {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
+  '/demos/kai-toolkit': typeof DemosKaiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/demos/webrtc': typeof DemosWebrtcRoute
@@ -127,7 +127,7 @@ export interface FileRoutesById {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
-  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
+  '/demos/kai-toolkit': typeof DemosKaiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
   '/demos/webrtc': typeof DemosWebrtcRoute
@@ -144,7 +144,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
-    | '/demos/ai-toolkit'
+    | '/demos/kai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/demos/webrtc'
@@ -159,7 +159,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
-    | '/demos/ai-toolkit'
+    | '/demos/kai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/demos/webrtc'
@@ -174,7 +174,7 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
-    | '/demos/ai-toolkit'
+    | '/demos/kai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
     | '/demos/webrtc'
@@ -190,7 +190,7 @@ export interface RootRouteChildren {
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSourceRoute: typeof ApiSourceRoute
   BlogSlugRoute: typeof BlogSlugRoute
-  DemosAiToolkitRoute: typeof DemosAiToolkitRoute
+  DemosKaiToolkitRoute: typeof DemosKaiToolkitRoute
   DemosDurableWebrtcRoute: typeof DemosDurableWebrtcRoute
   DemosEffectWebrtcRoute: typeof DemosEffectWebrtcRoute
   DemosWebrtcRoute: typeof DemosWebrtcRoute
@@ -257,11 +257,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/demos/ai-toolkit': {
-      id: '/demos/ai-toolkit'
-      path: '/demos/ai-toolkit'
-      fullPath: '/demos/ai-toolkit'
-      preLoaderRoute: typeof DemosAiToolkitRouteImport
+    '/demos/kai-toolkit': {
+      id: '/demos/kai-toolkit'
+      path: '/demos/kai-toolkit'
+      fullPath: '/demos/kai-toolkit'
+      preLoaderRoute: typeof DemosKaiToolkitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos/durable-webrtc': {
@@ -302,7 +302,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchRoute: ApiSearchRoute,
   ApiSourceRoute: ApiSourceRoute,
   BlogSlugRoute: BlogSlugRoute,
-  DemosAiToolkitRoute: DemosAiToolkitRoute,
+  DemosKaiToolkitRoute: DemosKaiToolkitRoute,
   DemosDurableWebrtcRoute: DemosDurableWebrtcRoute,
   DemosEffectWebrtcRoute: DemosEffectWebrtcRoute,
   DemosWebrtcRoute: DemosWebrtcRoute,

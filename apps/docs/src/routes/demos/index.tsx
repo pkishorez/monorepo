@@ -6,11 +6,11 @@ import { HomeHeader } from '@/components/home-header';
 
 const demos = [
   {
-    name: 'ai-toolkit',
-    title: 'AI Toolkit',
+    name: 'kai-toolkit',
+    title: 'KKAI Toolkit',
     description:
       'Run Claude and Codex, answer tool requests, and inspect the typed messages synced back from the playground server.',
-    to: '/demos/ai-toolkit',
+    to: '/demos/kai-toolkit',
   },
   {
     name: 'webrtc',
