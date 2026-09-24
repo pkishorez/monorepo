@@ -2,11 +2,11 @@
 
 **Status:** accepted
 
-Coding agents reach Lotel telemetry through subcommands of the same `kstack`
-binary whose `devtools` subcommand runs the server. A Client Command connects to a running DevTools
+Coding agents reach Lotel telemetry through subcommands of the same `devtools`
+binary that runs the server. A Client Command connects to a running DevTools
 Server over the existing Effect RPC contract and prints JSON or text. A shipped
-skill, printed or installed by `kstack skills devtools`, teaches agents the workflow. DevTools does
-not expose an MCP server, and Client Commands never open the Telemetry Store
+skill, printed or installed by `devtools skills devtools`, teaches agents the
+workflow. DevTools does not expose an MCP server, and Client Commands never open the Telemetry Store
 directly.
 
 The primary consumer is a coding agent with a shell: it runs the instrumented

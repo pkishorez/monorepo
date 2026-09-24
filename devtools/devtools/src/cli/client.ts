@@ -70,7 +70,7 @@ export const formatClientError = (error: KnownError, baseUrl: string) => {
       return error.message;
     case 'RpcClientError':
       return error.reason._tag === 'HttpError'
-        ? `Could not reach a DevTools Server at ${baseUrl} (${error.reason.kind}). Start one with \`kstack devtools\` or pass --url.`
+        ? `Could not reach a DevTools Server at ${baseUrl} (${error.reason.kind}). Start one with \`devtools\` or pass --url.`
         : `RPC request failed: ${error.reason.message}`;
   }
 };

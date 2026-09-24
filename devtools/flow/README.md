@@ -13,7 +13,7 @@ knows the id writes to the same Journal. Nothing is declared up front.
 Entries go to the runtime's Flow Telemetry. Without one they are dropped.
 `FlowTelemetry.layerMemory` keeps them for tests and Stories;
 `FlowTelemetry.layer` batches them to a Flow Store over RPC. The
-[kstack](../devtools/README.md) DevTools Server hosts that store and renders
+[@pkishorez/devtools](../devtools/README.md) DevTools Server hosts that store and renders
 each Journal as swim lanes. `projectJournal` is the one read model a renderer
 consumes. Entries recorded inside a span carry the span's ids, which is how
 the Flow view links into [@pkishorez/lotel](../lotel/README.md) traces.
@@ -177,7 +177,7 @@ How it works:
 ### Send Flows to DevTools
 
 Provide `FlowTelemetry.layer` at the runtime root and every Flow in that
-runtime lands in the kstack Flow Store.
+runtime lands in the DevTools Flow Store.
 
 ```ts
 import { Layer, ManagedRuntime } from 'effect';

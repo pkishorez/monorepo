@@ -64,4 +64,4 @@ own.
 it after upgrading so the installed skills match the CLI.
 
 The same command builder is exported as `laymos/skills-command` and powers
-`kstack skills`.
+`devtools skills`.

@@ -16,7 +16,7 @@ that prove a behavior and keep their proof next to the prose. `laymos stories`
 runs them and reports a verdict per Story.
 
 The library entry does everything the CLI does, so other tools can host it.
-[kstack](../devtools/README.md) serves Architecture Analyses, change sets, and
+[@pkishorez/devtools](../devtools/README.md) serves Architecture Analyses, change sets, and
 Story reports over RPC to its browser UI using the browser-safe schema
 subpaths. Stories capture traces with
 [@pkishorez/effect-tracer](../effect-tracer/README.md) and Flows with
@@ -174,7 +174,7 @@ Details and exit codes are in [docs/cli.md](./docs/cli.md).
 ### Analyze a project from Node
 
 Read a config and get the full Architecture Analysis as one value. This is
-what the CLI and the kstack server both do first.
+what the CLI and the DevTools server both do first.
 
 ```ts
 import { Effect, Schema } from 'effect';
@@ -276,7 +276,7 @@ await Effect.runPromise(program);
 
 How it works:
 
-- `getStoryTree` loads the tree without running proofs; the kstack UI uses it
+- `getStoryTree` loads the tree without running proofs; the DevTools UI uses it
   to render the outline.
 - `planStories` returns the count up front and a `Stream` of `StoryReport`
   so a UI can show progress.

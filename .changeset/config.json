@@ -15,7 +15,7 @@
       "std-toolkit",
       "@pkishorez/lotel",
       "laymos",
-      "kstack"
+      "@pkishorez/devtools"
     ]
   ],
   "linked": [],

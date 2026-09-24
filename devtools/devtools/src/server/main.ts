@@ -54,7 +54,7 @@ const open = Flag.boolean('open').pipe(
   Flag.withDefault(false),
 );
 
-const devtoolsCommand = Command.make(
+const command = Command.make(
   'devtools',
   { port, db, open },
   Effect.fn(function* ({ port, db, open }) {
@@ -81,14 +81,7 @@ const devtoolsCommand = Command.make(
   Command.withDescription(
     'Run the DevTools Server: UI, RPC, and OTLP ingestion on loopback',
   ),
-);
-
-const command = Command.make('kstack').pipe(
-  Command.withDescription(
-    'kstack: the local DevTools Server and its telemetry Client Commands',
-  ),
   Command.withSubcommands([
-    devtoolsCommand,
     listTracesCommand,
     getTraceCommand,
     listFlowsCommand,
