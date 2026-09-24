@@ -105,10 +105,12 @@ jobs:
         run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes
 
       - name: Mark PR as having a preview
-        if: startsWith(env.STAGE, 'pr')
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api -X POST "repos/${{ github.repository }}/issues/${STAGE#pr}/labels" -f 'labels[]=preview:docs' --silent
+        run: |
+          case "$STAGE" in
+            pr[0-9]*) gh api -X POST "repos/${{ github.repository }}/issues/${STAGE#pr}/labels" -f 'labels[]=preview:docs' --silent ;;
+          esac
 
       - name: State tree
         if: always()
