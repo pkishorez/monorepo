@@ -16,7 +16,6 @@ const server = spawn(
   process.execPath,
   [
     'dist/server/main.mjs',
-    'devtools',
     '--port',
     String(port),
     '--db',
@@ -148,7 +147,7 @@ async function runClient(args: string[]): Promise<string> {
     child.once('exit', (code) =>
       code === 0
         ? resolve(output)
-        : reject(new Error(`kstack ${args.join(' ')} exited with ${code}`)),
+        : reject(new Error(`devtools ${args.join(' ')} exited with ${code}`)),
     );
   });
 }

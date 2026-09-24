@@ -47,7 +47,7 @@
       "dependencies": [
         "ai-toolkit",
         "auth-toolkit",
-        "kstack",
+        "@pkishorez/devtools",
         "@pkishorez/effect-tracer",
         "effect-webrtc",
         "@pkishorez/flow",
@@ -112,7 +112,7 @@
       "dependencies": [
         "ai-toolkit",
         "auth-toolkit",
-        "kstack",
+        "@pkishorez/devtools",
         "@pkishorez/effect-tracer",
         "effect-webrtc",
         "@pkishorez/flow",
