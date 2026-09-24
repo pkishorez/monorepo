@@ -31,6 +31,7 @@
     "build": "vp pack && vp build",
     "build:watch": "vp pack --watch",
     "dev": "tsx scripts/dev.mts",
+    "snapshot:dev": "tsx scripts/snapshot.mts",
     "flow:demo": "tsx scripts/test.ts",
     "lint": "vp check && tsc --noEmit && tsc -p tsconfig.ui.json --noEmit && laymos lint",
     "test": "vitest run && tsx scripts/package-smoke.mts"

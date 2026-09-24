@@ -10,8 +10,8 @@ architecture lives in a `laymos.config.json`. DevTools gives all of that one
 place. `devtools` starts a loopback server that bundles the browser UI, a
 typed RPC endpoint, and OTLP/HTTP ingestion. `devtools snapshot` draws a
 Project's changed Modules to a PNG in a headless browser without any server,
-which is how a pull request gets its architecture picture. Every other
-subcommand is a Client Command that reads Traces and Flows back from a running server as JSON
+so a review or a CI job can show what a change did to the architecture. Every
+other subcommand is a Client Command that reads Traces and Flows back from a running server as JSON
 or text, so a shell or a coding agent can query telemetry without a browser.
 
 The server hosts four Tools. Lotel stores and shows OpenTelemetry data using
@@ -172,13 +172,11 @@ How it works:
   with a nonzero exit.
 - Laymos is not covered by Client Commands; use the `laymos` CLI.
 
-### Put the changed architecture in a pull request
+### Draw the changed architecture to a PNG
 
 `devtools snapshot` analyzes one Project, marks what changed since a Base ref,
 and draws only the changed Modules and their Layers. It opens the bundled
 Snapshot page from disk in headless Chromium, so nothing listens on a port.
-The `pr:architecture` workflow in this repository runs it for every Project a
-pull request touches and puts the pictures in the description.
 
 ```sh
 # The branch is checked out; compare it with main.
@@ -194,17 +192,13 @@ devtools snapshot --project toolkits/kui-toolkit --base origin/main \
 #   "scale": 2,
 #   "drawn": "changed"
 # }
-
-# Then, with a user token, gh 2.99 or later uploads the picture and rewrites
-# the reference in the body to the hosted URL.
-gh pr edit 42 --body-file body.md --attach .snapshots/kui-toolkit.png
 ```
 
 How it works:
 
-- `analyzeProject` and `loadChangeSet` from laymos run in-process; the Change
-  set is the merge-base of `--base` against the working tree, so check out
-  the branch itself and fetch the base.
+- `analyzeProject` and `loadChangeSet` from laymos run in-process. Only
+  commits since the merge-base of `--base` (default `main`) and `HEAD` are
+  marked; uncommitted work is left out, so fetch the base first.
 - The page measures the drawing once, then redraws it at the size the content
   needs, capped at `--max-width` by `--max-height` (1600 CSS pixels each) and
   captured at `--scale` device pixels per CSS pixel (2).
@@ -214,7 +208,5 @@ How it works:
   `DEVTOOLS_THEME=light` draws it light.
 - Chromium comes from Playwright's own install when present, else the system
   Chrome, Chromium, or Edge; `--browser` or `DEVTOOLS_BROWSER` names an
-  executable directly. GitHub's Ubuntu runners ship Chrome, so the workflow
-  installs nothing.
-- GitHub refuses image uploads from the workflow's `GITHUB_TOKEN`; the
-  description edit needs a personal access token with write access.
+  executable directly. GitHub's Ubuntu runners ship Chrome, so CI installs
+  nothing.

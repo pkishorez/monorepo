@@ -96,6 +96,9 @@ async function render(options: RenderSnapshotOptions) {
     const page = await context.newPage();
     const pageErrors: string[] = [];
     page.on('pageerror', (error) => pageErrors.push(error.message));
+    page.on('console', (message) => {
+      if (message.type() === 'error') pageErrors.push(message.text());
+    });
     await page.route(`${ORIGIN}/**`, async (route) => {
       const pathname = new URL(route.request().url()).pathname;
       const file = join(
@@ -110,6 +113,7 @@ async function render(options: RenderSnapshotOptions) {
             contentTypes[extname(file)] ?? 'application/octet-stream',
         });
       } catch {
+        pageErrors.push(`Missing file: ${file}`);
         await route.fulfill({ status: 404, body: `Not found: ${pathname}` });
       }
     });

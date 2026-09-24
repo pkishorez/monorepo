@@ -37,6 +37,5 @@ DevTools, and every visual change to the Module graph reaches both.
 - The picture's size is decided in the page from the drawn content and capped
   by the command's flags; the command reads the settled element's size and
   captures that element alone.
-- Image uploads need a user token: GitHub's attachment endpoint refuses the
-  workflow's own `GITHUB_TOKEN`, so the `pr:architecture` workflow expects a
-  `PR_ATTACH_TOKEN` secret and keeps the pictures as an artifact without it.
+- Putting the picture in a pull request is left to the caller; the command
+  only writes the PNG.

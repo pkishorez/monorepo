@@ -22,9 +22,9 @@ const project = Flag.directory('project', { mustExist: true }).pipe(
 );
 const base = Flag.string('base').pipe(
   Flag.withDescription(
-    'Base ref to mark changes against, such as origin/main; HEAD marks uncommitted work',
+    'Base ref to mark committed changes against, such as origin/main',
   ),
-  Flag.withDefault('HEAD'),
+  Flag.withDefault('main'),
 );
 const out = Flag.file('out').pipe(
   Flag.withAlias('o'),
@@ -104,7 +104,7 @@ export const snapshotCommand = Command.make(
     const projectDir = resolve(flags.project);
     const configPath = join(projectDir, 'laymos.config.json');
     const analysis = yield* analyzeProject(configPath);
-    const changes = yield* loadChangeSet(configPath, flags.base);
+    const changes = committedOnly(yield* loadChangeSet(projectDir, flags.base));
     const changedModules = countChangedModules(analysis, changes);
     const summary = {
       baseRef: changes.baseRef,
@@ -213,4 +213,10 @@ function countChangedModules(
     if (owner !== undefined) touched.add(owner);
   }
   return touched.size;
+}
+
+// A Snapshot shows what the branch's commits changed; work not yet committed
+// is left unmarked.
+function committedOnly(changes: ChangeSet): ChangeSet {
+  return { ...changes, files: changes.files.filter((file) => file.committed) };
 }
