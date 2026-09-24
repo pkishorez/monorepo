@@ -16,6 +16,17 @@ const state = vi.hoisted(() => ({
   available: false,
   calls: 0,
   realBlock: false,
+  changes: undefined as
+    | undefined
+    | {
+        baseRef: string;
+        files: {
+          path: string;
+          status: 'added' | 'modified';
+          committed: boolean;
+          uncommitted: boolean;
+        }[];
+      },
 }));
 
 // The route keeps every selection in the URL, so the router mock is a tiny
@@ -45,7 +56,7 @@ const analysis: MonorepoAnalysis = {
       path: 'packages/core',
       group: 'packages',
       private: false,
-      hasLaymos: false,
+      hasLaymos: true,
       dependencies: [],
     },
     {
@@ -84,6 +95,12 @@ vi.mock('../../../client/devtools-rpc/index.js', () => {
       { path: string; markdown: string },
       { _tag: string; message?: string }
     >;
+    GetPackageFiles: (input: {
+      monorepoRoot: string;
+      packagePath: string;
+    }) => Effect.Effect<{
+      files: { path: string; content: string; binary?: boolean }[];
+    }>;
   }>('test/DevtoolsClient');
   const context = Context.make(DevtoolsClient, {
     AnalyzeMonorepo: () => {
@@ -98,12 +115,36 @@ vi.mock('../../../client/devtools-rpc/index.js', () => {
         ? Effect.fail({ _tag: 'PackageReadmeNotFoundError' })
         : Effect.succeed({ path: relativePath, markdown });
     },
+    GetPackageFiles: ({ packagePath }) =>
+      Effect.succeed({
+        files: [
+          {
+            path: `${packagePath}/src/index.ts`,
+            content: 'export const core = 1;\n',
+          },
+          { path: `${packagePath}/logo.png`, content: '', binary: true },
+        ],
+      }),
   });
   return {
     DevtoolsClient,
     useDevtoolsRuntime: () => ({ contextEffect: Effect.succeed(context) }),
   };
 });
+vi.mock('../../git-changes/index.js', () => ({
+  useGitChanges: () => ({
+    baseRef: 'HEAD',
+    setBaseRef: () => {},
+    changes: state.changes,
+    branches: [],
+    knownFiles: [
+      'packages/core/src/index.ts',
+      'packages/core/logo.png',
+      'packages/bare/package.json',
+    ],
+    loadFileDiff: () => Effect.never,
+  }),
+}));
 vi.mock('../../project-selection/index.js', () => ({
   useReload: () => ({ nonce: state.nonce }),
   useWorktrees: () => ({
@@ -251,6 +292,7 @@ test('right-click opens the Package README and relative links stack dialogs', as
   expect(
     document.querySelector('[data-slot="dialog-content"] h1')?.textContent,
   ).toBe('Core');
+  expect(tab('documentation')?.getAttribute('aria-selected')).toBe('true');
 
   await act(async () => {
     document
@@ -277,17 +319,94 @@ test('right-click opens the Package README and relative links stack dialogs', as
   expect(document.body.textContent).not.toContain('Nested notes');
 });
 
-test('a Package without README shows the empty state', async () => {
+test('a Package without README opens on its files', async () => {
+  state.realBlock = true;
+  state.available = true;
+  state.changes = undefined;
+  router.set({ monorepo: '/repo' });
+  await act(async () => root.render(<Monoverse />));
+
+  await rightClick('bare');
+  await waitFor(() => tab('files')?.getAttribute('aria-selected') === 'true');
+  expect(dialogs()).toHaveLength(1);
+  expect(tab('documentation')?.hasAttribute('data-disabled')).toBe(true);
+});
+
+test('changed Packages are marked and their changed files open first', async () => {
+  state.realBlock = true;
+  state.available = true;
+  state.changes = {
+    baseRef: 'HEAD',
+    files: [
+      {
+        path: 'packages/core/src/index.ts',
+        status: 'modified',
+        committed: false,
+        uncommitted: true,
+      },
+    ],
+  };
+  router.set({ monorepo: '/repo' });
+  await act(async () => root.render(<Monoverse />));
+
+  await waitFor(
+    () =>
+      document.querySelector('[data-id="core"] [title="Modified"]') !== null,
+  );
+  expect(document.querySelector('[data-id="bare"] [title="Modified"]')).toBe(
+    null,
+  );
+
+  await rightClick('core');
+  await act(async () => tab('files')!.click());
+  await waitFor(() => document.body.textContent?.includes('logo.png') ?? false);
+  expect(document.body.textContent).toContain('Loading diff…');
+  state.changes = undefined;
+});
+
+test('Open in Laymos hides the dialog and closing Laymos restores it as left', async () => {
+  state.realBlock = true;
+  state.available = true;
+  state.changes = undefined;
+  router.set({ monorepo: '/repo' });
+  await act(async () => root.render(<Monoverse />));
+
+  await rightClick('core');
+  await waitFor(() => tab('files') !== undefined);
+  await act(async () => tab('files')!.click());
+  await waitFor(() => tab('files')?.getAttribute('aria-selected') === 'true');
+
+  await act(async () => button('Open in Laymos')!.click());
+  expect(router.get()).toMatchObject({
+    laymos: 'core',
+    readme: ['README.md'],
+  });
+  await waitFor(() => dialogs().length === 0);
+
+  await act(async () => router.set({ ...router.get(), laymos: undefined }));
+  await waitFor(() => dialogs().length === 1);
+  expect(tab('files')?.getAttribute('aria-selected')).toBe('true');
+});
+
+test('Open in Laymos is not offered without a Laymos badge', async () => {
   state.realBlock = true;
   state.available = true;
   router.set({ monorepo: '/repo' });
   await act(async () => root.render(<Monoverse />));
 
   await rightClick('bare');
-  await waitFor(
-    () =>
-      document.body.textContent?.includes('This Package has no README') ??
-      false,
-  );
-  expect(dialogs()).toHaveLength(1);
+  await waitFor(() => tab('files') !== undefined);
+  expect(button('Open in Laymos')).toBeUndefined();
 });
+
+function button(label: string) {
+  return [...document.querySelectorAll<HTMLButtonElement>('button')].find(
+    (element) => element.textContent?.trim() === label,
+  );
+}
+
+function tab(name: 'documentation' | 'files') {
+  return [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find(
+    (element) => element.textContent?.toLowerCase() === name,
+  );
+}

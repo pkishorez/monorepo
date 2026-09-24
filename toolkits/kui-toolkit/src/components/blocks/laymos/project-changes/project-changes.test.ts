@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { ArchitectureAnalysis, ChangeSet } from 'laymos';
 
-import { changedPathsUnder, indexChanges } from './project-changes';
+import { indexChanges } from './project-changes';
 
 function analysis(
   moduleMembership: readonly (readonly [string, string])[],
@@ -102,22 +102,5 @@ describe('indexChanges', () => {
 
     expect(actual.modules.size).toBe(0);
     expect(actual.files.get('README.md')).toBe('modified');
-  });
-});
-
-describe('changedPathsUnder', () => {
-  test('selects the changed paths a Module owns', () => {
-    const index = indexChanges(
-      analysis(membership, layers),
-      changeSet([
-        ['src/a/one.ts', 'modified'],
-        ['src/ab/other.ts', 'added'],
-        ['src/b/one.ts', 'added'],
-      ]),
-    );
-
-    expect([...changedPathsUnder(index, 'src/a')]).toEqual([
-      ['src/a/one.ts', 'modified'],
-    ]);
   });
 });

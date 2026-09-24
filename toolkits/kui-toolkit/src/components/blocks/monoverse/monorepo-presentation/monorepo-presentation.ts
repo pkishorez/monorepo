@@ -1,3 +1,6 @@
+import type { ChangeStatus } from 'laymos';
+
+import { rollUpChanges } from '../../git-changes';
 import type {
   DependencyKind,
   MonorepoAnalysis,
@@ -243,37 +246,52 @@ export function edgeEmphasis(focus: PackageFocus, id: string): PackageEmphasis {
 }
 
 export interface PackageDecoration {
-  readonly group: string;
-  readonly groupHue: number;
   readonly hasLaymos: boolean;
   readonly inCycle: boolean;
-}
-
-// A Package group is a filing convention, so its colour only needs to be
-// stable and distinct: a hash of the name onto the hue wheel.
-export function groupHue(group: string): number {
-  let hash = 0;
-  for (const char of group) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return hash % 360;
+  // The Package change status; absent while unchanged or changes are hidden.
+  readonly changeStatus?: ChangeStatus;
 }
 
 export function decoratePackages(
   analysis: MonorepoAnalysis,
+  changeStatuses: ReadonlyMap<string, ChangeStatus> = new Map(),
 ): ReadonlyMap<string, PackageDecoration> {
   const inCycle = new Set(
     analysis.violations.flatMap(({ packages }) => packages),
   );
   return new Map(
-    analysis.packages.map((pkg) => [
-      pkg.name,
-      {
-        group: pkg.group,
-        groupHue: groupHue(pkg.group),
-        hasLaymos: pkg.hasLaymos,
-        inCycle: inCycle.has(pkg.name),
-      },
-    ]),
+    analysis.packages.map((pkg) => {
+      const changeStatus = changeStatuses.get(pkg.name);
+      return [
+        pkg.name,
+        {
+          hasLaymos: pkg.hasLaymos,
+          inCycle: inCycle.has(pkg.name),
+          ...(changeStatus === undefined ? {} : { changeStatus }),
+        },
+      ];
+    }),
   );
+}
+
+/**
+ * Each Package's standing in a Change set, by the Laymos Module rule: added
+ * when every file git knows beneath it is added, modified when any is added or
+ * modified. A file belongs to the deepest Package folder holding it; files
+ * outside every Package belong to none.
+ */
+export function packageChangeStatuses(
+  packages: readonly Package[],
+  changedFiles: ReadonlyMap<string, ChangeStatus>,
+  knownFiles: readonly string[],
+): ReadonlyMap<string, ChangeStatus> {
+  const folders = [...packages].sort((a, b) => b.path.length - a.path.length);
+  const membership = new Map<string, string>();
+  for (const file of knownFiles) {
+    const owner = folders.find(({ path }) => file.startsWith(`${path}/`));
+    if (owner !== undefined) membership.set(file, owner.name);
+  }
+  return rollUpChanges(membership, changedFiles);
 }
 
 export interface PackageGroupListing {
@@ -341,19 +359,36 @@ export function packageCycles(
 }
 
 export interface MonorepoView {
+  // The Packages drawn: every Package, or only the changed ones when
+  // unchanged Packages are hidden.
+  readonly packages: readonly Package[];
   readonly edges: readonly PackageEdge[];
   readonly rankStack: PackageRankStack;
   readonly decorations: ReadonlyMap<string, PackageDecoration>;
 }
 
+export interface MonorepoChanges {
+  readonly statuses: ReadonlyMap<string, ChangeStatus>;
+  readonly includeUnchanged: boolean;
+}
+
+// Hiding unchanged Packages drops them and their edges before ranking, so the
+// Package rank stack closes around what is left.
 export function buildMonorepoView(
   analysis: MonorepoAnalysis,
   activeKinds: ReadonlySet<DependencyKind>,
+  changes?: MonorepoChanges,
 ): MonorepoView {
-  const edges = visibleEdges(analysis, activeKinds);
+  const packages =
+    changes === undefined || changes.includeUnchanged
+      ? analysis.packages
+      : analysis.packages.filter(({ name }) => changes.statuses.has(name));
+  const shown = { ...analysis, packages };
+  const edges = visibleEdges(shown, activeKinds);
   return {
+    packages,
     edges,
-    rankStack: rankPackages(analysis.packages, edges),
-    decorations: decoratePackages(analysis),
+    rankStack: rankPackages(packages, edges),
+    decorations: decoratePackages(analysis, changes?.statuses),
   };
 }

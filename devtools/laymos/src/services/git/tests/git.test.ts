@@ -274,3 +274,41 @@ describe('Git file diff context', () => {
     });
   });
 });
+
+describe('Git known files', () => {
+  function knownFiles(baseDir: string) {
+    return Effect.gen(function* () {
+      const service = yield* Git;
+      return yield* service.knownFiles(baseDir);
+    }).pipe(Effect.provide(GitLive), Effect.runPromise);
+  }
+
+  test('lists tracked and untracked files, leaving out ignored and deleted ones', async () => {
+    await withRepo(async ({ dir, write }) => {
+      await write('.gitignore', 'ignored.ts\n');
+      await write('ignored.ts', 'export const ignored = 1;\n');
+      await write('fresh.ts', 'export const fresh = 1;\n');
+      await rm(join(dir, 'gone.ts'));
+
+      const actual = await knownFiles(dir);
+
+      expect(actual).toEqual([
+        '.gitignore',
+        'edited.ts',
+        'fresh.ts',
+        'kept.ts',
+      ]);
+    });
+  });
+
+  test('lists paths relative to a nested folder, never above it', async () => {
+    await withRepo(async ({ dir, write }) => {
+      await mkdir(join(dir, 'pkg'));
+      await write('pkg/inner.ts', 'export const inner = 1;\n');
+
+      const actual = await knownFiles(join(dir, 'pkg'));
+
+      expect(actual).toEqual(['inner.ts']);
+    });
+  });
+});

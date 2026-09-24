@@ -1,6 +1,9 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 
+import { ModuleSourceFileSchema } from 'laymos/architecture-analysis-schema';
+
+import { GitUnavailableError } from './git.js';
 import { MonorepoAnalysisSchema } from './monorepo-schema.js';
 
 export class InvalidMonorepoPathError extends Schema.TaggedError<InvalidMonorepoPathError>(
@@ -62,6 +65,23 @@ export const PackageReadmeSchema = Schema.Struct({
 
 export type PackageReadme = typeof PackageReadmeSchema.Type;
 
+export class PackageFileReadError extends Schema.TaggedError<PackageFileReadError>(
+  'PackageFileReadError',
+)('PackageFileReadError', { path: Schema.String, message: Schema.String }) {}
+
+export const GetPackageFilesError = Schema.Union([
+  GitUnavailableError,
+  PackageFileReadError,
+]);
+
+export const PackageFilesSchema = Schema.Struct({
+  files: Schema.Array(ModuleSourceFileSchema),
+}).annotate({
+  title: 'Package files',
+  description:
+    'The files git knows beneath one Package folder. Each `path` is relative to the Monorepo root, like the paths of its Change set.',
+});
+
 /** The contract DevTools merges into its RPC for the Monoverse Tool. */
 export const MonoverseRpc = RpcGroup.make(
   Rpc.make('AnalyzeMonorepo', {
@@ -77,5 +97,10 @@ export const MonoverseRpc = RpcGroup.make(
     },
     success: PackageReadmeSchema,
     error: GetPackageReadmeError,
+  }),
+  Rpc.make('GetPackageFiles', {
+    payload: { monorepoRoot: Schema.String, packagePath: Schema.String },
+    success: PackageFilesSchema,
+    error: GetPackageFilesError,
   }),
 );

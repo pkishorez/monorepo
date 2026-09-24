@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Layers3, Lock, Network, Share2 } from '#lib/lucide';
 import { cn } from '#lib/utils';
 
-import { ChangeBadge, changeSurfaceClass } from '../../project-changes';
+import { ChangeBadge, changeSurfaceClass } from '../../../git-changes';
 import { graphIdentity } from '../../architecture-graph';
 import {
   selectedContainerClass,

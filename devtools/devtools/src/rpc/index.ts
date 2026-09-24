@@ -7,7 +7,6 @@ export {
   DevtoolsToolRpc,
   DocumentationReadError,
   DocumentationScopeNotFoundError,
-  GitUnavailableError,
   InvalidProjectPath,
   ModuleSourceNotFoundError,
   ModuleSourceReadError,
@@ -15,6 +14,7 @@ export {
   SourceFileReadError,
   StoriesUnavailableError,
 } from './rpc.js';
+export { GitRpc, GitUnavailableError, InvalidFolderPath } from './git.js';
 export {
   ProjectEntryEntitySchema,
   ProjectEntrySchema,
@@ -39,6 +39,7 @@ export {
   MonorepoReadFailure,
   MonoverseRpc,
   NotPnpmWorkspaceError,
+  PackageFileReadError,
   PackageReadmeNotFoundError,
   PackageReadmeOutsidePackageError,
   PackageReadmeReadError,

@@ -10,7 +10,11 @@ import { LotelOtlpHttpLive, LotelRpcLive } from '@pkishorez/lotel';
 import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
 import { DevtoolsRpc } from '../../rpc/index.js';
 import { FlowRpcLive, sqliteFlowStoreLayer } from '../flow-store/index.js';
-import { DevtoolsHandlersLive, MonoverseHandlersLive } from '../handlers.js';
+import {
+  DevtoolsHandlersLive,
+  GitHandlersLive,
+  MonoverseHandlersLive,
+} from '../handlers.js';
 import {
   ProjectRegistryRpcLive,
   sqliteProjectRegistryLayer,
@@ -75,6 +79,7 @@ function makeRpcRouteLive() {
     Layer.provide(
       Layer.mergeAll(
         DevtoolsHandlersLive,
+        GitHandlersLive,
         MonoverseHandlersLive,
         LotelRpcLive,
         FlowRpcLive,

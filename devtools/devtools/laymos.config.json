@@ -31,6 +31,9 @@
         "src/ui/laymos/project-workspace": {
           "shared": true
         },
+        "src/ui/git-changes": {
+          "shared": true
+        },
         "src/ui/project-selection": {
           "shared": true
         },
@@ -94,18 +97,19 @@
         "src/server/handlers.ts",
         "src/server/analyze-laymos-project",
         "src/server/analyze-monorepo",
-        "src/server/get-laymos-changes",
+        "src/server/git-changes",
         "src/server/get-laymos-documentation",
         "src/server/get-laymos-module-source",
         "src/server/get-laymos-source-files",
         "src/server/get-laymos-stories",
+        "src/server/get-package-files",
         "src/server/get-package-readme",
         "src/server/run-laymos-stories",
         "src/server/flow-store",
         "src/server/project-registry",
         "src/server/resolve-worktrees"
       ],
-      "description": "Fulfils the Laymos, Monoverse, Flow, and Project registry RPC contracts with local Project and Monorepo behavior, the Flow Store, and the Project registry",
+      "description": "Fulfils the Laymos, Monoverse, git, Flow, and Project registry RPC contracts with local Project and Monorepo behavior, the Flow Store, and the Project registry",
       "modules": {
         "src/server/handlers.ts": {
           "exposed": true
@@ -116,7 +120,7 @@
         "src/server/analyze-monorepo": {
           "shared": true
         },
-        "src/server/get-laymos-changes": {
+        "src/server/git-changes": {
           "shared": true
         },
         "src/server/get-laymos-documentation": {
@@ -129,6 +133,9 @@
           "shared": true
         },
         "src/server/get-laymos-stories": {
+          "shared": true
+        },
+        "src/server/get-package-files": {
           "shared": true
         },
         "src/server/get-package-readme": {

@@ -1,4 +1,8 @@
-export { PackageReadmeStack, resolveReadmeLink } from './package-readme';
+export {
+  PackageReadmeStack,
+  PackageReadmeView,
+  resolveReadmeLink,
+} from './package-readme';
 export type {
   PackageReadmeDocument,
   PackageReadmeDocuments,

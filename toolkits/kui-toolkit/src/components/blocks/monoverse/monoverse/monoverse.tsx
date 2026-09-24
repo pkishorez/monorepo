@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Effect } from 'effect';
+import type { Branch, ChangeSet } from 'laymos';
 import type { DependencyKind, MonorepoAnalysis, Package } from '../analysis';
 import { useComponentLifecycle } from 'use-effect-ts';
 
@@ -46,19 +47,26 @@ import { useIsMobile } from '#hooks/use-mobile';
 import { scrollbarStyles } from '#lib/scrollStyles';
 import { cn } from '#lib/utils';
 
+import {
+  ChangesMenu,
+  changedPathsUnder,
+  defaultGitOptions,
+  uncommittedBaseRef,
+  type GitOptions,
+} from '../../git-changes';
+import type { LoadFileDiff, LoadFiles } from '../../source-explorer';
 import { LaymosDrilldown } from '../laymos-drilldown';
 import { MonorepoCanvas, type ConnectionVisibility } from '../monorepo-canvas';
 import {
   buildMonorepoView,
   dependencyKindLabels,
   dependencyKinds,
+  packageChangeStatuses,
   resolvePackageFocus,
 } from '../monorepo-presentation';
 import { PackageDetails } from '../package-details';
-import {
-  PackageReadmeStack,
-  type PackageReadmeDocuments,
-} from '../package-readme';
+import type { PackageReadmeDocuments } from '../package-readme';
+import { PackageSource, type PackageSourceView } from '../package-source';
 import { PackageTree } from '../package-tree';
 
 export type MonoverseLoadError = {
@@ -101,12 +109,25 @@ export type MonoverseProps = {
   onOpenReadme?: (name: string) => void;
   // The host loads each stacked file; a missing entry shows as loading.
   readmeDocuments?: PackageReadmeDocuments;
+  // The Package files of one Package, listed beside its README.
+  loadPackageFiles: (pkg: Package) => ReturnType<LoadFiles>;
+  // The Monorepo's Change set against `baseRef`, with every path git knows so
+  // a Package change status can tell added from modified. Leaving `changes`
+  // out hides the git menu, as when the Monorepo is not a git repository.
+  changes?: ChangeSet;
+  knownFiles?: readonly string[];
+  branches?: readonly Branch[];
+  baseRef?: string;
+  onBaseRefChange?: (baseRef: string) => void;
+  loadFileDiff?: LoadFileDiff;
   className?: string;
 };
 
 const packageReadmePath = 'README.md';
 const noDocuments: PackageReadmeDocuments = {};
 const noReadmeStack: readonly string[] = [];
+const noFiles: readonly string[] = [];
+const noBranches: readonly Branch[] = [];
 
 type LoadState =
   | { readonly kind: 'loading' }
@@ -126,8 +147,21 @@ export function Monoverse({
   onReadmeStackChange,
   onOpenReadme,
   readmeDocuments = noDocuments,
+  loadPackageFiles,
+  changes,
+  knownFiles = noFiles,
+  branches = noBranches,
+  baseRef = uncommittedBaseRef,
+  onBaseRefChange,
+  loadFileDiff,
   className,
 }: MonoverseProps) {
+  const [gitOptions, setGitOptions] = useState<GitOptions>(defaultGitOptions);
+  // How the Package dialog was left, so it reopens the same way after
+  // Embedded Laymos closes. Kept per Package; another Package starts fresh.
+  const [sourceView, setSourceView] = useState<
+    PackageSourceView & { readonly pkg: string }
+  >();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [retry, setRetry] = useState(0);
   const [activeKinds, setActiveKinds] = useState<ReadonlySet<DependencyKind>>(
@@ -167,12 +201,32 @@ export function Monoverse({
   );
 
   const analysis = state.kind === 'success' ? state.analysis : undefined;
-  const view = useMemo(
+  const changedFiles = useMemo(
+    () =>
+      new Map(
+        gitOptions.showChanges && changes !== undefined
+          ? changes.files.map(({ path, status }) => [path, status] as const)
+          : [],
+      ),
+    [changes, gitOptions.showChanges],
+  );
+  const changeStatuses = useMemo(
     () =>
       analysis === undefined
         ? undefined
-        : buildMonorepoView(analysis, activeKinds),
-    [analysis, activeKinds],
+        : packageChangeStatuses(analysis.packages, changedFiles, knownFiles),
+    [analysis, changedFiles, knownFiles],
+  );
+  const view = useMemo(
+    () =>
+      analysis === undefined || changeStatuses === undefined
+        ? undefined
+        : buildMonorepoView(analysis, activeKinds, {
+            statuses: changeStatuses,
+            includeUnchanged:
+              !gitOptions.showChanges || gitOptions.includeUnchanged,
+          }),
+    [analysis, activeKinds, changeStatuses, gitOptions],
   );
 
   const frame = cn(
@@ -274,7 +328,7 @@ export function Monoverse({
   const canvas = (
     <MonorepoCanvas
       className="size-full"
-      packages={analysis.packages}
+      packages={view.packages}
       view={view}
       selectedPackage={selectedPackage}
       hoveredPackage={hoveredPackage}
@@ -288,7 +342,7 @@ export function Monoverse({
   );
   const treeView = (
     <PackageTree
-      packages={analysis.packages}
+      packages={view.packages}
       decorations={view.decorations}
       focus={focus}
       selectedPackage={selectedPackage}
@@ -321,6 +375,19 @@ export function Monoverse({
         onActiveKindsChange={setActiveKinds}
         connectionVisibility={connectionVisibility}
         onConnectionVisibilityChange={setConnectionVisibility}
+        changesMenu={
+          changes === undefined ? undefined : (
+            <ChangesMenu
+              options={gitOptions}
+              baseRef={baseRef}
+              branches={branches}
+              hasChanges={(changeStatuses?.size ?? 0) > 0}
+              ownerLabel="packages"
+              onOptionsChange={setGitOptions}
+              onBaseRefChange={onBaseRefChange}
+            />
+          )
+        }
       />
       {isMobile ? (
         <section className="flex min-h-0 flex-1 flex-col">
@@ -418,13 +485,21 @@ export function Monoverse({
           })
         }
       />
-      {selectedPkg !== undefined && readmeStack.length > 0 && (
-        <PackageReadmeStack
+      {selectedPkg !== undefined && readmeStack.length > 0 && !embedded && (
+        <PackageSource
           pkg={selectedPkg}
-          stack={readmeStack}
+          readmeStack={readmeStack}
           documents={readmeDocuments}
-          onPush={(path) => setReadmeStack([...readmeStack, path])}
-          onPop={() => setReadmeStack(readmeStack.slice(0, -1))}
+          onReadmeStackChange={setReadmeStack}
+          loadFiles={() => loadPackageFiles(selectedPkg)}
+          loadFileDiff={loadFileDiff}
+          changedPaths={changedPathsUnder(changedFiles, selectedPkg.path)}
+          view={sourceView?.pkg === selectedPkg.name ? sourceView : undefined}
+          onViewChange={(view) =>
+            setSourceView({ ...view, pkg: selectedPkg.name })
+          }
+          onOpenLaymos={() => openLaymos(selectedPkg.name)}
+          onClose={() => setReadmeStack(noReadmeStack)}
         />
       )}
     </div>
@@ -437,6 +512,7 @@ export function MonoverseHeader({
   onActiveKindsChange,
   connectionVisibility,
   onConnectionVisibilityChange,
+  changesMenu,
   className,
 }: {
   readonly analysis: MonorepoAnalysis;
@@ -446,6 +522,8 @@ export function MonoverseHeader({
   readonly onConnectionVisibilityChange: (
     visibility: ConnectionVisibility,
   ) => void;
+  // The git menu, when the host has a Change set to show.
+  readonly changesMenu?: ReactNode;
   readonly className?: string;
 }) {
   const hiddenCount = dependencyKinds.filter(
@@ -474,6 +552,7 @@ export function MonoverseHeader({
         </Badge>
       )}
       <div className="ms-auto flex items-center gap-2">
+        {changesMenu}
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label="View"

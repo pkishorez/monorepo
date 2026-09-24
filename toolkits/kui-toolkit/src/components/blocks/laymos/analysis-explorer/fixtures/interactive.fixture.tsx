@@ -17,11 +17,8 @@ import {
   storyTree,
 } from '../../story-inspection/fixtures/fixture-data';
 import { useSimulatedRun } from '../../story-inspection/fixtures/simulated-run';
-import {
-  defaultGitOptions,
-  LaymosShell,
-  type GitOptions,
-} from '../../architecture-workspace';
+import { LaymosShell } from '../../architecture-workspace';
+import { defaultGitOptions, type GitOptions } from '../../../git-changes';
 import {
   fixtureChangeIndex,
   loadFixtureFileDiff,

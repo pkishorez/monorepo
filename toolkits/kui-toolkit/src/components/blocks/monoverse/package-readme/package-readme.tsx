@@ -47,8 +47,38 @@ interface PackageReadmeStackProps {
   readonly onPop: () => void;
 }
 
-// The Package README and every markdown file reached from it, one dialog per
-// file, stacked so closing the top one returns to the one below.
+// One markdown file of a Package read inline, such as the Package README in a
+// Documentation tab. Links to other markdown files in the Package open through
+// `onOpenMarkdown`; other links open elsewhere.
+export function PackageReadmeView({
+  path,
+  document,
+  onOpenMarkdown,
+}: {
+  readonly path: string;
+  readonly document: PackageReadmeDocument;
+  readonly onOpenMarkdown: (path: string) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        'min-h-0 flex-1 overflow-y-auto p-4 sm:p-6',
+        scrollbarStyles,
+      )}
+    >
+      <div className="mx-auto max-w-3xl">
+        <p className="mb-4 font-mono text-xs text-muted-foreground">{path}</p>
+        <ReadmeBody
+          document={document}
+          onLinkClick={(href) => followLink(path, href, onOpenMarkdown)}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Markdown files reached from a Package README, one dialog per file, stacked
+// so closing the top one returns to the one below.
 export function PackageReadmeStack({
   pkg,
   stack,
@@ -68,13 +98,7 @@ export function PackageReadmeStack({
         path={path}
         document={documents[path] ?? { kind: 'loading' }}
         onClose={top ? onPop : undefined}
-        onLinkClick={(href) => {
-          const target = resolveReadmeLink(path, href);
-          if (target.kind === 'anchor') return false;
-          if (target.kind === 'markdown') onPush(target.path);
-          else window.open(target.href, '_blank', 'noopener,noreferrer');
-          return true;
-        }}
+        onLinkClick={(href) => followLink(path, href, onPush)}
       >
         {renderFrom(index + 1)}
       </ReadmeDialog>
@@ -179,6 +203,18 @@ function ReadmeBody({
         </MarkdownViewer>
       );
   }
+}
+
+function followLink(
+  currentPath: string,
+  href: string,
+  onOpenMarkdown: (path: string) => void,
+): boolean {
+  const target = resolveReadmeLink(currentPath, href);
+  if (target.kind === 'anchor') return false;
+  if (target.kind === 'markdown') onOpenMarkdown(target.path);
+  else window.open(target.href, '_blank', 'noopener,noreferrer');
+  return true;
 }
 
 const schemeOrProtocolRelative = /^([a-z][a-z0-9+.-]*:|\/\/)/i;

@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { FlowRpc } from '@pkishorez/flow/rpc';
 import { LotelRpc } from '@pkishorez/lotel/rpc';
+import { GitRpc } from './git.js';
 import { MonoverseRpc } from './monoverse.js';
 import {
   ArchitectureAnalysisSchema,
@@ -11,11 +12,6 @@ import {
   ModuleSourceFileSchema,
   ModuleSourceSnapshotSchema,
 } from 'laymos/architecture-analysis-schema';
-import {
-  BranchSchema,
-  ChangeSetSchema,
-  FileDiffSchema,
-} from 'laymos/change-set-schema';
 import { StoryReportSchema, StoryTreeSchema } from 'laymos/story/schema';
 import { ProjectRegistryRpc } from './project-registry.js';
 
@@ -95,17 +91,6 @@ export class StoriesUnavailableError extends Schema.TaggedError<StoriesUnavailab
   path: Schema.String,
 }) {}
 
-export class GitUnavailableError extends Schema.TaggedError<GitUnavailableError>(
-  'GitUnavailableError',
-)('GitUnavailableError', {
-  reason: Schema.Literals(['not-a-repo', 'unknown-ref', 'command-failed']),
-}) {}
-
-const LaymosChangesError = Schema.Union([
-  InvalidProjectPath,
-  GitUnavailableError,
-]);
-
 const AnalyzeLaymosProjectError = Schema.Union([
   InvalidProjectPath,
   ConfigReadError,
@@ -180,28 +165,6 @@ export const DevtoolsToolRpc = RpcGroup.make(
     success: DocumentationSchema,
     error: GetLaymosDocumentationError,
   }),
-  Rpc.make('GetLaymosBranches', {
-    payload: { projectPath: Schema.String },
-    success: Schema.Array(BranchSchema),
-    error: LaymosChangesError,
-  }),
-  Rpc.make('GetLaymosChanges', {
-    payload: {
-      projectPath: Schema.String,
-      baseRef: Schema.optional(Schema.String),
-    },
-    success: ChangeSetSchema,
-    error: LaymosChangesError,
-  }),
-  Rpc.make('GetLaymosFileDiff', {
-    payload: {
-      projectPath: Schema.String,
-      path: Schema.String,
-      baseRef: Schema.optional(Schema.String),
-    },
-    success: FileDiffSchema,
-    error: LaymosChangesError,
-  }),
   Rpc.make('GetLaymosStories', {
     payload: { projectPath: Schema.String },
     success: StoryTreeSchema,
@@ -220,5 +183,6 @@ export const DevtoolsToolRpc = RpcGroup.make(
 
 export const DevtoolsRpc = LotelRpc.merge(FlowRpc)
   .merge(DevtoolsToolRpc)
+  .merge(GitRpc)
   .merge(MonoverseRpc)
   .merge(ProjectRegistryRpc);

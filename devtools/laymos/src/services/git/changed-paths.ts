@@ -156,6 +156,29 @@ export async function listBranches(baseDir: string): Promise<Branch[]> {
   return [...local, ...remote];
 }
 
+export async function listKnownFiles(baseDir: string): Promise<string[]> {
+  await requireGit(baseDir, ['rev-parse', '--show-toplevel'], 'not-a-repo');
+  const known = splitNul(
+    await requireGit(
+      baseDir,
+      ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+      'command-failed',
+    ),
+  );
+  const deleted = new Set(
+    splitNul(
+      await requireGit(
+        baseDir,
+        ['ls-files', '--deleted', '-z'],
+        'command-failed',
+      ),
+    ),
+  );
+  return [...new Set(known)]
+    .filter((path) => !deleted.has(path))
+    .sort((left, right) => left.localeCompare(right));
+}
+
 function splitLines(stdout: string): string[] {
   return stdout
     .split('\n')

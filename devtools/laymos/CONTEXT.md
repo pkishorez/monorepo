@@ -133,6 +133,13 @@ excluded from the analysis universe. A folder includes its entire subtree.
 Ignoring is the intentional way to exempt supported files beneath a Source
 root from Layer and Module membership and architectural enforcement.
 
+**Unanalyzed file**:
+A file git knows beneath a Laymos scope that lies outside the analysis
+universe: an unsupported file, or one beneath an Ignored path. It is shown
+beside analyzed files for context but never owned by a Layer or Module, so its
+changes never alter a Module change status.
+_Avoid_: untracked file (git's word for a file not yet added)
+
 **Layer**:
 A dependency-policy cohort: source with one architectural role and therefore
 one set of cross-Layer dependency permissions. Layers partition the analysis
