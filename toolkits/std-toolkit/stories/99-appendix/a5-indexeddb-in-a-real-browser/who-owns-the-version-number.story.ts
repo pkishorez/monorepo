@@ -2,13 +2,30 @@ import { Effect } from 'effect';
 import { IDBFactory } from 'fake-indexeddb';
 import { Story } from 'laymos/story';
 import { Ulid } from 'std-toolkit/core';
+import { StdTable } from 'std-toolkit/db';
 import { IDB } from 'std-toolkit/db/idb';
-import { table as plainTable } from '../../01-one-task-one-table/02-making-a-table-for-tasks-to-live-in/making-a-table-for-tasks-to-live-in.story.js';
-import { task as plainTask } from '../../01-one-task-one-table/03-telling-the-table-where-each-task-goes/telling-the-table-where-each-task-goes.story.js';
-import {
-  table as indexedTable,
-  task as indexedTask,
-} from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
+import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
+
+// The plain table of chapter 2 and the indexed one of chapter 10, declared
+// here with Task alone. Later chapters register more entities on the shared
+// chapter tables, and `setup` refuses a shape that drops an entity, so this
+// story keeps its two shapes to itself.
+const plainTable = StdTable.make('board').primary('pk', 'sk').build();
+const plainTask = plainTable
+  .entity(Task)
+  .primary({ pk: ['boardId'] })
+  .build();
+const indexedTable = StdTable.make('board')
+  .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .build();
+const indexedTask = indexedTable
+  .entity(Task)
+  .primary({ pk: ['boardId'] })
+  .index('LSI1', 'byTitle', { sk: ['title'] })
+  .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['status', 'title'] })
+  .build();
 
 // Update stamps for the proofs, counting up from one like every chapter.
 let issued = 0;
@@ -46,14 +63,12 @@ export const whoOwnsTheVersionNumber = Story.make({
             indexedDB: new IDBFactory(),
           });
           // Set up the plain table from chapter 2, then set it up again.
-          const plain = IDB.make(plainTable, { database });
-          yield* plain.setup;
+          yield* IDB.setup(plainTable, { database });
           const afterFirst = (yield* Effect.promise(database.open)).version;
-          yield* plain.setup;
+          yield* IDB.setup(plainTable, { database });
           const afterRepeat = (yield* Effect.promise(database.open)).version;
           // Now set up the table from chapter 10, which adds two index slots.
-          const indexed = IDB.make(indexedTable, { database });
-          yield* indexed.setup;
+          yield* IDB.setup(indexedTable, { database });
           const upgraded = yield* Effect.promise(database.open);
           // The indexes the store now has.
           const indexNames = Array.from(
@@ -93,13 +108,13 @@ export const whoOwnsTheVersionNumber = Story.make({
             });
             // Save a task through the plain table, before any slot exists.
             const plain = IDB.make(plainTable, { database });
-            yield* plain.setup;
+            yield* IDB.setup(plainTable, { database });
             yield* stamped(
               plainTask.insert(draft('t1')).pipe(Effect.provide(plain.layer)),
             );
             // Grow the shape to the indexed table.
             const indexed = IDB.make(indexedTable, { database });
-            yield* indexed.setup;
+            yield* IDB.setup(indexedTable, { database });
             // Save a second task through it, then ask the by-person slot and read the old task by key.
             const result = yield* stamped(
               Effect.gen(function* () {

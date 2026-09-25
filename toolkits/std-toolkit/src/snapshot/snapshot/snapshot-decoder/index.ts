@@ -1,1 +1,4 @@
-export { decodeSnapshot, validateTableSnapshot } from './snapshot-decoder.js';
+export {
+  parseTableSnapshot,
+  validateTableSnapshot,
+} from './snapshot-decoder.js';

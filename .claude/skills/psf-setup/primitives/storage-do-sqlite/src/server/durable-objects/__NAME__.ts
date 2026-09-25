@@ -46,16 +46,17 @@ export class __Name__Object extends DurableObject<WorkerEnv> {
   }
 
   #boot(): Promise<Rpc> {
-    const database = SQLite.make(__NAME__Table, {
-      database: makeDurableObjectSQLite({ storage: this.ctx.storage }),
-    });
+    const driver = makeDurableObjectSQLite({ storage: this.ctx.storage });
+    const database = SQLite.make(__NAME__Table, { database: driver });
     const { state, upgrade } = fromDurableObjectState(
       this.ctx as unknown as cf.DurableObjectState,
     );
 
     return ManagedRuntime.make(Layer.empty).runPromise(
       Effect.gen(function* () {
-        yield* database.setup.pipe(Effect.orDie);
+        yield* SQLite.setup(__NAME__Table, { database: driver }).pipe(
+          Effect.orDie,
+        );
         return yield* makeHibernatingWebSocketRpc({
           state,
           upgrade,

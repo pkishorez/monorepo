@@ -1,8 +1,8 @@
 import type {
-  ContractSnapshot,
   ESchemaDefinition,
   SnapshotChange,
   SnapshotImpact,
+  TableSnapshot,
 } from '../../domain/index.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -219,17 +219,7 @@ function renderDefinitions(
   return lines;
 }
 
-export function renderSnapshot(snapshot: ContractSnapshot): string {
-  if (snapshot.kind === 'eschema') {
-    return [
-      ...titleBox('DATABASE CONTRACT', `ESchema root: ${snapshot.root}`),
-      '',
-      section('Schemas'),
-      '',
-      ...renderDefinitions(snapshot.schemas),
-    ].join('\n');
-  }
-
+export function renderTableSnapshot(snapshot: TableSnapshot): string {
   const secondaryIndexes = [
     ...snapshot.topology.localSecondaryIndexes.map((index) => ({
       ...index,
@@ -339,6 +329,8 @@ function subjectLabel(change: SnapshotChange): string {
       return `ESchema ${subject.name ?? ''}`.trim();
     case 'version':
       return `${subject.name ?? 'ESchema'} ${subject.version ?? ''}`.trim();
+    case 'migration':
+      return `Migration ${subject.name ?? 'ESchema'} → ${subject.version ?? ''}`.trim();
     case 'entity':
       return `Entity ${subject.name ?? ''}`.trim();
     case 'primary-index':

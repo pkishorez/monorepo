@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { ESchema, toSchema } from '../../eschema/index.js';
-import { Snapshot } from '../index.js';
+import { TableSnapshot } from '../index.js';
+import { snapshotOf } from './helpers.js';
 
 const sha256 = (value: string): string =>
   createHash('sha256').update(value).digest('hex');
@@ -16,13 +17,13 @@ describe('snapshot compatibility', () => {
         count: 0,
       }))
       .build();
-    const snapshot = Snapshot.capture(parent);
+    const snapshot = snapshotOf(parent);
 
     expect(sha256(JSON.stringify(snapshot))).toBe(
-      'c02b09257a6dc722fd06a860d82e719807e8ad4b7c806ab6820e6574b4b6e1e2',
+      '9fb95d7277f4d885159bfb22f454744644afc83f04ebef735172923a1a2d9013',
     );
-    expect(sha256(Snapshot.render(snapshot))).toBe(
-      'a29fafa982a7005005326721325ad8c81d54473ea5bd540b0c5c38a9e450e755',
+    expect(sha256(TableSnapshot.render(snapshot))).toBe(
+      'c60bd92da6e7df7dfa6a0f0321c48c5a63f1b6c01b0a96e942f2f0aa4f3de216',
     );
   });
 });

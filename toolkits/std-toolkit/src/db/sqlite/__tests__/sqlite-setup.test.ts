@@ -14,8 +14,8 @@ describe('SQLite setup', () => {
     await Effect.runPromise(
       Effect.all(
         [
-          SQLite.make(people, { database }).setup,
-          SQLite.make(orders, { database }).setup,
+          SQLite.setup(people, { database }),
+          SQLite.setup(orders, { database }),
         ],
         { discard: true },
       ),
@@ -30,11 +30,9 @@ describe('SQLite setup', () => {
 
   it('additively creates missing index columns without backfilling', async () => {
     const database = makeNodeSQLite({ path: ':memory:' });
-    await Effect.runPromise(
-      database.run(
-        'CREATE TABLE items (pk TEXT NOT NULL, sk TEXT NOT NULL, _e TEXT NOT NULL, _v TEXT NOT NULL, _u TEXT NOT NULL, _d INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (pk, sk))',
-      ),
-    );
+    // A first deploy without the index, then a row written under that shape.
+    const before = StdTable.make('items').primary('pk', 'sk').build();
+    await Effect.runPromise(SQLite.setup(before, { database }));
     await Effect.runPromise(
       database.run(
         'INSERT INTO items (pk, sk, _e, _v, _u, _d, data) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -53,11 +51,12 @@ describe('SQLite setup', () => {
         ],
       ),
     );
+    // The next deploy adds a GSI: requires-backfill, accepted, columns added.
     const table = StdTable.make('items')
       .primary('pk', 'sk')
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
       .build();
-    await Effect.runPromise(SQLite.make(table, { database }).setup);
+    await Effect.runPromise(SQLite.setup(table, { database }));
     const columns = await Effect.runPromise(
       database.all('PRAGMA table_info("items")'),
     );
@@ -65,7 +64,7 @@ describe('SQLite setup', () => {
       expect.arrayContaining(['GSI1PK', 'GSI1SK']),
     );
     const rows = await Effect.runPromise(
-      database.all('SELECT GSI1PK, GSI1SK FROM items'),
+      database.all("SELECT GSI1PK, GSI1SK FROM items WHERE _e = 'Record'"),
     );
     expect(rows).toEqual([{ GSI1PK: null, GSI1SK: null }]);
   });
@@ -80,7 +79,7 @@ describe('SQLite setup', () => {
     const table = StdTable.make('items').primary('pk', 'sk').build();
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -107,7 +106,7 @@ describe('SQLite setup', () => {
       .build();
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -135,7 +134,7 @@ describe('SQLite setup', () => {
       .build();
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -160,7 +159,7 @@ describe('SQLite setup', () => {
     const table = StdTable.make('items').primary('pk', 'sk').build();
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -178,13 +177,13 @@ describe('SQLite setup', () => {
   it('rejects an undeclared unique index', async () => {
     const database = makeNodeSQLite({ path: ':memory:' });
     const table = StdTable.make('items').primary('pk', 'sk').build();
-    await Effect.runPromise(SQLite.make(table, { database }).setup);
+    await Effect.runPromise(SQLite.setup(table, { database }));
     await Effect.runPromise(
       database.run('CREATE UNIQUE INDEX external_unique ON items (_e)'),
     );
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -209,7 +208,7 @@ describe('SQLite setup', () => {
     const table = StdTable.make('items').primary('pk', 'sk').build();
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -240,7 +239,7 @@ describe('SQLite setup', () => {
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
       .build();
 
-    await Effect.runPromise(SQLite.make(table, { database }).setup);
+    await Effect.runPromise(SQLite.setup(table, { database }));
 
     const listed = await Effect.runPromise(
       database.all('PRAGMA index_list("items")'),
@@ -278,7 +277,7 @@ describe('SQLite setup', () => {
       .build();
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -301,7 +300,7 @@ describe('SQLite setup', () => {
       .build();
 
     const result = await Effect.runPromise(
-      SQLite.make(table, { database }).setup.pipe(Effect.result),
+      SQLite.setup(table, { database }).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -333,7 +332,7 @@ describe('SQLite setup', () => {
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
       .build();
 
-    await Effect.runPromise(SQLite.make(table, { database }).setup);
+    await Effect.runPromise(SQLite.setup(table, { database }));
 
     const columns = await Effect.runPromise(
       database.all('PRAGMA table_info("items")'),
@@ -347,7 +346,7 @@ describe('SQLite setup', () => {
     const database = makeNodeSQLite({ path: ':memory:' });
     const table = StdTable.make('items').primary('pk', 'sk').build();
     const configured = SQLite.make(table, { database });
-    await Effect.runPromise(configured.setup);
+    await Effect.runPromise(SQLite.setup(table, { database }));
     for (const key of ['a', 'b', 'c']) {
       await Effect.runPromise(
         database.run(
@@ -384,7 +383,7 @@ describe('SQLite setup', () => {
     const database = makeNodeSQLite({ path: ':memory:' });
     const table = StdTable.make('items').primary('pk', 'sk').build();
     const configured = SQLite.make(table, { database });
-    await Effect.runPromise(configured.setup);
+    await Effect.runPromise(SQLite.setup(table, { database }));
     await Effect.runPromise(
       database.run(
         'INSERT INTO items (pk, sk, _e, _v, _u, _d, data) VALUES (?, ?, ?, ?, ?, ?, ?)',

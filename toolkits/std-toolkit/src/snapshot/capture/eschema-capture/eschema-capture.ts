@@ -3,10 +3,9 @@ import {
   inspectESchema,
   inspectESchemaComposition,
   type ESchemaIntrospection,
-} from '../../../eschema/domain/introspection/index.js';
+} from '../../../eschema/index.js';
 import type {
   ESchemaDefinition,
-  ESchemaSnapshot,
   ESchemaVersion,
   SnapshotMarker,
 } from '../../domain/index.js';
@@ -303,18 +302,24 @@ function versionSnapshot(
   };
 }
 
-/** Builds canonical, deduplicated definitions for one or more ESchema roots. */
-export function buildESchemaDefinitions(
+export interface CollectedESchema {
+  readonly identity: string;
+  readonly eschema: object;
+  readonly introspection: ESchemaIntrospection;
+}
+
+/**
+ * Every ESchema reachable from the roots — the roots themselves and each
+ * ESchema composed into any of their versions — once each, in discovery
+ * order, with identity conflicts refused.
+ */
+export function collectESchemas(
   roots: readonly SnapshotESchemaRoot[],
-): readonly ESchemaDefinition[] {
+): readonly CollectedESchema[] {
   const identityObjects = new Map<string, object>();
   const objectIdentities = new Map<object, string>();
   const pending = [...roots];
-  const entries: {
-    introspection: ESchemaIntrospection;
-    identity: string;
-    evolutions: readonly EvolutionLike[];
-  }[] = [];
+  const entries: CollectedESchema[] = [];
 
   while (pending.length > 0) {
     const next = pending.shift()!;
@@ -334,45 +339,34 @@ export function buildESchemaDefinitions(
     if (claimed === next.eschema) continue;
     identityObjects.set(identity, next.eschema);
     objectIdentities.set(next.eschema, identity);
-    const evolutions = introspection.evolutions;
-    entries.push({
-      introspection,
-      identity,
-      evolutions,
-    });
-    for (const evolution of evolutions) {
+    entries.push({ identity, eschema: next.eschema, introspection });
+    for (const evolution of introspection.evolutions) {
       for (const child of collectCompositions(evolution.schema.ast)) {
         pending.push(child);
       }
     }
   }
+  return entries;
+}
 
+/** Builds canonical, deduplicated definitions for one or more ESchema roots. */
+export function buildESchemaDefinitions(
+  roots: readonly SnapshotESchemaRoot[],
+): readonly ESchemaDefinition[] {
+  const entries = collectESchemas(roots);
   const referenceNames = new Map<string, string>();
   for (const { identity } of entries) {
     referenceNames.set(`ESchema_${identity}`, identity);
     referenceNames.set(`ValueESchema_${identity}`, identity);
   }
   return entries
-    .map(({ introspection, identity, evolutions }) => ({
+    .map(({ introspection, identity }) => ({
       identity,
       kind: introspection.kind,
       idField: introspection.idField,
-      versions: evolutions.map((evolution) =>
+      versions: introspection.evolutions.map((evolution) =>
         versionSnapshot(evolution, introspection.kind, referenceNames),
       ),
     }))
     .sort((a, b) => compareStrings(a.identity, b.identity));
-}
-
-/** Creates an ESchema contract snapshot for a directly snapshotted root. */
-export function captureESchema(
-  eschema: object,
-  identity: string,
-): ESchemaSnapshot {
-  return {
-    _v: 'v1',
-    kind: 'eschema',
-    root: identity,
-    schemas: buildESchemaDefinitions([{ eschema, identity }]),
-  };
 }

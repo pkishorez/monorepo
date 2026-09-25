@@ -6,9 +6,9 @@ Single-table design toolkit: database-agnostic sync over single-table item colle
 
 Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
 
-`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot`, `studio-rpc`, and the CLI inspect and guard the resulting storage contract.
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot` captures the resulting storage contract as one document per table, and `studio-rpc` serves it to Std Studio. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `std-toolkit/snapshot/vitest` is the one test a table needs. Snapshot never runs inside an adapter or at request time.
 
-Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Snapshot CLI](docs/snapshot-cli.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder is a guided walkthrough that runs as tests.
+Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder is a guided walkthrough that runs as tests.
 
 ## Install
 
@@ -21,7 +21,7 @@ Node 24 or later. Peer dependencies:
 - `effect` (required): every subpath is built on Effect Services, Layers, and Schema.
 - `@tanstack/react-db` (optional): `std-toolkit/sync` creates and drives TanStack DB Collections.
 - `react` (optional): required by `@tanstack/react-db`; only needed when you use `std-toolkit/sync`.
-- `alchemy` (optional): only `std-toolkit/db/dynamodb/alchemy` imports it, to declare the DynamoDB table as an Alchemy resource.
+- `alchemy` (optional): only `std-toolkit/alchemy` imports it, to deploy a table and guard its snapshot.
 
 ## Exports
 
@@ -35,22 +35,53 @@ See [src/eschema/README.md](src/eschema/README.md).
 
 ### `std-toolkit/snapshot`
 
-| Export                     | What it does                                                                             |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| `Snapshot.capture`         | Captures an ESchema into a JSON-safe snapshot of every encoded and decoded version.      |
-| `Snapshot.decode`          | Decodes a stored JSON value into a contract snapshot, failing on retired formats.        |
-| `Snapshot.restore`         | Rebuilds working ESchemas from snapshot definitions without the original source.         |
-| `Snapshot.inspect`         | Lists the limitations in a snapshot that cannot be verified from its data.               |
-| `Snapshot.diff`            | Compares a baseline and a current snapshot into classified semantic changes.             |
-| `Snapshot.render`          | Renders a snapshot as stable human-readable text.                                        |
-| `Snapshot.renderChanges`   | Renders a list of changes as human-readable text.                                        |
-| `ESchemaSnapshotSchema`    | Effect Schema for a single ESchema snapshot.                                             |
-| `TableSnapshotSchema`      | Effect Schema for a table snapshot: topology, entities, and access patterns.             |
-| `ContractSnapshotSchema`   | Effect Schema union of the ESchema and table snapshot shapes.                            |
-| `SnapshotDecodeError`      | Error raised when a stored snapshot cannot be decoded.                                   |
-| `SnapshotFormatRetired`    | Decode error for a snapshot written in a format that is no longer supported.             |
-| `SnapshotIdentityConflict` | Error raised when two distinct ESchemas share one snapshot identity.                     |
-| `SnapshotIncompatible`     | Error raised by table-level enforcement when a change would break the approved baseline. |
+| Export                        | What it does                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `TableSnapshot.capture`       | Captures a table's contract as plain data: topology, entities, and every schema version.   |
+| `TableSnapshot.parse`         | Reads a stored document, migrating older formats forward and validating its references.    |
+| `TableSnapshot.diff`          | Compares a previous and a current snapshot into classified semantic changes.               |
+| `TableSnapshot.isUpgradable`  | Says whether a change list leaves every row written under the previous snapshot readable.  |
+| `TableSnapshot.render`        | Renders a snapshot as stable human-readable text.                                          |
+| `TableSnapshot.renderChanges` | Renders a list of changes as human-readable text, grouped by impact.                       |
+| `TableSnapshot.restore`       | Rebuilds live Effect schemas for every version in a snapshot, without the original source. |
+| `TableSnapshotESchema`        | The ESchema of the stored table snapshot document.                                         |
+| `SnapshotChangeSchema`        | The Schema of one classified change.                                                       |
+| `SnapshotDecodeError`         | Error raised when a stored snapshot cannot be read.                                        |
+| `SnapshotIdentityConflict`    | Error raised when two distinct ESchemas share one snapshot identity.                       |
+| `SnapshotIncompatible`        | Error raised when a new snapshot is not upgradable from the accepted one.                  |
+
+### `std-toolkit/snapshot/vitest`
+
+The recommended test for a table, in one call. It needs `vitest` as a peer.
+
+```ts
+import { expectTableSnapshot } from 'std-toolkit/snapshot/vitest';
+import { it } from 'vitest';
+import { table } from '../src/table.js';
+
+it('keeps the table in step with its committed snapshot', async () => {
+  await expectTableSnapshot(table, './fixtures/table.snapshot.json');
+});
+```
+
+The file holds the table snapshot: topology, entities, and every version of every schema the table reaches. It is compared as parsed data, so formatting never fails the test. On a mismatch the failure lists every change with its classification. `vitest -u` accepts the current document, like any file snapshot.
+
+| Export                | What it does                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| `expectTableSnapshot` | Captures the table's snapshot and compares it with the committed file. |
+
+### `std-toolkit/alchemy`
+
+Deploys a StdTable with Alchemy. Each target makes the table exist and runs the **snapshot guard**: a resource that keeps the last accepted table snapshot in Alchemy state and fails the deploy when the new one is not upgradable from it. Add `providers()` to the stack's providers.
+
+| Export                  | What it does                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| `DynamoDB.table`        | Creates the DynamoDB table with every index from the topology, then guards its snapshot. |
+| `D1.table`              | Guards the snapshot, then creates the table and reconciles its indexes in a D1 database. |
+| `guardTable`            | Registers a snapshot guard for a table, for a target the toolkit does not ship.          |
+| `SnapshotGuard`         | The Alchemy resource behind `guardTable`.                                                |
+| `SnapshotGuardProvider` | The provider layer for `SnapshotGuard`.                                                  |
+| `providers`             | Every provider std-toolkit's resources need, to merge into a stack's `providers`.        |
 
 ### `std-toolkit/studio-rpc`
 
@@ -63,15 +94,11 @@ See [src/studio-rpc/README.md](src/studio-rpc/README.md).
 | `StdTable.make` | Starts a table builder from a logical name; chain `primary`, `lsi`, `gsi`, then `build`.          |
 | `DatabaseError` | Tagged error every StdTable operation fails with, carrying a `reason` such as a failed condition. |
 
-The built `StdTable` exposes `entity`, `singleEntity`, `transact`, `scan`, `subscribe`, `snapshot`, `verifySnapshot`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
+The built `StdTable` exposes `entity`, `singleEntity`, `transact`, `scan`, `subscribe`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
 
 ### `std-toolkit/db/dynamodb`
 
 See [src/db/dynamodb/README.md](src/db/dynamodb/README.md).
-
-### `std-toolkit/db/dynamodb/alchemy`
-
-See [src/db/dynamodb/alchemy/README.md](src/db/dynamodb/alchemy/README.md).
 
 ### `std-toolkit/db/idb`
 
@@ -173,3 +200,48 @@ const screen = createLiveQueryCollection({
 - `createStdSync` needs a platform only to persist its replica (`syncStore` is itself a StdTable) and to elect a leader. In a real page use `browser()` from `std-toolkit/sync/platform/browser`.
 - A partition worker starts when a TanStack query filters on `boardId`. `cursor` is exclusive: return entities strictly after it.
 - `onInsert` writes through to the same table, so the next poll confirms the optimistic row.
+
+### Deploy a table and refuse a breaking change
+
+An application deploys its table through `std-toolkit/alchemy`. The first deploy records the table snapshot in Alchemy state. Every later deploy compares the new snapshot with the accepted one and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from `apps/alchemy-console/alchemy.run.ts`.
+
+```ts
+import { Stack, Stage } from 'alchemy';
+import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Effect from 'effect/Effect';
+import * as Layer from 'effect/Layer';
+import { D1, providers as stdToolkitProviders } from 'std-toolkit/alchemy';
+import { consoleTable } from './src/server/storage/table/index.ts';
+// Entities register on the table as their modules load; the snapshot must see all of them.
+import './src/server/storage/stores/index.ts';
+
+export const Database = Cloudflare.D1.Database(
+  'Database',
+  Effect.gen(function* () {
+    return { name: `alchemy-console-${yield* Stage}` };
+  }),
+);
+
+export const Worker = Cloudflare.Website.Vite(
+  'Worker',
+  Effect.gen(function* () {
+    const database = yield* Database;
+    yield* D1.table('ConsoleTable', { table: consoleTable, database });
+    return { env: { DB: Database } };
+  }),
+);
+
+export default Stack(
+  'AlchemyConsole',
+  {
+    providers: Layer.merge(Cloudflare.providers(), stdToolkitProviders()),
+    state: Cloudflare.state(),
+  },
+  Worker,
+);
+```
+
+- `D1.table` runs the snapshot guard, then an action that creates the table and reconciles its indexes. The action runs again only when the accepted snapshot changes.
+- `DynamoDB.table` does the same for DynamoDB; the table resource creates the indexes itself, so no setup action follows.
+- At runtime the application provides an adapter layer, `SQLite.make(table, { database }).layer`, and never touches snapshot.
+- The guard is only as durable as the Alchemy state store behind the stack.

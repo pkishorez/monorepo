@@ -16,11 +16,10 @@ const remoteRecord = remoteTable.entity(schema).primary().build();
 
 describe('mixed Table bindings', () => {
   it('composes distinct definitions backed by SQLite and another runtime', async () => {
-    const sqlite = SQLite.make(localTable, {
-      database: makeNodeSQLite({ path: ':memory:' }),
-    });
+    const database = makeNodeSQLite({ path: ':memory:' });
+    const sqlite = SQLite.make(localTable, { database });
     const deterministic = makeDeterministicContract(remoteTable.logicalName);
-    await Effect.runPromise(sqlite.setup);
+    await Effect.runPromise(SQLite.setup(localTable, { database }));
 
     const result = await Effect.runPromise(
       Effect.all([

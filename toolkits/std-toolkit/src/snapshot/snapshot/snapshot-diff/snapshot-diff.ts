@@ -1,7 +1,5 @@
 import type {
-  ContractSnapshot,
   ESchemaDefinition,
-  ESchemaSnapshot,
   ESchemaVersion,
   SnapshotChange,
   SnapshotImpact,
@@ -617,42 +615,20 @@ function sortChanges(
   });
 }
 
-function diffESchema(
-  previous: ESchemaSnapshot,
-  current: ESchemaSnapshot,
-): readonly SnapshotChange[] {
-  const changes: SnapshotChange[] = [];
-  if (previous.root !== current.root) {
-    changes.push(
-      change({ kind: 'snapshot' }, 'edited', 'breaking', [
-        edit(['root'], previous.root, current.root, 'contract'),
-      ]),
-    );
-  }
-  changes.push(...diffDefinitions(previous.schemas, current.schemas));
-  return changes;
-}
-
-function diffSnapshot(
-  previous: ContractSnapshot,
-  current: ContractSnapshot,
-): readonly SnapshotChange[] {
-  if (previous.kind === 'table') validateTable(previous);
-  if (current.kind === 'table') validateTable(current);
-  if (previous.kind !== current.kind) {
-    return [
-      change({ kind: 'snapshot' }, 'edited', 'unverifiable', [
-        edit(['kind'], previous.kind, current.kind, 'contract'),
-      ]),
-    ];
-  }
-  return sortChanges(
-    previous.kind === 'eschema' && current.kind === 'eschema'
-      ? diffESchema(previous, current)
-      : previous.kind === 'table' && current.kind === 'table'
-        ? diffTable(previous, current)
-        : [],
+/** No change may strand a stored row: only safe and requires-backfill changes are upgradable. */
+function isUpgradable(changes: readonly SnapshotChange[]): boolean {
+  return changes.every(
+    ({ impact }) => impact !== 'breaking' && impact !== 'unverifiable',
   );
 }
 
-export { diffSnapshot };
+function diffTableSnapshot(
+  previous: TableSnapshot,
+  current: TableSnapshot,
+): readonly SnapshotChange[] {
+  validateTable(previous);
+  validateTable(current);
+  return sortChanges(diffTable(previous, current));
+}
+
+export { diffTableSnapshot, isUpgradable };

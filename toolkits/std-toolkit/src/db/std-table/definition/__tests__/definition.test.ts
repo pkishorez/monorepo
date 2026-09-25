@@ -6,7 +6,10 @@ import {
   id,
   toSchema,
 } from '../../../../eschema/index.js';
-import { SnapshotIdentityConflict } from '../../../../snapshot/index.js';
+import {
+  SnapshotIdentityConflict,
+  TableSnapshot,
+} from '../../../../snapshot/index.js';
 import { Table } from '../index.js';
 
 const addressSchema = EntityESchema.make('Address', 'addressId', {
@@ -86,14 +89,12 @@ describe('portable Table definition', () => {
         keyed();
         single();
       }
-      return table.snapshot();
+      return TableSnapshot.capture(table);
     };
 
     const snapshot = makeSnapshot(false, 'light');
     expect(snapshot).toEqual(makeSnapshot(true, 'dark'));
     expect(snapshot).toMatchObject({
-      _v: 'v2',
-      kind: 'table',
       logicalName: 'people',
       topology: {
         primary: { pk: 'pk', sk: 'sk' },
@@ -124,7 +125,6 @@ describe('portable Table definition', () => {
             },
             {
               name: 'primary',
-              index: undefined,
               kind: 'primary',
               pk: ['organizationId'],
               sk: ['personId'],
@@ -277,7 +277,9 @@ describe('portable Table definition', () => {
     table.entity(left).primary().build();
     table.entity(right).primary().build();
     expect(
-      table.snapshot().schemas.filter(({ identity }) => identity === 'Shared'),
+      TableSnapshot.capture(table).schemas.filter(
+        ({ identity }) => identity === 'Shared',
+      ),
     ).toHaveLength(1);
 
     const one = EntityESchema.make('Conflict', 'id', {
@@ -299,6 +301,8 @@ describe('portable Table definition', () => {
       )
       .primary()
       .build();
-    expect(() => conflictTable.snapshot()).toThrow(SnapshotIdentityConflict);
+    expect(() => TableSnapshot.capture(conflictTable)).toThrow(
+      SnapshotIdentityConflict,
+    );
   });
 });

@@ -274,7 +274,6 @@ describe('Sync persistence', () => {
       databaseName: `sync-${crypto.randomUUID()}`,
     });
     const adapter = IDB.make(syncStore, { database });
-    await Effect.runPromise(adapter.setup);
 
     const first = createStdSync({
       name: 'settings',

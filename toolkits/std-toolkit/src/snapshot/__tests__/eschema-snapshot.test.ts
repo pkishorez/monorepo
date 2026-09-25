@@ -7,10 +7,11 @@ import {
   toSchema,
 } from '../../eschema/index.js';
 import {
-  Snapshot,
+  TableSnapshot,
   SnapshotDecodeError,
   SnapshotIdentityConflict,
 } from '../index.js';
+import { snapshotOf } from './helpers.js';
 
 describe('ESchema semantic snapshots', () => {
   it('captures every version and all three variants', async () => {
@@ -28,20 +29,18 @@ describe('ESchema semantic snapshots', () => {
       Schema.Tuple([Schema.Literal(1n), Schema.BigInt]),
     ).build();
 
-    expect(Snapshot.capture(plain).schemas[0]?.versions).toHaveLength(2);
-    expect(Snapshot.capture(entity).schemas[0]).toMatchObject({
+    expect(snapshotOf(plain).schemas[0]?.versions).toHaveLength(2);
+    expect(snapshotOf(entity).schemas[0]).toMatchObject({
       identity: 'User',
       kind: 'entity',
       idField: 'userId',
     });
-    expect(Snapshot.capture(value).schemas[0]).toMatchObject({ kind: 'value' });
-    expect(JSON.stringify(Snapshot.capture(value))).toContain('BigInt');
-    expect(Snapshot.inspect(Snapshot.capture(plain))).toEqual([]);
-    expect(Snapshot.inspect(Snapshot.capture(entity))).toEqual([]);
+    expect(snapshotOf(value).schemas[0]).toMatchObject({ kind: 'value' });
+    expect(JSON.stringify(snapshotOf(value))).toContain('BigInt');
 
-    const json = JSON.parse(JSON.stringify(Snapshot.capture(plain)));
-    await expect(Effect.runPromise(Snapshot.decode(json))).resolves.toEqual(
-      Snapshot.capture(plain),
+    const json = JSON.parse(JSON.stringify(snapshotOf(plain)));
+    await expect(Effect.runPromise(TableSnapshot.parse(json))).resolves.toEqual(
+      snapshotOf(plain),
     );
   });
 
@@ -67,7 +66,7 @@ describe('ESchema semantic snapshots', () => {
       first: toSchema(child),
       second: toSchema(child),
     }).build();
-    const snapshot = Snapshot.capture(parent);
+    const snapshot = snapshotOf(parent);
 
     expect(snapshot.schemas.map((item) => item.identity)).toEqual([
       'Child',
@@ -95,11 +94,11 @@ describe('ESchema semantic snapshots', () => {
       first: toSchema(first),
       second: toSchema(second),
     }).build();
-    expect(() => Snapshot.capture(conflict)).toThrow(SnapshotIdentityConflict);
+    expect(() => snapshotOf(conflict)).toThrow(SnapshotIdentityConflict);
   });
 
   it('rejects duplicate definitions and dangling references', async () => {
-    const snapshot = Snapshot.capture(
+    const snapshot = snapshotOf(
       ESchema.make('Item', { value: Schema.String }).build(),
     );
     const duplicate = {
@@ -107,7 +106,7 @@ describe('ESchema semantic snapshots', () => {
       schemas: [...snapshot.schemas, snapshot.schemas[0]],
     };
     await expect(
-      Effect.runPromise(Snapshot.decode(duplicate)),
+      Effect.runPromise(TableSnapshot.parse(duplicate)),
     ).rejects.toBeInstanceOf(SnapshotDecodeError);
 
     const dangling = JSON.parse(JSON.stringify(snapshot));
@@ -116,7 +115,7 @@ describe('ESchema semantic snapshots', () => {
       identity: 'Missing',
     };
     await expect(
-      Effect.runPromise(Snapshot.decode(dangling)),
+      Effect.runPromise(TableSnapshot.parse(dangling)),
     ).rejects.toBeInstanceOf(SnapshotDecodeError);
 
     const malformed = JSON.parse(JSON.stringify(snapshot));
@@ -124,13 +123,7 @@ describe('ESchema semantic snapshots', () => {
       { path: '/', name: 42 },
     ];
     await expect(
-      Effect.runPromise(Snapshot.decode(malformed)),
-    ).rejects.toBeInstanceOf(SnapshotDecodeError);
-
-    const unstamped = JSON.parse(JSON.stringify(snapshot));
-    delete unstamped._v;
-    await expect(
-      Effect.runPromise(Snapshot.decode(unstamped)),
+      Effect.runPromise(TableSnapshot.parse(malformed)),
     ).rejects.toBeInstanceOf(SnapshotDecodeError);
   });
 
@@ -141,7 +134,7 @@ describe('ESchema semantic snapshots', () => {
       zulu: toSchema(zulu),
       alpha: toSchema(alpha),
     }).build();
-    const first = Snapshot.capture(firstSchema);
+    const first = snapshotOf(firstSchema);
 
     const alphaAgain = ESchema.make('Alpha', { value: Schema.String }).build();
     const zuluAgain = ESchema.make('Zulu', { value: Schema.Number }).build();
@@ -149,10 +142,10 @@ describe('ESchema semantic snapshots', () => {
       alpha: toSchema(alphaAgain),
       zulu: toSchema(zuluAgain),
     }).build();
-    const reordered = Snapshot.capture(reorderedSchema);
+    const reordered = snapshotOf(reorderedSchema);
 
     expect(JSON.stringify(first)).toBe(JSON.stringify(reordered));
-    expect(Snapshot.render(first)).toBe(Snapshot.render(reordered));
+    expect(TableSnapshot.render(first)).toBe(TableSnapshot.render(reordered));
 
     const orderedSchema = ValueESchema.make(
       'Literals',
@@ -161,7 +154,7 @@ describe('ESchema semantic snapshots', () => {
         Schema.Literals(['second', 'first']),
       ]),
     ).build();
-    const ordered = Snapshot.capture(orderedSchema);
+    const ordered = snapshotOf(orderedSchema);
     const reversedSchema = ValueESchema.make(
       'Literals',
       Schema.Tuple([
@@ -169,7 +162,7 @@ describe('ESchema semantic snapshots', () => {
         Schema.Literals(['first', 'second']),
       ]),
     ).build();
-    const reversed = Snapshot.capture(reversedSchema);
+    const reversed = snapshotOf(reversedSchema);
     expect(JSON.stringify(ordered)).not.toBe(JSON.stringify(reversed));
   });
 });

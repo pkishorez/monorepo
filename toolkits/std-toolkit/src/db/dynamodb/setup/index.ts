@@ -1,6 +1,6 @@
 export {
   DynamoDBNativeError,
+  ensureDynamoTable,
   getTableDefinition,
-  setupDynamoTable,
   type DynamoTableTopology,
 } from './setup.js';

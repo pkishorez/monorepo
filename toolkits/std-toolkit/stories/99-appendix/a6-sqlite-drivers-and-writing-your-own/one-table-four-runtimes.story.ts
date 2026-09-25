@@ -50,8 +50,8 @@ const program = Effect.gen(function* () {
 // Runs the program on one SQLite driver: set the table up, run, close, with stamps counting up from one.
 const onDriver = (database: ReturnType<typeof makeNodeSQLite>) =>
   Effect.gen(function* () {
+    yield* SQLite.setup(table, { database });
     const configured = SQLite.make(table, { database });
-    yield* configured.setup;
     let issued = 0;
     return yield* program.pipe(
       Effect.provide(configured.layer),

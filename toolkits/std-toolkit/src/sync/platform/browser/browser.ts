@@ -1,4 +1,3 @@
-import { Effect, Layer } from 'effect';
 import { IDB } from '../../../db/idb/index.js';
 import { syncStore } from '../../domain/stored-entity/index.js';
 import type { StdSyncPlatform } from '../contract/index.js';
@@ -9,12 +8,9 @@ import { webLockLeadership } from './web-locks/index.js';
 export const browser = (options?: {
   readonly databaseName?: string;
 }): StdSyncPlatform => {
-  const storeLayer = (databaseName: string) => {
-    const store = IDB.make(syncStore, {
-      database: IDB.database({ databaseName }),
-    });
-    return Layer.unwrap(Effect.orDie(Effect.as(store.setup, store.layer)));
-  };
+  // The store and its indexes are created the first time the table opens the database.
+  const storeLayer = (databaseName: string) =>
+    IDB.make(syncStore, { database: IDB.database({ databaseName }) }).layer;
   const configuredStore = options?.databaseName
     ? storeLayer(options.databaseName)
     : (syncName: string) => storeLayer(`std-sync:${syncName}`);

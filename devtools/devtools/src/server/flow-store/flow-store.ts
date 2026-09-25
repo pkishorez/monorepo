@@ -112,7 +112,7 @@ export const makeSqliteFlowStore = (options: {
       effect: Effect.Effect<A, E, Layer.Success<typeof configured.layer>>,
     ) => Effect.provide(effect, configured.layer);
 
-    yield* configured.setup.pipe(
+    yield* SQLite.setup(table, { database, tableName: 'flow_data' }).pipe(
       Effect.mapError((cause) => storeError('setup', cause)),
     );
 

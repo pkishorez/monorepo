@@ -1,10 +1,10 @@
 # std-toolkit/db/dynamodb
 
-DynamoDB adapter with setup, teardown, a typed expression builder, and adapter-native item operations.
+DynamoDB adapter with a typed expression builder, adapter-native item operations, and create and delete helpers for DynamoDB Local.
 
 ## Big picture
 
-DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies both the StdTable operations and a typed native service for expression-builder updates and batch writes. `setup` attempts `CreateTable`, `teardown` deletes it, and providing the layer never does either. Divergences and native semantics are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md). Provisioning through Alchemy is a separate entrypoint: [alchemy/README.md](alchemy/README.md).
+DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies both the StdTable operations and a typed native service for expression-builder updates and batch writes. `make` returns only the layer and never touches the physical table. Deployed tables come from `DynamoDB.table` in [`std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy), which creates every index and guards the table snapshot. For DynamoDB Local and tests, `DynamoDB.createTable` creates the table if it is missing and `DynamoDB.deleteTable` removes it. Divergences and native semantics are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 
@@ -16,7 +16,9 @@ See the [top README](../../../README.md).
 
 | Export                        | What it does                                                                                     |
 | ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `DynamoDB.make`               | Realizes a StdTable on a DynamoDB table; returns `tableName`, `layer`, `setup`, and `teardown`.  |
+| `DynamoDB.make`               | Realizes a StdTable on a DynamoDB table; returns `tableName` and `layer`.                        |
+| `DynamoDB.createTable`        | Creates the physical table and its indexes if missing, then waits until it is active.            |
+| `DynamoDB.deleteTable`        | Deletes the physical table.                                                                      |
 | `DynamoDB.getTableDefinition` | Projects a StdTable's topology into a `CreateTable`-shaped definition without credentials.       |
 | `DynamoDB.getItem`            | Native `GetItem` by raw key through the table's native service.                                  |
 | `DynamoDB.update`             | Native entity update built from `exprUpdate` operations with an optional condition.              |
@@ -43,18 +45,19 @@ import { DynamoDB } from 'std-toolkit/db/dynamodb';
 
 const table = StdTable.make('board').primary('pk', 'sk').build();
 
-const dynamodb = DynamoDB.make(table, {
+const config = {
   tableName: 'board',
   region: 'local',
   endpoint: 'http://localhost:8090',
   credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
-});
+};
+const dynamodb = DynamoDB.make(table, config);
 
 const program = Effect.gen(function* () {
-  yield* dynamodb.setup;
+  yield* DynamoDB.createTable(table, config);
   return yield* saveAndRead.pipe(
     Effect.provide(dynamodb.layer),
-    Effect.ensuring(Effect.orDie(dynamodb.teardown)),
+    Effect.ensuring(Effect.orDie(DynamoDB.deleteTable(config))),
   );
 });
 ```

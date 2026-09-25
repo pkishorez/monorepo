@@ -20,7 +20,7 @@
 //     `online` flip it and notify subscribers.
 
 import 'fake-indexeddb/auto';
-import { Effect, Layer, Match } from 'effect';
+import { Effect, Match } from 'effect';
 import { IDBFactory } from 'fake-indexeddb';
 import { Ulid } from 'std-toolkit/core';
 import type { TableDefinition } from 'std-toolkit/db';
@@ -42,11 +42,7 @@ export type AdapterName = 'memory' | 'sqlite' | 'idb' | 'dynamodb';
 // What every adapter's `make` reads from a table; accepts a table of any index shape.
 type TableSource<Name extends string> = Pick<
   TableDefinition<Name>,
-  | 'logicalName'
-  | 'primary'
-  | 'localSecondaryIndexes'
-  | 'globalSecondaryIndexes'
-  | 'snapshot'
+  'logicalName' | 'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
 
 export const adapterNames: readonly AdapterName[] = [
@@ -100,10 +96,9 @@ const onSQLite =
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
     Effect.gen(function* () {
       const database = makeNodeSQLite({ path: ':memory:' });
-      const configured = SQLite.make(table, { database });
-      yield* configured.setup;
+      yield* Effect.orDie(SQLite.setup(table, { database }));
       return yield* program.pipe(
-        Effect.provide(configured.layer),
+        Effect.provide(SQLite.make(table, { database }).layer),
         Effect.provideService(Ulid, sequentialUlid()),
         Effect.ensuring(Effect.sync(() => database.close?.())),
       );
@@ -116,10 +111,8 @@ const onIDB =
       const indexedDB = new IDBFactory();
       const databaseName = uniqueName(table.logicalName);
       const database = IDB.database({ databaseName, indexedDB });
-      const configured = IDB.make(table, { database });
-      yield* configured.setup;
       return yield* program.pipe(
-        Effect.provide(configured.layer),
+        Effect.provide(IDB.make(table, { database }).layer),
         Effect.provideService(Ulid, sequentialUlid()),
         Effect.ensuring(deleteIDBDatabase(indexedDB, databaseName, database)),
       );
@@ -129,17 +122,17 @@ const onDynamoDB =
   <Name extends string>(table: TableSource<Name>) =>
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
     Effect.gen(function* () {
-      const configured = DynamoDB.make(table, {
+      const config = {
         tableName: uniqueName(table.logicalName),
         region: 'local',
         endpoint: dynamodbEndpoint,
         credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
-      });
-      yield* configured.setup;
+      };
+      yield* Effect.orDie(DynamoDB.createTable(table, config));
       return yield* program.pipe(
-        Effect.provide(configured.layer),
+        Effect.provide(DynamoDB.make(table, config).layer),
         Effect.provideService(Ulid, sequentialUlid()),
-        Effect.ensuring(Effect.orDie(configured.teardown)),
+        Effect.ensuring(Effect.orDie(DynamoDB.deleteTable(config))),
       );
     });
 
@@ -161,10 +154,9 @@ const idbStoreLayer = (databaseName: string) => {
   const indexedDB =
     sharedIndexedDB.get(databaseName) ??
     sharedIndexedDB.set(databaseName, new IDBFactory()).get(databaseName)!;
-  const store = IDB.make(syncStore, {
+  return IDB.make(syncStore, {
     database: IDB.database({ databaseName, indexedDB }),
-  });
-  return Layer.unwrap(Effect.orDie(Effect.as(store.setup, store.layer)));
+  }).layer;
 };
 
 export const platform = (options?: {

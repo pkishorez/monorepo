@@ -1,0 +1,484 @@
+{
+  "logicalName": "board",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [],
+    "globalSecondaryIndexes": [
+      {
+        "name": "GSI1",
+        "pk": "GSI1PK",
+        "sk": "GSI1SK"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "name": "Task",
+      "kind": "keyed",
+      "schema": "Task",
+      "idField": "taskId",
+      "primary": {
+        "pk": [
+          "boardId"
+        ],
+        "sk": [
+          "taskId"
+        ]
+      },
+      "accessPatterns": [
+        {
+          "name": "byTitle",
+          "kind": "gsi",
+          "index": "GSI1",
+          "pk": [
+            "title"
+          ],
+          "sk": [
+            "taskId"
+          ]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [
+            "boardId"
+          ],
+          "sk": [
+            "taskId"
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "Address",
+      "kind": "struct",
+      "idField": null,
+      "versions": [
+        {
+          "version": "v1",
+          "encoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "_v"
+                  },
+                  "type": {
+                    "_tag": "Literal",
+                    "checks": [],
+                    "literal": {
+                      "type": "string",
+                      "value": "v1"
+                    }
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "city"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "decoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "city"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "transformations": [],
+          "unverifiable": []
+        }
+      ]
+    },
+    {
+      "identity": "Task",
+      "kind": "entity",
+      "idField": "taskId",
+      "versions": [
+        {
+          "version": "v1",
+          "encoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "_v"
+                  },
+                  "type": {
+                    "_tag": "Literal",
+                    "checks": [],
+                    "literal": {
+                      "type": "string",
+                      "value": "v1"
+                    }
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "address"
+                  },
+                  "type": {
+                    "_tag": "ESchemaRef",
+                    "identity": "Address"
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "boardId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "taskId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "title"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "decoded": {
+            "references": {
+              "ESchema_Address": {
+                "_tag": "Unknown",
+                "checks": []
+              }
+            },
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "address"
+                  },
+                  "type": {
+                    "_tag": "ESchemaRef",
+                    "identity": "Address"
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "boardId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "taskId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "title"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "transformations": [],
+          "unverifiable": []
+        },
+        {
+          "version": "v2",
+          "encoded": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "_v"
+                  },
+                  "type": {
+                    "_tag": "Literal",
+                    "checks": [],
+                    "literal": {
+                      "type": "string",
+                      "value": "v2"
+                    }
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "address"
+                  },
+                  "type": {
+                    "_tag": "ESchemaRef",
+                    "identity": "Address"
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "boardId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "priority"
+                  },
+                  "type": {
+                    "_tag": "Union",
+                    "checks": [],
+                    "mode": "anyOf",
+                    "types": [
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "low"
+                        }
+                      },
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "high"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "taskId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "title"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "decoded": {
+            "references": {
+              "ESchema_Address": {
+                "_tag": "Unknown",
+                "checks": []
+              }
+            },
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "address"
+                  },
+                  "type": {
+                    "_tag": "ESchemaRef",
+                    "identity": "Address"
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "boardId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "priority"
+                  },
+                  "type": {
+                    "_tag": "Union",
+                    "checks": [],
+                    "mode": "anyOf",
+                    "types": [
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "low"
+                        }
+                      },
+                      {
+                        "_tag": "Literal",
+                        "checks": [],
+                        "literal": {
+                          "type": "string",
+                          "value": "high"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "taskId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "title"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          },
+          "transformations": [],
+          "unverifiable": []
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

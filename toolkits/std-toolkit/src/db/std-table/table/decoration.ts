@@ -44,7 +44,6 @@ import {
   makeSingleEntity,
   type AnyTransactOp,
 } from '../entity/index.js';
-import { verifyTableSnapshot } from '../enforcement/index.js';
 import { scanStream } from './scan.js';
 import type { ScanOptions, StdTable } from './table.js';
 
@@ -313,13 +312,6 @@ export const decorateTable = <Name extends string>(
           );
         const drifted = !sameKeys(item.keys, currentForm.keys);
         return { drifted, currentForm };
-      });
-    },
-    verifySnapshot() {
-      return Effect.gen(function* () {
-        const contract = (yield* StdTableService(definition.logicalName))
-          .contract;
-        yield* verifyTableSnapshot(contract, definition.snapshot());
       });
     },
     reindex(currentForm: EncodedItem) {

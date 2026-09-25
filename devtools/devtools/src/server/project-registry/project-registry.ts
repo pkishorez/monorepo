@@ -87,9 +87,10 @@ export const makeSqliteProjectRegistry = (options: {
       effect: Effect.Effect<A, E, Layer.Success<typeof configured.layer>>,
     ) => Effect.provide(effect, configured.layer);
 
-    yield* configured.setup.pipe(
-      Effect.mapError((cause) => storeError('setup', cause)),
-    );
+    yield* SQLite.setup(table, {
+      database,
+      tableName: 'project_registry_data',
+    }).pipe(Effect.mapError((cause) => storeError('setup', cause)));
 
     const listAll = (tool: RegistryTool) =>
       Effect.gen(function* () {

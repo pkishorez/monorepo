@@ -1,12 +1,11 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { ESchema, toSchema } from '../../../../eschema/index.js';
-import { captureESchema } from '../../../capture/eschema-capture/index.js';
-import { inspectESchema } from '../../../../eschema/domain/introspection/index.js';
+import { buildESchemaDefinitions } from '../../../capture/eschema-capture/index.js';
 import { restoreESchemaDefinitions } from '../index.js';
 
 function capture(eschema: object) {
-  return captureESchema(eschema, inspectESchema(eschema).name);
+  return { schemas: buildESchemaDefinitions([{ eschema }]) };
 }
 
 function decode(schema: Schema.Top, input: unknown): unknown {

@@ -1,31 +1,31 @@
-export { Snapshot } from './snapshot/index.js';
+export { TableSnapshot } from './snapshot/index.js';
+export type {
+  EntitySource,
+  KeyedEntitySource,
+  SingleEntitySource,
+  TableSource,
+} from './capture/table-capture/index.js';
 export type {
   RestoredESchema,
   RestoredESchemaVersion,
 } from './restore/eschema-restore/index.js';
 export {
-  ContractSnapshotSchema,
-  ESchemaSnapshotSchema,
+  SnapshotChangeSchema,
   SnapshotDecodeError,
-  SnapshotFormatRetired,
   SnapshotIdentityConflict,
   SnapshotIncompatible,
-  TableSnapshotSchema,
+  TableSnapshotESchema,
 } from './domain/index.js';
 export type {
-  ContractSnapshot,
   ESchemaDefinition,
-  ESchemaSnapshot,
+  JsonValue,
   SnapshotChange,
   SnapshotImpact,
-  SnapshotDiagnostic,
   SnapshotEdit,
   SnapshotSubject,
   SnapshotSubjectKind,
-  SnapshotTransformation,
   TableAccessPatternSnapshot,
   TableEntitySnapshot,
   TableIndexSnapshot,
-  TableSnapshot,
   TableTopologySnapshot,
 } from './domain/index.js';

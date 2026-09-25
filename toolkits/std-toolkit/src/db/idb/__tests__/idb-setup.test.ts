@@ -1,10 +1,17 @@
 import 'fake-indexeddb/auto';
-import { Effect, Layer, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema } from '../../../eschema/index.js';
 import { StdTable } from '../../index.js';
 import { IDB } from '../index.js';
 import { makeTableContract } from '../table/index.js';
+import { reconcileIDBStore } from '../upgrade/index.js';
+
+// What a table does on its first open: create the store and its indexes.
+const setup = (
+  table: Parameters<typeof reconcileIDBStore>[1] & { logicalName: string },
+  database: ReturnType<typeof IDB.database>,
+) => reconcileIDBStore(database, table, table.logicalName);
 
 const openDatabase = (factory: IDBFactory, name: string, version?: number) =>
   new Promise<IDBDatabase>((resolve, reject) => {
@@ -40,14 +47,14 @@ describe('IndexedDB setup', () => {
     const people = StdTable.make('people').primary('pk', 'sk').build();
     const orders = StdTable.make('orders').primary('pk', 'sk').build();
     await Promise.all([
-      Effect.runPromise(IDB.make(people, { database }).setup),
-      Effect.runPromise(IDB.make(orders, { database }).setup),
+      Effect.runPromise(setup(people, database)),
+      Effect.runPromise(setup(orders, database)),
     ]);
     const upgradedPeople = StdTable.make('people')
       .primary('pk', 'sk')
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
       .build();
-    await Effect.runPromise(IDB.make(upgradedPeople, { database }).setup);
+    await Effect.runPromise(setup(upgradedPeople, database));
     const connection = await database.open();
     expect([...connection.objectStoreNames]).toEqual(['orders', 'people']);
     expect(
@@ -63,17 +70,17 @@ describe('IndexedDB setup', () => {
       databaseName: `versioning-${crypto.randomUUID()}`,
     });
     const base = StdTable.make('records').primary('pk', 'sk').build();
-    await Effect.runPromise(IDB.make(base, { database }).setup);
+    await Effect.runPromise(setup(base, database));
     const initialVersion = (await database.open()).version;
 
-    await Effect.runPromise(IDB.make(base, { database }).setup);
+    await Effect.runPromise(setup(base, database));
     expect((await database.open()).version).toBe(initialVersion);
 
     const indexed = StdTable.make('records')
       .primary('pk', 'sk')
       .gsi('GSI1', 'GSI1PK', 'GSI1SK')
       .build();
-    await Effect.runPromise(IDB.make(indexed, { database }).setup);
+    await Effect.runPromise(setup(indexed, database));
     const upgraded = await database.open();
     expect(upgraded.version).toBe(initialVersion + 1);
     expect(
@@ -90,7 +97,7 @@ describe('IndexedDB setup', () => {
     });
     const base = StdTable.make('records').primary('pk', 'sk').build();
     base.entity(personSchema).primary().build();
-    await Effect.runPromise(IDB.make(base, { database }).setup);
+    await Effect.runPromise(setup(base, database));
     const baseRuntime = makeTableContract(database, base, 'records');
     await Effect.runPromise(
       baseRuntime.writeItem({
@@ -117,7 +124,7 @@ describe('IndexedDB setup', () => {
       .primary()
       .index('GSI1', 'byEmail', { pk: ['email'] })
       .build();
-    await Effect.runPromise(IDB.make(indexed, { database }).setup);
+    await Effect.runPromise(setup(indexed, database));
 
     const connection = await database.open();
     const physical = await requestResult(
@@ -147,11 +154,8 @@ describe('IndexedDB setup', () => {
       .primary({ pk: ['email'] })
       .index('LSI1', 'byLabel', { sk: ['label'] })
       .build();
-    const configured = IDB.make(table, { database });
-    const layer = Layer.unwrap(
-      configured.setup.pipe(Effect.as(configured.layer)),
-    );
-    await Effect.runPromise(configured.setup);
+    const layer = IDB.make(table, { database }).layer;
+    await Effect.runPromise(setup(table, database));
 
     const connection = await database.open();
     expect(
@@ -340,7 +344,7 @@ describe('IndexedDB setup', () => {
     const database = IDB.database({ databaseName });
 
     const result = await Effect.runPromise(
-      IDB.make(table, { database }).setup.pipe(Effect.result),
+      setup(table, database).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
@@ -369,7 +373,7 @@ describe('IndexedDB setup', () => {
     const table = StdTable.make('records').primary('pk', 'sk').build();
     const database = IDB.database({ databaseName });
 
-    await Effect.runPromise(IDB.make(table, { database }).setup);
+    await Effect.runPromise(setup(table, database));
 
     const connection = await database.open();
     const entityIndex = connection
@@ -399,7 +403,7 @@ describe('IndexedDB setup', () => {
     const database = IDB.database({ databaseName });
 
     const result = await Effect.runPromise(
-      IDB.make(table, { database }).setup.pipe(Effect.result),
+      setup(table, database).pipe(Effect.result),
     );
 
     expect(result).toMatchObject({
