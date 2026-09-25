@@ -3,6 +3,12 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+/** Lets the CPU speech model run on several threads; public/_headers does the same in production. */
+const crossOriginIsolation = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+};
+
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   build: { rolldownOptions: { external: ['cloudflare:workers'] } },
@@ -14,7 +20,9 @@ export default defineConfig({
   },
   server: {
     allowedHosts: ['.stt.kishore.computer'],
+    headers: crossOriginIsolation,
   },
+  preview: { headers: crossOriginIsolation },
   plugins: [
     tailwindcss(),
     tanstackStart({

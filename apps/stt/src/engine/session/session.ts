@@ -26,7 +26,6 @@ import {
   buildTranscript,
   emptyTranscript,
   type Injection,
-  type SpeechModelId,
   type Transcript,
   type Word,
 } from '../transcript/index.ts';
@@ -59,7 +58,7 @@ export interface PassReport {
 export interface VoiceSessionService<P = unknown> {
   /** Downloads and warms up a model in the worker; sessions use the last one loaded. */
   readonly loadModel: (
-    model: SpeechModelId,
+    model: string,
   ) => Stream.Stream<LoadProgress, SpeechError>;
   readonly status: SubscriptionRef.SubscriptionRef<SessionStatus>;
   readonly transcript: SubscriptionRef.SubscriptionRef<Transcript<P>>;

@@ -5,17 +5,12 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Transferable } from 'effect/unstable/workers';
-import { SpeechModelId, Word } from '../transcript/index.ts';
+import { Word } from '../transcript/index.ts';
 
 export class SpeechError extends Schema.TaggedError<SpeechError>()(
   'SpeechError',
   {
-    reason: Schema.Literals([
-      'webgpu-unavailable',
-      'load-failed',
-      'not-loaded',
-      'transcribe-failed',
-    ]),
+    reason: Schema.Literals(['load-failed', 'not-loaded', 'transcribe-failed']),
     message: Schema.String,
   },
 ) {}
@@ -25,6 +20,8 @@ export const LoadProgress = Schema.Struct({
   loaded: Schema.Number,
   total: Schema.Number,
   status: Schema.Literals(['download', 'ready']),
+  /** Bytes that came over the network in this load; `loaded` also counts kept ones. */
+  fetched: Schema.Number,
 });
 export type LoadProgress = typeof LoadProgress.Type;
 
@@ -35,7 +32,8 @@ const Samples = Transferable.schema(Schema.instanceOf(Float32Array), (a) => [
 
 export class SpeechRpcs extends RpcGroup.make(
   Rpc.make('LoadModel', {
-    payload: { model: SpeechModelId },
+    /** A model id from engine/models. */
+    payload: { model: Schema.String },
     success: LoadProgress,
     error: SpeechError,
     stream: true,
