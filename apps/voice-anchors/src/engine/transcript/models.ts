@@ -1,7 +1,11 @@
 import { Schema } from 'effect';
 
-/** The two English speech models the demo can run on WebGPU. */
-export const SpeechModelId = Schema.Literals(['base.en', 'small.en']);
+/** The English speech models the demo can run on WebGPU. */
+export const SpeechModelId = Schema.Literals([
+  'tiny.en',
+  'base.en',
+  'small.en',
+]);
 export type SpeechModelId = typeof SpeechModelId.Type;
 
 export interface SpeechModel {
@@ -14,6 +18,13 @@ export interface SpeechModel {
 }
 
 export const speechModels: ReadonlyArray<SpeechModel> = [
+  {
+    id: 'tiny.en',
+    label: 'Whisper tiny (English)',
+    repository: 'onnx-community/whisper-tiny.en_timestamped',
+    downloadMegabytes: 120,
+    note: 'Small enough for phones. Lowest accuracy.',
+  },
   {
     id: 'base.en',
     label: 'Whisper base (English)',
