@@ -54,7 +54,7 @@
       "description": "Connects the Auth Worker's data to the kui-toolkit auth screens; owns no markup of its own",
       "moduleGraphs": {
         "ui": {
-          "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth client, the User's Sessions and Grants, and one rule for which screen a visitor may see.",
+          "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth client, the User's Sessions and Grants, the browser's Signed-in Accounts, and one rule for which screen a visitor may see.",
           "path": "src/ui",
           "modules": {
             "pages/home": {
@@ -77,14 +77,23 @@
             },
             "screen-routing": {
               "exposed": false
+            },
+            "signed-in-accounts": {
+              "exposed": false
             }
           },
           "rules": {
-            "pages/home": ["client", "user-access", "screen-routing"],
-            "pages/login": ["client", "screen-routing"],
-            "pages/consent": ["client", "screen-routing"],
-            "pages/device": ["client", "screen-routing"],
-            "user-access": ["client"]
+            "pages/home": [
+              "client",
+              "user-access",
+              "screen-routing",
+              "signed-in-accounts"
+            ],
+            "pages/login": ["client", "screen-routing", "signed-in-accounts"],
+            "pages/consent": ["client", "screen-routing", "signed-in-accounts"],
+            "pages/device": ["client", "screen-routing", "signed-in-accounts"],
+            "user-access": ["client"],
+            "signed-in-accounts": ["client", "screen-routing"]
           }
         }
       }

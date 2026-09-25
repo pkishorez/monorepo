@@ -14,6 +14,7 @@ import appCss from '../styles.css?url';
 const getContext = createServerFn().handler(({ context }) => ({
   branding: context.branding,
   authorizationServer: context.authorizationServer,
+  multiSession: context.multiSession,
 }));
 
 type Context = Awaited<ReturnType<typeof getContext>>;

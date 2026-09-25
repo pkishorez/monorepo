@@ -1,6 +1,7 @@
 import { ConsentScreen } from './auth-screens';
 import {
   account,
+  accountsView,
   branding,
   failAfter,
   pause,
@@ -27,6 +28,16 @@ export default {
       branding={branding}
       state={ready}
       account={account}
+      scopeDescriptions={scopeDescriptions}
+      onAnswer={() => pause(2000)}
+    />
+  ),
+  'several Signed-in Accounts': (
+    <ConsentScreen
+      branding={branding}
+      state={ready}
+      account={{ email: account.email }}
+      accounts={accountsView(3)}
       scopeDescriptions={scopeDescriptions}
       onAnswer={() => pause(2000)}
     />

@@ -10,16 +10,25 @@ import { Spinner } from '#components/ui/spinner';
 import { ActionButton, useAction, type Action } from '../action-button';
 import { GrantList, type GrantView } from '../grant-list';
 import { ScopeList, type ScopeDescriptions } from '../scope-list';
+import type { AccountsView, SignedInAccount } from '../account-switcher';
 import { brandName, ScreenFrame, type Branding } from '../screen-frame';
 import { SessionList, type SessionView } from '../session-list';
 import { AccountHeader, type UserView } from './account-header';
 import { DeviceCodeForm } from './device-code-form';
 
-export type { Branding, GrantView, ScopeDescriptions, SessionView, UserView };
+export type {
+  AccountsView,
+  Branding,
+  GrantView,
+  ScopeDescriptions,
+  SessionView,
+  SignedInAccount,
+  UserView,
+};
 
 interface Account {
   email: string;
-  onSignOut: () => void;
+  onSignOut?: (() => void) | undefined;
 }
 
 export type LoginState =
@@ -27,32 +36,54 @@ export type LoginState =
   | {
       status: 'ready';
       continuing: boolean;
+      /** A signed-in User adding another Signed-in Account. */
+      adding?: boolean | undefined;
       error?: string | undefined;
     };
+
+const loginCopy = (
+  app: string,
+  ready: Extract<LoginState, { status: 'ready' }>,
+) =>
+  ready.adding
+    ? {
+        title: 'Add another account',
+        description: 'You stay signed in to your other accounts.',
+      }
+    : ready.continuing
+      ? {
+          title: 'Sign in to continue',
+          description:
+            'An app wants to use your account. Sign in to confirm it is you.',
+        }
+      : {
+          title: `Sign in to ${app}`,
+          description: `One Google account for every ${app} app.`,
+        };
 
 export function LoginScreen({
   branding,
   state,
+  accounts,
   onSignIn,
 }: {
   branding: Branding;
   state: LoginState;
+  accounts?: AccountsView | undefined;
   onSignIn: Action;
 }) {
   const app = brandName(branding);
   const { resolvedTheme } = useTheme();
   const signIn = useAction(onSignIn);
   const ready = state.status === 'ready' ? state : undefined;
+  const copy = ready ? loginCopy(app, ready) : undefined;
   return (
     <ScreenFrame
       branding={branding}
       loading={!ready}
-      title={ready?.continuing ? 'Sign in to continue' : `Sign in to ${app}`}
-      description={
-        ready?.continuing
-          ? 'An app wants to use your account. Sign in to confirm it is you.'
-          : `One Google account for every ${app} app.`
-      }
+      title={copy?.title}
+      description={copy?.description}
+      accounts={accounts}
     >
       {ready?.error ? (
         <p
@@ -90,6 +121,7 @@ export function HomeScreen({
   state,
   scopeDescriptions = {},
   now,
+  accounts,
   onSignOut,
   onReauthenticate,
   onRevokeSession,
@@ -101,6 +133,8 @@ export function HomeScreen({
   state: HomeState;
   scopeDescriptions?: ScopeDescriptions | undefined;
   now?: Date | undefined;
+  accounts?: AccountsView | undefined;
+  /** Signs out this browser's Session for the shown User. */
   onSignOut: Action;
   onReauthenticate: Action;
   onRevokeSession: (id: string) => Promise<unknown>;
@@ -116,6 +150,7 @@ export function HomeScreen({
       <ScreenFrame
         branding={branding}
         loading={false}
+        accounts={accounts}
         title="Confirm it's you"
         description="For your security, sign in again to manage your sessions and apps."
         footer={
@@ -131,6 +166,7 @@ export function HomeScreen({
       <ScreenFrame
         branding={branding}
         loading={false}
+        accounts={accounts}
         title="Your account could not load"
         description={state.reason}
         footer={
@@ -152,11 +188,12 @@ export function HomeScreen({
     <ScreenFrame
       branding={branding}
       loading={false}
+      accounts={accounts}
       header={
         <AccountHeader
           branding={branding}
           user={state.user}
-          onSignOut={onSignOut}
+          onSignOut={accounts ? undefined : onSignOut}
         />
       }
     >
@@ -224,12 +261,14 @@ export function ConsentScreen({
   branding,
   state,
   account,
+  accounts,
   scopeDescriptions = {},
   onAnswer,
 }: {
   branding: Branding;
   state: ConsentState;
   account: Account | undefined;
+  accounts?: AccountsView | undefined;
   scopeDescriptions?: ScopeDescriptions | undefined;
   onAnswer: (allowed: boolean) => Promise<unknown>;
 }) {
@@ -245,6 +284,7 @@ export function ConsentScreen({
         title="This request can't continue"
         description={state.reason}
         account={account}
+        accounts={accounts}
       >
         <p className="text-sm text-muted-foreground">
           Nothing was shared. Go back to the app and try again.
@@ -288,12 +328,14 @@ export function DeviceScreen({
   branding,
   state,
   account,
+  accounts,
   onCheck,
   onAnswer,
 }: {
   branding: Branding;
   state: DeviceState;
   account: Account | undefined;
+  accounts?: AccountsView | undefined;
   onCheck: (code: string) => Promise<unknown>;
   onAnswer: (approved: boolean) => Promise<unknown>;
 }) {
@@ -308,6 +350,7 @@ export function DeviceScreen({
           title="Sign in on your device"
           description="Enter the code your device shows to sign it in to your account."
           account={account}
+          accounts={accounts}
         >
           <DeviceCodeForm
             initialCode={state.code}
@@ -324,6 +367,7 @@ export function DeviceScreen({
           title="Is this your device?"
           description="Sign in only if this code matches the one your device shows."
           account={account}
+          accounts={accounts}
           footer={<Answers onAnswer={onAnswer} accept="Sign in" />}
         >
           <dl className="grid grid-cols-1 divide-y divide-border/60 rounded-lg ring-1 ring-foreground/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
@@ -350,6 +394,7 @@ export function DeviceScreen({
           title="Finishing sign-in"
           description={`You approved ${state.clientId}. It is signing in now, which takes a few seconds.`}
           account={account}
+          accounts={accounts}
         >
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Spinner />
@@ -365,6 +410,7 @@ export function DeviceScreen({
           title="Your device has not signed in yet"
           description={`${state.clientId} has not picked up your approval. Check that it is still running, or run its login again.`}
           account={account}
+          accounts={accounts}
           footer={sessionsLink}
         />
       );
@@ -380,6 +426,7 @@ export function DeviceScreen({
               : 'Nothing was signed in. You can close this page.'
           }
           account={account}
+          accounts={accounts}
           footer={sessionsLink}
         >
           <p className="text-sm text-pretty text-muted-foreground">

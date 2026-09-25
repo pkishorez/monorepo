@@ -7,6 +7,7 @@ import type {
 export interface PagesContext {
   branding: Branding;
   authorizationServer?: { scopes: ScopeDescriptions } | undefined;
+  multiSession?: { maximumAccounts: number } | undefined;
 }
 
 export default async (

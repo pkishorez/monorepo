@@ -2,6 +2,7 @@
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
   "ignoredPaths": [
+    "src/components/blocks/auth/account-switcher.fixture.tsx",
     "src/components/blocks/auth/consent-screen.fixture.tsx",
     "src/components/blocks/auth/device-screen.fixture.tsx",
     "src/components/blocks/auth/fixtures",
@@ -89,7 +90,7 @@
       },
       "moduleGraphs": {
         "auth-screens": {
-          "description": "The Auth Worker's four screens (Home Page, Login Screen, Consent Screen, Device Screen) as pure views: state in, actions out, one frame and one loader",
+          "description": "The Auth Worker's four screens (Home Page, Login Screen, Consent Screen, Device Screen) as pure views: state in, actions out, one frame, one loader, and one account switcher for the browser's Signed-in Accounts",
           "path": "src/components/blocks/auth",
           "modules": {
             "auth-screens": {
@@ -100,18 +101,24 @@
             "disclosure-list": {},
             "session-list": {},
             "grant-list": {},
-            "scope-list": {}
+            "scope-list": {},
+            "account-switcher": {},
+            "email-privacy": {}
           },
           "rules": {
             "auth-screens": [
               "screen-frame",
+              "email-privacy",
+              "account-switcher",
               "action-button",
               "session-list",
               "grant-list",
               "scope-list"
             ],
             "session-list": ["action-button", "disclosure-list"],
-            "grant-list": ["action-button", "disclosure-list", "scope-list"]
+            "grant-list": ["action-button", "disclosure-list", "scope-list"],
+            "screen-frame": ["email-privacy", "account-switcher"],
+            "account-switcher": ["email-privacy"]
           }
         },
         "recorded-flow-explorer": {

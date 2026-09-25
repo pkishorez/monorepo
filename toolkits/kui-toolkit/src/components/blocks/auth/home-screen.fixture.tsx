@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { HomeScreen, type HomeState } from './auth-screens';
 import {
+  accountsView,
   branding,
   failAfter,
   grants,
@@ -131,6 +132,16 @@ export default {
       branding={branding}
       now={now}
       state={{ status: 'ready', user, sessions }}
+      {...handlers}
+    />
+  ),
+  'several Signed-in Accounts': (
+    <HomeScreen
+      branding={branding}
+      now={now}
+      scopeDescriptions={scopeDescriptions}
+      accounts={accountsView(3)}
+      state={{ status: 'ready', user, sessions, grants }}
       {...handlers}
     />
   ),
