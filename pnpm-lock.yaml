@@ -641,7 +641,7 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@0.3.0
         version: '@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
 
-  apps/voice-anchors:
+  apps/stt:
     dependencies:
       '@effect/platform-browser':
         specifier: 'catalog:'
@@ -664,6 +664,9 @@ importers:
       kui-toolkit:
         specifier: workspace:*
         version: link:../../toolkits/kui-toolkit
+      motion:
+        specifier: 'catalog:'
+        version: 13.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       next-themes:
         specifier: 'catalog:'
         version: 0.4.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

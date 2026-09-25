@@ -29,7 +29,7 @@ allowBuilds:
   msgpackr-extract: false
   msw: false
   sharp: false
-  # Pulled in by @huggingface/transformers for Node; voice-anchors runs the
+  # Pulled in by @huggingface/transformers for Node; stt runs the
   # model in the browser on WebGPU and never loads the native runtime.
   onnxruntime-node: false
   protobufjs: false
