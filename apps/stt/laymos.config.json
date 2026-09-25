@@ -5,11 +5,11 @@
   "layers": {
     "engine": {
       "paths": ["src/engine"],
-      "description": "Turns microphone audio and timed button presses into a transcript; knows nothing about React or the page.",
+      "description": "Turns microphone audio and timed button presses into a transcript, and text back into speech; knows nothing about React or the page.",
       "moduleGraphs": {
         "engine": {
           "path": "src/engine",
-          "description": "A session drives the microphone and the transcriber and folds words and injections into a transcript; speech models plug in under models.",
+          "description": "A session drives the microphone and the transcriber and folds words and injections into a transcript; speech models plug in under models. The synthesizer reads text aloud through Kokoro in a worker of its own.",
           "modules": {
             "transcript": {
               "exposed": true
@@ -26,28 +26,38 @@
             "models": {
               "exposed": true
             },
-            "downloads": {}
+            "downloads": {},
+            "synthesis-protocol": {},
+            "synthesis-worker": {
+              "exposed": true
+            },
+            "synthesizer": {
+              "exposed": true
+            }
           },
           "rules": {
             "session": ["microphone", "transcriber", "transcript"],
             "transcriber": ["speech-protocol", "transcript"],
             "speech-worker": ["speech-protocol", "models"],
             "speech-protocol": ["transcript"],
-            "models": ["transcript", "downloads"]
+            "models": ["transcript", "downloads"],
+            "synthesis-worker": ["synthesis-protocol", "downloads"],
+            "synthesizer": ["synthesis-protocol"]
           }
         }
       }
     },
     "worker-entry": {
-      "paths": ["src/speech.worker.ts"],
-      "description": "Starts the speech worker program inside a Web Worker.",
+      "paths": ["src/speech.worker.ts", "src/speech-synthesis.worker.ts"],
+      "description": "Starts the speech and synthesis worker programs inside Web Workers.",
       "modules": {
-        "src/speech.worker.ts": {}
+        "src/speech.worker.ts": {},
+        "src/speech-synthesis.worker.ts": {}
       }
     },
     "client-features": {
       "paths": ["src/client/features"],
-      "description": "The studio UI: model gate, recording controls and the settling transcript, over the engine.",
+      "description": "The studio UI: model gate, recording controls, the settling transcript and reading it aloud, over the engine.",
       "moduleGraphs": {
         "studio": {
           "path": "src/client/features/studio",
@@ -60,7 +70,8 @@
             "model-gate": {},
             "transcript-view": {},
             "context-buttons": {},
-            "debug-panel": {}
+            "debug-panel": {},
+            "read-aloud": {}
           },
           "rules": {
             "workspace": [
@@ -71,7 +82,7 @@
               "debug-panel"
             ],
             "engine-runtime": ["context-buttons"],
-            "transcript-view": ["context-buttons"],
+            "transcript-view": ["context-buttons", "read-aloud"],
             "debug-panel": ["context-buttons"]
           }
         }

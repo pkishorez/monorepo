@@ -16,7 +16,8 @@ import type {
   Transcript,
 } from '../../../../engine/transcript/index.ts';
 import type { ContextPayload } from '../context-buttons/index.ts';
-import { transcriptToText } from './copy-text.ts';
+import { ReadAloud } from '../read-aloud/index.ts';
+import { transcriptToSpeech, transcriptToText } from './copy-text.ts';
 
 export { transcriptToText };
 
@@ -154,7 +155,10 @@ export function TranscriptView({
             ) : null}
           </h2>
           {transcript.final && !empty ? (
-            <CopyButton text={transcriptToText(transcript.segments)} />
+            <div className="flex items-center gap-2">
+              <ReadAloud text={transcriptToSpeech(transcript.segments)} />
+              <CopyButton text={transcriptToText(transcript.segments)} />
+            </div>
           ) : null}
         </header>
         <p
