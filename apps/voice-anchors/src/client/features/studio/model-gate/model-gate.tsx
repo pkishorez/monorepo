@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Card,
   CardContent,
@@ -11,7 +12,11 @@ import {
   speechModels,
   type SpeechModelId,
 } from '../../../../engine/transcript/index.ts';
-import { findDownloadedModels } from './downloaded-models.ts';
+import {
+  clearModelCache,
+  readModelCaches,
+  type ModelCache,
+} from './downloaded-models.ts';
 
 /** First screen on every visit: nothing downloads until a model is picked. */
 export function ModelPicker({
@@ -19,42 +24,62 @@ export function ModelPicker({
 }: {
   readonly onChoose: (model: SpeechModelId) => void;
 }) {
-  const [downloaded, setDownloaded] = useState<ReadonlySet<SpeechModelId>>(
-    () => new Set(),
+  const [caches, setCaches] = useState<ReadonlyMap<SpeechModelId, ModelCache>>(
+    () => new Map(),
   );
   useEffect(() => {
-    void findDownloadedModels().then(setDownloaded);
+    void readModelCaches().then(setCaches);
   }, []);
 
   return (
     <section className="mx-auto w-full max-w-md space-y-3">
       <h2 className="text-sm font-medium">Choose a model</h2>
       <ul className="divide-y rounded-lg border bg-card">
-        {speechModels.map((model) => (
-          <li key={model.id}>
-            <button
-              type="button"
-              className="flex w-full items-center gap-4 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
-              onClick={() => onChoose(model.id)}
-            >
-              <span className="flex flex-1 flex-col gap-0.5">
-                <span className="text-sm font-medium">{model.label}</span>
-                <span className="text-xs text-muted-foreground text-pretty">
-                  {model.note}
+        {speechModels.map((model) => {
+          const cached = caches.get(model.id) ?? 'none';
+          return (
+            <li key={model.id} className="flex items-center">
+              <button
+                type="button"
+                className="flex flex-1 items-center gap-4 py-3 pr-2 pl-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+                onClick={() => onChoose(model.id)}
+              >
+                <span className="flex flex-1 flex-col gap-0.5">
+                  <span className="text-sm font-medium">{model.label}</span>
+                  <span className="text-xs text-muted-foreground text-pretty">
+                    {model.note}
+                  </span>
                 </span>
-              </span>
-              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                {downloaded.has(model.id)
-                  ? 'Downloaded'
-                  : `${model.downloadMegabytes} MB`}
-              </span>
-            </button>
-          </li>
-        ))}
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {cached === 'downloaded'
+                    ? 'Downloaded'
+                    : cached === 'partial'
+                      ? 'Partly downloaded'
+                      : `${model.downloadMegabytes} MB`}
+                </span>
+              </button>
+              {cached === 'none' ? null : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mr-2 text-muted-foreground"
+                  aria-label={`Clear ${model.label} from this browser`}
+                  onClick={() => {
+                    void clearModelCache(model.id)
+                      .then(readModelCaches)
+                      .then(setCaches);
+                  }}
+                >
+                  Clear
+                </Button>
+              )}
+            </li>
+          );
+        })}
       </ul>
       <p className="text-xs text-muted-foreground text-pretty">
         Runs on this device. Each model downloads once, and nothing you say
-        leaves the page.
+        leaves the page. Clear a model to download it again.
       </p>
     </section>
   );
