@@ -39,9 +39,9 @@ const handlers = SpeechRpcs.toLayer(
             const whisper = yield* Effect.tryPromise({
               try: () =>
                 loadWhisper(speechModel(model).repository, (info) => {
-                  if (info.status === 'progress') {
+                  // The pipeline sizes every file up front, so the total never grows.
+                  if (info.status === 'progress_total') {
                     Queue.offerUnsafe(queue, {
-                      file: info.file,
                       loaded: info.loaded,
                       total: info.total,
                       status: 'download',
@@ -57,7 +57,6 @@ const handlers = SpeechRpcs.toLayer(
             });
             yield* Ref.set(loaded, { id: model, whisper });
             yield* Queue.offer(queue, {
-              file: '',
               loaded: 1,
               total: 1,
               status: 'ready',
