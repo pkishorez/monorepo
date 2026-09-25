@@ -1,4 +1,4 @@
-import { Button } from 'kui-toolkit/components/ui/button';
+import { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -11,44 +11,52 @@ import {
   speechModels,
   type SpeechModelId,
 } from '../../../../engine/transcript/index.ts';
+import { findDownloadedModels } from './downloaded-models.ts';
 
-/** First screen: pick which model to download and run on this machine. */
+/** First screen on every visit: nothing downloads until a model is picked. */
 export function ModelPicker({
   onChoose,
 }: {
   readonly onChoose: (model: SpeechModelId) => void;
 }) {
+  const [downloaded, setDownloaded] = useState<ReadonlySet<SpeechModelId>>(
+    () => new Set(),
+  );
+  useEffect(() => {
+    void findDownloadedModels().then(setDownloaded);
+  }, []);
+
   return (
-    <Card className="mx-auto w-full max-w-lg">
-      <CardHeader>
-        <CardTitle>Choose a speech model</CardTitle>
-        <CardDescription>
-          The model downloads once, is cached by the browser, and runs on your
-          graphics hardware. Nothing you say leaves this page.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3">
+    <section className="mx-auto w-full max-w-md space-y-3">
+      <h2 className="text-sm font-medium">Choose a model</h2>
+      <ul className="divide-y rounded-lg border bg-card">
         {speechModels.map((model) => (
-          <Button
-            key={model.id}
-            variant="outline"
-            size="lg"
-            className="h-auto justify-start gap-4 px-4 py-3 text-left"
-            onClick={() => onChoose(model.id)}
-          >
-            <span className="flex flex-1 flex-col gap-0.5">
-              <span className="font-medium">{model.label}</span>
-              <span className="text-xs text-muted-foreground text-wrap">
-                {model.note}
+          <li key={model.id}>
+            <button
+              type="button"
+              className="flex w-full items-center gap-4 px-4 py-3 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+              onClick={() => onChoose(model.id)}
+            >
+              <span className="flex flex-1 flex-col gap-0.5">
+                <span className="text-sm font-medium">{model.label}</span>
+                <span className="text-xs text-muted-foreground text-pretty">
+                  {model.note}
+                </span>
               </span>
-            </span>
-            <span className="text-sm tabular-nums text-muted-foreground">
-              {model.downloadMegabytes} MB
-            </span>
-          </Button>
+              <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                {downloaded.has(model.id)
+                  ? 'Downloaded'
+                  : `${model.downloadMegabytes} MB`}
+              </span>
+            </button>
+          </li>
         ))}
-      </CardContent>
-    </Card>
+      </ul>
+      <p className="text-xs text-muted-foreground text-pretty">
+        Runs on this device. Each model downloads once, and nothing you say
+        leaves the page.
+      </p>
+    </section>
   );
 }
 

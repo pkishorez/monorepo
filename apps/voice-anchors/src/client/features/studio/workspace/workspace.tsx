@@ -18,11 +18,10 @@ import {
   UnsupportedScreen,
 } from '../model-gate/index.ts';
 import { TranscriptView } from '../transcript-view/index.ts';
-import { readChosenModel, rememberChosenModel } from './chosen-model.ts';
 
 /** The page: gate on WebGPU and a loaded model, then the recording studio. */
 export function Workspace() {
-  const [model, setModel] = useState<SpeechModelId | null>(readChosenModel);
+  const [model, setModel] = useState<SpeechModelId | null>(null);
   const [webGpu, setWebGpu] = useState<'checking' | 'yes' | 'no'>('checking');
   useEffect(() => {
     setWebGpu('gpu' in navigator ? 'yes' : 'no');
@@ -41,20 +40,9 @@ export function Workspace() {
       {webGpu === 'no' ? (
         <UnsupportedScreen message="navigator.gpu is not defined" />
       ) : webGpu === 'yes' && model === null ? (
-        <ModelPicker
-          onChoose={(chosen) => {
-            rememberChosenModel(chosen);
-            setModel(chosen);
-          }}
-        />
+        <ModelPicker onChoose={setModel} />
       ) : webGpu === 'yes' && model !== null ? (
-        <Studio
-          model={model}
-          onChangeModel={() => {
-            rememberChosenModel(null);
-            setModel(null);
-          }}
-        />
+        <Studio model={model} onChangeModel={() => setModel(null)} />
       ) : null}
     </main>
   );
