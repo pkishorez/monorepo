@@ -1,0 +1,120 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts"],
+  "layers": {
+    "engine": {
+      "paths": ["src/engine"],
+      "description": "Turns microphone audio and timed button presses into a transcript; knows nothing about React or the page.",
+      "moduleGraphs": {
+        "engine": {
+          "path": "src/engine",
+          "description": "A session drives the microphone and the transcriber and folds words and injections into a transcript.",
+          "modules": {
+            "transcript": {
+              "exposed": true
+            },
+            "speech-protocol": {},
+            "speech-worker": {
+              "exposed": true
+            },
+            "transcriber": {},
+            "microphone": {},
+            "session": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "session": ["microphone", "transcriber", "transcript"],
+            "transcriber": ["speech-protocol", "transcript"],
+            "speech-worker": ["speech-protocol", "transcript"],
+            "speech-protocol": ["transcript"]
+          }
+        }
+      }
+    },
+    "worker-entry": {
+      "paths": ["src/speech.worker.ts"],
+      "description": "Starts the speech worker program inside a Web Worker.",
+      "modules": {
+        "src/speech.worker.ts": {}
+      }
+    },
+    "client-features": {
+      "paths": ["src/client/features"],
+      "description": "The studio UI: model gate, recording controls and the settling transcript, over the engine.",
+      "moduleGraphs": {
+        "studio": {
+          "path": "src/client/features/studio",
+          "description": "The workspace gates on a loaded model, then runs sessions and renders their transcript.",
+          "modules": {
+            "workspace": {
+              "exposed": true
+            },
+            "engine-runtime": {},
+            "model-gate": {},
+            "transcript-view": {},
+            "context-buttons": {},
+            "debug-panel": {}
+          },
+          "rules": {
+            "workspace": [
+              "engine-runtime",
+              "model-gate",
+              "transcript-view",
+              "context-buttons",
+              "debug-panel"
+            ],
+            "engine-runtime": ["context-buttons"],
+            "transcript-view": ["context-buttons"],
+            "debug-panel": ["context-buttons"]
+          }
+        }
+      }
+    },
+    "server-entry": {
+      "paths": ["src/server.ts"],
+      "description": "Serves the page from the Worker.",
+      "modules": {
+        "src/server.ts": {}
+      }
+    },
+    "web-entry": {
+      "paths": ["src/router.tsx"],
+      "description": "Creates the framework router over the generated route tree.",
+      "modules": {
+        "src/router.tsx": {}
+      }
+    },
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "Owns URLs and document composition while mounting the studio.",
+      "modules": {
+        "src/routes/__root.tsx": {
+          "exposed": true
+        },
+        "src/routes/page.tsx": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "engine": {
+      "description": "The worker host starts the engine's worker program; the engine depends on nothing above it.",
+      "rules": {
+        "worker-entry": ["engine"],
+        "engine": []
+      }
+    },
+    "web": {
+      "description": "The router starts pages; pages mount the studio; the studio drives the engine.",
+      "rules": {
+        "web-entry": ["routes"],
+        "routes": ["client-features"],
+        "client-features": ["engine"],
+        "server-entry": []
+      }
+    }
+  }
+}
