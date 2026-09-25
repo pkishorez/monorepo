@@ -1,5 +1,6 @@
 import { Layer } from 'effect';
 import * as Provider from 'alchemy/Provider';
+import { D1Table, D1TableProvider } from './d1/index.js';
 import {
   Providers,
   SnapshotGuard,
@@ -11,6 +12,7 @@ import {
  * stack's `providers` beside the cloud providers you deploy with.
  */
 export const providers = () =>
-  Layer.effect(Providers, Provider.collection([SnapshotGuard])).pipe(
+  Layer.effect(Providers, Provider.collection([SnapshotGuard, D1Table])).pipe(
     Layer.provideMerge(SnapshotGuardProvider()),
+    Layer.provideMerge(D1TableProvider()),
   );

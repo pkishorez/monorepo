@@ -1,4 +1,5 @@
 export {
+  acceptSnapshot,
   guardTable,
   type DeployableTable,
   Providers,

@@ -72,16 +72,16 @@ The file holds the table snapshot: topology, entities, and every version of ever
 
 ### `std-toolkit/alchemy`
 
-Deploys a StdTable with Alchemy. Each target makes the table exist and runs the **snapshot guard**: a resource that keeps the last accepted table snapshot in Alchemy state and fails the deploy when the new one is not upgradable from it. Add `providers()` to the stack's providers.
+Deploys a StdTable with Alchemy. Each target keeps the last accepted table snapshot in Alchemy state and fails the deploy when the new one is not upgradable from it. Add `providers()` to the stack's providers.
 
-| Export                  | What it does                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------------- |
-| `DynamoDB.table`        | Creates the DynamoDB table with every index from the topology, then guards its snapshot. |
-| `D1.table`              | Guards the snapshot, then creates the table and reconciles its indexes in a D1 database. |
-| `guardTable`            | Registers a snapshot guard for a table, for a target the toolkit does not ship.          |
-| `SnapshotGuard`         | The Alchemy resource behind `guardTable`.                                                |
-| `SnapshotGuardProvider` | The provider layer for `SnapshotGuard`.                                                  |
-| `providers`             | Every provider std-toolkit's resources need, to merge into a stack's `providers`.        |
+| Export                  | What it does                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| `DynamoDB.table`        | Guards the snapshot, then creates or updates the DynamoDB table and its indexes.  |
+| `D1.table`              | Registers one resource that checks the snapshot, then sets up the table in D1.    |
+| `guardTable`            | Registers a snapshot guard for a table, for a target the toolkit does not ship.   |
+| `SnapshotGuard`         | The Alchemy resource behind `guardTable`.                                         |
+| `SnapshotGuardProvider` | The provider layer for `SnapshotGuard`.                                           |
+| `providers`             | Every provider std-toolkit's resources need, to merge into a stack's `providers`. |
 
 ### `std-toolkit/studio-rpc`
 
@@ -241,7 +241,7 @@ export default Stack(
 );
 ```
 
-- `D1.table` runs the snapshot guard, then an action that creates the table and reconciles its indexes. The action runs again only when the accepted snapshot changes.
+- `D1.table` registers one resource. Its provider checks the accepted snapshot before creating the physical table or reconciling indexes. Snapshot, database, and physical table name changes trigger a deploy update; a new physical target starts a fresh baseline.
 - `DynamoDB.table` does the same for DynamoDB; the table resource creates the indexes itself, so no setup action follows.
 - At runtime the application provides an adapter layer, `SQLite.make(table, { database }).layer`, and never touches snapshot.
 - The guard is only as durable as the Alchemy state store behind the stack.
