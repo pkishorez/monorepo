@@ -1,6 +1,9 @@
 import type { AutomaticSpeechRecognitionPipeline } from '@huggingface/transformers';
-import { Effect, Option, Queue, Stream } from 'effect';
-import { download, readDownload } from '../../downloads/index.ts';
+import { Effect, Queue, Stream } from 'effect';
+import {
+  downloadsCache,
+  fetchThroughDownloads,
+} from '../../downloads/index.ts';
 import type { Word } from '../../transcript/index.ts';
 import { engineFailure, type EngineError } from '../engine.ts';
 import type { LoadStep } from '../progress.ts';
@@ -21,59 +24,6 @@ export const fileUrl = (repository: string, file: string): string =>
   `https://huggingface.co/${repository}/resolve/main/${file}`;
 
 export type Whisper = AutomaticSpeechRecognitionPipeline;
-
-const asResponse = (file: Blob): Response =>
-  new Response(file, {
-    headers: {
-      'Content-Length': String(file.size),
-      'Content-Type': file.type || 'application/octet-stream',
-    },
-  });
-
-/** Downloads one file, telling `report` each state; resolves to the file. */
-const downloadReporting = (url: string, report: (step: LoadStep) => void) =>
-  download(url).pipe(
-    Stream.tap(({ loaded, total, fetched }) =>
-      Effect.sync(() => report({ _tag: 'File', url, loaded, total, fetched })),
-    ),
-    Stream.runLast,
-    Effect.flatMap((last) => {
-      const file = Option.isSome(last) ? last.value.file : null;
-      return file
-        ? Effect.succeed(file)
-        : Effect.die(new Error(`${url} finished without a file.`));
-    }),
-  );
-
-/**
- * Whole-file requests go through the downloader, so files land in its store;
- * the one-byte range probes Transformers.js makes to size files go straight out.
- */
-const fetchThroughDownloads =
-  (report: (step: LoadStep) => void, signal: AbortSignal) =>
-  async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const probing =
-      (init?.method ?? 'GET') !== 'GET' ||
-      new Headers(init?.headers).has('Range');
-    if (probing) return fetch(input, { ...init, signal });
-    const url = input instanceof Request ? input.url : String(input);
-    return asResponse(
-      await Effect.runPromise(downloadReporting(url, report), { signal }),
-    );
-  };
-
-/** Answers Transformers.js's cache lookups from the downloader's store. */
-const downloadsCache = {
-  match: (key: string | Request): Promise<Response | undefined> =>
-    Effect.runPromise(
-      readDownload(typeof key === 'string' ? key : key.url).pipe(
-        Effect.map((file) => (file ? asResponse(file) : undefined)),
-        Effect.orElseSucceed(() => undefined),
-      ),
-    ),
-  // The downloader stored the file already while fetching it.
-  put: async (): Promise<void> => {},
-};
 
 /**
  * Loads the pipeline, emitting each file's download as Transformers.js pulls
@@ -96,7 +46,11 @@ export const loadWhisper = (
           env.useBrowserCache = false;
           env.useCustomCache = true;
           env.customCache = downloadsCache;
-          env.fetch = fetchThroughDownloads(report, abort.signal);
+          env.fetch = fetchThroughDownloads(
+            (url, { loaded, total, fetched }) =>
+              report({ _tag: 'File', url, loaded, total, fetched }),
+            abort.signal,
+          );
           return pipeline('automatic-speech-recognition', repository, {
             device: 'webgpu',
             dtype,

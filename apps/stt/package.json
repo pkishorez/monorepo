@@ -9,6 +9,7 @@
     "@tanstack/react-start": "catalog:",
     "alchemy": "catalog:",
     "effect": "catalog:",
+    "kokoro-js": "catalog:",
     "kui-toolkit": "workspace:*",
     "motion": "catalog:",
     "next-themes": "catalog:",

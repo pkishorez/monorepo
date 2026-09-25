@@ -273,6 +273,9 @@ catalogs:
     jose:
       specifier: 6.2.12
       version: 6.2.12
+    kokoro-js:
+      specifier: 1.2.1
+      version: 1.2.1
     lucide-react:
       specifier: 1.41.0
       version: 1.41.0
@@ -402,6 +405,7 @@ catalogs:
 overrides:
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vitest: 4.1.11
+  kokoro-js>@huggingface/transformers: 4.2.0
 
 importers:
 
@@ -664,6 +668,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.112
+      kokoro-js:
+        specifier: 'catalog:'
+        version: 1.2.1
       kui-toolkit:
         specifier: workspace:*
         version: link:../../toolkits/kui-toolkit
@@ -8052,6 +8059,9 @@ packages:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==}
     engines: {node: '>=6'}
 
+  kokoro-js@1.2.1:
+    resolution: {integrity: sha512-oq0HZJWis3t8lERkMJh84WLU86dpYD0EuBPtqYnLlQzyFP1OkyBRDcweAqCfhNOpltyN9j/azp1H6uuC47gShw==}
+
   kysely@0.29.5:
     resolution: {integrity: sha512-ooa+eSbBNPTo3MycPEuW5jdrxQdQwdtB3LC3h43FiXQbIry5tR0C5lDG7eealK0E4D7XjrnOP5DIUg/LyjRMYQ==}
     engines: {node: '>=22.0.0'}
@@ -8885,6 +8895,9 @@ packages:
 
   pgpass@1.0.5:
     resolution: {integrity: sha512-FdW9r/jQZhSeohs1Z3sI1yxFQNFvMcnmfuj4WBMUTxOrAyLMaTcE1aAMBiTlbMNaXvBCQuVi0R7hd8udDSP7ug==}
+
+  phonemizer@1.2.1:
+    resolution: {integrity: sha512-v0KJ4mi2T4Q7eJQ0W15Xd4G9k4kICSXE8bpDeJ8jisL4RyJhNWsweKTOi88QXFc4r4LZlz5jVL5lCHhkpdT71A==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -17044,6 +17057,11 @@ snapshots:
 
   kleur@4.1.5: {}
 
+  kokoro-js@1.2.1:
+    dependencies:
+      '@huggingface/transformers': 4.2.0
+      phonemizer: 1.2.1
+
   kysely@0.29.5: {}
 
   launch-editor@2.14.1:
@@ -18253,6 +18271,8 @@ snapshots:
     dependencies:
       split2: 4.2.0
     optional: true
+
+  phonemizer@1.2.1: {}
 
   picocolors@1.1.1: {}
 

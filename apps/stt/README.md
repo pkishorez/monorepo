@@ -40,7 +40,10 @@ browser (recent Chrome or Edge), pick a model, wait for the download, press
 Transcribe and speak. The page is cross-origin isolated (COOP and COEP headers
 in `vite.config.ts`, `src/server.ts` and `public/_headers`) so the CPU
 Parakeet build can run on several threads. Keys 1 to 3 press the context buttons without leaving
-the microphone.
+the microphone. Once a session stops, Read aloud opens a dialog that speaks the
+transcript with [Kokoro](https://github.com/hexgrad/kokoro) in a worker of its
+own, in a voice you pick. Its 8-bit model runs on the CPU and downloads once,
+about 92 MB, when the dialog first opens.
 
 ```bash
 pnpm --filter stt dev      # dev server

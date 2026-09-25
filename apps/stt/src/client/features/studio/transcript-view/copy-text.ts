@@ -13,3 +13,14 @@ export const transcriptToText = (
     )
     .join(' ')
     .replace(/\s+([,.;:!?])/g, '$1');
+
+/** Only the spoken words, for reading aloud: injections are left out. */
+export const transcriptToSpeech = (
+  segments: ReadonlyArray<Segment<ContextPayload>>,
+): string =>
+  segments
+    .flatMap((segment) =>
+      segment.kind === 'transcription' ? [segment.text] : [],
+    )
+    .join(' ')
+    .replace(/\s+([,.;:!?])/g, '$1');
