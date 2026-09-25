@@ -29,6 +29,10 @@ allowBuilds:
   msgpackr-extract: false
   msw: false
   sharp: false
+  # Pulled in by @huggingface/transformers for Node; voice-anchors runs the
+  # model in the browser on WebGPU and never loads the native runtime.
+  onnxruntime-node: false
+  protobufjs: false
   workerd: false
   # Pulled in transitively by better-auth's optional Prisma adapter, which
   # this package doesn't use.
@@ -57,11 +61,13 @@ catalog:
   '@codemirror/lang-json': 6.0.2
   '@dagrejs/dagre': 3.1.1
   '@effect/opentelemetry': 4.0.0-rc.112
+  '@effect/platform-browser': 4.0.0-rc.112
   '@effect/platform-node': 4.0.0-rc.112
   '@effect/platform-node-shared': 4.0.0-rc.112
   '@emotion/is-prop-valid': 1.4.0
   '@fontsource-variable/inter': 5.3.0
   '@fontsource-variable/jetbrains-mono': 5.3.0
+  '@huggingface/transformers': 4.2.0
   '@opentelemetry/api': 1.9.1
   '@opentelemetry/api-logs': 0.222.0
   '@opentelemetry/exporter-logs-otlp-http': 0.222.0
