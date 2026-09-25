@@ -29,7 +29,6 @@ export function useModelLoading(
     Effect.gen(function* () {
       setState({ status: 'loading', loaded: 0, total: 0 });
       const context = yield* runtime.contextEffect;
-      const files = new Map<string, { loaded: number; total: number }>();
       yield* Effect.gen(function* () {
         const session = yield* StudioSession;
         yield* Stream.runForEach(session.loadModel(model), (progress) =>
@@ -38,17 +37,11 @@ export function useModelLoading(
               setState({ status: 'ready' });
               return;
             }
-            files.set(progress.file, {
+            setState({
+              status: 'loading',
               loaded: progress.loaded,
               total: progress.total,
             });
-            let loaded = 0;
-            let total = 0;
-            for (const file of files.values()) {
-              loaded += file.loaded;
-              total += file.total;
-            }
-            setState({ status: 'loading', loaded, total });
           }),
         );
       }).pipe(Effect.provide(context));

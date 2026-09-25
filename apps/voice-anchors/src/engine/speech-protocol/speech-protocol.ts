@@ -20,9 +20,8 @@ export class SpeechError extends Schema.TaggedError<SpeechError>()(
   },
 ) {}
 
-/** Download and initialisation progress for one model file. */
+/** Download progress across every file of the model, then ready. */
 export const LoadProgress = Schema.Struct({
-  file: Schema.String,
   loaded: Schema.Number,
   total: Schema.Number,
   status: Schema.Literals(['download', 'ready']),

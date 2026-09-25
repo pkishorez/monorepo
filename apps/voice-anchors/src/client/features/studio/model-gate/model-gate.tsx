@@ -6,11 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from 'kui-toolkit/components/ui/card';
-import {
-  Progress,
-  ProgressIndicator,
-  ProgressTrack,
-} from 'kui-toolkit/components/ui/progress';
+import { Progress } from 'kui-toolkit/components/ui/progress';
 import {
   speechModels,
   type SpeechModelId,
@@ -82,11 +78,7 @@ export function ModelLoadingScreen({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <Progress value={percent}>
-          <ProgressTrack>
-            <ProgressIndicator />
-          </ProgressTrack>
-        </Progress>
+        <Progress value={percent} />
         <p className="text-xs tabular-nums text-muted-foreground">
           {total > 0
             ? `${megabytes(loaded)} of ${megabytes(total)} MB`
