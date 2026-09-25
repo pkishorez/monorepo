@@ -42,10 +42,14 @@ const decodeWith =
         ),
       );
 
-function checkTable(snapshot: TableSnapshot): void {
-  const issues = tableSnapshotIssues(snapshot);
-  if (issues.length > 0) throw issuesError(issues);
-}
+const checked =
+  <A>(issuesOf: (value: A) => readonly SnapshotIssue[]) =>
+  (value: A): Effect.Effect<A, SnapshotDecodeError> => {
+    const issues = issuesOf(value);
+    return issues.length === 0
+      ? Effect.succeed(value)
+      : Effect.fail(issuesError(issues));
+  };
 
 /**
  * Structural validation for a table snapshot that is already decoded:
@@ -53,7 +57,8 @@ function checkTable(snapshot: TableSnapshot): void {
  * can refuse a malformed document without going through Effect.
  */
 function validateTableSnapshot(snapshot: TableSnapshot): TableSnapshot {
-  checkTable(snapshot);
+  const issues = tableSnapshotIssues(snapshot);
+  if (issues.length > 0) throw issuesError(issues);
   return snapshot;
 }
 
@@ -64,22 +69,12 @@ function decodeSnapshot(
   const kind = isRecord(input) ? input.kind : undefined;
   if (kind === 'eschema') {
     return decodeWith(ESchemaSnapshotESchema)(input).pipe(
-      Effect.flatMap((snapshot) => {
-        const issues = eschemaSnapshotIssues(snapshot);
-        return issues.length === 0
-          ? Effect.succeed(snapshot)
-          : Effect.fail(issuesError(issues));
-      }),
+      Effect.flatMap(checked(eschemaSnapshotIssues)),
     );
   }
   if (kind === 'table') {
     return decodeWith(TableSnapshotESchema)(input).pipe(
-      Effect.flatMap((snapshot) => {
-        const issues = tableSnapshotIssues(snapshot);
-        return issues.length === 0
-          ? Effect.succeed(snapshot)
-          : Effect.fail(issuesError(issues));
-      }),
+      Effect.flatMap(checked(tableSnapshotIssues)),
     );
   }
   return Effect.fail(
@@ -94,12 +89,7 @@ function decodeTableSnapshotFile(
   input: unknown,
 ): Effect.Effect<TableSnapshotFile, SnapshotDecodeError> {
   return decodeWith(TableSnapshotFileESchema)(input).pipe(
-    Effect.flatMap((file) => {
-      const issues = tableSnapshotIssues(file.snapshot);
-      return issues.length === 0
-        ? Effect.succeed(file)
-        : Effect.fail(issuesError(issues));
-    }),
+    Effect.flatMap(checked((file) => tableSnapshotIssues(file.snapshot))),
   );
 }
 

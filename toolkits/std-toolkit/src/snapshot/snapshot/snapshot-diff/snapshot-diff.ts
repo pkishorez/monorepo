@@ -14,7 +14,11 @@ import type {
   TableSnapshot,
   TableSnapshotFile,
 } from '../../domain/index.js';
-import { compareStrings, stableStringify } from '../../domain/index.js';
+import {
+  compareStrings,
+  goldenStepKey,
+  stableStringify,
+} from '../../domain/index.js';
 import { validateTableSnapshot as validateTable } from '../snapshot-decoder/index.js';
 
 type EditSide = NonNullable<SnapshotEdit['side']>;
@@ -657,9 +661,6 @@ function diffSnapshot(
   );
 }
 
-const stepKey = (step: GoldenStep): string =>
-  `${step.schema}\u0000${step.from}\u0000${step.to}`;
-
 /**
  * Golden rows pin what a migration step does to real values. A stored input
  * whose output moved means the step was rewritten, or is not pure: breaking,
@@ -671,10 +672,10 @@ function diffGoldenRows(
   previous: readonly GoldenStep[],
   current: readonly GoldenStep[],
 ): readonly SnapshotChange[] {
-  const before = new Map(previous.map((step) => [stepKey(step), step]));
+  const before = new Map(previous.map((step) => [goldenStepKey(step), step]));
   const changes: SnapshotChange[] = [];
   for (const step of current) {
-    const prior = before.get(stepKey(step));
+    const prior = before.get(goldenStepKey(step));
     if (prior === undefined) continue;
     const priorOutputs = new Map(
       prior.rows.map((row) => [stable(row.input), row.output]),

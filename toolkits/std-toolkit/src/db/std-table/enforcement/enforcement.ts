@@ -103,18 +103,10 @@ const writeBaseline = (
   contract: StdTableContract,
   baseline: TableBaseline,
   condition: ItemCondition,
-): Effect.Effect<boolean, DatabaseError | SnapshotDecodeError> =>
+): Effect.Effect<boolean, DatabaseError> =>
   Effect.gen(function* () {
     const updated = yield* nextUlid;
-    const data = yield* TableBaselineESchema.encode(baseline).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SnapshotDecodeError(
-            `The enforcement baseline cannot be written: ${cause.message}`,
-            cause,
-          ),
-      ),
-    );
+    const data = yield* Effect.orDie(TableBaselineESchema.encode(baseline));
     const result = yield* contract
       .writeItem({
         item: {

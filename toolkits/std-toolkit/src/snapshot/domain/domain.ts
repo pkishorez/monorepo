@@ -200,6 +200,10 @@ export const GoldenStepSchema = Schema.Struct({
 });
 export type GoldenStep = typeof GoldenStepSchema.Type;
 
+export const goldenStepKey = (
+  step: Pick<GoldenStep, 'schema' | 'from' | 'to'>,
+): string => `${step.schema}\u0000${step.from}\u0000${step.to}`;
+
 /**
  * What a test suite commits per table: the schema contract plus golden rows
  * for every migration step. Rows never enter a table; they live here only.

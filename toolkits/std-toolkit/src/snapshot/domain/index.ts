@@ -6,6 +6,7 @@ export {
   eschemaSnapshotIssues,
   GoldenRowSchema,
   GoldenStepSchema,
+  goldenStepKey,
   JsonValueSchema,
   SnapshotChangeSchema,
   SnapshotImpactSchema,

@@ -9,7 +9,11 @@ import type {
   TableSnapshot,
   TableSnapshotFile,
 } from '../domain/index.js';
-import { compareStrings, stableStringify } from '../domain/index.js';
+import {
+  compareStrings,
+  goldenStepKey,
+  stableStringify,
+} from '../domain/index.js';
 
 /** Fixed, so the same code draws the same rows on every machine. */
 const SEED = 20260924;
@@ -112,9 +116,6 @@ const drawInputs = (
   return inputs;
 };
 
-const stepKey = (schema: string, from: string, to: string): string =>
-  `${schema}\u0000${from}\u0000${to}`;
-
 /**
  * Golden rows for every migration step of every ESchema the table reaches,
  * nested ones included. A step already present in `prior` replays its stored
@@ -127,19 +128,11 @@ export function captureGoldenRows(
 ): Effect.Effect<readonly GoldenStep[], GoldenRowError> {
   return Effect.gen(function* () {
     const stored = new Map(
-      (prior?.goldenRows ?? []).map((step) => [
-        stepKey(step.schema, step.from, step.to),
-        step,
-      ]),
+      (prior?.goldenRows ?? []).map((step) => [goldenStepKey(step), step]),
     );
-    const entries = yield* Effect.try({
-      try: () =>
-        collectESchemas(
-          table.registeredEntities.map(({ schema }) => ({ eschema: schema })),
-        ),
-      catch: (cause) =>
-        new GoldenRowError('<table>', '', '', 'cannot collect ESchemas', cause),
-    });
+    const entries = collectESchemas(
+      table.registeredEntities.map(({ schema }) => ({ eschema: schema })),
+    );
     const steps: GoldenStep[] = [];
     for (const { identity, introspection } of entries) {
       const { kind, evolutions } = introspection;
@@ -156,7 +149,13 @@ export function captureGoldenRows(
           );
         const inputs =
           stored
-            .get(stepKey(identity, from.version, to.version))
+            .get(
+              goldenStepKey({
+                schema: identity,
+                from: from.version,
+                to: to.version,
+              }),
+            )
             ?.rows.map((row) => row.input) ??
           (yield* Effect.try({
             try: () => drawInputs(kind, from),
