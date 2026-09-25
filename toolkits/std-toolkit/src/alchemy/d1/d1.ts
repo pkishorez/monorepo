@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { Effect } from 'effect';
 import { isResolved, Resource } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Provider from 'alchemy/Provider';
@@ -98,11 +98,11 @@ export const D1TableProvider = () =>
           } as unknown as Cloudflare.D1.Database;
           const query = yield* Cloudflare.D1.QueryDatabase(database);
           return makeD1SQLite({ database: yield* query.raw });
-        }),
+        }).pipe(Effect.provide(Cloudflare.D1.QueryDatabaseLocal)),
       ),
     delete: () => Effect.void,
     read: ({ output }) => Effect.succeed(output),
-  }).pipe(Layer.provide(Cloudflare.D1.QueryDatabaseLocal));
+  });
 
 /** Registers the D1 table resource with its deploy-time snapshot. */
 const table = (id: string, options: D1TableOptions) =>
