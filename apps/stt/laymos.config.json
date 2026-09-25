@@ -9,7 +9,7 @@
       "moduleGraphs": {
         "engine": {
           "path": "src/engine",
-          "description": "A session drives the microphone and the transcriber and folds words and injections into a transcript.",
+          "description": "A session drives the microphone and the transcriber and folds words and injections into a transcript; speech models plug in under models.",
           "modules": {
             "transcript": {
               "exposed": true
@@ -22,13 +22,18 @@
             "microphone": {},
             "session": {
               "exposed": true
-            }
+            },
+            "models": {
+              "exposed": true
+            },
+            "downloads": {}
           },
           "rules": {
             "session": ["microphone", "transcriber", "transcript"],
             "transcriber": ["speech-protocol", "transcript"],
-            "speech-worker": ["speech-protocol", "transcript"],
-            "speech-protocol": ["transcript"]
+            "speech-worker": ["speech-protocol", "models"],
+            "speech-protocol": ["transcript"],
+            "models": ["transcript", "downloads"]
           }
         }
       }

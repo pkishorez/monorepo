@@ -1,7 +1,6 @@
 import { Cause, Effect, Stream } from 'effect';
 import { useState } from 'react';
 import { useComponentLifecycle } from 'use-effect-ts';
-import type { SpeechModelId } from '../../../../engine/transcript/index.ts';
 import type { StudioRuntime } from './runtime.ts';
 import { StudioSession } from './studio-session.ts';
 
@@ -10,6 +9,8 @@ export type ModelLoading =
       readonly status: 'loading';
       readonly loaded: number;
       readonly total: number;
+      /** Bytes fetched in this load; the rest of `loaded` was kept from before. */
+      readonly fetched: number;
     }
   | { readonly status: 'ready' }
   | { readonly status: 'error'; readonly message: string };
@@ -17,17 +18,18 @@ export type ModelLoading =
 /** Loads the chosen model through the worker and reports byte progress. */
 export function useModelLoading(
   runtime: StudioRuntime,
-  model: SpeechModelId,
+  model: string,
 ): ModelLoading {
   const [state, setState] = useState<ModelLoading>({
     status: 'loading',
     loaded: 0,
     total: 0,
+    fetched: 0,
   });
 
   useComponentLifecycle(
     Effect.gen(function* () {
-      setState({ status: 'loading', loaded: 0, total: 0 });
+      setState({ status: 'loading', loaded: 0, total: 0, fetched: 0 });
       const context = yield* runtime.contextEffect;
       yield* Effect.gen(function* () {
         const session = yield* StudioSession;
@@ -41,6 +43,7 @@ export function useModelLoading(
               status: 'loading',
               loaded: progress.loaded,
               total: progress.total,
+              fetched: progress.fetched,
             });
           }),
         );

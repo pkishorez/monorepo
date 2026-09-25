@@ -3,7 +3,6 @@ import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Kbd } from 'kui-toolkit/components/ui/kbd';
 import { Mic, RotateCcw, Square } from 'kui-toolkit/lucide';
-import type { SpeechModelId } from '../../../../engine/transcript/index.ts';
 import { contextButtons } from '../context-buttons/index.ts';
 import { DebugPanel } from '../debug-panel/index.ts';
 import {
@@ -37,7 +36,7 @@ function Screen({ children }: { readonly children: ReactNode }) {
 
 /** The page: gate on WebGPU and a loaded model, then the recording studio. */
 export function Workspace() {
-  const [model, setModel] = useState<SpeechModelId | null>(null);
+  const [model, setModel] = useState<string | null>(null);
   const [webGpu, setWebGpu] = useState<'checking' | 'yes' | 'no'>('checking');
   useEffect(() => {
     setWebGpu('gpu' in navigator ? 'yes' : 'no');
@@ -80,12 +79,14 @@ function Studio({
   model,
   onChangeModel,
 }: {
-  readonly model: SpeechModelId;
+  readonly model: string;
   readonly onChangeModel: () => void;
 }) {
   const runtime = useStudioRuntime();
   if (runtime === null) {
-    return <ModelLoadingScreen model={model} loaded={0} total={0} />;
+    return (
+      <ModelLoadingScreen model={model} loaded={0} total={0} fetched={0} />
+    );
   }
   return (
     <LoadedStudio
@@ -102,7 +103,7 @@ function LoadedStudio({
   onChangeModel,
 }: {
   readonly runtime: StudioRuntime;
-  readonly model: SpeechModelId;
+  readonly model: string;
   readonly onChangeModel: () => void;
 }) {
   const loading = useModelLoading(runtime, model);
@@ -119,6 +120,7 @@ function LoadedStudio({
             model={model}
             loaded={loading.loaded}
             total={loading.total}
+            fetched={loading.fetched}
           />
         </Screen>
       ) : (

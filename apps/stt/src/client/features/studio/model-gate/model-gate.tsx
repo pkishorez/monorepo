@@ -1,3 +1,4 @@
+import { Effect } from 'effect';
 import { useEffect, useState } from 'react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import {
@@ -9,52 +10,49 @@ import {
 } from 'kui-toolkit/components/ui/card';
 import { Progress } from 'kui-toolkit/components/ui/progress';
 import {
-  speechModels,
-  type SpeechModelId,
-} from '../../../../engine/transcript/index.ts';
-import {
   clearModelCache,
   readModelCaches,
+  speechModels,
   type ModelCache,
-} from './downloaded-models.ts';
+} from '../../../../engine/models/index.ts';
+import { useDownloadRate } from './download-rate.ts';
 
 /** First screen on every visit: nothing downloads until a model is picked. */
 export function ModelPicker({
   onChoose,
 }: {
-  readonly onChoose: (model: SpeechModelId) => void;
+  readonly onChoose: (model: string) => void;
 }) {
-  const [caches, setCaches] = useState<ReadonlyMap<SpeechModelId, ModelCache>>(
+  const [caches, setCaches] = useState<ReadonlyMap<string, ModelCache>>(
     () => new Map(),
   );
   useEffect(() => {
-    void readModelCaches().then(setCaches);
+    void Effect.runPromise(readModelCaches).then(setCaches);
   }, []);
 
   return (
     <section className="mx-auto w-full max-w-md space-y-3">
-      <h2 className="text-sm font-medium">Choose a model</h2>
+      <h2 className="px-1 text-sm text-muted-foreground">Choose a model</h2>
       <ul className="divide-y rounded-lg border bg-card">
         {speechModels.map((model) => {
-          const cached = caches.get(model.id) ?? 'none';
+          const cached = caches.get(model.id)?.state ?? 'none';
+          const heldBytes = caches.get(model.id)?.bytes ?? 0;
           return (
             <li key={model.id} className="flex items-center">
               <button
                 type="button"
-                className="flex flex-1 items-center gap-4 py-3 pr-2 pl-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
+                className="flex flex-1 items-baseline gap-3 py-3.5 pr-2 pl-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
                 onClick={() => onChoose(model.id)}
               >
-                <span className="flex flex-1 flex-col gap-0.5">
-                  <span className="text-sm font-medium">{model.label}</span>
-                  <span className="text-xs text-muted-foreground text-pretty">
-                    {model.note}
-                  </span>
+                <span className="text-sm font-medium">{model.label}</span>
+                <span className="flex-1 truncate text-xs text-muted-foreground">
+                  {model.note}
                 </span>
                 <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
                   {cached === 'downloaded'
                     ? 'Downloaded'
                     : cached === 'partial'
-                      ? 'Partly downloaded'
+                      ? `${megabytes(heldBytes)} of ${model.downloadMegabytes} MB`
                       : `${model.downloadMegabytes} MB`}
                 </span>
               </button>
@@ -65,9 +63,12 @@ export function ModelPicker({
                   className="mr-2 text-muted-foreground"
                   aria-label={`Clear ${model.label} from this browser`}
                   onClick={() => {
-                    void clearModelCache(model.id)
-                      .then(readModelCaches)
-                      .then(setCaches);
+                    void Effect.runPromise(
+                      clearModelCache(model.id).pipe(
+                        Effect.ignore,
+                        Effect.andThen(readModelCaches),
+                      ),
+                    ).then(setCaches);
                   }}
                 >
                   Clear
@@ -77,37 +78,43 @@ export function ModelPicker({
           );
         })}
       </ul>
-      <p className="text-xs text-muted-foreground text-pretty">
-        Runs on this device. Each model downloads once, and nothing you say
-        leaves the page. Clear a model to download it again.
+      <p className="px-1 text-xs text-muted-foreground">
+        English only. Runs on your device; nothing you say leaves the page.
       </p>
     </section>
   );
 }
 
-const megabytes = (bytes: number): string => (bytes / 1_048_576).toFixed(0);
+const megabytes = (bytes: number): string => (bytes / 1_000_000).toFixed(0);
 
 /** Locked screen while the model downloads and warms up. */
 export function ModelLoadingScreen({
   model,
   loaded,
   total,
+  fetched,
 }: {
-  readonly model: SpeechModelId;
+  readonly model: string;
   readonly loaded: number;
   readonly total: number;
+  /** Bytes fetched in this load; the rest of `loaded` was kept from before. */
+  readonly fetched: number;
 }) {
   const label = speechModels.find((entry) => entry.id === model)!.label;
   const percent = total > 0 ? Math.min(100, (loaded / total) * 100) : 0;
   const warming = total > 0 && loaded >= total;
+  const rate = useDownloadRate(fetched);
+  const kept = loaded - fetched;
   return (
     <Card className="mx-auto w-full max-w-lg" aria-busy="true">
       <CardHeader>
         <CardTitle>Loading {label}</CardTitle>
         <CardDescription>
           {warming
-            ? 'Downloaded. Compiling shaders for your GPU.'
-            : 'Downloading model files. The page unlocks when the model is ready.'}
+            ? 'Downloaded. Getting the model ready on this device.'
+            : kept > 0
+              ? `Picking up where it stopped: ${megabytes(kept)} MB was already downloaded.`
+              : 'Downloading model files. The page unlocks when the model is ready.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -116,6 +123,9 @@ export function ModelLoadingScreen({
           {total > 0
             ? `${megabytes(loaded)} of ${megabytes(total)} MB`
             : 'Contacting the model host'}
+          {rate !== null && !warming
+            ? ` · ${(rate / 1_000_000).toFixed(1)} MB/s`
+            : null}
         </p>
       </CardContent>
     </Card>

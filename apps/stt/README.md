@@ -10,17 +10,21 @@ and the button's content lands between the words you were saying at that
 instant, even though the transcript itself arrives a second or two behind you.
 It lives at [stt.kishore.app](https://stt.kishore.app).
 
-The trick is that presses are timed on the audio clock, never on text. Whisper
-re-transcribes a rolling window of recent audio and returns each word with its
-time, so a press can be placed after the words that had started by then,
+The trick is that presses are timed on the audio clock, never on text. The
+speech model (Whisper or NVIDIA Parakeet) re-transcribes a rolling window of
+recent audio and returns each word with its time, so a press can be placed after the words that had started by then,
 and the transcript settles from provisional (dim) to final around it. The
 vocabulary (session, injection, placement, provisional word) is defined in
 [CONTEXT.md](./CONTEXT.md).
 
 Everything runs in the tab: the microphone feeds a 16 kHz recording through an
-AudioWorklet, a Web Worker runs `@huggingface/transformers` on WebGPU behind an
-Effect RPC protocol, and an Effect session folds words and presses into
-segments. There is no fallback: no WebGPU, no demo. `src/engine` is the
+AudioWorklet, a Web Worker runs the chosen model behind an Effect RPC protocol,
+and an Effect session folds words and presses into segments. Models plug in
+under `src/engine/models`, one folder per library: Whisper through
+`@huggingface/transformers`, Parakeet through `parakeet.js`. Model files come
+down through `src/engine/downloads`, which keeps them in Cache Storage in
+16 MB pieces, so a reload resumes a download instead of restarting it. There
+is no fallback: no WebGPU, no demo. `src/engine` is the
 reusable part and depends on nothing in the page; `laymos.config.json`
 declares that boundary so it can be lifted into a package later. The page is a
 TanStack Start app on a Cloudflare Worker built with `kui-toolkit`,
@@ -33,7 +37,9 @@ TanStack Start app on a Cloudflare Worker built with `kui-toolkit`,
 `pnpm dev` starts the Alchemy dev server through Portless under the
 `stt.kishore` name from `portless.json`. Open the printed URL in a WebGPU
 browser (recent Chrome or Edge), pick a model, wait for the download, press
-Transcribe and speak. Keys 1 to 3 press the context buttons without leaving
+Transcribe and speak. The page is cross-origin isolated (COOP and COEP headers
+in `vite.config.ts`, `src/server.ts` and `public/_headers`) so the CPU
+Parakeet build can run on several threads. Keys 1 to 3 press the context buttons without leaving
 the microphone.
 
 ```bash
@@ -67,13 +73,14 @@ class MySession extends Context.Service<
 
 const layer = Layer.effect(MySession, makeVoiceSession<MyPayload>());
 
-// session.loadModel('base.en')  -> Stream of download progress
+// session.loadModel('whisper-base.en')  -> Stream of download progress
 // session.start / session.stop  -> one run
 // session.inject(payload)       -> timed on the audio clock
 // session.transcript            -> SubscriptionRef<Transcript<MyPayload>>
 ```
 
-- `loadModel` streams byte progress until the worker reports ready.
+- `loadModel` streams byte progress until the worker reports ready. Model
+  ids come from `speechModels` in `src/engine/models`.
 - `start` opens the microphone; each second a pass re-transcribes the unfrozen
   stretch of audio and freezes words older than the lag.
 - `inject` records the press time; placement is recomputed on every pass.

@@ -12,6 +12,7 @@
     "kui-toolkit": "workspace:*",
     "motion": "catalog:",
     "next-themes": "catalog:",
+    "parakeet.js": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "use-effect-ts": "workspace:*"

@@ -11,12 +11,10 @@ import {
   SpeechRpcs,
   type LoadProgress,
 } from '../speech-protocol/index.ts';
-import type { SpeechModelId, Word } from '../transcript/index.ts';
+import type { Word } from '../transcript/index.ts';
 
 export interface TranscriberService {
-  readonly load: (
-    model: SpeechModelId,
-  ) => Stream.Stream<LoadProgress, SpeechError>;
+  readonly load: (model: string) => Stream.Stream<LoadProgress, SpeechError>;
   readonly transcribe: (
     samples: Float32Array<ArrayBuffer>,
     offset: number,
