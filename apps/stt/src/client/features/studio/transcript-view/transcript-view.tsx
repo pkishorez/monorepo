@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { Fragment, useEffect, useState } from 'react';
+import { motion } from 'motion/react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Tooltip,
@@ -12,36 +12,60 @@ import { cn } from 'kui-toolkit/utils';
 import type {
   InjectedSegment,
   Segment,
+  TimedWord,
   Transcript,
-  TranscriptionSegment,
 } from '../../../../engine/transcript/index.ts';
 import type { ContextPayload } from '../context-buttons/index.ts';
 import { transcriptToText } from './copy-text.ts';
 
 export { transcriptToText };
 
-function Words({ segment }: { readonly segment: TranscriptionSegment }) {
+type Token =
+  | { readonly kind: 'word'; readonly key: string; readonly word: TimedWord }
+  | {
+      readonly kind: 'chip';
+      readonly key: string;
+      readonly segment: InjectedSegment<ContextPayload>;
+    };
+
+/**
+ * One flat run of words and chips. A word is keyed by its position in the
+ * session, so a later pass that revises it updates the same element in place
+ * instead of mounting a new one, and only brand-new words fade in.
+ */
+const tokensOf = (
+  segments: ReadonlyArray<Segment<ContextPayload>>,
+): ReadonlyArray<Token> => {
+  let position = 0;
+  return segments.flatMap((segment): ReadonlyArray<Token> =>
+    segment.kind === 'transcription'
+      ? segment.words.map((word) => ({
+          kind: 'word',
+          key: `w${position++}`,
+          word,
+        }))
+      : [{ kind: 'chip', key: segment.id, segment }],
+  );
+};
+
+/**
+ * Words only ever fade and change colour: nothing that moves or resizes them,
+ * so the line never shifts while it settles.
+ */
+function Word({ word }: { readonly word: TimedWord }) {
   return (
-    <>
-      {segment.words.map((word, index) => (
-        <motion.span
-          key={`${word.start}-${index}`}
-          className={cn(
-            'transition-colors duration-300',
-            word.final ? 'text-foreground' : 'text-muted-foreground',
-          )}
-          initial={{ opacity: 0, filter: 'blur(6px)' }}
-          animate={{ opacity: 1, filter: 'blur(0px)' }}
-          transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-        >
-          {index > 0 ? ' ' : null}
-          {word.text}
-        </motion.span>
-      ))}
-    </>
+    <span
+      className={cn(
+        'animate-word-in transition-colors duration-500 ease-out',
+        word.final ? 'text-foreground' : 'text-muted-foreground/70',
+      )}
+    >
+      {word.text}
+    </span>
   );
 }
 
+/** A press. It glides to its new place when earlier words land before it. */
 function Chip({
   segment,
 }: {
@@ -52,14 +76,14 @@ function Chip({
       <TooltipTrigger
         render={
           <motion.span
-            initial={{ opacity: 0, y: -14, scale: 0.6 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', duration: 0.5, bounce: 0.35 }}
+            layout="position"
+            transition={{ type: 'spring', duration: 0.4, bounce: 0 }}
             className={cn(
-              'mx-0.5 inline-flex origin-bottom cursor-default items-center rounded-md px-1.5 py-0.5 align-baseline text-sm font-medium transition-colors duration-300',
+              // Same border in both states, so settling never changes the width.
+              'animate-word-in mx-0.5 inline-flex cursor-default items-center rounded-md border px-1.5 align-baseline text-sm leading-6 font-medium transition-colors duration-500',
               segment.final
-                ? 'bg-primary/15 text-primary'
-                : 'border border-dashed border-primary/50 text-primary/80',
+                ? 'border-transparent bg-primary/15 text-primary'
+                : 'border-dashed border-primary/50 bg-transparent text-primary/80',
             )}
           />
         }
@@ -78,18 +102,6 @@ function Chip({
   );
 }
 
-function SegmentView({
-  segment,
-}: {
-  readonly segment: Segment<ContextPayload>;
-}) {
-  return segment.kind === 'transcription' ? (
-    <Words segment={segment} />
-  ) : (
-    <Chip segment={segment} />
-  );
-}
-
 function CopyButton({ text }: { readonly text: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
@@ -105,19 +117,8 @@ function CopyButton({ text }: { readonly text: string }) {
         void navigator.clipboard.writeText(text).then(() => setCopied(true));
       }}
     >
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={copied ? 'copied' : 'copy'}
-          className="inline-flex items-center gap-1.5"
-          initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
-          transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
-        >
-          {copied ? <Check /> : <Copy />}
-          {copied ? 'Copied' : 'Copy text'}
-        </motion.span>
-      </AnimatePresence>
+      {copied ? <Check /> : <Copy />}
+      {copied ? 'Copied' : 'Copy text'}
     </Button>
   );
 }
@@ -130,17 +131,20 @@ export function TranscriptView({
   readonly transcript: Transcript<ContextPayload>;
   readonly listening: boolean;
 }) {
-  const empty = transcript.segments.length === 0;
+  const tokens = tokensOf(transcript.segments);
+  const empty = tokens.length === 0;
   return (
     <TooltipProvider delay={150}>
       <section className="flex min-h-56 flex-col rounded-lg border bg-card">
-        <header className="flex items-center justify-between gap-3 border-b px-4 py-2">
-          <h2 className="text-sm font-medium">
+        <header className="flex h-11 items-center justify-between gap-3 border-b px-4">
+          <h2 className="flex items-center gap-2 text-sm font-medium">
             Transcript
             {transcript.final ? (
-              <span className="ml-2 text-xs text-muted-foreground">final</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                final
+              </span>
             ) : listening ? (
-              <span className="ml-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
                 <span
                   aria-hidden
                   className="size-1.5 animate-pulse rounded-full bg-destructive"
@@ -158,28 +162,29 @@ export function TranscriptView({
           className="flex-1 px-4 py-4 text-lg leading-8 text-pretty"
         >
           {empty ? (
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={listening ? 'listening' : 'idle'}
-                className="text-muted-foreground"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              >
-                {listening
-                  ? 'Say something. Words appear about a second behind you.'
-                  : 'Press Transcribe, speak, and press a context button mid-sentence.'}
-              </motion.span>
-            </AnimatePresence>
+            <span className="text-muted-foreground">
+              {listening
+                ? 'Say something. Words appear about a second behind you.'
+                : 'Press Transcribe, speak, and press a context button mid-sentence.'}
+            </span>
           ) : (
-            transcript.segments.map((segment, index) => (
-              <span key={segment.kind === 'injected' ? segment.id : index}>
+            tokens.map((token, index) => (
+              <Fragment key={token.key}>
                 {index > 0 ? ' ' : null}
-                <SegmentView segment={segment} />
-              </span>
+                {token.kind === 'word' ? (
+                  <Word word={token.word} />
+                ) : (
+                  <Chip segment={token.segment} />
+                )}
+              </Fragment>
             ))
           )}
+          {listening && !empty ? (
+            <span
+              aria-hidden
+              className="ml-1 inline-block h-5 w-0.5 translate-y-1 animate-pulse rounded-full bg-primary/60"
+            />
+          ) : null}
         </p>
       </section>
     </TooltipProvider>

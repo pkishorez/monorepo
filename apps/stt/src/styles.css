@@ -7,37 +7,23 @@
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
-}
 
-:root {
-  --radius: 0.5rem;
-}
-
-/* The waveform loops on the compositor: one keyframe, per-bar peak and pace. */
-.wave-bar {
-  transform: scaleY(0.1);
-  animation: wave var(--wave-duration) ease-in-out var(--wave-delay) infinite;
-}
-
-@keyframes wave {
-  0%,
-  100% {
-    transform: scaleY(0.1);
-  }
-  30% {
-    transform: scaleY(var(--peak));
-  }
-  60% {
-    transform: scaleY(calc(var(--peak) * 0.45));
-  }
-  80% {
-    transform: scaleY(calc(var(--peak) * 0.8));
+  /* A new word arrives by fading in place: opacity and blur never move text. */
+  --animate-word-in: word-in 320ms ease-out both;
+  @keyframes word-in {
+    from {
+      opacity: 0;
+      filter: blur(3px);
+    }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wave-bar {
+  .animate-word-in {
     animation: none;
-    transform: scaleY(calc(var(--peak) * 0.5));
   }
+}
+
+:root {
+  --radius: 0.5rem;
 }

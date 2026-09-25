@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import {
   Card,
@@ -28,7 +27,6 @@ export function ModelPicker({
   const [caches, setCaches] = useState<ReadonlyMap<SpeechModelId, ModelCache>>(
     () => new Map(),
   );
-  const [hovered, setHovered] = useState<SpeechModelId | null>(null);
   useEffect(() => {
     void readModelCaches().then(setCaches);
   }, []);
@@ -36,38 +34,14 @@ export function ModelPicker({
   return (
     <section className="mx-auto w-full max-w-md space-y-3">
       <h2 className="text-sm font-medium">Choose a model</h2>
-      <ul
-        className="divide-y overflow-hidden rounded-lg border bg-card"
-        onMouseLeave={() => setHovered(null)}
-      >
-        {speechModels.map((model, index) => {
+      <ul className="divide-y rounded-lg border bg-card">
+        {speechModels.map((model) => {
           const cached = caches.get(model.id) ?? 'none';
           return (
-            <motion.li
-              key={model.id}
-              className="relative flex items-center"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.35,
-                ease: [0.23, 1, 0.32, 1],
-                delay: 0.15 + index * 0.06,
-              }}
-              onMouseEnter={() => setHovered(model.id)}
-            >
-              {hovered === model.id ? (
-                <motion.span
-                  layoutId="model-hover"
-                  aria-hidden
-                  className="absolute inset-0 bg-muted/60"
-                  transition={{ type: 'spring', duration: 0.3, bounce: 0.15 }}
-                />
-              ) : null}
-              <motion.button
+            <li key={model.id} className="flex items-center">
+              <button
                 type="button"
-                className="relative flex flex-1 items-center gap-4 py-3 pr-2 pl-4 text-left outline-none focus-visible:bg-muted/50"
-                whileTap={{ scale: 0.985 }}
-                onFocus={() => setHovered(model.id)}
+                className="flex flex-1 items-center gap-4 py-3 pr-2 pl-4 text-left outline-none transition-colors hover:bg-muted/50 focus-visible:bg-muted/50"
                 onClick={() => onChoose(model.id)}
               >
                 <span className="flex flex-1 flex-col gap-0.5">
@@ -83,12 +57,12 @@ export function ModelPicker({
                       ? 'Partly downloaded'
                       : `${model.downloadMegabytes} MB`}
                 </span>
-              </motion.button>
+              </button>
               {cached === 'none' ? null : (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="relative mr-2 text-muted-foreground"
+                  className="mr-2 text-muted-foreground"
                   aria-label={`Clear ${model.label} from this browser`}
                   onClick={() => {
                     void clearModelCache(model.id)
@@ -99,7 +73,7 @@ export function ModelPicker({
                   Clear
                 </Button>
               )}
-            </motion.li>
+            </li>
           );
         })}
       </ul>
@@ -155,7 +129,7 @@ export function UnsupportedScreen({ message }: { readonly message: string }) {
       <CardHeader>
         <CardTitle>This browser cannot run the model</CardTitle>
         <CardDescription>
-          STT needs WebGPU. Recent Chrome or Edge on a machine with a GPU works;
+          stt needs WebGPU. Recent Chrome or Edge on a machine with a GPU works;
           Safari 26 and Firefox with WebGPU enabled also work.
         </CardDescription>
       </CardHeader>

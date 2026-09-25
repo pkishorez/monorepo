@@ -1,10 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import {
-  AnimatePresence,
-  MotionConfig,
-  motion,
-  useAnimate,
-} from 'motion/react';
+import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Kbd } from 'kui-toolkit/components/ui/kbd';
 import { Mic, RotateCcw, Square } from 'kui-toolkit/lucide';
@@ -24,16 +19,16 @@ import {
   UnsupportedScreen,
 } from '../model-gate/index.ts';
 import { TranscriptView } from '../transcript-view/index.ts';
-import { Hero, Waveform } from './hero.tsx';
+import { Hero } from './hero.tsx';
 
-/** Every screen swap slides and fades the same way. */
+/** Screens swap with a short crossfade and nothing else. */
 function Screen({ children }: { readonly children: ReactNode }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16, filter: 'blur(6px)' }}
-      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
     >
       {children}
     </motion.div>
@@ -148,14 +143,6 @@ function Recorder({
   const failure =
     typeof session.status === 'object' ? session.status.failed.message : null;
   const problem = session.error ?? failure;
-  const [presses, setPresses] = useState<Readonly<Record<string, number>>>({});
-  const press = (button: (typeof contextButtons)[number]) => {
-    session.inject(button.payload);
-    setPresses((counts) => ({
-      ...counts,
-      [button.key]: (counts[button.key] ?? 0) + 1,
-    }));
-  };
 
   useEffect(() => {
     if (!recording) return;
@@ -163,7 +150,7 @@ function Recorder({
       const button = contextButtons.find((entry) => entry.key === event.key);
       if (button && !event.metaKey && !event.ctrlKey && !event.altKey) {
         event.preventDefault();
-        press(button);
+        session.inject(button.payload);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -173,44 +160,42 @@ function Recorder({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <motion.span
-          className="relative inline-flex"
-          whileTap={{ scale: 0.96 }}
-        >
-          {recording ? <RecordingRings /> : null}
-          {recording || finishing ? (
-            <Button
-              size="lg"
-              variant="destructive"
-              onClick={session.stop}
-              disabled={finishing}
-            >
-              <Square />
-              {finishing ? 'Finishing' : 'Stop'}
-            </Button>
-          ) : (
-            <Button size="lg" onClick={done ? session.reset : session.start}>
-              {done ? <RotateCcw /> : <Mic />}
-              {done ? 'New session' : 'Transcribe'}
-            </Button>
-          )}
-        </motion.span>
+        {recording || finishing ? (
+          <Button
+            size="lg"
+            className="min-w-36"
+            variant="destructive"
+            onClick={session.stop}
+            disabled={finishing}
+          >
+            <Square />
+            {finishing ? 'Finishing' : 'Stop'}
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            className="min-w-36"
+            onClick={done ? session.reset : session.start}
+          >
+            {done ? <RotateCcw /> : <Mic />}
+            {done ? 'New session' : 'Transcribe'}
+          </Button>
+        )}
         <div
           className="flex flex-wrap items-center gap-2"
           role="group"
           aria-label="Context buttons"
         >
           {contextButtons.map((button) => (
-            <PressPulse key={button.key} count={presses[button.key] ?? 0}>
-              <Button
-                variant="secondary"
-                disabled={!recording}
-                onClick={() => press(button)}
-              >
-                <Kbd className="pointer-coarse:hidden">{button.key}</Kbd>
-                {button.payload.label}
-              </Button>
-            </PressPulse>
+            <Button
+              key={button.key}
+              variant="secondary"
+              disabled={!recording}
+              onClick={() => session.inject(button.payload)}
+            >
+              <Kbd className="pointer-coarse:hidden">{button.key}</Kbd>
+              {button.payload.label}
+            </Button>
           ))}
         </div>
         <Button
@@ -223,19 +208,6 @@ function Recorder({
           Change model
         </Button>
       </div>
-      <AnimatePresence initial={false}>
-        {recording ? (
-          <motion.div
-            key="meter"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-          >
-            <Waveform active bars={56} className="h-10" />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
       {problem ? (
         <p
           role="alert"
@@ -247,54 +219,5 @@ function Recorder({
       <TranscriptView transcript={session.transcript} listening={recording} />
       <DebugPanel transcript={session.transcript} passes={session.passes} />
     </div>
-  );
-}
-
-/** A soft ring spreading from the stop button while the microphone is live. */
-function RecordingRings() {
-  return (
-    <span
-      aria-hidden
-      className="pointer-events-none absolute inset-0 animate-ping rounded-md bg-destructive/30 [animation-duration:1.6s]"
-    />
-  );
-}
-
-/** A quick bump and ring on every press, from a click or a key. */
-function PressPulse({
-  count,
-  children,
-}: {
-  readonly count: number;
-  readonly children: ReactNode;
-}) {
-  const [scope, animate] = useAnimate<HTMLSpanElement>();
-  useEffect(() => {
-    if (count > 0) {
-      void animate(
-        scope.current,
-        { scale: [0.94, 1] },
-        { type: 'spring', duration: 0.35, bounce: 0.5 },
-      );
-    }
-  }, [count, animate, scope]);
-  return (
-    <motion.span
-      ref={scope}
-      className="relative inline-flex"
-      whileTap={{ scale: 0.96 }}
-    >
-      {count > 0 ? (
-        <motion.span
-          key={count}
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-primary"
-          initial={{ opacity: 0.9, scale: 1 }}
-          animate={{ opacity: 0, scale: 1.25 }}
-          transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
-        />
-      ) : null}
-      {children}
-    </motion.span>
   );
 }
