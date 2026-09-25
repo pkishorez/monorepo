@@ -137,11 +137,13 @@ any other and gets a real migration.
 Evolving schemas move migration from deploy time to read time. That trade has
 sharp edges worth knowing before you rely on it.
 
-- **It will not stop you editing history.** Shipped versions and shipped
-  migrations are contracts with the rows already written, but nothing at
-  runtime or in the types detects that you changed v1's fields after rows were
-  written. The schema happily decodes new data and silently fails on old data.
-  The snapshot module exists precisely to catch this in review.
+- **The types will not stop you editing history.** Shipped versions and
+  shipped migrations are contracts with the rows already written, but nothing
+  in the types detects that you changed v1's fields or rewrote the v1→v2 step
+  after rows were written. Two things catch a changed version: the per-table
+  test (`expectTableSnapshot`) in CI, and the snapshot guard at deploy. See
+  "Shipping" below. A rewritten migration is not caught: it is code, and it
+  gets the same review as any other function.
 - **Migrations only run on read.** A row written at v1 stays a v1 row on disk
   until something decodes and re-encodes it. If you delete the v1→v2 migration
   from your code, unread v1 rows become undecodable.
@@ -167,9 +169,29 @@ sharp edges worth knowing before you rely on it.
   row must decode to the same value today, tomorrow, and on every replica.
 - **Model absence with `Schema.NullOr`,** never optional fields — the builder
   forbids optionals so that every version has exactly one canonical shape.
-- **Snapshot your contracts.** Capture an approved snapshot in review and diff
-  against it in CI; appended versions classify as `safe`, edits to approved
-  versions as `breaking`.
+- **Commit a table snapshot.** One `expectTableSnapshot` test per table keeps
+  every version under review; appended versions classify as `safe`, edits to
+  approved versions as `breaking`.
+
+## Shipping
+
+The contract is checked at deploy, never at runtime. Deploy the table through
+`std-toolkit/alchemy` (`DynamoDB.table` or `D1.table`). Each target runs the
+**snapshot guard**: an Alchemy resource that keeps the last accepted table
+snapshot in Alchemy state. The first deploy records it. Every later deploy
+diffs the new snapshot against it; a `breaking` or `unverifiable` change fails
+the deploy with `SnapshotIncompatible` before the table is touched, and a
+`requires-backfill` change is accepted with a warning. Nothing is stored in the
+table, and no adapter or layer reads a snapshot.
+
+The two ways past a refusal are both honest about the data:
+
+- **A new logical table.** Declare the new shape under a new name and move the
+  rows across yourself.
+- **A new physical target.** A new table name or database starts a fresh
+  baseline, so the guard accepts the first snapshot it sees there.
+
+The guard is only as durable as the Alchemy state store behind the stack.
 
 Every edge case above is proven in the runnable stories under
-`stories/evolving-schema/`.
+`stories/03-changing-the-shape/`.

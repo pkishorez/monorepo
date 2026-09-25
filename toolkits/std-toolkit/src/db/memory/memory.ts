@@ -16,6 +16,7 @@ export interface MemoryTable<Name extends string> {
   readonly layer: Layer.Layer<StdTableService<Name>>;
 }
 
+/** A Memory table lives and dies with one process, so there is nothing to prepare. */
 const make = <Name extends string>(
   table: TableSource<Name>,
 ): MemoryTable<Name> => {

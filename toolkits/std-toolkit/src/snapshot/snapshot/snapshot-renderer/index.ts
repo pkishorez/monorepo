@@ -1,1 +1,4 @@
-export { renderSnapshot, renderSnapshotChanges } from './snapshot-renderer.js';
+export {
+  renderSnapshotChanges,
+  renderTableSnapshot,
+} from './snapshot-renderer.js';

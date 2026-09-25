@@ -18,9 +18,10 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 
 - **core** is the shared kernel for the whole toolkit. eschema, db (dynamodb/sqlite), and sync all speak its **Entity** / **Entity Meta** vocabulary.
 - **eschema → core**: an **EncodedEntity** value carries eschema's `_v` **version** stamp; core's `EntitySchema` converts between encoded and decoded entity representations.
-- **snapshot → eschema**: snapshot consumes ESchema structural introspection to produce **ESchema snapshots**; eschema does not depend on snapshot.
+- **snapshot → eschema**: snapshot consumes ESchema's public introspection to describe every schema a table reaches, and the table snapshot document is itself an ESchema so a stored document migrates forward like any row; eschema does not depend on snapshot.
 - **db → core, eschema**: the adapters persist core **Entities** whose `value` is validated by an eschema schema.
-- **db → snapshot**: database tables provide topology and registered-entity source data to snapshot and expose `table.snapshot()` as their capture surface. Table-level enforcement additionally consumes snapshot's comparison (`Snapshot.diff`) to decide whether its own stored baseline can move forward.
+- **snapshot reads db structurally**: `TableSnapshot.capture` reads a table's topology and registered entities through a structural type, so neither db nor snapshot imports the other. No adapter and no layer runs snapshot; removing snapshot leaves the runtime compiling. The per-table Vitest test lives in snapshot and never touches a database.
+- **alchemy → db, snapshot**: `std-toolkit/alchemy` is the only place snapshot meets a deploy. Each target makes a table exist, and its **snapshot guard** keeps the accepted table snapshot in Alchemy state and refuses a deploy that is not upgradable. Nothing depends on alchemy.
 - **db (dynamodb ↔ sqlite ↔ idb ↔ memory)**: a **Shared Kernel**. The single-table topology — **partition key**, **sort key**, **item collection**, `IndexDefinition`, **Table** — is defined once in [db](./src/db/CONTEXT.md); sqlite, idb, and memory mirror dynamodb's topology and each child context records only its divergences.
 - **sync → core**: exposes **DecodedEntities** to application-facing integration points, decodes transport values at ingress, and interprets `_u` for convergence and `_s`/`_c` for cadence.
 - **sync → db**: realizes its **Sync Store** through a compatible database adapter; Memory versus IndexedDB changes durability, not Peer Sync behavior.

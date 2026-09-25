@@ -1,9 +1,8 @@
-import { Action, AlchemyContext, Stack, Stage } from 'alchemy';
+import { AlchemyContext, Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
-import { SQLite } from 'std-toolkit/db/sqlite';
-import type { TableSnapshot } from 'std-toolkit/snapshot';
-import { makeD1SQLite } from 'std-toolkit/db/sqlite/d1';
+import * as Layer from 'effect/Layer';
+import { D1, providers as stdToolkitProviders } from 'std-toolkit/alchemy';
 import { consoleTable } from './src/server/storage/table/index.ts';
 // Entities register on the table as their modules load; the snapshot must see all of them.
 import './src/server/storage/credentials/index.ts';
@@ -17,20 +16,6 @@ export const Database = Cloudflare.D1.Database(
     const stage = yield* Stage;
     return { name: `alchemy-console-${stage}` };
   }),
-);
-
-// Runs whenever the console table's schema changes.
-const PrepareDatabase = Action(
-  'PrepareDatabase',
-  Effect.gen(function* () {
-    const query = yield* Cloudflare.D1.QueryDatabase(Database);
-    return Effect.fn(function* (_schema: { snapshot: TableSnapshot }) {
-      const database = makeD1SQLite({ database: yield* query.raw });
-      const table = SQLite.make(consoleTable, { database });
-      yield* table.setup;
-      yield* consoleTable.verifySnapshot().pipe(Effect.provide(table.layer));
-    });
-  }).pipe(Effect.provide(Cloudflare.D1.QueryDatabaseLocal)),
 );
 
 export const Worker = Cloudflare.Website.Vite(
@@ -49,7 +34,11 @@ export const Worker = Cloudflare.Website.Vite(
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
     }
-    yield* PrepareDatabase({ snapshot: consoleTable.snapshot() });
+    // The snapshot guard refuses a breaking change to the console table
+    // against the snapshot it accepted last deploy, then the table is
+    // created and its indexes reconciled.
+    const database = yield* Database;
+    yield* D1.table('ConsoleTable', { table: consoleTable, database });
 
     return {
       env: { DB: Database },
@@ -68,6 +57,9 @@ export type WorkerEnv = Cloudflare.InferEnv<typeof Worker>;
 
 export default Stack(
   'AlchemyConsole',
-  { providers: Cloudflare.providers(), state: Cloudflare.state() },
+  {
+    providers: Layer.merge(Cloudflare.providers(), stdToolkitProviders()),
+    state: Cloudflare.state(),
+  },
   Worker,
 );

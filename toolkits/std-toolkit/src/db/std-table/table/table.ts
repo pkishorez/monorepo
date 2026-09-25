@@ -1,4 +1,4 @@
-import type { Effect, Stream } from 'effect';
+import type { Stream } from 'effect';
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
@@ -8,7 +8,6 @@ import type {
   DecodedEntity,
   DecodedSingleEntity,
 } from '../../../core/index.js';
-import type { SnapshotIncompatible } from '../../../snapshot/index.js';
 import type { DatabaseError } from '../error/index.js';
 import type { EncodedItem, StdTableService } from '../contract/index.js';
 import {
@@ -57,7 +56,6 @@ export interface StdTable<
   readonly localSecondaryIndexes: Lsis;
   readonly globalSecondaryIndexes: Gsis;
   readonly registeredEntities: DefinitionTableDefinition<Name>['registeredEntities'];
-  snapshot(): ReturnType<DefinitionTableDefinition<Name>['snapshot']>;
   entity<S extends AnyEntityESchema>(
     schema: S,
   ): KeyedBuilderStart<Name, S, Lsis, Gsis>;
@@ -83,11 +81,6 @@ export interface StdTable<
   scan(options?: ScanOptions): TableStream<EncodedItem, Name>;
   drift(item: EncodedItem): TableEffect<DriftResult, Name>;
   reindex(currentForm: EncodedItem): TableEffect<void, Name>;
-  verifySnapshot(): Effect.Effect<
-    void,
-    DatabaseError | SnapshotIncompatible,
-    StdTableService<Name>
-  >;
 }
 
 export interface TableBuilder<Name extends string> {

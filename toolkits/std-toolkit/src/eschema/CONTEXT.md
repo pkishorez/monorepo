@@ -24,7 +24,7 @@ A tagged string identifier for one generation of a schema (e.g. `v1`, `v2`). Enc
 _Avoid_: revision, generation.
 
 **approved version**:
-A **version** present in an accepted **ESchema snapshot**. Its encoded and decoded data contracts are frozen; later changes must be expressed as a new version. A version that is not yet approved is freely editable, and dropping it leaves nothing behind so long as no durable store has written rows stamped with it.
+A **version** present in an accepted **table snapshot**. Its encoded and decoded data contracts are frozen; later changes must be expressed as a new version. A version that is not yet approved is freely editable, and dropping it leaves nothing behind so long as no durable store has written rows stamped with it.
 _Avoid_: Editable latest version.
 
 **INITIAL_VERSION**:

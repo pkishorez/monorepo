@@ -9,7 +9,7 @@ The table-independent, type-safe request interface to the complete DynamoDB API.
 _Avoid_: Table client.
 
 **DynamoDB adapter table**:
-The result of `DynamoDB.make` (`DynamoDBTable`): a StdTable layer, explicit setup Effect, physical table name, and DynamoDB-native service. The physical name never defaults from the StdTable's logical name.
+The result of `DynamoDB.make` (`DynamoDBTable`): a StdTable layer, physical table name, and DynamoDB-native service. The physical name never defaults from the StdTable's logical name.
 _Avoid_: Configured DynamoDB Table (retired term), binding, Table client.
 
 **DynamoDB table definition**:
@@ -23,8 +23,9 @@ The adapter's **native item**: the physical representation of an **encoded item*
 The adapter's **item schema**: one table-parameterized two-way Effect Schema between an **encoded item** and a **DynamoDB item** (`itemSchema(table): Schema<NativeItem, EncodedItem>`). Writes run the decode direction, reads the encode direction, and malformed items fail as parse errors. It performs no I/O.
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
-**Create-only setup**:
-The setup operation creates the physical table from the declared topology. If the table already exists, setup fails with the DynamoDB `CreateTable` failure. It does not inspect, reconcile, or update an existing table.
+**Create-if-missing setup**:
+`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is. Deployed tables come from `DynamoDB.table` in `std-toolkit/alchemy`, whose resource creates and reconciles every index.
+_Avoid_: Create-only setup, adapter setup (for this adapter; `make` returns only the layer).
 
 **DynamoDB-native service**:
 The Table-scoped requirement for expression updates and batch writes. Portable Entity operations do not depend on it.
@@ -60,7 +61,7 @@ The error for DynamoDB-only setup, consistent reads, expression updates, and bat
 
 The dependency direction is `door → table/native/setup → client + domain (attribute-value, expression, item-schema)`; `domain/` is pure. Portable operations depend only on the shared **StdTable contract**.
 
-`DynamoDB.make(stdTable, config)` owns client construction and exposes the adapter table's layer and setup operation. Callers supply an adapter config, not a constructed client. Config never mutates a StdTable; StdTable requirements use the logical name at the Effect boundary.
+`DynamoDB.make(stdTable, config)` owns client construction and exposes the adapter table's layer. Callers supply an adapter config, not a constructed client. Config never mutates a StdTable; StdTable requirements use the logical name at the Effect boundary.
 
 ## TODO
 

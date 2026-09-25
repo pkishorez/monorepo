@@ -10,14 +10,23 @@ type SQLiteTable = Pick<
   'primary' | 'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
 
-export const setupSQLiteTable = (
+/** Creates the physical table when it is missing; never alters an existing one. */
+export const ensureSQLiteTable = (
   database: SQLiteDriver,
   table: SQLiteTable,
   tableName: string,
-) => {
-  const createTable = Statement.createTable(tableName, table);
-  return database.run(createTable.sql).pipe(
-    Effect.andThen(reconcileSQLiteTopology(database, table, tableName)),
+) =>
+  database.run(Statement.createTable(tableName, table).sql).pipe(
+    Effect.asVoid,
     Effect.mapError((cause) => new OperationFailure({ cause })),
   );
-};
+
+/** Adds missing index columns and indexes, and replaces incompatible ones. */
+export const reconcileSQLiteTable = (
+  database: SQLiteDriver,
+  table: SQLiteTable,
+  tableName: string,
+) =>
+  reconcileSQLiteTopology(database, table, tableName).pipe(
+    Effect.mapError((cause) => new OperationFailure({ cause })),
+  );

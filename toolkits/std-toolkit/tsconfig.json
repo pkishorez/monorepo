@@ -7,9 +7,11 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "paths": {
+      "std-toolkit/alchemy": ["./src/alchemy/index.ts"],
       "std-toolkit/core": ["./src/core/index.ts"],
       "std-toolkit/eschema": ["./src/eschema/index.ts"],
       "std-toolkit/snapshot": ["./src/snapshot/index.ts"],
+      "std-toolkit/snapshot/vitest": ["./src/snapshot/vitest/index.ts"],
       "std-toolkit/studio-rpc": ["./src/studio-rpc/index.ts"],
       "std-toolkit/sync": ["./src/sync/index.ts"],
       "std-toolkit/sync/paced": ["./src/sync/collection/pacing/index.ts"],

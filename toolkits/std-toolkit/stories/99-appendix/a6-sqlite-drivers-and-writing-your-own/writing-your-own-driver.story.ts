@@ -42,8 +42,8 @@ const onDriver = <A, E, R>(
   program: Effect.Effect<A, E, R>,
 ) =>
   Effect.gen(function* () {
+    yield* SQLite.setup(table, { database: driver });
     const configured = SQLite.make(table, { database: driver });
-    yield* configured.setup;
     let issued = 0;
     return yield* program.pipe(
       Effect.provide(configured.layer),

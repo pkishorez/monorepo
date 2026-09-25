@@ -19,13 +19,17 @@ if (endpoint !== undefined) {
   runConformanceSuite({
     name: 'DynamoDB Local',
     makeLayer: () => {
-      const configured = DynamoDB.make(conformanceTable, {
+      const config = {
         tableName: `portable-conformance-${process.pid}-${++tableNumber}`,
         region: 'local',
         endpoint,
         credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
-      });
-      return Layer.unwrap(configured.setup.pipe(Effect.as(configured.layer)));
+      };
+      return Layer.unwrap(
+        DynamoDB.createTable(conformanceTable, config).pipe(
+          Effect.as(DynamoDB.make(conformanceTable, config).layer),
+        ),
+      );
     },
   });
 } else {

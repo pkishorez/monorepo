@@ -10,8 +10,6 @@ export {
   type KeyedEntityDefinition,
   type LocalSecondaryIndex,
   type LocalSecondaryIndexMap,
-  type LogicalEntitySnapshot,
-  type LogicalTableSnapshot,
   type PatternFor,
   type PrimaryIndex,
   type SingleEntityBuilder,

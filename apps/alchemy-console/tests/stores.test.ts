@@ -108,7 +108,7 @@ const run = <A, E>(
   const table = SQLite.make(consoleTable, { database });
   return Effect.runPromise(
     Effect.gen(function* () {
-      yield* table.setup;
+      yield* SQLite.setup(consoleTable, { database });
       const client = yield* makeClient();
       return yield* use(client);
     }).pipe(
@@ -432,7 +432,7 @@ it('persists raw secrets at schema v1 and removes the actual rows on delete', as
   };
   await Effect.runPromise(
     Effect.gen(function* () {
-      yield* table.setup;
+      yield* SQLite.setup(consoleTable, { database });
       for (const [schema, record] of [
         [credentialSchema, credential],
         [storeSchema, store],

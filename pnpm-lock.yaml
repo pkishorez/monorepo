@@ -261,9 +261,6 @@ catalogs:
     input-otp:
       specifier: 1.5.0
       version: 1.5.0
-    jiti:
-      specifier: 2.7.0
-      version: 2.7.0
     jose:
       specifier: 6.2.12
       version: 6.2.12
@@ -1352,9 +1349,6 @@ importers:
       idb:
         specifier: 'catalog:'
         version: 8.0.3
-      jiti:
-        specifier: 'catalog:'
-        version: 2.7.0
       type-fest:
         specifier: 'catalog:'
         version: 5.9.0
@@ -1391,7 +1385,7 @@ importers:
         version: 19.2.18
       alchemy:
         specifier: 'catalog:'
-        version: 2.0.0-beta.76(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/node@26.4.1)(@types/react@19.2.18)(effect@4.0.0-rc.112)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(pg@8.23.0)(typescript@7.0.2)(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)))(ws@8.21.3)
+        version: 2.0.0-beta.76(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/node@26.4.1)(@types/react@19.2.18)(effect@4.0.0-rc.112)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(pg@8.23.0)(typescript@7.0.2)(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(vitest@4.1.11)(ws@8.21.3)
       better-sqlite3:
         specifier: 'catalog:'
         version: 13.0.3
@@ -11045,11 +11039,6 @@ snapshots:
     dependencies:
       effect: 4.0.0-rc.112
 
-  '@effect/vitest@4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)))':
-    dependencies:
-      effect: 4.0.0-rc.112
-      vitest: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
-
   '@effect/vitest@4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)':
     dependencies:
       effect: 4.0.0-rc.112
@@ -14614,7 +14603,7 @@ snapshots:
       - utf-8-validate
       - vitest
 
-  alchemy@2.0.0-beta.76(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/node@26.4.1)(@types/react@19.2.18)(effect@4.0.0-rc.112)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(pg@8.23.0)(typescript@7.0.2)(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)))(ws@8.21.3):
+  alchemy@2.0.0-beta.76(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/node@26.4.1)(@types/react@19.2.18)(effect@4.0.0-rc.112)(mongodb@6.21.0(@aws-sdk/credential-providers@3.1111.0)(socks@2.8.9))(pg@8.23.0)(typescript@7.0.2)(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))(vitest@4.1.11)(ws@8.21.3):
     dependencies:
       '@alchemy.run/cloudflare-runtime': 2.0.0-beta.76(@distilled.cloud/cloudflare@1.0.0-rc.8(effect@4.0.0-rc.112))(@effect/platform-node@4.0.0-rc.112(effect@4.0.0-rc.112)(redis@6.2.1(@opentelemetry/api@1.9.1)))(@types/node@26.4.1)(effect@4.0.0-rc.112)(rolldown@1.2.5)(typescript@7.0.2)(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0))
       '@alchemy.run/floci': 2.0.0-beta.76(effect@4.0.0-rc.112)
@@ -14632,7 +14621,7 @@ snapshots:
       '@distilled.cloud/railway': 1.0.0-rc.8(effect@4.0.0-rc.112)
       '@effect/sql-d1': 4.0.0-rc.112(effect@4.0.0-rc.112)
       '@effect/sql-sqlite-do': 4.0.0-rc.112(effect@4.0.0-rc.112)
-      '@effect/vitest': 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@4.1.11)(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))(vite@8.2.2(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)))
+      '@effect/vitest': 4.0.0-rc.112(effect@4.0.0-rc.112)(vitest@4.1.11)
       '@libsql/client': 0.17.4
       '@octokit/rest': 22.0.1
       '@octokit/webhooks': 14.2.0

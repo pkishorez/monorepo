@@ -287,8 +287,6 @@ describe('Peer Sync replica integration', () => {
     const secondAdapter = IDB.make(syncStore, {
       database: IDB.database({ databaseName }),
     });
-    await Effect.runPromise(firstAdapter.setup);
-    await Effect.runPromise(secondAdapter.setup);
     const bus = makeBus();
     const first = createStdSync({
       name: 'shared-idb',

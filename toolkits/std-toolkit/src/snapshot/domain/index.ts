@@ -1,14 +1,12 @@
 export {
   compareStrings,
-  ContractSnapshotSchema,
   ESchemaDefinitionSchema,
-  ESchemaSnapshotSchema,
   ESchemaVersionSchema,
+  JsonValueSchema,
   SnapshotChangeSchema,
   SnapshotImpactSchema,
   SnapshotDecodeError,
   SnapshotDiagnosticSchema,
-  SnapshotFormatRetired,
   SnapshotIdentityConflict,
   SnapshotIncompatible,
   SnapshotMarkerSchema,
@@ -21,7 +19,8 @@ export {
   TableEntityDerivationSnapshotSchema,
   TableEntitySnapshotSchema,
   TableIndexSnapshotSchema,
-  TableSnapshotSchema,
+  TableSnapshotESchema,
+  tableSnapshotIssues,
   TableTopologySnapshotSchema,
 } from './domain.js';
 export type * from './domain.js';

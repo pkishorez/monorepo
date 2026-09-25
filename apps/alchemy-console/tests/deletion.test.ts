@@ -96,7 +96,7 @@ const run = <A, E>(
   const now = new Date().toISOString();
   return Effect.runPromise(
     Effect.gen(function* () {
-      yield* table.setup;
+      yield* SQLite.setup(consoleTable, { database });
       yield* credentials.insert({
         id: 'cf',
         userId: 'alice',

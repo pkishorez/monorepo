@@ -24,7 +24,7 @@ it('preserves authenticated RPC and exports linked spans with safe correlated lo
   const traces: OtlpTracer.TraceData[] = [];
   const logs: OtlpLogger.LogsData[] = [];
   const database = makeNodeSQLite({ path: ':memory:' });
-  await Effect.runPromise(SQLite.make(consoleTable, { database }).setup);
+  await Effect.runPromise(SQLite.setup(consoleTable, { database }));
   mocks.makeDatabase.mockReturnValue(database);
   const apiToken = 'private-cloudflare-token';
   const cookie = 'session=private-session-token';

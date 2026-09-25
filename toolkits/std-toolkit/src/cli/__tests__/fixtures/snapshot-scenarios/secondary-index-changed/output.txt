@@ -1,8 +1,0 @@
-FAIL  1 snapshot change needs approval
-
-BACKFILL
-  Global secondary index GSI1
-    pk: "gsi1pk" → "nextGsiPk"
-    sk: "gsi1sk" → "nextGsiSk"
-
-Run: std-toolkit snapshot update

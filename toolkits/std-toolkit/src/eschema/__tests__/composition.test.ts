@@ -1,7 +1,7 @@
 import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
 import { ESchema, EntityESchema, ValueESchema, toSchema } from '../index.js';
-import { Snapshot } from '../../snapshot/index.js';
+import { buildESchemaDefinitions } from '../../snapshot/capture/eschema-capture/index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -308,8 +308,9 @@ describe('ESchema', () => {
         );
 
         itEffect('snapshot includes the nested definition', () => {
-          const snapshot = Snapshot.capture(WithNullable);
-          const identities = snapshot.schemas.map((d) => d.identity);
+          const identities = buildESchemaDefinitions([
+            { eschema: WithNullable },
+          ]).map((d) => d.identity);
           expect(identities).toContain('Child');
           return Effect.void;
         });

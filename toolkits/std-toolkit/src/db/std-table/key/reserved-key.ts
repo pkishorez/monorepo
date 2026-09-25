@@ -2,15 +2,12 @@ import type { EncodedKey } from '../contract/index.js';
 import { encodeCompositeKey } from './composite-key.js';
 
 /**
- * The entity marker for the table-level enforcement baseline, held in
- * `meta._e` of its reserved item. No real registered entity can produce this
- * name (entity-derived pk components are always prefixed by the entity's own
- * name, never this reserved one), so scans can filter on it unambiguously.
+ * Where releases before the Alchemy snapshot guard kept their enforcement
+ * baseline: one reserved item inside the table. No registered entity can
+ * produce this key, so an adapter's setup may delete it unconditionally to
+ * clean up a table deployed by an earlier release.
  */
-export const ENFORCEMENT_ENTITY = '__std_toolkit_enforcement__';
-
-/** The fixed, reserved key the enforcement baseline is always stored at. */
-export const ENFORCEMENT_KEY: EncodedKey = {
-  pk: encodeCompositeKey([ENFORCEMENT_ENTITY]),
+export const LEGACY_BASELINE_KEY: EncodedKey = {
+  pk: encodeCompositeKey(['__std_toolkit_enforcement__']),
   sk: encodeCompositeKey(['snapshot']),
 };

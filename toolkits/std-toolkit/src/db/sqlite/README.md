@@ -4,7 +4,7 @@ SQLite adapter that realizes a StdTable over a driver for Node, Bun, better-sqli
 
 ## Big picture
 
-One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and produces a layer plus an explicit `setup` that creates the physical table and indexes; providing the layer never changes the schema. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+One adapter, several runtimes. `SQLite.make` takes a `SQLiteDriver` and returns the layer; it never changes the schema. `SQLite.setup` creates the physical table and adds missing index columns and indexes. On D1, `D1.table` in [`std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy) calls it at deploy after the snapshot guard accepts the table. Each driver entrypoint is a separate subpath so its platform dependency is only loaded where it is used. Divergences from the DynamoDB topology, read-consistency, and transaction rules are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 
@@ -14,9 +14,10 @@ See the [top README](../../../README.md). Install the driver's own dependency wh
 
 ### `std-toolkit/db/sqlite`
 
-| Export        | What it does                                                                |
-| ------------- | --------------------------------------------------------------------------- |
-| `SQLite.make` | Realizes a StdTable on a driver; returns `tableName`, `layer`, and `setup`. |
+| Export         | What it does                                                                      |
+| -------------- | --------------------------------------------------------------------------------- |
+| `SQLite.make`  | Realizes a StdTable on a driver; returns `tableName` and `layer`.                 |
+| `SQLite.setup` | Creates the physical table if missing and adds missing index columns and indexes. |
 
 ### `std-toolkit/db/sqlite/node`
 
@@ -66,7 +67,7 @@ const database = makeNodeSQLite({ path: ':memory:' });
 const sqlite = SQLite.make(table, { database });
 
 const program = Effect.gen(function* () {
-  yield* sqlite.setup;
+  yield* SQLite.setup(table, { database });
   return yield* saveAndRead.pipe(
     Effect.provide(sqlite.layer),
     Effect.ensuring(Effect.sync(() => database.close?.())),
@@ -88,7 +89,7 @@ import { makeD1SQLite } from 'std-toolkit/db/sqlite/d1';
 const database = makeD1SQLite({ database: env.DB });
 const peopleD1 = SQLite.make(people, { database });
 
-await Effect.runPromise(peopleD1.setup);
+// The table already exists: `D1.table` from std-toolkit/alchemy set it up at deploy.
 await Effect.runPromise(program.pipe(Effect.provide(peopleD1.layer)));
 ```
 

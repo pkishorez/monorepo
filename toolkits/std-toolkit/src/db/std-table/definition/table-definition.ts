@@ -15,7 +15,6 @@ import {
   makeSingleEntityBuilder,
   type RegisteredEntity,
 } from './entity-definition.js';
-import { createLogicalTableSnapshot } from '../snapshot/index.js';
 import {
   addIndex,
   copyTopology,
@@ -75,9 +74,6 @@ const makeTableDefinition = <Name extends string>(
     },
     singleEntity<TSchema extends AnyUnkeyedESchema>(schema: TSchema) {
       return makeSingleEntityBuilder(table, schema, register);
-    },
-    snapshot() {
-      return createLogicalTableSnapshot(table, entities);
     },
     registeredEntities: entities,
   } as TableDefinition<Name>;

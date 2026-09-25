@@ -1,27 +1,29 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { ESchema, toSchema } from '../../eschema/index.js';
-import { Snapshot, type TableSnapshot } from '../index.js';
+import { TableSnapshot } from '../index.js';
+import { snapshotOf } from './helpers.js';
 
 describe('snapshot rendering', () => {
   it('renders nested domain contracts deterministically', () => {
     const child = ESchema.make('Child', { value: Schema.String }).build();
-    const snapshot = Snapshot.capture(
+    const snapshot = snapshotOf(
       ESchema.make('Parent', { child: toSchema(child) }).build(),
     );
-    const rendered = Snapshot.render(snapshot);
+    const rendered = TableSnapshot.render(snapshot);
 
     expect(rendered).toContain('DATABASE CONTRACT');
-    expect(rendered).toContain('ESchema root: Parent');
+    expect(rendered).toContain('Table: app');
+    expect(rendered).toContain('SCHEMAS');
     expect(rendered).toContain('Child · struct');
     expect(rendered).toContain('child: Child');
     expect(rendered).toContain('encoded');
     expect(rendered).toContain('decoded');
-    expect(Snapshot.render(structuredClone(snapshot))).toBe(rendered);
+    expect(TableSnapshot.render(structuredClone(snapshot))).toBe(rendered);
   });
 
   it('renders ordered changes for review', () => {
-    const rendered = Snapshot.renderChanges([
+    const rendered = TableSnapshot.renderChanges([
       {
         subject: { kind: 'global-secondary-index', name: 'GSI2' },
         action: 'added',
@@ -40,27 +42,5 @@ describe('snapshot rendering', () => {
     expect(rendered).toContain('BACKFILL');
     expect(rendered).toContain('User v2 added');
     expect(rendered).toContain('Global secondary index GSI2 added');
-  });
-
-  it('dispatches ESchema and table rendering without recursion', () => {
-    const eschema = Snapshot.capture(
-      ESchema.make('Item', { value: Schema.String }).build(),
-    );
-    const table: TableSnapshot = {
-      _v: 'v2',
-      kind: 'table',
-      logicalName: 'app',
-      topology: {
-        primary: { pk: 'pk', sk: 'sk' },
-        localSecondaryIndexes: [],
-        globalSecondaryIndexes: [],
-      },
-      entities: [],
-      schemas: eschema.schemas,
-    };
-
-    expect(Snapshot.render(eschema)).toContain('ESchema root: Item');
-    expect(Snapshot.render(table)).toContain('Table: app');
-    expect(Snapshot.render(table)).toContain('SCHEMAS');
   });
 });

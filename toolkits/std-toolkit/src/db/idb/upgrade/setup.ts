@@ -9,7 +9,7 @@ interface IDBIndexDefinition {
 
 type TableSource = Pick<
   TableDefinition,
-  'localSecondaryIndexes' | 'globalSecondaryIndexes' | 'snapshot'
+  'localSecondaryIndexes' | 'globalSecondaryIndexes'
 >;
 
 const tableIndexes = (table: TableSource): readonly IDBIndexDefinition[] => [
@@ -23,13 +23,16 @@ const tableIndexes = (table: TableSource): readonly IDBIndexDefinition[] => [
   })),
 ];
 
-export const setupIDBTable = (
-  database: {
-    readonly setup: (
-      storeName: string,
-      indexes: readonly IDBIndexDefinition[],
-    ) => Effect.Effect<void, unknown>;
-  },
+interface UpgradeableDatabase {
+  readonly setup: (
+    storeName: string,
+    indexes: readonly IDBIndexDefinition[],
+  ) => Effect.Effect<void, unknown>;
+}
+
+/** Creates the store when missing, then adds or replaces the secondary indexes the topology declares. */
+export const reconcileIDBStore = (
+  database: UpgradeableDatabase,
   table: TableSource,
   storeName: string,
 ) => database.setup(storeName, tableIndexes(table));

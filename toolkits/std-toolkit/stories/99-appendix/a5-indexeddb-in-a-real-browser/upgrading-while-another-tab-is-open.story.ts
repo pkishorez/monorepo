@@ -2,10 +2,30 @@ import { Effect } from 'effect';
 import { IDBFactory } from 'fake-indexeddb';
 import { Story } from 'laymos/story';
 import { Ulid } from 'std-toolkit/core';
+import { StdTable } from 'std-toolkit/db';
 import { IDB } from 'std-toolkit/db/idb';
-import { table as plainTable } from '../../01-one-task-one-table/02-making-a-table-for-tasks-to-live-in/making-a-table-for-tasks-to-live-in.story.js';
-import { task as plainTask } from '../../01-one-task-one-table/03-telling-the-table-where-each-task-goes/telling-the-table-where-each-task-goes.story.js';
-import { table as indexedTable } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
+import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
+
+// The plain table of chapter 2 and the indexed one of chapter 10, declared
+// here with Task alone. Later chapters register more entities on the shared
+// chapter tables, and `setup` refuses a shape that drops an entity, so this
+// story keeps its two shapes to itself.
+const plainTable = StdTable.make('board').primary('pk', 'sk').build();
+const plainTask = plainTable
+  .entity(Task)
+  .primary({ pk: ['boardId'] })
+  .build();
+const indexedTable = StdTable.make('board')
+  .primary('pk', 'sk')
+  .lsi('LSI1', 'LSI1SK')
+  .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+  .build();
+indexedTable
+  .entity(Task)
+  .primary({ pk: ['boardId'] })
+  .index('LSI1', 'byTitle', { sk: ['title'] })
+  .index('GSI1', 'byAssignee', { pk: ['assignee'], sk: ['status', 'title'] })
+  .build();
 
 // Update stamps for the proofs, counting up from one like every chapter.
 let issued = 0;
@@ -59,7 +79,7 @@ export const upgradingWhileAnotherTabIsOpen = Story.make({
             // A private IndexedDB with the plain table set up in it.
             const indexedDB = new IDBFactory();
             const database = IDB.database({ databaseName: 'board', indexedDB });
-            yield* IDB.make(plainTable, { database }).setup;
+            yield* IDB.setup(plainTable, { database });
             // Another tab opens the same database and agrees to make way when asked.
             const otherTab = yield* openTab(indexedDB, 'board');
             let askedToMakeWay = false;
@@ -69,7 +89,7 @@ export const upgradingWhileAnotherTabIsOpen = Story.make({
             };
             // Upgrade to the indexed table while that tab is open.
             const before = (yield* Effect.promise(database.open)).version;
-            yield* IDB.make(indexedTable, { database }).setup;
+            yield* IDB.setup(indexedTable, { database });
             const after = (yield* Effect.promise(database.open)).version;
             yield* Story.assert(
               'the other tab was told to make way',
@@ -92,14 +112,14 @@ export const upgradingWhileAnotherTabIsOpen = Story.make({
           // A private IndexedDB with the plain table set up in it.
           const indexedDB = new IDBFactory();
           const database = IDB.database({ databaseName: 'board', indexedDB });
-          yield* IDB.make(plainTable, { database }).setup;
+          yield* IDB.setup(plainTable, { database });
           // Another tab opens the database and ignores the request to make way.
           const stubbornTab = yield* openTab(indexedDB, 'board');
           stubbornTab.onversionchange = () => undefined;
           // Try the upgrade; the failure comes back as a value.
-          const failure = yield* IDB.make(indexedTable, {
-            database,
-          }).setup.pipe(Effect.flip);
+          const failure = yield* IDB.setup(indexedTable, { database }).pipe(
+            Effect.flip,
+          );
           stubbornTab.close();
           yield* Story.assert(
             'the blocked upgrade fails instead of hanging',
@@ -120,7 +140,7 @@ export const upgradingWhileAnotherTabIsOpen = Story.make({
             const indexedDB = new IDBFactory();
             const database = IDB.database({ databaseName: 'board', indexedDB });
             const plain = IDB.make(plainTable, { database });
-            yield* plain.setup;
+            yield* IDB.setup(plainTable, { database });
             yield* stamped(
               plainTask.insert(draft).pipe(Effect.provide(plain.layer)),
             );

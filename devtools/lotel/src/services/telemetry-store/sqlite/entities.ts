@@ -34,6 +34,6 @@ export const makeSqliteEntities = (database: SQLiteDriver) => {
     spans,
     logs,
     layer: configured.layer,
-    setup: configured.setup,
+    setup: SQLite.setup(table, { database, tableName: 'lotel_data' }),
   };
 };

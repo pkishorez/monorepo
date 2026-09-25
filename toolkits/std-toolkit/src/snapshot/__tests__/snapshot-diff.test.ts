@@ -1,12 +1,13 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { ESchema, toSchema } from '../../eschema/index.js';
-import { Snapshot } from '../index.js';
+import { TableSnapshot } from '../index.js';
+import { snapshotOf } from './helpers.js';
 
 describe('Snapshot.diff', () => {
   it('reports a nested next version once as safe', () => {
     const childV1 = ESchema.make('Child', { value: Schema.String }).build();
-    const before = Snapshot.capture(
+    const before = snapshotOf(
       ESchema.make('Parent', { child: toSchema(childV1) }).build(),
     );
     const childV2 = ESchema.make('Child', { value: Schema.String })
@@ -15,11 +16,11 @@ describe('Snapshot.diff', () => {
         count: 0,
       }))
       .build();
-    const after = Snapshot.capture(
+    const after = snapshotOf(
       ESchema.make('Parent', { child: toSchema(childV2) }).build(),
     );
 
-    expect(Snapshot.diff(before, after)).toEqual([
+    expect(TableSnapshot.diff(before, after)).toEqual([
       expect.objectContaining({
         action: 'added',
         impact: 'safe',
@@ -31,12 +32,12 @@ describe('Snapshot.diff', () => {
       }),
     ]);
     expect(
-      Snapshot.diff(before, after).every((item) => item.impact === 'safe'),
+      TableSnapshot.diff(before, after).every((item) => item.impact === 'safe'),
     ).toBe(true);
   });
 
   it('reports encoded and decoded approved edits independently', () => {
-    const previous = Snapshot.capture(
+    const previous = snapshotOf(
       ESchema.make('Item', { value: Schema.String }).build(),
     );
     const encodedEdit = JSON.parse(JSON.stringify(previous));
@@ -44,12 +45,12 @@ describe('Snapshot.diff', () => {
     const decodedEdit = JSON.parse(JSON.stringify(previous));
     decodedEdit.schemas[0]!.versions[0]!.decoded = { changed: true };
 
-    expect(Snapshot.diff(previous, encodedEdit)[0]).toMatchObject({
+    expect(TableSnapshot.diff(previous, encodedEdit)[0]).toMatchObject({
       action: 'edited',
       impact: 'breaking',
       edits: [expect.objectContaining({ side: 'encoded' })],
     });
-    expect(Snapshot.diff(previous, decodedEdit)[0]).toMatchObject({
+    expect(TableSnapshot.diff(previous, decodedEdit)[0]).toMatchObject({
       action: 'edited',
       impact: 'breaking',
       edits: [expect.objectContaining({ side: 'decoded' })],
@@ -57,12 +58,12 @@ describe('Snapshot.diff', () => {
   });
 
   it('reports exact nested edits and combines matching encoded and decoded sides', () => {
-    const before = Snapshot.capture(
+    const before = snapshotOf(
       ESchema.make('Item', {
         profile: Schema.Struct({ displayName: Schema.String }),
       }).build(),
     );
-    const after = Snapshot.capture(
+    const after = snapshotOf(
       ESchema.make('Item', {
         profile: Schema.Struct({
           displayName: Schema.NullOr(Schema.String),
@@ -70,7 +71,7 @@ describe('Snapshot.diff', () => {
       }).build(),
     );
 
-    expect(Snapshot.diff(before, after)).toEqual([
+    expect(TableSnapshot.diff(before, after)).toEqual([
       expect.objectContaining({
         action: 'edited',
         impact: 'breaking',
@@ -90,7 +91,7 @@ describe('Snapshot.diff', () => {
   ] as const)(
     'reports object index signature %s edits alongside named properties',
     (part, previous, current) => {
-      const before = Snapshot.capture(
+      const before = snapshotOf(
         ESchema.make('Item', { id: Schema.String }).build(),
       );
       const after = structuredClone(before);
@@ -118,7 +119,7 @@ describe('Snapshot.diff', () => {
         representation.indexSignatures[0]![part] = current;
       }
 
-      expect(Snapshot.diff(before, after)).toEqual([
+      expect(TableSnapshot.diff(before, after)).toEqual([
         expect.objectContaining({
           action: 'edited',
           impact: 'breaking',
@@ -135,22 +136,15 @@ describe('Snapshot.diff', () => {
     },
   );
 
-  it('reports root changes as breaking', () => {
-    const first = Snapshot.capture(
+  it('reports a logical name change as breaking', () => {
+    const before = snapshotOf(
       ESchema.make('First', { value: Schema.String }).build(),
     );
-    const second = Snapshot.capture(
-      ESchema.make('Second', { value: Schema.String }).build(),
-    );
-    const before = {
-      ...first,
-      schemas: [...first.schemas, ...second.schemas],
-    };
-    const after = { ...before, root: 'Second' };
+    const after = { ...before, logicalName: 'other' };
 
-    expect(Snapshot.diff(before, after)).toEqual([
+    expect(TableSnapshot.diff(before, after)).toEqual([
       expect.objectContaining({
-        subject: expect.objectContaining({ kind: 'snapshot' }),
+        subject: expect.objectContaining({ kind: 'table' }),
         action: 'edited',
         impact: 'breaking',
       }),
@@ -158,10 +152,10 @@ describe('Snapshot.diff', () => {
   });
 
   it('classifies multiple appended versions as safe', () => {
-    const before = Snapshot.capture(
+    const before = snapshotOf(
       ESchema.make('Item', { value: Schema.String }).build(),
     );
-    const after = Snapshot.capture(
+    const after = snapshotOf(
       ESchema.make('Item', { value: Schema.String })
         .evolve('v2', { second: Schema.String }, (value) => ({
           ...value,
@@ -174,7 +168,7 @@ describe('Snapshot.diff', () => {
         .build(),
     );
 
-    expect(Snapshot.diff(before, after)).toEqual([
+    expect(TableSnapshot.diff(before, after)).toEqual([
       expect.objectContaining({
         subject: expect.objectContaining({ version: 'v2' }),
         impact: 'safe',
@@ -200,24 +194,22 @@ describe('Snapshot.diff', () => {
       }))
       .build();
     expect(
-      Snapshot.diff(Snapshot.capture(v2), Snapshot.capture(changedMigration)),
+      TableSnapshot.diff(snapshotOf(v2), snapshotOf(changedMigration)),
     ).toEqual([]);
 
     const cosmetic = ESchema.make('Item', {
       value: Schema.String.annotate({ title: 'Cosmetic' }),
     }).build();
     expect(
-      Snapshot.diff(
-        Snapshot.capture(
-          ESchema.make('Item', { value: Schema.String }).build(),
-        ),
-        Snapshot.capture(cosmetic),
+      TableSnapshot.diff(
+        snapshotOf(ESchema.make('Item', { value: Schema.String }).build()),
+        snapshotOf(cosmetic),
       ),
     ).toEqual([]);
 
-    const deleted = JSON.parse(JSON.stringify(Snapshot.capture(v2)));
+    const deleted = JSON.parse(JSON.stringify(snapshotOf(v2)));
     deleted.schemas[0]!.versions = deleted.schemas[0]!.versions.slice(0, 1);
-    expect(Snapshot.diff(Snapshot.capture(v2), deleted)[0]).toMatchObject({
+    expect(TableSnapshot.diff(snapshotOf(v2), deleted)[0]).toMatchObject({
       action: 'removed',
       impact: 'breaking',
       subject: expect.objectContaining({ kind: 'version', version: 'v2' }),

@@ -1,3 +1,0 @@
-FAIL  No approved snapshot found
-
-Run: std-toolkit snapshot update

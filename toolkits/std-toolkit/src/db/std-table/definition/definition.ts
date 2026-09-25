@@ -4,13 +4,7 @@ import type {
   ESchemaEncoded,
   ESchemaType,
 } from '../../../eschema/index.js';
-import type { LogicalTableSnapshot } from '../snapshot/index.js';
 import { makeTableBuilder } from './table-definition.js';
-
-export type {
-  LogicalEntitySnapshot,
-  LogicalTableSnapshot,
-} from '../snapshot/index.js';
 
 export interface PrimaryIndex<
   Pk extends string = string,
@@ -227,7 +221,7 @@ export interface TableDefinition<
   singleEntity<TSchema extends AnyUnkeyedESchema>(
     schema: TSchema,
   ): SingleEntityBuilder<Name, TSchema>;
-  snapshot(): LogicalTableSnapshot;
+  /** Every entity registered so far, in registration order. Snapshot capture reads this. */
   readonly registeredEntities: readonly (
     | KeyedEntityDefinition
     | SingleEntityDefinition

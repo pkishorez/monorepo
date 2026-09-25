@@ -4,7 +4,7 @@ IndexedDB adapter that realizes a StdTable on a reusable in-browser database con
 
 ## Big picture
 
-IDB implements the StdTable contract on top of one IndexedDB database. Each StdTable becomes an object store with indexes for its secondary indexes. Setup is explicit and performs the versioned store and index upgrade; providing the layer never runs it. Divergences from the DynamoDB topology are in [CONTEXT.md](CONTEXT.md); the shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md). The browser sync preset uses this adapter for its Sync Store.
+IDB implements the StdTable contract on top of one IndexedDB database. Each StdTable becomes an object store with indexes for its secondary indexes. The store and its indexes are created or upgraded the first time the table opens the database, which is how IndexedDB works. `IDB.setup` does the same upgrade at a moment the page chooses, since an upgrade waits for other open tabs. Divergences from the DynamoDB topology are in [CONTEXT.md](CONTEXT.md); the shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md). The browser sync preset uses this adapter for its Sync Store.
 
 ## Install
 
@@ -16,7 +16,8 @@ See the [top README](../../../README.md).
 
 | Export         | What it does                                                                              |
 | -------------- | ----------------------------------------------------------------------------------------- |
-| `IDB.make`     | Realizes a StdTable on a database connection; returns `storeName`, `layer`, and `setup`.  |
+| `IDB.make`     | Realizes a StdTable on a database connection; returns `storeName` and `layer`.            |
+| `IDB.setup`    | Creates or upgrades the store and its indexes now instead of on first open.               |
 | `IDB.database` | Returns a reusable connection to a named IndexedDB database, cached per name and factory. |
 
 ## Usage
@@ -36,10 +37,8 @@ const idb = IDB.make(table, {
   database: IDB.database({ databaseName: 'board' }),
 });
 
-const program = Effect.gen(function* () {
-  yield* idb.setup;
-  return yield* saveAndRead.pipe(Effect.provide(idb.layer));
-});
+// The store is created the first time the layer opens the database.
+const program = saveAndRead.pipe(Effect.provide(idb.layer));
 ```
 
 - One `IDB.database` connection can serve several StdTables; each gets its own store.

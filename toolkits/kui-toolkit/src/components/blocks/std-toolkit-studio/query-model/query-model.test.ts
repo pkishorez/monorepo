@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { StdTable } from 'std-toolkit/db';
 import { EntityESchema } from 'std-toolkit/eschema';
+import { TableSnapshot } from 'std-toolkit/snapshot';
 
 import { QueryModel } from './query-model';
 
@@ -30,7 +31,7 @@ const account = table
   .index('GSI1', 'byEmail', { pk: ['email'], sk: ['createdAt'] })
   .build();
 
-const snapshot = table.snapshot();
+const snapshot = TableSnapshot.capture(table);
 const entity = snapshot.entities.find(({ name }) => name === account.name)!;
 
 describe('Studio query model', () => {

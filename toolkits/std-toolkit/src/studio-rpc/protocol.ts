@@ -2,7 +2,8 @@ import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 import { EntityMetaSchema, SingleEntityMetaSchema } from '../core/index.js';
 import { EncodedDataSchema } from '../db/std-table/contract/index.js';
-import { TableSnapshotSchema } from '../snapshot/index.js';
+import { toSchema } from '../eschema/index.js';
+import { TableSnapshotESchema } from '../snapshot/index.js';
 
 const StringRecordSchema = Schema.Record(Schema.String, Schema.String);
 
@@ -128,8 +129,10 @@ const QueryEntitiesError = Schema.Union([
   StudioReadFailed,
 ]);
 
+// The document travels stamped with its own `_v`, so a client on another
+// toolkit release migrates it forward like any stored snapshot.
 export const GetTableSnapshotRpc = Rpc.make('Studio.GetTableSnapshot', {
-  success: TableSnapshotSchema,
+  success: toSchema(TableSnapshotESchema),
   error: StudioSnapshotFailed,
 });
 

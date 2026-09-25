@@ -19,18 +19,19 @@ const stats = table.entity(BoardStats).primary({ pk: [] }).build();
 let run = 0;
 const onDynamoDB = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
-    const dynamodb = DynamoDB.make(table, {
+    const config = {
       tableName: `board-native-update-${process.pid}-${++run}`,
       region: 'local',
       endpoint: process.env.DYNAMODB_LOCAL_ENDPOINT ?? 'http://localhost:8090',
       credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
-    });
-    yield* dynamodb.setup;
+    };
+    yield* DynamoDB.createTable(table, config);
+    const dynamodb = DynamoDB.make(table, config);
     let issued = 0;
     return yield* program.pipe(
       Effect.provide(dynamodb.layer),
       Effect.provideService(Ulid, () => String(++issued).padStart(26, '0')),
-      Effect.ensuring(Effect.orDie(dynamodb.teardown)),
+      Effect.ensuring(Effect.orDie(DynamoDB.deleteTable(config))),
     );
   });
 
