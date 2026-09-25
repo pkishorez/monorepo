@@ -1,5 +1,5 @@
 ---
-'std-toolkit': minor
+'std-toolkit': patch
 ---
 
 Table-level enforcement now runs inside every adapter's `setup`, with no way around it, and `table.verifySnapshot()` is removed. `setup` creates the physical table if missing, diffs the current shape against the baseline stored inside the table, and only then reconciles indexes and commits the new baseline; a breaking change is refused with `SnapshotIncompatible`, and a table that already holds rows but no baseline is refused with `BaselineMissing`. Memory gains a no-op `setup`. The baseline now also records a version floor per entity and the owed backfills it accepted, for Std Studio to consume.
