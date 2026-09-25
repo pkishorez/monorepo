@@ -13,6 +13,7 @@ import {
   type StudioSessionView,
 } from '../engine-runtime/index.ts';
 import {
+  LoadFailedScreen,
   ModelLoadingScreen,
   ModelPicker,
   UnsupportedScreen,
@@ -85,7 +86,13 @@ function Studio({
   const runtime = useStudioRuntime();
   if (runtime === null) {
     return (
-      <ModelLoadingScreen model={model} loaded={0} total={0} fetched={0} />
+      <ModelLoadingScreen
+        model={model}
+        loaded={0}
+        total={0}
+        fetched={0}
+        onCancel={onChangeModel}
+      />
     );
   }
   return (
@@ -110,7 +117,9 @@ function LoadedStudio({
   const session = useStudioSession(runtime);
 
   if (loading.status === 'error') {
-    return <UnsupportedScreen message={loading.message} />;
+    return (
+      <LoadFailedScreen message={loading.message} onBack={onChangeModel} />
+    );
   }
   return (
     <AnimatePresence mode="wait">
@@ -121,6 +130,7 @@ function LoadedStudio({
             loaded={loading.loaded}
             total={loading.total}
             fetched={loading.fetched}
+            onCancel={onChangeModel}
           />
         </Screen>
       ) : (

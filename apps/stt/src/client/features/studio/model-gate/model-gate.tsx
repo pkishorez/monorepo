@@ -93,12 +93,15 @@ export function ModelLoadingScreen({
   loaded,
   total,
   fetched,
+  onCancel,
 }: {
   readonly model: string;
   readonly loaded: number;
   readonly total: number;
   /** Bytes fetched in this load; the rest of `loaded` was kept from before. */
   readonly fetched: number;
+  /** Stops the load; pieces already kept stay for next time. */
+  readonly onCancel: () => void;
 }) {
   const label = speechModels.find((entry) => entry.id === model)!.label;
   const percent = total > 0 ? Math.min(100, (loaded / total) * 100) : 0;
@@ -119,14 +122,24 @@ export function ModelLoadingScreen({
       </CardHeader>
       <CardContent className="space-y-2">
         <Progress value={percent} />
-        <p className="text-xs tabular-nums text-muted-foreground">
-          {total > 0
-            ? `${megabytes(loaded)} of ${megabytes(total)} MB`
-            : 'Contacting the model host'}
-          {rate !== null && !warming
-            ? ` · ${(rate / 1_000_000).toFixed(1)} MB/s`
-            : null}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="flex-1 text-xs tabular-nums text-muted-foreground">
+            {total > 0
+              ? `${megabytes(loaded)} of ${megabytes(total)} MB`
+              : 'Contacting the model host'}
+            {rate !== null && !warming
+              ? ` · ${(rate / 1_000_000).toFixed(1)} MB/s`
+              : null}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-mr-2 text-muted-foreground"
+            onClick={onCancel}
+          >
+            Choose another model
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -147,6 +160,35 @@ export function UnsupportedScreen({ message }: { readonly message: string }) {
         <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs text-muted-foreground">
           {message}
         </pre>
+      </CardContent>
+    </Card>
+  );
+}
+
+/** A model failed to download or start; what was kept stays for a retry. */
+export function LoadFailedScreen({
+  message,
+  onBack,
+}: {
+  readonly message: string;
+  readonly onBack: () => void;
+}) {
+  return (
+    <Card className="mx-auto w-full max-w-lg border-destructive/40">
+      <CardHeader>
+        <CardTitle>The model did not load</CardTitle>
+        <CardDescription>
+          Anything already downloaded is kept, so trying again picks up from
+          there.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs text-muted-foreground">
+          {message}
+        </pre>
+        <Button variant="secondary" onClick={onBack}>
+          Choose a model
+        </Button>
       </CardContent>
     </Card>
   );

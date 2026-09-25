@@ -26,8 +26,12 @@ import {
 
 export { DownloadError };
 
-/** Also how much a reload can lose. */
-const pieceBytes = 16 * 1_048_576;
+/**
+ * A piece is kept only once it has fully arrived, and a reload kills the
+ * worker without warning, so this is how much a reload can lose: a few
+ * seconds on a slow connection.
+ */
+const pieceBytes = 4 * 1_048_576;
 
 /** A download's progress; the last state carries the finished file. */
 export interface DownloadState {

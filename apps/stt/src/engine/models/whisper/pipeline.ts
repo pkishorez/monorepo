@@ -50,14 +50,16 @@ const downloadReporting = (url: string, report: (step: LoadStep) => void) =>
  * the one-byte range probes Transformers.js makes to size files go straight out.
  */
 const fetchThroughDownloads =
-  (report: (step: LoadStep) => void) =>
+  (report: (step: LoadStep) => void, signal: AbortSignal) =>
   async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const probing =
       (init?.method ?? 'GET') !== 'GET' ||
       new Headers(init?.headers).has('Range');
-    if (probing) return fetch(input, init);
+    if (probing) return fetch(input, { ...init, signal });
     const url = input instanceof Request ? input.url : String(input);
-    return asResponse(await Effect.runPromise(downloadReporting(url, report)));
+    return asResponse(
+      await Effect.runPromise(downloadReporting(url, report), { signal }),
+    );
   };
 
 /** Answers Transformers.js's cache lookups from the downloader's store. */
@@ -76,7 +78,8 @@ const downloadsCache = {
 /**
  * Loads the pipeline, emitting each file's download as Transformers.js pulls
  * it and then the pipeline itself. Imports Transformers.js on first use, so
- * only the worker pays for it.
+ * only the worker pays for it. Transformers.js cannot be interrupted, so when
+ * the stream is, its downloads are aborted and the pipeline fails behind it.
  */
 export const loadWhisper = (
   repository: string,
@@ -85,13 +88,15 @@ export const loadWhisper = (
   Stream.callback<LoadStep, EngineError>((queue) =>
     Effect.gen(function* () {
       const report = (step: LoadStep) => Queue.offerUnsafe(queue, step);
+      const abort = new AbortController();
+      yield* Effect.addFinalizer(() => Effect.sync(() => abort.abort()));
       const whisper = yield* Effect.tryPromise({
         try: async () => {
           const { env, pipeline } = await import('@huggingface/transformers');
           env.useBrowserCache = false;
           env.useCustomCache = true;
           env.customCache = downloadsCache;
-          env.fetch = fetchThroughDownloads(report);
+          env.fetch = fetchThroughDownloads(report, abort.signal);
           return pipeline('automatic-speech-recognition', repository, {
             device: 'webgpu',
             dtype,
