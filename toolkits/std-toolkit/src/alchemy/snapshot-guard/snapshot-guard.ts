@@ -19,7 +19,7 @@ export type DeployableTable = Pick<
 >;
 
 export interface SnapshotGuardProps {
-  /** The physical thing the snapshot describes, such as a table name or database id. A change replaces the guard and starts a fresh baseline. */
+  /** The physical table identity. A change replaces the guard and starts a fresh baseline. */
   readonly target: string;
   /** The table snapshot in its stored, stamped JSON form. */
   readonly snapshot: unknown;

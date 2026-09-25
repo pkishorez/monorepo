@@ -1,5 +1,6 @@
 import { AlchemyContext, Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Output from 'alchemy/Output';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import { D1, providers as stdToolkitProviders } from 'std-toolkit/alchemy';
@@ -11,10 +12,10 @@ import './src/server/storage/stores/index.ts';
 const productionHost: string = 'console.kishore.app';
 
 export const Database = Cloudflare.D1.Database(
-  'Database',
+  'DatabaseV2',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `alchemy-console-${stage}` };
+    return { name: `alchemy-console-v2-${stage}` };
   }),
 );
 
@@ -34,14 +35,17 @@ export const Worker = Cloudflare.Website.Vite(
     if (dev && (!Number.isInteger(port) || port < 1 || port > 65535)) {
       throw new Error('Run pnpm dev so Portless can assign PORT.');
     }
-    // The snapshot guard refuses a breaking change to the console table
-    // against the snapshot it accepted last deploy, then the table is
-    // created and its indexes reconciled.
+    // The new database starts with one table and a fresh snapshot baseline.
     const database = yield* Database;
-    yield* D1.table('ConsoleTable', { table: consoleTable, database });
+    const table = yield* D1.table('ConsoleTableV2', {
+      table: consoleTable,
+      database,
+    });
 
     return {
       env: { DB: Database },
+      // Keep Worker deployment behind the table resource.
+      tag: Output.map(table.snapshot, () => 'console-v2'),
       compatibility: { date: '2026-07-01', flags: ['nodejs_compat'] },
       dev: dev ? { port } : undefined,
       domain: deployed

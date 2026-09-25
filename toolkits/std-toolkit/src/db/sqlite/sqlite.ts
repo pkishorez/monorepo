@@ -4,7 +4,6 @@ import {
   OperationFailure,
 } from '../std-table/contract/index.js';
 import type { TableDefinition } from '../std-table/definition/index.js';
-import { LEGACY_BASELINE_KEY } from '../std-table/key/index.js';
 import type { SQLiteDriver } from './database/index.js';
 import { makeTableContract } from './table/index.js';
 import { ensureSQLiteTable, reconcileSQLiteTable } from './setup/index.js';
@@ -51,15 +50,9 @@ const setup = <Name extends string>(
   config: SQLiteConfig,
 ): Effect.Effect<void, OperationFailure> => {
   const tableName = config.tableName ?? table.logicalName;
-  const contract = makeTableContract(config.database, table, tableName);
-  return Effect.gen(function* () {
-    yield* ensureSQLiteTable(config.database, table, tableName);
-    yield* reconcileSQLiteTable(config.database, table, tableName);
-    // Releases before the snapshot guard kept a baseline item in the table.
-    yield* contract
-      .hardDeleteItem(LEGACY_BASELINE_KEY)
-      .pipe(Effect.mapError((cause) => new OperationFailure({ cause })));
-  });
+  return ensureSQLiteTable(config.database, table, tableName).pipe(
+    Effect.andThen(reconcileSQLiteTable(config.database, table, tableName)),
+  );
 };
 
 export const SQLite = { make, setup } as const;
