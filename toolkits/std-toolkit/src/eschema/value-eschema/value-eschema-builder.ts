@@ -1,5 +1,6 @@
 import type {
   ForbidUndefinedValue,
+  ForbidUnderscorePrefixValue,
   NextVersion,
   ValueEvolution,
   ValueSchema,
@@ -23,7 +24,7 @@ export class ValueESchemaBuilder<
 
   evolve<V extends NextVersion<TVersion>, S extends ValueSchema>(
     version: V,
-    schema: S & ForbidUndefinedValue<S>,
+    schema: S & ForbidUndefinedValue<S> & ForbidUnderscorePrefixValue<S>,
     migration: (previous: ValueSchemaDecoded<TLatest>) => ValueSchemaDecoded<S>,
   ) {
     return new ValueESchemaBuilder<V, S>(

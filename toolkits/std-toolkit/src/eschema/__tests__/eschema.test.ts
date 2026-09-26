@@ -3,7 +3,7 @@ import { it, describe, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
-import { ESchema, fromType } from '../index.js';
+import { ESchema } from '../index.js';
 import { ESchemaError } from '../index.js';
 
 describe('ESchema', () => {
@@ -171,7 +171,7 @@ describe('ESchema', () => {
             readonly expression: readonly [string, readonly unknown[]];
           };
 
-          const ExternalShapeSchema = fromType<ExternalShape>();
+          const ExternalShapeSchema = ESchema.fromType<ExternalShape>();
           const input = { expression: ['val', ['path']] as const };
 
           const decoded =

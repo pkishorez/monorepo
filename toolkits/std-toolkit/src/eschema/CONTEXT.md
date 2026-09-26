@@ -16,8 +16,12 @@ _Avoid_: KeyedSchema.
 A storage role for an **ESchema** that has exactly one record. Selected with `table.singleEntity(eschema)`; the schema itself needs no separate variant or id field.
 
 **ValueESchema**:
-A versioned schema for a single value (scalar, enum, union) rather than a named-field object.
+A versioned schema for a single value (scalar, enum, list, map, union) rather than a named-field object. It is stored in a **value envelope**.
 _Avoid_: ScalarSchema, PrimitiveSchema.
+
+**value envelope**:
+The stored form of a **ValueESchema** value: exactly `{ _v, _value }`. The `_value` key marks it, so it can never be confused with ESchema data; an envelope with any other key is refused. A value with no `_value` key is read as v1.
+_Avoid_: wrapper, value wrapper.
 
 **version**:
 A tagged string identifier for one generation of a schema (e.g. `v1`, `v2`). Encoding stamps it into the encoded value's `_v` field.

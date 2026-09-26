@@ -6,7 +6,7 @@ Versioned, self-migrating schemas built on Effect Schema; data written at any pa
 
 A schema is a chain of versions `v1 ... latest`. `encode` always writes the latest version and stamps `_v`. `decode` reads `_v` and folds the value forward through each migration. Data with no `_v` decodes as `v1`, so adopting eschema over existing rows is non-breaking. The full history of a shape lives in one declaration under version control, and the database never has to change. Vocabulary is in [CONTEXT.md](CONTEXT.md); the motivation and the rules the builder enforces are in [docs/evolving-schema.md](../../docs/evolving-schema.md). Contract snapshots of these schemas are produced by `std-toolkit/snapshot`, and the recommended per-table test is `std-toolkit/snapshot/vitest` (see the [top README](../../README.md#std-toolkitsnapshot)).
 
-Pick the construct by what you are versioning: `ESchema` for an object with named fields, `EntityESchema` for a keyed entity with an id field, `ValueESchema` for a single scalar, enum, or union. A singleton object uses `ESchema` bound with `table.singleEntity()`.
+Pick the construct by what you are versioning. `EntityESchema` is for a table row keyed by an id field. `ESchema` is for any other object with named fields that follows the field rules, including a singleton bound with `table.singleEntity()`. `ValueESchema` is for everything else: a scalar, an enum, a list, a map, a union of different objects, or an existing object with optional fields. In every kind, a top-level field starting with `_` is reserved for the toolkit and refused. The full guide is in [docs/evolving-schema.md](../../docs/evolving-schema.md#which-one-do-i-pick).
 
 ## Install
 
@@ -22,9 +22,8 @@ See the [top README](../../README.md).
 | `EntityESchema.make` | Starts a builder for a keyed entity schema with a name and an id field.                            |
 | `ValueESchema.make`  | Starts a builder for a versioned single value.                                                     |
 | `toSchema`           | Converts an ESchema or ValueESchema into a plain Effect Schema for composing inside other schemas. |
-| `fromType`           | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
-| `id`                 | Marks a `Schema.String` field with an identifier annotation.                                       |
-| `metaSchema`         | Effect Schema for the `_v` stamp alone.                                                            |
+| `ESchema.fromType`   | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
+| `ESchema.id`         | Marks a `Schema.String` field with an identifier annotation.                                       |
 | `ESchemaError`       | Tagged error raised when decode or encode fails.                                                   |
 
 Every built schema exposes `name`, `latestVersion`, `fields`, `schema`, `decode`, `encode`, `makePartial`, `getDescriptor`, and the Standard Schema `~standard` interface. `EntityESchema` adds `idField`.
@@ -88,3 +87,33 @@ const TaskTryingDueDate = EntityESchema.make('Task', 'taskId', {
 
 - Dropping the idea is deleting the `evolve('v2', ...)` line.
 - Keeping it is approving the snapshot; from then on v2 is frozen like any shipped version.
+
+### Version a value that is not an object
+
+A theme was free text and becomes one of two words. There is no object to hold `_v`, so `ValueESchema` stores the value in an envelope. Lifted from story 20.
+
+```ts
+import { Effect, Schema } from 'effect';
+import { ValueESchema } from 'std-toolkit/eschema';
+
+const Theme = ValueESchema.make('Theme', Schema.String)
+  .evolve('v2', Schema.Literals(['light', 'dark']), (text) =>
+    text === 'night' ? 'dark' : 'light',
+  )
+  .build();
+
+const seen = await Effect.runPromise(
+  Theme.decode({ _v: 'v1', _value: 'night' }),
+);
+// 'dark'
+
+const written = await Effect.runPromise(Theme.encode(seen));
+// { _v: 'v2', _value: 'dark' }
+
+const legacy = await Effect.runPromise(Theme.decode('night'));
+// 'dark': a bare value is read as v1
+```
+
+- The envelope is `{ _v, _value }`. The `_value` key marks it, so stored data shows it belongs to a value schema. No schema kind may declare a top-level field starting with `_`, so no stored value can look like an envelope.
+- An envelope must hold exactly `_v` (a string) and `_value`. Anything else fails with `ESchemaError`.
+- A value without `_value` is read as v1, so adopting existing data needs no backfill. Once adopted, always write through `encode`: a bare value is migrated from v1 again on every read.

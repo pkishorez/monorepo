@@ -49,7 +49,7 @@ Effect.runSync(
     // Notice every level got its own `_v`: the parent, the value envelope for
     // status, and each address in the array.
     console.log('nested encode:', JSON.stringify(encoded, null, 2));
-    // status -> { _v: 'v2', value: 'review' }
+    // status -> { _v: 'v2', _value: 'review' }
     // addresses[0] -> { _v: 'v1', street: '123 Main', city: 'NYC' }
 
     const decoded = yield* Ticket.decode(encoded);

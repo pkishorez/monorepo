@@ -93,7 +93,14 @@ export function makeObjectSchemaRuntime<
         if (migration === undefined) {
           return yield* new ESchemaError({ message: 'Migration not found' });
         }
-        data = migration.migration!(data);
+        data = yield* Effect.try({
+          try: () => migration.migration!(data),
+          catch: (cause) =>
+            new ESchemaError({
+              message: `Migration to ${migration.version} failed`,
+              cause,
+            }),
+        });
       }
       return data as Prettify<StructFieldsDecoded<TLatest>>;
     });

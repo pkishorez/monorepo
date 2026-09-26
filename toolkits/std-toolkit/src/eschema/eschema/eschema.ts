@@ -11,7 +11,7 @@ import type {
   StructFieldsEncoded,
   StructFieldsSchema,
 } from '../domain/schema-model/index.js';
-import { INITIAL_VERSION } from '../domain/schema-model/index.js';
+import { fromType, id, INITIAL_VERSION } from '../domain/schema-model/index.js';
 import { ESchemaError } from '../domain/eschema-error/index.js';
 import { makeObjectSchemaRuntime } from '../domain/object-schema-runtime/index.js';
 import { ESchemaBuilder } from './eschema-builder.js';
@@ -45,6 +45,9 @@ export class ESchema<
       evolutions,
     });
   }
+
+  static readonly id = id;
+  static readonly fromType = fromType;
 
   static make<N extends string, I extends StructFieldsSchema>(
     name: N & ForbidEmptyName<N>,

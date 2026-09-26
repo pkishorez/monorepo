@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema, fromType } from '../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { syncStore, type OpaqueValue } from './table.js';
 
 export const outboxEntryStatus = Schema.Literals([
@@ -36,7 +36,7 @@ const storedOutboxEntrySchema = EntityESchema.make(
     queue: Schema.String,
     status: outboxEntryStatus,
     enqueuedAt: Schema.String,
-    body: fromType<OpaqueValue>(),
+    body: ESchema.fromType<OpaqueValue>(),
   },
 ).build();
 

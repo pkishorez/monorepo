@@ -11,6 +11,7 @@ import {
   SnapshotIdentityConflict,
 } from '../domain/index.js';
 import { TableSnapshot } from '../index.js';
+import { restoreESchemaDefinitions } from '../restore/eschema-restore/index.js';
 import { snapshotOf } from './helpers.js';
 
 describe('ESchema semantic snapshots', () => {
@@ -42,6 +43,62 @@ describe('ESchema semantic snapshots', () => {
     await expect(Effect.runPromise(TableSnapshot.parse(json))).resolves.toEqual(
       snapshotOf(plain),
     );
+  });
+
+  it('captures a value schema as its _value envelope', async () => {
+    const statusV1 = ValueESchema.make(
+      'Status',
+      Schema.Literals(['draft', 'done']),
+    ).build();
+    const statusV2 = ValueESchema.make(
+      'Status',
+      Schema.Literals(['draft', 'done']),
+    )
+      .evolve(
+        'v2',
+        Schema.Literals(['draft', 'review', 'done']),
+        (value) => value,
+      )
+      .build();
+    const statusEdited = ValueESchema.make(
+      'Status',
+      Schema.Literals(['draft', 'review', 'done']),
+    ).build();
+    const ticket = (status: typeof statusV1 | typeof statusV2) =>
+      snapshotOf(ESchema.make('Ticket', { status: toSchema(status) }).build());
+
+    const captured = ticket(statusV1);
+    const status = captured.schemas.find(
+      ({ identity }) => identity === 'Status',
+    );
+    const encoded = JSON.stringify(status?.versions[0]?.encoded);
+    const restored = restoreESchemaDefinitions(captured.schemas).find(
+      ({ identity }) => identity === 'Status',
+    );
+    const isEnvelope = Schema.is(restored!.versions[0]!.encoded);
+
+    expect(status).toMatchObject({ kind: 'value' });
+    expect(encoded).toContain('"_value"');
+    await expect(
+      Effect.runPromise(
+        TableSnapshot.parse(JSON.parse(JSON.stringify(captured))),
+      ),
+    ).resolves.toEqual(captured);
+    expect(isEnvelope({ _v: 'v1', _value: 'draft' })).toBe(true);
+    expect(isEnvelope({ _v: 'v1', value: 'draft' })).toBe(false);
+    expect(
+      TableSnapshot.diff(captured, ticket(statusV2)).map(
+        ({ impact }) => impact,
+      ),
+    ).toEqual(['safe']);
+    expect(
+      TableSnapshot.diff(
+        captured,
+        snapshotOf(
+          ESchema.make('Ticket', { status: toSchema(statusEdited) }).build(),
+        ),
+      ).map(({ impact }) => impact),
+    ).toContain('breaking');
   });
 
   it('rejects fields that cannot be captured and restored', () => {

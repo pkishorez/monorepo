@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { EntitySchema } from 'std-toolkit/core';
-import { EntityESchema, fromType } from 'std-toolkit/eschema';
+import { EntityESchema, ESchema } from 'std-toolkit/eschema';
 import type {
   ExportLogsServiceRequest,
   ExportTraceServiceRequest,
@@ -14,8 +14,8 @@ export type LogPayload = Omit<OtlpLogRecord, 'traceId' | 'spanId'>;
 
 export const SpanEntitySchema = EntityESchema.make('Span', 'spanId', {
   traceId: Schema.String,
-  span: fromType<SpanPayload>(),
-  context: fromType<TelemetryContext>(),
+  span: ESchema.fromType<SpanPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
 })
   .evolve(
     'v2',
@@ -34,8 +34,8 @@ export const SpanEntitySchema = EntityESchema.make('Span', 'spanId', {
 export const LogEntitySchema = EntityESchema.make('LogRecord', 'id', {
   traceId: Schema.NullOr(Schema.String),
   spanId: Schema.NullOr(Schema.String),
-  log: fromType<LogPayload>(),
-  context: fromType<TelemetryContext>(),
+  log: ESchema.fromType<LogPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
 })
   .evolve(
     'v2',
@@ -57,15 +57,15 @@ export type LogRecord = typeof LogEntitySchema.Type;
 export const NewLogRecordSchema = Schema.Struct({
   traceId: Schema.NullOr(Schema.String),
   spanId: Schema.NullOr(Schema.String),
-  log: fromType<LogPayload>(),
-  context: fromType<TelemetryContext>(),
+  log: ESchema.fromType<LogPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
 });
 
 export const NewSpanRecordSchema = Schema.Struct({
   traceId: Schema.String,
   spanId: Schema.String,
-  span: fromType<SpanPayload>(),
-  context: fromType<TelemetryContext>(),
+  span: ESchema.fromType<SpanPayload>(),
+  context: ESchema.fromType<TelemetryContext>(),
 });
 
 export type NewSpanRecord = typeof NewSpanRecordSchema.Type;
@@ -139,10 +139,10 @@ export class TraceNotFound extends Schema.TaggedError<TraceNotFound>(
 )('TraceNotFound', { traceId: Schema.String }) {}
 
 export const ExportTraceServiceRequestSchema =
-  fromType<ExportTraceServiceRequest>();
+  ESchema.fromType<ExportTraceServiceRequest>();
 
 export const ExportLogsServiceRequestSchema =
-  fromType<ExportLogsServiceRequest>();
+  ESchema.fromType<ExportLogsServiceRequest>();
 
 export const ExportTraceServiceResponseSchema = Schema.Struct({
   partialSuccess: Schema.Struct({

@@ -1,11 +1,6 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import {
-  ESchema,
-  EntityESchema,
-  id,
-  toSchema,
-} from '../../../../eschema/index.js';
+import { EntityESchema, ESchema, toSchema } from '../../../../eschema/index.js';
 import { TableSnapshot } from '../../../../snapshot/index.js';
 import { Table } from '../index.js';
 
@@ -249,7 +244,7 @@ describe('portable Table definition', () => {
 
   it('accepts identifier-annotated string components behind $defs refs', () => {
     const annotated = EntityESchema.make('Annotated', 'id', {
-      threadId: id('ThreadId'),
+      threadId: ESchema.id('ThreadId'),
     }).build();
 
     expect(() =>
