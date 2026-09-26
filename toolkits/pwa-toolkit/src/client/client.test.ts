@@ -509,7 +509,7 @@ describe('RuntimeCacheControl', () => {
   it('deletes only Runtime Caches, with no registration needed', async () => {
     for (const name of [
       'pwa-toolkit:runtime:images',
-      'pwa-toolkit:runtime:pages',
+      'pwa-toolkit:runtime:pages:abc',
       'pwa-toolkit:precache:abc',
       'app-cache',
     ]) {

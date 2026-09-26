@@ -4,6 +4,7 @@ import * as Stream from 'effect/Stream';
 import { describe, expect, it } from 'vitest';
 import {
   BuildId,
+  pagesCacheName,
   precacheCacheName,
   runtimeCacheName,
 } from '../domain/build/index.js';
@@ -37,10 +38,14 @@ const start = (
   info: WorkerBuildInfo = build(),
   options: {
     active?: boolean;
+    waiting?: boolean;
     layer?: Layer.Layer<never, never, WorkerHost>;
   } = {},
 ) => {
-  const fake = makeFakeGlobal({ active: options.active ?? false });
+  const fake = makeFakeGlobal({
+    active: options.active ?? false,
+    waiting: options.waiting ?? false,
+  });
   startServiceWorker(
     fake.global,
     info,
@@ -125,6 +130,21 @@ describe('activate', () => {
       [PRECACHE, images, 'someone-else'].sort(),
     );
     expect(fake.calls.claim).toBe(1);
+  });
+
+  it("keeps only this build's saved pages with cachePages, and none without", async () => {
+    const oldPages = pagesCacheName(BuildId.make('b1'));
+    const pages = pagesCacheName(BUILD);
+    const content = start(build({ navigation: { cachePages: true } }));
+    content.caches.seed(oldPages, { '/page': 'old' });
+    content.caches.seed(pages, { '/page': 'new' });
+    await settle(content.dispatch('activate'));
+    expect([...content.caches.caches.keys()]).toEqual([pages]);
+
+    const app = start();
+    app.caches.seed(pages, { '/page': 'new' });
+    await settle(app.dispatch('activate'));
+    expect([...app.caches.caches.keys()]).toEqual([]);
   });
 });
 
@@ -231,6 +251,33 @@ describe('navigation', () => {
     );
     expect(await text(fake.fetchEvent('/other', { mode: 'navigate' }))).toBe(
       'shell',
+    );
+  });
+
+  it('serves the App Shell without the network while an update waits', async () => {
+    const fake = start(build(), { waiting: true });
+    withPrecache(fake);
+    fake.setNetwork(() => new Response('newer-build'));
+    expect(await text(fake.fetchEvent('/page', { mode: 'navigate' }))).toBe(
+      'shell',
+    );
+    expect(fake.requests).toEqual([]);
+  });
+
+  it('uses the network while an update waits when the App Shell is off or missing', async () => {
+    const noShell = start(build({ navigation: { shell: false } }), {
+      waiting: true,
+    });
+    withPrecache(noShell);
+    noShell.setNetwork(() => new Response('newer-build'));
+    expect(await text(noShell.fetchEvent('/page', { mode: 'navigate' }))).toBe(
+      'newer-build',
+    );
+
+    const missing = start(build(), { waiting: true });
+    missing.setNetwork(() => new Response('newer-build'));
+    expect(await text(missing.fetchEvent('/page', { mode: 'navigate' }))).toBe(
+      'newer-build',
     );
   });
 

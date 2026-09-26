@@ -42,8 +42,13 @@ export const precacheCacheName = (buildId: BuildId): string =>
 export const runtimeCacheName = (cacheName: string): string =>
   `${RUNTIME_PREFIX}${cacheName}`;
 
-/** Runtime Cache for navigations when `navigation.cachePages` is on. */
-export const PAGES_CACHE_NAME = runtimeCacheName('pages');
+/**
+ * Runtime Cache for navigations when `navigation.cachePages` is on. Saved
+ * pages point at their build's hashed assets, so the cache belongs to one
+ * build and is deleted when another activates.
+ */
+export const pagesCacheName = (buildId: BuildId): string =>
+  runtimeCacheName(`pages:${buildId}`);
 
 export const isToolkitCacheName = (name: string): boolean =>
   name.startsWith(CACHE_PREFIX);

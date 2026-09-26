@@ -1,7 +1,8 @@
 import * as Effect from 'effect/Effect';
 import {
+  type BuildId,
   isRuntimeCacheName,
-  PAGES_CACHE_NAME,
+  pagesCacheName,
   runtimeCacheName,
 } from '../../domain/build/index.js';
 import type {
@@ -27,22 +28,25 @@ export const onInstall = (
   });
 
 /**
- * Deletes other builds' Precaches and Runtime Caches no rule uses any more,
- * then takes control of every open tab.
+ * Deletes other builds' Precaches, other builds' saved pages, and Runtime
+ * Caches no rule uses any more, then takes control of every open tab.
  */
 export const onActivate = (
   info: WorkerBuildInfo,
 ): Effect.Effect<void, Error, GlobalScope> =>
   Effect.gen(function* () {
     const scope = yield* GlobalScope;
-    const kept = keptRuntimeCaches(info.config);
+    const kept = keptRuntimeCaches(info.buildId, info.config);
     yield* deleteOtherPrecaches(info.buildId);
     yield* deleteCaches((name) => isRuntimeCacheName(name) && !kept.has(name));
     yield* attempt(() => scope.claimClients());
   });
 
-const keptRuntimeCaches = (config: WorkerConfig): ReadonlySet<string> =>
+const keptRuntimeCaches = (
+  buildId: BuildId,
+  config: WorkerConfig,
+): ReadonlySet<string> =>
   new Set([
     ...config.runtimeCache.map((rule) => runtimeCacheName(rule.cacheName)),
-    ...(config.navigation.cachePages ? [PAGES_CACHE_NAME] : []),
+    ...(config.navigation.cachePages ? [pagesCacheName(buildId)] : []),
   ]);
