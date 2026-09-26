@@ -1,0 +1,29 @@
+@import 'kui-toolkit/styles/global.css';
+@import 'kui-toolkit/styles/font-inter.css';
+
+/* Tailwind v4 app configuration; toolkit classes register their own sources. */
+@source './';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  /* A new word arrives by fading in place: opacity and blur never move text. */
+  --animate-word-in: word-in 320ms ease-out both;
+  @keyframes word-in {
+    from {
+      opacity: 0;
+      filter: blur(3px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-word-in {
+    animation: none;
+  }
+}
+
+:root {
+  --radius: 0.5rem;
+}
