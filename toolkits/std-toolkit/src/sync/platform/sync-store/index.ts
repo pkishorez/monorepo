@@ -1,6 +1,1 @@
-export {
-  makeSyncStore,
-  type SyncStore,
-  type SyncStoreLayer,
-  type SyncStoreVersion,
-} from './sync-store.js';
+export { makeSyncStore, type SyncStore } from './sync-store.js';

@@ -22,27 +22,18 @@
     "src/snapshot/vitest/__tests__",
     "src/studio-rpc/__tests__",
     "src/sync/__tests__",
-    "src/sync/collection/keyed-collection/__tests__",
-    "src/sync/collection/pacing/__tests__",
-    "src/sync/collection/replica/__tests__",
     "src/sync/domain/collection-item/__tests__",
     "src/sync/domain/identity/__tests__",
-    "src/sync/flow/supervisor/__tests__",
-    "src/sync/outbox/drainer/__tests__",
-    "src/sync/outbox/entries/__tests__",
-    "src/sync/platform/leadership/__tests__",
-    "src/sync/platform/peer-sync/__tests__",
-    "src/sync/strategy/cadence-repair/__tests__",
-    "src/sync/strategy/strategy/bidirectional/__tests__",
-    "src/sync/strategy/strategy/new-to-old/__tests__",
-    "src/sync/strategy/strategy/old-to-new/__tests__",
-    "src/sync/strategy/strategy/single-item-source/__tests__"
+    "src/sync/paced/__tests__",
+    "src/sync/platform/browser/__tests__",
+    "src/sync/session/__tests__",
+    "src/sync/strategy/__tests__"
   ],
   "storiesPath": "stories",
   "layers": {
     "db.public": {
       "paths": ["src/db/index.ts", "src/db/db.ts"],
-      "description": "Public \u2014 adapter-independent database entrypoint",
+      "description": "Public — adapter-independent database entrypoint",
       "modules": {
         "src/db/index.ts": {
           "exposed": true
@@ -55,7 +46,7 @@
     },
     "studio-rpc": {
       "paths": ["src/studio-rpc"],
-      "description": "Integration \u2014 runtime-discovered StdTable reads over Effect RPC",
+      "description": "Integration — runtime-discovered StdTable reads over Effect RPC",
       "modules": {
         "src/studio-rpc": {
           "exposed": true
@@ -64,7 +55,7 @@
     },
     "std-table.table": {
       "paths": ["src/db/std-table/table"],
-      "description": "Aggregate \u2014 StdTable builder, decoration, and transact",
+      "description": "Aggregate — StdTable builder, decoration, and transact",
       "modules": {
         "src/db/std-table/table": {
           "exposed": true
@@ -73,7 +64,7 @@
     },
     "std-table.entity": {
       "paths": ["src/db/std-table/entity"],
-      "description": "Surface \u2014 typed keyed and single entity operations",
+      "description": "Surface — typed keyed and single entity operations",
       "modules": {
         "src/db/std-table/entity": {
           "exposed": true
@@ -82,7 +73,7 @@
     },
     "std-table.definition": {
       "paths": ["src/db/std-table/definition"],
-      "description": "Model \u2014 logical table and entity definitions",
+      "description": "Model — logical table and entity definitions",
       "modules": {
         "src/db/std-table/definition": {
           "exposed": true
@@ -91,7 +82,7 @@
     },
     "std-table.key": {
       "paths": ["src/db/std-table/key"],
-      "description": "Model \u2014 collision-safe key encoding and storage derivation",
+      "description": "Model — collision-safe key encoding and storage derivation",
       "modules": {
         "src/db/std-table/key": {
           "exposed": true
@@ -100,7 +91,7 @@
     },
     "std-table.contract": {
       "paths": ["src/db/std-table/contract"],
-      "description": "Port \u2014 the contract every adapter implements",
+      "description": "Port — the contract every adapter implements",
       "modules": {
         "src/db/std-table/contract": {
           "exposed": true
@@ -109,7 +100,7 @@
     },
     "std-table.error": {
       "paths": ["src/db/std-table/error"],
-      "description": "Port \u2014 public database error",
+      "description": "Port — public database error",
       "modules": {
         "src/db/std-table/error": {
           "exposed": true
@@ -118,7 +109,7 @@
     },
     "dynamodb.public": {
       "paths": ["src/db/dynamodb/index.ts", "src/db/dynamodb/dynamodb.ts"],
-      "description": "Public \u2014 barrel and adapter door",
+      "description": "Public — barrel and adapter door",
       "modules": {
         "src/db/dynamodb/index.ts": {
           "exposed": true
@@ -131,7 +122,7 @@
     },
     "dynamodb.table": {
       "paths": ["src/db/dynamodb/table"],
-      "description": "Store \u2014 port implementation",
+      "description": "Store — port implementation",
       "modules": {
         "src/db/dynamodb/table": {
           "exposed": true
@@ -140,7 +131,7 @@
     },
     "dynamodb.setup": {
       "paths": ["src/db/dynamodb/setup"],
-      "description": "Topology \u2014 physical table projection and create-if-missing",
+      "description": "Topology — physical table projection and create-if-missing",
       "modules": {
         "src/db/dynamodb/setup": {
           "exposed": true
@@ -149,7 +140,7 @@
     },
     "dynamodb.expression": {
       "paths": ["src/db/dynamodb/expression"],
-      "description": "Language \u2014 predicates and updates as DynamoDB expressions",
+      "description": "Language — predicates and updates as DynamoDB expressions",
       "modules": {
         "src/db/dynamodb/expression": {
           "exposed": true
@@ -158,7 +149,7 @@
     },
     "dynamodb.item-schema": {
       "paths": ["src/db/dynamodb/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from attribute values",
+      "description": "Mapping — encoded items to and from attribute values",
       "modules": {
         "src/db/dynamodb/item-schema": {
           "exposed": true
@@ -167,7 +158,7 @@
     },
     "dynamodb.attribute-value": {
       "paths": ["src/db/dynamodb/attribute-value"],
-      "description": "Encoding \u2014 values to and from DynamoDB attribute values",
+      "description": "Encoding — values to and from DynamoDB attribute values",
       "modules": {
         "src/db/dynamodb/attribute-value": {
           "exposed": true
@@ -176,7 +167,7 @@
     },
     "dynamodb.client": {
       "paths": ["src/db/dynamodb/client"],
-      "description": "Connection \u2014 generated API execution and AWS request signing",
+      "description": "Connection — generated API execution and AWS request signing",
       "modules": {
         "src/db/dynamodb/client": {
           "exposed": true
@@ -185,7 +176,7 @@
     },
     "idb.public": {
       "paths": ["src/db/idb/index.ts", "src/db/idb/idb.ts"],
-      "description": "Public \u2014 barrel and adapter door",
+      "description": "Public — barrel and adapter door",
       "modules": {
         "src/db/idb/index.ts": {
           "exposed": true
@@ -198,7 +189,7 @@
     },
     "idb.table": {
       "paths": ["src/db/idb/table"],
-      "description": "Store \u2014 port implementation",
+      "description": "Store — port implementation",
       "modules": {
         "src/db/idb/table": {
           "exposed": true
@@ -207,7 +198,7 @@
     },
     "idb.item-schema": {
       "paths": ["src/db/idb/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from stored records",
+      "description": "Mapping — encoded items to and from stored records",
       "modules": {
         "src/db/idb/item-schema": {
           "exposed": true
@@ -216,7 +207,7 @@
     },
     "idb.database": {
       "paths": ["src/db/idb/database"],
-      "description": "Connection \u2014 IndexedDB connection lifecycle",
+      "description": "Connection — IndexedDB connection lifecycle",
       "modules": {
         "src/db/idb/database": {
           "exposed": true
@@ -225,7 +216,7 @@
     },
     "idb.upgrade": {
       "paths": ["src/db/idb/upgrade"],
-      "description": "Upgrade \u2014 physical store and index schema, declared at connection-open time and therefore below the connection",
+      "description": "Upgrade — physical store and index schema, declared at connection-open time and therefore below the connection",
       "modules": {
         "src/db/idb/upgrade": {
           "exposed": true
@@ -234,7 +225,7 @@
     },
     "memory.public": {
       "paths": ["src/db/memory/index.ts", "src/db/memory/memory.ts"],
-      "description": "Public \u2014 barrel and adapter door (setup is a no-op)",
+      "description": "Public — barrel and adapter door (setup is a no-op)",
       "modules": {
         "src/db/memory/index.ts": {
           "exposed": true
@@ -247,7 +238,7 @@
     },
     "memory.table": {
       "paths": ["src/db/memory/table"],
-      "description": "Store \u2014 in-memory port implementation",
+      "description": "Store — in-memory port implementation",
       "modules": {
         "src/db/memory/table": {
           "exposed": true
@@ -256,7 +247,7 @@
     },
     "sqlite.public": {
       "paths": ["src/db/sqlite/index.ts", "src/db/sqlite/sqlite.ts"],
-      "description": "Public \u2014 barrel and adapter door",
+      "description": "Public — barrel and adapter door",
       "modules": {
         "src/db/sqlite/index.ts": {
           "exposed": true
@@ -269,7 +260,7 @@
     },
     "sqlite.table": {
       "paths": ["src/db/sqlite/table"],
-      "description": "Store \u2014 port implementation",
+      "description": "Store — port implementation",
       "modules": {
         "src/db/sqlite/table": {
           "exposed": true
@@ -278,7 +269,7 @@
     },
     "sqlite.setup": {
       "paths": ["src/db/sqlite/setup"],
-      "description": "Topology \u2014 physical table creation and index reconciliation",
+      "description": "Topology — physical table creation and index reconciliation",
       "modules": {
         "src/db/sqlite/setup": {
           "exposed": true
@@ -287,7 +278,7 @@
     },
     "sqlite.statement": {
       "paths": ["src/db/sqlite/statement"],
-      "description": "Language \u2014 predicates and writes as parameterized SQL statements",
+      "description": "Language — predicates and writes as parameterized SQL statements",
       "modules": {
         "src/db/sqlite/statement": {
           "exposed": true
@@ -296,7 +287,7 @@
     },
     "sqlite.item-schema": {
       "paths": ["src/db/sqlite/item-schema"],
-      "description": "Mapping \u2014 encoded items to and from rows",
+      "description": "Mapping — encoded items to and from rows",
       "modules": {
         "src/db/sqlite/item-schema": {
           "exposed": true
@@ -305,7 +296,7 @@
     },
     "sqlite.database": {
       "paths": ["src/db/sqlite/database"],
-      "description": "Connection \u2014 SQLite database contract",
+      "description": "Connection — SQLite database contract",
       "modules": {
         "src/db/sqlite/database": {
           "exposed": true
@@ -314,7 +305,7 @@
     },
     "sqlite.drivers": {
       "paths": ["src/db/sqlite/drivers"],
-      "description": "Drivers \u2014 runtime-specific SQLite bindings",
+      "description": "Drivers — runtime-specific SQLite bindings",
       "modules": {
         "src/db/sqlite/drivers/node": {
           "exposed": true
@@ -335,7 +326,7 @@
     },
     "eschema.public": {
       "paths": ["src/eschema/index.ts"],
-      "description": "Public \u2014 barrel",
+      "description": "Public — barrel",
       "modules": {
         "src/eschema/index.ts": {
           "exposed": true
@@ -348,7 +339,7 @@
         "src/eschema/entity-eschema",
         "src/eschema/value-eschema"
       ],
-      "description": "Constructs \u2014 public ESchema variants and their local builders",
+      "description": "Constructs — public ESchema variants and their local builders",
       "modules": {
         "src/eschema/eschema": {
           "exposed": true
@@ -363,7 +354,7 @@
     },
     "eschema.domain": {
       "paths": ["src/eschema/domain"],
-      "description": "Domain \u2014 evolution, the snapshot type language and field policy, runtimes, errors, and introspection",
+      "description": "Domain — evolution, the snapshot type language and field policy, runtimes, errors, and introspection",
       "modules": {
         "src/eschema/domain/eschema-error": {
           "shared": true,
@@ -398,7 +389,7 @@
     },
     "snapshot.public": {
       "paths": ["src/snapshot/index.ts"],
-      "description": "Public \u2014 barrel",
+      "description": "Public — barrel",
       "modules": {
         "src/snapshot/index.ts": {
           "exposed": true
@@ -407,7 +398,7 @@
     },
     "snapshot.facade": {
       "paths": ["src/snapshot/snapshot"],
-      "description": "Facade \u2014 public Snapshot operation composition",
+      "description": "Facade — public Snapshot operation composition",
       "modules": {
         "src/snapshot/snapshot": {
           "exposed": true
@@ -416,7 +407,7 @@
     },
     "snapshot.capture": {
       "paths": ["src/snapshot/capture"],
-      "description": "Capture \u2014 table snapshot capture from a structural table source",
+      "description": "Capture — table snapshot capture from a structural table source",
       "modules": {
         "src/snapshot/capture/eschema-capture": {
           "shared": true,
@@ -429,7 +420,7 @@
     },
     "snapshot.domain": {
       "paths": ["src/snapshot/domain"],
-      "description": "Domain \u2014 snapshot models, errors, and canonical ordering",
+      "description": "Domain — snapshot models, errors, and canonical ordering",
       "modules": {
         "src/snapshot/domain": {
           "exposed": true
@@ -438,7 +429,7 @@
     },
     "core.public": {
       "paths": ["src/core/index.ts"],
-      "description": "Public \u2014 barrel",
+      "description": "Public — barrel",
       "modules": {
         "src/core/index.ts": {
           "exposed": true
@@ -452,7 +443,7 @@
         "src/core/error.ts",
         "src/core/ulid.ts"
       ],
-      "description": "Impl \u2014 internal implementation",
+      "description": "Impl — internal implementation",
       "modules": {
         "src/core/broadcaster": {
           "exposed": true
@@ -471,7 +462,7 @@
     },
     "sync.std-sync": {
       "paths": ["src/sync/index.ts", "src/sync/std-sync"],
-      "description": "Std Sync \u2014 the instance: a group of Collections, one Outbox, the Ready Gate and Reset",
+      "description": "Std Sync — the instance: a named group of Collections on one Platform",
       "modules": {
         "src/sync/index.ts": {
           "exposed": true
@@ -484,140 +475,46 @@
     },
     "sync.collection": {
       "paths": ["src/sync/collection"],
-      "description": "Collection \u2014 one Collection and its lifecycle: keyed and single-item doors, Strategy Sessions, mutations, Replica, Projection",
-      "moduleGraphs": {
-        "collection": {
-          "description": "A Collection mounts, projects its Sync Replica, runs Strategy Sessions, and writes through the Outbox.",
-          "path": "src/sync/collection",
-          "modules": {
-            "keyed-collection": {
-              "exposed": true
-            },
-            "single-item-collection": {
-              "exposed": true
-            },
-            "pacing": {
-              "exposed": true
-            },
-            "registry": {
-              "exposed": true
-            },
-            "strategy-session": {},
-            "mutation": {},
-            "outbox-replay": {},
-            "replica": {},
-            "projection": {},
-            "outdated-application": {}
-          },
-          "rules": {
-            "keyed-collection": [
-              "strategy-session",
-              "mutation",
-              "outbox-replay",
-              "replica",
-              "projection",
-              "registry",
-              "pacing",
-              "outdated-application"
-            ],
-            "single-item-collection": [
-              "strategy-session",
-              "mutation",
-              "outbox-replay",
-              "replica",
-              "projection",
-              "registry",
-              "pacing",
-              "outdated-application"
-            ],
-            "mutation": ["pacing"]
-          }
+      "description": "Collection — one TanStack DB Collection: its Sync Replica, saved Sync State, Partitions, Sessions, and writes",
+      "modules": {
+        "src/sync/collection": {
+          "exposed": true
+        }
+      }
+    },
+    "sync.session": {
+      "paths": ["src/sync/session"],
+      "description": "Session — runs one Sync Strategy under Leadership and stores what it yields",
+      "modules": {
+        "src/sync/session": {
+          "exposed": true
         }
       }
     },
     "sync.strategy": {
       "paths": ["src/sync/strategy"],
-      "description": "Strategy \u2014 how backend-confirmed Entities are obtained: presets, Sync State, Cadence Repair",
-      "moduleGraphs": {
-        "strategy": {
-          "description": "Strategy presets own their Sync Source and Sync State; Cadence Repair runs alongside a Strategy Session.",
-          "path": "src/sync/strategy",
-          "modules": {
-            "strategy": {
-              "exposed": true
-            },
-            "cadence-repair": {
-              "exposed": true
-            },
-            "state": {
-              "exposed": true
-            }
-          },
-          "rules": {
-            "strategy": ["state"],
-            "cadence-repair": ["strategy"]
-          }
-        }
-      }
-    },
-    "sync.outbox": {
-      "paths": ["src/sync/outbox"],
-      "description": "Outbox \u2014 the durable write path: every write is an Entry in a Queue; the Drainer sends Requests through Handlers; Waiters resolve callers",
-      "moduleGraphs": {
-        "outbox": {
-          "description": "One Outbox per Std Sync: Entries and Queues over the Sync Store, the Drainer Worker, Handlers, Waiters, the doorbell, and Offline Actions.",
-          "path": "src/sync/outbox",
-          "modules": {
-            "outbox": {
-              "exposed": true
-            },
-            "entries": {},
-            "drainer": {},
-            "handlers": {},
-            "waiters": {},
-            "doorbell": {},
-            "narration": {},
-            "offline-action": {}
-          },
-          "rules": {
-            "outbox": [
-              "entries",
-              "drainer",
-              "handlers",
-              "waiters",
-              "doorbell",
-              "narration",
-              "offline-action"
-            ],
-            "drainer": ["entries", "handlers", "narration"],
-            "handlers": ["entries"],
-            "waiters": ["entries"],
-            "doorbell": ["entries"],
-            "narration": ["entries"],
-            "offline-action": ["entries", "handlers", "narration"]
-          }
-        }
-      }
-    },
-    "sync.flow": {
-      "paths": ["src/sync/flow"],
-      "description": "Worker \u2014 what a loop in Sync is: the Supervisor that runs it under a Leadership role, and the Sync Flow that narrates it",
+      "description": "Strategy — how a scope of the Backend is read: the Sync Strategy shape and the built-ins",
       "modules": {
-        "src/sync/flow/supervisor": {
+        "src/sync/strategy": {
           "exposed": true
-        },
-        "src/sync/flow/sync-flow": {
-          "shared": true,
+        }
+      }
+    },
+    "sync.paced": {
+      "paths": ["src/sync/paced"],
+      "description": "Paced — pacing for TanStack DB updates, independent of Sync",
+      "modules": {
+        "src/sync/paced": {
           "exposed": true
         }
       }
     },
     "sync.platform": {
       "paths": ["src/sync/platform"],
-      "description": "Platform \u2014 the environment a Std Sync runs in: the contract, Sync Store, Leadership, Peer Sync, the Effect runner, and the browser preset",
+      "description": "Platform — the environment a Std Sync runs in: the contract and the Memory and browser presets",
       "moduleGraphs": {
         "platform": {
-          "description": "The environment contract and its machinery; the browser preset assembles them.",
+          "description": "The contract and its machinery; each preset assembles a Sync Store, Leadership, and Doorbell.",
           "path": "src/sync/platform",
           "modules": {
             "contract": {
@@ -626,13 +523,10 @@
             "sync-store": {
               "exposed": true
             },
-            "leadership": {
-              "exposed": true
-            },
-            "peer-sync": {
-              "exposed": true
-            },
             "effect-runner": {
+              "exposed": true
+            },
+            "memory": {
               "exposed": true
             },
             "browser": {
@@ -640,16 +534,16 @@
             }
           },
           "rules": {
-            "browser": ["contract", "sync-store", "leadership", "peer-sync"],
-            "contract": ["leadership", "sync-store"],
-            "peer-sync": ["effect-runner"]
+            "sync-store": ["contract"],
+            "memory": ["contract"],
+            "browser": ["contract"]
           }
         }
       }
     },
     "sync.domain": {
       "paths": ["src/sync/domain"],
-      "description": "Domain \u2014 vocabulary only: identities, stored entity schemas, events, errors, the CollectionItem, channel and connectivity contracts",
+      "description": "Domain — vocabulary only: identities, stored entity schemas, events, errors, and the CollectionItem",
       "modules": {
         "src/sync/domain/identity": {
           "exposed": true
@@ -663,13 +557,7 @@
         "src/sync/domain/sync-error": {
           "exposed": true
         },
-        "src/sync/domain/connectivity": {
-          "exposed": true
-        },
         "src/sync/domain/collection-item": {
-          "exposed": true
-        },
-        "src/sync/domain/peer-channel": {
           "exposed": true
         },
         "src/sync/domain/entity-validation": {
@@ -679,7 +567,7 @@
     },
     "snapshot.vitest": {
       "paths": ["src/snapshot/vitest"],
-      "description": "Testing \u2014 the recommended per-table test: one Vitest file snapshot of the table snapshot",
+      "description": "Testing — the recommended per-table test: one Vitest file snapshot of the table snapshot",
       "modules": {
         "src/snapshot/vitest": {
           "exposed": true
@@ -688,7 +576,7 @@
     },
     "alchemy.public": {
       "paths": ["src/alchemy/index.ts", "src/alchemy/alchemy.ts"],
-      "description": "Public \u2014 every Alchemy resource std-toolkit ships, and the provider layer they need",
+      "description": "Public — every Alchemy resource std-toolkit ships, and the provider layer they need",
       "modules": {
         "src/alchemy/index.ts": {
           "exposed": true
@@ -701,7 +589,7 @@
     },
     "alchemy.targets": {
       "paths": ["src/alchemy/dynamodb", "src/alchemy/d1"],
-      "description": "Deploy targets \u2014 one call deploys a StdTable on DynamoDB or D1, guarded by its snapshot",
+      "description": "Deploy targets — one call deploys a StdTable on DynamoDB or D1, guarded by its snapshot",
       "modules": {
         "src/alchemy/dynamodb": {
           "exposed": true
@@ -713,7 +601,7 @@
     },
     "alchemy.snapshot-guard": {
       "paths": ["src/alchemy/snapshot-guard"],
-      "description": "Guard \u2014 keeps the accepted table snapshot in Alchemy state and refuses a breaking deploy",
+      "description": "Guard — keeps the accepted table snapshot in Alchemy state and refuses a breaking deploy",
       "modules": {
         "src/alchemy/snapshot-guard": {
           "exposed": true
@@ -820,19 +708,18 @@
       }
     },
     "sync": {
-      "description": "Sync read top-down as its story: the Std Sync holds Collections; a Collection runs Strategy Sessions and writes through the Outbox; every loop is a Worker; the Platform is the environment; the domain is the words",
+      "description": "Sync read top-down as its story: the Std Sync holds Collections; a Collection runs a Session per scope; a Session runs a Strategy under Leadership; the Platform is the environment; the domain is the words",
       "rules": {
-        "sync.std-sync": ["memory.public", "sync.collection", "sync.outbox"],
-        "sync.collection": [
-          "sync.strategy",
-          "sync.outbox",
-          "sync.flow",
-          "sync.platform"
+        "sync.std-sync": ["sync.collection", "memory.public"],
+        "sync.collection": ["sync.session"],
+        "sync.session": ["sync.strategy", "sync.platform"],
+        "sync.strategy": ["core.public", "eschema.public"],
+        "sync.platform": [
+          "idb.public",
+          "memory.public",
+          "db.public",
+          "sync.domain"
         ],
-        "sync.strategy": ["sync.flow", "sync.platform"],
-        "sync.outbox": ["sync.flow", "sync.platform"],
-        "sync.flow": ["sync.platform"],
-        "sync.platform": ["idb.public", "db.public", "sync.domain"],
         "sync.domain": ["core.public", "db.public", "eschema.public"]
       }
     },

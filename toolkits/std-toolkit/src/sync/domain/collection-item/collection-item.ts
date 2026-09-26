@@ -1,12 +1,7 @@
 import type { CollectionConfig, VirtualRowProps } from '@tanstack/react-db';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { Equal, Schema } from 'effect';
-import type { Effect } from 'effect';
-import type {
-  Entity,
-  EntityMetaSchema,
-  SingletonEntity,
-} from '../../../core/index.js';
+import type { EntityMetaSchema } from '../../../core/index.js';
 import type {
   AnyESchema,
   AnyEntityESchema,
@@ -63,14 +58,6 @@ export const makeCollectionItemSchema = <S extends AnyESchema>(
 };
 
 /**
- * An old→new cursor fetch source. A worker or repair capability declares one
- * only when it consumes that direction.
- */
-export type ForwardFetch<T, R = never, E = never> = (ctx: {
-  cursor: Entity<T> | null;
-}) => Effect.Effect<Entity<T>[], E, R>;
-
-/**
  * Pass-through TanStack collection options, with the fields the engine owns
  * (id, getKey, schema, sync wiring, mutation handlers, utils) removed.
  */
@@ -104,11 +91,6 @@ export type DeletePayload<TItem extends object> = {
   current: TItem;
 };
 
-export type UpdateChanges<
-  TItem extends object,
-  TSchema extends AnyEntityESchema,
-> = UpdatePayload<TItem, TSchema>['updates'];
-
 export const stripMeta = <TItem extends object>(
   item: CollectionItem<TItem>,
 ): TItem => {
@@ -120,25 +102,6 @@ export const stripMeta = <TItem extends object>(
   } = item;
   return value as TItem;
 };
-
-export const stripMetaPartial = <TItem extends object>(
-  item: Partial<CollectionItem<TItem>>,
-): Partial<TItem> => {
-  const {
-    _meta: _ignoredMeta,
-    $synced: _ignoredSynced,
-    $origin: _ignoredOrigin,
-    ...value
-  } = item;
-  return value as Partial<TItem>;
-};
-
-export const toEntity = <TItem>(
-  entity: SingletonEntity<TItem>,
-): Entity<TItem> => ({
-  value: entity.value,
-  meta: { ...entity.meta, _d: false },
-});
 
 export const changedFields = (before: object, after: object): string[] =>
   [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(

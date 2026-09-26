@@ -17,7 +17,7 @@ export const actFive = Story.group(
   'In the browser',
   {
     description:
-      'Show the board in a browser, edit it, catch up on what you missed, pace fast typing, share between tabs, survive going offline, and put it on a real page.',
+      'Show the board in a browser, edit it, catch up on what you missed, pace fast typing, share between tabs, see what still works offline, and put it on a real page.',
   },
   [
     showingTheBoardInTheBrowser,

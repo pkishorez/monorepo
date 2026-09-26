@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0008
 ---
 
 # Unify strategy sources as Streams

@@ -1,8 +1,12 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { Effect, Schedule, Stream } from 'effect';
+import { Effect, Stream } from 'effect';
 import { Story } from 'laymos/story';
-import { createStdSync, syncStrategy, type SyncEvent } from 'std-toolkit/sync';
-import { browser } from 'std-toolkit/sync/platform/browser';
+import { createStdSync, strategy, type SyncEvent } from 'std-toolkit/sync';
+import {
+  browser,
+  deleteStdSync,
+  listStdSyncs,
+} from 'std-toolkit/sync/platform/browser';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -33,64 +37,90 @@ const plan = {
   notes: '',
 } as const;
 
-// Node has no `document`. This is a tab's, in miniature: whether it is visible, and the event a page fires when that changes. Each tab gets its own.
-const tabDocument = () => {
-  const listeners = new Set<() => void>();
-  const tab = {
-    visibilityState: 'visible' as 'visible' | 'hidden',
-    addEventListener: (type: string, listener: () => void) => {
-      if (type === 'visibilitychange') listeners.add(listener);
-    },
-    removeEventListener: (_type: string, listener: () => void) => {
-      listeners.delete(listener);
-    },
-    hide: () => {
-      tab.visibilityState = 'hidden';
-      for (const listener of listeners) listener();
-    },
-    show: () => {
-      tab.visibilityState = 'visible';
-      for (const listener of listeners) listener();
-    },
-  };
-  return tab;
-};
+// Node plays the browser here: Web Locks and `BroadcastChannel` are built in, and IndexedDB comes from `fake-indexeddb`, which `env.ts` installs.
 
-// The real platform reads `document` when it is built, so a tab installs its own first. Web Locks come from Node itself, IndexedDB from `fake-indexeddb`, and `BroadcastChannel` is built in.
-const realPlatform = (databaseName: string, document = tabDocument()) => {
-  const host = globalThis as { document?: unknown };
-  host.document = document;
+// Runs `build` while the page's `BroadcastChannel` is `channel`; `undefined` plays a browser without one.
+const withBroadcastChannel = <A>(channel: unknown, build: () => A): A => {
+  const host = globalThis as { BroadcastChannel?: unknown };
+  const original = host.BroadcastChannel;
+  if (channel === undefined) delete host.BroadcastChannel;
+  else host.BroadcastChannel = channel;
   try {
-    return browser({ databaseName });
+    return build();
   } finally {
-    delete host.document;
+    host.BroadcastChannel = original;
   }
 };
 
-// Which tabs opened a reader on the server, in order.
+// Every reader a tab opened on the server, in order, as `tab:after`, where `after` is the newest task it already had (`start` for none).
 const readers: string[] = [];
+
+// One tab on the real platform: its app, a Task collection read through the pushed changes from chapter 28, and a screen on the `work` board. Every event sync reports lands in `events`.
+const openTab = (label: string, name: string) =>
+  Effect.gen(function* () {
+    const events: SyncEvent['_tag'][] = [];
+    const app = createStdSync({
+      name,
+      platform: browser(),
+      runtime: yield* pushingRuntime,
+      options: { gcTime: 1 },
+      onEvent: (event) => Effect.sync(() => void events.push(event._tag)),
+    });
+    const tasks = app.collection(Task, {
+      sync: {
+        partitions: {
+          boardId: (boardId) =>
+            strategy.oldToNew({
+              subscribe: ({ after }) =>
+                Stream.suspend(() => {
+                  readers.push(`${label}:${after?.value.taskId ?? 'start'}`);
+                  return pushedChanges(boardId, after);
+                }),
+            }),
+        },
+      },
+    });
+    const screen = createLiveQueryCollection({
+      query: (q) =>
+        q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
+      startSync: true,
+      // Nothing subscribes to this screen the way a page would, so keep it
+      // until the chapter cleans it up.
+      gcTime: 60_000,
+    });
+    yield* Effect.promise(() => screen.preload());
+    const close = Effect.promise(async () => {
+      await screen.cleanup();
+      await app.dispose();
+    });
+    return { app, screen, events, close };
+  });
 
 export const puttingItOnARealPage = Story.make({
   title: 'Putting it on a real page',
   description:
-    'The whole board on the ready-made browser platform: what it bundles, how to watch what sync is doing, and two real tabs handing the reading over.',
+    'The whole board on the ready-made browser platform: what it bundles, how to watch what sync is doing, two real tabs handing the reading over, and what logging out clears.',
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('What does the real-browser platform bundle?', {
       answer:
-        'Everything the chapters built by hand: `browser()` keeps the copy in IndexedDB (a database per app name unless you give one), lets tabs agree on a reader with Web Locks, links tabs over `BroadcastChannel`, and reports the network from `navigator.onLine` when the page has one. The app is then one call, with the same collections as before.',
+        "Everything the chapters stood in for: `browser()` keeps the copy in IndexedDB (a database per app, named `std-sync:` and the app's name), lets tabs take turns reading with Web Locks, and rings the doorbell over `BroadcastChannel`. Each piece can be turned off (`leadership: false`, `doorbell: false`), and a piece the browser lacks falls back to none instead of failing. The app is then one call, with the same collections as before.",
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
             yield* task.insert(plan);
-            // The platform, and what it came with.
-            const real = realPlatform('board-page');
+            // The platform, the same with its sharing turned off, and the same in a browser without `BroadcastChannel`.
+            const real = browser();
+            const bare = browser({ leadership: false, doorbell: false });
+            const older = withBroadcastChannel(undefined, () => browser());
             const bundled = {
-              store: real.storeLayer !== undefined,
-              leadership: real.leadershipLayer !== undefined,
-              peerSync: real.peerSync !== undefined,
-              connectivity: real.connectivity !== undefined,
+              leadership: real.leadership !== bare.leadership,
+              doorbell: real.doorbell !== bare.doorbell,
+            };
+            const inOlderBrowser = {
+              leadership: older.leadership !== bare.leadership,
+              doorbell: older.doorbell !== bare.doorbell,
             };
             // The whole app on it.
             const app = createStdSync({
@@ -99,19 +129,14 @@ export const puttingItOnARealPage = Story.make({
               runtime: yield* browserRuntime,
               options: { gcTime: 1 },
             });
-            const tasks = app.collection({
-              schema: Task,
+            const tasks = app.collection(Task, {
               sync: {
                 partitions: {
-                  boardId: (boardId) => ({
-                    strategy: syncStrategy.oldToNew({
-                      source: ({ poll }) =>
-                        poll({
-                          fetch: ({ cursor }) => changesOn(boardId, cursor),
-                          schedule: Schedule.spaced('20 millis'),
-                        }),
+                  boardId: (boardId) =>
+                    strategy.oldToNew({
+                      fetch: ({ after }) => changesOn(boardId, after),
+                      pollEvery: '20 millis',
                     }),
-                  }),
                 },
               },
             });
@@ -121,176 +146,192 @@ export const puttingItOnARealPage = Story.make({
                   .from({ task: tasks })
                   .where(({ task }) => eq(task.boardId, 'work')),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             yield* Effect.promise(() => screen.preload());
             yield* until(() => screen.size === 1);
             const shown = screen.toArray.map(
               ({ taskId, title }) => `${taskId}:${title}`,
             );
+            // The browser now holds a database for this app.
+            const stored = yield* Effect.promise(() => listStdSyncs());
             yield* Story.assert(
-              'store, leadership and peer sync came bundled; the network signal needs a real page',
-              bundled.store &&
-                bundled.leadership &&
-                bundled.peerSync &&
-                !bundled.connectivity,
+              'leadership and the doorbell came bundled, and only the missing one fell back to none',
+              bundled.leadership &&
+                bundled.doorbell &&
+                inOlderBrowser.leadership &&
+                !inOlderBrowser.doorbell,
             );
             yield* Story.assert(
-              'the board showed on the real platform',
-              shown.join() === 't1:Write the plan',
+              'the board showed, kept in its own IndexedDB database',
+              shown.join() === 't1:Write the plan' &&
+                stored.some(
+                  ({ name, databaseName }) =>
+                    name === 'board-on-a-page' &&
+                    databaseName === 'std-sync:board-on-a-page',
+                ),
             );
             yield* Effect.promise(() => screen.cleanup());
             yield* Effect.promise(() => app.dispose());
-            return { bundled, shown };
+            yield* Effect.promise(() => deleteStdSync(app.name));
+            return { bundled, inOlderBrowser, shown, stored };
           }),
         ),
       ),
     }),
     Story.question('How do I watch what sync is doing?', {
       answer:
-        'Give the app an `onEvent`: it is called with every notable thing sync does or fails to do, as a tagged value, such as leadership moving between tabs, a peer message that could not be delivered, or a screen asking for something no reading recipe serves. Without it, events go to the Effect logger.',
+        'Give the app an `onEvent`. It is called with every notable thing sync fails at or runs into, as a tagged value: `SessionFailed` when a read of the server fails (it is tried again anyway), `OutdatedApplication` when the server sends data newer than this code understands, and `PlatformClosed` when the stored copy was deleted from elsewhere. Without it, events go to the Effect logger.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
             yield* task.insert(plan);
-            // Every event sync reports, by tag.
-            const events: SyncEvent['_tag'][] = [];
+            // Every event sync reports.
+            const events: SyncEvent[] = [];
             const app = createStdSync({
-              name: 'board-on-a-page',
-              platform: realPlatform('board-events'),
+              name: 'board-events',
+              platform: browser(),
               runtime: yield* browserRuntime,
               options: { gcTime: 1 },
-              onEvent: (event) =>
-                Effect.sync(() => void events.push(event._tag)),
+              onEvent: (event) => Effect.sync(() => void events.push(event)),
             });
-            const tasks = app.collection({
-              schema: Task,
+            // The server is down for the first read.
+            let reads = 0;
+            const tasks = app.collection(Task, {
               sync: {
                 partitions: {
-                  boardId: (boardId) => ({
-                    strategy: syncStrategy.oldToNew({
-                      source: ({ poll }) =>
-                        poll({
-                          fetch: ({ cursor }) => changesOn(boardId, cursor),
-                          schedule: Schedule.spaced('20 millis'),
-                        }),
+                  boardId: (boardId) =>
+                    strategy.oldToNew({
+                      fetch: ({ after }) =>
+                        ++reads === 1
+                          ? Effect.fail('server down')
+                          : changesOn(boardId, after),
                     }),
-                  }),
                 },
               },
             });
-            // A screen for the work board, and one that asks for every task, which no recipe serves.
-            const work = createLiveQueryCollection({
+            const screen = createLiveQueryCollection({
               query: (q) =>
                 q
                   .from({ task: tasks })
                   .where(({ task }) => eq(task.boardId, 'work')),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
-            const everything = createLiveQueryCollection({
-              query: (q) => q.from({ task: tasks }),
-              startSync: true,
-              gcTime: 1,
-            });
-            yield* Effect.promise(() => work.preload());
-            yield* Effect.promise(() => everything.preload());
-            yield* until(
-              () => work.size === 1 && events.includes('UnservedQuery'),
+            yield* Effect.promise(() => screen.preload());
+            // The retry comes a second later.
+            const shown = yield* until(() => screen.size === 1);
+            const seen = events.map((event) =>
+              event._tag === 'SessionFailed'
+                ? {
+                    _tag: event._tag,
+                    collection: event.collection,
+                    strategy: event.strategy,
+                    cause: String(event.cause),
+                  }
+                : { _tag: event._tag },
             );
-            const seen = [...new Set(events)];
             yield* Story.assert(
-              'the unserved screen and the leadership hand-shake were reported',
-              seen.includes('UnservedQuery') &&
-                seen.includes('LeadershipChanged'),
+              'the failed read was reported, with where it happened',
+              seen.length === 1 &&
+                seen[0]?._tag === 'SessionFailed' &&
+                seen[0].collection === 'board-events.task' &&
+                seen[0].strategy === 'old-to-new',
             );
-            yield* Effect.promise(() => work.cleanup());
-            yield* Effect.promise(() => everything.cleanup());
+            yield* Story.assert('and the retry showed the board', shown);
+            yield* Effect.promise(() => screen.cleanup());
             yield* Effect.promise(() => app.dispose());
+            yield* Effect.promise(() => deleteStdSync(app.name));
             return { seen };
           }),
         ),
       ),
     }),
     Story.question(
-      'Two real tabs, and the one doing the reading is hidden. Who reads now?',
+      'Two real tabs, and the one doing the reading closes. Who reads now?',
       {
         answer:
-          'The other one. Web Locks leadership gives the reading to one tab and hands it over when that tab is closed, or hidden, or frozen by the browser, so the tab the person is looking at is the one talking to the server. Both tabs share one IndexedDB copy, so the second tab starts from what the first already read.',
+          'The other one. Web Locks give the reading to one tab, and the browser releases the lock when that tab closes or crashes, so the waiting tab takes over from where the first one got to. Both tabs share one IndexedDB copy, so the second tab starts from what the first already read, and the doorbell over `BroadcastChannel` tells it when the first saves more.',
         proof: onPushingBoard(
           Story.flow(
             Effect.gen(function* () {
               yield* task.insert(plan);
               readers.length = 0;
-              // One tab: its document, its app on the shared database, its screen, read through the pushed changes from chapter 28.
-              const openTab = (label: string) =>
-                Effect.gen(function* () {
-                  const document = tabDocument();
-                  const app = createStdSync({
-                    name: 'board-on-a-page',
-                    platform: realPlatform('board-tabs', document),
-                    runtime: yield* pushingRuntime,
-                    options: { gcTime: 1 },
-                  });
-                  const tasks = app.collection({
-                    schema: Task,
-                    sync: {
-                      partitions: {
-                        boardId: (boardId) => ({
-                          strategy: syncStrategy.oldToNew({
-                            source: ({ live }) =>
-                              live({
-                                open: ({ cursor }) =>
-                                  Stream.suspend(() => {
-                                    readers.push(label);
-                                    return pushedChanges(boardId, cursor);
-                                  }),
-                              }),
-                          }),
-                        }),
-                      },
-                    },
-                  });
-                  const screen = createLiveQueryCollection({
-                    query: (q) =>
-                      q
-                        .from({ task: tasks })
-                        .where(({ task }) => eq(task.boardId, 'work')),
-                    startSync: true,
-                    gcTime: 1,
-                  });
-                  yield* Effect.promise(() => screen.preload());
-                  const close = Effect.promise(async () => {
-                    await screen.cleanup();
-                    await app.dispose();
-                  });
-                  return { document, screen, close };
-                });
-              const first = yield* openTab('first');
+              const first = yield* openTab('first', 'board-tabs');
               yield* until(
                 () => readers.length === 1 && first.screen.size === 1,
               );
-              const second = yield* openTab('second');
+              const second = yield* openTab('second', 'board-tabs');
               yield* until(() => second.screen.size === 1);
-              const beforeHiding = [...readers];
-              // The first tab is hidden.
-              first.document.hide();
-              const handedOver = yield* until(() => readers.length === 2);
-              yield* Story.assert(
-                'the second tab started from the shared copy without reading',
-                beforeHiding.join() === 'first',
-              );
-              yield* Story.assert(
-                'hiding the first tab handed the reading to the second',
-                handedOver && readers.join() === 'first,second',
-              );
+              // The server saves a task while the first tab reads; the second hears the doorbell.
+              yield* task.insert({ ...plan, taskId: 't2', title: 'Review it' });
+              const heard = yield* until(() => second.screen.size === 2);
+              const beforeClosing = [...readers];
+              // The first tab closes.
               yield* first.close;
+              const handedOver = yield* until(() => readers.length === 2);
+              yield* task.insert({ ...plan, taskId: 't3', title: 'Send it' });
+              const kept = yield* until(() => second.screen.size === 3);
+              yield* Story.assert(
+                'the second tab showed what the first read, without reading',
+                beforeClosing.join() === 'first:start' && heard,
+              );
+              yield* Story.assert(
+                'closing the first tab handed the reading to the second, from where the first got to',
+                handedOver && readers[1] === 'second:t2' && kept,
+              );
               yield* second.close;
-              return { beforeHiding, afterHiding: readers };
+              yield* Effect.promise(() => deleteStdSync('board-tabs'));
+              return { beforeClosing, afterClosing: [...readers] };
             }),
           ),
         ),
       },
     ),
+    Story.question('Someone logs out. What is cleared?', {
+      answer:
+        "Nothing, until the app says so: disposing an app stops its sync and keeps its copy, ready for next time. Logging out is `await app.dispose()` and then `await deleteStdSync(app.name)`, which deletes that app's IndexedDB database. Any other tab still running the same app is told first; it stops and reports `PlatformClosed`. `listStdSyncs()` shows which apps have a copy in this browser.",
+      proof: onPushingBoard(
+        Story.flow(
+          Effect.gen(function* () {
+            yield* task.insert(plan);
+            const here = yield* openTab('here', 'board-logout');
+            const there = yield* openTab('there', 'board-logout');
+            yield* until(
+              () => here.screen.size === 1 && there.screen.size === 1,
+            );
+            const namesOf = Effect.promise(() => listStdSyncs()).pipe(
+              Effect.map((stored) => stored.map(({ name }) => name)),
+            );
+            const before = yield* namesOf;
+            // Log out in this tab.
+            yield* Effect.promise(async () => {
+              await here.screen.cleanup();
+              await here.app.dispose();
+              await deleteStdSync(here.app.name);
+            });
+            const told = yield* until(() =>
+              there.events.includes('PlatformClosed'),
+            );
+            const after = yield* namesOf;
+            yield* Story.assert(
+              'the copy was listed before and gone after',
+              before.includes('board-logout') &&
+                !after.includes('board-logout'),
+            );
+            yield* Story.assert(
+              'the other tab was told and stopped',
+              told && there.events.join() === 'PlatformClosed',
+            );
+            yield* there.close;
+            return { before, after, there: there.events };
+          }),
+        ),
+      ),
+    }),
   ],
 });

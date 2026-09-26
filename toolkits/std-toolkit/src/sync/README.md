@@ -1,14 +1,14 @@
 # std-toolkit/sync
 
-Effect-based synchronization of TanStack DB Collections from an authoritative backend, with a persisted local replica, paced writes, an offline Outbox, and same-origin Peer Sync.
+Effect-based synchronization of TanStack DB Collections from an authoritative backend, with a local copy that survives reloads and one tab reading for all.
 
 ## Big picture
 
-Each tab owns a Sync Replica and a TanStack DB Collection projection. The backend is authoritative; backend push or polling makes each replica eventually correct, and the projection makes it visible to TanStack queries. Keyed Collections run total sync, on-demand partition sync, or both; every path converges through the one replica by entity id and `_u`. The replica is persisted through a StdTable (`syncStore`), so Memory, IndexedDB, and SQLite adapters are all valid stores. Collection rows and Mutation Callbacks hold values (a `Date`); the Sync Store, Peer Sync, and the Outbox hold the encoded form (its ISO string), converted with the Collection's schema.
+A Std Sync is a named group of Collections on one Platform. Each Collection reads the backend through Sync Strategies: a global one that runs while the Collection is mounted, one per Partition that runs while a query filters on its key path, or both. Only global is eager, only partitions is on-demand, and both is progressive; there is no mode setting. Every path converges through one Sync Replica by entity id and `_u`, and the TanStack DB Collection shows it. Collection rows and Mutation Callbacks hold values (a `Date`); the store holds the encoded form (its ISO string).
 
-Peer Sync is a same-origin freshness shortcut: after a tab accepts a backend-confirmed Entity it sends the complete Entity to the same Collection in other live tabs. A missed message is harmless because backend sync repairs it. Leadership lets one tab do the backend reads. The Outbox makes writes survive reloads and offline periods.
+A strategy yields Entities with its next Sync State, and a Session stores each yield in one write, so a reload resumes where it stopped. Each Session holds its own lock, so one tab reads each scope while others wait to take over; the reader rings a Doorbell and the other tabs re-read the shared store. The Platform decides where the store lives and whether locks and the Doorbell exist: `memory()` by default, `browser()` for IndexedDB, Web Locks, and BroadcastChannel. The main entry touches no browser global, so it also runs in Node and React Native.
 
-Vocabulary is in [CONTEXT.md](CONTEXT.md). Rules for cursors, cadence repair, the Effect runtime, flow tracing, store durability, Peer Sync, the Outbox, and Registry Broadcasts are in [docs/sync-guide.md](../../docs/sync-guide.md). Decisions are in [docs/adr/](docs/adr/); the Outbox plan is [docs/offline-plan.md](docs/offline-plan.md).
+Vocabulary is in [CONTEXT.md](CONTEXT.md). Rules for cursors, the Settle Window, Partitions, tabs, and logout are in [docs/sync-guide.md](../../docs/sync-guide.md). Decisions are in [docs/adr/](docs/adr/).
 
 ## Install
 
@@ -18,67 +18,52 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 
 ### `std-toolkit/sync`
 
-| Export                       | What it does                                                                                                                                                                |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createStdSync`              | Creates a named sync instance exposing `collection`, `sync`, `singleItemCollection`, `singleItemSync`, `createOfflineAction`, `registry`, `outbox`, `reset`, and `dispose`. |
-| `syncStrategy.oldToNew`      | Partitioned strategy that reads from the oldest change forward.                                                                                                             |
-| `syncStrategy.newToOld`      | Partitioned strategy that reads from the newest change backward.                                                                                                            |
-| `syncStrategy.bidirectional` | Newest-first strategy that backfills older and newer pages from both ends while a live tail stays open.                                                                     |
-| `paceStrategy.coalesce`      | Pacer that folds rapid `pacedUpdate` calls on one key into a single in-flight write.                                                                                        |
-| `paceStrategy.debounce`      | Pacer that re-exposes TanStack DB's debounce strategy.                                                                                                                      |
-| `paceStrategy.throttle`      | Pacer that re-exposes TanStack DB's throttle strategy.                                                                                                                      |
-| `paceStrategy.queue`         | Pacer that re-exposes TanStack DB's queue strategy.                                                                                                                         |
-| `syncStore`                  | The StdTable definition the Sync Store persists through; realize it with any adapter's `make`.                                                                              |
-| `OutboxUnreachable`          | Tagged error a mutation callback fails with to keep an Outbox entry `pending` until connectivity returns.                                                                   |
+| Export              | What it does                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------- |
+| `createStdSync`     | Creates a named Std Sync exposing `name`, `collection`, and `dispose`.                    |
+| `strategy.oldToNew` | Strategy that reads from the oldest change forward, by pulling, by subscription, or both. |
+| `strategy.newToOld` | Strategy that reads the newest page first, fills in older pages, and keeps the top fresh. |
+| `strategy.make`     | Builds a custom strategy from a state schema, an initial state, and a `run` Stream.       |
+| `memory`            | The default Platform: ephemeral storage, no Leadership, no Doorbell.                      |
+| `syncStore`         | The StdTable definition the Sync Store persists through, for building a custom Platform.  |
 
 ### `std-toolkit/sync/paced`
 
-| Export             | What it does                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| `paceStrategy`     | The same pacer kit as above, for callers that only need pacing.                             |
-| `coalesceStrategy` | Constructs one coalesce strategy instance directly.                                         |
-| `buildPacedUpdate` | Builds a paced update function from a strategy, an optimistic apply callback, and a commit. |
-
-### `std-toolkit/sync/leadership/in-memory`
-
-| Export               | What it does                                                                                 |
-| -------------------- | -------------------------------------------------------------------------------------------- |
-| `inMemoryLeadership` | Leadership Layer that elects a leader among instances in one process; for tests and servers. |
+| Export             | What it does                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------- |
+| `paceStrategy`     | Pacers that decide when rapid updates reach the server: `coalesce`, `debounce`, `throttle`, `queue`. |
+| `coalesceStrategy` | Constructs one coalesce pacer directly.                                                              |
+| `buildPacedUpdate` | Builds a paced update function from a pacer, an optimistic apply callback, and a commit.             |
 
 ### `std-toolkit/sync/platform/browser`
 
-| Export             | What it does                                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `browser`          | Platform preset: IndexedDB Sync Store, Web Locks Leadership, and BroadcastChannel Peer Sync.               |
-| `broadcastChannel` | Peer Channel factory over `BroadcastChannel`, or `null` where the global is missing; for custom platforms. |
+| Export          | What it does                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `browser`       | Platform with an IndexedDB store, Web Locks Leadership, and a BroadcastChannel Doorbell. |
+| `listStdSyncs`  | Lists every Std Sync stored in this browser.                                             |
+| `deleteStdSync` | Deletes a Std Sync's stored data, stopping a live instance of it first.                  |
 
 ## Usage
 
 ### Load only the board you are looking at
 
-A partition factory keyed on `boardId` starts when a TanStack query filters on that field. Lifted from story 25.
+A partition keyed on `boardId` starts when a TanStack query filters on that field. The schema comes first so the strategies' callbacks are typed. Lifted from story 27.
 
 ```ts
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { Schedule } from 'effect';
-import { createStdSync, syncStrategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 import { browser } from 'std-toolkit/sync/platform/browser';
 
 const app = createStdSync({ name: 'board', platform: browser() });
 
-const tasks = app.collection({
-  schema: Task,
+const tasks = app.collection(Task, {
   sync: {
     partitions: {
-      boardId: (boardId) => ({
-        strategy: syncStrategy.oldToNew({
-          source: ({ poll }) =>
-            poll({
-              fetch: ({ cursor }) => changesOn(boardId, cursor),
-              schedule: Schedule.spaced('20 millis'),
-            }),
+      boardId: (boardId) =>
+        strategy.oldToNew({
+          fetch: ({ after }) => api.changesOn(boardId, after),
+          pollEvery: '5 seconds',
         }),
-      }),
     },
   },
   onInsert: (items) => Effect.forEach(items, (item) => api.insertTask(item)),
@@ -93,28 +78,24 @@ const screen = createLiveQueryCollection({
 });
 ```
 
-- A partition is keyed by a key path, such as `boardId` or `board.id`, that reads a string, number, or boolean in every value; the parameter type is inferred.
-- `fetch` returns entities strictly after `cursor`; `cursor` is `null` on the first call.
-- Add `total: { strategy }` next to `partitions` to also load everything in the background; both write through one replica.
-- `onInsert`, `onUpdate`, and `onDelete` return what the backend stored so the replica converges without waiting for the next poll.
+- A partition key path, such as `boardId` or `board.id`, reads a string, number, or boolean in every value; the parameter type is inferred.
+- `fetch` returns entities strictly after `after`, which is `null` on the first call. Without `pollEvery` the strategy catches up once and stops.
+- Add `global: strategy.oldToNew({ ... })` next to `partitions` to also load everything in the background.
+- The Mutation Callbacks return what the backend stored, so the replica converges without waiting for the next poll. A failure rolls the optimistic change back.
 
-### Keep one settings record in step
+### Stay live over a subscription
 
-A record with no id field uses single-item sync. Lifted from story 30.
+A backend that can push replays everything after the cursor, then streams new changes. Lifted from the kai playground.
 
 ```ts
-import { Schedule } from 'effect';
-
-const settings = app.singleItemCollection({
-  schema: SettingsSchema,
-  source: ({ poll }) =>
-    poll({
-      fetch: () => api.getSettings(),
-      schedule: Schedule.spaced('5 seconds'),
+const threads = app.collection(ThreadSchema, {
+  sync: {
+    global: strategy.oldToNew({
+      subscribe: ({ after }) => api.subscribeThreads({ '>': after }),
     }),
-  onUpdate: ({ updates }) => api.saveSettings(updates),
+  },
 });
 ```
 
-- `once` fetches a single time, `poll` fetches on a schedule, `subscribe` opens a Stream of complete replacement values.
-- The schema is an `ESchema`, not an `EntityESchema`; the Collection holds exactly one row.
+- The cursor is saved as entities arrive; when the feed drops, it reopens from the saved cursor, so nothing is missed.
+- Give `fetch` too and the strategy catches up by pulling, then goes live with `subscribe`.

@@ -1,8 +1,8 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { Effect, Schedule } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
 import type { StdTableService } from 'std-toolkit/db';
-import { createStdSync, syncStrategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -43,16 +43,13 @@ const openApp = Effect.map(browserRuntime, (runtime) =>
 // Every board the browser asked the server about, one entry per request, so a proof can see which boards were read and when.
 const asked: string[] = [];
 const readingBoard = (boardId: string) =>
-  syncStrategy.oldToNew<typeof Task.Type, StdTableService<'board'>>({
-    source: ({ poll }) =>
-      poll({
-        fetch: ({ cursor }) =>
-          Effect.suspend(() => {
-            asked.push(boardId);
-            return changesOn(boardId, cursor);
-          }),
-        schedule: Schedule.spaced('20 millis'),
+  strategy.oldToNew<typeof Task.Type, StdTableService<'board'>>({
+    fetch: ({ after }) =>
+      Effect.suspend(() => {
+        asked.push(boardId);
+        return changesOn(boardId, after);
       }),
+    pollEvery: '20 millis',
   });
 
 export const loadingOnlyTheBoardYoureLookingAt = Story.make({
@@ -74,13 +71,8 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
             asked.length = 0;
             const app = yield* openApp;
             // The collection: one reading recipe per board.
-            const tasks = app.collection({
-              schema: Task,
-              sync: {
-                partitions: {
-                  boardId: (boardId) => ({ strategy: readingBoard(boardId) }),
-                },
-              },
+            const tasks = app.collection(Task, {
+              sync: { partitions: { boardId: readingBoard } },
             });
             // A screen for the `work` board only.
             const screen = createLiveQueryCollection({
@@ -89,7 +81,9 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
                   .from({ task: tasks })
                   .where(({ task }) => eq(task.boardId, 'work')),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             yield* Effect.promise(() => screen.preload());
             yield* until(() => screen.size === 1);
@@ -119,13 +113,8 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
             yield* task.insert(work);
             asked.length = 0;
             const app = yield* openApp;
-            const tasks = app.collection({
-              schema: Task,
-              sync: {
-                partitions: {
-                  boardId: (boardId) => ({ strategy: readingBoard(boardId) }),
-                },
-              },
+            const tasks = app.collection(Task, {
+              sync: { partitions: { boardId: readingBoard } },
             });
             const showWork = () =>
               createLiveQueryCollection({
@@ -134,7 +123,9 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
                     .from({ task: tasks })
                     .where(({ task }) => eq(task.boardId, 'work')),
                 startSync: true,
-                gcTime: 1,
+                // Nothing subscribes to this screen the way a page would, so keep it
+                // until the chapter cleans it up.
+                gcTime: 60_000,
               });
             // Mount the work board, see the task, then close the screen.
             const first = showWork();
@@ -178,13 +169,8 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
             yield* task.insert(home);
             asked.length = 0;
             const app = yield* openApp;
-            const tasks = app.collection({
-              schema: Task,
-              sync: {
-                partitions: {
-                  boardId: (boardId) => ({ strategy: readingBoard(boardId) }),
-                },
-              },
+            const tasks = app.collection(Task, {
+              sync: { partitions: { boardId: readingBoard } },
             });
             // One screen per board.
             const workScreen = createLiveQueryCollection({
@@ -193,7 +179,9 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
                   .from({ task: tasks })
                   .where(({ task }) => eq(task.boardId, 'work')),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             const homeScreen = createLiveQueryCollection({
               query: (q) =>
@@ -201,7 +189,9 @@ export const loadingOnlyTheBoardYoureLookingAt = Story.make({
                   .from({ task: tasks })
                   .where(({ task }) => eq(task.boardId, 'home')),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             yield* Effect.promise(() => workScreen.preload());
             yield* Effect.promise(() => homeScreen.preload());

@@ -1,255 +1,164 @@
 # Sync
 
-Sync keeps TanStack DB Collections fresh from an authoritative Backend while
-preserving enough client state to converge safely. Shared Entity vocabulary is
-defined by [core](../core/CONTEXT.md). Every edge Sync shares with a Backend or
-a store carries [[core]] **Entities**, and every Collection shows their latest
-eschema **values**.
+Sync keeps TanStack DB Collections fresh from an authoritative Backend and
+keeps a local copy, so an application opens with its data offline and resumes
+where it stopped. Shared Entity vocabulary is defined by
+[core](../core/CONTEXT.md). Every edge Sync shares with a Backend or a store
+carries [[core]] **Entities**, and every Collection shows their latest eschema
+**values**.
 
 ## Language
 
+### Instance and Collections
+
 **Sync**:
 The bounded context that connects backend-confirmed Entities to TanStack DB
-Collections. It includes replication, projection, strategies, and Peer Sync.
+Collections.
 _Avoid_: TanStack Sync, generic frontend sync.
 
 **Backend**:
-The authoritative source of Entities. Client replicas and projections may be
-temporarily fresher or staler, but they do not replace its authority.
+The authoritative source of Entities. Local copies may be temporarily fresher
+or staler, but they never replace its authority.
 _Avoid_: Source of Truth, server truth.
 
 **Std Sync**:
-One named Sync runtime created for a Backend dataset or feature scope.
-
-**Name**:
-A normalized readable label used within a Sync namespace. Inputs that normalize
-to the same Name in one namespace conflict.
+One named Sync instance: a group of Collections sharing one Platform.
+Disposing it stops everything and keeps its stored data.
 
 **Std Sync Name**:
-The stable normalized Name that identifies a Std Sync namespace.
+The stable normalized name that identifies a Std Sync and names its stored
+data. A renamed Std Sync starts from empty storage; the old data stays until
+deleted.
 
 **Collection Name**:
-A schema Name qualified by its Std Sync Name, such as
-`acme-production.todo-items`. It identifies one Collection within a Sync
-namespace; the original schema name remains the Entity's `_e` identity.
+A schema name qualified by its Std Sync Name, such as
+`acme-production.todo-items`. The original schema name remains the Entity's
+`_e` identity.
 
 **Entity Ownership**:
 The rule that one Entity `_e` belongs to exactly one Collection in a Std Sync.
 
 **Collection**:
-The Sync-owned boundary for one Entity type and its TanStack DB Collection
-Projection, Sync Replica, Sync State, and Peer Channel.
-
-**Collection Projection**:
-The ephemeral TanStack DB view built by projecting accepted entities in a Sync Replica as **CollectionItems** exposed to queries.
-_Avoid_: Sync Replica, cache.
+The Sync-owned boundary for one Entity type: its TanStack DB Collection, Sync
+Replica, and Sync State.
 
 **CollectionItem**:
-An **Entity**'s latest eschema **value** exposed by a TanStack DB Collection, with its meta under `_meta`, shaped for collection queries and mutations. It is not itself an entity envelope.
+An **Entity**'s latest eschema **value** exposed by a TanStack DB Collection,
+with its meta under `_meta`. It is not itself an entity envelope.
 _Avoid_: CollectionRow, DecodedEntity, SyncEntity.
 
+**Mutation Callback**:
+The application-facing handler for a TanStack DB insert, update, or delete.
+Sync hands it the **values** being written, and it returns the
+backend-confirmed **Entity**.
+_Avoid_: Decoded Mutation, transport mutation.
+
+**Optimistic Entity**:
+A provisional Collection value awaiting Backend confirmation. It is never
+stored in the Sync Replica.
+
+### Local copy
+
 **Sync Replica**:
-The client-side set of backend-confirmed **Entities** known to one Collection, kept in the Sync Store. It is a convergent local copy, never the authority.
+The set of backend-confirmed **Entities** known to one Collection, kept in the
+Sync Store. It is a convergent local copy, never the authority.
 _Avoid_: Source of Truth, cache.
 
 **Sync Store**:
-The storage boundary containing encoded representations of Sync Replicas, Sync
-State, and the Outbox. A Memory or durable realization changes persistence
-across reloads, not peer freshness.
+The storage holding a Std Sync's Sync Replicas and Sync State in encoded form.
+The Platform provides it.
 _Avoid_: Sync Persistence Table, offline cache.
 
 **Sync State**:
-Strategy-owned progress used to resume backend synchronization. It is separate
-from the Sync Replica and is not advanced by mutations, Registry Broadcasts, or
-Peer Sync.
+A Sync Strategy's saved progress, used to resume reading the Backend. Only its
+own Sync Strategy advances it; mutations never do.
 _Avoid_: Sync Replica cursor.
 
-**Outdated Application**:
-The state of a Sync participant that receives an Entity whose `_v` is newer than any version its code knows. It is not an error: Sync ignores that Entity with a warning and advances neither the Sync Replica nor Sync State for it, so a reload with newer code receives it again, and convergence makes that replay safe. Sync recognizes it by the `OutdatedVersion` error, including when a Sync Source's own transport decoding raised it. A Strategy Session that meets one stops until reload rather than fetching the same window again, and Sync reports it as an `OutdatedApplication` **Sync Event**, once per Collection per tab whichever path delivered the Entity — the warning itself, which an application may turn into a reload prompt. The only remedy is newer application code.
-_Avoid_: Unsupported version error, version conflict.
+**Projection Position**:
+How far a Collection's TanStack DB view has read its Sync Replica. It is local,
+never backend progress and never Sync State.
 
 **Convergence Rule**:
 The rule that accepts a newer Entity `_u`, treats an older or duplicate Entity
 as a successful no-op, and retains accepted tombstones in the Sync Replica.
 
-**Projection Position**:
-A Collection Projection's local position in its Sync Replica. It is not backend
-progress and not Sync State.
+**Outdated Application**:
+The state of a participant that receives an Entity whose `_v` is newer than any
+version its code knows. It is not an error: Sync ignores that Entity with a
+warning and advances neither the Sync Replica nor Sync State for it, so newer
+code receives it again after a reload. A Session that meets one stops until
+reload, and Sync reports it once per Collection per tab. The only remedy is
+newer application code.
+_Avoid_: Unsupported version error, version conflict.
+
+### Reading the Backend
 
 **Sync Strategy**:
-A worker policy that obtains backend-confirmed Entities and owns the Sync State
-needed to resume its work.
-
-**Sync Source**:
-A Sync-owned description of one Backend delivery mode, built from application-provided backend operations. It yields backend-confirmed **Entities** already in the latest **version**: the application's transport decodes them with the ESchema's **entity schema** (`X.entity`), which migrates older versions and raises `OutdatedVersion` for newer ones. Sync refuses an in-memory Entity whose `_v` is not the latest. It does not own cursor meaning, Sync State, or the surrounding Collection or Partition lifecycle.
-_Avoid_: Sync Strategy, subscription callback.
-
-**Leadership**:
-Exclusive ownership by one Sync participant of one backend-reading role while
-equivalent participants remain dormant and eligible for takeover.
-_Avoid_: Strategy Leadership, query lock, fetch mutex, primary tab.
-
-**Worker**:
-Any loop Sync runs forever: a Strategy Session, a Cadence Repair, or the
-Outbox Drainer. Every Worker runs under the Supervisor and holds one
-Leadership role; nothing loops outside one.
-_Avoid_: job, participant (a Sync Flow term), task.
-
-**Strategy Session**:
-One running Sync Strategy over one scope: a Global Sync, a Partition Sync, or
-the single Strategy Session of a single-item Collection. It is a Worker.
-_Avoid_: strategy run, engine, executor.
-
-**Supervisor**:
-The single door every Worker runs through: it holds one Leadership role, runs
-the Worker forever, and restarts it with spaced retries on failure.
-_Avoid_: strategy lifecycle, fiber manager, runner.
-**Platform**:
-The environment one Std Sync instance runs in: where its Sync Store lives,
-how concurrent participants coordinate through Leadership and Peer Sync, and
-what Connectivity it reports. Chosen once per instance; absent means a solo,
-always-online participant with ephemeral state.
-_Avoid_: environment detection, deployment target, browser sniffing.
+A policy for reading one scope of the Backend: its options, a Sync State
+schema, and a run that yields Entities with the next Sync State. It pulls with
+`fetch`, is pushed with `subscribe` from its cursor, or both. Each scope runs
+exactly one; built-in and application strategies have the same shape.
+_Avoid_: Sync Source, source builder, Subscription, strategy run.
 
 **Partition**:
 A ref-counted Sync lifecycle window for one keyed subset: the values whose
 [[db]] **key path** reads one string, number, or boolean. It is unrelated to a
-database partition and does not define Collection retention.
+database partition. Leaving a Partition stops its Sync; its Entities stay in
+the Sync Replica.
 
 **Global Sync**:
-The Strategy Session that covers a whole keyed Collection. It is always
-running while the Collection is mounted.
+The Sync Strategy that covers a whole keyed Collection. It runs while the
+Collection is mounted.
 _Avoid_: Total sync, full sync.
 
 **Partition Sync**:
-The Strategy Session that covers one active Partition of a keyed Collection.
-It starts when the Partition becomes active and stops when it becomes inactive.
+The Sync Strategy that covers one active Partition of a keyed Collection. It
+starts when the Partition becomes active and stops when it becomes inactive.
 _Avoid_: Priority sync, partitioned sync.
 
-**Hybrid Sync**:
-A keyed Collection running Global Sync and Partition Sync at once, both
-converging through the same Sync Replica. A single-item Collection runs exactly
-one Strategy Session and is never hybrid.
-_Avoid_: Total versus partitioned sync, priority sync.
+**Eager**, **On-demand**, **Progressive**:
+The names for a Collection configured with only Global Sync, only Partition
+Sync, or both. They follow from configuration and are never configured.
+_Avoid_: sync mode, Hybrid Sync.
 
-**Cadence Repair**:
-A bounded recheck of recently delivered Entities that repairs timing drift
-without owning backend progress. It is configured per Global Sync or per
-Partition Sync, runs alongside that Strategy Session and is reported as part of
-it, and never applies to a single-item Collection.
-_Avoid_: Cadence Sync, Cadence Sync Strategy, collection-level repair.
+**Settle Window**:
+How long, measured back from the newest `_u` read, a Backend may take to make a
+write readable. A strategy that honors it re-reads that window instead of
+saving progress past it. Off unless a Collection sets it.
+_Avoid_: Cadence Repair, cadence sync, lookback.
 
-**Sync Address**:
-A readable observability label for a Sync, Collection, Partition, or strategy,
-such as `a.b{x=hello-world}.old-to-new`. It is lossy, never parsed, and never a
-storage or map identity.
-_Avoid_: Storage key, partition identity.
+### Running
 
-**Registry**:
-The in-process router that delivers Registry Broadcasts to Collections owned by
-one Std Sync.
+**Session**:
+One leader-held run of a Sync Strategy over one scope: Global Sync or one
+Partition. It stores each yield in one write and, when the run fails, reruns it
+from saved Sync State after a growing delay.
+_Avoid_: Worker, Supervisor, Strategy Session, strategy run.
 
-**Registry Broadcast**:
-Caller-owned ingress of **Entities** into one Std Sync; Sync migrates them itself. Persisted delivery converges
-through the Sync Replica; projection-only delivery remains local to that tab.
-_Avoid_: Peer Sync message.
+**Leadership**:
+Exclusive permission for one participant to run one Session while equivalent
+participants wait to take over. Every Session has its own, so different tabs
+may lead different Partitions.
+_Avoid_: primary tab, query lock, fetch mutex.
 
-**Peer Sync**:
-Best-effort same-origin delivery of accepted, backend-confirmed Entities between
-live tabs. It improves freshness while backend synchronization remains the
-correctness and repair mechanism.
-_Avoid_: Change Notice (see [core](../core/CONTEXT.md) — a per-write notification, not this best-effort tab relay), authoritative sync, Peer Fast Path.
+**Doorbell**:
+The signal a Session's leader sends after storing Entities, so other
+participants re-read that Collection from the Sync Store. It carries no
+Entities.
+_Avoid_: Peer Sync, Peer Message, Change Notice (a [[core]] in-process write
+notification).
 
-**Peer Channel**:
-The transport owned by one qualified Collection Name through which Peer
-Messages are sent and received.
+**Platform**:
+The environment a Std Sync runs in: its Sync Store, Leadership, and Doorbell,
+chosen together. The default Memory Platform has ephemeral storage, no
+Leadership, and no Doorbell.
+_Avoid_: store option, environment detection, browser sniffing.
 
-**Peer Message**:
-A versioned non-empty envelope of complete confirmed **Entities** for one
-Collection, in encoded form. Receivers validate it and apply the normal Convergence Rule without
-relaying it.
-
-**Optimistic Entity**:
-A provisional Collection value awaiting Backend confirmation. It is neither
-stored in the Sync Replica nor sent through Peer Sync.
-
-**Mutation Callback**:
-The application-facing handler for a TanStack DB insert, update, or delete. Sync hands it the **values** of the CollectionItems being written, and it returns the backend-confirmed **Entity**.
-_Avoid_: Decoded Mutation, transport mutation.
-
-**Outbox**:
-The Sync Store record of every write the Backend has not confirmed yet, owned
-by one Std Sync. Off by default; on, it is the one path every write takes.
-_Avoid_: mutation queue, offline cache, pending writes table.
-
-**Outbox Entry**:
-One unconfirmed write in the Outbox: one Entity operation or one Offline
-Action call, identified by its transaction id. It holds the written value in
-[[eschema]] **encoded form** with its **version**, so replay by newer code
-migrates it. It is `pending`, `in-flight` (executing right now), or `failed`.
-_Avoid_: slot, outbox item, job.
-
-**Queue**:
-The FIFO unit of the Outbox: all Entries of one Entity, or of one Offline
-Action name and key. Queues drain in parallel; one Queue drains in order.
-_Avoid_: lane, partition (a Sync lifecycle window), shard.
-**Outbox Drainer**:
-The single leader-owned Worker that folds a Queue's pending Entries into one
-Request, resolves its Handler by name, sends it, and deletes or fails the
-Entries by the outcome. It knows nothing about Waiters.
-_Avoid_: outbox worker, sync worker, flush.
-**Handler**:
-The code that sends one Request, registered by name in a Std Sync: a
-Collection's Mutation Callbacks plus its replica apply (`collection:<name>`)
-or an Offline Action's function (`action:<name>`). An Entry whose Handler is
-not registered in the leader tab stays `pending` until a leader that has it
-appears; registering a Handler signals the Drainer.
-_Avoid_: flight handler, flight registry, mutation handler, executor.
-**Waiter**:
-A tab-local promise that resolves when its Outbox Entry leaves the store and
-rejects when the Entry is `failed` or discarded. Waiters observe the store;
-they own nothing, survive Leadership changes, and re-check the store on every
-Outbox Channel message, Peer Message, Connectivity change, and slow poll.
-_Avoid_: pending promise, transaction owner, lock holder.
-
-**Connectivity**:
-The Platform-reported online/offline signal the Drainer gates Requests on. The
-browser Platform reads `navigator.onLine`; no Platform means always online.
-_Avoid_: network status, reachability (a Backend property the callback
-discovers).
-
-**Ready Gate**:
-The moment a Std Sync has preloaded every Collection it tracks so each is
-ready. Offline Action replay and the Drainer start after it; a Collection
-created later replays its own entity Entries at its own ready.
-_Avoid_: settle window, boot delay, hydration barrier.
-
-**Reset**:
-The in-place Std Sync operation for logout: stop every Sync execution and the
-Drainer, fail every local Waiter, wipe the Sync Store, re-seed every tracked
-Collection, and restart. The TanStack DB Collection objects the application
-holds stay the same.
-_Avoid_: dispose (which ends the instance), clear, logout hook.
-
-**Request**:
-One send of one folded Queue to the Backend through its Handler. Its Entries
-are `in-flight` only while it runs.
-_Avoid_: flight, batch.
-**Offline Action**:
-A named, payload-schema'd operation whose intent spans Entities or must run
-on the server, enqueued as one Outbox Entry and executed by the Drainer.
-_Avoid_: command, transaction, mutation.
-
-**Outbox Channel**:
-The best-effort same-origin doorbell on which any tab announces an enqueued
-Entry to the leader and the Drainer announces an Entry's outcome to other
-tabs; the Outbox itself remains the truth. It is one more channel from the
-Platform's channel factory, named `<Std Sync Name>.outbox`.
-_Avoid_: Peer Channel (a Collection's entity relay).
+### Reporting
 
 **Sync Event**:
-A structured operational fact reported by Sync, including lifecycle, Registry
-Broadcast, and best-effort Peer Sync failures.
+A structured operational fact Sync reports: a failed Session run, an Outdated
+Application, or a Platform closed from elsewhere.
 
 **Sync Story**:
 An executable user journey that explains Sync through named simulation

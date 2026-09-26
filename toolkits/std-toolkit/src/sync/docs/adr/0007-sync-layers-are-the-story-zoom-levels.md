@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0011
+---
+
 # Sync layers are the story's zoom levels
 
 ADR 0006 cut Sync into `features / kernel / domain`. Those are not words anyone

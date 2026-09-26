@@ -25,20 +25,8 @@ describe('Core', () => {
     };
     const decode = Schema.decodeUnknownSync(EntityMetaSchema);
 
-    it('decodes without _s and _c', () => {
-      const result = decode(baseMeta);
-      expect(result._s).toBeUndefined();
-      expect(result._c).toBeUndefined();
-    });
-
-    it('decodes with _s and _c present', () => {
-      const result = decode({
-        ...baseMeta,
-        _s: 1700000000000,
-        _c: 1700000000050,
-      });
-      expect(result._s).toBe(1700000000000);
-      expect(result._c).toBe(1700000000050);
+    it('decodes the four meta fields', () => {
+      expect(decode(baseMeta)).toEqual(baseMeta);
     });
   });
 });
