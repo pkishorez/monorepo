@@ -60,8 +60,10 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: Number(process.env.DEVTOOLS_UI_PORT ?? '5173'),
+    // portless assigns PORT and forwards its Host headers during dev.
+    port: Number(process.env.PORT ?? process.env.DEVTOOLS_UI_PORT ?? '5173'),
     strictPort: true,
+    allowedHosts: ['.devtools.kishore.computer'],
     proxy: {
       '/health': backendProxy(),
       '/rpc': backendProxy(),
