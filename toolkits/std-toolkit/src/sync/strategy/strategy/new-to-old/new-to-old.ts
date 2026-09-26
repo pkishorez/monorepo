@@ -15,7 +15,7 @@ import {
   type Cursor,
   type Slice,
 } from '../slice-coverage.js';
-import { NewToOldStateSchema, type NewToOldState } from './state.js';
+import { newToOldStateSchema, type NewToOldState } from './state.js';
 
 export type NewToOldConfig<TItem, R = never> = {
   backfill: PaginatedSourceBuilder<TItem, R>;
@@ -30,7 +30,7 @@ export const newToOld = <TItem extends object, R = never>(
 ): PartitionedStrategy<TItem, NewToOldState, R> => ({
   name: 'new-to-old',
   state: {
-    schema: NewToOldStateSchema,
+    schema: newToOldStateSchema,
     empty: { slices: [], reachedOldest: false },
   },
   run: (ctx: StrategyContext<TItem, NewToOldState>) => {

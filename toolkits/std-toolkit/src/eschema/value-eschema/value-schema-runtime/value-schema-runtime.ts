@@ -4,13 +4,17 @@ import type {
   ValueEnvelopeEncoded,
   ValueEvolution,
   ValueSchema,
-  ValueSchemaDecoded,
+  ValueSchemaType,
 } from '../../domain/schema-model/index.js';
 import { schemaDescriptor } from '../../domain/schema-model/index.js';
 import {
   ESchemaError,
+  findOutdatedVersion,
+  type OutdatedVersion,
   UnrepresentableFieldError,
+  unknownVersion,
 } from '../../domain/eschema-error/index.js';
+import { registerEncoded } from '../../domain/encoded/index.js';
 import {
   findUnrepresentableField,
   registerESchemaIntrospection,
@@ -91,7 +95,7 @@ export function makeValueSchemaRuntime<
 
   const decode = (
     value: unknown,
-  ): Effect.Effect<ValueSchemaDecoded<TLatest>, ESchemaError> =>
+  ): Effect.Effect<ValueSchemaType<TLatest>, ESchemaError | OutdatedVersion> =>
     Effect.gen(function* () {
       const envelope = isEnvelope(value)
         ? yield* readEnvelope(value)
@@ -103,16 +107,16 @@ export function makeValueSchemaRuntime<
       );
       const evolution = evolutions[index];
       if (index === -1 || evolution === undefined) {
-        return yield* new ESchemaError({
-          message: `Unknown schema version: ${version}`,
-        });
+        return yield* unknownVersion(input.name, version, input.latestVersion);
       }
       const encoded = envelope === undefined ? value : envelope._value;
       let data = yield* Schema.decodeUnknownEffect(evolution.schema)(
         encoded,
       ).pipe(
         Effect.mapError(
-          (cause) => new ESchemaError({ message: 'Decode failed', cause }),
+          (cause) =>
+            findOutdatedVersion(cause) ??
+            new ESchemaError({ message: 'Decode failed', cause }),
         ),
       );
       for (let next = index + 1; next < evolutions.length; next++) {
@@ -129,11 +133,11 @@ export function makeValueSchemaRuntime<
             }),
         });
       }
-      return data as ValueSchemaDecoded<TLatest>;
+      return data as ValueSchemaType<TLatest>;
     });
 
   const encode = (
-    value: ValueSchemaDecoded<TLatest>,
+    value: ValueSchemaType<TLatest>,
   ): Effect.Effect<ValueEnvelopeEncoded<TVersion, TLatest>, ESchemaError> =>
     Effect.gen(function* () {
       if (evolutions.length === 0) {
@@ -150,10 +154,10 @@ export function makeValueSchemaRuntime<
       } as ValueEnvelopeEncoded<TVersion, TLatest>;
     });
 
+  registerEncoded(input.owner, { read: decode, write: encode });
+
   return {
     schema,
-    decode,
-    encode,
     descriptor: (): ESchemaDescriptor =>
       schemaDescriptor(
         Schema.Struct({

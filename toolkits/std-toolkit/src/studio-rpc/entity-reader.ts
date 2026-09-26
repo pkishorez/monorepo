@@ -2,13 +2,11 @@ import { Effect } from 'effect';
 import {
   EntitySchema,
   SingleEntitySchema,
-  type DecodedEntity,
-  type DecodedSingleEntity,
-  type EncodedEntity,
-  type EncodedSingleEntity,
+  type Entity,
+  type SingletonEntity,
 } from '../core/index.js';
 import type {
-  EncodedData,
+  StoredData,
   StdTableService,
 } from '../db/std-table/contract/index.js';
 import type {
@@ -21,6 +19,7 @@ import {
   type QueryPage,
 } from '../db/std-table/entity/index.js';
 import type { DatabaseError } from '../db/std-table/error/index.js';
+import { keyPathKind } from '../db/std-table/definition/index.js';
 import type { StdTable } from '../db/std-table/table/index.js';
 import {
   StudioEntityCodecFailed,
@@ -38,14 +37,14 @@ import {
   validateEntityKey,
 } from './query-input.js';
 
-type StudioEncodedEntity = EncodedEntity<EncodedData>;
-type StudioEncodedSingleEntity = EncodedSingleEntity<EncodedData>;
+type StudioRawEntity = Entity<StoredData>;
+type StudioRawSingleEntity = SingletonEntity<StoredData>;
 
 interface DynamicKeyedEntity<Name extends string> {
   readonly get: (
     key: object,
   ) => Effect.Effect<
-    DecodedEntity<object> | null,
+    Entity<object> | null,
     DatabaseError,
     StdTableService<Name>
   >;
@@ -54,10 +53,10 @@ interface DynamicKeyedEntity<Name extends string> {
     input: object,
     options?: {
       readonly limit?: number;
-      readonly after?: DecodedEntity<object>;
+      readonly after?: Entity<object>;
     },
   ) => Effect.Effect<
-    QueryPage<DecodedEntity<object>>,
+    QueryPage<Entity<object>>,
     DatabaseError,
     StdTableService<Name>
   >;
@@ -65,7 +64,7 @@ interface DynamicKeyedEntity<Name extends string> {
 
 interface DynamicSingleEntity<Name extends string> {
   readonly get: () => Effect.Effect<
-    DecodedSingleEntity<object>,
+    SingletonEntity<object>,
     DatabaseError,
     StdTableService<Name>
   >;
@@ -111,24 +110,23 @@ const preserveReadFailure =
     );
 
 const encodeKeyed =
-  (definition: KeyedEntityDefinition) => (entity: DecodedEntity<object>) =>
+  (definition: KeyedEntityDefinition) => (entity: Entity<object>) =>
     EntitySchema(definition.schema)
       .encode(entity)
       .pipe(
         Effect.tapError((error) => Effect.logError(error)),
         Effect.mapError(() => codecFailure(definition.name, 'encode-result')),
-        Effect.map((encoded) => encoded as StudioEncodedEntity),
+        Effect.map((encoded) => encoded as StudioRawEntity),
       );
 
-const encodeSingle =
-  (definition: SingleEntityDefinition) =>
-  (entity: DecodedSingleEntity<object>) =>
+const toStoredSingle =
+  (definition: SingleEntityDefinition) => (entity: SingletonEntity<object>) =>
     SingleEntitySchema(definition.schema)
       .encode(entity)
       .pipe(
         Effect.tapError((error) => Effect.logError(error)),
         Effect.mapError(() => codecFailure(definition.name, 'encode-result')),
-        Effect.map((encoded) => encoded as StudioEncodedSingleEntity),
+        Effect.map((encoded) => encoded as StudioRawSingleEntity),
       );
 
 const definitionNamed = <Name extends string>(
@@ -151,12 +149,13 @@ export const makeEntityReader = <Name extends string>(
         const entity = yield* singleSurface<Name>(definition)
           .get()
           .pipe(preserveReadFailure('get', definition.name));
-        return yield* encodeSingle(definition)(entity);
+        return yield* toStoredSingle(definition)(entity);
       }
-      const key = yield* validateEntityKey(payload.key, [
-        ...definition.primary.pk,
-        definition.schema.idField,
-      ]);
+      const key = yield* validateEntityKey(
+        payload.key,
+        [...definition.primary.pk, definition.schema.idField],
+        (component) => keyPathKind(definition.schema, component),
+      );
       const entity = yield* keyedSurface<Name>(definition)
         .get(key)
         .pipe(preserveReadFailure('get', definition.name));
@@ -191,7 +190,11 @@ export const makeEntityReader = <Name extends string>(
             accessPattern: payload.accessPattern,
           }),
         );
-      const input = yield* buildEntityQueryInput(payload, pattern);
+      const input = yield* buildEntityQueryInput(
+        payload,
+        pattern,
+        (component) => keyPathKind(definition.schema, component),
+      );
       const after =
         payload.after === undefined
           ? undefined

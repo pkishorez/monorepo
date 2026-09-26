@@ -4,7 +4,7 @@ import type * as Cloudflare from 'alchemy/Cloudflare';
 import { expect, it, vi } from 'vitest';
 import { StdTable } from '../../db/index.js';
 import { makeNodeSQLite } from '../../db/sqlite/drivers/node/index.js';
-import { TableSnapshot, TableSnapshotESchema } from '../../snapshot/index.js';
+import { TableSnapshot } from '../../snapshot/index.js';
 import type { TableSource } from '../../snapshot/index.js';
 
 const { guard } = vi.hoisted(() => ({ guard: vi.fn() }));
@@ -21,7 +21,7 @@ vi.mock('alchemy', async (importOriginal) => {
 import { D1, setUpD1Table } from '../d1/d1.js';
 
 const stored = (table: TableSource) =>
-  Effect.runSync(TableSnapshotESchema.encode(TableSnapshot.capture(table)));
+  Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
 
 it('guards the table and feeds the guarded snapshot to the D1 table', async () => {
   const table = StdTable.make('tasks').primary('pk', 'sk').build();

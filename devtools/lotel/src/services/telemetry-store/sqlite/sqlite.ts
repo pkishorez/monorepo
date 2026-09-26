@@ -5,7 +5,7 @@ import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
 import type { TelemetryStoreShape } from '../telemetry-store.js';
 import { TelemetryStoreError } from '../telemetry-store.js';
 import { makeSqliteEntities } from './entities.js';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import type {
   SpanRecord,
   UpdateCursor,
@@ -165,7 +165,7 @@ export const makeSqliteTelemetryStore = (path: string) =>
             const traceIds: string[] = [];
             const seen = new Set<string>();
             let scanned = 0;
-            let after: DecodedEntity<SpanRecord> | undefined;
+            let after: Entity<SpanRecord> | undefined;
             while (traceIds.length < limit && scanned < RECENT_TRACE_SCAN_CAP) {
               const page = yield* spans.query(
                 'timeline',

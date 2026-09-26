@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
-import type { EncodedKey } from '../../std-table/contract/index.js';
+import type { StoredKey } from '../../std-table/contract/index.js';
 import type { DynamoDBClient } from '../client/index.js';
 import {
-  decodeKey,
+  toNativeKey,
   type NativeItem,
   type ItemSchema,
 } from '../item-schema/index.js';
@@ -17,11 +17,11 @@ export const getItem = (
   >,
   tableName: string,
   schema: ItemSchema,
-  key: EncodedKey,
+  key: StoredKey,
   options?: { readonly consistent?: boolean },
 ) =>
   Effect.try({
-    try: () => decodeKey(table, key),
+    try: () => toNativeKey(table, key),
     catch: contractFailure,
   }).pipe(
     Effect.flatMap((Key) =>

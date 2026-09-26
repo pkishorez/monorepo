@@ -1,7 +1,8 @@
 import { Buffer } from 'node:buffer';
 import { performance } from 'node:perf_hooks';
-import { Effect, Layer } from 'effect';
-import type { DecodedEntity } from 'std-toolkit/core';
+import { Effect, Layer, Schema } from 'effect';
+import { toSchema } from 'std-toolkit/eschema';
+import type { Entity } from 'std-toolkit/core';
 import { defaultBroadcaster } from 'std-toolkit/core';
 import type { QueryPage } from 'std-toolkit/db';
 import { Memory } from 'std-toolkit/db/memory';
@@ -23,10 +24,10 @@ const storage = Layer.merge(Memory.make(aiTable).layer, defaultBroadcaster);
 
 const queryAll = (threadId: string) =>
   Effect.gen(function* () {
-    const rows: DecodedEntity<Message>[] = [];
-    let after: DecodedEntity<Message> | undefined;
+    const rows: Entity<Message>[] = [];
+    let after: Entity<Message> | undefined;
     do {
-      const page: QueryPage<DecodedEntity<Message>> = yield* messages.query(
+      const page: QueryPage<Entity<Message>> = yield* messages.query(
         'byThreadUpdate',
         { pk: { threadId }, '>=': null },
         { limit: SYNC_PAGE_SIZE, ...(after === undefined ? {} : { after }) },
@@ -39,7 +40,7 @@ const queryAll = (threadId: string) =>
   });
 
 const clientRecord = (
-  row: DecodedEntity<Message>,
+  row: Entity<Message>,
   encoded: typeof MessageSchema.Encoded,
   sequence: number,
 ) => {
@@ -100,7 +101,7 @@ describe('streaming delta storage', () => {
           const rows = yield* queryAll(threadId);
           const queryMs = performance.now() - queryStarted;
           const encoded = yield* Effect.forEach(rows, (row) =>
-            MessageSchema.encode(row.value),
+            Schema.encodeEffect(toSchema(MessageSchema))(row.value),
           );
           const stored = yield* Effect.forEach(rows, (row) =>
             messages

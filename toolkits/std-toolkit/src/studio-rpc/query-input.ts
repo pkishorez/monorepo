@@ -1,6 +1,11 @@
 import { Effect } from 'effect';
 import type { JsonObject } from '../db/std-table/contract/index.js';
 import type { AccessPatternDefinition } from '../db/std-table/definition/index.js';
+
+type KeyValues = Readonly<Record<string, string | number>>;
+
+/** Which kind of value a key path reads, from the Entity's latest value. */
+export type KeyKind = (component: string) => 'string' | 'number' | undefined;
 import {
   StudioInvalidInput,
   type QueryEntitiesPayload,
@@ -8,9 +13,10 @@ import {
 } from './protocol.js';
 
 const exactFields = (
-  value: Readonly<Record<string, string>>,
+  value: KeyValues,
   expected: readonly string[],
   path: readonly string[],
+  kindOf: KeyKind,
 ): readonly StudioValidationIssue[] => {
   const actual = Object.keys(value);
   const missing = expected
@@ -25,29 +31,39 @@ const exactFields = (
       path: [...path, field],
       message: `Unexpected component "${field}"`,
     }));
-  return [...missing, ...unexpected];
+  const mistyped = expected
+    .filter(
+      (field) =>
+        Object.hasOwn(value, field) &&
+        kindOf(field) !== undefined &&
+        typeof value[field] !== kindOf(field),
+    )
+    .map((field) => ({
+      path: [...path, field],
+      message: `Component "${field}" must be a ${kindOf(field)}`,
+    }));
+  return [...missing, ...unexpected, ...mistyped];
 };
 
 const failIssues = (issues: readonly StudioValidationIssue[]) =>
   Effect.fail(new StudioInvalidInput({ issues: [...issues] }));
 
 export const validateEntityKey = (
-  key: Readonly<Record<string, string>> | undefined,
+  key: KeyValues | undefined,
   fields: readonly string[],
+  kindOf: KeyKind,
 ) => {
   if (key === undefined)
     return failIssues([
       { path: ['key'], message: 'A keyed Entity requires a key' },
     ]);
-  const issues = exactFields(key, fields, ['key']);
+  const issues = exactFields(key, fields, ['key'], kindOf);
   return issues.length === 0
     ? Effect.succeed(key as JsonObject)
     : failIssues(issues);
 };
 
-export const rejectSingletonKey = (
-  key: Readonly<Record<string, string>> | undefined,
-) =>
+export const rejectSingletonKey = (key: KeyValues | undefined) =>
   key === undefined
     ? Effect.void
     : failIssues([
@@ -57,8 +73,9 @@ export const rejectSingletonKey = (
 export const buildEntityQueryInput = (
   payload: QueryEntitiesPayload,
   pattern: AccessPatternDefinition,
+  kindOf: KeyKind,
 ) => {
-  const issues = [...exactFields(payload.pk, pattern.pk, ['pk'])];
+  const issues = [...exactFields(payload.pk, pattern.pk, ['pk'], kindOf)];
   if (payload.limit !== undefined && (payload.limit < 1 || payload.limit > 100))
     issues.push({
       path: ['limit'],
@@ -68,11 +85,13 @@ export const buildEntityQueryInput = (
   if (sk !== undefined) {
     if (sk.operator === 'between') {
       issues.push(
-        ...exactFields(sk.value[0], pattern.sk, ['sk', 'value', '0']),
-        ...exactFields(sk.value[1], pattern.sk, ['sk', 'value', '1']),
+        ...exactFields(sk.value[0], pattern.sk, ['sk', 'value', '0'], kindOf),
+        ...exactFields(sk.value[1], pattern.sk, ['sk', 'value', '1'], kindOf),
       );
     } else if (sk.value !== null) {
-      issues.push(...exactFields(sk.value, pattern.sk, ['sk', 'value']));
+      issues.push(
+        ...exactFields(sk.value, pattern.sk, ['sk', 'value'], kindOf),
+      );
     }
   }
   if (issues.length > 0) return failIssues(issues);

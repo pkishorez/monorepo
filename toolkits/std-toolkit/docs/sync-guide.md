@@ -54,9 +54,10 @@ including the cursor. Tighten the comparison when porting to `paginated`.
 ## Total, partition, and hybrid sync
 
 Total sync eventually loads the complete entity set. A partition factory is
-activated by a matching TanStack query; its parameter is inferred from the
-schema field, and only string, number, and boolean fields may be partition
-keys. Total and partition workers can run together. They keep separate
+activated by a TanStack query with an `eq` filter on its key path (such as
+`task.board.id`); the parameter is inferred from the value at that path. A
+partition key path must read a string, number, or boolean in every value, so
+it never passes through an array, a record, or a union branch that lacks it. Total and partition workers can run together. They keep separate
 progress but write through the same Sync Replica, so overlap is deduplicated
 by entity id and `_u` convergence.
 
@@ -130,12 +131,30 @@ run: (ctx) =>
 Each instance uses an isolated Memory adapter by default. A platform may supply
 a `storeLayer` that replaces it for that instance; any adapter layer built for
 the `syncStore` table is accepted, including IndexedDB and SQLite. The Sync
-Store holds both the Sync Replica and Sync State. Write failures surface as
-`WriteError.Storage`; adapter-specific errors stay internal.
+Store holds the Sync Replica, Sync State, and the Outbox. Write failures
+surface as `WriteError.Storage`; adapter-specific errors stay internal.
+
+Collection rows, Mutation Callbacks, and sources hold values; the Sync Store
+and Peer Messages hold the encoded form. A `Schema.DateFromString` field is a
+`Date` in a row and an ISO string in the store, and Sync converts it both ways
+with the Collection's schema. Stored data keeps the version it was written in,
+so newer code migrates it when it reads it back.
 
 Tombstones remain in the Sync Replica. Persisted Sync State is tagged with its
-strategy name and decoded with that strategy's schema. A name mismatch or
-invalid state resets to the strategy's empty state.
+strategy name and stored through that strategy's state schema, which is the
+only conversion for the whole state. The schema is a function that receives
+the Collection's Entity codec, so an Entity kept in the state, such as a
+cursor, is stored encoded and migrated when it is read:
+
+```ts
+state: {
+  schema: (entity) => Schema.Struct({ cursor: Schema.NullOr(entity) }),
+  empty: { cursor: null },
+}
+```
+
+A name mismatch or invalid state resets to the strategy's empty state, which
+is stored through the same schema.
 
 Memory versus IndexedDB is a durability choice only. Both use Peer Sync when
 it is available. IndexedDB can rebuild a Collection after reload; it does not
@@ -158,7 +177,7 @@ const custom = createStdSync({
 
 The custom `PeerChannelFactory` receives the qualified Collection Name. Its
 channel broadcasts unknown messages and subscribes a handler; Sync owns
-envelope validation, serialized application, convergence, and cleanup.
+envelope validation, encoded application, convergence, and cleanup.
 Closing a Std Sync drains already-admitted deliveries. Optimistic values and
 Registry Broadcasts with `persist: false` never enter Peer Sync. See
 [ADR 0001](../src/sync/docs/adr/0001-peer-sync-is-a-freshness-path.md).
@@ -176,7 +195,9 @@ offline. One leader tab drains the Outbox: rapid edits on one Entity fold into
 one Request, different Entities' Queues drain in parallel, a rejected write
 rolls back and stays in the Outbox as `failed`. The Backend sees arrival
 order; last write wins. `pacedUpdate` becomes a plain `update` and `pacing` is
-ignored. Opt a Collection out with `outbox: false`.
+ignored. Opt a Collection out with `outbox: false`. An Entry stores the
+written value in encoded form with its version; replay after a reload decodes
+and migrates it, so Mutation Callbacks always receive latest values.
 
 **Awaiting a write blocks until delivery.** `await todos.insert(...)` (or
 `tx.isPersisted.promise`) does not resolve until the Backend confirms. Offline,

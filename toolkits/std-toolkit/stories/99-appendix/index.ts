@@ -9,12 +9,7 @@ import { dataWithNoVersionStamp } from './a2-shapes-a-schema-refuses/data-with-n
 import { sayingAValueIsAbsent } from './a2-shapes-a-schema-refuses/saying-a-value-is-absent.story.js';
 import { aMigrationMustNotLookAround } from './a3-habits-for-migrations/a-migration-must-not-look-around.story.js';
 import { appendAVersionNeverEditOne } from './a3-habits-for-migrations/append-a-version-never-edit-one.story.js';
-import { checkingAPartialUpdate } from './a3-habits-for-migrations/checking-a-partial-update.story.js';
 import { everyOldValueMustMapSomewhere } from './a3-habits-for-migrations/every-old-value-must-map-somewhere.story.js';
-import { changingANumberWithoutReadingItFirst } from './a4-dynamodb-only/changing-a-number-without-reading-it-first.story.js';
-import { fillingATableInBatches } from './a4-dynamodb-only/filling-a-table-in-batches.story.js';
-import { goingFullyNative } from './a4-dynamodb-only/going-fully-native.story.js';
-import { readingWhatWasJustWritten } from './a4-dynamodb-only/reading-what-was-just-written.story.js';
 import { tellingInfrastructureTheTablesShape } from './a4-dynamodb-only/telling-infrastructure-the-tables-shape.story.js';
 import { upgradingWhileAnotherTabIsOpen } from './a5-indexeddb-in-a-real-browser/upgrading-while-another-tab-is-open.story.js';
 import { whoOwnsTheVersionNumber } from './a5-indexeddb-in-a-real-browser/who-owns-the-version-number.story.js';
@@ -67,22 +62,14 @@ export const appendix = Story.group(
         appendAVersionNeverEditOne,
         everyOldValueMustMapSomewhere,
         aMigrationMustNotLookAround,
-        checkingAPartialUpdate,
       ],
     ),
     Story.group(
       'DynamoDB only',
       {
-        description:
-          'Batch writes, in-place arithmetic, consistent reads, a create-table input and the raw client.',
+        description: 'The create-table input infrastructure code needs.',
       },
-      [
-        fillingATableInBatches,
-        changingANumberWithoutReadingItFirst,
-        readingWhatWasJustWritten,
-        tellingInfrastructureTheTablesShape,
-        goingFullyNative,
-      ],
+      [tellingInfrastructureTheTablesShape],
     ),
     Story.group(
       'IndexedDB in a real browser',

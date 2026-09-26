@@ -5,9 +5,9 @@ import type {
   Transaction,
   UpdateMutationFnParams,
 } from '@tanstack/react-db';
-import { Effect } from 'effect';
-import { nextUlid, type DecodedEntity } from '../../../core/index.js';
-import type { AnyEntityESchema } from '../../../eschema/index.js';
+import { Effect, Schema } from 'effect';
+import { nextUlid, type Entity } from '../../../core/index.js';
+import { toSchema, type AnyEntityESchema } from '../../../eschema/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import {
   collectionHandlerName,
@@ -32,8 +32,8 @@ import {
   type PaceStrategyFactory,
 } from '../pacing/index.js';
 import {
+  changedFields,
   stripMeta,
-  stripMetaPartial,
 } from '../../domain/collection-item/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
 import type { CollectionFlow } from '../../flow/sync-flow/index.js';
@@ -48,17 +48,17 @@ export const buildKeyedMutations = <
   schema: S;
   collectionName: CollectionName;
   applyToSyncReplica: (
-    entities: DecodedEntity<S['Type']>[],
+    entities: Entity<S['Type']>[],
   ) => Effect.Effect<void, WriteError>;
   onInsert?: (
     items: ReadonlyArray<S['Type']>,
-  ) => Effect.Effect<ReadonlyArray<DecodedEntity<S['Type']>>, unknown, R>;
+  ) => Effect.Effect<ReadonlyArray<Entity<S['Type']>>, unknown, R>;
   onUpdate?: (
     payload: UpdatePayload<S['Type'], S>,
-  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
+  ) => Effect.Effect<Entity<S['Type']>, unknown, R>;
   onDelete?: (
     payload: DeletePayload<S['Type']>,
-  ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
+  ) => Effect.Effect<Entity<S['Type']>, unknown, R>;
   pacing?: PaceStrategyFactory;
   outbox: OutboxRuntime | null;
   // Held closed while the Collection replays its Entries at mount.
@@ -108,7 +108,7 @@ export const buildKeyedMutations = <
   const runConfirmed = (
     operation: 'delete' | 'insert' | 'update',
     keys: readonly string[],
-    confirm: Effect.Effect<ReadonlyArray<DecodedEntity<TItem>>, unknown, R>,
+    confirm: Effect.Effect<ReadonlyArray<Entity<TItem>>, unknown, R>,
   ): Promise<void> =>
     runner.runPromise(
       withMutationSpan(
@@ -122,7 +122,7 @@ export const buildKeyedMutations = <
     );
 
   const eachConfirmed = (
-    effects: ReadonlyArray<Effect.Effect<DecodedEntity<TItem>, unknown, R>>,
+    effects: ReadonlyArray<Effect.Effect<Entity<TItem>, unknown, R>>,
   ) => Effect.all(effects, { concurrency: MUTATION_CONCURRENCY });
 
   const buildUpdatePayload = (
@@ -131,20 +131,28 @@ export const buildKeyedMutations = <
   ): UpdatePayload<TItem, S> =>
     ({ current, updates }) as UpdatePayload<TItem, S>;
 
-  const changedKeys = (changes: Partial<TCollItem>): string[] =>
-    Object.keys(stripMetaPartial<TItem>(changes));
+  const codec = toSchema(schema);
+  const encode = (item: TItem): Effect.Effect<unknown, unknown> =>
+    Schema.encodeEffect(codec)(item);
+  const decode = (value: unknown): Effect.Effect<TItem, unknown> =>
+    Schema.decodeUnknownEffect(codec)(value);
+  const valueOf = (item: TCollItem): TItem => stripMeta<TItem>(item);
 
-  const encode = (item: TItem) =>
-    schema.encode(item as never) as Effect.Effect<unknown, unknown>;
-  const decode = (value: unknown) =>
-    schema.decode(value) as Effect.Effect<TItem, unknown>;
-
-  const pick = (after: TItem, changed: ReadonlyArray<string>): Partial<TItem> =>
+  // A folded delete-then-insert names every key of the encoded body, `_v` too.
+  const pick = <T>(after: T, changed: ReadonlyArray<string>): Partial<T> =>
     Object.fromEntries(
       changed
-        .filter((field) => field !== schema.idField)
+        .filter((field) => field !== schema.idField && field !== '_v')
         .map((field) => [field, (after as Record<string, unknown>)[field]]),
-    ) as Partial<TItem>;
+    ) as Partial<T>;
+
+  const changes = <T extends object>(before: T, after: T): Partial<T> =>
+    pick(after, changedFields(before, after));
+
+  const updatePayload = (original: TCollItem, modified: TCollItem) => {
+    const current = valueOf(original);
+    return buildUpdatePayload(current, changes(current, valueOf(modified)));
+  };
 
   const entityBody = (
     mutation: PendingMutation<TCollItem>,
@@ -158,28 +166,27 @@ export const buildKeyedMutations = <
             op: 'insert',
             key,
             base: null,
-            after: yield* encode(stripMeta<TItem>(mutation.modified)),
+            after: yield* encode(valueOf(mutation.modified)),
             changed: [],
           };
-        case 'update':
+        case 'update': {
+          const base = valueOf(mutation.original as TCollItem);
+          const after = valueOf(mutation.modified);
           return {
             kind: 'entity',
             op: 'update',
             key,
-            base: yield* encode(
-              stripMeta<TItem>(mutation.original as TCollItem),
-            ),
-            after: yield* encode(stripMeta<TItem>(mutation.modified)),
-            changed: changedKeys(mutation.changes as Partial<TCollItem>),
+            base: yield* encode(base),
+            after: yield* encode(after),
+            changed: changedFields(base, after),
           };
+        }
         case 'delete':
           return {
             kind: 'entity',
             op: 'delete',
             key,
-            base: yield* encode(
-              stripMeta<TItem>(mutation.original as TCollItem),
-            ),
+            base: yield* encode(valueOf(mutation.original as TCollItem)),
             after: null,
             changed: [],
           };
@@ -264,9 +271,7 @@ export const buildKeyedMutations = <
           'insert',
           transaction.mutations.map((mutation) => String(mutation.key)),
           onInsert(
-            transaction.mutations.map((mutation) =>
-              stripMeta<TItem>(mutation.modified),
-            ),
+            transaction.mutations.map((mutation) => valueOf(mutation.modified)),
           ),
         );
       }
@@ -282,12 +287,7 @@ export const buildKeyedMutations = <
           transaction.mutations.map((mutation) => String(mutation.key)),
           eachConfirmed(
             transaction.mutations.map((mutation) =>
-              onUpdate(
-                buildUpdatePayload(
-                  stripMeta(mutation.original),
-                  stripMetaPartial<TItem>(mutation.changes),
-                ),
-              ),
+              onUpdate(updatePayload(mutation.original, mutation.modified)),
             ),
           ),
         );
@@ -304,7 +304,7 @@ export const buildKeyedMutations = <
           transaction.mutations.map((mutation) => String(mutation.key)),
           eachConfirmed(
             transaction.mutations.map((mutation) =>
-              onDelete({ current: stripMeta(mutation.original) }),
+              onDelete({ current: valueOf(mutation.original) }),
             ),
           ),
         );
@@ -317,27 +317,31 @@ export const buildKeyedMutations = <
           string,
           (changes: Partial<TItem>) => Transaction<Partial<TItem>>
         >();
-        const rows = new Map<string, CollectionItem<TItem>>();
+        const rows = new Map<string, TCollItem>();
         return (
           key: string,
-          current: CollectionItem<TItem>,
+          current: TCollItem,
           changes: Partial<TItem>,
           optimistic: (key: string, changes: Partial<TItem>) => void,
         ): Transaction<Partial<TItem>> => {
-          rows.set(key, current);
+          if (!rows.has(key)) rows.set(key, current);
           let paced = mutate.get(key);
           if (!paced) {
             paced = buildPacedUpdate<Partial<TItem>>({
               strategy: (pacing ?? coalesceStrategy)(),
               optimistic: (next) => optimistic(key, next),
               commit: async (merged) => {
-                const updates = stripMetaPartial<TItem>(merged);
+                const original = rows.get(key)!;
+                rows.delete(key);
                 await runConfirmed(
                   'update',
                   [key],
                   eachConfirmed([
                     onUpdate(
-                      buildUpdatePayload(stripMeta(rows.get(key)!), updates),
+                      updatePayload(original, {
+                        ...original,
+                        ...merged,
+                      } as TCollItem),
                     ),
                   ]),
                 );
@@ -358,6 +362,6 @@ export const buildKeyedMutations = <
     onDelete: deleteHandler,
     pacedUpdate: makePacedUpdate(),
     decode,
-    pick,
+    changes,
   };
 };

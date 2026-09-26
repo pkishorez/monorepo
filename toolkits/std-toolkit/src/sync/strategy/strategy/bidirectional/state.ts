@@ -1,8 +1,10 @@
 import { Schema } from 'effect';
-import { SliceSchema } from '../slice-coverage.js';
+import type { StateEntitySchema } from '../../state/index.js';
+import { sliceSchema } from '../slice-coverage.js';
 
-export const BidirectionalStateSchema = Schema.Struct({
-  slices: Schema.Array(SliceSchema),
-});
+export const bidirectionalStateSchema = (entity: StateEntitySchema) =>
+  Schema.Struct({ slices: Schema.Array(sliceSchema(entity)) });
 
-export type BidirectionalState = typeof BidirectionalStateSchema.Type;
+export type BidirectionalState = ReturnType<
+  typeof bidirectionalStateSchema
+>['Type'];

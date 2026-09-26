@@ -26,12 +26,8 @@ describe('restoreESchemaDefinitions', () => {
     const [restored] = restoreESchemaDefinitions(json.schemas);
     const version = restored!.versions[0]!;
 
-    expect(decode(version.decoded, { amount: 5, tag: 'debit' })).toEqual({
-      amount: 5,
-      tag: 'debit',
-    });
     expect(
-      decode(version.encoded, { amount: 5, tag: 'debit', _v: 'v1' }),
+      decode(version.serialized, { amount: 5, tag: 'debit', _v: 'v1' }),
     ).toEqual({ amount: 5, tag: 'debit', _v: 'v1' });
   });
 
@@ -46,11 +42,16 @@ describe('restoreESchemaDefinitions', () => {
     const json = JSON.parse(JSON.stringify(snapshot));
     const restored = restoreESchemaDefinitions(json.schemas);
     const parent = restored.find((entry) => entry.identity === 'Parent')!;
-    const decoded = decode(parent.versions[0]!.decoded, {
+    const decoded = decode(parent.versions[0]!.serialized, {
+      _v: 'v1',
       name: 'root',
-      child: { value: 'leaf' },
+      child: { _v: 'v1', value: 'leaf' },
     });
 
-    expect(decoded).toEqual({ name: 'root', child: { value: 'leaf' } });
+    expect(decoded).toEqual({
+      _v: 'v1',
+      name: 'root',
+      child: { _v: 'v1', value: 'leaf' },
+    });
   });
 });

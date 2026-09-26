@@ -1,4 +1,4 @@
-export { decode, encode, makeEncodedItem } from './storage.js';
+export { fromStored, toStored, makeStoredItem } from './storage.js';
 export {
   broadcast,
   changesOrEmpty,

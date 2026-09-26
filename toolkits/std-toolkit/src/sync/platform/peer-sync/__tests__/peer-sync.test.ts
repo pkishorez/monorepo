@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { DecodedEntity } from '../../../../core/index.js';
+import type { Entity } from '../../../../core/index.js';
 import { EntityESchema } from '../../../../eschema/index.js';
 import type { SyncEvent } from '../../../domain/sync-event/index.js';
 import { makeEffectRunner } from '../../effect-runner/index.js';
@@ -16,13 +16,13 @@ const schema = EntityESchema.make('Todo', 'id', {
   title: Schema.String,
 }).build();
 
-const entity = (id: string): DecodedEntity<Todo> => ({
+const entity = (id: string): Entity<Todo> => ({
   value: { id, title: `title ${id}` },
-  meta: { _e: 'Todo', _d: false, _u: id },
+  meta: { _e: 'Todo', _v: 'v1', _d: false, _u: id },
 });
 
 const encodedEntity = (id: string) => ({
-  value: { _v: 'v1', ...entity(id).value },
+  value: entity(id).value,
   meta: entity(id).meta,
 });
 
@@ -32,7 +32,7 @@ const message = (...ids: string[]) => ({
 });
 
 const makeHarness = (options?: {
-  apply?: (entities: DecodedEntity<Todo>[]) => Effect.Effect<void, unknown>;
+  apply?: (entities: Entity<Todo>[]) => Effect.Effect<void, unknown>;
   factory?: PeerChannelFactory | null;
 }) => {
   let receive: ((message: unknown) => void) | null = null;
@@ -83,7 +83,7 @@ const waitForSubscription = async (harness: ReturnType<typeof makeHarness>) =>
 
 describe('peer sync', () => {
   it('encodes and decodes a valid collection envelope', async () => {
-    const applied: DecodedEntity<Todo>[][] = [];
+    const applied: Entity<Todo>[][] = [];
     const harness = makeHarness({
       apply: (entities) => Effect.sync(() => applied.push(entities)),
     });
@@ -141,7 +141,7 @@ describe('peer sync', () => {
   it('reports an empty outgoing batch without sending it', async () => {
     const harness = makeHarness();
     await harness.peer.broadcast(
-      [] as unknown as readonly [DecodedEntity<Todo>, ...DecodedEntity<Todo>[]],
+      [] as unknown as readonly [Entity<Todo>, ...Entity<Todo>[]],
     );
     expect(harness.sent).toEqual([]);
     expect(harness.events).toContainEqual(

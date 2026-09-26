@@ -1,7 +1,7 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
 import { Effect, Schedule } from 'effect';
 import { Story } from 'laymos/story';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
 import { Memory } from 'std-toolkit/db/memory';
 import { createStdSync, syncStore, syncStrategy } from 'std-toolkit/sync';
@@ -46,7 +46,7 @@ export const browserRuntime = Effect.map(
 // The server's side of the deal: every task on one board that changed after `cursor` (`null` means from the start), oldest change first. `_u` is the update stamp from chapter 4.
 export const changesOn = (
   boardId: string,
-  cursor: DecodedEntity<typeof Task.Type> | null,
+  cursor: Entity<typeof Task.Type> | null,
 ) =>
   task
     .query('primary', { pk: { boardId }, '>=': null })

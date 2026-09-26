@@ -2,7 +2,7 @@ import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
 import { FlowTelemetry, projectJournal } from '@pkishorez/flow';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { DecodedEntity } from '../../core/index.js';
+import type { Entity } from '../../core/index.js';
 import { EntityESchema } from '../../eschema/index.js';
 import { Memory } from '../../db/memory/index.js';
 import {
@@ -20,13 +20,9 @@ const todoSchema = EntityESchema.make('Todo', 'id', {
   done: Schema.Boolean,
 }).build();
 
-const confirmed = (
-  value: Todo,
-  u: string,
-  deleted = false,
-): DecodedEntity<Todo> => ({
+const confirmed = (value: Todo, u: string, deleted = false): Entity<Todo> => ({
   value,
-  meta: { _e: 'Todo', _d: deleted, _u: u },
+  meta: { _e: 'Todo', _v: 'v1', _d: deleted, _u: u },
 });
 
 const network = (initial: boolean) => {
@@ -63,14 +59,14 @@ const setup = (options: {
   online?: boolean;
   onInsert?: (
     items: ReadonlyArray<Todo>,
-  ) => Effect.Effect<ReadonlyArray<DecodedEntity<Todo>>, unknown>;
+  ) => Effect.Effect<ReadonlyArray<Entity<Todo>>, unknown>;
   onUpdate?: (payload: {
     current: Todo;
     updates: Partial<Omit<Todo, 'id'>>;
-  }) => Effect.Effect<DecodedEntity<Todo>, unknown>;
+  }) => Effect.Effect<Entity<Todo>, unknown>;
   onDelete?: (payload: {
     current: Todo;
-  }) => Effect.Effect<DecodedEntity<Todo>, unknown>;
+  }) => Effect.Effect<Entity<Todo>, unknown>;
 }) => {
   const memory = options.memory ?? Memory.make(syncStore);
   const net = network(options.online ?? true);

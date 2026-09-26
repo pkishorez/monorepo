@@ -3,10 +3,9 @@ export {
   EntitySchema,
   SingleEntityMetaSchema,
   SingleEntitySchema,
-  type DecodedEntity,
-  type DecodedSingleEntity,
-  type EncodedEntity,
-  type EncodedSingleEntity,
+  findOutdatedVersion,
+  type Entity,
   type EntityMeta,
   type SingleEntityMeta,
+  type SingletonEntity,
 } from './entity-schema.js';

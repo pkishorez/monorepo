@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 
 // Three versions of a task, each added after the last one shipped: v2 added an assignee, v3 added a word count.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -30,7 +30,7 @@ export const appendAVersionNeverEditOne = Story.make({
           'Yes. The v1 shape was left exactly as it was, so a v1 row still passes its check and simply walks two steps instead of one, arriving at v3.',
         proof: Effect.gen(function* () {
           // Read a row from before either step existed.
-          const oldest = yield* Task.decode({
+          const oldest = yield* Schema.decodeUnknownEffect(toSchema(Task))({
             _v: 'v1',
             taskId: 't1',
             boardId: 'work',
@@ -49,7 +49,7 @@ export const appendAVersionNeverEditOne = Story.make({
         'It keeps everything it had and gains only what v3 added. Appending a version never changes what an earlier version means.',
       proof: Effect.gen(function* () {
         // Read a row written while v2 was the newest version.
-        const middle = yield* Task.decode({
+        const middle = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           _v: 'v2',
           taskId: 't2',
           boardId: 'work',
@@ -68,20 +68,20 @@ export const appendAVersionNeverEditOne = Story.make({
         'Yes. Whatever version a row was written at, the app sees the newest shape, and only the newest shape.',
       proof: Effect.gen(function* () {
         // One row from each version.
-        const v1 = yield* Task.decode({
+        const v1 = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           _v: 'v1',
           taskId: 't1',
           boardId: 'work',
           title: 'Plan',
         });
-        const v2 = yield* Task.decode({
+        const v2 = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           _v: 'v2',
           taskId: 't2',
           boardId: 'work',
           title: 'Review',
           assignee: 'ana',
         });
-        const v3 = yield* Task.decode({
+        const v3 = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           _v: 'v3',
           taskId: 't3',
           boardId: 'work',

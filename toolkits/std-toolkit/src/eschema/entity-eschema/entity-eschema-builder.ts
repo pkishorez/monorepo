@@ -7,7 +7,7 @@ import type {
   ForbidUnderscorePrefix,
   MergeSchemas,
   NextVersion,
-  StructFieldsDecoded,
+  StructFieldsType,
   StructFieldsSchema,
 } from '../domain/schema-model/index.js';
 import { mergeDelta } from '../domain/schema-model/index.js';
@@ -38,8 +38,8 @@ export class EntityESchemaBuilder<
       ForbidIdField<D, TIdField> &
       ForbidOptionalFields<D>,
     migration: (
-      previous: StructFieldsDecoded<TLatest>,
-    ) => StructFieldsDecoded<MergeSchemas<TLatest, D>>,
+      previous: StructFieldsType<TLatest>,
+    ) => StructFieldsType<MergeSchemas<TLatest, D>>,
   ) {
     const previous = this.evolutions.at(-1)?.schema ?? {};
     const schema = mergeDelta(previous, delta);

@@ -14,7 +14,7 @@ import type {
   LoadSubsetOptions,
   Transaction,
 } from '@tanstack/react-db';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import { makeSyncReplica } from '../replica/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
@@ -47,6 +47,7 @@ import {
   type EffectRunner,
 } from '../../platform/effect-runner/index.js';
 import { makeStrategySessions } from '../strategy-session/index.js';
+import { makeOutdatedApplication } from '../outdated-application/index.js';
 import {
   Activation,
   narrateHydration,
@@ -68,8 +69,8 @@ export type KeyedCollectionUtils<S extends AnyEntityESchema> = {
   schema: () => S;
   flowId: () => string;
   applyToSyncReplica: (
-    entities: DecodedEntity<S['Type']> | DecodedEntity<S['Type']>[],
-  ) => Effect.Effect<DecodedEntity<S['Type']>[], WriteError>;
+    entities: Entity<S['Type']> | Entity<S['Type']>[],
+  ) => Effect.Effect<Entity<S['Type']>[], WriteError>;
   pacedUpdate: (
     key: string,
     changes: UpdateChanges<S['Type'], S>,
@@ -87,13 +88,13 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
     partitions?: PartitionMap<S, R>;
     onInsert?: (
       items: ReadonlyArray<S['Type']>,
-    ) => Effect.Effect<ReadonlyArray<DecodedEntity<S['Type']>>, unknown, R>;
+    ) => Effect.Effect<ReadonlyArray<Entity<S['Type']>>, unknown, R>;
     onUpdate?: (
       payload: UpdatePayload<S['Type'], S>,
-    ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
+    ) => Effect.Effect<Entity<S['Type']>, unknown, R>;
     onDelete?: (
       payload: DeletePayload<S['Type']>,
-    ) => Effect.Effect<DecodedEntity<S['Type']>, unknown, R>;
+    ) => Effect.Effect<Entity<S['Type']>, unknown, R>;
     pacing?: PaceStrategyFactory;
     outbox?: OutboxRuntime | null;
     store: SyncStore;
@@ -122,6 +123,11 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
   const { schema } = config;
   const { collectionName } = config;
   const runner = config.runner ?? makeEffectRunner<R>(undefined);
+  const outdated = makeOutdatedApplication({
+    collectionName,
+    report: config.report,
+    runner,
+  });
   const { flow } = config;
   const partitionFields = Object.keys(config.partitions ?? {});
   const resolvePartitionEntry = (
@@ -207,10 +213,10 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
     );
 
   const applyToSyncReplica = (
-    entities: DecodedEntity<TItem>[],
+    entities: Entity<TItem>[],
     syncFlow?: StrategyFlow,
     options: { readonly propagate: boolean } = { propagate: true },
-  ): Effect.Effect<DecodedEntity<TItem>[], WriteError> => {
+  ): Effect.Effect<Entity<TItem>[], WriteError> => {
     config.assertActive();
     const story = narrateReplicaWrite(syncFlow, collectionName);
     return story
@@ -229,10 +235,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
                 accepted.length,
                 Effect.promise(() =>
                   peerSync!.broadcast(
-                    accepted as [
-                      DecodedEntity<TItem>,
-                      ...DecodedEntity<TItem>[],
-                    ],
+                    accepted as [Entity<TItem>, ...Entity<TItem>[]],
                   ),
                 ),
               )
@@ -247,10 +250,20 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
       );
   };
 
-  const projectOnly = (entities: DecodedEntity<TItem>[]): Effect.Effect<void> =>
-    Effect.sync(() => projector?.projectEntities(entities));
+  const projectOnly = (
+    entities: Entity<TItem>[],
+  ): Effect.Effect<void, WriteError> =>
+    outdated.ignore(
+      replica
+        .validate(entities)
+        .pipe(
+          Effect.andThen(
+            Effect.sync(() => projector?.projectEntities(entities)),
+          ),
+        ),
+    );
 
-  const deleteKeyOf = (entity: DecodedEntity<TItem>): string | null => {
+  const deleteKeyOf = (entity: Entity<TItem>): string | null => {
     const value = entity.value as Record<string, unknown>;
     const id = value[schema.idField];
     return typeof id === 'string' ? id : null;
@@ -263,6 +276,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
     flow: StrategyFlow,
   ): StrategyContext<TItem, TState> => {
     const stateStore = makeSyncStateStore({
+      schema,
       schemaName: collectionName,
       strategyName: strat.name,
       store: config.store,
@@ -290,6 +304,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
       applyToSyncReplica: (entities, strategyFlow) =>
         applyToSyncReplica(entities, strategyFlow).pipe(Effect.asVoid),
       report: config.report,
+      outdated: outdated.check,
     }),
   );
 
@@ -308,7 +323,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
         collectionName,
         idField: schema.idField,
         decode: handlers.decode,
-        pick: handlers.pick,
+        changes: handlers.changes,
         report: (entryId, cause) =>
           config.report({
             _tag: 'OutboxFailed',
@@ -383,11 +398,11 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
     schemaName: schema.name,
     collectionName,
     applyToSyncReplica: (entities) =>
-      applyToSyncReplica(entities as DecodedEntity<TItem>[]).pipe(
-        Effect.asVoid,
+      outdated.ignore(
+        applyToSyncReplica(entities as Entity<TItem>[]).pipe(Effect.asVoid),
       ),
     projectOnly: projectOnly as (
-      entities: DecodedEntity<unknown>[],
+      entities: Entity<unknown>[],
     ) => Effect.Effect<void, WriteError>,
     flow: () => flow,
     stop: sessions.stopAll,
@@ -399,6 +414,7 @@ export const buildKeyedCollection = <S extends AnyEntityESchema, R = never>(
     schema,
     runner,
     report: config.report,
+    outdated: outdated.check,
     apply: (entities, options) =>
       applyToSyncReplica(entities, undefined, options).pipe(
         Effect.tap(() => Effect.sync(() => outbox?.recheck())),

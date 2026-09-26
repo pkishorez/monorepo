@@ -1,5 +1,5 @@
 import type { SyncConfig } from '@tanstack/react-db';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type { CollectionItem } from '../../domain/collection-item/index.js';
 
 /**
@@ -16,11 +16,11 @@ type SyncCallbacks<T extends object> = Parameters<
  * callbacks in hand; the instance's existence is the mounted state.
  */
 type Projector<TItem> = {
-  projectEntities: (entities: DecodedEntity<TItem>[]) => void;
+  projectEntities: (entities: Entity<TItem>[]) => void;
 };
 
 type ProjectorOptions<TItem> = {
-  deleteKeyOf?: (entity: DecodedEntity<TItem>) => string | null;
+  deleteKeyOf?: (entity: Entity<TItem>) => string | null;
 };
 
 /**
@@ -33,13 +33,13 @@ export const makeCollectionProjector = <TItem>(
   callbacks: SyncCallbacks<CollectionItem<TItem>>,
   options: ProjectorOptions<TItem> = {},
 ): Projector<TItem> => {
-  const toItem = (entity: DecodedEntity<TItem>): CollectionItem<TItem> =>
+  const toItem = (entity: Entity<TItem>): CollectionItem<TItem> =>
     ({
       ...(entity.value as object),
       _meta: entity.meta,
     }) as CollectionItem<TItem>;
 
-  const projectEntities = (entities: DecodedEntity<TItem>[]): void => {
+  const projectEntities = (entities: Entity<TItem>[]): void => {
     if (entities.length === 0) return;
     callbacks.begin();
     for (const entity of entities) {

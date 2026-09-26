@@ -1,6 +1,6 @@
 import { it, describe, expect } from 'vitest';
 import { Effect, Scope, Stream } from 'effect';
-import type { DecodedEntity } from '../../../../../core/index.js';
+import type { Entity } from '../../../../../core/index.js';
 import { bidirectional } from '../index.js';
 import type { BidirectionalState } from '../state.js';
 import type { StrategyContext } from '../../index.js';
@@ -16,31 +16,31 @@ const flow = {
       effect,
 };
 
-const entity = (id: string, u: string): DecodedEntity<Item> => ({
+const entity = (id: string, u: string): Entity<Item> => ({
   value: { id },
-  meta: { _e: 't', _d: false, _u: u },
+  meta: { _e: 't', _v: 'v1', _d: false, _u: u },
 });
 
-const uOf = (e: DecodedEntity<Item>) => e.meta._u;
+const uOf = (e: Entity<Item>) => e.meta._u;
 
 const drive = async (opts: {
-  dataset: DecodedEntity<Item>[];
+  dataset: Entity<Item>[];
   pageSize: number;
   initial?: BidirectionalState;
 }) => {
   const sorted = [...opts.dataset].sort((a, b) =>
     uOf(a) < uOf(b) ? -1 : uOf(a) > uOf(b) ? 1 : 0,
   );
-  const written: DecodedEntity<Item>[] = [];
+  const written: Entity<Item>[] = [];
   let state: BidirectionalState = opts.initial ?? { slices: [] };
 
-  const olderPage = (cursor: DecodedEntity<Item> | null) => {
+  const olderPage = (cursor: Entity<Item> | null) => {
     const pool =
       cursor === null ? sorted : sorted.filter((e) => uOf(e) < uOf(cursor));
     return pool.slice(Math.max(0, pool.length - opts.pageSize));
   };
 
-  const newerPage = (cursor: DecodedEntity<Item> | null) => {
+  const newerPage = (cursor: Entity<Item> | null) => {
     const pool =
       cursor === null ? sorted : sorted.filter((e) => uOf(e) > uOf(cursor));
     return pool.slice(0, opts.pageSize);
@@ -50,7 +50,7 @@ const drive = async (opts: {
     flow,
     applyToSyncReplica: (entities) =>
       Effect.sync(() => {
-        written.push(...(entities as DecodedEntity<Item>[]));
+        written.push(...(entities as Entity<Item>[]));
       }),
     getState: Effect.sync(() => state),
     setState: (s) =>
@@ -64,12 +64,12 @@ const drive = async (opts: {
     newer: ({ paginated }) =>
       paginated({
         fetch: ({ cursor }) =>
-          Effect.sync(() => newerPage(cursor as DecodedEntity<Item> | null)),
+          Effect.sync(() => newerPage(cursor as Entity<Item> | null)),
       }),
     older: ({ paginated }) =>
       paginated({
         fetch: ({ cursor }) =>
-          Effect.sync(() => olderPage(cursor as DecodedEntity<Item> | null)),
+          Effect.sync(() => olderPage(cursor as Entity<Item> | null)),
       }),
     tail: ({ live }) =>
       live({
@@ -77,9 +77,7 @@ const drive = async (opts: {
           const newer =
             cursor === null
               ? sorted
-              : sorted.filter(
-                  (e) => uOf(e) > uOf(cursor as DecodedEntity<Item>),
-                );
+              : sorted.filter((e) => uOf(e) > uOf(cursor as Entity<Item>));
           return Stream.fromIterable(newer.length === 0 ? [] : [newer]);
         },
       }),
@@ -100,8 +98,8 @@ describe('Sync', () => {
           const { written, state } = await drive({ dataset, pageSize: 2 });
 
           expect(state.slices).toHaveLength(1);
-          expect(uOf(state.slices[0]!.low as DecodedEntity<Item>)).toBe('u01');
-          expect(uOf(state.slices[0]!.high as DecodedEntity<Item>)).toBe('u07');
+          expect(uOf(state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(state.slices[0]!.high as Entity<Item>)).toBe('u07');
           expect(new Set(written.map((e) => e.value.id))).toEqual(
             new Set(dataset.map((e) => e.value.id)),
           );
@@ -111,8 +109,8 @@ describe('Sync', () => {
           const dataset = ['u01', 'u02', 'u03'].map((u) => entity(u, u));
           const { state } = await drive({ dataset, pageSize: 3 });
           expect(state.slices).toHaveLength(1);
-          expect(uOf(state.slices[0]!.low as DecodedEntity<Item>)).toBe('u01');
-          expect(uOf(state.slices[0]!.high as DecodedEntity<Item>)).toBe('u03');
+          expect(uOf(state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(state.slices[0]!.high as Entity<Item>)).toBe('u03');
         });
 
         it('leaves an empty dataset with no slices', async () => {
@@ -122,13 +120,13 @@ describe('Sync', () => {
         });
 
         it('merges contiguous live-tail batches into one slice when the initial fetch is empty', async () => {
-          const written: DecodedEntity<Item>[] = [];
+          const written: Entity<Item>[] = [];
           let state: BidirectionalState = { slices: [] };
           const ctx: StrategyContext<Item, BidirectionalState> = {
             flow,
             applyToSyncReplica: (entities) =>
               Effect.sync(() => {
-                written.push(...(entities as DecodedEntity<Item>[]));
+                written.push(...(entities as Entity<Item>[]));
               }),
             getState: Effect.sync(() => state),
             setState: (s) =>
@@ -159,8 +157,8 @@ describe('Sync', () => {
           await Effect.runPromise(Effect.scoped(strategy.run(ctx)));
 
           expect(state.slices).toHaveLength(1);
-          expect(uOf(state.slices[0]!.low as DecodedEntity<Item>)).toBe('u01');
-          expect(uOf(state.slices[0]!.high as DecodedEntity<Item>)).toBe('u08');
+          expect(uOf(state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(state.slices[0]!.high as Entity<Item>)).toBe('u08');
           expect(written).toHaveLength(8);
         });
 
@@ -170,12 +168,8 @@ describe('Sync', () => {
           );
           const first = await drive({ dataset, pageSize: 2 });
           expect(first.state.slices).toHaveLength(1);
-          expect(uOf(first.state.slices[0]!.low as DecodedEntity<Item>)).toBe(
-            'u01',
-          );
-          expect(uOf(first.state.slices[0]!.high as DecodedEntity<Item>)).toBe(
-            'u06',
-          );
+          expect(uOf(first.state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(first.state.slices[0]!.high as Entity<Item>)).toBe('u06');
 
           // Re-open with no new server data: a complete slice must reconcile to a
           // no-op and write nothing — no re-download of the loaded range.
@@ -206,12 +200,8 @@ describe('Sync', () => {
           });
 
           expect(second.state.slices).toHaveLength(1);
-          expect(uOf(second.state.slices[0]!.low as DecodedEntity<Item>)).toBe(
-            'u01',
-          );
-          expect(uOf(second.state.slices[0]!.high as DecodedEntity<Item>)).toBe(
-            'u08',
-          );
+          expect(uOf(second.state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(second.state.slices[0]!.high as Entity<Item>)).toBe('u08');
         });
       });
     });

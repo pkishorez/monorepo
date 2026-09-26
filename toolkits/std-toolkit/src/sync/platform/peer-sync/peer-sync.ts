@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type { AnyESchema } from '../../../eschema/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { EffectRunner } from '../effect-runner/index.js';
@@ -21,10 +21,11 @@ export const makePeerSync = <TItem, R = never>(args: {
   runner: EffectRunner<R>;
   report: SyncReporter<R>;
   apply: (
-    entities: DecodedEntity<TItem>[],
+    entities: Entity<TItem>[],
     options: PropagationDisabled,
   ) => Effect.Effect<void, unknown, R>;
   channel?: PeerChannelFactory | null;
+  outdated?: (cause: unknown) => Effect.Effect<boolean, never, R>;
 }) => {
   const codec = makePeerMessageCodec(args.schema);
   let accepting = true;
@@ -59,12 +60,15 @@ export const makePeerSync = <TItem, R = never>(args: {
     try {
       decoded = await args.runner.runPromise(codec.decode(message));
     } catch (cause) {
-      await report('decode', cause);
+      const outdated = args.outdated?.(cause) ?? Effect.succeed(false);
+      if (!(await args.runner.runPromise(outdated))) {
+        await report('decode', cause);
+      }
       return;
     }
     try {
       await args.runner.runPromise(
-        args.apply([...decoded.entities] as DecodedEntity<TItem>[], {
+        args.apply([...decoded.entities] as Entity<TItem>[], {
           propagate: false,
         }),
       );
@@ -88,7 +92,7 @@ export const makePeerSync = <TItem, R = never>(args: {
 
   return {
     broadcast: async (
-      entities: readonly [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
+      entities: readonly [Entity<TItem>, ...Entity<TItem>[]],
     ): Promise<void> => {
       if (!accepting) return;
       let message: unknown;

@@ -2,7 +2,7 @@ import { Effect, Stream } from 'effect';
 import { DevtoolsRpc } from '../../rpc/index.js';
 import { LogEntitySchema, SpanEntitySchema } from '@pkishorez/lotel/telemetry';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import { createStdSync, syncStrategy } from 'std-toolkit/sync';
 import {
   DevtoolsClient,
@@ -34,7 +34,7 @@ export function buildTelemetryCollections() {
       client: Effect.Success<typeof DevtoolsClient>,
       query: { _u: UpdateCursor; limit?: number },
     ) => Effect.Effect<
-      { readonly items: readonly DecodedEntity<V>[] },
+      { readonly items: readonly Entity<V>[] },
       unknown,
       never
     >,

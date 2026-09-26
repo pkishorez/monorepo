@@ -1,4 +1,4 @@
-import type { Get, Paths } from 'type-fest';
+import type { Paths } from 'type-fest';
 import type { MarshalledOutput } from '../attribute-value/index.js';
 
 export interface IndexDefinition {
@@ -35,17 +35,3 @@ export type ExprResult = {
 export type ValidPaths<T> = unknown extends T
   ? string
   : Paths<T, { bracketNotation: true }>;
-
-/**
- * Extracts valid paths that point to values of a specific type.
- *
- * @typeParam T - The type to extract paths from
- * @typeParam CondType - The type that path values must extend
- */
-export type ValidPathsWithCond<T, CondType> = unknown extends T
-  ? string
-  : {
-      [K in Paths<T, { bracketNotation: true }>]: Get<T, K> extends CondType
-        ? K
-        : never;
-    }[Paths<T, { bracketNotation: true }>];

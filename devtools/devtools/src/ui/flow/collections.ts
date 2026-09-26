@@ -1,6 +1,6 @@
 import { Effect, Stream } from 'effect';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import { createStdSync, syncStrategy } from 'std-toolkit/sync';
 import {
   DevtoolsClient,
@@ -22,9 +22,14 @@ type FlowCursor = Rpc.Payload<RpcByTag<'ListFlowEntries'>>['_u'];
 const toEntity = (item: {
   readonly entry: FlowEntryRecord['entry'];
   readonly _u: string;
-}): DecodedEntity<FlowEntryRecord> => ({
+}): Entity<FlowEntryRecord> => ({
   value: { id: item.entry.id, flowId: item.entry.flowId, entry: item.entry },
-  meta: { _e: 'FlowEntry', _d: false, _u: item._u },
+  meta: {
+    _e: 'FlowEntry',
+    _v: FlowEntryEntitySchema.latestVersion,
+    _d: false,
+    _u: item._u,
+  },
 });
 
 /** Builds the live Flow Entry collection backed by same-origin DevTools RPC. */

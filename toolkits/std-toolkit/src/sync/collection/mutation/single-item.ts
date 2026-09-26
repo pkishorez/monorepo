@@ -3,13 +3,13 @@ import type {
   Transaction,
   UpdateMutationFnParams,
 } from '@tanstack/react-db';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import {
   nextUlid,
-  type DecodedEntity,
-  type DecodedSingleEntity,
+  type Entity,
+  type SingletonEntity,
 } from '../../../core/index.js';
-import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
+import { toSchema, type AnyUnkeyedESchema } from '../../../eschema/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import {
   collectionHandlerName,
@@ -29,8 +29,8 @@ import {
   type PaceStrategyFactory,
 } from '../pacing/index.js';
 import {
+  changedFields,
   stripMeta,
-  stripMetaPartial,
   toEntity,
 } from '../../domain/collection-item/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
@@ -45,12 +45,12 @@ export const buildSingleItemMutations = <
   schema: S;
   collectionName: CollectionName;
   applyToSyncReplica: (
-    entities: DecodedEntity<S['Type']>[],
+    entities: Entity<S['Type']>[],
   ) => Effect.Effect<void, WriteError>;
   onUpdate?:
     | ((payload: {
         updates: Partial<S['Type']>;
-      }) => Effect.Effect<DecodedSingleEntity<S['Type']>, unknown, R>)
+      }) => Effect.Effect<SingletonEntity<S['Type']>, unknown, R>)
     | undefined;
   pacing?: PaceStrategyFactory | undefined;
   outbox: OutboxRuntime | null;
@@ -58,6 +58,7 @@ export const buildSingleItemMutations = <
   replayed: Effect.Effect<void>;
   runner: EffectRunner<R>;
   flow: () => CollectionFlow | null;
+  current: () => CollectionItem<S['Type']> | undefined;
 }) => {
   type TItem = S['Type'];
   type TCollItem = CollectionItem<TItem>;
@@ -83,28 +84,35 @@ export const buildSingleItemMutations = <
       : mutation;
   };
 
-  const runUpdate = (updates: Partial<TItem>): Promise<void> =>
+  const codec = toSchema(schema);
+  const encode = (item: TItem): Effect.Effect<unknown, unknown> =>
+    Schema.encodeEffect(codec)(item);
+  const decode = (value: unknown): Effect.Effect<TItem, unknown> =>
+    Schema.decodeUnknownEffect(codec)(value);
+  const valueOf = (item: TCollItem): TItem => stripMeta<TItem>(item);
+
+  // A folded delete-then-insert names every key of the encoded body, `_v` too.
+  const pick = <T>(after: T, changed: ReadonlyArray<string>): Partial<T> =>
+    Object.fromEntries(
+      changed
+        .filter((field) => field !== '_v')
+        .map((field) => [field, (after as Record<string, unknown>)[field]]),
+    ) as Partial<T>;
+
+  const changes = <T extends object>(before: T, after: T): Partial<T> =>
+    pick(after, changedFields(before, after));
+
+  const runUpdate = (original: TCollItem, modified: TCollItem): Promise<void> =>
     runner.runPromise(
       withMutationSpan(
         Effect.gen(function* () {
-          const result = yield* onUpdate!({ updates });
+          const result = yield* onUpdate!({
+            updates: changes(valueOf(original), valueOf(modified)),
+          });
           yield* applyToSyncReplica([toEntity(result)]);
         }),
       ),
     );
-
-  const encode = (item: TItem) =>
-    schema.encode(item as never) as Effect.Effect<unknown, unknown>;
-  const decode = (value: unknown) =>
-    schema.decode(value) as Effect.Effect<TItem, unknown>;
-
-  const pick = (after: TItem, changed: ReadonlyArray<string>): Partial<TItem> =>
-    Object.fromEntries(
-      changed.map((field) => [
-        field,
-        (after as Record<string, unknown>)[field],
-      ]),
-    ) as Partial<TItem>;
 
   const runOutbox = (transaction: Transaction<TCollItem>): Promise<void> =>
     runOutboxTransaction({
@@ -115,6 +123,8 @@ export const buildSingleItemMutations = <
       transaction,
       buildEntry: (mutation: PendingMutation<TCollItem>, id) =>
         Effect.gen(function* () {
+          const base = valueOf(mutation.original as TCollItem);
+          const after = valueOf(mutation.modified);
           return {
             id,
             name: handlerName,
@@ -124,13 +134,9 @@ export const buildSingleItemMutations = <
               kind: 'entity' as const,
               op: 'update' as const,
               key: SINGLE_ITEM_KEY,
-              base: yield* encode(
-                stripMeta<TItem>(mutation.original as TCollItem),
-              ),
-              after: yield* encode(stripMeta<TItem>(mutation.modified)),
-              changed: Object.keys(
-                stripMetaPartial<TItem>(mutation.changes as Partial<TCollItem>),
-              ),
+              base: yield* encode(base),
+              after: yield* encode(after),
+              changed: changedFields(base, after),
             },
           };
         }),
@@ -164,7 +170,7 @@ export const buildSingleItemMutations = <
       }: UpdateMutationFnParams<TCollItem, string>): Promise<void> => {
         if (outbox) return runOutbox(transaction);
         const mutation = transaction.mutations[0]!;
-        await runUpdate(stripMetaPartial<TItem>(mutation.changes));
+        await runUpdate(mutation.original as TCollItem, mutation.modified);
       }
     : undefined;
 
@@ -173,18 +179,27 @@ export const buildSingleItemMutations = <
         let paced:
           | ((changes: Partial<TItem>) => Transaction<Partial<TItem>>)
           | null = null;
+        let base: TCollItem | undefined;
         return (
-          changes: Partial<TItem>,
+          next: Partial<TItem>,
           optimistic: (changes: Partial<TItem>) => void,
         ): Transaction<Partial<TItem>> => {
+          base ??= args.current();
           if (!paced) {
             paced = buildPacedUpdate<Partial<TItem>>({
               strategy: (pacing ?? coalesceStrategy)(),
               optimistic,
-              commit: (merged) => runUpdate(stripMetaPartial<TItem>(merged)),
+              commit: (merged) => {
+                const original = base!;
+                base = undefined;
+                return runUpdate(original, {
+                  ...original,
+                  ...merged,
+                } as TCollItem);
+              },
             });
           }
-          return paced(changes);
+          return paced(next);
         };
       }
     : () => (): Transaction<Partial<TItem>> => {
@@ -195,6 +210,6 @@ export const buildSingleItemMutations = <
     onUpdate: updateHandler,
     pacedUpdate: makePacedUpdate(),
     decode,
-    pick,
+    changes,
   };
 };

@@ -7,8 +7,8 @@ import {
   conditionFailed,
   conditionHolds,
   transactItemKey,
-  type EncodedItem,
-  type EncodedKey,
+  type StoredItem,
+  type StoredKey,
   type JsonObject,
   type JsonValue,
   type QueryRequest,
@@ -21,12 +21,12 @@ type MemoryTable = Pick<
 >;
 
 interface OrderedItem {
-  readonly item: EncodedItem;
+  readonly item: StoredItem;
   readonly partitionKey: string;
   readonly sortKey: string;
 }
 
-const target = ({ pk, sk }: EncodedKey): string => JSON.stringify([pk, sk]);
+const target = ({ pk, sk }: StoredKey): string => JSON.stringify([pk, sk]);
 
 const compare = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
@@ -39,11 +39,11 @@ const cloneJson = (value: JsonValue): JsonValue => {
   ) as JsonObject;
 };
 
-const cloneItem = (item: EncodedItem): EncodedItem => ({
+const cloneItem = (item: StoredItem): StoredItem => ({
   pk: item.pk,
   sk: item.sk,
   meta: { ...item.meta },
-  data: cloneJson(item.data) as EncodedItem['data'],
+  data: cloneJson(item.data) as StoredItem['data'],
   keys: { ...item.keys },
 });
 
@@ -61,7 +61,7 @@ const matchesSort = (sortKey: string, sort: QueryRequest['sort']): boolean => {
 
 const orderedItem = (
   table: MemoryTable,
-  item: EncodedItem,
+  item: StoredItem,
   index: string | undefined,
 ): OrderedItem | undefined => {
   if (index === undefined)
@@ -105,7 +105,7 @@ const writeFailure = (cause: unknown) =>
 
 export const makeTableContract = (
   table: MemoryTable,
-  items: Map<string, EncodedItem>,
+  items: Map<string, StoredItem>,
 ): StdTableContract => ({
   getItem: (key) =>
     Effect.try({

@@ -1,5 +1,5 @@
 export {
-  decodeKey,
+  toNativeKey,
   itemSchema,
   type NativeItem,
   type ItemSchema,

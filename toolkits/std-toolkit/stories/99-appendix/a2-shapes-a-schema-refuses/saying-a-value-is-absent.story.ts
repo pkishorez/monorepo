@@ -1,4 +1,5 @@
-import { Effect } from 'effect';
+import { toSchema } from 'std-toolkit/eschema';
+import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 
@@ -27,7 +28,9 @@ export const sayingAValueIsAbsent = Story.make({
           'As the value it holds, unchanged. `assignee` was declared as a string or `null` back in chapter 1, and a string comes through as a string.',
         proof: Effect.gen(function* () {
           // Read the stored task back into the shape the app holds.
-          const assigned = yield* Task.decode(stored);
+          const assigned = yield* Schema.decodeUnknownEffect(toSchema(Task))(
+            stored,
+          );
           yield* Story.assert(
             'a present value reads back as it is',
             assigned.assignee === 'ana',
@@ -41,7 +44,10 @@ export const sayingAValueIsAbsent = Story.make({
         'With an explicit `null`, never by leaving the key out. A shape has no optional fields, so a declaration that tries to add one is refused at build time, and every stored row spells absence out.',
       proof: Effect.gen(function* () {
         // Read a task whose assignee is spelled out as `null`.
-        const unassigned = yield* Task.decode({ ...stored, assignee: null });
+        const unassigned = yield* Schema.decodeUnknownEffect(toSchema(Task))({
+          ...stored,
+          assignee: null,
+        });
         yield* Story.assert(
           'absence is an explicit null',
           unassigned.assignee === null,
@@ -51,15 +57,17 @@ export const sayingAValueIsAbsent = Story.make({
     }),
     Story.question('What if the key is missing altogether?', {
       answer:
-        'The read fails with `ESchemaError` instead of quietly handing you `undefined`. A missing key is a row that does not match its shape.',
+        'The read fails with a `SchemaError` instead of quietly handing you `undefined`. A missing key is a row that does not match its shape.',
       proof: Effect.gen(function* () {
         // Drop the `assignee` key and read the row; the failure comes back as a value.
         const { assignee: _assignee, ...withoutKey } = stored;
-        const refused = yield* Task.decode(withoutKey).pipe(Effect.flip);
+        const refused = yield* Schema.decodeUnknownEffect(toSchema(Task))(
+          withoutKey,
+        ).pipe(Effect.flip);
         yield* Story.assert(
           'a missing key is a decode failure, not an undefined',
-          refused._tag === 'ESchemaError' &&
-            refused.message === 'Decode failed',
+          refused._tag === 'SchemaError' &&
+            refused.message.includes('Decode failed'),
         );
         return { refused: refused.message };
       }),

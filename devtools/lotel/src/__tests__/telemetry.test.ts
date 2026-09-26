@@ -1,4 +1,5 @@
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
+import { toSchema } from 'std-toolkit/eschema';
 import { RpcTest } from 'effect/unstable/rpc';
 import { describe, expect, it } from 'vitest';
 import { LotelRpc, LotelRpcLive, sqliteTelemetryStoreLayer } from '../index.js';
@@ -57,14 +58,14 @@ describe('lotel', () => {
   it('migrates telemetry records written before Flow fields existed', async () => {
     const [span, log] = await run(
       Effect.all([
-        SpanEntitySchema.decode({
+        Schema.decodeUnknownEffect(toSchema(SpanEntitySchema))({
           _v: 'v1',
           traceId: 'legacy-trace',
           spanId: 'legacy-span',
           span: {},
           context: {},
         }),
-        LogEntitySchema.decode({
+        Schema.decodeUnknownEffect(toSchema(LogEntitySchema))({
           _v: 'v1',
           id: 'legacy-log',
           traceId: 'legacy-trace',

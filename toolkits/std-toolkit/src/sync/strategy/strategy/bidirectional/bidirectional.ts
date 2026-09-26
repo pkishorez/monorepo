@@ -17,7 +17,7 @@ import {
   type Cursor,
   type Slice,
 } from '../slice-coverage.js';
-import { BidirectionalStateSchema, type BidirectionalState } from './state.js';
+import { bidirectionalStateSchema, type BidirectionalState } from './state.js';
 
 export type BidirectionalConfig<TItem, R = never> = {
   older: PaginatedSourceBuilder<TItem, R>;
@@ -35,7 +35,7 @@ export const bidirectional = <TItem extends object, R = never>(
 ): PartitionedStrategy<TItem, BidirectionalState, R> => ({
   name: 'bidirectional',
   state: {
-    schema: BidirectionalStateSchema,
+    schema: bidirectionalStateSchema,
     empty: { slices: [] },
   },
   run: (ctx: StrategyContext<TItem, BidirectionalState>) => {

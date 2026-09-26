@@ -19,6 +19,7 @@ describe('Core', () => {
   describe('EntityMetaSchema', () => {
     const baseMeta = {
       _e: 'item',
+      _v: 'v1',
       _d: false,
       _u: '2024-01-01T00:00:00.000Z',
     };

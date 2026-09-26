@@ -1,3 +1,4 @@
+import { readEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 7 — The composition gotcha: non-isolation
  *
@@ -43,11 +44,11 @@ const row = { _v: 'v1', name: 'demo', child: { _v: 'v1', value: 'hello' } };
 
 Effect.runSync(
   Effect.gen(function* () {
-    const before = yield* ParentA.decode(row);
+    const before = yield* readEncoded(ParentA, row);
     console.log('before child evolved:', before);
     // => { name: 'demo', child: { value: 'hello' } }
 
-    const after = yield* ParentB.decode(row);
+    const after = yield* readEncoded(ParentB, row);
     console.log('after child evolved: ', after);
     // => { name: 'demo', child: { value: 'hello', tag: 'default' } }
     //                                              ^^^^^^^^^^^^^^^

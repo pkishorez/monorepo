@@ -1,6 +1,6 @@
 import { Effect, type Stream } from 'effect';
 import { RpcClient } from 'effect/unstable/rpc';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import {
   createStdSync,
   syncStrategy,
@@ -44,8 +44,8 @@ export const makePlaygroundSync = ({
   });
   const liveOldToNew = <T extends object>(
     subscribe: (
-      cursor: DecodedEntity<T> | null,
-    ) => Stream.Stream<ReadonlyArray<DecodedEntity<T>>, unknown>,
+      cursor: Entity<T> | null,
+    ) => Stream.Stream<ReadonlyArray<Entity<T>>, unknown>,
   ) => ({
     strategy: syncStrategy.oldToNew<T>({
       source: ({ live }) =>

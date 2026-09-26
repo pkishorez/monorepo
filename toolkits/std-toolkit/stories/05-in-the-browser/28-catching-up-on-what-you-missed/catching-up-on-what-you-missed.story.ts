@@ -4,7 +4,7 @@ import { Story } from 'laymos/story';
 import {
   defaultBroadcaster,
   type Broadcaster,
-  type DecodedEntity,
+  type Entity,
 } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
 import { createStdSync, syncStrategy } from 'std-toolkit/sync';
@@ -61,7 +61,7 @@ const history = [
 }));
 const seed = Effect.forEach(history, (draft) => task.insert(draft));
 
-type Change = DecodedEntity<typeof Task.Type>;
+type Change = Entity<typeof Task.Type>;
 
 // Three ways to read the server. `newerChanges`: the next `limit` changes after `cursor`, oldest first. `olderChanges`: the `limit` changes just before `cursor` (`null` means the newest there are). `pushedChanges`: the change notices from chapter 16, after a catch-up read.
 const newerChanges = (boardId: string, cursor: Change | null, limit: number) =>

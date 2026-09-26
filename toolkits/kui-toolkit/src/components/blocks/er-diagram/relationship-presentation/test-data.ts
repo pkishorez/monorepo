@@ -32,7 +32,7 @@ const definition = (
   versions: [
     {
       version: 'v1',
-      encoded: {
+      serialized: {
         references: {},
         representation: object([
           property('_v', {
@@ -44,9 +44,6 @@ const definition = (
           ...fields,
         ]),
       },
-      decoded: object([property('id', stringType()), ...fields]),
-      transformations: [],
-      unverifiable: [],
     },
   ],
 });
@@ -72,7 +69,7 @@ const singleDefinition = (
   versions: [
     {
       version: 'v1',
-      encoded: {
+      serialized: {
         references: {},
         representation: object([
           property('_v', {
@@ -83,9 +80,6 @@ const singleDefinition = (
           ...fields,
         ]),
       },
-      decoded: object(fields),
-      transformations: [],
-      unverifiable: [],
     },
   ],
 });

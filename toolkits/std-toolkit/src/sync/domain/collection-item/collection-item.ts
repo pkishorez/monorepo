@@ -1,11 +1,11 @@
 import type { CollectionConfig, VirtualRowProps } from '@tanstack/react-db';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { Schema } from 'effect';
+import { Equal, Schema } from 'effect';
 import type { Effect } from 'effect';
 import type {
-  DecodedEntity,
+  Entity,
   EntityMetaSchema,
-  DecodedSingleEntity,
+  SingletonEntity,
 } from '../../../core/index.js';
 import type {
   AnyESchema,
@@ -20,7 +20,7 @@ import type {
  * Virtual props are added at runtime by @tanstack/db on every read, but the
  * `useLiveQuery(() => collection)` overload types `data` as the bare item type and
  * drops them. The props are optional so they surface on reads without being
- * required on writes. The collection schema validates this latest decoded shape.
+ * required on writes. The collection schema validates the latest value shape.
  */
 export type CollectionItem<T> = T & {
   _meta?: typeof EntityMetaSchema.Type;
@@ -34,7 +34,7 @@ export type CollectionItemSchema<S extends AnyESchema> = StandardSchemaV1<
 export const makeCollectionItemSchema = <S extends AnyESchema>(
   schema: S,
 ): CollectionItemSchema<S> => {
-  const isDecoded = Schema.is(Schema.toType(schema.schema));
+  const isValue = Schema.is(Schema.toType(schema.schema));
   return {
     '~standard': {
       version: 1,
@@ -47,18 +47,8 @@ export const makeCollectionItemSchema = <S extends AnyESchema>(
         if (input === null || typeof input !== 'object') {
           return { issues: [{ message: 'CollectionItem must be an object' }] };
         }
-        const meta = (input as { readonly _meta?: unknown })._meta;
-        if (
-          meta !== null &&
-          typeof meta === 'object' &&
-          Object.hasOwn(meta, '_v')
-        ) {
-          return {
-            issues: [{ message: 'CollectionItem meta must not contain _v' }],
-          };
-        }
         const value = stripMeta(input);
-        return Object.hasOwn(value, '_v') || !isDecoded(value)
+        return Object.hasOwn(value, '_v') || !isValue(value)
           ? {
               issues: [
                 {
@@ -77,8 +67,8 @@ export const makeCollectionItemSchema = <S extends AnyESchema>(
  * only when it consumes that direction.
  */
 export type ForwardFetch<T, R = never, E = never> = (ctx: {
-  cursor: DecodedEntity<T> | null;
-}) => Effect.Effect<DecodedEntity<T>[], E, R>;
+  cursor: Entity<T> | null;
+}) => Effect.Effect<Entity<T>[], E, R>;
 
 /**
  * Pass-through TanStack collection options, with the fields the engine owns
@@ -144,8 +134,17 @@ export const stripMetaPartial = <TItem extends object>(
 };
 
 export const toEntity = <TItem>(
-  entity: DecodedSingleEntity<TItem>,
-): DecodedEntity<TItem> => ({
+  entity: SingletonEntity<TItem>,
+): Entity<TItem> => ({
   value: entity.value,
   meta: { ...entity.meta, _d: false },
 });
+
+export const changedFields = (before: object, after: object): string[] =>
+  [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
+    (field) =>
+      !Equal.equals(
+        (before as Record<string, unknown>)[field],
+        (after as Record<string, unknown>)[field],
+      ),
+  );

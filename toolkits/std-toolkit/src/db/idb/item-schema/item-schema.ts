@@ -1,8 +1,8 @@
 import { Effect, Schema, SchemaIssue, SchemaTransformation } from 'effect';
 import {
-  EncodedItemSchema,
-  type EncodedItem,
-  type EncodedKey,
+  StoredItemSchema,
+  type StoredItem,
+  type StoredKey,
   type JsonObject,
 } from '../../std-table/contract/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
@@ -22,14 +22,17 @@ const indexAttributes = (table: TableIndexes) => [
   ]),
 ];
 
-export const decodeKey = ({ pk, sk }: EncodedKey): [string, string] => [pk, sk];
+export const toNativeKey = ({ pk, sk }: StoredKey): [string, string] => [
+  pk,
+  sk,
+];
 
 const isRecord = (value: unknown): value is NativeItem =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const NativeItemSchema = Schema.declare<NativeItem>(isRecord);
 
-const toDecoded = (item: EncodedItem): NativeItem => ({
+const toNative = (item: StoredItem): NativeItem => ({
   pk: item.pk,
   sk: item.sk,
   _e: item.meta._e,
@@ -40,7 +43,7 @@ const toDecoded = (item: EncodedItem): NativeItem => ({
   ...item.keys,
 });
 
-const toEncoded = (table: TableIndexes, record: NativeItem): EncodedItem => {
+const fromNative = (table: TableIndexes, record: NativeItem): StoredItem => {
   const data = record.data as JsonObject;
   if (record._v !== data._v) {
     throw new Error('Physical _v does not match encoded data._v');
@@ -60,7 +63,7 @@ const toEncoded = (table: TableIndexes, record: NativeItem): EncodedItem => {
     },
     data,
     keys,
-  } as EncodedItem;
+  } as StoredItem;
 };
 
 const invalid = (input: unknown, cause: unknown) =>
@@ -71,21 +74,21 @@ const invalid = (input: unknown, cause: unknown) =>
     input,
   );
 
-export type ItemSchema = Schema.Codec<NativeItem, EncodedItem>;
+export type ItemSchema = Schema.Codec<NativeItem, StoredItem>;
 
 export const itemSchema = (table: TableIndexes): ItemSchema =>
-  EncodedItemSchema.pipe(
+  StoredItemSchema.pipe(
     Schema.decodeTo(
       NativeItemSchema,
       SchemaTransformation.transformOrFail({
-        decode: (item: EncodedItem) =>
+        decode: (item: StoredItem) =>
           Effect.try({
-            try: () => toDecoded(item),
+            try: () => toNative(item),
             catch: (cause) => invalid(item, cause),
           }),
         encode: (record: NativeItem) =>
           Effect.try({
-            try: () => toEncoded(table, record),
+            try: () => fromNative(table, record),
             catch: (cause) => invalid(record, cause),
           }),
       }),

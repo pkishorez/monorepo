@@ -8,13 +8,13 @@ import {
   contractLayer,
   transactItemKey,
   type QueryRequest,
-  type EncodedKey,
-  type EncodedItem,
+  type StoredKey,
+  type StoredItem,
   type StdTableContract,
   type StdTableService,
 } from '../contract/index.js';
 
-const target = ({ pk, sk }: EncodedKey): string => `${pk}\0${sk}`;
+const target = ({ pk, sk }: StoredKey): string => `${pk}\0${sk}`;
 
 const matchesSort = (sortKey: string, sort: QueryRequest['sort']): boolean => {
   if (sort === undefined) return true;
@@ -41,14 +41,14 @@ interface TopologySource {
 export interface DeterministicRuntime<Name extends string> {
   readonly contract: StdTableContract;
   readonly layer: Layer.Layer<StdTableService<Name>>;
-  readonly items: ReadonlyMap<string, EncodedItem>;
+  readonly items: ReadonlyMap<string, StoredItem>;
 }
 
 const indexKey = (
-  item: EncodedItem,
+  item: StoredItem,
   slot: string,
   topology: TopologySource | undefined,
-): EncodedKey | undefined => {
+): StoredKey | undefined => {
   const lsi = topology?.localSecondaryIndexes[slot];
   if (lsi !== undefined) {
     const sk = item.keys[lsi.sk];
@@ -68,7 +68,7 @@ export const makeDeterministicContract = <Name extends string>(
   topology?: TopologySource,
   pageSize = 2,
 ): DeterministicRuntime<Name> => {
-  const items = new Map<string, EncodedItem>();
+  const items = new Map<string, StoredItem>();
 
   const contract: StdTableContract = {
     getItem: (key) => Effect.sync(() => items.get(target(key)) ?? null),
@@ -159,7 +159,7 @@ export const makeDeterministicContract = <Name extends string>(
                 : indexKey(item, request.index, topology),
           }))
           .filter(
-            (entry): entry is { item: EncodedItem; key: EncodedKey } =>
+            (entry): entry is { item: StoredItem; key: StoredKey } =>
               entry.key !== undefined &&
               entry.key.pk === request.pk &&
               matchesSort(entry.key.sk, request.sort),

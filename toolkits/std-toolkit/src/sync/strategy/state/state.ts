@@ -1,10 +1,12 @@
 import { Effect, Schema } from 'effect';
+import { EntitySchema, findOutdatedVersion } from '../../../core/index.js';
 import type { DatabaseError } from '../../../db/index.js';
+import type { AnyESchema } from '../../../eschema/index.js';
 import {
   storageError,
   type WriteError,
 } from '../../domain/sync-error/index.js';
-import type { StrategyStateSpec } from './strategy-state.js';
+import type { StateEntitySchema, StrategyStateSpec } from './strategy-state.js';
 import {
   storedSyncStateEntity,
   type StoredSyncStateValue,
@@ -14,7 +16,14 @@ import type { SyncStore } from '../../platform/sync-store/index.js';
 const storeError = (reason: string) => (cause: DatabaseError) =>
   storageError(reason, cause);
 
+const invalid = (cause: { readonly message: string }): WriteError => ({
+  _tag: 'Invalid',
+  reason: cause.message,
+  cause,
+});
+
 export const makeSyncStateStore = <TState = unknown>(args: {
+  schema: AnyESchema;
   schemaName: string;
   strategyName: string;
   store: SyncStore;
@@ -28,6 +37,13 @@ export const makeSyncStateStore = <TState = unknown>(args: {
     key,
   });
   const emptyState = (): TState => structuredClone(args.state.empty);
+  // The one codec for the whole state. Entities inside it use the Collection's
+  // Entity codec, so a cursor is stored encoded and migrated when read back.
+  const stateSchema = args.state.schema(
+    EntitySchema(args.schema) as unknown as StateEntitySchema,
+  );
+  const encode = (state: TState) =>
+    Schema.encodeEffect(stateSchema)(state).pipe(Effect.mapError(invalid));
 
   const putStoredState = (
     key: string,
@@ -78,7 +94,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
     Effect.gen(function* () {
       const state = emptyState();
       yield* Effect.logWarning(message);
-      yield* putStoredState(key, state);
+      yield* putStoredState(key, yield* encode(state));
       return state;
     });
 
@@ -102,17 +118,23 @@ export const makeSyncStateStore = <TState = unknown>(args: {
           );
         }
 
-        return yield* Schema.decodeUnknownEffect(args.state.schema)(
+        return yield* Schema.decodeUnknownEffect(stateSchema)(
           stored.value.value,
         ).pipe(
-          Effect.catch(() =>
-            reset(
-              key,
-              `[sync] reset sync state for "${args.schemaName}" strategy "${args.strategyName}" because stored state failed schema validation`,
-            ),
-          ),
+          Effect.catch((cause) => {
+            const outdated = findOutdatedVersion(cause);
+            return outdated
+              ? Effect.fail(invalid(outdated))
+              : reset(
+                  key,
+                  `[sync] reset sync state for "${args.schemaName}" strategy "${args.strategyName}" because stored state failed schema validation`,
+                );
+          }),
         );
       }),
-    set: putStoredState,
+    set: (key, state) =>
+      encode(state).pipe(
+        Effect.flatMap((encoded) => putStoredState(key, encoded)),
+      ),
   };
 };

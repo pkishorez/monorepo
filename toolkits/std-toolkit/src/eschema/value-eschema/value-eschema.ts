@@ -1,5 +1,5 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import { Cause, Effect, Option } from 'effect';
+import { Cause, Effect, Option, Schema } from 'effect';
 import type {
   ESchemaDescriptor,
   ForbidEmptyName,
@@ -8,7 +8,7 @@ import type {
   ValueEnvelopeEncoded,
   ValueEvolution,
   ValueSchema,
-  ValueSchemaDecoded,
+  ValueSchemaType,
 } from '../domain/schema-model/index.js';
 import { INITIAL_VERSION } from '../domain/schema-model/index.js';
 import { makeValueSchemaRuntime } from './value-schema-runtime/index.js';
@@ -23,7 +23,7 @@ const constructionToken = Symbol();
 export class ValueESchema<
   TVersion extends string,
   TLatest extends ValueSchema,
-> implements StandardSchemaV1<unknown, ValueSchemaDecoded<TLatest>> {
+> implements StandardSchemaV1<unknown, ValueSchemaType<TLatest>> {
   readonly #runtime;
 
   private constructor(
@@ -65,19 +65,11 @@ export class ValueESchema<
     );
   }
 
-  Type = null as unknown as ValueSchemaDecoded<TLatest>;
+  Type = null as unknown as ValueSchemaType<TLatest>;
   Encoded = null as unknown as ValueEnvelopeEncoded<TVersion, TLatest>;
 
   get schema(): TLatest {
     return this.#runtime.schema();
-  }
-
-  decode(value: unknown) {
-    return this.#runtime.decode(value);
-  }
-
-  encode(value: ValueSchemaDecoded<TLatest>) {
-    return this.#runtime.encode(value);
   }
 
   getDescriptor(): ESchemaDescriptor {
@@ -88,12 +80,16 @@ export class ValueESchema<
     version: 1 as const,
     vendor: 'std-toolkit/eschema',
     types: {
-      input: null as unknown as ValueSchemaDecoded<TLatest>,
-      output: null as unknown as ValueSchemaDecoded<TLatest>,
+      input: null as unknown as ValueSchemaType<TLatest>,
+      output: null as unknown as ValueSchemaType<TLatest>,
     },
     validate: (value: unknown) => {
-      const result = Effect.runSyncExit(this.decode(value));
-      if (result._tag === 'Success') return { value: result.value };
+      const result = Effect.runSyncExit(
+        Schema.decodeUnknownEffect(Schema.toType(this.schema))(value),
+      );
+      if (result._tag === 'Success') {
+        return { value: result.value as ValueSchemaType<TLatest> };
+      }
       const error = Cause.findErrorOption(result.cause);
       return Option.isSome(error)
         ? { issues: [{ message: error.value.message }] }

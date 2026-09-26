@@ -1,9 +1,8 @@
 import { it, describe, expect } from 'vitest';
 import { buildExpr, exprFilter } from '../expression.js';
 import { exprCondition } from '../condition.js';
-import { exprUpdate } from '../update.js';
 import { keyConditionExpr } from '../key-condition.js';
-import type { IndexDefinition } from '../index.js';
+import type { IndexDefinition } from '../types.js';
 
 type TestEntity = { name: string; age: number; status: string };
 
@@ -46,41 +45,6 @@ describe('DynamoDB', () => {
 
           const names = result.ExpressionAttributeNames!;
           expect(Object.values(names)).toContain('PK');
-          expect(Object.values(names)).toContain('age');
-        });
-      });
-
-      describe('update mode (update + optional condition)', () => {
-        it('update only → has UpdateExpression, no ConditionExpression', () => {
-          const update = exprUpdate<TestEntity>(($) => [$.set('name', 'test')]);
-          const result = buildExpr({ update });
-
-          expect(result.UpdateExpression).toBeDefined();
-          expect(result.UpdateExpression).toContain('SET');
-          expect(result).not.toHaveProperty('ConditionExpression');
-        });
-
-        it('update + condition → has both expressions', () => {
-          const update = exprUpdate<TestEntity>(($) => [$.set('name', 'test')]);
-          const condition = exprCondition<TestEntity>(($) =>
-            $.attributeExists('name'),
-          );
-          const result = buildExpr({ update, condition });
-
-          expect(result.UpdateExpression).toBeDefined();
-          expect(result.ConditionExpression).toBeDefined();
-          expect(result.ConditionExpression).toContain('attribute_exists');
-        });
-
-        it('attribute maps merged from update + condition', () => {
-          const update = exprUpdate<TestEntity>(($) => [$.set('name', 'test')]);
-          const condition = exprCondition<TestEntity>(($) =>
-            $.cond('age', '>', 18),
-          );
-          const result = buildExpr({ update, condition });
-
-          const names = result.ExpressionAttributeNames!;
-          expect(Object.values(names)).toContain('name');
           expect(Object.values(names)).toContain('age');
         });
       });

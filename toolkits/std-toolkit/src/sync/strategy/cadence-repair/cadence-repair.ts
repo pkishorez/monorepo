@@ -1,5 +1,5 @@
 import { Clock, Effect, Latch } from 'effect';
-import { uTime, type DecodedEntity } from '../../../core/index.js';
+import { uTime, type Entity } from '../../../core/index.js';
 import type { CollectionItem } from '../../domain/collection-item/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { CadenceConfig } from '../strategy/index.js';
@@ -21,7 +21,7 @@ export type SyncCollection<T> = {
   values(): IterableIterator<CollectionItem<T>>;
 };
 
-type Meta<T> = DecodedEntity<T>['meta'];
+type Meta<T> = Entity<T>['meta'];
 
 const metaOf = <T>(row: CollectionItem<T>): Meta<T> | undefined =>
   (row as { _meta?: Meta<T> })._meta;
@@ -29,7 +29,7 @@ const metaOf = <T>(row: CollectionItem<T>): Meta<T> | undefined =>
 // Reconstruct the `{ value, meta }` entity shape from a flat collection row so
 // the anchor handed to `fetchFrom` carries `meta._u`. Only `meta` is read
 // downstream, but value is preserved (minus `_meta` and runtime virtual props).
-const toEntity = <T>(row: CollectionItem<T>): DecodedEntity<T> => {
+const toEntity = <T>(row: CollectionItem<T>): Entity<T> => {
   const {
     _meta,
     $synced: _synced,
@@ -42,14 +42,12 @@ const toEntity = <T>(row: CollectionItem<T>): DecodedEntity<T> => {
 
 export type CadenceRepairDeps<T, E, R = never> = {
   collection: SyncCollection<T>;
-  fetchFrom: (
-    anchor: DecodedEntity<T> | null,
-  ) => Effect.Effect<DecodedEntity<T>[], E, R>;
+  fetchFrom: (anchor: Entity<T> | null) => Effect.Effect<Entity<T>[], E, R>;
   applyToSyncReplica: (
-    entities: DecodedEntity<T>[],
+    entities: Entity<T>[],
   ) => Effect.Effect<void, WriteError>;
-  // Restricts the repair scope to a single partition: only rows whose flat
-  // `field` equals `value` are considered. Omitted for unpartitioned collections.
+  // Restricts the repair scope to a single partition: only rows whose key path
+  // `field` reads `value` are considered. Omitted for unpartitioned collections.
   partition?: { field: string; value: PartitionValue } | undefined;
   config: CadenceConfig;
 };
@@ -58,7 +56,7 @@ export type CadenceRepairDeps<T, E, R = never> = {
 // A row whose `_u` fits neither format is a protocol violation — surfaced via
 // `scanSuspects` so the repair loop fails instead of guessing.
 const isSuspect = <T>(
-  meta: DecodedEntity<T>['meta'],
+  meta: Entity<T>['meta'],
   window: number,
 ): boolean | 'invalid-u' => {
   if (meta._s == null) return false;
@@ -68,7 +66,7 @@ const isSuspect = <T>(
 };
 
 const msUntilReady = <T>(
-  meta: DecodedEntity<T>['meta'],
+  meta: Entity<T>['meta'],
   nowMs: number,
   readiness: number,
 ): number => {
@@ -79,14 +77,27 @@ const msUntilReady = <T>(
 
 type Partition = { field: string; value: PartitionValue };
 
+// `field` is a key path such as `board.id`, read through nested objects.
+const readPath = (row: unknown, path: string): unknown =>
+  path
+    .split('.')
+    .reduce<unknown>(
+      (node, segment) =>
+        node !== null && typeof node === 'object'
+          ? (node as Record<string, unknown>)[segment]
+          : undefined,
+      row,
+    );
+
 const inPartition = (
   row: Record<string, unknown>,
   partition: Partition | undefined,
 ): boolean =>
-  partition == null || Object.is(row[partition.field], partition.value);
+  partition == null ||
+  Object.is(readPath(row, partition.field), partition.value);
 
 type SuspectScan<T> = {
-  oldest: DecodedEntity<T> | undefined;
+  oldest: Entity<T> | undefined;
   suspectCount: number;
   scanned: number;
   invalidU: string | undefined;
@@ -138,9 +149,9 @@ const scanSuspects = <T>(
 // from this anchor so siblings that landed at the suspect's `_u` are picked up.
 const queryPredecessor = <T>(
   collection: SyncCollection<T>,
-  suspect: DecodedEntity<T>,
+  suspect: Entity<T>,
   partition: Partition | undefined,
-): DecodedEntity<T> | undefined => {
+): Entity<T> | undefined => {
   const suspectU = suspect.meta._u;
   let bestRow: CollectionItem<T> | undefined;
   let bestU = '';
@@ -244,7 +255,8 @@ export const runCadenceRepair = <T, E, R = never>(
         });
         const results = yield* fetchFrom(anchor).pipe(
           Effect.mapError(
-            (e) => ({ _tag: 'Invalid', reason: String(e) }) as WriteError,
+            (e) =>
+              ({ _tag: 'Invalid', reason: String(e), cause: e }) as WriteError,
           ),
         );
         yield* applyToSyncReplica(results);

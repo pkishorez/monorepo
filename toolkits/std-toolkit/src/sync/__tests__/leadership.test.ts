@@ -25,7 +25,7 @@ const subset = {
     type: 'func' as const,
     name: 'eq' as const,
     args: [
-      { type: 'ref' as const, path: ['todos', 'listId'] },
+      { type: 'ref' as const, path: ['listId'] },
       { type: 'val' as const, value: 'inbox' },
     ],
   },

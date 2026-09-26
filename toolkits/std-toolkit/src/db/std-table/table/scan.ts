@@ -1,8 +1,8 @@
 import { Effect, Option, Stream } from 'effect';
 import type {
   ContractFailure,
-  EncodedItem,
-  EncodedKey,
+  StoredItem,
+  StoredKey,
   StdTableContract,
 } from '../contract/index.js';
 import { LEGACY_BASELINE_ENTITY } from '../key/index.js';
@@ -13,8 +13,8 @@ const scanSegment = (
   contract: StdTableContract,
   segment: number,
   totalSegments: number,
-): Stream.Stream<EncodedItem, ContractFailure> =>
-  Stream.paginate(undefined as EncodedKey | undefined, (cursor) =>
+): Stream.Stream<StoredItem, ContractFailure> =>
+  Stream.paginate(undefined as StoredKey | undefined, (cursor) =>
     Effect.map(
       contract.scanItems({
         limit: SCAN_PAGE_SIZE,
@@ -24,7 +24,7 @@ const scanSegment = (
       }),
       (result) => {
         const last = result.items.at(-1);
-        const next: Option.Option<EncodedKey | undefined> =
+        const next: Option.Option<StoredKey | undefined> =
           result.hasMore && last !== undefined
             ? Option.some({ pk: last.pk, sk: last.sk })
             : Option.none();
@@ -37,7 +37,7 @@ const scanSegment = (
 export const scanStream = (
   contract: StdTableContract,
   parallelism: number,
-): Stream.Stream<EncodedItem, ContractFailure> => {
+): Stream.Stream<StoredItem, ContractFailure> => {
   const totalSegments = Math.max(1, Math.trunc(parallelism));
   return Stream.mergeAll(
     Array.from({ length: totalSegments }, (_, segment) =>

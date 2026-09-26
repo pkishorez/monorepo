@@ -1,8 +1,8 @@
 import { Effect, Schema, SchemaIssue, SchemaTransformation } from 'effect';
 import {
-  EncodedItemSchema,
-  type EncodedItem,
-  type EncodedKey,
+  StoredItemSchema,
+  type StoredItem,
+  type StoredKey,
   type JsonObject,
 } from '../../std-table/contract/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
@@ -28,7 +28,7 @@ const indexAttributeNames = (table: TableIndexes) => [
   ]),
 ];
 
-export const decodeKey = (table: TableIndexes, key: EncodedKey): NativeItem =>
+export const toNativeKey = (table: TableIndexes, key: StoredKey): NativeItem =>
   marshall({ [table.primary.pk]: key.pk, [table.primary.sk]: key.sk });
 
 export const itemKey = (table: TableIndexes, item: NativeItem): NativeItem => {
@@ -41,7 +41,7 @@ export const itemKey = (table: TableIndexes, item: NativeItem): NativeItem => {
 
 const NativeItemSchema = Schema.declare<NativeItem>(isAttributeValueRecord);
 
-const toDecoded = (table: TableIndexes, item: EncodedItem): NativeItem =>
+const toNative = (table: TableIndexes, item: StoredItem): NativeItem =>
   marshall({
     [table.primary.pk]: item.pk,
     [table.primary.sk]: item.sk,
@@ -53,7 +53,7 @@ const toDecoded = (table: TableIndexes, item: EncodedItem): NativeItem =>
     ...item.keys,
   });
 
-const toEncoded = (table: TableIndexes, decoded: NativeItem): EncodedItem => {
+const fromNative = (table: TableIndexes, decoded: NativeItem): StoredItem => {
   const value = unmarshall(decoded);
   const data = value.data as JsonObject;
   if (value._v !== data._v) {
@@ -70,7 +70,7 @@ const toEncoded = (table: TableIndexes, decoded: NativeItem): EncodedItem => {
     meta: { _e: value._e, _u: value._u, _d: value._d },
     data,
     keys,
-  } as EncodedItem;
+  } as StoredItem;
 };
 
 const invalid = (input: unknown, cause: unknown) =>
@@ -81,21 +81,21 @@ const invalid = (input: unknown, cause: unknown) =>
     input,
   );
 
-export type ItemSchema = Schema.Codec<NativeItem, EncodedItem>;
+export type ItemSchema = Schema.Codec<NativeItem, StoredItem>;
 
 export const itemSchema = (table: TableIndexes): ItemSchema =>
-  EncodedItemSchema.pipe(
+  StoredItemSchema.pipe(
     Schema.decodeTo(
       NativeItemSchema,
       SchemaTransformation.transformOrFail({
-        decode: (item: EncodedItem) =>
+        decode: (item: StoredItem) =>
           Effect.try({
-            try: () => toDecoded(table, item),
+            try: () => toNative(table, item),
             catch: (cause) => invalid(item, cause),
           }),
         encode: (decoded: NativeItem) =>
           Effect.try({
-            try: () => toEncoded(table, decoded),
+            try: () => fromNative(table, decoded),
             catch: (cause) => invalid(decoded, cause),
           }),
       }),

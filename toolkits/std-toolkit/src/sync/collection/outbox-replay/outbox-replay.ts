@@ -27,7 +27,7 @@ export const makeOutboxReplay = <TItem>(args: {
   collectionName: CollectionName;
   idField: string | null;
   decode: (value: unknown) => Effect.Effect<TItem, unknown>;
-  pick: (after: TItem, changed: ReadonlyArray<string>) => Partial<TItem>;
+  changes: (before: TItem, after: TItem) => Partial<TItem>;
   report: (entryId: string, cause: unknown) => Effect.Effect<void, never, any>;
   flow: OutboxFlow | null;
 }) => {
@@ -58,8 +58,10 @@ export const makeOutboxReplay = <TItem>(args: {
         }
         case 'update': {
           if (!exists) return;
-          const after = yield* args.decode(body.after);
-          const updates = args.pick(after, body.changed);
+          const updates = args.changes(
+            yield* args.decode(body.base),
+            yield* args.decode(body.after),
+          );
           collection.update(key, { metadata }, (draft) => {
             Object.assign(draft, updates);
           });

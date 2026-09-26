@@ -1,13 +1,13 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { EncodedItem } from '../../std-table/contract/index.js';
+import type { StoredItem } from '../../std-table/contract/index.js';
 import { StdTableService } from '../../std-table/contract/index.js';
 import { StdTable } from '../../std-table/table/index.js';
 import { Memory } from '../index.js';
 
 const table = StdTable.make('memory-binding').primary('pk', 'sk').build();
 const key = { pk: 'items', sk: 'one' };
-const item = (value: string): EncodedItem => ({
+const item = (value: string): StoredItem => ({
   ...key,
   meta: { _e: 'Item', _u: value, _d: false },
   data: { _v: 'v1', nested: { value } },
@@ -73,7 +73,7 @@ describe('Memory adapter table', () => {
     const memory = Memory.make(table);
     const original = item('original') as {
       data: { nested: { value: string } };
-    } & EncodedItem;
+    } & StoredItem;
     const service = StdTableService(table.logicalName);
 
     await Effect.runPromise(

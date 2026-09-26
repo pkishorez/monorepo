@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { ValueESchema } from 'std-toolkit/eschema';
+import { ValueESchema, toSchema } from 'std-toolkit/eschema';
 
 // The theme on its own: one value, not an object. It was free text; v2 narrows it to two words, and the step says which word each old text becomes.
 export const Theme = ValueESchema.make('Theme', Schema.String)
@@ -33,11 +33,14 @@ export const whenASettingsShapeChanges = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // Read a theme stored as free text; the step maps it onto one of the two words.
-            const seen = yield* Theme.decode({ _v: 'v1', _value: 'night' });
+            const seen = yield* Schema.decodeUnknownEffect(toSchema(Theme))({
+              _v: 'v1',
+              _value: 'night',
+            });
             // Save a theme; it is written as an envelope stamped with the newest version.
-            const written = yield* Theme.encode(seen);
+            const written = yield* Schema.encodeEffect(toSchema(Theme))(seen);
             // Read an envelope wrapped in another envelope; the refusal comes back as a value.
-            const nested = yield* Theme.decode({
+            const nested = yield* Schema.decodeUnknownEffect(toSchema(Theme))({
               _v: 'v1',
               _value: { _v: 'v1', _value: 'night' },
             }).pipe(Effect.flip);
@@ -66,12 +69,20 @@ export const whenASettingsShapeChanges = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // A bare theme from before versions: read as v1, then moved forward.
-            const oldTheme = yield* Theme.decode('night');
+            const oldTheme = yield* Schema.decodeUnknownEffect(toSchema(Theme))(
+              'night',
+            );
             // A bare page size under a shape with no history: read as it is.
-            const oldPerPage = yield* PerPage.decode(20);
+            const oldPerPage = yield* Schema.decodeUnknownEffect(
+              toSchema(PerPage),
+            )(20);
             // Save both; each comes back wrapped and stamped.
-            const themeWritten = yield* Theme.encode(oldTheme);
-            const perPageWritten = yield* PerPage.encode(oldPerPage);
+            const themeWritten = yield* Schema.encodeEffect(toSchema(Theme))(
+              oldTheme,
+            );
+            const perPageWritten = yield* Schema.encodeEffect(
+              toSchema(PerPage),
+            )(oldPerPage);
             yield* Story.assert(
               'bare values read as v1 and move forward',
               oldTheme === 'dark' && oldPerPage === 20,
@@ -89,19 +100,21 @@ export const whenASettingsShapeChanges = Story.make({
       'What marks a stored value as an envelope, and what happens when one carries something extra?',
       {
         answer:
-          'The `_value` key, and nothing else. A value schema may not declare a top-level field starting with `_`, just like an ESchema, so a stored value never has a `_value` of its own. An object with an ordinary `value` key is a bare value from before versions, read as v1. An envelope with anything besides `_v` and `_value` is refused with an `ESchemaError`.',
+          'The `_value` key, and nothing else. A value schema may not declare a top-level field starting with `_`, just like an ESchema, so a stored value never has a `_value` of its own. An object with an ordinary `value` key is a bare value from before versions, read as v1. An envelope with anything besides `_v` and `_value` is refused with a `SchemaError`.',
         proof: Story.trace(
           Effect.gen(function* () {
             // A label from before versions; its `value` key is just one of its fields.
-            const bare = yield* Label.decode({
+            const bare = yield* Schema.decodeUnknownEffect(toSchema(Label))({
               value: 'urgent',
               colour: 'red',
             });
             // Save it, then read it back through the real envelope.
-            const stored = yield* Label.encode(bare);
-            const seen = yield* Label.decode(stored);
+            const stored = yield* Schema.encodeEffect(toSchema(Label))(bare);
+            const seen = yield* Schema.decodeUnknownEffect(toSchema(Label))(
+              stored,
+            );
             // An envelope with an extra key is refused; the refusal comes back as a value.
-            const padded = yield* Label.decode({
+            const padded = yield* Schema.decodeUnknownEffect(toSchema(Label))({
               ...stored,
               note: 'added by hand',
             }).pipe(Effect.flip);
@@ -115,7 +128,7 @@ export const whenASettingsShapeChanges = Story.make({
             );
             yield* Story.assert(
               'an envelope carries nothing but _v and _value',
-              padded._tag === 'ESchemaError',
+              padded._tag === 'SchemaError',
             );
             return { bare, stored, seen, padded: padded.message };
           }),

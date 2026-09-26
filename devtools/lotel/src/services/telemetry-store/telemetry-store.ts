@@ -1,5 +1,5 @@
 import { Context, Data, Effect, Layer } from 'effect';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import type {
   LogRecord,
   SpanRecord,
@@ -29,21 +29,21 @@ export interface TelemetryStoreShape {
   listSpans(
     _u: UpdateCursor,
     limit?: number,
-  ): Effect.Effect<{ items: DecodedEntity<SpanRecord>[] }, TelemetryStoreError>;
+  ): Effect.Effect<{ items: Entity<SpanRecord>[] }, TelemetryStoreError>;
   listLogs(
     _u: UpdateCursor,
     limit?: number,
-  ): Effect.Effect<{ items: DecodedEntity<LogRecord>[] }, TelemetryStoreError>;
+  ): Effect.Effect<{ items: Entity<LogRecord>[] }, TelemetryStoreError>;
   /** Trace IDs ordered from most recently updated Span to oldest. */
   listRecentTraceIds(
     limit: number,
   ): Effect.Effect<string[], TelemetryStoreError>;
   findSpansByTrace(
     traceId: string,
-  ): Effect.Effect<DecodedEntity<SpanRecord>[], TelemetryStoreError>;
+  ): Effect.Effect<Entity<SpanRecord>[], TelemetryStoreError>;
   findLogsByTrace(
     traceId: string,
-  ): Effect.Effect<DecodedEntity<LogRecord>[], TelemetryStoreError>;
+  ): Effect.Effect<Entity<LogRecord>[], TelemetryStoreError>;
   clearTelemetry: Effect.Effect<number, TelemetryStoreError>;
 }
 

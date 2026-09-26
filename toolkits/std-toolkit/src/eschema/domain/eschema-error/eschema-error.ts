@@ -6,16 +6,63 @@ export class ESchemaError extends Data.TaggedError('ESchemaError')<{
   cause?: unknown;
 }> {}
 
+export class OutdatedVersion extends Data.TaggedError('OutdatedVersion')<{
+  message: string;
+  schema: string;
+  version: string;
+  latestVersion: string;
+}> {}
+
 export class UnrepresentableFieldError extends Error {
   constructor(
     readonly schema: string,
     readonly version: string,
     readonly path: string,
-    readonly reason: 'transformation' | 'filter' | 'declaration',
+    readonly reason: 'filter' | 'declaration' | 'default',
   ) {
     super(
-      `${schema} ${version}: field "${path}" uses a schema shape that cannot be captured and restored by a Snapshot (${reason}). Only structural fields (object, primitive, literal, union, array, enum, template literal, and branded values) are allowed.`,
+      `${schema} ${version}: field "${path}" uses a schema shape whose encoded form cannot be captured and restored by a Snapshot (${reason}). Every field must be stored as a structural shape (object, primitive, literal, union, array, enum, template literal, or branded value); a conversion such as Schema.DateFromString is allowed when its encoded side is one.`,
     );
     this.name = 'UnrepresentableFieldError';
   }
 }
+
+const versionNumber = (version: string) => {
+  const match = /^v(\d+)$/.exec(version);
+  return match === null ? undefined : Number(match[1]);
+};
+
+export const unknownVersion = (
+  schema: string,
+  version: string,
+  latestVersion: string,
+): ESchemaError | OutdatedVersion => {
+  const received = versionNumber(version);
+  const latest = versionNumber(latestVersion);
+  const message = `Unknown schema version: ${version}`;
+  return received !== undefined && latest !== undefined && received > latest
+    ? new OutdatedVersion({ message, schema, version, latestVersion })
+    : new ESchemaError({ message });
+};
+
+const isOutdatedVersion = (value: unknown): value is OutdatedVersion =>
+  value !== null &&
+  typeof value === 'object' &&
+  (value as { readonly _tag?: unknown })._tag === 'OutdatedVersion';
+
+export const findOutdatedVersion = (
+  error: unknown,
+): OutdatedVersion | undefined => {
+  const seen = new Set<object>();
+  const pending: unknown[] = [error];
+  while (pending.length > 0) {
+    const next = pending.pop();
+    if (next === null || typeof next !== 'object' || seen.has(next)) continue;
+    seen.add(next);
+    if (isOutdatedVersion(next)) return next;
+    pending.push(...Object.values(next));
+    if (next instanceof Error && next.cause !== undefined)
+      pending.push(next.cause);
+  }
+  return undefined;
+};

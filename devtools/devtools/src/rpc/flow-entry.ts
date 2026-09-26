@@ -1,5 +1,4 @@
 import { Schema } from 'effect';
-import { EntitySchema } from 'std-toolkit/core';
 import { EntityESchema, ESchema } from 'std-toolkit/eschema';
 import type { Entry } from '@pkishorez/flow';
 
@@ -14,7 +13,3 @@ export const FlowEntryEntitySchema = EntityESchema.make('FlowEntry', 'id', {
 }).build();
 
 export type FlowEntryRecord = typeof FlowEntryEntitySchema.Type;
-
-export const FlowEntryListSchema = Schema.Struct({
-  items: Schema.Array(EntitySchema(FlowEntryEntitySchema)),
-});

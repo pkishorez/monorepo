@@ -7,11 +7,19 @@ import {
   type PartitionValue,
 } from '../../../domain/identity/index.js';
 
-// The first `eq` filter on a partition field names the Partition; no match means
-// the global Partition covers it, or the query is unservable.
+// TanStack DB hands `loadSubset` field references relative to the collection
+// (the query alias already removed), so a key path matches the whole reference.
+const partitionPathOf = (
+  reference: readonly unknown[],
+  partitionPaths: readonly string[],
+): string | undefined =>
+  partitionPaths.find((path) => reference.map(String).join('.') === path);
+
+// The first `eq` filter on a partition key path names the Partition; no match
+// means the global Partition covers it, or the query is unservable.
 export const resolvePartitionKey = (
   opts: LoadSubsetOptions,
-  partitionFields: string[],
+  partitionPaths: string[],
 ): {
   field: string;
   partitionValue: PartitionValue;
@@ -21,12 +29,11 @@ export const resolvePartitionKey = (
   const match = parsed.filters.find(
     (f) =>
       f.operator === 'eq' &&
-      f.field.length > 0 &&
-      partitionFields.includes(String(f.field[f.field.length - 1]!)),
+      partitionPathOf(f.field, partitionPaths) !== undefined,
   );
   if (!match) return null;
 
-  const field = String(match.field[match.field.length - 1]!);
+  const field = partitionPathOf(match.field, partitionPaths)!;
   const partitionValue = match.value;
   if (
     typeof partitionValue !== 'string' &&
@@ -44,7 +51,7 @@ export const resolvePartitionKey = (
 };
 
 export const makeHybridSync = (
-  partitionFields: string[],
+  partitionPaths: string[],
 ): Effect.Effect<{
   load: (options: LoadSubsetOptions) =>
     | (NonNullable<ReturnType<typeof resolvePartitionKey>> & {
@@ -65,7 +72,7 @@ export const makeHybridSync = (
     const subscribers = new Map<PartitionKey, number>();
     return {
       load: (options) => {
-        const partition = resolvePartitionKey(options, partitionFields);
+        const partition = resolvePartitionKey(options, partitionPaths);
         if (!partition) return null;
         const subscriberCount =
           (subscribers.get(partition.partitionKey) ?? 0) + 1;
@@ -78,7 +85,7 @@ export const makeHybridSync = (
         };
       },
       unload: (options) => {
-        const partition = resolvePartitionKey(options, partitionFields);
+        const partition = resolvePartitionKey(options, partitionPaths);
         if (!partition) return null;
         const subscriberCount = Math.max(
           0,

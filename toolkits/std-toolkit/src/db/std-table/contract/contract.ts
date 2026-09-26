@@ -1,6 +1,6 @@
 import { Context, Data, Effect, Layer, Schema } from 'effect';
 
-export interface EncodedKey {
+export interface StoredKey {
   readonly pk: string;
   readonly sk: string;
 }
@@ -15,27 +15,27 @@ export type JsonValue =
 export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
-export type EncodedData = JsonObject & { readonly _v: string };
+export type StoredData = JsonObject & { readonly _v: string };
 
-export interface EncodedItemMeta {
+export interface StoredItemMeta {
   readonly _e: string;
   readonly _u: string;
   readonly _d: boolean;
 }
 
-export interface EncodedItem extends EncodedKey {
-  readonly meta: EncodedItemMeta;
-  readonly data: EncodedData;
+export interface StoredItem extends StoredKey {
+  readonly meta: StoredItemMeta;
+  readonly data: StoredData;
   readonly keys: Readonly<Record<string, string>>;
 }
 
-export const EncodedKeySchema: Schema.Codec<EncodedKey> = Schema.Struct({
+export const StoredKeySchema: Schema.Codec<StoredKey> = Schema.Struct({
   pk: Schema.String,
   sk: Schema.String,
 });
 
-export const EncodedDataSchema = Schema.declare<EncodedData>(
-  (input): input is EncodedData =>
+export const StoredDataSchema = Schema.declare<StoredData>(
+  (input): input is StoredData =>
     typeof input === 'object' &&
     input !== null &&
     !Array.isArray(input) &&
@@ -43,7 +43,7 @@ export const EncodedDataSchema = Schema.declare<EncodedData>(
     typeof input._v === 'string',
 );
 
-export const EncodedItemSchema: Schema.Codec<EncodedItem> = Schema.Struct({
+export const StoredItemSchema: Schema.Codec<StoredItem> = Schema.Struct({
   pk: Schema.String,
   sk: Schema.String,
   meta: Schema.Struct({
@@ -51,7 +51,7 @@ export const EncodedItemSchema: Schema.Codec<EncodedItem> = Schema.Struct({
     _u: Schema.String,
     _d: Schema.Boolean,
   }),
-  data: EncodedDataSchema,
+  data: StoredDataSchema,
   keys: Schema.Record(Schema.String, Schema.String),
 });
 
@@ -61,7 +61,7 @@ export type ItemCondition =
   | { readonly kind: 'updated'; readonly value: string };
 
 export interface ConditionalPut {
-  readonly item: EncodedItem;
+  readonly item: StoredItem;
   readonly condition?: ItemCondition;
 }
 
@@ -71,13 +71,13 @@ export interface TransactPut extends ConditionalPut {
 
 export interface TransactCheck {
   readonly kind: 'check';
-  readonly key: EncodedKey;
+  readonly key: StoredKey;
   readonly condition: ItemCondition;
 }
 
 export type TransactItem = TransactPut | TransactCheck;
 
-export const transactItemKey = (item: TransactItem): EncodedKey =>
+export const transactItemKey = (item: TransactItem): StoredKey =>
   item.kind === 'put' ? item.item : item.key;
 
 export type ItemOutcomeStatus = 'passed' | 'failed' | 'not-evaluated';
@@ -138,19 +138,19 @@ export interface QueryRequest {
 }
 
 export interface QueryResult {
-  readonly items: readonly EncodedItem[];
+  readonly items: readonly StoredItem[];
   readonly hasMore: boolean;
 }
 
 export interface ScanRequest {
   readonly limit: number;
-  readonly startAfter?: EncodedKey;
+  readonly startAfter?: StoredKey;
   readonly segment?: number;
   readonly totalSegments?: number;
 }
 
 export interface ScanResult {
-  readonly items: readonly EncodedItem[];
+  readonly items: readonly StoredItem[];
   readonly hasMore: boolean;
 }
 
@@ -182,9 +182,9 @@ export interface ReadOptions {
 
 export interface StdTableContract {
   readonly getItem: (
-    key: EncodedKey,
+    key: StoredKey,
     options?: ReadOptions,
-  ) => Effect.Effect<EncodedItem | null, ContractFailure>;
+  ) => Effect.Effect<StoredItem | null, ContractFailure>;
   readonly queryItems: (
     request: QueryRequest,
   ) => Effect.Effect<QueryResult, ContractFailure>;
@@ -198,7 +198,7 @@ export interface StdTableContract {
     items: readonly TransactItem[],
   ) => Effect.Effect<void, ContractFailure>;
   readonly hardDeleteItem: (
-    key: EncodedKey,
+    key: StoredKey,
   ) => Effect.Effect<void, ContractFailure>;
   readonly hardDeleteEntityItems: (
     entity: string,

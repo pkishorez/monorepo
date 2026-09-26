@@ -1,13 +1,9 @@
 import { Clock, Effect } from 'effect';
-import {
-  EntitySchema,
-  type DecodedEntity,
-  type EncodedEntity,
-} from '../../../core/index.js';
+import { EntitySchema, type Entity } from '../../../core/index.js';
 import { ESchemaError, type AnyESchema } from '../../../eschema/index.js';
 import { DatabaseError } from '../../../db/index.js';
 import { converge } from './entity-convergence.js';
-import { isDecodedEntity } from '../../domain/entity-validation/index.js';
+import { isEntity } from '../../domain/entity-validation/index.js';
 import {
   HYDRATION_PAGE_SIZE,
   REPLICA_READ_CONCURRENCY,
@@ -26,29 +22,31 @@ import {
 import type { SyncStore } from '../../platform/sync-store/index.js';
 
 type Delta<TItem> = {
-  entities: DecodedEntity<TItem>[];
+  entities: Entity<TItem>[];
   position: string | null;
 };
 
 type SyncReplica<TItem> = {
   applyToSyncReplica: (
-    entities: DecodedEntity<TItem>[],
-  ) => Effect.Effect<DecodedEntity<TItem>[], WriteError>;
+    entities: Entity<TItem>[],
+  ) => Effect.Effect<Entity<TItem>[], WriteError>;
   since: (position: string | null) => Effect.Effect<Delta<TItem>, WriteError>;
   /** Streams the rows after `position` one page at a time; resolves with the last position read. */
   eachPage: <E>(
     position: string | null,
     onPage: (page: Delta<TItem>) => Effect.Effect<void, E>,
   ) => Effect.Effect<{ position: string | null; rows: number }, WriteError | E>;
-  get: (id: string) => Effect.Effect<DecodedEntity<TItem> | null, WriteError>;
+  get: (id: string) => Effect.Effect<Entity<TItem> | null, WriteError>;
+  validate: (entities: Entity<TItem>[]) => Effect.Effect<void, WriteError>;
 };
 
 const storeError = (reason: string) => (cause: DatabaseError) =>
   storageError(reason, cause);
 
-const invalidEntity = (cause: ESchemaError): WriteError => ({
+const invalidEntity = (cause: { readonly message: string }): WriteError => ({
   _tag: 'Invalid',
   reason: cause.message,
+  cause,
 });
 
 const CURSOR_KEY = 'replica';
@@ -70,7 +68,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
   const entityName = args.schema.name;
   const collection = args.collectionName ?? entityName;
 
-  const idOf = (entity: DecodedEntity<TItem>): string | null => {
+  const idOf = (entity: Entity<TItem>): string | null => {
     if (args.keyOf) return args.keyOf(entity.value);
     const idField =
       'idField' in args.schema && typeof args.schema.idField === 'string'
@@ -88,25 +86,25 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
 
   type Candidate = {
     id: string;
-    decoded: DecodedEntity<TItem>;
-    encoded: EncodedEntity<S['Encoded']>;
+    decoded: Entity<TItem>;
+    encoded: Entity<unknown>;
   };
 
   type Outcome = {
     readonly id: string;
-    readonly accepted: EncodedEntity<unknown>;
-    readonly decoded: DecodedEntity<TItem>;
+    readonly accepted: Entity<unknown>;
+    readonly decoded: Entity<TItem>;
     readonly repaired: boolean;
     readonly observedSeq: string | null;
   };
 
   const decide = (
     candidate: Candidate,
-    currentStored: DecodedEntity<StoredReplicaValue> | null,
+    currentStored: Entity<StoredReplicaValue> | null,
     clientNow: number,
   ): Outcome | null => {
     const { id, decoded, encoded: incoming } = candidate;
-    const incomingWithReceipt: EncodedEntity<S['Encoded']> = {
+    const incomingWithReceipt: Entity<unknown> = {
       ...incoming,
       meta: { ...incoming.meta, _c: clientNow },
     };
@@ -119,7 +117,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
         repaired: false,
         observedSeq,
       };
-    const current = currentStored.value.entity as EncodedEntity<unknown>;
+    const current = currentStored.value.entity as Entity<unknown>;
     if (converge(current, incoming) !== 'skip')
       return {
         id,
@@ -149,7 +147,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
   const acceptedOf = (
     outcome: Outcome,
     clientNow: number,
-  ): Effect.Effect<DecodedEntity<TItem> | null, ESchemaError> => {
+  ): Effect.Effect<Entity<TItem> | null, ESchemaError> => {
     if (!outcome.repaired)
       return Effect.succeed({
         ...outcome.decoded,
@@ -221,7 +219,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
     candidates: readonly Candidate[],
     clientNow: number,
     retries: number,
-  ): Effect.Effect<DecodedEntity<TItem>[], DatabaseError | ESchemaError> =>
+  ): Effect.Effect<Entity<TItem>[], DatabaseError | ESchemaError> =>
     Effect.gen(function* () {
       if (candidates.length === 0) return [];
       const cursorKey = { collection, key: CURSOR_KEY };
@@ -243,7 +241,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
         if (outcome !== null) outcomes.push(outcome);
       }
 
-      const acceptedEntities: DecodedEntity<TItem>[] = [];
+      const acceptedEntities: Entity<TItem>[] = [];
       let position = cursor === null ? null : cursor.value.position;
       let committed = 0;
       while (committed < outcomes.length) {
@@ -284,7 +282,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
     Effect.gen(function* () {
       let latest = position;
       let rows = 0;
-      let after: DecodedEntity<StoredReplicaValue> | undefined;
+      let after: Entity<StoredReplicaValue> | undefined;
       let hasMore = true;
       while (hasMore) {
         const page = yield* args.store
@@ -304,7 +302,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
           .pipe(
             Effect.mapError(storeError('failed to read Sync Replica entities')),
           );
-        const entities: DecodedEntity<TItem>[] = [];
+        const entities: Entity<TItem>[] = [];
         for (const item of page.items) {
           entities.push(
             yield* storedEntity(item.value).pipe(
@@ -324,28 +322,35 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
       return { position: latest, rows };
     });
 
+  const validate = (decoded: Entity<TItem>) =>
+    Effect.gen(function* () {
+      if (!isEntity(decoded)) {
+        return yield* Effect.fail<WriteError>({
+          _tag: 'Invalid',
+          reason: 'entity is missing value or a well-formed meta',
+        });
+      }
+      if (decoded.meta._e !== entityName) {
+        return yield* Effect.fail<WriteError>({
+          _tag: 'WrongEntity',
+          expected: entityName,
+          received: decoded.meta._e,
+        });
+      }
+      return yield* entitySchema
+        .encode(decoded)
+        .pipe(Effect.mapError(invalidEntity));
+    });
+
   return {
     eachPage,
+    validate: (entities) =>
+      Effect.forEach(entities, validate, { discard: true }),
     applyToSyncReplica: (entities) =>
       Effect.gen(function* () {
         const validated: Candidate[] = [];
         for (const decoded of entities) {
-          if (!isDecodedEntity(decoded)) {
-            return yield* Effect.fail<WriteError>({
-              _tag: 'Invalid',
-              reason: 'entity is missing value or a well-formed meta',
-            });
-          }
-          if (decoded.meta._e !== entityName) {
-            return yield* Effect.fail<WriteError>({
-              _tag: 'WrongEntity',
-              expected: entityName,
-              received: decoded.meta._e,
-            });
-          }
-          const encoded = yield* entitySchema
-            .encode(decoded)
-            .pipe(Effect.mapError(invalidEntity));
+          const encoded = yield* validate(decoded);
           const id = idOf(decoded);
           if (id == null) {
             return yield* Effect.fail<WriteError>({
@@ -359,8 +364,8 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
         const newest = new Map<
           string,
           {
-            decoded: DecodedEntity<TItem>;
-            encoded: EncodedEntity<S['Encoded']>;
+            decoded: Entity<TItem>;
+            encoded: Entity<unknown>;
           }
         >();
         for (const { id, decoded, encoded } of validated) {
@@ -407,7 +412,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
       }),
     since: (position) =>
       Effect.gen(function* () {
-        const entities: DecodedEntity<TItem>[] = [];
+        const entities: Entity<TItem>[] = [];
         const read = yield* eachPage(position, (page) =>
           Effect.sync(() => {
             entities.push(...page.entities);

@@ -3,7 +3,16 @@ import {
   ESchemaError,
   type AnyESchema,
   type AnyUnkeyedESchema,
+  type OutdatedVersion,
 } from '../../eschema/index.js';
+import {
+  readEncoded,
+  writeEncoded,
+} from '../../eschema/domain/encoded/index.js';
+import {
+  findOutdatedVersion,
+  unknownVersion,
+} from '../../eschema/domain/eschema-error/index.js';
 import {
   decodeEntityMeta,
   decodeSingleEntityMeta,
@@ -17,50 +26,36 @@ export const EntityMetaSchema = entityMetaSchema;
 export const SingleEntityMetaSchema = singleEntityMetaSchema;
 export type { EntityMeta, SingleEntityMeta };
 
-export type DecodedEntity<T> = {
+export type Entity<T> = {
   readonly value: T;
   readonly meta: EntityMeta;
 };
 
-export type EncodedEntity<T> = {
-  readonly value: T;
-  readonly meta: EntityMeta;
-};
-
-export type DecodedSingleEntity<T> = {
+export type SingletonEntity<T> = {
   readonly value: T;
   readonly meta: SingleEntityMeta;
 };
 
-export type EncodedSingleEntity<T> = {
-  readonly value: T;
-  readonly meta: SingleEntityMeta;
-};
+type Unversioned<T> = Omit<T, '_v'>;
 
-type EntitySchemaCodec<S extends AnyESchema> = Schema.Codec<
-  DecodedEntity<S['Type']>,
-  EncodedEntity<S['Encoded']>
+type EntityCodec<S extends AnyESchema, M> = Schema.Codec<
+  { readonly value: S['Type']; readonly meta: M },
+  { readonly value: Unversioned<S['Encoded']>; readonly meta: M }
 > & {
   readonly latestVersion: S['latestVersion'];
   readonly decode: (
     input: unknown,
-  ) => Effect.Effect<DecodedEntity<S['Type']>, ESchemaError>;
-  readonly encode: (
-    input: DecodedEntity<S['Type']>,
-  ) => Effect.Effect<EncodedEntity<S['Encoded']>, ESchemaError>;
-};
-
-type SingleEntitySchemaCodec<S extends AnyUnkeyedESchema> = Schema.Codec<
-  DecodedSingleEntity<S['Type']>,
-  EncodedSingleEntity<S['Encoded']>
-> & {
-  readonly latestVersion: S['latestVersion'];
-  readonly decode: (
-    input: unknown,
-  ) => Effect.Effect<DecodedSingleEntity<S['Type']>, ESchemaError>;
-  readonly encode: (
-    input: DecodedSingleEntity<S['Type']>,
-  ) => Effect.Effect<EncodedSingleEntity<S['Encoded']>, ESchemaError>;
+  ) => Effect.Effect<
+    { readonly value: S['Type']; readonly meta: M },
+    ESchemaError | OutdatedVersion
+  >;
+  readonly encode: (input: {
+    readonly value: S['Type'];
+    readonly meta: M;
+  }) => Effect.Effect<
+    { readonly value: Unversioned<S['Encoded']>; readonly meta: M },
+    ESchemaError | OutdatedVersion
+  >;
 };
 
 const entityInput = (input: unknown) => {
@@ -80,19 +75,12 @@ const entityInput = (input: unknown) => {
   );
 };
 
-const requireEncodedVersion = (value: unknown) => {
-  if (
-    value === null ||
-    typeof value !== 'object' ||
-    !Object.hasOwn(value, '_v') ||
-    typeof (value as { readonly _v?: unknown })._v !== 'string'
-  ) {
-    return Effect.fail(
-      new ESchemaError({ message: 'Encoded entity value must contain _v' }),
-    );
-  }
-  return Effect.succeed(value);
-};
+const requireObject = (value: unknown) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? Effect.succeed(value)
+    : Effect.fail(
+        new ESchemaError({ message: 'Entity value must be an object' }),
+      );
 
 const requireEntityName = (expected: string, received: string) =>
   expected === received
@@ -103,109 +91,73 @@ const requireEntityName = (expected: string, received: string) =>
         }),
       );
 
-const schemaIssue = (input: unknown) => (cause: ESchemaError) =>
-  new SchemaIssue.InvalidValue({ message: cause.message }, input);
+// A value in memory is always at the latest version, so encoding requires its
+// `_v` to say so, exactly as the codec's own meta schema does.
+const requireLatest = (eschema: AnyESchema, version: unknown) =>
+  version === eschema.latestVersion
+    ? Effect.void
+    : Effect.fail(
+        typeof version === 'string'
+          ? unknownVersion(eschema.name, version, eschema.latestVersion)
+          : new ESchemaError({ message: 'Entity Meta must contain _v' }),
+      );
 
-export const EntitySchema = <S extends AnyESchema>(
+const schemaIssue =
+  (input: unknown) => (cause: ESchemaError | OutdatedVersion) =>
+    new SchemaIssue.InvalidValue(
+      cause._tag === 'OutdatedVersion'
+        ? { message: cause.message, outdatedVersion: cause }
+        : { message: cause.message },
+      input,
+    );
+
+const makeEntityCodec = <
+  S extends AnyESchema,
+  M extends { readonly _e: string; readonly _v: string },
+>(
   eschema: S,
-): EntitySchemaCodec<S> => {
-  const decode = (
-    input: unknown,
-  ): Effect.Effect<DecodedEntity<S['Type']>, ESchemaError> =>
+  metaSchema: Schema.Codec<M>,
+  decodeMeta: (input: unknown) => Effect.Effect<M, ESchemaError>,
+): EntityCodec<S, M> => {
+  const decode = (input: unknown) =>
     Effect.gen(function* () {
       const entity = yield* entityInput(input);
-      const meta = yield* decodeEntityMeta(entity.meta);
+      const meta = yield* decodeMeta(entity.meta);
       yield* requireEntityName(eschema.name, meta._e);
-      yield* requireEncodedVersion(entity.value);
-      const value = yield* eschema.decode(entity.value);
-      return { value, meta };
+      const encoded = yield* requireObject(entity.value);
+      const value = yield* readEncoded(eschema, {
+        ...encoded,
+        _v: meta._v,
+      });
+      return { value, meta: { ...meta, _v: eschema.latestVersion } };
     });
 
-  const encode = (
-    input: DecodedEntity<S['Type']>,
-  ): Effect.Effect<EncodedEntity<S['Encoded']>, ESchemaError> =>
+  const encode = (input: { readonly value: S['Type']; readonly meta: M }) =>
     Effect.gen(function* () {
       const entity = yield* entityInput(input);
-      const meta = yield* decodeEntityMeta(entity.meta);
+      yield* requireLatest(eschema, input.meta._v);
+      const meta = yield* decodeMeta(entity.meta);
       yield* requireEntityName(eschema.name, meta._e);
-      const value = yield* eschema.encode(entity.value as S['Type']);
-      return { value, meta };
+      const { _v, ...value } = (yield* writeEncoded(
+        eschema,
+        entity.value as S['Type'],
+      )) as S['Encoded'];
+      return { value: value as Unversioned<S['Encoded']>, meta };
     });
 
-  const encodedShell = Schema.Struct({
-    value: Schema.Unknown,
-    meta: EntityMetaSchema,
-  });
-  const decodedShell = Schema.Struct({
-    value: Schema.toType(eschema.schema),
-    meta: EntityMetaSchema,
-  });
-  const codec = encodedShell.pipe(
+  const codec = Schema.Struct({ value: Schema.Unknown, meta: metaSchema }).pipe(
     Schema.decodeTo(
-      decodedShell,
+      Schema.Struct({ value: Schema.toType(eschema.schema), meta: metaSchema }),
       SchemaTransformation.transformOrFail({
         decode: (input) =>
           decode(input).pipe(Effect.mapError(schemaIssue(input))),
         encode: (input) =>
-          encode(input).pipe(Effect.mapError(schemaIssue(input))),
+          encode(input as never).pipe(Effect.mapError(schemaIssue(input))),
       }),
     ),
-  ) as Schema.Codec<DecodedEntity<S['Type']>, EncodedEntity<S['Encoded']>>;
-
-  return Object.assign(codec, {
-    latestVersion: eschema.latestVersion,
-    decode,
-    encode,
-  });
-};
-
-export const SingleEntitySchema = <S extends AnyUnkeyedESchema>(
-  eschema: S,
-): SingleEntitySchemaCodec<S> => {
-  const decode = (
-    input: unknown,
-  ): Effect.Effect<DecodedSingleEntity<S['Type']>, ESchemaError> =>
-    Effect.gen(function* () {
-      const entity = yield* entityInput(input);
-      const meta = yield* decodeSingleEntityMeta(entity.meta);
-      yield* requireEntityName(eschema.name, meta._e);
-      yield* requireEncodedVersion(entity.value);
-      const value = yield* eschema.decode(entity.value);
-      return { value, meta };
-    });
-
-  const encode = (
-    input: DecodedSingleEntity<S['Type']>,
-  ): Effect.Effect<EncodedSingleEntity<S['Encoded']>, ESchemaError> =>
-    Effect.gen(function* () {
-      const entity = yield* entityInput(input);
-      const meta = yield* decodeSingleEntityMeta(entity.meta);
-      yield* requireEntityName(eschema.name, meta._e);
-      const value = yield* eschema.encode(entity.value as S['Type']);
-      return { value, meta };
-    });
-
-  const encodedShell = Schema.Struct({
-    value: Schema.Unknown,
-    meta: SingleEntityMetaSchema,
-  });
-  const decodedShell = Schema.Struct({
-    value: Schema.toType(eschema.schema),
-    meta: SingleEntityMetaSchema,
-  });
-  const codec = encodedShell.pipe(
-    Schema.decodeTo(
-      decodedShell,
-      SchemaTransformation.transformOrFail({
-        decode: (input) =>
-          decode(input).pipe(Effect.mapError(schemaIssue(input))),
-        encode: (input) =>
-          encode(input).pipe(Effect.mapError(schemaIssue(input))),
-      }),
-    ),
-  ) as Schema.Codec<
-    DecodedSingleEntity<S['Type']>,
-    EncodedSingleEntity<S['Encoded']>
+  ) as unknown as Schema.Codec<
+    { readonly value: S['Type']; readonly meta: M },
+    { readonly value: Unversioned<S['Encoded']>; readonly meta: M }
   >;
 
   return Object.assign(codec, {
@@ -214,3 +166,15 @@ export const SingleEntitySchema = <S extends AnyUnkeyedESchema>(
     encode,
   });
 };
+
+export const EntitySchema = <S extends AnyESchema>(eschema: S) =>
+  makeEntityCodec<S, EntityMeta>(eschema, entityMetaSchema, decodeEntityMeta);
+
+export const SingleEntitySchema = <S extends AnyUnkeyedESchema>(eschema: S) =>
+  makeEntityCodec<S, SingleEntityMeta>(
+    eschema,
+    singleEntityMetaSchema,
+    decodeSingleEntityMeta,
+  );
+
+export { findOutdatedVersion };

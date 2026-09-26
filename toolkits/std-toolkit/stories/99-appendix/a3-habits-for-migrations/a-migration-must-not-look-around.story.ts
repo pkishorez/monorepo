@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 
 // v2 adds a slug worked out from the title alone: nothing from the clock, nothing random, nothing from outside the row.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -34,8 +34,12 @@ export const aMigrationMustNotLookAround = Story.make({
           'Exactly, and they must: the step is not a one-time job, it runs each time the row is read, on every server and every day. A step that reached for the clock or a random number would hand two readers two different tasks.',
         proof: Effect.gen(function* () {
           // Read the same row twice.
-          const first = yield* Task.decode(stored);
-          const second = yield* Task.decode(stored);
+          const first = yield* Schema.decodeUnknownEffect(toSchema(Task))(
+            stored,
+          );
+          const second = yield* Schema.decodeUnknownEffect(toSchema(Task))(
+            stored,
+          );
           yield* Story.assert(
             'two reads of the same row agree exactly',
             JSON.stringify(first) === JSON.stringify(second),
@@ -49,7 +53,7 @@ export const aMigrationMustNotLookAround = Story.make({
         'From the previous value only. The slug here is a plain function of the title, so it is the same wherever and whenever the row is read.',
       proof: Effect.gen(function* () {
         // Read the row; the slug is spelled out of the title and nothing else.
-        const read = yield* Task.decode(stored);
+        const read = yield* Schema.decodeUnknownEffect(toSchema(Task))(stored);
         yield* Story.assert(
           'the new value is derived from the row alone',
           read.slug === 'write-the-plan',

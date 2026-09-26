@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 4 — Transforms, removing fields, and renaming
  *
@@ -29,10 +30,10 @@ const StringToNumber = Schema.String.pipe(
 const Counter = ESchema.make('Counter', { count: StringToNumber }).build();
 console.log(
   'decode "42":',
-  Effect.runSync(Counter.decode({ _v: 'v1', count: '42' })),
+  Effect.runSync(readEncoded(Counter, { _v: 'v1', count: '42' })),
 );
 // => { count: 42 }
-console.log('encode 42:', Effect.runSync(Counter.encode({ count: 42 })));
+console.log('encode 42:', Effect.runSync(writeEncoded(Counter, { count: 42 })));
 // => { count: '42', _v: 'v1' }
 
 // --- Remove a field: `null` in the delta ----------------------------------
@@ -46,7 +47,7 @@ const Account = ESchema.make('Account', {
 
 console.log(
   'removed field:',
-  Effect.runSync(Account.decode({ _v: 'v1', id: 'a1', nickname: 'bob' })),
+  Effect.runSync(readEncoded(Account, { _v: 'v1', id: 'a1', nickname: 'bob' })),
 );
 // => { id: 'a1' }
 
@@ -67,7 +68,11 @@ const Person = ESchema.make('Person', {
 console.log(
   'renamed:',
   Effect.runSync(
-    Person.decode({ _v: 'v1', firstName: 'Ada', lastName: 'Lovelace' }),
+    readEncoded(Person, {
+      _v: 'v1',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    }),
   ),
 );
 // => { fullName: 'Ada Lovelace' }

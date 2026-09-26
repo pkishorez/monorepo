@@ -1,6 +1,6 @@
 import { it, describe, expect } from 'vitest';
 import { Effect, Scope, Stream } from 'effect';
-import type { DecodedEntity } from '../../../../../core/index.js';
+import type { Entity } from '../../../../../core/index.js';
 import { newToOld } from '../index.js';
 import type { NewToOldState } from '../state.js';
 import type { StrategyContext } from '../../index.js';
@@ -16,22 +16,22 @@ const flow = {
       effect,
 };
 
-const entity = (id: string, u: string): DecodedEntity<Item> => ({
+const entity = (id: string, u: string): Entity<Item> => ({
   value: { id },
-  meta: { _e: 't', _d: false, _u: u },
+  meta: { _e: 't', _v: 'v1', _d: false, _u: u },
 });
 
-const uOf = (e: DecodedEntity<Item>) => e.meta._u;
+const uOf = (e: Entity<Item>) => e.meta._u;
 
 const drive = async (opts: {
-  dataset: DecodedEntity<Item>[];
+  dataset: Entity<Item>[];
   pageSize: number;
   initial?: NewToOldState;
 }) => {
   const sorted = [...opts.dataset].sort((a, b) =>
     uOf(a) < uOf(b) ? -1 : uOf(a) > uOf(b) ? 1 : 0,
   );
-  const written: DecodedEntity<Item>[] = [];
+  const written: Entity<Item>[] = [];
   const olderCursors: (string | null)[] = [];
   let state: NewToOldState = opts.initial ?? {
     slices: [],
@@ -42,7 +42,7 @@ const drive = async (opts: {
     flow,
     applyToSyncReplica: (entities) =>
       Effect.sync(() => {
-        written.push(...(entities as DecodedEntity<Item>[]));
+        written.push(...(entities as Entity<Item>[]));
       }),
     getState: Effect.sync(() => state),
     setState: (s) =>
@@ -58,14 +58,12 @@ const drive = async (opts: {
         fetch: ({ cursor }) =>
           Effect.sync(() => {
             olderCursors.push(
-              cursor === null ? null : uOf(cursor as DecodedEntity<Item>),
+              cursor === null ? null : uOf(cursor as Entity<Item>),
             );
             const pool =
               cursor === null
                 ? sorted
-                : sorted.filter(
-                    (e) => uOf(e) < uOf(cursor as DecodedEntity<Item>),
-                  );
+                : sorted.filter((e) => uOf(e) < uOf(cursor as Entity<Item>));
             return pool.slice(Math.max(0, pool.length - opts.pageSize));
           }),
       }),
@@ -75,9 +73,7 @@ const drive = async (opts: {
           const newer =
             cursor === null
               ? sorted
-              : sorted.filter(
-                  (e) => uOf(e) > uOf(cursor as DecodedEntity<Item>),
-                );
+              : sorted.filter((e) => uOf(e) > uOf(cursor as Entity<Item>));
           return Stream.fromIterable(newer.length === 0 ? [] : [newer]);
         },
       }),
@@ -99,21 +95,21 @@ describe('Sync', () => {
 
           expect(state.reachedOldest).toBe(true);
           expect(state.slices).toHaveLength(1);
-          expect(uOf(state.slices[0]!.low as DecodedEntity<Item>)).toBe('u01');
-          expect(uOf(state.slices[0]!.high as DecodedEntity<Item>)).toBe('u06');
+          expect(uOf(state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(state.slices[0]!.high as Entity<Item>)).toBe('u06');
           expect(new Set(written.map((e) => e.value.id))).toEqual(
             new Set(dataset.map((e) => e.value.id)),
           );
         });
 
         it('merges contiguous live-tail batches into one slice when the backfill is empty', async () => {
-          const written: DecodedEntity<Item>[] = [];
+          const written: Entity<Item>[] = [];
           let state: NewToOldState = { slices: [], reachedOldest: false };
           const ctx: StrategyContext<Item, NewToOldState> = {
             flow,
             applyToSyncReplica: (entities) =>
               Effect.sync(() => {
-                written.push(...(entities as DecodedEntity<Item>[]));
+                written.push(...(entities as Entity<Item>[]));
               }),
             getState: Effect.sync(() => state),
             setState: (s) =>
@@ -139,8 +135,8 @@ describe('Sync', () => {
           await Effect.runPromise(Effect.scoped(strategy.run(ctx)));
 
           expect(state.slices).toHaveLength(1);
-          expect(uOf(state.slices[0]!.low as DecodedEntity<Item>)).toBe('u01');
-          expect(uOf(state.slices[0]!.high as DecodedEntity<Item>)).toBe('u06');
+          expect(uOf(state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(state.slices[0]!.high as Entity<Item>)).toBe('u06');
           expect(written).toHaveLength(6);
         });
 
@@ -168,12 +164,8 @@ describe('Sync', () => {
 
           expect(next.state.reachedOldest).toBe(true);
           expect(next.state.slices).toHaveLength(1);
-          expect(uOf(next.state.slices[0]!.low as DecodedEntity<Item>)).toBe(
-            'u01',
-          );
-          expect(uOf(next.state.slices[0]!.high as DecodedEntity<Item>)).toBe(
-            'u04',
-          );
+          expect(uOf(next.state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(next.state.slices[0]!.high as Entity<Item>)).toBe('u04');
           expect(new Set(next.written.map((e) => e.value.id))).toEqual(
             new Set(dataset.map((e) => e.value.id)),
           );
@@ -190,12 +182,8 @@ describe('Sync', () => {
 
           expect(next.state.reachedOldest).toBe(true);
           expect(next.state.slices).toHaveLength(1);
-          expect(uOf(next.state.slices[0]!.low as DecodedEntity<Item>)).toBe(
-            'u01',
-          );
-          expect(uOf(next.state.slices[0]!.high as DecodedEntity<Item>)).toBe(
-            'u04',
-          );
+          expect(uOf(next.state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(next.state.slices[0]!.high as Entity<Item>)).toBe('u04');
           expect(new Set(next.written.map((e) => e.value.id))).toEqual(
             new Set(dataset.map((e) => e.value.id)),
           );
@@ -220,12 +208,8 @@ describe('Sync', () => {
           });
 
           expect(second.state.slices).toHaveLength(1);
-          expect(uOf(second.state.slices[0]!.low as DecodedEntity<Item>)).toBe(
-            'u01',
-          );
-          expect(uOf(second.state.slices[0]!.high as DecodedEntity<Item>)).toBe(
-            'u08',
-          );
+          expect(uOf(second.state.slices[0]!.low as Entity<Item>)).toBe('u01');
+          expect(uOf(second.state.slices[0]!.high as Entity<Item>)).toBe('u08');
           expect(second.olderCursors).not.toContain('u01');
         });
       });

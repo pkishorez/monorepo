@@ -1,3 +1,4 @@
+import { readEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -17,7 +18,7 @@ describe('ESchema', () => {
             .evolve('v3', { c: Schema.Number }, (v) => ({ ...v, c: 100 }))
             .build();
 
-          const fromV1 = yield* schema.decode({
+          const fromV1 = yield* readEncoded(schema, {
             _v: 'v1',
             id: 't1',
             a: 'hello',
@@ -29,7 +30,7 @@ describe('ESchema', () => {
             c: 100,
           });
 
-          const fromV2 = yield* schema.decode({
+          const fromV2 = yield* readEncoded(schema, {
             _v: 'v2',
             id: 't1',
             a: 'hello',
@@ -42,7 +43,7 @@ describe('ESchema', () => {
             c: 100,
           });
 
-          const fromV3 = yield* schema.decode({
+          const fromV3 = yield* readEncoded(schema, {
             _v: 'v3',
             id: 't1',
             a: 'hello',
@@ -67,7 +68,7 @@ describe('ESchema', () => {
             .evolve('v2', { b: null }, (v) => ({ id: v.id, a: v.a }))
             .build();
 
-          const decoded = yield* schema.decode({
+          const decoded = yield* readEncoded(schema, {
             _v: 'v1',
             id: 't1',
             a: 'keep',
@@ -90,7 +91,7 @@ describe('ESchema', () => {
             )
             .build();
 
-          const decoded = yield* schema.decode({
+          const decoded = yield* readEncoded(schema, {
             _v: 'v1',
             id: 't1',
             firstName: 'John',
@@ -113,7 +114,7 @@ describe('ESchema', () => {
             .build();
 
           const error = yield* Effect.flip(
-            schema.decode({ _v: 'v1', id: 't1', a: 'hello' }),
+            readEncoded(schema, { _v: 'v1', id: 't1', a: 'hello' }),
           );
 
           expect(error).toBeInstanceOf(ESchemaError);

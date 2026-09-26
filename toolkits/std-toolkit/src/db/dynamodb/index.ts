@@ -1,15 +1,7 @@
 export {
   DynamoDB,
   DynamoDBNativeError,
-  buildExpr,
-  dynamoTableService,
-  exprCondition,
-  exprFilter,
-  exprUpdate,
-  marshall,
-  unmarshall,
   type DynamoDBConfig,
   type DynamoDBTable,
-  type DynamoTableService,
   type DynamoTableTopology,
 } from './dynamodb.js';

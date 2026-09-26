@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { DecodedEntity } from '../../core/index.js';
+import type { Entity } from '../../core/index.js';
 import { EntityESchema } from '../../eschema/index.js';
 import { createStdSync } from '../std-sync/std-sync.js';
 
@@ -16,9 +16,9 @@ const todo = (
   updated: string,
   title = `title ${updated}`,
   deleted = false,
-): DecodedEntity<Todo> => ({
+): Entity<Todo> => ({
   value: { id, title },
-  meta: { _e: 'Todo', _d: deleted, _u: updated },
+  meta: { _e: 'Todo', _v: 'v1', _d: deleted, _u: updated },
 });
 
 describe('batched mutations', () => {
@@ -63,11 +63,13 @@ describe('batched mutations', () => {
           {
             key: 'a',
             original: { id: 'a', title: 'A' },
+            modified: { id: 'a', title: 'A2' },
             changes: { title: 'A2' },
           },
           {
             key: 'b',
             original: { id: 'b', title: 'B' },
+            modified: { id: 'b', title: 'B2' },
             changes: { title: 'B2' },
           },
         ],

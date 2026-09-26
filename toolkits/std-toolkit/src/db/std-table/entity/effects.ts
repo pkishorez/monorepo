@@ -1,9 +1,9 @@
-import { Effect, Option, Stream } from 'effect';
+import { Effect, Equal, Option, Stream } from 'effect';
 import {
   Broadcaster,
   type ChangeNotice,
-  type DecodedEntity,
-  type DecodedSingleEntity,
+  type Entity,
+  type SingletonEntity,
 } from '../../../core/index.js';
 import {
   ConditionFailed,
@@ -29,41 +29,13 @@ export const dbError = (
 export const failReason = (reason: DatabaseError['reason']) =>
   Effect.fail(new DatabaseError({ reason }));
 
-export const broadcast = (
-  entity: DecodedEntity<object> | DecodedSingleEntity<object>,
-) =>
+export const broadcast = (entity: Entity<object> | SingletonEntity<object>) =>
   Effect.gen(function* () {
     const service = yield* Effect.serviceOption(Broadcaster).pipe(
       Effect.map(Option.getOrNull),
     );
-    service?.broadcast([entity as DecodedEntity<object>]);
+    service?.broadcast([entity as Entity<object>]);
   });
-
-const deepEqual = (a: unknown, b: unknown): boolean => {
-  if (a === b) return true;
-  if (Array.isArray(a) || Array.isArray(b))
-    return (
-      Array.isArray(a) &&
-      Array.isArray(b) &&
-      a.length === b.length &&
-      a.every((item, index) => deepEqual(item, b[index]))
-    );
-  if (
-    a !== null &&
-    b !== null &&
-    typeof a === 'object' &&
-    typeof b === 'object'
-  ) {
-    const aRecord = a as Record<string, unknown>;
-    const bRecord = b as Record<string, unknown>;
-    const keys = Object.keys(aRecord);
-    return (
-      keys.length === Object.keys(bRecord).length &&
-      keys.every((key) => deepEqual(aRecord[key], bRecord[key]))
-    );
-  }
-  return false;
-};
 
 const matchesFilter = <T extends object>(
   value: T,
@@ -71,13 +43,13 @@ const matchesFilter = <T extends object>(
 ): boolean =>
   filter === undefined ||
   Object.keys(filter).every((key) =>
-    deepEqual(
+    Equal.equals(
       (value as Record<string, unknown>)[key],
       (filter as Record<string, unknown>)[key],
     ),
   );
 
-export const changesOrEmpty = (): Stream.Stream<DecodedEntity<any>> =>
+export const changesOrEmpty = (): Stream.Stream<Entity<any>> =>
   Stream.unwrap(
     Effect.serviceOption(Broadcaster).pipe(
       Effect.map((service) =>

@@ -3,9 +3,12 @@ export type {
   AccessPatternDefinition,
   GlobalSecondaryIndex,
   KeyedEntityDefinition,
+  KeyPath,
+  KeyPathValue,
   PrimaryIndex,
   SingleEntityDefinition,
   TableDefinition,
+  TotalKeyPath,
 } from './std-table/definition/index.js';
 export type {
   KeyedEntity,

@@ -2,7 +2,7 @@ import { Effect, Fiber, Schedule, Scope } from 'effect';
 import { TestClock } from 'effect/testing';
 import { it, describe, expect } from 'vitest';
 import { ulid } from 'ulidx';
-import { uTime, type DecodedEntity } from '../../../../core/index.js';
+import { uTime, type Entity } from '../../../../core/index.js';
 import type { CollectionItem } from '../../../domain/collection-item/index.js';
 import type { WriteError } from '../../../domain/sync-error/index.js';
 import {
@@ -11,20 +11,28 @@ import {
   type SyncCollection,
 } from '../index.js';
 
-type Item = { id: string; p?: string };
+type Item = { id: string; p?: string; board?: { id: string } };
 
 const uAt = (ms: number) => ulid(ms);
 
 const makeEntity = (
   u: string,
-  overrides?: { _s?: number; _c?: number; id?: string; p?: string },
-): DecodedEntity<Item> => ({
+  overrides?: {
+    _s?: number;
+    _c?: number;
+    id?: string;
+    p?: string;
+    board?: string;
+  },
+): Entity<Item> => ({
   value: {
     id: overrides?.id ?? u,
     ...(overrides?.p != null ? { p: overrides.p } : {}),
+    ...(overrides?.board != null ? { board: { id: overrides.board } } : {}),
   },
   meta: {
     _e: 'Item',
+    _v: 'v1',
     _u: u,
     _d: false,
     _s: overrides?._s,
@@ -33,7 +41,7 @@ const makeEntity = (
 });
 
 // Flat collection-row form of an entity: value fields hoisted, meta under `_meta`.
-const toRow = (e: DecodedEntity<Item>): CollectionItem<Item> =>
+const toRow = (e: Entity<Item>): CollectionItem<Item> =>
   ({ ...e.value, _meta: e.meta }) as CollectionItem<Item>;
 
 type SubscribersChangeCb = (args: {
@@ -43,7 +51,7 @@ type SubscribersChangeCb = (args: {
 
 type FakeCollection = SyncCollection<Item> & {
   emitSubscribersChange: (prev: number, next: number) => void;
-  applyWrite: (entities: DecodedEntity<Item>[]) => void;
+  applyWrite: (entities: Entity<Item>[]) => void;
   subscriberListenerCount: () => number;
   valuesCallCount: () => number;
 };
@@ -53,7 +61,7 @@ type FakeCollection = SyncCollection<Item> & {
 // repaired suspect actually clears, mirroring real replica convergence.
 const makeFakeCollection = (opts: {
   subscriberCount: number;
-  entities: DecodedEntity<Item>[];
+  entities: Entity<Item>[];
 }): FakeCollection => {
   const rows = new Map<string, CollectionItem<Item>>();
   for (const e of opts.entities) rows.set(e.value.id, toRow(e));
@@ -86,11 +94,11 @@ const makeFakeCollection = (opts: {
   return collection;
 };
 
-const fetchFor = (results: DecodedEntity<Item>[]) => {
-  const anchors: Array<DecodedEntity<Item> | null> = [];
+const fetchFor = (results: Entity<Item>[]) => {
+  const anchors: Array<Entity<Item> | null> = [];
   return {
     anchors,
-    fetchFrom: (anchor: DecodedEntity<Item> | null) =>
+    fetchFrom: (anchor: Entity<Item> | null) =>
       Effect.sync(() => {
         anchors.push(anchor);
         return results;
@@ -99,10 +107,10 @@ const fetchFor = (results: DecodedEntity<Item>[]) => {
 };
 
 const writeFor = (collection: FakeCollection) => {
-  const batches: DecodedEntity<Item>[][] = [];
+  const batches: Entity<Item>[][] = [];
   return {
     batches,
-    applyToSyncReplica: (entities: DecodedEntity<Item>[]) =>
+    applyToSyncReplica: (entities: Entity<Item>[]) =>
       Effect.sync(() => {
         batches.push(entities);
         collection.applyWrite(entities);
@@ -424,7 +432,7 @@ describe('Sync', () => {
         });
 
         let attempts = 0;
-        const applyToSyncReplica = (entities: DecodedEntity<Item>[]) => {
+        const applyToSyncReplica = (entities: Entity<Item>[]) => {
           attempts += 1;
           if (attempts === 1) {
             return Effect.fail({
@@ -557,6 +565,56 @@ describe('Sync', () => {
                 fetchFrom,
                 applyToSyncReplica,
                 partition: { field: 'p', value: 'A' },
+                config: defaultConfig,
+              }),
+            );
+
+            yield* Fiber.interrupt(fiber);
+          }),
+          nowMs,
+        );
+
+        expect(anchors).toEqual([samePartitionPredecessor]);
+        expect(batches).toHaveLength(1);
+      });
+
+      it('reads a nested partition key path from each row', async () => {
+        const nowMs = 100_000;
+        const suspectU = uAt(nowMs - 20_000);
+        const predecessorU = uAt(nowMs - 30_000);
+        const otherU = uAt(nowMs - 25_000);
+
+        const suspect = makeEntity(suspectU, {
+          id: 'a-suspect',
+          board: 'A',
+          _s: uTime(suspectU)! + 1_000,
+        });
+        const samePartitionPredecessor = makeEntity(predecessorU, {
+          id: 'a-pred',
+          board: 'A',
+        });
+        const otherPartition = makeEntity(otherU, {
+          id: 'b-pred',
+          board: 'B',
+        });
+
+        const { anchors, fetchFrom } = fetchFor([
+          makeEntity(suspectU, { id: 'a-suspect', board: 'A', _s: nowMs }),
+        ]);
+        const collection = makeFakeCollection({
+          subscriberCount: 1,
+          entities: [suspect, samePartitionPredecessor, otherPartition],
+        });
+        const { batches, applyToSyncReplica } = writeFor(collection);
+
+        await runWithTestClock(
+          Effect.gen(function* () {
+            const fiber = yield* fork(
+              runCadenceRepair({
+                collection,
+                fetchFrom,
+                applyToSyncReplica,
+                partition: { field: 'board.id', value: 'A' },
                 config: defaultConfig,
               }),
             );

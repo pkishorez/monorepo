@@ -121,7 +121,7 @@ export function RecordTable({
               ))}
               <TableCell>
                 <div className="flex items-center gap-1.5 font-mono text-[11px]">
-                  <Badge variant="outline">_v {record.value._v}</Badge>
+                  <Badge variant="outline">_v {record.meta._v}</Badge>
                   {'_d' in record.meta && (
                     <Badge
                       variant={record.meta._d ? 'destructive' : 'secondary'}

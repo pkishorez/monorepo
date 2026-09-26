@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -14,7 +15,10 @@ describe('ESchema', () => {
             name: Schema.String,
           }).build();
 
-          const encoded = yield* schema.encode({ id: 'u1', name: 'Alice' });
+          const encoded = yield* writeEncoded(schema, {
+            id: 'u1',
+            name: 'Alice',
+          });
           expect(encoded).toEqual({ _v: 'v1', id: 'u1', name: 'Alice' });
         }),
       );
@@ -27,7 +31,7 @@ describe('ESchema', () => {
             .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 0 }))
             .build();
 
-          const encoded = yield* schema.encode({
+          const encoded = yield* writeEncoded(schema, {
             id: 't1',
             a: 'hello',
             b: 123,
@@ -42,7 +46,7 @@ describe('ESchema', () => {
             name: Schema.String,
           }).build();
 
-          const encoded = yield* schema.encode({
+          const encoded = yield* writeEncoded(schema, {
             _v: 'old',
             id: 't1',
             name: 'test',
@@ -61,8 +65,8 @@ describe('ESchema', () => {
           }).build();
 
           const original = { id: 't1', name: 'test', count: 42 };
-          const encoded = yield* schema.encode(original);
-          const decoded = yield* schema.decode(encoded);
+          const encoded = yield* writeEncoded(schema, original);
+          const decoded = yield* readEncoded(schema, encoded);
           expect(decoded).toEqual({ id: 't1', name: 'test', count: 42 });
         }),
       );
@@ -74,8 +78,8 @@ describe('ESchema', () => {
           }).build();
 
           const raw = { _v: 'v1', id: 't1', count: 123 };
-          const decoded = yield* schema.decode(raw);
-          const encoded = yield* schema.encode(decoded);
+          const decoded = yield* readEncoded(schema, raw);
+          const encoded = yield* writeEncoded(schema, decoded);
           expect(encoded).toEqual({ _v: 'v1', id: 't1', count: 123 });
         }),
       );

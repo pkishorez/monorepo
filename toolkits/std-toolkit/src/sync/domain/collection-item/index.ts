@@ -1,4 +1,5 @@
 export {
+  changedFields,
   stripMeta,
   stripMetaPartial,
   toEntity,

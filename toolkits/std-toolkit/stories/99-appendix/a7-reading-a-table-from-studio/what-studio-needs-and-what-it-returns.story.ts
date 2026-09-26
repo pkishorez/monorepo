@@ -90,7 +90,7 @@ export const whatStudioNeedsAndWhatItReturns = Story.make({
                 );
                 yield* Story.assert(
                   'a single entity reads as its default, stamped with its version',
-                  current?.value._v === 'v1',
+                  current?.meta._v === 'v1',
                 );
                 return {
                   logicalName: snapshot.logicalName,
@@ -196,7 +196,7 @@ export const whatStudioNeedsAndWhatItReturns = Story.make({
                 });
                 yield* Story.assert(
                   'Studio returns the task at the newest version, migrated',
-                  read?.value._v === 'v2' && read.value.priority === 'normal',
+                  read?.meta._v === 'v2' && read.value.priority === 'normal',
                 );
                 return { read };
               }),

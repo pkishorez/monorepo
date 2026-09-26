@@ -1,4 +1,8 @@
 import { Effect, Schema } from 'effect';
+import {
+  readEncoded,
+  writeEncoded,
+} from '../../../eschema/domain/encoded/index.js';
 import type { ESchemaDefinition, TableSnapshot } from '../../domain/index.js';
 import {
   SnapshotDecodeError,
@@ -57,10 +61,7 @@ const schemaIssues = (
   });
   schemas.forEach((definition, definitionIndex) => {
     definition.versions.forEach((version, versionIndex) => {
-      for (const reference of referencesIn([
-        version.encoded,
-        version.decoded,
-      ])) {
+      for (const reference of referencesIn([version.serialized])) {
         if (!identities.has(reference)) {
           issues.push({
             path: ['schemas', definitionIndex, 'versions', versionIndex],
@@ -164,7 +165,7 @@ export function validateTableSnapshot(snapshot: TableSnapshot): TableSnapshot {
 export function parseTableSnapshot(
   input: unknown,
 ): Effect.Effect<TableSnapshot, SnapshotDecodeError> {
-  return TableSnapshotESchema.decode(input).pipe(
+  return readEncoded(TableSnapshotESchema, input).pipe(
     Effect.mapError(
       (cause) =>
         new SnapshotDecodeError(
@@ -178,5 +179,16 @@ export function parseTableSnapshot(
         ? Effect.succeed(snapshot)
         : Effect.fail(issuesError(issues));
     }),
+  );
+}
+
+export function serializeTableSnapshot(
+  snapshot: TableSnapshot,
+): Effect.Effect<unknown, SnapshotDecodeError> {
+  return writeEncoded(TableSnapshotESchema, snapshot).pipe(
+    Effect.mapError(
+      (cause) =>
+        new SnapshotDecodeError(`Malformed snapshot: ${cause.message}`, cause),
+    ),
   );
 }

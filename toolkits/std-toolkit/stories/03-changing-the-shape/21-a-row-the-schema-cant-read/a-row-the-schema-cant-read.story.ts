@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { StdTable } from 'std-toolkit/db';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -118,14 +118,14 @@ export const aRowTheSchemaCantRead = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // Decode a row stamped with a version Task never had; the refusal comes back as a value.
-            const refused = yield* Task.decode({
+            const refused = yield* Schema.decodeUnknownEffect(toSchema(Task))({
               _v: 'v9',
               ...neighbour,
             }).pipe(Effect.flip);
             yield* Story.assert(
               'the error names the unknown version',
-              refused._tag === 'ESchemaError' &&
-                refused.message === 'Unknown schema version: v9',
+              refused._tag === 'SchemaError' &&
+                refused.message.includes('Unknown schema version: v9'),
             );
             return { refused: refused.message };
           }),

@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 2 — Evolving: adding fields over time
  *
@@ -36,14 +37,14 @@ const User = ESchema.make('User', {
 const oldRow = { _v: 'v1', name: 'Bob' };
 
 // decode walks v1 -> v2 -> v3, running each migration in order.
-const decoded = Effect.runSync(User.decode(oldRow));
+const decoded = Effect.runSync(readEncoded(User, oldRow));
 console.log('migrated v1 row:', decoded);
 // => { name: 'Bob', email: 'unknown@example.com', verified: false }
 
 // encode always writes the LATEST version. There is no way to encode an old
 // version — old shapes only exist to be read, never written.
 const encoded = Effect.runSync(
-  User.encode({ name: 'Carol', email: 'c@x.com', verified: true }),
+  writeEncoded(User, { name: 'Carol', email: 'c@x.com', verified: true }),
 );
 console.log('freshly encoded:', encoded);
 // => { name: 'Carol', email: 'c@x.com', verified: true, _v: 'v3' }

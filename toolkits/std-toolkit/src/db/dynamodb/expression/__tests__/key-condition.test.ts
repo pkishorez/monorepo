@@ -1,6 +1,6 @@
 import { it, describe, expect } from 'vitest';
 import { keyConditionExpr } from '../key-condition.js';
-import type { IndexDefinition } from '../index.js';
+import type { IndexDefinition } from '../types.js';
 
 const pkSkIndex: IndexDefinition = { pk: 'PK', sk: 'SK' };
 const pkOnlyIndex = { pk: 'PK' } as IndexDefinition;

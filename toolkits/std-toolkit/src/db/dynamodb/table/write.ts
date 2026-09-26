@@ -9,7 +9,7 @@ import type { DynamoDBClient, TransactWriteItem } from '../client/index.js';
 import { buildExpr, exprCondition } from '../expression/index.js';
 import type { ItemSchema } from '../item-schema/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
-import { decodeKey } from '../item-schema/index.js';
+import { toNativeKey } from '../item-schema/index.js';
 import { contractFailure, transactFailure } from './failure.js';
 
 type DynamoTable = Pick<
@@ -80,7 +80,7 @@ const checkInput = (
   Effect.try({
     try: () => ({
       TableName: tableName,
-      Key: decodeKey(table, request.key),
+      Key: toNativeKey(table, request.key),
       ...conditionExpr(table, request.condition),
     }),
     catch: contractFailure,

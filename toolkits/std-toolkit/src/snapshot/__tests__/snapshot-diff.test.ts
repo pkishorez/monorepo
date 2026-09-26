@@ -36,28 +36,20 @@ describe('Snapshot.diff', () => {
     ).toBe(true);
   });
 
-  it('reports encoded and decoded approved edits independently', () => {
+  it('reports an approved serialized edit as breaking', () => {
     const previous = snapshotOf(
       ESchema.make('Item', { value: Schema.String }).build(),
     );
-    const encodedEdit = JSON.parse(JSON.stringify(previous));
-    encodedEdit.schemas[0]!.versions[0]!.encoded = { changed: true };
-    const decodedEdit = JSON.parse(JSON.stringify(previous));
-    decodedEdit.schemas[0]!.versions[0]!.decoded = { changed: true };
+    const edited = JSON.parse(JSON.stringify(previous));
+    edited.schemas[0]!.versions[0]!.serialized = { changed: true };
 
-    expect(TableSnapshot.diff(previous, encodedEdit)[0]).toMatchObject({
+    expect(TableSnapshot.diff(previous, edited)[0]).toMatchObject({
       action: 'edited',
       impact: 'breaking',
-      edits: [expect.objectContaining({ side: 'encoded' })],
-    });
-    expect(TableSnapshot.diff(previous, decodedEdit)[0]).toMatchObject({
-      action: 'edited',
-      impact: 'breaking',
-      edits: [expect.objectContaining({ side: 'decoded' })],
     });
   });
 
-  it('reports exact nested edits and combines matching encoded and decoded sides', () => {
+  it('reports exact nested edits', () => {
     const before = snapshotOf(
       ESchema.make('Item', {
         profile: Schema.Struct({ displayName: Schema.String }),
@@ -78,7 +70,6 @@ describe('Snapshot.diff', () => {
         edits: [
           expect.objectContaining({
             path: ['profile', 'displayName'],
-            side: 'encoded-and-decoded',
           }),
         ],
       }),
@@ -97,7 +88,7 @@ describe('Snapshot.diff', () => {
       const after = structuredClone(before);
       for (const snapshot of [before, after]) {
         const version = snapshot.schemas[0]!.versions[0]!;
-        for (const schema of [version.encoded, version.decoded]) {
+        for (const schema of [version.serialized]) {
           const { representation } = schema as unknown as {
             representation: { indexSignatures: unknown[] };
           };
@@ -110,7 +101,7 @@ describe('Snapshot.diff', () => {
         }
       }
       const version = after.schemas[0]!.versions[0]!;
-      for (const schema of [version.encoded, version.decoded]) {
+      for (const schema of [version.serialized]) {
         const { representation } = schema as unknown as {
           representation: {
             indexSignatures: Record<string, unknown>[];
@@ -128,7 +119,6 @@ describe('Snapshot.diff', () => {
               path: ['indexSignatures', '0', part],
               before: previous,
               after: current,
-              side: 'encoded-and-decoded',
             }),
           ],
         }),

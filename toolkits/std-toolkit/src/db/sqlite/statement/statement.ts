@@ -1,6 +1,6 @@
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import type {
-  EncodedKey,
+  StoredKey,
   ItemCondition,
   QueryRequest,
   ScanRequest,
@@ -62,7 +62,7 @@ const makeWriteStatement = (
 const makeCheckStatement = (
   tableName: string,
   table: SQLiteTable,
-  key: EncodedKey,
+  key: StoredKey,
   condition: ItemCondition,
 ) => {
   const where = `${quoteIdentifier(table.primary.pk)} = ? AND ${quoteIdentifier(table.primary.sk)} = ?`;

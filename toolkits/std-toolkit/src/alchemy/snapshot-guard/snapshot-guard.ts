@@ -2,11 +2,7 @@ import { Effect } from 'effect';
 import { isResolved, Resource, type Input } from 'alchemy';
 import * as Provider from 'alchemy/Provider';
 import type { TableSource } from '../../snapshot/index.js';
-import {
-  SnapshotIncompatible,
-  TableSnapshot,
-  TableSnapshotESchema,
-} from '../../snapshot/index.js';
+import { SnapshotIncompatible, TableSnapshot } from '../../snapshot/index.js';
 
 interface SnapshotGuardProps {
   /** The physical table. A new target starts a fresh baseline. */
@@ -98,7 +94,7 @@ export const guardTable = (
   options: { readonly table: TableSource; readonly target: Input<string> },
 ) =>
   Effect.gen(function* () {
-    const snapshot = yield* TableSnapshotESchema.encode(
+    const snapshot = yield* TableSnapshot.serialize(
       TableSnapshot.capture(options.table),
     ).pipe(Effect.orDie);
     return yield* SnapshotGuard(id, { target: options.target, snapshot });

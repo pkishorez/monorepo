@@ -31,6 +31,12 @@ export type SyncEvent =
       cause: unknown;
     }
   | { _tag: 'InitializationFailed'; collection: string; cause: unknown }
+  | {
+      _tag: 'OutdatedApplication';
+      collection: string;
+      version: string;
+      latestVersion: string;
+    }
   | { _tag: 'UnservedQuery'; collection: string }
   | { _tag: 'RegistryDeliveryFailed'; collection: string; cause: unknown }
   | {
