@@ -19,7 +19,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isESchemaReference = Schema.is(
   Schema.Struct({
-    _tag: Schema.Literal('ESchemaRef'),
+    type: Schema.Literal('ref'),
     identity: Schema.String,
   }),
 );
@@ -61,11 +61,11 @@ const schemaIssues = (
   });
   schemas.forEach((definition, definitionIndex) => {
     definition.versions.forEach((version, versionIndex) => {
-      for (const reference of referencesIn([version.serialized])) {
+      for (const reference of referencesIn(version.shape)) {
         if (!identities.has(reference)) {
           issues.push({
             path: ['schemas', definitionIndex, 'versions', versionIndex],
-            issue: `Dangling ESchemaRef: ${reference}`,
+            issue: `Dangling ESchema reference: ${reference}`,
           });
         }
       }

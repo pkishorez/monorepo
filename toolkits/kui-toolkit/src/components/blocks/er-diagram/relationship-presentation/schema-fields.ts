@@ -1,20 +1,22 @@
-type JsonRecord = Record<string, unknown>;
+import type { SnapshotCheck, SnapshotType } from 'std-toolkit/eschema';
+
+/** One check on a field, ready to show: its name and a readable label. */
+export interface PresentedCheck {
+  readonly name: string;
+  readonly label: string;
+  readonly description?: string;
+}
 
 export interface PresentedField {
   readonly name: string;
   readonly type: string;
   readonly optional: boolean;
+  readonly checks: readonly PresentedCheck[];
   readonly referenceTarget?: string;
   readonly complex?: PresentedComplexType;
 }
 
-export interface PresentedNestedField {
-  readonly name: string;
-  readonly type: string;
-  readonly optional: boolean;
-  readonly referenceTarget?: string;
-  readonly complex?: PresentedComplexType;
-}
+export type PresentedNestedField = PresentedField;
 
 export type PresentedComplexType =
   | {
@@ -31,9 +33,8 @@ export type PresentedComplexType =
       readonly element: PresentedComplexType;
     }
   | {
-      readonly kind: 'tuple';
-      readonly elements: readonly PresentedComplexType[];
-      readonly rest: readonly PresentedComplexType[];
+      readonly kind: 'record';
+      readonly value: PresentedComplexType;
     }
   | {
       readonly kind: 'union';
@@ -43,267 +44,228 @@ export type PresentedComplexType =
       }[];
     };
 
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function persistedValue(value: unknown): unknown {
-  return isRecord(value) && 'type' in value && 'value' in value
-    ? value.value
-    : value;
-}
-
 function literal(value: unknown): string {
   const output = JSON.stringify(value);
   return output === undefined ? String(value) : output;
 }
 
-function checksSuffix(value: JsonRecord): string {
-  if (!Array.isArray(value.checks) || value.checks.length === 0) return '';
-  return ' constrained';
+const checkWords: Record<Exclude<SnapshotCheck['check'], 'custom'>, string> = {
+  minLength: 'min length',
+  maxLength: 'max length',
+  lengthBetween: 'length',
+  pattern: 'pattern',
+  uuid: 'UUID',
+  int: 'integer',
+  finite: 'finite',
+  greaterThan: '>',
+  greaterThanOrEqualTo: '≥',
+  lessThan: '<',
+  lessThanOrEqualTo: '≤',
+  between: 'between',
+};
+
+function checkLabel(check: SnapshotCheck): string {
+  switch (check.check) {
+    case 'custom':
+      return check.name;
+    case 'minLength':
+      return `${checkWords.minLength} ${check.minLength}`;
+    case 'maxLength':
+      return `${checkWords.maxLength} ${check.maxLength}`;
+    case 'lengthBetween':
+      return `${checkWords.lengthBetween} ${check.minimum}–${check.maximum}`;
+    case 'pattern':
+      return `${checkWords.pattern} /${check.source}/${check.flags}`;
+    case 'uuid':
+      return check.version === undefined
+        ? checkWords.uuid
+        : `${checkWords.uuid} v${check.version}`;
+    case 'greaterThan':
+      return `${checkWords.greaterThan} ${check.exclusiveMinimum}`;
+    case 'greaterThanOrEqualTo':
+      return `${checkWords.greaterThanOrEqualTo} ${check.minimum}`;
+    case 'lessThan':
+      return `${checkWords.lessThan} ${check.exclusiveMaximum}`;
+    case 'lessThanOrEqualTo':
+      return `${checkWords.lessThanOrEqualTo} ${check.maximum}`;
+    case 'between':
+      return `${checkWords.between} ${check.minimum}${check.exclusiveMinimum ? ' (exclusive)' : ''} and ${check.maximum}${check.exclusiveMaximum ? ' (exclusive)' : ''}`;
+    default:
+      return checkWords[check.check];
+  }
 }
 
-function unionTypes(value: JsonRecord): readonly unknown[] {
-  return Array.isArray(value.types) ? value.types : [];
+function presentCheck(check: SnapshotCheck): PresentedCheck {
+  const name = check.check === 'custom' ? check.name : check.check;
+  return {
+    name,
+    label: checkLabel(check),
+    ...(check.check === 'custom' && check.description !== undefined
+      ? { description: check.description }
+      : {}),
+  };
 }
 
-function formatUnion(value: JsonRecord): string {
-  const types = [...new Set(unionTypes(value).map(formatSchemaType))];
+function checksOf(shape: SnapshotType): readonly PresentedCheck[] {
+  return 'checks' in shape && shape.checks !== undefined
+    ? shape.checks.map(presentCheck)
+    : [];
+}
+
+function referenceOf(shape: SnapshotType): string | undefined {
+  return 'entityReference' in shape ? shape.entityReference : undefined;
+}
+
+function isComplexShape(shape: SnapshotType): boolean {
+  switch (shape.type) {
+    case 'struct':
+      return true;
+    case 'union':
+      return shape.members.some(isComplexShape);
+    case 'array':
+    case 'record':
+      return isComplexShape(
+        shape.type === 'array' ? shape.element : shape.value,
+      );
+    case 'recursive':
+      return true;
+    default:
+      return false;
+  }
+}
+
+function formatUnion(members: readonly SnapshotType[]): string {
+  if (members.some(isComplexShape)) return 'complex';
+  const types = [...new Set(members.map(formatSchemaType))];
   types.sort((left, right) => {
     if (left === 'null') return -1;
     if (right === 'null') return 1;
     return 0;
   });
-  return types.length === 0 ? 'union' : types.join(' | ');
+  return types.join(' | ');
 }
 
-export function formatSchemaType(value: unknown): string {
-  if (!isRecord(value)) return literal(value);
-  if (value._tag === 'ESchemaRef' && typeof value.identity === 'string') {
-    return value.identity;
-  }
-
-  const suffix = checksSuffix(value);
-  switch (value._tag) {
-    case 'String':
-      return `string${suffix}`;
-    case 'Number':
-      return `number${suffix}`;
-    case 'Boolean':
-      return `boolean${suffix}`;
-    case 'BigInt':
-      return `bigint${suffix}`;
-    case 'Symbol':
-      return 'symbol';
-    case 'Undefined':
-      return 'undefined';
-    case 'Void':
-      return 'void';
-    case 'Never':
-      return 'never';
-    case 'Unknown':
-      return 'unknown';
-    case 'Any':
-      return 'any';
-    case 'Literal':
-      return literal(persistedValue(value.literal));
-    case 'Union':
-      return formatUnion(value);
-    case 'Arrays': {
-      const elements = Array.isArray(value.elements) ? value.elements : [];
-      const rest = Array.isArray(value.rest) ? value.rest : [];
-      if (elements.length === 0 && rest.length === 1) {
-        return `${formatSchemaType(rest[0])}[]`;
-      }
-      return `[${[...elements, ...rest].map(formatSchemaType).join(', ')}]`;
-    }
-    case 'Objects':
+export function formatSchemaType(shape: SnapshotType): string {
+  switch (shape.type) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+    case 'null':
+    case 'unknown':
+      return shape.type;
+    case 'literal':
+      return literal(shape.value);
+    case 'ref':
+      return shape.identity;
+    case 'union':
+      return formatUnion(shape.members);
+    case 'array':
+      return `${formatSchemaType(shape.element)}[]`;
+    case 'record':
+      return `Record<${formatSchemaType(shape.value)}>`;
+    case 'struct':
+    case 'recursive':
       return 'complex';
-    case 'Declaration': {
-      const constructor = isRecord(value.annotations)
-        ? value.annotations.typeConstructor
-        : undefined;
-      return isRecord(constructor) && typeof constructor._tag === 'string'
-        ? constructor._tag
-        : 'declaration';
+    case 'recurse':
+      return 'recursive';
+  }
+}
+
+function variantLabel(shape: SnapshotType, index: number): string {
+  if (shape.type === 'struct') {
+    const discriminator = shape.fields.find(
+      ({ name }) => name === 'kind' || name === 'type',
+    );
+    if (discriminator !== undefined) {
+      return formatSchemaType(discriminator.type).replace(/^"|"$/g, '');
     }
-    default:
-      return typeof value._tag === 'string' ? value._tag : 'unknown';
   }
-}
-
-function objectRepresentation(value: unknown): JsonRecord | undefined {
-  if (!isRecord(value)) return undefined;
-  const representation =
-    'representation' in value ? value.representation : value;
-  return isRecord(representation) && representation._tag === 'Objects'
-    ? representation
-    : undefined;
-}
-
-function propertyName(property: JsonRecord): string | undefined {
-  const value = persistedValue(property.name);
-  return typeof value === 'string' ? value : undefined;
-}
-
-function directAnnotation(value: unknown): string | undefined {
-  if (!isRecord(value) || !isRecord(value.annotations)) return undefined;
-  const target = persistedValue(value.annotations.entityReference);
-  return typeof target === 'string' && target.length > 0 ? target : undefined;
-}
-
-function propertiesIn(representation: JsonRecord): readonly JsonRecord[] {
-  return Array.isArray(representation.propertySignatures)
-    ? representation.propertySignatures.filter(isRecord)
-    : [];
-}
-
-function variantLabel(value: unknown, index: number): string {
-  const representation = objectRepresentation(value);
-  const discriminator =
-    representation === undefined
-      ? undefined
-      : propertiesIn(representation).find((property) => {
-          const name = propertyName(property);
-          return name === 'kind' || name === 'type';
-        });
-  if (discriminator !== undefined) {
-    return formatSchemaType(discriminator.type).replace(/^"|"$/g, '');
-  }
-  const formatted = formatSchemaType(value);
+  const formatted = formatSchemaType(shape);
   return formatted === 'complex' ? `Variant ${index + 1}` : formatted;
 }
 
-function leafType(value: unknown): PresentedComplexType {
-  const referenceTarget = directAnnotation(value);
+function leafType(shape: SnapshotType): PresentedComplexType {
+  const referenceTarget = referenceOf(shape);
   return {
     kind: 'type',
-    type: formatSchemaType(value),
+    type: formatSchemaType(shape),
     ...(referenceTarget === undefined ? {} : { referenceTarget }),
   };
 }
 
-function complexType(value: unknown): PresentedComplexType | undefined {
-  const representation = objectRepresentation(value);
-  if (representation !== undefined) {
-    return { kind: 'object', fields: nestedFields(representation) };
-  }
-  if (!isRecord(value)) return undefined;
-
-  if (value._tag === 'Arrays') {
-    const elements = Array.isArray(value.elements) ? value.elements : [];
-    const rest = Array.isArray(value.rest) ? value.rest : [];
-    if (elements.length !== 0 || rest.length > 1) {
-      return {
-        kind: 'tuple',
-        elements: elements.map(
-          (element) => complexType(element) ?? leafType(element),
-        ),
-        rest: rest.map((element) => complexType(element) ?? leafType(element)),
-      };
+function complexType(shape: SnapshotType): PresentedComplexType | undefined {
+  switch (shape.type) {
+    case 'struct':
+      return { kind: 'object', fields: shape.fields.map(presentField) };
+    case 'recursive':
+      return complexType(shape.body);
+    case 'array': {
+      const element = complexType(shape.element);
+      return element === undefined ? undefined : { kind: 'array', element };
     }
-    if (rest.length !== 1) return undefined;
-    const element = complexType(rest[0]);
-    return element === undefined ? undefined : { kind: 'array', element };
+    case 'record': {
+      const value = complexType(shape.value);
+      return value === undefined ? undefined : { kind: 'record', value };
+    }
+    case 'union':
+      return {
+        kind: 'union',
+        variants: shape.members.map((member, index) => ({
+          label: variantLabel(member, index),
+          type: complexType(member) ?? leafType(member),
+        })),
+      };
+    default:
+      return undefined;
   }
-
-  if (value._tag === 'Union') {
-    const types = unionTypes(value);
-    const variants = types.map((item, index) => ({
-      label: variantLabel(item, index),
-      type: complexType(item) ?? leafType(item),
-    }));
-    return { kind: 'union', variants };
-  }
-
-  return undefined;
 }
 
-function fieldReference(value: unknown): string | undefined {
-  const annotation = directAnnotation(value);
-  if (annotation !== undefined) return annotation;
-  if (!isRecord(value) || objectRepresentation(value) !== undefined) {
-    return undefined;
-  }
-  if (value._tag === 'Arrays') {
-    const elements = Array.isArray(value.elements) ? value.elements : [];
-    const rest = Array.isArray(value.rest) ? value.rest : [];
-    const targets = [...elements, ...rest]
-      .map(fieldReference)
-      .filter((target): target is string => target !== undefined);
-    return new Set(targets).size === 1 ? targets[0] : undefined;
-  }
-  if (value._tag === 'Union') {
-    const targets = unionTypes(value)
-      .map(fieldReference)
-      .filter((target): target is string => target !== undefined);
-    return new Set(targets).size === 1 ? targets[0] : undefined;
-  }
-  return undefined;
+/** The one Entity a field identifies, through an array or a nullable union. */
+function fieldReference(shape: SnapshotType): string | undefined {
+  const direct = referenceOf(shape);
+  if (direct !== undefined) return direct;
+  const targets =
+    shape.type === 'array'
+      ? [fieldReference(shape.element)]
+      : shape.type === 'union'
+        ? shape.members.map(fieldReference)
+        : [];
+  const found = targets.filter((target) => target !== undefined);
+  return new Set(found).size === 1 ? found[0] : undefined;
 }
 
-function nestedFields(
-  representation: JsonRecord,
-): readonly PresentedNestedField[] {
-  return propertiesIn(representation).flatMap((property) => {
-    const name = propertyName(property);
-    if (name === undefined) return [];
-    const referenceTarget = fieldReference(property.type);
-    const complex = complexType(property.type);
-    return [
-      {
-        name,
-        type: formatSchemaType(property.type),
-        optional: property.isOptional === true,
-        ...(referenceTarget === undefined ? {} : { referenceTarget }),
-        ...(complex === undefined ? {} : { complex }),
-      },
-    ];
-  });
-}
-
-function fieldsIn(representation: JsonRecord): readonly PresentedField[] {
-  const properties = propertiesIn(representation);
-  const fields: PresentedField[] = [];
-
-  for (const property of properties) {
-    const name = propertyName(property);
-    if (name === undefined || name === '_v') continue;
-
-    const target = fieldReference(property.type);
-    const complex = complexType(property.type);
-
-    fields.push({
-      name,
-      type: formatSchemaType(property.type),
-      optional: property.isOptional === true,
-      ...(target === undefined ? {} : { referenceTarget: target }),
-      ...(complex === undefined ? {} : { complex }),
-    });
-  }
-  return fields;
+function presentField(field: {
+  readonly name: string;
+  readonly optional?: true;
+  readonly type: SnapshotType;
+}): PresentedField {
+  const referenceTarget = fieldReference(field.type);
+  const complex = complexType(field.type);
+  return {
+    name: field.name,
+    type: formatSchemaType(field.type),
+    optional: field.optional === true,
+    checks: checksOf(field.type),
+    ...(referenceTarget === undefined ? {} : { referenceTarget }),
+    ...(complex === undefined ? {} : { complex }),
+  };
 }
 
 function referencesInComplex(complex: PresentedComplexType): readonly string[] {
-  if (complex.kind === 'type') {
-    return complex.referenceTarget === undefined
-      ? []
-      : [complex.referenceTarget];
+  switch (complex.kind) {
+    case 'type':
+      return complex.referenceTarget === undefined
+        ? []
+        : [complex.referenceTarget];
+    case 'array':
+      return referencesInComplex(complex.element);
+    case 'record':
+      return referencesInComplex(complex.value);
+    case 'union':
+      return complex.variants.flatMap(({ type }) => referencesInComplex(type));
+    case 'object':
+      return complex.fields.flatMap(fieldReferenceTargets);
   }
-  if (complex.kind === 'array') return referencesInComplex(complex.element);
-  if (complex.kind === 'tuple') {
-    return [
-      ...complex.elements.flatMap(referencesInComplex),
-      ...complex.rest.flatMap(referencesInComplex),
-    ];
-  }
-  if (complex.kind === 'union') {
-    return complex.variants.flatMap(({ type }) => referencesInComplex(type));
-  }
-  return complex.fields.flatMap((field) => [
-    ...(field.referenceTarget === undefined ? [] : [field.referenceTarget]),
-    ...(field.complex === undefined ? [] : referencesInComplex(field.complex)),
-  ]);
 }
 
 export function fieldReferenceTargets(
@@ -315,7 +277,9 @@ export function fieldReferenceTargets(
   ];
 }
 
-export function schemaFields(encoded: unknown): readonly PresentedField[] {
-  const representation = objectRepresentation(encoded);
-  return representation === undefined ? [] : fieldsIn(representation);
+/** The fields of a version's stored shape; a value ESchema has none to list. */
+export function schemaFields(
+  shape: SnapshotType | undefined,
+): readonly PresentedField[] {
+  return shape?.type === 'struct' ? shape.fields.map(presentField) : [];
 }

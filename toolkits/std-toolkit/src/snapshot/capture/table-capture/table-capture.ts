@@ -28,7 +28,12 @@ interface KeyedEntitySource {
     readonly sk: readonly string[];
   };
   readonly accessPatterns: Readonly<
-    Record<string, Omit<TableAccessPatternSnapshot, 'name'>>
+    Record<
+      string,
+      Omit<TableAccessPatternSnapshot, 'name' | 'index'> & {
+        readonly index?: string | undefined;
+      }
+    >
   >;
 }
 

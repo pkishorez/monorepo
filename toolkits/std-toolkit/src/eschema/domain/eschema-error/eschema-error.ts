@@ -18,10 +18,11 @@ export class UnrepresentableFieldError extends Error {
     readonly schema: string,
     readonly version: string,
     readonly path: string,
-    readonly reason: 'filter' | 'declaration' | 'default',
+    readonly reason: 'type' | 'check',
+    readonly detail: string,
   ) {
     super(
-      `${schema} ${version}: field "${path}" uses a schema shape whose encoded form cannot be captured and restored by a Snapshot (${reason}). Every field must be stored as a structural shape (object, primitive, literal, union, array, enum, template literal, or branded value); a conversion such as Schema.DateFromString is allowed when its encoded side is one.`,
+      `${schema} ${version}: field "${path}" cannot be captured by a Snapshot: ${detail}. A field's encoded side must be a struct, string, number, boolean, null, literal, union, array, string-keyed record, enum, or nested ESchema; a conversion such as Schema.DateFromString is allowed when its encoded side is one. Each check must be a built-in catalogue check or named with checkAnnotation.`,
     );
     this.name = 'UnrepresentableFieldError';
   }

@@ -89,6 +89,13 @@ export const SnapshotGuardProvider = () =>
     read: ({ output }) => Effect.succeed(output),
   });
 
+/**
+ * The stored snapshot document format. Bumping it gives every guard a new
+ * resource id, so Alchemy deletes the guard holding a baseline in the old
+ * format and records a fresh one, instead of failing to read it.
+ */
+const SNAPSHOT_FORMAT = 'V2';
+
 export const guardTable = (
   id: string,
   options: { readonly table: TableSource; readonly target: Input<string> },
@@ -97,5 +104,8 @@ export const guardTable = (
     const snapshot = yield* TableSnapshot.serialize(
       TableSnapshot.capture(options.table),
     ).pipe(Effect.orDie);
-    return yield* SnapshotGuard(id, { target: options.target, snapshot });
+    return yield* SnapshotGuard(`${id}${SNAPSHOT_FORMAT}`, {
+      target: options.target,
+      snapshot,
+    });
   });

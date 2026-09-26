@@ -5,7 +5,7 @@ Semantic contract capture and comparison for database tables. Snapshot consumes 
 ## Language
 
 **Table snapshot**:
-The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, in **encoded form**. Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations.
+The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, in **encoded form**, described in **snapshot types**. Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations; **checks** are recorded for display but are not part of the contract. Capture is one-way: a table snapshot is never turned back into a schema.
 _Avoid_: ESchema snapshot (retired: there is no ESchema-only document), source snapshot, version-file snapshot.
 
 **Snapshot change**:
@@ -24,13 +24,17 @@ _Avoid_: Enforcement, deploy gate, contract resource.
 The versioned shape of a stored snapshot itself, distinct from the **versions** of the schemas it describes. A snapshot written under an older format is read forward into the current one, so a stored snapshot never becomes unreadable because the toolkit moved on.
 _Avoid_: Retired format, snapshot schema version.
 
+**Snapshot type**:
+One node of the toolkit's own language for describing a data shape inside a **table snapshot**: string, number, boolean, null, literal, struct, array, string-keyed record, union, an opaque value whose shape is not guarded, a reference to another ESchema by its **snapshot identity**, or a recursive shape that refers back to itself by position rather than by a generated name. An enum is described as the union of its values, since only the values are persisted. The language is defined by eschema, which refuses any field it cannot describe, and is owned by the toolkit, so a change in how Effect Schema describes itself can never alter a stored snapshot.
+_Avoid_: Representation (Effect's term), serialized schema, IR, AST.
+
+**Check**:
+A validation attached to a **snapshot type**, recorded for display only: a built-in check from a fixed catalogue with its arguments, or a custom check described by the user's own name. A check that is neither cannot be captured. Each check is unique on its node, and only checks the user wrote on the stored side are recorded. Checks are never compared: adding, removing, or changing one is never a **snapshot change**, because a check only narrows which values are accepted and can always be relaxed again, while a data shape change cannot be undone once rows are written.
+_Avoid_: Filter (Effect's term), constraint, validation rule.
+
 **snapshot identity**:
 The stable name of an ESchema within a **table snapshot**, taken from the ESchema's own mandatory name. One ESchema may be referenced any number of times under the same identity, while every distinct ESchema has a distinct identity.
 _Avoid_: Generated ID, traversal ID.
-
-**restored schema**:
-A live, working schema rebuilt from a **table snapshot** alone, with no access to the original source. Restore is internal: it is not part of the public API, and its tests prove that capture loses nothing. Restore is the mirror of capture, and it is sound because captured fields contain the identity needed to restore them. ESchema refuses unrepresentable fields at definition time, except for the known `Schema.UniqueSymbol` edge case: a local symbol fails during capture, while a registered `Symbol.for(...)` value can be captured and restored. A composed field restores by resolving its **snapshot identity** reference, not by reviving the wrapper that produced it.
-_Avoid_: Reconstructed type, rebuilt schema.
 
 **Entity Relationship view**:
 A visual projection of a table snapshot's Entities, current fields, own identifiers, and explicitly declared entity references, including nested and external targets. Each reference is one directed connector from its source field to the target Entity's `idField`; no reverse connector is inferred, and table topology and access patterns are separate views.

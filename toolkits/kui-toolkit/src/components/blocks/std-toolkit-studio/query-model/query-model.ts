@@ -1,10 +1,10 @@
 import type { Effect } from 'effect';
 import type { StudioRpcClient } from 'std-toolkit/studio-rpc';
+import type { SnapshotType } from 'std-toolkit/eschema';
 import type { TableSnapshot } from 'std-toolkit/snapshot';
 
 type TableEntitySnapshot = TableSnapshot['entities'][number];
 type TableAccessPatternSnapshot = TableEntitySnapshot['accessPatterns'][number];
-type JsonRecord = Readonly<Record<string, unknown>>;
 type GetEntityResult = Effect.Success<
   ReturnType<StudioRpcClient['Studio.GetEntity']>
 >;
@@ -42,139 +42,80 @@ export type QueryCriteria = {
   readonly limit: number;
 };
 
-const isRecord = (value: unknown): value is JsonRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const persistedValue = (value: unknown): unknown =>
-  isRecord(value) && 'type' in value && 'value' in value ? value.value : value;
-
 const valueRecord = (
   keys: readonly string[],
 ): Readonly<Record<string, string>> =>
   Object.fromEntries(keys.map((key) => [key, '']));
 
-const objectRepresentation = (value: unknown): JsonRecord | undefined => {
-  if (!isRecord(value)) return undefined;
-  const representation =
-    'representation' in value ? value.representation : value;
-  return isRecord(representation) && representation._tag === 'Objects'
-    ? representation
-    : undefined;
-};
-
-const propertyName = (property: JsonRecord): string | undefined => {
-  const name = persistedValue(property.name);
-  return typeof name === 'string' ? name : undefined;
-};
+const latestShape = (
+  snapshot: TableSnapshot,
+  identity: string,
+): SnapshotType | undefined =>
+  snapshot.schemas
+    .find((definition) => definition.identity === identity)
+    ?.versions.at(-1)?.shape;
 
 const valueFields = (
   snapshot: TableSnapshot,
   entity: TableEntitySnapshot,
 ): readonly string[] => {
-  const definition = snapshot.schemas.find(
-    ({ identity }) => identity === entity.schema,
-  );
-  const representation = objectRepresentation(
-    definition?.versions.at(-1)?.serialized,
-  );
-  const properties = Array.isArray(representation?.propertySignatures)
-    ? representation.propertySignatures
-    : [];
-  return properties.flatMap((property) => {
-    if (!isRecord(property)) return [];
-    const name = propertyName(property);
-    return name === undefined || name === '_v' ? [] : [name];
-  });
+  const shape = latestShape(snapshot, entity.schema);
+  return shape?.type === 'struct' ? shape.fields.map(({ name }) => name) : [];
 };
 
-type Node = { readonly node: unknown; readonly references: JsonRecord };
-
-const latestRoot = (
-  snapshot: TableSnapshot,
-  identity: string,
-): Node | undefined => {
-  const serialized = snapshot.schemas
-    .find((definition) => definition.identity === identity)
-    ?.versions.at(-1)?.serialized;
-  if (!isRecord(serialized)) return undefined;
-  return {
-    node: serialized.representation,
-    references: isRecord(serialized.references) ? serialized.references : {},
-  };
-};
-
-// Unions, references and nested ESchemas are transparent to a key path.
+// Unions, recursion and nested ESchemas are transparent to a key path.
 const expand = (
   snapshot: TableSnapshot,
-  { node, references }: Node,
-): Node[] => {
-  if (!isRecord(node)) return [];
-  if (node._tag === 'Union' && Array.isArray(node.types)) {
-    return node.types.flatMap((type) =>
-      expand(snapshot, { node: type, references }),
-    );
+  shape: SnapshotType,
+): SnapshotType[] => {
+  switch (shape.type) {
+    case 'union':
+      return shape.members.flatMap((member) => expand(snapshot, member));
+    case 'recursive':
+      return expand(snapshot, shape.body);
+    case 'ref': {
+      const root = latestShape(snapshot, shape.identity);
+      return root === undefined ? [] : expand(snapshot, root);
+    }
+    default:
+      return [shape];
   }
-  if (node._tag === 'Reference' && typeof node.$ref === 'string') {
-    return expand(snapshot, { node: references[node.$ref], references });
-  }
-  if (node._tag === 'Suspend') {
-    return expand(snapshot, { node: node.thunk, references });
-  }
-  if (node._tag === 'ESchemaRef' && typeof node.identity === 'string') {
-    const root = latestRoot(snapshot, node.identity);
-    return root === undefined ? [] : expand(snapshot, root);
-  }
-  return [{ node, references }];
 };
 
 const property = (
   snapshot: TableSnapshot,
-  nodes: readonly Node[],
+  shapes: readonly SnapshotType[],
   name: string,
-): Node[] =>
-  nodes.flatMap((current) =>
-    expand(snapshot, current).flatMap(({ node, references }) => {
-      if (!isRecord(node) || node._tag !== 'Objects') return [];
-      const properties = Array.isArray(node.propertySignatures)
-        ? node.propertySignatures
-        : [];
-      return properties.flatMap((candidate) =>
-        isRecord(candidate) && propertyName(candidate) === name
-          ? [{ node: candidate.type, references }]
-          : [],
-      );
-    }),
+): SnapshotType[] =>
+  shapes.flatMap((current) =>
+    expand(snapshot, current).flatMap((shape) =>
+      shape.type === 'struct'
+        ? shape.fields
+            .filter((field) => field.name === name)
+            .map(({ type }) => type)
+        : [],
+    ),
   );
 
-const isNumberLeaf = (node: unknown): boolean => {
-  if (!isRecord(node)) return false;
-  if (node._tag === 'Number') return true;
-  if (node._tag === 'Literal') {
-    return typeof persistedValue(node.literal) === 'number';
-  }
-  return (
-    node._tag === 'Enum' &&
-    Array.isArray(node.enums) &&
-    node.enums.every(
-      (member) =>
-        Array.isArray(member) && typeof persistedValue(member[1]) === 'number',
-    )
-  );
-};
+const isNumberLeaf = (shape: SnapshotType): boolean =>
+  shape.type === 'number' ||
+  (shape.type === 'literal' && typeof shape.value === 'number');
 
 const keyKind = (
   snapshot: TableSnapshot,
   entity: TableEntitySnapshot,
   path: string,
 ): KeyKind => {
-  const root = latestRoot(snapshot, entity.schema);
+  const root = latestShape(snapshot, entity.schema);
   if (path === '_u' || root === undefined) return 'string';
   const leaves = path
     .split('.')
-    .reduce<Node[]>((nodes, name) => property(snapshot, nodes, name), [root])
+    .reduce<SnapshotType[]>(
+      (shapes, name) => property(snapshot, shapes, name),
+      [root],
+    )
     .flatMap((leaf) => expand(snapshot, leaf))
-    .map(({ node }) => node)
-    .filter((node) => !isRecord(node) || node._tag !== 'Null');
+    .filter((shape) => shape.type !== 'null');
   return leaves.length > 0 && leaves.every(isNumberLeaf) ? 'number' : 'string';
 };
 

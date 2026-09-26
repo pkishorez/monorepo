@@ -18,7 +18,7 @@ std-toolkit is a cluster of bounded contexts. Each context owns its own ubiquito
 
 - **core** is the shared kernel for the whole toolkit. eschema, db (dynamodb/sqlite), and sync all speak its **Entity** / **Entity Meta** vocabulary.
 - **eschema → core**: an **Entity**'s meta carries eschema's `_v` **version**; core's `EntitySchema` migrates an Entity's value to the latest version.
-- **snapshot → eschema**: snapshot consumes ESchema's public introspection to describe every schema a table reaches, and the table snapshot document is itself an ESchema so a stored document migrates forward like any row; eschema does not depend on snapshot.
+- **snapshot → eschema**: snapshot consumes ESchema's public introspection, including eschema's **snapshot type** description of each version's encoded side, to describe every schema a table reaches, and the table snapshot document is itself an ESchema so a stored document migrates forward like any row; eschema does not depend on snapshot.
 - **db → core, eschema**: the adapters persist core **Entities** whose `value` is validated by an eschema schema.
 - **snapshot reads db structurally**: `TableSnapshot.capture` reads a table's topology and registered entities through a structural type, so neither db nor snapshot imports the other. No adapter and no layer runs snapshot; removing snapshot leaves the runtime compiling. The per-table Vitest test lives in snapshot and never touches a database.
 - **alchemy → db, snapshot**: `std-toolkit/alchemy` is the only place snapshot meets a deploy. Each target makes a table exist, and its **snapshot guard** keeps the accepted table snapshot in Alchemy state and refuses a deploy that is not upgradable. Nothing depends on alchemy.

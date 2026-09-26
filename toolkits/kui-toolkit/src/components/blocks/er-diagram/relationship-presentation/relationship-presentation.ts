@@ -17,7 +17,7 @@ export function presentSnapshot(snapshot: TableSnapshot) {
       idField: entity.idField,
       kind: entity.kind,
       external: false,
-      fields: schemaFields(version?.serialized),
+      fields: schemaFields(version?.shape),
     } as const;
   });
   const entityNames = new Set(entities.map((entity) => entity.id));

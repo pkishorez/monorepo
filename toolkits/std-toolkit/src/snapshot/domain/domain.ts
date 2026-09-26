@@ -1,9 +1,15 @@
 import { Schema } from 'effect';
-import { ESchema } from '../../eschema/index.js';
+import { ESchema, SnapshotTypeSchema } from '../../eschema/index.js';
 
+/**
+ * One version as it is stored: the snapshot type of its encoded side. For a
+ * struct or entity ESchema that is the struct of its fields, and for a value
+ * ESchema the value's own type; the `_v` stamp and the `{ _v, _value }`
+ * envelope are implied by the kind.
+ */
 const ESchemaVersionSchema = Schema.Struct({
   version: Schema.String,
-  serialized: Schema.Unknown,
+  shape: SnapshotTypeSchema,
 });
 
 const ESchemaDefinitionSchema = Schema.Struct({
@@ -34,7 +40,7 @@ const TableEntitySchema = Schema.Struct({
     Schema.Struct({
       name: Schema.String,
       kind: Schema.Literals(['primary', 'lsi', 'gsi']),
-      index: Schema.optional(Schema.String),
+      index: Schema.optionalKey(Schema.String),
       ...KeyDerivationSchema.fields,
     }),
   ),

@@ -1,11 +1,7 @@
-import { createHash } from 'node:crypto';
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { ESchema, toSchema } from '../../eschema/index.js';
 import { snapshotOf } from './helpers.js';
-
-const sha256 = (value: string): string =>
-  createHash('sha256').update(value).digest('hex');
 
 describe('snapshot compatibility', () => {
   it('keeps canonical JSON stable', () => {
@@ -18,8 +14,49 @@ describe('snapshot compatibility', () => {
       .build();
     const snapshot = snapshotOf(parent);
 
-    expect(sha256(JSON.stringify(snapshot))).toBe(
-      'e6e7033d6a851b04eec1dec86ce2b39f77df102d6b2957f608b3c901485464f8',
+    expect(JSON.stringify(snapshot.schemas)).toBe(
+      JSON.stringify([
+        {
+          identity: 'Child',
+          kind: 'struct',
+          idField: null,
+          versions: [
+            {
+              version: 'v1',
+              shape: {
+                type: 'struct',
+                fields: [{ name: 'value', type: { type: 'string' } }],
+              },
+            },
+          ],
+        },
+        {
+          identity: 'Parent',
+          kind: 'struct',
+          idField: null,
+          versions: [
+            {
+              version: 'v1',
+              shape: {
+                type: 'struct',
+                fields: [
+                  { name: 'child', type: { type: 'ref', identity: 'Child' } },
+                ],
+              },
+            },
+            {
+              version: 'v2',
+              shape: {
+                type: 'struct',
+                fields: [
+                  { name: 'child', type: { type: 'ref', identity: 'Child' } },
+                  { name: 'count', type: { type: 'number' } },
+                ],
+              },
+            },
+          ],
+        },
+      ]),
     );
   });
 });

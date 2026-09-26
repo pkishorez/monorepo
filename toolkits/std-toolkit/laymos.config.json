@@ -19,7 +19,6 @@
     "src/eschema/play.ts",
     "src/eschema/tutorial",
     "src/snapshot/__tests__",
-    "src/snapshot/restore/eschema-restore/__tests__",
     "src/snapshot/vitest/__tests__",
     "src/studio-rpc/__tests__",
     "src/sync/__tests__",
@@ -373,7 +372,7 @@
     },
     "eschema.domain": {
       "paths": ["src/eschema/domain"],
-      "description": "Domain \u2014 evolution, field policy, runtimes, errors, and introspection",
+      "description": "Domain \u2014 evolution, the snapshot type language and field policy, runtimes, errors, and introspection",
       "modules": {
         "src/eschema/domain/eschema-error": {
           "shared": true,
@@ -391,6 +390,10 @@
           "exposed": true
         },
         "src/eschema/domain/encoded": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/eschema/domain/snapshot-type": {
           "shared": true,
           "exposed": true
         }
@@ -423,15 +426,6 @@
           "exposed": true
         },
         "src/snapshot/capture/table-capture": {
-          "exposed": true
-        }
-      }
-    },
-    "snapshot.restore": {
-      "paths": ["src/snapshot/restore"],
-      "description": "Restore \u2014 live schemas rebuilt from a captured ESchema snapshot",
-      "modules": {
-        "src/snapshot/restore/eschema-restore": {
           "exposed": true
         }
       }
@@ -809,17 +803,15 @@
       }
     },
     "snapshot": {
-      "description": "Snapshot facade, capture, restore, domain, the Vitest binding, and two-way ESchema integration",
+      "description": "Snapshot facade, capture, domain, the Vitest binding, and ESchema integration",
       "rules": {
         "snapshot.public": ["snapshot.facade"],
         "snapshot.facade": [
           "eschema.constructs",
           "eschema.domain",
-          "snapshot.capture",
-          "snapshot.restore"
+          "snapshot.capture"
         ],
         "snapshot.capture": ["eschema.domain", "snapshot.domain"],
-        "snapshot.restore": ["snapshot.domain"],
         "snapshot.domain": ["eschema.public"],
         "snapshot.vitest": ["snapshot.public"]
       }
