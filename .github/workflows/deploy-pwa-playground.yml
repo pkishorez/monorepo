@@ -23,6 +23,12 @@ on:
         type: choice
         options: [app, content]
         default: app
+      pwa_update_mode:
+        description: 'pwa() update mode'
+        required: false
+        type: choice
+        options: [prompt, auto-on-navigation]
+        default: prompt
 
 concurrency:
   group: pwa-playground-${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
@@ -79,6 +85,7 @@ jobs:
       BUILD_LABEL: ${{ github.run_id }}-${{ github.run_attempt }}
       PWA_ENABLED: ${{ inputs.pwa_enabled || 'true' }}
       PWA_PRESET: ${{ inputs.pwa_preset || 'app' }}
+      PWA_UPDATE_MODE: ${{ inputs.pwa_update_mode || 'prompt' }}
     permissions:
       contents: read
       pull-requests: write
@@ -117,7 +124,7 @@ jobs:
       # Alchemy decides to rebuild from file hashes, not env vars; this file
       # makes every run (and every switch change) rebuild.
       - name: Record build switches
-        run: printf 'BUILD_LABEL=%s\nPWA_ENABLED=%s\nPWA_PRESET=%s\n' "$BUILD_LABEL" "$PWA_ENABLED" "$PWA_PRESET" > apps/pwa-playground/build-env.txt
+        run: printf 'BUILD_LABEL=%s\nPWA_ENABLED=%s\nPWA_PRESET=%s\nPWA_UPDATE_MODE=%s\n' "$BUILD_LABEL" "$PWA_ENABLED" "$PWA_PRESET" "$PWA_UPDATE_MODE" > apps/pwa-playground/build-env.txt
 
       - name: Bootstrap Alchemy state store
         run: pnpm -C apps/pwa-playground exec alchemy cloudflare bootstrap
@@ -150,6 +157,7 @@ jobs:
           BUILD_LABEL: ${{ github.run_id }}-${{ github.run_attempt }}
           PWA_ENABLED: ${{ inputs.pwa_enabled || 'true' }}
           PWA_PRESET: ${{ inputs.pwa_preset || 'app' }}
+          PWA_UPDATE_MODE: ${{ inputs.pwa_update_mode || 'prompt' }}
         run: |
           if [ "$STAGE" = "prod" ]; then
             url="https://pwa.kishore.app"
@@ -165,7 +173,7 @@ jobs:
           {
             echo "## Deploy — \`$STAGE\`"
             echo ""
-            echo "| App | Status | URL | Build Label | Enabled | Preset |"
-            echo "| --- | --- | --- | --- | --- | --- |"
-            echo "| pwa-playground | $status | $url | $BUILD_LABEL | $PWA_ENABLED | $PWA_PRESET |"
+            echo "| App | Status | URL | Build Label | Enabled | Preset | Update mode |"
+            echo "| --- | --- | --- | --- | --- | --- | --- |"
+            echo "| pwa-playground | $status | $url | $BUILD_LABEL | $PWA_ENABLED | $PWA_PRESET | $PWA_UPDATE_MODE |"
           } >> "$GITHUB_STEP_SUMMARY"
