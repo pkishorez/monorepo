@@ -1,5 +1,12 @@
 # @pkishorez/lotel
 
+## 0.0.12
+
+### Patch Changes
+
+- Updated dependencies [[`541bb24`](https://github.com/pkishorez/monorepo/commit/541bb243030a45f6ca33e0cfe482ee70637c56c7)]:
+  - std-toolkit@0.0.12
+
 ## 0.0.11
 
 ### Patch Changes

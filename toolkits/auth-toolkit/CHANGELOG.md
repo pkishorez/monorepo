@@ -1,5 +1,13 @@
 # auth-toolkit
 
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies [[`2acc4fc`](https://github.com/pkishorez/monorepo/commit/2acc4fc22414db10ee6ba52c67089193a4df81ef), [`3efa7a0`](https://github.com/pkishorez/monorepo/commit/3efa7a04010e8cd97d2abd1f421459f9aac9e4bc)]:
+  - kui-toolkit@0.0.4
+  - rpc-toolkit@0.0.2
+
 ## 0.0.4
 
 ### Patch Changes

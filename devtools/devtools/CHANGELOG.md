@@ -1,5 +1,20 @@
 # @pkishorez/devtools
 
+## 0.0.12
+
+### Patch Changes
+
+- [#47](https://github.com/pkishorez/monorepo/pull/47) [`2acc4fc`](https://github.com/pkishorez/monorepo/commit/2acc4fc22414db10ee6ba52c67089193a4df81ef) Thanks [@pkishorez](https://github.com/pkishorez)! - Add `devtools snapshot`: it analyzes one Laymos Project, marks what its commits changed since a Base ref (default `main`; uncommitted work is left out), and draws the changed Modules and their Layers to a PNG in headless Chromium through the optional peer `playwright-core`, without starting a server. The bundled Snapshot page is a second entry beside the application; the picture is sized to its content and capped by `--max-width` and `--max-height`, and drawn dark unless `--theme light` or `DEVTOOLS_THEME=light` is given. `kui-toolkit` gains `ArchitectureSnapshot`, the still Module graph the page draws, `ModuleGraph` gains a non-interactive mode with an `onFitted` callback, and the changes-only filter of the workspace is shared as `changedArchitecture`.
+
+  The Modules and Layers trees read more clearly: every row's icon sits in the same box so rows at one depth line up, a guide line runs down from each parent, the indent is wider, and the Modules tree lists folders before files.
+
+- [#52](https://github.com/pkishorez/monorepo/pull/52) [`3efa7a0`](https://github.com/pkishorez/monorepo/commit/3efa7a04010e8cd97d2abd1f421459f9aac9e4bc) Thanks [@kishorenuma](https://github.com/kishorenuma)! - `devtools snapshot --all` draws every Laymos Project under the current folder that the commits changed, one PNG per Project in `--out-dir`, skipping `fixtures/` and git-ignored folders; it cannot be combined with `--project`, `--out`, or `--title`. `--theme both` writes a `-dark` and a `-light` picture. The JSON summary now names the Project and lists its pictures under `images`, and all pictures of one run share one browser.
+- Updated dependencies [[`541bb24`](https://github.com/pkishorez/monorepo/commit/541bb243030a45f6ca33e0cfe482ee70637c56c7)]:
+  - std-toolkit@0.0.12
+  - @pkishorez/lotel@0.0.12
+  - @pkishorez/flow@0.0.12
+  - laymos@0.0.12
+
 ## 0.0.11
 
 ### Patch Changes

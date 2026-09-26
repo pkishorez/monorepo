@@ -1,6 +1,6 @@
 {
   "name": "effect-webrtc",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": false,
   "description": "Effect-native peer sessions and RPC over WebRTC data channels",
   "keywords": ["effect", "rpc", "webrtc", "peer-to-peer"],
