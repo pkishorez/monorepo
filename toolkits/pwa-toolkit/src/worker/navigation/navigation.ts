@@ -1,11 +1,11 @@
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import { PAGES_CACHE_NAME } from '../../domain/build/index.js';
+import { type BuildId, pagesCacheName } from '../../domain/build/index.js';
 import type { WorkerBuildInfo } from '../../domain/config/index.js';
 import {
   attempt,
   fetchNetwork,
-  type GlobalScope,
+  GlobalScope,
   type KeepAlive,
   openCache,
 } from '../global-scope/index.js';
@@ -35,27 +35,41 @@ export const isHandledNavigation = (
  * `${offlineFallback}?from=<path+search>`, so a client router renders the
  * fallback route instead of the requested one; a request already for the
  * fallback path gets its body directly.
+ *
+ * While a newer version waits to be accepted, the network holds that newer
+ * build's HTML, so with `shell` the App Shell of this build answers first:
+ * every tab stays on the active Build ID until the update is accepted.
  */
 export const handleNavigation = (
   info: WorkerBuildInfo,
   request: Request,
 ): Effect.Effect<Response, Error, GlobalScope | KeepAlive> => {
   const { navigation } = info.config;
+  const shell = matchPrecache(info.buildId, navigation.shellPath);
   const network = navigation.cachePages
     ? Effect.tap(fetchNetwork(request), (response) =>
-        response.ok ? savePage(request, response.clone()) : Effect.void,
+        response.ok
+          ? savePage(info.buildId, request, response.clone())
+          : Effect.void,
       )
     : fetchNetwork(request);
-  return networkFirst({
+  const networkFirstNavigation = networkFirst({
     network,
     fallback: firstSome([
-      ...(navigation.cachePages ? [matchPage(request)] : []),
-      ...(navigation.shell
-        ? [matchPrecache(info.buildId, navigation.shellPath)]
-        : []),
+      ...(navigation.cachePages ? [matchPage(info.buildId, request)] : []),
+      ...(navigation.shell ? [shell] : []),
       offlineFallback(info, request),
     ]),
     timeoutMs: navigation.networkTimeoutMs,
+  });
+  if (!navigation.shell) return networkFirstNavigation;
+  return Effect.gen(function* () {
+    const scope = yield* GlobalScope;
+    if (scope.hasWaitingWorker()) {
+      const pinned = yield* shell;
+      if (Option.isSome(pinned)) return pinned.value;
+    }
+    return yield* networkFirstNavigation;
   });
 };
 
@@ -72,13 +86,13 @@ const offlineFallback = (info: WorkerBuildInfo, request: Request) => {
   );
 };
 
-const savePage = (request: Request, response: Response) =>
-  Effect.flatMap(openCache(PAGES_CACHE_NAME), (cache) =>
+const savePage = (buildId: BuildId, request: Request, response: Response) =>
+  Effect.flatMap(openCache(pagesCacheName(buildId)), (cache) =>
     attempt(() => cache.put(request, response)),
   ).pipe(Effect.ignore);
 
-const matchPage = (request: Request) =>
-  Effect.flatMap(openCache(PAGES_CACHE_NAME), (cache) =>
+const matchPage = (buildId: BuildId, request: Request) =>
+  Effect.flatMap(openCache(pagesCacheName(buildId)), (cache) =>
     attempt(() => cache.match(request)),
   ).pipe(
     Effect.map(Option.fromNullishOr),

@@ -95,7 +95,10 @@ function RpcPage() {
     onSuccess: (a: A) => void,
   ) => {
     const exit = await Effect.runPromiseExit(effect);
-    if (Exit.isSuccess(exit)) return onSuccess(exit.value);
+    if (Exit.isSuccess(exit)) {
+      setLastError('none');
+      return onSuccess(exit.value);
+    }
     const message = describeCause(exit.cause);
     setLastError(message);
     // A worker of another build answered: look for the new version.
@@ -189,7 +192,7 @@ function RpcPage() {
         testId="rpc-ticks"
         count={5}
         retrying={false}
-        onError={setLastError}
+        setLastError={setLastError}
       />
 
       <TicksPanel
@@ -199,7 +202,7 @@ function RpcPage() {
         testId="rpc-retry-ticks"
         count={20}
         retrying
-        onError={setLastError}
+        setLastError={setLastError}
       />
     </ScenarioPage>
   );
@@ -219,9 +222,10 @@ function TicksPanel(props: {
   readonly testId: string;
   readonly count: number;
   readonly retrying: boolean;
-  readonly onError: (message: string) => void;
+  /** Called with the error text, or 'none' once the stream succeeds. */
+  readonly setLastError: (message: string) => void;
 }) {
-  const { client, testId, count, retrying, onError } = props;
+  const { client, testId, count, retrying, setLastError } = props;
   const [ticks, setTicks] = useState<ReadonlyArray<number>>([]);
   const [status, setStatus] = useState<string>('idle');
   const [subscriptions, setSubscriptions] = useState(0);
@@ -251,7 +255,7 @@ function TicksPanel(props: {
           Stream.tapError((error) =>
             Effect.sync(() => {
               setStatus('restarting');
-              onError(describeCause(Cause.fail(error)));
+              setLastError(describeCause(Cause.fail(error)));
             }),
           ),
           Stream.retry(restartSchedule),
@@ -265,10 +269,13 @@ function TicksPanel(props: {
     fiber.current = running;
     running.addObserver((exit) => {
       if (fiber.current === running) fiber.current = null;
-      if (Exit.isSuccess(exit)) return setStatus('done');
+      if (Exit.isSuccess(exit)) {
+        setLastError('none');
+        return setStatus('done');
+      }
       if (Cause.hasInterruptsOnly(exit.cause)) return setStatus('stopped');
       setStatus('failed');
-      onError(describeCause(exit.cause));
+      setLastError(describeCause(exit.cause));
     });
   };
 

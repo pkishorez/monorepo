@@ -51,9 +51,6 @@ catalogs:
     '@effect/opentelemetry':
       specifier: 4.0.0-rc.112
       version: 4.0.0-rc.112
-    '@effect/platform-browser':
-      specifier: 4.0.0-rc.112
-      version: 4.0.0-rc.112
     '@effect/platform-node':
       specifier: 4.0.0-rc.112
       version: 4.0.0-rc.112
@@ -1359,9 +1356,6 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@0.3.0
         version: '@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(@typescript/typescript6@6.0.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(yaml@2.9.0)'
     devDependencies:
-      '@effect/platform-browser':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.112(effect@4.0.0-rc.112)
       '@tsconfig/node22':
         specifier: 'catalog:'
         version: 22.0.6
@@ -2378,11 +2372,6 @@ packages:
         optional: true
       '@opentelemetry/sdk-trace-web':
         optional: true
-
-  '@effect/platform-browser@4.0.0-rc.112':
-    resolution: {integrity: sha512-GSlqNDnjILz2EqOFPhVdMEHxlPq6SGb8+KOpNnLfRvVJjXRTMawEO+v1PCuwt2CHAqESbJAa2Nk+qcQvTrv4MQ==}
-    peerDependencies:
-      effect: ^4.0.0-rc.112
 
   '@effect/platform-node-shared@4.0.0-rc.112':
     resolution: {integrity: sha512-ttjz0xKamFN7vL8pNDYVwddJLjZvqKePc05djlz2VcdaKbLsnYbtMnL1rbOfHgEnIUSHGh7FkjaN4DM1Ov81sQ==}
@@ -11115,10 +11104,6 @@ snapshots:
       '@opentelemetry/sdk-metrics': 2.11.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-base': 2.11.0(@opentelemetry/api@1.9.1)
       '@opentelemetry/sdk-trace-node': 2.11.0(@opentelemetry/api@1.9.1)
-
-  '@effect/platform-browser@4.0.0-rc.112(effect@4.0.0-rc.112)':
-    dependencies:
-      effect: 4.0.0-rc.112
 
   '@effect/platform-node-shared@4.0.0-rc.112(effect@4.0.0-rc.112)':
     dependencies:

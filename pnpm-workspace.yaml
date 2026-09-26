@@ -57,7 +57,6 @@ catalog:
   '@codemirror/lang-json': 6.0.2
   '@dagrejs/dagre': 3.1.1
   '@effect/opentelemetry': 4.0.0-rc.112
-  '@effect/platform-browser': 4.0.0-rc.112
   '@effect/platform-node': 4.0.0-rc.112
   '@effect/platform-node-shared': 4.0.0-rc.112
   '@emotion/is-prop-valid': 1.4.0

@@ -78,7 +78,9 @@ export interface FakeEvent {
   response: Promise<Response> | undefined;
 }
 
-export const makeFakeGlobal = (options: { readonly active?: boolean } = {}) => {
+export const makeFakeGlobal = (
+  options: { readonly active?: boolean; readonly waiting?: boolean } = {},
+) => {
   const listeners = new Map<string, (event: unknown) => void>();
   const caches = new FakeCacheStorage();
   const requests: Array<{ url: string; init: RequestInit | undefined }> = [];
@@ -88,7 +90,10 @@ export const makeFakeGlobal = (options: { readonly active?: boolean } = {}) => {
   const global = {
     location: { origin: ORIGIN },
     caches,
-    registration: { active: options.active === true ? {} : null },
+    registration: {
+      active: options.active === true ? {} : null,
+      waiting: options.waiting === true ? {} : null,
+    },
     clients: { claim: () => Promise.resolve(void calls.claim++) },
     skipWaiting: () => Promise.resolve(void calls.skipWaiting++),
     fetch: (input: RequestInfo | URL, init?: RequestInit) => {

@@ -14,8 +14,8 @@ interface Preset {
 const DAY_SECONDS = 24 * 60 * 60;
 
 /**
- * Provisional: the names and contents get settled from playground evidence.
- * Images are left out of the Precache, so every preset caches them at runtime.
+ * `app` for signed-in dashboards and tools, `content` for docs and content
+ * sites (settled from the playground's lifecycle runs). Images are left out of the Precache, so every preset caches them at runtime.
  */
 export const PRESETS: Record<PresetName, Preset> = {
   app: {

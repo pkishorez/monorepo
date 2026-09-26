@@ -25,6 +25,8 @@ interface GlobalScopeService {
   readonly claimClients: () => Promise<void>;
   /** Whether an older version is active, i.e. this is not the first install. */
   readonly hasActiveWorker: () => boolean;
+  /** Whether a newer version has installed and waits to be accepted. */
+  readonly hasWaitingWorker: () => boolean;
 }
 
 /** The service worker's global scope, as seen by the runtime. */
@@ -40,6 +42,7 @@ export class GlobalScope extends Context.Service<
       skipWaiting: () => global.skipWaiting(),
       claimClients: () => global.clients.claim(),
       hasActiveWorker: () => global.registration.active !== null,
+      hasWaitingWorker: () => global.registration.waiting !== null,
     };
   }
 }

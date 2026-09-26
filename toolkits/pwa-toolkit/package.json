@@ -60,7 +60,6 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@effect/platform-browser": "4.0.0-rc.112",
     "effect": "4.0.0-rc.112",
     "kui-toolkit": "workspace:*",
     "react": "19.2.8",
@@ -68,9 +67,6 @@
     "vite": "catalog:"
   },
   "peerDependenciesMeta": {
-    "@effect/platform-browser": {
-      "optional": true
-    },
     "kui-toolkit": {
       "optional": true
     },
@@ -85,7 +81,6 @@
     }
   },
   "devDependencies": {
-    "@effect/platform-browser": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
