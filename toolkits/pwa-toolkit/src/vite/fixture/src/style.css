@@ -1,0 +1,7 @@
+@font-face {
+  font-family: Fixture;
+  src: url('./font.woff2') format('woff2');
+}
+body {
+  font-family: Fixture;
+}
