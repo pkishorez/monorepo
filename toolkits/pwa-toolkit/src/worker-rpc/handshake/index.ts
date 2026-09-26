@@ -1,5 +1,6 @@
 export {
   checkVersionSkew,
+  isRequest,
   makeInFlight,
   matchTabEnvelope,
   matchWorkerEnvelope,

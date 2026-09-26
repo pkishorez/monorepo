@@ -72,7 +72,8 @@ const make = <Rpcs extends Rpc.Any>(
  * - Version Skew: a worker of another Build ID refuses the connection, and
  *   calls fail with `VersionSkew` until a new controller takes over. The app
  *   may answer it with `PwaUpdate.check`.
- * - Worker restart: the browser may stop the worker at any time. Calls in
+ * - Worker restart: the browser may stop the worker at any time. A call made
+ *   while nothing was in flight wakes the new worker and succeeds. Calls in
  *   flight then fail with `RpcClientError` (found at the next message, or
  *   within the liveness interval), and the Tab Client connects again on its
  *   own. A stream is never resumed where it stopped: Subscription Restart

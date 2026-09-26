@@ -201,6 +201,23 @@ describe('Worker RPC', () => {
     }
   });
 
+  it('answers the next call without error after the worker is stopped while idle', async () => {
+    const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
+    browser.claim();
+    const results = await run(
+      Effect.gen(function* () {
+        const client = yield* TabClient.make(Group);
+        const first = yield* client.add({ a: 1, b: 1 });
+        yield* browser.stop();
+        const second = yield* client.add({ a: 2, b: 3 });
+        const third = yield* client.add({ a: 4, b: 5 });
+        return [first, second, third];
+      }),
+    );
+    expect(results).toEqual([2, 5, 9]);
+    expect(browser.stats.starts).toBe(2);
+  });
+
   it('reconnects after the worker is stopped, and a retried stream restarts', async () => {
     const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
     browser.claim();
