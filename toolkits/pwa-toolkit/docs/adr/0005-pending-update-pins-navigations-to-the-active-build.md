@@ -6,4 +6,4 @@ While a newer version waits to be accepted, the worker answers navigations with 
 
 Until the update is accepted, reloads and new tabs get the client-rendered App Shell, never fresh server-rendered HTML, even online. Route loaders still fetch their data, so pages stay current; only the SSR first paint is lost for that window.
 
-With the App Shell off (the `content` preset), there is no page of the active build to serve, so navigations keep going to the network and a reloaded tab may load the newer build. It then shows the Update Prompt at once, because a worker is waiting, and accepting reloads it onto that build.
+With the App Shell off (the `content` preset), there is no page of the active build to serve, so navigations keep going to the network and a reloaded tab may load the newer build. It then shows the Update Prompt at once, because a worker is waiting, and accepting reloads it onto that build. While it waits, the worker also skips saving navigation HTML to the pages cache (`cachePages`), since that HTML belongs to the pending build, not the active Build ID.

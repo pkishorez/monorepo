@@ -281,6 +281,21 @@ describe('navigation', () => {
     );
   });
 
+  it("doesn't save pages while an update waits", async () => {
+    const fake = start(
+      build({ navigation: { cachePages: true, shell: false } }),
+      { waiting: true },
+    );
+    withPrecache(fake);
+    fake.setNetwork(() => new Response('newer-build'));
+    const event = fake.fetchEvent('/page', { mode: 'navigate' });
+    expect(await text(event)).toBe('newer-build');
+    await settle(event);
+    expect(
+      fake.caches.caches.get(pagesCacheName(BUILD))?.entries.size ?? 0,
+    ).toBe(0);
+  });
+
   it('answers with a network error when nothing is available', async () => {
     const fake = start();
     const event = fake.fetchEvent('/page', { mode: 'navigate' });
