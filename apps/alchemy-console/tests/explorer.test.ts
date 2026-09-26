@@ -56,7 +56,7 @@ const run = <A, E>(
   const table = SQLite.make(consoleTable, { database });
   return Effect.runPromise(
     Effect.gen(function* () {
-      yield* table.setup;
+      yield* SQLite.setup(consoleTable, { database });
       yield* stores.insert({
         id: 'store',
         userId: 'alice',

@@ -13,7 +13,7 @@ The adapter-independent single-table abstraction and aggregate of its entity sur
 _Avoid_: Table (bare, for the abstraction), EntityRegistry, EntityManager, store registry, portable table.
 
 **StdTable contract**:
-The minimal storage obligation every adapter fulfills to make a StdTable complete: item-level reads, conditional puts, **item checks**, queries, atomic writes, hard deletes, and query positions over **encoded items** (`StdTableContract`). The kernel implements all StdTable surface semantics once, including generating Entity Meta `_u` with core `nextUlid`; adapters only translate storage primitives, physical values, query positions, atomic writes, and adapter failures. Adapters store the supplied `_u` and do not generate versions.
+The minimal storage obligation every adapter fulfills to make a StdTable complete: item-level reads, conditional puts, **item checks**, queries, atomic writes, hard deletes, and query positions over **stored items** (`StdTableContract`). The kernel implements all StdTable surface semantics once, including generating Entity Meta `_u` with core `nextUlid`; adapters only translate storage primitives, physical values, query positions, atomic writes, and adapter failures. Adapters store the supplied `_u` and do not generate versions.
 _Avoid_: Table runtime, runtime, port, binding, adapter Entity service, duplicated portable implementation.
 
 **StdTable service**:
@@ -21,7 +21,7 @@ The typed Effect service, identified by a StdTable's unique logical name, throug
 _Avoid_: Table binding, attachment, mutable binding, global registration, object-identity binding.
 
 **Studio RPC**:
-A remotely hosted, read-only view of one **StdTable** for inspection clients. It exposes the table's semantic snapshot and delegates entity lookup and **access pattern** queries to the existing keyed and singleton **entity surfaces**, preserving their defaults, read migration, tombstone visibility, ordering, and pagination. Results are re-encoded as core [[core]] **EncodedEntities** or **SingleEntities** for transport; physical storage and adapter-native operations remain hidden.
+A remotely hosted, read-only view of one **StdTable** for inspection clients. It exposes the table's semantic snapshot and delegates entity lookup and **access pattern** queries to the existing keyed and singleton **entity surfaces**, preserving their defaults, read migration, tombstone visibility, ordering, and pagination. Results are written as core [[core]] **Entities** or **SingleEntities** for transport; physical storage and adapter-native operations remain hidden.
 _Avoid_: Database API, admin API, raw table endpoint, multi-table endpoint.
 
 **Adapter**:
@@ -37,27 +37,27 @@ The adapter-specific information needed to reach a database, such as DynamoDB cl
 _Avoid_: Adapter configuration (long form), table definition, shared database configuration.
 
 **Adapter table**:
-The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTable`, `IDBTable` — or the config-free `Memory.make(stdTable)` result, `MemoryTable`: the StdTable realized on one database. It closes over one StdTable's physical configuration when the adapter has any and exposes its typed `layer` plus adapter-specific capabilities such as executable setup or an infrastructure definition.
+The result of `<Adapter>.make(stdTable, config)` — `DynamoDBTable`, `SQLiteTable`, `IDBTable` — or the config-free `Memory.make(stdTable)` result, `MemoryTable`: the StdTable realized on one database. It closes over one StdTable's physical configuration when the adapter has any and exposes its typed `layer`. It never prepares the physical table and never reads a snapshot.
 _Avoid_: Configured adapter (retired term), instance, storage, public binding.
 
 **Adapter setup**:
-An adapter-specific, explicit preparation of a physical table or store through an **adapter table**. Its reconciliation and failure behavior belongs to the adapter, and creating or providing a layer never runs it automatically.
-_Avoid_: Automatic setup, layer initialization.
+An adapter-native function that creates a physical table and its indexes where nothing else does: `SQLite.setup` and `IDB.setup`, and `DynamoDB.createTable` for DynamoDB Local. It is separate from `make`, and it never checks a snapshot. In production an alchemy target calls it at deploy (D1), or the cloud resource replaces it (DynamoDB). IndexedDB also prepares its store on the table's first open, so a page calls `IDB.setup` only to choose when the version change happens. Memory needs none.
+_Avoid_: Automatic setup, layer initialization, verifySnapshot, table-level enforcement (retired: the snapshot guard is a deploy concern, not an adapter one).
 
-**Encoded item**:
-The portable database form of an **EncodedEntity** as it crosses the **StdTable contract**: derived pk/sk, the entity metadata, eschema-encoded data, and derived secondary-index keys (`EncodedItem`, with `EncodedKey` for a key pair alone). Everything is encoded before an adapter sees it, and its flat layout mirrors the physical row so adapters translate native value representations, not structure.
-_Avoid_: StoredItem, stored item, row (for the portable form), indexes keyed by slot name.
+**Stored item**:
+The portable database form of an **Entity** as it crosses the **StdTable contract**: derived pk/sk, the entity metadata, the eschema **encoded form** of the value, and derived secondary-index keys (`StoredItem`, with `StoredKey` for a key pair alone). Everything is in encoded form before an adapter sees it, and its flat layout mirrors the physical row so adapters translate native value representations, not structure.
+_Avoid_: SerializedItem, EncodedItem, row (for the portable form), indexes keyed by slot name.
 
 **Native item**:
-An adapter's concrete physical shape for one row — a DynamoDB attribute-value record, a SQLite row, or an IndexedDB stored object. Each adapter's **item schema** converts an **encoded item** to and from this native representation.
+An adapter's concrete physical shape for one row — a DynamoDB attribute-value record, a SQLite row, or an IndexedDB stored object. Each adapter's **item schema** converts a **stored item** to and from this native representation.
 _Avoid_: Decoded item, DecodedItem, WireItem, raw row.
 
 **Item schema**:
-The single two-way Effect Schema each adapter defines between an **encoded item** and a **native item**, constructed per table definition. Writes convert to the native representation and reads convert back to the encoded representation; malformed rows fail as parse errors, not thrown strings.
+The single two-way Effect Schema each adapter defines between a **stored item** and a **native item**, constructed per table definition. Writes convert to the native representation and reads convert back to the stored representation; malformed rows fail as parse errors, not thrown strings.
 _Avoid_: item codec, encodeItem/decodeItem pairs, manual shape checks.
 
 **Conditional put**:
-The one write shape in the **StdTable contract**: a full **encoded item**, optionally guarded by an **item condition**. Adapters never merge — they only put whole items.
+The one write shape in the **StdTable contract**: a full **stored item**, optionally guarded by an **item condition**. Adapters never merge — they only put whole items.
 _Avoid_: WriteRequest, partial update (at the contract), upsert.
 
 **Item condition**:
@@ -96,46 +96,42 @@ An entity-scoped, application-specific query route such as `byEmail`, mapped ont
 _Avoid_: Physical index name, index slot.
 
 **Index component**:
-An ESchema-encoded string field used to derive a physical key for an **access pattern**. Composite components use a collision-safe encoding; number, boolean, object, and array fields cannot be index components.
+A **key path** used to derive a physical key for an **access pattern**. Composite components use a collision-safe encoding.
 _Avoid_: String-coerced field, delimiter-joined key.
 
+**Key path**:
+A dotted path into an eschema **value** (`boardId`, `owner.userId`) that ends at a string or number. It reads the value application code sees, never the **encoded form**, and it never passes through an array. A path that exists in only some branches of a union makes a sparse index: a row whose branch lacks it is not in that index.
+_Avoid_: Key function, computed key, derived field.
+
 **Entity surface**:
-The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). It validates and accepts latest decoded domain values and returns validated **DecodedEntities**; encoding and decoding occur before and after the **StdTable contract**. An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided. It also exposes `subscribe`, returning a `Stream` of core [[core]] **Change Notice**s for this entity, optionally narrowed by an exact-match `value` filter typed to this entity's schema (an omitted filter widens to every change on the entity).
+The per-entity CRUD surface defined once from a **StdTable** (`KeyedEntity`, `SingleEntity`). It accepts and returns eschema **values** only — inserts, updates, keys, query operands, and results — and returns **Entities**; conversion to and from the encoded form happens before and after the **StdTable contract**. An adapter table's layer supplies its contract implementation without changing this surface. Every operation on it returns a `TableEffect` — an Effect that can fail with `DatabaseError` and runs only once its StdTable's layer is provided. It also exposes `subscribe`, returning a `Stream` of core [[core]] **Change Notice**s for this entity, optionally narrowed by an exact-match `value` filter typed to this entity's schema (an omitted filter widens to every change on the entity).
 _Avoid_: Entity service (retired term), adapter-specific Entity wrappers, PortableKeyedEntity.
 
 **Read migration**:
-The in-memory conversion of an older **encoded item** into the latest decoded domain form during a get or query. It never rewrites storage; only a later explicit write persists the latest encoded version.
+The in-memory conversion of an older **stored item** into the **value** during a get or query. It never rewrites storage; only a later explicit write persists the latest encoded version.
 _Avoid_: Read repair, automatic migration write-back.
 
 **Table scan**:
-A portable, table-wide walk of every physical row (`table.scan()`), returning raw **encoded item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially. Never yields the **Enforcement baseline** item — every other table operation is already scoped to a named entity, so scan is the one place that item would otherwise leak into.
+A portable, table-wide walk of every Entity item (`table.scan()`), returning raw **stored item**s across every entity type intermixed — untyped, for the same reason `subscribe()` is. An internal snapshot item written by older releases is excluded. Accepts a `parallelism` hint that each **adapter** honors as best it can; DynamoDB runs real segmented scans, the others answer sequentially.
 _Avoid_: Full table read, dump.
 
-**Enforcement baseline**:
-The `TableSnapshot` a table's own **Table-level enforcement** last accepted, stored as a single reserved **encoded item** inside the table itself at a fixed key no real registered entity can produce. It is read, diffed, and — only on a safe outcome — rewritten each time enforcement runs; it is not the file-based CLI baseline, and the two are never the same object.
-_Avoid_: Approved snapshot file, contract file (both name the CLI's separate, file-based baseline).
-
-**Table-level enforcement**:
-`table.verifySnapshot()` — a second, independent line of defense beyond the code-level CLI lint, since a file on disk can simply go unread. It diffs the table's current, code-derived snapshot against the **Enforcement baseline**: a `breaking` or `unverifiable` change rejects and leaves the baseline untouched; a `safe` or `requires-backfill` change (logged as a warning) moves the baseline forward; no baseline yet bootstraps instead of rejecting. It is a plain function a caller chooses to invoke — nothing wires it in automatically.
-_Avoid_: Snapshot approval, deploy gate (as a separate mechanism — it is not).
-
 **Drift**:
-The mismatch between a stored **encoded item**'s secondary-index keys and what the current entity registration would derive for the same decoded value (`table.drift(item)`). A difference confined to `_v` or the encoded payload, with keys unchanged, is not Drift, since it already self-heals through **Read migration**. A primary partition-key or sort-key difference violates **Entity key immutability** and fails with `PrimaryKeyDrift`; it is never returned as repairable Drift. Detected only for keyed entities; a **SingleEntity** has no secondary indexes to drift.
+The mismatch between a stored **stored item**'s secondary-index keys and what the current entity registration would derive for the same **value** (`table.drift(item)`). A difference confined to `_v` or the encoded payload, with keys unchanged, is not Drift, since it already self-heals through **Read migration**. A primary partition-key or sort-key difference violates **Entity key immutability** and fails with `PrimaryKeyDrift`; it is never returned as repairable Drift. Detected only for keyed entities; a **SingleEntity** has no secondary indexes to drift.
 _Avoid_: Backfill need, staleness, migration debt.
 
 **Reindex**:
-The guarded, silent rewrite of one item's physical representation to the form `drift` reported (`table.reindex(currentForm)`). It preserves the exact `_u` it read rather than minting a new one, and fires no Change Notice. The rewrite updates secondary-index keys and can also persist the latest equivalent encoded payload produced by **Read migration**. This is safe under the same `_u` because the latest decoded domain value did not change. A conflict (the real `_u` moved since it was read) fails with `ReindexConflict`; the operation never retries, leaving that to the caller.
+The guarded, silent rewrite of one item's physical representation to the form `drift` reported (`table.reindex(currentForm)`). It preserves the exact `_u` it read rather than minting a new one, and fires no Change Notice. The rewrite updates secondary-index keys and can also persist the latest equivalent encoded payload produced by **Read migration**. This is safe under the same `_u` because the **value** did not change. A conflict (the real `_u` moved since it was read) fails with `ReindexConflict`; the operation never retries, leaving that to the caller.
 _Avoid_: Repair write, silent update, backfill write.
 
 **Entity key**:
-The logical identity accepted by a keyed **entity surface**: the entity's primary partition components plus its ESchema id field. It is derived into the encoded partition and sort keys internally rather than exposing those physical values to callers.
+The logical identity accepted by a keyed **entity surface**: the entity's primary partition components plus its ESchema id field. It is derived into the physical partition and sort keys internally rather than exposing those physical values to callers.
 _Avoid_: Physical key, encoded key, pk/sk pair.
 
 **Entity key immutability**:
 Fields composing an **entity key** cannot change during an update. Moving a value to a different identity is an explicit delete followed by an insert.
 
 **Portable value**:
-An ESchema-encoded JSON-compatible value accepted by every adapter: null, boolean, number, string, arrays, and objects composed from the same values. Adapter-native value types are outside the **StdTable surface**.
+A JSON-compatible value in eschema **encoded form**, accepted by every adapter: null, boolean, number, string, arrays, and objects composed from the same values. Adapter-native value types are outside the **StdTable surface**.
 _Avoid_: Structured-clone value, DynamoDB-native value.
 
 **StdTable surface**:
@@ -151,7 +147,7 @@ The portable, irreversible removal of one Entity or all items for an **entity su
 _Avoid_: Delete (use for tombstoning).
 
 **Adapter-native operation**:
-An explicit adapter-specific escape hatch that is not part of the **StdTable surface**, such as DynamoDB expression update or batch insert. Code that uses one requires that adapter and cannot be moved unchanged to another database.
+An adapter-specific function outside the **StdTable surface**. Only table provisioning and inspection remain: `SQLite.setup`, `IDB.setup`, `IDB.database`, and `DynamoDB.createTable`, `deleteTable` and `getTableDefinition`. No adapter offers native reads or writes; every read and write goes through the **StdTable surface**, which is the only place values are encoded and decoded. Code that uses one requires that adapter and cannot be moved unchanged to another database.
 _Avoid_: Portable extension, enhanced common operation.
 
 **DatabaseError**:
@@ -183,11 +179,11 @@ The keyed-entity **check op** carrying an **entity invariant** (`getAndCheckOp`)
 _Avoid_: getAndAssert, single-entity get-and-check.
 
 **Entity invariant**:
-A caller-supplied predicate over an **entity**'s decoded domain value, evaluated in process by **transact** against the value it reads at commit time (`check`). It rides on a writing **transact op** — `getAndUpdateOp`, `deleteOp`, `restoreOp` — or stands alone as `getAndCheckOp`. It exists because the **duplicate transaction target** rule forbids a separate **check op** on an item the batch writes, so a rule about an item you are writing has nowhere else to live. Unlike an **item condition** it never reaches the database and is never portable to a DynamoDB condition expression; that is the point — arbitrary JavaScript stays in JavaScript. A refused invariant fails the batch before anything is submitted.
+A caller-supplied predicate over an **entity**'s **value**, evaluated in process by **transact** against the value it reads at commit time (`check`). It rides on a writing **transact op** — `getAndUpdateOp`, `deleteOp`, `restoreOp` — or stands alone as `getAndCheckOp`. It exists because the **duplicate transaction target** rule forbids a separate **check op** on an item the batch writes, so a rule about an item you are writing has nowhere else to live. Unlike an **item condition** it never reaches the database and is never portable to a DynamoDB condition expression; that is the point — arbitrary JavaScript stays in JavaScript. A refused invariant fails the batch before anything is submitted.
 _Avoid_: condition, predicate, guard, business rule, check condition.
 
 **Transact op**:
-A statement of intent, produced by an **entity surface** ahead of any transaction (`TransactOp`) — `insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp`, or a **check op**. An op reads nothing: it validates and encodes what the caller supplied, and nothing more. Every op answers one uniform request — given the item **transact** read and the commit `_u`, produce the write — which the **entity surface** fulfils through a single match over the op kinds, so **transact** never branches on what an op is. A writing op always produces exactly one write, even when it rewrites a value that already holds: one write per op is what keeps a batch atomic and keeps a **transact outcome** aligned with the op at its position. Holding an op is therefore free of staleness — the interval between building an op and committing it does not widen the window an **item condition** must survive.
+A statement of intent, produced by an **entity surface** ahead of any transaction (`TransactOp`) — `insertOp`, `getAndUpdateOp`, `deleteOp`, `restoreOp`, or a **check op**. An op reads nothing: it validates what the caller supplied and writes it in encoded form, and nothing more. Every op answers one uniform request — given the item **transact** read and the commit `_u`, produce the write — which the **entity surface** fulfils through a single match over the op kinds, so **transact** never branches on what an op is. A writing op always produces exactly one write, even when it rewrites a value that already holds: one write per op is what keeps a batch atomic and keeps a **transact outcome** aligned with the op at its position. Holding an op is therefore free of staleness — the interval between building an op and committing it does not widen the window an **item condition** must survive.
 _Avoid_: PortableTransactionOp, deferred write (a check op writes nothing), prepared op.
 
 **Check op**:
@@ -199,7 +195,7 @@ Single entities are never deleted — `reset()` writes the default value back as
 _Avoid_: delete (retired single-entity term).
 
 **Transact**:
-The **StdTable**'s atomic application of at most 100 **transact ops** — all apply or none do. Transact owns every read the batch needs: it validates the ops, reads the current items consistently and concurrently under a bounded number in flight, asks each op for its write, and submits them. The same read-apply-write story runs at arity one behind `insert`, `getAndUpdate`, `delete`, and `restore`, which differ from transact only in sending one **conditional put** instead of a batch — the validation, encoding, merging, and **entity invariant** work is one implementation shared by both. A batch may be **check ops** only, asserting a set of facts together without writing. The shared limit follows the DynamoDB compatibility baseline and is enforced by every adapter before writing. Transact never retries — a caller reads the **transact outcome** statuses and decides. Change broadcasts fire only after a successful commit. This is the only transaction vocabulary in the kernel; adapters do not expose interactive (read-inside) transactions.
+The **StdTable**'s atomic application of at most 100 **transact ops** — all apply or none do. Transact owns every read the batch needs: it validates the ops, reads the current items consistently and concurrently under a bounded number in flight, asks each op for its write, and submits them. The same read-apply-write story runs at arity one behind `insert`, `getAndUpdate`, `delete`, and `restore`, which differ from transact only in sending one **conditional put** instead of a batch — the validation, encoded-form conversion, merging, and **entity invariant** work is one implementation shared by both. A batch may be **check ops** only, asserting a set of facts together without writing. The shared limit follows the DynamoDB compatibility baseline and is enforced by every adapter before writing. Transact never retries — a caller reads the **transact outcome** statuses and decides. Change broadcasts fire only after a successful commit. This is the only transaction vocabulary in the kernel; adapters do not expose interactive (read-inside) transactions.
 _Avoid_: transaction(effect) (retired sqlite term), interactive transaction.
 
 **Foreign transact op**:

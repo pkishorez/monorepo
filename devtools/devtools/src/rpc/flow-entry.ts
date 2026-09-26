@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
-import { EntitySchema } from 'std-toolkit/core';
-import { EntityESchema, fromType } from 'std-toolkit/eschema';
+import { EntityESchema, ESchema } from 'std-toolkit/eschema';
 import type { Entry } from '@pkishorez/flow';
 
 /**
@@ -10,11 +9,7 @@ import type { Entry } from '@pkishorez/flow';
  */
 export const FlowEntryEntitySchema = EntityESchema.make('FlowEntry', 'id', {
   flowId: Schema.String,
-  entry: fromType<Entry>(),
+  entry: ESchema.fromType<Entry>(),
 }).build();
 
 export type FlowEntryRecord = typeof FlowEntryEntitySchema.Type;
-
-export const FlowEntryListSchema = Schema.Struct({
-  items: Schema.Array(EntitySchema(FlowEntryEntitySchema)),
-});

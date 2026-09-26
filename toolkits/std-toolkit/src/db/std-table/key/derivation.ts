@@ -1,5 +1,6 @@
-import type { EncodedKey, JsonObject } from '../contract/index.js';
+import type { StoredKey } from '../contract/index.js';
 import { encodeCompositeKey } from './composite-key.js';
+import { encodeKeyPart, type KeyReader } from './key-part.js';
 
 interface KeyDerivation {
   readonly pk: readonly string[];
@@ -16,41 +17,45 @@ interface IndexedKeyDerivation extends KeyDerivation {
   readonly attributes?: IndexAttributes | undefined;
 }
 
-interface EntityKeySource {
-  readonly name: string;
-  readonly primary: KeyDerivation;
-  readonly accessPatterns: readonly IndexedKeyDerivation[];
-}
-
-const stringComponents = (value: JsonObject, fields: readonly string[]) =>
-  fields.map((field) => {
-    const component = value[field];
-    if (typeof component !== 'string')
-      throw new Error(`Index component "${field}" must encode to a string`);
-    return component;
+const parts = (read: KeyReader, components: readonly string[]) =>
+  components.map((component) => {
+    const part = read(component);
+    if (part === undefined)
+      throw new Error(`Index component "${component}" has no string or number`);
+    return encodeKeyPart(part);
   });
+
+/** Encodes the sort-key components alone, as a query bound or position. */
+export const deriveSortKey = (read: KeyReader, components: readonly string[]) =>
+  encodeCompositeKey(parts(read, components));
 
 export const deriveStorageKey = (
   entity: string,
-  data: JsonObject,
+  read: KeyReader,
   derivation: KeyDerivation,
-): EncodedKey => ({
-  pk: encodeCompositeKey([entity, ...stringComponents(data, derivation.pk)]),
-  sk: encodeCompositeKey(stringComponents(data, derivation.sk)),
+): StoredKey => ({
+  pk: encodeCompositeKey([entity, ...parts(read, derivation.pk)]),
+  sk: deriveSortKey(read, derivation.sk),
 });
 
+/**
+ * Secondary-index keys for every pattern the value belongs to. A pattern whose
+ * component is absent — a missing union branch or a `null` step — is sparse:
+ * the item is simply not in that index.
+ */
 export const deriveStorageIndexes = (
   entity: string,
   patterns: readonly IndexedKeyDerivation[],
-  data: JsonObject,
+  read: KeyReader,
 ): Record<string, string> =>
   Object.fromEntries(
     patterns.flatMap((pattern) => {
       if (pattern.index === undefined || pattern.attributes === undefined)
         return [];
-      const fields = [...pattern.pk, ...pattern.sk];
-      if (!fields.every((field) => typeof data[field] === 'string')) return [];
-      const key = deriveStorageKey(entity, data, pattern);
+      const components = [...pattern.pk, ...pattern.sk];
+      if (components.some((component) => read(component) === undefined))
+        return [];
+      const key = deriveStorageKey(entity, read, pattern);
       const entries: [string, string][] = [];
       if (pattern.attributes.pk !== undefined)
         entries.push([pattern.attributes.pk, key.pk]);
@@ -58,24 +63,3 @@ export const deriveStorageIndexes = (
       return entries;
     }),
   );
-
-export const deriveSnapshotIndexes = (
-  entity: EntityKeySource,
-  data: JsonObject,
-  updated: string,
-): Record<string, string> => {
-  const value: JsonObject = { ...data, _u: updated };
-  return deriveStorageIndexes(entity.name, entity.accessPatterns, value);
-};
-
-export const deriveSnapshotKeys = (
-  entity: EntityKeySource,
-  data: JsonObject,
-  updated: string,
-) => {
-  const value: JsonObject = { ...data, _u: updated };
-  return {
-    ...deriveStorageKey(entity.name, value, entity.primary),
-    keys: deriveSnapshotIndexes(entity, data, updated),
-  };
-};

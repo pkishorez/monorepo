@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -15,7 +16,10 @@ describe('ESchema', () => {
           }).build();
 
           expect(schema.idField).toBe('id');
-          const encoded = yield* schema.encode({ id: 'u1', name: 'Alice' });
+          const encoded = yield* writeEncoded(schema, {
+            id: 'u1',
+            name: 'Alice',
+          });
           expect(encoded).toEqual({ _v: 'v1', id: 'u1', name: 'Alice' });
         }),
       );
@@ -28,7 +32,7 @@ describe('ESchema', () => {
             nullable: Schema.NullOr(Schema.String),
           }).build();
 
-          const decoded = yield* schema.decode({
+          const decoded = yield* readEncoded(schema, {
             _v: 'v1',
             id: 'c1',
             count: 42,
@@ -85,27 +89,6 @@ describe('ESchema', () => {
       });
     });
 
-    describe('Make partial', () => {
-      it('returns partial value with version', () => {
-        const schema = EntityESchema.make('Test', 'id', {
-          a: Schema.String,
-          b: Schema.Number,
-        }).build();
-
-        const partial = schema.makePartial({ a: 'hello' });
-        expect(partial).toEqual({ a: 'hello', _v: 'v1' });
-      });
-
-      it('allows empty partial', () => {
-        const schema = EntityESchema.make('Test', 'id', {
-          a: Schema.String,
-        }).build();
-
-        const partial = schema.makePartial({});
-        expect(partial).toEqual({ _v: 'v1' });
-      });
-    });
-
     describe('ForbidIdField enforcement', () => {
       it('id field is auto-added and cannot be in user schema', () => {
         const schema = EntityESchema.make('Test', 'testId', {
@@ -124,7 +107,10 @@ describe('ESchema', () => {
             name: Schema.String,
           }).build();
 
-          const decoded = yield* userSchema.decode({ id: 'u1', name: 'Alice' });
+          const decoded = yield* readEncoded(userSchema, {
+            id: 'u1',
+            name: 'Alice',
+          });
           expect(decoded.id).toBe('u1');
         }),
       );
@@ -135,10 +121,13 @@ describe('ESchema', () => {
             name: Schema.String,
           }).build();
 
-          const encoded = yield* userSchema.encode({ id: 'u1', name: 'Alice' });
+          const encoded = yield* writeEncoded(userSchema, {
+            id: 'u1',
+            name: 'Alice',
+          });
           expect(encoded.id).toBe('u1');
 
-          const reEncoded = yield* userSchema.encode({
+          const reEncoded = yield* writeEncoded(userSchema, {
             id: encoded.id,
             name: 'Bob',
           });

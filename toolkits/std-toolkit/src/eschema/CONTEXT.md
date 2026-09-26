@@ -1,6 +1,6 @@
 # eschema — Ubiquitous Language
 
-Versioned, self-migrating schemas built on Effect Schema. An eschema knows its whole version history and folds older data forward to the latest shape on decode. It owns the **version** and **migration** vocabulary; an encoded value carries its eschema version in `_v`. See the root `CONTEXT-MAP.md`.
+Versioned, self-migrating schemas built on Effect Schema. An eschema knows its whole version history and folds any **encoded form** forward to its latest **value** when it is decoded. It owns the **version** and **migration** vocabulary and the two forms of data: the **value** application code works with, and the internal **encoded form**. A value's **version** always sits right beside it: in [[core]] **Entity Meta** for an Entity's value, and inline as `_v` for an ESchema value nested inside another. See the root `CONTEXT-MAP.md`.
 
 ## Language
 
@@ -16,15 +16,19 @@ _Avoid_: KeyedSchema.
 A storage role for an **ESchema** that has exactly one record. Selected with `table.singleEntity(eschema)`; the schema itself needs no separate variant or id field.
 
 **ValueESchema**:
-A versioned schema for a single value (scalar, enum, union) rather than a named-field object.
+A versioned schema for a single value (scalar, enum, list, map, union) rather than a named-field object. When nested inside another ESchema value it is encoded in a **value envelope**.
 _Avoid_: ScalarSchema, PrimitiveSchema.
 
+**value envelope**:
+The form of a **ValueESchema** value nested inside another ESchema value: exactly `{ _v, _value }`, so the nested value carries its own version. The `_value` key marks it, so it can never be confused with ESchema data; an envelope with any other key is refused. A value with no `_value` key is read as v1.
+_Avoid_: wrapper, value wrapper.
+
 **version**:
-A tagged string identifier for one generation of a schema (e.g. `v1`, `v2`). Encoding stamps it into the encoded value's `_v` field.
+A tagged string identifier for one generation of a schema (e.g. `v1`, `v2`). It travels beside the value it describes: in **Entity Meta** `_v` for an Entity, inline `_v` for a nested ESchema value.
 _Avoid_: revision, generation.
 
 **approved version**:
-A **version** present in an accepted **ESchema snapshot**. Its encoded and decoded data contracts are frozen; later changes must be expressed as a new version. A version that is not yet approved is freely editable, and dropping it leaves nothing behind so long as no durable store has written rows stamped with it.
+A **version** present in an accepted **table snapshot**. Its encoded shape is frozen; later changes must be expressed as a new version. A version that is not yet approved is freely editable, and dropping it leaves nothing behind so long as no durable store has written rows stamped with it.
 _Avoid_: Editable latest version.
 
 **INITIAL_VERSION**:
@@ -39,18 +43,24 @@ A change visible through an **ESchema** because an ESchema nested inside it evol
 _Avoid_: Parent evolution, implicit evolution.
 
 **migration**:
-A total function transforming data from the prior **version** to the next during decode. Migrations are chained to fold any stored version up to the latest.
+A total function transforming a **value** of the prior **version** into a value of the next, run while decoding. It works on rich values (a `Date`, not its stored string); each version's own fields convert its **encoded form** before the first migration runs. Migrations are chained to fold any written version up to the latest.
 _Avoid_: transform, upgrade, converter.
 
 **forward-read compatibility**:
-The guarantee that the current application can decode every historical encoded version and fold it into the latest decoded shape. It does not require older application versions to read data written by newer versions.
+The guarantee that the current application can decode every historical **encoded form** into its latest **value**. It does not require older application versions to read data written by newer versions.
 _Avoid_: backward compatibility, rolling-deployment compatibility.
 
-**encode**:
-Serialization. Always writes the latest **version** and stamps `_v`. Encoded values are intended for JSON persistence and transport; a field is enforced, at definition time, to use only a shape a Snapshot can capture and later restore — an object, primitive, literal, union, array, enum, template literal, or branded value. A custom transformation, or a filter or declared type without a stable identity, is refused before the schema can be built. `Schema.UniqueSymbol` is a known exception: a registered symbol from `Symbol.for(...)` can be captured, but a local symbol from `Symbol(...)` is accepted when the ESchema is defined and fails during snapshot capture because it has no stable identity.
+**value**:
+Data in the rich form application code wants (`typeof X.Type`) — a field stored as an ISO string can be a `Date` here. Only **migrations** see values of older versions; everywhere else a value is in the latest **version**, and it is the only form application code handles: every database operation, broadcast, RPC handler and client, Collection row, and Mutation Callback carries it. An in-memory value is always in the latest version.
+_Avoid_: migrated form, decoded form, domain value, latest form.
 
-**decode**:
-Deserialization. Reads `_v`, then folds the data through **migration**s up to the current shape.
+**encoded form**:
+Data as it is stored or sent — database, transport, Sync Store, Peer Sync — in whichever **version** it was written (`typeof X.Encoded`). The top-level version travels beside it in [[core]] **Entity Meta**; a nested ESchema value carries its own inline `_v`. It is the only form that is versioned, migrated, and captured by a **table snapshot**, so every field's encoded side must be describable in **snapshot types**: a struct, string, number, boolean, null, literal, union, array, string-keyed record, enum, nested ESchema, recursive schema, or opaque value declared with `fromType`. Anything else, such as a declared `Date`, `undefined`, `bigint`, or a symbol, is refused when the schema is defined, and so is a constructor default. Checks are allowed but must be describable as a **check**; checks inside a conversion belong to the conversion and are ignored. It is internal: the toolkit converts at every boundary, and application code never builds, reads, or types one. A field's encoded side and its **value** side may differ (an ISO string and a `Date`); how a field converts between them is not versioned, so a field must never change meaning without changing its name or encoded shape.
+_Avoid_: serialized form, stored form, raw value.
+
+**decode** / **encode**:
+Decoding reads an **encoded form** in any known **version**, converts it with that version's own fields, and runs **migrations** on the resulting values up to the latest version; a version newer than the schema knows fails with `OutdatedVersion`. Encoding converts a **value** to the latest encoded form and never migrates. These are the Effect Schema directions of **toSchema** and core's `EntitySchema`; nothing else in std-toolkit is called decoding.
+_Avoid_: serialize, deserialize, read migration (outside [[db]]).
 
 **toSchema**:
 Converts an **ESchema** into a plain Effect Schema for validation or composition (e.g. nesting one eschema inside another).

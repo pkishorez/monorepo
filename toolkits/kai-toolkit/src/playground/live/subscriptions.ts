@@ -1,5 +1,5 @@
 import { Duration, Effect, Option, Stream } from 'effect';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import type { QueryPage, StdTableService } from 'std-toolkit/db';
 import { SYNC_PAGE_SIZE } from '../../runtime/constants.js';
 import {
@@ -10,16 +10,16 @@ import {
 } from '../../runtime/table/index.js';
 
 type AiTableService = StdTableService<'kai-toolkit'>;
-type Batch<T extends object> = ReadonlyArray<DecodedEntity<T>>;
+type Batch<T extends object> = ReadonlyArray<Entity<T>>;
 
 const PUSH_BATCH_SIZE = 100;
 const PUSH_WINDOW = 25;
 
 const catchUp = <T extends object>(
   fetchPage: (
-    cursor: DecodedEntity<T> | null,
-  ) => Effect.Effect<QueryPage<DecodedEntity<T>>, never, AiTableService>,
-  cursor: DecodedEntity<T> | null,
+    cursor: Entity<T> | null,
+  ) => Effect.Effect<QueryPage<Entity<T>>, never, AiTableService>,
+  cursor: Entity<T> | null,
 ): Stream.Stream<Batch<T>, never, AiTableService> =>
   Stream.paginate(cursor, (after) =>
     Effect.map(fetchPage(after), (page) => {
@@ -27,18 +27,18 @@ const catchUp = <T extends object>(
       return [
         page.items.length === 0 ? [] : [page.items],
         page.hasMore && last !== undefined
-          ? Option.some<DecodedEntity<T> | null>(last)
-          : Option.none<DecodedEntity<T> | null>(),
+          ? Option.some<Entity<T> | null>(last)
+          : Option.none<Entity<T> | null>(),
       ] as const;
     }),
   );
 
 const watch = <T extends object>(config: {
-  readonly cursor: DecodedEntity<T> | null;
+  readonly cursor: Entity<T> | null;
   readonly fetchPage: (
-    cursor: DecodedEntity<T> | null,
-  ) => Effect.Effect<QueryPage<DecodedEntity<T>>, never, AiTableService>;
-  readonly subscribe: () => Stream.Stream<DecodedEntity<T>>;
+    cursor: Entity<T> | null,
+  ) => Effect.Effect<QueryPage<Entity<T>>, never, AiTableService>;
+  readonly subscribe: () => Stream.Stream<Entity<T>>;
 }): Stream.Stream<Batch<T>, never, AiTableService> =>
   Stream.concat(
     catchUp(config.fetchPage, config.cursor),
@@ -54,13 +54,13 @@ const watch = <T extends object>(config: {
     ),
   );
 
-const page = <T extends object>(after: DecodedEntity<T> | null) => ({
+const page = <T extends object>(after: Entity<T> | null) => ({
   limit: SYNC_PAGE_SIZE,
   ...(after === null ? {} : { after }),
 });
 
 export const watchThreads = (
-  cursor: DecodedEntity<Thread> | null,
+  cursor: Entity<Thread> | null,
 ): Stream.Stream<Batch<Thread>, never, AiTableService> =>
   watch({
     cursor,
@@ -73,7 +73,7 @@ export const watchThreads = (
 
 export const watchMessages = (
   threadId: string,
-  cursor: DecodedEntity<Message> | null,
+  cursor: Entity<Message> | null,
 ): Stream.Stream<Batch<Message>, never, AiTableService> =>
   watch({
     cursor,

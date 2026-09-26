@@ -1,0 +1,451 @@
+{
+  "logicalName": "alchemy-console",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [],
+    "globalSecondaryIndexes": []
+  },
+  "entities": [
+    {
+      "name": "credential",
+      "kind": "keyed",
+      "schema": "credential",
+      "idField": "id",
+      "primary": {
+        "pk": ["userId"],
+        "sk": ["id"]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": ["userId"],
+          "sk": ["id"]
+        }
+      ]
+    },
+    {
+      "name": "store",
+      "kind": "keyed",
+      "schema": "store",
+      "idField": "id",
+      "primary": {
+        "pk": ["userId"],
+        "sk": ["id"]
+      },
+      "accessPatterns": [
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": ["userId"],
+          "sk": ["id"]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "credential",
+      "kind": "entity",
+      "idField": "id",
+      "versions": [
+        {
+          "version": "v1",
+          "serialized": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "_v"
+                  },
+                  "type": {
+                    "_tag": "Literal",
+                    "checks": [],
+                    "literal": {
+                      "type": "string",
+                      "value": "v1"
+                    }
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "account"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "createdAt"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "id"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "name"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "secret"
+                  },
+                  "type": {
+                    "_tag": "Union",
+                    "checks": [],
+                    "mode": "anyOf",
+                    "types": [
+                      {
+                        "_tag": "Objects",
+                        "checks": [],
+                        "indexSignatures": [],
+                        "propertySignatures": [
+                          {
+                            "isMutable": false,
+                            "isOptional": false,
+                            "name": {
+                              "type": "string",
+                              "value": "accountId"
+                            },
+                            "type": {
+                              "_tag": "String",
+                              "checks": []
+                            }
+                          },
+                          {
+                            "isMutable": false,
+                            "isOptional": false,
+                            "name": {
+                              "type": "string",
+                              "value": "apiToken"
+                            },
+                            "type": {
+                              "_tag": "String",
+                              "checks": []
+                            }
+                          },
+                          {
+                            "isMutable": false,
+                            "isOptional": false,
+                            "name": {
+                              "type": "string",
+                              "value": "provider"
+                            },
+                            "type": {
+                              "_tag": "Literal",
+                              "checks": [],
+                              "literal": {
+                                "type": "string",
+                                "value": "cloudflare"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "_tag": "Objects",
+                        "checks": [],
+                        "indexSignatures": [],
+                        "propertySignatures": [
+                          {
+                            "isMutable": false,
+                            "isOptional": false,
+                            "name": {
+                              "type": "string",
+                              "value": "accessKeyId"
+                            },
+                            "type": {
+                              "_tag": "String",
+                              "checks": []
+                            }
+                          },
+                          {
+                            "isMutable": false,
+                            "isOptional": false,
+                            "name": {
+                              "type": "string",
+                              "value": "provider"
+                            },
+                            "type": {
+                              "_tag": "Literal",
+                              "checks": [],
+                              "literal": {
+                                "type": "string",
+                                "value": "aws"
+                              }
+                            }
+                          },
+                          {
+                            "isMutable": false,
+                            "isOptional": false,
+                            "name": {
+                              "type": "string",
+                              "value": "secretAccessKey"
+                            },
+                            "type": {
+                              "_tag": "String",
+                              "checks": []
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "updatedAt"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "userId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "identity": "store",
+      "kind": "entity",
+      "idField": "id",
+      "versions": [
+        {
+          "version": "v1",
+          "serialized": {
+            "references": {},
+            "representation": {
+              "_tag": "Objects",
+              "checks": [],
+              "indexSignatures": [],
+              "propertySignatures": [
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "_v"
+                  },
+                  "type": {
+                    "_tag": "Literal",
+                    "checks": [],
+                    "literal": {
+                      "type": "string",
+                      "value": "v1"
+                    }
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "createdAt"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "grants"
+                  },
+                  "type": {
+                    "_tag": "Arrays",
+                    "checks": [],
+                    "elements": [],
+                    "rest": [
+                      {
+                        "_tag": "String",
+                        "checks": []
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "id"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "name"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "state"
+                  },
+                  "type": {
+                    "_tag": "Objects",
+                    "checks": [],
+                    "indexSignatures": [],
+                    "propertySignatures": [
+                      {
+                        "isMutable": false,
+                        "isOptional": false,
+                        "name": {
+                          "type": "string",
+                          "value": "authToken"
+                        },
+                        "type": {
+                          "_tag": "String",
+                          "checks": []
+                        }
+                      },
+                      {
+                        "isMutable": false,
+                        "isOptional": false,
+                        "name": {
+                          "type": "string",
+                          "value": "credentialId"
+                        },
+                        "type": {
+                          "_tag": "String",
+                          "checks": []
+                        }
+                      },
+                      {
+                        "isMutable": false,
+                        "isOptional": false,
+                        "name": {
+                          "type": "string",
+                          "value": "provider"
+                        },
+                        "type": {
+                          "_tag": "Literal",
+                          "checks": [],
+                          "literal": {
+                            "type": "string",
+                            "value": "cloudflare"
+                          }
+                        }
+                      },
+                      {
+                        "isMutable": false,
+                        "isOptional": false,
+                        "name": {
+                          "type": "string",
+                          "value": "url"
+                        },
+                        "type": {
+                          "_tag": "String",
+                          "checks": []
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "updatedAt"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                },
+                {
+                  "isMutable": false,
+                  "isOptional": false,
+                  "name": {
+                    "type": "string",
+                    "value": "userId"
+                  },
+                  "type": {
+                    "_tag": "String",
+                    "checks": []
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

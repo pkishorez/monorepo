@@ -1,16 +1,9 @@
 import type {
   AnyEntityESchema,
   AnyUnkeyedESchema,
-  ESchemaEncoded,
   ESchemaType,
 } from '../../../eschema/index.js';
-import type { LogicalTableSnapshot } from '../snapshot/index.js';
 import { makeTableBuilder } from './table-definition.js';
-
-export type {
-  LogicalEntitySnapshot,
-  LogicalTableSnapshot,
-} from '../snapshot/index.js';
 
 export interface PrimaryIndex<
   Pk extends string = string,
@@ -45,17 +38,84 @@ export type GlobalSecondaryIndexMap = Readonly<
   Record<string, GlobalSecondaryIndex>
 >;
 
-type EncodedStringKey<TSchema extends AnyEntityESchema> = {
-  [Key in keyof ESchemaEncoded<TSchema> & string]: NonNullable<
-    ESchemaEncoded<TSchema>[Key]
-  > extends string
-    ? Key
+type KeyLeaf = string | number;
+type Depth = [never, 0, 1, 2, 3, 4, 5, 6];
+type IsRecord<T> = string extends keyof T
+  ? true
+  : number extends keyof T
+    ? true
+    : false;
+
+type Paths<T, Leaf, D extends number> = [D] extends [never]
+  ? never
+  : T extends unknown
+    ? T extends
+        | KeyLeaf
+        | boolean
+        | readonly unknown[]
+        | Date
+        | ((...args: never[]) => unknown)
+      ? never
+      : T extends object
+        ? IsRecord<T> extends true
+          ? never
+          : {
+              [K in keyof T & string]: NonNullable<T[K]> extends Leaf
+                ? K
+                : `${K}.${Paths<NonNullable<T[K]>, Leaf, Depth[D]>}`;
+            }[keyof T & string]
+        : never
     : never;
-}[keyof ESchemaEncoded<TSchema> & string];
+
+/**
+ * Every dotted path through a value that ends at a `Leaf` (a string or number
+ * by default). Union branches are distributed, so a path that exists in only
+ * some branches is offered too; arrays, records, and non-plain values are not
+ * entered.
+ */
+export type KeyPath<T, Leaf = KeyLeaf> = Paths<T, Leaf, 6>;
+
+type PathValue<T, P extends string> = T extends unknown
+  ? T extends null | undefined
+    ? null
+    : P extends `${infer Head}.${infer Rest}`
+      ? Head extends keyof T
+        ? PathValue<T[Head], Rest>
+        : undefined
+      : P extends keyof T
+        ? T[P]
+        : undefined
+  : never;
+
+/** What a key path reads, across every branch that has it. */
+export type KeyPathValue<T, P extends string, Leaf = KeyLeaf> = Extract<
+  PathValue<T, P>,
+  Leaf
+>;
+
+/** A key path that reads a `Leaf` in every branch, never `null`. */
+export type TotalKeyPath<T, Leaf = KeyLeaf> = {
+  [P in KeyPath<T, Leaf>]: [PathValue<T, P>] extends [Leaf] ? P : never;
+}[KeyPath<T, Leaf>];
 
 export type IndexComponent<TSchema extends AnyEntityESchema> =
-  | Exclude<EncodedStringKey<TSchema>, '_v'>
+  | Exclude<KeyPath<ESchemaType<TSchema>>, '_v'>
   | '_u';
+
+export type PrimaryComponent<TSchema extends AnyEntityESchema> = Exclude<
+  TotalKeyPath<ESchemaType<TSchema>>,
+  '_v'
+>;
+
+/** A key record named by key path, such as a key or a query operand. */
+export type KeyRecord<
+  TSchema extends AnyEntityESchema,
+  Paths extends string,
+> = {
+  readonly [P in Paths]: P extends '_u'
+    ? string
+    : KeyPathValue<ESchemaType<TSchema>, P>;
+};
 
 export interface AccessPatternDefinition<
   Slot extends string | undefined = string | undefined,
@@ -106,7 +166,7 @@ export interface KeyedEntityBuilderStart<
   Gsis extends GlobalSecondaryIndexMap,
 > {
   primary<
-    const Pk extends readonly Exclude<IndexComponent<TSchema>, '_u'>[] = [],
+    const Pk extends readonly PrimaryComponent<TSchema>[] = [],
   >(derivation?: {
     readonly pk: Pk;
   }): KeyedEntityBuilder<
@@ -227,7 +287,7 @@ export interface TableDefinition<
   singleEntity<TSchema extends AnyUnkeyedESchema>(
     schema: TSchema,
   ): SingleEntityBuilder<Name, TSchema>;
-  snapshot(): LogicalTableSnapshot;
+  /** Every entity registered so far, in registration order. Snapshot capture reads this. */
   readonly registeredEntities: readonly (
     | KeyedEntityDefinition
     | SingleEntityDefinition

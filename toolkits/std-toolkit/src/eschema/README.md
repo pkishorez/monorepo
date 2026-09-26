@@ -4,9 +4,9 @@ Versioned, self-migrating schemas built on Effect Schema; data written at any pa
 
 ## Big picture
 
-A schema is a chain of versions `v1 ... latest`. `encode` always writes the latest version and stamps `_v`. `decode` reads `_v` and folds the value forward through each migration. Data with no `_v` decodes as `v1`, so adopting eschema over existing rows is non-breaking. The full history of a shape lives in one declaration under version control, and the database never has to change. Vocabulary is in [CONTEXT.md](CONTEXT.md); the motivation and the rules the builder enforces are in [docs/evolving-schema.md](../../docs/evolving-schema.md). Contract snapshots of these schemas are produced by `std-toolkit/snapshot` (see the [top README](../../README.md#std-toolkitsnapshot) and [docs/snapshot-cli.md](../../docs/snapshot-cli.md)).
+A schema is a chain of versions `v1 ... latest`. A written value is always the latest version, stamped with `_v`; decoding takes `_v`, reads the data with that version's fields, and folds it forward through each migration into the latest value. A field may hold a rich value in code (a `Date`) and a plain one in storage (its ISO string). Data with no `_v` reads as `v1`, so adopting eschema over existing rows is non-breaking. A version newer than the schema knows fails with `OutdatedVersion`. Application code only sees the latest value, typed `typeof X.Type`; the encoded form, which carries the version, stays inside the toolkit. The full history of a shape lives in one declaration under version control, and the database never has to change. Vocabulary is in [CONTEXT.md](CONTEXT.md); the motivation and the rules the builder enforces are in [docs/evolving-schema.md](../../docs/evolving-schema.md). Contract snapshots of these schemas are produced by `std-toolkit/snapshot`, and the recommended per-table test is `std-toolkit/snapshot/vitest` (see the [top README](../../README.md#std-toolkitsnapshot)).
 
-Pick the construct by what you are versioning: `ESchema` for an object with named fields, `EntityESchema` for a keyed entity with an id field, `ValueESchema` for a single scalar, enum, or union. A singleton object uses `ESchema` bound with `table.singleEntity()`.
+Pick the construct by what you are versioning. `EntityESchema` is for a table row keyed by an id field. `ESchema` is for any other object with named fields that follows the field rules, including a singleton bound with `table.singleEntity()`. `ValueESchema` is for everything else: a scalar, an enum, a list, a map, a union of different objects, or an existing object with optional fields. In every kind, a top-level field starting with `_` is reserved for the toolkit and refused. The full guide is in [docs/evolving-schema.md](../../docs/evolving-schema.md#which-one-do-i-pick).
 
 ## Install
 
@@ -22,12 +22,14 @@ See the [top README](../../README.md).
 | `EntityESchema.make` | Starts a builder for a keyed entity schema with a name and an id field.                            |
 | `ValueESchema.make`  | Starts a builder for a versioned single value.                                                     |
 | `toSchema`           | Converts an ESchema or ValueESchema into a plain Effect Schema for composing inside other schemas. |
-| `fromType`           | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
-| `id`                 | Marks a `Schema.String` field with an identifier annotation.                                       |
-| `metaSchema`         | Effect Schema for the `_v` stamp alone.                                                            |
-| `ESchemaError`       | Tagged error raised when decode or encode fails.                                                   |
+| `ESchema.fromType`   | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
+| `ESchema.id`         | Marks a `Schema.String` field with an identifier annotation.                                       |
+| `ESchemaError`       | Tagged error raised when a value cannot be read or written.                                        |
+| `OutdatedVersion`    | Tagged error raised when a value carries a version newer than the schema knows.                    |
+| `checkAnnotation`    | Names a check the built-in catalogue does not know, so a snapshot can list it.                     |
+| `SnapshotTypeSchema` | Effect Schema for the snapshot type language that describes a field's stored shape.                |
 
-Every built schema exposes `name`, `latestVersion`, `fields`, `schema`, `decode`, `encode`, `makePartial`, `getDescriptor`, and the Standard Schema `~standard` interface. `EntityESchema` adds `idField`.
+Every built `ESchema` and `EntityESchema` exposes `name`, `latestVersion`, `fields`, `schema`, `getDescriptor`, the `Type` and `Encoded` type carriers, and the Standard Schema `~standard` interface, which validates a latest value. `EntityESchema` adds `idField`.
 
 ## Usage
 
@@ -37,7 +39,7 @@ Adding `priority` is one `evolve` step. The migration fills it in for every stor
 
 ```ts
 import { Effect, Schema } from 'effect';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
@@ -59,16 +61,22 @@ const januaryRow = {
   status: 'open',
 };
 
-const decoded = await Effect.runPromise(Task.decode(januaryRow));
+const stored = toSchema(Task);
+
+const task = await Effect.runPromise(
+  Schema.decodeUnknownEffect(stored)(januaryRow),
+);
 // { taskId: 't1', boardId: 'work', title: 'Plan', status: 'open', priority: 'low' }
 
-const encoded = await Effect.runPromise(Task.encode(decoded));
+const written = await Effect.runPromise(Schema.encodeEffect(stored)(task));
 // { _v: 'v2', ..., priority: 'low' }
 ```
 
 - Versions must be appended in sequence (`v2` after `v1`); the type system rejects gaps.
 - Removing a field is `evolve('v3', { colour: null }, ...)`; renaming is a remove plus an add in the same step.
-- Optional fields, `_`-prefixed keys, and fields that transform on the way in or out (such as `Schema.DateFromString`) are refused at build time so a snapshot can rebuild the shape from JSON.
+- A field may convert between a rich value and what is stored, such as `Schema.DateFromString`: code gets a `Date`, storage keeps the ISO string, and migrations receive values. Only the stored side is versioned and captured by a snapshot.
+- Optional fields, `_`-prefixed keys, constructor defaults, and fields whose stored side is not plain JSON (such as `Schema.Date`) are refused at build time, so a snapshot can always describe what is stored.
+- A check from the built-in catalogue (`isMinLength`, `isPattern`, `isInt`, `isBetween`, …) is recorded by itself. Any other filter needs `checkAnnotation({ name })`. Checks are shown in Studio but never compared, so adding or removing one is never a breaking change.
 
 ### Try a new field before committing to a version
 
@@ -88,3 +96,34 @@ const TaskTryingDueDate = EntityESchema.make('Task', 'taskId', {
 
 - Dropping the idea is deleting the `evolve('v2', ...)` line.
 - Keeping it is approving the snapshot; from then on v2 is frozen like any shipped version.
+
+### Version a value that is not an object
+
+A theme was free text and becomes one of two words. There is no object to hold `_v`, so `ValueESchema` stores the value in an envelope. Lifted from story 20.
+
+```ts
+import { Effect, Schema } from 'effect';
+import { toSchema, ValueESchema } from 'std-toolkit/eschema';
+
+const Theme = ValueESchema.make('Theme', Schema.String)
+  .evolve('v2', Schema.Literals(['light', 'dark']), (text) =>
+    text === 'night' ? 'dark' : 'light',
+  )
+  .build();
+
+const stored = toSchema(Theme);
+const read = Schema.decodeUnknownEffect(stored);
+
+const seen = await Effect.runPromise(read({ _v: 'v1', _value: 'night' }));
+// 'dark'
+
+const written = await Effect.runPromise(Schema.encodeEffect(stored)(seen));
+// { _v: 'v2', _value: 'dark' }
+
+const legacy = await Effect.runPromise(read('night'));
+// 'dark': a bare value is read as v1
+```
+
+- The envelope is `{ _v, _value }`. The `_value` key marks it, so stored data shows it belongs to a value schema. No schema kind may declare a top-level field starting with `_`, so no stored value can look like an envelope.
+- An envelope must hold exactly `_v` (a string) and `_value`. Anything else fails with `ESchemaError`.
+- A value without `_value` is read as v1, so adopting existing data needs no backfill. Once adopted, always write through the schema: a bare value is migrated from v1 again on every read.

@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { StdTable } from 'std-toolkit/db';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 import { fresh } from '../../env.js';
 import { TaskV4 } from '../18-removing-and-renaming-fields/removing-and-renaming-fields.story.js';
 
@@ -86,7 +86,9 @@ export const changingTheShapeWhileYouAreStillDeciding = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // Read a v4 row through the shape that is trying v5; the new field is filled in.
-            const seen = yield* TaskTryingDueDate.decode(storedToday);
+            const seen = yield* Schema.decodeUnknownEffect(
+              toSchema(TaskTryingDueDate),
+            )(storedToday);
             yield* Story.assert(
               'the app sees the new field with its default',
               seen.dueDate === null && seen.details === 'Ask Ana first',

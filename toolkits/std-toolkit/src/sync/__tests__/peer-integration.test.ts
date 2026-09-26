@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import type { DecodedEntity } from '../../core/index.js';
+import type { Entity } from '../../core/index.js';
 import { IDB } from '../../db/idb/index.js';
 import { Memory } from '../../db/memory/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
@@ -28,17 +28,17 @@ const todo = (
   updated: string,
   title = `title ${updated}`,
   deleted = false,
-): DecodedEntity<Todo> => ({
+): Entity<Todo> => ({
   value: { id, title },
-  meta: { _e: 'Todo', _d: deleted, _u: updated },
+  meta: { _e: 'Todo', _v: 'v1', _d: deleted, _u: updated },
 });
 
 const settings = (
   theme: string,
   updated: string,
-): DecodedEntity<{ theme: string }> => ({
+): Entity<{ theme: string }> => ({
   value: { theme },
-  meta: { _e: 'Settings', _d: false, _u: updated },
+  meta: { _e: 'Settings', _v: 'v1', _d: false, _u: updated },
 });
 
 const noopSingleStrategy = {
@@ -126,7 +126,7 @@ const mount = (config: { sync: { sync: (callbacks: never) => unknown } }) => {
   return { ...mounted, subscription };
 };
 
-const updateFor = (entity: DecodedEntity<unknown>) => ({
+const updateFor = (entity: Entity<unknown>) => ({
   type: 'update',
   value: expect.objectContaining({
     ...(entity.value as object),
@@ -172,9 +172,10 @@ describe('Peer Sync replica integration', () => {
         version: 1,
         entities: [
           {
-            value: { _v: 'v1', ...todo('a', '2').value },
+            value: todo('a', '2').value,
             meta: expect.objectContaining({
               _e: 'Todo',
+              _v: 'v1',
               _d: false,
               _u: '2',
             }),
@@ -268,7 +269,7 @@ describe('Peer Sync replica integration', () => {
         .sync({ schema: EntityESchema.make('Other', 'id', {}).build() })
         .utils.applyToSyncReplica({
           value: { id: 'x' },
-          meta: { _e: 'Other', _d: false, _u: '1' },
+          meta: { _e: 'Other', _v: 'v1', _d: false, _u: '1' },
         }),
     );
     expect(bus.names).toEqual(['local.todo', 'local.other']);
@@ -287,8 +288,6 @@ describe('Peer Sync replica integration', () => {
     const secondAdapter = IDB.make(syncStore, {
       database: IDB.database({ databaseName }),
     });
-    await Effect.runPromise(firstAdapter.setup);
-    await Effect.runPromise(secondAdapter.setup);
     const bus = makeBus();
     const first = createStdSync({
       name: 'shared-idb',

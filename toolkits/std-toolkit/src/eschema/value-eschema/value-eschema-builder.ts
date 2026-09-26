@@ -1,9 +1,10 @@
 import type {
   ForbidUndefinedValue,
+  ForbidUnderscorePrefixValue,
   NextVersion,
   ValueEvolution,
   ValueSchema,
-  ValueSchemaDecoded,
+  ValueSchemaType,
 } from '../domain/schema-model/index.js';
 import type { ValueESchema } from './value-eschema.js';
 
@@ -23,8 +24,8 @@ export class ValueESchemaBuilder<
 
   evolve<V extends NextVersion<TVersion>, S extends ValueSchema>(
     version: V,
-    schema: S & ForbidUndefinedValue<S>,
-    migration: (previous: ValueSchemaDecoded<TLatest>) => ValueSchemaDecoded<S>,
+    schema: S & ForbidUndefinedValue<S> & ForbidUnderscorePrefixValue<S>,
+    migration: (previous: ValueSchemaType<TLatest>) => ValueSchemaType<S>,
   ) {
     return new ValueESchemaBuilder<V, S>(
       this.name,

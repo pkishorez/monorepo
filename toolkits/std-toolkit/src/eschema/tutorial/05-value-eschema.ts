@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 5 — Value evolving schemas (whole-value evolution)
  *
@@ -11,7 +12,7 @@
  *     migration receives and returns the decoded value itself, not a field map.
  *
  * Because a bare value (say the string "draft") has nowhere to hang a `_v`,
- * ValueESchema wraps it in a *value envelope* on encode: `{ _v, value }`.
+ * ValueESchema wraps it in a *value envelope* on encode: `{ _v, _value }`.
  *
  * Run it:  npx tsx src/tutorial/05-value-eschema.ts
  */
@@ -33,14 +34,14 @@ const Status = ValueESchema.make(
   .build();
 
 // encode wraps the value in an envelope and stamps the latest version.
-const encoded = Effect.runSync(Status.encode('review'));
+const encoded = Effect.runSync(writeEncoded(Status, 'review'));
 console.log('encoded value:', encoded);
-// => { _v: 'v2', value: 'review' }
+// => { _v: 'v2', _value: 'review' }
 
 // decode unwraps the envelope and folds forward.
 console.log(
   'decode envelope:',
-  Effect.runSync(Status.decode({ _v: 'v1', value: 'draft' })),
+  Effect.runSync(readEncoded(Status, { _v: 'v1', _value: 'draft' })),
 );
 // => 'draft'
 
@@ -48,7 +49,7 @@ console.log(
 // A pre-adoption value has no envelope at all — just the raw value. eschema
 // treats a bare value as earliest-version (v1) data, exactly like an unstamped
 // row in lesson 3.
-console.log('bare legacy value:', Effect.runSync(Status.decode('draft')));
+console.log('bare legacy value:', Effect.runSync(readEncoded(Status, 'draft')));
 // => 'draft'
 
 // Migrations can also TRANSFORM the value's type across versions. Here v1 is a
@@ -57,7 +58,10 @@ const Quantity = ValueESchema.make('Quantity', Schema.String)
   .evolve('v2', Schema.Number, (value) => Number(value))
   .build();
 
-console.log('value type migration:', Effect.runSync(Quantity.decode('42')));
+console.log(
+  'value type migration:',
+  Effect.runSync(readEncoded(Quantity, '42')),
+);
 // => 42
 
 // Rule of thumb: reach for ValueESchema when the unit of change is a single

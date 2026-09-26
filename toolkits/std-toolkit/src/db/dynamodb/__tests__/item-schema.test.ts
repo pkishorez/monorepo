@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { StdTable } from '../../index.js';
-import type { EncodedItem } from '../../std-table/contract/index.js';
+import type { StoredItem } from '../../std-table/contract/index.js';
 import { unmarshall } from '../attribute-value/index.js';
 import { itemSchema } from '../item-schema/index.js';
 
@@ -12,7 +12,7 @@ const table = StdTable.make('people')
 
 const schema = itemSchema(table);
 
-const item: EncodedItem = {
+const item: StoredItem = {
   pk: 'Person|organization-1',
   sk: 'person-1',
   meta: {

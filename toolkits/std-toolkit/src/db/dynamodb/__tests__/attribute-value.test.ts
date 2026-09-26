@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { marshall, unmarshall } from '../index.js';
+import { marshall, unmarshall } from '../attribute-value/index.js';
 
 describe('DynamoDB attribute values', () => {
   it('round-trips nested scalar, list, map, null, and undefined values', () => {

@@ -6,7 +6,7 @@ import {
   syncStore,
   type StoredOutboxEntryValue,
 } from '../../domain/stored-entity/index.js';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import {
   storageError,
   type WriteError,
@@ -80,7 +80,7 @@ export const makeEntryStore = (args: {
 
   const key = (id: string) => ({ sync: syncName, key: id });
 
-  type Stored = DecodedEntity<StoredOutboxEntryValue>;
+  type Stored = Entity<StoredOutboxEntryValue>;
 
   // Failed Entries are retained, so every scan pages to exhaustion; a bounded
   // first page would hide newer pending Entries behind them forever.

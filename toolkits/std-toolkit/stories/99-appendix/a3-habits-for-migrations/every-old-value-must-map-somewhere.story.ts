@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 
 // v1 let `assignee` be null. v2 replaces it with `owner`, which is always a name; the step must give every v1 value one.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -28,7 +28,7 @@ export const everyOldValueMustMapSomewhere = Story.make({
       answer: 'The name moves across to `owner`, and the old field is gone.',
       proof: Effect.gen(function* () {
         // Read a v1 row where someone was assigned.
-        const named = yield* Task.decode({
+        const named = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           _v: 'v1',
           taskId: 't1',
           boardId: 'work',
@@ -47,7 +47,7 @@ export const everyOldValueMustMapSomewhere = Story.make({
         'The step has to turn it into a real owner, here `nobody`. It runs on every v1 row there is, so it cannot leave any allowed value unhandled without failing a read later.',
       proof: Effect.gen(function* () {
         // Read a v1 row where nobody was assigned.
-        const unassigned = yield* Task.decode({
+        const unassigned = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           _v: 'v1',
           taskId: 't2',
           boardId: 'work',
@@ -66,7 +66,7 @@ export const everyOldValueMustMapSomewhere = Story.make({
         'A complete step covers that too, because v1 allowed any string, blank included. Handle it now, in the step, rather than months later when a read fails on a row you forgot could exist.',
       proof: Effect.gen(function* () {
         // Read a v1 row whose assignee is only spaces.
-        const blank = yield* Task.decode({
+        const blank = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           _v: 'v1',
           taskId: 't3',
           boardId: 'work',

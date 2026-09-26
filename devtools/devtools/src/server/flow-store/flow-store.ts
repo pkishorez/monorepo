@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 import { Context, Data, Effect, Layer } from 'effect';
 import type { Entry } from '@pkishorez/flow';
 import { FlowRpc, FlowRpcError, type FlowCursor } from '@pkishorez/flow/rpc';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import { StdTable } from 'std-toolkit/db';
 import { SQLite, type SQLiteDriver } from 'std-toolkit/db/sqlite';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
@@ -25,7 +25,7 @@ export interface FlowStoreShape {
   listEntries(
     _u: FlowCursor,
     limit?: number,
-  ): Effect.Effect<{ items: DecodedEntity<FlowEntryRecord>[] }, FlowStoreError>;
+  ): Effect.Effect<{ items: Entity<FlowEntryRecord>[] }, FlowStoreError>;
   clearFlows: Effect.Effect<number, FlowStoreError>;
 }
 
@@ -112,7 +112,7 @@ export const makeSqliteFlowStore = (options: {
       effect: Effect.Effect<A, E, Layer.Success<typeof configured.layer>>,
     ) => Effect.provide(effect, configured.layer);
 
-    yield* configured.setup.pipe(
+    yield* SQLite.setup(table, { database, tableName: 'flow_data' }).pipe(
       Effect.mapError((cause) => storeError('setup', cause)),
     );
 
@@ -137,7 +137,7 @@ export const makeSqliteFlowStore = (options: {
       listEntries: (_u, limit) =>
         provideSqlite(
           limit === undefined
-            ? collectPages((after?: DecodedEntity<FlowEntryRecord>) =>
+            ? collectPages((after?: Entity<FlowEntryRecord>) =>
                 entries.query(
                   'timeline',
                   { pk: {}, ...cursorCondition(_u) },

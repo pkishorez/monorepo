@@ -1,249 +1,137 @@
+import type { SnapshotType } from '../../../eschema/index.js';
 import type {
-  ContractSnapshot,
   ESchemaDefinition,
-  ESchemaSnapshot,
   ESchemaVersion,
   SnapshotChange,
-  SnapshotImpact,
-  SnapshotEdit,
-  SnapshotSubject,
   TableAccessPatternSnapshot,
   TableEntitySnapshot,
   TableIndexSnapshot,
   TableSnapshot,
 } from '../../domain/index.js';
-import { compareStrings, stableStringify } from '../../domain/index.js';
-import { validateTableSnapshot as validateTable } from '../snapshot-decoder/index.js';
+import { compareStrings } from '../../domain/index.js';
+import { validateTableSnapshot } from '../snapshot-decoder/index.js';
 
-type EditSide = NonNullable<SnapshotEdit['side']>;
-const stable = stableStringify;
+type SnapshotEdit = SnapshotChange['edits'][number];
+type SnapshotSubject = SnapshotChange['subject'];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+const stable = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(stable).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => compareStrings(a, b))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stable(nested)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+};
 
 function edit(
   path: readonly string[],
   before: unknown,
   after: unknown,
-  side?: EditSide,
 ): SnapshotEdit {
   return {
-    ...(side === undefined ? {} : { side }),
     path: [...path],
-    ...(before === undefined
-      ? {}
-      : { before: before as SnapshotEdit['before'] }),
-    ...(after === undefined ? {} : { after: after as SnapshotEdit['after'] }),
+    ...(before === undefined ? {} : { before }),
+    ...(after === undefined ? {} : { after }),
   };
 }
 
 function change(
   subject: SnapshotSubject,
   action: SnapshotChange['action'],
-  impact: SnapshotImpact,
+  impact: SnapshotChange['impact'],
   edits: readonly SnapshotEdit[] = [],
 ): SnapshotChange {
   return { subject, action, impact, edits: [...edits] };
 }
 
-function persistentValue(value: unknown): unknown {
-  return isRecord(value) && 'type' in value && 'value' in value
-    ? value.value
-    : value;
+/**
+ * A shape with its display metadata removed. Checks never change what is
+ * stored, so comparison never sees them; entity references are kept only
+ * when `keepReferences` is set, so a retargeted reference can be reported as
+ * the safe visualization change it is.
+ */
+function contractOf(
+  shape: SnapshotType,
+  keepReferences: boolean,
+): SnapshotType {
+  const reference =
+    keepReferences &&
+    'entityReference' in shape &&
+    shape.entityReference !== undefined
+      ? { entityReference: shape.entityReference }
+      : {};
+  const nested = (child: SnapshotType) => contractOf(child, keepReferences);
+  switch (shape.type) {
+    case 'struct':
+      return {
+        type: 'struct',
+        fields: shape.fields.map((field) => ({
+          ...field,
+          type: nested(field.type),
+        })),
+        ...reference,
+      };
+    case 'array':
+      return { type: 'array', element: nested(shape.element), ...reference };
+    case 'record':
+      return { type: 'record', value: nested(shape.value), ...reference };
+    case 'union':
+      return {
+        type: 'union',
+        members: shape.members.map(nested),
+        ...reference,
+      };
+    case 'recursive':
+      return { type: 'recursive', body: nested(shape.body) };
+    case 'literal':
+      return { type: 'literal', value: shape.value, ...reference };
+    case 'string':
+    case 'number':
+    case 'boolean':
+    case 'null':
+    case 'unknown':
+      return { type: shape.type, ...reference };
+    default:
+      return shape;
+  }
 }
 
-interface SchemaProperty {
-  readonly optional: boolean;
-  readonly type: unknown;
-}
-
-interface SchemaIndexSignature {
-  readonly parameter: unknown;
-  readonly type: unknown;
-}
-
-function representation(value: unknown): unknown {
-  return isRecord(value) && 'representation' in value
-    ? value.representation
-    : value;
-}
-
-function schemaProperties(value: unknown): ReadonlyMap<string, SchemaProperty> {
-  const represented = representation(value);
-  if (!isRecord(represented) || represented._tag !== 'Objects')
-    return new Map();
-  const properties = Array.isArray(represented.propertySignatures)
-    ? represented.propertySignatures
-    : [];
-  return new Map(
-    properties
-      .filter(isRecord)
-      .map((property) => [
-        String(persistentValue(property.name)),
-        { optional: property.isOptional === true, type: property.type },
-      ]),
-  );
-}
-
-function schemaIndexSignatures(
-  value: unknown,
-): readonly SchemaIndexSignature[] {
-  const represented = representation(value);
-  if (!isRecord(represented) || represented._tag !== 'Objects') return [];
-  const signatures = Array.isArray(represented.indexSignatures)
-    ? represented.indexSignatures
-    : [];
-  return signatures.filter(isRecord).map((signature) => ({
-    parameter: signature.parameter,
-    type: signature.type,
-  }));
-}
-
-function schemaEdits(
-  before: unknown,
-  after: unknown,
-  side: EditSide,
+/** Field-level edits between two check-free shapes; any other difference is one edit. */
+function shapeEdits(
+  before: SnapshotType,
+  after: SnapshotType,
   path: readonly string[] = [],
 ): readonly SnapshotEdit[] {
   if (stable(before) === stable(after)) return [];
-  const beforeProperties = schemaProperties(before);
-  const afterProperties = schemaProperties(after);
-  if (beforeProperties.size === 0 || afterProperties.size === 0) {
-    return [edit(path, representation(before), representation(after), side)];
+  if (before.type !== 'struct' || after.type !== 'struct') {
+    return [edit(path, before, after)];
   }
-
-  const edits: SnapshotEdit[] = [];
-  const names = new Set([
-    ...beforeProperties.keys(),
-    ...afterProperties.keys(),
-  ]);
-  for (const name of [...names].sort(compareStrings)) {
-    const previous = beforeProperties.get(name);
-    const current = afterProperties.get(name);
-    const propertyPath = [...path, name];
-    if (previous === undefined) {
-      edits.push(edit(propertyPath, undefined, current?.type, side));
-      continue;
-    }
-    if (current === undefined) {
-      edits.push(edit(propertyPath, previous.type, undefined, side));
-      continue;
-    }
-    if (previous.optional !== current.optional) {
-      edits.push(
-        edit(
-          [...propertyPath, 'presence'],
-          previous.optional ? 'optional' : 'required',
-          current.optional ? 'optional' : 'required',
-          side,
-        ),
-      );
-    }
-    edits.push(...schemaEdits(previous.type, current.type, side, propertyPath));
-  }
-  const beforeIndexSignatures = schemaIndexSignatures(before);
-  const afterIndexSignatures = schemaIndexSignatures(after);
-  const signatureCount = Math.max(
-    beforeIndexSignatures.length,
-    afterIndexSignatures.length,
+  const previous = new Map(before.fields.map((field) => [field.name, field]));
+  const current = new Map(after.fields.map((field) => [field.name, field]));
+  const names = [...new Set([...previous.keys(), ...current.keys()])].sort(
+    compareStrings,
   );
-  for (let index = 0; index < signatureCount; index++) {
-    const previous = beforeIndexSignatures[index];
-    const current = afterIndexSignatures[index];
-    const signaturePath = [...path, 'indexSignatures', String(index)];
-    if (previous === undefined) {
-      edits.push(edit(signaturePath, undefined, current, side));
-      continue;
-    }
-    if (current === undefined) {
-      edits.push(edit(signaturePath, previous, undefined, side));
-      continue;
-    }
-    edits.push(
-      ...schemaEdits(previous.parameter, current.parameter, side, [
-        ...signaturePath,
-        'parameter',
-      ]),
-      ...schemaEdits(previous.type, current.type, side, [
-        ...signaturePath,
-        'type',
-      ]),
-    );
-  }
-  return edits;
-}
-
-function sameEdit(a: SnapshotEdit, b: SnapshotEdit): boolean {
-  return (
-    stable(a.path) === stable(b.path) &&
-    stable(a.before) === stable(b.before) &&
-    stable(a.after) === stable(b.after)
-  );
-}
-
-function combineSchemaSides(
-  encoded: readonly SnapshotEdit[],
-  decoded: readonly SnapshotEdit[],
-): readonly SnapshotEdit[] {
-  const remainingDecoded = [...decoded];
-  const combined = encoded.map((encodedEdit) => {
-    const match = remainingDecoded.findIndex((item) =>
-      sameEdit(encodedEdit, item),
-    );
-    if (match < 0) return encodedEdit;
-    remainingDecoded.splice(match, 1);
-    return { ...encodedEdit, side: 'encoded-and-decoded' as const };
-  });
-  return [...combined, ...remainingDecoded];
-}
-
-function fieldPath(path: string): readonly string[] {
-  const values = path.split('/');
-  return values.flatMap((part, index) =>
-    values[index - 1] === 'properties'
-      ? [part.replaceAll('~1', '/').replaceAll('~0', '~')]
-      : [],
-  );
-}
-
-type NamedPath = {
-  readonly path: string;
-  readonly name?: string;
-  readonly kind?: string;
-};
-
-function namedPathEdits(
-  before: readonly NamedPath[],
-  after: readonly NamedPath[],
-  prefix: string,
-): readonly SnapshotEdit[] {
-  const group = (values: readonly NamedPath[]) => {
-    const grouped = new Map<string, string[]>();
-    for (const item of values) {
-      const names = grouped.get(item.path) ?? [];
-      names.push(item.name ?? item.kind ?? '');
-      grouped.set(item.path, names);
-    }
-    return grouped;
-  };
-  const previous = group(before);
-  const current = group(after);
-  const paths = new Set([...previous.keys(), ...current.keys()]);
-  return [...paths].sort(compareStrings).flatMap((path) => {
-    const beforeNames = previous.get(path);
-    const afterNames = current.get(path);
-    if (stable(beforeNames) === stable(afterNames)) return [];
-    const compact = (values: readonly string[] | undefined): unknown =>
-      values?.length === 1 ? values[0] : values;
-    return [
-      edit(
-        [prefix, ...fieldPath(path)],
-        compact(beforeNames),
-        compact(afterNames),
-        'contract',
-      ),
-    ];
+  return names.flatMap((name): readonly SnapshotEdit[] => {
+    const prior = previous.get(name);
+    const next = current.get(name);
+    const fieldPath = [...path, name];
+    if (prior === undefined) return [edit(fieldPath, undefined, next!.type)];
+    if (next === undefined) return [edit(fieldPath, prior.type, undefined)];
+    const presence =
+      (prior.optional ?? false) === (next.optional ?? false)
+        ? []
+        : [
+            edit(
+              [...fieldPath, 'presence'],
+              prior.optional ? 'optional' : 'required',
+              next.optional ? 'optional' : 'required',
+            ),
+          ];
+    return [...presence, ...shapeEdits(prior.type, next.type, fieldPath)];
   });
 }
 
@@ -256,34 +144,19 @@ function diffVersion(
   before: ESchemaVersion,
   after: ESchemaVersion,
 ): readonly SnapshotChange[] {
-  const schema = combineSchemaSides(
-    schemaEdits(before.encoded, after.encoded, 'encoded'),
-    schemaEdits(before.decoded, after.decoded, 'decoded'),
-  );
-  const transformations = namedPathEdits(
-    before.transformations,
-    after.transformations,
-    'transformation',
-  );
-  const unverifiable = namedPathEdits(
-    before.unverifiable,
-    after.unverifiable,
-    'unverifiable',
-  );
   const subject = versionSubject(identity, after.version);
-  return [
-    ...(schema.length === 0 && transformations.length === 0
-      ? []
-      : [
-          change(subject, 'edited', 'breaking', [
-            ...schema,
-            ...transformations,
-          ]),
-        ]),
-    ...(unverifiable.length === 0
-      ? []
-      : [change(subject, 'edited', 'unverifiable', unverifiable)]),
-  ];
+  const edits = shapeEdits(
+    contractOf(before.shape, false),
+    contractOf(after.shape, false),
+  );
+  if (edits.length > 0) return [change(subject, 'edited', 'breaking', edits)];
+  const references = shapeEdits(
+    contractOf(before.shape, true),
+    contractOf(after.shape, true),
+  );
+  return references.length === 0
+    ? []
+    : [change(subject, 'edited', 'safe', references)];
 }
 
 function definitionEdits(
@@ -393,7 +266,7 @@ function recordEdits(
   return fields.flatMap((field) =>
     stable(before[field]) === stable(after[field])
       ? []
-      : [edit([field], before[field], after[field], 'contract')],
+      : [edit([field], before[field], after[field])],
   );
 }
 
@@ -536,7 +409,7 @@ function diffTable(
         { kind: 'table', name: current.logicalName },
         'edited',
         'breaking',
-        [edit(['name'], previous.logicalName, current.logicalName, 'contract')],
+        [edit(['name'], previous.logicalName, current.logicalName)],
       ),
     );
   }
@@ -617,42 +490,13 @@ function sortChanges(
   });
 }
 
-function diffESchema(
-  previous: ESchemaSnapshot,
-  current: ESchemaSnapshot,
+function diffTableSnapshot(
+  previous: TableSnapshot,
+  current: TableSnapshot,
 ): readonly SnapshotChange[] {
-  const changes: SnapshotChange[] = [];
-  if (previous.root !== current.root) {
-    changes.push(
-      change({ kind: 'snapshot' }, 'edited', 'breaking', [
-        edit(['root'], previous.root, current.root, 'contract'),
-      ]),
-    );
-  }
-  changes.push(...diffDefinitions(previous.schemas, current.schemas));
-  return changes;
+  validateTableSnapshot(previous);
+  validateTableSnapshot(current);
+  return sortChanges(diffTable(previous, current));
 }
 
-function diffSnapshot(
-  previous: ContractSnapshot,
-  current: ContractSnapshot,
-): readonly SnapshotChange[] {
-  if (previous.kind === 'table') validateTable(previous);
-  if (current.kind === 'table') validateTable(current);
-  if (previous.kind !== current.kind) {
-    return [
-      change({ kind: 'snapshot' }, 'edited', 'unverifiable', [
-        edit(['kind'], previous.kind, current.kind, 'contract'),
-      ]),
-    ];
-  }
-  return sortChanges(
-    previous.kind === 'eschema' && current.kind === 'eschema'
-      ? diffESchema(previous, current)
-      : previous.kind === 'table' && current.kind === 'table'
-        ? diffTable(previous, current)
-        : [],
-  );
-}
-
-export { diffSnapshot };
+export { diffTableSnapshot };

@@ -1,11 +1,11 @@
 import { Schema } from 'effect';
-import { EntityESchema, fromType } from '../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { syncStore, type OpaqueValue } from './table.js';
 
 const storedSyncStateSchema = EntityESchema.make('SyncStoredState', 'key', {
   collection: Schema.String,
   strategy: Schema.String,
-  value: fromType<OpaqueValue>(),
+  value: ESchema.fromType<OpaqueValue>(),
 }).build();
 
 export const storedSyncStateEntity = syncStore

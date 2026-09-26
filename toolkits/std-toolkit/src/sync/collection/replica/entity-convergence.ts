@@ -1,4 +1,4 @@
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 
 /**
  * Convergence rule: accept an incoming entity iff there is no current entity or
@@ -6,7 +6,7 @@ import type { DecodedEntity } from '../../../core/index.js';
  * successful no-op (skip).
  */
 export const converge = <TItem>(
-  current: DecodedEntity<TItem> | null,
-  incoming: DecodedEntity<TItem>,
+  current: Entity<TItem> | null,
+  incoming: Entity<TItem>,
 ): 'accept' | 'skip' =>
   current == null || incoming.meta._u > current.meta._u ? 'accept' : 'skip';

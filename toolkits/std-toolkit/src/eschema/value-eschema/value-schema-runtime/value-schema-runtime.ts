@@ -4,24 +4,54 @@ import type {
   ValueEnvelopeEncoded,
   ValueEvolution,
   ValueSchema,
-  ValueSchemaDecoded,
+  ValueSchemaType,
 } from '../../domain/schema-model/index.js';
-import {
-  metaSchema,
-  schemaDescriptor,
-} from '../../domain/schema-model/index.js';
+import { schemaDescriptor } from '../../domain/schema-model/index.js';
 import {
   ESchemaError,
+  findOutdatedVersion,
+  type OutdatedVersion,
   UnrepresentableFieldError,
+  unknownVersion,
 } from '../../domain/eschema-error/index.js';
-import {
-  findUnrepresentableField,
-  registerESchemaIntrospection,
-} from '../../domain/introspection/index.js';
+import { registerEncoded } from '../../domain/encoded/index.js';
+import { registerESchemaIntrospection } from '../../domain/introspection/index.js';
+import { findUndescribableField } from '../../domain/snapshot-type/index.js';
 
-function hasVersionStamp(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && '_v' in value;
-}
+const EnvelopeSchema = Schema.Struct({
+  _v: Schema.String,
+  _value: Schema.Unknown,
+});
+
+const isEnvelope = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  '_value' in value;
+
+const readEnvelope = (value: Record<string, unknown>) => {
+  const unexpected = Object.keys(value).filter(
+    (key) => key !== '_v' && key !== '_value',
+  );
+  if (unexpected.length > 0) {
+    return Effect.fail(
+      new ESchemaError({
+        message: `Malformed value envelope: unexpected keys ${unexpected.join(', ')}`,
+        data: value,
+      }),
+    );
+  }
+  return Schema.decodeUnknownEffect(EnvelopeSchema)(value).pipe(
+    Effect.mapError(
+      (cause) =>
+        new ESchemaError({
+          message: 'Malformed value envelope',
+          data: value,
+          cause,
+        }),
+    ),
+  );
+};
 
 export function makeValueSchemaRuntime<
   TVersion extends string,
@@ -34,13 +64,14 @@ export function makeValueSchemaRuntime<
 }) {
   const evolutions = [...input.evolutions];
   for (const evolution of evolutions) {
-    const found = findUnrepresentableField(evolution.schema.ast);
+    const found = findUndescribableField(evolution.schema.ast);
     if (found !== undefined) {
       throw new UnrepresentableFieldError(
         input.name,
         evolution.version,
         found.path,
         found.reason,
+        found.detail,
       );
     }
   }
@@ -63,32 +94,28 @@ export function makeValueSchemaRuntime<
 
   const decode = (
     value: unknown,
-  ): Effect.Effect<ValueSchemaDecoded<TLatest>, ESchemaError> =>
+  ): Effect.Effect<ValueSchemaType<TLatest>, ESchemaError | OutdatedVersion> =>
     Effect.gen(function* () {
-      const isEnvelope = hasVersionStamp(value);
-      const version = isEnvelope
-        ? yield* Schema.decodeUnknownEffect(metaSchema)(value).pipe(
-            Effect.map((metadata) => metadata._v),
-            Effect.mapError(
-              (cause) => new ESchemaError({ message: 'Decode failed', cause }),
-            ),
-          )
-        : (evolutions[0]?.version ?? input.latestVersion);
+      const envelope = isEnvelope(value)
+        ? yield* readEnvelope(value)
+        : undefined;
+      const version =
+        envelope?._v ?? evolutions[0]?.version ?? input.latestVersion;
       const index = evolutions.findIndex(
         (evolution) => evolution.version === version,
       );
       const evolution = evolutions[index];
       if (index === -1 || evolution === undefined) {
-        return yield* new ESchemaError({
-          message: `Unknown schema version: ${version}`,
-        });
+        return yield* unknownVersion(input.name, version, input.latestVersion);
       }
-      const encoded = isEnvelope ? value.value : value;
+      const encoded = envelope === undefined ? value : envelope._value;
       let data = yield* Schema.decodeUnknownEffect(evolution.schema)(
         encoded,
       ).pipe(
         Effect.mapError(
-          (cause) => new ESchemaError({ message: 'Decode failed', cause }),
+          (cause) =>
+            findOutdatedVersion(cause) ??
+            new ESchemaError({ message: 'Decode failed', cause }),
         ),
       );
       for (let next = index + 1; next < evolutions.length; next++) {
@@ -96,13 +123,20 @@ export function makeValueSchemaRuntime<
         if (migration === undefined) {
           return yield* new ESchemaError({ message: 'Migration not found' });
         }
-        data = migration.migration!(data);
+        data = yield* Effect.try({
+          try: () => migration.migration!(data),
+          catch: (cause) =>
+            new ESchemaError({
+              message: `Migration to ${migration.version} failed`,
+              cause,
+            }),
+        });
       }
-      return data as ValueSchemaDecoded<TLatest>;
+      return data as ValueSchemaType<TLatest>;
     });
 
   const encode = (
-    value: ValueSchemaDecoded<TLatest>,
+    value: ValueSchemaType<TLatest>,
   ): Effect.Effect<ValueEnvelopeEncoded<TVersion, TLatest>, ESchemaError> =>
     Effect.gen(function* () {
       if (evolutions.length === 0) {
@@ -115,19 +149,19 @@ export function makeValueSchemaRuntime<
       );
       return {
         _v: input.latestVersion,
-        value: encoded,
+        _value: encoded,
       } as ValueEnvelopeEncoded<TVersion, TLatest>;
     });
 
+  registerEncoded(input.owner, { read: decode, write: encode });
+
   return {
     schema,
-    decode,
-    encode,
     descriptor: (): ESchemaDescriptor =>
       schemaDescriptor(
         Schema.Struct({
           _v: Schema.Literal(input.latestVersion),
-          value: schema(),
+          _value: schema(),
         }),
       ),
   } as const;

@@ -1,1 +1,1 @@
-export { Snapshot } from './snapshot.js';
+export { TableSnapshot } from './snapshot.js';

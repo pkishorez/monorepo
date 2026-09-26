@@ -1,1 +1,0 @@
-A task is saved and read back in the same breath, and on DynamoDB the read may land on a copy that has not caught up yet. There is a switch for that, but it lives on the native read, which returns the raw row rather than a task. This story uses the switch and looks at what the raw row contains.

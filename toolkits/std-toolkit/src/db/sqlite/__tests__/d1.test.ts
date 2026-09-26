@@ -34,11 +34,15 @@ let tableSequence = 0;
 runConformanceSuite({
   name: 'SQLite D1',
   makeLayer: () => {
-    const table = SQLite.make(conformanceTable, {
+    const config = {
       database: driver,
       tableName: `conformance_${++tableSequence}`,
-    });
-    return Layer.unwrap(table.setup.pipe(Effect.as(table.layer)));
+    };
+    return Layer.unwrap(
+      SQLite.setup(conformanceTable, config).pipe(
+        Effect.as(SQLite.make(conformanceTable, config).layer),
+      ),
+    );
   },
 });
 
@@ -148,12 +152,9 @@ describe('D1 SQLite driver', () => {
   });
 
   it('reconciles setup repeatedly using the caller-owned binding', async () => {
-    const table = SQLite.make(conformanceTable, {
-      database: driver,
-      tableName: 'repeated_setup',
-    });
-    await Effect.runPromise(table.setup);
-    await Effect.runPromise(table.setup);
+    const config = { database: driver, tableName: 'repeated_setup' };
+    await Effect.runPromise(SQLite.setup(conformanceTable, config));
+    await Effect.runPromise(SQLite.setup(conformanceTable, config));
     expect(
       (await Effect.runPromise(driver.all('PRAGMA index_list(repeated_setup)')))
         .length,

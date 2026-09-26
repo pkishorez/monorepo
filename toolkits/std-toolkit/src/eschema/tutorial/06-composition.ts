@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 6 — Composition: nesting evolving schemas
  *
@@ -40,7 +41,7 @@ const Ticket = ESchema.make('Ticket', {
 
 Effect.runSync(
   Effect.gen(function* () {
-    const encoded = yield* Ticket.encode({
+    const encoded = yield* writeEncoded(Ticket, {
       title: 'Fix billing',
       status: 'review',
       addresses: [{ street: '123 Main', city: 'NYC' }],
@@ -49,16 +50,16 @@ Effect.runSync(
     // Notice every level got its own `_v`: the parent, the value envelope for
     // status, and each address in the array.
     console.log('nested encode:', JSON.stringify(encoded, null, 2));
-    // status -> { _v: 'v2', value: 'review' }
+    // status -> { _v: 'v2', _value: 'review' }
     // addresses[0] -> { _v: 'v1', street: '123 Main', city: 'NYC' }
 
-    const decoded = yield* Ticket.decode(encoded);
+    const decoded = yield* readEncoded(Ticket, encoded);
     console.log('nested decode:', decoded);
     // => { title, status: 'review', addresses: [{ street, city }] }
 
     // A nested child can be a BARE legacy value (lesson 3 + 5), and it still
     // decodes correctly through the child's own chain — here a bare 'draft'.
-    const legacy = yield* Ticket.decode({
+    const legacy = yield* readEncoded(Ticket, {
       _v: 'v1',
       title: 'Old ticket',
       status: 'draft',

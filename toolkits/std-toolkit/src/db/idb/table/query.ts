@@ -1,5 +1,5 @@
 import type {
-  EncodedItem,
+  StoredItem,
   QueryPosition,
   QueryRequest,
 } from '../../std-table/contract/index.js';
@@ -107,8 +107,8 @@ export const queryItems = async (
     queryKeyRange(query),
     query.descending ? 'prev' : 'next',
   );
-  const selected = await new Promise<EncodedItem[]>((resolve, reject) => {
-    const items: EncodedItem[] = [];
+  const selected = await new Promise<StoredItem[]>((resolve, reject) => {
+    const items: StoredItem[] = [];
     let resumed = position === undefined;
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {

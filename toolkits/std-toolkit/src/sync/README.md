@@ -4,7 +4,7 @@ Effect-based synchronization of TanStack DB Collections from an authoritative ba
 
 ## Big picture
 
-Each tab owns a Sync Replica and a TanStack DB Collection projection. The backend is authoritative; backend push or polling makes each replica eventually correct, and the projection makes it visible to TanStack queries. Keyed Collections run total sync, on-demand partition sync, or both; every path converges through the one replica by entity id and `_u`. The replica is persisted through a StdTable (`syncStore`), so Memory, IndexedDB, and SQLite adapters are all valid stores.
+Each tab owns a Sync Replica and a TanStack DB Collection projection. The backend is authoritative; backend push or polling makes each replica eventually correct, and the projection makes it visible to TanStack queries. Keyed Collections run total sync, on-demand partition sync, or both; every path converges through the one replica by entity id and `_u`. The replica is persisted through a StdTable (`syncStore`), so Memory, IndexedDB, and SQLite adapters are all valid stores. Collection rows and Mutation Callbacks hold values (a `Date`); the Sync Store, Peer Sync, and the Outbox hold the encoded form (its ISO string), converted with the Collection's schema.
 
 Peer Sync is a same-origin freshness shortcut: after a tab accepts a backend-confirmed Entity it sends the complete Entity to the same Collection in other live tabs. A missed message is harmless because backend sync repairs it. Leadership lets one tab do the backend reads. The Outbox makes writes survive reloads and offline periods.
 
@@ -93,7 +93,7 @@ const screen = createLiveQueryCollection({
 });
 ```
 
-- Only string, number, and boolean schema fields may be partition keys; the parameter type is inferred.
+- A partition is keyed by a key path, such as `boardId` or `board.id`, that reads a string, number, or boolean in every value; the parameter type is inferred.
 - `fetch` returns entities strictly after `cursor`; `cursor` is `null` on the first call.
 - Add `total: { strategy }` next to `partitions` to also load everything in the background; both write through one replica.
 - `onInsert`, `onUpdate`, and `onDelete` return what the backend stored so the replica converges without waiting for the next poll.

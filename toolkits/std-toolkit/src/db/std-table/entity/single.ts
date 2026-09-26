@@ -1,11 +1,11 @@
 import { Effect, Stream } from 'effect';
-import { nextUlid, type DecodedSingleEntity } from '../../../core/index.js';
+import { nextUlid, type SingletonEntity } from '../../../core/index.js';
 import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { CheckRefused, DatabaseError, NoItemToUpdate } from '../error/index.js';
 import {
   StdTableService,
   type ContractFailure,
-  type EncodedItem,
+  type StoredItem,
 } from '../contract/index.js';
 import type { SingleEntityDefinition } from '../definition/index.js';
 import type {
@@ -16,7 +16,7 @@ import type {
   TransactOp,
 } from './entity.js';
 import { broadcast, dbError, failReason, subscribe } from './effects.js';
-import { decodeSingle, encodeSingle, singleKey } from './storage.js';
+import { fromStoredSingle, toStoredSingle, singleKey } from './storage.js';
 
 export const makeSingleEntity = <
   Name extends string,
@@ -29,8 +29,12 @@ export const makeSingleEntity = <
   const absent = () =>
     ({
       value: definition.defaultValue,
-      meta: { _e: definition.name, _u: '' },
-    }) as DecodedSingleEntity<S['Type']>;
+      meta: {
+        _e: definition.name,
+        _v: definition.schema.latestVersion,
+        _u: '',
+      },
+    }) as SingletonEntity<S['Type']>;
   const readRaw = (consistent?: boolean) =>
     Effect.gen(function* () {
       const contract = (yield* service).contract;
@@ -42,25 +46,25 @@ export const makeSingleEntity = <
           ),
         );
     });
-  const decodeCurrent = (item: EncodedItem | null) =>
+  const decodeCurrent = (item: StoredItem | null) =>
     item === null
       ? Effect.succeed(absent())
-      : decodeSingle(definition.schema, item);
+      : fromStoredSingle(definition.schema, item);
   const read = readRaw().pipe(Effect.flatMap(decodeCurrent));
 
   const put = (
     value: S['Type'],
-    current: DecodedSingleEntity<S['Type']>,
+    current: SingletonEntity<S['Type']>,
     version: string,
     lastWriteWins: boolean | undefined,
   ) =>
     Effect.gen(function* () {
-      const encoded = yield* encodeSingle(
+      const encoded = yield* toStoredSingle(
         definition.schema,
         value,
         definition.name,
       );
-      const item: EncodedItem = {
+      const item: StoredItem = {
         ...key,
         meta: { _e: definition.name, _u: version, _d: false },
         data: encoded.value,
@@ -81,19 +85,19 @@ export const makeSingleEntity = <
         },
         entity: {
           value,
-          meta: { _e: definition.name, _u: version },
-        } as DecodedSingleEntity<S['Type']>,
+          meta: { _e: definition.name, _v: encoded.meta._v, _u: version },
+        } as SingletonEntity<S['Type']>,
       };
     });
 
   const makeOp = (
     resolve: (
-      current: DecodedSingleEntity<S['Type']>,
+      current: SingletonEntity<S['Type']>,
       version: string,
     ) => Effect.Effect<
       {
         readonly write: { readonly kind: 'put' };
-        readonly entity: DecodedSingleEntity<S['Type']>;
+        readonly entity: SingletonEntity<S['Type']>;
       },
       DatabaseError
     >,
@@ -107,7 +111,7 @@ export const makeSingleEntity = <
           target: `${key.pk}\0${key.sk}`,
           readsCurrent: true,
           operationKind: 'singleUpdateOp',
-          apply: (current: EncodedItem | null, version: string) =>
+          apply: (current: StoredItem | null, version: string) =>
             decodeCurrent(current).pipe(
               Effect.flatMap((decoded) => resolve(decoded, version)),
             ),
@@ -160,8 +164,8 @@ export const makeSingleEntity = <
             dbError('single.put', error as ContractFailure, definition.name),
           ),
         );
-      yield* broadcast(applied.entity as DecodedSingleEntity<S['Type']>);
-      return applied.entity as DecodedSingleEntity<S['Type']>;
+      yield* broadcast(applied.entity as SingletonEntity<S['Type']>);
+      return applied.entity as SingletonEntity<S['Type']>;
     });
 
   const runWithRetry = (op: TransactOp<Name, S['Type']>, retries = 3) =>
@@ -204,7 +208,7 @@ export const makeSingleEntity = <
       input: SingleUpdateInput<S>,
       options?: WriteOptions<S['Type']>,
     ) => updateOp(input, { ...options, requireExisting: true }),
-    unchangedOp: (entity: DecodedSingleEntity<S['Type']>) =>
+    unchangedOp: (entity: SingletonEntity<S['Type']>) =>
       Effect.sync((): CheckOp<Name> => ({
         tableName: definition.table.logicalName,
         entityName: definition.name,

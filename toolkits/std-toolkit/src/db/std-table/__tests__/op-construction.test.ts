@@ -67,7 +67,12 @@ describe('transact ops carry intent only', () => {
         task.notExistsOp(key),
         task.unchangedOp({
           value,
-          meta: { _e: 'Task', _u: '01ARZ3NDEKTSV4RRFFQ69G5FAV', _d: false },
+          meta: {
+            _e: 'Task',
+            _v: 'v1',
+            _u: '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+            _d: false,
+          },
         }),
       ]),
     );
@@ -99,7 +104,7 @@ describe('transact ops carry intent only', () => {
         ),
         settings.unchangedOp({
           value: { theme: 'light' },
-          meta: { _e: 'Settings', _u: '' },
+          meta: { _e: 'Settings', _v: 'v1', _u: '' },
         }),
       ]),
     );

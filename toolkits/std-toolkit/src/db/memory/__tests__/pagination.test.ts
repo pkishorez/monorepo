@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
-  EncodedItem,
+  StoredItem,
   QueryPosition,
   StdTableContract,
 } from '../../std-table/contract/index.js';
@@ -14,7 +14,7 @@ const table = {
   },
 };
 
-const item = (sk: string, indexSort?: string): EncodedItem => ({
+const item = (sk: string, indexSort?: string): StoredItem => ({
   pk: 'items',
   sk,
   meta: { _e: 'Item', _u: sk, _d: false },
@@ -26,7 +26,7 @@ const makeContract = () => makeTableContract(table, new Map());
 
 const write = async (
   contract: StdTableContract,
-  ...items: readonly EncodedItem[]
+  ...items: readonly StoredItem[]
 ) => {
   for (const stored of items)
     await Effect.runPromise(contract.writeItem({ item: stored }));
@@ -48,7 +48,7 @@ const page = (
     }),
   );
 
-const sortKeys = (items: readonly EncodedItem[]) => items.map(({ sk }) => sk);
+const sortKeys = (items: readonly StoredItem[]) => items.map(({ sk }) => sk);
 
 describe('Memory pagination', () => {
   it('resumes by ordered position after the previous item is deleted', async () => {

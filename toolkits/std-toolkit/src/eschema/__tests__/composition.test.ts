@@ -1,7 +1,9 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
 import { ESchema, EntityESchema, ValueESchema, toSchema } from '../index.js';
-import { Snapshot } from '../../snapshot/index.js';
+import { findOutdatedVersion } from '../../core/index.js';
+import { buildESchemaDefinitions } from '../../snapshot/capture/eschema-capture/index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -28,7 +30,7 @@ describe('ESchema', () => {
       describe('basic composition', () => {
         itEffect('encodes parent with nested schemas', () =>
           Effect.gen(function* () {
-            const encoded = yield* Order.encode({
+            const encoded = yield* writeEncoded(Order, {
               orderId: 'o1',
               customer: 'Alice',
               items: [
@@ -70,7 +72,7 @@ describe('ESchema', () => {
 
         itEffect('decodes parent with nested schemas', () =>
           Effect.gen(function* () {
-            const decoded = yield* Order.decode({
+            const decoded = yield* readEncoded(Order, {
               _v: 'v1',
               orderId: 'o1',
               customer: 'Alice',
@@ -96,8 +98,8 @@ describe('ESchema', () => {
               shippingAddress: { street: '456 Oak', city: 'LA' },
             };
 
-            const encoded = yield* Order.encode(original);
-            const decoded = yield* Order.decode(encoded);
+            const encoded = yield* writeEncoded(Order, original);
+            const decoded = yield* readEncoded(Order, encoded);
 
             expect(decoded).toEqual(original);
           }),
@@ -122,7 +124,7 @@ describe('ESchema', () => {
 
         itEffect('migrates nested schema independently of parent', () =>
           Effect.gen(function* () {
-            const decoded = yield* OrderWithV2Items.decode({
+            const decoded = yield* readEncoded(OrderWithV2Items, {
               _v: 'v1',
               orderId: 'o1',
               customer: 'Alice',
@@ -140,7 +142,7 @@ describe('ESchema', () => {
 
         itEffect('handles array elements at different nested versions', () =>
           Effect.gen(function* () {
-            const decoded = yield* OrderWithV2Items.decode({
+            const decoded = yield* readEncoded(OrderWithV2Items, {
               _v: 'v1',
               orderId: 'o1',
               customer: 'Alice',
@@ -188,7 +190,7 @@ describe('ESchema', () => {
 
         itEffect('migrates parent and decodes nested in new field', () =>
           Effect.gen(function* () {
-            const decoded = yield* Parent.decode({
+            const decoded = yield* readEncoded(Parent, {
               _v: 'v1',
               name: 'test',
             });
@@ -202,7 +204,7 @@ describe('ESchema', () => {
 
         itEffect('decodes latest version with nested schema', () =>
           Effect.gen(function* () {
-            const decoded = yield* Parent.decode({
+            const decoded = yield* readEncoded(Parent, {
               _v: 'v2',
               name: 'test',
               child: { _v: 'v1', value: 'hello' },
@@ -241,11 +243,11 @@ describe('ESchema', () => {
               },
             };
 
-            const encoded = yield* Root.encode(original);
+            const encoded = yield* writeEncoded(Root, original);
             expect((encoded as any).branch.leaf._v).toBe('v1');
             expect((encoded as any).branch._v).toBe('v1');
 
-            const decoded = yield* Root.decode(encoded);
+            const decoded = yield* readEncoded(Root, encoded);
             expect(decoded).toEqual(original);
           }),
         );
@@ -274,8 +276,8 @@ describe('ESchema', () => {
               e: { id: 'i1', z: true },
             };
 
-            const encoded = yield* Composite.encode(original);
-            const decoded = yield* Composite.decode(encoded);
+            const encoded = yield* writeEncoded(Composite, original);
+            const decoded = yield* readEncoded(Composite, encoded);
             expect(decoded).toEqual(original);
           }),
         );
@@ -292,8 +294,8 @@ describe('ESchema', () => {
         itEffect('roundtrips with child present', () =>
           Effect.gen(function* () {
             const original = { name: 'a', child: { val: 'b' } };
-            const encoded = yield* WithNullable.encode(original);
-            const decoded = yield* WithNullable.decode(encoded);
+            const encoded = yield* writeEncoded(WithNullable, original);
+            const decoded = yield* readEncoded(WithNullable, encoded);
             expect(decoded).toEqual(original);
           }),
         );
@@ -301,15 +303,16 @@ describe('ESchema', () => {
         itEffect('roundtrips with child null', () =>
           Effect.gen(function* () {
             const original = { name: 'a', child: null };
-            const encoded = yield* WithNullable.encode(original);
-            const decoded = yield* WithNullable.decode(encoded);
+            const encoded = yield* writeEncoded(WithNullable, original);
+            const decoded = yield* readEncoded(WithNullable, encoded);
             expect(decoded).toEqual(original);
           }),
         );
 
         itEffect('snapshot includes the nested definition', () => {
-          const snapshot = Snapshot.capture(WithNullable);
-          const identities = snapshot.schemas.map((d) => d.identity);
+          const identities = buildESchemaDefinitions([
+            { eschema: WithNullable },
+          ]).map((d) => d.identity);
           expect(identities).toContain('Child');
           return Effect.void;
         });
@@ -319,7 +322,7 @@ describe('ESchema', () => {
         itEffect('propagates nested validation failure', () =>
           Effect.gen(function* () {
             const result = yield* Effect.flip(
-              Order.decode({
+              readEncoded(Order, {
                 _v: 'v1',
                 orderId: 'o1',
                 customer: 'Alice',
@@ -379,4 +382,46 @@ describe('ESchema', () => {
       });
     });
   });
+});
+
+describe('Composed field', () => {
+  const Child = ESchema.make('Child', { name: Schema.String }).build();
+  const Parent = EntityESchema.make('Parent', 'id', {
+    child: toSchema(Child),
+  }).build();
+
+  it('validates the nested migrated form', () => {
+    expect(
+      'issues' in Parent['~standard'].validate({ id: 'p', child: 123 }),
+    ).toBe(true);
+  });
+
+  it('keeps a nested OutdatedVersion on the issue', async () => {
+    const exit = await Effect.runPromiseExit(
+      readEncoded(Parent, {
+        _v: 'v1',
+        id: 'p',
+        child: { _v: 'v2', name: 'a' },
+      }),
+    );
+    expect(findOutdatedVersion(exit)?.version).toBe('v2');
+  });
+
+  itEffect('fails with the OutdatedVersion two levels down', () =>
+    Effect.gen(function* () {
+      const Doc = EntityESchema.make('Doc', 'id', {
+        parent: toSchema(
+          ESchema.make('Mid', { child: toSchema(Child) }).build(),
+        ),
+      }).build();
+      const error = yield* Effect.flip(
+        readEncoded(Doc, {
+          _v: 'v1',
+          id: 'd',
+          parent: { _v: 'v1', child: { _v: 'v2', name: 'a' } },
+        }),
+      );
+      expect(error._tag).toBe('OutdatedVersion');
+    }),
+  );
 });

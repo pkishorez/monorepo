@@ -2,7 +2,7 @@ import { Effect } from 'effect';
 import { AlertCircle, Database, LoaderCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { StudioRpcClient } from 'std-toolkit/studio-rpc';
-import type { TableEntitySnapshot, TableSnapshot } from 'std-toolkit/snapshot';
+import type { TableSnapshot } from 'std-toolkit/snapshot';
 import { useComponentLifecycle } from 'use-effect-ts';
 
 import { Button } from '#components/ui/button';
@@ -24,6 +24,8 @@ import {
 import { RecordDetails } from '../record-details';
 import { RecordTable } from '../record-table';
 import { QueryBuilder } from './query-builder';
+
+type TableEntitySnapshot = TableSnapshot['entities'][number];
 
 type Page = {
   readonly items: readonly StudioRecord[];
@@ -152,7 +154,7 @@ export function QueryWorkspace({
       (pattern) => pattern.kind === 'primary',
     );
     if (entity !== undefined && primary !== undefined) {
-      setCriteria(QueryModel.initialCriteria(entity, primary));
+      setCriteria(QueryModel.initialCriteria(snapshot, entity, primary));
     }
   };
 
@@ -208,7 +210,7 @@ export function QueryWorkspace({
   return (
     <div className="grid gap-4">
       <QueryBuilder
-        entities={snapshot.entities}
+        snapshot={snapshot}
         selectedEntity={selectedEntity}
         criteria={criteria}
         running={resultState.kind === 'loading'}

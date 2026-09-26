@@ -1,35 +1,34 @@
-import type { ESchemaDefinition, ESchemaSnapshot } from '../domain/index.js';
-import { captureESchema } from '../capture/eschema-capture/index.js';
+import type { Effect } from 'effect';
+import type {
+  SnapshotChange,
+  SnapshotDecodeError,
+  TableSnapshot as TableSnapshotDocument,
+} from '../domain/index.js';
 import {
-  restoreESchemaDefinitions,
-  type RestoredESchema,
-} from '../restore/eschema-restore/index.js';
-import { decodeSnapshot } from './snapshot-decoder/index.js';
-import { diffSnapshot } from './snapshot-diff/index.js';
-import { inspectSnapshot } from './snapshot-inspector/index.js';
+  captureTableSnapshot,
+  type TableSource,
+} from '../capture/table-capture/index.js';
 import {
-  renderSnapshot,
-  renderSnapshotChanges,
-} from './snapshot-renderer/index.js';
-import { inspectESchema } from '../../eschema/domain/introspection/index.js';
-import type { AnyEvolvingSchema } from '../../eschema/domain/schema-model/index.js';
+  parseTableSnapshot,
+  serializeTableSnapshot,
+} from './snapshot-decoder/index.js';
+import { diffTableSnapshot } from './snapshot-diff/index.js';
+import { renderSnapshotChanges } from './snapshot-renderer/index.js';
 
-function capture(eschema: AnyEvolvingSchema): ESchemaSnapshot {
-  return captureESchema(eschema, inspectESchema(eschema).name);
-}
+export type TableSnapshot = TableSnapshotDocument;
 
-function restore(
-  definitions: readonly ESchemaDefinition[],
-): readonly RestoredESchema[] {
-  return restoreESchemaDefinitions(definitions);
-}
-
-export const Snapshot = {
-  capture,
-  decode: decodeSnapshot,
-  restore,
-  inspect: inspectSnapshot,
-  diff: diffSnapshot,
-  render: renderSnapshot,
-  renderChanges: renderSnapshotChanges,
+export const TableSnapshot = {
+  capture: (table: TableSource): TableSnapshot => captureTableSnapshot(table),
+  parse: (input: unknown): Effect.Effect<TableSnapshot, SnapshotDecodeError> =>
+    parseTableSnapshot(input),
+  serialize: (
+    snapshot: TableSnapshot,
+  ): Effect.Effect<unknown, SnapshotDecodeError> =>
+    serializeTableSnapshot(snapshot),
+  diff: (
+    previous: TableSnapshot,
+    current: TableSnapshot,
+  ): readonly SnapshotChange[] => diffTableSnapshot(previous, current),
+  renderChanges: (changes: readonly SnapshotChange[]): string =>
+    renderSnapshotChanges(changes),
 } as const;

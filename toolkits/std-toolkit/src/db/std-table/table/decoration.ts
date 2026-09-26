@@ -2,8 +2,8 @@ import { Effect, Stream } from 'effect';
 import {
   nextUlid,
   type ChangeNotice,
-  type DecodedEntity,
-  type DecodedSingleEntity,
+  type Entity,
+  type SingletonEntity,
 } from '../../../core/index.js';
 import type {
   AnyEntityESchema,
@@ -25,7 +25,7 @@ import {
   ConditionFailure,
   StdTableService,
   type ContractFailure,
-  type EncodedItem,
+  type StoredItem,
   type TransactItem,
 } from '../contract/index.js';
 import type {
@@ -36,19 +36,18 @@ import {
   broadcast,
   changesOrEmpty,
   dbError,
-  decode,
-  encode,
   failReason,
-  makeEncodedItem,
+  fromStored,
+  toStored,
+  makeStoredItem,
   makeKeyedEntity,
   makeSingleEntity,
   type AnyTransactOp,
 } from '../entity/index.js';
-import { verifyTableSnapshot } from '../enforcement/index.js';
 import { scanStream } from './scan.js';
 import type { ScanOptions, StdTable } from './table.js';
 
-type AnyDecoded = DecodedEntity<object> | DecodedSingleEntity<object>;
+type AnyEntity = Entity<object> | SingletonEntity<object>;
 
 interface AnyEntityBuilder {
   index(
@@ -220,7 +219,7 @@ export const decorateTable = <Name extends string>(
             op.apply(current[index] ?? null, version) as Effect.Effect<
               {
                 readonly write: TransactItem;
-                readonly entity: AnyDecoded | null;
+                readonly entity: AnyEntity | null;
               },
               DatabaseError
             >
@@ -278,7 +277,7 @@ export const decorateTable = <Name extends string>(
         ),
       ).pipe(Stream.withSpan('StdTable.scan', { attributes }));
     },
-    drift(item: EncodedItem) {
+    drift(item: StoredItem) {
       return Effect.gen(function* () {
         const found = definition.registeredEntities.find(
           (candidate) => candidate.name === item.meta._e,
@@ -290,15 +289,16 @@ export const decorateTable = <Name extends string>(
         // SingleEntity has no secondary indexes, so its key never drifts.
         if (found.kind === 'single')
           return { drifted: false, currentForm: item };
-        const decoded = yield* decode(found.schema, item);
-        const encoded = yield* encode(
+        const decoded = yield* fromStored(found.schema, item);
+        const encoded = yield* toStored(
           found.schema,
           decoded.value,
           found.name,
           item.meta,
         );
-        const currentForm = makeEncodedItem(
+        const currentForm = makeStoredItem(
           found,
+          decoded.value,
           encoded,
           item.meta._u,
           item.meta._d,
@@ -315,14 +315,7 @@ export const decorateTable = <Name extends string>(
         return { drifted, currentForm };
       });
     },
-    verifySnapshot() {
-      return Effect.gen(function* () {
-        const contract = (yield* StdTableService(definition.logicalName))
-          .contract;
-        yield* verifyTableSnapshot(contract, definition.snapshot());
-      });
-    },
-    reindex(currentForm: EncodedItem) {
+    reindex(currentForm: StoredItem) {
       return Effect.gen(function* () {
         const contract = (yield* StdTableService(definition.logicalName))
           .contract;

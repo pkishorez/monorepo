@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { Effect, Schema } from 'effect';
-import type { DecodedEntity } from '../../core/index.js';
+import type { Entity } from '../../core/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { IDB } from '../../db/idb/index.js';
 import { Memory } from '../../db/memory/index.js';
@@ -13,7 +13,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { createStdSync, syncStore } from '../std-sync/std-sync.js';
 import { browser } from '../platform/browser/index.js';
 import { storedReplicaEntity } from '../domain/stored-entity/index.js';
-import { noStrategyState } from '../strategy/state/index.js';
+import {
+  noStrategyState,
+  type StrategyStateSpec,
+} from '../strategy/state/index.js';
 
 type Todo = { id: string; listId: string; title: string };
 
@@ -26,21 +29,25 @@ const settingsSchema = ESchema.make('Settings', {
   theme: Schema.String,
 }).build();
 
-const entity = (value: Todo, updated: string): DecodedEntity<Todo> => ({
+const entity = (value: Todo, updated: string): Entity<Todo> => ({
   value,
-  meta: { _e: 'Todo', _u: updated, _d: false },
+  meta: { _e: 'Todo', _v: 'v1', _u: updated, _d: false },
 });
 
 const settingsEntity = (
   value: { theme: string },
   updated: string,
-): DecodedEntity<{ theme: string }> => ({
+): Entity<{ theme: string }> => ({
   value,
-  meta: { _e: 'Settings', _u: updated, _d: false },
+  meta: { _e: 'Settings', _v: 'v1', _u: updated, _d: false },
 });
 
-const cursorState = () => ({
-  schema: Schema.Struct({ cursor: Schema.NullOr(Schema.String) }),
+const cursorStateSchema = Schema.Struct({
+  cursor: Schema.NullOr(Schema.String),
+});
+
+const cursorState = (): StrategyStateSpec<typeof cursorStateSchema.Type> => ({
+  schema: () => cursorStateSchema,
   empty: { cursor: null },
 });
 
@@ -119,7 +126,7 @@ describe('Sync persistence', () => {
             fetch: () =>
               Effect.succeed({
                 value: { theme: 'dark' },
-                meta: { _e: 'Settings', _u: '1' },
+                meta: { _e: 'Settings', _v: 'v1', _u: '1' },
               }),
           }),
       }),
@@ -130,7 +137,7 @@ describe('Sync persistence', () => {
         type: 'update',
         value: {
           theme: 'dark',
-          _meta: expect.objectContaining({ _e: 'Settings', _u: '1' }),
+          _meta: expect.objectContaining({ _e: 'Settings', _v: 'v1', _u: '1' }),
         },
       }),
     );
@@ -261,7 +268,7 @@ describe('Sync persistence', () => {
         id: 'todo-1',
         listId: 'inbox',
         title: 'shared',
-        _meta: expect.objectContaining({ _e: 'Todo', _u: '1' }),
+        _meta: expect.objectContaining({ _e: 'Todo', _v: 'v1', _u: '1' }),
       },
     });
 
@@ -274,7 +281,6 @@ describe('Sync persistence', () => {
       databaseName: `sync-${crypto.randomUUID()}`,
     });
     const adapter = IDB.make(syncStore, { database });
-    await Effect.runPromise(adapter.setup);
 
     const first = createStdSync({
       name: 'settings',
@@ -306,7 +312,7 @@ describe('Sync persistence', () => {
       type: 'update',
       value: {
         theme: 'dark',
-        _meta: expect.objectContaining({ _e: 'Settings', _u: '1' }),
+        _meta: expect.objectContaining({ _e: 'Settings', _v: 'v1', _u: '1' }),
       },
     });
 

@@ -10,10 +10,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { Ulid } from '../../core/index.js';
 import { StdTable } from '../../db/index.js';
-import type {
-  EncodedData,
-  StdTableService,
-} from '../../db/std-table/contract/index.js';
+import type { StdTableService } from '../../db/std-table/contract/index.js';
 import { Memory } from '../../db/memory/index.js';
 import { EntityESchema, ESchema } from '../../eschema/index.js';
 import { StudioRpc } from '../index.js';
@@ -163,11 +160,11 @@ describe('StudioRpc', () => {
     ]);
     expect(result.missing).toBeNull();
     expect(result.singleton).toEqual({
-      value: { _v: 'v1', theme: 'light' },
-      meta: { _e: 'Settings', _u: '' },
+      value: { theme: 'light' },
+      meta: { _e: 'Settings', _v: 'v1', _u: '' },
     });
+    expect(result.stored?.meta._v).toBe('v1');
     expect(result.stored?.value).toMatchObject({
-      _v: 'v1',
       noteId: 'n1',
       title: 'Alpha',
     });
@@ -206,7 +203,9 @@ describe('StudioRpc', () => {
               ...(sk === undefined ? {} : { sk }),
             });
           const titles = (page: {
-            readonly items: readonly { readonly value: EncodedData }[];
+            readonly items: readonly {
+              readonly value: Record<string, unknown>;
+            }[];
           }) => page.items.map(({ value }) => value.title as string);
           const all = yield* query();
           const first = yield* client['Studio.QueryEntities']({
@@ -382,12 +381,77 @@ describe('StudioRpc migrations', () => {
       ),
     );
 
+    expect(result?.meta._v).toBe('v2');
     expect(result?.value).toEqual({
-      _v: 'v2',
       articleId: 'a1',
       section: 'news',
       title: 'Tides',
       summary: 'About Tides',
+    });
+  });
+});
+
+describe('StudioRpc key paths', () => {
+  const pathTable = StdTable.make('studio-rpc-paths')
+    .primary('pk', 'sk')
+    .gsi('GSI1', 'GSI1PK', 'GSI1SK')
+    .build();
+  const TaskSchema = EntityESchema.make('Task', 'taskId', {
+    board: Schema.Struct({ id: Schema.String }),
+    rank: Schema.Number,
+    dueAt: Schema.DateFromString,
+  }).build();
+  const task = pathTable
+    .entity(TaskSchema)
+    .primary({ pk: ['board.id'] })
+    .index('GSI1', 'byRank', { pk: ['board.id'], sk: ['rank'] })
+    .build();
+
+  it('queries by nested path and number, and returns encoded values', async () => {
+    const [page, mistyped] = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* RpcTest.makeClient(StudioRpc);
+          for (const rank of [10, 9, 100]) {
+            yield* task.insert({
+              taskId: `t${rank}`,
+              board: { id: 'work' },
+              rank,
+              dueAt: new Date('2026-09-01T09:00:00.000Z'),
+            });
+          }
+          return yield* Effect.all([
+            client['Studio.QueryEntities']({
+              entity: 'Task',
+              accessPattern: 'byRank',
+              pk: { 'board.id': 'work' },
+              sk: { operator: '>=', value: { rank: 9 } },
+            }),
+            client['Studio.QueryEntities']({
+              entity: 'Task',
+              accessPattern: 'byRank',
+              pk: { 'board.id': 'work' },
+              sk: { operator: '>=', value: { rank: '9' } },
+            }).pipe(Effect.flip),
+          ]);
+        }),
+      ).pipe(
+        Effect.provide(StudioRpc.layer(pathTable)),
+        Effect.provide(Memory.make(pathTable).layer),
+        Effect.provideService(Ulid, nextTestUlid),
+      ),
+    );
+
+    expect(page.items.map(({ value }) => value.rank)).toEqual([9, 10, 100]);
+    expect(page.items[0]?.value.dueAt).toBe('2026-09-01T09:00:00.000Z');
+    expect(mistyped).toMatchObject({
+      _tag: 'StudioInvalidInput',
+      issues: [
+        {
+          path: ['sk', 'value', 'rank'],
+          message: 'Component "rank" must be a number',
+        },
+      ],
     });
   });
 });

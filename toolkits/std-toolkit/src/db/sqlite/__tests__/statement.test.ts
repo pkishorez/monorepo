@@ -3,7 +3,7 @@ import { StdTable } from '../../index.js';
 import { Schema } from 'effect';
 import type {
   QueryRequest,
-  EncodedItem,
+  StoredItem,
 } from '../../std-table/contract/index.js';
 import { itemSchema } from '../item-schema/index.js';
 import { Statement } from '../statement/index.js';
@@ -13,7 +13,7 @@ const table = StdTable.make('items')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-const item: EncodedItem = {
+const item: StoredItem = {
   pk: 'tenant',
   sk: 'item',
   meta: { _e: 'Item', _u: 'v2', _d: false },

@@ -53,8 +53,8 @@ export const swappingMemoryForSqliteIndexeddbDynamodb = Story.make({
             const database = makeNodeSQLite({ path: ':memory:' });
             // The same table, realised on that database.
             const sqlite = SQLite.make(table, { database });
-            // Create the physical table once.
-            yield* sqlite.setup;
+            // Create the physical table once; in production the Alchemy D1 target does this.
+            yield* SQLite.setup(table, { database });
             // Run the very same program, this time wrapped in the SQLite layer.
             const onSqlite = yield* saveAndRead.pipe(
               Effect.provide(sqlite.layer),
@@ -77,7 +77,7 @@ export const swappingMemoryForSqliteIndexeddbDynamodb = Story.make({
     ),
     Story.question('What does each database need before the first write?', {
       answer:
-        'A `setup`, run once, that creates the physical table (memory needs nothing). IndexedDB is built from a database connection and the same `table`; DynamoDB is built from a table name, region and credentials, and because that table is a real one it also has a `teardown` that deletes it when you are done. In both cases the program is run the same way, wrapped in the layer.',
+        "Only that the physical table exists. SQLite needs `SQLite.setup` once, since nothing else creates a SQLite table. IndexedDB creates its store and indexes the first time the table opens the database, which is how the browser works. DynamoDB is built from a table name, region and credentials; in production the Alchemy target owns the real table, and here `DynamoDB.createTable` and `deleteTable` stand in for it. Memory has nothing to prepare. Whether a new shape is safe for the rows already stored is not any adapter's job: the snapshot guard in `std-toolkit/alchemy` checks that at deploy time. In every case the program is run the same way, wrapped in the layer.",
       proof: Story.trace(
         Effect.gen(function* () {
           // A private IndexedDB (a fake one here; in a browser this is `window.indexedDB`).
@@ -86,23 +86,23 @@ export const swappingMemoryForSqliteIndexeddbDynamodb = Story.make({
           const idb = IDB.make(table, {
             database: IDB.database({ databaseName: 'board', indexedDB }),
           });
-          // Create the store and its indexes once.
-          yield* idb.setup;
+          // The store and its indexes are created the first time the table opens the database.
           // The same program, wrapped in the IndexedDB layer.
           const onIdb = yield* saveAndRead.pipe(Effect.provide(idb.layer));
           // The same table on DynamoDB: a table name, a region, where to reach it, and credentials.
-          const dynamodb = DynamoDB.make(table, {
+          const config = {
             tableName: `board-${process.pid}`,
             region: 'local',
             endpoint: dynamodbEndpoint,
             credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
-          });
-          // Create the real table once.
-          yield* dynamodb.setup;
+          };
+          // Create the real table once; in production the Alchemy DynamoDB target owns it.
+          yield* DynamoDB.createTable(table, config);
+          const dynamodb = DynamoDB.make(table, config);
           // The same program, wrapped in the DynamoDB layer; the table is deleted afterwards either way.
           const onDynamodb = yield* saveAndRead.pipe(
             Effect.provide(dynamodb.layer),
-            Effect.ensuring(Effect.orDie(dynamodb.teardown)),
+            Effect.ensuring(Effect.orDie(DynamoDB.deleteTable(config))),
           );
           yield* Story.assert(
             'IndexedDB saved and read back the task',

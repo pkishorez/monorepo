@@ -1,0 +1,169 @@
+{
+  "logicalName": "board",
+  "topology": {
+    "primary": {
+      "pk": "pk",
+      "sk": "sk"
+    },
+    "localSecondaryIndexes": [],
+    "globalSecondaryIndexes": [
+      {
+        "name": "GSI1",
+        "pk": "GSI1PK",
+        "sk": "GSI1SK"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "name": "Task",
+      "kind": "keyed",
+      "schema": "Task",
+      "idField": "taskId",
+      "primary": {
+        "pk": [
+          "boardId"
+        ],
+        "sk": [
+          "taskId"
+        ]
+      },
+      "accessPatterns": [
+        {
+          "name": "byTitle",
+          "kind": "gsi",
+          "index": "GSI1",
+          "pk": [
+            "title"
+          ],
+          "sk": [
+            "taskId"
+          ]
+        },
+        {
+          "name": "primary",
+          "kind": "primary",
+          "pk": [
+            "boardId"
+          ],
+          "sk": [
+            "taskId"
+          ]
+        }
+      ]
+    }
+  ],
+  "schemas": [
+    {
+      "identity": "Address",
+      "kind": "struct",
+      "idField": null,
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "city",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "identity": "Task",
+      "kind": "entity",
+      "idField": "taskId",
+      "versions": [
+        {
+          "version": "v1",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "address",
+                "type": {
+                  "type": "ref",
+                  "identity": "Address"
+                }
+              },
+              {
+                "name": "boardId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "taskId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "title",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "version": "v2",
+          "shape": {
+            "type": "struct",
+            "fields": [
+              {
+                "name": "address",
+                "type": {
+                  "type": "ref",
+                  "identity": "Address"
+                }
+              },
+              {
+                "name": "boardId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "priority",
+                "type": {
+                  "type": "union",
+                  "members": [
+                    {
+                      "type": "literal",
+                      "value": "low"
+                    },
+                    {
+                      "type": "literal",
+                      "value": "high"
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "taskId",
+                "type": {
+                  "type": "string"
+                }
+              },
+              {
+                "name": "title",
+                "type": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "_v": "v1"
+}

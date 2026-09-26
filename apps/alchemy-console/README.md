@@ -31,9 +31,8 @@ own `Plan.destroy` inside the Worker.
 
 `pnpm dev` starts the Alchemy dev server through Portless, which assigns
 `PORT` and serves the app under the `console.kishore` name from
-`portless.json`. Use the URL printed at startup. `alchemy.run.ts` also runs the
-`PrepareDatabase` action, which creates the local D1 database and applies the
-console table schema.
+`portless.json`. Use the URL printed at startup. `alchemy.run.ts` creates the
+local D1 database and runs `D1.table` to set up the console table.
 
 ```bash
 pnpm --filter alchemy-console dev          # dev server
@@ -61,5 +60,8 @@ reach a deployed stage.
 `pr<N>-console.kishore.app` for each pull request. It needs
 `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets, runs
 `alchemy cloudflare bootstrap` once, then `alchemy deploy --stage <stage>`.
-The `PrepareDatabase` action migrates the stage's D1 database on the way. PR
-stages are removed by `cleanup-alchemy-console.yml`.
+The `D1.table` resource checks the console table snapshot and sets up the
+`alchemy-console` table in the new `alchemy-console-v3-<stage>` database. The
+previous database is removed during the deployment; its records are not
+copied. PR stages are removed by
+`cleanup-alchemy-console.yml`.

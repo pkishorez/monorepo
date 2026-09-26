@@ -1,12 +1,22 @@
-import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
+import {
+  DateTime,
+  Duration,
+  Effect,
+  Equal,
+  Fiber,
+  Layer,
+  Option,
+  Schema,
+  Stream,
+} from 'effect';
 import { describe, expect, it } from 'vitest';
 import {
   Broadcaster,
   defaultBroadcaster,
   Ulid,
-  type DecodedEntity,
+  type Entity,
 } from '../../../core/index.js';
-import { EntityESchema, ESchema } from '../../../eschema/index.js';
+import { EntityESchema, ESchema, toSchema } from '../../../eschema/index.js';
 import { encodeCompositeKey } from '../key/index.js';
 import { StdTable } from '../table/index.js';
 import { StdTableService } from '../contract/index.js';
@@ -78,6 +88,79 @@ const migratedItem = conformanceTable
   .entity(migratedSchema)
   .primary({ pk: ['category'] })
   .build();
+
+const docSchema = EntityESchema.make('Doc', 'docId', {
+  board: Schema.Struct({ id: Schema.String }),
+  rank: Schema.Number,
+  dueAt: Schema.DateFromString,
+  owner: Schema.Union([
+    Schema.Struct({ kind: Schema.Literal('user'), userId: Schema.String }),
+    Schema.Struct({
+      kind: Schema.Literal('team'),
+      teamId: Schema.String,
+      seat: Schema.Number,
+    }),
+  ]),
+}).build();
+
+const doc = conformanceTable
+  .entity(docSchema)
+  .primary({ pk: ['board.id'] })
+  .index('LSI1', 'byRank', { sk: ['rank'] })
+  .index('GSI1', 'byTeamSeat', { pk: ['owner.teamId'], sk: ['owner.seat'] })
+  .build();
+
+// Every kind of conversion at once, nested through structs, unions, arrays,
+// records, and another ESchema. v1 had no `rank`; its migration reads a Date.
+const windowSchema = ESchema.make('Window', {
+  from: Schema.DateFromString,
+  to: Schema.NullOr(Schema.DateFromString),
+}).build();
+
+const richSchema = EntityESchema.make('Rich', 'richId', {
+  category: Schema.String,
+  createdAt: Schema.DateFromString,
+  size: Schema.BigIntFromString,
+  closedAt: Schema.OptionFromNullOr(Schema.DateTimeUtcFromString),
+  timeout: Schema.DurationFromMillis,
+  window: toSchema(windowSchema),
+  history: Schema.Array(
+    Schema.Struct({ at: Schema.DateFromString, note: Schema.String }),
+  ),
+  byDay: Schema.Record(Schema.String, Schema.DateFromString),
+  event: Schema.Union([
+    Schema.Struct({ kind: Schema.Literal('due'), at: Schema.DateFromString }),
+    Schema.Struct({ kind: Schema.Literal('none') }),
+  ]),
+})
+  .evolve('v2', { rank: Schema.Number }, (v1) => ({
+    ...v1,
+    rank: v1.createdAt.getUTCFullYear(),
+  }))
+  .build();
+
+const rich = conformanceTable
+  .entity(richSchema)
+  .primary({ pk: ['category'] })
+  .index('GSI1', 'byEventKind', { pk: ['event.kind'], sk: ['rank'] })
+  .build();
+
+const richValue = (richId: string, rank: number): typeof richSchema.Type => ({
+  richId,
+  category: 'rich',
+  createdAt: new Date('2026-01-02T03:04:05.006Z'),
+  size: 12345678901234567890n,
+  closedAt: Option.some(DateTime.makeUnsafe('2026-02-01T00:00:00.000Z')),
+  timeout: Duration.seconds(90),
+  window: { from: new Date('2026-03-01T00:00:00.000Z'), to: null },
+  history: [
+    { at: new Date('2026-01-03T00:00:00.000Z'), note: 'opened' },
+    { at: new Date('2026-01-04T00:00:00.000Z'), note: 'moved' },
+  ],
+  byDay: { monday: new Date('2026-01-05T00:00:00.000Z') },
+  event: { kind: 'due', at: new Date('2026-04-01T00:00:00.000Z') },
+  rank,
+});
 
 export interface PortableConformanceAdapter {
   readonly name: string;
@@ -171,7 +254,7 @@ export const runConformanceSuite = (
     });
 
     it('preserves metadata, skips no-op writes, and rejects primary key changes', async () => {
-      const broadcasts: DecodedEntity<object>[] = [];
+      const broadcasts: Entity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
         changes: Stream.empty,
@@ -188,7 +271,7 @@ export const runConformanceSuite = (
             _e: 'Item',
             _d: false,
           });
-          expect(inserted.meta).not.toHaveProperty('_v');
+          expect(inserted.meta).toHaveProperty('_v', 'v1');
           expect(inserted.meta._u).not.toBe('');
 
           const beforeRefusal = broadcasts.length;
@@ -259,7 +342,7 @@ export const runConformanceSuite = (
     });
 
     it('commits transaction ops atomically and broadcasts after success', async () => {
-      const broadcasts: DecodedEntity<object>[] = [];
+      const broadcasts: Entity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
         changes: Stream.empty,
@@ -289,7 +372,7 @@ export const runConformanceSuite = (
     });
 
     it('rejects duplicate, oversized, and condition-failing transactions before partial writes', async () => {
-      const broadcasts: DecodedEntity<object>[] = [];
+      const broadcasts: Entity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
         changes: Stream.empty,
@@ -357,7 +440,7 @@ export const runConformanceSuite = (
     });
 
     it('handles empty, stale, last-write-wins, mixed, and foreign transactions', async () => {
-      const broadcasts: DecodedEntity<object>[] = [];
+      const broadcasts: Entity<object>[] = [];
       const broadcaster = Layer.succeed(Broadcaster, {
         broadcast: (entities) => broadcasts.push(...entities),
         changes: Stream.empty,
@@ -858,9 +941,9 @@ export const runConformanceSuite = (
           expect(initial.value).toEqual({ theme: 'light', count: 0 });
           expect(initial.meta).toEqual({
             _e: 'Config',
+            _v: 'v1',
             _u: '',
           });
-          expect(initial.meta).not.toHaveProperty('_v');
 
           const missingOp = yield* conformanceTable
             .transact([yield* config.getAndUpdateOp({ theme: 'dark' })])
@@ -1122,6 +1205,77 @@ export const runConformanceSuite = (
       );
     });
 
+    it('keys rich values by key path, orders numbers, and skips absent branches', async () => {
+      await run(
+        Effect.gen(function* () {
+          const dueAt = new Date('2026-09-01T09:00:00.000Z');
+          const ranks = [10, -2.5, 9, 0, 100];
+          for (const [index, rank] of ranks.entries()) {
+            yield* doc.insert({
+              docId: `d${index}`,
+              board: { id: 'work' },
+              rank,
+              dueAt,
+              owner:
+                index % 2 === 0
+                  ? { kind: 'team', teamId: 'core', seat: rank }
+                  : { kind: 'user', userId: `u${index}` },
+            });
+          }
+
+          const read = required(
+            yield* doc.get({ 'board.id': 'work', docId: 'd0' }),
+          );
+          expect(read.value.dueAt).toBeInstanceOf(Date);
+          expect(read.value.dueAt.getTime()).toBe(dueAt.getTime());
+
+          const byRank = yield* doc.query('byRank', {
+            pk: { 'board.id': 'work' },
+            '>=': null,
+          });
+          expect(byRank.items.map(({ value }) => value.rank)).toEqual([
+            -2.5, 0, 9, 10, 100,
+          ]);
+          const above = yield* doc.query('byRank', {
+            pk: { 'board.id': 'work' },
+            '>': { rank: 9 },
+          });
+          expect(above.items.map(({ value }) => value.rank)).toEqual([10, 100]);
+          const firstPage = yield* doc.query(
+            'byRank',
+            { pk: { 'board.id': 'work' }, '>=': null },
+            { limit: 2 },
+          );
+          const secondPage = yield* doc.query(
+            'byRank',
+            { pk: { 'board.id': 'work' }, '>=': null },
+            { limit: 2, after: firstPage.items.at(-1)! },
+          );
+          expect(secondPage.items.map(({ value }) => value.rank)).toEqual([
+            9, 10,
+          ]);
+
+          const team = yield* doc.query('byTeamSeat', {
+            pk: { 'owner.teamId': 'core' },
+            '>=': null,
+          });
+          // User-owned docs have no teamId, so they are not in this index.
+          expect(team.items.map(({ value }) => value.docId)).toEqual([
+            'd2',
+            'd0',
+            'd4',
+          ]);
+
+          const later = new Date('2027-01-01T00:00:00.000Z');
+          const updated = yield* doc.getAndUpdate(
+            { 'board.id': 'work', docId: 'd1' },
+            { dueAt: later },
+          );
+          expect(updated.value.dueAt.getTime()).toBe(later.getTime());
+        }),
+      );
+    });
+
     it('defaults query pages to 100 returned entities', async () => {
       await run(
         Effect.gen(function* () {
@@ -1187,9 +1341,133 @@ export const runConformanceSuite = (
           category: 'a',
         });
         expect(migrated?.value.note).toBe('migrated');
-        expect(migrated?.meta).not.toHaveProperty('_v');
+        expect(migrated?.meta).toHaveProperty('_v', 'v2');
         expect((yield* contract.getItem(key))?.data._v).toBe('v1');
       }),
+    );
+  });
+
+  it('round-trips arbitrarily nested converted values and migrates them', async () => {
+    await run(
+      Effect.gen(function* () {
+        const original = richValue('r1', 7);
+        const inserted = yield* rich.insert(original);
+        expect(Equal.equals(inserted.value, original)).toBe(true);
+
+        // Storage holds plain JSON: strings, numbers, and nulls, never objects
+        // like Date, BigInt, Option, or Duration.
+        const contract = (yield* StdTableService(conformanceTable.logicalName))
+          .contract;
+        const key = {
+          pk: encodeCompositeKey(['Rich', 'rich']),
+          sk: encodeCompositeKey(['r1']),
+        };
+        const stored = yield* contract.getItem(key);
+        expect(JSON.parse(JSON.stringify(stored!.data))).toEqual(stored!.data);
+        expect(stored!.data).toMatchObject({
+          _v: 'v2',
+          createdAt: '2026-01-02T03:04:05.006Z',
+          size: '12345678901234567890',
+          closedAt: '2026-02-01T00:00:00.000Z',
+          timeout: 90_000,
+          window: { _v: 'v1', from: '2026-03-01T00:00:00.000Z', to: null },
+          history: [{ at: '2026-01-03T00:00:00.000Z', note: 'opened' }, {}],
+          byDay: { monday: '2026-01-05T00:00:00.000Z' },
+          event: { kind: 'due', at: '2026-04-01T00:00:00.000Z' },
+        });
+
+        const read = required(
+          yield* rich.get({ category: 'rich', richId: 'r1' }),
+        );
+        expect(Equal.equals(read.value, original)).toBe(true);
+        expect(read.value.createdAt).toBeInstanceOf(Date);
+        expect(read.value.size).toBe(12345678901234567890n);
+        expect(Duration.toMillis(read.value.timeout)).toBe(90_000);
+
+        const moved = new Date('2026-05-01T00:00:00.000Z');
+        const updated = yield* rich.getAndUpdate(
+          { category: 'rich', richId: 'r1' },
+          (current) => ({
+            history: [...current.history, { at: moved, note: 'closed' }],
+            closedAt: Option.none(),
+          }),
+        );
+        expect(updated.value.history.at(-1)?.at.getTime()).toBe(
+          moved.getTime(),
+        );
+        expect(Option.isNone(updated.value.closedAt)).toBe(true);
+
+        const byKind = yield* rich.query('byEventKind', {
+          pk: { 'event.kind': 'due' },
+          '>=': null,
+        });
+        expect(byKind.items.map(({ value }) => value.richId)).toEqual(['r1']);
+
+        // A row written by v1 code: its migration receives a real Date.
+        const { rank: _rank, ...v1Data } = (yield* contract.getItem(key))!.data;
+        yield* contract.writeItem({
+          item: {
+            ...(yield* contract.getItem(key))!,
+            data: { ...v1Data, _v: 'v1' },
+          },
+          condition: { kind: 'updated', value: updated.meta._u },
+        });
+        const migrated = required(
+          yield* rich.get({ category: 'rich', richId: 'r1' }),
+        );
+        expect(migrated.meta._v).toBe('v2');
+        expect(migrated.value.rank).toBe(2026);
+        expect(migrated.value.history).toHaveLength(3);
+      }),
+    );
+  });
+
+  it('filters Change Notices by converted values', async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const byDate = yield* Effect.forkChild(
+          Stream.runCollect(
+            rich
+              .subscribe({ createdAt: new Date('2026-01-02T03:04:05.006Z') })
+              .pipe(Stream.take(1)),
+          ),
+        );
+        const byNested = yield* Effect.forkChild(
+          Stream.runCollect(
+            rich
+              .subscribe({
+                window: {
+                  from: new Date('2026-03-01T00:00:00.000Z'),
+                  to: null,
+                },
+                closedAt: Option.some(
+                  DateTime.makeUnsafe('2026-02-01T00:00:00.000Z'),
+                ),
+              })
+              .pipe(Stream.take(1)),
+          ),
+        );
+        yield* Effect.sleep('20 millis');
+
+        yield* rich.insert({
+          ...richValue('other', 1),
+          createdAt: new Date('2030-01-01T00:00:00.000Z'),
+          window: { from: new Date('2030-01-01T00:00:00.000Z'), to: null },
+        });
+        yield* rich.insert(richValue('match', 2));
+
+        const [dateNotices, nestedNotices] = [
+          yield* Fiber.join(byDate),
+          yield* Fiber.join(byNested),
+        ];
+        expect(dateNotices.map(({ value }) => value.richId)).toEqual(['match']);
+        expect(nestedNotices.map(({ value }) => value.richId)).toEqual([
+          'match',
+        ]);
+      }).pipe(
+        Effect.provide(Layer.merge(adapter.makeLayer(), defaultBroadcaster)),
+        Effect.provideService(Ulid, deterministicUlid),
+      ),
     );
   });
 

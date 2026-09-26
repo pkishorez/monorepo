@@ -86,7 +86,7 @@ it('streams deletion progress through the real RPC host before completion', asyn
   mocks.makeDatabase.mockReturnValue(database);
   await Effect.runPromise(
     Effect.gen(function* () {
-      yield* table.setup;
+      yield* SQLite.setup(consoleTable, { database });
       yield* stores.insert({
         id: 'store',
         userId: 'alice',
@@ -175,7 +175,7 @@ it('streams preview analysis and the failing resource through the real RPC host'
   mocks.makeDatabase.mockReturnValue(database);
   await Effect.runPromise(
     Effect.gen(function* () {
-      yield* table.setup;
+      yield* SQLite.setup(consoleTable, { database });
       yield* stores.insert({
         id: 'store',
         userId: 'alice',

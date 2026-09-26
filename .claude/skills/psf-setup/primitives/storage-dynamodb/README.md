@@ -9,12 +9,12 @@ Requires `application`; works with either RPC primitive. Local development uses 
 Adds:
 
 - `src/shared/contracts/__NAME__-table/`: the empty `__NAME__Table` with a primary key and four GSIs.
-- `infra/tables/__NAME__.ts`: `provision__Name__Table`, creating `__APP_NAME__-__NAME__-<stage>` on AWS for deployed stages and on DynamoDB Local otherwise.
+- `infra/tables/__NAME__.ts`: `provision__Name__Table`, creating `__APP_NAME__-__NAME__-<stage>` on AWS through `DynamoDB.table` from `std-toolkit/alchemy` for deployed stages and on DynamoDB Local otherwise.
 - `infra/dynamodb.snippet.ts`: `__NAME__Settings` and `make__Name__Database`, reading table name, region, endpoint, and credentials from configuration. Copy it to `src/server/services/__NAME__/dynamodb.ts` for `rpc-worker`, or to `src/server/services/__NAME__/dynamodb.ts` beside the object for `rpc-durable-object`.
 
 ## Seams
 
-- `alchemy.run.ts`: merge `alchemy/AWS` providers once: `Layer.mergeAll(Cloudflare.providers(), awsProviders())`.
+- `alchemy.run.ts`: merge `alchemy/AWS` and std-toolkit providers once: `Layer.mergeAll(Cloudflare.providers(), awsProviders(), stdToolkitProviders())`, with `providers as stdToolkitProviders` from `std-toolkit/alchemy`. The std-toolkit provider runs the snapshot guard, which refuses a deploy that breaks a stored version.
 - `infra/website.ts`: call `provision__Name__Table(stage)` and pass the returned name as `__NAME_ENV___TABLE_NAME` plus `APP_AWS_ACCESS_KEY_ID`, `APP_AWS_SECRET_ACCESS_KEY`, and `AWS_REGION` in `env` for `rpc-worker`. For `rpc-durable-object`, pass the same entries in `env`; the object reads them from its constructor `env`. The AWS credentials are shared by every table; only the table name is per instance.
 - Handlers: provide `make__Name__Database(settings).layer` where handlers are hosted, `src/server/rpc/<rpc-name>/entry.ts` or `src/server/durable-objects/<rpc-name>.ts`.
 - `package.json`: add `std-toolkit: workspace:*` to dependencies.

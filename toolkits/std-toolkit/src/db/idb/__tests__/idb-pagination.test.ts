@@ -2,14 +2,14 @@ import 'fake-indexeddb/auto';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import type {
-  EncodedItem,
+  StoredItem,
   QueryPosition,
   StdTableContract,
 } from '../../std-table/contract/index.js';
 import { IDB } from '../index.js';
 import { makeTableContract } from '../table/index.js';
 
-const item = (sk: string, indexSort?: string): EncodedItem => ({
+const item = (sk: string, indexSort?: string): StoredItem => ({
   pk: 'items',
   sk,
   meta: { _e: 'item', _u: '1', _d: false },
@@ -53,7 +53,7 @@ const makeRuntime = async (indexed = false, factory?: IDBFactory) => {
 
 const write = async (
   runtime: StdTableContract,
-  ...items: readonly EncodedItem[]
+  ...items: readonly StoredItem[]
 ) => {
   for (const stored of items)
     await Effect.runPromise(runtime.writeItem({ item: stored }));
@@ -90,11 +90,11 @@ const indexPage = (
     }),
   );
 
-const sortKeys = (items: readonly EncodedItem[]) => items.map(({ sk }) => sk);
+const sortKeys = (items: readonly StoredItem[]) => items.map(({ sk }) => sk);
 
-const primaryAfter = ({ pk, sk }: EncodedItem): QueryPosition => ({ pk, sk });
+const primaryAfter = ({ pk, sk }: StoredItem): QueryPosition => ({ pk, sk });
 
-const indexAfter = (last: EncodedItem): QueryPosition => ({
+const indexAfter = (last: StoredItem): QueryPosition => ({
   pk: last.pk,
   sk: last.sk,
   indexSk: last.keys['GSI1SK'] as string,
@@ -116,7 +116,7 @@ describe('IndexedDB physical pagination', () => {
       runtime,
       false,
       10,
-      primaryAfter(first.items.at(-1) as EncodedItem),
+      primaryAfter(first.items.at(-1) as StoredItem),
     );
     expect(sortKeys(second.items)).toEqual(['d', 'e']);
     expect(second.hasMore).toBe(false);
@@ -137,7 +137,7 @@ describe('IndexedDB physical pagination', () => {
       runtime,
       true,
       10,
-      primaryAfter(first.items.at(-1) as EncodedItem),
+      primaryAfter(first.items.at(-1) as StoredItem),
     );
     expect(sortKeys(second.items)).toEqual(['b', 'a']);
     expect(second.hasMore).toBe(false);
@@ -164,7 +164,7 @@ describe('IndexedDB physical pagination', () => {
       runtime,
       false,
       2,
-      indexAfter(first.items.at(-1) as EncodedItem),
+      indexAfter(first.items.at(-1) as StoredItem),
     );
     expect(sortKeys(second.items)).toEqual(['bb', 'c']);
     expect(second.hasMore).toBe(true);
@@ -173,7 +173,7 @@ describe('IndexedDB physical pagination', () => {
       runtime,
       false,
       2,
-      indexAfter(second.items.at(-1) as EncodedItem),
+      indexAfter(second.items.at(-1) as StoredItem),
     );
     expect(sortKeys(third.items)).toEqual(['d']);
     expect(third.hasMore).toBe(false);
@@ -200,7 +200,7 @@ describe('IndexedDB physical pagination', () => {
       runtime,
       true,
       10,
-      indexAfter(first.items.at(-1) as EncodedItem),
+      indexAfter(first.items.at(-1) as StoredItem),
     );
     expect(sortKeys(second.items)).toEqual(['bb', 'b', 'a']);
     expect(second.hasMore).toBe(false);
@@ -236,7 +236,7 @@ describe('IndexedDB physical pagination', () => {
         runtime,
         false,
         1,
-        primaryAfter(first.items.at(-1) as EncodedItem),
+        primaryAfter(first.items.at(-1) as StoredItem),
       );
       expect(sortKeys(second.items)).toEqual(['b']);
     } finally {

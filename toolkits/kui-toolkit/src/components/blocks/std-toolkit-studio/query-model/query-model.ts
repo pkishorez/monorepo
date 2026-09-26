@@ -1,12 +1,10 @@
 import type { Effect } from 'effect';
 import type { StudioRpcClient } from 'std-toolkit/studio-rpc';
-import type {
-  TableAccessPatternSnapshot,
-  TableEntitySnapshot,
-  TableSnapshot,
-} from 'std-toolkit/snapshot';
+import type { SnapshotType } from 'std-toolkit/eschema';
+import type { TableSnapshot } from 'std-toolkit/snapshot';
 
-type JsonRecord = Readonly<Record<string, unknown>>;
+type TableEntitySnapshot = TableSnapshot['entities'][number];
+type TableAccessPatternSnapshot = TableEntitySnapshot['accessPatterns'][number];
 type GetEntityResult = Effect.Success<
   ReturnType<StudioRpcClient['Studio.GetEntity']>
 >;
@@ -28,9 +26,14 @@ export type QueryOperator =
   | 'between'
   | 'beginsWith';
 
+export type KeyKind = 'string' | 'number';
+
+type KeyValues = Readonly<Record<string, string | number>>;
+
 export type QueryCriteria = {
   readonly entity: TableEntitySnapshot;
   readonly pattern: TableAccessPatternSnapshot;
+  readonly kinds: Readonly<Record<string, KeyKind>>;
   readonly pk: Readonly<Record<string, string>>;
   readonly operator: QueryOperator;
   readonly sk: Readonly<Record<string, string>>;
@@ -39,54 +42,116 @@ export type QueryCriteria = {
   readonly limit: number;
 };
 
-const isRecord = (value: unknown): value is JsonRecord =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const persistedValue = (value: unknown): unknown =>
-  isRecord(value) && 'type' in value && 'value' in value ? value.value : value;
-
 const valueRecord = (
   keys: readonly string[],
 ): Readonly<Record<string, string>> =>
   Object.fromEntries(keys.map((key) => [key, '']));
 
-const objectRepresentation = (value: unknown): JsonRecord | undefined => {
-  if (!isRecord(value)) return undefined;
-  const representation =
-    'representation' in value ? value.representation : value;
-  return isRecord(representation) && representation._tag === 'Objects'
-    ? representation
-    : undefined;
-};
-
-const propertyName = (property: JsonRecord): string | undefined => {
-  const name = persistedValue(property.name);
-  return typeof name === 'string' ? name : undefined;
-};
+const latestShape = (
+  snapshot: TableSnapshot,
+  identity: string,
+): SnapshotType | undefined =>
+  snapshot.schemas
+    .find((definition) => definition.identity === identity)
+    ?.versions.at(-1)?.shape;
 
 const valueFields = (
   snapshot: TableSnapshot,
   entity: TableEntitySnapshot,
 ): readonly string[] => {
-  const definition = snapshot.schemas.find(
-    ({ identity }) => identity === entity.schema,
-  );
-  const encoded = definition?.versions.at(-1)?.encoded;
-  const representation = objectRepresentation(encoded);
-  const properties = Array.isArray(representation?.propertySignatures)
-    ? representation.propertySignatures
-    : [];
-  return properties.flatMap((property) => {
-    if (!isRecord(property)) return [];
-    const name = propertyName(property);
-    return name === undefined || name === '_v' ? [] : [name];
-  });
+  const shape = latestShape(snapshot, entity.schema);
+  return shape?.type === 'struct' ? shape.fields.map(({ name }) => name) : [];
 };
 
+// Unions, recursion and nested ESchemas are transparent to a key path.
+const expand = (
+  snapshot: TableSnapshot,
+  shape: SnapshotType,
+): SnapshotType[] => {
+  switch (shape.type) {
+    case 'union':
+      return shape.members.flatMap((member) => expand(snapshot, member));
+    case 'recursive':
+      return expand(snapshot, shape.body);
+    case 'ref': {
+      const root = latestShape(snapshot, shape.identity);
+      return root === undefined ? [] : expand(snapshot, root);
+    }
+    default:
+      return [shape];
+  }
+};
+
+const property = (
+  snapshot: TableSnapshot,
+  shapes: readonly SnapshotType[],
+  name: string,
+): SnapshotType[] =>
+  shapes.flatMap((current) =>
+    expand(snapshot, current).flatMap((shape) =>
+      shape.type === 'struct'
+        ? shape.fields
+            .filter((field) => field.name === name)
+            .map(({ type }) => type)
+        : [],
+    ),
+  );
+
+const isNumberLeaf = (shape: SnapshotType): boolean =>
+  shape.type === 'number' ||
+  (shape.type === 'literal' && typeof shape.value === 'number');
+
+const keyKind = (
+  snapshot: TableSnapshot,
+  entity: TableEntitySnapshot,
+  path: string,
+): KeyKind => {
+  const root = latestShape(snapshot, entity.schema);
+  if (path === '_u' || root === undefined) return 'string';
+  const leaves = path
+    .split('.')
+    .reduce<SnapshotType[]>(
+      (shapes, name) => property(snapshot, shapes, name),
+      [root],
+    )
+    .flatMap((leaf) => expand(snapshot, leaf))
+    .filter((shape) => shape.type !== 'null');
+  return leaves.length > 0 && leaves.every(isNumberLeaf) ? 'number' : 'string';
+};
+
+const parseNumber = (value: string): number | undefined => {
+  const parsed = Number(value.trim());
+  return value.trim() === '' || !Number.isFinite(parsed) ? undefined : parsed;
+};
+
+const keyIssue = (kind: KeyKind, value: string): string | undefined =>
+  kind === 'number' && value.trim() !== '' && parseNumber(value) === undefined
+    ? 'Must be a number'
+    : undefined;
+
 const complete = (
+  criteria: QueryCriteria,
   keys: readonly string[],
   values: Readonly<Record<string, string>>,
-) => keys.every((key) => values[key]?.trim() !== '');
+) =>
+  keys.every((key) => {
+    const value = values[key] ?? '';
+    return (
+      value.trim() !== '' &&
+      keyIssue(criteria.kinds[key] ?? 'string', value) === undefined
+    );
+  });
+
+const keyValues = (
+  criteria: QueryCriteria,
+  values: Readonly<Record<string, string>>,
+): KeyValues =>
+  Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      criteria.kinds[key] === 'number' ? (parseNumber(value) ?? value) : value,
+    ]),
+  );
 
 const canBeUnbounded = (operator: QueryOperator) =>
   operator === '<' ||
@@ -95,13 +160,13 @@ const canBeUnbounded = (operator: QueryOperator) =>
   operator === '>=';
 
 const canRun = (criteria: QueryCriteria): boolean => {
-  if (!complete(criteria.pattern.pk, criteria.pk)) return false;
+  if (!complete(criteria, criteria.pattern.pk, criteria.pk)) return false;
   if (criteria.operator === 'all') return true;
   if (criteria.unbounded && canBeUnbounded(criteria.operator)) return true;
-  if (!complete(criteria.pattern.sk, criteria.sk)) return false;
+  if (!complete(criteria, criteria.pattern.sk, criteria.sk)) return false;
   return (
     criteria.operator !== 'between' ||
-    complete(criteria.pattern.sk, criteria.skEnd)
+    complete(criteria, criteria.pattern.sk, criteria.skEnd)
   );
 };
 
@@ -110,10 +175,11 @@ const payload = (
   after?: StudioQueryRecord,
 ): QueryPayload | undefined => {
   if (!canRun(criteria)) return undefined;
+  const sk = keyValues(criteria, criteria.sk);
   const base = {
     entity: criteria.entity.name,
     accessPattern: criteria.pattern.name,
-    pk: criteria.pk,
+    pk: keyValues(criteria, criteria.pk),
     limit: criteria.limit,
     ...(after === undefined ? {} : { after }),
   };
@@ -123,14 +189,14 @@ const payload = (
       ...base,
       sk: {
         operator: criteria.operator,
-        value: [criteria.sk, criteria.skEnd] as const,
+        value: [sk, keyValues(criteria, criteria.skEnd)] as const,
       },
     };
   }
   if (criteria.operator === '=' || criteria.operator === 'beginsWith') {
     return {
       ...base,
-      sk: { operator: criteria.operator, value: criteria.sk },
+      sk: { operator: criteria.operator, value: sk },
     };
   }
   return {
@@ -138,9 +204,7 @@ const payload = (
     sk: {
       operator: criteria.operator,
       value:
-        criteria.unbounded && canBeUnbounded(criteria.operator)
-          ? null
-          : criteria.sk,
+        criteria.unbounded && canBeUnbounded(criteria.operator) ? null : sk,
     },
   };
 };
@@ -149,12 +213,19 @@ const isQueryRecord = (record: StudioRecord): record is StudioQueryRecord =>
   '_d' in record.meta;
 
 const initialCriteria = (
+  snapshot: TableSnapshot,
   entity: TableEntitySnapshot,
   pattern: TableAccessPatternSnapshot,
   limit = 25,
 ): QueryCriteria => ({
   entity,
   pattern,
+  kinds: Object.fromEntries(
+    [...pattern.pk, ...pattern.sk].map((path) => [
+      path,
+      keyKind(snapshot, entity, path),
+    ]),
+  ),
   pk: valueRecord(pattern.pk),
   operator: 'all',
   sk: valueRecord(pattern.sk),
@@ -179,6 +250,7 @@ export const QueryModel = {
   canRun,
   initialCriteria,
   isQueryRecord,
+  keyIssue,
   patternLabel,
   payload,
   updateValue,

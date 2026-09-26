@@ -12,7 +12,7 @@ Adds:
 
 Replaces:
 
-- `src/server/durable-objects/__NAME__.ts`: builds `SQLite.make(__NAME__Table, ...)` over `ctx.storage` in `#boot`, runs `setup`, and provides the database layer to the handlers.
+- `src/server/durable-objects/__NAME__.ts`: builds `SQLite.make(__NAME__Table, ...)` over `ctx.storage` in `#boot`, runs `SQLite.setup` to create the table and its indexes, and provides the database layer to the handlers.
 
 ## Seams
 

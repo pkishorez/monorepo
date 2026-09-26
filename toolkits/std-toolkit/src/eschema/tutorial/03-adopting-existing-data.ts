@@ -1,3 +1,4 @@
+import { readEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 3 — Adopting eschema for data that already exists
  *
@@ -29,7 +30,7 @@ const legacyRow = { name: 'Bob' };
 const UserV1Only = ESchema.make('User', { name: Schema.String }).build();
 console.log(
   'adopted, no evolution yet:',
-  Effect.runSync(UserV1Only.decode(legacyRow)),
+  Effect.runSync(readEncoded(UserV1Only, legacyRow)),
 );
 // => { name: 'Bob' }
 
@@ -45,7 +46,7 @@ const User = ESchema.make('User', { name: Schema.String })
 
 console.log(
   'legacy row after evolving:',
-  Effect.runSync(User.decode(legacyRow)),
+  Effect.runSync(readEncoded(User, legacyRow)),
 );
 // => { name: 'Bob', email: 'unknown@example.com' }
 
@@ -54,7 +55,7 @@ console.log(
 // with. eschema cannot detect a mismatch up front: if an unstamped row does not
 // match v1, decode FAILS LOUDLY rather than silently guessing another version.
 const wrongShape = { fullName: 'Bob' }; // never matched v1's `name`
-const result = Effect.runSync(Effect.result(User.decode(wrongShape)));
+const result = Effect.runSync(Effect.result(readEncoded(User, wrongShape)));
 console.log('mismatched legacy row fails:', result._tag); // => 'Failure'
 
 // Takeaway: freeze v1 to mirror your real historical data, then only ever move

@@ -1,5 +1,7 @@
 # The CLI owns snapshot approval
 
+Superseded by ADR 0013: the CLI and its file-based baseline are removed; the committed per-table test file replaces them.
+
 std-toolkit provides the complete local snapshot workflow: verification compares the current contract with its approved baseline, while explicit approval writes the current contract as the new baseline regardless of the safety classification of its changes. This reverses ADR 0001's decision to keep snapshot storage and approval outside the library because making every consumer rebuild the same workflow obscures the safety decision and creates needless variation. Approval means “accept this baseline,” not “this change is safe,” so dangerous changes require explicit intent rather than being prohibited.
 
 Verification passes only when the current contract exactly matches the approved baseline. Every difference requires approval even when classified as safe, because letting unapproved additions pass would allow later edits to those additions to remain hidden behind a stale baseline.
