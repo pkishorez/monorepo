@@ -25,7 +25,7 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": ["public-monorepo", "docs"],
+      "packages": ["public-monorepo", "docs", "pwa-playground"],
       "isIgnored": true
     },
     {
@@ -54,6 +54,7 @@
         "laymos",
         "@pkishorez/lotel",
         "kui-toolkit",
+        "pwa-toolkit",
         "rpc-toolkit",
         "std-toolkit",
         "use-effect-ts"
@@ -119,6 +120,7 @@
         "laymos",
         "@pkishorez/lotel",
         "kui-toolkit",
+        "pwa-toolkit",
         "rpc-toolkit",
         "std-toolkit",
         "use-effect-ts"

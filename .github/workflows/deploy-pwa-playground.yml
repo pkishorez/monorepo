@@ -1,0 +1,171 @@
+name: 🚀 deploy:pwa-playground
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage to deploy: prod, or pr<N> for a preview of that PR'
+        required: true
+        type: string
+      pwa_enabled:
+        description: 'false ships the Kill Switch worker'
+        required: false
+        type: choice
+        options: ['true', 'false']
+        default: 'true'
+      pwa_preset:
+        description: 'pwa() preset'
+        required: false
+        type: choice
+        options: [app, content]
+        default: app
+
+concurrency:
+  group: pwa-playground-${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      affected: ${{ steps.affected.outputs.affected }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+
+      # affected.sh counts the app's workspace dependencies too, so a change
+      # in toolkits/pwa-toolkit (or anything it uses) deploys the playground.
+      - name: Check pwa-playground affected
+        id: affected
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'affected=true' >> "$GITHUB_OUTPUT"
+          else
+            .github/scripts/affected.sh apps/pwa-playground .github/workflows/deploy-pwa-playground.yml "$BASE"
+          fi
+
+  deploy:
+    needs: detect
+    if: needs.detect.outputs.affected == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Opt-in required by the accident guard in apps/pwa-playground/src/infra/stage.ts.
+      ALLOW_DEPLOY: 'true'
+      STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+      # Read by apps/pwa-playground/vite.config.ts. Every run gets a new
+      # Build Label, so a new Build ID and an Update Prompt in open tabs.
+      BUILD_LABEL: ${{ github.run_id }}-${{ github.run_attempt }}
+      PWA_ENABLED: ${{ inputs.pwa_enabled || 'true' }}
+      PWA_PRESET: ${{ inputs.pwa_preset || 'app' }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Validate stage
+        run: |
+          if ! printf '%s' "$STAGE" | grep -qxE 'prod|pr[0-9]+'; then
+            echo "::error::Stage must be 'prod' or 'pr<N>', got '$STAGE'." >&2
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter pwa-playground...
+
+      # The app imports pwa-toolkit from its dist; build it and its workspace
+      # dependencies. Alchemy builds the app itself during deploy.
+      - name: Build workspace dependencies
+        run: pnpm --filter 'pwa-playground^...' run build
+
+      # Alchemy decides to rebuild from file hashes, not env vars; this file
+      # makes every run (and every switch change) rebuild.
+      - name: Record build switches
+        run: printf 'BUILD_LABEL=%s\nPWA_ENABLED=%s\nPWA_PRESET=%s\n' "$BUILD_LABEL" "$PWA_ENABLED" "$PWA_PRESET" > apps/pwa-playground/build-env.txt
+
+      - name: Bootstrap Alchemy state store
+        run: pnpm -C apps/pwa-playground exec alchemy cloudflare bootstrap
+
+      - name: Deploy pwa-playground
+        run: pnpm -C apps/pwa-playground exec alchemy deploy --stage "$STAGE" --yes
+
+      - name: Mark PR as having a preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$STAGE" in
+            pr[0-9]*) gh api -X POST "repos/${{ github.repository }}/issues/${STAGE#pr}/labels" -f 'labels[]=preview:pwa-playground' --silent ;;
+          esac
+
+      - name: State tree
+        if: always()
+        run: pnpm -C apps/pwa-playground exec alchemy state tree || true
+
+  summary:
+    needs: [detect, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Job summary
+        env:
+          STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+          AFFECTED: ${{ needs.detect.outputs.affected }}
+          RESULT: ${{ needs.deploy.result }}
+          BUILD_LABEL: ${{ github.run_id }}-${{ github.run_attempt }}
+          PWA_ENABLED: ${{ inputs.pwa_enabled || 'true' }}
+          PWA_PRESET: ${{ inputs.pwa_preset || 'app' }}
+        run: |
+          if [ "$STAGE" = "prod" ]; then
+            url="https://pwa.kishore.app"
+          else
+            url="https://$STAGE-pwa.kishore.app"
+          fi
+          case "$RESULT" in
+            success) status="✅ deployed" ;;
+            failure) status="❌ failed" ;;
+            skipped) if [ "$AFFECTED" = false ]; then status="⏭️ unchanged, skipped"; else status="⏭️ not eligible"; fi ;;
+            *) status="$RESULT" ;;
+          esac
+          {
+            echo "## Deploy — \`$STAGE\`"
+            echo ""
+            echo "| App | Status | URL | Build Label | Enabled | Preset |"
+            echo "| --- | --- | --- | --- | --- | --- |"
+            echo "| pwa-playground | $status | $url | $BUILD_LABEL | $PWA_ENABLED | $PWA_PRESET |"
+          } >> "$GITHUB_STEP_SUMMARY"
