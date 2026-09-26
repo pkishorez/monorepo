@@ -61,13 +61,14 @@ Chrome waits on refused localhost connections instead of failing them.
 
 ### Build switches
 
-`vite.config.ts` reads three environment variables:
+`vite.config.ts` reads four environment variables:
 
-| Variable      | Default | Effect                                                 |
-| ------------- | ------- | ------------------------------------------------------ |
-| `BUILD_LABEL` | `local` | Shown in the header and inlined into the client bundle |
-| `PWA_ENABLED` | `true`  | `false` builds the Kill Switch worker                  |
-| `PWA_PRESET`  | `app`   | `content` switches to the content Preset               |
+| Variable          | Default  | Effect                                                                 |
+| ----------------- | -------- | ---------------------------------------------------------------------- |
+| `BUILD_LABEL`     | `local`  | Shown in the header and inlined into the client bundle                 |
+| `PWA_ENABLED`     | `true`   | `false` builds the Kill Switch worker                                  |
+| `PWA_PRESET`      | `app`    | `content` switches to the content Preset                               |
+| `PWA_UPDATE_MODE` | `prompt` | `auto-on-navigation` applies a waiting update on the next route change |
 
 A new `BUILD_LABEL` changes the client bundle, so the Build ID, so open tabs
 get the Update Prompt.
@@ -80,7 +81,7 @@ get the Update Prompt.
 package it depends on (such as `pwa-toolkit`).
 `cleanup-pwa-playground.yml` destroys a preview when its PR closes. CI sets
 `BUILD_LABEL` to the run id and attempt. A manual dispatch takes `stage`,
-`pwa_enabled` (a Kill Switch deploy) and `pwa_preset`.
+`pwa_enabled` (a Kill Switch deploy), `pwa_preset` and `pwa_update_mode`.
 
 Alchemy rebuilds only when hashed files change, so CI writes the switches to
 `build-env.txt` before deploying. Deployed stages refuse to reconcile without

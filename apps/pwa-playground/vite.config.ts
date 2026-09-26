@@ -10,6 +10,10 @@ import { runtimeCache } from './src/lib/runtime-cache-rules.ts';
 // Deploy-time switches. CI sets them from the workflow inputs; see README.
 const enabled = process.env.PWA_ENABLED !== 'false';
 const preset = process.env.PWA_PRESET === 'content' ? 'content' : 'app';
+const updateMode =
+  process.env.PWA_UPDATE_MODE === 'auto-on-navigation'
+    ? 'auto-on-navigation'
+    : 'prompt';
 const buildLabel = process.env.BUILD_LABEL ?? 'local';
 // `PWA_DEV=true pnpm dev` also runs the worker in dev (Build ID `dev`, no Precache).
 const dev = process.env.PWA_DEV === 'true';
@@ -41,6 +45,7 @@ export default defineConfig({
   define: {
     __BUILD_LABEL__: JSON.stringify(buildLabel),
     __PWA_PRESET__: JSON.stringify(preset),
+    __PWA_UPDATE_MODE__: JSON.stringify(updateMode),
     __PWA_ENABLED__: JSON.stringify(enabled),
   },
   build: {
@@ -75,6 +80,7 @@ export default defineConfig({
       enabled,
       dev,
       preset,
+      update: { mode: updateMode },
       manifest: {
         name: 'PWA Playground',
         short_name: 'PWA Lab',

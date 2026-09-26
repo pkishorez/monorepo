@@ -2,6 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import * as Cause from 'effect/Cause';
 import * as Effect from 'effect/Effect';
 import * as Exit from 'effect/Exit';
+import * as Fiber from 'effect/Fiber';
+import * as Schedule from 'effect/Schedule';
 import * as Scope from 'effect/Scope';
 import * as Stream from 'effect/Stream';
 import type { RpcClient } from 'effect/unstable/rpc/RpcClient';
@@ -10,7 +12,7 @@ import type * as RpcGroup from 'effect/unstable/rpc/RpcGroup';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { usePwaUpdate } from 'pwa-toolkit/react';
 import { TabClient, type VersionSkew } from 'pwa-toolkit/worker-rpc/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Actions,
   Panel,
@@ -71,8 +73,6 @@ function RpcPage() {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [echo, setEcho] = useState<string>('—');
   const [info, setInfo] = useState<string>('—');
-  const [ticks, setTicks] = useState<ReadonlyArray<number>>([]);
-  const [ticksStatus, setTicksStatus] = useState<string>('idle');
   const [lastError, setLastError] = useState<string>('none');
 
   useEffect(() => {
@@ -100,22 +100,6 @@ function RpcPage() {
     setLastError(message);
     // A worker of another build answered: look for the new version.
     if (message.startsWith('VersionSkew')) void update.check();
-  };
-
-  const startTicks = () => {
-    if (client === null) return;
-    setTicks([]);
-    setTicksStatus('streaming');
-    void run(
-      client
-        .Ticks({ count: 5 })
-        .pipe(
-          Stream.runForEach((n) =>
-            Effect.sync(() => setTicks((all) => [...all, n])),
-          ),
-        ),
-      () => setTicksStatus('done'),
-    ).then(() => setTicksStatus((s) => (s === 'streaming' ? 'failed' : s)));
   };
 
   return (
@@ -198,29 +182,130 @@ function RpcPage() {
         </Actions>
       </Panel>
 
-      <Panel title="Ticks (stream)" description="Five ticks, one per second.">
-        <Readouts>
-          <Readout
-            label="Status"
-            testId="rpc-ticks-status"
-            value={ticksStatus}
-          />
-          <Readout
-            label="Ticks"
-            testId="rpc-ticks"
-            value={ticks.join(', ') || '—'}
-          />
-        </Readouts>
-        <Actions>
-          <Button
-            data-testid="rpc-ticks-start"
-            disabled={client === null}
-            onClick={startTicks}
-          >
-            Start
-          </Button>
-        </Actions>
-      </Panel>
+      <TicksPanel
+        client={client}
+        title="Ticks (stream)"
+        description="Five ticks, one per second. A stopped worker fails the stream."
+        testId="rpc-ticks"
+        count={5}
+        retrying={false}
+        onError={setLastError}
+      />
+
+      <TicksPanel
+        client={client}
+        title="Retrying Ticks (Subscription Restart)"
+        description="Twenty ticks, one per second, with Stream.retry: when the worker is stopped mid-stream, the stream subscribes again and the worker starts over from 1."
+        testId="rpc-retry-ticks"
+        count={20}
+        retrying
+        onError={setLastError}
+      />
     </ScenarioPage>
+  );
+}
+
+// Up to five restarts in a row, one second apart; the count resets once a
+// tick arrives again.
+const restartSchedule = Schedule.max([
+  Schedule.spaced('1 second'),
+  Schedule.recurs(5),
+]);
+
+function TicksPanel(props: {
+  readonly client: Client | null;
+  readonly title: string;
+  readonly description: string;
+  readonly testId: string;
+  readonly count: number;
+  readonly retrying: boolean;
+  readonly onError: (message: string) => void;
+}) {
+  const { client, testId, count, retrying, onError } = props;
+  const [ticks, setTicks] = useState<ReadonlyArray<number>>([]);
+  const [status, setStatus] = useState<string>('idle');
+  const [subscriptions, setSubscriptions] = useState(0);
+  const fiber = useRef<Fiber.Fiber<void, unknown> | null>(null);
+
+  const stop = () => {
+    const running = fiber.current;
+    fiber.current = null;
+    if (running !== null) void Effect.runPromise(Fiber.interrupt(running));
+  };
+  // Leaving the page ends the stream.
+  useEffect(() => stop, []);
+
+  const start = () => {
+    if (client === null) return;
+    stop();
+    setSubscriptions(0);
+    // Each subscription (the first and every restart) starts from 1.
+    const subscribe = Stream.suspend(() => {
+      setSubscriptions((n) => n + 1);
+      setTicks([]);
+      setStatus('streaming');
+      return client.Ticks({ count });
+    });
+    const stream = retrying
+      ? subscribe.pipe(
+          Stream.tapError((error) =>
+            Effect.sync(() => {
+              setStatus('restarting');
+              onError(describeCause(Cause.fail(error)));
+            }),
+          ),
+          Stream.retry(restartSchedule),
+        )
+      : subscribe;
+    const running = Effect.runFork(
+      Stream.runForEach(stream, (n) =>
+        Effect.sync(() => setTicks((all) => [...all, n])),
+      ),
+    );
+    fiber.current = running;
+    running.addObserver((exit) => {
+      if (fiber.current === running) fiber.current = null;
+      if (Exit.isSuccess(exit)) return setStatus('done');
+      if (Cause.hasInterruptsOnly(exit.cause)) return setStatus('stopped');
+      setStatus('failed');
+      onError(describeCause(exit.cause));
+    });
+  };
+
+  return (
+    <Panel title={props.title} description={props.description}>
+      <Readouts>
+        <Readout label="Status" testId={`${testId}-status`} value={status} />
+        <Readout
+          label="Ticks"
+          testId={testId}
+          value={ticks.join(', ') || '—'}
+        />
+        {retrying && (
+          <Readout
+            label="Subscriptions"
+            testId={`${testId}-subscriptions`}
+            value={String(subscriptions)}
+          />
+        )}
+      </Readouts>
+      <Actions>
+        <Button
+          data-testid={`${testId}-start`}
+          disabled={client === null}
+          onClick={start}
+        >
+          Start
+        </Button>
+        <Button
+          data-testid={`${testId}-stop`}
+          variant="outline"
+          disabled={status !== 'streaming' && status !== 'restarting'}
+          onClick={stop}
+        >
+          Stop
+        </Button>
+      </Actions>
+    </Panel>
   );
 }

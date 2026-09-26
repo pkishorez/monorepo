@@ -9,7 +9,7 @@ import {
   Readouts,
   ScenarioPage,
 } from '../components/index.ts';
-import { buildLabel, pageBuildId } from '../lib/build.ts';
+import { buildLabel, pageBuildId, updateMode } from '../lib/build.ts';
 
 export const Route = createFileRoute('/update')({ component: Update });
 
@@ -36,6 +36,11 @@ function Update() {
             it (Coordinated Reload). Nothing reloads unasked. Try it with two
             tabs open.
           </p>
+          <p>
+            Deployed with PWA_UPDATE_MODE=auto-on-navigation, an Available
+            update is applied on the next route change instead: follow any
+            header link once the state turns Available.
+          </p>
         </>
       }
     >
@@ -50,6 +55,11 @@ function Update() {
             label="Build ID"
             testId="update-build-id"
             value={buildId ?? 'none'}
+          />
+          <Readout
+            label="Update mode"
+            testId="update-mode"
+            value={updateMode}
           />
           <Readout
             label="Update state"
