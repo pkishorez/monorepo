@@ -36,17 +36,24 @@ describe('Snapshot.diff', () => {
     ).toBe(true);
   });
 
-  it('reports an approved serialized edit as breaking', () => {
+  it('reports an edit to an approved version as breaking', () => {
     const previous = snapshotOf(
       ESchema.make('Item', { value: Schema.String }).build(),
     );
-    const edited = JSON.parse(JSON.stringify(previous));
-    edited.schemas[0]!.versions[0]!.serialized = { changed: true };
+    const edited = snapshotOf(
+      ESchema.make('Item', {
+        value: Schema.String,
+        extra: Schema.Number,
+      }).build(),
+    );
 
-    expect(TableSnapshot.diff(previous, edited)[0]).toMatchObject({
-      action: 'edited',
-      impact: 'breaking',
-    });
+    expect(TableSnapshot.diff(previous, edited)).toEqual([
+      expect.objectContaining({
+        action: 'edited',
+        impact: 'breaking',
+        edits: [{ path: ['extra'], after: { type: 'number' } }],
+      }),
+    ]);
   });
 
   it('reports exact nested edits', () => {
@@ -68,63 +75,105 @@ describe('Snapshot.diff', () => {
         action: 'edited',
         impact: 'breaking',
         edits: [
-          expect.objectContaining({
+          {
             path: ['profile', 'displayName'],
-          }),
+            before: { type: 'string' },
+            after: {
+              type: 'union',
+              members: [{ type: 'string' }, { type: 'null' }],
+            },
+          },
         ],
       }),
     ]);
   });
 
-  it.each([
-    ['parameter', { _tag: 'StringKeyword' }, { _tag: 'SymbolKeyword' }],
-    ['type', { _tag: 'StringKeyword' }, { _tag: 'NumberKeyword' }],
-  ] as const)(
-    'reports object index signature %s edits alongside named properties',
-    (part, previous, current) => {
-      const before = snapshotOf(
-        ESchema.make('Item', { id: Schema.String }).build(),
-      );
-      const after = structuredClone(before);
-      for (const snapshot of [before, after]) {
-        const version = snapshot.schemas[0]!.versions[0]!;
-        for (const schema of [version.serialized]) {
-          const { representation } = schema as unknown as {
-            representation: { indexSignatures: unknown[] };
-          };
-          representation.indexSignatures = [
-            {
-              parameter: { _tag: 'StringKeyword' },
-              type: { _tag: 'StringKeyword' },
-            },
-          ];
-        }
-      }
-      const version = after.schemas[0]!.versions[0]!;
-      for (const schema of [version.serialized]) {
-        const { representation } = schema as unknown as {
-          representation: {
-            indexSignatures: Record<string, unknown>[];
-          };
-        };
-        representation.indexSignatures[0]![part] = current;
-      }
+  it('reports a field that becomes optional', () => {
+    const before = snapshotOf(
+      ESchema.make('Item', {
+        profile: Schema.Struct({ note: Schema.String }),
+      }).build(),
+    );
+    const after = snapshotOf(
+      ESchema.make('Item', {
+        profile: Schema.Struct({ note: Schema.optionalKey(Schema.String) }),
+      }).build(),
+    );
 
-      expect(TableSnapshot.diff(before, after)).toEqual([
-        expect.objectContaining({
-          action: 'edited',
-          impact: 'breaking',
-          edits: [
-            expect.objectContaining({
-              path: ['indexSignatures', '0', part],
-              before: previous,
-              after: current,
-            }),
-          ],
-        }),
-      ]);
-    },
-  );
+    expect(TableSnapshot.diff(before, after)[0]?.edits).toEqual([
+      {
+        path: ['profile', 'note', 'presence'],
+        before: 'required',
+        after: 'optional',
+      },
+    ]);
+  });
+
+  it('never compares checks', () => {
+    const plain = snapshotOf(
+      ESchema.make('Item', { value: Schema.String }).build(),
+    );
+    const checked = snapshotOf(
+      ESchema.make('Item', {
+        value: Schema.String.check(
+          Schema.isMinLength(1),
+          Schema.isMaxLength(9),
+        ),
+      }).build(),
+    );
+    const loosened = snapshotOf(
+      ESchema.make('Item', {
+        value: Schema.String.check(Schema.isMaxLength(99)),
+      }).build(),
+    );
+
+    expect(TableSnapshot.diff(plain, checked)).toEqual([]);
+    expect(TableSnapshot.diff(checked, loosened)).toEqual([]);
+    expect(TableSnapshot.diff(checked, plain)).toEqual([]);
+  });
+
+  it('reports a retargeted entity reference as safe', () => {
+    const owner = (target: string) =>
+      snapshotOf(
+        ESchema.make('Item', {
+          ownerId: Schema.String.annotate({ entityReference: target }),
+        }).build(),
+      );
+
+    expect(owner('User').schemas[0]!.versions[0]!.shape).toEqual({
+      type: 'struct',
+      fields: [
+        {
+          name: 'ownerId',
+          type: { type: 'string', entityReference: 'User' },
+        },
+      ],
+    });
+    expect(TableSnapshot.diff(owner('User'), owner('Team'))).toEqual([
+      expect.objectContaining({
+        action: 'edited',
+        impact: 'safe',
+        edits: [
+          {
+            path: ['ownerId'],
+            before: { type: 'string', entityReference: 'User' },
+            after: { type: 'string', entityReference: 'Team' },
+          },
+        ],
+      }),
+    ]);
+  });
+
+  it('ignores a decoded-side change that keeps the stored shape', () => {
+    const before = snapshotOf(
+      ESchema.make('Item', { amount: Schema.String }).build(),
+    );
+    const after = snapshotOf(
+      ESchema.make('Item', { amount: Schema.NumberFromString }).build(),
+    );
+
+    expect(TableSnapshot.diff(before, after)).toEqual([]);
+  });
 
   it('reports a logical name change as breaking', () => {
     const before = snapshotOf(

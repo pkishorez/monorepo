@@ -257,7 +257,7 @@ describe('table snapshot diff', () => {
     ).toMatchObject({ impact: 'safe' });
 
     const edited = clone() as any;
-    edited.schemas[0].versions[0].serialized = { edited: true };
+    edited.schemas[0].versions[0].shape = { type: 'string' };
     expect(TableSnapshot.diff(table(), edited)[0]).toMatchObject({
       subject: expect.objectContaining({ kind: 'version' }),
       action: 'edited',

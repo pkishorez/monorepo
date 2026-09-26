@@ -1,3 +1,4 @@
+import type { SnapshotType } from '../../../eschema/index.js';
 import type {
   ESchemaDefinition,
   ESchemaVersion,
@@ -26,10 +27,6 @@ const stable = (value: unknown): string => {
   return JSON.stringify(value);
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function edit(
   path: readonly string[],
   before: unknown,
@@ -51,126 +48,91 @@ function change(
   return { subject, action, impact, edits: [...edits] };
 }
 
-function persistentValue(value: unknown): unknown {
-  return isRecord(value) && 'type' in value && 'value' in value
-    ? value.value
-    : value;
+/**
+ * A shape with its display metadata removed. Checks never change what is
+ * stored, so comparison never sees them; entity references are kept only
+ * when `keepReferences` is set, so a retargeted reference can be reported as
+ * the safe visualization change it is.
+ */
+function contractOf(
+  shape: SnapshotType,
+  keepReferences: boolean,
+): SnapshotType {
+  const reference =
+    keepReferences &&
+    'entityReference' in shape &&
+    shape.entityReference !== undefined
+      ? { entityReference: shape.entityReference }
+      : {};
+  const nested = (child: SnapshotType) => contractOf(child, keepReferences);
+  switch (shape.type) {
+    case 'struct':
+      return {
+        type: 'struct',
+        fields: shape.fields.map((field) => ({
+          ...field,
+          type: nested(field.type),
+        })),
+        ...reference,
+      };
+    case 'array':
+      return { type: 'array', element: nested(shape.element), ...reference };
+    case 'record':
+      return { type: 'record', value: nested(shape.value), ...reference };
+    case 'union':
+      return {
+        type: 'union',
+        members: shape.members.map(nested),
+        ...reference,
+      };
+    case 'recursive':
+      return { type: 'recursive', body: nested(shape.body) };
+    case 'literal':
+      return { type: 'literal', value: shape.value, ...reference };
+    case 'string':
+    case 'number':
+    case 'boolean':
+    case 'null':
+    case 'unknown':
+      return { type: shape.type, ...reference };
+    default:
+      return shape;
+  }
 }
 
-interface SchemaProperty {
-  readonly optional: boolean;
-  readonly type: unknown;
-}
-
-interface SchemaIndexSignature {
-  readonly parameter: unknown;
-  readonly type: unknown;
-}
-
-function representation(value: unknown): unknown {
-  return isRecord(value) && 'representation' in value
-    ? value.representation
-    : value;
-}
-
-function schemaProperties(value: unknown): ReadonlyMap<string, SchemaProperty> {
-  const represented = representation(value);
-  if (!isRecord(represented) || represented._tag !== 'Objects')
-    return new Map();
-  const properties = Array.isArray(represented.propertySignatures)
-    ? represented.propertySignatures
-    : [];
-  return new Map(
-    properties
-      .filter(isRecord)
-      .map((property) => [
-        String(persistentValue(property.name)),
-        { optional: property.isOptional === true, type: property.type },
-      ]),
-  );
-}
-
-function schemaIndexSignatures(
-  value: unknown,
-): readonly SchemaIndexSignature[] {
-  const represented = representation(value);
-  if (!isRecord(represented) || represented._tag !== 'Objects') return [];
-  const signatures = Array.isArray(represented.indexSignatures)
-    ? represented.indexSignatures
-    : [];
-  return signatures.filter(isRecord).map((signature) => ({
-    parameter: signature.parameter,
-    type: signature.type,
-  }));
-}
-
-function schemaEdits(
-  before: unknown,
-  after: unknown,
+/** Field-level edits between two check-free shapes; any other difference is one edit. */
+function shapeEdits(
+  before: SnapshotType,
+  after: SnapshotType,
   path: readonly string[] = [],
 ): readonly SnapshotEdit[] {
   if (stable(before) === stable(after)) return [];
-  const beforeProperties = schemaProperties(before);
-  const afterProperties = schemaProperties(after);
-  if (beforeProperties.size === 0 || afterProperties.size === 0) {
-    return [edit(path, representation(before), representation(after))];
+  if (before.type !== 'struct' || after.type !== 'struct') {
+    return [edit(path, before, after)];
   }
-
-  const edits: SnapshotEdit[] = [];
-  const names = new Set([
-    ...beforeProperties.keys(),
-    ...afterProperties.keys(),
-  ]);
-  for (const name of [...names].sort(compareStrings)) {
-    const previous = beforeProperties.get(name);
-    const current = afterProperties.get(name);
-    const propertyPath = [...path, name];
-    if (previous === undefined) {
-      edits.push(edit(propertyPath, undefined, current?.type));
-      continue;
-    }
-    if (current === undefined) {
-      edits.push(edit(propertyPath, previous.type, undefined));
-      continue;
-    }
-    if (previous.optional !== current.optional) {
-      edits.push(
-        edit(
-          [...propertyPath, 'presence'],
-          previous.optional ? 'optional' : 'required',
-          current.optional ? 'optional' : 'required',
-        ),
-      );
-    }
-    edits.push(...schemaEdits(previous.type, current.type, propertyPath));
-  }
-  const beforeIndexSignatures = schemaIndexSignatures(before);
-  const afterIndexSignatures = schemaIndexSignatures(after);
-  const signatureCount = Math.max(
-    beforeIndexSignatures.length,
-    afterIndexSignatures.length,
+  const previous = new Map(before.fields.map((field) => [field.name, field]));
+  const current = new Map(after.fields.map((field) => [field.name, field]));
+  const names = [...new Set([...previous.keys(), ...current.keys()])].sort(
+    compareStrings,
   );
-  for (let index = 0; index < signatureCount; index++) {
-    const previous = beforeIndexSignatures[index];
-    const current = afterIndexSignatures[index];
-    const signaturePath = [...path, 'indexSignatures', String(index)];
-    if (previous === undefined) {
-      edits.push(edit(signaturePath, undefined, current));
-      continue;
-    }
-    if (current === undefined) {
-      edits.push(edit(signaturePath, previous, undefined));
-      continue;
-    }
-    edits.push(
-      ...schemaEdits(previous.parameter, current.parameter, [
-        ...signaturePath,
-        'parameter',
-      ]),
-      ...schemaEdits(previous.type, current.type, [...signaturePath, 'type']),
-    );
-  }
-  return edits;
+  return names.flatMap((name): readonly SnapshotEdit[] => {
+    const prior = previous.get(name);
+    const next = current.get(name);
+    const fieldPath = [...path, name];
+    if (prior === undefined) return [edit(fieldPath, undefined, next!.type)];
+    if (next === undefined) return [edit(fieldPath, prior.type, undefined)];
+    const presence =
+      (prior.optional ?? false) === (next.optional ?? false)
+        ? []
+        : [
+            edit(
+              [...fieldPath, 'presence'],
+              prior.optional ? 'optional' : 'required',
+              next.optional ? 'optional' : 'required',
+            ),
+          ];
+    return [...presence, ...shapeEdits(prior.type, next.type, fieldPath)];
+  });
 }
 
 function versionSubject(identity: string, version: string): SnapshotSubject {
@@ -182,17 +144,19 @@ function diffVersion(
   before: ESchemaVersion,
   after: ESchemaVersion,
 ): readonly SnapshotChange[] {
-  const edits = schemaEdits(before.serialized, after.serialized);
-  return edits.length === 0
+  const subject = versionSubject(identity, after.version);
+  const edits = shapeEdits(
+    contractOf(before.shape, false),
+    contractOf(after.shape, false),
+  );
+  if (edits.length > 0) return [change(subject, 'edited', 'breaking', edits)];
+  const references = shapeEdits(
+    contractOf(before.shape, true),
+    contractOf(after.shape, true),
+  );
+  return references.length === 0
     ? []
-    : [
-        change(
-          versionSubject(identity, after.version),
-          'edited',
-          'breaking',
-          edits,
-        ),
-      ];
+    : [change(subject, 'edited', 'safe', references)];
 }
 
 function definitionEdits(

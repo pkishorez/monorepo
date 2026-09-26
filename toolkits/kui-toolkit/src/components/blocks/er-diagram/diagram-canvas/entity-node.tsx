@@ -5,14 +5,22 @@ import {
   Braces,
   Database,
   KeyRound,
+  ListChecks,
   TriangleAlert,
 } from 'lucide-react';
 
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '#components/ui/popover';
 import { cn } from '#lib/utils';
 
 import type { layoutGraph } from '../graph-layout';
 
 type LayoutNode = Awaited<ReturnType<typeof layoutGraph>>['nodes'][number];
+type FieldCheck =
+  LayoutNode['data']['entity']['fields'][number]['checks'][number];
 type DiagramNode = Node<
   LayoutNode['data'] & {
     readonly onEntitySelect?: (entityId: string) => void;
@@ -36,6 +44,49 @@ function TruncatedText({
   readonly className?: string;
 }) {
   return <span className={cn('min-w-0 truncate', className)}>{children}</span>;
+}
+
+/**
+ * How many checks a field has, opening the list on demand so a field with
+ * several checks keeps the diagram compact. Checks are display metadata:
+ * they never change what a snapshot compares.
+ */
+function FieldChecks({
+  field,
+  checks,
+}: {
+  readonly field: string;
+  readonly checks: readonly FieldCheck[];
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={`${checks.length} ${checks.length === 1 ? 'check' : 'checks'} on ${field}`}
+        onClick={(event) => event.stopPropagation()}
+        className="nodrag nopan me-2 flex h-5 shrink-0 cursor-pointer items-center gap-1 self-center rounded border border-border/70 bg-background/80 px-1.5 font-mono text-[9px] text-muted-foreground outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        <ListChecks className="size-3" aria-hidden />
+        {checks.length}
+      </PopoverTrigger>
+      <PopoverContent side="right" align="start" className="w-60 gap-2 p-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          Checks on {field}
+        </div>
+        <ul className="grid gap-1.5">
+          {checks.map((check) => (
+            <li key={check.name} className="grid gap-0.5">
+              <span className="font-mono text-[11px]">{check.label}</span>
+              {check.description !== undefined && (
+                <span className="text-[10px] text-muted-foreground">
+                  {check.description}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function ExternalEntity({ data }: Pick<NodeProps<DiagramNode>, 'data'>) {
@@ -161,7 +212,7 @@ export function EntityNode({ data }: NodeProps<DiagramNode>) {
             const selected = data.selectedField === field.name;
             const connected = data.connectedFields.includes(field.name);
             return (
-              <div key={field.name} className="relative h-[34px]">
+              <div key={field.name} className="relative flex h-[34px]">
                 {isId && (
                   <>
                     <Handle
@@ -199,7 +250,7 @@ export function EntityNode({ data }: NodeProps<DiagramNode>) {
                     data.onFieldHover?.(entity.id, field.name, false)
                   }
                   className={cn(
-                    'nodrag nopan grid h-full w-full cursor-pointer grid-cols-[12px_minmax(0,1fr)_112px] items-center gap-2 px-3.5 text-left text-[11px] outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
+                    'nodrag nopan grid h-full min-w-0 flex-1 cursor-pointer grid-cols-[12px_minmax(0,1fr)_112px] items-center gap-2 px-3.5 text-left text-[11px] outline-none transition-colors hover:bg-muted/35 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50',
                     field.referenceTarget !== undefined && 'bg-primary/[0.025]',
                     connected &&
                       'bg-primary/[0.075] shadow-[inset_2px_0_0_var(--primary)]',
@@ -247,6 +298,9 @@ export function EntityNode({ data }: NodeProps<DiagramNode>) {
                     {field.type}
                   </TruncatedText>
                 </button>
+                {field.checks.length > 0 && (
+                  <FieldChecks field={field.name} checks={field.checks} />
+                )}
               </div>
             );
           })

@@ -26,6 +26,8 @@ See the [top README](../../README.md).
 | `ESchema.id`         | Marks a `Schema.String` field with an identifier annotation.                                       |
 | `ESchemaError`       | Tagged error raised when a value cannot be read or written.                                        |
 | `OutdatedVersion`    | Tagged error raised when a value carries a version newer than the schema knows.                    |
+| `checkAnnotation`    | Names a check the built-in catalogue does not know, so a snapshot can list it.                     |
+| `SnapshotTypeSchema` | Effect Schema for the snapshot type language that describes a field's stored shape.                |
 
 Every built `ESchema` and `EntityESchema` exposes `name`, `latestVersion`, `fields`, `schema`, `getDescriptor`, the `Type` and `Encoded` type carriers, and the Standard Schema `~standard` interface, which validates a latest value. `EntityESchema` adds `idField`.
 
@@ -73,7 +75,8 @@ const written = await Effect.runPromise(Schema.encodeEffect(stored)(task));
 - Versions must be appended in sequence (`v2` after `v1`); the type system rejects gaps.
 - Removing a field is `evolve('v3', { colour: null }, ...)`; renaming is a remove plus an add in the same step.
 - A field may convert between a rich value and what is stored, such as `Schema.DateFromString`: code gets a `Date`, storage keeps the ISO string, and migrations receive values. Only the stored side is versioned and captured by a snapshot.
-- Optional fields, `_`-prefixed keys, constructor defaults, filters, and fields whose stored side is not plain JSON (such as `Schema.Date`) are refused at build time so a snapshot can rebuild the stored shape from JSON.
+- Optional fields, `_`-prefixed keys, constructor defaults, and fields whose stored side is not plain JSON (such as `Schema.Date`) are refused at build time, so a snapshot can always describe what is stored.
+- A check from the built-in catalogue (`isMinLength`, `isPattern`, `isInt`, `isBetween`, …) is recorded by itself. Any other filter needs `checkAnnotation({ name })`. Checks are shown in Studio but never compared, so adding or removing one is never a breaking change.
 
 ### Try a new field before committing to a version
 

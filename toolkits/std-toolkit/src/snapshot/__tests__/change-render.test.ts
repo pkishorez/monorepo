@@ -23,4 +23,26 @@ describe('change rendering', () => {
     expect(rendered).toContain('User v2 added');
     expect(rendered).toContain('Global secondary index GSI2 added');
   });
+
+  it('renders snapshot types in an edit', () => {
+    const rendered = TableSnapshot.renderChanges([
+      {
+        subject: { kind: 'version', name: 'User', version: 'v1' },
+        action: 'edited',
+        impact: 'breaking',
+        edits: [
+          {
+            path: ['name'],
+            before: { type: 'string' },
+            after: {
+              type: 'union',
+              members: [{ type: 'string' }, { type: 'null' }],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(rendered).toContain('name: string → string | null');
+  });
 });

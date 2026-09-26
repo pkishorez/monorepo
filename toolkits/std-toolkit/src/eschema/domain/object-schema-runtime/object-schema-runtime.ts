@@ -17,10 +17,10 @@ import {
 } from '../eschema-error/index.js';
 import { registerEncoded } from '../encoded/index.js';
 import {
-  findUnrepresentableField,
   registerESchemaIntrospection,
   type ESchemaKind,
 } from '../introspection/index.js';
+import { findUndescribableField } from '../snapshot-type/index.js';
 
 export function makeObjectSchemaRuntime<
   TVersion extends string,
@@ -35,13 +35,14 @@ export function makeObjectSchemaRuntime<
 }) {
   const evolutions = [...input.evolutions];
   for (const evolution of evolutions) {
-    const found = findUnrepresentableField(struct(evolution.schema).ast);
+    const found = findUndescribableField(struct(evolution.schema).ast);
     if (found !== undefined) {
       throw new UnrepresentableFieldError(
         input.name,
         evolution.version,
         found.path,
         found.reason,
+        found.detail,
       );
     }
   }

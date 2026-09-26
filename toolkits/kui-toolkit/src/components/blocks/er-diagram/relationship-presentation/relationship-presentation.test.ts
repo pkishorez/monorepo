@@ -34,6 +34,7 @@ describe('presentSnapshot', () => {
       name: 'audit',
       type: 'complex',
       optional: false,
+      checks: [],
       complex: {
         kind: 'object',
         fields: [
@@ -41,6 +42,7 @@ describe('presentSnapshot', () => {
             name: 'actorId',
             type: 'string',
             optional: false,
+            checks: [],
             referenceTarget: 'Identity',
           },
         ],
@@ -119,7 +121,7 @@ describe('presentSnapshot', () => {
     expect(presentation.relationships).toEqual([]);
   });
 
-  it('preserves literals, primitive union branches, and tuple references', () => {
+  it('preserves literals, primitive union branches, and record references', () => {
     const presentation = presentSnapshot(allDataTypesSnapshot);
     const entity = presentation.entities.find(
       ({ id }) => id === 'AllDataTypes',
@@ -128,7 +130,7 @@ describe('presentSnapshot', () => {
       ({ name }) => name === 'literalUnion',
     );
     const mixedUnion = entity?.fields.find(({ name }) => name === 'mixedUnion');
-    const tuple = entity?.fields.find(({ name }) => name === 'tuple');
+    const record = entity?.fields.find(({ name }) => name === 'objectRecord');
 
     expect(literalUnion?.type).toBe('null | "draft" | "published" | 0 | false');
     expect(literalUnion?.complex).toMatchObject({
@@ -160,28 +162,35 @@ describe('presentSnapshot', () => {
         },
       ],
     });
-    expect(tuple).toMatchObject({
-      referenceTarget: 'Account',
+    expect(presentation.entities.map(({ id }) => id)).toContain(
+      'external:Account',
+    );
+    expect(record).toMatchObject({
+      type: 'Record<complex>',
       complex: {
-        kind: 'tuple',
-        elements: [
-          { kind: 'type', type: 'string' },
-          { kind: 'type', type: 'string', referenceTarget: 'Account' },
-          { kind: 'object' },
-        ],
+        kind: 'record',
+        value: { kind: 'object' },
       },
     });
     expect(presentation.relationships).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          sourceField: 'tuple',
-          target: 'external:Account',
-        }),
         expect.objectContaining({
           sourceField: 'mixedUnion',
           target: 'external:Policy',
         }),
       ]),
     );
+  });
+
+  it('carries the checks of each field for Studio to show', () => {
+    const presentation = presentSnapshot(allDataTypesSnapshot);
+    const checked = presentation.entities
+      .find(({ id }) => id === 'AllDataTypes')
+      ?.fields.find(({ name }) => name === 'checkedNumber');
+
+    expect(checked?.checks).toEqual([
+      { name: 'int', label: 'integer' },
+      { name: 'between', label: 'between 0 and 100' },
+    ]);
   });
 });

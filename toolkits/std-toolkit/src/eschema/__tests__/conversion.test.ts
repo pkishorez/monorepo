@@ -110,20 +110,27 @@ describe('field conversions', () => {
     }),
   );
 
-  it('still refuses filters, defaults, and non-JSON encoded sides', () => {
+  it('allows checks but refuses defaults and non-JSON encoded sides', () => {
     expect(() =>
       EntityESchema.make('Task', 'taskId', {
         title: Schema.String.check(Schema.isMinLength(1)),
       }).build(),
-    ).toThrow(/filter/);
+    ).not.toThrow();
+    expect(() =>
+      EntityESchema.make('Task', 'taskId', {
+        title: Schema.String.pipe(
+          Schema.withConstructorDefault(Effect.succeed('x')),
+        ),
+      }).build(),
+    ).toThrow(/constructor default/);
     expect(() =>
       EntityESchema.make('Task', 'taskId', { dueAt: Schema.Date }).build(),
-    ).toThrow(/declaration/);
+    ).toThrow(/declared type/);
     expect(() =>
       EntityESchema.make('Task', 'taskId', {
         at: Schema.DateTimeUtcFromDate,
       }).build(),
-    ).toThrow(/declaration/);
+    ).toThrow(/declared type/);
   });
 
   it('validates the value side through Standard Schema', () => {

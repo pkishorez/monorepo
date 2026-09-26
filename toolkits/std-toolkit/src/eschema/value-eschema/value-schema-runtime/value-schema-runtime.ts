@@ -15,10 +15,8 @@ import {
   unknownVersion,
 } from '../../domain/eschema-error/index.js';
 import { registerEncoded } from '../../domain/encoded/index.js';
-import {
-  findUnrepresentableField,
-  registerESchemaIntrospection,
-} from '../../domain/introspection/index.js';
+import { registerESchemaIntrospection } from '../../domain/introspection/index.js';
+import { findUndescribableField } from '../../domain/snapshot-type/index.js';
 
 const EnvelopeSchema = Schema.Struct({
   _v: Schema.String,
@@ -66,13 +64,14 @@ export function makeValueSchemaRuntime<
 }) {
   const evolutions = [...input.evolutions];
   for (const evolution of evolutions) {
-    const found = findUnrepresentableField(evolution.schema.ast);
+    const found = findUndescribableField(evolution.schema.ast);
     if (found !== undefined) {
       throw new UnrepresentableFieldError(
         input.name,
         evolution.version,
         found.path,
         found.reason,
+        found.detail,
       );
     }
   }

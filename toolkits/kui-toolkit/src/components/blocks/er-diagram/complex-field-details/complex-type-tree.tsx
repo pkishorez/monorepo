@@ -60,6 +60,14 @@ function FieldRow({
           <span className="max-w-32 shrink-0 truncate font-mono text-[9px] text-muted-foreground">
             {field.type}
           </span>
+          {field.checks.length > 0 && (
+            <span
+              className="shrink-0 rounded border border-border/70 bg-muted/40 px-1.5 py-0.5 text-[8.5px] font-medium text-muted-foreground"
+              title={field.checks.map((check) => check.label).join(', ')}
+            >
+              {field.checks.map((check) => check.label).join(' · ')}
+            </span>
+          )}
           {field.referenceTarget !== undefined && (
             <span className="max-w-28 shrink-0 truncate rounded border border-primary/20 bg-primary/[0.06] px-1.5 py-0.5 text-[8.5px] font-medium text-primary">
               → {field.referenceTarget}
@@ -137,36 +145,13 @@ export function ComplexTypeTree({
     );
   }
 
-  if (complex.kind === 'tuple') {
+  if (complex.kind === 'record') {
     return (
       <TypeSection
-        icon={<Brackets className="size-3.5 text-primary" aria-hidden />}
-        label={`${complex.elements.length} tuple items`}
+        icon={<Braces className="size-3.5 text-primary" aria-hidden />}
+        label="Record values"
       >
-        <div className="grid gap-2">
-          {complex.elements.map((element, index) => (
-            <div
-              key={index}
-              className="rounded-md border border-border/65 bg-background p-2.5"
-            >
-              <div className="mb-2 font-mono text-[9px] text-muted-foreground">
-                Item {index + 1}
-              </div>
-              <ComplexTypeTree complex={element} />
-            </div>
-          ))}
-          {complex.rest.map((element, index) => (
-            <div
-              key={`rest:${index}`}
-              className="rounded-md border border-border/65 bg-background p-2.5"
-            >
-              <div className="mb-2 font-mono text-[9px] text-muted-foreground">
-                {index === 0 ? 'Remaining items' : `Trailing item ${index}`}
-              </div>
-              <ComplexTypeTree complex={element} />
-            </div>
-          ))}
-        </div>
+        <ComplexTypeTree complex={complex.value} />
       </TypeSection>
     );
   }

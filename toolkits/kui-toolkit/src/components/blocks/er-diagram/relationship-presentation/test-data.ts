@@ -1,25 +1,17 @@
 import type { TableSnapshot } from 'std-toolkit/snapshot';
 
 const stringType = (referenceTarget?: string) => ({
-  _tag: 'String',
-  checks: [],
+  type: 'string' as const,
   ...(referenceTarget === undefined
     ? {}
-    : { annotations: { entityReference: referenceTarget } }),
+    : { entityReference: referenceTarget }),
 });
 
-const property = (name: string, type: unknown) => ({
-  isMutable: false,
-  isOptional: false,
-  name: { type: 'string', value: name },
-  type,
-});
+const property = (name: string, type: unknown) => ({ name, type });
 
-const object = (properties: readonly unknown[]) => ({
-  _tag: 'Objects',
-  checks: [],
-  indexSignatures: [],
-  propertySignatures: properties,
+const object = (properties: readonly { readonly name: string }[]) => ({
+  type: 'struct' as const,
+  fields: [...properties].sort((a, b) => a.name.localeCompare(b.name)),
 });
 
 const definition = (
@@ -32,18 +24,7 @@ const definition = (
   versions: [
     {
       version: 'v1',
-      serialized: {
-        references: {},
-        representation: object([
-          property('_v', {
-            _tag: 'Literal',
-            checks: [],
-            literal: { type: 'string', value: 'v1' },
-          }),
-          property('id', stringType()),
-          ...fields,
-        ]),
-      },
+      shape: object([property('id', stringType()), ...fields]),
     },
   ],
 });
@@ -66,22 +47,7 @@ const singleDefinition = (
   identity: name,
   kind: 'struct' as const,
   idField: null,
-  versions: [
-    {
-      version: 'v1',
-      serialized: {
-        references: {},
-        representation: object([
-          property('_v', {
-            _tag: 'Literal',
-            checks: [],
-            literal: { type: 'string', value: 'v1' },
-          }),
-          ...fields,
-        ]),
-      },
-    },
-  ],
+  versions: [{ version: 'v1', shape: object(fields) }],
 });
 
 const base = {

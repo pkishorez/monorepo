@@ -1,3 +1,4 @@
+import type { SnapshotCheck, SnapshotType } from '../../../eschema/index.js';
 import type { SnapshotChange } from '../../domain/index.js';
 
 type SnapshotImpact = SnapshotChange['impact'];
@@ -11,90 +12,57 @@ function literal(value: unknown): string {
   return output === undefined ? String(value) : output;
 }
 
-function persistentValue(value: unknown): unknown {
-  return isRecord(value) && 'type' in value && 'value' in value
-    ? value.value
-    : value;
+function checkLabel(check: SnapshotCheck): string {
+  const { check: name, ...args } = check;
+  if (check.check === 'custom') return check.name;
+  const values = Object.values(args).map((value) => literal(value));
+  return values.length === 0 ? name : `${name}(${values.join(', ')})`;
 }
 
-function checkNames(value: Record<string, unknown>): string {
-  if (!Array.isArray(value.checks) || value.checks.length === 0) return '';
-  const names = value.checks.map((check) => {
-    if (!isRecord(check)) return 'constraint';
-    if (isRecord(check.meta) && typeof check.meta._tag === 'string') {
-      return check.meta._tag;
-    }
-    return typeof check._tag === 'string' ? check._tag : 'constraint';
-  });
-  return ` · ${names.join(', ')}`;
+function checkSuffix(shape: SnapshotType): string {
+  const checks = 'checks' in shape ? shape.checks : undefined;
+  const reference =
+    'entityReference' in shape && shape.entityReference !== undefined
+      ? ` → ${shape.entityReference}`
+      : '';
+  return checks === undefined || checks.length === 0
+    ? reference
+    : `${reference} · ${checks.map(checkLabel).join(', ')}`;
 }
 
-function inlineType(value: unknown, depth = 0): string {
-  if (!isRecord(value)) return literal(value);
-  if (value._tag === 'ESchemaRef' && typeof value.identity === 'string') {
-    return value.identity;
-  }
-  const suffix = checkNames(value);
-  switch (value._tag) {
-    case 'String':
-      return `string${suffix}`;
-    case 'Number':
-      return `number${suffix}`;
-    case 'Boolean':
-      return `boolean${suffix}`;
-    case 'BigInt':
-      return `bigint${suffix}`;
-    case 'Symbol':
-      return 'symbol';
-    case 'Undefined':
-      return 'undefined';
-    case 'Void':
-      return 'void';
-    case 'Never':
-      return 'never';
-    case 'Unknown':
-      return 'unknown';
-    case 'Any':
-      return 'any';
-    case 'Literal':
-      return literal(persistentValue(value.literal));
-    case 'Union':
-      return Array.isArray(value.types)
-        ? value.types.map((item) => inlineType(item, depth + 1)).join(' | ')
-        : 'union';
-    case 'Arrays': {
-      const elements = Array.isArray(value.elements) ? value.elements : [];
-      const rest = Array.isArray(value.rest) ? value.rest : [];
-      if (elements.length === 0 && rest.length === 1) {
-        return `${inlineType(rest[0], depth + 1)}[]`;
-      }
-      return `[${[...elements, ...rest].map((item) => inlineType(item, depth + 1)).join(', ')}]`;
+function inlineType(shape: SnapshotType, depth = 0): string {
+  const suffix = checkSuffix(shape);
+  switch (shape.type) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+    case 'null':
+    case 'unknown':
+      return `${shape.type}${suffix}`;
+    case 'literal':
+      return `${literal(shape.value)}${suffix}`;
+    case 'ref':
+      return shape.identity;
+    case 'recursive':
+      return `recursive ${inlineType(shape.body, depth)}`;
+    case 'recurse':
+      return `recurse(${shape.depth})`;
+    case 'union':
+      return `${shape.members.map((member) => inlineType(member, depth + 1)).join(' | ')}${suffix}`;
+    case 'array': {
+      const element = inlineType(shape.element, depth + 1);
+      return `${shape.element.type === 'union' ? `(${element})` : element}[]${suffix}`;
     }
-    case 'Objects': {
-      if (depth > 1) return 'object';
-      const properties = Array.isArray(value.propertySignatures)
-        ? value.propertySignatures
-        : [];
-      return `{ ${properties
-        .filter(isRecord)
-        .map((property) => {
-          const name = String(persistentValue(property.name));
-          const optional = property.isOptional === true ? '?' : '';
-          return `${name}${optional}: ${inlineType(property.type, depth + 1)}`;
-        })
-        .join('; ')} }`;
-    }
-    case 'Declaration': {
-      const constructor = isRecord(value.annotations)
-        ? value.annotations.typeConstructor
-        : undefined;
-      if (isRecord(constructor) && typeof constructor._tag === 'string') {
-        return constructor._tag;
-      }
-      return 'declaration';
-    }
-    default:
-      return typeof value._tag === 'string' ? value._tag : 'unknown';
+    case 'record':
+      return `Record<string, ${inlineType(shape.value, depth + 1)}>${suffix}`;
+    case 'struct':
+      if (depth > 1) return `object${suffix}`;
+      return `{ ${shape.fields
+        .map(
+          (field) =>
+            `${field.name}${field.optional ? '?' : ''}: ${inlineType(field.type, depth + 1)}`,
+        )
+        .join('; ')} }${suffix}`;
   }
 }
 
@@ -136,8 +104,8 @@ function subjectLabel(change: SnapshotChange): string {
 
 function valueLabel(value: unknown): string {
   if (value === undefined) return '—';
-  if (isRecord(value) && typeof value._tag === 'string') {
-    return inlineType(value);
+  if (isRecord(value) && typeof value.type === 'string') {
+    return inlineType(value as unknown as SnapshotType);
   }
   if (Array.isArray(value)) return value.map(valueLabel).join(', ') || '—';
   return literal(value);
