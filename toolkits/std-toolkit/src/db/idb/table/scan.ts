@@ -1,10 +1,10 @@
 import { Schema } from 'effect';
 import type {
-  EncodedItem,
+  StoredItem,
   ScanRequest,
 } from '../../std-table/contract/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
-import { decodeKey, itemSchema } from '../item-schema/index.js';
+import { toNativeKey, itemSchema } from '../item-schema/index.js';
 
 export const scanItems = async (
   database: IDBDatabase,
@@ -23,10 +23,10 @@ export const scanItems = async (
   const range =
     request.startAfter === undefined
       ? undefined
-      : IDBKeyRange.lowerBound(decodeKey(request.startAfter), true);
+      : IDBKeyRange.lowerBound(toNativeKey(request.startAfter), true);
   const cursorRequest = store.openCursor(range, 'next');
-  const collected = await new Promise<EncodedItem[]>((resolve, reject) => {
-    const items: EncodedItem[] = [];
+  const collected = await new Promise<StoredItem[]>((resolve, reject) => {
+    const items: StoredItem[] = [];
     cursorRequest.onerror = () => reject(cursorRequest.error);
     cursorRequest.onsuccess = () => {
       const cursor = cursorRequest.result;

@@ -5,7 +5,7 @@ import {
 } from '@tanstack/react-db';
 import { Effect, Schedule } from 'effect';
 import { Story } from 'laymos/story';
-import type { DecodedEntity, DecodedSingleEntity } from 'std-toolkit/core';
+import type { Entity, SingletonEntity } from 'std-toolkit/core';
 import { createStdSync, syncStrategy } from 'std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
@@ -113,10 +113,9 @@ const openBoard = Effect.gen(function* () {
 });
 
 // A batch can return single records too (chapter 12); a collection takes only keyed rows, so keep those.
-const isKeyed = <T>(
-  row: DecodedEntity<T> | DecodedSingleEntity<T>,
-): row is DecodedEntity<T> => '_d' in row.meta;
-const keyed = <T>(row: DecodedEntity<T> | DecodedSingleEntity<T>) =>
+const isKeyed = <T>(row: Entity<T> | SingletonEntity<T>): row is Entity<T> =>
+  '_d' in row.meta;
+const keyed = <T>(row: Entity<T> | SingletonEntity<T>) =>
   isKeyed(row) ? [row] : [];
 
 // What both screens show, side by side.

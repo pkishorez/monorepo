@@ -8,7 +8,10 @@ import {
   captureTableSnapshot,
   type TableSource,
 } from '../capture/table-capture/index.js';
-import { parseTableSnapshot } from './snapshot-decoder/index.js';
+import {
+  parseTableSnapshot,
+  serializeTableSnapshot,
+} from './snapshot-decoder/index.js';
 import { diffTableSnapshot } from './snapshot-diff/index.js';
 import { renderSnapshotChanges } from './snapshot-renderer/index.js';
 
@@ -18,6 +21,10 @@ export const TableSnapshot = {
   capture: (table: TableSource): TableSnapshot => captureTableSnapshot(table),
   parse: (input: unknown): Effect.Effect<TableSnapshot, SnapshotDecodeError> =>
     parseTableSnapshot(input),
+  serialize: (
+    snapshot: TableSnapshot,
+  ): Effect.Effect<unknown, SnapshotDecodeError> =>
+    serializeTableSnapshot(snapshot),
   diff: (
     previous: TableSnapshot,
     current: TableSnapshot,

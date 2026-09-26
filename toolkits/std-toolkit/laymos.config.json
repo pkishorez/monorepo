@@ -7,7 +7,6 @@
     "src/db/__tests__",
     "src/db/dynamodb/__tests__",
     "src/db/dynamodb/expression/__tests__",
-    "src/db/dynamodb/native/__tests__",
     "src/db/dynamodb/table/__tests__",
     "src/db/idb/__tests__",
     "src/db/memory/__tests__",
@@ -127,15 +126,6 @@
         },
         "src/db/dynamodb/dynamodb.ts": {
           "shared": true,
-          "exposed": true
-        }
-      }
-    },
-    "dynamodb.native": {
-      "paths": ["src/db/dynamodb/native"],
-      "description": "Native \u2014 typed DynamoDB-native operations, bypassing the port",
-      "modules": {
-        "src/db/dynamodb/native": {
           "exposed": true
         }
       }
@@ -399,6 +389,10 @@
         "src/eschema/domain/schema-model": {
           "shared": true,
           "exposed": true
+        },
+        "src/eschema/domain/encoded": {
+          "shared": true,
+          "exposed": true
         }
       }
     },
@@ -521,7 +515,8 @@
             "mutation": {},
             "outbox-replay": {},
             "replica": {},
-            "projection": {}
+            "projection": {},
+            "outdated-application": {}
           },
           "rules": {
             "keyed-collection": [
@@ -531,7 +526,8 @@
               "replica",
               "projection",
               "registry",
-              "pacing"
+              "pacing",
+              "outdated-application"
             ],
             "single-item-collection": [
               "strategy-session",
@@ -540,7 +536,8 @@
               "replica",
               "projection",
               "registry",
-              "pacing"
+              "pacing",
+              "outdated-application"
             ],
             "mutation": ["pacing"]
           }
@@ -759,14 +756,7 @@
     "dynamodb": {
       "description": "DynamoDB adapter: public door down through store, topology, language, mapping, encoding, and connection",
       "rules": {
-        "dynamodb.public": ["dynamodb.native", "dynamodb.table"],
-        "dynamodb.native": [
-          "core.public",
-          "dynamodb.expression",
-          "dynamodb.item-schema",
-          "dynamodb.setup",
-          "std-table.key"
-        ],
+        "dynamodb.public": ["dynamodb.table", "dynamodb.setup"],
         "dynamodb.table": [
           "dynamodb.client",
           "dynamodb.expression",
@@ -824,6 +814,7 @@
         "snapshot.public": ["snapshot.facade"],
         "snapshot.facade": [
           "eschema.constructs",
+          "eschema.domain",
           "snapshot.capture",
           "snapshot.restore"
         ],
@@ -837,7 +828,7 @@
       "description": "Core utilities and their schema dependency",
       "rules": {
         "core.public": ["core.impl"],
-        "core.impl": ["eschema.public"]
+        "core.impl": ["eschema.public", "eschema.domain"]
       }
     },
     "sync": {

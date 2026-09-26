@@ -15,7 +15,7 @@ export const Database = Cloudflare.D1.Database(
   'DatabaseV2',
   Effect.gen(function* () {
     const stage = yield* Stage;
-    return { name: `alchemy-console-v2-${stage}` };
+    return { name: `alchemy-console-v3-${stage}` };
   }),
 );
 

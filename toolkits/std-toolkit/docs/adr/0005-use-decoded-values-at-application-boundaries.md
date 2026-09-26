@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0014 (0014-one-entity-latest-values.md)
+---
+
 # Use decoded values at application boundaries
 
 std-toolkit will expose the latest decoded form at every application-facing boundary, including StdTable operations, Broadcaster callbacks, TanStack DB Collections, mutation callbacks, Registry Broadcasts, and application-provided backend operations. `EntitySchema` is the sole complete-entity conversion between `DecodedEntity` and `EncodedEntity`: encoding always produces the latest version, while decoding accepts and migrates every known version. Encoded values remain an infrastructure concern for database storage, Sync Store persistence, Peer Sync, and API transport; `_v` belongs only inside the encoded value and never in Entity Meta.

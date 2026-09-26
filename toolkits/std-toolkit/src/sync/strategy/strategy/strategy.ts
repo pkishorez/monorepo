@@ -1,11 +1,12 @@
 import type { Effect, Scope } from 'effect';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { StrategyStateSpec } from '../state/index.js';
 import type { CadenceConfig } from './cadence-policy.js';
 import type { ForwardFetch } from '../../domain/collection-item/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import type { PartitionValue } from '../../domain/identity/index.js';
+import type { KeyPathValue, TotalKeyPath } from '../../../db/index.js';
 import type { StrategyFlow } from '../../flow/sync-flow/index.js';
 
 /**
@@ -16,7 +17,7 @@ import type { StrategyFlow } from '../../flow/sync-flow/index.js';
 export type StrategyContext<TItem, TState = unknown> = {
   flow: StrategyFlow;
   applyToSyncReplica: (
-    entities: DecodedEntity<TItem>[],
+    entities: Entity<TItem>[],
   ) => Effect.Effect<void, WriteError>;
   getState: Effect.Effect<TState, WriteError>;
   setState: (state: TState) => Effect.Effect<void, WriteError>;
@@ -61,16 +62,16 @@ export type PartitionEntry<
 };
 
 /**
- * A partition map is heterogeneous: each factory may choose a different state
- * type. The state is checked where its strategy is created, then existentially
- * erased only when the engine stores entries from different factories together.
+ * A partition map is keyed by key path: each path reads a string, number, or
+ * boolean in every value. The map is heterogeneous: each factory may choose a
+ * different state type. The state is checked where its strategy is created,
+ * then existentially erased only when the engine stores entries from different
+ * factories together.
  */
 export type PartitionMap<S extends AnyEntityESchema, R = never> = {
-  [
-    F in keyof S['Type'] & string as S['Type'][F] extends PartitionValue
-      ? F
-      : never
-  ]?: (partitionValue: S['Type'][F]) => PartitionEntry<S['Type'], R, any>;
+  [P in TotalKeyPath<S['Type'], PartitionValue>]?: (
+    partitionValue: KeyPathValue<S['Type'], P, PartitionValue>,
+  ) => PartitionEntry<S['Type'], R, any>;
 };
 
 export type SingleItemStrategy<

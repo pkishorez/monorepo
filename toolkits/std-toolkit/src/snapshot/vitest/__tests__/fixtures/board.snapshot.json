@@ -61,7 +61,7 @@
       "versions": [
         {
           "version": "v1",
-          "encoded": {
+          "serialized": {
             "references": {},
             "representation": {
               "_tag": "Objects",
@@ -98,31 +98,7 @@
                 }
               ]
             }
-          },
-          "decoded": {
-            "references": {},
-            "representation": {
-              "_tag": "Objects",
-              "checks": [],
-              "indexSignatures": [],
-              "propertySignatures": [
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "city"
-                  },
-                  "type": {
-                    "_tag": "String",
-                    "checks": []
-                  }
-                }
-              ]
-            }
-          },
-          "transformations": [],
-          "unverifiable": []
+          }
         }
       ]
     },
@@ -133,7 +109,7 @@
       "versions": [
         {
           "version": "v1",
-          "encoded": {
+          "serialized": {
             "references": {},
             "representation": {
               "_tag": "Objects",
@@ -206,76 +182,11 @@
                 }
               ]
             }
-          },
-          "decoded": {
-            "references": {
-              "ESchema_Address": {
-                "_tag": "Unknown",
-                "checks": []
-              }
-            },
-            "representation": {
-              "_tag": "Objects",
-              "checks": [],
-              "indexSignatures": [],
-              "propertySignatures": [
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "address"
-                  },
-                  "type": {
-                    "_tag": "ESchemaRef",
-                    "identity": "Address"
-                  }
-                },
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "boardId"
-                  },
-                  "type": {
-                    "_tag": "String",
-                    "checks": []
-                  }
-                },
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "taskId"
-                  },
-                  "type": {
-                    "_tag": "String",
-                    "checks": []
-                  }
-                },
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "title"
-                  },
-                  "type": {
-                    "_tag": "String",
-                    "checks": []
-                  }
-                }
-              ]
-            }
-          },
-          "transformations": [],
-          "unverifiable": []
+          }
         },
         {
           "version": "v2",
-          "encoded": {
+          "serialized": {
             "references": {},
             "representation": {
               "_tag": "Objects",
@@ -379,103 +290,7 @@
                 }
               ]
             }
-          },
-          "decoded": {
-            "references": {
-              "ESchema_Address": {
-                "_tag": "Unknown",
-                "checks": []
-              }
-            },
-            "representation": {
-              "_tag": "Objects",
-              "checks": [],
-              "indexSignatures": [],
-              "propertySignatures": [
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "address"
-                  },
-                  "type": {
-                    "_tag": "ESchemaRef",
-                    "identity": "Address"
-                  }
-                },
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "boardId"
-                  },
-                  "type": {
-                    "_tag": "String",
-                    "checks": []
-                  }
-                },
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "priority"
-                  },
-                  "type": {
-                    "_tag": "Union",
-                    "checks": [],
-                    "mode": "anyOf",
-                    "types": [
-                      {
-                        "_tag": "Literal",
-                        "checks": [],
-                        "literal": {
-                          "type": "string",
-                          "value": "low"
-                        }
-                      },
-                      {
-                        "_tag": "Literal",
-                        "checks": [],
-                        "literal": {
-                          "type": "string",
-                          "value": "high"
-                        }
-                      }
-                    ]
-                  }
-                },
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "taskId"
-                  },
-                  "type": {
-                    "_tag": "String",
-                    "checks": []
-                  }
-                },
-                {
-                  "isMutable": false,
-                  "isOptional": false,
-                  "name": {
-                    "type": "string",
-                    "value": "title"
-                  },
-                  "type": {
-                    "_tag": "String",
-                    "checks": []
-                  }
-                }
-              ]
-            }
-          },
-          "transformations": [],
-          "unverifiable": []
+          }
         }
       ]
     }

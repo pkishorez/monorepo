@@ -4,8 +4,7 @@ import { SnapshotDecodeError } from '../../domain/index.js';
 
 export interface RestoredESchemaVersion {
   readonly version: string;
-  readonly encoded: Schema.Top;
-  readonly decoded: Schema.Top;
+  readonly serialized: Schema.Top;
 }
 
 export interface RestoredESchema {
@@ -14,8 +13,6 @@ export interface RestoredESchema {
   readonly idField: string | null;
   readonly versions: readonly RestoredESchemaVersion[];
 }
-
-type Side = 'encoded' | 'decoded';
 
 const referenceId = 'std-toolkit/snapshot-eschema-ref';
 const ReferencePayload = Schema.Struct({ identity: Schema.String });
@@ -84,13 +81,13 @@ export function restoreESchemaDefinitions(
 ): readonly RestoredESchema[] {
   const restored = new Map<string, RestoredESchema>();
 
-  const resolve = (identity: string, side: Side): Schema.Top =>
+  const resolve = (identity: string): Schema.Top =>
     Schema.suspend(() => {
       const latest = restored.get(identity)?.versions.at(-1);
       if (latest === undefined) {
         throw new SnapshotDecodeError(`Cannot resolve ESchemaRef: ${identity}`);
       }
-      return latest[side];
+      return latest.serialized;
     });
 
   for (const definition of definitions) {
@@ -100,12 +97,7 @@ export function restoreESchemaDefinitions(
       idField: definition.idField,
       versions: definition.versions.map((version) => ({
         version: version.version,
-        encoded: restoreField(version.encoded, (identity) =>
-          resolve(identity, 'encoded'),
-        ),
-        decoded: restoreField(version.decoded, (identity) =>
-          resolve(identity, 'decoded'),
-        ),
+        serialized: restoreField(version.serialized, resolve),
       })),
     });
   }

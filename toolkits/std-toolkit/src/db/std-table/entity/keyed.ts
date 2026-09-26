@@ -1,9 +1,5 @@
 import { Effect, Stream } from 'effect';
-import {
-  nextUlid,
-  type DecodedEntity,
-  type EncodedEntity,
-} from '../../../core/index.js';
+import { nextUlid, type Entity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import {
   CheckRefused,
@@ -18,11 +14,12 @@ import {
   ConditionFailure,
   type JsonObject,
   type ContractFailure,
-  type EncodedData,
-  type EncodedItem,
-  type EncodedKey,
+  type StoredData,
+  type StoredItem,
+  type StoredKey,
   type ItemCondition,
 } from '../contract/index.js';
+import { recordReader, valueReader, type KeyReader } from '../key/index.js';
 import type {
   AccessPatternMap,
   KeyedEntityDefinition,
@@ -43,11 +40,11 @@ import type {
   WriteOptions,
 } from './entity.js';
 import {
-  decode,
   derivedKey,
-  encode,
   entityResult,
-  makeEncodedItem,
+  fromStored,
+  makeStoredItem,
+  toStored,
 } from './storage.js';
 
 export const makeKeyedEntity = <
@@ -65,7 +62,7 @@ export const makeKeyedEntity = <
   >,
 ): KeyedEntity<Name, S, Pk, Patterns> => {
   const service = StdTableService(definition.table.logicalName);
-  const readItem = (key: EncodedKey, consistent?: boolean) =>
+  const readItem = (key: StoredKey, consistent?: boolean) =>
     Effect.gen(function* () {
       const contract = (yield* service).contract;
       return yield* contract
@@ -76,40 +73,42 @@ export const makeKeyedEntity = <
           ),
         );
     });
-  const readRaw = (key: JsonObject, consistent?: boolean) =>
-    readItem(derivedKey(definition, key), consistent);
-  const decodeCurrent = (item: EncodedItem) =>
-    decode(definition.schema, item) as Effect.Effect<
-      DecodedEntity<EntityValue<S>>,
+  const keyOf = (key: EntityKey<S, Pk>) =>
+    recordReader(key as Readonly<Record<string, unknown>>);
+  const readRaw = (key: EntityKey<S, Pk>, consistent?: boolean) =>
+    readItem(derivedKey(definition, keyOf(key)), consistent);
+  const decodeCurrent = (item: StoredItem) =>
+    fromStored(definition.schema, item) as Effect.Effect<
+      Entity<EntityValue<S>>,
       DatabaseError
     >;
   const read = (key: EntityKey<S, Pk>) =>
-    readRaw(key as object as JsonObject).pipe(
+    readRaw(key).pipe(
       Effect.flatMap((item) =>
         item === null
           ? Effect.succeed(null)
           : (decodeCurrent(item) as Effect.Effect<
-              DecodedEntity<EntityValue<S>> | null,
+              Entity<EntityValue<S>> | null,
               DatabaseError
             >),
       ),
     );
 
   const put = (
-    encoded: EncodedEntity<EncodedData>,
+    encoded: Entity<StoredData>,
     value: EntityValue<S>,
     deleted: boolean,
     version: string,
     condition: ItemCondition | undefined,
   ) => {
-    const item = makeEncodedItem(definition, encoded, version, deleted);
+    const item = makeStoredItem(definition, value, encoded, version, deleted);
     return {
       write: {
         kind: 'put' as const,
         item,
         ...(condition === undefined ? {} : { condition }),
       },
-      entity: entityResult(item, value) as DecodedEntity<EntityValue<S>>,
+      entity: entityResult(item, value) as Entity<EntityValue<S>>,
     };
   };
 
@@ -117,7 +116,7 @@ export const makeKeyedEntity = <
     kind: 'updateOp' | 'deleteOp' | 'restoreOp',
     update: UpdateInput<S>,
     options: WriteOptions<EntityValue<S>> | undefined,
-    current: EncodedItem | null,
+    current: StoredItem | null,
     version: string,
   ) =>
     Effect.gen(function* () {
@@ -142,14 +141,12 @@ export const makeKeyedEntity = <
             : update
           : ({} as UpdateValue<S>);
       const value = { ...existing.value, ...partial } as EntityValue<S>;
+      const before = valueReader(existing.value);
+      const after = valueReader(value);
       const changedPrimaryFields = [
         ...definition.primary.pk,
         ...definition.primary.sk,
-      ].filter(
-        (field) =>
-          existing.value[field as keyof EntityValue<S>] !==
-          value[field as keyof EntityValue<S>],
-      );
+      ].filter((component) => before(component) !== after(component));
       if (changedPrimaryFields.length > 0)
         return yield* failReason(
           new PrimaryKeyUpdateNotSupported({
@@ -157,7 +154,11 @@ export const makeKeyedEntity = <
             fields: changedPrimaryFields,
           }),
         );
-      const encoded = yield* encode(definition.schema, value, definition.name);
+      const encoded = yield* toStored(
+        definition.schema,
+        value,
+        definition.name,
+      );
       return put(
         encoded,
         value,
@@ -169,16 +170,16 @@ export const makeKeyedEntity = <
       );
     });
 
-  const located = (key: JsonObject) => {
-    const derived = derivedKey(definition, key);
+  const located = (read: KeyReader) => {
+    const derived = derivedKey(definition, read);
     return { key: derived, target: `${derived.pk}\0${derived.sk}` };
   };
 
   const insertOp = (value: InsertValue<S>) =>
     Effect.gen(function* () {
       const full = value as object as EntityValue<S>;
-      const encoded = yield* encode(definition.schema, full, definition.name);
-      const item = makeEncodedItem(definition, encoded, '', false);
+      const encoded = yield* toStored(definition.schema, full, definition.name);
+      const item = makeStoredItem(definition, full, encoded, '', false);
       return {
         tableName: definition.table.logicalName,
         entityName: definition.name,
@@ -186,7 +187,7 @@ export const makeKeyedEntity = <
         target: `${item.pk}\0${item.sk}`,
         readsCurrent: false,
         operationKind: 'insertOp' as const,
-        apply: (_current: EncodedItem | null, version: string) =>
+        apply: (_current: StoredItem | null, version: string) =>
           Effect.succeed(
             put(encoded, full, false, version, { kind: 'not-exists' }),
           ),
@@ -202,16 +203,16 @@ export const makeKeyedEntity = <
     Effect.sync((): TransactOp<Name, EntityValue<S>> => ({
       tableName: definition.table.logicalName,
       entityName: definition.name,
-      ...located(key as object as JsonObject),
+      ...located(keyOf(key)),
       readsCurrent: true,
       operationKind: kind,
       apply: (current, version) =>
         applyUpdate(kind, update, options, current, version),
     }));
 
-  const conditionOp = (value: JsonObject, condition: ItemCondition) =>
+  const conditionOp = (read: KeyReader, condition: ItemCondition) =>
     Effect.sync((): CheckOp<Name> => {
-      const at = located(value);
+      const at = located(read);
       return {
         tableName: definition.table.logicalName,
         entityName: definition.name,
@@ -231,7 +232,7 @@ export const makeKeyedEntity = <
     check: EntityInvariant<EntityValue<S>>,
   ) =>
     Effect.sync((): CheckOp<Name> => {
-      const at = located(key as object as JsonObject);
+      const at = located(keyOf(key));
       return {
         tableName: definition.table.logicalName,
         entityName: definition.name,
@@ -280,7 +281,7 @@ export const makeKeyedEntity = <
         }),
       );
       yield* broadcast(applied.entity);
-      return applied.entity as DecodedEntity<EntityValue<S>>;
+      return applied.entity as Entity<EntityValue<S>>;
     });
 
   const runWithRetry = (
@@ -353,15 +354,15 @@ export const makeKeyedEntity = <
       key: EntityKey<S, Pk>,
       options?: WriteOptions<EntityValue<S>>,
     ) => updateOp('restoreOp', key, {}, options),
-    unchangedOp: (entity: DecodedEntity<EntityValue<S>>) =>
-      conditionOp(entity.value as object as JsonObject, {
+    unchangedOp: (entity: Entity<EntityValue<S>>) =>
+      conditionOp(valueReader(entity.value), {
         kind: 'updated',
         value: entity.meta._u,
       }),
     existsOp: (key: EntityKey<S, Pk>) =>
-      conditionOp(key as object as JsonObject, { kind: 'exists' }),
+      conditionOp(keyOf(key), { kind: 'exists' }),
     notExistsOp: (key: EntityKey<S, Pk>) =>
-      conditionOp(key as object as JsonObject, { kind: 'not-exists' }),
+      conditionOp(keyOf(key), { kind: 'not-exists' }),
     hardDelete: (
       key: EntityKey<S, Pk>,
       _confirmation: 'I KNOW WHAT I AM DOING',
@@ -374,13 +375,13 @@ export const makeKeyedEntity = <
           );
         const contract = (yield* service).contract;
         yield* contract
-          .hardDeleteItem(derivedKey(definition, key as object as JsonObject))
+          .hardDeleteItem(derivedKey(definition, keyOf(key)))
           .pipe(
             Effect.mapError((error) =>
               dbError('hardDelete', error as ContractFailure, definition.name),
             ),
           );
-        const deleted: DecodedEntity<EntityValue<S>> = {
+        const deleted: Entity<EntityValue<S>> = {
           value: existing.value as EntityValue<S>,
           meta: { ...existing.meta, _d: true },
         };

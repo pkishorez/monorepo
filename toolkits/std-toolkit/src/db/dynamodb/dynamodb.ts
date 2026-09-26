@@ -8,13 +8,6 @@ import {
   makeDynamoDBClient,
   type DynamoDBCredentialsInput,
 } from './client/index.js';
-import {
-  batchInsert,
-  getItem,
-  makeNativeService,
-  update,
-  type DynamoTableService,
-} from './native/index.js';
 import { makeTableContract } from './table/index.js';
 import {
   DynamoDBNativeError,
@@ -36,7 +29,7 @@ type DynamoTable<Name extends string = string> = Pick<
 
 export interface DynamoDBTable<Name extends string = string> {
   readonly tableName: string;
-  readonly layer: Layer.Layer<StdTableService<Name> | DynamoTableService<Name>>;
+  readonly layer: Layer.Layer<StdTableService<Name>>;
 }
 
 /** Realizes a StdTable on one DynamoDB table. Providing the layer never touches the table. */
@@ -47,12 +40,9 @@ const make = <Name extends string>(
   const client = makeDynamoDBClient(config);
   return {
     tableName: config.tableName,
-    layer: Layer.merge(
-      contractLayer(
-        table.logicalName,
-        makeTableContract(client, table, config.tableName),
-      ),
-      makeNativeService(table.logicalName, client, config.tableName),
+    layer: contractLayer(
+      table.logicalName,
+      makeTableContract(client, table, config.tableName),
     ),
   };
 };
@@ -86,20 +76,9 @@ export const DynamoDB = {
   createTable,
   deleteTable,
   getTableDefinition,
-  getItem,
-  update,
-  batchInsert,
 } as const;
 
 export {
   DynamoDBNativeError,
   type DynamoTableTopology,
 } from './setup/index.js';
-export { dynamoTableService, type DynamoTableService } from './native/index.js';
-export {
-  buildExpr,
-  exprCondition,
-  exprFilter,
-  exprUpdate,
-} from './expression/index.js';
-export { marshall, unmarshall } from './attribute-value/index.js';

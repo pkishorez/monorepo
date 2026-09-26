@@ -71,14 +71,14 @@ describe('ESchema semantic snapshots', () => {
     const status = captured.schemas.find(
       ({ identity }) => identity === 'Status',
     );
-    const encoded = JSON.stringify(status?.versions[0]?.encoded);
+    const serialized = JSON.stringify(status?.versions[0]?.serialized);
     const restored = restoreESchemaDefinitions(captured.schemas).find(
       ({ identity }) => identity === 'Status',
     );
-    const isEnvelope = Schema.is(restored!.versions[0]!.encoded);
+    const isEnvelope = Schema.is(restored!.versions[0]!.serialized);
 
     expect(status).toMatchObject({ kind: 'value' });
-    expect(encoded).toContain('"_value"');
+    expect(serialized).toContain('"_value"');
     await expect(
       Effect.runPromise(
         TableSnapshot.parse(JSON.parse(JSON.stringify(captured))),
@@ -101,10 +101,37 @@ describe('ESchema semantic snapshots', () => {
     ).toContain('breaking');
   });
 
+  it('captures a conversion as its encoded side only', () => {
+    const converted = ESchema.make('Payment', {
+      amount: Schema.NumberFromString,
+      paidAt: Schema.DateFromString,
+    }).build();
+    const plain = ESchema.make('Payment', {
+      amount: Schema.String,
+      paidAt: Schema.String,
+    }).build();
+    const serialized = (eschema: object) =>
+      snapshotOf(eschema).schemas[0]!.versions[0]!.serialized;
+    expect(serialized(converted)).toEqual(serialized(plain));
+    expect(
+      TableSnapshot.diff(snapshotOf(plain), snapshotOf(converted)),
+    ).toEqual([]);
+    const bigInt = ESchema.make('Payment', {
+      size: Schema.BigIntFromString,
+    }).build();
+    expect(serialized(bigInt)).toMatchObject({
+      representation: {
+        propertySignatures: expect.arrayContaining([
+          expect.objectContaining({
+            name: { type: 'string', value: 'size' },
+            type: expect.objectContaining({ _tag: 'String' }),
+          }),
+        ]),
+      },
+    });
+  });
+
   it('rejects fields that cannot be captured and restored', () => {
-    expect(() =>
-      ESchema.make('Payment', { amount: Schema.NumberFromString }).build(),
-    ).toThrow(/amount.*transformation/i);
     expect(() =>
       ESchema.make('Limitations', {
         filtered: Schema.String.check(
@@ -130,7 +157,7 @@ describe('ESchema semantic snapshots', () => {
       'Parent',
     ]);
     const version = snapshot.schemas[1]!.versions[0]!;
-    for (const representation of [version.encoded, version.decoded]) {
+    for (const representation of [version.serialized]) {
       expect(representation).toMatchObject({
         representation: {
           propertySignatures: expect.arrayContaining(
@@ -167,7 +194,7 @@ describe('ESchema semantic snapshots', () => {
     ).rejects.toBeInstanceOf(SnapshotDecodeError);
 
     const dangling = JSON.parse(JSON.stringify(snapshot));
-    dangling.schemas[0]!.versions[0]!.encoded = {
+    dangling.schemas[0]!.versions[0]!.serialized = {
       _tag: 'ESchemaRef',
       identity: 'Missing',
     };
@@ -176,9 +203,7 @@ describe('ESchema semantic snapshots', () => {
     ).rejects.toBeInstanceOf(SnapshotDecodeError);
 
     const malformed = JSON.parse(JSON.stringify(snapshot));
-    malformed.schemas[0]!.versions[0]!.transformations = [
-      { path: '/', name: 42 },
-    ];
+    malformed.schemas[0]!.versions[0]!.version = 42;
     await expect(
       Effect.runPromise(TableSnapshot.parse(malformed)),
     ).rejects.toBeInstanceOf(SnapshotDecodeError);

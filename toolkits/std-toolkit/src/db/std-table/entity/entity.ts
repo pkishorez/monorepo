@@ -1,8 +1,8 @@
 import type { Effect, Stream } from 'effect';
 import type {
   ChangeNotice,
-  DecodedEntity,
-  DecodedSingleEntity,
+  Entity,
+  SingletonEntity,
 } from '../../../core/index.js';
 import type {
   AnyEntityESchema,
@@ -10,8 +10,8 @@ import type {
 } from '../../../eschema/index.js';
 import type { DatabaseError } from '../error/index.js';
 import type {
-  EncodedItem,
-  EncodedKey,
+  StoredItem,
+  StoredKey,
   StdTableService,
   TransactCheck,
   TransactPut,
@@ -22,8 +22,10 @@ import type {
   GlobalSecondaryIndexMap,
   IndexComponent,
   KeyedEntityDefinition,
+  KeyRecord,
   LocalSecondaryIndexMap,
   PatternFor,
+  PrimaryComponent,
   SingleEntityDefinition,
 } from '../definition/index.js';
 
@@ -33,13 +35,11 @@ export type TableEffect<A, Name extends string> = Effect.Effect<
   StdTableService<Name>
 >;
 export type EntityValue<S extends AnyEntityESchema> = S['Type'];
+/** The key paths of the primary key (partition components and the id field). */
 export type EntityKey<
   S extends AnyEntityESchema,
   Pk extends readonly string[],
-> = Pick<
-  EntityValue<S>,
-  Extract<Pk[number] | S['idField'], keyof EntityValue<S>>
->;
+> = KeyRecord<S, Pk[number] | S['idField']>;
 export type InsertValue<S extends AnyEntityESchema> = EntityValue<S>;
 export type SingleUpdateInput<S extends AnyUnkeyedESchema> =
   | Partial<S['Type']>
@@ -63,7 +63,7 @@ export type WriteOptions<T> =
 interface TransactTarget<Name extends string> {
   readonly tableName: Name;
   readonly entityName: string;
-  readonly key: EncodedKey;
+  readonly key: StoredKey;
   readonly target: string;
   readonly readsCurrent: boolean;
 }
@@ -79,12 +79,12 @@ export interface TransactOp<
     | 'restoreOp'
     | 'singleUpdateOp';
   readonly apply: (
-    current: EncodedItem | null,
+    current: StoredItem | null,
     version: string,
   ) => Effect.Effect<
     {
       readonly write: TransactPut;
-      readonly entity: DecodedEntity<T> | DecodedSingleEntity<T>;
+      readonly entity: Entity<T> | SingletonEntity<T>;
     },
     DatabaseError
   >;
@@ -95,7 +95,7 @@ export interface CheckOp<
 > extends TransactTarget<Name> {
   readonly operationKind: 'checkOp';
   readonly apply: (
-    current: EncodedItem | null,
+    current: StoredItem | null,
     version: string,
   ) => Effect.Effect<
     { readonly write: TransactCheck; readonly entity: null },
@@ -120,7 +120,7 @@ export type SortCondition<Sk> =
 export interface QueryOptions<T = unknown> {
   readonly limit?: number;
   readonly excludeDeleted?: boolean;
-  readonly after?: DecodedEntity<T>;
+  readonly after?: Entity<T>;
 }
 
 export interface QueryPage<T> {
@@ -143,10 +143,8 @@ export interface KeyedEntity<
   get(
     key: EntityKey<S, Pk>,
     options?: { readonly excludeDeleted?: boolean },
-  ): TableEffect<DecodedEntity<EntityValue<S>> | null, Name>;
-  insert(
-    value: InsertValue<S>,
-  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
+  ): TableEffect<Entity<EntityValue<S>> | null, Name>;
+  insert(value: InsertValue<S>): TableEffect<Entity<EntityValue<S>>, Name>;
   insertOp(
     value: InsertValue<S>,
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
@@ -154,7 +152,7 @@ export interface KeyedEntity<
     key: EntityKey<S, Pk>,
     update: UpdateInput<S>,
     options?: WriteOptions<EntityValue<S>> & { readonly retries?: number },
-  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
+  ): TableEffect<Entity<EntityValue<S>>, Name>;
   getAndUpdateOp(
     key: EntityKey<S, Pk>,
     update: UpdateInput<S>,
@@ -167,7 +165,7 @@ export interface KeyedEntity<
   delete(
     key: EntityKey<S, Pk>,
     options?: WriteOptions<EntityValue<S>>,
-  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
+  ): TableEffect<Entity<EntityValue<S>>, Name>;
   deleteOp(
     key: EntityKey<S, Pk>,
     options?: WriteOptions<EntityValue<S>>,
@@ -175,30 +173,28 @@ export interface KeyedEntity<
   restore(
     key: EntityKey<S, Pk>,
     options?: WriteOptions<EntityValue<S>>,
-  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
+  ): TableEffect<Entity<EntityValue<S>>, Name>;
   restoreOp(
     key: EntityKey<S, Pk>,
     options?: WriteOptions<EntityValue<S>>,
   ): TableEffect<TransactOp<Name, EntityValue<S>>, Name>;
-  unchangedOp(
-    entity: DecodedEntity<EntityValue<S>>,
-  ): TableEffect<CheckOp<Name>, Name>;
+  unchangedOp(entity: Entity<EntityValue<S>>): TableEffect<CheckOp<Name>, Name>;
   existsOp(key: EntityKey<S, Pk>): TableEffect<CheckOp<Name>, Name>;
   notExistsOp(key: EntityKey<S, Pk>): TableEffect<CheckOp<Name>, Name>;
   hardDelete(
     key: EntityKey<S, Pk>,
     confirmation: 'I KNOW WHAT I AM DOING',
-  ): TableEffect<DecodedEntity<EntityValue<S>>, Name>;
+  ): TableEffect<Entity<EntityValue<S>>, Name>;
   dangerouslyRemoveAllItems(
     confirmation: 'I KNOW WHAT I AM DOING',
   ): TableEffect<{ readonly itemsDeleted: number }, Name>;
   query<Pattern extends keyof Patterns & string>(
     pattern: Pattern,
     input: {
-      readonly pk: Record<Patterns[Pattern]['pk'][number], string>;
-    } & SortCondition<Record<Patterns[Pattern]['sk'][number], string>>,
+      readonly pk: KeyRecord<S, Patterns[Pattern]['pk'][number]>;
+    } & SortCondition<KeyRecord<S, Patterns[Pattern]['sk'][number]>>,
     options?: QueryOptions<EntityValue<S>>,
-  ): TableEffect<QueryPage<DecodedEntity<EntityValue<S>>>, Name>;
+  ): TableEffect<QueryPage<Entity<EntityValue<S>>>, Name>;
   subscribe(
     filter?: Partial<EntityValue<S>>,
   ): Stream.Stream<ChangeNotice<EntityValue<S>>>;
@@ -208,20 +204,20 @@ export interface SingleEntity<
   Name extends string,
   S extends AnyUnkeyedESchema,
 > extends SingleEntityDefinition<Name, S> {
-  get(): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
-  put(value: S['Type']): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
+  get(): TableEffect<SingletonEntity<S['Type']>, Name>;
+  put(value: S['Type']): TableEffect<SingletonEntity<S['Type']>, Name>;
   getAndUpdate(
     update: SingleUpdateInput<S>,
     options?: WriteOptions<S['Type']> & { readonly retries?: number },
-  ): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
+  ): TableEffect<SingletonEntity<S['Type']>, Name>;
   getAndUpdateOp(
     update: SingleUpdateInput<S>,
     options?: WriteOptions<S['Type']>,
   ): TableEffect<TransactOp<Name, S['Type']>, Name>;
   unchangedOp(
-    entity: DecodedSingleEntity<S['Type']>,
+    entity: SingletonEntity<S['Type']>,
   ): TableEffect<CheckOp<Name>, Name>;
-  reset(): TableEffect<DecodedSingleEntity<S['Type']>, Name>;
+  reset(): TableEffect<SingletonEntity<S['Type']>, Name>;
   subscribe(
     filter?: Partial<S['Type']>,
   ): Stream.Stream<ChangeNotice<S['Type']>>;
@@ -233,9 +229,7 @@ export interface KeyedBuilderStart<
   Lsis extends LocalSecondaryIndexMap = LocalSecondaryIndexMap,
   Gsis extends GlobalSecondaryIndexMap = GlobalSecondaryIndexMap,
 > {
-  primary<
-    const Pk extends readonly Exclude<IndexComponent<S>, '_u'>[] = [],
-  >(derivation?: {
+  primary<const Pk extends readonly PrimaryComponent<S>[] = []>(derivation?: {
     readonly pk: Pk;
   }): KeyedBuilder<
     Name,

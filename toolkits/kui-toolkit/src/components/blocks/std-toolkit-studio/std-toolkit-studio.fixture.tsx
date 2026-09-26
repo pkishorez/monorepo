@@ -26,6 +26,7 @@ const richTable = StdTable.make('commerce-studio')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .gsi('GSI2', 'GSI2PK', 'GSI2SK')
   .gsi('GSI3', 'GSI3PK', 'GSI3SK')
+  .gsi('GSI4', 'GSI4PK', 'GSI4SK')
   .build();
 
 const accountSchema = EntityESchema.make('Account', 'accountId', {
@@ -67,6 +68,10 @@ const account = richTable
   .index('GSI3', 'byStatusAndContact', {
     pk: ['organizationId', 'status'],
     sk: ['createdAt', 'email'],
+  })
+  .index('GSI4', 'byCountryBalance', {
+    pk: ['profile.address.country'],
+    sk: ['balance'],
   })
   .build();
 
@@ -285,6 +290,8 @@ export default {
           'Account → byStatus (GSI2): organizationId = acme, status = active',
         composite:
           'Account → byStatusAndContact (GSI3): PK organizationId = acme + status = active; SK createdAt + email',
+        nestedNumber:
+          'Account → byCountryBalance (GSI4): profile.address.country = IN; SK balance >= 2000 (a non-number blocks Apply)',
         pagination: 'Use primary with organizationId = acme and Rows = 10',
         tombstone: 'Primary result accountId = account-009',
         single: 'Select Settings to load its direct record',

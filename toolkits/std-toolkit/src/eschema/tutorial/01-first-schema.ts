@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 1 — Your first evolving schema
  *
@@ -23,13 +24,13 @@ const User = ESchema.make('User', {
 // Note the `_v: 'v1'` stamp that eschema adds. That stamp is the whole trick:
 // it records which version this row was written at.
 const encoded = Effect.runSync(
-  User.encode({ name: 'Alice', email: 'alice@example.com' }),
+  writeEncoded(User, { name: 'Alice', email: 'alice@example.com' }),
 );
 console.log('encoded:', encoded);
 // => { name: 'Alice', email: 'alice@example.com', _v: 'v1' }
 
 // decode: a stored value -> your in-memory value (no metadata, latest shape).
-const decoded = Effect.runSync(User.decode(encoded));
+const decoded = Effect.runSync(readEncoded(User, encoded));
 console.log('decoded:', decoded);
 // => { name: 'Alice', email: 'alice@example.com' }
 

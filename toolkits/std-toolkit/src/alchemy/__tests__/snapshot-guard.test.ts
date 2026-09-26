@@ -2,19 +2,13 @@ import { Effect, Exit, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { StdTable } from '../../db/index.js';
 import { type AnyEntityESchema, EntityESchema } from '../../eschema/index.js';
-import {
-  SnapshotIncompatible,
-  TableSnapshot,
-  TableSnapshotESchema,
-} from '../../snapshot/index.js';
+import { SnapshotIncompatible, TableSnapshot } from '../../snapshot/index.js';
 import { checkUpgrade } from '../snapshot-guard/snapshot-guard.js';
 
 const stored = (schema: AnyEntityESchema) => {
   const table = StdTable.make('tasks').primary('pk', 'sk').build();
   table.entity(schema).primary().build();
-  return Effect.runSync(
-    TableSnapshotESchema.encode(TableSnapshot.capture(table)),
-  );
+  return Effect.runSync(TableSnapshot.serialize(TableSnapshot.capture(table)));
 };
 
 const v1 = stored(

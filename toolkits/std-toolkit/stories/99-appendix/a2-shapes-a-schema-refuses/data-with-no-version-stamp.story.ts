@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 
 // A task shape with one step of history: v2 added a priority, and old rows get `normal`.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -28,7 +28,7 @@ export const dataWithNoVersionStamp = Story.make({
         'It is treated as version one: checked against the v1 shape, then walked up the steps like any v1 row. Rows written before the stamp existed, or by something else entirely, are read without a special case.',
       proof: Effect.gen(function* () {
         // Read a row that carries no stamp; it is taken as v1 and moved to v2.
-        const adopted = yield* Task.decode({
+        const adopted = yield* Schema.decodeUnknownEffect(toSchema(Task))({
           taskId: 't1',
           boardId: 'work',
           title: 'Write the plan',
@@ -46,16 +46,16 @@ export const dataWithNoVersionStamp = Story.make({
     }),
     Story.question('And if an unstamped row does not look like version one?', {
       answer:
-        'The read fails with `ESchemaError`. Missing the stamp earns a row the v1 check, not a pass; nothing tries to guess which version it might be.',
+        'The read fails with a `SchemaError`. Missing the stamp earns a row the v1 check, not a pass; nothing tries to guess which version it might be.',
       proof: Effect.gen(function* () {
         // Read a row that has no stamp and none of the v1 fields.
-        const refused = yield* Task.decode({ nonsense: true }).pipe(
-          Effect.flip,
-        );
+        const refused = yield* Schema.decodeUnknownEffect(toSchema(Task))({
+          nonsense: true,
+        }).pipe(Effect.flip);
         yield* Story.assert(
           'a row that matches no shape is refused',
-          refused._tag === 'ESchemaError' &&
-            refused.message === 'Decode failed',
+          refused._tag === 'SchemaError' &&
+            refused.message.includes('Decode failed'),
         );
         return { refused: refused.message };
       }),

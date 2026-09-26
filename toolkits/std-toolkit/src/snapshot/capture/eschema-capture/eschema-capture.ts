@@ -14,8 +14,6 @@ interface EvolutionLike {
   readonly schema: Schema.Top;
 }
 
-type SnapshotMarker = ESchemaVersion['unverifiable'][number];
-
 interface SnapshotESchemaRoot {
   readonly eschema: object;
   readonly identity?: string;
@@ -211,32 +209,6 @@ function walkAst(
   }
 }
 
-// A constructor default is the one limitation ESchema allows but snapshot data cannot verify.
-function inspectAst(ast: SchemaAST.AST): {
-  readonly transformations: ESchemaVersion['transformations'];
-  readonly unverifiable: readonly SnapshotMarker[];
-} {
-  const markers = new Map<string, SnapshotMarker>();
-  walkAst(ast, (node, path) => {
-    if (inspectESchemaComposition(node) !== undefined) return false;
-    if (node.context?.constructorDefault !== undefined) {
-      const markerPath = path || '/';
-      markers.set(`default:${markerPath}`, {
-        path: markerPath,
-        kind: 'default',
-        message:
-          'Default-producing behavior cannot be verified from snapshot data',
-      });
-    }
-  });
-  return {
-    transformations: [],
-    unverifiable: [...markers.values()].sort((a, b) =>
-      compareStrings(`${a.path}:${a.kind}`, `${b.path}:${b.kind}`),
-    ),
-  };
-}
-
 function collectCompositions(ast: SchemaAST.AST): readonly {
   readonly eschema: object;
   readonly identity: string;
@@ -257,34 +229,19 @@ function versionSnapshot(
   kind: ESchemaDefinition['kind'],
   references: ReadonlyMap<string, string>,
 ): ESchemaVersion {
-  const info = inspectAst(evolution.schema.ast);
-  if (kind === 'value') {
-    return {
-      version: evolution.version,
-      encoded: representation(
-        Schema.toEncoded(
-          Schema.Struct({
-            _v: Schema.Literal(evolution.version),
-            _value: evolution.schema,
-          }),
-        ),
-        references,
-      ),
-      decoded: representation(Schema.toType(evolution.schema), references),
-      ...info,
-    };
-  }
-  const fields = (evolution.schema as Schema.Struct<any>).fields;
+  const serialized =
+    kind === 'value'
+      ? Schema.Struct({
+          _v: Schema.Literal(evolution.version),
+          _value: evolution.schema,
+        })
+      : Schema.Struct({
+          ...(evolution.schema as Schema.Struct<any>).fields,
+          _v: Schema.Literal(evolution.version),
+        });
   return {
     version: evolution.version,
-    encoded: representation(
-      Schema.toEncoded(
-        Schema.Struct({ ...fields, _v: Schema.Literal(evolution.version) }),
-      ),
-      references,
-    ),
-    decoded: representation(Schema.toType(evolution.schema), references),
-    ...info,
+    serialized: representation(Schema.toEncoded(serialized), references),
   };
 }
 

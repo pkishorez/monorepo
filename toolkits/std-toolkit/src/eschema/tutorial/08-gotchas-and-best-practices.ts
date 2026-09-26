@@ -1,3 +1,4 @@
+import { readEncoded } from '../domain/encoded/index.js';
 /**
  * Lesson 8 — Gotchas and best practices
  *
@@ -28,7 +29,7 @@ const Profile = ESchema.make('Profile', { name: Schema.String })
 
 console.log(
   'nullable field:',
-  Effect.runSync(Profile.decode({ _v: 'v1', name: 'Al' })),
+  Effect.runSync(readEncoded(Profile, { _v: 'v1', name: 'Al' })),
 );
 // => { name: 'Al', bio: null }
 

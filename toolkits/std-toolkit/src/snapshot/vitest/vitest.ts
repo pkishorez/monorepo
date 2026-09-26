@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { Effect } from 'effect';
 import { expect } from 'vitest';
-import { TableSnapshot, TableSnapshotESchema } from '../index.js';
+import { TableSnapshot } from '../index.js';
 import type { TableSource } from '../index.js';
 
 const readPrior = async (path: string): Promise<TableSnapshot | undefined> => {
@@ -18,7 +18,7 @@ const readPrior = async (path: string): Promise<TableSnapshot | undefined> => {
 
 const serialize = (snapshot: TableSnapshot): Promise<string> =>
   Effect.runPromise(
-    TableSnapshotESchema.encode(snapshot).pipe(
+    TableSnapshot.serialize(snapshot).pipe(
       Effect.map((encoded) => `${JSON.stringify(encoded, null, 2)}\n`),
     ),
   );

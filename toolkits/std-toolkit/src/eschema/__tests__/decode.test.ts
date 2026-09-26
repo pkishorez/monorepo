@@ -1,10 +1,10 @@
+import { readEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
-import { EntityESchema } from '../index.js';
-import { ESchemaError } from '../index.js';
+import { EntityESchema, OutdatedVersion } from '../index.js';
 
 describe('ESchema', () => {
   describe('Decoding', () => {
@@ -16,7 +16,7 @@ describe('ESchema', () => {
             count: Schema.Number,
           }).build();
 
-          const decoded = yield* schema.decode({
+          const decoded = yield* readEncoded(schema, {
             _v: 'v1',
             id: 't1',
             name: 'foo',
@@ -34,7 +34,11 @@ describe('ESchema', () => {
             .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'added' }))
             .build();
 
-          const decoded = yield* schema.decode({ _v: 'v1', id: 't1', a: 42 });
+          const decoded = yield* readEncoded(schema, {
+            _v: 'v1',
+            id: 't1',
+            a: 42,
+          });
           expect(decoded).toEqual({ id: 't1', a: 42, b: 'added' });
         }),
       );
@@ -50,7 +54,7 @@ describe('ESchema', () => {
             }))
             .build();
 
-          const decoded = yield* schema.decode({
+          const decoded = yield* readEncoded(schema, {
             _v: 'v2',
             id: 't1',
             a: 'hello',
@@ -60,16 +64,16 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('fails with ESchemaError on unknown version', () =>
+      itEffect('fails with OutdatedVersion on a newer version', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,
           }).build();
 
           const error = yield* Effect.flip(
-            schema.decode({ _v: 'v99', id: 't1', a: 'hello' }),
+            readEncoded(schema, { _v: 'v99', id: 't1', a: 'hello' }),
           );
-          expect(error).toBeInstanceOf(ESchemaError);
+          expect(error).toBeInstanceOf(OutdatedVersion);
           expect(error.message).toBe('Unknown schema version: v99');
         }),
       );
@@ -80,7 +84,10 @@ describe('ESchema', () => {
             a: Schema.String,
           }).build();
 
-          const decoded = yield* schema.decode({ id: 't1', a: 'hello' });
+          const decoded = yield* readEncoded(schema, {
+            id: 't1',
+            a: 'hello',
+          });
           expect(decoded).toEqual({ id: 't1', a: 'hello' });
         }),
       );

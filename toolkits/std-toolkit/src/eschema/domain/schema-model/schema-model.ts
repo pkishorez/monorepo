@@ -1,6 +1,5 @@
-import { Effect, JsonSchema, Schema } from 'effect';
+import { JsonSchema, Schema } from 'effect';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
-import type { ESchemaError } from '../eschema-error/index.js';
 
 export type ESchemaDescriptor = JsonSchema.JsonSchema & {
   type?: string;
@@ -22,15 +21,16 @@ export type MergeSchemas<
   }
 >;
 
-export type StructFieldsDecoded<T extends StructFieldsSchema> =
-  Schema.Schema.Type<Schema.Struct<T>>;
+export type StructFieldsType<T extends StructFieldsSchema> = Schema.Schema.Type<
+  Schema.Struct<T>
+>;
 
 export type StructFieldsEncoded<T extends StructFieldsSchema> =
   Schema.Codec.Encoded<Schema.Struct<T>>;
 
 export type ValueSchema = Schema.Codec<any, any>;
 
-export type ValueSchemaDecoded<T extends ValueSchema> = Schema.Schema.Type<T>;
+export type ValueSchemaType<T extends ValueSchema> = Schema.Schema.Type<T>;
 
 export type ValueSchemaEncoded<T extends ValueSchema> = Schema.Codec.Encoded<T>;
 
@@ -72,7 +72,7 @@ export type ForbidUndefinedValue<S extends ValueSchema> = S extends {
   ? {
       'Optional schemas are forbidden. Model absence with Schema.NullOr(...).': never;
     }
-  : undefined extends ValueSchemaDecoded<S>
+  : undefined extends ValueSchemaType<S>
     ? {
         '`undefined` is forbidden in a ValueESchema. Model absence with Schema.NullOr(...).': never;
       }
@@ -129,7 +129,6 @@ export type ValueEvolution = {
 
 /**
  * Widest type — matches any ESchema (base, SingleEntity, or Entity).
- * `Type`, decode, and encode all follow the latest shape `S`.
  */
 export interface AnyESchema<
   V extends string = string,
@@ -140,26 +139,14 @@ export interface AnyESchema<
   readonly latestVersion: V;
   readonly fields: S;
   readonly schema: Schema.Struct<S>;
-  readonly Type: Prettify<StructFieldsDecoded<S>>;
+  readonly Type: Prettify<StructFieldsType<S>>;
   readonly Encoded: Prettify<StructFieldsEncoded<S>> & {
     readonly _v: V;
   };
-  makePartial(
-    value: Partial<StructFieldsDecoded<S>>,
-  ): Partial<StructFieldsDecoded<S>> & { readonly _v: V };
-  decode(
-    value: unknown,
-  ): Effect.Effect<Prettify<StructFieldsDecoded<S>>, ESchemaError>;
-  encode(
-    value: StructFieldsDecoded<S>,
-  ): Effect.Effect<
-    Prettify<StructFieldsEncoded<S>> & { readonly _v: V },
-    ESchemaError
-  >;
   getDescriptor(): ESchemaDescriptor;
   readonly '~standard': StandardSchemaV1.Props<
     unknown,
-    Prettify<StructFieldsDecoded<S>>
+    Prettify<StructFieldsType<S>>
   >;
 }
 
@@ -194,37 +181,19 @@ export interface AnyValueESchema<
   readonly name: string;
   readonly latestVersion: V;
   readonly schema: S;
-  readonly Type: ValueSchemaDecoded<S>;
+  readonly Type: ValueSchemaType<S>;
   readonly Encoded: ValueEnvelopeEncoded<V, S>;
-  decode(value: unknown): Effect.Effect<ValueSchemaDecoded<S>, ESchemaError>;
-  encode(
-    value: ValueSchemaDecoded<S>,
-  ): Effect.Effect<ValueEnvelopeEncoded<V, S>, ESchemaError>;
   getDescriptor(): ESchemaDescriptor;
-  readonly '~standard': StandardSchemaV1.Props<unknown, ValueSchemaDecoded<S>>;
+  readonly '~standard': StandardSchemaV1.Props<unknown, ValueSchemaType<S>>;
 }
 
 export type AnyEvolvingSchema = AnyESchema | AnyEntityESchema | AnyValueESchema;
 
 // ─── Type extractors ────────────────────────────────────────────────────────
 
-/**
- * Extracts the decoded type from any ESchema level — the latest shape. Same
- * type for both encode and decode operations.
- */
-export type ESchemaType<T extends AnyEvolvingSchema> =
-  T extends AnyValueESchema<infer _V, infer S>
-    ? ValueSchemaDecoded<S>
-    : T extends AnyESchema<infer _V, infer S>
-      ? Prettify<StructFieldsDecoded<S>>
-      : never;
+export type ESchemaType<T extends AnyEvolvingSchema> = T['Type'];
 
-export type ESchemaEncoded<T extends AnyEvolvingSchema> =
-  T extends AnyValueESchema<infer V, infer S>
-    ? ValueEnvelopeEncoded<V, S>
-    : T extends AnyESchema<infer V, infer S>
-      ? Prettify<StructFieldsEncoded<S> & { readonly _v: V }>
-      : never;
+export type ESchemaEncoded<T extends AnyEvolvingSchema> = T['Encoded'];
 
 /**
  * Extracts the ID field name from an EntityESchema.

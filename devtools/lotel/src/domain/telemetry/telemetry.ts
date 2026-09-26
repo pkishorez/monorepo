@@ -1,4 +1,4 @@
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import {
   ExportLogsServiceRequestSchema,
   ExportTraceServiceRequestSchema,
@@ -108,8 +108,8 @@ export const logRecordsFromRequest = (request: ExportLogsServiceRequest) => {
 
 export const makeTraceDetails = (
   traceId: string,
-  spans: DecodedEntity<SpanRecord>[],
-  logs: DecodedEntity<LogRecord>[],
+  spans: Entity<SpanRecord>[],
+  logs: Entity<LogRecord>[],
 ) => ({
   traceId,
   spans: [...spans].sort((left, right) => {
@@ -141,7 +141,7 @@ const timeText = (value: string | number | undefined) =>
 /** Summarises the stored Spans of one Trace into a Trace Summary. */
 export const makeTraceSummary = (
   traceId: string,
-  spans: DecodedEntity<SpanRecord>[],
+  spans: Entity<SpanRecord>[],
 ): TraceSummary => {
   const records = spans.map((span) => span.value);
   const knownSpanIds = new Set(records.map((record) => record.spanId));

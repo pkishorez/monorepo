@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import type {
   ContractFailure,
-  EncodedKey,
+  StoredKey,
 } from '../../std-table/contract/index.js';
 import type {
   AttributeValue,
@@ -10,7 +10,7 @@ import type {
 } from '../client/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import { buildExpr, exprFilter } from '../expression/index.js';
-import { decodeKey, itemKey, type NativeItem } from '../item-schema/index.js';
+import { toNativeKey, itemKey, type NativeItem } from '../item-schema/index.js';
 import { contractFailure } from './failure.js';
 
 const deleteMatchingItems = (
@@ -51,10 +51,10 @@ export const hardDeleteItem = (
   client: DynamoDBClient,
   table: DynamoTable,
   tableName: string,
-  key: EncodedKey,
+  key: StoredKey,
 ) =>
   Effect.try({
-    try: () => decodeKey(table, key),
+    try: () => toNativeKey(table, key),
     catch: contractFailure,
   }).pipe(
     Effect.flatMap((Key) => client.deleteItem({ TableName: tableName, Key })),

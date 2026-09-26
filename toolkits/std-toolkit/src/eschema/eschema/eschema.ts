@@ -7,7 +7,7 @@ import type {
   ForbidOptionalFields,
   ForbidUnderscorePrefix,
   Prettify,
-  StructFieldsDecoded,
+  StructFieldsType,
   StructFieldsEncoded,
   StructFieldsSchema,
 } from '../domain/schema-model/index.js';
@@ -22,11 +22,15 @@ function assertName(name: string): void {
 
 const constructionToken = Symbol();
 
+type LatestType<TLatest extends StructFieldsSchema> = Prettify<
+  StructFieldsType<TLatest>
+>;
+
 export class ESchema<
   TVersion extends string,
   TLatest extends StructFieldsSchema,
   TName extends string = string,
-> implements StandardSchemaV1<unknown, Prettify<StructFieldsDecoded<TLatest>>> {
+> implements StandardSchemaV1<unknown, LatestType<TLatest>> {
   readonly #runtime;
 
   private constructor(
@@ -65,7 +69,7 @@ export class ESchema<
     );
   }
 
-  Type = null as unknown as Prettify<StructFieldsDecoded<TLatest>>;
+  Type = null as unknown as LatestType<TLatest>;
   Encoded = null as unknown as Prettify<StructFieldsEncoded<TLatest>> & {
     readonly _v: TVersion;
   };
@@ -78,18 +82,6 @@ export class ESchema<
     return Schema.Struct(this.fields);
   }
 
-  makePartial(value: Partial<StructFieldsDecoded<TLatest>>) {
-    return { ...value, _v: this.latestVersion };
-  }
-
-  decode(value: unknown) {
-    return this.#runtime.decode(value);
-  }
-
-  encode(value: StructFieldsDecoded<TLatest>) {
-    return this.#runtime.encode(value);
-  }
-
   getDescriptor(): ESchemaDescriptor {
     return this.#runtime.descriptor();
   }
@@ -98,12 +90,16 @@ export class ESchema<
     version: 1 as const,
     vendor: 'std-toolkit/eschema',
     types: {
-      input: null as unknown as Prettify<StructFieldsDecoded<TLatest>>,
-      output: null as unknown as Prettify<StructFieldsDecoded<TLatest>>,
+      input: null as unknown as LatestType<TLatest>,
+      output: null as unknown as LatestType<TLatest>,
     },
     validate: (value: unknown) => {
-      const result = Effect.runSyncExit(this.decode(value));
-      if (result._tag === 'Success') return { value: result.value };
+      const result = Effect.runSyncExit(
+        Schema.decodeUnknownEffect(Schema.toType(this.schema))(value),
+      );
+      if (result._tag === 'Success') {
+        return { value: result.value as LatestType<TLatest> };
+      }
       const error = Cause.findErrorOption(result.cause);
       return Option.isSome(error)
         ? { issues: [{ message: error.value.message }] }

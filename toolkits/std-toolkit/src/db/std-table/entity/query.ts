@@ -1,13 +1,20 @@
 import { Effect } from 'effect';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 import { InvalidQuery } from '../error/index.js';
-import { deriveStorageKey, encodeCompositeKey } from '../key/index.js';
+import {
+  deriveSortKey,
+  deriveStorageKey,
+  encodeCompositeKey,
+  encodeKeyPart,
+  recordReader,
+  valueReader,
+} from '../key/index.js';
 import {
   StdTableService,
   type JsonObject,
   type ContractFailure,
-  type EncodedItem,
+  type StoredItem,
   type QueryPosition,
   type QueryRequest,
 } from '../contract/index.js';
@@ -19,14 +26,14 @@ import type {
   QueryPage,
 } from './entity.js';
 import { dbError, failReason } from './effects.js';
-import { decode, encode, fieldStrings } from './storage.js';
+import { fromStored } from './storage.js';
 
 export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
   definition: KeyedEntityDefinition<Name, S>,
   patternName: string,
   input: JsonObject,
   options?: QueryOptions<EntityValue<S>>,
-): TableEffect<QueryPage<DecodedEntity<EntityValue<S>>>, Name> =>
+): TableEffect<QueryPage<Entity<EntityValue<S>>>, Name> =>
   Effect.gen(function* () {
     const pattern = Object.hasOwn(definition.accessPatterns, patternName)
       ? definition.accessPatterns[patternName]
@@ -63,12 +70,22 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
       | JsonObject
       | readonly [JsonObject, JsonObject]
       | null;
+    const readPk = recordReader(pkValue);
+    const missing = pattern.pk.filter(
+      (component) => readPk(component) === undefined,
+    );
+    if (missing.length > 0)
+      return yield* failReason(
+        new InvalidQuery({
+          message: `Missing partition-key component "${missing[0]}"`,
+        }),
+      );
     const pk = encodeCompositeKey([
       definition.name,
-      ...fieldStrings(pkValue, pattern.pk),
+      ...pattern.pk.map((component) => encodeKeyPart(readPk(component)!)),
     ]);
     const encodeSort = (value: JsonObject) =>
-      encodeCompositeKey(fieldStrings(value, pattern.sk));
+      deriveSortKey(recordReader(value), pattern.sk);
     const sort =
       sortValue === null
         ? undefined
@@ -95,7 +112,7 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
         : pattern.kind === 'lsi'
           ? definition.table.localSecondaryIndexes[pattern.index]?.sk
           : definition.table.globalSecondaryIndexes[pattern.index]?.sk;
-    const positionOf = (item: EncodedItem): QueryPosition | null => {
+    const positionOf = (item: StoredItem): QueryPosition | null => {
       if (indexSkAttribute === undefined) return { pk: item.pk, sk: item.sk };
       const indexSk = item.keys[indexSkAttribute];
       return indexSk === undefined
@@ -104,31 +121,20 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
     };
     let startAfter: QueryPosition | undefined;
     if (options?.after !== undefined) {
-      const encoded = yield* encode(
-        definition.schema,
-        options.after.value,
-        definition.name,
-      );
-      const data: JsonObject = {
-        ...encoded.value,
-        _u: options.after.meta._u,
-      };
+      const read = valueReader(options.after.value, options.after.meta._u);
       const primary = deriveStorageKey(
         definition.name,
-        data,
+        read,
         definition.primary,
       );
       startAfter =
         pattern.index === undefined
           ? primary
-          : {
-              ...primary,
-              indexSk: encodeCompositeKey(fieldStrings(data, pattern.sk)),
-            };
+          : { ...primary, indexSk: deriveSortKey(read, pattern.sk) };
     }
     const contract = (yield* StdTableService(definition.table.logicalName))
       .contract;
-    const items: DecodedEntity<EntityValue<S>>[] = [];
+    const items: Entity<EntityValue<S>>[] = [];
     let hasMore = false;
     let exhausted = false;
     while (items.length < limit && !exhausted) {
@@ -158,8 +164,8 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
           truncated = true;
           break;
         }
-        const entity = yield* decode(definition.schema, stored);
-        items.push(entity as DecodedEntity<EntityValue<S>>);
+        const entity = yield* fromStored(definition.schema, stored);
+        items.push(entity as Entity<EntityValue<S>>);
       }
       hasMore = page.hasMore || truncated;
       exhausted = !hasMore;
@@ -170,4 +176,4 @@ export const queryEntity = <Name extends string, S extends AnyEntityESchema>(
       startAfter = next;
     }
     return { items, hasMore };
-  }) as TableEffect<QueryPage<DecodedEntity<EntityValue<S>>>, Name>;
+  }) as TableEffect<QueryPage<Entity<EntityValue<S>>>, Name>;

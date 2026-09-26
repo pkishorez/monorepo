@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 
 // What a task is, written down once. `taskId` is the field that tells one task from another.
 export const Task = EntityESchema.make('Task', 'taskId', {
@@ -65,9 +65,11 @@ export const definingTheShapeOfATask = Story.make({
           'One stamp, `_v`, saying which version of the shape the task was written with; every write uses the newest version. Reading removes the stamp again, so your code never sees it, and the whole `_` prefix is reserved so your own fields can never collide with it.',
         proof: Effect.gen(function* () {
           // Turn the task into what storage will hold; the stamp appears.
-          const stored = yield* Task.encode(draft);
+          const stored = yield* Schema.encodeEffect(toSchema(Task))(draft);
           // Turn the stored form back into a task; the stamp is gone.
-          const back = yield* Task.decode(stored);
+          const back = yield* Schema.decodeUnknownEffect(toSchema(Task))(
+            stored,
+          );
           yield* Story.assert(
             'storage carries the version stamp',
             stored._v === 'v1',
@@ -79,39 +81,34 @@ export const definingTheShapeOfATask = Story.make({
     ),
     Story.question('Can a field be a `Date`?', {
       answer:
-        'No: a field that converts on the way in and out is refused the moment the shape is built, because a saved description of the shape must be able to rebuild it from JSON alone. Store the ISO string the date already is, and turn it into a `Date` where you use it.',
+        'Yes. `Schema.DateFromString` stores the date as its ISO string and hands your code a `Date` back, so you never convert it yourself. Storage, the wire, and the saved description of the shape only ever see the string.',
       proof: Effect.gen(function* () {
-        // Try to declare a due date that parses text into a Date; building the shape throws.
-        const refused = yield* Effect.flip(
-          Effect.try(() =>
-            EntityESchema.make('Task', 'taskId', {
-              boardId: Schema.String,
-              dueAt: Schema.DateFromString,
-            }).build(),
-          ),
-        );
-        // Declare the due date as the string it is stored as; this builds.
+        // Declare a due date that is a Date in code and a string in storage.
         const WithDueDate = EntityESchema.make('Task', 'taskId', {
           boardId: Schema.String,
-          dueAt: Schema.String,
+          dueAt: Schema.DateFromString,
         }).build();
-        // The stored form keeps the plain string.
-        const stored = yield* WithDueDate.encode({
+        const dueAt = new Date('2026-09-01T09:00:00.000Z');
+        // Turn the task into what storage will hold; the date becomes text.
+        const stored = yield* Schema.encodeEffect(toSchema(WithDueDate))({
           taskId: 't1',
           boardId: 'work',
-          dueAt: new Date('2026-09-01T09:00:00.000Z').toISOString(),
+          dueAt,
         });
-        yield* Story.assert(
-          'the converting field is refused at build time',
-          refused.cause instanceof Error &&
-            refused.cause.name === 'UnrepresentableFieldError' &&
-            refused.cause.message.includes('dueAt'),
+        // Read it back; the text becomes a Date again.
+        const read = yield* Schema.decodeUnknownEffect(toSchema(WithDueDate))(
+          stored,
         );
         yield* Story.assert(
-          'the plain string is stored as it is',
+          'storage holds the ISO string',
           stored.dueAt === '2026-09-01T09:00:00.000Z',
         );
-        return { refused: (refused.cause as Error).message, stored };
+        yield* Story.assert(
+          'your code gets a Date back',
+          read.dueAt instanceof Date &&
+            read.dueAt.getTime() === dueAt.getTime(),
+        );
+        return { stored, read };
       }),
     }),
   ],

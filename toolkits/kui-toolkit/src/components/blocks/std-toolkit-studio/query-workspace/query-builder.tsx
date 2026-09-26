@@ -34,6 +34,7 @@ import { Spinner } from '#components/ui/spinner';
 
 import {
   QueryModel,
+  type KeyKind,
   type QueryCriteria,
   type QueryOperator,
 } from '../query-model';
@@ -92,11 +93,13 @@ const shortKindLabel = {
 
 function KeyInputs({
   keys,
+  kinds,
   values,
   disabled,
   onChange,
 }: {
   readonly keys: readonly string[];
+  readonly kinds: Readonly<Record<string, KeyKind>>;
   readonly values: Readonly<Record<string, string>>;
   readonly disabled?: boolean;
   readonly onChange: (key: string, value: string) => void;
@@ -109,19 +112,35 @@ function KeyInputs({
       }
       disabled={disabled}
     >
-      {keys.map((key) => (
-        <label key={key} className="grid gap-1.5">
-          <span className="font-mono text-xs font-medium text-foreground">
-            {key}
-          </span>
-          <Input
-            value={values[key] ?? ''}
-            onChange={(event) => onChange(key, event.target.value)}
-            placeholder={`Enter ${key}`}
-            aria-label={`Key value ${key}`}
-          />
-        </label>
-      ))}
+      {keys.map((key) => {
+        const kind = kinds[key] ?? 'string';
+        const issue = QueryModel.keyIssue(kind, values[key] ?? '');
+        return (
+          <label key={key} className="grid gap-1.5">
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="font-mono text-xs font-medium text-foreground">
+                {key}
+              </span>
+              {kind === 'number' && (
+                <span className="text-[11px] text-muted-foreground">
+                  Number
+                </span>
+              )}
+            </span>
+            <Input
+              value={values[key] ?? ''}
+              onChange={(event) => onChange(key, event.target.value)}
+              placeholder={`Enter ${key}`}
+              inputMode={kind === 'number' ? 'decimal' : undefined}
+              aria-label={`Key value ${key}`}
+              aria-invalid={issue !== undefined}
+            />
+            {issue !== undefined && (
+              <span className="text-xs text-destructive">{issue}</span>
+            )}
+          </label>
+        );
+      })}
     </fieldset>
   );
 }
@@ -169,7 +188,7 @@ function AppliedValue({
 }
 
 export function QueryBuilder({
-  entities,
+  snapshot,
   selectedEntity,
   criteria,
   running,
@@ -178,7 +197,7 @@ export function QueryBuilder({
   onRun,
   onRefresh,
 }: {
-  readonly entities: readonly TableEntitySnapshot[];
+  readonly snapshot: TableSnapshot;
   readonly selectedEntity?: TableEntitySnapshot;
   readonly criteria?: QueryCriteria;
   readonly running: boolean;
@@ -190,6 +209,7 @@ export function QueryBuilder({
   readonly onRun: () => void;
   readonly onRefresh: () => void;
 }) {
+  const { entities } = snapshot;
   const [open, setOpen] = useState(false);
   const [draftEntity, setDraftEntity] = useState<TableEntitySnapshot>();
   const [draftCriteria, setDraftCriteria] = useState<QueryCriteria>();
@@ -380,6 +400,7 @@ export function QueryBuilder({
                     setDraftCriteria(
                       entity?.kind === 'keyed' && primary !== undefined
                         ? QueryModel.initialCriteria(
+                            snapshot,
                             entity,
                             primary,
                             criteria?.limit,
@@ -425,6 +446,7 @@ export function QueryBuilder({
                       if (draftEntity !== undefined && pattern !== undefined) {
                         setDraftCriteria(
                           QueryModel.initialCriteria(
+                            snapshot,
                             draftEntity,
                             pattern,
                             draftCriteria.limit,
@@ -489,6 +511,7 @@ export function QueryBuilder({
                   </div>
                   <KeyInputs
                     keys={draftCriteria.pattern.pk}
+                    kinds={draftCriteria.kinds}
                     values={draftCriteria.pk}
                     onChange={(key, value) =>
                       changeDraft({
@@ -546,6 +569,7 @@ export function QueryBuilder({
                   ) : (
                     <KeyInputs
                       keys={draftCriteria.pattern.sk}
+                      kinds={draftCriteria.kinds}
                       values={draftCriteria.sk}
                       disabled={draftCriteria.unbounded}
                       onChange={(key, value) =>
@@ -565,6 +589,7 @@ export function QueryBuilder({
                       <p className="text-xs font-semibold">End of range</p>
                       <KeyInputs
                         keys={draftCriteria.pattern.sk}
+                        kinds={draftCriteria.kinds}
                         values={draftCriteria.skEnd}
                         onChange={(key, value) =>
                           changeDraft({

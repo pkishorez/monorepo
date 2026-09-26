@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import {
   OperationFailure,
-  type EncodedKey,
+  type StoredKey,
 } from '../../std-table/contract/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
 import type { SQLiteDriver, SQLiteRow } from '../database/index.js';
@@ -23,7 +23,7 @@ export const readItem = (
   table: SQLiteTable,
   tableName: string,
   schema: ItemSchema,
-  key: EncodedKey,
+  key: StoredKey,
 ) => {
   const statement = Statement.get(tableName, table);
   return database.all(statement.sql, [key.pk, key.sk]).pipe(
@@ -42,7 +42,7 @@ export const deleteItem = (
   database: SQLiteDriver,
   table: SQLiteTable,
   tableName: string,
-  key: EncodedKey,
+  key: StoredKey,
 ) => {
   const statement = Statement.hardDelete(tableName, table);
   return database.run(statement.sql, [key.pk, key.sk]).pipe(

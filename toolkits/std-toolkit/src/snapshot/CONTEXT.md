@@ -5,7 +5,7 @@ Semantic contract capture and comparison for database tables. Snapshot consumes 
 ## Language
 
 **Table snapshot**:
-The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, on both encoded and decoded sides. Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations.
+The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, in **encoded form**. Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations.
 _Avoid_: ESchema snapshot (retired: there is no ESchema-only document), source snapshot, version-file snapshot.
 
 **Snapshot change**:
@@ -23,10 +23,6 @@ _Avoid_: Enforcement, deploy gate, contract resource.
 **Snapshot document format**:
 The versioned shape of a stored snapshot itself, distinct from the **versions** of the schemas it describes. A snapshot written under an older format is read forward into the current one, so a stored snapshot never becomes unreadable because the toolkit moved on.
 _Avoid_: Retired format, snapshot schema version.
-
-**snapshot limitation**:
-An aspect of the current contract whose behavior cannot be verified from snapshot data. The only limitation a field can still carry is a constructor default — it changes `Schema.make(...)` convenience construction, not decode/encode fidelity, so eschema tracks it rather than refusing it. Every other limitation this term once covered — an unnamed transformation, filter, or declared type — can no longer occur: eschema refuses that field the moment it is defined, before a snapshot ever sees it. An approved unchanged limitation remains visible without causing verification to fail.
-_Avoid_: Snapshot change, verification failure, warning.
 
 **snapshot identity**:
 The stable name of an ESchema within a **table snapshot**, taken from the ESchema's own mandatory name. One ESchema may be referenced any number of times under the same identity, while every distinct ESchema has a distinct identity.

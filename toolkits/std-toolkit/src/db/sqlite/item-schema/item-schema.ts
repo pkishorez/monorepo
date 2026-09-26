@@ -1,7 +1,7 @@
 import { Effect, Schema, SchemaIssue, SchemaTransformation } from 'effect';
 import {
-  EncodedItemSchema,
-  type EncodedItem,
+  StoredItemSchema,
+  type StoredItem,
   type JsonObject,
 } from '../../std-table/contract/index.js';
 import type { TableDefinition } from '../../std-table/definition/index.js';
@@ -42,7 +42,7 @@ const isRow = (value: unknown): value is NativeItem =>
 
 const NativeItemSchema = Schema.declare<NativeItem>(isRow);
 
-const toDecoded = (table: TableIndexes, item: EncodedItem): NativeItem => {
+const toNative = (table: TableIndexes, item: StoredItem): NativeItem => {
   const values = new Map<string, SQLiteValue>([
     [table.primary.pk, item.pk],
     [table.primary.sk, item.sk],
@@ -57,7 +57,7 @@ const toDecoded = (table: TableIndexes, item: EncodedItem): NativeItem => {
   return Object.fromEntries(values);
 };
 
-const toEncoded = (table: TableIndexes, row: NativeItem): EncodedItem => {
+const fromNative = (table: TableIndexes, row: NativeItem): StoredItem => {
   if (typeof row.data !== 'string' || (row._d !== 0 && row._d !== 1))
     throw new Error('SQLite row does not match the storage schema');
   const data = JSON.parse(row.data) as JsonObject;
@@ -79,7 +79,7 @@ const toEncoded = (table: TableIndexes, row: NativeItem): EncodedItem => {
     },
     data,
     keys,
-  } as EncodedItem;
+  } as StoredItem;
 };
 
 const invalid = (input: unknown, cause: unknown) =>
@@ -90,21 +90,21 @@ const invalid = (input: unknown, cause: unknown) =>
     input,
   );
 
-export type ItemSchema = Schema.Codec<NativeItem, EncodedItem>;
+export type ItemSchema = Schema.Codec<NativeItem, StoredItem>;
 
 export const itemSchema = (table: TableIndexes): ItemSchema =>
-  EncodedItemSchema.pipe(
+  StoredItemSchema.pipe(
     Schema.decodeTo(
       NativeItemSchema,
       SchemaTransformation.transformOrFail({
-        decode: (item: EncodedItem) =>
+        decode: (item: StoredItem) =>
           Effect.try({
-            try: () => toDecoded(table, item),
+            try: () => toNative(table, item),
             catch: (cause) => invalid(item, cause),
           }),
         encode: (row: NativeItem) =>
           Effect.try({
-            try: () => toEncoded(table, row),
+            try: () => fromNative(table, row),
             catch: (cause) => invalid(row, cause),
           }),
       }),

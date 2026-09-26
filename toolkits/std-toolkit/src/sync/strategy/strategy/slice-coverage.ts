@@ -1,7 +1,8 @@
 import { Schema } from 'effect';
-import { EntityMetaSchema, type DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
+import type { StateEntitySchema } from '../state/index.js';
 
-export type Cursor<TItem> = DecodedEntity<TItem>;
+export type Cursor<TItem> = Entity<TItem>;
 
 export type Slice<TItem> = {
   low: Cursor<TItem>;
@@ -14,25 +15,17 @@ export const makeSlice = <TItem>(
   high: Cursor<TItem>,
 ): Slice<TItem> => ({ low, high, itemCount: 0 });
 
-const cursorSchema = Schema.Struct({
-  value: Schema.Unknown,
-  meta: EntityMetaSchema,
-});
-
-export const SliceSchema = Schema.Struct({
-  low: cursorSchema,
-  high: cursorSchema,
-  itemCount: Schema.Number,
-});
+export const sliceSchema = (entity: StateEntitySchema) =>
+  Schema.Struct({ low: entity, high: entity, itemCount: Schema.Number });
 
 export const uOf = <TItem>(entity: Cursor<TItem>): string => entity.meta._u;
 
-export const oldestOf = <TItem>(batch: DecodedEntity<TItem>[]): Cursor<TItem> =>
+export const oldestOf = <TItem>(batch: Entity<TItem>[]): Cursor<TItem> =>
   batch.reduce((oldest, entity) =>
     uOf(entity) < uOf(oldest) ? entity : oldest,
   );
 
-export const newestOf = <TItem>(batch: DecodedEntity<TItem>[]): Cursor<TItem> =>
+export const newestOf = <TItem>(batch: Entity<TItem>[]): Cursor<TItem> =>
   batch.reduce((newest, entity) =>
     uOf(entity) > uOf(newest) ? entity : newest,
   );

@@ -1,25 +1,32 @@
 import { Schema } from 'effect';
 import { Rpc } from 'effect/unstable/rpc';
 import { EntityMetaSchema, SingleEntityMetaSchema } from '../core/index.js';
-import { EncodedDataSchema } from '../db/std-table/contract/index.js';
 import { toSchema } from '../eschema/index.js';
 import { TableSnapshotESchema } from '../snapshot/index.js';
 
-const StringRecordSchema = Schema.Record(Schema.String, Schema.String);
+// Key components are named by key path and hold a string or a number.
+const StringRecordSchema = Schema.Record(
+  Schema.String,
+  Schema.Union([Schema.String, Schema.Finite]),
+);
 
-const EncodedEntitySchema = Schema.Struct({
-  value: EncodedDataSchema,
+// Studio clients have no application schemas, so entity values travel in
+// their encoded (wire) form, untyped.
+const RawValueSchema = Schema.Record(Schema.String, Schema.Unknown);
+
+const RawEntitySchema = Schema.Struct({
+  value: RawValueSchema,
   meta: EntityMetaSchema,
 });
 
-const EncodedSingleEntitySchema = Schema.Struct({
-  value: EncodedDataSchema,
+const RawSingleEntitySchema = Schema.Struct({
+  value: RawValueSchema,
   meta: SingleEntityMetaSchema,
 });
 
 const StudioEntitySchema = Schema.Union([
-  EncodedEntitySchema,
-  EncodedSingleEntitySchema,
+  RawEntitySchema,
+  RawSingleEntitySchema,
 ]);
 
 const QuerySortSchema = Schema.Union([
@@ -48,7 +55,7 @@ export const QueryEntitiesPayloadSchema = Schema.Struct({
   pk: StringRecordSchema,
   sk: Schema.optional(QuerySortSchema),
   limit: Schema.optional(Schema.Int),
-  after: Schema.optional(EncodedEntitySchema),
+  after: Schema.optional(RawEntitySchema),
 });
 
 export type GetEntityPayload = typeof GetEntityPayloadSchema.Type;
@@ -145,7 +152,7 @@ export const GetEntityRpc = Rpc.make('Studio.GetEntity', {
 export const QueryEntitiesRpc = Rpc.make('Studio.QueryEntities', {
   payload: QueryEntitiesPayloadSchema,
   success: Schema.Struct({
-    items: Schema.Array(EncodedEntitySchema),
+    items: Schema.Array(RawEntitySchema),
     hasMore: Schema.Boolean,
   }),
   error: QueryEntitiesError,

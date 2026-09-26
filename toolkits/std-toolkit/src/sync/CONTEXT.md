@@ -2,7 +2,9 @@
 
 Sync keeps TanStack DB Collections fresh from an authoritative Backend while
 preserving enough client state to converge safely. Shared Entity vocabulary is
-defined by [core](../core/CONTEXT.md).
+defined by [core](../core/CONTEXT.md). Every edge Sync shares with a Backend or
+a store carries [[core]] **Entities**, and every Collection shows their latest
+eschema **values**.
 
 ## Language
 
@@ -39,15 +41,15 @@ The Sync-owned boundary for one Entity type and its TanStack DB Collection
 Projection, Sync Replica, Sync State, and Peer Channel.
 
 **Collection Projection**:
-The ephemeral TanStack DB view built from accepted **DecodedEntities** in a Sync Replica as **CollectionItems** exposed to queries.
+The ephemeral TanStack DB view built by projecting accepted entities in a Sync Replica as **CollectionItems** exposed to queries.
 _Avoid_: Sync Replica, cache.
 
 **CollectionItem**:
-The latest decoded value exposed by a TanStack DB Collection, validated against the latest schema and shaped for collection queries and mutations. It is projected from a **DecodedEntity** and is not itself an entity envelope.
+An **Entity**'s latest eschema **value** exposed by a TanStack DB Collection, with its meta under `_meta`, shaped for collection queries and mutations. It is not itself an entity envelope.
 _Avoid_: CollectionRow, DecodedEntity, SyncEntity.
 
 **Sync Replica**:
-The client-side set of backend-confirmed **DecodedEntities** known to one Collection. Its Sync Store representation is encoded. It is a convergent local copy, never the authority.
+The client-side set of backend-confirmed **Entities** known to one Collection, kept in the Sync Store. It is a convergent local copy, never the authority.
 _Avoid_: Source of Truth, cache.
 
 **Sync Store**:
@@ -62,6 +64,10 @@ from the Sync Replica and is not advanced by mutations, Registry Broadcasts, or
 Peer Sync.
 _Avoid_: Sync Replica cursor.
 
+**Outdated Application**:
+The state of a Sync participant that receives an Entity whose `_v` is newer than any version its code knows. It is not an error: Sync ignores that Entity with a warning and advances neither the Sync Replica nor Sync State for it, so a reload with newer code receives it again, and convergence makes that replay safe. Sync recognizes it by the `OutdatedVersion` error, including when a Sync Source's own transport decoding raised it. A Strategy Session that meets one stops until reload rather than fetching the same window again, and Sync reports it as an `OutdatedApplication` **Sync Event**, once per Collection per tab whichever path delivered the Entity — the warning itself, which an application may turn into a reload prompt. The only remedy is newer application code.
+_Avoid_: Unsupported version error, version conflict.
+
 **Convergence Rule**:
 The rule that accepts a newer Entity `_u`, treats an older or duplicate Entity
 as a successful no-op, and retains accepted tombstones in the Sync Replica.
@@ -75,7 +81,7 @@ A worker policy that obtains backend-confirmed Entities and owns the Sync State
 needed to resume its work.
 
 **Sync Source**:
-A Sync-owned description of one Backend delivery mode, built from application-provided backend operations. It yields decoded backend-confirmed entities; its implementation owns any persistence or transport decoding behind that boundary. It does not own cursor meaning, Sync State, or the surrounding Collection or Partition lifecycle.
+A Sync-owned description of one Backend delivery mode, built from application-provided backend operations. It yields backend-confirmed **Entities** already in the latest **version**: the application's transport decodes them with core's `EntitySchema`, which migrates older versions and raises `OutdatedVersion` for newer ones. Sync refuses an in-memory Entity whose `_v` is not the latest. It does not own cursor meaning, Sync State, or the surrounding Collection or Partition lifecycle.
 _Avoid_: Sync Strategy, subscription callback.
 
 **Leadership**:
@@ -106,7 +112,8 @@ always-online participant with ephemeral state.
 _Avoid_: environment detection, deployment target, browser sniffing.
 
 **Partition**:
-A ref-counted Sync lifecycle window for one keyed subset. It is unrelated to a
+A ref-counted Sync lifecycle window for one keyed subset: the values whose
+[[db]] **key path** reads one string, number, or boolean. It is unrelated to a
 database partition and does not define Collection retention.
 
 **Global Sync**:
@@ -143,7 +150,7 @@ The in-process router that delivers Registry Broadcasts to Collections owned by
 one Std Sync.
 
 **Registry Broadcast**:
-Caller-owned ingress of **DecodedEntities** into one Std Sync. Persisted delivery converges
+Caller-owned ingress of **Entities** into one Std Sync; Sync migrates them itself. Persisted delivery converges
 through the Sync Replica; projection-only delivery remains local to that tab.
 _Avoid_: Peer Sync message.
 
@@ -158,8 +165,8 @@ The transport owned by one qualified Collection Name through which Peer
 Messages are sent and received.
 
 **Peer Message**:
-A versioned non-empty envelope of complete confirmed **EncodedEntities** for one
-Collection. Receivers validate it and apply the normal Convergence Rule without
+A versioned non-empty envelope of complete confirmed **Entities** for one
+Collection, in encoded form. Receivers validate it and apply the normal Convergence Rule without
 relaying it.
 
 **Optimistic Entity**:
@@ -167,8 +174,8 @@ A provisional Collection value awaiting Backend confirmation. It is neither
 stored in the Sync Replica nor sent through Peer Sync.
 
 **Mutation Callback**:
-The application-facing handler for a TanStack DB insert, update, or delete. It receives only decoded CollectionItems and returns a backend-confirmed **DecodedEntity**; any transport encoding belongs to the API client used by the handler.
-_Avoid_: Encoded Mutation, transport mutation.
+The application-facing handler for a TanStack DB insert, update, or delete. Sync hands it the **values** of the CollectionItems being written, and it returns the backend-confirmed **Entity**.
+_Avoid_: Decoded Mutation, transport mutation.
 
 **Outbox**:
 The Sync Store record of every write the Backend has not confirmed yet, owned
@@ -177,8 +184,9 @@ _Avoid_: mutation queue, offline cache, pending writes table.
 
 **Outbox Entry**:
 One unconfirmed write in the Outbox: one Entity operation or one Offline
-Action call, identified by its transaction id. It is `pending`, `in-flight`
-(executing right now), or `failed`.
+Action call, identified by its transaction id. It holds the written value in
+[[eschema]] **encoded form** with its **version**, so replay by newer code
+migrates it. It is `pending`, `in-flight` (executing right now), or `failed`.
 _Avoid_: slot, outbox item, job.
 
 **Queue**:

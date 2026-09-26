@@ -1,3 +1,4 @@
+import { readEncoded, writeEncoded } from './domain/encoded/index.js';
 import { Effect, Schema } from 'effect';
 import { ESchema, EntityESchema, type AnyESchema } from './index.js';
 
@@ -39,14 +40,19 @@ const _widened2: AnyESchema = AppConfig;
 async function main() {
   console.log('=== ESchema ===');
   const config = await Effect.runPromise(
-    AppConfig.encode({ theme: 'dark', maxRetries: 3 }),
+    writeEncoded(AppConfig, { theme: 'dark', maxRetries: 3 }),
   );
   console.log('config:', config);
 
   console.log('\n=== EntityESchema ===');
   console.log('name:', User.name, '| idField:', User.idField);
   const user = await Effect.runPromise(
-    User.decode({ _v: 'v1', id: 'u1', name: 'Alice', email: 'a@b.com' }),
+    readEncoded(User, {
+      _v: 'v1',
+      id: 'u1',
+      name: 'Alice',
+      email: 'a@b.com',
+    }),
   );
   console.log('user (migrated v1→v2):', user);
 }

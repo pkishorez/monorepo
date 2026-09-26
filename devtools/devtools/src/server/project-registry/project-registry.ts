@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { Context, Data, Effect, Layer } from 'effect';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import { StdTable } from 'std-toolkit/db';
 import { SQLite, type SQLiteDriver } from 'std-toolkit/db/sqlite';
 import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
@@ -24,7 +24,7 @@ export class ProjectRegistryStoreError extends Data.TaggedError(
   cause: string;
 }> {}
 
-type Entry = DecodedEntity<ProjectEntryRecord>['value'];
+type Entry = Entity<ProjectEntryRecord>['value'];
 
 export interface ProjectRegistryShape {
   list(tool: RegistryTool): Effect.Effect<Entry[], ProjectRegistryStoreError>;
@@ -95,7 +95,7 @@ export const makeSqliteProjectRegistry = (options: {
     const listAll = (tool: RegistryTool) =>
       Effect.gen(function* () {
         const items: Entry[] = [];
-        let after: DecodedEntity<ProjectEntryRecord> | undefined;
+        let after: Entity<ProjectEntryRecord> | undefined;
         for (;;) {
           const page = yield* entries.query(
             'byTool',

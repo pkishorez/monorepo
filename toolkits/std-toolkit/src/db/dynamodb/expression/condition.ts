@@ -93,16 +93,6 @@ type AnyCondition<T = unknown> =
 export type ConditionOperation<T = unknown> = AnyCondition<T>;
 
 /**
- * Accepts either a pre-built condition or a builder callback.
- * Enables `condition: $ => $.cond(...)` shorthand.
- *
- * @typeParam T - The entity type this condition operates on
- */
-export type ConditionInput<T = unknown> =
-  | ConditionOperation<T>
-  | ((ops: ConditionOps<T>) => AnyCondition<T>);
-
-/**
  * Valid keys for condition operations, including generic inputs.
  */
 type ValidConditionKeys<T> = T extends unknown
@@ -217,16 +207,6 @@ export function exprFilter<T>(
   builder: (ops: ConditionOps<T>) => AnyCondition<T>,
 ): ConditionOperation<T> {
   return exprCondition(builder);
-}
-
-/**
- * Resolves a ConditionInput to a ConditionOperation.
- * If the input is a function, it is called via exprCondition.
- */
-export function resolveCondition<T>(
-  input: ConditionInput<T>,
-): ConditionOperation<T> {
-  return typeof input === 'function' ? exprCondition<T>(input) : input;
 }
 
 /**

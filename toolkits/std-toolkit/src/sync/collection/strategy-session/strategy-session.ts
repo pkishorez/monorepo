@@ -1,5 +1,5 @@
 import { Effect, Exit, Scope } from 'effect';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type {
   CollectionName,
   PartitionKey,
@@ -72,13 +72,23 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
     flow: StrategyFlow,
   ) => StrategyContext<TItem, TState>;
   applyToSyncReplica: (
-    entities: DecodedEntity<TItem>[],
+    entities: Entity<TItem>[],
     flow?: StrategyFlow,
   ) => Effect.Effect<void, WriteError>;
   report: SyncReporter<R>;
+  outdated: (cause: unknown) => Effect.Effect<boolean, never, R>;
 }): Effect.Effect<StrategySessions<TItem, R>> =>
   Effect.sync(() => {
     const running = new Map<PartitionKey, Running>();
+
+    const stopWhenOutdated = <A, E, R2>(effect: Effect.Effect<A, E, R2>) =>
+      effect.pipe(
+        Effect.catchCause((cause) =>
+          Effect.flatMap(args.outdated(cause), (outdated) =>
+            outdated ? Effect.interrupt : Effect.failCause(cause),
+          ),
+        ),
+      );
 
     const stop = (partitionKey: PartitionKey): Effect.Effect<void> =>
       Effect.gen(function* () {
@@ -168,6 +178,7 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
                     attributes: { ...attributes, session },
                   }),
                 ),
+                stopWhenOutdated,
               );
           },
           onError: (cause) =>
@@ -245,7 +256,10 @@ export const makeStrategySessions = <TItem extends object, R>(args: {
                   args.applyToSyncReplica(entities, cadenceFlow),
                 partition,
                 config: cadence,
-              }).pipe(cadenceFlow!.withSpan('Cadence attempt', { attributes })),
+              }).pipe(
+                cadenceFlow!.withSpan('Cadence attempt', { attributes }),
+                stopWhenOutdated,
+              ),
             onError: (cause) =>
               cadenceFlow!
                 .event('Cadence failure', {

@@ -5,10 +5,7 @@ import type {
   Transaction,
 } from '@tanstack/react-db';
 import { Effect, Exit, Latch, Scope, TxSemaphore } from 'effect';
-import type {
-  DecodedEntity,
-  DecodedSingleEntity,
-} from '../../../core/index.js';
+import type { Entity, SingletonEntity } from '../../../core/index.js';
 import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import { makeCollectionProjector } from '../projection/index.js';
 import { makeSyncReplica } from '../replica/index.js';
@@ -34,6 +31,7 @@ import type { SyncStore } from '../../platform/sync-store/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import { makeStrategySessions } from '../strategy-session/index.js';
+import { makeOutdatedApplication } from '../outdated-application/index.js';
 import {
   Activation,
   narrateHydration,
@@ -60,8 +58,8 @@ export type SingleItemResult<
       schema: () => S;
       flowId: () => string;
       applyToSyncReplica: (
-        entities: DecodedEntity<TItem>[],
-      ) => Effect.Effect<DecodedEntity<TItem>[], WriteError>;
+        entities: Entity<S['Type']>[],
+      ) => Effect.Effect<Entity<S['Type']>[], WriteError>;
       onUpdate?: NonNullable<
         ReturnType<typeof buildSingleItemMutations<S>>['onUpdate']
       >;
@@ -81,7 +79,7 @@ export const buildSingleItemCollection = <
     options?: StdCollectionOptions<S['Type']>;
     onUpdate?: (payload: {
       updates: Partial<S['Type']>;
-    }) => Effect.Effect<DecodedSingleEntity<S['Type']>, unknown, R>;
+    }) => Effect.Effect<SingletonEntity<S['Type']>, unknown, R>;
     pacing?: PaceStrategyFactory;
     outbox?: OutboxRuntime | null;
     store: SyncStore;
@@ -107,6 +105,11 @@ export const buildSingleItemCollection = <
     );
   }
   const { collectionName } = config;
+  const outdated = makeOutdatedApplication({
+    collectionName,
+    report: config.report,
+    runner: config.runner,
+  });
   const { flow } = config;
   const replica = makeSyncReplica({
     schema,
@@ -124,6 +127,8 @@ export const buildSingleItemCollection = <
   let collectionUpdate:
     | ((updater: (draft: CollectionItem<TItem>) => void) => Transaction)
     | null = null;
+  let collectionCurrent: (() => CollectionItem<TItem> | undefined) | null =
+    null;
 
   let position: string | null = null;
   let peerSync: ReturnType<typeof makePeerSync<TItem, R>> | null = null;
@@ -154,10 +159,10 @@ export const buildSingleItemCollection = <
     );
 
   const applyToSyncReplica = (
-    entities: DecodedEntity<TItem>[],
+    entities: Entity<TItem>[],
     syncFlow?: StrategyFlow,
     options: { readonly propagate: boolean } = { propagate: true },
-  ): Effect.Effect<DecodedEntity<TItem>[], WriteError> => {
+  ): Effect.Effect<Entity<TItem>[], WriteError> => {
     config.assertActive();
     return Effect.gen(function* () {
       if (entities.some((entity) => entity.meta._d)) {
@@ -180,7 +185,7 @@ export const buildSingleItemCollection = <
           accepted.length,
           Effect.promise(() =>
             peerSync!.broadcast(
-              accepted as [DecodedEntity<TItem>, ...DecodedEntity<TItem>[]],
+              accepted as [Entity<TItem>, ...Entity<TItem>[]],
             ),
           ),
         );
@@ -197,16 +202,24 @@ export const buildSingleItemCollection = <
   };
 
   const projectOnly = (
-    entities: DecodedEntity<TItem>[],
+    entities: Entity<TItem>[],
   ): Effect.Effect<void, WriteError> =>
-    Effect.sync(() => projector?.projectEntities(entities));
+    outdated.ignore(
+      replica
+        .validate(entities)
+        .pipe(
+          Effect.andThen(
+            Effect.sync(() => projector?.projectEntities(entities)),
+          ),
+        ),
+    );
 
   const handle: CollectionHandle = {
     schemaName: schema.name,
     collectionName,
     applyToSyncReplica: (entities) =>
-      applyToSyncReplica(entities as DecodedEntity<TItem>[]).pipe(
-        Effect.asVoid,
+      outdated.ignore(
+        applyToSyncReplica(entities as Entity<TItem>[]).pipe(Effect.asVoid),
       ),
     projectOnly: projectOnly as CollectionHandle['projectOnly'],
     flow: () => flow,
@@ -220,6 +233,7 @@ export const buildSingleItemCollection = <
     schema,
     runner: config.runner,
     report: config.report,
+    outdated: outdated.check,
     apply: (entities, options) =>
       applyToSyncReplica(entities, undefined, options).pipe(
         Effect.tap(() => Effect.sync(() => outbox?.recheck())),
@@ -243,6 +257,7 @@ export const buildSingleItemCollection = <
     replayed: replayLatch.await,
     runner: config.runner,
     flow: () => flow,
+    current: () => collectionCurrent?.(),
   });
   const replay = outbox
     ? makeOutboxReplay<TItem>({
@@ -250,7 +265,7 @@ export const buildSingleItemCollection = <
         collectionName,
         idField: null,
         decode: handlers.decode,
-        pick: handlers.pick,
+        changes: handlers.changes,
         report: (entryId, cause) =>
           config.report({
             _tag: 'OutboxFailed',
@@ -269,6 +284,7 @@ export const buildSingleItemCollection = <
       collection: () => null,
       makeContext: (key, scope, sessionStrategy, workerFlow) => {
         const stateStore = makeSyncStateStore({
+          schema,
           schemaName: collectionName,
           strategyName: sessionStrategy.name,
           store: config.store,
@@ -286,6 +302,7 @@ export const buildSingleItemCollection = <
       applyToSyncReplica: (entities, workerFlow) =>
         applyToSyncReplica(entities, workerFlow).pipe(Effect.asVoid),
       report: config.report,
+      outdated: outdated.check,
     }),
   );
   let collectionTruncate: (() => void) | null = null;
@@ -321,6 +338,7 @@ export const buildSingleItemCollection = <
     position = null;
     collectionUpdate = (updater) =>
       callbacks.collection.update(schema.name, updater);
+    collectionCurrent = () => callbacks.collection.get(schema.name);
     collectionTruncate = () => {
       callbacks.begin();
       callbacks.truncate();
@@ -385,6 +403,7 @@ export const buildSingleItemCollection = <
         await config.runner.runPromise(sessions.stopAll);
         projector = null;
         collectionUpdate = null;
+        collectionCurrent = null;
         await config.runner.runPromise(
           flow.collection.event('Collection cleanup', {
             attributes: { collection: collectionName },

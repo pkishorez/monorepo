@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { StdTable } from 'std-toolkit/db';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 import { fresh } from '../../env.js';
 import {
   table,
@@ -67,9 +67,12 @@ export const addingAFieldToTasksThatAlreadyExist = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // Decode a row exactly as last year's code wrote it; the new field is filled in on the way out.
-            const seen = yield* TaskV2.decode({ _v: 'v1', ...lastYear });
+            const seen = yield* Schema.decodeUnknownEffect(toSchema(TaskV2))({
+              _v: 'v1',
+              ...lastYear,
+            });
             // Encode what the app now holds; it is written as the newest version, priority included.
-            const written = yield* TaskV2.encode(seen);
+            const written = yield* Schema.encodeEffect(toSchema(TaskV2))(seen);
             yield* Story.assert(
               'the old task gained the new field, and lost nothing',
               seen.priority === 'low' && seen.notes === 'Ask Ana first',
@@ -91,9 +94,12 @@ export const addingAFieldToTasksThatAlreadyExist = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // A row from last year: the v1 to v2 step runs.
-            const fromV1 = yield* TaskV2.decode({ _v: 'v1', ...lastYear });
+            const fromV1 = yield* Schema.decodeUnknownEffect(toSchema(TaskV2))({
+              _v: 'v1',
+              ...lastYear,
+            });
             // A row already at v2: no step runs, so its own priority survives.
-            const fromV2 = yield* TaskV2.decode({
+            const fromV2 = yield* Schema.decodeUnknownEffect(toSchema(TaskV2))({
               _v: 'v2',
               ...lastYear,
               priority: 'high',
@@ -129,7 +135,7 @@ export const addingAFieldToTasksThatAlreadyExist = Story.make({
             const oldReader = yield* task.get(key).pipe(Effect.flip);
             yield* Story.assert(
               'the read filled in the new field without touching the row',
-              seen?.value.priority === 'low' && !('_v' in seen.meta),
+              seen?.value.priority === 'low' && seen.meta._v === 'v2',
             );
             yield* Story.assert(
               'the update kept the identity and moved only the update stamp',

@@ -143,24 +143,9 @@ function valueLabel(value: unknown): string {
   return literal(value);
 }
 
-function sideLabel(side: SnapshotChange['edits'][number]['side']): string {
-  switch (side) {
-    case 'encoded':
-      return 'encoded';
-    case 'decoded':
-      return 'decoded';
-    case 'encoded-and-decoded':
-      return 'encoded and decoded';
-    default:
-      return '';
-  }
-}
-
 function editLine(edit: SnapshotChange['edits'][number]): string {
   const location = edit.path.join('.') || 'contract';
-  const side = sideLabel(edit.side);
-  const qualifier = side.length === 0 ? '' : ` · ${side}`;
-  return `${location}${qualifier}: ${valueLabel(edit.before)} → ${valueLabel(edit.after)}`;
+  return `${location}: ${valueLabel(edit.before)} → ${valueLabel(edit.after)}`;
 }
 
 function changeLines(change: SnapshotChange): readonly string[] {

@@ -19,7 +19,7 @@ describe('snapshot compatibility', () => {
     const snapshot = snapshotOf(parent);
 
     expect(sha256(JSON.stringify(snapshot))).toBe(
-      '9fb95d7277f4d885159bfb22f454744644afc83f04ebef735172923a1a2d9013',
+      'e6e7033d6a851b04eec1dec86ce2b39f77df102d6b2957f608b3c901485464f8',
     );
   });
 });

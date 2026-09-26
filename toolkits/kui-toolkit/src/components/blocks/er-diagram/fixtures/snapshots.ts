@@ -119,7 +119,7 @@ function schema(entity: Entity) {
         : [...version.fields];
       return {
         version: version.version,
-        encoded: {
+        serialized: {
           references: {},
           representation: {
             _tag: 'Objects',
@@ -131,9 +131,6 @@ function schema(entity: Entity) {
             ],
           },
         },
-        decoded: object(fields),
-        transformations: [],
-        unverifiable: [],
       };
     }),
   };

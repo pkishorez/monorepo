@@ -1,7 +1,7 @@
 import { Effect, Match, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { StdTable } from 'std-toolkit/db';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema, toSchema } from 'std-toolkit/eschema';
 import { SnapshotIncompatible, TableSnapshot } from 'std-toolkit/snapshot';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { Board } from '../../02-more-ways-in/11-keeping-boards-and-tasks-in-the-same-table/keeping-boards-and-tasks-in-the-same-table.story.js';
@@ -167,12 +167,16 @@ export const promisingNeverToBreakAnOldTask = Story.make({
               TableSnapshot.capture(tableOf(TaskEditedInPlace)),
             );
             // Read last year's row through the edited shape; the failure comes back as a value.
-            const stranded = yield* TaskEditedInPlace.decode({
+            const stranded = yield* Schema.decodeUnknownEffect(
+              toSchema(TaskEditedInPlace),
+            )({
               _v: 'v1',
               ...lastYearsTask,
             }).pipe(Effect.flip);
             // A row saved after the edit reads fine, which is what hides the fault during development.
-            const afterEdit = yield* TaskEditedInPlace.decode({
+            const afterEdit = yield* Schema.decodeUnknownEffect(
+              toSchema(TaskEditedInPlace),
+            )({
               _v: 'v1',
               ...lastYearsTask,
               priority: 'high',
@@ -184,7 +188,7 @@ export const promisingNeverToBreakAnOldTask = Story.make({
             yield* Story.assert(
               'an edited version is breaking, and does strand old rows',
               rejected(breaking).length > 0 &&
-                stranded._tag === 'ESchemaError' &&
+                stranded._tag === 'SchemaError' &&
                 afterEdit.priority === 'high',
             );
             return {

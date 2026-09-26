@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import type { DecodedEntity } from '../../../../core/index.js';
+import type { Entity } from '../../../../core/index.js';
 import { EntityESchema } from '../../../../eschema/index.js';
 import { Memory } from '../../../../db/memory/index.js';
 import { describe, expect, it } from 'vitest';
@@ -16,13 +16,9 @@ const schema = EntityESchema.make('Item', 'id', {
   name: Schema.String,
 }).build();
 
-const entity = (
-  id: string,
-  name: string,
-  updated: string,
-): DecodedEntity<Item> => ({
+const entity = (id: string, name: string, updated: string): Entity<Item> => ({
   value: { id, name },
-  meta: { _e: 'Item', _u: updated, _d: false },
+  meta: { _e: 'Item', _v: 'v1', _u: updated, _d: false },
 });
 
 const entityWithS = (
@@ -30,19 +26,20 @@ const entityWithS = (
   name: string,
   updated: string,
   settled: number,
-): DecodedEntity<Item> => ({
+): Entity<Item> => ({
   value: { id, name },
   meta: {
     _e: 'Item',
+    _v: 'v1',
     _u: updated,
     _d: false,
     _s: settled,
   },
 });
 
-const tombstone = (id: string, updated: string): DecodedEntity<Item> => ({
+const tombstone = (id: string, updated: string): Entity<Item> => ({
   value: { id, name: 'Deleted' },
-  meta: { _e: 'Item', _u: updated, _d: true },
+  meta: { _e: 'Item', _v: 'v1', _u: updated, _d: true },
 });
 
 const makeReplica = () => {
@@ -92,8 +89,8 @@ describe('Sync Replica over StdTable', () => {
       expect(accepted?.value).toEqual({ id: 'a', name: 'Alpha' });
       expect(accepted?.value).not.toHaveProperty('_v');
       expect(stored?.value.entity).toMatchObject({
-        value: { _v: 'v1', id: 'a', name: 'Alpha' },
-        meta: { _e: 'Item', _u: '1', _d: false },
+        value: { id: 'a', name: 'Alpha' },
+        meta: { _e: 'Item', _v: 'v1', _u: '1', _d: false },
       });
     }),
   );
@@ -198,7 +195,7 @@ describe('Sync Replica over StdTable', () => {
       const invalid = {
         ...entity('b', 'Beta', '1'),
         meta: { _e: 'Item' },
-      } as unknown as DecodedEntity<Item>;
+      } as unknown as Entity<Item>;
 
       yield* replica
         .applyToSyncReplica([entity('a', 'Alpha', '1'), invalid])
@@ -230,7 +227,7 @@ describe('Sync Replica over StdTable', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         value: { id: 'a', name: 'Deleted' },
-        meta: { _e: 'Item', _u: '2', _d: true },
+        meta: { _e: 'Item', _v: 'v1', _u: '2', _d: true },
       });
       expect(result[0]!.meta._c).toEqual(expect.any(Number));
     }),

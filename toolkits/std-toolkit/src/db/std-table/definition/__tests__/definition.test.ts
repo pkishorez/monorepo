@@ -215,31 +215,100 @@ describe('portable Table definition', () => {
     ).toThrow('Index slot "GSI1" is already used by this Entity');
   });
 
-  it('rejects non-string encoded index components at runtime', () => {
-    const invalid = EntityESchema.make('Invalid', 'id', {
-      count: Schema.Number,
+  it('accepts string and number key paths, nested and through union branches', () => {
+    const Doc = EntityESchema.make('Doc', 'docId', {
+      boardId: Schema.String,
+      rank: Schema.Number,
+      owner: Schema.Union([
+        Schema.Struct({ kind: Schema.Literal('user'), userId: Schema.String }),
+        Schema.Struct({
+          kind: Schema.Literal('team'),
+          teamId: Schema.String,
+          seat: Schema.Number,
+        }),
+      ]),
+      assignee: Schema.NullOr(Schema.Struct({ id: Schema.String })),
     }).build();
-    const table = makeTable();
 
+    const doc = makeTable()
+      .entity(Doc)
+      .primary({ pk: ['boardId', 'owner.kind'] })
+      .index('LSI1', 'byRank', { sk: ['rank'] })
+      .index('GSI1', 'byTeam', { pk: ['owner.teamId'], sk: ['owner.seat'] })
+      .build();
+    expect(doc.accessPatterns.byTeam).toMatchObject({
+      pk: ['owner.teamId'],
+      sk: ['owner.seat'],
+    });
     expect(() =>
-      table
-        .entity(invalid)
-        .primary({ pk: ['count' as never] })
+      makeTable()
+        .entity(Doc)
+        .primary()
+        .index('GSI1', 'byAssignee', { pk: ['assignee.id'] })
         .build(),
-    ).toThrow('Index component "count" must encode to a string');
+    ).not.toThrow();
   });
 
-  it('accepts nullable string index components', () => {
-    const nullable = EntityESchema.make('Nullable', 'id', {
+  it('refuses a primary key path that is missing or null in some values', () => {
+    const Doc = EntityESchema.make('Doc', 'docId', {
+      owner: Schema.Union([
+        Schema.Struct({ kind: Schema.Literal('user'), userId: Schema.String }),
+        Schema.Struct({ kind: Schema.Literal('team'), teamId: Schema.String }),
+      ]),
       label: Schema.NullOr(Schema.String),
     }).build();
 
     expect(() =>
       makeTable()
-        .entity(nullable)
-        .primary({ pk: ['label'] })
+        .entity(Doc)
+        .primary({ pk: ['owner.userId' as never] }),
+    ).toThrow(/"owner.userId" is missing or null in some values/);
+    expect(() =>
+      makeTable()
+        .entity(Doc)
+        .primary({ pk: ['label' as never] }),
+    ).toThrow(/"label" is missing or null in some values/);
+  });
+
+  it('treats an optional nested property as missing in some values', () => {
+    const Doc = EntityESchema.make('Doc', 'docId', {
+      owner: Schema.Struct({ id: Schema.optionalKey(Schema.String) }),
+    }).build();
+
+    expect(() =>
+      makeTable()
+        .entity(Doc)
+        .primary({ pk: ['owner.id' as never] }),
+    ).toThrow(/"owner.id" is missing or null in some values/);
+    expect(() =>
+      makeTable()
+        .entity(Doc)
+        .primary()
+        .index('GSI1', 'byOwner', { pk: ['owner.id'] })
         .build(),
     ).not.toThrow();
+  });
+
+  it('refuses key paths that do not end at a string or number', () => {
+    const Doc = EntityESchema.make('Doc', 'docId', {
+      dueAt: Schema.DateFromString,
+      tags: Schema.Array(Schema.Struct({ name: Schema.String })),
+      scores: Schema.Record(Schema.String, Schema.String),
+      done: Schema.Boolean,
+      mixed: Schema.Union([Schema.String, Schema.Number]),
+    }).build();
+    const index = (component: string) => () =>
+      makeTable()
+        .entity(Doc)
+        .primary()
+        .index('GSI1', 'byIt', { pk: [component as never] });
+
+    expect(index('dueAt')).toThrow(/"dueAt" ends at a Declaration/);
+    expect(index('tags.name')).toThrow(/"tags.name" passes through an array/);
+    expect(index('scores.a')).toThrow(/"scores.a" passes through a record/);
+    expect(index('done')).toThrow(/"done" ends at a Boolean/);
+    expect(index('mixed')).toThrow(/"mixed" mixes strings and numbers/);
+    expect(index('nothing')).toThrow(/"nothing" does not exist/);
   });
 
   it('accepts identifier-annotated string components behind $defs refs', () => {

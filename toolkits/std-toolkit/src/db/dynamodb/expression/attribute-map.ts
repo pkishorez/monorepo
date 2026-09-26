@@ -23,7 +23,7 @@ export class AttributeMapBuilder {
   /**
    * Creates a new AttributeMapBuilder with the specified prefix.
    *
-   * @param prefix - Prefix for generated attribute placeholders (u_ for update, cf_ for condition/filter, k_ for key)
+   * @param prefix - Prefix for generated attribute placeholders (cf_ for condition/filter, k_ for key)
    */
   constructor(prefix: `${'u' | 'cf' | 'k'}_`) {
     this.#prefix = prefix;
@@ -50,7 +50,7 @@ export class AttributeMapBuilder {
    * Registers a value and returns its placeholder reference.
    *
    * @param value - The value to register
-   * @returns The placeholder reference string (e.g., ":u_value_1")
+   * @returns The placeholder reference string (e.g., ":cf_value_1")
    */
   value(value: unknown) {
     this.#i++;

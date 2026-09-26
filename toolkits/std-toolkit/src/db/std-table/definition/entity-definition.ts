@@ -3,7 +3,7 @@ import type {
   AnyUnkeyedESchema,
   ESchemaType,
 } from '../../../eschema/index.js';
-import { isEncodedStringSchema } from '../../../eschema/domain/introspection/index.js';
+import { keyPathRefusal } from './key-path-shape.js';
 import type {
   AccessPatternMap,
   KeyedEntityBuilderStart,
@@ -21,13 +21,20 @@ export type RegisteredEntity = KeyedEntityDefinition | SingleEntityDefinition;
 const assertComponents = (
   schema: AnyEntityESchema,
   components: readonly string[],
+  place: 'primary' | 'secondary',
 ): void => {
   for (const component of components) {
-    if (component === '_u') continue;
-    const field = schema.fields[component];
-    if (field === undefined || !isEncodedStringSchema(field)) {
-      throw new Error(`Index component "${component}" must encode to a string`);
+    if (component === '_u') {
+      if (place === 'secondary') continue;
+      throw new Error(
+        'Index component "_u" is only allowed in a secondary index',
+      );
     }
+    const reason = keyPathRefusal(schema, component, {
+      total: place === 'primary',
+    });
+    if (reason !== undefined)
+      throw new Error(`Index component "${component}" ${reason}`);
   }
 };
 
@@ -85,8 +92,8 @@ const makeIndexesBuilder = (
     if (gsi !== undefined && source.pk === undefined) {
       throw new Error('A GSI access pattern requires partition-key components');
     }
-    assertComponents(schema, pk);
-    assertComponents(schema, sk);
+    if (lsi === undefined) assertComponents(schema, pk, 'secondary');
+    assertComponents(schema, sk, 'secondary');
     const next = {
       ...patterns,
       [name]: Object.freeze({
@@ -105,8 +112,7 @@ const makeIndexesBuilder = (
     ) as never;
   },
   build() {
-    assertComponents(schema, primaryPk);
-    assertComponents(schema, [schema.idField]);
+    assertComponents(schema, [schema.idField], 'primary');
     const entity = Object.freeze({
       kind: 'keyed' as const,
       name: schema.name,
@@ -135,7 +141,7 @@ export const makeKeyedEntityBuilder = <
 ): KeyedEntityBuilderStart<Name, TSchema, Lsis, Gsis> => ({
   primary(derivation) {
     const pk = derivation?.pk ?? [];
-    assertComponents(schema, pk);
+    assertComponents(schema, pk, 'primary');
     return makeIndexesBuilder(
       table,
       schema,

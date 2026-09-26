@@ -1,3 +1,4 @@
+import { readEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
 import { ESchema, EntityESchema, toSchema } from '../index.js';
@@ -34,7 +35,7 @@ describe('ESchema', () => {
               .build();
 
             // Legacy data persisted under the plain schema — no `_v`.
-            const decoded = yield* User.decode({ name: 'Bob' });
+            const decoded = yield* readEncoded(User, { name: 'Bob' });
 
             expect(decoded).toEqual({
               name: 'Bob',
@@ -58,7 +59,7 @@ describe('ESchema', () => {
               .build();
 
             // `name` is the wrong type for v1 — no fallback, decode rejects.
-            const error = yield* Effect.flip(User.decode({ name: 123 }));
+            const error = yield* Effect.flip(readEncoded(User, { name: 123 }));
             expect(error.message).toBe('Decode failed');
           }),
         );
@@ -71,7 +72,7 @@ describe('ESchema', () => {
                 name: Schema.String,
               }).build();
 
-              const decoded = yield* User.decode({ name: 'Bob' });
+              const decoded = yield* readEncoded(User, { name: 'Bob' });
               expect(decoded).toEqual({ name: 'Bob' });
             }),
         );
@@ -106,7 +107,7 @@ describe('ESchema', () => {
                 shippingAddress: toSchema(Address),
               }).build();
 
-              const decoded = yield* Order.decode({
+              const decoded = yield* readEncoded(Order, {
                 _v: 'v1',
                 id: 'o1',
                 customer: 'Alice',
@@ -135,7 +136,7 @@ describe('ESchema', () => {
                 shippingAddress: toSchema(Address),
               }).build();
 
-              const decoded = yield* Order.decode({
+              const decoded = yield* readEncoded(Order, {
                 _v: 'v1',
                 id: 'o1',
                 shippingAddress: { street: '1 A St', city: 'LA' },
@@ -170,7 +171,7 @@ describe('ESchema', () => {
                 .build();
 
               // The entire row predates adoption — neither level is stamped.
-              const decoded = yield* Order.decode({
+              const decoded = yield* readEncoded(Order, {
                 id: 'o1',
                 customer: 'Alice',
                 shippingAddress: { street: '123 Main', city: 'NYC' },
@@ -197,7 +198,7 @@ describe('ESchema', () => {
                 addresses: Schema.Array(toSchema(Address)),
               }).build();
 
-              const decoded = yield* Order.decode({
+              const decoded = yield* readEncoded(Order, {
                 _v: 'v1',
                 id: 'o1',
                 addresses: [
@@ -222,7 +223,7 @@ describe('ESchema', () => {
               }).build();
 
               const error = yield* Effect.flip(
-                Order.decode({
+                readEncoded(Order, {
                   _v: 'v1',
                   id: 'o1',
                   shippingAddress: { street: 123, city: 'NYC' },

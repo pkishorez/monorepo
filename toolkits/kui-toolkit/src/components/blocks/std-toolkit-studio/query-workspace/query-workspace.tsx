@@ -154,7 +154,7 @@ export function QueryWorkspace({
       (pattern) => pattern.kind === 'primary',
     );
     if (entity !== undefined && primary !== undefined) {
-      setCriteria(QueryModel.initialCriteria(entity, primary));
+      setCriteria(QueryModel.initialCriteria(snapshot, entity, primary));
     }
   };
 
@@ -210,7 +210,7 @@ export function QueryWorkspace({
   return (
     <div className="grid gap-4">
       <QueryBuilder
-        entities={snapshot.entities}
+        snapshot={snapshot}
         selectedEntity={selectedEntity}
         criteria={criteria}
         running={resultState.kind === 'loading'}

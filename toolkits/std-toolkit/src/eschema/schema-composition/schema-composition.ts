@@ -3,11 +3,15 @@ import type {
   AnyESchema,
   AnyValueESchema,
 } from '../domain/schema-model/index.js';
-import { ESchemaError } from '../domain/eschema-error/index.js';
 import {
   inspectESchema,
   registerESchemaComposition,
 } from '../domain/introspection/index.js';
+import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
+import type {
+  ESchemaError,
+  OutdatedVersion,
+} from '../domain/eschema-error/index.js';
 
 const compositionSchemas = new WeakMap<object, Schema.Top>();
 
@@ -27,11 +31,11 @@ export function toSchema(eschema: AnyESchema | AnyValueESchema): Schema.Top {
     ? `ValueESchema_${eschema.name}`
     : `ESchema_${eschema.name}`;
   const encodedSchema = eschema.schema.annotate({ identifier });
-  const toIssue = (input: unknown, error: ESchemaError) =>
+  const toIssue = (input: unknown, error: ESchemaError | OutdatedVersion) =>
     new SchemaIssue.InvalidValue(
-      {
-        message: error.message,
-      },
+      error._tag === 'OutdatedVersion'
+        ? { message: error.message, outdatedVersion: error }
+        : { message: error.message },
       input,
     );
   const surrogate = Schema.declare<unknown>(
@@ -49,16 +53,16 @@ export function toSchema(eschema: AnyESchema | AnyValueESchema): Schema.Top {
   });
   const composed = surrogate
     .pipe(
-      Schema.decodeTo(Schema.Unknown, {
+      Schema.decodeTo(Schema.toType(eschema.schema as Schema.Top), {
         decode: SchemaGetter.transformOrFail((input: unknown) =>
-          eschema
-            .decode(input)
-            .pipe(Effect.mapError((error) => toIssue(input, error))),
+          readEncoded(eschema, input).pipe(
+            Effect.mapError((error) => toIssue(input, error)),
+          ),
         ),
         encode: SchemaGetter.transformOrFail((input: unknown) =>
-          eschema
-            .encode(input as never)
-            .pipe(Effect.mapError((error) => toIssue(input, error))),
+          writeEncoded(eschema, input as never).pipe(
+            Effect.mapError((error) => toIssue(input, error)),
+          ),
         ),
       }),
     )

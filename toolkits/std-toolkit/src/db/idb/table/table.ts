@@ -12,7 +12,7 @@ import { nativeFailure, requestPromise } from './request.js';
 import { scanItems } from './scan.js';
 import { transactionPromise } from './transaction.js';
 import { storedConditionHolds, writeFailure } from './write.js';
-import { decodeKey, itemSchema } from '../item-schema/index.js';
+import { toNativeKey, itemSchema } from '../item-schema/index.js';
 
 const abortQuietly = (transaction: IDBTransaction) => {
   try {
@@ -41,7 +41,7 @@ export const makeTableContract = (
           const request = connection
             .transaction(storeName)
             .objectStore(storeName)
-            .get(decodeKey(key));
+            .get(toNativeKey(key));
           const result = (await requestPromise(request)) as
             | Record<string, unknown>
             | undefined;
@@ -93,7 +93,7 @@ export const makeTableContract = (
         try: async () => {
           const connection = await database.open();
           const transaction = connection.transaction(storeName, 'readwrite');
-          transaction.objectStore(storeName).delete(decodeKey(key));
+          transaction.objectStore(storeName).delete(toNativeKey(key));
           await transactionPromise(transaction);
         },
         catch: nativeFailure,

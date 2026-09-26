@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { EntitySchema, type DecodedEntity } from '../../../core/index.js';
+import { EntitySchema, type Entity } from '../../../core/index.js';
 import type { AnyESchema } from '../../../eschema/index.js';
 import { ESchemaError } from '../../../eschema/index.js';
 
@@ -22,12 +22,7 @@ export const makePeerMessageCodec = <S extends AnyESchema>(schema: S) => {
         );
         return { version: envelope.version, entities };
       }),
-    encode: (
-      entities: readonly [
-        DecodedEntity<S['Type']>,
-        ...DecodedEntity<S['Type']>[],
-      ],
-    ) =>
+    encode: (entities: readonly [Entity<S['Type']>, ...Entity<S['Type']>[]]) =>
       Effect.gen(function* () {
         if (entities.length === 0) {
           return yield* new ESchemaError({

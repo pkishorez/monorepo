@@ -186,7 +186,7 @@ const screen = createLiveQueryCollection({
 ```
 
 - `EntityESchema.make(...).build()` produces a schema that encodes with a `_v` stamp and decodes any past version to the latest shape.
-- `table.entity(Task).primary({ pk: ['boardId'] })` maps schema fields to the table's key attributes; the sort key is always the id field.
+- `table.entity(Task).primary({ pk: ['boardId'] })` maps key paths of the value to the table's key attributes; the sort key is always the id field. A key path may reach into nested objects and union branches (`owner.teamId`) and must end at a string or number.
 - `Memory.make(table).layer` satisfies the `StdTableService<'board'>` requirement of every `task.*` call. Any other adapter's layer does the same.
 - `createStdSync` needs a platform only to persist its replica (`syncStore` is itself a StdTable) and to elect a leader. In a real page use `browser()` from `std-toolkit/sync/platform/browser`.
 - A partition worker starts when a TanStack query filters on `boardId`. `cursor` is exclusive: return entities strictly after it.

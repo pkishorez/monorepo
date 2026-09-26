@@ -11,11 +11,13 @@ const table = StdTable.make('refused')
   .gsi('GSI1', 'GSI1PK', 'GSI1SK')
   .build();
 
-// A task that also carries a number: how many times it was viewed.
+// A task that also carries a number, a flag, and a date.
 const ViewedTask = EntityESchema.make('ViewedTask', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
   views: Schema.Number,
+  pinned: Schema.Boolean,
+  dueAt: Schema.DateFromString,
 }).build();
 
 // Runs an attachment and hands back the reason it was refused, or `built` when it was not.
@@ -30,35 +32,49 @@ const outcome = (build: () => unknown) =>
 export const keyPartsAndIndexSlotsThatDoNotFit = Story.make({
   title: 'Key parts and index slots that do not fit',
   description:
-    'A key is text, so only a text field can be part of one, and one entity can claim each slot and each pattern name only once.',
+    'A key part is a string or a number, and one entity can claim each slot and each pattern name only once.',
   sourceUrl: import.meta.url,
   questions: [
-    Story.question('Can a number be part of a key?', {
+    Story.question('What can be part of a key?', {
       answer:
-        'No. A key part is joined into a string with the other parts, so only a field whose stored form is text can be one; a number, a boolean, a list or an object is refused when the entity is attached. Store the number as text if it must order rows.',
+        'A string or a number, read from the task by its key path. Numbers are stored so that they still sort as numbers. A boolean, a list, or a converted value such as a `Date` is refused when the entity is attached; to key by a date, keep its string in a field of its own.',
       proof: Effect.gen(function* () {
-        // Order by `views` in a same-partition slot; the number is refused as a key part.
-        const asSortKey = yield* outcome(() =>
+        // Order by `views` in a same-partition slot; a number is a key part.
+        const byViews = yield* outcome(() =>
           table
             .entity(ViewedTask)
             .primary({ pk: ['boardId'] })
-            .index('LSI1', 'byViews', { sk: ['views'] as never })
+            .index('LSI1', 'byViews', { sk: ['views'] })
             .build(),
         );
-        // Group by `views` in the primary key; refused for the same reason.
-        const asPartitionKey = yield* outcome(() =>
+        // Order by the flag; refused.
+        const byPinned = yield* outcome(() =>
           table
             .entity(ViewedTask)
-            .primary({ pk: ['views'] as never })
+            .primary({ pk: ['boardId'] })
+            .index('LSI1', 'byPinned', { sk: ['pinned'] as never })
+            .build(),
+        );
+        // Order by the date; refused, because code holds a Date, not text.
+        const byDue = yield* outcome(() =>
+          table
+            .entity(ViewedTask)
+            .primary({ pk: ['boardId'] })
+            .index('LSI1', 'byDue', { sk: ['dueAt'] as never })
             .build(),
         );
         yield* Story.assert(
-          'a number field is refused wherever it would become a key part',
-          asSortKey === 'Index component "views" must encode to a string' &&
-            asPartitionKey ===
-              'Index component "views" must encode to a string',
+          'a number field is a key part',
+          byViews === 'built',
         );
-        return { asSortKey, asPartitionKey };
+        yield* Story.assert(
+          'a boolean and a Date are refused',
+          byPinned ===
+            'Index component "pinned" ends at a Boolean, not a string or number' &&
+            byDue ===
+              'Index component "dueAt" ends at a Declaration, not a string or number',
+        );
+        return { byViews, byPinned, byDue };
       }),
     }),
     Story.question(

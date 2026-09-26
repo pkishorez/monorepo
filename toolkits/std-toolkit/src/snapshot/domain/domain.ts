@@ -3,18 +3,7 @@ import { ESchema } from '../../eschema/index.js';
 
 const ESchemaVersionSchema = Schema.Struct({
   version: Schema.String,
-  encoded: Schema.Unknown,
-  decoded: Schema.Unknown,
-  transformations: Schema.Array(
-    Schema.Struct({ path: Schema.String, name: Schema.String }),
-  ),
-  unverifiable: Schema.Array(
-    Schema.Struct({
-      path: Schema.String,
-      kind: Schema.String,
-      message: Schema.String,
-    }),
-  ),
+  serialized: Schema.Unknown,
 });
 
 const ESchemaDefinitionSchema = Schema.Struct({
@@ -89,7 +78,6 @@ export interface SnapshotChange {
   };
   readonly action: 'added' | 'removed' | 'edited';
   readonly edits: readonly {
-    readonly side?: 'encoded' | 'decoded' | 'encoded-and-decoded' | 'contract';
     readonly path: readonly string[];
     readonly before?: unknown;
     readonly after?: unknown;

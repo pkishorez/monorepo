@@ -3,15 +3,19 @@ import type {
   ESchemaDescriptor,
   Evolution,
   Prettify,
-  StructFieldsDecoded,
+  StructFieldsType,
   StructFieldsEncoded,
   StructFieldsSchema,
 } from '../schema-model/index.js';
 import { metaSchema, schemaDescriptor, struct } from '../schema-model/index.js';
 import {
   ESchemaError,
+  findOutdatedVersion,
+  type OutdatedVersion,
   UnrepresentableFieldError,
+  unknownVersion,
 } from '../eschema-error/index.js';
+import { registerEncoded } from '../encoded/index.js';
 import {
   findUnrepresentableField,
   registerESchemaIntrospection,
@@ -63,7 +67,10 @@ export function makeObjectSchemaRuntime<
 
   const decode = (
     value: unknown,
-  ): Effect.Effect<Prettify<StructFieldsDecoded<TLatest>>, ESchemaError> =>
+  ): Effect.Effect<
+    Prettify<StructFieldsType<TLatest>>,
+    ESchemaError | OutdatedVersion
+  > =>
     Effect.gen(function* () {
       const version = yield* Schema.decodeUnknownEffect(metaSchema)(value).pipe(
         Effect.map((metadata) => metadata._v),
@@ -76,16 +83,16 @@ export function makeObjectSchemaRuntime<
       );
       const evolution = evolutions[index];
       if (index === -1 || evolution === undefined) {
-        return yield* new ESchemaError({
-          message: `Unknown schema version: ${version}`,
-        });
+        return yield* unknownVersion(input.name, version, input.latestVersion);
       }
 
       let data = yield* Schema.decodeUnknownEffect(struct(evolution.schema))(
         value,
       ).pipe(
         Effect.mapError(
-          (cause) => new ESchemaError({ message: 'Decode failed', cause }),
+          (cause) =>
+            findOutdatedVersion(cause) ??
+            new ESchemaError({ message: 'Decode failed', cause }),
         ),
       );
       for (let next = index + 1; next < evolutions.length; next++) {
@@ -102,11 +109,11 @@ export function makeObjectSchemaRuntime<
             }),
         });
       }
-      return data as Prettify<StructFieldsDecoded<TLatest>>;
+      return data as Prettify<StructFieldsType<TLatest>>;
     });
 
   const encode = (
-    value: StructFieldsDecoded<TLatest>,
+    value: StructFieldsType<TLatest>,
   ): Effect.Effect<
     Prettify<StructFieldsEncoded<TLatest>> & { readonly _v: TVersion },
     ESchemaError
@@ -128,10 +135,10 @@ export function makeObjectSchemaRuntime<
       };
     });
 
+  registerEncoded(input.owner, { read: decode, write: encode });
+
   return {
     fields,
-    decode,
-    encode,
     descriptor: (): ESchemaDescriptor =>
       schemaDescriptor(
         Schema.Struct({

@@ -6,7 +6,7 @@ import { EntityESchema } from '../../../../eschema/index.js';
 import { noStrategyState } from '../../../strategy/state/index.js';
 import { createStdSync } from '../../../std-sync/std-sync.js';
 import type { EffectRuntime } from '../../../platform/effect-runner/index.js';
-import type { DecodedEntity } from '../../../../core/index.js';
+import type { Entity } from '../../../../core/index.js';
 import {
   contractLayer,
   type StdTableContract,
@@ -23,7 +23,7 @@ const subset = {
     type: 'func' as const,
     name: 'eq' as const,
     args: [
-      { type: 'ref' as const, path: ['comments', 'postId'] },
+      { type: 'ref' as const, path: ['postId'] },
       { type: 'val' as const, value: 'post-1' },
     ],
   },
@@ -98,9 +98,9 @@ describe('collection flow tracing', () => {
       runPromise: <A, E>(effect: Effect.Effect<A, E, never>) =>
         Effect.runPromise(instrument(effect)),
     } satisfies EffectRuntime<never>;
-    const entity: DecodedEntity<typeof schema.Type> = {
+    const entity: Entity<typeof schema.Type> = {
       value: { id: 'comment-1', postId: 'post-1', body: 'Hello' },
-      meta: { _e: 'Comment', _u: '1', _d: false },
+      meta: { _e: 'Comment', _v: 'v1', _u: '1', _d: false },
     };
     const strategy = (name: string, writes = false) => ({
       name,
@@ -108,7 +108,7 @@ describe('collection flow tracing', () => {
       run: (ctx: {
         flow: { event: (name: string) => Effect.Effect<void> };
         applyToSyncReplica: (
-          entities: DecodedEntity<typeof schema.Type>[],
+          entities: Entity<typeof schema.Type>[],
         ) => Effect.Effect<void, unknown>;
       }) =>
         ctx.flow

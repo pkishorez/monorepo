@@ -33,7 +33,7 @@ const User = ESchema.make('User', {
   .build();
 
 // a January row: { _v: 'v1', name: 'Alice' }
-// decode() → { name: 'Alice', age: 0 }   — always the latest shape
+// read → { name: 'Alice', age: 0 }   — always the latest shape
 ```
 
 The database never has to change. Old rows are never rewritten. Code only ever
@@ -48,17 +48,45 @@ happens to the data. The builder enforces the rest at compile time — versions
 in sequence, no optional fields, no underscore keys, and (for entities) hands
 off the id.
 
-## Decode and encode
+## Reading and writing
 
-All the time travel lives in `decode`: read the `_v` stamp, validate the
-payload against _that_ version, then fold it forward through every later
-migration to the latest shape. Bad data — unstamped rows, unknown versions,
-corrupt payloads — is stopped here.
+Data takes two forms. The **encoded** form is what is stored and sent — the
+database, the wire, the Sync Store — in whichever version it was written, with
+its version beside it. The **value** is the latest shape, typed
+`typeof User.Type`, and it is the only thing your code ever handles: every
+database operation, broadcast, and transport payload gives you values.
 
-Encode never time-travels. Where decode understands every version, encode
-speaks exactly one language: the latest. It validates against the newest
-schema, runs field codecs toward storage, and stamps `_v`. No migration ever
-runs on the write path — that asymmetry is the safe design.
+The two forms may differ field by field. `Schema.DateFromString` is a `Date`
+in the value and an ISO string in the encoded form; the toolkit converts at
+every boundary, so you never write that conversion yourself:
+
+```ts
+const Task = EntityESchema.make('Task', 'taskId', {
+  dueAt: Schema.DateFromString, // stored "2026-09-01T09:00:00.000Z"
+}).build();
+
+typeof Task.Type; // { taskId: string; dueAt: Date }
+typeof Task.Encoded; // { taskId: string; dueAt: string; _v: 'v1' }
+```
+
+Only the encoded side is versioned and captured by a snapshot. Swapping
+`Schema.String` for `Schema.DateFromString` over the same stored string needs
+no new version, provided every stored value already parses; a field must never
+change meaning without changing its name or its encoded shape.
+
+All the time travel lives in decoding: take the version, read the payload
+with _that_ version's fields (converting them into values), then fold it
+forward through every later migration to the latest value. Migrations work on
+values, so a migration can build a `Date` from an old string field. Bad data — unknown versions, corrupt payloads — is stopped
+here. A version newer than the schema knows fails with `OutdatedVersion`, so a
+reader running older code can tell it is out of date rather than looking at
+bad data. For an Entity, the version sits in its meta as `_v`; a nested ESchema
+value carries its own inline `_v`.
+
+Encoding never time-travels. Where decoding understands every version, encoding
+speaks exactly one language: the latest. It converts the value with the newest
+schema and stamps the latest version. No migration ever runs on the write path
+— that asymmetry is the safe design.
 
 ## The three kinds of ESchema
 
@@ -166,15 +194,12 @@ sharp edges worth knowing before you rely on it.
   version literal (`'v2'` after `'v1'`), but that guarantee lives in the
   types. Nothing re-checks it at runtime, so generated or hand-edited
   declarations are on their own.
-- **`makePartial` does not validate.** It stamps `_v` onto whatever partial
-  you hand it and returns it — transformed fields stay in their decoded form.
-  It is a typing convenience for patches, not a codec.
 - **A bare value is always read as v1.** A value without an envelope is
   treated as data from before adoption, so it is migrated from v1 on every
   read. If a bare value is written after adoption (by hand, or by code that
-  skips `encode`), an old version that accepts it migrates it again: a bare
+  skips the schema), an old version that accepts it migrates it again: a bare
   `'dark'` under a string v1 can come back as `'light'`. Once adopted, always
-  write through `encode`.
+  write through the schema.
 
 ## Best practices
 

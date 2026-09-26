@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { DecodedEntity } from 'std-toolkit/core';
+import type { Entity } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
 import { SYNC_PAGE_SIZE } from '../constants.js';
 import {
@@ -156,16 +156,16 @@ export const saveSession = (
 
 const everyPage = <T extends object>(
   fetchPage: (
-    after: DecodedEntity<T> | undefined,
+    after: Entity<T> | undefined,
   ) => Effect.Effect<
-    { readonly items: readonly DecodedEntity<T>[]; readonly hasMore: boolean },
+    { readonly items: readonly Entity<T>[]; readonly hasMore: boolean },
     unknown,
     Table
   >,
-): Effect.Effect<ReadonlyArray<DecodedEntity<T>>, never, Table> =>
+): Effect.Effect<ReadonlyArray<Entity<T>>, never, Table> =>
   Effect.gen(function* () {
-    const collected: DecodedEntity<T>[] = [];
-    let after: DecodedEntity<T> | undefined;
+    const collected: Entity<T>[] = [];
+    let after: Entity<T> | undefined;
     while (true) {
       const page = yield* fetchPage(after).pipe(Effect.orDie);
       collected.push(...page.items);

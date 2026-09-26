@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
-import type { DecodedEntity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';
-import { isDecodedEntity } from '../../domain/entity-validation/index.js';
+import { isEntity } from '../../domain/entity-validation/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { CollectionFlow } from '../../flow/sync-flow/index.js';
 import type { CollectionName } from '../../domain/identity/index.js';
@@ -11,11 +11,9 @@ export type CollectionHandle = {
   schemaName: string;
   collectionName: CollectionName;
   applyToSyncReplica: (
-    entities: DecodedEntity<unknown>[],
+    entities: Entity<unknown>[],
   ) => Effect.Effect<void, WriteError>;
-  projectOnly: (
-    entities: DecodedEntity<unknown>[],
-  ) => Effect.Effect<void, WriteError>;
+  projectOnly: (entities: Entity<unknown>[]) => Effect.Effect<void, WriteError>;
   flow: () => CollectionFlow | null;
   stop: Effect.Effect<void>;
   restart: Effect.Effect<void, WriteError>;
@@ -58,7 +56,7 @@ export const buildRegistry = <R>(
       !Array.isArray(message.values) ||
       !('persist' in message) ||
       typeof message.persist !== 'boolean' ||
-      !message.values.every(isDecodedEntity)
+      !message.values.every(isEntity)
     ) {
       throw new Error(
         '[sync] registry.process requires { values: Entity[]; persist: boolean }.',
@@ -66,10 +64,10 @@ export const buildRegistry = <R>(
     }
 
     const { values, persist } = message as {
-      values: DecodedEntity<unknown>[];
+      values: Entity<unknown>[];
       persist: boolean;
     };
-    const groups = new Map<string, DecodedEntity<unknown>[]>();
+    const groups = new Map<string, Entity<unknown>[]>();
     for (const entity of values) {
       const type = entity.meta._e;
       const group = groups.get(type) ?? [];

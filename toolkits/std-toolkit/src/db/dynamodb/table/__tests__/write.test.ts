@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
-import type { EncodedItem } from '../../../std-table/contract/index.js';
+import type { StoredItem } from '../../../std-table/contract/index.js';
 import type { PutItemInput } from '../../client/generated/types.js';
 import type { DynamoDBClient } from '../../client/index.js';
 import { makeTableContract } from '../table.js';
@@ -11,7 +11,7 @@ const table = {
   globalSecondaryIndexes: {},
 };
 
-const item: EncodedItem = {
+const item: StoredItem = {
   pk: 'person',
   sk: 'one',
   meta: {

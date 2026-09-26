@@ -1,5 +1,5 @@
 import { Effect, Stream } from 'effect';
-import type { DecodedEntity } from '../../../../core/index.js';
+import type { Entity } from '../../../../core/index.js';
 import type { PartitionedStrategy, StrategyContext } from '../index.js';
 import {
   openPartitionedSource,
@@ -7,7 +7,7 @@ import {
   type ForwardSourceBuilder,
 } from '../source/index.js';
 import { newestOf } from '../slice-coverage.js';
-import { OldToNewStateSchema, type OldToNewState } from './state.js';
+import { oldToNewStateSchema, type OldToNewState } from './state.js';
 
 export type OldToNewConfig<TItem, R = never> = {
   source: ForwardSourceBuilder<TItem, R>;
@@ -24,14 +24,13 @@ export const oldToNew = <TItem extends object, R = never>(
 ): PartitionedStrategy<TItem, OldToNewState, R> => ({
   name: 'old-to-new',
   state: {
-    schema: OldToNewStateSchema,
+    schema: oldToNewStateSchema,
     empty: { cursor: null },
   },
   run: (ctx: StrategyContext<TItem, OldToNewState>) => {
     const source = config.source(partitionedSources);
     return Effect.gen(function* () {
-      const cursor = (yield* ctx.getState)
-        .cursor as DecodedEntity<TItem> | null;
+      const cursor = (yield* ctx.getState).cursor as Entity<TItem> | null;
       yield* ctx.flow.event(
         cursor === null
           ? 'Opening the source from the beginning'

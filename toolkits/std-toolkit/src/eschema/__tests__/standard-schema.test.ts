@@ -37,16 +37,11 @@ describe('ESchema', () => {
           name: Schema.String,
         }).build();
 
-        const result = schema['~standard'].validate({
-          _v: 'v99',
-          id: 'u1',
-          name: 'Alice',
-        });
+        const result = schema['~standard'].validate({ id: 'u1' });
 
         expect('issues' in result).toBe(true);
         if ('issues' in result && result.issues) {
           expect(result.issues.length).toBeGreaterThan(0);
-          expect(result.issues[0]?.message).toContain('Unknown schema version');
         }
       });
 
@@ -71,7 +66,7 @@ describe('ESchema', () => {
         expect(_standard['~standard'].version).toBe(1);
       });
 
-      it('works with evolved schemas', () => {
+      it('validates the migrated form of evolved schemas', () => {
         const schema = EntityESchema.make('User', 'id', {
           name: Schema.String,
         })
@@ -90,9 +85,7 @@ describe('ESchema', () => {
           id: 'u1',
           name: 'Alice',
         });
-        expect(v1Result).toEqual({
-          value: { id: 'u1', name: 'Alice', email: 'default@example.com' },
-        });
+        expect('issues' in v1Result).toBe(true);
 
         const v2Result = schema['~standard'].validate({
           _v: 'v2',
