@@ -1,6 +1,7 @@
 /**
  * Stores left by earlier versions: the engines' own caches from before the
- * shared downloader, and segments from its short-lived parallel version.
+ * shared downloader, segments from its short-lived parallel version, and
+ * ONNX runtime files it once joined from compressed ranges into broken ones.
  * All are deleted once found; deleting a missing one does nothing.
  */
 import { Effect } from 'effect';
@@ -9,12 +10,19 @@ const transformersCache = 'transformers-cache';
 const parakeetDatabase = 'parakeet-cache-db';
 const downloadsStore = 'stt-downloads';
 const oldSegmentKeys = 'https://segments.stt.invalid/';
+const runtimeFiles = 'https://cdn.jsdelivr.net/';
 
-const deleteOldSegments = Effect.promise(async () => {
+/** A piece's key names its file in the `url` parameter. */
+const isStale = (key: string): boolean =>
+  key.startsWith(oldSegmentKeys) ||
+  key.startsWith(runtimeFiles) ||
+  (new URL(key).searchParams.get('url') ?? '').startsWith(runtimeFiles);
+
+const deleteStaleEntries = Effect.promise(async () => {
   if (!(await caches.has(downloadsStore))) return;
   const cache = await caches.open(downloadsStore);
   for (const request of await cache.keys()) {
-    if (request.url.startsWith(oldSegmentKeys)) await cache.delete(request);
+    if (isStale(request.url)) await cache.delete(request);
   }
 });
 
@@ -31,7 +39,7 @@ const deleteDatabase = (name: string) =>
 export const deleteLegacyStores: Effect.Effect<void> = Effect.gen(function* () {
   if ('caches' in globalThis) {
     yield* Effect.promise(() => caches.delete(transformersCache));
-    yield* deleteOldSegments;
+    yield* deleteStaleEntries;
   }
   if ('indexedDB' in globalThis) yield* deleteDatabase(parakeetDatabase);
 }).pipe(Effect.ignore);
