@@ -1,5 +1,12 @@
 # kai-toolkit
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [[`541bb24`](https://github.com/pkishorez/monorepo/commit/541bb243030a45f6ca33e0cfe482ee70637c56c7)]:
+  - std-toolkit@0.0.12
+
 ## 0.0.3
 
 ### Patch Changes

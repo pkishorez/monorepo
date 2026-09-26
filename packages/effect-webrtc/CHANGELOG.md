@@ -1,5 +1,14 @@
 # effect-webrtc
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies []:
+  - auth-toolkit@0.0.5
+  - @pkishorez/flow@0.0.12
+  - rpc-toolkit@0.0.2
+
 ## 0.0.2
 
 ### Patch Changes
