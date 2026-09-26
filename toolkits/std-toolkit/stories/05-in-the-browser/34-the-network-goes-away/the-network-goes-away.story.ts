@@ -1,14 +1,8 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { Effect, Schedule, Schema } from 'effect';
+import { Effect, Schedule } from 'effect';
 import { Story } from 'laymos/story';
-import { Memory } from 'std-toolkit/db/memory';
-import {
-  createStdSync,
-  OutboxUnreachable,
-  syncStore,
-  syncStrategy,
-} from 'std-toolkit/sync';
-import { connectivity, fresh, platform } from '../../env.js';
+import { createStdSync, strategy, type SyncEvent } from 'std-toolkit/sync';
+import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -35,310 +29,221 @@ const plan = {
 } as const;
 const review = { ...plan, taskId: 't2', title: 'Review it' };
 
-// Every write the server received, as `what:task`, in the order it arrived.
-const writes: string[] = [];
+// The network, as a switch the proof flips. Offline, every call to the server fails.
+const network = { online: true };
+const overTheNetwork = <A, E, R>(call: Effect.Effect<A, E, R>) =>
+  Effect.suspend((): Effect.Effect<A, E | 'no network', R> =>
+    network.online ? call : Effect.fail('no network'),
+  );
 
-// One browser that can lose its network. `connectivity()` from `env.ts` is a switch the proof flips; the outbox keeps every write until the server has confirmed it.
-const openOffline = Effect.gen(function* () {
-  const network = connectivity();
-  const store = Memory.make(syncStore).layer;
-  const app = createStdSync({
-    name: 'board-offline',
-    platform: {
-      ...platform(),
-      storeLayer: store,
-      connectivity: network.connectivity,
-    },
-    runtime: yield* browserRuntime,
-    options: { gcTime: 1 },
-    outbox: true,
-  });
-  // A handler that finds the network gone says so with `OutboxUnreachable`, and its write stays kept rather than failed.
-  const reachable = <A, E, R>(
-    write: Effect.Effect<A, E, R>,
-  ): Effect.Effect<A, E | OutboxUnreachable, R> =>
-    network.connectivity.isOnline()
-      ? write
-      : Effect.fail(new OutboxUnreachable({ message: 'no network' }));
-  const tasks = app.collection({
-    schema: Task,
-    sync: {
-      partitions: {
-        boardId: (boardId) => ({
-          strategy: syncStrategy.oldToNew({
-            source: ({ paginated }) =>
-              paginated({ fetch: ({ cursor }) => changesOn(boardId, cursor) }),
-          }),
-        }),
-      },
-    },
-    onInsert: (items) =>
-      Effect.forEach(items, (item) =>
-        reachable(task.insert(item)).pipe(
-          Effect.tap(() =>
-            Effect.sync(() => writes.push(`insert:${item.taskId}`)),
-          ),
-        ),
-      ),
-    onUpdate: ({ current, updates }) =>
-      reachable(
-        task.getAndUpdate(
-          { taskId: current.taskId, boardId: current.boardId },
-          updates,
-        ),
-      ).pipe(
-        Effect.tap(() =>
-          Effect.sync(() => writes.push(`update:${current.taskId}`)),
-        ),
-      ),
-  });
-  const screen = createLiveQueryCollection({
-    query: (q) =>
-      q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
-    startSync: true,
-    gcTime: 1,
-  });
-  yield* Effect.promise(() => screen.preload());
-  yield* until(() => screen.size === 2);
-  // What the outbox holds right now: one line per kept write.
-  const kept = app.outbox.entity
-    .query('primary', { pk: { sync: 'board-offline' }, '>=': null })
-    .pipe(
-      Effect.provide(store),
-      Effect.map((page) =>
-        page.items.map(({ value }) => ({
-          id: value.key,
-          name: value.name,
-          status: value.status,
-        })),
-      ),
-    );
-  // Waits until the outbox is empty.
-  const drained = kept.pipe(
+// When each read of the server started, in milliseconds.
+const attempts: number[] = [];
+
+// Each proof gets a browser of its own: a durable (fake IndexedDB) store under a name no other proof uses.
+let browsers = 0;
+const newBrowser = () => `board-offline-${++browsers}`;
+
+// Waits like `until` from chapter 25, but for up to six seconds: long enough to sit through a retry or two.
+const untilLater = (check: () => boolean) =>
+  Effect.sync(check).pipe(
     Effect.repeat({
-      schedule: Schedule.spaced('5 millis'),
-      until: (entries) => entries.length === 0,
-      times: 400,
+      schedule: Schedule.spaced('20 millis'),
+      until: (passed) => passed,
+      times: 300,
     }),
   );
-  const shows = () =>
-    screen.toArray.map(({ taskId, title, status, colour, $synced }) => ({
-      taskId,
-      title,
-      status,
-      colour,
-      $synced,
-    }));
-  const close = Effect.promise(async () => {
-    await screen.cleanup();
-    await app.dispose();
+
+// One page load: an app whose copy lives in the browser's durable store, a Task collection that reads and writes over the network switch, and a screen on the `work` board. Every event sync reports lands in `events`.
+const openPage = (databaseName: string) =>
+  Effect.gen(function* () {
+    const events: SyncEvent[] = [];
+    const app = createStdSync({
+      name: 'board-offline',
+      platform: platform({ store: 'idb', databaseName }),
+      runtime: yield* browserRuntime,
+      options: { gcTime: 1 },
+      onEvent: (event) => Effect.sync(() => void events.push(event)),
+    });
+    const tasks = app.collection(Task, {
+      sync: {
+        partitions: {
+          boardId: (boardId) =>
+            strategy.oldToNew({
+              fetch: ({ after }) =>
+                Effect.suspend(() => {
+                  attempts.push(Date.now());
+                  return overTheNetwork(changesOn(boardId, after));
+                }),
+            }),
+        },
+      },
+      onUpdate: ({ current, updates }) =>
+        overTheNetwork(
+          task.getAndUpdate(
+            { taskId: current.taskId, boardId: current.boardId },
+            updates,
+          ),
+        ),
+    });
+    const screen = createLiveQueryCollection({
+      query: (q) =>
+        q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
+      startSync: true,
+      // Nothing subscribes to this screen the way a page would, so keep it
+      // until the chapter cleans it up.
+      gcTime: 60_000,
+    });
+    yield* Effect.promise(() => screen.preload());
+    // What the page shows, as `id:status`.
+    const shows = () =>
+      screen.toArray.map(({ taskId, status }) => `${taskId}:${status}`);
+    const close = Effect.promise(async () => {
+      await screen.cleanup();
+      await app.dispose();
+    });
+    return { tasks, screen, shows, events, close };
   });
-  return { app, network, tasks, screen, shows, kept, drained, close };
-});
+
+// Yesterday: the page opened online, read the board into the browser's store, and closed.
+const visitedYesterday = (databaseName: string) =>
+  Effect.gen(function* () {
+    network.online = true;
+    const page = yield* openPage(databaseName);
+    yield* until(() => page.screen.size === 2);
+    yield* page.close;
+  });
 
 export const theNetworkGoesAway = Story.make({
   title: 'The network goes away',
   description:
-    'Edits made with no network: what the screen shows, where the writes wait, what happens to them when the network is back, and what happens when the server turns one down.',
+    'A page with no network: what it shows when it opens, what sync does while the server is out of reach, and what happens to an edit made in the meantime.',
   spine: true,
   sourceUrl: import.meta.url,
+  timeout: '30 seconds',
   questions: [
     Story.question(
-      'Editing while offline: what shows, and where is the write kept?',
+      'The page opens with no network. What does the board show?',
       {
         answer:
-          "The screen shows the edit at once, as not yet confirmed, and stays that way. With `outbox: true` every write is first kept in the outbox (a list of unconfirmed writes in the browser's own store, one entry per write) and only then sent; with no network, sending waits, and the entry is still there after a reload if the store is durable.",
+          'What it showed last time. The collection fills the screen from the browser\'s own copy before it asks the server anything, so the board is there even though that first read fails. The copy has to be durable for this: IndexedDB in a real browser, a fake one here (`platform({ store: "idb", databaseName })`); a copy in memory is gone when the page closes.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
               yield* task.insert(plan);
               yield* task.insert(review);
-              writes.length = 0;
-              const { network, tasks, shows, kept, close } = yield* openOffline;
-              // The network goes away.
-              yield* network.offline;
-              // Mark a task done. Nothing waits on the write: offline, it would wait for hours.
-              tasks.update('t1', (row) => {
-                row.status = 'done';
-              });
-              const atOnce = shows();
-              yield* Effect.sleep('50 millis');
-              // The write is kept in the outbox, and the server has not seen it.
-              const inOutbox = yield* kept;
-              const onServer = (yield* task.get({
-                taskId: 't1',
-                boardId: 'work',
-              }))?.value.status;
+              const browser = newBrowser();
+              yield* visitedYesterday(browser);
+              // Today the network is gone before the page opens.
+              network.online = false;
+              const page = yield* openPage(browser);
+              const atOnce = page.shows();
+              // Wait until the page has tried the server and failed.
+              yield* until(() => page.events.length > 0);
+              const failed = page.events.map(({ _tag }) => _tag);
               yield* Story.assert(
-                'the screen shows the edit, not yet confirmed',
-                atOnce.find(({ taskId }) => taskId === 't1')?.status ===
-                  'done' &&
-                  atOnce.find(({ taskId }) => taskId === 't1')?.$synced ===
-                    false,
+                'the board showed both tasks the moment the page opened',
+                atOnce.join() === 't1:open,t2:open',
               );
               yield* Story.assert(
-                'one pending entry is kept, and the server was not written to',
-                inOutbox.length === 1 &&
-                  inOutbox[0]?.status === 'pending' &&
-                  writes.length === 0 &&
-                  onServer === 'open',
+                'the read from the server failed, and the board stayed',
+                failed[0] === 'SessionFailed' && page.screen.size === 2,
               );
-              yield* close;
-              return { atOnce, inOutbox, onServer };
+              yield* page.close;
+              network.online = true;
+              return { atOnce, failed };
             }),
           ),
         ),
       },
     ),
-    Story.question(
-      'Reconnecting: what happens to the kept writes, and in what order?',
-      {
-        answer:
-          'They are sent, each task in the order its edits were made and different tasks side by side; several edits to one task fold into one write. Something that is not one task, like greying out a whole board, is an offline action: a named, checked payload with an `onMutate` for the screen and a `mutationFn` for the server, kept and replayed the same way.',
-        proof: onBoard(
-          Story.flow(
-            Effect.gen(function* () {
-              yield* task.insert(plan);
-              yield* task.insert(review);
-              writes.length = 0;
-              const { app, network, tasks, shows, kept, drained, close } =
-                yield* openOffline;
-              // An offline action: grey out every task on a board.
-              const greyOut = app.createOfflineAction({
-                name: 'grey-out-board',
-                payload: Schema.Struct({ boardId: Schema.String }),
-                onMutate: ({ boardId }) => {
-                  for (const row of tasks.toArray)
-                    if (row.boardId === boardId)
-                      tasks.update(row.taskId, (draft) => {
-                        draft.colour = 'grey';
-                      });
-                },
-                mutationFn: ({ boardId }) =>
-                  Effect.forEach(['t1', 't2'], (taskId) =>
-                    task.getAndUpdate({ taskId, boardId }, { colour: 'grey' }),
-                  ).pipe(
-                    Effect.tap(() =>
-                      Effect.sync(() => writes.push(`grey-out:${boardId}`)),
-                    ),
-                  ),
-              });
-              yield* network.offline;
-              // Offline: two edits to one task, one to another, and the action.
-              tasks.update('t1', (row) => {
-                row.title = 'Write the plan today';
-              });
-              tasks.update('t1', (row) => {
-                row.status = 'done';
-              });
-              tasks.update('t2', (row) => {
-                row.status = 'done';
-              });
-              greyOut({ boardId: 'work' });
-              yield* Effect.sleep('50 millis');
-              const keptOffline = yield* kept;
-              // The network is back.
-              yield* network.online;
-              yield* drained;
-              const onServer = yield* Effect.forEach(['t1', 't2'], (taskId) =>
-                task
-                  .get({ taskId, boardId: 'work' })
-                  .pipe(Effect.map((row) => row?.value)),
-              );
-              yield* Story.assert(
-                'four entries were kept: three edits and one action',
-                keptOffline.length === 4 &&
-                  keptOffline.filter(
-                    ({ name }) => name === 'action:grey-out-board',
-                  ).length === 1,
-              );
-              yield* Story.assert(
-                'the two edits to t1 folded into one write, and everything reached the server',
-                writes.filter((write) => write === 'update:t1').length === 1 &&
-                  writes.length === 3 &&
-                  onServer[0]?.title === 'Write the plan today' &&
-                  onServer[0].status === 'done' &&
-                  onServer.every((row) => row?.colour === 'grey'),
-              );
-              const shown = shows();
-              yield* close;
-              return { keptOffline, writes: [...writes], onServer, shown };
-            }),
-          ),
-        ),
-      },
-    ),
-    Story.question('The server refuses a replayed write. What happens?', {
+    Story.question('The server stays out of reach. Does sync give up?', {
       answer:
-        "That entry is marked `failed`, its edit rolls back off the screen — here the server's own `t3` syncs down in its place — and the other entries carry on; nothing is retried on its own. A failed entry stays in the outbox for the app to look at until it is discarded with `outbox.discard`.",
+        'No. Each failed read is reported to `onEvent` as `SessionFailed` and tried again from where the copy got to, after a delay that doubles each time: one second, then two, then four, up to thirty. The screen keeps what it has meanwhile. Once the network is back, the next try catches up on everything the server saved while the page was cut off.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
             yield* task.insert(plan);
             yield* task.insert(review);
-            writes.length = 0;
-            const { app, network, tasks, screen, kept, close } =
-              yield* openOffline;
-            // Meanwhile someone else saved `t3` on the server; this browser has not seen it.
+            const browser = newBrowser();
+            yield* visitedYesterday(browser);
+            // Offline; meanwhile someone saves a third task on the server.
+            network.online = false;
             yield* task.insert({ ...plan, taskId: 't3', title: 'Send it' });
-            yield* network.offline;
-            // Offline: create a `t3` of our own, and finish `t1`.
-            const create = tasks.insert({
-              ...plan,
-              taskId: 't3',
-              title: 'Ship it',
-            });
-            tasks.update('t1', (row) => {
+            attempts.length = 0;
+            const page = yield* openPage(browser);
+            // Two tries fail.
+            yield* untilLater(() => page.events.length === 2);
+            const whileOffline = page.shows();
+            // The network is back.
+            network.online = true;
+            const caughtUp = yield* untilLater(() => page.screen.size === 3);
+            const gaps = [
+              attempts[1]! - attempts[0]!,
+              attempts[2]! - attempts[1]!,
+            ];
+            yield* Story.assert(
+              'two failures were reported, and the board stayed meanwhile',
+              page.events.every(({ _tag }) => _tag === 'SessionFailed') &&
+                whileOffline.join() === 't1:open,t2:open',
+            );
+            yield* Story.assert(
+              'the second wait was about twice the first',
+              gaps[0]! >= 900 && gaps[1]! >= 1.5 * gaps[0]!,
+            );
+            yield* Story.assert(
+              'once back online, the next try brought in the new task',
+              caughtUp,
+            );
+            const shown = page.shows();
+            yield* page.close;
+            return { whileOffline, gaps, shown };
+          }),
+        ),
+      ),
+    }),
+    Story.question('An edit while offline: is it kept for later?', {
+      answer:
+        "No, not in this version. The edit shows at once as not yet confirmed; then the collection's `onUpdate` tries the server, fails, and TanStack DB rolls the edit back off the screen, so the page never claims a change the server does not have. The app hears about it through the write's `isPersisted` promise, which rejects. Keeping writes until the network returns (an outbox) is planned for a later version.",
+      proof: onBoard(
+        Story.flow(
+          Effect.gen(function* () {
+            yield* task.insert(plan);
+            yield* task.insert(review);
+            network.online = true;
+            const page = yield* openPage(newBrowser());
+            yield* until(() => page.screen.size === 2);
+            // The network goes away.
+            network.online = false;
+            // Mark a task done.
+            const edit = page.tasks.update('t1', (row) => {
               row.status = 'done';
             });
-            const atOnce = screen.size;
-            // The network is back; the server refuses the second `t3`.
-            yield* network.online;
+            const row = page.tasks.get('t1');
+            const atOnce = { status: row?.status, synced: row?.$synced };
+            // The server cannot be reached, so the write fails.
             const refused = yield* Effect.tryPromise({
-              try: () => create.isPersisted.promise,
+              try: () => edit.isPersisted.promise,
               catch: (error) => error,
             }).pipe(Effect.flip);
-            // Waits until the delivered edit is gone from the outbox and only the failed entry is left.
-            const afterwards = yield* kept.pipe(
-              Effect.repeat({
-                schedule: Schedule.spaced('5 millis'),
-                until: (entries) =>
-                  entries.length === 1 && entries[0]?.status === 'failed',
-                times: 400,
-              }),
+            const rolledBack = yield* until(() =>
+              page.shows().includes('t1:open'),
             );
-            const failed = afterwards.find(({ status }) => status === 'failed');
-            // Take the failed entry out of the outbox.
-            if (failed)
-              yield* Effect.promise(() => app.outbox.discard(failed.id));
-            const discarded = yield* kept;
-            // Our refused `t3` rolls back, and the server's own `t3` syncs down in its place.
-            const settled = yield* until(() =>
-              screen.toArray.some(
-                ({ taskId, title }) => taskId === 't3' && title === 'Send it',
-              ),
+            const onServer = (yield* task.get({
+              taskId: 't1',
+              boardId: 'work',
+            }))?.value.status;
+            yield* Story.assert(
+              'the screen showed the edit at once, not yet confirmed',
+              atOnce.status === 'done' && atOnce.synced === false,
             );
             yield* Story.assert(
-              "the refused create came off the screen, the server's t3 took its place, and the other edit went through",
-              atOnce === 3 &&
-                settled &&
-                screen.size === 3 &&
-                writes.join() === 'update:t1',
+              'the write failed and the edit came off the screen',
+              refused !== undefined && rolledBack && onServer === 'open',
             );
-            yield* Story.assert(
-              'the entry was kept as failed until it was discarded',
-              failed?.name === 'collection:board-offline.task' &&
-                discarded.length === 0,
-            );
-            yield* close;
-            return {
-              atOnce,
-              refused: String(refused),
-              afterwards,
-              discarded,
-              writes: [...writes],
-              size: screen.size,
-            };
+            const shown = page.shows();
+            yield* page.close;
+            network.online = true;
+            return { atOnce, refused: String(refused), shown, onServer };
           }),
         ),
       ),

@@ -1,17 +1,30 @@
 import { createLiveQueryCollection } from '@tanstack/react-db';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { createStdSync } from 'std-toolkit/sync';
+import type { StdTableService } from 'std-toolkit/db';
+import { EntityESchema } from 'std-toolkit/eschema';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { table } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
-import {
-  Settings,
-  settings,
-} from '../../02-more-ways-in/12-one-record-that-exists-exactly-once/one-record-that-exists-exactly-once.story.js';
 import {
   browserRuntime,
   until,
 } from '../25-showing-the-board-in-the-browser/showing-the-board-in-the-browser.story.js';
+
+// The settings from chapter 12, with one change: an id field, `settingsId`. There is still only one record; it always has the id `board`.
+export const BoardSettings = EntityESchema.make('BoardSettings', 'settingsId', {
+  theme: Schema.Literals(['light', 'dark']),
+  perPage: Schema.Number,
+}).build();
+
+// The one fixed id.
+const settingsId = 'board';
+
+// The settings attached to the table like any other entity, keyed by that id.
+export const boardSettings = table
+  .entity(BoardSettings)
+  .primary({ pk: ['settingsId'] })
+  .build();
 
 // Runs a program against a brand-new, empty copy of the table in memory: the server.
 const onBoard = fresh('memory', table);
@@ -26,32 +39,54 @@ const openApp = Effect.map(browserRuntime, (runtime) =>
   }),
 );
 
+// How the collection reads the server: the one record, if it changed after `after`. With no `pollEvery`, the collection reads once when it starts and stops there.
+const readOnce = strategy.oldToNew<
+  typeof BoardSettings.Type,
+  StdTableService<'board'>
+>({
+  fetch: ({ after }) =>
+    boardSettings
+      .get({ settingsId })
+      .pipe(
+        Effect.map((row) =>
+          row === null || (after !== null && row.meta._u <= after.meta._u)
+            ? []
+            : [row],
+        ),
+      ),
+});
+
 export const boardSettingsInTheBrowser = Story.make({
   title: 'Board settings in the browser',
   description:
-    'The single settings record from chapter 12, shown and changed from the browser.',
+    'The board settings from chapter 12, kept as one row with a fixed id, shown and changed from the browser.',
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
     Story.question('How does a single record reach the browser?', {
       answer:
-        "Through `singleItemCollection`: a collection that holds exactly one row, with no id, read through a `source`. `once` reads it one time when the collection starts; `poll` reads it again on a schedule; `subscribe` takes a stream of replacements. The row's key is the record's name, `Settings`.",
+        'As an ordinary collection that happens to hold one row. A collection needs an id for every row, and a record with no id is modeled, for now, as one fixed key: the settings get a `settingsId` field that is always `board`. The collection reads it with `strategy.oldToNew` and a `global` strategy, which runs as soon as the collection is watched. With only a `fetch`, it reads once when the collection starts; add `pollEvery` to read it again on a schedule, or `subscribe` to be sent each change.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
             // The server holds dark settings.
-            yield* settings.put({ theme: 'dark', perPage: 50 });
+            yield* boardSettings.insert({
+              settingsId,
+              theme: 'dark',
+              perPage: 50,
+            });
             const app = yield* openApp;
             // The collection: one record, read once from the server.
-            const current = app.singleItemCollection({
-              schema: Settings,
-              source: ({ once }) => once({ fetch: () => settings.get() }),
+            const current = app.collection(BoardSettings, {
+              sync: { global: readOnce },
             });
             // A screen watching it.
             const screen = createLiveQueryCollection({
               query: (q) => q.from({ settings: current }),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             yield* Effect.promise(() => screen.preload());
             yield* until(() => screen.size === 1);
@@ -67,8 +102,8 @@ export const boardSettingsInTheBrowser = Story.make({
                 shown.length === 1,
             );
             yield* Story.assert(
-              'its key is the record name',
-              keys.join() === 'Settings',
+              'its key is the fixed id',
+              keys.join() === settingsId,
             );
             yield* Effect.promise(() => screen.cleanup());
             yield* Effect.promise(() => app.dispose());
@@ -79,26 +114,34 @@ export const boardSettingsInTheBrowser = Story.make({
     }),
     Story.question('And changing it from the browser?', {
       answer:
-        'Give it an `onUpdate` that gets only the changed fields (`updates`) and writes them to the server with the call from chapter 12. The screen shows the change at once; the confirmed record follows when the server answers.',
+        'Exactly as with a task in chapter 26: give the collection an `onUpdate` that gets only the changed fields (`updates`), writes them to the server under the fixed id, and returns what the server stored. The screen shows the change at once; the confirmed record follows when the server answers.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
+            // The server holds the light settings.
+            yield* boardSettings.insert({
+              settingsId,
+              theme: 'light',
+              perPage: 20,
+            });
             const app = yield* openApp;
             // The collection, now able to write the changed fields back.
-            const current = app.singleItemCollection({
-              schema: Settings,
-              source: ({ once }) => once({ fetch: () => settings.get() }),
-              onUpdate: ({ updates }) => settings.getAndUpdate(updates),
+            const current = app.collection(BoardSettings, {
+              sync: { global: readOnce },
+              onUpdate: ({ updates }) =>
+                boardSettings.getAndUpdate({ settingsId }, updates),
             });
             const screen = createLiveQueryCollection({
               query: (q) => q.from({ settings: current }),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             yield* Effect.promise(() => screen.preload());
             yield* until(() => screen.size === 1);
             // Switch to the dark theme from the browser.
-            const write = current.update('Settings', (row) => {
+            const write = current.update(settingsId, (row) => {
               row.theme = 'dark';
             });
             // Straight away the screen shows it, not yet confirmed.
@@ -107,7 +150,7 @@ export const boardSettingsInTheBrowser = Story.make({
             );
             // Wait for the server to confirm it.
             yield* Effect.promise(() => write.isPersisted.promise);
-            const onServer = yield* settings.get();
+            const onServer = yield* boardSettings.get({ settingsId });
             yield* Story.assert(
               'the screen switched at once, keeping the other field',
               atOnce[0]?.theme === 'dark' &&
@@ -117,7 +160,7 @@ export const boardSettingsInTheBrowser = Story.make({
             yield* Story.assert(
               'the server stored the change',
               write.state === 'completed' &&
-                onServer.value.theme === 'dark' &&
+                onServer?.value.theme === 'dark' &&
                 onServer.value.perPage === 20,
             );
             yield* Effect.promise(() => screen.cleanup());

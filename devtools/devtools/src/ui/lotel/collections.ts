@@ -1,9 +1,9 @@
-import { Effect, Stream } from 'effect';
+import { Effect } from 'effect';
 import { DevtoolsRpc } from '../../rpc/index.js';
 import { LogEntitySchema, SpanEntitySchema } from '@pkishorez/lotel/telemetry';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { Entity } from 'std-toolkit/core';
-import { createStdSync, syncStrategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 import {
   DevtoolsClient,
   makeDevtoolsClientLayer,
@@ -46,54 +46,28 @@ export function buildTelemetryCollections() {
         return res.items;
       }).pipe(Effect.provide(layer), Effect.orDie);
 
-    return syncStrategy.newToOld<V>({
-      // Finite backfill: page descending from the resume cursor toward the
-      // oldest record, one `PAGE_SIZE` batch at a time. An empty page proves the
-      // floor and ends the backfill.
-      backfill: ({ paginated }) =>
-        paginated({
-          fetch: ({ cursor }) => fetchPage({ '<': cursor?.meta._u ?? null }),
-        }),
-      // Live tail: page forward strictly after the anchor in `PAGE_SIZE` chunks,
-      // staying open. A full page means a backlog remains, so keep draining
-      // without idling; only sleep once a short page proves we've caught up.
-      tail: ({ live }) =>
-        live({
-          open: ({ cursor }) => {
-            let anchor = cursor?.meta._u ?? null;
-            return Stream.fromEffectRepeat(
-              Effect.gen(function* () {
-                const items = yield* fetchPage({ '>': anchor });
-                if (items.length > 0) anchor = items[items.length - 1]!.meta._u;
-                if (items.length < PAGE_SIZE)
-                  yield* Effect.sleep(POLL_INTERVAL_MS);
-                return items;
-              }),
-            );
-          },
-        }),
+    // Newest first: show the latest page, fill in older pages in the
+    // background, and poll for newer ones.
+    return strategy.newToOld<V>({
+      fetchOlder: ({ before }) => fetchPage({ '<': before?.meta._u ?? null }),
+      fetch: ({ after }) => fetchPage({ '>': after?.meta._u ?? null }),
+      pollEvery: POLL_INTERVAL_MS,
     });
   };
 
-  const traces = std.collection({
-    schema: SpanEntitySchema,
+  const traces = std.collection(SpanEntitySchema, {
     sync: {
-      total: {
-        strategy: newToOldStrategy<SpanRecord>((client, query) =>
-          client.ListSpans(query),
-        ),
-      },
+      global: newToOldStrategy<SpanRecord>((client, query) =>
+        client.ListSpans(query),
+      ),
     },
   });
 
-  const logs = std.collection({
-    schema: LogEntitySchema,
+  const logs = std.collection(LogEntitySchema, {
     sync: {
-      total: {
-        strategy: newToOldStrategy<LogRecord>((client, query) =>
-          client.ListLogs(query),
-        ),
-      },
+      global: newToOldStrategy<LogRecord>((client, query) =>
+        client.ListLogs(query),
+      ),
     },
   });
 

@@ -3,9 +3,7 @@ import { Effect, Schedule } from 'effect';
 import { Story } from 'laymos/story';
 import type { Entity } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
-import { Memory } from 'std-toolkit/db/memory';
-import { createStdSync, syncStore, syncStrategy } from 'std-toolkit/sync';
-import { inMemoryLeadership } from 'std-toolkit/sync/leadership/in-memory';
+import { createStdSync, memory, strategy } from 'std-toolkit/sync';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -26,12 +24,6 @@ const draft = {
   colour: 'blue',
   notes: '',
 } as const;
-
-// What the browser needs from the place it runs in: somewhere to keep its own copy of the board (memory here), and a way for tabs to agree who talks to the server. Built fresh for every question, like a page load.
-const browserPlatform = () => ({
-  storeLayer: Memory.make(syncStore).layer,
-  leadershipLayer: inMemoryLeadership(),
-});
 
 // The browser runs where the proof runs: it borrows the proof's services, so its calls reach the same table and land in the same recording. A real page has no proof and leaves `runtime` out.
 export const browserRuntime = Effect.map(
@@ -109,27 +101,22 @@ export const showingTheBoardInTheBrowser = Story.make({
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
-              // The app: a name every tab of this page shares, the platform, and the runtime it runs in.
+              // The app: a name every tab of this page shares, the platform, and the runtime it runs in. The platform is what the browser needs from the place it runs in: somewhere to keep its own copy of the board, and a way for tabs to share the work. `memory()` keeps the copy in memory and shares nothing; it is also what you get if you leave `platform` out.
               const app = createStdSync({
                 name: 'board-shown',
-                platform: browserPlatform(),
+                platform: memory(),
                 runtime: yield* browserRuntime,
                 options: { gcTime: 1 },
               });
-              // The collection: Task, read one board at a time, by asking the server for anything new every 20 milliseconds.
-              const tasks = app.collection({
-                schema: Task,
+              // The collection: Task, read one board at a time, by asking the server for anything newer than what it has, every 20 milliseconds.
+              const tasks = app.collection(Task, {
                 sync: {
                   partitions: {
-                    boardId: (boardId) => ({
-                      strategy: syncStrategy.oldToNew({
-                        source: ({ poll }) =>
-                          poll({
-                            fetch: ({ cursor }) => changesOn(boardId, cursor),
-                            schedule: Schedule.spaced('20 millis'),
-                          }),
+                    boardId: (boardId) =>
+                      strategy.oldToNew({
+                        fetch: ({ after }) => changesOn(boardId, after),
+                        pollEvery: '20 millis',
                       }),
-                    }),
                   },
                 },
               });
@@ -140,7 +127,9 @@ export const showingTheBoardInTheBrowser = Story.make({
                     .from({ task: tasks })
                     .where(({ task }) => eq(task.boardId, 'work')),
                 startSync: true,
-                gcTime: 1,
+                // Nothing subscribes to this screen the way a page would, so keep it
+                // until the chapter cleans it up.
+                gcTime: 60_000,
               });
               // Wait until the screen is ready to show something.
               yield* Effect.promise(() => screen.preload());
@@ -170,23 +159,18 @@ export const showingTheBoardInTheBrowser = Story.make({
               // The same app, collection and screen as before.
               const app = createStdSync({
                 name: 'board-shown',
-                platform: browserPlatform(),
+                platform: memory(),
                 runtime: yield* browserRuntime,
                 options: { gcTime: 1 },
               });
-              const tasks = app.collection({
-                schema: Task,
+              const tasks = app.collection(Task, {
                 sync: {
                   partitions: {
-                    boardId: (boardId) => ({
-                      strategy: syncStrategy.oldToNew({
-                        source: ({ poll }) =>
-                          poll({
-                            fetch: ({ cursor }) => changesOn(boardId, cursor),
-                            schedule: Schedule.spaced('20 millis'),
-                          }),
+                    boardId: (boardId) =>
+                      strategy.oldToNew({
+                        fetch: ({ after }) => changesOn(boardId, after),
+                        pollEvery: '20 millis',
                       }),
-                    }),
                   },
                 },
               });
@@ -196,7 +180,9 @@ export const showingTheBoardInTheBrowser = Story.make({
                     .from({ task: tasks })
                     .where(({ task }) => eq(task.boardId, 'work')),
                 startSync: true,
-                gcTime: 1,
+                // Nothing subscribes to this screen the way a page would, so keep it
+                // until the chapter cleans it up.
+                gcTime: 60_000,
               });
               yield* Effect.promise(() => screen.preload());
               // The server saves a task; the browser is not told.

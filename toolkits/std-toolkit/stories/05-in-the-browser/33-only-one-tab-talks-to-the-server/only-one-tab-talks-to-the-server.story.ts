@@ -3,11 +3,10 @@ import { Effect, Stream } from 'effect';
 import { Story } from 'laymos/story';
 import {
   createStdSync,
-  syncStrategy,
+  strategy,
   type StdSyncPlatform,
 } from 'std-toolkit/sync';
-import { inMemoryLeadership } from 'std-toolkit/sync/leadership/in-memory';
-import { platform } from '../../env.js';
+import { browserTabs, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { task } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
 import { until } from '../25-showing-the-board-in-the-browser/showing-the-board-in-the-browser.story.js';
@@ -17,7 +16,7 @@ import {
   pushedChanges,
 } from '../28-catching-up-on-what-you-missed/catching-up-on-what-you-missed.story.js';
 
-// The task on the server.
+// A task on the server, on the `work` board.
 const plan = {
   taskId: 't1',
   boardId: 'work',
@@ -28,11 +27,15 @@ const plan = {
   notes: '',
 } as const;
 
-// Which tabs opened a reader on the server, in order.
+// Every reader a tab opened on the server, in order, as `tab:board:after`, where `after` is the newest task it already had (`start` for none).
 const readers: string[] = [];
 
-// One tab on a platform of the question's choosing: a Task collection read through the pushed changes from chapter 28, and a screen on the `work` board.
-const openTab = (label: string, tabPlatform: StdSyncPlatform) =>
+// One tab on a platform of the question's choosing: a Task collection read through the pushed changes from chapter 28, and a screen on each board it is given (`work` unless said otherwise).
+const openTab = (
+  label: string,
+  tabPlatform: StdSyncPlatform,
+  boards: readonly string[] = ['work'],
+) =>
   Effect.gen(function* () {
     const app = createStdSync({
       name: 'board-one-reader',
@@ -40,43 +43,51 @@ const openTab = (label: string, tabPlatform: StdSyncPlatform) =>
       runtime: yield* browserRuntime,
       options: { gcTime: 1 },
     });
-    const tasks = app.collection({
-      schema: Task,
+    const tasks = app.collection(Task, {
       sync: {
         partitions: {
-          boardId: (boardId) => ({
-            strategy: syncStrategy.oldToNew({
-              source: ({ live }) =>
-                live({
-                  open: ({ cursor }) =>
-                    Stream.suspend(() => {
-                      readers.push(label);
-                      return pushedChanges(boardId, cursor);
-                    }),
+          boardId: (boardId) =>
+            strategy.oldToNew({
+              subscribe: ({ after }) =>
+                Stream.suspend(() => {
+                  readers.push(
+                    `${label}:${boardId}:${after?.value.taskId ?? 'start'}`,
+                  );
+                  return pushedChanges(boardId, after);
                 }),
             }),
-          }),
         },
       },
     });
-    const screen = createLiveQueryCollection({
-      query: (q) =>
-        q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
-      startSync: true,
-      gcTime: 1,
-    });
-    yield* Effect.promise(() => screen.preload());
+    const screens = boards.map((boardId) =>
+      createLiveQueryCollection({
+        query: (q) =>
+          q
+            .from({ task: tasks })
+            .where(({ task }) => eq(task.boardId, boardId)),
+        startSync: true,
+        // Nothing subscribes to this screen the way a page would, so keep it
+        // until the chapter cleans it up.
+        gcTime: 60_000,
+      }),
+    );
+    yield* Effect.forEach(screens, (screen) =>
+      Effect.promise(() => screen.preload()),
+    );
+    const screen = screens[0]!;
+    // How many tasks the tab shows across all its screens.
+    const size = () => screens.reduce((total, one) => total + one.size, 0);
     const close = Effect.promise(async () => {
-      await screen.cleanup();
+      await Promise.all(screens.map((one) => one.cleanup()));
       await app.dispose();
     });
-    return { label, screen, close };
+    return { label, screen, size, close };
   });
 
 export const onlyOneTabTalksToTheServer = Story.make({
   title: 'Only one tab talks to the server',
   description:
-    'Ten tabs, one connection to the server: how tabs agree on who reads, what happens when that tab goes away, and what a late tab can and cannot expect.',
+    'Ten tabs, one connection to the server: how tabs agree on who reads, what happens when that tab goes away, and how the reading of different boards is shared out.',
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
@@ -84,29 +95,25 @@ export const onlyOneTabTalksToTheServer = Story.make({
       'Is leadership automatic, and do ten tabs share one reader?',
       {
         answer:
-          'It is not automatic: each tab reads the server on its own until the tabs are given one shared leadership (an agreement on which tab owns a reader, with the others waiting their turn). `platform()` here makes a private one per call; give every tab the same `inMemoryLeadership()` and ten tabs open one reader, and peer sync keeps the other nine current.',
+          'It is not automatic: tabs that share nothing each read the server on their own. Tabs of one browser share leadership (a lock per reading job: the tab holding it reads, the others wait their turn), so ten tabs open one reader. That tab saves what it reads in the shared store and rings the doorbell, and the other nine show it from there. `browserTabs()` gives every tab the same store, lock and doorbell; `platform()` gives a tab its own.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
-              // Two tabs, each with its own private leadership: both read.
+              // Two tabs that share nothing: both read.
               readers.length = 0;
               const alone = [
-                yield* openTab('a', platform({ peerSync: true })),
-                yield* openTab('b', platform({ peerSync: true })),
+                yield* openTab('a', platform()),
+                yield* openTab('b', platform()),
               ];
               yield* until(() => readers.length === 2);
               const withoutSharing = [...readers];
               yield* Effect.forEach(alone, (tab) => tab.close);
-              // Ten tabs sharing one leadership: one reads.
+              // Ten tabs of one browser: one reads.
               readers.length = 0;
-              const leadership = inMemoryLeadership();
+              const browser = browserTabs();
               const tabs = yield* Effect.forEach(
                 Array.from({ length: 10 }, (_, index) => `tab-${index + 1}`),
-                (label) =>
-                  openTab(label, {
-                    ...platform({ peerSync: true }),
-                    leadershipLayer: leadership,
-                  }),
+                (label) => openTab(label, browser.tab()),
               );
               yield* until(() => readers.length === 1);
               yield* Effect.sleep('30 millis');
@@ -116,7 +123,7 @@ export const onlyOneTabTalksToTheServer = Story.make({
                 tabs.every((tab) => tab.screen.size === 1),
               );
               yield* Story.assert(
-                'without shared leadership, both tabs read',
+                'tabs that share nothing both read',
                 withoutSharing.length === 2,
               );
               const withSharing = [...readers];
@@ -124,7 +131,7 @@ export const onlyOneTabTalksToTheServer = Story.make({
                 (tab) => tab.screen.size === 1,
               ).length;
               yield* Story.assert(
-                'with it, one tab read and all ten showed the task',
+                'tabs of one browser opened one reader, and all ten showed the task',
                 withSharing.length === 1 && allShow,
               );
               yield* Effect.forEach(tabs, (tab) => tab.close);
@@ -134,113 +141,83 @@ export const onlyOneTabTalksToTheServer = Story.make({
         ),
       },
     ),
-    Story.question('Closing or hiding the leader: who takes over?', {
+    Story.question('Closing the leader: who takes over?', {
       answer:
-        'The next tab waiting: closing the leader releases its place and another tab opens the reader, carrying on from what its own copy already has. In a real browser the default is `webLockLeadership`, which also hands over when the leading tab is hidden or frozen; chapter 35 shows that on the real platform.',
+        'The next tab waiting. Closing the leader releases its lock, and a waiting tab opens the reader. It does not start over: the leader saved how far it had read in the shared store, so the new leader asks only for what came after. A real browser does the same with Web Locks, which the browser releases when a tab closes or crashes; chapter 35 shows that on the real platform.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
+            yield* task.insert(plan);
             readers.length = 0;
-            const leadership = inMemoryLeadership();
-            const first = yield* openTab('first', {
-              ...platform({ peerSync: true }),
-              leadershipLayer: leadership,
-            });
-            yield* until(() => readers.length === 1);
-            const second = yield* openTab('second', {
-              ...platform({ peerSync: true }),
-              leadershipLayer: leadership,
-            });
+            const browser = browserTabs();
+            const first = yield* openTab('first', browser.tab());
+            yield* until(() => first.screen.size === 1);
+            const second = yield* openTab('second', browser.tab());
             yield* Effect.sleep('30 millis');
             const beforeClosing = [...readers];
             // Close the leader.
             yield* first.close;
             const tookOver = yield* until(() => readers.length === 2);
             // The server saves a task; the new leader's screen shows it.
-            yield* task.insert(plan);
-            const shown = yield* until(() => second.screen.size === 1);
+            yield* task.insert({ ...plan, taskId: 't2', title: 'Review it' });
+            const shown = yield* until(() => second.screen.size === 2);
             yield* Story.assert(
               'the second tab waited while the first led',
-              beforeClosing.join() === 'first',
+              beforeClosing.join() === 'first:work:start',
             );
             yield* Story.assert(
-              'then took over and kept reading',
-              tookOver && readers.join() === 'first,second' && shown,
+              'then took over from where the first had got to, and kept reading',
+              tookOver && readers[1] === 'second:work:t1' && shown,
             );
             yield* second.close;
-            return { beforeClosing, afterClosing: readers };
+            return { beforeClosing, afterClosing: [...readers] };
           }),
         ),
       ),
     }),
     Story.question(
-      'Can a late tab with its own in-memory copy miss old data?',
+      'Two tabs look at different boards. Does one tab read them all?',
       {
         answer:
-          'Yes: leadership only stops the late tab from opening a second reader — it does not hand it what the leader already read, and peer sync does not repeat old messages. A shared durable copy fixes that: with `store: "idb"` the leader writes into the same copy and a late tab fills its screen from it before waiting its turn, because leadership is not a cache.',
+          'No: every reading job has its own lock, so each board is led by whichever tab opened it first. Here the first tab leads `work`, and the second tab, which also shows `home`, leads that. One lock for the whole app would leave `home` with no reader, since only the second tab wants it. Either way every tab shows what any leader read, because they all read from the one store.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
+              readers.length = 0;
+              const browser = browserTabs();
+              // The first tab shows `work`; the second shows `work` and `home`.
+              const first = yield* openTab('first', browser.tab(), ['work']);
+              yield* until(() => readers.length === 1);
+              const second = yield* openTab('second', browser.tab(), [
+                'work',
+                'home',
+              ]);
+              yield* until(() => readers.length === 2);
+              yield* Effect.sleep('30 millis');
+              const opened = [...readers].sort();
+              // The server saves one task on each board.
               yield* task.insert(plan);
-              // In memory: the leader reads the task, then a late tab opens with an empty copy of its own.
-              readers.length = 0;
-              const leadership = inMemoryLeadership();
-              const leader = yield* openTab('leader', {
-                ...platform({ peerSync: true }),
-                leadershipLayer: leadership,
+              yield* task.insert({
+                ...plan,
+                taskId: 't2',
+                boardId: 'home',
+                title: 'Buy milk',
               });
-              // A witness tab was present the whole time: once its screen fills
-              // over peer sync, the leader's message has definitely been sent.
-              const witness = yield* openTab('witness', {
-                ...platform({ peerSync: true }),
-                leadershipLayer: leadership,
-              });
-              yield* until(() => leader.screen.size === 1);
-              yield* until(() => witness.screen.size === 1);
-              yield* witness.close;
-              // Only now open the late tab: the telling already happened, and
-              // peer sync does not repeat it.
-              const late = yield* openTab('late', {
-                ...platform({ peerSync: true }),
-                leadershipLayer: leadership,
-              });
-              yield* Effect.sleep('50 millis');
-              const inMemory = {
-                late: late.screen.size,
-                readers: [...readers],
-              };
-              yield* leader.close;
-              yield* late.close;
-              // Shared durable copy: the same again, but both tabs keep their copy in one IndexedDB database.
-              readers.length = 0;
-              const shared = inMemoryLeadership();
-              const durable = () => ({
-                ...platform({
-                  peerSync: true,
-                  store: 'idb',
-                  databaseName: 'one-browser',
-                }),
-                leadershipLayer: shared,
-              });
-              const durableLeader = yield* openTab('leader', durable());
-              yield* until(() => durableLeader.screen.size === 1);
-              const durableLate = yield* openTab('late', durable());
-              const filled = yield* until(() => durableLate.screen.size === 1);
-              const withStore = {
-                late: durableLate.screen.size,
-                readers: [...readers],
-              };
+              const allShow = yield* until(
+                () => first.size() === 1 && second.size() === 2,
+              );
+              const shows = { first: first.size(), second: second.size() };
               yield* Story.assert(
-                'the late in-memory tab stayed empty, and no second reader opened',
-                inMemory.late === 0 && inMemory.readers.join() === 'leader',
+                'the first tab reads work, and the second reads home',
+                opened.join() === 'first:work:start,second:home:start',
               );
               yield* Story.assert(
-                'the late tab on the shared copy showed the task, still with one reader',
-                filled && withStore.readers.join() === 'leader',
+                'and each tab shows every board it looks at',
+                allShow,
               );
-              yield* durableLeader.close;
-              yield* durableLate.close;
-              return { inMemory, withStore };
+              yield* first.close;
+              yield* second.close;
+              return { opened, shows };
             }),
           ),
         ),

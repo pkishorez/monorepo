@@ -45,13 +45,6 @@ const watch = <T extends object>(config: {
     Stream.suspend(config.subscribe).pipe(
       Stream.groupedWithin(PUSH_BATCH_SIZE, Duration.millis(PUSH_WINDOW)),
     ),
-  ).pipe(
-    Stream.map((batch) =>
-      batch.map((row) => ({
-        ...row,
-        meta: { ...row.meta, _s: Date.now() },
-      })),
-    ),
   );
 
 const page = <T extends object>(after: Entity<T> | null) => ({

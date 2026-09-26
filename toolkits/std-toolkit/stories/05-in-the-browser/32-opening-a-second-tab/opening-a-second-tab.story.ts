@@ -1,8 +1,13 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { Effect, Schedule } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { createStdSync, syncStrategy } from 'std-toolkit/sync';
-import { fresh, platform } from '../../env.js';
+import type { Entity } from 'std-toolkit/core';
+import {
+  createStdSync,
+  strategy,
+  type StdSyncPlatform,
+} from 'std-toolkit/sync';
+import { browserTabs, fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
   table,
@@ -29,42 +34,39 @@ const plan = {
 } as const;
 const review = { ...plan, taskId: 't2', title: 'Review it' };
 
-// How many times each tab asked the server for the board.
-const reads: Record<string, number> = {};
+// Every time a tab asked the server for the board, as `tab:after`, where `after` is the newest task the tab already had (`start` for none).
+const reads: string[] = [];
 
-// One browser tab: its own app on its own platform, a Task collection that can read and write, and a screen on the `work` board. `peerSync` lets tabs of one browser talk to each other; `keepReading` polls the server instead of reading once.
+// One browser tab: its own app on the platform it is given, a Task collection that can read and write, and a screen on the `work` board. `keepReading` asks the server every 100 milliseconds instead of catching up once.
 const openTab = (
   label: string,
-  options: { readonly peerSync: boolean; readonly keepReading?: boolean },
+  tabPlatform: StdSyncPlatform,
+  options: { readonly keepReading?: boolean } = {},
 ) =>
   Effect.gen(function* () {
     const app = createStdSync({
       name: 'board-two-tabs',
-      platform: platform({ peerSync: options.peerSync }),
+      platform: tabPlatform,
       runtime: yield* browserRuntime,
       options: { gcTime: 1 },
     });
     const read =
-      (boardId: string) => (cursor: Parameters<typeof changesOn>[1]) =>
+      (boardId: string) =>
+      ({ after }: { readonly after: Entity<typeof Task.Type> | null }) =>
         Effect.suspend(() => {
-          reads[label] = (reads[label] ?? 0) + 1;
-          return changesOn(boardId, cursor);
+          reads.push(`${label}:${after?.value.taskId ?? 'start'}`);
+          return changesOn(boardId, after);
         });
-    const tasks = app.collection({
-      schema: Task,
+    const tasks = app.collection(Task, {
       sync: {
         partitions: {
-          boardId: (boardId) => ({
-            strategy: syncStrategy.oldToNew({
-              source: ({ paginated, poll }) =>
-                options.keepReading
-                  ? poll({
-                      fetch: ({ cursor }) => read(boardId)(cursor),
-                      schedule: Schedule.spaced('100 millis'),
-                    })
-                  : paginated({ fetch: ({ cursor }) => read(boardId)(cursor) }),
-            }),
-          }),
+          boardId: (boardId) =>
+            options.keepReading
+              ? strategy.oldToNew({
+                  fetch: read(boardId),
+                  pollEvery: '100 millis',
+                })
+              : strategy.oldToNew({ fetch: read(boardId) }),
         },
       },
       onInsert: (items) => Effect.forEach(items, (item) => task.insert(item)),
@@ -80,7 +82,9 @@ const openTab = (
       query: (q) =>
         q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
       startSync: true,
-      gcTime: 1,
+      // Nothing subscribes to this screen the way a page would, so keep it
+      // until the chapter cleans it up.
+      gcTime: 60_000,
     });
     yield* Effect.promise(() => screen.preload());
     // What the tab shows, as `id:title:status`.
@@ -98,7 +102,7 @@ const openTab = (
 export const openingASecondTab = Story.make({
   title: 'Opening a second tab',
   description:
-    'The same board in two tabs of one browser: where the second tab gets its rows, how a change in one tab reaches the other, and what is lost when tabs cannot talk.',
+    'The same board in two tabs of one browser: where the second tab gets its rows, how a change in one tab reaches the other, and what changes when tabs share nothing.',
   spine: true,
   sourceUrl: import.meta.url,
   questions: [
@@ -106,31 +110,44 @@ export const openingASecondTab = Story.make({
       'A second tab opens. What does it show, and where did it come from?',
       {
         answer:
-          'The same tasks, read from the server: each tab has its own copy of the board and fills it by asking the server, not by copying the other tab. Tabs can be given a shared, durable copy instead (`platform({ store: "idb", databaseName })` here, IndexedDB in a real browser); the next chapter shows what that changes.',
+          "The same tasks, straight from the browser's own copy. Tabs of one browser share one store (IndexedDB in a real browser; `browserTabs()` from `env.ts` builds one in memory here), so the first tab's reading is already there when the second tab opens. The second tab only asks the server for what is newer than the newest task it already has. A tab with a store of its own (`platform()`) has nothing to start from and reads the whole board again.",
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
               yield* task.insert(plan);
-              for (const label in reads) delete reads[label];
-              // The first tab opens and shows the board.
-              const first = yield* openTab('first', { peerSync: true });
+              reads.length = 0;
+              // One browser; the first tab opens and shows the board.
+              const browser = browserTabs();
+              const first = yield* openTab('first', browser.tab());
               yield* until(() => first.screen.size === 1);
-              // A second tab opens.
-              const second = yield* openTab('second', { peerSync: true });
-              yield* until(() => second.screen.size === 1);
-              const shown = { first: first.shows(), second: second.shows() };
+              // A second tab of the same browser opens.
+              const second = yield* openTab('second', browser.tab());
+              const atOnce = second.shows();
+              // And a tab with a store of its own, for comparison.
+              const alone = yield* openTab('alone', platform());
+              yield* until(() => alone.screen.size === 1);
+              yield* Effect.sleep('30 millis');
+              const shown = { first: first.shows(), second: atOnce };
               yield* Story.assert(
-                'both tabs show the task',
+                'the second tab showed the task the moment it opened',
                 shown.first.join() === 't1:Write the plan:open' &&
                   shown.second.join() === shown.first.join(),
               );
               yield* Story.assert(
-                'each tab asked the server for it itself',
-                reads.first! >= 1 && reads.second! >= 1,
+                'it asked the server only for what came after it',
+                reads.includes('first:start') &&
+                  reads
+                    .filter((read) => read.startsWith('second:'))
+                    .every((read) => read === 'second:t1'),
+              );
+              yield* Story.assert(
+                'the tab with a store of its own read the board from the start',
+                reads.includes('alone:start'),
               );
               yield* first.close;
               yield* second.close;
-              return { shown, reads: { ...reads } };
+              yield* alone.close;
+              return { shown, reads: [...reads] };
             }),
           ),
         ),
@@ -140,16 +157,19 @@ export const openingASecondTab = Story.make({
       'Add, change and remove in one tab. Does the other follow?',
       {
         answer:
-          'Yes, through peer sync: once the server confirms a write, the tab that made it passes the confirmed task straight to the other tabs of the same browser over a `BroadcastChannel`, and they apply it as if the server had sent it. These tabs read the server only when they open, so nothing else could have told them.',
+          'Yes, through the shared store. Once the server confirms a write, the tab that made it saves the confirmed task in the store and rings a doorbell: a signal to the other tabs that carries no data, only "look again". They re-read the store and show the change. These tabs read the server only when they open, so nothing else could have told them.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
               yield* task.insert(plan);
-              const first = yield* openTab('first', { peerSync: true });
-              const second = yield* openTab('second', { peerSync: true });
+              reads.length = 0;
+              const browser = browserTabs();
+              const first = yield* openTab('first', browser.tab());
+              const second = yield* openTab('second', browser.tab());
               yield* until(
                 () => first.screen.size === 1 && second.screen.size === 1,
               );
+              const readsBefore = reads.length;
               // Add in the first tab; the second follows.
               yield* Effect.promise(
                 () => first.tasks.insert(review).isPersisted.promise,
@@ -170,7 +190,7 @@ export const openingASecondTab = Story.make({
                 () => first.tasks.delete('t2').isPersisted.promise,
               );
               const removed = yield* until(() => second.screen.size === 1);
-              // A peer message can land a beat late, so wait until both tabs settle on the same board before looking.
+              // The doorbell can land a beat late, so wait until both tabs settle on the same board before looking.
               const agreed = yield* until(
                 () =>
                   first.shows().join() === second.shows().join() &&
@@ -181,7 +201,10 @@ export const openingASecondTab = Story.make({
                 'every change reached the other tab',
                 added && changed && removed,
               );
-              yield* Story.assert('and the tabs agree', agreed);
+              yield* Story.assert(
+                'the tabs agree, and neither asked the server again',
+                agreed && reads.length === readsBefore,
+              );
               yield* first.close;
               yield* second.close;
               return shown;
@@ -191,21 +214,19 @@ export const openingASecondTab = Story.make({
       },
     ),
     Story.question(
-      'Peer sync off: do the tabs still agree eventually, and what changes?',
+      'Tabs that share nothing: do they still agree eventually, and what changes?',
       {
         answer:
-          'They still agree, because the server is what both tabs read from; what changes is how soon. Without peer sync the other tab shows the change only when it next asks the server (100 milliseconds here). Peer sync is a shortcut for freshness, never the source of truth.',
+          'They still agree, because the server is what both tabs read from; what changes is how soon. With a store each and no doorbell, the other tab shows the change only when it next asks the server (100 milliseconds here), and every tab does its own reading. The shared store and the doorbell are a shortcut for freshness, never the source of truth.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
               yield* task.insert(plan);
-              // Two tabs that cannot talk to each other, each asking the server every 100 milliseconds.
-              const first = yield* openTab('first', {
-                peerSync: false,
+              // Two tabs that share nothing, each asking the server every 100 milliseconds.
+              const first = yield* openTab('first', platform(), {
                 keepReading: true,
               });
-              const second = yield* openTab('second', {
-                peerSync: false,
+              const second = yield* openTab('second', platform(), {
                 keepReading: true,
               });
               yield* until(

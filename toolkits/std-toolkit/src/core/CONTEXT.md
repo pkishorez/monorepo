@@ -19,10 +19,8 @@ The system metadata block attached to every entity. Fields:
 - `_v` — **version**: which eschema version `value` is in. A receiver reads it to decide whether it can read the value: an older known version is migrated, an unknown newer one cannot be read.
 - `_u` — **update key**: a monotonic ULID string (built-in adapters) or an ISO-8601 timestamp (backends that can't adopt ULIDs); higher lexicographic value is the more recent write, so a deployment must use one format uniformly. `uTime` extracts the millisecond time from either.
 - `_d` — **deletion flag**: `true` marks the entity a tombstone.
-- `_s` — **server observation time** (optional, epoch ms): when the server recorded the entity.
-- `_c` — **client receipt time** (optional, epoch ms): when the client received it.
 
-How a given field is _interpreted_ (convergence, cadence, type-ownership) belongs to the consuming context; core only defines the field and its base meaning.
+How a given field is _interpreted_ (convergence, type-ownership) belongs to the consuming context; core only defines the field and its base meaning.
 _Avoid_: Header, system fields, envelope.
 
 **SingleEntity**:

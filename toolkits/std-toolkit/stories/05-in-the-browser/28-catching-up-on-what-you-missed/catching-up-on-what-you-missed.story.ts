@@ -7,7 +7,7 @@ import {
   type Entity,
 } from 'std-toolkit/core';
 import type { StdTableService } from 'std-toolkit/db';
-import { createStdSync, syncStrategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -63,7 +63,7 @@ const seed = Effect.forEach(history, (draft) => task.insert(draft));
 
 type Change = Entity<typeof Task.Type>;
 
-// Three ways to read the server. `newerChanges`: the next `limit` changes after `cursor`, oldest first. `olderChanges`: the `limit` changes just before `cursor` (`null` means the newest there are). `pushedChanges`: the change notices from chapter 16, after a catch-up read.
+// Three ways to read the server. `newerChanges`: the next `limit` changes after `cursor`, oldest first. `olderChanges`: the `limit` changes just before `cursor` (`null` means the newest there are), newest first. `pushedChanges`: a catch-up read of everything after `cursor`, then the change notices from chapter 16, each handed over as a batch of one.
 const newerChanges = (boardId: string, cursor: Change | null, limit: number) =>
   changesOn(boardId, cursor).pipe(Effect.map((items) => items.slice(0, limit)));
 const olderChanges = (boardId: string, cursor: Change | null, limit: number) =>
@@ -71,8 +71,8 @@ const olderChanges = (boardId: string, cursor: Change | null, limit: number) =>
     Effect.map((page) =>
       page.items
         .filter((item) => cursor === null || item.meta._u < cursor.meta._u)
-        .sort((left, right) => (left.meta._u < right.meta._u ? -1 : 1))
-        .slice(-limit),
+        .sort((left, right) => (left.meta._u < right.meta._u ? 1 : -1))
+        .slice(0, limit),
     ),
   );
 export const pushedChanges = (boardId: string, cursor: Change | null) =>
@@ -103,7 +103,7 @@ export const catchingUpOnWhatYouMissed = Story.make({
       'The server has history before the browser mounts. Is it read, and do old deletes stay deleted?',
       {
         answer:
-          'Yes: `syncStrategy.oldToNew` reads forward from the start, one page at a time, until the server has nothing newer, and remembers where it got to. A task deleted long ago comes through as a marked row, so the browser copy knows it is gone and the screen never shows it.',
+          'Yes: `strategy.oldToNew` with a `fetch` reads forward from the start, one page at a time, until the server has nothing newer, and remembers where it got to. Without `pollEvery` or `subscribe` it stops there; this browser only wants the history. A task deleted long ago comes through as a marked row, so the browser copy knows it is gone and the screen never shows it.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
@@ -117,19 +117,14 @@ export const catchingUpOnWhatYouMissed = Story.make({
               pages.length = 0;
               const app = yield* openApp;
               // Read forward from the start, two changes per page.
-              const tasks = app.collection({
-                schema: Task,
+              const tasks = app.collection(Task, {
                 sync: {
                   partitions: {
-                    boardId: (boardId) => ({
-                      strategy: syncStrategy.oldToNew({
-                        source: ({ paginated }) =>
-                          paginated({
-                            fetch: ({ cursor }) =>
-                              noting(newerChanges(boardId, cursor, 2)),
-                          }),
+                    boardId: (boardId) =>
+                      strategy.oldToNew({
+                        fetch: ({ after }) =>
+                          noting(newerChanges(boardId, after, 2)),
                       }),
-                    }),
                   },
                 },
               });
@@ -139,7 +134,9 @@ export const catchingUpOnWhatYouMissed = Story.make({
                     .from({ task: tasks })
                     .where(({ task }) => eq(task.boardId, 'work')),
                 startSync: true,
-                gcTime: 1,
+                // Nothing subscribes to this screen the way a page would, so keep it
+                // until the chapter cleans it up.
+                gcTime: 60_000,
               });
               yield* Effect.promise(() => screen.preload());
               yield* until(() => screen.size === 4);
@@ -168,7 +165,7 @@ export const catchingUpOnWhatYouMissed = Story.make({
     ),
     Story.question('A large backlog: how is it read in pages?', {
       answer:
-        'Newest first, if that is what the screen needs: `syncStrategy.newToOld` takes a `backfill` that pages backwards from the newest change, so the most recent tasks show first and older pages fill in behind them, plus a `tail` that keeps listening for anything new once the backlog is done.',
+        'Newest first, if that is what the screen needs: `strategy.newToOld` takes a `fetchOlder` that pages backwards from the newest change, so the most recent tasks show first and older pages fill in behind them, plus a `subscribe` that keeps listening for anything new after the newest change it has.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
@@ -176,23 +173,15 @@ export const catchingUpOnWhatYouMissed = Story.make({
             pages.length = 0;
             const app = yield* openApp;
             // Page backwards from the newest change, two per page; then listen.
-            const tasks = app.collection({
-              schema: Task,
+            const tasks = app.collection(Task, {
               sync: {
                 partitions: {
-                  boardId: (boardId) => ({
-                    strategy: syncStrategy.newToOld({
-                      backfill: ({ paginated }) =>
-                        paginated({
-                          fetch: ({ cursor }) =>
-                            noting(olderChanges(boardId, cursor, 2)),
-                        }),
-                      tail: ({ live }) =>
-                        live({
-                          open: ({ cursor }) => pushedChanges(boardId, cursor),
-                        }),
+                  boardId: (boardId) =>
+                    strategy.newToOld({
+                      fetchOlder: ({ before }) =>
+                        noting(olderChanges(boardId, before, 2)),
+                      subscribe: ({ after }) => pushedChanges(boardId, after),
                     }),
-                  }),
                 },
               },
             });
@@ -202,15 +191,18 @@ export const catchingUpOnWhatYouMissed = Story.make({
                   .from({ task: tasks })
                   .where(({ task }) => eq(task.boardId, 'work')),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             yield* Effect.promise(() => screen.preload());
             yield* until(() => screen.size === 5);
             const shown = screen.toArray.map(({ taskId }) => taskId);
             const newest = pages.flat().sort().slice(-2);
+            const firstPage = [...(pages[0] ?? [])].sort();
             yield* Story.assert(
               'the first page held the two newest changes, and two more pages followed',
-              pages[0]?.join() === newest.join() && pages.length === 3,
+              firstPage.join() === newest.join() && pages.length === 3,
             );
             yield* Story.assert(
               'every task made it to the screen',
@@ -225,36 +217,25 @@ export const catchingUpOnWhatYouMissed = Story.make({
     }),
     Story.question('A new edit after the backlog: does it still arrive?', {
       answer:
-        'Yes, through the tail, without reading the backlog again. `syncStrategy.bidirectional` fills a backlog from both ends at once (`older` and `newer` pages) and then hands over to the same kind of `tail`; here the tail is the change notices from chapter 16, so an edit arrives the moment the server stores it.',
+        'Yes, through `subscribe`, without reading the backlog again. Give `strategy.newToOld` a `fetch` as well and it reads from both ends: `fetchOlder` pages down from the newest change while `fetch` pages up from the newest it has (which is what fills the gap after a reload), and once `fetch` runs dry it hands over to `subscribe`. Here that is the change notices from chapter 16, so an edit arrives the moment the server stores it.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
             yield* seed;
             pages.length = 0;
             const app = yield* openApp;
-            // Fill the backlog from both ends, then listen.
-            const tasks = app.collection({
-              schema: Task,
+            // Page backwards from the newest change and forwards from the top, then listen.
+            const tasks = app.collection(Task, {
               sync: {
                 partitions: {
-                  boardId: (boardId) => ({
-                    strategy: syncStrategy.bidirectional({
-                      older: ({ paginated }) =>
-                        paginated({
-                          fetch: ({ cursor }) =>
-                            noting(olderChanges(boardId, cursor, 2)),
-                        }),
-                      newer: ({ paginated }) =>
-                        paginated({
-                          fetch: ({ cursor }) =>
-                            noting(newerChanges(boardId, cursor, 2)),
-                        }),
-                      tail: ({ live }) =>
-                        live({
-                          open: ({ cursor }) => pushedChanges(boardId, cursor),
-                        }),
+                  boardId: (boardId) =>
+                    strategy.newToOld({
+                      fetchOlder: ({ before }) =>
+                        noting(olderChanges(boardId, before, 2)),
+                      fetch: ({ after }) =>
+                        noting(newerChanges(boardId, after, 2)),
+                      subscribe: ({ after }) => pushedChanges(boardId, after),
                     }),
-                  }),
                 },
               },
             });
@@ -264,11 +245,13 @@ export const catchingUpOnWhatYouMissed = Story.make({
                   .from({ task: tasks })
                   .where(({ task }) => eq(task.boardId, 'work')),
               startSync: true,
-              gcTime: 1,
+              // Nothing subscribes to this screen the way a page would, so keep it
+              // until the chapter cleans it up.
+              gcTime: 60_000,
             });
             yield* Effect.promise(() => screen.preload());
             yield* until(() => screen.size === 5);
-            // The backlog is in; give the tail a moment to open, and note how many pages it took.
+            // The backlog is in; give the live feed a moment to open, and note how many pages it took.
             yield* Effect.sleep('30 millis');
             const pagesForBacklog = pages.length;
             // The server changes a task.

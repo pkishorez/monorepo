@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0010
+---
+
 # Peer Sync is a collection-scoped freshness path
 
 Each qualified Collection owns one Peer Channel, and Peer Sync carries complete

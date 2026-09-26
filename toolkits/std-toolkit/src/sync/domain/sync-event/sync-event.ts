@@ -1,62 +1,20 @@
 import type { Effect } from 'effect';
 
-export type LeadershipState = 'waiting' | 'leading' | 'released';
-
 export type SyncEvent =
   | {
-      _tag: 'LeadershipChanged';
-      collection: string;
-      partitionKey: string;
-      strategy: string;
-      state: LeadershipState;
-    }
-  | {
-      _tag: 'StrategyFailed';
+      _tag: 'SessionFailed';
       collection: string;
       partitionKey: string;
       strategy: string;
       cause: unknown;
     }
-  | {
-      _tag: 'StrategyDefect';
-      collection: string;
-      partitionKey: string;
-      strategy: string;
-      cause: unknown;
-    }
-  | {
-      _tag: 'CadenceFailed' | 'CadenceDefect';
-      collection: string;
-      partitionKey: string;
-      cause: unknown;
-    }
-  | { _tag: 'InitializationFailed'; collection: string; cause: unknown }
   | {
       _tag: 'OutdatedApplication';
       collection: string;
       version: string;
       latestVersion: string;
     }
-  | { _tag: 'UnservedQuery'; collection: string }
-  | { _tag: 'RegistryDeliveryFailed'; collection: string; cause: unknown }
-  | {
-      _tag: 'OutboxFailed';
-      phase: 'drain' | 'request' | 'replay';
-      entryIds: ReadonlyArray<string>;
-      cause: unknown;
-    }
-  | {
-      _tag: 'PeerSyncFailed';
-      collection: string;
-      phase:
-        | 'send'
-        | 'channel-creation'
-        | 'cleanup'
-        | 'decode'
-        | 'receive'
-        | 'subscription';
-      cause: unknown;
-    };
+  | { _tag: 'PlatformClosed'; sync: string };
 
 export type SyncReporter<R = never> = (
   event: SyncEvent,

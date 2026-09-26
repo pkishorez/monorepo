@@ -1,4 +1,4 @@
-import { Effect, ManagedRuntime } from 'effect';
+import { Effect, type ManagedRuntime } from 'effect';
 
 export type EffectRuntime<R> = Pick<
   ManagedRuntime.ManagedRuntime<R, unknown>,

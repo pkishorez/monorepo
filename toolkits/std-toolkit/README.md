@@ -105,7 +105,7 @@ See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the drive
 
 ### `std-toolkit/sync`
 
-See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced`, `./sync/leadership/in-memory`, and `./sync/platform/browser`.
+See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced` and `./sync/platform/browser`.
 
 ## Usage
 
@@ -115,12 +115,11 @@ The same `Task` schema serves storage and sync. The table is realized in memory 
 
 ```ts
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { Effect, Schedule, Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 import { StdTable } from 'std-toolkit/db';
 import { Memory } from 'std-toolkit/db/memory';
 import { EntityESchema } from 'std-toolkit/eschema';
-import { createStdSync, syncStore, syncStrategy } from 'std-toolkit/sync';
-import { inMemoryLeadership } from 'std-toolkit/sync/leadership/in-memory';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 
 // 1. The shape of a task; `taskId` identifies one.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -149,26 +148,15 @@ const changesOn = (boardId: string, cursor: { meta: { _u: string } } | null) =>
   );
 
 // 4. A sync instance and a Collection that reads one board at a time.
-const app = createStdSync({
-  name: 'board',
-  platform: {
-    storeLayer: Memory.make(syncStore).layer,
-    leadershipLayer: inMemoryLeadership(),
-  },
-});
-const tasks = app.collection({
-  schema: Task,
+const app = createStdSync({ name: 'board' });
+const tasks = app.collection(Task, {
   sync: {
     partitions: {
-      boardId: (boardId) => ({
-        strategy: syncStrategy.oldToNew({
-          source: ({ poll }) =>
-            poll({
-              fetch: ({ cursor }) => changesOn(boardId, cursor),
-              schedule: Schedule.spaced('1 second'),
-            }),
+      boardId: (boardId) =>
+        strategy.oldToNew({
+          fetch: ({ after }) => changesOn(boardId, after),
+          pollEvery: '1 second',
         }),
-      }),
     },
   },
   onInsert: (items) =>
@@ -188,8 +176,8 @@ const screen = createLiveQueryCollection({
 - `EntityESchema.make(...).build()` produces a schema that encodes with a `_v` stamp and decodes any past version to the latest shape.
 - `table.entity(Task).primary({ pk: ['boardId'] })` maps key paths of the value to the table's key attributes; the sort key is always the id field. A key path may reach into nested objects and union branches (`owner.teamId`) and must end at a string or number.
 - `Memory.make(table).layer` satisfies the `StdTableService<'board'>` requirement of every `task.*` call. Any other adapter's layer does the same.
-- `createStdSync` needs a platform only to persist its replica (`syncStore` is itself a StdTable) and to elect a leader. In a real page use `browser()` from `std-toolkit/sync/platform/browser`.
-- A partition worker starts when a TanStack query filters on `boardId`. `cursor` is exclusive: return entities strictly after it.
+- `createStdSync` keeps its local copy in memory by default. In a real page pass `platform: browser()` from `std-toolkit/sync/platform/browser` to keep it in IndexedDB and let one tab read for all.
+- A partition's strategy starts when a TanStack query filters on `boardId`. `after` is exclusive: return entities strictly after it.
 - `onInsert` writes through to the same table, so the next poll confirms the optimistic row.
 
 ### Deploy a table and refuse a breaking change

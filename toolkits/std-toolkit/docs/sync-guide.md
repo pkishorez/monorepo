@@ -7,270 +7,155 @@ in [src/sync/docs/adr/](../src/sync/docs/adr/).
 
 ## Instance options
 
-`createStdSync({ name, platform, version, runtime, outbox, options })`.
+`createStdSync({ name, platform, runtime, onEvent, options })`.
 
-- `name` is normalized and qualifies every Collection Name. All tabs connected
-  to the same Backend dataset must use the same stable name. The qualified
-  Collection Name identifies its Sync Store namespace and its one Peer
-  Channel; the schema's own name remains the Entity `_e` identity.
-- `platform` names the environment. Absent, the instance is a solo
-  participant: an isolated Memory Sync Store, no Leadership, no Peer Sync.
-  `browser()` from `std-toolkit/sync/platform/browser` is the shared-origin
-  preset: an IndexedDB Sync Store (database `std-sync` unless `databaseName`
-  overrides it), Web Locks Leadership, and Peer Sync over `BroadcastChannel`.
-  A platform is a plain value and may be shared by several instances.
-- `version` (string or number) stamps the Sync Store. When an instance boots
-  with a different version than the stored one, including no stored version,
-  it empties the whole Sync Store for every namespace sharing that store
-  before serving anything, then records the new version. Bump it when the
-  Backend is wiped or reshaped. Leave it unset and nothing is ever cleared.
-- `runtime` is a `ManagedRuntime` (or any object with `runSync`,
-  `runPromise`, and `contextEffect`). Sync runs user Effects through it at
-  TanStack's imperative boundaries. Without it, Sync falls back to
-  `Effect.runSync` and `Effect.runPromise`. The runtime environment is
-  inferred across strategies, fetches, and mutation callbacks; a required
-  service missing from the runtime is a type error.
+- `name` is normalized and names the stored data. Every tab reading the same
+  backend dataset uses the same name. A renamed Std Sync starts from empty
+  storage; the old data stays until you delete it.
+- `platform` is where the store lives and whether tabs share it. Absent, it is
+  `memory()`.
+- `runtime` is a `ManagedRuntime` (or any object with `runSync`, `runPromise`,
+  and `contextEffect`). Sync runs your fetches, subscriptions, and Mutation
+  Callbacks through it, and a service missing from it is a type error.
+- `onEvent` receives Sync Events. Without it they are logged.
+- `options` are TanStack DB options every Collection starts from.
 
-Use `std.collection(config)` to let Sync create the TanStack Collection, or
-`createCollection(std.sync(config))`. Call `await std.dispose()` when the
-instance is no longer needed.
+`app.collection(schema, config)` creates the TanStack Collection. The schema
+comes first so TypeScript knows the row type before it reads the strategies.
+`await app.dispose()` stops everything and keeps the stored data.
 
-## Sources and the cursor rule
+## Global, partitions, and the three modes
 
-Every strategy reads through a source builder: `paginated`, `poll`, and
-`live` for partitioned strategies; `once`, `poll`, and `subscribe` for single
-items.
+`sync: { global, partitions }`. Global runs while the Collection is mounted.
+A partition factory runs while a TanStack query has an `eq` filter on its key
+path (such as `task.board.id`); its parameter is inferred from the value at
+that path. A key path must read a string, number, or boolean in every value.
 
-`cursor` is exclusive. Given a cursor, return entities strictly beyond it,
-never the cursor entity itself. `paginated` pages until `fetch` returns an
-empty batch, so an inclusive backend would re-serve the boundary entity
-forever. Sync stops paging when the cursor stops advancing, but the last page
-is then fetched twice. Filter with `<` / `>`, not `<=` / `>=`. `cursor` is
-`null` on the first fetch and means "start from the end".
+| Configured | Mode        | Behaviour                                        |
+| ---------- | ----------- | ------------------------------------------------ |
+| global     | Eager       | Everything loads once the Collection mounts.     |
+| partitions | On-demand   | Only what a query looks at loads.                |
+| both       | Progressive | What a query looks at loads first, the rest too. |
 
-The removed `subscribeOlder` / `subscribeNewer` config resumed from and
-including the cursor. Tighten the comparison when porting to `paginated`.
+When the last query on a Partition leaves, its strategy stops; its rows stay
+in the Sync Replica, so a board you opened before still works offline.
 
-## Total, partition, and hybrid sync
+## The cursor rule
 
-Total sync eventually loads the complete entity set. A partition factory is
-activated by a TanStack query with an `eq` filter on its key path (such as
-`task.board.id`); the parameter is inferred from the value at that path. A
-partition key path must read a string, number, or boolean in every value, so
-it never passes through an array, a record, or a union branch that lacks it. Total and partition workers can run together. They keep separate
-progress but write through the same Sync Replica, so overlap is deduplicated
-by entity id and `_u` convergence.
+`after` and `before` are exclusive. Return entities strictly beyond them,
+never the cursor entity itself, and filter with `<` / `>`, not `<=` / `>=`.
+An inclusive backend would re-serve the boundary entity forever; Sync stops
+paging when the cursor stops moving, but the last page is then fetched twice.
+The cursor is `null` on the first call.
 
-## Cadence repair
+## Built-in strategies
 
-Repair is independent from the strategy and owns its own source. Declaring
-`repair` without `cadence` inherits the instance default; omitting `repair`
-disables it even when a default exists.
+`strategy.oldToNew({ fetch, subscribe, pollEvery })` reads from the oldest
+change forward:
 
-```ts
-postId: (postId) => {
-  const fetchForward = ({ cursor }) => api.getComments({ postId, cursor });
-  return {
-    strategy: syncStrategy.oldToNew({
-      source: ({ paginated }) => paginated({ fetch: fetchForward }),
-    }),
-    repair: {
-      fetchFrom: fetchForward,
-      cadence: { window: 5_000, readiness: 10_000, pollDelay: 2_000 },
-    },
-  };
-};
-```
+- `fetch` only: catch up page by page, then poll every `pollEvery`. Without
+  `pollEvery` it catches up once and stops until the scope mounts again.
+- `subscribe` only: the backend replays everything after the cursor, then
+  stays live.
+- both: `fetch` catches up, then `subscribe` goes live.
 
-## Events
+A feed that ends or fails reopens from the saved cursor, so a reconnect
+replays what was missed.
 
-`onEvent` receives structured Events for lifecycle failures, initialization
-failures, unserved queries, Registry Broadcast delivery, and Peer Sync phases.
-Peer Sync reports `channel-creation`, `subscription`, `send`, `decode`,
-`receive`, and `cleanup` failures without failing sync or mutation work. When
-omitted, Events go to Effect's logger.
+`strategy.newToOld({ fetch, fetchOlder, subscribe, pollEvery })` shows the
+newest page first, then pages older ones in the background with
+`fetchOlder({ before })` until it reaches the oldest, while `fetch` or
+`subscribe` keeps the top fresh. After a reload it reads forward from the last
+saved top, so nothing between then and now is skipped.
 
-## Flow tracing
+## The Settle Window
 
-Every Collection owns one Effect Tracer Flow with an id shaped as
-`<qualified-collection-name>::<ulid>`. The Flow stays active across
-Collection starts, cleanup, and restarts; Sync never ends it. Effect telemetry
-configuration decides whether it is exported.
+Some backends make a write readable a little after its `_u`: replica lag,
+parallel writers, or clock skew. A forward cursor that has already moved past
+that `_u` skips it forever. Set `settleWindow: '5 seconds'` on the Collection
+and the built-in strategies never save their cursor past the newest `_u` read
+minus five seconds, so every poll re-reads the last five seconds. Duplicates
+are ignored, so the cost is a small overlap per poll. The window is measured
+from `_u`, not the device clock. It is off by default: a backend that pushes
+in order through `subscribe` does not need it.
 
-The Flow has a `collection` lane, one global worker lane, one stable lane per
-logical Partition, a lane per Cadence Repair worker, and one worker lane for
-Single Item Sync. Hydration is two activities on the collection lane, `Load
-Sync Replica` then `Project into Collection`, each carrying its row count;
-`Collection ready` closes it. Every supervised strategy run is a `Sync
-session` activity numbered per retry. The built-in strategies record each
-delivered batch as a child activity (`Receive batch`, `Backfill batch`, `Tail
-batch`). Every non-empty delivery logs how many entities were received and how
-many the Sync Replica accepted after convergence.
-
-Every participant with a real lifecycle records an Activation: the collection
-lane from `sync(callbacks)` to cleanup, each strategy for its supervised run,
-each partition for one `0 -> 1 -> 0` subscribe cycle. A lane can be activated
-many times but never twice at once.
-
-Custom strategies add activities and events through `ctx.flow`:
+## Custom strategies
 
 ```ts
-run: (ctx) =>
-  api.fetchPage().pipe(
-    ctx.flow.withSpan('Fetch page'),
-    Effect.tap((page) =>
-      ctx.flow.event('Page fetched', {
-        attributes: { entityCount: page.length },
-      }),
-    ),
-  );
-```
-
-## Sync Store and durability
-
-Each instance uses an isolated Memory adapter by default. A platform may supply
-a `storeLayer` that replaces it for that instance; any adapter layer built for
-the `syncStore` table is accepted, including IndexedDB and SQLite. The Sync
-Store holds the Sync Replica, Sync State, and the Outbox. Write failures
-surface as `WriteError.Storage`; adapter-specific errors stay internal.
-
-Collection rows, Mutation Callbacks, and sources hold values; the Sync Store
-and Peer Messages hold the encoded form. A `Schema.DateFromString` field is a
-`Date` in a row and an ISO string in the store, and Sync converts it both ways
-with the Collection's schema. Stored data keeps the version it was written in,
-so newer code migrates it when it reads it back.
-
-Tombstones remain in the Sync Replica. Persisted Sync State is tagged with its
-strategy name and stored through that strategy's state schema, which is the
-only conversion for the whole state. The schema is a function that receives
-the Collection's Entity codec, so an Entity kept in the state, such as a
-cursor, is stored encoded and migrated when it is read:
-
-```ts
-state: {
-  schema: (entity) => Schema.Struct({ cursor: Schema.NullOr(entity) }),
-  empty: { cursor: null },
-}
-```
-
-A name mismatch or invalid state resets to the strategy's empty state, which
-is stored through the same schema.
-
-Memory versus IndexedDB is a durability choice only. Both use Peer Sync when
-it is available. IndexedDB can rebuild a Collection after reload; it does not
-make another live tab's projection fresh without Peer Sync or backend
-delivery.
-
-## Peer Sync
-
-Peer Sync is off unless the platform opts in. A platform enables it by
-returning `peerSync: { channel }`. `browser()` does so with the
-`broadcastChannel()` factory, which is also exported for custom platforms. One
-Peer Channel belongs to each qualified Collection.
-
-```ts
-const custom = createStdSync({
-  name: 'acme-production',
-  platform: { peerSync: { channel: customPeerChannelFactory } },
+strategy.make({
+  name: 'my-strategy',
+  state: (entity) => Schema.Struct({ cursor: Schema.NullOr(entity) }),
+  initial: { cursor: null },
+  run: ({ state, settledCursor }) => /* Stream<{ entities, state }> */,
 });
 ```
 
-The custom `PeerChannelFactory` receives the qualified Collection Name. Its
-channel broadcasts unknown messages and subscribes a handler; Sync owns
-envelope validation, encoded application, convergence, and cleanup.
-Closing a Std Sync drains already-admitted deliveries. Optimistic values and
-Registry Broadcasts with `persist: false` never enter Peer Sync. See
-[ADR 0001](../src/sync/docs/adr/0001-peer-sync-is-a-freshness-path.md).
+`state` receives the Collection's Entity codec, so an Entity held in state is
+stored in encoded form and migrated when read. `run` resumes from `state` and
+yields Entities with the next state; each yield is stored in one write. When
+the Stream fails, Sync reports `SessionFailed`, waits a growing delay (1 s up
+to 30 s, starting over once a run stores something), and runs it again from
+saved state. When it ends, the strategy is done. `settledCursor(batch)` is the
+furthest Entity of a forward batch that is safe to save under the Settle
+Window. State saved by a strategy with a different `name`, or that no longer
+decodes, starts over from `initial`.
 
-## Offline writes (Outbox)
+## Tabs
 
-```ts
-const std = createStdSync({ name: 'acme', platform: browser(), outbox: true });
-```
+Each Session (the global strategy, or one Partition's) holds its own lock,
+named after its Collection and scope. One tab runs it; the others wait and
+take over from saved state when it goes away. Different tabs may lead
+different Partitions. The leader stores what it reads in the shared store and
+rings the Doorbell; every tab listens and re-reads what changed. Confirmed
+writes ring it too. With `memory()` nothing is shared, so every tab reads on
+its own.
 
-With `outbox: true`, every `insert` / `update` / `delete` writes an Outbox
-Entry to the Sync Store first, then waits until the Backend confirms it. The
-edit survives reloads (with a durable store) and stays optimistic while
-offline. One leader tab drains the Outbox: rapid edits on one Entity fold into
-one Request, different Entities' Queues drain in parallel, a rejected write
-rolls back and stays in the Outbox as `failed`. The Backend sees arrival
-order; last write wins. `pacedUpdate` becomes a plain `update` and `pacing` is
-ignored. Opt a Collection out with `outbox: false`. An Entry stores the
-written value in encoded form with its version; replay after a reload decodes
-and migrates it, so Mutation Callbacks always receive latest values.
+## Platforms
 
-**Awaiting a write blocks until delivery.** `await todos.insert(...)` (or
-`tx.isPersisted.promise`) does not resolve until the Backend confirms. Offline,
-that can be hours. Do not put anything the user is waiting for behind that
-`await`; the optimistic row is already visible. While a write is pending,
-TanStack also holds incoming sync for that Collection, so a Mutation Callback
-that never returns freezes the Collection's reads with no error. Put a timeout
-in every `onInsert` / `onUpdate` / `onDelete` / `mutationFn`.
+A Platform is three pieces: `store(syncName)` returns the Sync Store layer,
+`leadership.run(key, effect)` runs an effect while holding a lock, and
+`doorbell` rings and listens on topics.
 
-A Mutation Callback that finds the Backend unreachable fails with
-`OutboxUnreachable`; the Entry stays `pending` until connectivity returns.
-Anything else it throws marks the Entry `failed`.
+- `memory()`: a fresh in-memory store, no locks, no Doorbell.
+- `browser({ databaseName, leadership, doorbell })`: an IndexedDB database
+  named `std-sync:<name>` (override with `databaseName`), Web Locks, and
+  BroadcastChannel. Each piece is on by default and falls back to none where
+  the browser lacks it; pass `leadership: false` to let every tab read.
 
-Operations whose intent spans Collections or must run on the server are
-Offline Actions:
+The type is public, so a custom Platform (a test harness, React Native, Node)
+is a plain object; build its store with any adapter over `syncStore`.
 
-```ts
-const archiveProject = std.createOfflineAction({
-  name: 'archive-project',
-  payload: Schema.Struct({ projectId: Schema.String }),
-  onMutate: ({ projectId }) =>
-    projects.update(projectId, (d) => {
-      d.archived = true;
-    }),
-  mutationFn: ({ projectId }) => api.archiveProject(projectId),
-  queue: ({ projectId }) => projectId,
-});
-const tx = archiveProject({ projectId: 'p1' });
-await tx.delivered;
-```
+## Offline and reloads
 
-Register Collections and actions at boot when you can: the Drainer starts once
-every Collection created through `std.collection` is ready. An Entry whose
-Collection or action the leader tab has not registered stays `pending` until a
-leader that has it appears.
+- The Collection opens from its local copy before any network call, and each
+  strategy resumes from its saved state.
+- A failing fetch retries with a growing delay; the local data stays visible.
+- A Mutation Callback calls the backend directly. When it fails, TanStack DB
+  rolls the optimistic change back. Writes that survive going offline (the
+  Outbox) are not in this version.
+- Stored Entities migrate on read. An Entity from a newer version than this
+  code knows is ignored and reported once per Collection as
+  `OutdatedApplication`; its Session stops until reload.
 
-```ts
-std.outbox.entity; // the stored entity, for inspection through the StdTable
-std.outbox.transaction(id); // the live TanStack transaction in this tab, or null
-await std.outbox.discard(id); // hard delete; its transaction rolls back
-await std.reset(); // logout: stop, wipe the Sync Store, re-seed, restart
-```
+## Stored data and logout
 
-## Utilities and Registry Broadcasts
+Nothing is deleted automatically. In the browser, `listStdSyncs()` lists every
+Std Sync stored under the default name, and `deleteStdSync(name)` deletes one.
+A live Std Sync of that name, in this tab or another, reports `PlatformClosed`
+and stops first.
 
-Keyed collections expose typed engine utilities:
+| Use case                                   | What to do                                                                     |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| Public data                                | One long-lived Std Sync.                                                       |
+| Per-user data                              | Put the user id in the name; on logout `dispose()` then `deleteStdSync(name)`. |
+| Switching accounts, each available offline | One Std Sync per user; `dispose()` on switch, delete on sign-out.              |
+| Shared or sensitive device                 | `memory()`, so nothing touches disk.                                           |
 
-```ts
-tasks.utils.schema();
-tasks.utils.applyToSyncReplica(entityOrEntities);
-tasks.utils.pacedUpdate(taskId, { status: 'done' });
-```
+The user id belongs in the name even when logout deletes the data: if logout
+never runs, the next user still cannot see the previous user's rows.
 
-Per-row pending state is TanStack's `$synced` virtual prop; the durable,
-cross-tab queue is the Outbox.
+## Sync Events
 
-`applyToSyncReplica` returns an Effect and uses the same convergence path as
-worker and mutation results. The Registry routes caller-owned Registry
-Broadcasts among Collections owned by one Std Sync:
-
-```ts
-const registry = std.registry();
-registry.process({ values: serverEntities, persist: true });
-```
-
-`persist: true` writes the Sync Replica and projects accepted changes.
-`persist: false` only projects to a mounted Collection and stays tab-local.
-Neither mode advances Sync State. Delivery is fire-and-forget: `process`
-returns immediately, failures are reported through `onEvent`, and `dispose`
-does not wait for delivery. Registry Broadcast and Peer Sync are separate code
-paths and contracts.
-
-Collection cleanup stops collection-owned sync work but does not close
-persistence. `std.dispose()` closes the Sync Store runtime owned by that Std
-Sync; outstanding Registry Broadcast deliveries are not part of that shutdown
-boundary.
+- `SessionFailed`: a strategy run failed and will run again.
+- `OutdatedApplication`: an Entity came from newer code; reload to read it.
+- `PlatformClosed`: this Std Sync's stored data was deleted; it stopped.

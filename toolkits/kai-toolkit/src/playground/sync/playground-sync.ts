@@ -3,7 +3,7 @@ import { RpcClient } from 'effect/unstable/rpc';
 import type { Entity } from 'std-toolkit/core';
 import {
   createStdSync,
-  syncStrategy,
+  strategy,
   type StdSyncPlatform,
   type SyncedCollection,
 } from 'std-toolkit/sync';
@@ -42,30 +42,25 @@ export const makePlaygroundSync = ({
     name,
     ...(platform === undefined ? {} : { platform }),
   });
+  // The server replays everything after the cursor, then streams live.
   const liveOldToNew = <T extends object>(
     subscribe: (
       cursor: Entity<T> | null,
     ) => Stream.Stream<ReadonlyArray<Entity<T>>, unknown>,
-  ) => ({
-    strategy: syncStrategy.oldToNew<T>({
-      source: ({ live }) =>
-        live({
-          open: ({ cursor }) => keepSubscribed(() => subscribe(cursor)),
-        }),
-    }),
-  });
+  ) =>
+    strategy.oldToNew<T>({
+      subscribe: ({ after }) => keepSubscribed(() => subscribe(after)),
+    });
 
-  const threads = std.collection({
-    schema: ThreadSchema,
+  const threads = std.collection(ThreadSchema, {
     sync: {
-      total: liveOldToNew<Thread>((cursor) =>
+      global: liveOldToNew<Thread>((cursor) =>
         api.subscribeThreads({ '>': cursor }),
       ),
     },
   });
 
-  const messages = std.collection({
-    schema: MessageSchema,
+  const messages = std.collection(MessageSchema, {
     sync: {
       partitions: {
         threadId: (threadId) =>

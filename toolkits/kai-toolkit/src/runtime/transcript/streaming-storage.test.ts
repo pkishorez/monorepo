@@ -58,7 +58,7 @@ const clientRecord = (
       seq,
       entity: {
         value: encoded,
-        meta: { ...row.meta, _s: 1_600_000_000_000, _c: 1_600_000_000_000 },
+        meta: row.meta,
       },
     },
     LSI1SK: seq,
@@ -111,12 +111,10 @@ describe('streaming delta storage', () => {
             { length: Math.ceil(rows.length / SYNC_PAGE_SIZE) },
             (_, index) =>
               bytes(
-                rows
-                  .slice(index * SYNC_PAGE_SIZE, (index + 1) * SYNC_PAGE_SIZE)
-                  .map((row) => ({
-                    ...row,
-                    meta: { ...row.meta, _s: 1_600_000_000_000 },
-                  })),
+                rows.slice(
+                  index * SYNC_PAGE_SIZE,
+                  (index + 1) * SYNC_PAGE_SIZE,
+                ),
               ),
           ).reduce((total, size) => total + size, 0);
           const tableBytes = stored.reduce(

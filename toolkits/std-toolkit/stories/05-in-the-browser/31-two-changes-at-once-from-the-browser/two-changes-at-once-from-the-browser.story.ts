@@ -3,10 +3,9 @@ import {
   createTransaction,
   eq,
 } from '@tanstack/react-db';
-import { Effect, Schedule } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import type { Entity, SingletonEntity } from 'std-toolkit/core';
-import { createStdSync, syncStrategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -47,45 +46,35 @@ const openBoard = Effect.gen(function* () {
     runtime,
     options: { gcTime: 1 },
   });
-  const tasks = app.collection({
-    schema: Task,
+  const tasks = app.collection(Task, {
     sync: {
       partitions: {
-        boardId: (boardId) => ({
-          strategy: syncStrategy.oldToNew({
-            source: ({ poll }) =>
-              poll({
-                fetch: ({ cursor }) => changesOn(boardId, cursor),
-                schedule: Schedule.spaced('20 millis'),
-              }),
+        boardId: (boardId) =>
+          strategy.oldToNew({
+            fetch: ({ after }) => changesOn(boardId, after),
+            pollEvery: '20 millis',
           }),
-        }),
       },
     },
   });
-  const boards = app.collection({
-    schema: Board,
+  const boards = app.collection(Board, {
     sync: {
       partitions: {
-        boardId: (boardId) => ({
-          strategy: syncStrategy.oldToNew({
-            source: ({ poll }) =>
-              poll({
-                fetch: ({ cursor }) =>
-                  board
-                    .get({ boardId })
-                    .pipe(
-                      Effect.map((row) =>
-                        row === null ||
-                        (cursor !== null && row.meta._u <= cursor.meta._u)
-                          ? []
-                          : [row],
-                      ),
-                    ),
-                schedule: Schedule.spaced('20 millis'),
-              }),
+        boardId: (boardId) =>
+          strategy.oldToNew({
+            fetch: ({ after }) =>
+              board
+                .get({ boardId })
+                .pipe(
+                  Effect.map((row) =>
+                    row === null ||
+                    (after !== null && row.meta._u <= after.meta._u)
+                      ? []
+                      : [row],
+                  ),
+                ),
+            pollEvery: '20 millis',
           }),
-        }),
       },
     },
   });
@@ -93,13 +82,17 @@ const openBoard = Effect.gen(function* () {
     query: (q) =>
       q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
     startSync: true,
-    gcTime: 1,
+    // Nothing subscribes to this screen the way a page would, so keep it
+    // until the chapter cleans it up.
+    gcTime: 60_000,
   });
   const boardScreen = createLiveQueryCollection({
     query: (q) =>
       q.from({ board: boards }).where(({ board }) => eq(board.boardId, 'work')),
     startSync: true,
-    gcTime: 1,
+    // Nothing subscribes to this screen the way a page would, so keep it
+    // until the chapter cleans it up.
+    gcTime: 60_000,
   });
   yield* Effect.promise(() => taskScreen.preload());
   yield* Effect.promise(() => boardScreen.preload());
@@ -111,12 +104,6 @@ const openBoard = Effect.gen(function* () {
   });
   return { runtime, app, tasks, boards, taskScreen, boardScreen, close };
 });
-
-// A batch can return single records too (chapter 12); a collection takes only keyed rows, so keep those.
-const isKeyed = <T>(row: Entity<T> | SingletonEntity<T>): row is Entity<T> =>
-  '_d' in row.meta;
-const keyed = <T>(row: Entity<T> | SingletonEntity<T>) =>
-  isKeyed(row) ? [row] : [];
 
 // What both screens show, side by side.
 const showing = (screens: {
@@ -136,7 +123,7 @@ export const twoChangesAtOnceFromTheBrowser = Story.make({
   questions: [
     Story.question('Do both changes show before the server commits?', {
       answer:
-        'Yes. A transaction (one bundle of changes across collections, with one `mutationFn` that sends them) applies both changes to the screens the moment `mutate` runs. The `mutationFn` then hands the server the batch from chapter 13, and both collections take the confirmed rows.',
+        'Yes. A transaction (one bundle of changes across collections, with one `mutationFn` that sends them) applies both changes to the screens the moment `mutate` runs. The `mutationFn` then hands the server the batch from chapter 13. Each collection keeps showing its change until its own reading of the server brings back the confirmed row.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
@@ -144,7 +131,7 @@ export const twoChangesAtOnceFromTheBrowser = Story.make({
             yield* board.insert(workBoard);
             const { runtime, tasks, boards, taskScreen, boardScreen, close } =
               yield* openBoard;
-            // The transaction: its `mutationFn` commits both writes as one batch on the server and hands each collection its confirmed row.
+            // The transaction: its `mutationFn` commits both writes as one batch on the server. The collections read the confirmed rows back on their next poll.
             const finishAndRename = createTransaction({
               mutationFn: () =>
                 runtime.runPromise(
@@ -156,12 +143,7 @@ export const twoChangesAtOnceFromTheBrowser = Story.make({
                       { boardId: 'work' },
                       { name: 'Work (done)' },
                     );
-                    const [finished, renamed] = yield* table.transact([
-                      finish,
-                      rename,
-                    ]);
-                    yield* tasks.utils.applyToSyncReplica(keyed(finished));
-                    yield* boards.utils.applyToSyncReplica(keyed(renamed));
+                    yield* table.transact([finish, rename]);
                   }),
                 ),
             });
@@ -191,6 +173,13 @@ export const twoChangesAtOnceFromTheBrowser = Story.make({
               'the server committed both',
               onServer.task === 'done' && onServer.board === 'Work (done)',
             );
+            const synced = yield* until(
+              () =>
+                tasks.get('t1')?.$synced === true &&
+                boards.get('work')?.$synced === true &&
+                tasks.get('t1')?._meta !== undefined,
+            );
+            yield* Story.assert('the confirmed rows come back synced', synced);
             yield* close;
             return { atOnce, onServer };
           }),
@@ -220,13 +209,7 @@ export const twoChangesAtOnceFromTheBrowser = Story.make({
                       { name: 'Work (done)' },
                     );
                     const duplicate = yield* board.insertOp(workBoard);
-                    const [finished, renamed] = yield* table.transact([
-                      finish,
-                      rename,
-                      duplicate,
-                    ]);
-                    yield* tasks.utils.applyToSyncReplica(keyed(finished));
-                    yield* boards.utils.applyToSyncReplica(keyed(renamed));
+                    yield* table.transact([finish, rename, duplicate]);
                   }),
                 ),
             });

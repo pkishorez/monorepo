@@ -1,7 +1,7 @@
-import { Effect, Stream } from 'effect';
+import { Effect } from 'effect';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import type { Entity } from 'std-toolkit/core';
-import { createStdSync, syncStrategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from 'std-toolkit/sync';
 import {
   DevtoolsClient,
   makeDevtoolsClientLayer,
@@ -44,34 +44,15 @@ export function buildFlowCollections() {
       return items.map(toEntity);
     }).pipe(Effect.provide(layer), Effect.orDie);
 
-  const entries = std.collection({
-    schema: FlowEntryEntitySchema,
+  const entries = std.collection(FlowEntryEntitySchema, {
     sync: {
-      total: {
-        strategy: syncStrategy.newToOld<FlowEntryRecord>({
-          backfill: ({ paginated }) =>
-            paginated({
-              fetch: ({ cursor }) =>
-                fetchPage({ '<': cursor?.meta._u ?? null }),
-            }),
-          tail: ({ live }) =>
-            live({
-              open: ({ cursor }) => {
-                let anchor = cursor?.meta._u ?? null;
-                return Stream.fromEffectRepeat(
-                  Effect.gen(function* () {
-                    const items = yield* fetchPage({ '>': anchor });
-                    if (items.length > 0)
-                      anchor = items[items.length - 1]!.meta._u;
-                    if (items.length < PAGE_SIZE)
-                      yield* Effect.sleep(POLL_INTERVAL_MS);
-                    return items;
-                  }),
-                );
-              },
-            }),
-        }),
-      },
+      // Newest first: show the latest page, fill in older pages in the
+      // background, and poll for newer ones.
+      global: strategy.newToOld<FlowEntryRecord>({
+        fetchOlder: ({ before }) => fetchPage({ '<': before?.meta._u ?? null }),
+        fetch: ({ after }) => fetchPage({ '>': after?.meta._u ?? null }),
+        pollEvery: POLL_INTERVAL_MS,
+      }),
     },
   });
 

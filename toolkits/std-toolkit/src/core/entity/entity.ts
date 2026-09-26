@@ -5,8 +5,6 @@ export const EntityMetaSchema = Schema.Struct({
   _v: Schema.String,
   _d: Schema.Boolean,
   _u: Schema.String,
-  _s: Schema.optional(Schema.Number),
-  _c: Schema.optional(Schema.Number),
 });
 
 export const SingleEntityMetaSchema = Schema.Struct({

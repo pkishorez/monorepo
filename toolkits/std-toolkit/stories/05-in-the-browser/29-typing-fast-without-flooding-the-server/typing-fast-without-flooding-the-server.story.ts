@@ -1,8 +1,12 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { Effect, Schedule } from 'effect';
+import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { createStdSync, paceStrategy, syncStrategy } from 'std-toolkit/sync';
-import type { PaceStrategyFactory } from 'std-toolkit/sync/paced';
+import { createStdSync, strategy } from 'std-toolkit/sync';
+import {
+  buildPacedUpdate,
+  paceStrategy,
+  type PaceStrategyFactory,
+} from 'std-toolkit/sync/paced';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -29,73 +33,73 @@ const draft = {
   notes: '',
 } as const;
 
+// The fields a paced update may change.
+type Changes = Partial<Omit<typeof Task.Type, 'taskId' | 'boardId'>>;
+
 // Ten keystrokes: the title as it looks after each one.
 const keystrokes = Array.from({ length: 10 }, (_, index) =>
   'Write plan'.slice(0, index + 1),
 );
 
-// Every write the server received from the browser: the task as the browser saw it, and the fields that changed.
-const writes: {
-  current: typeof Task.Type;
-  updates: Partial<typeof Task.Type>;
-}[] = [];
+// Every write the server received from the browser: the fields that changed.
+const writes: Changes[] = [];
 
-// A fresh app for each question.
-const openApp = Effect.map(browserRuntime, (runtime) =>
-  createStdSync({
-    name: 'board-typed',
-    platform: platform(),
-    runtime,
-    options: { gcTime: 1 },
-  }),
-);
-
-// The collection from chapter 26, with the update handler noting every write and a pace chosen per question.
-const openTasks = (pacing: PaceStrategyFactory) =>
-  Effect.map(openApp, (app) => {
-    const tasks = app.collection({
-      schema: Task,
+// The collection from chapter 25, reading one board at a time, and a paced update for the task being typed. A paced update has two halves: `optimistic` changes the row on the screen at once, and `commit` sends the changes to the server when the pace lets them through, merged into one.
+const openTasks = (pace: PaceStrategyFactory) =>
+  Effect.gen(function* () {
+    const runtime = yield* browserRuntime;
+    const app = createStdSync({
+      name: 'board-typed',
+      platform: platform(),
+      runtime,
+      options: { gcTime: 1 },
+    });
+    const tasks = app.collection(Task, {
       sync: {
         partitions: {
-          boardId: (boardId) => ({
-            strategy: syncStrategy.oldToNew({
-              source: ({ poll }) =>
-                poll({
-                  fetch: ({ cursor }) => changesOn(boardId, cursor),
-                  schedule: Schedule.spaced('20 millis'),
-                }),
+          boardId: (boardId) =>
+            strategy.oldToNew({
+              fetch: ({ after }) => changesOn(boardId, after),
+              pollEvery: '20 millis',
             }),
-          }),
         },
       },
-      onUpdate: ({ current, updates }) =>
-        Effect.suspend(() => {
-          writes.push({ current, updates });
-          return task.getAndUpdate(
-            { taskId: current.taskId, boardId: current.boardId },
-            updates,
-          );
+    });
+    // One paced update per task: each gets its own pace, so typing in one task never holds back another.
+    const typeInto = buildPacedUpdate<Changes>({
+      strategy: pace(),
+      optimistic: (changes) =>
+        tasks.update(key.taskId, (row) => {
+          Object.assign(row, changes);
         }),
-      pacing,
+      commit: (changes) =>
+        runtime.runPromise(
+          Effect.suspend(() => {
+            writes.push(changes);
+            return task.getAndUpdate(key, changes);
+          }).pipe(Effect.asVoid),
+        ),
     });
     const screen = createLiveQueryCollection({
       query: (q) =>
         q.from({ task: tasks }).where(({ task }) => eq(task.boardId, 'work')),
       startSync: true,
-      gcTime: 1,
+      // Nothing subscribes to this screen the way a page would, so keep it
+      // until the chapter cleans it up.
+      gcTime: 60_000,
     });
-    return { app, tasks, screen };
+    return { app, typeInto, screen };
   });
 
 // Types the ten keystrokes as paced updates, waits for the server to hold the final title, and reports how many writes it took.
-const typeTheTitle = (pacing: PaceStrategyFactory) =>
+const typeTheTitle = (pace: PaceStrategyFactory) =>
   Effect.gen(function* () {
     writes.length = 0;
-    const { app, tasks, screen } = yield* openTasks(pacing);
+    const { app, typeInto, screen } = yield* openTasks(pace);
     yield* Effect.promise(() => screen.preload());
     yield* until(() => screen.size === 1);
-    for (const title of keystrokes) tasks.utils.pacedUpdate('t1', { title });
-    yield* until(() => writes.at(-1)?.updates.title === 'Write plan');
+    for (const title of keystrokes) typeInto({ title });
+    yield* until(() => writes.at(-1)?.title === 'Write plan');
     yield* Effect.sleep('30 millis');
     const onServer = yield* task.get(key);
     yield* Effect.promise(() => screen.cleanup());
@@ -112,25 +116,24 @@ export const typingFastWithoutFloodingTheServer = Story.make({
   questions: [
     Story.question('Ten keystrokes: how many writes reach the server?', {
       answer:
-        'One, with a debounce pace: `utils.pacedUpdate` shows every keystroke on the screen at once but hands the server only what the pace lets through, and `paceStrategy.debounce` waits for a pause in typing (30 milliseconds here) before sending the latest title. Every keystroke is a paced update; the collection decides when to write.',
+        'One, with a debounce pace. `buildPacedUpdate` from `std-toolkit/sync/paced` turns every keystroke into a paced update: its `optimistic` half changes the row on the screen at once, and its `commit` half gets only what the pace lets through, with the keystrokes in between merged into one set of changes. `paceStrategy.debounce` waits for a pause in typing (30 milliseconds here) before it lets the latest title through.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
             yield* task.insert(draft);
             writes.length = 0;
             // The collection, paced to wait for a pause in typing.
-            const { app, tasks, screen } = yield* openTasks(
+            const { app, typeInto, screen } = yield* openTasks(
               paceStrategy.debounce({ wait: 30 }),
             );
             yield* Effect.promise(() => screen.preload());
             yield* until(() => screen.size === 1);
             // Ten keystrokes, as fast as they come.
-            for (const title of keystrokes)
-              tasks.utils.pacedUpdate('t1', { title });
+            for (const title of keystrokes) typeInto({ title });
             // The screen already shows the whole title.
             const shownAtOnce = screen.toArray[0]?.title;
             // Wait for the server to receive the final title.
-            yield* until(() => writes.at(-1)?.updates.title === 'Write plan');
+            yield* until(() => writes.at(-1)?.title === 'Write plan');
             yield* Effect.sleep('30 millis');
             const onServer = yield* task.get(key);
             yield* Story.assert(
@@ -143,33 +146,29 @@ export const typingFastWithoutFloodingTheServer = Story.make({
             );
             yield* Effect.promise(() => screen.cleanup());
             yield* Effect.promise(() => app.dispose());
-            return {
-              shownAtOnce,
-              writes: writes.map(({ updates }) => updates),
-              onServer,
-            };
+            return { shownAtOnce, writes: [...writes], onServer };
           }),
         ),
       ),
     }),
     Story.question(
-      'What does a paced update use as its current value, and what after the server changed the row?',
+      'What does a paced update send, and what happens when the server changed the row in between?',
       {
         answer:
-          'The task as the screen shows it, each time. The first write is based on the row as it stood; when the server changes the same task in between and the change reaches the screen, the next paced update is based on that fresh row, not on a copy kept from the first one.',
+          'Only the fields it changed, never a whole copy of the row. The server applies them to the row as it stands, so a change someone else made in between is kept. On the screen, each paced update is laid over the row the screen shows at that moment: once the server change has reached the screen, the next paced update starts from the fresh row, not from a copy kept from the first one.',
         proof: onBoard(
           Story.flow(
             Effect.gen(function* () {
               yield* task.insert({ ...draft, title: 'Write the plan' });
               writes.length = 0;
-              // The default pace, `coalesce`: send at once, and merge whatever arrives while a write is out into one more write.
-              const { app, tasks, screen } = yield* openTasks(
+              // The `coalesce` pace: send at once, and merge whatever arrives while a write is out into one more write.
+              const { app, typeInto, screen } = yield* openTasks(
                 paceStrategy.coalesce(),
               );
               yield* Effect.promise(() => screen.preload());
               yield* until(() => screen.size === 1);
               // Mark the task done from the browser.
-              tasks.utils.pacedUpdate('t1', { status: 'done' });
+              typeInto({ status: 'done' });
               yield* until(() => writes.length === 1);
               // Someone else renames it on the server; the change reaches the screen.
               yield* task.getAndUpdate(key, { title: 'Write the plan today' });
@@ -177,21 +176,33 @@ export const typingFastWithoutFloodingTheServer = Story.make({
                 () => screen.toArray[0]?.title === 'Write the plan today',
               );
               // Mark it open again from the browser.
-              tasks.utils.pacedUpdate('t1', { status: 'open' });
+              typeInto({ status: 'open' });
+              const shownAtOnce = screen.toArray.map(({ title, status }) => ({
+                title,
+                status,
+              }));
               yield* until(() => writes.length === 2);
-              const basedOn = writes.map(({ current }) => current.title);
-              yield* Story.assert(
-                'the first write was based on the row as it stood',
-                basedOn[0] === 'Write the plan',
-              );
-              yield* Story.assert(
-                'the second on the renamed row the screen was showing',
-                basedOn[1] === 'Write the plan today',
-              );
               yield* Effect.sleep('30 millis');
+              const onServer = yield* task.get(key);
+              yield* Story.assert(
+                'each write carried only the status',
+                writes.every(
+                  (changes) => Object.keys(changes).join() === 'status',
+                ),
+              );
+              yield* Story.assert(
+                'the second paced update was laid over the renamed row',
+                shownAtOnce[0]?.title === 'Write the plan today' &&
+                  shownAtOnce[0].status === 'open',
+              );
+              yield* Story.assert(
+                'the server kept the rename and the last status',
+                onServer?.value.title === 'Write the plan today' &&
+                  onServer.value.status === 'open',
+              );
               yield* Effect.promise(() => screen.cleanup());
               yield* Effect.promise(() => app.dispose());
-              return { basedOn, writes };
+              return { writes: [...writes], shownAtOnce, onServer };
             }),
           ),
         ),
@@ -199,7 +210,7 @@ export const typingFastWithoutFloodingTheServer = Story.make({
     ),
     Story.question('Which pace fits which situation?', {
       answer:
-        '`debounce` for typing, where only the end result matters and a pause will come. `throttle` for a slider or a drag, where the server should see progress but not every pixel. `coalesce` (the default) for clicks, where the first change should go straight away and anything that piles up behind it goes as one more write.',
+        '`debounce` for typing, where only the end result matters and a pause will come. `throttle` for a slider or a drag, where the server should see progress but not every pixel. `coalesce` for clicks, where the first change should go straight away and anything that piles up behind it goes as one more write.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {
