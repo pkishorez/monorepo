@@ -1,8 +1,12 @@
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
-import { ESchema, EntityESchema, ValueESchema, toSchema } from '../index.js';
-import { findOutdatedVersion } from '../../core/index.js';
+import {
+  ESchema,
+  EntityESchema,
+  ValueESchema,
+  findOutdatedVersion,
+} from '../index.js';
 import { buildESchemaDefinitions } from '../../snapshot/capture/eschema-capture/index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -20,13 +24,13 @@ const LineItem = EntityESchema.make('LineItem', 'id', {
 
 const Order = EntityESchema.make('Order', 'orderId', {
   customer: Schema.String,
-  items: Schema.Array(toSchema(LineItem)),
-  shippingAddress: toSchema(Address),
+  items: Schema.Array(LineItem.schema),
+  shippingAddress: Address.schema,
 }).build();
 
 describe('ESchema', () => {
   describe('Composition', () => {
-    describe('toSchema', () => {
+    describe('schema', () => {
       describe('basic composition', () => {
         itEffect('encodes parent with nested schemas', () =>
           Effect.gen(function* () {
@@ -119,7 +123,7 @@ describe('ESchema', () => {
 
         const OrderWithV2Items = EntityESchema.make('Order', 'orderId', {
           customer: Schema.String,
-          items: Schema.Array(toSchema(LineItemV2)),
+          items: Schema.Array(LineItemV2.schema),
         }).build();
 
         itEffect('migrates nested schema independently of parent', () =>
@@ -182,7 +186,7 @@ describe('ESchema', () => {
         const Parent = ESchema.make('Parent', {
           name: Schema.String,
         })
-          .evolve('v2', { child: toSchema(Child) }, (prev) => ({
+          .evolve('v2', { child: Child.schema }, (prev) => ({
             ...prev,
             child: { value: 'default' },
           }))
@@ -225,12 +229,12 @@ describe('ESchema', () => {
 
         const Branch = ESchema.make('Branch', {
           label: Schema.String,
-          leaf: toSchema(Leaf),
+          leaf: Leaf.schema,
         }).build();
 
         const Root = ESchema.make('Root', {
           title: Schema.String,
-          branch: toSchema(Branch),
+          branch: Branch.schema,
         }).build();
 
         itEffect('encodes and decodes three levels deep', () =>
@@ -263,9 +267,9 @@ describe('ESchema', () => {
         }).build();
 
         const Composite = ESchema.make('Composite', {
-          p: toSchema(plain),
-          n: toSchema(named),
-          e: toSchema(entity),
+          p: plain.schema,
+          n: named.schema,
+          e: entity.schema,
         }).build();
 
         itEffect('roundtrips all three nested variant types', () =>
@@ -288,7 +292,7 @@ describe('ESchema', () => {
 
         const WithNullable = ESchema.make('WithNullable', {
           name: Schema.String,
-          child: Schema.NullOr(toSchema(Child)),
+          child: Schema.NullOr(Child.schema),
         }).build();
 
         itEffect('roundtrips with child present', () =>
@@ -336,7 +340,7 @@ describe('ESchema', () => {
         );
       });
 
-      describe('toSchema identifier', () => {
+      describe('schema identifier', () => {
         const plainNamed = ESchema.make('Order', {
           x: Schema.Number,
         }).build();
@@ -351,15 +355,15 @@ describe('ESchema', () => {
           Object.keys(Schema.toJsonSchemaDocument(schema).definitions)[0];
 
         it("uses a plain eschema's own name", () => {
-          expect(idOf(toSchema(plainNamed))).toBe('ESchema_Order');
+          expect(idOf(plainNamed.schema)).toBe('ESchema_Order');
         });
 
         it("uses an entity eschema's own name", () => {
-          expect(idOf(toSchema(namedEntity))).toBe('ESchema_Item');
+          expect(idOf(namedEntity.schema)).toBe('ESchema_Item');
         });
 
         it("uses a value eschema's own name", () => {
-          expect(idOf(toSchema(namedValue))).toBe('ValueESchema_Status');
+          expect(idOf(namedValue.schema)).toBe('ValueESchema_Status');
         });
 
         it('preserves the nested schema definition shape', () => {
@@ -367,7 +371,7 @@ describe('ESchema', () => {
             value: Schema.String,
           }).build();
           const Parent = ESchema.make('Parent', {
-            child: toSchema(Child),
+            child: Child.schema,
           }).build();
 
           const descriptor = Parent.getDescriptor();
@@ -387,7 +391,7 @@ describe('ESchema', () => {
 describe('Composed field', () => {
   const Child = ESchema.make('Child', { name: Schema.String }).build();
   const Parent = EntityESchema.make('Parent', 'id', {
-    child: toSchema(Child),
+    child: Child.schema,
   }).build();
 
   it('validates the nested migrated form', () => {
@@ -410,9 +414,7 @@ describe('Composed field', () => {
   itEffect('fails with the OutdatedVersion two levels down', () =>
     Effect.gen(function* () {
       const Doc = EntityESchema.make('Doc', 'id', {
-        parent: toSchema(
-          ESchema.make('Mid', { child: toSchema(Child) }).build(),
-        ),
+        parent: ESchema.make('Mid', { child: Child.schema }).build().schema,
       }).build();
       const error = yield* Effect.flip(
         readEncoded(Doc, {

@@ -20,13 +20,13 @@ import { readEncoded } from '../domain/encoded/index.js';
  * Run it:  npx tsx src/tutorial/07-non-isolation.ts
  */
 import { Effect, Schema } from 'effect';
-import { ESchema, toSchema } from '../index.js';
+import { ESchema } from '../index.js';
 
 // --- Version A of the world: child has only v1 ----------------------------
 const ChildV1 = ESchema.make('Child', { value: Schema.String }).build();
 const ParentA = ESchema.make('Parent', {
   name: Schema.String,
-  child: toSchema(ChildV1),
+  child: ChildV1.schema,
 }).build();
 
 // --- Version B of the world: the SAME child, now evolved to v2 ------------
@@ -36,7 +36,7 @@ const ChildV2 = ESchema.make('Child', { value: Schema.String })
   .build();
 const ParentB = ESchema.make('Parent', {
   name: Schema.String,
-  child: toSchema(ChildV2),
+  child: ChildV2.schema,
 }).build();
 
 // The exact same stored row, parent still stamped v1, child still stamped v1.

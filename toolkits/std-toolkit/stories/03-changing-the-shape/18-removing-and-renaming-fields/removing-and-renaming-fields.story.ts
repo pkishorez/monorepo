@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema, toSchema } from 'std-toolkit/eschema';
+import { EntityESchema } from 'std-toolkit/eschema';
 
 // Task's whole history, four versions long. The first version's fields are written out again only because new versions are being declared: v3 drops `colour` by setting it to `null`, and v4 renames `notes` to `details`, which is one drop and one add in the same step.
 export const TaskV4 = EntityESchema.make('Task', 'taskId', {
@@ -53,11 +53,11 @@ export const removingAndRenamingFields = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // Read last year's row; every step above v1 runs, and the colour is gone.
-            const seen = yield* Schema.decodeUnknownEffect(toSchema(TaskV4))(
+            const seen = yield* Schema.decodeUnknownEffect(TaskV4.schema)(
               lastYearsRow,
             );
             // Save it again; the row is written at the newest version, still without a colour.
-            const written = yield* Schema.encodeEffect(toSchema(TaskV4))(seen);
+            const written = yield* Schema.encodeEffect(TaskV4.schema)(seen);
             yield* Story.assert(
               'the dropped field does not reach the app',
               !('colour' in seen) && seen.priority === 'low',
@@ -79,11 +79,11 @@ export const removingAndRenamingFields = Story.make({
       proof: Story.trace(
         Effect.gen(function* () {
           // A v1 row runs three steps: it gains a priority, loses its colour, and its notes move.
-          const fromV1 = yield* Schema.decodeUnknownEffect(toSchema(TaskV4))(
+          const fromV1 = yield* Schema.decodeUnknownEffect(TaskV4.schema)(
             lastYearsRow,
           );
           // A v3 row runs one step: only the rename, so its own priority survives.
-          const fromV3 = yield* Schema.decodeUnknownEffect(toSchema(TaskV4))({
+          const fromV3 = yield* Schema.decodeUnknownEffect(TaskV4.schema)({
             _v: 'v3',
             taskId: 't2',
             boardId: 'work',
@@ -114,16 +114,14 @@ export const removingAndRenamingFields = Story.make({
           Effect.gen(function* () {
             // Try to save a v1-shaped task straight away; the refusal comes back as a value.
             const { _v: _stamp, ...v1Shape } = lastYearsRow;
-            const refused = yield* Schema.encodeEffect(toSchema(TaskV4))(
+            const refused = yield* Schema.encodeEffect(TaskV4.schema)(
               v1Shape as never,
             ).pipe(Effect.flip);
             // Read the row first, then save what the read gave back; this lands at v4.
-            const current = yield* Schema.decodeUnknownEffect(toSchema(TaskV4))(
+            const current = yield* Schema.decodeUnknownEffect(TaskV4.schema)(
               lastYearsRow,
             );
-            const written = yield* Schema.encodeEffect(toSchema(TaskV4))(
-              current,
-            );
+            const written = yield* Schema.encodeEffect(TaskV4.schema)(current);
             yield* Story.assert(
               'the old shape is refused',
               refused._tag === 'SchemaError',

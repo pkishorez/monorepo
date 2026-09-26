@@ -16,7 +16,7 @@ import {
   Ulid,
   type Entity,
 } from '../../../core/index.js';
-import { EntityESchema, ESchema, toSchema } from '../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { encodeCompositeKey } from '../key/index.js';
 import { StdTable } from '../table/index.js';
 import { StdTableService } from '../contract/index.js';
@@ -123,7 +123,7 @@ const richSchema = EntityESchema.make('Rich', 'richId', {
   size: Schema.BigIntFromString,
   closedAt: Schema.OptionFromNullOr(Schema.DateTimeUtcFromString),
   timeout: Schema.DurationFromMillis,
-  window: toSchema(windowSchema),
+  window: windowSchema.schema,
   history: Schema.Array(
     Schema.Struct({ at: Schema.DateFromString, note: Schema.String }),
   ),

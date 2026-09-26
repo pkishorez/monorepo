@@ -1,5 +1,4 @@
 import { Schema } from 'effect';
-import { EntitySchema } from 'std-toolkit/core';
 import { EntityESchema, ESchema } from 'std-toolkit/eschema';
 import type {
   ExportLogsServiceRequest,
@@ -87,11 +86,11 @@ export const ListPayloadSchema = Schema.Struct({
 });
 
 export const SpanListSchema = Schema.Struct({
-  items: Schema.Array(EntitySchema(SpanEntitySchema)),
+  items: Schema.Array(SpanEntitySchema.entity),
 });
 
 export const LogListSchema = Schema.Struct({
-  items: Schema.Array(EntitySchema(LogEntitySchema)),
+  items: Schema.Array(LogEntitySchema.entity),
 });
 
 export const TraceSummarySchema = Schema.Struct({
@@ -117,8 +116,8 @@ export const TraceSummaryListSchema = Schema.Struct({
 
 export const TraceDetailsSchema = Schema.Struct({
   traceId: Schema.String,
-  spans: Schema.Array(EntitySchema(SpanEntitySchema)),
-  logs: Schema.Array(EntitySchema(LogEntitySchema)),
+  spans: Schema.Array(SpanEntitySchema.entity),
+  logs: Schema.Array(LogEntitySchema.entity),
 });
 
 export const BatchWriteResultSchema = Schema.Struct({

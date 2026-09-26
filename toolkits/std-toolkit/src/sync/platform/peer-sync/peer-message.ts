@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { EntitySchema, type Entity } from '../../../core/index.js';
+import type { Entity } from '../../../core/index.js';
 import type { AnyESchema } from '../../../eschema/index.js';
 import { ESchemaError } from '../../../eschema/index.js';
 
@@ -9,16 +9,16 @@ const peerMessageEnvelope = Schema.Struct({
 });
 
 export const makePeerMessageCodec = <S extends AnyESchema>(schema: S) => {
-  const entitySchema = EntitySchema(schema);
+  const decodeEntity = Schema.decodeUnknownEffect(schema.entity);
+  const encodeEntity = Schema.encodeEffect(schema.entity);
 
   return {
     decode: (message: unknown) =>
       Effect.gen(function* () {
         const envelope =
           yield* Schema.decodeUnknownEffect(peerMessageEnvelope)(message);
-        const entities = yield* Effect.forEach(
-          envelope.entities,
-          entitySchema.decode,
+        const entities = yield* Effect.forEach(envelope.entities, (entity) =>
+          decodeEntity(entity),
         );
         return { version: envelope.version, entities };
       }),
@@ -29,7 +29,9 @@ export const makePeerMessageCodec = <S extends AnyESchema>(schema: S) => {
             message: 'A peer message must contain at least one entity',
           });
         }
-        const encoded = yield* Effect.forEach(entities, entitySchema.encode);
+        const encoded = yield* Effect.forEach(entities, (entity) =>
+          encodeEntity(entity),
+        );
         return { version: 1 as const, entities: encoded };
       }),
   };

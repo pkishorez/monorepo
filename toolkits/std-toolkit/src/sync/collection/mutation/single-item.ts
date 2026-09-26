@@ -9,7 +9,7 @@ import {
   type Entity,
   type SingletonEntity,
 } from '../../../core/index.js';
-import { toSchema, type AnyUnkeyedESchema } from '../../../eschema/index.js';
+import type { AnyUnkeyedESchema } from '../../../eschema/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import {
   collectionHandlerName,
@@ -84,7 +84,7 @@ export const buildSingleItemMutations = <
       : mutation;
   };
 
-  const codec = toSchema(schema);
+  const codec = schema.schema;
   const encode = (item: TItem): Effect.Effect<unknown, unknown> =>
     Schema.encodeEffect(codec)(item);
   const decode = (value: unknown): Effect.Effect<TItem, unknown> =>

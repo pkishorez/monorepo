@@ -3,7 +3,7 @@ import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
  * Lesson 6 — Composition: nesting evolving schemas
  *
  * Real data is nested. An evolving schema can be embedded as a field of another
- * evolving schema using `toSchema`, which turns it into a native Effect Schema
+ * evolving schema using its `schema`, a native Effect Schema
  * you can drop anywhere a schema is expected — including inside `Schema.Array`.
  *
  * The key idea: each nested schema decodes through its OWN version chain,
@@ -16,7 +16,7 @@ import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
  * Run it:  npx tsx src/tutorial/06-composition.ts
  */
 import { Effect, Schema } from 'effect';
-import { ESchema, ValueESchema, toSchema } from '../index.js';
+import { ESchema, ValueESchema } from '../index.js';
 
 // A nested object-shaped schema.
 const Address = ESchema.make('Address', {
@@ -32,11 +32,11 @@ const Status = ValueESchema.make(
   .evolve('v2', Schema.Literals(['draft', 'review', 'published']), (v) => v)
   .build();
 
-// The parent embeds both children via `toSchema`, including an array of them.
+// The parent embeds both children via their `schema`, including an array of them.
 const Ticket = ESchema.make('Ticket', {
   title: Schema.String,
-  status: toSchema(Status),
-  addresses: Schema.Array(toSchema(Address)),
+  status: Status.schema,
+  addresses: Schema.Array(Address.schema),
 }).build();
 
 Effect.runSync(

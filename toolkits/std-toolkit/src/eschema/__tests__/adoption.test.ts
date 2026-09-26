@@ -1,7 +1,7 @@
 import { readEncoded } from '../domain/encoded/index.js';
 import { it, describe, expect } from 'vitest';
 import { Effect, Schema } from 'effect';
-import { ESchema, EntityESchema, toSchema } from '../index.js';
+import { ESchema, EntityESchema } from '../index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -104,7 +104,7 @@ describe('ESchema', () => {
               // later: old orders carry an unstamped nested address.
               const Order = EntityESchema.make('Order', 'id', {
                 customer: Schema.String,
-                shippingAddress: toSchema(Address),
+                shippingAddress: Address.schema,
               }).build();
 
               const decoded = yield* readEncoded(Order, {
@@ -133,7 +133,7 @@ describe('ESchema', () => {
               // The parent itself is a single-version (v1) schema and was never
               // evolved, yet decoding folds the nested address to its latest shape.
               const Order = EntityESchema.make('Order', 'id', {
-                shippingAddress: toSchema(Address),
+                shippingAddress: Address.schema,
               }).build();
 
               const decoded = yield* readEncoded(Order, {
@@ -157,13 +157,13 @@ describe('ESchema', () => {
             Effect.gen(function* () {
               const Order = EntityESchema.make('Order', 'id', {
                 customer: Schema.String,
-                shippingAddress: toSchema(Address),
+                shippingAddress: Address.schema,
               })
                 .evolve(
                   'v2',
                   {
                     customer: Schema.String,
-                    shippingAddress: toSchema(Address),
+                    shippingAddress: Address.schema,
                     priority: Schema.Boolean,
                   },
                   (p) => ({ ...p, priority: false }),
@@ -195,7 +195,7 @@ describe('ESchema', () => {
           () =>
             Effect.gen(function* () {
               const Order = EntityESchema.make('Order', 'id', {
-                addresses: Schema.Array(toSchema(Address)),
+                addresses: Schema.Array(Address.schema),
               }).build();
 
               const decoded = yield* readEncoded(Order, {
@@ -219,7 +219,7 @@ describe('ESchema', () => {
           () =>
             Effect.gen(function* () {
               const Order = EntityESchema.make('Order', 'id', {
-                shippingAddress: toSchema(Address),
+                shippingAddress: Address.schema,
               }).build();
 
               const error = yield* Effect.flip(

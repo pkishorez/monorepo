@@ -7,6 +7,7 @@ import type {
   ForbidIdField,
   ForbidOptionalFields,
   ForbidUnderscorePrefix,
+  EntitySchemaOf,
   Prettify,
   StructFieldsType,
   StructFieldsEncoded,
@@ -14,6 +15,9 @@ import type {
 } from '../domain/schema-model/index.js';
 import { INITIAL_VERSION } from '../domain/schema-model/index.js';
 import { makeObjectSchemaRuntime } from '../domain/object-schema-runtime/index.js';
+import { latestSchema } from '../domain/introspection/index.js';
+import { versionedSchema } from '../domain/versioned-schema/index.js';
+import { entitySchema } from '../domain/entity-schema/index.js';
 import { EntityESchemaBuilder } from './entity-eschema-builder.js';
 
 function assertName(name: string): void {
@@ -99,8 +103,12 @@ export class EntityESchema<
     return this.#runtime.fields();
   }
 
-  get schema(): Schema.Struct<TLatest> {
-    return Schema.Struct(this.fields);
+  get schema(): Schema.Codec<this['Type'], this['Encoded']> {
+    return versionedSchema(this);
+  }
+
+  get entity(): EntitySchemaOf<this['Type'], this['Encoded']> {
+    return entitySchema(this);
   }
 
   getDescriptor(): ESchemaDescriptor {
@@ -116,7 +124,7 @@ export class EntityESchema<
     },
     validate: (value: unknown) => {
       const result = Effect.runSyncExit(
-        Schema.decodeUnknownEffect(Schema.toType(this.schema))(value),
+        Schema.decodeUnknownEffect(Schema.toType(latestSchema(this)))(value),
       );
       if (result._tag === 'Success') {
         return { value: result.value as LatestType<TLatest> };

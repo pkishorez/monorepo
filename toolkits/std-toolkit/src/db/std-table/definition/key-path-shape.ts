@@ -1,4 +1,4 @@
-import { SchemaAST } from 'effect';
+import { Schema, SchemaAST } from 'effect';
 import type { AnyEntityESchema } from '../../../eschema/index.js';
 
 type Leaf = 'string' | 'number';
@@ -88,7 +88,7 @@ const resolve = (ast: SchemaAST.AST, segments: readonly string[]): Resolved => {
 };
 
 const resolvePath = (schema: AnyEntityESchema, path: string) =>
-  resolve(SchemaAST.toType(schema.schema.ast), path.split('.'));
+  resolve(SchemaAST.toType(Schema.Struct(schema.fields).ast), path.split('.'));
 
 /** Whether a valid key path reads a string or a number; `_u` is a string. */
 export const keyPathKind = (

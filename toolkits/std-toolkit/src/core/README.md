@@ -4,7 +4,7 @@ Entity envelope, metadata schemas, ULID generation, and the change Broadcaster s
 
 ## Big picture
 
-`core` is the shared kernel. It defines the one Entity shape, `{ value, meta }`, used in application code and on the wire alike, with the value's version in `meta._v`, and the metadata fields `_e`, `_u`, `_d`, `_s`, `_c` that the db and sync subpaths interpret. It also owns the `Ulid` generator that produces `_u` and the `Broadcaster` hook that fans out confirmed writes. Vocabulary is in [CONTEXT.md](CONTEXT.md).
+`core` is the shared kernel. It defines the one Entity shape, `{ value, meta }`, used in application code and on the wire alike, with the value's version in `meta._v` (an ESchema's `entity` and `singleEntity` convert it), and the metadata fields `_e`, `_u`, `_d`, `_s`, `_c` that the db and sync subpaths interpret. It also owns the `Ulid` generator that produces `_u` and the `Broadcaster` hook that fans out confirmed writes. Vocabulary is in [CONTEXT.md](CONTEXT.md).
 
 ## Install
 
@@ -16,8 +16,6 @@ See the [top README](../../README.md).
 
 | Export                   | What it does                                                                                 |
 | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `EntitySchema`           | Builds the codec for one ESchema's keyed Entity; decoding migrates it to the latest version. |
-| `SingleEntitySchema`     | Builds the same codec for a singleton Entity that has no id field.                           |
 | `EntityMetaSchema`       | Effect Schema for keyed Entity metadata: `_e`, `_u`, `_d`, and optional `_s`, `_c`.          |
 | `SingleEntityMetaSchema` | Effect Schema for singleton Entity metadata, without the deletion and observation fields.    |
 | `Broadcaster`            | Effect Service that receives batches of confirmed Entities and exposes them as a Stream.     |

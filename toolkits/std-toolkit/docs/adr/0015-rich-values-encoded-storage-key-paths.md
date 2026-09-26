@@ -5,7 +5,7 @@ supersedes: ADR-0014
 
 # Rich values in code, encoded form at every boundary, keys as key paths
 
-ESchema fields may now convert between a rich **value** and its **encoded form**, for example `Schema.DateFromString`: code holds a `Date`, storage and the wire hold an ISO string. Application code only ever handles values. Every boundary converts through the schema it already uses, so users never build, read, or type an encoded form: StdTable encodes on write and decodes on read, an RPC contract uses `EntitySchema(X)` for Entities and `X.schema` for written values and Effect RPC converts on both ends, and Sync Collections, Mutation Callbacks and sources hold values while the Sync Store, Peer Sync and the Outbox hold the encoded form. The one Entity shape and `_v` in Entity Meta from ADR 0014 are unchanged.
+ESchema fields may now convert between a rich **value** and its **encoded form**, for example `Schema.DateFromString`: code holds a `Date`, storage and the wire hold an ISO string. Application code only ever handles values. Every boundary converts through the schema it already uses, so users never build, read, or type an encoded form: StdTable encodes on write and decodes on read, an RPC contract uses `X.entity` for Entities and `X.schema` for written values and Effect RPC converts on both ends, and Sync Collections, Mutation Callbacks and sources hold values while the Sync Store, Peer Sync and the Outbox hold the encoded form. The one Entity shape and `_v` in Entity Meta from ADR 0014 are unchanged.
 
 Versioning belongs to the encoded form. A **table snapshot** captures only encoded shapes, so swapping `Schema.String` for `Schema.DateFromString` over the same stored string needs no new version, provided every existing stored value already parses; how a field converts is not versioned, so a field must never change meaning without changing its name or encoded shape. **Migrations** work on values: decoding converts a row with its own version's fields and then migrates value to value, and only the latest value is ever encoded. Any Effect conversion whose encoded side a snapshot can capture is allowed in `ESchema`, `EntityESchema`, `ValueESchema` and nested ESchemas alike; filters and constructor defaults stay refused.
 
@@ -24,3 +24,7 @@ The DynamoDB native API, including expression updates, is removed. It was writte
 ## Consequences
 
 Studio's generic RPC cannot know application types, so it shows encoded values, including the order-preserving strings of number key parts. Places that compared values with `===`, such as detecting a changed primary key on update and `subscribe` filters, must compare derived keys or encoded values so that two equal `Date`s count as equal.
+
+## Amendment (2026-09-26)
+
+The Effect Schemas moved onto the ESchema. `X.schema` is now the versioned schema (formerly `toSchema(X)`), so a written value sent by an older client is migrated rather than rejected; `X.entity` replaces `EntitySchema(X)` and `X.singleEntity` replaces `SingleEntitySchema(X)`. The latest-fields-only schema that `X.schema` used to be is internal.

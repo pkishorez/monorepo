@@ -3,6 +3,7 @@ export {
   inspectESchemaComposition,
   isEncodedStringSchema,
   isESchemaCompositionPlumbing,
+  latestSchema,
   registerESchemaComposition,
   registerESchemaIntrospection,
   type ESchemaCompositionIntrospection,

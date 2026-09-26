@@ -4,7 +4,6 @@ import { Effect, Schema } from 'effect';
 import {
   ESchema,
   ValueESchema,
-  toSchema,
   type AnyESchema,
   type ESchemaType,
   OutdatedVersion,
@@ -256,7 +255,7 @@ describe('ESchema', () => {
 
       const Ticket = ESchema.make('Ticket', {
         title: Schema.String,
-        status: toSchema(Status),
+        status: Status.schema,
       }).build();
 
       itEffect('encodes nested values as envelopes', () =>

@@ -21,7 +21,7 @@ npx tsx src/tutorial/01-first-schema.ts
 | 3   | [`03-adopting-existing-data.ts`](./03-adopting-existing-data.ts)         | Wrapping a plain Effect Schema. **Unstamped legacy data decodes as v1** — adoption is non-breaking. |
 | 4   | [`04-transform-rename-remove.ts`](./04-transform-rename-remove.ts)       | Field transforms, removing a field (`null` delta), and renaming (remove + add).                     |
 | 5   | [`05-value-eschema.ts`](./05-value-eschema.ts)                           | `ValueESchema`: whole-value evolution, the value envelope, and **bare values**.                     |
-| 6   | [`06-composition.ts`](./06-composition.ts)                               | Nesting schemas with `toSchema`; arrays of nested schemas; independent versioning.                  |
+| 6   | [`06-composition.ts`](./06-composition.ts)                               | Nesting schemas with `.schema`; arrays of nested schemas; independent versioning.                   |
 | 7   | [`07-non-isolation.ts`](./07-non-isolation.ts)                           | The gotcha: evolving a **child** shifts the **parent's** decoded shape.                             |
 | 8   | [`08-gotchas-and-best-practices.ts`](./08-gotchas-and-best-practices.ts) | Reserved keys, **`NullOr` over `optional`**, total migrations, immutability.                        |
 
@@ -32,6 +32,6 @@ always writes the latest version and stamps `_v`. **Decode** reads the `_v`,
 finds that version in the chain, and **folds forward** — applying each migration
 in order until the value matches the latest shape. Data with no `_v` is treated
 as `v1`, which is what makes adopting eschema on top of existing data safe. When
-schemas are nested via `toSchema`, every level folds forward through its own
+schemas are nested via `.schema`, every level folds forward through its own
 chain independently — powerful, but it means decode behaviour is a property of
 the whole tree, not one schema (lesson 7).

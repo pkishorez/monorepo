@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { ESchema, toSchema } from '../../eschema/index.js';
+import { ESchema } from '../../eschema/index.js';
 import { TableSnapshot } from '../index.js';
 import { snapshotOf } from './helpers.js';
 
@@ -8,7 +8,7 @@ describe('Snapshot.diff', () => {
   it('reports a nested next version once as safe', () => {
     const childV1 = ESchema.make('Child', { value: Schema.String }).build();
     const before = snapshotOf(
-      ESchema.make('Parent', { child: toSchema(childV1) }).build(),
+      ESchema.make('Parent', { child: childV1.schema }).build(),
     );
     const childV2 = ESchema.make('Child', { value: Schema.String })
       .evolve('v2', { count: Schema.Number }, (value) => ({
@@ -17,7 +17,7 @@ describe('Snapshot.diff', () => {
       }))
       .build();
     const after = snapshotOf(
-      ESchema.make('Parent', { child: toSchema(childV2) }).build(),
+      ESchema.make('Parent', { child: childV2.schema }).build(),
     );
 
     expect(TableSnapshot.diff(before, after)).toEqual([

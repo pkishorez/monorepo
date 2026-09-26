@@ -34,7 +34,7 @@ export type CollectionItemSchema<S extends AnyESchema> = StandardSchemaV1<
 export const makeCollectionItemSchema = <S extends AnyESchema>(
   schema: S,
 ): CollectionItemSchema<S> => {
-  const isValue = Schema.is(Schema.toType(schema.schema));
+  const isValue = Schema.is(Schema.toType(Schema.Struct(schema.fields)));
   return {
     '~standard': {
       version: 1,

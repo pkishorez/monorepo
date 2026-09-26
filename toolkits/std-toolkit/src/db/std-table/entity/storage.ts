@@ -1,10 +1,8 @@
-import { Effect } from 'effect';
-import {
-  EntitySchema,
-  SingleEntitySchema,
-  type Entity,
-  type EntityMeta,
-  type SingleEntityMeta,
+import { Effect, Schema } from 'effect';
+import type {
+  Entity,
+  EntityMeta,
+  SingleEntityMeta,
 } from '../../../core/index.js';
 import type {
   AnyEntityESchema,
@@ -78,18 +76,20 @@ export const toStored = <S extends AnyEntityESchema>(
   entity: string,
   meta: Omit<EntityMeta, '_v'> = { _e: entity, _u: '', _d: false },
 ) =>
-  EntitySchema(schema)
-    .encode({ value, meta: { ...meta, _v: schema.latestVersion } })
-    .pipe(Effect.map(versioned), Effect.mapError(decodeFailed(entity)));
+  Schema.encodeEffect(schema.entity)({
+    value,
+    meta: { ...meta, _v: schema.latestVersion },
+  }).pipe(Effect.map(versioned), Effect.mapError(decodeFailed(entity)));
 
 export const fromStored = <S extends AnyEntityESchema>(
   schema: S,
   item: StoredItem,
 ) => {
   const { value, _v } = unversioned(item);
-  return EntitySchema(schema)
-    .decode({ value, meta: { ...item.meta, _v } })
-    .pipe(Effect.mapError(decodeFailed(schema.name)));
+  return Schema.decodeUnknownEffect(schema.entity)({
+    value,
+    meta: { ...item.meta, _v },
+  }).pipe(Effect.mapError(decodeFailed(schema.name)));
 };
 
 export const toStoredSingle = <S extends AnyUnkeyedESchema>(
@@ -98,18 +98,20 @@ export const toStoredSingle = <S extends AnyUnkeyedESchema>(
   entity: string,
   meta: Omit<SingleEntityMeta, '_v'> = { _e: entity, _u: '' },
 ) =>
-  SingleEntitySchema(schema)
-    .encode({ value, meta: { ...meta, _v: schema.latestVersion } })
-    .pipe(Effect.map(versioned), Effect.mapError(decodeFailed(entity)));
+  Schema.encodeEffect(schema.singleEntity)({
+    value,
+    meta: { ...meta, _v: schema.latestVersion },
+  }).pipe(Effect.map(versioned), Effect.mapError(decodeFailed(entity)));
 
 export const fromStoredSingle = <S extends AnyUnkeyedESchema>(
   schema: S,
   item: StoredItem,
 ) => {
   const { value, _v } = unversioned(item);
-  return SingleEntitySchema(schema)
-    .decode({ value, meta: { _e: item.meta._e, _u: item.meta._u, _v } })
-    .pipe(Effect.mapError(decodeFailed(schema.name)));
+  return Schema.decodeUnknownEffect(schema.singleEntity)({
+    value,
+    meta: { _e: item.meta._e, _u: item.meta._u, _v },
+  }).pipe(Effect.mapError(decodeFailed(schema.name)));
 };
 
 /** Keys are read from the value; the item stores its encoded form. */

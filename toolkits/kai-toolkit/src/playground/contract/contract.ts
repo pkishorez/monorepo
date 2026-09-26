@@ -1,6 +1,5 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { EntitySchema } from 'std-toolkit/core';
 import { HARNESS_IDS } from '../../runtime/protocol/index.js';
 import { MessageSchema, ThreadSchema } from '../../runtime/table/index.js';
 import { AiRpc } from '../../rpc/contract/index.js';
@@ -10,8 +9,8 @@ export class PlaygroundFailed extends Schema.TaggedError<PlaygroundFailed>()(
   { message: Schema.String },
 ) {}
 
-const ThreadEntity = EntitySchema(ThreadSchema);
-const MessageEntity = EntitySchema(MessageSchema);
+const ThreadEntity = ThreadSchema.entity;
+const MessageEntity = MessageSchema.entity;
 
 export class AiPlaygroundRpc extends RpcGroup.make(
   Rpc.make('createThread', {

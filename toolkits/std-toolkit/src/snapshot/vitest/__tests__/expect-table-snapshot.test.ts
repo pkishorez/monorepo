@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { StdTable } from '../../../db/index.js';
-import { EntityESchema, ESchema, toSchema } from '../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../eschema/index.js';
 import { TableSnapshot } from '../../index.js';
 import { expectTableSnapshot } from '../index.js';
 
@@ -11,7 +11,7 @@ const Address = ESchema.make('Address', { city: Schema.String }).build();
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
   title: Schema.String,
-  address: toSchema(Address),
+  address: Address.schema,
 })
   .evolve('v2', { priority: Schema.Literals(['low', 'high']) }, (previous) => ({
     ...previous,
@@ -44,6 +44,18 @@ describe('expectTableSnapshot', () => {
     expect(TableSnapshot.diff(snapshot, TableSnapshot.capture(board))).toEqual(
       [],
     );
+  });
+
+  it('fails on an unreadable file with how to replace it', async () => {
+    const source = await readFile(fixture, 'utf8');
+    try {
+      await writeFile(fixture, JSON.stringify({ _v: 'v1', schemas: 'old' }));
+      await expect(
+        expectTableSnapshot(board, './fixtures/board.snapshot.json'),
+      ).rejects.toThrow('Run vitest with -u to replace it.');
+    } finally {
+      await writeFile(fixture, source);
+    }
   });
 
   it('compares the committed file as data, so formatting never fails the test', async () => {

@@ -1,5 +1,4 @@
 import { Effect, Layer, Schema } from 'effect';
-import { toSchema } from 'std-toolkit/eschema';
 import { RpcTest } from 'effect/unstable/rpc';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { Authz } from 'auth-toolkit/rpc';
@@ -439,7 +438,7 @@ it('persists raw secrets at schema v1 and removes the actual rows on delete', as
         [storeSchema, store],
       ] as const) {
         const encoded = yield* Schema.encodeEffect(
-          toSchema(schema as typeof storeSchema),
+          (schema as typeof storeSchema).schema,
         )(record as typeof store);
         expect(encoded._v).toBe('v1');
       }

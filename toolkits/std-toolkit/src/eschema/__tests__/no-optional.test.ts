@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { Schema } from 'effect';
-import { ESchema, EntityESchema, ValueESchema, toSchema } from '../index.js';
+import { ESchema, EntityESchema, ValueESchema } from '../index.js';
 
 const Child = ESchema.make('Child', { val: Schema.String }).build();
 
 describe('optional and undefined are forbidden at the type level', () => {
   it('rejects optional fields, accepts NullOr', () => {
     // @ts-expect-error optionalKey is forbidden
-    ESchema.make('A1', { child: Schema.optionalKey(toSchema(Child)) });
+    ESchema.make('A1', { child: Schema.optionalKey(Child.schema) });
     // @ts-expect-error optional is forbidden
     ESchema.make('A2', { x: Schema.optional(Schema.String) });
     // @ts-expect-error UndefinedOr is forbidden

@@ -1,10 +1,5 @@
-import { Effect } from 'effect';
-import {
-  EntitySchema,
-  SingleEntitySchema,
-  type Entity,
-  type SingletonEntity,
-} from '../core/index.js';
+import { Effect, Schema } from 'effect';
+import type { Entity, SingletonEntity } from '../core/index.js';
 import type {
   StoredData,
   StdTableService,
@@ -111,23 +106,19 @@ const preserveReadFailure =
 
 const encodeKeyed =
   (definition: KeyedEntityDefinition) => (entity: Entity<object>) =>
-    EntitySchema(definition.schema)
-      .encode(entity)
-      .pipe(
-        Effect.tapError((error) => Effect.logError(error)),
-        Effect.mapError(() => codecFailure(definition.name, 'encode-result')),
-        Effect.map((encoded) => encoded as StudioRawEntity),
-      );
+    Schema.encodeEffect(definition.schema.entity)(entity).pipe(
+      Effect.tapError((error) => Effect.logError(error)),
+      Effect.mapError(() => codecFailure(definition.name, 'encode-result')),
+      Effect.map((encoded) => encoded as StudioRawEntity),
+    );
 
 const toStoredSingle =
   (definition: SingleEntityDefinition) => (entity: SingletonEntity<object>) =>
-    SingleEntitySchema(definition.schema)
-      .encode(entity)
-      .pipe(
-        Effect.tapError((error) => Effect.logError(error)),
-        Effect.mapError(() => codecFailure(definition.name, 'encode-result')),
-        Effect.map((encoded) => encoded as StudioRawSingleEntity),
-      );
+    Schema.encodeEffect(definition.schema.singleEntity)(entity).pipe(
+      Effect.tapError((error) => Effect.logError(error)),
+      Effect.mapError(() => codecFailure(definition.name, 'encode-result')),
+      Effect.map((encoded) => encoded as StudioRawSingleEntity),
+    );
 
 const definitionNamed = <Name extends string>(
   table: StdTable<Name>,
@@ -198,13 +189,13 @@ export const makeEntityReader = <Name extends string>(
       const after =
         payload.after === undefined
           ? undefined
-          : yield* EntitySchema(definition.schema)
-              .decode(payload.after)
-              .pipe(
-                Effect.mapError(() =>
-                  codecFailure(definition.name, 'decode-after'),
-                ),
-              );
+          : yield* Schema.decodeUnknownEffect(definition.schema.entity)(
+              payload.after,
+            ).pipe(
+              Effect.mapError(() =>
+                codecFailure(definition.name, 'decode-after'),
+              ),
+            );
       const page = yield* keyedSurface<Name>(definition)
         .query(payload.accessPattern, input, {
           limit: payload.limit ?? 100,

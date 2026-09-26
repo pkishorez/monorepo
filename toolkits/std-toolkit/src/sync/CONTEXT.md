@@ -81,7 +81,7 @@ A worker policy that obtains backend-confirmed Entities and owns the Sync State
 needed to resume its work.
 
 **Sync Source**:
-A Sync-owned description of one Backend delivery mode, built from application-provided backend operations. It yields backend-confirmed **Entities** already in the latest **version**: the application's transport decodes them with core's `EntitySchema`, which migrates older versions and raises `OutdatedVersion` for newer ones. Sync refuses an in-memory Entity whose `_v` is not the latest. It does not own cursor meaning, Sync State, or the surrounding Collection or Partition lifecycle.
+A Sync-owned description of one Backend delivery mode, built from application-provided backend operations. It yields backend-confirmed **Entities** already in the latest **version**: the application's transport decodes them with the ESchema's **entity schema** (`X.entity`), which migrates older versions and raises `OutdatedVersion` for newer ones. Sync refuses an in-memory Entity whose `_v` is not the latest. It does not own cursor meaning, Sync State, or the surrounding Collection or Partition lifecycle.
 _Avoid_: Sync Strategy, subscription callback.
 
 **Leadership**:

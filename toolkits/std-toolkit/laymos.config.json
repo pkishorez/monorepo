@@ -361,15 +361,6 @@
         }
       }
     },
-    "eschema.composition": {
-      "paths": ["src/eschema/schema-composition"],
-      "description": "Composition \u2014 Effect Schema composition",
-      "modules": {
-        "src/eschema/schema-composition": {
-          "exposed": true
-        }
-      }
-    },
     "eschema.domain": {
       "paths": ["src/eschema/domain"],
       "description": "Domain \u2014 evolution, the snapshot type language and field policy, runtimes, errors, and introspection",
@@ -395,6 +386,12 @@
         },
         "src/eschema/domain/snapshot-type": {
           "shared": true,
+          "exposed": true
+        },
+        "src/eschema/domain/entity-schema": {
+          "exposed": true
+        },
+        "src/eschema/domain/versioned-schema": {
           "exposed": true
         }
       }
@@ -451,7 +448,7 @@
     "core.impl": {
       "paths": [
         "src/core/broadcaster",
-        "src/core/entity-schema",
+        "src/core/entity",
         "src/core/error.ts",
         "src/core/ulid.ts"
       ],
@@ -463,7 +460,7 @@
         "src/core/error.ts": {
           "exposed": true
         },
-        "src/core/entity-schema": {
+        "src/core/entity": {
           "shared": true,
           "exposed": true
         },
@@ -797,9 +794,9 @@
     "eschema": {
       "description": "ESchema entrypoint, constructs, composition, and domain",
       "rules": {
-        "eschema.public": ["eschema.composition", "eschema.constructs"],
+        "eschema.public": ["eschema.constructs"],
         "eschema.constructs": ["eschema.domain"],
-        "eschema.composition": ["eschema.domain"]
+        "eschema.domain": ["core.public"]
       }
     },
     "snapshot": {
@@ -817,10 +814,9 @@
       }
     },
     "core": {
-      "description": "Core utilities and their schema dependency",
+      "description": "Core utilities",
       "rules": {
-        "core.public": ["core.impl"],
-        "core.impl": ["eschema.public", "eschema.domain"]
+        "core.public": ["core.impl"]
       }
     },
     "sync": {
