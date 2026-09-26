@@ -85,6 +85,12 @@ rekeyedTasks
   .primary({ pk: ['boardId'] })
   .build();
 
+// A change that would strand a stored row, or that the snapshot cannot check.
+const rejected = (changes: ReturnType<typeof TableSnapshot.diff>) =>
+  changes.filter(
+    ({ impact }) => impact === 'breaking' || impact === 'unverifiable',
+  );
+
 // What the snapshot guard in `std-toolkit/alchemy` does on every deploy, with a variable standing in for Alchemy state: remember the last accepted snapshot, refuse a new one that is not upgradable from it.
 const makeGuard = () => {
   let accepted: TableSnapshot | undefined;
@@ -93,11 +99,9 @@ const makeGuard = () => {
       const current = TableSnapshot.capture(table);
       if (accepted !== undefined) {
         const changes = TableSnapshot.diff(accepted, current);
-        if (!TableSnapshot.isUpgradable(changes)) {
+        if (rejected(changes).length > 0) {
           return yield* Effect.fail(
-            new SnapshotIncompatible(
-              changes.filter(({ impact }) => impact === 'breaking'),
-            ),
+            new SnapshotIncompatible(rejected(changes)),
           );
         }
       }
@@ -118,37 +122,28 @@ export const promisingNeverToBreakAnOldTask = Story.make({
   sourceUrl: import.meta.url,
   questions: [
     Story.question(
-      'What does a captured shape look like, and can something that has never seen `Task` read a task from it?',
+      'What does a captured shape look like, and does it survive being written down?',
       {
         answer:
-          'Plain JSON: a table snapshot (a written-down description of the table and every version of every shape in it, both as stored and as the app sees it) with nothing in it that only the original code could run. `TableSnapshot.restore` rebuilds working shapes from that JSON alone, and the rebuilt Task accepts and refuses tasks exactly like the original.',
+          'Plain JSON: a table snapshot (a written-down description of the table and every version of every shape in it, both as stored and as the app sees it) with nothing in it that only the original code could run. It can be saved to a file or sent over the wire, and `TableSnapshot.parse` reads it back as the same snapshot, so a later deploy can compare against it without the code that produced it.',
         proof: Story.trace(
           Effect.gen(function* () {
             // Capture the first deploy, and push it through JSON as a file or a wire would.
             const captured = TableSnapshot.capture(firstDeploy);
             const json = JSON.parse(JSON.stringify(captured));
-            // Rebuild working shapes from the JSON alone, and take Task's first version as the app sees it.
-            const restored = yield* Effect.fromNullishOr(
-              TableSnapshot.restore(json).find(
-                ({ identity }) => identity === 'Task',
-              ),
-            );
-            const v1 = yield* Effect.fromNullishOr(restored.versions[0]);
-            const isTask = Schema.is(v1.decoded);
-            // Render the snapshot as text for a human to read.
-            const rendered = TableSnapshot.render(captured);
-            yield* Story.assert(
-              'the JSON round trip changes nothing',
-              JSON.stringify(json) === JSON.stringify(captured),
+            // Read the JSON back, checking every reference in it.
+            const parsed = yield* TableSnapshot.parse(json);
+            const task = yield* Effect.fromNullishOr(
+              parsed.schemas.find(({ identity }) => identity === 'Task'),
             );
             yield* Story.assert(
-              'the rebuilt shape accepts a task and refuses a wrong one',
-              isTask(lastYearsTask) && !isTask({ taskId: 't1', title: 7 }),
+              'the JSON reads back as the same snapshot',
+              TableSnapshot.diff(captured, parsed).length === 0,
             );
             return {
-              table: json.logicalName,
-              versions: restored.versions.map(({ version }) => version),
-              rendered,
+              table: parsed.logicalName,
+              entities: parsed.entities.map(({ name }) => name),
+              taskVersions: task.versions.map(({ version }) => version),
             };
           }),
         ),
@@ -184,11 +179,11 @@ export const promisingNeverToBreakAnOldTask = Story.make({
             });
             yield* Story.assert(
               'a new step is safe',
-              safe.length > 0 && TableSnapshot.isUpgradable(safe),
+              safe.length > 0 && rejected(safe).length === 0,
             );
             yield* Story.assert(
               'an edited version is breaking, and does strand old rows',
-              !TableSnapshot.isUpgradable(breaking) &&
+              rejected(breaking).length > 0 &&
                 stranded._tag === 'ESchemaError' &&
                 afterEdit.priority === 'high',
             );

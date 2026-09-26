@@ -2,7 +2,7 @@ import { Effect } from 'effect';
 import { AlertCircle, Database, LoaderCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { StudioRpcClient } from 'std-toolkit/studio-rpc';
-import type { TableEntitySnapshot, TableSnapshot } from 'std-toolkit/snapshot';
+import type { TableSnapshot } from 'std-toolkit/snapshot';
 import { useComponentLifecycle } from 'use-effect-ts';
 
 import { Button } from '#components/ui/button';
@@ -24,6 +24,8 @@ import {
 import { RecordDetails } from '../record-details';
 import { RecordTable } from '../record-table';
 import { QueryBuilder } from './query-builder';
+
+type TableEntitySnapshot = TableSnapshot['entities'][number];
 
 type Page = {
   readonly items: readonly StudioRecord[];

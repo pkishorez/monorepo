@@ -7,10 +7,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useState } from 'react';
-import type {
-  TableAccessPatternSnapshot,
-  TableEntitySnapshot,
-} from 'std-toolkit/snapshot';
+import type { TableSnapshot } from 'std-toolkit/snapshot';
 
 import { Badge } from '#components/ui/badge';
 import { Button } from '#components/ui/button';
@@ -40,6 +37,9 @@ import {
   type QueryCriteria,
   type QueryOperator,
 } from '../query-model';
+
+type TableEntitySnapshot = TableSnapshot['entities'][number];
+type TableAccessPatternSnapshot = TableEntitySnapshot['accessPatterns'][number];
 
 const operators: readonly {
   readonly value: QueryOperator;

@@ -1,6 +1,1 @@
-export {
-  buildESchemaDefinitions,
-  collectESchemas,
-  type CollectedESchema,
-  type SnapshotESchemaRoot,
-} from './eschema-capture.js';
+export { buildESchemaDefinitions } from './eschema-capture.js';

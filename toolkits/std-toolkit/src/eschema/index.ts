@@ -4,15 +4,9 @@ export { ValueESchema } from './value-eschema/index.js';
 export { toSchema } from './schema-composition/index.js';
 export { ESchemaError } from './domain/eschema-error/index.js';
 export { fromType, id, metaSchema } from './domain/schema-model/index.js';
-// Read-only introspection: what a schema knows about itself, for structural
-// consumers such as snapshot capture. It never changes runtime behavior.
 export {
   inspectESchema,
   inspectESchemaComposition,
-  type ESchemaCompositionIntrospection,
-  type ESchemaEvolutionIntrospection,
-  type ESchemaIntrospection,
-  type ESchemaKind,
 } from './domain/introspection/index.js';
 export type {
   Prettify,

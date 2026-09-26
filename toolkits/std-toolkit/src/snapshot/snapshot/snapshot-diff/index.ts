@@ -1,1 +1,1 @@
-export { diffTableSnapshot, isUpgradable } from './snapshot-diff.js';
+export { diffTableSnapshot } from './snapshot-diff.js';

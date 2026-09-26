@@ -6,10 +6,7 @@ import {
   id,
   toSchema,
 } from '../../../../eschema/index.js';
-import {
-  SnapshotIdentityConflict,
-  TableSnapshot,
-} from '../../../../snapshot/index.js';
+import { TableSnapshot } from '../../../../snapshot/index.js';
 import { Table } from '../index.js';
 
 const addressSchema = EntityESchema.make('Address', 'addressId', {
@@ -302,7 +299,7 @@ describe('portable Table definition', () => {
       .primary()
       .build();
     expect(() => TableSnapshot.capture(conflictTable)).toThrow(
-      SnapshotIdentityConflict,
+      'is claimed by different ESchemas',
     );
   });
 });

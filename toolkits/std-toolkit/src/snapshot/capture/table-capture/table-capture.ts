@@ -11,11 +11,6 @@ import type {
 import { compareStrings } from '../../domain/index.js';
 import { buildESchemaDefinitions } from '../eschema-capture/index.js';
 
-/**
- * What capture reads from a table: its logical name, topology, and the
- * entities registered on it. This is the shape a `StdTable` definition
- * already has, described structurally so snapshot never imports db.
- */
 export interface TableSource {
   readonly logicalName: string;
   readonly primary: { readonly pk: string; readonly sk: string };
@@ -24,7 +19,7 @@ export interface TableSource {
   readonly registeredEntities: readonly EntitySource[];
 }
 
-export interface KeyedEntitySource {
+interface KeyedEntitySource {
   readonly kind: 'keyed';
   readonly name: string;
   readonly schema: AnyEntityESchema;
@@ -37,13 +32,13 @@ export interface KeyedEntitySource {
   >;
 }
 
-export interface SingleEntitySource {
+interface SingleEntitySource {
   readonly kind: 'single';
   readonly name: string;
   readonly schema: AnyUnkeyedESchema;
 }
 
-export type EntitySource = KeyedEntitySource | SingleEntitySource;
+type EntitySource = KeyedEntitySource | SingleEntitySource;
 
 const entitySnapshot = (entity: EntitySource): TableEntitySnapshot =>
   entity.kind === 'single'
@@ -79,7 +74,6 @@ const indexes = (
     .map(({ name, pk, sk }) => ({ name, pk, sk }))
     .sort((left, right) => compareStrings(left.name, right.name));
 
-/** The table's contract as plain data: topology, entities, and every ESchema version reachable from them. */
 export function captureTableSnapshot(table: TableSource): TableSnapshot {
   return {
     logicalName: table.logicalName,

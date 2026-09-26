@@ -2,19 +2,30 @@ import type {
   ESchemaDefinition,
   ESchemaVersion,
   SnapshotChange,
-  SnapshotImpact,
-  SnapshotEdit,
-  SnapshotSubject,
   TableAccessPatternSnapshot,
   TableEntitySnapshot,
   TableIndexSnapshot,
   TableSnapshot,
 } from '../../domain/index.js';
-import { compareStrings, stableStringify } from '../../domain/index.js';
-import { validateTableSnapshot as validateTable } from '../snapshot-decoder/index.js';
+import { compareStrings } from '../../domain/index.js';
+import { validateTableSnapshot } from '../snapshot-decoder/index.js';
 
+type SnapshotEdit = SnapshotChange['edits'][number];
+type SnapshotSubject = SnapshotChange['subject'];
 type EditSide = NonNullable<SnapshotEdit['side']>;
-const stable = stableStringify;
+
+const stable = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(stable).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => compareStrings(a, b))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stable(nested)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -29,17 +40,15 @@ function edit(
   return {
     ...(side === undefined ? {} : { side }),
     path: [...path],
-    ...(before === undefined
-      ? {}
-      : { before: before as SnapshotEdit['before'] }),
-    ...(after === undefined ? {} : { after: after as SnapshotEdit['after'] }),
+    ...(before === undefined ? {} : { before }),
+    ...(after === undefined ? {} : { after }),
   };
 }
 
 function change(
   subject: SnapshotSubject,
   action: SnapshotChange['action'],
-  impact: SnapshotImpact,
+  impact: SnapshotChange['impact'],
   edits: readonly SnapshotEdit[] = [],
 ): SnapshotChange {
   return { subject, action, impact, edits: [...edits] };
@@ -615,20 +624,13 @@ function sortChanges(
   });
 }
 
-/** No change may strand a stored row: only safe and requires-backfill changes are upgradable. */
-function isUpgradable(changes: readonly SnapshotChange[]): boolean {
-  return changes.every(
-    ({ impact }) => impact !== 'breaking' && impact !== 'unverifiable',
-  );
-}
-
 function diffTableSnapshot(
   previous: TableSnapshot,
   current: TableSnapshot,
 ): readonly SnapshotChange[] {
-  validateTable(previous);
-  validateTable(current);
+  validateTableSnapshot(previous);
+  validateTableSnapshot(current);
   return sortChanges(diffTable(previous, current));
 }
 
-export { diffTableSnapshot, isUpgradable };
+export { diffTableSnapshot };

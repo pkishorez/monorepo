@@ -35,20 +35,14 @@ See [src/eschema/README.md](src/eschema/README.md).
 
 ### `std-toolkit/snapshot`
 
-| Export                        | What it does                                                                               |
-| ----------------------------- | ------------------------------------------------------------------------------------------ |
-| `TableSnapshot.capture`       | Captures a table's contract as plain data: topology, entities, and every schema version.   |
-| `TableSnapshot.parse`         | Reads a stored document, migrating older formats forward and validating its references.    |
-| `TableSnapshot.diff`          | Compares a previous and a current snapshot into classified semantic changes.               |
-| `TableSnapshot.isUpgradable`  | Says whether a change list leaves every row written under the previous snapshot readable.  |
-| `TableSnapshot.render`        | Renders a snapshot as stable human-readable text.                                          |
-| `TableSnapshot.renderChanges` | Renders a list of changes as human-readable text, grouped by impact.                       |
-| `TableSnapshot.restore`       | Rebuilds live Effect schemas for every version in a snapshot, without the original source. |
-| `TableSnapshotESchema`        | The ESchema of the stored table snapshot document.                                         |
-| `SnapshotChangeSchema`        | The Schema of one classified change.                                                       |
-| `SnapshotDecodeError`         | Error raised when a stored snapshot cannot be read.                                        |
-| `SnapshotIdentityConflict`    | Error raised when two distinct ESchemas share one snapshot identity.                       |
-| `SnapshotIncompatible`        | Error raised when a new snapshot is not upgradable from the accepted one.                  |
+| Export                        | What it does                                                                             |
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
+| `TableSnapshot.capture`       | Captures a table's contract as plain data: topology, entities, and every schema version. |
+| `TableSnapshot.parse`         | Reads a stored document, migrating older formats forward and validating its references.  |
+| `TableSnapshot.diff`          | Compares a previous and a current snapshot into classified semantic changes.             |
+| `TableSnapshot.renderChanges` | Renders a list of changes as human-readable text, grouped by impact.                     |
+| `TableSnapshotESchema`        | The ESchema of the stored table snapshot document.                                       |
+| `SnapshotIncompatible`        | Error raised when a new snapshot is not upgradable from the accepted one.                |
 
 ### `std-toolkit/snapshot/vitest`
 

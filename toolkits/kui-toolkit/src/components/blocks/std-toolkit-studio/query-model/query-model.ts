@@ -1,11 +1,9 @@
 import type { Effect } from 'effect';
 import type { StudioRpcClient } from 'std-toolkit/studio-rpc';
-import type {
-  TableAccessPatternSnapshot,
-  TableEntitySnapshot,
-  TableSnapshot,
-} from 'std-toolkit/snapshot';
+import type { TableSnapshot } from 'std-toolkit/snapshot';
 
+type TableEntitySnapshot = TableSnapshot['entities'][number];
+type TableAccessPatternSnapshot = TableEntitySnapshot['accessPatterns'][number];
 type JsonRecord = Readonly<Record<string, unknown>>;
 type GetEntityResult = Effect.Success<
   ReturnType<StudioRpcClient['Studio.GetEntity']>

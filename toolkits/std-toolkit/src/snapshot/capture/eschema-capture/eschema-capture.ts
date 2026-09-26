@@ -2,13 +2,8 @@ import { Schema, SchemaAST, SchemaRepresentation } from 'effect';
 import {
   inspectESchema,
   inspectESchemaComposition,
-  type ESchemaIntrospection,
 } from '../../../eschema/index.js';
-import type {
-  ESchemaDefinition,
-  ESchemaVersion,
-  SnapshotMarker,
-} from '../../domain/index.js';
+import type { ESchemaDefinition, ESchemaVersion } from '../../domain/index.js';
 import {
   compareStrings,
   SnapshotIdentityConflict,
@@ -19,7 +14,9 @@ interface EvolutionLike {
   readonly schema: Schema.Top;
 }
 
-export interface SnapshotESchemaRoot {
+type SnapshotMarker = ESchemaVersion['unverifiable'][number];
+
+interface SnapshotESchemaRoot {
   readonly eschema: object;
   readonly identity?: string;
 }
@@ -108,11 +105,7 @@ function canonicalize(
   return output;
 }
 
-/**
- * A field's schema is already validated as representable when its ESchema is
- * built (see eschema's field policy), so the only Declaration a capture can
- * still see here is a composition reference — turn it into that reference.
- */
+// ESchema refuses other declarations, so any left here is a composed ESchema.
 function sanitizeRepresentation(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sanitizeRepresentation);
   if (!isRecord(value)) return value;
@@ -218,14 +211,7 @@ function walkAst(
   }
 }
 
-/**
- * eschema's field policy already refuses any transform, un-id'd filter, or
- * un-id'd declaration when a schema is defined (composition references
- * aside), so nothing reaching capture can produce those markers any more.
- * A constructor default is the one limitation that policy doesn't cover —
- * it changes `Schema.make(...)` convenience construction, not decode/encode
- * fidelity, so it stays a tracked, approvable limitation rather than a ban.
- */
+// A constructor default is the one limitation ESchema allows but snapshot data cannot verify.
 function inspectAst(ast: SchemaAST.AST): {
   readonly transformations: ESchemaVersion['transformations'];
   readonly unverifiable: readonly SnapshotMarker[];
@@ -302,24 +288,14 @@ function versionSnapshot(
   };
 }
 
-export interface CollectedESchema {
-  readonly identity: string;
-  readonly eschema: object;
-  readonly introspection: ESchemaIntrospection;
-}
-
-/**
- * Every ESchema reachable from the roots — the roots themselves and each
- * ESchema composed into any of their versions — once each, in discovery
- * order, with identity conflicts refused.
- */
-export function collectESchemas(
-  roots: readonly SnapshotESchemaRoot[],
-): readonly CollectedESchema[] {
+function collectESchemas(roots: readonly SnapshotESchemaRoot[]) {
   const identityObjects = new Map<string, object>();
   const objectIdentities = new Map<object, string>();
   const pending = [...roots];
-  const entries: CollectedESchema[] = [];
+  const entries: {
+    readonly identity: string;
+    readonly introspection: ReturnType<typeof inspectESchema>;
+  }[] = [];
 
   while (pending.length > 0) {
     const next = pending.shift()!;
@@ -339,7 +315,7 @@ export function collectESchemas(
     if (claimed === next.eschema) continue;
     identityObjects.set(identity, next.eschema);
     objectIdentities.set(next.eschema, identity);
-    entries.push({ identity, eschema: next.eschema, introspection });
+    entries.push({ identity, introspection });
     for (const evolution of introspection.evolutions) {
       for (const child of collectCompositions(evolution.schema.ast)) {
         pending.push(child);
@@ -349,7 +325,6 @@ export function collectESchemas(
   return entries;
 }
 
-/** Builds canonical, deduplicated definitions for one or more ESchema roots. */
 export function buildESchemaDefinitions(
   roots: readonly SnapshotESchemaRoot[],
 ): readonly ESchemaDefinition[] {

@@ -5,7 +5,7 @@ Semantic contract capture and comparison for database tables. Snapshot consumes 
 ## Language
 
 **Table snapshot**:
-The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, on both encoded and decoded sides. Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations, and may be rendered as stable human-readable text.
+The one snapshot document: a table's topology, its registered entities with their key derivations and access patterns, and every version of every ESchema the table reaches, on both encoded and decoded sides. Each ESchema, nested ones included, appears once under its **snapshot identity**; a field that composes another ESchema is a reference to it, so a nested ESchema's versions are frozen by the same rules as a top-level one. It excludes migration behavior and presentation-only annotations.
 _Avoid_: ESchema snapshot (retired: there is no ESchema-only document), source snapshot, version-file snapshot.
 
 **Snapshot change**:
@@ -33,7 +33,7 @@ The stable name of an ESchema within a **table snapshot**, taken from the ESchem
 _Avoid_: Generated ID, traversal ID.
 
 **restored schema**:
-A live, working schema rebuilt from a **table snapshot** alone, with no access to the original source. Restore is the mirror of capture, and it is sound because captured fields contain the identity needed to restore them. ESchema refuses unrepresentable fields at definition time, except for the known `Schema.UniqueSymbol` edge case: a local symbol fails during capture, while a registered `Symbol.for(...)` value can be captured and restored. A composed field restores by resolving its **snapshot identity** reference, not by reviving the wrapper that produced it.
+A live, working schema rebuilt from a **table snapshot** alone, with no access to the original source. Restore is internal: it is not part of the public API, and its tests prove that capture loses nothing. Restore is the mirror of capture, and it is sound because captured fields contain the identity needed to restore them. ESchema refuses unrepresentable fields at definition time, except for the known `Schema.UniqueSymbol` edge case: a local symbol fails during capture, while a registered `Symbol.for(...)` value can be captured and restored. A composed field restores by resolving its **snapshot identity** reference, not by reviving the wrapper that produced it.
 _Avoid_: Reconstructed type, rebuilt schema.
 
 **Entity Relationship view**:

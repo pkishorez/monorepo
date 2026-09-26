@@ -1,50 +1,9 @@
-import type {
-  ESchemaDefinition,
-  SnapshotChange,
-  SnapshotImpact,
-  TableSnapshot,
-} from '../../domain/index.js';
+import type { SnapshotChange } from '../../domain/index.js';
+
+type SnapshotImpact = SnapshotChange['impact'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function pad(value: string, width: number): string {
-  return value + ' '.repeat(Math.max(0, width - value.length));
-}
-
-function section(title: string): string {
-  return title.toUpperCase();
-}
-
-function titleBox(title: string, subtitle: string): readonly string[] {
-  const width = Math.max(48, title.length + 3, subtitle.length + 2);
-  const heading = `─ ${title} `;
-  return [
-    `╭${heading}${'─'.repeat(width - heading.length)}╮`,
-    `│ ${pad(subtitle, width - 2)} │`,
-    `╰${'─'.repeat(width)}╯`,
-  ];
-}
-
-function table(
-  headers: readonly string[],
-  rows: readonly (readonly string[])[],
-): readonly string[] {
-  const widths = headers.map((header, index) =>
-    Math.max(header.length, ...rows.map((row) => (row[index] ?? '').length)),
-  );
-  const border = (left: string, middle: string, right: string): string =>
-    `${left}${widths.map((width) => '─'.repeat(width + 2)).join(middle)}${right}`;
-  const row = (values: readonly string[]): string =>
-    `│ ${widths.map((width, index) => pad(values[index] ?? '', width)).join(' │ ')} │`;
-  return [
-    border('┌', '┬', '┐'),
-    row(headers),
-    border('├', '┼', '┤'),
-    ...rows.map(row),
-    border('└', '┴', '┘'),
-  ];
 }
 
 function literal(value: unknown): string {
@@ -139,171 +98,6 @@ function inlineType(value: unknown, depth = 0): string {
   }
 }
 
-function representationLines(value: unknown): readonly string[] {
-  const representation =
-    isRecord(value) && 'representation' in value ? value.representation : value;
-  if (!isRecord(representation) || representation._tag !== 'Objects') {
-    return [inlineType(representation)];
-  }
-  const properties = Array.isArray(representation.propertySignatures)
-    ? representation.propertySignatures.filter(isRecord)
-    : [];
-  if (properties.length === 0) return ['{}'];
-  return properties.map((property) => {
-    const optional = property.isOptional === true ? '?' : '';
-    return `${String(persistentValue(property.name))}${optional}: ${inlineType(property.type)}`;
-  });
-}
-
-function transformationPath(path: string): string {
-  const properties = path
-    .split('/')
-    .flatMap((part, index, values) =>
-      values[index - 1] === 'properties'
-        ? [part.replaceAll('~1', '/').replaceAll('~0', '~')]
-        : [],
-    );
-  return properties.length > 0 ? properties.join('.') : path;
-}
-
-function renderDefinitions(
-  definitions: readonly ESchemaDefinition[],
-): readonly string[] {
-  const lines: string[] = [];
-  definitions.forEach((definition, definitionIndex) => {
-    if (definitionIndex > 0) lines.push('');
-    lines.push(
-      `${definition.identity} · ${definition.kind}${definition.idField === null ? '' : ` · identity: ${definition.idField}`}`,
-    );
-    definition.versions.forEach((version, versionIndex) => {
-      const versionLast = versionIndex === definition.versions.length - 1;
-      const versionBranch = versionLast ? '└─' : '├─';
-      const continuation = versionLast ? '   ' : '│  ';
-      lines.push(`${versionBranch} ${version.version}`);
-      const blocks: {
-        readonly title: string;
-        readonly values: readonly string[];
-      }[] = [
-        { title: 'encoded', values: representationLines(version.encoded) },
-        { title: 'decoded', values: representationLines(version.decoded) },
-      ];
-      if (version.transformations.length > 0) {
-        blocks.push({
-          title: 'transformations',
-          values: version.transformations.map(
-            ({ path, name }) => `${transformationPath(path)}: ${name}`,
-          ),
-        });
-      }
-      if (version.unverifiable.length > 0) {
-        blocks.push({
-          title: 'unverifiable',
-          values: version.unverifiable.map(
-            ({ path, kind }) => `${transformationPath(path)}: ${kind}`,
-          ),
-        });
-      }
-      blocks.forEach((block, blockIndex) => {
-        const blockLast = blockIndex === blocks.length - 1;
-        const branch = blockLast ? '└─' : '├─';
-        const child = blockLast ? '   ' : '│  ';
-        lines.push(`${continuation}${branch} ${block.title}`);
-        block.values.forEach((value, valueIndex) => {
-          const valueBranch =
-            valueIndex === block.values.length - 1 ? '└─' : '├─';
-          lines.push(`${continuation}${child}${valueBranch} ${value}`);
-        });
-      });
-    });
-  });
-  return lines;
-}
-
-export function renderTableSnapshot(snapshot: TableSnapshot): string {
-  const secondaryIndexes = [
-    ...snapshot.topology.localSecondaryIndexes.map((index) => ({
-      ...index,
-      kind: 'lsi',
-    })),
-    ...snapshot.topology.globalSecondaryIndexes.map((index) => ({
-      ...index,
-      kind: 'gsi',
-    })),
-  ];
-  const lines = [
-    ...titleBox('DATABASE CONTRACT', `Table: ${snapshot.logicalName}`),
-    '',
-    section('Primary index'),
-    '',
-    ...table(
-      ['Key', 'Attribute'],
-      [
-        ['Partition key', snapshot.topology.primary.pk],
-        ['Sort key', snapshot.topology.primary.sk],
-      ],
-    ),
-    '',
-    section('Secondary indexes'),
-    '',
-  ];
-  if (secondaryIndexes.length === 0) lines.push('None');
-  else
-    lines.push(
-      ...table(
-        ['Name', 'Kind', 'Partition key', 'Sort key'],
-        secondaryIndexes.map(({ name, kind, pk, sk }) => [name, kind, pk, sk]),
-      ),
-    );
-
-  lines.push('', section('Entities'), '');
-  if (snapshot.entities.length === 0) lines.push('None');
-  else
-    lines.push(
-      ...table(
-        ['Name', 'Kind', 'Schema', 'Identity', 'Primary PK', 'Primary SK'],
-        snapshot.entities.map((entity) => [
-          entity.name,
-          entity.kind,
-          entity.schema,
-          entity.idField ?? '—',
-          entity.primary.pk.join(', ') || '—',
-          entity.primary.sk.join(', ') || '—',
-        ]),
-      ),
-    );
-
-  const accessPatterns = snapshot.entities.flatMap((entity) =>
-    entity.accessPatterns.map((pattern) => [
-      entity.name,
-      pattern.name,
-      pattern.kind,
-      pattern.index ?? '—',
-      pattern.pk.join(', ') || '—',
-      pattern.sk.join(', ') || '—',
-    ]),
-  );
-  if (accessPatterns.length > 0) {
-    lines.push(
-      '',
-      section('Access patterns'),
-      '',
-      ...table(
-        ['Entity', 'Name', 'Kind', 'Index', 'PK source', 'SK source'],
-        accessPatterns,
-      ),
-    );
-  }
-  if (snapshot.schemas.length > 0) {
-    lines.push(
-      '',
-      section('Schemas'),
-      '',
-      ...renderDefinitions(snapshot.schemas),
-    );
-  }
-  return lines.join('\n');
-}
-
 const impactOrder: readonly SnapshotImpact[] = [
   'breaking',
   'unverifiable',
@@ -321,16 +115,12 @@ const impactLabels: Record<SnapshotImpact, string> = {
 function subjectLabel(change: SnapshotChange): string {
   const { subject } = change;
   switch (subject.kind) {
-    case 'snapshot':
-      return 'Snapshot';
     case 'table':
       return `Table ${subject.name ?? ''}`.trim();
     case 'eschema':
       return `ESchema ${subject.name ?? ''}`.trim();
     case 'version':
       return `${subject.name ?? 'ESchema'} ${subject.version ?? ''}`.trim();
-    case 'migration':
-      return `Migration ${subject.name ?? 'ESchema'} → ${subject.version ?? ''}`.trim();
     case 'entity':
       return `Entity ${subject.name ?? ''}`.trim();
     case 'primary-index':

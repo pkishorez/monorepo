@@ -23,17 +23,6 @@ const serialize = (snapshot: TableSnapshot): Promise<string> =>
     ),
   );
 
-/**
- * The recommended test for a table: one call, one committed JSON file. The
- * committed document is compared as data, not bytes, so a formatter never
- * fails the test. On a mismatch the failure names each change and its
- * impact, so a reviewer sees "Task v1 edited" rather than a JSON diff.
- * `vitest -u` accepts the current document, exactly like any other file
- * snapshot.
- *
- * `file` resolves against the calling test file, as `toMatchFileSnapshot`
- * does.
- */
 export async function expectTableSnapshot(
   table: TableSource,
   file: string,
