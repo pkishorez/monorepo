@@ -39,6 +39,8 @@ export const isHandledNavigation = (
  * While a newer version waits to be accepted, the network holds that newer
  * build's HTML, so with `shell` the App Shell of this build answers first:
  * every tab stays on the active Build ID until the update is accepted.
+ * For the same reason, pages are not saved while a newer version waits:
+ * they belong to that build, not to this Build ID's pages cache.
  */
 export const handleNavigation = (
   info: WorkerBuildInfo,
@@ -87,9 +89,12 @@ const offlineFallback = (info: WorkerBuildInfo, request: Request) => {
 };
 
 const savePage = (buildId: BuildId, request: Request, response: Response) =>
-  Effect.flatMap(openCache(pagesCacheName(buildId)), (cache) =>
-    attempt(() => cache.put(request, response)),
-  ).pipe(Effect.ignore);
+  Effect.gen(function* () {
+    const scope = yield* GlobalScope;
+    if (scope.hasWaitingWorker()) return;
+    const cache = yield* openCache(pagesCacheName(buildId));
+    yield* attempt(() => cache.put(request, response));
+  }).pipe(Effect.ignore);
 
 const matchPage = (buildId: BuildId, request: Request) =>
   Effect.flatMap(openCache(pagesCacheName(buildId)), (cache) =>
