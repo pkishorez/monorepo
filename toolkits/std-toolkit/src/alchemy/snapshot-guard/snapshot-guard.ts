@@ -1,42 +1,28 @@
 import { Effect } from 'effect';
 import { isResolved, Resource, type Input } from 'alchemy';
 import * as Provider from 'alchemy/Provider';
-import type { TableDefinition } from '../../db/index.js';
+import type { TableSource } from '../../snapshot/index.js';
 import {
+  type SnapshotChange,
   SnapshotIncompatible,
   TableSnapshot,
   TableSnapshotESchema,
 } from '../../snapshot/index.js';
 
-/** What a deploy target needs from a StdTable: its topology and registered entities. */
-export type DeployableTable = Pick<
-  TableDefinition,
-  | 'logicalName'
-  | 'primary'
-  | 'localSecondaryIndexes'
-  | 'globalSecondaryIndexes'
-  | 'registeredEntities'
->;
-
-export interface SnapshotGuardProps {
-  /** The physical table identity. A change replaces the guard and starts a fresh baseline. */
+interface SnapshotGuardProps {
+  /** The physical table. A new target starts a fresh baseline. */
   readonly target: string;
-  /** The table snapshot in its stored, stamped JSON form. */
   readonly snapshot: unknown;
 }
 
-export type SnapshotGuardAttributes = SnapshotGuardProps;
-
 /**
- * Keeps the last accepted table snapshot in Alchemy state and refuses a
- * deploy whose new snapshot is not upgradable from it. This is the only
- * baseline the toolkit keeps: nothing lives in the table, and nothing runs
- * at request time.
+ * Remembers the last deployed table snapshot in Alchemy state and fails a
+ * deploy whose snapshot cannot be upgraded from it.
  */
 export type SnapshotGuard = Resource<
   'StdToolkit.SnapshotGuard',
   SnapshotGuardProps,
-  SnapshotGuardAttributes,
+  SnapshotGuardProps,
   never,
   Providers
 >;
@@ -45,77 +31,80 @@ export const SnapshotGuard = Resource<SnapshotGuard>(
   'StdToolkit.SnapshotGuard',
 );
 
-/**
- * The provider collection for every std-toolkit resource. Resources require
- * the collection rather than their own provider, which is what a stack's
- * `providers` layer accepts.
- */
 export class Providers extends Provider.ProviderCollection<Providers>()(
   'StdToolkit',
 ) {}
 
-const stable = (value: unknown): string => JSON.stringify(value);
+const failOnBreaking = (
+  logicalName: string,
+  changes: readonly SnapshotChange[],
+) => {
+  const rejected = changes.filter(
+    ({ impact }) => impact === 'breaking' || impact === 'unverifiable',
+  );
+  if (rejected.length === 0) {
+    return Effect.void;
+  }
+  return Effect.logError(
+    `std-toolkit: table "${logicalName}" cannot be upgraded from its last deployed snapshot:\n${TableSnapshot.renderChanges(rejected)}`,
+  ).pipe(Effect.andThen(Effect.fail(new SnapshotIncompatible(rejected))));
+};
 
-const REJECTED = new Set(['breaking', 'unverifiable']);
+const warnOnBackfill = (
+  logicalName: string,
+  changes: readonly SnapshotChange[],
+) =>
+  Effect.forEach(
+    changes.filter(({ impact }) => impact === 'requires-backfill'),
+    (change) =>
+      Effect.logWarning(
+        `std-toolkit: table "${logicalName}": ${TableSnapshot.renderChanges([change])}`,
+      ),
+    { discard: true },
+  );
 
-/**
- * Decides whether `next` may replace the accepted snapshot. The first
- * snapshot for a target is recorded as is; after that a breaking or
- * unverifiable change fails, and a change that needs a backfill is accepted
- * with a warning.
- */
-export const acceptSnapshot = (
-  accepted: SnapshotGuardAttributes | undefined,
-  next: SnapshotGuardProps,
+export const checkUpgrade = (
+  previousSnapshot: unknown,
+  currentSnapshot: unknown,
 ) =>
   Effect.gen(function* () {
-    const current = yield* TableSnapshot.parse(next.snapshot);
-    if (accepted === undefined || accepted.target !== next.target) {
+    const current = yield* TableSnapshot.parse(currentSnapshot);
+    if (previousSnapshot === undefined) {
       yield* Effect.logInfo(
-        `std-toolkit: recorded the first snapshot of table "${current.logicalName}" for ${next.target}`,
+        `std-toolkit: recorded the first snapshot of table "${current.logicalName}"`,
       );
-      return { target: next.target, snapshot: next.snapshot };
+      return;
     }
-    const previous = yield* TableSnapshot.parse(accepted.snapshot);
+    const previous = yield* TableSnapshot.parse(previousSnapshot);
     const changes = TableSnapshot.diff(previous, current);
-    if (!TableSnapshot.isUpgradable(changes)) {
-      const rejected = changes.filter(({ impact }) => REJECTED.has(impact));
-      yield* Effect.logError(
-        `std-toolkit: table "${current.logicalName}" cannot be upgraded from its last deployed snapshot:\n${TableSnapshot.renderChanges(rejected)}`,
-      );
-      return yield* Effect.fail(new SnapshotIncompatible(rejected));
-    }
-    for (const change of changes) {
-      if (change.impact === 'requires-backfill') {
-        yield* Effect.logWarning(
-          `std-toolkit: table "${current.logicalName}": ${TableSnapshot.renderChanges([change])}`,
-        );
-      }
-    }
-    return { target: next.target, snapshot: next.snapshot };
+    yield* failOnBreaking(current.logicalName, changes);
+    yield* warnOnBackfill(current.logicalName, changes);
   });
 
 export const SnapshotGuardProvider = () =>
   Provider.succeed(SnapshotGuard, {
-    diff: ({ olds, news }) =>
+    diff: ({ olds: previous, news: current }) =>
       Effect.succeed(
-        !isResolved(news)
+        !isResolved(current)
           ? undefined
-          : olds.target !== news.target
+          : previous.target !== current.target
             ? { action: 'replace' as const }
-            : stable(olds.snapshot) !== stable(news.snapshot)
+            : JSON.stringify(previous.snapshot) !==
+                JSON.stringify(current.snapshot)
               ? { action: 'update' as const }
               : { action: 'noop' as const },
       ),
-    reconcile: ({ news, output }) => acceptSnapshot(output, news),
+    reconcile: ({ news: current, output: deployed }) =>
+      checkUpgrade(deployed?.snapshot, current.snapshot).pipe(
+        Effect.as(current),
+      ),
     delete: () => Effect.void,
     read: ({ output }) => Effect.succeed(output),
   });
 
-/** Registers a guard for `table` under `id`, capturing its snapshot now. */
 export const guardTable = (
   id: string,
-  options: { readonly table: DeployableTable; readonly target: Input<string> },
+  options: { readonly table: TableSource; readonly target: Input<string> },
 ) =>
   Effect.gen(function* () {
     const snapshot = yield* TableSnapshotESchema.encode(

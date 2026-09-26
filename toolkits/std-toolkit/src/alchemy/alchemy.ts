@@ -7,10 +7,6 @@ import {
   SnapshotGuardProvider,
 } from './snapshot-guard/index.js';
 
-/**
- * The provider layer every std-toolkit resource needs. Merge it into a
- * stack's `providers` beside the cloud providers you deploy with.
- */
 export const providers = () =>
   Layer.effect(Providers, Provider.collection([SnapshotGuard, D1Table])).pipe(
     Layer.provideMerge(SnapshotGuardProvider()),
