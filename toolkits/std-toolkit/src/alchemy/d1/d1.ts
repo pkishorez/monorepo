@@ -1,24 +1,22 @@
 import { Effect } from 'effect';
 import { isResolved, Resource } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
+import * as Output from 'alchemy/Output';
 import * as Provider from 'alchemy/Provider';
 import { SQLite, type SQLiteDriver } from '../../db/sqlite/index.js';
 import { makeD1SQLite } from '../../db/sqlite/drivers/d1/index.js';
-import { TableSnapshot, TableSnapshotESchema } from '../../snapshot/index.js';
-import {
-  acceptSnapshot,
-  type DeployableTable,
-  type Providers,
-} from '../snapshot-guard/index.js';
+import { TableSnapshot } from '../../snapshot/index.js';
+import type { TableSource } from '../../snapshot/index.js';
+import { guardTable, type Providers } from '../snapshot-guard/index.js';
 
-export interface D1TableOptions {
-  readonly table: DeployableTable;
+interface D1TableOptions {
+  readonly table: TableSource;
   readonly database: Cloudflare.D1.Database;
   /** Physical table name inside the database. Defaults to the logical name. */
   readonly tableName?: string;
 }
 
-export interface D1TableProps {
+interface D1TableProps {
   readonly databaseId: string;
   readonly tableName: string;
   readonly snapshot: unknown;
@@ -33,9 +31,6 @@ export type D1Table = Resource<
 >;
 
 export const D1Table = Resource<D1Table>('StdToolkit.D1.Table');
-
-const physicalTarget = ({ databaseId, tableName }: D1TableProps) =>
-  `${databaseId}/${tableName}`;
 
 const topologyFromSnapshot = (snapshot: TableSnapshot) => ({
   logicalName: snapshot.logicalName,
@@ -54,66 +49,56 @@ const topologyFromSnapshot = (snapshot: TableSnapshot) => ({
   ),
 });
 
-export const reconcileD1Table = <R>(
-  news: D1TableProps,
-  output: D1TableProps | undefined,
+export const setUpD1Table = <R>(
+  props: D1TableProps,
   database: Effect.Effect<SQLiteDriver, never, R>,
 ) =>
   Effect.gen(function* () {
-    yield* acceptSnapshot(
-      output === undefined
-        ? undefined
-        : { target: physicalTarget(output), snapshot: output.snapshot },
-      { target: physicalTarget(news), snapshot: news.snapshot },
-    );
-    const snapshot = yield* TableSnapshot.parse(news.snapshot);
+    const snapshot = yield* TableSnapshot.parse(props.snapshot);
     yield* SQLite.setup(topologyFromSnapshot(snapshot), {
       database: yield* database,
-      tableName: news.tableName,
+      tableName: props.tableName,
     });
-    return news;
+    return props;
   });
 
-/** Checks the snapshot and sets up the physical table in one Alchemy resource. */
+const openD1 = (databaseId: string) =>
+  Effect.gen(function* () {
+    // QueryDatabaseLocal expects a database id accessor from the resource.
+    const database = {
+      databaseId: Effect.succeed(Effect.succeed(databaseId)),
+    } as unknown as Cloudflare.D1.Database;
+    const query = yield* Cloudflare.D1.QueryDatabase(database);
+    return makeD1SQLite({ database: yield* query.raw });
+  }).pipe(Effect.provide(Cloudflare.D1.QueryDatabaseLocal));
+
 export const D1TableProvider = () =>
   Provider.succeed(D1Table, {
-    diff: ({ olds, news }) =>
+    diff: ({ olds: previous, news: current }) =>
       Effect.succeed(
-        !isResolved(news)
+        !isResolved(current)
           ? undefined
-          : physicalTarget(olds) !== physicalTarget(news)
-            ? { action: 'replace' as const }
-            : JSON.stringify(olds.snapshot) !== JSON.stringify(news.snapshot)
-              ? { action: 'update' as const }
-              : { action: 'noop' as const },
+          : JSON.stringify(previous) !== JSON.stringify(current)
+            ? { action: 'update' as const }
+            : { action: 'noop' as const },
       ),
-    reconcile: ({ news, output }) =>
-      reconcileD1Table(
-        news,
-        output,
-        Effect.gen(function* () {
-          // QueryDatabaseLocal expects a database id accessor from the resource.
-          const database = {
-            databaseId: Effect.succeed(Effect.succeed(news.databaseId)),
-          } as unknown as Cloudflare.D1.Database;
-          const query = yield* Cloudflare.D1.QueryDatabase(database);
-          return makeD1SQLite({ database: yield* query.raw });
-        }).pipe(Effect.provide(Cloudflare.D1.QueryDatabaseLocal)),
-      ),
+    reconcile: ({ news: current }) =>
+      setUpD1Table(current, openD1(current.databaseId)),
     delete: () => Effect.void,
     read: ({ output }) => Effect.succeed(output),
   });
 
-/** Registers the D1 table resource with its deploy-time snapshot. */
 const table = (id: string, options: D1TableOptions) =>
   Effect.gen(function* () {
-    const snapshot = yield* TableSnapshotESchema.encode(
-      TableSnapshot.capture(options.table),
-    ).pipe(Effect.orDie);
+    const tableName = options.tableName ?? options.table.logicalName;
+    const guard = yield* guardTable(`${id}Snapshot`, {
+      table: options.table,
+      target: Output.interpolate`${options.database.databaseId}/${tableName}`,
+    });
     return yield* D1Table(id, {
       databaseId: options.database.databaseId,
-      tableName: options.tableName ?? options.table.logicalName,
-      snapshot,
+      tableName,
+      snapshot: guard.snapshot,
     });
   });
 

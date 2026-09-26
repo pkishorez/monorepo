@@ -1,1 +1,1 @@
-export { DynamoDB, type DynamoDBTableOptions } from './dynamodb.js';
+export { DynamoDB } from './dynamodb.js';

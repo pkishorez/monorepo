@@ -1,19 +1,27 @@
 import { Effect } from 'effect';
 import * as DynamoDBResource from 'alchemy/AWS/DynamoDB';
 import * as Output from 'alchemy/Output';
-import type { DeployableTable } from '../snapshot-guard/index.js';
 import {
   DynamoDB as DynamoDBAdapter,
   type DynamoTableTopology,
 } from '../../db/dynamodb/index.js';
+import type { TableDefinition } from '../../db/index.js';
 import { guardTable } from '../snapshot-guard/index.js';
 
-export interface DynamoDBTableOptions {
-  readonly table: DeployableTable;
+type DynamoTable = Pick<
+  TableDefinition,
+  | 'logicalName'
+  | 'primary'
+  | 'localSecondaryIndexes'
+  | 'globalSecondaryIndexes'
+  | 'registeredEntities'
+>;
+
+interface DynamoDBTableOptions {
+  readonly table: DynamoTable;
   readonly tableName: string;
 }
 
-/** Projects a StdTable's topology onto the props of Alchemy's DynamoDB table resource. */
 const tableProps = (topology: DynamoTableTopology, tableName: string) => {
   const attributes = Object.fromEntries(
     topology.AttributeDefinitions.map((attribute) => [
@@ -72,25 +80,23 @@ const tableProps = (topology: DynamoTableTopology, tableName: string) => {
   };
 };
 
-/**
- * Deploys a StdTable on DynamoDB: the snapshot guard accepts the table's
- * contract before the table resource creates or reconciles its indexes.
- * Returns the table resource for bindings.
- */
 const table = (id: string, options: DynamoDBTableOptions) =>
   Effect.gen(function* () {
     const guard = yield* guardTable(`${id}Snapshot`, {
       table: options.table,
       target: options.tableName,
     });
-    const resource = yield* DynamoDBResource.Table(id, {
+    const tableNameAfterGuard = Output.map(
+      guard.snapshot,
+      () => options.tableName,
+    );
+    return yield* DynamoDBResource.Table(id, {
       ...tableProps(
         DynamoDBAdapter.getTableDefinition(options.table),
         options.tableName,
       ),
-      tableName: Output.map(guard.snapshot, () => options.tableName),
+      tableName: tableNameAfterGuard,
     });
-    return resource;
   });
 
 export const DynamoDB = { table } as const;

@@ -27,7 +27,6 @@ it('guards the table before projecting its topology onto the resource', async ()
     .gsi('byOther', 'otherPk', 'otherSk')
     .build();
 
-  // Both resources are mocked, so no Alchemy provider is needed to run it.
   const deploy = DynamoDB.table('Tasks', {
     table: stdTable,
     tableName: 'tasks-prod',

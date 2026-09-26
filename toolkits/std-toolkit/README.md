@@ -74,14 +74,11 @@ The file holds the table snapshot: topology, entities, and every version of ever
 
 Deploys a StdTable with Alchemy. Each target keeps the last accepted table snapshot in Alchemy state and fails the deploy when the new one is not upgradable from it. Add `providers()` to the stack's providers.
 
-| Export                  | What it does                                                                      |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `DynamoDB.table`        | Guards the snapshot, then creates or updates the DynamoDB table and its indexes.  |
-| `D1.table`              | Registers one resource that checks the snapshot, then sets up the table in D1.    |
-| `guardTable`            | Registers a snapshot guard for a table, for a target the toolkit does not ship.   |
-| `SnapshotGuard`         | The Alchemy resource behind `guardTable`.                                         |
-| `SnapshotGuardProvider` | The provider layer for `SnapshotGuard`.                                           |
-| `providers`             | Every provider std-toolkit's resources need, to merge into a stack's `providers`. |
+| Export           | What it does                                                                      |
+| ---------------- | --------------------------------------------------------------------------------- |
+| `DynamoDB.table` | Guards the snapshot, then creates or updates the DynamoDB table and its indexes.  |
+| `D1.table`       | Guards the snapshot, then creates or updates the table and its indexes in D1.     |
+| `providers`      | Every provider std-toolkit's resources need, to merge into a stack's `providers`. |
 
 ### `std-toolkit/studio-rpc`
 
