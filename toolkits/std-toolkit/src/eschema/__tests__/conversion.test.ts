@@ -1,7 +1,7 @@
 import { Effect, Option, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
-import { EntityESchema, ESchema, ValueESchema, toSchema } from '../index.js';
+import { EntityESchema, ESchema, ValueESchema } from '../index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
@@ -89,8 +89,8 @@ describe('field conversions', () => {
         Schema.DateFromString,
       ).build();
       const Task = EntityESchema.make('Task', 'taskId', {
-        window: toSchema(Window),
-        deadline: toSchema(Deadline),
+        window: Window.schema,
+        deadline: Deadline.schema,
       }).build();
 
       const encoded = yield* writeEncoded(Task, {

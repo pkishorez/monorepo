@@ -1,4 +1,3 @@
-import { toSchema } from 'std-toolkit/eschema';
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
@@ -28,7 +27,7 @@ export const sayingAValueIsAbsent = Story.make({
           'As the value it holds, unchanged. `assignee` was declared as a string or `null` back in chapter 1, and a string comes through as a string.',
         proof: Effect.gen(function* () {
           // Read the stored task back into the shape the app holds.
-          const assigned = yield* Schema.decodeUnknownEffect(toSchema(Task))(
+          const assigned = yield* Schema.decodeUnknownEffect(Task.schema)(
             stored,
           );
           yield* Story.assert(
@@ -44,7 +43,7 @@ export const sayingAValueIsAbsent = Story.make({
         'With an explicit `null`, never by leaving the key out. A shape has no optional fields, so a declaration that tries to add one is refused at build time, and every stored row spells absence out.',
       proof: Effect.gen(function* () {
         // Read a task whose assignee is spelled out as `null`.
-        const unassigned = yield* Schema.decodeUnknownEffect(toSchema(Task))({
+        const unassigned = yield* Schema.decodeUnknownEffect(Task.schema)({
           ...stored,
           assignee: null,
         });
@@ -61,7 +60,7 @@ export const sayingAValueIsAbsent = Story.make({
       proof: Effect.gen(function* () {
         // Drop the `assignee` key and read the row; the failure comes back as a value.
         const { assignee: _assignee, ...withoutKey } = stored;
-        const refused = yield* Schema.decodeUnknownEffect(toSchema(Task))(
+        const refused = yield* Schema.decodeUnknownEffect(Task.schema)(
           withoutKey,
         ).pipe(Effect.flip);
         yield* Story.assert(

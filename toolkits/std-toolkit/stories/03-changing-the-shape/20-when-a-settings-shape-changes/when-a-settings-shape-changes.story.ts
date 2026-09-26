@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { ValueESchema, toSchema } from 'std-toolkit/eschema';
+import { ValueESchema } from 'std-toolkit/eschema';
 
 // The theme on its own: one value, not an object. It was free text; v2 narrows it to two words, and the step says which word each old text becomes.
 export const Theme = ValueESchema.make('Theme', Schema.String)
@@ -33,14 +33,14 @@ export const whenASettingsShapeChanges = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // Read a theme stored as free text; the step maps it onto one of the two words.
-            const seen = yield* Schema.decodeUnknownEffect(toSchema(Theme))({
+            const seen = yield* Schema.decodeUnknownEffect(Theme.schema)({
               _v: 'v1',
               _value: 'night',
             });
             // Save a theme; it is written as an envelope stamped with the newest version.
-            const written = yield* Schema.encodeEffect(toSchema(Theme))(seen);
+            const written = yield* Schema.encodeEffect(Theme.schema)(seen);
             // Read an envelope wrapped in another envelope; the refusal comes back as a value.
-            const nested = yield* Schema.decodeUnknownEffect(toSchema(Theme))({
+            const nested = yield* Schema.decodeUnknownEffect(Theme.schema)({
               _v: 'v1',
               _value: { _v: 'v1', _value: 'night' },
             }).pipe(Effect.flip);
@@ -69,20 +69,20 @@ export const whenASettingsShapeChanges = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // A bare theme from before versions: read as v1, then moved forward.
-            const oldTheme = yield* Schema.decodeUnknownEffect(toSchema(Theme))(
+            const oldTheme = yield* Schema.decodeUnknownEffect(Theme.schema)(
               'night',
             );
             // A bare page size under a shape with no history: read as it is.
             const oldPerPage = yield* Schema.decodeUnknownEffect(
-              toSchema(PerPage),
+              PerPage.schema,
             )(20);
             // Save both; each comes back wrapped and stamped.
-            const themeWritten = yield* Schema.encodeEffect(toSchema(Theme))(
+            const themeWritten = yield* Schema.encodeEffect(Theme.schema)(
               oldTheme,
             );
-            const perPageWritten = yield* Schema.encodeEffect(
-              toSchema(PerPage),
-            )(oldPerPage);
+            const perPageWritten = yield* Schema.encodeEffect(PerPage.schema)(
+              oldPerPage,
+            );
             yield* Story.assert(
               'bare values read as v1 and move forward',
               oldTheme === 'dark' && oldPerPage === 20,
@@ -104,17 +104,17 @@ export const whenASettingsShapeChanges = Story.make({
         proof: Story.trace(
           Effect.gen(function* () {
             // A label from before versions; its `value` key is just one of its fields.
-            const bare = yield* Schema.decodeUnknownEffect(toSchema(Label))({
+            const bare = yield* Schema.decodeUnknownEffect(Label.schema)({
               value: 'urgent',
               colour: 'red',
             });
             // Save it, then read it back through the real envelope.
-            const stored = yield* Schema.encodeEffect(toSchema(Label))(bare);
-            const seen = yield* Schema.decodeUnknownEffect(toSchema(Label))(
+            const stored = yield* Schema.encodeEffect(Label.schema)(bare);
+            const seen = yield* Schema.decodeUnknownEffect(Label.schema)(
               stored,
             );
             // An envelope with an extra key is refused; the refusal comes back as a value.
-            const padded = yield* Schema.decodeUnknownEffect(toSchema(Label))({
+            const padded = yield* Schema.decodeUnknownEffect(Label.schema)({
               ...stored,
               note: 'added by hand',
             }).pipe(Effect.flip);

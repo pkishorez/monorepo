@@ -1,6 +1,6 @@
 import { it, describe, expect } from 'vitest';
 import { Schema } from 'effect';
-import { EntityMetaSchema } from '../entity-schema/index.js';
+import { EntityMetaSchema } from '../entity/index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));

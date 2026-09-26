@@ -1,5 +1,5 @@
 import { Context, Stream } from 'effect';
-import type { Entity } from '../entity-schema/index.js';
+import type { Entity } from '../entity/index.js';
 
 export type ChangeNotice<T = unknown> = Entity<T>;
 

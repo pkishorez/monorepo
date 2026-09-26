@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { findOutdatedVersion } from '../../../core/index.js';
+import { findOutdatedVersion } from '../../../eschema/index.js';
 import type { CollectionName } from '../../domain/identity/index.js';
 import type { SyncReporter } from '../../domain/sync-event/index.js';
 import type { EffectRunner } from '../../platform/effect-runner/index.js';

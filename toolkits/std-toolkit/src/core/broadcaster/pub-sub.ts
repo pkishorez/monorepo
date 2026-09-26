@@ -1,5 +1,5 @@
 import { Effect, Layer, PubSub, Stream } from 'effect';
-import type { Entity } from '../entity-schema/index.js';
+import type { Entity } from '../entity/index.js';
 import { Broadcaster } from './broadcaster.js';
 
 export const defaultBroadcaster: Layer.Layer<Broadcaster> = Layer.effect(

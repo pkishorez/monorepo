@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema, toSchema } from 'std-toolkit/eschema';
+import { EntityESchema } from 'std-toolkit/eschema';
 
 // A task shape with one step of history: v2 added a priority, and old rows get `normal`.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -29,7 +29,7 @@ export const dataThatDoesNotMatchItsVersion = Story.make({
         'The read fails with a `SchemaError` before the first step runs. The stamp says which shape to check the row against; a row that fails that check never reaches a migration.',
       proof: Effect.gen(function* () {
         // A row stamped v1 whose status is a word v1 never allowed.
-        const refused = yield* Schema.decodeUnknownEffect(toSchema(Task))({
+        const refused = yield* Schema.decodeUnknownEffect(Task.schema)({
           _v: 'v1',
           taskId: 't1',
           boardId: 'work',
@@ -49,7 +49,7 @@ export const dataThatDoesNotMatchItsVersion = Story.make({
         'Yes. A v1 row that passes the v1 check walks the step to v2 and comes back in the newest shape.',
       proof: Effect.gen(function* () {
         // The same row with a status v1 allows.
-        const accepted = yield* Schema.decodeUnknownEffect(toSchema(Task))({
+        const accepted = yield* Schema.decodeUnknownEffect(Task.schema)({
           _v: 'v1',
           taskId: 't1',
           boardId: 'work',

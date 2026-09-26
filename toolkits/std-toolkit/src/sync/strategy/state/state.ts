@@ -1,7 +1,9 @@
 import { Effect, Schema } from 'effect';
-import { EntitySchema, findOutdatedVersion } from '../../../core/index.js';
 import type { DatabaseError } from '../../../db/index.js';
-import type { AnyESchema } from '../../../eschema/index.js';
+import {
+  findOutdatedVersion,
+  type AnyESchema,
+} from '../../../eschema/index.js';
 import {
   storageError,
   type WriteError,
@@ -40,7 +42,7 @@ export const makeSyncStateStore = <TState = unknown>(args: {
   // The one codec for the whole state. Entities inside it use the Collection's
   // Entity codec, so a cursor is stored encoded and migrated when read back.
   const stateSchema = args.state.schema(
-    EntitySchema(args.schema) as unknown as StateEntitySchema,
+    args.schema.entity as unknown as StateEntitySchema,
   );
   const encode = (state: TState) =>
     Schema.encodeEffect(stateSchema)(state).pipe(Effect.mapError(invalid));

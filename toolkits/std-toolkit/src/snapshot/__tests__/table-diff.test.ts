@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { EntityESchema, toSchema } from '../../eschema/index.js';
+import { EntityESchema } from '../../eschema/index.js';
 import { SnapshotDecodeError } from '../domain/index.js';
 import { TableSnapshot } from '../index.js';
 import { snapshotOf } from './helpers.js';
@@ -284,7 +284,7 @@ describe('table snapshot diff', () => {
       .build();
     const parent = (child: typeof childV1 | typeof childV2) =>
       EntityESchema.make('Parent', 'id', {
-        child: toSchema(child),
+        child: child.schema,
       }).build();
     const nestedBefore = {
       ...table(),

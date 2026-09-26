@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { StdTable } from 'std-toolkit/db';
-import { ESchema, EntityESchema, toSchema } from 'std-toolkit/eschema';
+import { ESchema, EntityESchema } from 'std-toolkit/eschema';
 import { TableSnapshot } from 'std-toolkit/snapshot';
 
 import { QueryModel } from './query-model';
@@ -24,7 +24,7 @@ const account = table
       organizationId: Schema.String,
       createdAt: Schema.String,
       email: Schema.String,
-      owner: toSchema(Owner),
+      owner: Owner.schema,
       board: Schema.NullOr(Schema.Struct({ id: Schema.String })),
       level: Schema.Literals([1, 2, 3]),
       active: Schema.Boolean,

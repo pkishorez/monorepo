@@ -154,9 +154,9 @@ string.
 | A scalar, enum, list, map, or a union of different objects | `ValueESchema`                        |
 | An existing object with optional fields                    | `ValueESchema`                        |
 
-### The bridge: `toSchema`
+### The bridge: `eschema.schema`
 
-Any ESchema can be wrapped as a plain Effect Schema with `toSchema(eschema)`,
+Every ESchema carries a plain Effect Schema as `eschema.schema`,
 so evolving schemas compose inside ordinary structs — a versioned value inside
 a versioned entity inside a table row.
 

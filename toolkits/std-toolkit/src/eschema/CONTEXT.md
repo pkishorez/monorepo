@@ -59,12 +59,20 @@ Data as it is stored or sent — database, transport, Sync Store, Peer Sync — 
 _Avoid_: serialized form, stored form, raw value.
 
 **decode** / **encode**:
-Decoding reads an **encoded form** in any known **version**, converts it with that version's own fields, and runs **migrations** on the resulting values up to the latest version; a version newer than the schema knows fails with `OutdatedVersion`. Encoding converts a **value** to the latest encoded form and never migrates. These are the Effect Schema directions of **toSchema** and core's `EntitySchema`; nothing else in std-toolkit is called decoding.
+Decoding reads an **encoded form** in any known **version**, converts it with that version's own fields, and runs **migrations** on the resulting values up to the latest version; a version newer than the schema knows fails with `OutdatedVersion`. Encoding converts a **value** to the latest encoded form and never migrates. These are the Effect Schema directions of an ESchema's **schema** and its **entity schema**; nothing else in std-toolkit is called decoding.
 _Avoid_: serialize, deserialize, read migration (outside [[db]]).
 
-**toSchema**:
-Converts an **ESchema** into a plain Effect Schema for validation or composition (e.g. nesting one eschema inside another).
-_Avoid_: asSchema, toEffectSchema.
+**schema**:
+The Effect Schema of an **ESchema** (`X.schema`), for every ESchema kind: it **decodes** an **encoded form** in any known **version** and **encodes** a **value** to the latest, carrying `_v` inline. It is what a field uses to nest one ESchema inside another and what a boundary uses for a bare value, so an older writer's value is migrated rather than rejected. A schema of only the latest fields, without `_v` or migration, is internal and has no public name.
+_Avoid_: toSchema, asSchema, toEffectSchema, effectSchema, latest schema.
+
+**entity schema**:
+The Effect Schema of a whole [[core]] **Entity** (`X.entity`), carrying `_v` in **Entity Meta** instead of inline. Every **EntityESchema** and plain **ESchema** has one with full Entity Meta; a plain ESchema also has a **single entity schema** (`X.singleEntity`) for a [[core]] **SingleEntity**, with its smaller meta. A **ValueESchema** has neither. They are the only way to convert an Entity; nothing rebuilds the conversion separately.
+_Avoid_: EntitySchema(X), SingleEntitySchema(X), Entity codec, WireSchema.
+
+**standard schema**:
+An ESchema's Standard Schema interface (`X['~standard']`). It checks that something is a latest **value**; it never decodes an encoded form or migrates.
+_Avoid_: validator.
 
 **entity reference**:
 A visualization hint that a field identifies an Entity through that Entity's `idField`; the target is declared by stable Entity name rather than inferred from the field's name. It changes no validation, storage, lookup, or integrity behavior; cardinality follows the surrounding schema shape, cyclic references need no special treatment, and the target may be unresolved or belong to another table.

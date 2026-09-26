@@ -16,20 +16,20 @@ See the [top README](../../README.md).
 
 ### `std-toolkit/eschema`
 
-| Export               | What it does                                                                                       |
-| -------------------- | -------------------------------------------------------------------------------------------------- |
-| `ESchema.make`       | Starts a builder for a named object schema; chain `evolve`, then `build`.                          |
-| `EntityESchema.make` | Starts a builder for a keyed entity schema with a name and an id field.                            |
-| `ValueESchema.make`  | Starts a builder for a versioned single value.                                                     |
-| `toSchema`           | Converts an ESchema or ValueESchema into a plain Effect Schema for composing inside other schemas. |
-| `ESchema.fromType`   | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe.  |
-| `ESchema.id`         | Marks a `Schema.String` field with an identifier annotation.                                       |
-| `ESchemaError`       | Tagged error raised when a value cannot be read or written.                                        |
-| `OutdatedVersion`    | Tagged error raised when a value carries a version newer than the schema knows.                    |
-| `checkAnnotation`    | Names a check the built-in catalogue does not know, so a snapshot can list it.                     |
-| `SnapshotTypeSchema` | Effect Schema for the snapshot type language that describes a field's stored shape.                |
+| Export                | What it does                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| `ESchema.make`        | Starts a builder for a named object schema; chain `evolve`, then `build`.                         |
+| `EntityESchema.make`  | Starts a builder for a keyed entity schema with a name and an id field.                           |
+| `ValueESchema.make`   | Starts a builder for a versioned single value.                                                    |
+| `ESchema.fromType`    | Declares a field typed as `T` with no runtime check; use only for values eschema cannot describe. |
+| `ESchema.id`          | Marks a `Schema.String` field with an identifier annotation.                                      |
+| `ESchemaError`        | Tagged error raised when a value cannot be read or written.                                       |
+| `OutdatedVersion`     | Tagged error raised when a value carries a version newer than the schema knows.                   |
+| `findOutdatedVersion` | Finds the `OutdatedVersion` inside any failure, such as an Effect Schema error.                   |
+| `checkAnnotation`     | Names a check the built-in catalogue does not know, so a snapshot can list it.                    |
+| `SnapshotTypeSchema`  | Effect Schema for the snapshot type language that describes a field's stored shape.               |
 
-Every built `ESchema` and `EntityESchema` exposes `name`, `latestVersion`, `fields`, `schema`, `getDescriptor`, the `Type` and `Encoded` type carriers, and the Standard Schema `~standard` interface, which validates a latest value. `EntityESchema` adds `idField`.
+Every built schema exposes `name`, `latestVersion`, `schema`, `getDescriptor`, the `Type` and `Encoded` type carriers, and the Standard Schema `~standard` interface, which checks a latest value. `schema` is the Effect Schema that reads any known version, migrates it, and writes the latest with `_v`; nest it inside another schema or use it at a boundary. `ESchema` and `EntityESchema` add `fields` and `entity`, the Effect Schema for a whole `{ value, meta }` Entity with `_v` in its meta. `EntityESchema` adds `idField`; `ESchema` adds `singleEntity`, the same for a singleton Entity.
 
 ## Usage
 
@@ -39,7 +39,7 @@ Adding `priority` is one `evolve` step. The migration fills it in for every stor
 
 ```ts
 import { Effect, Schema } from 'effect';
-import { EntityESchema, toSchema } from 'std-toolkit/eschema';
+import { EntityESchema } from 'std-toolkit/eschema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
@@ -61,7 +61,7 @@ const januaryRow = {
   status: 'open',
 };
 
-const stored = toSchema(Task);
+const stored = Task.schema;
 
 const task = await Effect.runPromise(
   Schema.decodeUnknownEffect(stored)(januaryRow),
@@ -103,7 +103,7 @@ A theme was free text and becomes one of two words. There is no object to hold `
 
 ```ts
 import { Effect, Schema } from 'effect';
-import { toSchema, ValueESchema } from 'std-toolkit/eschema';
+import { ValueESchema } from 'std-toolkit/eschema';
 
 const Theme = ValueESchema.make('Theme', Schema.String)
   .evolve('v2', Schema.Literals(['light', 'dark']), (text) =>
@@ -111,7 +111,7 @@ const Theme = ValueESchema.make('Theme', Schema.String)
   )
   .build();
 
-const stored = toSchema(Theme);
+const stored = Theme.schema;
 const read = Schema.decodeUnknownEffect(stored);
 
 const seen = await Effect.runPromise(read({ _v: 'v1', _value: 'night' }));

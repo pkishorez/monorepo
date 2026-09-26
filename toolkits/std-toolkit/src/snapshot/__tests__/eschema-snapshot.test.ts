@@ -5,7 +5,6 @@ import {
   EntityESchema,
   ValueESchema,
   checkAnnotation,
-  toSchema,
   type SnapshotType,
 } from '../../eschema/index.js';
 import {
@@ -254,8 +253,8 @@ describe('ESchema semantic snapshots', () => {
   it('deduplicates nested schemas and rejects identity conflicts', () => {
     const child = ESchema.make('Child', { value: Schema.String }).build();
     const parent = ESchema.make('Parent', {
-      first: toSchema(child),
-      second: toSchema(child),
+      first: child.schema,
+      second: child.schema,
     }).build();
     const snapshot = snapshotOf(parent);
 
@@ -274,8 +273,8 @@ describe('ESchema semantic snapshots', () => {
     const first = ESchema.make('Same', { value: Schema.String }).build();
     const second = ESchema.make('Same', { value: Schema.String }).build();
     const conflict = ESchema.make('Conflict', {
-      first: toSchema(first),
-      second: toSchema(second),
+      first: first.schema,
+      second: second.schema,
     }).build();
     expect(() => snapshotOf(conflict)).toThrow(SnapshotIdentityConflict);
   });
@@ -312,16 +311,16 @@ describe('ESchema semantic snapshots', () => {
     const alpha = ESchema.make('Alpha', { value: Schema.String }).build();
     const zulu = ESchema.make('Zulu', { value: Schema.Number }).build();
     const firstSchema = ESchema.make('Root', {
-      zulu: toSchema(zulu),
-      alpha: toSchema(alpha),
+      zulu: zulu.schema,
+      alpha: alpha.schema,
     }).build();
     const first = snapshotOf(firstSchema);
 
     const alphaAgain = ESchema.make('Alpha', { value: Schema.String }).build();
     const zuluAgain = ESchema.make('Zulu', { value: Schema.Number }).build();
     const reorderedSchema = ESchema.make('Root', {
-      alpha: toSchema(alphaAgain),
-      zulu: toSchema(zuluAgain),
+      alpha: alphaAgain.schema,
+      zulu: zuluAgain.schema,
     }).build();
     const reordered = snapshotOf(reorderedSchema);
 

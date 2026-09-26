@@ -78,14 +78,16 @@ describe('ESchema', () => {
     });
 
     describe('Schema', () => {
-      it('returns an Effect Schema.Struct with ID field', () => {
+      it('returns the versioned Effect Schema, ID field included', () => {
         const eschema = EntityESchema.make('Test', 'id', {
           a: Schema.String,
         }).build();
 
-        const effectSchema = eschema.schema;
-        expect(effectSchema.fields).toBeDefined();
-        expect(Object.keys(effectSchema.fields)).toEqual(['a', 'id']);
+        expect(Schema.encodeSync(eschema.schema)({ a: 'x', id: '1' })).toEqual({
+          a: 'x',
+          id: '1',
+          _v: 'v1',
+        });
       });
     });
 

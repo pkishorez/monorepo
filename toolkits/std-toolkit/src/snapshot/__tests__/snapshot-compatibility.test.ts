@@ -1,12 +1,12 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { ESchema, toSchema } from '../../eschema/index.js';
+import { ESchema } from '../../eschema/index.js';
 import { snapshotOf } from './helpers.js';
 
 describe('snapshot compatibility', () => {
   it('keeps canonical JSON stable', () => {
     const child = ESchema.make('Child', { value: Schema.String }).build();
-    const parent = ESchema.make('Parent', { child: toSchema(child) })
+    const parent = ESchema.make('Parent', { child: child.schema })
       .evolve('v2', { count: Schema.Number }, (previous) => ({
         ...previous,
         count: 0,

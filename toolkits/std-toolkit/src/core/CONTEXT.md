@@ -8,9 +8,9 @@ The shared spine of std-toolkit. Defines the **Entity** model and metadata vocab
 One record shaped as `{ value, meta }`. `value` is an ESchema value with no top-level `_v`; **Entity Meta** says which **version** it is in. This one shape is used everywhere: database results, **Broadcaster**, **Change Notice**, transport, and the [[sync]] Sync Store. An Entity read from the database has been migrated, so its `_v` is the reader's latest version; the same Entity sent to another process still says which version it is in, so a newer receiver can migrate it and an older one can recognize that it cannot read it.
 _Avoid_: StoredEntity, MigratedEntity, EncodedEntity, DecodedEntity, WireEntity.
 
-**EntitySchema**:
-The sole complete-entity schema. Reading accepts an **Entity** in any known **version** and migrates its value to the latest, updating `_v`; writing produces the latest version. Database, Sync, Peer Sync, and transport integrations use it instead of rebuilding entity conversion separately. An Entity whose `_v` is newer than any version the reader knows fails with a distinct `OutdatedVersion` error rather than a generic parse failure, so a caller can tell an out-of-date reader from bad data.
-_Avoid_: Entity codec, WireSchema.
+**entity schema**:
+The sole complete-entity schema, read from the Entity's ESchema as [[eschema]] **entity schema** (`X.entity`). Reading accepts an **Entity** in any known **version** and migrates its value to the latest, updating `_v`; writing produces the latest version. Database, Sync, Peer Sync, and transport integrations use it instead of rebuilding entity conversion separately. An Entity whose `_v` is newer than any version the reader knows fails with a distinct `OutdatedVersion` error rather than a generic parse failure, so a caller can tell an out-of-date reader from bad data.
+_Avoid_: EntitySchema(X), Entity codec, WireSchema.
 
 **Entity Meta**:
 The system metadata block attached to every entity. Fields:

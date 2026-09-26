@@ -1,5 +1,6 @@
 import { JsonSchema, Schema } from 'effect';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { EntityMeta, SingleEntityMeta } from '../../../core/index.js';
 
 export type ESchemaDescriptor = JsonSchema.JsonSchema & {
   type?: string;
@@ -125,6 +126,23 @@ export type ValueEvolution = {
   migration: ((prev: any) => any) | null;
 };
 
+// ─── Entity schemas ─────────────────────────────────────────────────────────
+
+type EntitySchemaWith<T, E, M> = Schema.Codec<
+  { readonly value: T; readonly meta: M },
+  { readonly value: Omit<E, '_v'>; readonly meta: M }
+>;
+
+/** An ESchema's `entity`: a whole Entity, `_v` in Entity Meta. */
+export type EntitySchemaOf<T, E> = EntitySchemaWith<T, E, EntityMeta>;
+
+/** An ESchema's `singleEntity`: a SingleEntity, `_v` in its meta. */
+export type SingleEntitySchemaOf<T, E> = EntitySchemaWith<
+  T,
+  E,
+  SingleEntityMeta
+>;
+
 // ─── Any* type aliases ──────────────────────────────────────────────────────
 
 /**
@@ -138,11 +156,12 @@ export interface AnyESchema<
   readonly name: N;
   readonly latestVersion: V;
   readonly fields: S;
-  readonly schema: Schema.Struct<S>;
   readonly Type: Prettify<StructFieldsType<S>>;
   readonly Encoded: Prettify<StructFieldsEncoded<S>> & {
     readonly _v: V;
   };
+  readonly schema: Schema.Codec<this['Type'], this['Encoded']>;
+  readonly entity: EntitySchemaOf<this['Type'], this['Encoded']>;
   getDescriptor(): ESchemaDescriptor;
   readonly '~standard': StandardSchemaV1.Props<
     unknown,
@@ -157,7 +176,13 @@ export type AnyUnkeyedESchema<
   V extends string = string,
   S extends StructFieldsSchema = any,
   N extends string = string,
-> = AnyESchema<V, S, N> & { readonly idField?: never };
+> = AnyESchema<V, S, N> & {
+  readonly idField?: never;
+  readonly singleEntity: SingleEntitySchemaOf<
+    Prettify<StructFieldsType<S>>,
+    Prettify<StructFieldsEncoded<S>> & { readonly _v: V }
+  >;
+};
 
 /**
  * Matches any EntityESchema (has name + idField).
@@ -180,9 +205,9 @@ export interface AnyValueESchema<
 > {
   readonly name: string;
   readonly latestVersion: V;
-  readonly schema: S;
   readonly Type: ValueSchemaType<S>;
   readonly Encoded: ValueEnvelopeEncoded<V, S>;
+  readonly schema: Schema.Codec<this['Type'], this['Encoded']>;
   getDescriptor(): ESchemaDescriptor;
   readonly '~standard': StandardSchemaV1.Props<unknown, ValueSchemaType<S>>;
 }

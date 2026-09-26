@@ -11,6 +11,8 @@ import type {
   ValueSchemaType,
 } from '../domain/schema-model/index.js';
 import { INITIAL_VERSION } from '../domain/schema-model/index.js';
+import { latestSchema } from '../domain/introspection/index.js';
+import { versionedSchema } from '../domain/versioned-schema/index.js';
 import { makeValueSchemaRuntime } from './value-schema-runtime/index.js';
 import { ValueESchemaBuilder } from './value-eschema-builder.js';
 
@@ -68,8 +70,8 @@ export class ValueESchema<
   Type = null as unknown as ValueSchemaType<TLatest>;
   Encoded = null as unknown as ValueEnvelopeEncoded<TVersion, TLatest>;
 
-  get schema(): TLatest {
-    return this.#runtime.schema();
+  get schema(): Schema.Codec<this['Type'], this['Encoded']> {
+    return versionedSchema(this);
   }
 
   getDescriptor(): ESchemaDescriptor {
@@ -85,7 +87,7 @@ export class ValueESchema<
     },
     validate: (value: unknown) => {
       const result = Effect.runSyncExit(
-        Schema.decodeUnknownEffect(Schema.toType(this.schema))(value),
+        Schema.decodeUnknownEffect(Schema.toType(latestSchema(this)))(value),
       );
       if (result._tag === 'Success') {
         return { value: result.value as ValueSchemaType<TLatest> };

@@ -128,9 +128,18 @@ describe('ESchema', () => {
         expect(Object.keys(schema.fields).sort()).toEqual(['a', 'b']);
       });
 
-      it('schema returns an Effect Schema.Struct', () => {
-        const schema = ESchema.make('Doc', { a: Schema.String }).build();
-        expect(Object.keys(schema.schema.fields)).toEqual(['a']);
+      it('schema reads an older version and writes the latest with _v', () => {
+        const schema = ESchema.make('Doc', { a: Schema.String })
+          .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: '' }))
+          .build();
+        expect(
+          Schema.decodeUnknownSync(schema.schema)({ _v: 'v1', a: 'x' }),
+        ).toEqual({ a: 'x', b: '' });
+        expect(Schema.encodeSync(schema.schema)({ a: 'x', b: 'y' })).toEqual({
+          a: 'x',
+          b: 'y',
+          _v: 'v2',
+        });
       });
     });
 

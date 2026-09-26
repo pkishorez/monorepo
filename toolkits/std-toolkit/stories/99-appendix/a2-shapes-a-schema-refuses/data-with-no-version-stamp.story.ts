@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema, toSchema } from 'std-toolkit/eschema';
+import { EntityESchema } from 'std-toolkit/eschema';
 
 // A task shape with one step of history: v2 added a priority, and old rows get `normal`.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -28,7 +28,7 @@ export const dataWithNoVersionStamp = Story.make({
         'It is treated as version one: checked against the v1 shape, then walked up the steps like any v1 row. Rows written before the stamp existed, or by something else entirely, are read without a special case.',
       proof: Effect.gen(function* () {
         // Read a row that carries no stamp; it is taken as v1 and moved to v2.
-        const adopted = yield* Schema.decodeUnknownEffect(toSchema(Task))({
+        const adopted = yield* Schema.decodeUnknownEffect(Task.schema)({
           taskId: 't1',
           boardId: 'work',
           title: 'Write the plan',
@@ -49,7 +49,7 @@ export const dataWithNoVersionStamp = Story.make({
         'The read fails with a `SchemaError`. Missing the stamp earns a row the v1 check, not a pass; nothing tries to guess which version it might be.',
       proof: Effect.gen(function* () {
         // Read a row that has no stamp and none of the v1 fields.
-        const refused = yield* Schema.decodeUnknownEffect(toSchema(Task))({
+        const refused = yield* Schema.decodeUnknownEffect(Task.schema)({
           nonsense: true,
         }).pipe(Effect.flip);
         yield* Story.assert(

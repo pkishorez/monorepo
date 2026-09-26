@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema, toSchema } from 'std-toolkit/eschema';
+import { EntityESchema } from 'std-toolkit/eschema';
 
 // What a task is, written down once. `taskId` is the field that tells one task from another.
 export const Task = EntityESchema.make('Task', 'taskId', {
@@ -65,11 +65,9 @@ export const definingTheShapeOfATask = Story.make({
           'One stamp, `_v`, saying which version of the shape the task was written with; every write uses the newest version. Reading removes the stamp again, so your code never sees it, and the whole `_` prefix is reserved so your own fields can never collide with it.',
         proof: Effect.gen(function* () {
           // Turn the task into what storage will hold; the stamp appears.
-          const stored = yield* Schema.encodeEffect(toSchema(Task))(draft);
+          const stored = yield* Schema.encodeEffect(Task.schema)(draft);
           // Turn the stored form back into a task; the stamp is gone.
-          const back = yield* Schema.decodeUnknownEffect(toSchema(Task))(
-            stored,
-          );
+          const back = yield* Schema.decodeUnknownEffect(Task.schema)(stored);
           yield* Story.assert(
             'storage carries the version stamp',
             stored._v === 'v1',
@@ -90,13 +88,13 @@ export const definingTheShapeOfATask = Story.make({
         }).build();
         const dueAt = new Date('2026-09-01T09:00:00.000Z');
         // Turn the task into what storage will hold; the date becomes text.
-        const stored = yield* Schema.encodeEffect(toSchema(WithDueDate))({
+        const stored = yield* Schema.encodeEffect(WithDueDate.schema)({
           taskId: 't1',
           boardId: 'work',
           dueAt,
         });
         // Read it back; the text becomes a Date again.
-        const read = yield* Schema.decodeUnknownEffect(toSchema(WithDueDate))(
+        const read = yield* Schema.decodeUnknownEffect(WithDueDate.schema)(
           stored,
         );
         yield* Story.assert(

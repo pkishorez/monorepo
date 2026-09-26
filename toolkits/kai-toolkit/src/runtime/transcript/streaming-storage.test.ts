@@ -1,7 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { performance } from 'node:perf_hooks';
 import { Effect, Layer, Schema } from 'effect';
-import { toSchema } from 'std-toolkit/eschema';
 import type { Entity } from 'std-toolkit/core';
 import { defaultBroadcaster } from 'std-toolkit/core';
 import type { QueryPage } from 'std-toolkit/db';
@@ -101,7 +100,7 @@ describe('streaming delta storage', () => {
           const rows = yield* queryAll(threadId);
           const queryMs = performance.now() - queryStarted;
           const encoded = yield* Effect.forEach(rows, (row) =>
-            Schema.encodeEffect(toSchema(MessageSchema))(row.value),
+            Schema.encodeEffect(MessageSchema.schema)(row.value),
           );
           const stored = yield* Effect.forEach(rows, (row) =>
             messages

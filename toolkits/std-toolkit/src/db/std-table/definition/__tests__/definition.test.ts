@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
-import { EntityESchema, ESchema, toSchema } from '../../../../eschema/index.js';
+import { EntityESchema, ESchema } from '../../../../eschema/index.js';
 import { TableSnapshot } from '../../../../snapshot/index.js';
 import { Table } from '../index.js';
 
@@ -9,7 +9,7 @@ const addressSchema = EntityESchema.make('Address', 'addressId', {
 }).build();
 
 const personSchema = EntityESchema.make('Person', 'personId', {
-  address: toSchema(addressSchema),
+  address: addressSchema.schema,
   createdAt: Schema.String,
   email: Schema.String,
   organizationId: Schema.String,
@@ -329,10 +329,10 @@ describe('portable Table definition', () => {
       value: Schema.String,
     }).build();
     const left = EntityESchema.make('Left', 'id', {
-      shared: toSchema(shared),
+      shared: shared.schema,
     }).build();
     const right = EntityESchema.make('Right', 'id', {
-      shared: toSchema(shared),
+      shared: shared.schema,
     }).build();
     const table = makeTable();
     table.entity(left).primary().build();
@@ -351,15 +351,11 @@ describe('portable Table definition', () => {
     }).build();
     const conflictTable = makeTable();
     conflictTable
-      .entity(
-        EntityESchema.make('One', 'id', { nested: toSchema(one) }).build(),
-      )
+      .entity(EntityESchema.make('One', 'id', { nested: one.schema }).build())
       .primary()
       .build();
     conflictTable
-      .entity(
-        EntityESchema.make('Two', 'id', { nested: toSchema(two) }).build(),
-      )
+      .entity(EntityESchema.make('Two', 'id', { nested: two.schema }).build())
       .primary()
       .build();
     expect(() => TableSnapshot.capture(conflictTable)).toThrow(

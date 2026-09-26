@@ -70,6 +70,16 @@ export function inspectESchema(eschema: object): ESchemaIntrospection {
   return resolved;
 }
 
+// The latest version's own schema: a struct of the latest fields, or a value
+// schema's inner schema. No `_v`, no migration.
+export function latestSchema(eschema: object): Schema.Top {
+  const { name, evolutions } = inspectESchema(eschema);
+  const latest = evolutions.at(-1);
+  if (latest === undefined)
+    throw new TypeError(`ESchema ${name} has no versions`);
+  return latest.schema;
+}
+
 export function registerESchemaComposition(
   ast: SchemaAST.AST,
   encodedAst: SchemaAST.AST,

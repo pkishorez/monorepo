@@ -1,6 +1,5 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { EntitySchema } from '../../core/index.js';
 import { Memory } from '../../db/memory/index.js';
 import { EntityESchema } from '../../eschema/index.js';
 import { noStrategyState } from '../strategy/state/index.js';
@@ -27,7 +26,7 @@ describe('outdated application', () => {
             run: () =>
               Effect.gen(function* () {
                 attempts += 1;
-                yield* EntitySchema(Event).decode({
+                yield* Schema.decodeUnknownEffect(Event.entity)({
                   value: { id: 'a', at: '2026-01-01T00:00:00.000Z' },
                   meta: { _e: 'Event', _v: 'v2', _u: '1', _d: false },
                 });
@@ -150,7 +149,7 @@ describe('outdated application', () => {
             fetchFrom: () =>
               Effect.gen(function* () {
                 fetches += 1;
-                const entity = yield* EntitySchema(Event).decode({
+                const entity = yield* Schema.decodeUnknownEffect(Event.entity)({
                   value: { id: 'b', at: u },
                   meta: { _e: 'Event', _v: 'v2', _u: u, _d: false },
                 });

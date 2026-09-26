@@ -1,5 +1,5 @@
-import { Clock, Effect } from 'effect';
-import { EntitySchema, type Entity } from '../../../core/index.js';
+import { Clock, Effect, Schema } from 'effect';
+import type { Entity } from '../../../core/index.js';
 import { ESchemaError, type AnyESchema } from '../../../eschema/index.js';
 import { DatabaseError } from '../../../db/index.js';
 import { converge } from './entity-convergence.js';
@@ -64,7 +64,8 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
   keyOf?: (value: S['Type']) => string | null;
 }): SyncReplica<S['Type']> => {
   type TItem = S['Type'];
-  const entitySchema = EntitySchema(args.schema);
+  const decodeEntity = Schema.decodeUnknownEffect(args.schema.entity);
+  const encodeEntity = Schema.encodeEffect(args.schema.entity);
   const entityName = args.schema.name;
   const collection = args.collectionName ?? entityName;
 
@@ -82,7 +83,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
   const key = (id: string) => ({ collection, key: id });
 
   const storedEntity = (stored: StoredReplicaValue) =>
-    entitySchema.decode(stored.entity);
+    decodeEntity(stored.entity);
 
   type Candidate = {
     id: string;
@@ -153,8 +154,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
         ...outcome.decoded,
         meta: { ...outcome.decoded.meta, _c: clientNow },
       });
-    return entitySchema
-      .decode(outcome.accepted)
+    return decodeEntity(outcome.accepted)
       .pipe(Effect.result)
       .pipe(
         Effect.map((decoded) =>
@@ -337,9 +337,7 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
           received: decoded.meta._e,
         });
       }
-      return yield* entitySchema
-        .encode(decoded)
-        .pipe(Effect.mapError(invalidEntity));
+      return yield* encodeEntity(decoded).pipe(Effect.mapError(invalidEntity));
     });
 
   return {
@@ -386,9 +384,9 @@ export const makeSyncReplica = <S extends AnyESchema>(args: {
             };
             newest.set(id, {
               decoded: next,
-              encoded: yield* entitySchema
-                .encode(next)
-                .pipe(Effect.mapError(invalidEntity)),
+              encoded: yield* encodeEntity(next).pipe(
+                Effect.mapError(invalidEntity),
+              ),
             });
           }
         }

@@ -7,7 +7,7 @@ import type {
 } from '@tanstack/react-db';
 import { Effect, Schema } from 'effect';
 import { nextUlid, type Entity } from '../../../core/index.js';
-import { toSchema, type AnyEntityESchema } from '../../../eschema/index.js';
+import type { AnyEntityESchema } from '../../../eschema/index.js';
 import type { WriteError } from '../../domain/sync-error/index.js';
 import {
   collectionHandlerName,
@@ -131,7 +131,7 @@ export const buildKeyedMutations = <
   ): UpdatePayload<TItem, S> =>
     ({ current, updates }) as UpdatePayload<TItem, S>;
 
-  const codec = toSchema(schema);
+  const codec = schema.schema;
   const encode = (item: TItem): Effect.Effect<unknown, unknown> =>
     Schema.encodeEffect(codec)(item);
   const decode = (value: unknown): Effect.Effect<TItem, unknown> =>

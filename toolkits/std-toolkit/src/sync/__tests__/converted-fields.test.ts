@@ -1,5 +1,4 @@
 import { Effect, Schema } from 'effect';
-import { EntitySchema } from '../../core/index.js';
 import { makeSyncStateStore } from '../strategy/state/index.js';
 import { describe, expect, it, vi } from 'vitest';
 import type { Entity } from '../../core/index.js';
@@ -473,7 +472,7 @@ describe('converted fields', () => {
       const memory = Memory.make(syncStore);
       const store = stateStore(
         memory,
-        Schema.Struct({ cursor: Schema.NullOr(EntitySchema(taskSchema)) }),
+        Schema.Struct({ cursor: Schema.NullOr(taskSchema.entity) }),
         { cursor: null },
       );
       const cursor = confirmed(task(MAY), '1');
