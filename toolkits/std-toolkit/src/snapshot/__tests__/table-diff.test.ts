@@ -1,7 +1,8 @@
 import { Effect, Schema } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { EntityESchema, toSchema } from '../../eschema/index.js';
-import { TableSnapshot, SnapshotDecodeError } from '../index.js';
+import { SnapshotDecodeError } from '../domain/index.js';
+import { TableSnapshot } from '../index.js';
 import { snapshotOf } from './helpers.js';
 
 const schema = EntityESchema.make('User', 'id', {

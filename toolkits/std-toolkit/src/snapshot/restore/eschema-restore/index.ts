@@ -1,5 +1,1 @@
-export {
-  restoreESchemaDefinitions,
-  type RestoredESchema,
-  type RestoredESchemaVersion,
-} from './eschema-restore.js';
+export { restoreESchemaDefinitions } from './eschema-restore.js';

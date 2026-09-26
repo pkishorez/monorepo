@@ -3,7 +3,6 @@ import { isResolved, Resource, type Input } from 'alchemy';
 import * as Provider from 'alchemy/Provider';
 import type { TableSource } from '../../snapshot/index.js';
 import {
-  type SnapshotChange,
   SnapshotIncompatible,
   TableSnapshot,
   TableSnapshotESchema,
@@ -15,10 +14,6 @@ interface SnapshotGuardProps {
   readonly snapshot: unknown;
 }
 
-/**
- * Remembers the last deployed table snapshot in Alchemy state and fails a
- * deploy whose snapshot cannot be upgraded from it.
- */
 export type SnapshotGuard = Resource<
   'StdToolkit.SnapshotGuard',
   SnapshotGuardProps,
@@ -35,10 +30,9 @@ export class Providers extends Provider.ProviderCollection<Providers>()(
   'StdToolkit',
 ) {}
 
-const failOnBreaking = (
-  logicalName: string,
-  changes: readonly SnapshotChange[],
-) => {
+type SnapshotChanges = ReturnType<typeof TableSnapshot.diff>;
+
+const failOnBreaking = (logicalName: string, changes: SnapshotChanges) => {
   const rejected = changes.filter(
     ({ impact }) => impact === 'breaking' || impact === 'unverifiable',
   );
@@ -50,10 +44,7 @@ const failOnBreaking = (
   ).pipe(Effect.andThen(Effect.fail(new SnapshotIncompatible(rejected))));
 };
 
-const warnOnBackfill = (
-  logicalName: string,
-  changes: readonly SnapshotChange[],
-) =>
+const warnOnBackfill = (logicalName: string, changes: SnapshotChanges) =>
   Effect.forEach(
     changes.filter(({ impact }) => impact === 'requires-backfill'),
     (change) =>

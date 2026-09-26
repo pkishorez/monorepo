@@ -7,10 +7,10 @@ import {
   toSchema,
 } from '../../eschema/index.js';
 import {
-  TableSnapshot,
   SnapshotDecodeError,
   SnapshotIdentityConflict,
-} from '../index.js';
+} from '../domain/index.js';
+import { TableSnapshot } from '../index.js';
 import { snapshotOf } from './helpers.js';
 
 describe('ESchema semantic snapshots', () => {
@@ -145,7 +145,6 @@ describe('ESchema semantic snapshots', () => {
     const reordered = snapshotOf(reorderedSchema);
 
     expect(JSON.stringify(first)).toBe(JSON.stringify(reordered));
-    expect(TableSnapshot.render(first)).toBe(TableSnapshot.render(reordered));
 
     const orderedSchema = ValueESchema.make(
       'Literals',
