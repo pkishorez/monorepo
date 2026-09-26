@@ -39,7 +39,7 @@ export type ValueEnvelopeEncoded<
   TSchema extends ValueSchema,
 > = {
   readonly _v: TVersion;
-  readonly value: ValueSchemaEncoded<TSchema>;
+  readonly _value: ValueSchemaEncoded<TSchema>;
 };
 
 /**
@@ -83,6 +83,12 @@ export type ForbidUnderscorePrefix<T> = {
     ? 'Key with prefix _ is Forbidden.'
     : T[K];
 };
+
+export type ForbidUnderscorePrefixValue<S extends ValueSchema> = S extends {
+  readonly fields: infer F;
+}
+  ? { readonly fields: ForbidUnderscorePrefix<F> }
+  : unknown;
 
 /**
  * Type-level enforcement that the schema must not contain the ID field.

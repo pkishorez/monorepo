@@ -5,11 +5,13 @@ import {
   ValueESchema,
   toSchema,
   type AnyESchema,
-  type AnyEvolvingSchema,
-  type AnyValueESchema,
   type ESchemaEncoded,
   type ESchemaType,
 } from '../index.js';
+import type {
+  AnyEvolvingSchema,
+  AnyValueESchema,
+} from '../domain/schema-model/index.js';
 import { ESchemaError } from '../index.js';
 
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
@@ -24,7 +26,7 @@ describe('ESchema', () => {
 
           const encoded = yield* schema.encode(42);
 
-          expect(encoded).toEqual({ _v: 'v1', value: 42 });
+          expect(encoded).toEqual({ _v: 'v1', _value: 42 });
         }),
       );
 
@@ -32,7 +34,7 @@ describe('ESchema', () => {
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.Number).build();
 
-          const decoded = yield* schema.decode({ _v: 'v1', value: 42 });
+          const decoded = yield* schema.decode({ _v: 'v1', _value: 42 });
 
           expect(decoded).toBe(42);
         }),
@@ -55,7 +57,7 @@ describe('ESchema', () => {
           const schema = ValueESchema.make('Label', Schema.String).build();
 
           const error = yield* Effect.flip(
-            schema.decode({ _v: 'v99', value: 'hello' }),
+            schema.decode({ _v: 'v99', _value: 'hello' }),
           );
 
           expect(error).toBeInstanceOf(ESchemaError);
@@ -63,57 +65,117 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('does not treat { value } as an unstamped envelope', () =>
-        Effect.gen(function* () {
-          const schema = ValueESchema.make('Label', Schema.String).build();
-
-          const error = yield* Effect.flip(schema.decode({ value: 'hello' }));
-
-          expect(error.message).toBe('Decode failed');
-        }),
-      );
-
-      itEffect('treats envelope-shaped objects as envelopes', () =>
+      itEffect('reads an object without _value as a bare value', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make(
-            'Envelope',
+            'Label',
             Schema.Struct({
-              _v: Schema.String,
               value: Schema.String,
-            }),
-          ).build();
-
-          const error = yield* Effect.flip(
-            schema.decode({ _v: 'business-version', value: 'hello' }),
-          );
-
-          expect(error.message).toBe(
-            'Unknown schema version: business-version',
-          );
-        }),
-      );
-
-      itEffect('allows underscore-prefixed keys inside enveloped values', () =>
-        Effect.gen(function* () {
-          const schema = ValueESchema.make(
-            'Payload',
-            Schema.Struct({
-              _source: Schema.String,
-              name: Schema.String,
+              colour: Schema.String,
             }),
           ).build();
 
           const decoded = yield* schema.decode({
-            _v: 'v1',
-            value: { _source: 'import', name: 'Alice' },
+            value: 'urgent',
+            colour: 'red',
           });
-          const encoded = yield* schema.encode(decoded);
 
-          expect(decoded).toEqual({ _source: 'import', name: 'Alice' });
-          expect(encoded).toEqual({
+          expect(decoded).toEqual({ value: 'urgent', colour: 'red' });
+        }),
+      );
+
+      itEffect('refuses an envelope with extra keys', () =>
+        Effect.gen(function* () {
+          const schema = ValueESchema.make('Label', Schema.String).build();
+
+          const error = yield* Effect.flip(
+            schema.decode({ _v: 'v1', _value: 'hello', junk: 1 }),
+          );
+
+          expect(error).toBeInstanceOf(ESchemaError);
+          expect(error.message).toBe(
+            'Malformed value envelope: unexpected keys junk',
+          );
+        }),
+      );
+
+      itEffect('refuses an envelope without a version', () =>
+        Effect.gen(function* () {
+          const schema = ValueESchema.make('Label', Schema.String).build();
+
+          const error = yield* Effect.flip(schema.decode({ _value: 'hello' }));
+
+          expect(error).toBeInstanceOf(ESchemaError);
+          expect(error.message).toBe('Malformed value envelope');
+        }),
+      );
+
+      itEffect('refuses an envelope with a non-string version', () =>
+        Effect.gen(function* () {
+          const schema = ValueESchema.make('Label', Schema.String).build();
+
+          const error = yield* Effect.flip(
+            schema.decode({ _v: 1, _value: 'hello' }),
+          );
+
+          expect(error).toBeInstanceOf(ESchemaError);
+          expect(error.message).toBe('Malformed value envelope');
+        }),
+      );
+
+      itEffect('refuses a payload that does not match its version', () =>
+        Effect.gen(function* () {
+          const schema = ValueESchema.make('Count', Schema.Number).build();
+
+          const error = yield* Effect.flip(
+            schema.decode({ _v: 'v1', _value: 'not a number' }),
+          );
+
+          expect(error).toBeInstanceOf(ESchemaError);
+          expect(error.message).toBe('Decode failed');
+        }),
+      );
+
+      it('refuses top-level fields that start with _', () => {
+        function assertTypeErrors() {
+          ValueESchema.make(
+            'Payload',
+            // @ts-expect-error — top-level _ fields are reserved
+            Schema.Struct({ _source: Schema.String, name: Schema.String }),
+          );
+
+          ValueESchema.make('Payload', Schema.String).evolve(
+            'v2',
+            // @ts-expect-error — the rule holds for every version
+            Schema.Struct({ _v: Schema.String }),
+            (value) => ({ _v: value }),
+          );
+        }
+
+        expect(assertTypeErrors).toBeTypeOf('function');
+      });
+
+      itEffect('allows _ keys below the top level', () =>
+        Effect.gen(function* () {
+          const schema = ValueESchema.make(
+            'Payload',
+            Schema.Struct({
+              meta: Schema.Struct({ _source: Schema.String }),
+              name: Schema.String,
+            }),
+          ).build();
+
+          const stored = {
             _v: 'v1',
-            value: { _source: 'import', name: 'Alice' },
+            _value: { meta: { _source: 'import' }, name: 'Alice' },
+          };
+          const decoded = yield* schema.decode(stored);
+
+          expect(decoded).toEqual({
+            meta: { _source: 'import' },
+            name: 'Alice',
           });
+          expect(yield* schema.encode(decoded)).toEqual(stored);
         }),
       );
     });
@@ -132,11 +194,11 @@ describe('ESchema', () => {
             )
             .build();
 
-          const decoded = yield* schema.decode({ _v: 'v1', value: 'draft' });
+          const decoded = yield* schema.decode({ _v: 'v1', _value: 'draft' });
           const encoded = yield* schema.encode('review');
 
           expect(decoded).toBe('draft');
-          expect(encoded).toEqual({ _v: 'v2', value: 'review' });
+          expect(encoded).toEqual({ _v: 'v2', _value: 'review' });
         }),
       );
 
@@ -146,9 +208,24 @@ describe('ESchema', () => {
             .evolve('v2', Schema.Number, (value) => value * 2)
             .build();
 
-          const decoded = yield* schema.decode({ _v: 'v1', value: 21 });
+          const decoded = yield* schema.decode({ _v: 'v1', _value: 21 });
 
           expect(decoded).toBe(42);
+        }),
+      );
+
+      itEffect('turns a throwing migration into an ESchemaError', () =>
+        Effect.gen(function* () {
+          const schema = ValueESchema.make('Count', Schema.String)
+            .evolve('v2', Schema.Number, () => {
+              throw new Error('boom');
+            })
+            .build();
+
+          const error = yield* Effect.flip(schema.decode('42'));
+
+          expect(error).toBeInstanceOf(ESchemaError);
+          expect(error.message).toBe('Migration to v2 failed');
         }),
       );
     });
@@ -180,7 +257,7 @@ describe('ESchema', () => {
           expect(encoded).toEqual({
             _v: 'v1',
             title: 'Fix billing',
-            status: { _v: 'v2', value: 'review' },
+            status: { _v: 'v2', _value: 'review' },
           });
         }),
       );
@@ -205,7 +282,7 @@ describe('ESchema', () => {
           const decoded = yield* Ticket.decode({
             _v: 'v1',
             title: 'Fix billing',
-            status: { _v: 'v1', value: 'published' },
+            status: { _v: 'v1', _value: 'published' },
           });
 
           expect(decoded).toEqual({
@@ -233,7 +310,7 @@ describe('ESchema', () => {
 
         expect(descriptor.type).toBe('object');
         expect(versionSchema.enum).toEqual(['v1']);
-        expect(descriptor.properties).toHaveProperty('value');
+        expect(descriptor.properties).toHaveProperty('_value');
       });
 
       it('Standard Schema validate follows the read path', () => {
@@ -243,7 +320,7 @@ describe('ESchema', () => {
           value: 'draft',
         });
         expect(
-          schema['~standard'].validate({ _v: 'v1', value: 'draft' }),
+          schema['~standard'].validate({ _v: 'v1', _value: 'draft' }),
         ).toEqual({
           value: 'draft',
         });
@@ -258,13 +335,13 @@ describe('ESchema', () => {
         type Encoded = ESchemaEncoded<typeof schema>;
 
         const decoded: Decoded = 42;
-        const encoded: Encoded = { _v: 'v1', value: 42 };
+        const encoded: Encoded = { _v: 'v1', _value: 42 };
 
         // @ts-expect-error — encoded value must carry the envelope's _v
-        const invalidEncoded: Encoded = { value: 42 };
+        const invalidEncoded: Encoded = { _value: 42 };
 
         expect(decoded).toBe(42);
-        expect(encoded).toEqual({ _v: 'v1', value: 42 });
+        expect(encoded).toEqual({ _v: 'v1', _value: 42 });
         void invalidEncoded;
       });
 

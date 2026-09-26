@@ -8,9 +8,11 @@ import {
   type AnyEntityESchema,
   type AnyUnkeyedESchema,
   type ESchemaType,
-  type StructFieldsSchema,
-  type ValueSchema,
 } from '../index.js';
+import type {
+  StructFieldsSchema,
+  ValueSchema,
+} from '../domain/schema-model/index.js';
 
 function acceptsConcreteESchema<
   V extends string,

@@ -3,7 +3,7 @@ import { it, describe, expect } from 'vitest';
 const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
   it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
-import { EntityESchema } from '../index.js';
+import { EntityESchema, ESchemaError } from '../index.js';
 
 describe('ESchema', () => {
   describe('Evolution', () => {
@@ -97,6 +97,27 @@ describe('ESchema', () => {
             lastName: 'Doe',
           });
           expect(decoded).toEqual({ id: 't1', fullName: 'John Doe' });
+        }),
+      );
+    });
+
+    describe('Failing migrations', () => {
+      itEffect('turns a throwing migration into an ESchemaError', () =>
+        Effect.gen(function* () {
+          const schema = EntityESchema.make('Test', 'id', {
+            a: Schema.String,
+          })
+            .evolve('v2', { b: Schema.String }, () => {
+              throw new Error('boom');
+            })
+            .build();
+
+          const error = yield* Effect.flip(
+            schema.decode({ _v: 'v1', id: 't1', a: 'hello' }),
+          );
+
+          expect(error).toBeInstanceOf(ESchemaError);
+          expect(error.message).toBe('Migration to v2 failed');
         }),
       );
     });

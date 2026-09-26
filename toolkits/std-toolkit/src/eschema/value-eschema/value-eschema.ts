@@ -4,6 +4,7 @@ import type {
   ESchemaDescriptor,
   ForbidEmptyName,
   ForbidUndefinedValue,
+  ForbidUnderscorePrefixValue,
   ValueEnvelopeEncoded,
   ValueEvolution,
   ValueSchema,
@@ -44,7 +45,7 @@ export class ValueESchema<
 
   static make<N extends string, S extends ValueSchema>(
     name: N & ForbidEmptyName<N>,
-    schema: S & ForbidUndefinedValue<S>,
+    schema: S & ForbidUndefinedValue<S> & ForbidUnderscorePrefixValue<S>,
   ) {
     assertName(name);
     return new ValueESchemaBuilder<'v1', S>(

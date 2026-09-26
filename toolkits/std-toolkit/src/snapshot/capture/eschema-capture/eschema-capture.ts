@@ -2,7 +2,7 @@ import { Schema, SchemaAST, SchemaRepresentation } from 'effect';
 import {
   inspectESchema,
   inspectESchemaComposition,
-} from '../../../eschema/index.js';
+} from '../../../eschema/domain/introspection/index.js';
 import type { ESchemaDefinition, ESchemaVersion } from '../../domain/index.js';
 import {
   compareStrings,
@@ -265,7 +265,7 @@ function versionSnapshot(
         Schema.toEncoded(
           Schema.Struct({
             _v: Schema.Literal(evolution.version),
-            value: evolution.schema,
+            _value: evolution.schema,
           }),
         ),
         references,

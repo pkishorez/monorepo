@@ -97,9 +97,14 @@ untouched.
 
 ### Value — `ValueESchema`
 
-A single versioned value — a scalar, an enum, a union — with no object around
-it. Since there is no struct to hang `_v` on, the encoded form wraps the value
-in an envelope: `{ _v: 'v2', value: … }`.
+A single versioned value — a scalar, an enum, a list, a map, a union — with
+no object around it. Since there is no struct to hang `_v` on, the encoded
+form wraps the value in an envelope: `{ _v: 'v2', _value: … }`. The `_value`
+key is what marks an envelope. Every schema kind forbids top-level fields
+starting with `_`, including a struct inside a `ValueESchema`, so stored data
+can never be mistaken for a value envelope, and an envelope with any key
+besides `_v` and `_value` is refused with `ESchemaError`. A value with no
+`_value` key is read as v1 data.
 
 ```ts
 const Rating = ValueESchema.make('Rating', Schema.String)
@@ -110,6 +115,16 @@ const Rating = ValueESchema.make('Rating', Schema.String)
 Unlike struct evolutions (which merge a field delta), each value evolution
 **replaces the whole codec** — v2 above is a number even though v1 was a
 string.
+
+### Which one do I pick
+
+| You are versioning                                         | Use                                   |
+| ---------------------------------------------------------- | ------------------------------------- |
+| A table row, keyed by an id                                | `EntityESchema`                       |
+| An object with named fields that follows the field rules   | `ESchema`                             |
+| A single record stored once                                | `ESchema` with `table.singleEntity()` |
+| A scalar, enum, list, map, or a union of different objects | `ValueESchema`                        |
+| An existing object with optional fields                    | `ValueESchema`                        |
 
 ### The bridge: `toSchema`
 
@@ -154,9 +169,12 @@ sharp edges worth knowing before you rely on it.
 - **`makePartial` does not validate.** It stamps `_v` onto whatever partial
   you hand it and returns it — transformed fields stay in their decoded form.
   It is a typing convenience for patches, not a codec.
-- **Value envelopes detect by shape.** A _bare_ (unstamped) object value that
-  happens to contain a `_v` key is mistaken for an envelope. Stamped data is
-  unambiguous — the gotcha only bites pre-adoption data.
+- **A bare value is always read as v1.** A value without an envelope is
+  treated as data from before adoption, so it is migrated from v1 on every
+  read. If a bare value is written after adoption (by hand, or by code that
+  skips `encode`), an old version that accepts it migrates it again: a bare
+  `'dark'` under a string v1 can come back as `'light'`. Once adopted, always
+  write through `encode`.
 
 ## Best practices
 
@@ -164,7 +182,8 @@ sharp edges worth knowing before you rely on it.
   append a new version instead.
 - **Migrations must be total.** The function receives _every_ value the
   previous version could decode. Handle nulls, empty strings, and the weird
-  legacy cases — a throw inside a migration fails the whole decode.
+  legacy cases — a throw inside a migration fails the whole decode with an
+  `ESchemaError`.
 - **Keep migrations pure.** No clocks, no randomness, no IO. The same stored
   row must decode to the same value today, tomorrow, and on every replica.
 - **Model absence with `Schema.NullOr`,** never optional fields — the builder

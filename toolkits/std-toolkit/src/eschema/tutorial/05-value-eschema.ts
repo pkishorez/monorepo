@@ -11,7 +11,7 @@
  *     migration receives and returns the decoded value itself, not a field map.
  *
  * Because a bare value (say the string "draft") has nowhere to hang a `_v`,
- * ValueESchema wraps it in a *value envelope* on encode: `{ _v, value }`.
+ * ValueESchema wraps it in a *value envelope* on encode: `{ _v, _value }`.
  *
  * Run it:  npx tsx src/tutorial/05-value-eschema.ts
  */
@@ -35,12 +35,12 @@ const Status = ValueESchema.make(
 // encode wraps the value in an envelope and stamps the latest version.
 const encoded = Effect.runSync(Status.encode('review'));
 console.log('encoded value:', encoded);
-// => { _v: 'v2', value: 'review' }
+// => { _v: 'v2', _value: 'review' }
 
 // decode unwraps the envelope and folds forward.
 console.log(
   'decode envelope:',
-  Effect.runSync(Status.decode({ _v: 'v1', value: 'draft' })),
+  Effect.runSync(Status.decode({ _v: 'v1', _value: 'draft' })),
 );
 // => 'draft'
 
