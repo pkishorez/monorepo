@@ -20,5 +20,7 @@ describe('ui during SSR', () => {
     const html = ssr(createElement(OfflineIndicator));
     expect(html).toContain('role="status"');
     expect(html).not.toContain('offline');
+    // Above the Sheet backdrop (z-50) of the InstallPrompt.
+    expect(html).toContain('z-60');
   });
 });

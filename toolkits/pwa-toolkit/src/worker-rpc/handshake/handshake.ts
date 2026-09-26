@@ -9,7 +9,9 @@ import { BuildId } from '../../domain/build/index.js';
  *
  * A connection opens with CONNECT, answered by READY or VERSION_SKEW. A
  * worker that does not know the connection (it was stopped and started
- * again) answers UNKNOWN_CONNECTION, and the tab opens a new one.
+ * again) adopts it when the message is a new Request and the tab has no
+ * other call open (`open: 0`), since nothing was lost; otherwise it answers
+ * UNKNOWN_CONNECTION, and the tab opens a new one.
  */
 export const RPC_ENVELOPE_KEY = '__pwaToolkitRpc';
 const Envelope = {
@@ -28,6 +30,8 @@ export const TabEnvelope = Schema.Union([
     ...Envelope,
     type: Schema.Literal('MESSAGE'),
     message: Schema.Unknown,
+    /** Calls the tab had open on this connection before this message. */
+    open: Schema.Number,
   }),
 ]);
 export type TabEnvelope = typeof TabEnvelope.Type;
@@ -73,6 +77,12 @@ export const checkVersionSkew = (
   tabBuildId === workerBuildId
     ? Option.none()
     : Option.some(new VersionSkew({ tabBuildId, workerBuildId }));
+
+/** Whether an encoded RPC message opens a new call. */
+export const isRequest = (message: unknown): boolean =>
+  typeof message === 'object' &&
+  message !== null &&
+  (message as { _tag?: unknown })._tag === 'Request';
 
 /**
  * Counts RPC calls in flight on one side of the wire, from the encoded RPC

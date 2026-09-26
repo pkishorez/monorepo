@@ -4,9 +4,11 @@ import * as Option from 'effect/Option';
 import * as Queue from 'effect/Queue';
 import * as Stream from 'effect/Stream';
 import type * as WorkerRunner from 'effect/unstable/workers/WorkerRunner';
+import type { BuildId } from '../../domain/build/index.js';
 import type { WorkerHost } from '../../domain/worker-host/index.js';
 import {
   checkVersionSkew,
+  isRequest,
   matchTabEnvelope,
   RPC_ENVELOPE_KEY,
   type WorkerEnvelope,
@@ -72,6 +74,21 @@ export const makeRunnerPlatform = (
         Queue.offerUnsafe(disconnects, connection.portId);
       };
 
+      // A connection this instance never saw (the worker restarted) is
+      // adopted when nothing on it was lost: a new Request from a tab with
+      // no other call open. A message event reaches exactly one worker
+      // instance, so the Request cannot run twice.
+      const adopt = (
+        tab: TabHandle,
+        envelope: { buildId: BuildId; connectionId: string; open: number },
+        message: unknown,
+      ): Connection | undefined =>
+        envelope.open === 0 &&
+        isRequest(message) &&
+        Option.isNone(checkVersionSkew(envelope.buildId, host.buildId))
+          ? connections.open(tab, envelope.connectionId)
+          : undefined;
+
       const checking = new Set<string>();
       const checkTab = (clientId: string) => {
         if (checking.has(clientId)) return;
@@ -132,16 +149,14 @@ export const makeRunnerPlatform = (
                   return reply('READY');
                 }
                 case 'MESSAGE': {
-                  if (connection === undefined)
-                    return reply('UNKNOWN_CONNECTION');
-                  connection.tab = tab;
-                  connection.inFlight.request(envelope.message);
+                  const current =
+                    connection ?? adopt(tab, envelope, envelope.message);
+                  if (current === undefined) return reply('UNKNOWN_CONNECTION');
+                  current.tab = tab;
+                  current.inFlight.request(envelope.message);
                   // Before the handler: a call may complete synchronously.
                   if (connections.busy) keepAlive.extend(event);
-                  const result = handler(
-                    connection.portId,
-                    envelope.message as I,
-                  );
+                  const result = handler(current.portId, envelope.message as I);
                   if (Effect.isEffect(result))
                     fork(result.pipe(Effect.catchCause(Effect.logError)));
                   return;

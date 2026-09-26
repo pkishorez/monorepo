@@ -73,8 +73,11 @@ export const InstallPrompt = (props: {
   if (compact) {
     return (
       <Sheet open onOpenChange={(open) => !open && dismiss()}>
+        {/* No X: its tap target is under 44px, and the footer's
+            "Not now" / "Got it" already close the sheet. */}
         <SheetContent
           side="bottom"
+          showCloseButton={false}
           className="rounded-t-2xl pb-[env(safe-area-inset-bottom)]"
         >
           <SheetHeader>
@@ -116,7 +119,7 @@ export const InstallPrompt = (props: {
 
 /**
  * Shown while offline. The live region is always rendered so screen readers
- * announce the change.
+ * announce the change. It stacks above sheets and their backdrop (z-50).
  */
 export const OfflineIndicator = (props: {
   readonly message?: string;
@@ -125,7 +128,7 @@ export const OfflineIndicator = (props: {
   return (
     <div
       role="status"
-      className="pointer-events-none fixed inset-x-0 top-[max(0.5rem,env(safe-area-inset-top))] z-50 flex justify-center"
+      className="pointer-events-none fixed inset-x-0 top-[max(0.5rem,env(safe-area-inset-top))] z-60 flex justify-center"
     >
       {!online && (
         <span className="inline-flex items-center gap-2 rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background shadow-md">

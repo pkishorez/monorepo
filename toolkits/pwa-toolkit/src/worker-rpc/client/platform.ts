@@ -59,7 +59,11 @@ const makePort = (controller: ServiceWorker, buildId: BuildId) => {
   const post = (
     body:
       | { readonly type: 'CONNECT' | 'CLOSE' | 'PING' }
-      | { readonly type: 'MESSAGE'; readonly message: unknown },
+      | {
+          readonly type: 'MESSAGE';
+          readonly message: unknown;
+          readonly open: number;
+        },
     transfers: ReadonlyArray<unknown> = [],
   ) => {
     if (closed) return;
@@ -86,8 +90,9 @@ const makePort = (controller: ServiceWorker, buildId: BuildId) => {
       transfers?: ReadonlyArray<unknown>,
     ) {
       if (frame[0] === 1) return post({ type: 'CLOSE' });
+      const open = inFlight.size;
       inFlight.request(frame[1]);
-      post({ type: 'MESSAGE', message: frame[1] }, transfers);
+      post({ type: 'MESSAGE', message: frame[1], open }, transfers);
     },
   };
 };

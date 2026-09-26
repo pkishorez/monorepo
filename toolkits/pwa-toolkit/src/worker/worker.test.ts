@@ -168,9 +168,30 @@ describe('navigation', () => {
 
     const noShell = start(build({ navigation: { shell: false } }));
     withPrecache(noShell);
-    expect(await text(noShell.fetchEvent('/page', { mode: 'navigate' }))).toBe(
-      'offline',
-    );
+    const response = await noShell.fetchEvent('/page?x=1', {
+      mode: 'navigate',
+    }).response;
+    expect(response?.status).toBe(302);
+    const location = new URL(response?.headers.get('location') ?? '');
+    expect(location.pathname).toBe('/offline');
+    expect(location.searchParams.get('from')).toBe('/page?x=1');
+  });
+
+  it('serves the Offline Fallback body when the navigation is for it', async () => {
+    const fake = start(build({ navigation: { shell: false } }));
+    withPrecache(fake);
+    expect(
+      await text(
+        fake.fetchEvent('/offline?from=%2Fpage', { mode: 'navigate' }),
+      ),
+    ).toBe('offline');
+  });
+
+  it('does not redirect when the Offline Fallback is missing', async () => {
+    const fake = start(build({ navigation: { shell: false } }));
+    const response = await fake.fetchEvent('/page', { mode: 'navigate' })
+      .response;
+    expect(response?.type).toBe('error');
   });
 
   it('falls back after networkTimeoutMs', async () => {

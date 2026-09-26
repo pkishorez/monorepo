@@ -31,6 +31,10 @@ export const isHandledNavigation = (
 /**
  * Network within `networkTimeoutMs`; then the saved page (only with
  * `cachePages`), the App Shell (with `shell`), and the Offline Fallback.
+ * The Offline Fallback is reached through a redirect to
+ * `${offlineFallback}?from=<path+search>`, so a client router renders the
+ * fallback route instead of the requested one; a request already for the
+ * fallback path gets its body directly.
  */
 export const handleNavigation = (
   info: WorkerBuildInfo,
@@ -49,10 +53,23 @@ export const handleNavigation = (
       ...(navigation.shell
         ? [matchPrecache(info.buildId, navigation.shellPath)]
         : []),
-      matchPrecache(info.buildId, navigation.offlineFallback),
+      offlineFallback(info, request),
     ]),
     timeoutMs: navigation.networkTimeoutMs,
   });
+};
+
+const offlineFallback = (info: WorkerBuildInfo, request: Request) => {
+  const path = info.config.navigation.offlineFallback;
+  const url = new URL(request.url);
+  const fallback = matchPrecache(info.buildId, path);
+  if (url.pathname === path) return fallback;
+  const target = new URL(path, url.origin);
+  target.searchParams.set('from', url.pathname + url.search);
+  return Effect.map(
+    fallback,
+    Option.map(() => Response.redirect(target.href, 302)),
+  );
 };
 
 const savePage = (request: Request, response: Response) =>
