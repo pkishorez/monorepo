@@ -1,0 +1,113 @@
+name: 🧹 cleanup:pwa-playground
+
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR number whose preview to destroy (e.g. 3)'
+        required: true
+        type: string
+
+concurrency:
+  group: pwa-playground-pr${{ inputs.pr || github.event.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  cleanup:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'preview:pwa-playground')
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Opt-in required by the accident guard in apps/pwa-playground/src/infra/stage.ts.
+      ALLOW_DEPLOY: 'true'
+      STAGE: pr${{ inputs.pr || github.event.number }}
+    steps:
+      - name: Validate stage
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && ! echo "${{ inputs.pr }}" | grep -qE '^[0-9]+$'; then
+            echo "PR number must be numeric, got '${{ inputs.pr }}'." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter pwa-playground...
+
+      - name: Build
+        run: pnpm --filter 'pwa-playground^...' run build
+
+      - name: Look for the stage
+        id: lookup
+        run: |
+          if ! stages=$(pnpm -C apps/pwa-playground exec alchemy state stages --stack PwaPlayground 2>&1); then
+            echo "::warning::Could not list stages for the PwaPlayground stack — attempting destroy anyway."
+            echo "$stages"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif printf '%s\n' "$stages" | grep -qxF "$STAGE"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::No '$STAGE' stage in the PwaPlayground stack — nothing to destroy."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Destroy pwa-playground preview
+        id: destroy
+        if: steps.lookup.outputs.exists == 'true'
+        continue-on-error: true
+        run: pnpm -C apps/pwa-playground exec alchemy destroy --stage "$STAGE" --yes
+
+      - name: State tree
+        if: steps.lookup.outputs.exists == 'true'
+        run: pnpm -C apps/pwa-playground exec alchemy state tree || true
+
+      - name: Force-clear orphaned state on destroy failure
+        if: steps.destroy.outcome == 'failure'
+        run: |
+          echo "::warning::alchemy destroy failed for stage '$STAGE' — force-clearing alchemy state so the stage does not linger. Some cloud resources may need manual cleanup."
+          pnpm -C apps/pwa-playground exec alchemy state clear --stack PwaPlayground --stage "$STAGE" --yes
+
+      - name: Remove preview label
+        if: steps.destroy.outcome != 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X DELETE "repos/${{ github.repository }}/issues/${STAGE#pr}/labels/preview:pwa-playground" --silent || true
+
+      - name: Fail if destroy failed
+        if: steps.destroy.outcome == 'failure'
+        run: exit 1
+
+      - name: Job summary
+        if: always()
+        env:
+          DESTROY_OUTCOME: ${{ steps.destroy.outcome }}
+        run: |
+          case "$DESTROY_OUTCOME" in
+            success) status="🗑️ destroyed" ;;
+            failure) status="❌ destroy failed (state force-cleared)" ;;
+            *) status="⏭️ no stage to destroy" ;;
+          esac
+          {
+            echo "## Cleanup — \`$STAGE\`"
+            echo ""
+            echo "| App | Status |"
+            echo "| --- | --- |"
+            echo "| pwa-playground | $status |"
+          } >> "$GITHUB_STEP_SUMMARY"

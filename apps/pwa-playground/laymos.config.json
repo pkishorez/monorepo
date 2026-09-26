@@ -1,0 +1,75 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [
+    "src/routeTree.gen.ts",
+    "src/globals.d.ts",
+    "src/styles.css"
+  ],
+  "layers": {
+    "entry": {
+      "paths": ["src/router.tsx", "src/sw.ts"],
+      "description": "Host entries: the TanStack router and the service worker",
+      "modules": {
+        "src/router.tsx": {},
+        "src/sw.ts": {}
+      }
+    },
+    "routes": {
+      "paths": ["src/routes"],
+      "description": "One page per PWA scenario, plus the API endpoints they call",
+      "modules": {
+        "src/routes": {}
+      }
+    },
+    "infra": {
+      "paths": ["src/infra"],
+      "description": "Deployable resources, composed by alchemy.run.ts",
+      "modules": {
+        "src/infra": {}
+      }
+    },
+    "components": {
+      "paths": ["src/components"],
+      "description": "Scenario page layout and the app header",
+      "modules": {
+        "src/components": {
+          "exposed": true
+        }
+      }
+    },
+    "rpc": {
+      "paths": ["src/rpc"],
+      "description": "The Worker RPC group shared by the worker and the tab",
+      "modules": {
+        "src/rpc": {
+          "exposed": true
+        }
+      }
+    },
+    "lib": {
+      "paths": ["src/lib"],
+      "description": "Build info, scenario list, Runtime Cache rules, API helpers",
+      "modules": {
+        "src/lib/build.ts": { "exposed": true },
+        "src/lib/meta.ts": { "shared": true, "exposed": true },
+        "src/lib/scenarios.ts": { "exposed": true },
+        "src/lib/runtime-cache-rules.ts": { "exposed": true },
+        "src/lib/served.ts": { "exposed": true },
+        "src/lib/data.ts": { "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "pwa-playground": {
+      "description": "Entries over routes over components over lib; the worker and the rpc page share the rpc group",
+      "rules": {
+        "entry": ["rpc"],
+        "routes": ["components", "lib", "rpc"],
+        "infra": [],
+        "components": ["lib"],
+        "rpc": []
+      }
+    }
+  }
+}
