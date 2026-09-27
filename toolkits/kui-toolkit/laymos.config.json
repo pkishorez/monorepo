@@ -35,11 +35,13 @@
   "layers": {
     "blocks": {
       "paths": [
+        "src/components/blocks/app-frame",
         "src/components/blocks/auth",
         "src/components/blocks/diff-viewer",
         "src/components/blocks/er-diagram",
         "src/components/blocks/file-tree",
         "src/components/blocks/flow-swimlane",
+        "src/components/blocks/gestures",
         "src/components/blocks/git-changes",
         "src/components/blocks/json",
         "src/components/blocks/markdown-viewer",
@@ -52,11 +54,18 @@
       ],
       "description": "Feature-level components composed from UI primitives",
       "modules": {
+        "src/components/blocks/app-frame": {
+          "exposed": true
+        },
         "src/components/blocks/diff-viewer": {
           "shared": true,
           "exposed": true
         },
         "src/components/blocks/file-tree": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/components/blocks/gestures": {
           "shared": true,
           "exposed": true
         },

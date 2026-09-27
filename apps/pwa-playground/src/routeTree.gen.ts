@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthSimRouteImport } from './routes/auth-sim'
 import { Route as DataRouteImport } from './routes/data'
+import { Route as GesturesRouteImport } from './routes/gestures'
 import { Route as InstallRouteImport } from './routes/install'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as RpcRouteImport } from './routes/rpc'
@@ -35,6 +36,11 @@ const AuthSimRoute = AuthSimRouteImport.update({
 const DataRoute = DataRouteImport.update({
   id: '/data',
   path: '/data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesRoute = GesturesRouteImport.update({
+  id: '/gestures',
+  path: '/gestures',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InstallRoute = InstallRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth-sim': typeof AuthSimRoute
   '/data': typeof DataRoute
+  '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
   '/offline': typeof OfflineRoute
   '/rpc': typeof RpcRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth-sim': typeof AuthSimRoute
   '/data': typeof DataRoute
+  '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
   '/offline': typeof OfflineRoute
   '/rpc': typeof RpcRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth-sim': typeof AuthSimRoute
   '/data': typeof DataRoute
+  '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
   '/offline': typeof OfflineRoute
   '/rpc': typeof RpcRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth-sim'
     | '/data'
+    | '/gestures'
     | '/install'
     | '/offline'
     | '/rpc'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth-sim'
     | '/data'
+    | '/gestures'
     | '/install'
     | '/offline'
     | '/rpc'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth-sim'
     | '/data'
+    | '/gestures'
     | '/install'
     | '/offline'
     | '/rpc'
@@ -175,6 +187,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthSimRoute: typeof AuthSimRoute
   DataRoute: typeof DataRoute
+  GesturesRoute: typeof GesturesRoute
   InstallRoute: typeof InstallRoute
   OfflineRoute: typeof OfflineRoute
   RpcRoute: typeof RpcRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/data'
       fullPath: '/data'
       preLoaderRoute: typeof DataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures': {
+      id: '/gestures'
+      path: '/gestures'
+      fullPath: '/gestures'
+      preLoaderRoute: typeof GesturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/install': {
@@ -279,6 +299,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthSimRoute: AuthSimRoute,
   DataRoute: DataRoute,
+  GesturesRoute: GesturesRoute,
   InstallRoute: InstallRoute,
   OfflineRoute: OfflineRoute,
   RpcRoute: RpcRoute,
