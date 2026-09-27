@@ -8,20 +8,20 @@ import {
 } from '../index.js';
 
 describe('changedProjectDirs', () => {
-  const dirs = ['.', 'apps/docs', 'toolkits/kui-toolkit', 'toolkits/kui'];
+  const dirs = ['.', 'apps/docs', 'toolkits/ui-toolkit', 'toolkits/kui'];
 
   test('keeps the folders holding a changed path', () => {
     expect(
       changedProjectDirs(dirs.slice(1), [
-        'toolkits/kui-toolkit/src/a.ts',
+        'toolkits/ui-toolkit/src/a.ts',
         'README.md',
       ]),
-    ).toEqual(['toolkits/kui-toolkit']);
+    ).toEqual(['toolkits/ui-toolkit']);
   });
 
   test('does not match a folder by name prefix', () => {
     expect(
-      changedProjectDirs(['toolkits/kui'], ['toolkits/kui-toolkit/a.ts']),
+      changedProjectDirs(['toolkits/kui'], ['toolkits/ui-toolkit/a.ts']),
     ).toEqual([]);
   });
 
@@ -33,8 +33,8 @@ describe('changedProjectDirs', () => {
 
 describe('file names', () => {
   test('a Project folder becomes one stem', () => {
-    expect(projectFileStem('toolkits/kui-toolkit', 'monorepo')).toBe(
-      'toolkits%2Fkui-toolkit',
+    expect(projectFileStem('toolkits/ui-toolkit', 'monorepo')).toBe(
+      'toolkits%2Fui-toolkit',
     );
     expect(projectFileStem('.', 'monorepo')).toBe('monorepo%2F');
   });

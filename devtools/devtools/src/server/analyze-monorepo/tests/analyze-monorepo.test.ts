@@ -37,7 +37,7 @@ describe('analyzeMonorepo', () => {
 
     expect(analysis.packages.length).toBeGreaterThan(0);
     expect(
-      analysis.packages.some((pkg) => pkg.name === '@pkishorez/devtools'),
+      analysis.packages.some((pkg) => pkg.name === '@kstackz/devtools'),
     ).toBe(true);
   });
 });

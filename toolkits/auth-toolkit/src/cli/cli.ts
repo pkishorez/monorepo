@@ -117,7 +117,7 @@ export class CliAuth extends Context.Service<
     readonly token: Effect.Effect<string, SignedOut>;
     readonly whoami: Effect.Effect<User, SignedOut | AuthWorkerFailure>;
   }
->()('auth-toolkit/CliAuth') {
+>()('@kstackz/auth-toolkit/CliAuth') {
   static readonly layer = (
     config: CliAuthConfig,
   ): Layer.Layer<

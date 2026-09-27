@@ -3,14 +3,14 @@ import {
   authzCookies,
   authzLayer,
   resolverLive,
-} from 'auth-toolkit/rpc/server';
+} from '@kstackz/auth-toolkit/rpc/server';
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../../handlers/console-handlers/index.ts';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { HttpEffect } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
-import { SQLite } from 'std-toolkit/db/sqlite';
-import { makeD1SQLite } from 'std-toolkit/db/sqlite/d1';
+import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
+import { makeD1SQLite } from '@kstackz/std-toolkit/db/sqlite/d1';
 import { consoleTable } from '../../storage/table/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';
 

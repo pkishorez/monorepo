@@ -1,4 +1,4 @@
-# std-toolkit/db/memory
+# @kstackz/std-toolkit/db/memory
 
 Dependency-free, ephemeral in-memory adapter that implements the full StdTable contract in any JavaScript runtime.
 
@@ -12,7 +12,7 @@ See the [top README](../../../README.md).
 
 ## Exports
 
-### `std-toolkit/db/memory`
+### `@kstackz/std-toolkit/db/memory`
 
 | Export        | What it does                                                           |
 | ------------- | ---------------------------------------------------------------------- |
@@ -26,8 +26,8 @@ Lifted from story 02.
 
 ```ts
 import { Effect, Stream } from 'effect';
-import { StdTable } from 'std-toolkit/db';
-import { Memory } from 'std-toolkit/db/memory';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { Memory } from '@kstackz/std-toolkit/db/memory';
 
 const table = StdTable.make('board').primary('pk', 'sk').build();
 const memory = Memory.make(table);

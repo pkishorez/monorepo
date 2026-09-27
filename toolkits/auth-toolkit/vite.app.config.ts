@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 
 // Builds the Auth Worker app into dist/app. Dependencies stay external so the
 // alchemy resource's own bundler resolves them for workerd, from this
-// package's node_modules; kui-toolkit ships raw source and is inlined here.
+// package's node_modules; ui-toolkit ships raw source and is inlined here.
 export default defineConfig({
   build: {
     outDir: 'dist/app',
@@ -13,7 +13,7 @@ export default defineConfig({
     rolldownOptions: { external: ['cloudflare:workers'] },
   },
   ssr: {
-    noExternal: ['kui-toolkit'],
+    noExternal: ['@kstackz/ui-toolkit'],
     resolve: { mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'] },
   },
   plugins: [

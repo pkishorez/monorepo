@@ -1,5 +1,5 @@
 import { Context, Data, Effect, Layer } from 'effect';
-import type { Entity } from 'std-toolkit/core';
+import type { Entity } from '@kstackz/std-toolkit/core';
 import type {
   LogRecord,
   SpanRecord,

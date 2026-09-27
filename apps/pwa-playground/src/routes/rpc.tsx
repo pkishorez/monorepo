@@ -9,9 +9,12 @@ import * as Stream from 'effect/Stream';
 import type { RpcClient } from 'effect/unstable/rpc/RpcClient';
 import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
 import type * as RpcGroup from 'effect/unstable/rpc/RpcGroup';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { usePwa } from 'pwa-toolkit/react';
-import { WorkerClient, type VersionSkew } from 'pwa-toolkit/rpc/client';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { usePwa } from '@kstackz/pwa-toolkit/react';
+import {
+  WorkerClient,
+  type VersionSkew,
+} from '@kstackz/pwa-toolkit/rpc/client';
 import { useEffect, useRef, useState } from 'react';
 import {
   Actions,

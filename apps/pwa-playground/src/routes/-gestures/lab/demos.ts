@@ -1,4 +1,8 @@
-import { Grid3x3Icon, InboxIcon, PanelLeftIcon } from 'kui-toolkit/lucide';
+import {
+  Grid3x3Icon,
+  InboxIcon,
+  PanelLeftIcon,
+} from '@kstackz/ui-toolkit/lucide';
 import type { ComponentType } from 'react';
 import { InboxScreen, inboxTutorial } from '../inbox/index.ts';
 import { MatrixScreen, matrixTutorial } from '../matrix/index.ts';

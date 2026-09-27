@@ -1,14 +1,14 @@
 import { Effect } from 'effect';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from 'kui-toolkit/components/ui/collapsible';
-import { Input } from 'kui-toolkit/components/ui/input';
-import { Box, ChevronRight, Search } from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/components/ui/collapsible';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
+import { Box, ChevronRight, Search } from '@kstackz/ui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import {
   EmptyState,

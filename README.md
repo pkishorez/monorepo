@@ -1,4 +1,6 @@
-# Kishore's monorepo
+# monorepo
+
+## Everything I build, in one monorepo.
 
 A collection of open-source TypeScript projects focused on Effect, monorepo
 architecture, local developer tooling, data modeling and sync, and React.
@@ -11,50 +13,63 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 
 ### Applications
 
-| Workspace                  | Purpose                                                                                                                |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| [`apps/docs`](./apps/docs) | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers. |
+| Workspace                                        | Purpose                                                                                                                       |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/docs`](./apps/docs)                       | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers.        |
+| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials. |
+| [`apps/pwa-playground`](./apps/pwa-playground)   | Test bed for `@kstackz/pwa-toolkit`: one TanStack Start page per PWA scenario, published at pwa.kishore.app.                  |
 
-### Developer tools
+## kstack packages
 
-These packages share a fixed Changesets version and are released together.
-
-| Workspace                                  | Package                                                                    | Purpose                                                                                                                   |
-| ------------------------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [`devtools/devtools`](./devtools/devtools) | [`@pkishorez/devtools`](https://www.npmjs.com/package/@pkishorez/devtools) | Local DevTools server for traces, logs, flows, and architecture, plus Client Commands for reading traces and flows.       |
-| [`devtools/laymos`](./devtools/laymos)     | [`laymos`](https://www.npmjs.com/package/laymos)                           | Declares and enforces TypeScript architecture as layers.                                                                  |
-| [`devtools/lotel`](./devtools/lotel)       | [`@pkishorez/lotel`](https://www.npmjs.com/package/@pkishorez/lotel)       | Local OpenTelemetry server and library for ingesting, storing, and querying traces, logs, and metrics during development. |
+These packages are published under the `@kstackz` npm scope (plus `laymos`)
+and share one version: they always release together, so keep them on the same
+version. See [docs/adr/0002-one-version-for-the-kstack-packages.md](./docs/adr/0002-one-version-for-the-kstack-packages.md).
 
 ### Toolkits
 
-| Workspace                                          | Package        | Purpose                                                                                                   |
-| -------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------- |
-| [`toolkits/auth-toolkit`](./toolkits/auth-toolkit) | `auth-toolkit` | Shared authentication worker, sessions, and authorization integrations.                                   |
-| [`toolkits/kui-toolkit`](./toolkits/kui-toolkit)   | `kui-toolkit`  | Shared React components, forms, styles, hooks, and visualization blocks.                                  |
-| [`toolkits/rpc-toolkit`](./toolkits/rpc-toolkit)   | `rpc-toolkit`  | RPC and HTTP Cannotations, WebSocket clients, and Cloudflare runtime and Alchemy deployment integrations. |
-| [`toolkits/std-toolkit`](./toolkits/std-toolkit)   | `std-toolkit`  | Single-table data modeling, schema evolution, database adapters, and sync.                                |
+| Workspace                                            | Package                                                                          | Purpose                                                                                                   |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [`toolkits/std-toolkit`](./toolkits/std-toolkit)     | [`@kstackz/std-toolkit`](https://www.npmjs.com/package/@kstackz/std-toolkit)     | Single-table data modeling, schema evolution, database adapters, and sync.                                |
+| [`toolkits/ui-toolkit`](./toolkits/ui-toolkit)       | [`@kstackz/ui-toolkit`](https://www.npmjs.com/package/@kstackz/ui-toolkit)       | Shared React components, forms, styles, hooks, and visualization blocks.                                  |
+| [`toolkits/ai-toolkit`](./toolkits/ai-toolkit)       | [`@kstackz/ai-toolkit`](https://www.npmjs.com/package/@kstackz/ai-toolkit)       | Runs Claude Code and Codex turns on a server and stores them in a StdTable.                               |
+| [`toolkits/pwa-toolkit`](./toolkits/pwa-toolkit)     | [`@kstackz/pwa-toolkit`](https://www.npmjs.com/package/@kstackz/pwa-toolkit)     | Service worker, precache, update and install tools that turn a TanStack Start app into a PWA.             |
+| [`toolkits/rpc-toolkit`](./toolkits/rpc-toolkit)     | [`@kstackz/rpc-toolkit`](https://www.npmjs.com/package/@kstackz/rpc-toolkit)     | RPC and HTTP Cannotations, WebSocket clients, and Cloudflare runtime and Alchemy deployment integrations. |
+| [`toolkits/auth-toolkit`](./toolkits/auth-toolkit)   | [`@kstackz/auth-toolkit`](https://www.npmjs.com/package/@kstackz/auth-toolkit)   | Shared authentication worker, sessions, and authorization integrations.                                   |
+| [`packages/effect-webrtc`](./packages/effect-webrtc) | [`@kstackz/effect-webrtc`](https://www.npmjs.com/package/@kstackz/effect-webrtc) | Effect-native peer sessions and RPC over WebRTC data channels.                                            |
 
-### Packages
+### Developer tools
+
+| Workspace                                            | Package                                                                          | Purpose                                                                                                             |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [`devtools/devtools`](./devtools/devtools)           | [`@kstackz/devtools`](https://www.npmjs.com/package/@kstackz/devtools)           | Local DevTools server for traces, logs, flows, and architecture, plus Client Commands for reading traces and flows. |
+| [`devtools/lotel`](./devtools/lotel)                 | [`@kstackz/lotel`](https://www.npmjs.com/package/@kstackz/lotel)                 | Local OpenTelemetry library for ingesting, storing, and querying traces and logs during development.                |
+| [`devtools/flow`](./devtools/flow)                   | [`@kstackz/flow`](https://www.npmjs.com/package/@kstackz/flow)                   | Flow journals for Effect programs, drawn by DevTools as swim lanes.                                                 |
+| [`devtools/effect-tracer`](./devtools/effect-tracer) | [`@kstackz/effect-tracer`](https://www.npmjs.com/package/@kstackz/effect-tracer) | In-process recording and OTLP export for Effect traces and logs.                                                    |
+| [`devtools/laymos`](./devtools/laymos)               | [`laymos`](https://www.npmjs.com/package/laymos)                                 | Declares and enforces TypeScript architecture as layers.                                                            |
+
+## Stand-alone packages
+
+These keep their own names and versions.
 
 | Workspace                                            | Package                                                        | Purpose                                                |
 | ---------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
 | [`packages/use-effect-ts`](./packages/use-effect-ts) | [`use-effect-ts`](https://www.npmjs.com/package/use-effect-ts) | React hooks for running and consuming Effect programs. |
 
-### Single-table design toolkit
+## Single-table design toolkit
 
-[`std-toolkit`](./toolkits/std-toolkit) ([npm](https://www.npmjs.com/package/std-toolkit))
+[`@kstackz/std-toolkit`](./toolkits/std-toolkit) ([npm](https://www.npmjs.com/package/@kstackz/std-toolkit))
 is a published package containing a set of composable modules for
 database-agnostic single-table design:
 
-| Entry point               | Purpose                                                                                |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| `std-toolkit/core`        | Shared entity, metadata, broadcasting, and error primitives.                           |
-| `std-toolkit/eschema`     | Versioned, self-migrating schemas built on Effect Schema, including the `eschema` CLI. |
-| `std-toolkit/db`          | Portable Table and Entity definitions and operations.                                  |
-| `std-toolkit/db/dynamodb` | DynamoDB binding, setup, expressions, and native operations.                           |
-| `std-toolkit/db/sqlite`   | SQLite binding and setup, with separate runtime driver entrypoints.                    |
-| `std-toolkit/db/idb`      | IndexedDB binding and explicit Store setup.                                            |
-| `std-toolkit/sync`        | TanStack DB synchronization with local replicas, paced writes, and Peer Sync.          |
+| Entry point                        | Purpose                                                                                |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `@kstackz/std-toolkit/core`        | Shared entity, metadata, broadcasting, and error primitives.                           |
+| `@kstackz/std-toolkit/eschema`     | Versioned, self-migrating schemas built on Effect Schema, including the `eschema` CLI. |
+| `@kstackz/std-toolkit/db`          | Portable Table and Entity definitions and operations.                                  |
+| `@kstackz/std-toolkit/db/dynamodb` | DynamoDB binding, setup, expressions, and native operations.                           |
+| `@kstackz/std-toolkit/db/sqlite`   | SQLite binding and setup, with separate runtime driver entrypoints.                    |
+| `@kstackz/std-toolkit/db/idb`      | IndexedDB binding and explicit Store setup.                                            |
+| `@kstackz/std-toolkit/sync`        | TanStack DB synchronization with local replicas, paced writes, and Peer Sync.          |
 
 See the [std-toolkit README](./toolkits/std-toolkit/README.md) for installation and
 entry-point documentation.
@@ -69,7 +84,7 @@ entry-point documentation.
 
 ## Getting started
 
-The release workflow uses Node.js 24 and pnpm 10.
+The release workflow uses Node.js 24 and pnpm 11.
 
 ```bash
 corepack enable
@@ -89,7 +104,7 @@ To work on one project, filter by its workspace name:
 
 ```bash
 pnpm --filter docs dev
-pnpm --filter std-toolkit test
+pnpm --filter @kstackz/std-toolkit test
 pnpm --filter laymos lint
 ```
 

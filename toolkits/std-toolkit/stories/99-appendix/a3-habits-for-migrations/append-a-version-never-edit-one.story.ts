@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 // Three versions of a task, each added after the last one shipped: v2 added an assignee, v3 added a word count.
 const Task = EntityESchema.make('Task', 'taskId', {

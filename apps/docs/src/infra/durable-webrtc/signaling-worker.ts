@@ -1,4 +1,4 @@
-import { DurableSignalingWorker } from 'effect-webrtc/signaling/durable/alchemy';
+import { DurableSignalingWorker } from '@kstackz/effect-webrtc/signaling/durable/alchemy';
 
 const requestOrigin = (request: Request) => {
   const origin = request.headers.get('x-durable-signaling-origin');

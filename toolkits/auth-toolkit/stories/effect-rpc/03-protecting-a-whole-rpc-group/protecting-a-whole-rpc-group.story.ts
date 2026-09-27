@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { Story } from 'laymos/story';
-import { Authz } from 'auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
 
 const only = (id: string, reason: string) =>

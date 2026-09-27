@@ -8,7 +8,7 @@ client-supplied identity or roles as trusted authorization.
 // contract.ts — imported by the server and browser
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { Cannotation } from 'rpc-toolkit/rpc/cannotation';
+import { Cannotation } from '@kstackz/rpc-toolkit/rpc/cannotation';
 
 export class Forbidden extends Schema.Error<Forbidden>('example/Forbidden')({
   _tag: Schema.tag('Forbidden'),
@@ -27,8 +27,8 @@ export const Counter = Access.with(true)(
 ```ts
 // server.ts — server only
 import { Effect, Layer, Option, Schema, Stream } from 'effect';
-import { InvocationKind } from 'rpc-toolkit/rpc/invocation';
-import { StreamCheckpoint } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { InvocationKind } from '@kstackz/rpc-toolkit/rpc/invocation';
+import { StreamCheckpoint } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 import { Access, Counter, Forbidden } from './contract.js';
 
 export const makeHandlers = (options: {
@@ -74,7 +74,7 @@ With Alchemy, declare the Worker and its Durable Object together. Here,
 ```ts
 // counter-worker.ts — default export required by Alchemy
 import { Effect } from 'effect';
-import { DurableRpcWorker } from 'rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
+import { DurableRpcWorker } from '@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
 import { Counter } from './contract.js';
 import { makeHandlers } from './server.js';
 import { authorization } from './authorization.js';
@@ -134,7 +134,7 @@ import { RpcSerialization } from 'effect/unstable/rpc';
 import {
   fromDurableObjectState,
   makeHibernatingWebSocketRpc,
-} from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+} from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 import { Counter } from './contract.js';
 import { makeHandlers } from './server.js';
 
@@ -160,7 +160,7 @@ import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import {
   keepSubscribed,
   layerWebSocketProtocol,
-} from 'rpc-toolkit/rpc/websocket-client';
+} from '@kstackz/rpc-toolkit/rpc/websocket-client';
 import { Access, Counter } from './contract.js';
 
 export const watchCounter = (

@@ -5,18 +5,18 @@
   "dependencies": {
     "@distilled.cloud/aws": "catalog:",
     "@distilled.cloud/cloudflare": "catalog:",
-    "@pkishorez/effect-tracer": "workspace:*",
+    "@kstackz/effect-tracer": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "alchemy": "catalog:",
-    "auth-toolkit": "workspace:*",
+    "@kstackz/auth-toolkit": "workspace:*",
     "effect": "catalog:",
-    "kui-toolkit": "workspace:*",
+    "@kstackz/ui-toolkit": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "rpc-toolkit": "workspace:*",
-    "std-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
     "use-effect-ts": "workspace:*"
   },
   "devDependencies": {

@@ -18,7 +18,7 @@ reachable through `devtools`. Use `laymos` directly for that.
 
 1. Make sure a DevTools Server is running. If `devtools list-traces` reports
    it cannot reach a server, start one in the background:
-   `devtools` (or `npx @pkishorez/devtools`). The app under test must
+   `devtools` (or `npx @kstackz/devtools`). The app under test must
    export to the same URL, by default `http://127.0.0.1:14400`.
 2. Run the action you want to observe: the app, a script, a test.
 3. Wait about one second. Exporters batch records and the server writes them
@@ -99,5 +99,5 @@ or `closed`), `participants[]`, `items[]` (the Journal's Entries, kinds
 devtools skills devtools --install .claude/skills
 ```
 
-Re-run after upgrading `@pkishorez/devtools`; the copy is overwritten so it always matches
+Re-run after upgrading `@kstackz/devtools`; the copy is overwritten so it always matches
 the installed commands.

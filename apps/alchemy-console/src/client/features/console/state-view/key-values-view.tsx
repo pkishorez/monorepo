@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { JsonViewer } from 'kui-toolkit/components/blocks/json';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { JsonViewer } from '@kstackz/ui-toolkit/components/blocks/json';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from 'kui-toolkit/components/ui/dialog';
-import { ScrollArea } from 'kui-toolkit/components/ui/scroll-area';
-import { Braces, Check, Copy, ExternalLink } from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/components/ui/dialog';
+import { ScrollArea } from '@kstackz/ui-toolkit/components/ui/scroll-area';
+import { Braces, Check, Copy, ExternalLink } from '@kstackz/ui-toolkit/lucide';
 import {
   clipboardText,
   isHttpUrl,

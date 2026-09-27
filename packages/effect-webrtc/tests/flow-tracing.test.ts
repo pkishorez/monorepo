@@ -1,4 +1,4 @@
-import { Activation, FlowTelemetry, projectJournal } from '@pkishorez/flow';
+import { Activation, FlowTelemetry, projectJournal } from '@kstackz/flow';
 import { Effect } from 'effect';
 import { describe, expect, it } from 'vitest';
 import { startConnectionAttempt } from '../src/flow-tracing/index.js';

@@ -19,10 +19,10 @@ and layer graphs are in [ARCHITECTURE.md](./ARCHITECTURE.md), with decisions in
 [docs/adr](./docs/adr).
 
 It is a TanStack Start app on a Cloudflare Worker with a D1 database, declared
-in `alchemy.run.ts`. It builds on `auth-toolkit` for login, `rpc-toolkit` for
-the typed client to server API, `std-toolkit` for the SQLite table layer and
-schemas, `kui-toolkit` and `use-effect-ts` for the UI, and
-`@pkishorez/effect-tracer` for telemetry. The deletion engine runs Alchemy's
+in `alchemy.run.ts`. It builds on `@kstackz/auth-toolkit` for login, `@kstackz/rpc-toolkit` for
+the typed client to server API, `@kstackz/std-toolkit` for the SQLite table layer and
+schemas, `@kstackz/ui-toolkit` and `use-effect-ts` for the UI, and
+`@kstackz/effect-tracer` for telemetry. The deletion engine runs Alchemy's
 own `Plan.destroy` inside the Worker.
 
 ## Usage

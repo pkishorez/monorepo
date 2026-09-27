@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import type { PeerMode } from 'effect-webrtc/signaling/durable';
+import type { PeerMode } from '@kstackz/effect-webrtc/signaling/durable';
 import { LogOut } from 'lucide-react';
 import {
   TransportSwitch,

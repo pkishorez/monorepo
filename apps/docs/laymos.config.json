@@ -161,28 +161,28 @@
       }
     },
     "ai-playground-app": {
-      "paths": ["src/demos/kai-toolkit/app"],
+      "paths": ["src/demos/ai-toolkit/app"],
       "description": "AI playground screen joining live records to the presentation layer.",
       "modules": {
-        "src/demos/kai-toolkit/app": {
+        "src/demos/ai-toolkit/app": {
           "exposed": true
         }
       }
     },
     "ai-playground-client": {
-      "paths": ["src/demos/kai-toolkit/client"],
+      "paths": ["src/demos/ai-toolkit/client"],
       "description": "Fixed remote WebSocket connection and playground actions.",
       "modules": {
-        "src/demos/kai-toolkit/client": {
+        "src/demos/ai-toolkit/client": {
           "exposed": true
         }
       }
     },
     "ai-playground-ui": {
-      "paths": ["src/demos/kai-toolkit/ui"],
+      "paths": ["src/demos/ai-toolkit/ui"],
       "description": "Typed renderers for every persisted AI message part.",
       "modules": {
-        "src/demos/kai-toolkit/ui": {
+        "src/demos/ai-toolkit/ui": {
           "exposed": true
         }
       }

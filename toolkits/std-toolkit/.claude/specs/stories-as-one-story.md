@@ -58,7 +58,7 @@ Source: `this conversation`
 - **`index.ts`:** root group → acts → chapters, appendix last; chapter order equals numbering.
 - **`README.md`:** glossary.
 
-**Dependencies.** `laymos/story` (unchanged), `std-toolkit/*` public subpaths only, `effect`, `fake-indexeddb`, local DynamoDB endpoint (`DYNAMODB_LOCAL_ENDPOINT`, default `http://localhost:8090`) for chapter 24 and Appendix A4.
+**Dependencies.** `laymos/story` (unchanged), `@kstackz/std-toolkit/*` public subpaths only, `effect`, `fake-indexeddb`, local DynamoDB endpoint (`DYNAMODB_LOCAL_ENDPOINT`, default `http://localhost:8090`) for chapter 24 and Appendix A4.
 
 **Testing.** `tsx stories/check.ts` over every `*.story.ts` passes; `pnpm stories` builds the tree without duplicate-title or snippet-extraction errors; each chapter satisfies the six style rules and the ≤3-question / one-concept cap; the old-question coverage table has no unmapped row.
 

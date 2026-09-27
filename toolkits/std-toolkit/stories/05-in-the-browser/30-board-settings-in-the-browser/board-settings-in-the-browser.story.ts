@@ -1,9 +1,9 @@
 import { createLiveQueryCollection } from '@tanstack/react-db';
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import type { StdTableService } from 'std-toolkit/db';
-import { EntityESchema } from 'std-toolkit/eschema';
-import { createStdSync, strategy } from 'std-toolkit/sync';
+import type { StdTableService } from '@kstackz/std-toolkit/db';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { table } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
 import {

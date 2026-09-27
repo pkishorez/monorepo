@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 // What a task is, written down once. `taskId` is the field that tells one task from another.
 export const Task = EntityESchema.make('Task', 'taskId', {

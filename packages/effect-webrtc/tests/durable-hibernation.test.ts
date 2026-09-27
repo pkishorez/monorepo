@@ -4,7 +4,7 @@ import { RpcSerialization } from 'effect/unstable/rpc';
 import {
   makeHibernatingWebSocketRpc,
   type HibernatingSocket,
-} from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+} from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DurableSignalingRpcs } from '../src/signaling/durable/rpc/index.js';
 import {

@@ -1,8 +1,8 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import type { StdTableService } from 'std-toolkit/db';
-import { createStdSync, strategy } from 'std-toolkit/sync';
+import type { StdTableService } from '@kstackz/std-toolkit/db';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {

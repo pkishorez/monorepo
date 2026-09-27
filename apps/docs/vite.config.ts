@@ -16,7 +16,7 @@ export default defineConfig({
     },
   },
   ssr: {
-    noExternal: ['kui-toolkit'],
+    noExternal: ['@kstackz/ui-toolkit'],
     resolve: {
       mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'],
     },

@@ -1,6 +1,6 @@
 {
-  "name": "auth-toolkit",
-  "version": "0.0.4",
+  "name": "@kstackz/auth-toolkit",
+  "version": "0.0.0",
   "private": false,
   "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1), a client subpath for React session hooks, a cli subpath for Device Login, and a server subpath for backend-to-backend verification",
   "keywords": [
@@ -97,18 +97,20 @@
     "@cloudflare/workers-types": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
-    "kui-toolkit": "workspace:*",
-    "rpc-toolkit": "workspace:*",
     "use-sync-external-store": "catalog:",
     "zustand": "catalog:"
   },
   "peerDependencies": {
+    "@kstackz/rpc-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.76",
     "better-sqlite3": "13.0.3",
     "effect": "4.0.0-rc.112",
     "react": "19.2.8"
   },
   "peerDependenciesMeta": {
+    "@kstackz/rpc-toolkit": {
+      "optional": true
+    },
     "alchemy": {
       "optional": true
     },
@@ -124,14 +126,16 @@
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/ui-toolkit": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
     "@tsconfig/node22": "catalog:",
     "@types/better-sqlite3": "catalog:",
     "@types/node": "catalog:",
-    "@tailwindcss/vite": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
     "@typescript/native": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
     "auth": "catalog:",
     "better-sqlite3": "catalog:",

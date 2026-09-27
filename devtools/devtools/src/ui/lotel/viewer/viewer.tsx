@@ -6,12 +6,12 @@ import {
   groupByTrace,
   transformLog,
   transformSpan,
-} from 'kui-toolkit/components/blocks/otel-trace-viewer';
-import type { OtelEvent } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import type { TraceView } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
-import { SearchIcon } from 'kui-toolkit/lucide';
-import { scrollbarStyles } from 'kui-toolkit/lib/scrollStyles';
-import { cn } from 'kui-toolkit/lib/utils';
+} from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer';
+import type { OtelEvent } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import type { TraceView } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
+import { SearchIcon } from '@kstackz/ui-toolkit/lucide';
+import { scrollbarStyles } from '@kstackz/ui-toolkit/lib/scrollStyles';
+import { cn } from '@kstackz/ui-toolkit/lib/utils';
 import type {
   LogRecord,
   SpanRecord,

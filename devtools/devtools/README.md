@@ -1,4 +1,4 @@
-# @pkishorez/devtools
+# @kstackz/devtools
 
 Local DevTools server for telemetry and architecture analysis, with Client
 Commands for reading it back
@@ -15,11 +15,11 @@ other subcommand is a Client Command that reads Traces and Flows back from a run
 or text, so a shell or a coding agent can query telemetry without a browser.
 
 The server hosts four Tools. Lotel stores and shows OpenTelemetry data using
-[@pkishorez/lotel](../lotel/README.md). Flow stores Journal Entries from
-[@pkishorez/flow](../flow/README.md) and draws them as swim lanes. Laymos and
+[@kstackz/lotel](../lotel/README.md). Flow stores Journal Entries from
+[@kstackz/flow](../flow/README.md) and draws them as swim lanes. Laymos and
 Monoverse analyze one project or one pnpm monorepo through
 [laymos](../laymos/README.md). Applications send telemetry with
-[@pkishorez/effect-tracer](../effect-tracer/README.md).
+[@kstackz/effect-tracer](../effect-tracer/README.md).
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
 [docs/monoverse.md](./docs/monoverse.md). Decisions are in
@@ -29,18 +29,18 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md) and, for Monoverse,
 ## Install
 
 ```sh
-npm i -g @pkishorez/devtools
+npm i -g @kstackz/devtools
 ```
 
-Or run it without installing: `npx @pkishorez/devtools`.
+Or run it without installing: `npx @kstackz/devtools`.
 
 The optional peer `playwright-core` is needed only by `devtools snapshot`,
-which drives a headless Chromium through it. The `@pkishorez/devtools/rpc`
+which drives a headless Chromium through it. The `@kstackz/devtools/rpc`
 subpath is source TypeScript and needs `effect` in the consuming project.
 
 ## Exports
 
-### `@pkishorez/devtools/rpc`
+### `@kstackz/devtools/rpc`
 
 The RPC contract the server fulfils and the browser and Client Commands call.
 It merges the Lotel, Flow, Laymos, git, Monoverse, and Project registry groups.
@@ -113,8 +113,8 @@ devtools --open
 
 ```ts
 import { Effect, Layer, ManagedRuntime } from 'effect';
-import { makeDevTelemetryLayer } from '@pkishorez/effect-tracer/telemetry/dev-telemetry';
-import { FlowTelemetry } from '@pkishorez/flow';
+import { makeDevTelemetryLayer } from '@kstackz/effect-tracer/telemetry/dev-telemetry';
+import { FlowTelemetry } from '@kstackz/flow';
 
 const endpoint = 'http://127.0.0.1:14400';
 
@@ -177,27 +177,27 @@ Snapshot page from disk in headless Chromium, so nothing listens on a port.
 
 ```sh
 # The branch is checked out; compare it with main.
-devtools snapshot --project toolkits/kui-toolkit --base origin/main \
-  --out .snapshots/kui-toolkit.png --only-changed
+devtools snapshot --project toolkits/ui-toolkit --base origin/main \
+  --out .snapshots/ui-toolkit.png --only-changed
 # {
-#   "project": "toolkits/kui-toolkit",
-#   "title": "kui-toolkit",
+#   "project": "toolkits/ui-toolkit",
+#   "title": "ui-toolkit",
 #   "baseRef": "c08fd1c…",
 #   "modules": 132,
 #   "changedModules": 4,
 #   "drawn": "changed",
 #   "scale": 2,
 #   "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/kui-toolkit.png", "width": 512, "height": 806 }
+#     { "theme": "dark", "out": "/…/.snapshots/ui-toolkit.png", "width": 512, "height": 806 }
 #   ]
 # }
 
 # Every Project under this folder that the branch changed, in both themes.
 devtools snapshot --all --base origin/main --only-changed --theme both \
   --out-dir .snapshots
-# [ { "project": "toolkits/kui-toolkit", …, "images": [
-#     { "theme": "dark", "out": "/…/.snapshots/toolkits%2Fkui-toolkit-dark.png", … },
-#     { "theme": "light", "out": "/…/.snapshots/toolkits%2Fkui-toolkit-light.png", … } ] } ]
+# [ { "project": "toolkits/ui-toolkit", …, "images": [
+#     { "theme": "dark", "out": "/…/.snapshots/toolkits%2Fui-toolkit-dark.png", … },
+#     { "theme": "light", "out": "/…/.snapshots/toolkits%2Fui-toolkit-light.png", … } ] } ]
 ```
 
 How it works:

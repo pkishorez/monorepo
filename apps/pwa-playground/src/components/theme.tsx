@@ -1,5 +1,5 @@
-import { Button } from 'kui-toolkit/components/ui/button';
-import { MoonIcon, SunIcon } from 'kui-toolkit/lucide';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { MoonIcon, SunIcon } from '@kstackz/ui-toolkit/lucide';
 import { appTheme } from '../lib/theme.ts';
 
 export { appTheme } from '../lib/theme.ts';

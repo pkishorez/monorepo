@@ -1,17 +1,20 @@
-import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
-import { FlowTelemetry } from '@pkishorez/flow';
+import { makeTraceRecorder } from '@kstackz/effect-tracer/recorder';
+import { FlowTelemetry } from '@kstackz/flow';
 import { Effect, Exit, Layer, ManagedRuntime, Scope, Stream } from 'effect';
-import type { PanelRuntime } from 'kui-toolkit/components/blocks/devtools-panel';
+import type { PanelRuntime } from '@kstackz/ui-toolkit/components/blocks/devtools-panel';
 import {
   PeerId,
   WebRtc,
   type PeerSession,
   type SessionEvent,
   type SessionStatus,
-} from 'effect-webrtc';
-import type { Signaling, SignalingStatus } from 'effect-webrtc/signaling';
-import { layer as browserPlatform } from 'effect-webrtc/platform/browser';
-import { layer as nostrSignaling } from 'effect-webrtc/signaling/nostr';
+} from '@kstackz/effect-webrtc';
+import type {
+  Signaling,
+  SignalingStatus,
+} from '@kstackz/effect-webrtc/signaling';
+import { layer as browserPlatform } from '@kstackz/effect-webrtc/platform/browser';
+import { layer as nostrSignaling } from '@kstackz/effect-webrtc/signaling/nostr';
 import {
   Messages,
   isPeerIdentifier,

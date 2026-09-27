@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { createIsomorphicFn } from '@tanstack/react-start';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { Skeleton } from 'kui-toolkit/components/ui/skeleton';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Skeleton } from '@kstackz/ui-toolkit/components/ui/skeleton';
 import type { ReactNode } from 'react';
 import {
   Actions,

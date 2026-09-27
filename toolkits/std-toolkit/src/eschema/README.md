@@ -1,10 +1,10 @@
-# std-toolkit/eschema
+# @kstackz/std-toolkit/eschema
 
 Versioned, self-migrating schemas built on Effect Schema; data written at any past version decodes to the current shape.
 
 ## Big picture
 
-A schema is a chain of versions `v1 ... latest`. A written value is always the latest version, stamped with `_v`; decoding takes `_v`, reads the data with that version's fields, and folds it forward through each migration into the latest value. A field may hold a rich value in code (a `Date`) and a plain one in storage (its ISO string). Data with no `_v` reads as `v1`, so adopting eschema over existing rows is non-breaking. A version newer than the schema knows fails with `OutdatedVersion`. Application code only sees the latest value, typed `typeof X.Type`; the encoded form, which carries the version, stays inside the toolkit. The full history of a shape lives in one declaration under version control, and the database never has to change. Vocabulary is in [CONTEXT.md](CONTEXT.md); the motivation and the rules the builder enforces are in [docs/evolving-schema.md](../../docs/evolving-schema.md). Contract snapshots of these schemas are produced by `std-toolkit/snapshot`, and the recommended per-table test is `std-toolkit/snapshot/vitest` (see the [top README](../../README.md#std-toolkitsnapshot)).
+A schema is a chain of versions `v1 ... latest`. A written value is always the latest version, stamped with `_v`; decoding takes `_v`, reads the data with that version's fields, and folds it forward through each migration into the latest value. A field may hold a rich value in code (a `Date`) and a plain one in storage (its ISO string). Data with no `_v` reads as `v1`, so adopting eschema over existing rows is non-breaking. A version newer than the schema knows fails with `OutdatedVersion`. Application code only sees the latest value, typed `typeof X.Type`; the encoded form, which carries the version, stays inside the toolkit. The full history of a shape lives in one declaration under version control, and the database never has to change. Vocabulary is in [CONTEXT.md](CONTEXT.md); the motivation and the rules the builder enforces are in [docs/evolving-schema.md](../../docs/evolving-schema.md). Contract snapshots of these schemas are produced by `@kstackz/std-toolkit/snapshot`, and the recommended per-table test is `@kstackz/std-toolkit/snapshot/vitest` (see the [top README](../../README.md#std-toolkitsnapshot)).
 
 Pick the construct by what you are versioning. `EntityESchema` is for a table row keyed by an id field. `ESchema` is for any other object with named fields that follows the field rules, including a singleton bound with `table.singleEntity()`. `ValueESchema` is for everything else: a scalar, an enum, a list, a map, a union of different objects, or an existing object with optional fields. In every kind, a top-level field starting with `_` is reserved for the toolkit and refused. The full guide is in [docs/evolving-schema.md](../../docs/evolving-schema.md#which-one-do-i-pick).
 
@@ -14,7 +14,7 @@ See the [top README](../../README.md).
 
 ## Exports
 
-### `std-toolkit/eschema`
+### `@kstackz/std-toolkit/eschema`
 
 | Export                | What it does                                                                                      |
 | --------------------- | ------------------------------------------------------------------------------------------------- |
@@ -39,7 +39,7 @@ Adding `priority` is one `evolve` step. The migration fills it in for every stor
 
 ```ts
 import { Effect, Schema } from 'effect';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,
@@ -103,7 +103,7 @@ A theme was free text and becomes one of two words. There is no object to hold `
 
 ```ts
 import { Effect, Schema } from 'effect';
-import { ValueESchema } from 'std-toolkit/eschema';
+import { ValueESchema } from '@kstackz/std-toolkit/eschema';
 
 const Theme = ValueESchema.make('Theme', Schema.String)
   .evolve('v2', Schema.Literals(['light', 'dark']), (text) =>

@@ -8,11 +8,11 @@ import {
   useState,
 } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { Input } from 'kui-toolkit/components/ui/input';
-import { ScrollArea } from 'kui-toolkit/components/ui/scroll-area';
-import { Skeleton } from 'kui-toolkit/components/ui/skeleton';
-import { Trash2 } from 'kui-toolkit/lucide';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
+import { ScrollArea } from '@kstackz/ui-toolkit/components/ui/scroll-area';
+import { Skeleton } from '@kstackz/ui-toolkit/components/ui/skeleton';
+import { Trash2 } from '@kstackz/ui-toolkit/lucide';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from 'kui-toolkit/components/ui/dialog';
+} from '@kstackz/ui-toolkit/components/ui/dialog';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcAction } from '../queries/index.ts';
 import {

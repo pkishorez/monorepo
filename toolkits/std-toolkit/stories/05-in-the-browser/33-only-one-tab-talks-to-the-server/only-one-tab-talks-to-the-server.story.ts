@@ -5,7 +5,7 @@ import {
   createStdSync,
   strategy,
   type StdSyncPlatform,
-} from 'std-toolkit/sync';
+} from '@kstackz/std-toolkit/sync';
 import { browserTabs, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { task } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';

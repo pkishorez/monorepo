@@ -24,7 +24,7 @@ The adapter's **item schema**: one table-parameterized two-way Effect Schema bet
 _Avoid_: item codec, encodeItem/decodeItem pairs.
 
 **Create-if-missing setup**:
-`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is. Deployed tables come from `DynamoDB.table` in `std-toolkit/alchemy`, whose resource creates and reconciles every index.
+`DynamoDB.createTable`, an adapter-native operation for DynamoDB Local and tests: `CreateTable` from the declared topology when the table is missing, then a wait until it is active. An existing table is left as it is. Deployed tables come from `DynamoDB.table` in `@kstackz/std-toolkit/alchemy`, whose resource creates and reconciles every index.
 _Avoid_: Create-only setup, adapter setup (for this adapter; `make` returns only the layer).
 
 **Primary index**:

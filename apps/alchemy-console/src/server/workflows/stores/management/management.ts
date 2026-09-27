@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { nextUlid } from 'std-toolkit/core';
-import type { DatabaseError } from 'std-toolkit/db';
+import { nextUlid } from '@kstackz/std-toolkit/core';
+import type { DatabaseError } from '@kstackz/std-toolkit/db';
 import {
   StoreError,
   type createStoreInput,

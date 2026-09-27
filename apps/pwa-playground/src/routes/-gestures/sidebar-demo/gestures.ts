@@ -1,5 +1,5 @@
-import { useSwipe } from 'kui-toolkit/components/blocks/gestures';
-import { useTransform } from 'kui-toolkit/motion';
+import { useSwipe } from '@kstackz/ui-toolkit/components/blocks/gestures';
+import { useTransform } from '@kstackz/ui-toolkit/motion';
 
 export const PANEL_WIDTH = 240;
 

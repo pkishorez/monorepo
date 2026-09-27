@@ -5,11 +5,14 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
-import { generatePeerId, type PeerId as PeerIdentifier } from 'effect-webrtc';
-import type { PeerMode } from 'effect-webrtc/signaling/durable';
-import { createTheme } from 'kui-toolkit/components/blocks/theme';
-import { DevToolsPanel } from 'kui-toolkit/components/blocks/devtools-panel';
-import { GoogleButton } from 'kui-toolkit/components/ui/google-button';
+import {
+  generatePeerId,
+  type PeerId as PeerIdentifier,
+} from '@kstackz/effect-webrtc';
+import type { PeerMode } from '@kstackz/effect-webrtc/signaling/durable';
+import { createTheme } from '@kstackz/ui-toolkit/components/blocks/theme';
+import { DevToolsPanel } from '@kstackz/ui-toolkit/components/blocks/devtools-panel';
+import { GoogleButton } from '@kstackz/ui-toolkit/components/ui/google-button';
 import { LoaderCircle } from 'lucide-react';
 import { authClient } from '../../auth/index.ts';
 import {

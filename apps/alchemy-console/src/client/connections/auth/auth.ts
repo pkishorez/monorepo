@@ -1,4 +1,4 @@
-import { createAuthClient } from 'auth-toolkit/client';
+import { createAuthClient } from '@kstackz/auth-toolkit/client';
 
 export const authClient = createAuthClient({
   baseURL: import.meta.env.DEV

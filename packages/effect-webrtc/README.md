@@ -1,4 +1,4 @@
-# effect-webrtc
+# @kstackz/effect-webrtc
 
 Effect-native peer sessions and RPC over WebRTC data channels
 
@@ -8,24 +8,24 @@ WebRTC gives two endpoints a direct data channel, but the application still has 
 
 Two Services are pluggable. `Signaling` carries negotiation messages between Peers and comes in memory, Nostr, and Durable (authenticated Cloudflare Durable Object) flavours. `WebRtcPlatform` supplies the host WebRTC implementation and comes in memory, browser, and werift (Node) flavours. Tests and stories run entirely in memory with no networking.
 
-RPC uses `effect/unstable/rpc` directly over the data channel. Connection attempts and RPC invocations are traced as Flows from `@pkishorez/flow`, so a Flow viewer shows one swim lane per Peer. The Durable Signaling Provider authenticates with `auth-toolkit` and deploys with `rpc-toolkit`'s Alchemy Durable RPC worker.
+RPC uses `effect/unstable/rpc` directly over the data channel. Connection attempts and RPC invocations are traced as Flows from `@kstackz/flow`, so a Flow viewer shows one swim lane per Peer. The Durable Signaling Provider authenticates with `@kstackz/auth-toolkit` and deploys with `@kstackz/rpc-toolkit`'s Alchemy Durable RPC worker.
 
 Vocabulary lives in [CONTEXT.md](./CONTEXT.md). Design decisions live in [docs/adr/](./docs/adr/). The demos in `apps/docs/src/demos/effect-webrtc` and `apps/docs/src/demos/durable-webrtc` show a browser Peer chatting with a Node Peer and with other Peers of the same user.
 
 ## Install
 
 ```sh
-pnpm add effect-webrtc
+pnpm add @kstackz/effect-webrtc
 ```
 
 Peer dependencies:
 
 - `effect`: every export is an Effect, Layer, Service, or Schema built on Effect 4.
-- `alchemy` (optional): needed only for `effect-webrtc/signaling/durable/alchemy`, which defines the Cloudflare worker as an Alchemy resource.
+- `alchemy` (optional): needed only for `@kstackz/effect-webrtc/signaling/durable/alchemy`, which defines the Cloudflare worker as an Alchemy resource.
 
 ## Exports
 
-### `effect-webrtc`
+### `@kstackz/effect-webrtc`
 
 | Export           | What it does                                                                                                                           |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -35,7 +35,7 @@ Peer dependencies:
 | `generatePeerId` | Returns a fresh random UUID Peer Identifier.                                                                                           |
 | `WebRtcError`    | Error raised when making a Peer, connecting, finding a remote Peer, or disconnecting fails.                                            |
 
-### `effect-webrtc/signaling`
+### `@kstackz/effect-webrtc/signaling`
 
 | Export                | What it does                                                                                       |
 | --------------------- | -------------------------------------------------------------------------------------------------- |
@@ -47,19 +47,19 @@ Peer dependencies:
 | `PeerUnavailable`     | Error when a message is addressed to a Peer the provider cannot reach.                             |
 | `SignalingError`      | Error for a failed open, receive, or send on the signaling connection.                             |
 
-### `effect-webrtc/signaling/memory`
+### `@kstackz/effect-webrtc/signaling/memory`
 
 | Export  | What it does                                                                                  |
 | ------- | --------------------------------------------------------------------------------------------- |
 | `layer` | Layer for a process-local `Signaling` that routes messages between Peers in the same process. |
 
-### `effect-webrtc/signaling/nostr`
+### `@kstackz/effect-webrtc/signaling/nostr`
 
 | Export  | What it does                                                                                                                |
 | ------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `layer` | Builds a `Signaling` Layer that publishes ephemeral plaintext events to the given Nostr relays under an optional namespace. |
 
-### `effect-webrtc/signaling/durable`
+### `@kstackz/effect-webrtc/signaling/durable`
 
 | Export                     | What it does                                                                                                                                                  |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -67,7 +67,7 @@ Peer dependencies:
 | `DurableSignaling`         | Namespace object holding `connect`.                                                                                                                           |
 | `DurableSignaling.connect` | Same as `connect`.                                                                                                                                            |
 
-### `effect-webrtc/signaling/durable/rpc`
+### `@kstackz/effect-webrtc/signaling/durable/rpc`
 
 | Export                 | What it does                                                                                                                                                   |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -79,45 +79,45 @@ Peer dependencies:
 | `TooManyPeerWaits`     | Tagged error when a connection has too many pending Peer Waits.                                                                                                |
 | `NegotiationTooLarge`  | Tagged error when a negotiation envelope exceeds the size limit.                                                                                               |
 
-### `effect-webrtc/signaling/durable/worker`
+### `@kstackz/effect-webrtc/signaling/durable/worker`
 
 | Export                       | What it does                                                                                                                                                                    |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `durableSignalingConnection` | Builds the connection slot that checks the request origin, verifies the session against the auth worker, decodes Peer metadata, and replaces an older socket for the same Peer. |
 | `durableSignalingHandlers`   | Effect that builds the `DurableSignalingRpcs` handlers keeping one in-memory Peer Directory per user inside the Durable Object.                                                 |
 
-### `effect-webrtc/signaling/durable/alchemy`
+### `@kstackz/effect-webrtc/signaling/durable/alchemy`
 
 | Export                   | What it does                                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `DurableSignalingWorker` | Defines an Alchemy Cloudflare worker class that serves `DurableSignalingRpcs` from one hibernating Durable Object. |
 
-### `effect-webrtc/platform`
+### `@kstackz/effect-webrtc/platform`
 
 | Export           | What it does                                                                             |
 | ---------------- | ---------------------------------------------------------------------------------------- |
 | `WebRtcPlatform` | Service tag for the host WebRTC implementation that creates RTC Connections.             |
 | `RtcError`       | Error for a failed RTC operation such as creating an offer or sending on a data channel. |
 
-### `effect-webrtc/platform/memory`
+### `@kstackz/effect-webrtc/platform/memory`
 
 | Export  | What it does                                                                                             |
 | ------- | -------------------------------------------------------------------------------------------------------- |
 | `layer` | Layer for a process-local `WebRtcPlatform` that pairs connections by offer token and does no networking. |
 
-### `effect-webrtc/platform/werift`
+### `@kstackz/effect-webrtc/platform/werift`
 
 | Export  | What it does                                                                  |
 | ------- | ----------------------------------------------------------------------------- |
 | `layer` | Layer for a `WebRtcPlatform` backed by werift's `RTCPeerConnection` for Node. |
 
-### `effect-webrtc/platform/browser`
+### `@kstackz/effect-webrtc/platform/browser`
 
 | Export  | What it does                                                                     |
 | ------- | -------------------------------------------------------------------------------- |
 | `layer` | Layer for a `WebRtcPlatform` backed by the browser's native `RTCPeerConnection`. |
 
-### `effect-webrtc/rpc`
+### `@kstackz/effect-webrtc/rpc`
 
 | Export | What it does                                                                                                          |
 | ------ | --------------------------------------------------------------------------------------------------------------------- |
@@ -132,9 +132,9 @@ Bob serves an RPC contract. Alice connects and calls it. The memory Layers make 
 ```ts
 import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { PeerId, WebRtc } from 'effect-webrtc';
-import { layer as memoryPlatform } from 'effect-webrtc/platform/memory';
-import { layer as memorySignaling } from 'effect-webrtc/signaling/memory';
+import { PeerId, WebRtc } from '@kstackz/effect-webrtc';
+import { layer as memoryPlatform } from '@kstackz/effect-webrtc/platform/memory';
+import { layer as memorySignaling } from '@kstackz/effect-webrtc/signaling/memory';
 
 const Greet = Rpc.make('Greet', {
   payload: { name: Schema.String },
@@ -177,9 +177,9 @@ Lifted from the docs demo. A Node process reaches a browser Peer through public 
 ```ts
 import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { PeerId, WebRtc } from 'effect-webrtc';
-import { layer as weriftPlatform } from 'effect-webrtc/platform/werift';
-import { layer as nostrSignaling } from 'effect-webrtc/signaling/nostr';
+import { PeerId, WebRtc } from '@kstackz/effect-webrtc';
+import { layer as weriftPlatform } from '@kstackz/effect-webrtc/platform/werift';
+import { layer as nostrSignaling } from '@kstackz/effect-webrtc/signaling/nostr';
 
 const SendMessage = Rpc.make('SendMessage', {
   payload: { id: Schema.String, author: Schema.String, text: Schema.String },
@@ -223,11 +223,11 @@ const chat = Effect.gen(function* () {
 
 ### Authenticated signaling with a Durable Object
 
-Deploy one worker beside an `auth-toolkit` worker, then connect a browser Peer to it. Only Peers of the same signed-in user see each other.
+Deploy one worker beside an `@kstackz/auth-toolkit` worker, then connect a browser Peer to it. Only Peers of the same signed-in user see each other.
 
 ```ts
 // worker.ts
-import { DurableSignalingWorker } from 'effect-webrtc/signaling/durable/alchemy';
+import { DurableSignalingWorker } from '@kstackz/effect-webrtc/signaling/durable/alchemy';
 
 export default class SignalingWorker extends DurableSignalingWorker<SignalingWorker>()(
   'DurableSignalingWorker',
@@ -242,9 +242,9 @@ export default class SignalingWorker extends DurableSignalingWorker<SignalingWor
 ```ts
 // browser.ts
 import { Effect, Stream } from 'effect';
-import { generatePeerId, PeerId, WebRtc } from 'effect-webrtc';
-import { layer as browserPlatform } from 'effect-webrtc/platform/browser';
-import { DurableSignaling } from 'effect-webrtc/signaling/durable';
+import { generatePeerId, PeerId, WebRtc } from '@kstackz/effect-webrtc';
+import { layer as browserPlatform } from '@kstackz/effect-webrtc/platform/browser';
+import { DurableSignaling } from '@kstackz/effect-webrtc/signaling/durable';
 
 const program = Effect.gen(function* () {
   const durable = yield* DurableSignaling.connect({

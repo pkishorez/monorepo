@@ -7,7 +7,7 @@ import {
 import type {
   GrantView,
   SessionView,
-} from 'kui-toolkit/components/blocks/auth';
+} from '@kstackz/ui-toolkit/components/blocks/auth';
 
 import {
   AuthorizationClientError,

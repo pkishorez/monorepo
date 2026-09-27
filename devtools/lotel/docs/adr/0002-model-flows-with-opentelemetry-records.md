@@ -27,7 +27,7 @@ Flow-specific read model for the swim-lane view.
   the terminal lifecycle status this originally also stored.)
 - Invalid Flow metadata does not invalidate the underlying OpenTelemetry record.
 - Applications author Flow records through the standalone
-  `@pkishorez/effect-tracer/flow` module. `initFlow` requires the Flow ID and
+  `@kstackz/effect-tracer/flow` module. `initFlow` requires the Flow ID and
   local Participant Name; optional Participants make Message destinations
   type-safe.
 - lotel projects Flow metadata into indexed fields while retaining the original

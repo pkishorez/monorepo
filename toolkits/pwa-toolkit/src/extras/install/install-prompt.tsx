@@ -5,7 +5,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from 'kui-toolkit/components/ui/card';
+} from '@kstackz/ui-toolkit/components/ui/card';
 import {
   Sheet,
   SheetContent,
@@ -13,7 +13,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from 'kui-toolkit/components/ui/sheet';
+} from '@kstackz/ui-toolkit/components/ui/sheet';
 import { type ReactNode, useId } from 'react';
 import { InstallActions, IosSteps } from './install-content.js';
 import { useInstall } from './install.js';

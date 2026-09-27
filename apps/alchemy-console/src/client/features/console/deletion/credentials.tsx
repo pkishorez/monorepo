@@ -1,13 +1,13 @@
 import { useId, useState } from 'react';
-import { Input } from 'kui-toolkit/components/ui/input';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from 'kui-toolkit/components/ui/select';
-import { Skeleton } from 'kui-toolkit/components/ui/skeleton';
+} from '@kstackz/ui-toolkit/components/ui/select';
+import { Skeleton } from '@kstackz/ui-toolkit/components/ui/skeleton';
 import type {
   credentialSelection,
   deletionPlan,

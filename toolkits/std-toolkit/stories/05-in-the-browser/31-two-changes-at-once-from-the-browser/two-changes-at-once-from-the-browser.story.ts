@@ -5,7 +5,7 @@ import {
 } from '@tanstack/react-db';
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { createStdSync, strategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {

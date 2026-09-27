@@ -47,7 +47,7 @@ export class Install extends Context.Service<
     readonly prompt: Effect.Effect<'accepted' | 'dismissed' | 'unavailable'>;
     readonly dismiss: Effect.Effect<void>;
   }
->()('pwa-toolkit/Install') {
+>()('@kstackz/pwa-toolkit/Install') {
   static readonly layer: Layer.Layer<Install> = Layer.effect(
     this,
     Effect.gen(function* () {

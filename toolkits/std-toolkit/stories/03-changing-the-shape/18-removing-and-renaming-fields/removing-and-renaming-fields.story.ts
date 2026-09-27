@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 // Task's whole history, four versions long. The first version's fields are written out again only because new versions are being declared: v3 drops `colour` by setting it to `null`, and v4 renames `notes` to `details`, which is one drop and one add in the same step.
 export const TaskV4 = EntityESchema.make('Task', 'taskId', {

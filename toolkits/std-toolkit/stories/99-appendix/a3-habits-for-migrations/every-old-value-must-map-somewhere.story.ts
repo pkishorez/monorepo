@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 // v1 let `assignee` be null. v2 replaces it with `owner`, which is always a name; the step must give every v1 value one.
 const Task = EntityESchema.make('Task', 'taskId', {

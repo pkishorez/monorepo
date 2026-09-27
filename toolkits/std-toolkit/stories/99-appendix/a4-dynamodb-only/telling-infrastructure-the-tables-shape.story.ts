@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { DynamoDB } from 'std-toolkit/db/dynamodb';
+import { DynamoDB } from '@kstackz/std-toolkit/db/dynamodb';
 import { table } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
 
 export const tellingInfrastructureTheTablesShape = Story.make({

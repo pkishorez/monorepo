@@ -1,7 +1,7 @@
 import { Effect, Stream } from 'effect';
 import { Story } from 'laymos/story';
-import { StdTable } from 'std-toolkit/db';
-import { Memory } from 'std-toolkit/db/memory';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { Memory } from '@kstackz/std-toolkit/db/memory';
 
 // The table every chapter shares: a name and the two attributes that address a row.
 export const table = StdTable.make('board').primary('pk', 'sk').build();

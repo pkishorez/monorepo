@@ -1,5 +1,5 @@
 import { Effect, Terminal } from 'effect';
-import type { SessionStatus } from 'effect-webrtc';
+import type { SessionStatus } from '@kstackz/effect-webrtc';
 
 const describeStatus = (status: SessionStatus) => {
   if (status._tag === 'Connected') return 'Connected';

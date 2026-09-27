@@ -1,4 +1,4 @@
-import type { Entry, Projection } from '@pkishorez/flow';
+import type { Entry, Projection } from '@kstackz/flow';
 import {
   formatAttributes,
   formatMillis,

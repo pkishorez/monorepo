@@ -1,11 +1,11 @@
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from 'kui-toolkit/components/ui/dropdown-menu';
-import { ChevronDown, ExternalLink } from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/components/ui/dropdown-menu';
+import { ChevronDown, ExternalLink } from '@kstackz/ui-toolkit/lucide';
 import { cloudflareAccountUrl, cloudflareTokenUrl } from './token-url.ts';
 
 const validAccount = (value: string) => /^[a-f0-9]{32}$/i.test(value.trim());

@@ -1,16 +1,16 @@
 import { Effect } from 'effect';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useRef, useState } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { Input } from 'kui-toolkit/components/ui/input';
-import { Checkbox } from 'kui-toolkit/components/ui/checkbox';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
+import { Checkbox } from '@kstackz/ui-toolkit/components/ui/checkbox';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from 'kui-toolkit/components/ui/select';
+} from '@kstackz/ui-toolkit/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -18,8 +18,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from 'kui-toolkit/components/ui/dialog';
-import { CircleAlert, Plus } from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/components/ui/dialog';
+import { CircleAlert, Plus } from '@kstackz/ui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import type { storeView } from '../../../../shared/contracts/stores/index.ts';
 import { useRpcAction, rpcQueryKeys } from '../queries/index.ts';

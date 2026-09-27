@@ -3,7 +3,10 @@ import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Output from 'alchemy/Output';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import { D1, providers as stdToolkitProviders } from 'std-toolkit/alchemy';
+import {
+  D1,
+  providers as stdToolkitProviders,
+} from '@kstackz/std-toolkit/alchemy';
 import { consoleTable } from './src/server/storage/table/index.ts';
 // Entities register on the table as their modules load; the snapshot must see all of them.
 import './src/server/storage/credentials/index.ts';

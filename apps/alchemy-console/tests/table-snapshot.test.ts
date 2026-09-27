@@ -1,4 +1,4 @@
-import { expectTableSnapshot } from 'std-toolkit/snapshot/vitest';
+import { expectTableSnapshot } from '@kstackz/std-toolkit/snapshot/vitest';
 import { it } from 'vite-plus/test';
 import { consoleTable } from '../src/server/storage/table/index.ts';
 // Entities register on the table as their modules load; the snapshot must see all of them.

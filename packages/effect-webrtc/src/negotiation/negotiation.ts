@@ -15,13 +15,13 @@ export const FlowCarrierSchema = Schema.Struct({
 export type FlowCarrier = typeof FlowCarrierSchema.Type;
 
 export const PeerSessionId = Schema.String.pipe(
-  Schema.brand('effect-webrtc/PeerSessionId'),
+  Schema.brand('@kstackz/effect-webrtc/PeerSessionId'),
 );
 
 export type PeerSessionId = typeof PeerSessionId.Type;
 
 export const ConnectionAttemptId = Schema.String.pipe(
-  Schema.brand('effect-webrtc/ConnectionAttemptId'),
+  Schema.brand('@kstackz/effect-webrtc/ConnectionAttemptId'),
 );
 
 export type ConnectionAttemptId = typeof ConnectionAttemptId.Type;

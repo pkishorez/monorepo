@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import { useQueryClient } from '@tanstack/react-query';
 import { useId, useRef, useState } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { Input } from 'kui-toolkit/components/ui/input';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -10,8 +10,8 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from 'kui-toolkit/components/ui/dialog';
-import { CircleAlert } from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/components/ui/dialog';
+import { CircleAlert } from '@kstackz/ui-toolkit/lucide';
 import { Rpc } from '../../connections/rpc/index.ts';
 import { useRpcQuery, useRpcAction } from '../../session/rpc-session/index.ts';
 import type { credentialView } from '../../../shared/contracts/credentials/index.ts';

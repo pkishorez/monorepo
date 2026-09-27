@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { ValueESchema } from 'std-toolkit/eschema';
+import { ValueESchema } from '@kstackz/std-toolkit/eschema';
 
 // The theme on its own: one value, not an object. It was free text; v2 narrows it to two words, and the step says which word each old text becomes.
 export const Theme = ValueESchema.make('Theme', Schema.String)

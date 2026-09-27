@@ -62,7 +62,7 @@ export type DurableRpcHandlers<Rpcs extends Rpc.Any, E = never> = Effect.Effect<
  * The worker is the door: every request is forwarded to a single Durable
  * Object instance, which serves the RPC group over WebSocket (with
  * hibernation, attachments, and stream checkpoints from
- * `rpc-toolkit`). Clients connect straight to
+ * `@kstackz/rpc-toolkit`). Clients connect straight to
  * `worker.url` — the local dev server under `alchemy dev`, the deployed
  * domain or workers.dev URL otherwise — so there is no cross-worker
  * binding and no dev/prod split.

@@ -220,7 +220,7 @@ sharp edges worth knowing before you rely on it.
 ## Shipping
 
 The contract is checked at deploy, never at runtime. Deploy the table through
-`std-toolkit/alchemy` (`DynamoDB.table` or `D1.table`). Each target runs the
+`@kstackz/std-toolkit/alchemy` (`DynamoDB.table` or `D1.table`). Each target runs the
 **snapshot guard**: an Alchemy resource that keeps the last accepted table
 snapshot in Alchemy state. The first deploy records it. Every later deploy
 diffs the new snapshot against it; a `breaking` or `unverifiable` change fails

@@ -1,15 +1,15 @@
 import { Effect, Fiber, Stream } from 'effect';
-import { SQLite } from 'std-toolkit/db/sqlite';
+import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
 import { consoleTable } from '../src/server/storage/table/index.ts';
 import { storeEntity as stores } from '../src/server/storage/stores/index.ts';
-import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
 const mocks = vi.hoisted(() => ({ makeDatabase: vi.fn(), execute: vi.fn() }));
 vi.mock('../src/server/services/deletion/engine/index.ts', () => ({
   execute: mocks.execute,
 }));
-vi.mock('std-toolkit/db/sqlite/d1', () => ({
+vi.mock('@kstackz/std-toolkit/db/sqlite/d1', () => ({
   makeD1SQLite: mocks.makeDatabase,
 }));
 import { makeRpcRuntime, Rpc } from '../src/client/connections/rpc/index.ts';

@@ -17,9 +17,9 @@ import { Route as ApiSourceRouteImport } from './routes/api/source'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as DemosIndexRouteImport } from './routes/demos/index'
+import { Route as DemosAiToolkitRouteImport } from './routes/demos/ai-toolkit'
 import { Route as DemosDurableWebrtcRouteImport } from './routes/demos/durable-webrtc'
 import { Route as DemosEffectWebrtcRouteImport } from './routes/demos/effect-webrtc'
-import { Route as DemosKaiToolkitRouteImport } from './routes/demos/kai-toolkit'
 import { Route as DemosWebrtcRouteImport } from './routes/demos/webrtc'
 import { Route as DocsSplatRouteImport } from './routes/docs/$'
 
@@ -63,6 +63,11 @@ const DemosIndexRoute = DemosIndexRouteImport.update({
   path: '/demos/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DemosAiToolkitRoute = DemosAiToolkitRouteImport.update({
+  id: '/demos/ai-toolkit',
+  path: '/demos/ai-toolkit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemosDurableWebrtcRoute = DemosDurableWebrtcRouteImport.update({
   id: '/demos/durable-webrtc',
   path: '/demos/durable-webrtc',
@@ -71,11 +76,6 @@ const DemosDurableWebrtcRoute = DemosDurableWebrtcRouteImport.update({
 const DemosEffectWebrtcRoute = DemosEffectWebrtcRouteImport.update({
   id: '/demos/effect-webrtc',
   path: '/demos/effect-webrtc',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosKaiToolkitRoute = DemosKaiToolkitRouteImport.update({
-  id: '/demos/kai-toolkit',
-  path: '/demos/kai-toolkit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemosWebrtcRoute = DemosWebrtcRouteImport.update({
@@ -96,9 +96,9 @@ export interface FileRoutesByFullPath {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
-  '/demos/kai-toolkit': typeof DemosKaiToolkitRoute
   '/demos/webrtc': typeof DemosWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
@@ -111,9 +111,9 @@ export interface FileRoutesByTo {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
-  '/demos/kai-toolkit': typeof DemosKaiToolkitRoute
   '/demos/webrtc': typeof DemosWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog': typeof BlogIndexRoute
@@ -127,9 +127,9 @@ export interface FileRoutesById {
   '/api/search': typeof ApiSearchRoute
   '/api/source': typeof ApiSourceRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/demos/ai-toolkit': typeof DemosAiToolkitRoute
   '/demos/durable-webrtc': typeof DemosDurableWebrtcRoute
   '/demos/effect-webrtc': typeof DemosEffectWebrtcRoute
-  '/demos/kai-toolkit': typeof DemosKaiToolkitRoute
   '/demos/webrtc': typeof DemosWebrtcRoute
   '/docs/$': typeof DocsSplatRoute
   '/blog/': typeof BlogIndexRoute
@@ -144,9 +144,9 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
-    | '/demos/kai-toolkit'
     | '/demos/webrtc'
     | '/docs/$'
     | '/blog/'
@@ -159,9 +159,9 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
-    | '/demos/kai-toolkit'
     | '/demos/webrtc'
     | '/docs/$'
     | '/blog'
@@ -174,9 +174,9 @@ export interface FileRouteTypes {
     | '/api/search'
     | '/api/source'
     | '/blog/$slug'
+    | '/demos/ai-toolkit'
     | '/demos/durable-webrtc'
     | '/demos/effect-webrtc'
-    | '/demos/kai-toolkit'
     | '/demos/webrtc'
     | '/docs/$'
     | '/blog/'
@@ -190,9 +190,9 @@ export interface RootRouteChildren {
   ApiSearchRoute: typeof ApiSearchRoute
   ApiSourceRoute: typeof ApiSourceRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  DemosAiToolkitRoute: typeof DemosAiToolkitRoute
   DemosDurableWebrtcRoute: typeof DemosDurableWebrtcRoute
   DemosEffectWebrtcRoute: typeof DemosEffectWebrtcRoute
-  DemosKaiToolkitRoute: typeof DemosKaiToolkitRoute
   DemosWebrtcRoute: typeof DemosWebrtcRoute
   DocsSplatRoute: typeof DocsSplatRoute
   BlogIndexRoute: typeof BlogIndexRoute
@@ -257,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemosIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/demos/ai-toolkit': {
+      id: '/demos/ai-toolkit'
+      path: '/demos/ai-toolkit'
+      fullPath: '/demos/ai-toolkit'
+      preLoaderRoute: typeof DemosAiToolkitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demos/durable-webrtc': {
       id: '/demos/durable-webrtc'
       path: '/demos/durable-webrtc'
@@ -269,13 +276,6 @@ declare module '@tanstack/react-router' {
       path: '/demos/effect-webrtc'
       fullPath: '/demos/effect-webrtc'
       preLoaderRoute: typeof DemosEffectWebrtcRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos/kai-toolkit': {
-      id: '/demos/kai-toolkit'
-      path: '/demos/kai-toolkit'
-      fullPath: '/demos/kai-toolkit'
-      preLoaderRoute: typeof DemosKaiToolkitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos/webrtc': {
@@ -302,9 +302,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSearchRoute: ApiSearchRoute,
   ApiSourceRoute: ApiSourceRoute,
   BlogSlugRoute: BlogSlugRoute,
+  DemosAiToolkitRoute: DemosAiToolkitRoute,
   DemosDurableWebrtcRoute: DemosDurableWebrtcRoute,
   DemosEffectWebrtcRoute: DemosEffectWebrtcRoute,
-  DemosKaiToolkitRoute: DemosKaiToolkitRoute,
   DemosWebrtcRoute: DemosWebrtcRoute,
   DocsSplatRoute: DocsSplatRoute,
   BlogIndexRoute: BlogIndexRoute,

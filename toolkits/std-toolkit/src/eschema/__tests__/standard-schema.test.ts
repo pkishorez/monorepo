@@ -13,7 +13,7 @@ describe('ESchema', () => {
 
         const standard = schema['~standard'];
         expect(standard.version).toBe(1);
-        expect(standard.vendor).toBe('std-toolkit/eschema');
+        expect(standard.vendor).toBe('@kstackz/std-toolkit/eschema');
         expect(typeof standard.validate).toBe('function');
       });
 

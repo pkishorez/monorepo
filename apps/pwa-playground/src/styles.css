@@ -1,9 +1,9 @@
-@import 'kui-toolkit/styles/global.css';
-@import 'kui-toolkit/styles/font-inter.css';
+@import '@kstackz/ui-toolkit/styles/global.css';
+@import '@kstackz/ui-toolkit/styles/font-inter.css';
 
 /* The app's own classes, and pwa-toolkit's prebuilt UI (kui registers its own). */
 @source './';
-@source '../node_modules/pwa-toolkit/dist';
+@source '../node_modules/@kstackz/pwa-toolkit/dist';
 
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;

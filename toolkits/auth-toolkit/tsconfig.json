@@ -8,16 +8,22 @@
     "moduleResolution": "nodenext",
     "jsx": "react-jsx",
     "paths": {
-      "auth-toolkit/cli": ["./src/cli/index.ts"],
-      "auth-toolkit/http-api": ["./src/server/effect/http-api/authz.ts"],
-      "auth-toolkit/http-api/server": ["./src/server/effect/http-api/index.ts"],
-      "auth-toolkit/rpc": ["./src/server/effect/rpc/authz.ts"],
-      "auth-toolkit/rpc/server": ["./src/server/effect/rpc/index.ts"],
-      "auth-toolkit/server": ["./src/server/verification/session/index.ts"],
-      "auth-toolkit/server/access-token": [
+      "@kstackz/auth-toolkit/cli": ["./src/cli/index.ts"],
+      "@kstackz/auth-toolkit/http-api": [
+        "./src/server/effect/http-api/authz.ts"
+      ],
+      "@kstackz/auth-toolkit/http-api/server": [
+        "./src/server/effect/http-api/index.ts"
+      ],
+      "@kstackz/auth-toolkit/rpc": ["./src/server/effect/rpc/authz.ts"],
+      "@kstackz/auth-toolkit/rpc/server": ["./src/server/effect/rpc/index.ts"],
+      "@kstackz/auth-toolkit/server": [
+        "./src/server/verification/session/index.ts"
+      ],
+      "@kstackz/auth-toolkit/server/access-token": [
         "./src/server/verification/access-token/index.ts"
       ],
-      "auth-toolkit/server/mcp": ["./src/server/mcp/index.ts"]
+      "@kstackz/auth-toolkit/server/mcp": ["./src/server/mcp/index.ts"]
     },
     "rootDir": ".",
     "strict": true,

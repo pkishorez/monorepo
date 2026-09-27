@@ -5,9 +5,9 @@ import {
   defaultBroadcaster,
   type Broadcaster,
   type Entity,
-} from 'std-toolkit/core';
-import type { StdTableService } from 'std-toolkit/db';
-import { createStdSync, strategy } from 'std-toolkit/sync';
+} from '@kstackz/std-toolkit/core';
+import type { StdTableService } from '@kstackz/std-toolkit/db';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {

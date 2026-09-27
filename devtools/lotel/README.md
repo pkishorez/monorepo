@@ -1,4 +1,4 @@
-# @pkishorez/lotel
+# @kstackz/lotel
 
 Telemetry contracts and orchestration for DevTools
 
@@ -10,10 +10,10 @@ that something, as a library: an OTLP/HTTP ingestion group, an RPC group for
 writing and reading Span Records and Log Records, and a SQLite Telemetry Store
 behind a service interface. It runs no server of its own.
 
-[@pkishorez/devtools](../devtools/README.md) hosts these layers inside its DevTools Server
-and adds the browser UI. [@pkishorez/effect-tracer](../effect-tracer/README.md)
+[@kstackz/devtools](../devtools/README.md) hosts these layers inside its DevTools Server
+and adds the browser UI. [@kstackz/effect-tracer](../effect-tracer/README.md)
 is the sending side. Flows are a separate Tool in
-[@pkishorez/flow](../flow/README.md); lotel's records carry a Flow id and
+[@kstackz/flow](../flow/README.md); lotel's records carry a Flow id and
 Participant name so the two can link.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
@@ -22,26 +22,26 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
 ## Install
 
 ```sh
-pnpm add @pkishorez/lotel
+pnpm add @kstackz/lotel
 ```
 
 lotel has no peer dependencies; `effect` is a regular dependency.
 
 ## Exports
 
-### `@pkishorez/lotel`
+### `@kstackz/lotel`
 
 Node. Everything a host process needs.
 
 | Export                      | What it does                                                             |
 | --------------------------- | ------------------------------------------------------------------------ |
-| `LotelRpc`                  | Re-export of the RPC group from `@pkishorez/lotel/rpc`.                  |
+| `LotelRpc`                  | Re-export of the RPC group from `@kstackz/lotel/rpc`.                    |
 | `LotelRpcLive`              | Layer that fulfils `LotelRpc` against the `TelemetryStore` service.      |
 | `LotelOtlpHttpGroup`        | HttpApi group with `POST /v1/traces` and `POST /v1/logs`.                |
 | `LotelOtlpHttpLive`         | Layer that decodes OTLP/HTTP JSON and writes it to the `TelemetryStore`. |
-| `sqliteTelemetryStoreLayer` | Re-export of the SQLite store layer from `@pkishorez/lotel/sqlite`.      |
+| `sqliteTelemetryStoreLayer` | Re-export of the SQLite store layer from `@kstackz/lotel/sqlite`.        |
 
-### `@pkishorez/lotel/rpc`
+### `@kstackz/lotel/rpc`
 
 Browser-safe. The contract only.
 
@@ -49,7 +49,7 @@ Browser-safe. The contract only.
 | ---------- | ------------------------------------------------------------------------------------------------------------------ |
 | `LotelRpc` | RPC group with `SaveSpans`, `InsertLogs`, `ListSpans`, `ListLogs`, `ListTraces`, `GetTrace`, and `ClearTelemetry`. |
 
-### `@pkishorez/lotel/telemetry`
+### `@kstackz/lotel/telemetry`
 
 Browser-safe. Schemas and errors.
 
@@ -78,7 +78,7 @@ Browser-safe. Schemas and errors.
 | `OtlpBadRequest`                   | HTTP 400 error for an undecodable OTLP body.                                |
 | `OtlpInternalError`                | HTTP 500 error for a store failure during ingestion.                        |
 
-### `@pkishorez/lotel/sqlite`
+### `@kstackz/lotel/sqlite`
 
 Node.
 
@@ -91,7 +91,7 @@ Node.
 ### Host lotel in your own server
 
 Serve the RPC group and OTLP ingestion on one HTTP server, backed by one
-SQLite file. This is what `@pkishorez/devtools` does.
+SQLite file. This is what `@kstackz/devtools` does.
 
 ```ts
 import { createServer } from 'node:http';
@@ -99,8 +99,8 @@ import { Layer } from 'effect';
 import { HttpRouter } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
-import { LotelOtlpHttpLive, LotelRpc, LotelRpcLive } from '@pkishorez/lotel';
-import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
+import { LotelOtlpHttpLive, LotelRpc, LotelRpcLive } from '@kstackz/lotel';
+import { sqliteTelemetryStoreLayer } from '@kstackz/lotel/sqlite';
 
 const RpcRouteLive = RpcServer.layerHttp({
   group: LotelRpc,
@@ -141,7 +141,7 @@ import {
   LotelRpc,
   LotelRpcLive,
   sqliteTelemetryStoreLayer,
-} from '@pkishorez/lotel';
+} from '@kstackz/lotel';
 
 const program = Effect.scoped(
   Effect.gen(function* () {

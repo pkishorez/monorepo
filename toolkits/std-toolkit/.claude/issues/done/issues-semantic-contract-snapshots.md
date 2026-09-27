@@ -35,7 +35,7 @@ std-toolkit will let users change ESchemas and database tables confidently by em
 
 **Why.** Users need a small, truthful artifact that freezes every approved encoded and decoded data contract without preserving source files. This slice also makes nested ESchema evolution observable while keeping each child independently versioned.
 
-**What.** Add the public std-toolkit/snapshot module and synchronous snapshot() methods to ESchema, SingleEntityESchema, EntityESchema, and ValueESchema. Deliver the complete ESchema path end to end: JSON-safe Effect Schema representations, nested-definition references, snapshot-format decoding, current diagnostics, historical diffing, domain-oriented rendering, public exports, and tests.
+**What.** Add the public @kstackz/std-toolkit/snapshot module and synchronous snapshot() methods to ESchema, SingleEntityESchema, EntityESchema, and ValueESchema. Deliver the complete ESchema path end to end: JSON-safe Effect Schema representations, nested-definition references, snapshot-format decoding, current diagnostics, historical diffing, domain-oriented rendering, public exports, and tests.
 
 **Read first.**
 
@@ -48,7 +48,7 @@ std-toolkit will let users change ESchemas and database tables confidently by em
 
 **Interface produced.**
 
-- package.json exports std-toolkit/snapshot from src/snapshot/index.ts.
+- package.json exports @kstackz/std-toolkit/snapshot from src/snapshot/index.ts.
 - Every ESchema variant exposes synchronous snapshot(): ESchemaSnapshot. Named entity variants use their entity name as root identity; an anonymous top-level ESchema or ValueESchema uses the reserved identity $root.
 - src/snapshot/index.ts exports Snapshot, ContractSnapshot, ESchemaSnapshot, ESchemaDefinition, SnapshotChange, SnapshotDiagnostic, SnapshotClassification, SnapshotDecodeError, and SnapshotIdentityConflict.
 - Snapshot.decode(input: unknown): Effect.Effect<ContractSnapshot, SnapshotDecodeError> accepts parsed JSON values, validates them, and migrates older snapshot-format versions.
@@ -120,7 +120,7 @@ std-toolkit will let users change ESchemas and database tables confidently by em
 - [ ] pnpm exec vitest run src/snapshot/**tests**/eschema-snapshot.test.ts src/snapshot/**tests**/snapshot-diff.test.ts src/snapshot/**tests**/snapshot-render.test.ts succeeds.
 - [ ] pnpm lint, pnpm lint:depcruise, pnpm test, and pnpm build succeed.
 
-**Done when.** The focused snapshot tests pass through the public std-toolkit/snapshot and ESchema.snapshot() interfaces, and all four project commands succeed.
+**Done when.** The focused snapshot tests pass through the public @kstackz/std-toolkit/snapshot and ESchema.snapshot() interfaces, and all four project commands succeed.
 
 ---
 
@@ -128,7 +128,7 @@ std-toolkit will let users change ESchemas and database tables confidently by em
 
 **Why.** An ESchema-only baseline cannot detect production risks caused by physical key topology or entity derivations. This slice establishes the normalized database-agnostic table contract and proves it through the DynamoDB adapter.
 
-**What.** Extend std-toolkit/snapshot with TableSnapshot, table validation, table inspection/diff/render dispatch, and shared table-construction helpers. Add synchronous DynamoTable.snapshot() that retains every built entity and captures physical indexes, entity kind/id field, ESchema definitions, and ordered index derivations without requiring a DynamoDB connection.
+**What.** Extend @kstackz/std-toolkit/snapshot with TableSnapshot, table validation, table inspection/diff/render dispatch, and shared table-construction helpers. Add synchronous DynamoTable.snapshot() that retains every built entity and captures physical indexes, entity kind/id field, ESchema definitions, and ordered index derivations without requiring a DynamoDB connection.
 
 **Read first.**
 
@@ -327,7 +327,7 @@ std-toolkit will let users change ESchemas and database tables confidently by em
 **Interface produced.**
 
 - No eschema package binary remains. npx eschema is intentionally unsupported.
-- README.md lists std-toolkit/snapshot as a public subpath and contains no Bin section.
+- README.md lists @kstackz/std-toolkit/snapshot as a public subpath and contains no Bin section.
 - src/eschema/README.md demonstrates schema.snapshot(), Snapshot.decode, Snapshot.inspect, Snapshot.diff, Snapshot.render, and Snapshot.renderChanges, and states that consumers own storage and approval.
 - The public runtime interfaces from tasks 1–4 are unchanged.
 
@@ -339,10 +339,10 @@ std-toolkit will let users change ESchemas and database tables confidently by em
 - Remove src/eschema/cli/**tests**/fixtures/** from tsconfig.json exclusions.
 - Remove every src/eschema/cli ignore, boundary, or module entry from depcruise.config.ts and laymos.config.ts.
 - Do not edit the parent workspace's pnpm-lock.yaml or catalog files from this std-toolkit-scoped task. The parent workspace still uses @effect/platform-node.
-- Add a CHANGELOG.md breaking-change entry for removal of the binary and wildcard-importable std-toolkit/eschema/cli path.
+- Add a CHANGELOG.md breaking-change entry for removal of the binary and wildcard-importable @kstackz/std-toolkit/eschema/cli path.
 - Vitest examples snapshot Snapshot.render output. Canonical baseline examples store JSON.stringify(schema.snapshot(), null, 2) output and load parsed JSON through Snapshot.decode; no library approval helper is introduced.
 
-**Inputs from predecessors.** Task Semantic ESchema snapshots produces package export std-toolkit/snapshot and every Snapshot/ESchema.snapshot() call documented here. Tasks DynamoDB total table snapshots, SQLite table snapshot producer, and IndexedDB table snapshot producer own their adapter README table.snapshot() lines; this task must not rewrite those sections.
+**Inputs from predecessors.** Task Semantic ESchema snapshots produces package export @kstackz/std-toolkit/snapshot and every Snapshot/ESchema.snapshot() call documented here. Tasks DynamoDB total table snapshots, SQLite table snapshot producer, and IndexedDB table snapshot producer own their adapter README table.snapshot() lines; this task must not rewrite those sections.
 
 **Out of scope.**
 

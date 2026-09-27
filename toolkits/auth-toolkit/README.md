@@ -1,4 +1,4 @@
-# auth-toolkit
+# @kstackz/auth-toolkit
 
 Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1), a client subpath for React session hooks, a cli subpath for Device Login, and a server subpath for backend-to-backend verification
 
@@ -12,10 +12,10 @@ served by the always-on Identity Role; a Third-Party program (an MCP client)
 holds an Access Token and needs the opt-in Authorization Server Role. Web,
 CLI, and MCP are three stories on that one split, not three systems.
 
-The package builds on `rpc-toolkit` for the `Authz` Cannotation that guards
-Effect RPC and HTTP API endpoints, and on `kui-toolkit` for the prebuilt
+The package builds on `@kstackz/rpc-toolkit` for the `Authz` Cannotation that guards
+Effect RPC and HTTP API endpoints, and on `@kstackz/ui-toolkit` for the prebuilt
 login, consent, device, and home pages the Worker serves itself. Effect is
-optional: `auth-toolkit/server` and `auth-toolkit/server/mcp` are plain
+optional: `@kstackz/auth-toolkit/server` and `@kstackz/auth-toolkit/server/mcp` are plain
 TypeScript.
 
 Vocabulary lives in [`CONTEXT.md`](./CONTEXT.md). Decisions live in
@@ -28,24 +28,24 @@ The schema and migration runbook is
 their own deep dives in
 [`src/server/effect/rpc/README.md`](./src/server/effect/rpc/README.md) and
 [`src/server/effect/http-api/README.md`](./src/server/effect/http-api/README.md).
-Run `pnpm --filter auth-toolkit stories` for the executable RPC walkthrough.
+Run `pnpm --filter @kstackz/auth-toolkit stories` for the executable RPC walkthrough.
 
 ## Install
 
 ```sh
-pnpm add auth-toolkit
+pnpm add @kstackz/auth-toolkit
 ```
 
 Peer dependencies, all optional; install the ones your subpaths need:
 
 - `effect`: the `rpc`, `rpc/server`, `http-api`, `http-api/server`, and `cli` subpaths are Effect Layers and Services.
-- `react`: `auth-toolkit/client` returns React hooks.
-- `better-sqlite3`: `auth-toolkit/database/memory` runs SQLite in-process for tests.
-- `alchemy`: `auth-toolkit/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
+- `react`: `@kstackz/auth-toolkit/client` returns React hooks.
+- `better-sqlite3`: `@kstackz/auth-toolkit/database/memory` runs SQLite in-process for tests.
+- `alchemy`: `@kstackz/auth-toolkit/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
 
 ## Exports
 
-### `auth-toolkit/worker`
+### `@kstackz/auth-toolkit/worker`
 
 | Export                   | What it does                                                                                                       |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
@@ -54,31 +54,31 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `validateTrustedOrigins` | Throws when a trusted origin pattern is neither a full origin nor a host pattern.                                  |
 | `AUTH_PAGES`             | The paths of the login, consent, device, and error pages.                                                          |
 
-### `auth-toolkit/client`
+### `@kstackz/auth-toolkit/client`
 
 | Export             | What it does                                                                                                      |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `createAuthClient` | Builds the browser client for the Auth Worker with `useSession`, `useLoginError`, `signIn.google`, and `signOut`. |
 
-### `auth-toolkit/server`
+### `@kstackz/auth-toolkit/server`
 
 | Export          | What it does                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `verifyRequest` | Forwards a request's cookie or bearer header to the Auth Worker and returns the User, Session, and refreshed cookies, or null. |
 
-### `auth-toolkit/server/access-token`
+### `@kstackz/auth-toolkit/server/access-token`
 
 | Export              | What it does                                                                                                      |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `verifyAccessToken` | Verifies a bearer Access Token for one resource against the Auth Worker's JWKS and returns its identity, or null. |
 
-### `auth-toolkit/server/mcp`
+### `@kstackz/auth-toolkit/server/mcp`
 
 | Export                    | What it does                                                                                                                |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `createMcpResourceServer` | Wraps a request handler so it accepts only Access Tokens, passes a Token Principal, and serves Protected Resource Metadata. |
 
-### `auth-toolkit/rpc`
+### `@kstackz/auth-toolkit/rpc`
 
 | Export                          | What it does                                                                                    |
 | ------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -92,7 +92,7 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `Authz.Forbidden`               | Error for a Principal a policy rejected.                                                        |
 | `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification.                         |
 
-### `auth-toolkit/rpc/server`
+### `@kstackz/auth-toolkit/rpc/server`
 
 | Export         | What it does                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------------------- |
@@ -100,7 +100,7 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `resolverLive` | Production Current Auth Resolver; verifies Sessions, and Access Tokens too when given a `resource`.     |
 | `authzCookies` | Wraps an RPC HTTP app to verify once per batched request and relay refreshed cookies onto the response. |
 
-### `auth-toolkit/http-api`
+### `@kstackz/auth-toolkit/http-api`
 
 | Export                          | What it does                                                                                     |
 | ------------------------------- | ------------------------------------------------------------------------------------------------ |
@@ -114,14 +114,14 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `Authz.Forbidden`               | Error for a Principal a policy rejected; HTTP 403.                                               |
 | `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification; HTTP 503.                |
 
-### `auth-toolkit/http-api/server`
+### `@kstackz/auth-toolkit/http-api/server`
 
 | Export         | What it does                                                                                                    |
 | -------------- | --------------------------------------------------------------------------------------------------------------- |
 | `authzLayer`   | Server Implementation of the HTTP API Auth Cannotation; requires `Authz.Resolver` and relays refreshed cookies. |
-| `resolverLive` | Production Current Auth Resolver; the same value `auth-toolkit/rpc/server` exports.                             |
+| `resolverLive` | Production Current Auth Resolver; the same value `@kstackz/auth-toolkit/rpc/server` exports.                    |
 
-### `auth-toolkit/cli`
+### `@kstackz/auth-toolkit/cli`
 
 | Export                      | What it does                                                                                                            |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -135,19 +135,19 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `AuthWorkerRejected`        | Error when the Auth Worker answered with a 4xx status.                                                                  |
 | `InvalidAuthWorkerResponse` | Error when the Auth Worker's response did not have the expected shape.                                                  |
 
-### `auth-toolkit/database/d1`
+### `@kstackz/auth-toolkit/database/d1`
 
 | Export              | What it does                                                       |
 | ------------------- | ------------------------------------------------------------------ |
 | `d1PrimaryDatabase` | Builds the Primary Database Provider from a Cloudflare D1 binding. |
 
-### `auth-toolkit/database/memory`
+### `@kstackz/auth-toolkit/database/memory`
 
 | Export                  | What it does                                                                                 |
 | ----------------------- | -------------------------------------------------------------------------------------------- |
 | `memoryPrimaryDatabase` | Builds an in-memory SQLite Primary Database Provider migrated with the shipped `.sql` files. |
 
-### `auth-toolkit/alchemy/d1`
+### `@kstackz/auth-toolkit/alchemy/d1`
 
 | Export                      | What it does                                                                            |
 | --------------------------- | --------------------------------------------------------------------------------------- |
@@ -163,8 +163,8 @@ to its `handler`. The same call runs in tests with the in-memory Provider, as
 
 ```ts
 // src/worker.ts
-import { createAuthWorker } from 'auth-toolkit/worker';
-import { d1PrimaryDatabase } from 'auth-toolkit/database/d1';
+import { createAuthWorker } from '@kstackz/auth-toolkit/worker';
+import { d1PrimaryDatabase } from '@kstackz/auth-toolkit/database/d1';
 
 interface Env {
   DB: D1Database;
@@ -203,7 +203,7 @@ export default {
 ```ts
 // alchemy.run.ts
 import * as Cloudflare from 'alchemy/Cloudflare';
-import { d1PrimaryDatabaseResource } from 'auth-toolkit/alchemy/d1';
+import { d1PrimaryDatabaseResource } from '@kstackz/auth-toolkit/alchemy/d1';
 
 const db = d1PrimaryDatabaseResource('auth-db');
 
@@ -231,7 +231,7 @@ the server provides `authzLayer` with `resolverLive`. Lifted from
 // contract.ts, shared with the browser
 import { Effect, Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { Authz } from 'auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
 
 const GetProfile = Rpc.make('GetProfile', {
   payload: {},
@@ -253,7 +253,7 @@ import {
   authzCookies,
   authzLayer,
   resolverLive,
-} from 'auth-toolkit/rpc/server';
+} from '@kstackz/auth-toolkit/rpc/server';
 
 const dependencies = Layer.mergeAll(
   Handlers,
@@ -275,7 +275,7 @@ const app = Effect.gen(function* () {
 - No credential fails with `Authz.Unauthenticated`; a rejected policy with `Authz.Forbidden`; an unreachable Auth Worker with `Authz.VerificationUnavailable`.
 - `authzCookies` verifies once per batched request and relays refreshed cookies. It needs the non-framing JSON serializer.
 - Tests replace only `Authz.Resolver` with `Layer.succeed(Authz.Resolver, Authz.Resolver.of({ resolve }))`; the Cannotation and policies still run.
-- Without Effect, call `verifyRequest` from `auth-toolkit/server` and append each `refreshedCookies` entry as its own `Set-Cookie` header.
+- Without Effect, call `verifyRequest` from `@kstackz/auth-toolkit/server` and append each `refreshedCookies` entry as its own `Set-Cookie` header.
 
 ### Sign a CLI in with Device Login
 
@@ -284,7 +284,7 @@ call, and drops it on sign-out. Lifted from `src/cli/tests/cli.test.ts`.
 
 ```ts
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { CliAuth } from 'auth-toolkit/cli';
+import { CliAuth } from '@kstackz/auth-toolkit/cli';
 import { Console, Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 

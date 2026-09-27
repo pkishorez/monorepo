@@ -21,7 +21,7 @@ The laymos report lists all 35 spine chapters in numeric order under six groups 
 2. **`pnpm stories` deadlocked at its default concurrency.** `laymos stories` runs stories in-process with concurrency 16; the suite hangs partway (stuck at 15/48 indefinitely, near-zero CPU) — cross-story interference between concurrent proofs sharing real databases/leadership. Sequentially it passes cleanly, so `package.json` now pins `"stories": "laymos stories -c 1"`. Worth a look upstream if concurrent runs are wanted back.
 3. **Root group had no page.** Added `stories/std-toolkit.md` (three plain sentences, no API names).
 4. **Act IV group page was in the wrong folder.** laymos resolves a group page in the common folder of the group's stories; with one chapter, that is the chapter folder. Moved `the-same-code-on-other-databases.md` into `04-other-databases/24-swapping-memory-for-sqlite-indexeddb-dynamodb/`.
-5. **Formatting failures.** Ran `vp fmt` on `.claude/specs/stories-old-questions.md`; fixed the `no-useless-spread` at `28-catching-up-on-what-you-missed.story.ts` (`[...pages.flat()]` → `pages.flat()`); deleted a stale untracked scratch file `std-toolkit/sections-check.tmp.ts` (a copy of check.ts) that failed `vp check`.
+5. **Formatting failures.** Ran `vp fmt` on `.claude/specs/stories-old-questions.md`; fixed the `no-useless-spread` at `28-catching-up-on-what-you-missed.story.ts` (`[...pages.flat()]` → `pages.flat()`); deleted a stale untracked scratch file `@kstackz/std-toolkit/sections-check.tmp.ts` (a copy of check.ts) that failed `vp check`.
 
 ## DynamoDB caveats
 

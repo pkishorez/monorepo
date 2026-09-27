@@ -8,8 +8,8 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
-} from 'kui-toolkit/components/ui/sidebar';
-import { ChevronRight } from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/components/ui/sidebar';
+import { ChevronRight } from '@kstackz/ui-toolkit/lucide';
 import { Logo, LogoMark } from '../../brand/index.ts';
 import { StateTree, StateOverview } from '../explorer/index.ts';
 import { ResourceBrowser } from '../resources/index.ts';

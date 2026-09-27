@@ -1,5 +1,5 @@
-import { useDisplayMode, useOnline } from 'pwa-toolkit/extras';
-import { usePwa } from 'pwa-toolkit/react';
+import { useDisplayMode, useOnline } from '@kstackz/pwa-toolkit/extras';
+import { usePwa } from '@kstackz/pwa-toolkit/react';
 import { useEffect, useState } from 'react';
 import { pageBuildId } from '../lib/build.ts';
 import { useWorkers } from '../lib/workers.ts';

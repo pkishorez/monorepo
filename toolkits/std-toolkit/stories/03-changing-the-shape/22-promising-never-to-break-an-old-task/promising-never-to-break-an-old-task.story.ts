@@ -1,8 +1,11 @@
 import { Effect, Match, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { StdTable } from 'std-toolkit/db';
-import { EntityESchema } from 'std-toolkit/eschema';
-import { SnapshotIncompatible, TableSnapshot } from 'std-toolkit/snapshot';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+import {
+  SnapshotIncompatible,
+  TableSnapshot,
+} from '@kstackz/std-toolkit/snapshot';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { Board } from '../../02-more-ways-in/11-keeping-boards-and-tasks-in-the-same-table/keeping-boards-and-tasks-in-the-same-table.story.js';
 import { TaskV2 } from '../17-adding-a-field-to-tasks-that-already-exist/adding-a-field-to-tasks-that-already-exist.story.js';
@@ -91,7 +94,7 @@ const rejected = (changes: ReturnType<typeof TableSnapshot.diff>) =>
     ({ impact }) => impact === 'breaking' || impact === 'unverifiable',
   );
 
-// What the snapshot guard in `std-toolkit/alchemy` does on every deploy, with a variable standing in for Alchemy state: remember the last accepted snapshot, refuse a new one that is not upgradable from it.
+// What the snapshot guard in `@kstackz/std-toolkit/alchemy` does on every deploy, with a variable standing in for Alchemy state: remember the last accepted snapshot, refuse a new one that is not upgradable from it.
 const makeGuard = () => {
   let accepted: TableSnapshot | undefined;
   return (table: Parameters<typeof TableSnapshot.capture>[0]) =>
@@ -203,7 +206,7 @@ export const promisingNeverToBreakAnOldTask = Story.make({
       'How does a deploy hold itself to the promise on its first run, on a safe change, and on a breaking one?',
       {
         answer:
-          'Through the snapshot guard in `std-toolkit/alchemy`: `D1.table` and `DynamoDB.table` each keep the last accepted snapshot in Alchemy state and diff the current one against it before the table is prepared. The first deploy records the shape; a safe change moves it forward; a change that only needs stored rows repaired goes through with a warning; a breaking change fails the deploy with `SnapshotIncompatible` and nothing is touched. Nothing runs at request time, and no layer ever reads the snapshot. Here a variable stands in for Alchemy state, and the decisions are the same ones.',
+          'Through the snapshot guard in `@kstackz/std-toolkit/alchemy`: `D1.table` and `DynamoDB.table` each keep the last accepted snapshot in Alchemy state and diff the current one against it before the table is prepared. The first deploy records the shape; a safe change moves it forward; a change that only needs stored rows repaired goes through with a warning; a breaking change fails the deploy with `SnapshotIncompatible` and nothing is touched. Nothing runs at request time, and no layer ever reads the snapshot. Here a variable stands in for Alchemy state, and the decisions are the same ones.',
         proof: Story.trace(
           Effect.gen(function* () {
             const deploy = makeGuard();

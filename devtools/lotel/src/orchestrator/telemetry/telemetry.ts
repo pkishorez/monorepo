@@ -1,5 +1,5 @@
 import { Effect, Layer } from 'effect';
-import { nextUlid } from 'std-toolkit/core';
+import { nextUlid } from '@kstackz/std-toolkit/core';
 import { HttpApi, HttpApiBuilder } from 'effect/unstable/httpapi';
 import {
   logRecordsFromRequest,

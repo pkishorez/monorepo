@@ -1,8 +1,11 @@
 import { Link } from '@tanstack/react-router';
-import { Button, buttonVariants } from 'kui-toolkit/components/ui/button';
-import { Switch } from 'kui-toolkit/components/ui/switch';
-import { HouseIcon, MoonIcon, SunIcon } from 'kui-toolkit/lucide';
-import { cn } from 'kui-toolkit/utils';
+import {
+  Button,
+  buttonVariants,
+} from '@kstackz/ui-toolkit/components/ui/button';
+import { Switch } from '@kstackz/ui-toolkit/components/ui/switch';
+import { HouseIcon, MoonIcon, SunIcon } from '@kstackz/ui-toolkit/lucide';
+import { cn } from '@kstackz/ui-toolkit/utils';
 import { appTheme } from '../../../lib/theme.ts';
 import { useLabSidebar } from '../sidebar/index.ts';
 import { DEMO_IDS, DEMOS, type DemoId } from './demos.ts';

@@ -1,4 +1,4 @@
-import { Badge } from 'kui-toolkit/components/ui/badge';
+import { Badge } from '@kstackz/ui-toolkit/components/ui/badge';
 
 export function ManagedStackBadge({ compact = false }: { compact?: boolean }) {
   return (

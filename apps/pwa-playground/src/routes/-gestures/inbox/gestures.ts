@@ -2,8 +2,8 @@ import {
   type GestureSpring,
   useSwipe,
   useTap,
-} from 'kui-toolkit/components/blocks/gestures';
-import { useTransform } from 'kui-toolkit/motion';
+} from '@kstackz/ui-toolkit/components/blocks/gestures';
+import { useTransform } from '@kstackz/ui-toolkit/motion';
 
 /** How far the feed is pulled for a refresh: progress 1. */
 export const PULL_PX = 72;

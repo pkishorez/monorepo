@@ -1,7 +1,7 @@
 import {
   GestureFingers,
   GestureProvider,
-} from 'kui-toolkit/components/blocks/gestures';
+} from '@kstackz/ui-toolkit/components/blocks/gestures';
 import { useState } from 'react';
 import { LabSidebar } from '../sidebar/index.ts';
 import { TutorialDialog } from '../tutorial/index.ts';

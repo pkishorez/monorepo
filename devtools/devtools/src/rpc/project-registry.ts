@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 /** The Tool a Project registry entry belongs to. */
 export const RegistryToolSchema = Schema.Literals(['monoverse', 'laymos']);

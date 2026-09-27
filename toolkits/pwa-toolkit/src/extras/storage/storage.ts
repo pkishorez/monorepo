@@ -37,7 +37,7 @@ export class StoragePersistence extends Context.Service<
       Option.Option<{ readonly usage: number; readonly quota: number }>
     >;
   }
->()('pwa-toolkit/StoragePersistence') {
+>()('@kstackz/pwa-toolkit/StoragePersistence') {
   static readonly layer: Layer.Layer<StoragePersistence> = Layer.succeed(this, {
     persisted: call('persisted'),
     persist: call('persist'),

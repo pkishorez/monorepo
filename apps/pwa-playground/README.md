@@ -4,7 +4,7 @@ Test bed that dogfoods pwa-toolkit: one TanStack Start page per PWA scenario, pu
 
 ## Big picture
 
-`pwa-toolkit` turns a TanStack Start app into a PWA. This app is where every
+`@kstackz/pwa-toolkit` turns a TanStack Start app into a PWA. This app is where every
 part of it gets exercised in a real browser, and where the evidence for its
 Presets comes from. Each route is one scenario: a short explanation, live
 readouts, and buttons, all with stable `data-testid`s for browser automation.
@@ -25,7 +25,7 @@ Switch, ...) are defined in
 
 The worker is `src/sw.ts`: `runServiceWorker()` plus a Worker Server for the
 group in `src/rpc`. The Strategy rules live in
-`src/lib/strategies.ts`. UI is `kui-toolkit` with Tailwind v4, and
+`src/lib/strategies.ts`. UI is `@kstackz/ui-toolkit` with Tailwind v4, and
 infrastructure is Alchemy (`alchemy.run.ts`, `src/infra`), like `apps/docs`.
 
 `/rpc?fakeBuildId=<id>` simulates Version Skew without touching the library:
@@ -46,7 +46,7 @@ maps `/_shell` to `_shell.html` the way Cloudflare does, so the Precache
 installs.
 
 ```bash
-pnpm --filter pwa-toolkit build          # the app imports its dist
+pnpm --filter @kstackz/pwa-toolkit build          # the app imports its dist
 pnpm --filter pwa-playground build       # dist/client: sw.js, manifest, _headers, _shell.html, offline.html
 pnpm --filter pwa-playground preview     # http://localhost:4173
 pnpm --filter pwa-playground lint        # tsc --noEmit + laymos lint
@@ -78,7 +78,7 @@ get the Update Prompt.
 `.github/workflows/deploy-pwa-playground.yml` deploys `prod` at
 `pwa.kishore.app` on pushes to `main`, and `pr<N>` previews at
 `pr<N>-pwa.kishore.app` for pull requests that touch the app or any workspace
-package it depends on (such as `pwa-toolkit`).
+package it depends on (such as `@kstackz/pwa-toolkit`).
 `cleanup-pwa-playground.yml` destroys a preview when its PR closes. CI sets
 `BUILD_LABEL` to the run id and attempt. A manual dispatch takes `stage`,
 `pwa_enabled` (a Kill Switch deploy), `pwa_preset` and `pwa_update_mode`.

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,9 +10,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from 'kui-toolkit/components/ui/alert-dialog';
-import { Trash2Icon } from 'kui-toolkit/lucide';
-import { toast } from 'kui-toolkit/components/ui/sonner';
+} from '@kstackz/ui-toolkit/components/ui/alert-dialog';
+import { Trash2Icon } from '@kstackz/ui-toolkit/lucide';
+import { toast } from '@kstackz/ui-toolkit/components/ui/sonner';
 
 /** Flow toolbar actions. */
 export function Header({ onClear }: { onClear: () => Promise<number> }) {

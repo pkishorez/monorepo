@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { StdTable } from 'std-toolkit/db';
+import { StdTable } from '@kstackz/std-toolkit/db';
 
 // Runs a table declaration and hands back the reason it was refused, or `built` when it was not.
 const outcome = (build: () => unknown) =>

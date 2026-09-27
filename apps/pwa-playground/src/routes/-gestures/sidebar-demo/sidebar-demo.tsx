@@ -1,6 +1,10 @@
-import { GestureZone } from 'kui-toolkit/components/blocks/gestures';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { motion, type MotionValue, useTransform } from 'kui-toolkit/motion';
+import { GestureZone } from '@kstackz/ui-toolkit/components/blocks/gestures';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import {
+  motion,
+  type MotionValue,
+  useTransform,
+} from '@kstackz/ui-toolkit/motion';
 import { useLabSidebar } from '../sidebar/index.ts';
 import { PANEL_WIDTH, usePanelGestures } from './gestures.ts';
 

@@ -11,9 +11,12 @@ const factory = monotonicFactory();
  * during synchronous execution (e.g. Cloudflare Workers). Override in tests
  * via `Effect.provideService(Ulid, () => ...)` for deterministic IDs.
  */
-export const Ulid = Context.Reference<() => string>('std-toolkit/Ulid', {
-  defaultValue: () => factory,
-});
+export const Ulid = Context.Reference<() => string>(
+  '@kstackz/std-toolkit/Ulid',
+  {
+    defaultValue: () => factory,
+  },
+);
 
 /** Yields a fresh monotonic ULID from the {@link Ulid} generator. */
 export const nextUlid: Effect.Effect<string> = Effect.gen(function* () {

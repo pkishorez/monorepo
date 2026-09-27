@@ -80,7 +80,7 @@ export class ValueESchema<
 
   '~standard' = {
     version: 1 as const,
-    vendor: 'std-toolkit/eschema',
+    vendor: '@kstackz/std-toolkit/eschema',
     types: {
       input: null as unknown as ValueSchemaType<TLatest>,
       output: null as unknown as ValueSchemaType<TLatest>,

@@ -1,4 +1,4 @@
-import { createTheme } from 'kui-toolkit/components/blocks/theme';
+import { createTheme } from '@kstackz/ui-toolkit/components/blocks/theme';
 
 const cookieDomain =
   typeof location === 'undefined'

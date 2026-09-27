@@ -1,6 +1,6 @@
 import { Effect, Semaphore } from 'effect';
 import { useEffect, useState } from 'react';
-import { LoaderCircle } from 'kui-toolkit/lucide';
+import { LoaderCircle } from '@kstackz/ui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../queries/index.ts';
 import { ExplorerTree } from './explorer-tree.tsx';

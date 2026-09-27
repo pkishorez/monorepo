@@ -6,7 +6,7 @@ std-toolkit will protect persisted data by snapshotting the semantic contracts d
 
 ## Decision
 
-Every ESchema and adapter table can synchronously produce an opt-in snapshot. `std-toolkit/snapshot` owns the shared pure operations for inspecting, diffing, and rendering snapshots, while decoding unknown stored JSON returns an Effect that validates references and migrates older snapshot formats through an internal ESchema.
+Every ESchema and adapter table can synchronously produce an opt-in snapshot. `@kstackz/std-toolkit/snapshot` owns the shared pure operations for inspecting, diffing, and rendering snapshots, while decoding unknown stored JSON returns an Effect that validates references and migrates older snapshot formats through an internal ESchema.
 
 An ESchema snapshot describes the encoded and decoded data contract of every version using Effect Schema representations. Nested ESchemas are stored once under stable identities and referenced from every use, so evolving a child is visible as a safe transitive change without requiring a parent version. Migrations, presentation-only annotations, and singleton default values are excluded because they are not persisted data contracts. Stable public Effect transformations are named; custom or unstable transformations retain their encoded and decoded sides but are marked `unverifiable`.
 

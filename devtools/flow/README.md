@@ -1,4 +1,4 @@
-# @pkishorez/flow
+# @kstackz/flow
 
 Flow journals for Effect programs: participants record what happened, DevTools shows it as a swim lane
 
@@ -13,10 +13,10 @@ knows the id writes to the same Journal. Nothing is declared up front.
 Entries go to the runtime's Flow Telemetry. Without one they are dropped.
 `FlowTelemetry.layerMemory` keeps them for tests and Stories;
 `FlowTelemetry.layer` batches them to a Flow Store over RPC. The
-[@pkishorez/devtools](../devtools/README.md) DevTools Server hosts that store and renders
+[@kstackz/devtools](../devtools/README.md) DevTools Server hosts that store and renders
 each Journal as swim lanes. `projectJournal` is the one read model a renderer
 consumes. Entries recorded inside a span carry the span's ids, which is how
-the Flow view links into [@pkishorez/lotel](../lotel/README.md) traces.
+the Flow view links into [@kstackz/lotel](../lotel/README.md) traces.
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
 [docs/adr/](./docs/adr/).
@@ -24,7 +24,7 @@ Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
 ## Install
 
 ```sh
-pnpm add @pkishorez/flow
+pnpm add @kstackz/flow
 ```
 
 Peer dependencies:
@@ -34,7 +34,7 @@ Peer dependencies:
 
 ## Exports
 
-### `@pkishorez/flow`
+### `@kstackz/flow`
 
 Runs anywhere Effect runs.
 
@@ -70,7 +70,7 @@ Runs anywhere Effect runs.
 | `ProjectionWarningKindSchema` | The four warning kinds.                                                                           |
 | `FlowStatusSchema`            | `active`, `failed`, `quiet`, or `closed`.                                                         |
 
-### `@pkishorez/flow/rpc`
+### `@kstackz/flow/rpc`
 
 Browser-safe. The contract between a process and a Flow Store.
 
@@ -84,7 +84,7 @@ Browser-safe. The contract between a process and a Flow Store.
 | `ListFlowEntriesResultSchema`  | A page of stored Entries.                                               |
 | `ClearFlowsResultSchema`       | How many Entries were deleted.                                          |
 
-### `@pkishorez/flow/client`
+### `@kstackz/flow/client`
 
 Browser-safe. Uses `fetch`.
 
@@ -103,7 +103,7 @@ collects the Entries, and the Journal lists them in recorded order.
 
 ```ts
 import { Effect } from 'effect';
-import { Flow, FlowTelemetry } from '@pkishorez/flow';
+import { Flow, FlowTelemetry } from '@kstackz/flow';
 
 const sink = FlowTelemetry.makeMemory({ origin: 'test' });
 const flow = Flow.make({ id: 'transfer:1' });
@@ -148,7 +148,7 @@ only about authoring mistakes.
 
 ```ts
 import { Effect } from 'effect';
-import { Flow, FlowTelemetry, projectJournal } from '@pkishorez/flow';
+import { Flow, FlowTelemetry, projectJournal } from '@kstackz/flow';
 
 const sink = FlowTelemetry.makeMemory();
 const flow = Flow.make({ id: 'fails' });
@@ -181,7 +181,7 @@ runtime lands in the DevTools Flow Store.
 
 ```ts
 import { Layer, ManagedRuntime } from 'effect';
-import { FlowTelemetry } from '@pkishorez/flow';
+import { FlowTelemetry } from '@kstackz/flow';
 
 const runtime = ManagedRuntime.make(
   FlowTelemetry.layer({

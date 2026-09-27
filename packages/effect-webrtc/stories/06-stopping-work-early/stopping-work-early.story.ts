@@ -1,5 +1,5 @@
 import { Deferred, Effect, Fiber, Stream } from 'effect';
-import { PeerId, WebRtc } from 'effect-webrtc';
+import { PeerId, WebRtc } from '@kstackz/effect-webrtc';
 import { Story } from 'laymos/story';
 import { Activity, memoryWebRtc } from '../support.js';
 

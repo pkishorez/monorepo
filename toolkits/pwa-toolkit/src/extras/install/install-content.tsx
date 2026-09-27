@@ -1,5 +1,5 @@
-import { Button } from 'kui-toolkit/components/ui/button';
-import { ShareIcon, SquarePlusIcon } from 'kui-toolkit/lucide';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { ShareIcon, SquarePlusIcon } from '@kstackz/ui-toolkit/lucide';
 import type { ReactNode } from 'react';
 
 /** iOS Safari has no install API; the user adds the app from the Share sheet. */

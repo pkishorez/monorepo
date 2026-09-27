@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   useDisplayMode,
   useOnline,
   useStoragePersistence,
-} from 'pwa-toolkit/extras';
-import { usePwa } from 'pwa-toolkit/react';
+} from '@kstackz/pwa-toolkit/extras';
+import { usePwa } from '@kstackz/pwa-toolkit/react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Actions,

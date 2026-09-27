@@ -1,4 +1,4 @@
-import { FlowTelemetry, projectJournal } from '@pkishorez/flow';
+import { FlowTelemetry, projectJournal } from '@kstackz/flow';
 import { Deferred, Effect, Fiber, Option, Queue, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
 import { describe, expect, it } from 'vitest';

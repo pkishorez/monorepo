@@ -1,11 +1,18 @@
 import { Link } from '@tanstack/react-router';
-import { Button, buttonVariants } from 'kui-toolkit/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from 'kui-toolkit/components/ui/tabs';
+import {
+  Button,
+  buttonVariants,
+} from '@kstackz/ui-toolkit/components/ui/button';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '@kstackz/ui-toolkit/components/ui/tabs';
 import {
   CircleQuestionMarkIcon,
   HouseIcon,
   MenuIcon,
-} from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/lucide';
 import { useLabSidebar } from '../sidebar/index.ts';
 import { DEMO_IDS, DEMOS, type DemoId } from './demos.ts';
 

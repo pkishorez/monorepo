@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { SidebarRail, useSidebar } from 'kui-toolkit/components/ui/sidebar';
+import {
+  SidebarRail,
+  useSidebar,
+} from '@kstackz/ui-toolkit/components/ui/sidebar';
 
 export const defaultSidebarWidth = 256;
 export const minimumSidebarWidth = 224;

@@ -1,5 +1,5 @@
 import { Effect, References } from 'effect';
-import { PeerId } from 'effect-webrtc';
+import { PeerId } from '@kstackz/effect-webrtc';
 import { Command } from 'effect/unstable/cli';
 import { nodeNetwork, reportSession, sendMessage, startPeer } from './peer.ts';
 import { identity, readLines } from './prompt.ts';

@@ -1,6 +1,6 @@
 import { Context, Duration, Effect } from 'effect';
-import { makeTraceRecorder } from '@pkishorez/effect-tracer/recorder';
-import { FlowTelemetry } from '@pkishorez/flow';
+import { makeTraceRecorder } from '@kstackz/effect-tracer/recorder';
+import { FlowTelemetry } from '@kstackz/flow';
 
 import type { QuestionSection } from './schema/index.js';
 

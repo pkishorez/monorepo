@@ -1,7 +1,7 @@
 import { Effect, Fiber, Stream } from 'effect';
 import { Story } from 'laymos/story';
-import { defaultBroadcaster } from 'std-toolkit/core';
-import { StdTable } from 'std-toolkit/db';
+import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
+import { StdTable } from '@kstackz/std-toolkit/db';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { task } from '../../02-more-ways-in/10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';

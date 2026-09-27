@@ -1,6 +1,6 @@
 # Sync guide
 
-Detailed behaviour of `std-toolkit/sync`. The README covers setup and the
+Detailed behaviour of `@kstackz/std-toolkit/sync`. The README covers setup and the
 common shapes; this page covers the rules you need once a Collection is live.
 Vocabulary is in [src/sync/CONTEXT.md](../src/sync/CONTEXT.md). Decisions are
 in [src/sync/docs/adr/](../src/sync/docs/adr/).

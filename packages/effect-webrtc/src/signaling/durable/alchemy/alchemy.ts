@@ -1,6 +1,6 @@
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { validateTrustedOrigins } from 'auth-toolkit/worker';
-import { DurableRpcWorker } from 'rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
+import { validateTrustedOrigins } from '@kstackz/auth-toolkit/worker';
+import { DurableRpcWorker } from '@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
 import { DurableSignalingRpcs } from '../rpc/index.js';
 import {
   durableSignalingConnection,

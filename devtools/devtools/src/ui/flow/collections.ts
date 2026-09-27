@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import type { Entity } from 'std-toolkit/core';
-import { createStdSync, strategy } from 'std-toolkit/sync';
+import type { Entity } from '@kstackz/std-toolkit/core';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import {
   DevtoolsClient,
   makeDevtoolsClientLayer,

@@ -1,8 +1,8 @@
 import {
   type GestureSpring,
   useSwipe,
-} from 'kui-toolkit/components/blocks/gestures';
-import { useTransform } from 'kui-toolkit/motion';
+} from '@kstackz/ui-toolkit/components/blocks/gestures';
+import { useTransform } from '@kstackz/ui-toolkit/motion';
 
 export const SIDEBAR_WIDTH = 288;
 

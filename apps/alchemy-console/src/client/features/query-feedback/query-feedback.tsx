@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 
 export function QueryError({
   message,

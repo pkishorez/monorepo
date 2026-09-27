@@ -6,9 +6,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from 'kui-toolkit/components/ui/card';
-import { ArrowLeftIcon, ArrowRightIcon } from 'kui-toolkit/lucide';
-import { cn } from 'kui-toolkit/utils';
+} from '@kstackz/ui-toolkit/components/ui/card';
+import { ArrowLeftIcon, ArrowRightIcon } from '@kstackz/ui-toolkit/lucide';
+import { cn } from '@kstackz/ui-toolkit/utils';
 import type { ReactNode } from 'react';
 import { scenarioAt, scenarios } from '../lib/scenarios.ts';
 

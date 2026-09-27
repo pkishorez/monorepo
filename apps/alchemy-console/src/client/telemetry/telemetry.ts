@@ -1,4 +1,4 @@
-import { makeDevTelemetryLayer } from '@pkishorez/effect-tracer/telemetry/dev-telemetry';
+import { makeDevTelemetryLayer } from '@kstackz/effect-tracer/telemetry/dev-telemetry';
 import { Layer } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 

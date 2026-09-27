@@ -5,7 +5,7 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
+import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
 import appCss from '@/styles/app.css?url';
 import { appName } from '@/lib/shared';
 import { appTheme } from '@/lib/layout.shared';

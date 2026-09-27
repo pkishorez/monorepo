@@ -10,9 +10,12 @@ import {
   Stream,
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
-import { verifyRequest } from 'auth-toolkit/server';
-import { isTrustedOrigin, validateTrustedOrigins } from 'auth-toolkit/worker';
-import type { ConnectionSlot } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { verifyRequest } from '@kstackz/auth-toolkit/server';
+import {
+  isTrustedOrigin,
+  validateTrustedOrigins,
+} from '@kstackz/auth-toolkit/worker';
+import type { ConnectionSlot } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
 import {
   ConnectionMetadata,
@@ -45,7 +48,7 @@ const resolveRequestValue = <A>(value: RequestValue<A>, request: Request): A =>
     : value;
 
 const ConnectionContext = Context.Reference<DurableConnection>(
-  'effect-webrtc/DurableConnection',
+  '@kstackz/effect-webrtc/DurableConnection',
   {
     defaultValue: () => {
       throw new Error('Durable signaling RPC called without a connection');

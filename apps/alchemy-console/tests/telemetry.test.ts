@@ -1,11 +1,11 @@
 import { Effect } from 'effect';
 import type { OtlpLogger, OtlpTracer } from 'effect/unstable/observability';
-import { SQLite } from 'std-toolkit/db/sqlite';
-import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { afterEach, expect, it, vi } from 'vite-plus/test';
 
 const mocks = vi.hoisted(() => ({ makeDatabase: vi.fn() }));
-vi.mock('std-toolkit/db/sqlite/d1', () => ({
+vi.mock('@kstackz/std-toolkit/db/sqlite/d1', () => ({
   makeD1SQLite: mocks.makeDatabase,
 }));
 

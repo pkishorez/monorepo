@@ -45,7 +45,7 @@ const buildFixture = async (
     cacheDir: join(temp, `${name}-cache`),
     resolve: {
       alias: {
-        'pwa-toolkit/worker': join(root, 'src/fake-worker.js'),
+        '@kstackz/pwa-toolkit/worker': join(root, 'src/fake-worker.js'),
       },
     },
     build: { outDir, assetsInlineLimit: 0, sourcemap: true },

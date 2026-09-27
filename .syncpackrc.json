@@ -3,60 +3,26 @@
   "strict": true,
   "versionGroups": [
     {
-      "label": "kui-toolkit internal peers support compatible releases",
-      "packages": ["kui-toolkit"],
-      "dependencies": [
-        "@pkishorez/effect-tracer",
-        "@pkishorez/flow",
-        "@pkishorez/lotel",
-        "laymos",
-        "std-toolkit",
-        "use-effect-ts"
-      ],
-      "dependencyTypes": ["peer"],
-      "pinVersion": "workspace:^"
-    },
-    {
-      "label": "kui-toolkit public peers use supported ranges",
-      "packages": ["kui-toolkit"],
-      "dependencyTypes": ["peer"],
-      "policy": "semverRangeOnly"
-    },
-    {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
       "packages": ["public-monorepo", "docs", "pwa-playground"],
       "isIgnored": true
     },
     {
-      "label": "std-toolkit supports React 18 and 19 peers",
-      "dependencies": ["react"],
-      "dependencyTypes": ["peer"],
-      "packages": ["std-toolkit"],
-      "policy": "semverRangeOnly"
-    },
-    {
-      "label": "std-toolkit supports a broad @tanstack/react-db peer range",
-      "dependencies": ["@tanstack/react-db"],
-      "dependencyTypes": ["peer"],
-      "packages": ["std-toolkit"],
-      "policy": "semverRangeOnly"
-    },
-    {
       "label": "Internal dependencies use workspace:* everywhere",
       "dependencies": [
-        "kai-toolkit",
-        "auth-toolkit",
-        "@pkishorez/devtools",
-        "@pkishorez/effect-tracer",
-        "effect-webrtc",
-        "@pkishorez/flow",
+        "@kstackz/ai-toolkit",
+        "@kstackz/auth-toolkit",
+        "@kstackz/devtools",
+        "@kstackz/effect-tracer",
+        "@kstackz/effect-webrtc",
+        "@kstackz/flow",
         "laymos",
-        "@pkishorez/lotel",
-        "kui-toolkit",
-        "pwa-toolkit",
-        "rpc-toolkit",
-        "std-toolkit",
+        "@kstackz/lotel",
+        "@kstackz/ui-toolkit",
+        "@kstackz/pwa-toolkit",
+        "@kstackz/rpc-toolkit",
+        "@kstackz/std-toolkit",
         "use-effect-ts"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
@@ -81,48 +47,20 @@
   ],
   "semverGroups": [
     {
-      "label": "kui-toolkit registry peers use compatible ranges",
-      "packages": ["kui-toolkit"],
-      "dependencies": [
-        "@tanstack/react-db",
-        "@tanstack/react-query",
-        "effect",
-        "react",
-        "react-dom",
-        "zustand"
-      ],
-      "dependencyTypes": ["peer"],
-      "range": "^"
-    },
-    {
-      "label": "std-toolkit supports React 18 and 19 peers",
-      "dependencies": ["react"],
-      "dependencyTypes": ["peer"],
-      "packages": ["std-toolkit"],
-      "isIgnored": true
-    },
-    {
-      "label": "std-toolkit supports a broad @tanstack/react-db peer range",
-      "dependencies": ["@tanstack/react-db"],
-      "dependencyTypes": ["peer"],
-      "packages": ["std-toolkit"],
-      "isIgnored": true
-    },
-    {
       "label": "Internal workspace protocols are enforced by version groups",
       "dependencies": [
-        "kai-toolkit",
-        "auth-toolkit",
-        "@pkishorez/devtools",
-        "@pkishorez/effect-tracer",
-        "effect-webrtc",
-        "@pkishorez/flow",
+        "@kstackz/ai-toolkit",
+        "@kstackz/auth-toolkit",
+        "@kstackz/devtools",
+        "@kstackz/effect-tracer",
+        "@kstackz/effect-webrtc",
+        "@kstackz/flow",
         "laymos",
-        "@pkishorez/lotel",
-        "kui-toolkit",
-        "pwa-toolkit",
-        "rpc-toolkit",
-        "std-toolkit",
+        "@kstackz/lotel",
+        "@kstackz/ui-toolkit",
+        "@kstackz/pwa-toolkit",
+        "@kstackz/rpc-toolkit",
+        "@kstackz/std-toolkit",
         "use-effect-ts"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],

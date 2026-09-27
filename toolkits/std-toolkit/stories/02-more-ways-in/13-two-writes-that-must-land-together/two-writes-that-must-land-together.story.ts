@@ -1,6 +1,6 @@
 import { Effect, Match } from 'effect';
 import { Story } from 'laymos/story';
-import type { DatabaseError } from 'std-toolkit/db';
+import type { DatabaseError } from '@kstackz/std-toolkit/db';
 import { fresh } from '../../env.js';
 import {
   table,

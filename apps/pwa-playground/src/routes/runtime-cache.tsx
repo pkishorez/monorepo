@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Badge } from 'kui-toolkit/components/ui/badge';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { clearRuntimeCache } from 'pwa-toolkit/react';
+import { Badge } from '@kstackz/ui-toolkit/components/ui/badge';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { clearRuntimeCache } from '@kstackz/pwa-toolkit/react';
 import { useState } from 'react';
 import {
   Actions,

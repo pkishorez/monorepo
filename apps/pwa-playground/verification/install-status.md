@@ -63,7 +63,7 @@ Pixel 7 (412px) and iPhone 14 (390px) emulation; screenshot `install-status-7.pn
 - No horizontal overflow: `scrollWidth` equals the viewport width (412 and 390).
 - InstallPrompt sheet: "Not now", "Install" and "Got it" are 44px tall and full width. Pass.
 - **FAIL (minor): the sheet's close (X) button is 32x32, under 44px.**
-  - Cause: `toolkits/kui-toolkit/src/components/ui/sheet.tsx`, where `SheetContent` renders its built-in close with `size="icon-sm"`.
+  - Cause: `toolkits/ui-toolkit/src/components/ui/sheet.tsx`, where `SheetContent` renders its built-in close with `size="icon-sm"`.
   - Fix: in `InstallPrompt`, pass `showCloseButton={false}` (the footer already has "Not now" / "Got it"), or render a close button with a 44px hit area on small screens (for example `size="icon"` plus `min-h-11 min-w-11`).
 - OfflineIndicator: the "You're offline" pill is centered at top 8px and 28px tall. It is `pointer-events-none`, so it blocks no taps.
   - While the install sheet is open, the pill sits under the sheet's blurred backdrop.

@@ -1,5 +1,5 @@
 import { Effect, Option, Stream } from 'effect';
-import { PeerId, WebRtc } from 'effect-webrtc';
+import { PeerId, WebRtc } from '@kstackz/effect-webrtc';
 import { Story } from 'laymos/story';
 import { memoryWebRtc } from '../support.js';
 

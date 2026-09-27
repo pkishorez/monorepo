@@ -1,4 +1,4 @@
-# std-toolkit/sync
+# @kstackz/std-toolkit/sync
 
 Effect-based synchronization of TanStack DB Collections from an authoritative backend, with a local copy that survives reloads and one tab reading for all.
 
@@ -16,7 +16,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 
 ## Exports
 
-### `std-toolkit/sync`
+### `@kstackz/std-toolkit/sync`
 
 | Export              | What it does                                                                              |
 | ------------------- | ----------------------------------------------------------------------------------------- |
@@ -27,7 +27,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `memory`            | The default Platform: ephemeral storage, no Leadership, no Doorbell.                      |
 | `syncStore`         | The StdTable definition the Sync Store persists through, for building a custom Platform.  |
 
-### `std-toolkit/sync/paced`
+### `@kstackz/std-toolkit/sync/paced`
 
 | Export             | What it does                                                                                         |
 | ------------------ | ---------------------------------------------------------------------------------------------------- |
@@ -35,7 +35,7 @@ See the [top README](../../README.md). This subpath needs the optional peers `@t
 | `coalesceStrategy` | Constructs one coalesce pacer directly.                                                              |
 | `buildPacedUpdate` | Builds a paced update function from a pacer, an optimistic apply callback, and a commit.             |
 
-### `std-toolkit/sync/platform/browser`
+### `@kstackz/std-toolkit/sync/platform/browser`
 
 | Export          | What it does                                                                             |
 | --------------- | ---------------------------------------------------------------------------------------- |
@@ -51,8 +51,8 @@ A partition keyed on `boardId` starts when a TanStack query filters on that fiel
 
 ```ts
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
-import { createStdSync, strategy } from 'std-toolkit/sync';
-import { browser } from 'std-toolkit/sync/platform/browser';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
+import { browser } from '@kstackz/std-toolkit/sync/platform/browser';
 
 const app = createStdSync({ name: 'board', platform: browser() });
 

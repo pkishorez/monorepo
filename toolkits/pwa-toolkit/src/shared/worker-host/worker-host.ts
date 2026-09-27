@@ -19,4 +19,4 @@ interface WorkerHostService {
 export class WorkerHost extends Context.Service<
   WorkerHost,
   WorkerHostService
->()('pwa-toolkit/WorkerHost') {}
+>()('@kstackz/pwa-toolkit/WorkerHost') {}

@@ -1,12 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { Context, Data, Effect, Layer } from 'effect';
-import type { Entry } from '@pkishorez/flow';
-import { FlowRpc, FlowRpcError, type FlowCursor } from '@pkishorez/flow/rpc';
-import type { Entity } from 'std-toolkit/core';
-import { StdTable } from 'std-toolkit/db';
-import { SQLite, type SQLiteDriver } from 'std-toolkit/db/sqlite';
-import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+import type { Entry } from '@kstackz/flow';
+import { FlowRpc, FlowRpcError, type FlowCursor } from '@kstackz/flow/rpc';
+import type { Entity } from '@kstackz/std-toolkit/core';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { SQLite, type SQLiteDriver } from '@kstackz/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import {
   FlowEntryEntitySchema,
   type FlowEntryRecord,

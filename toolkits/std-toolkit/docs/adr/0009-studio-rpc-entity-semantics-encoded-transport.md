@@ -1,6 +1,6 @@
 # Studio RPC exposes Entity semantics through encoded transport
 
-`std-toolkit/studio-rpc` exposes one generic, read-only Effect RPC group for one runtime-bound StdTable. `Studio.GetTableSnapshot`, `Studio.GetEntity`, and `Studio.QueryEntities` discover the table at runtime and delegate reads to its existing keyed and singleton Entity surfaces, then encode their results as `EncodedEntity` or `EncodedSingleEntity` values for reliable transport; the separately hosted Studio can therefore use one shared client contract without generated application types.
+`@kstackz/std-toolkit/studio-rpc` exposes one generic, read-only Effect RPC group for one runtime-bound StdTable. `Studio.GetTableSnapshot`, `Studio.GetEntity`, and `Studio.QueryEntities` discover the table at runtime and delegate reads to its existing keyed and singleton Entity surfaces, then encode their results as `EncodedEntity` or `EncodedSingleEntity` values for reliable transport; the separately hosted Studio can therefore use one shared client contract without generated application types.
 
 ## Considered Options
 
