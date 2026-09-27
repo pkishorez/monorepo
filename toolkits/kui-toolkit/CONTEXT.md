@@ -46,10 +46,6 @@ _Avoid_: gesture conflict, edge zone
 An element region where the app owns touch input: its bounds minus the viewport's edge strips, whose Edge Ownership lies elsewhere or is reserved for edge gestures. Vertical scrolling stays native inside it until a touch is Captured, and a touch that starts in a native scroller inside it belongs to that scroller.
 _Avoid_: touch area, gesture surface, hit area
 
-**Recognizer**:
-One gesture's reader inside the gestures engine, moving through possible, began, changed, ended, cancelled or failed. The first recognizer to become certain claims the touch and the rest fail.
-_Avoid_: detector, gesture handler, listener
-
 **Capture**:
 The Gesture Zone taking a touch from the browser once the app owns it — a pan started, or an Anchor locked — so the page cannot scroll until every finger lifts. A touch the browser has already started scrolling can no longer be Captured.
 _Avoid_: grab, prevent scroll
