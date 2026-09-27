@@ -61,15 +61,6 @@ export const useThemeValue = (): Theme =>
 
 export const setThemeValue = (theme: Theme, cookieDomain?: string): void => {
   writeThemeCookie(theme, cookieDomain);
-  const apply = () => {
-    publish(theme, true);
-    window.dispatchEvent(new Event(THEME_CHANGED));
-  };
-  // iOS 26 re-samples the status bar from the page only on a view transition,
-  // as route changes do; a plain style change leaves the old color behind.
-  if (typeof document.startViewTransition === 'function') {
-    document.startViewTransition(apply);
-  } else {
-    apply();
-  }
+  publish(theme, true);
+  window.dispatchEvent(new Event(THEME_CHANGED));
 };

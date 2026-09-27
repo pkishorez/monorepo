@@ -83,28 +83,6 @@ describe('theme document integration', () => {
     ).toBe('#ffffff');
   });
 
-  it('switches inside a view transition so iOS re-samples the status bar', () => {
-    vi.stubGlobal('requestAnimationFrame', () => 1);
-    const pending: Array<() => void> = [];
-    document.startViewTransition = ((update: () => void) => {
-      pending.push(update);
-    }) as typeof document.startViewTransition;
-    try {
-      applyThemeToDocument('dark');
-      setThemeValue('light');
-      expect(document.documentElement.dataset.theme).toBe('dark');
-      pending.forEach((update) => update());
-      expect(document.documentElement.dataset.theme).toBe('light');
-      expect(
-        document
-          .querySelector('meta[name="theme-color"]')
-          ?.getAttribute('content'),
-      ).toBe('#ffffff');
-    } finally {
-      Reflect.deleteProperty(document, 'startViewTransition');
-    }
-  });
-
   it('keeps manifest colors inside the KUI theme controller', () => {
     const theme = createTheme();
     expect(theme.manifest('dark')).toEqual({
