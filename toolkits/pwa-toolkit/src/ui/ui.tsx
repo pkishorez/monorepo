@@ -99,7 +99,7 @@ export const InstallPrompt = (props: {
   return (
     <aside
       aria-labelledby={titleId}
-      className="fixed right-4 bottom-4 z-50 w-full max-w-sm"
+      className="fixed right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 w-full max-w-sm animate-in duration-200 ease-out fade-in slide-in-from-bottom-2 motion-reduce:animate-none"
     >
       <Card size="sm" className="shadow-lg">
         <CardHeader>
@@ -131,7 +131,7 @@ export const OfflineIndicator = (props: {
       className="pointer-events-none fixed inset-x-0 top-[max(0.5rem,env(safe-area-inset-top))] z-60 flex justify-center"
     >
       {!online && (
-        <span className="inline-flex items-center gap-2 rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background shadow-md">
+        <span className="inline-flex animate-in items-center gap-2 rounded-full bg-foreground px-3 py-1.5 text-xs font-medium text-background shadow-md duration-200 ease-out fade-in slide-in-from-top-1 motion-reduce:animate-none">
           <WifiOffIcon aria-hidden="true" className="size-3.5" />
           {props.message ?? "You're offline"}
         </span>

@@ -31,7 +31,7 @@
     },
     "components": {
       "paths": ["src/components"],
-      "description": "Scenario page layout and the app header",
+      "description": "App header, scenario nav, scenario page layout, status strip and theme toggle",
       "modules": {
         "src/components": {
           "exposed": true
@@ -49,22 +49,38 @@
     },
     "lib": {
       "paths": ["src/lib"],
-      "description": "Build info, scenario list, Runtime Cache rules, API helpers",
+      "description": "Build info, scenario list and transition order, worker snapshot, Runtime Cache rules, API helpers",
       "modules": {
-        "src/lib/build.ts": { "exposed": true },
-        "src/lib/meta.ts": { "shared": true, "exposed": true },
-        "src/lib/scenarios.ts": { "exposed": true },
-        "src/lib/runtime-cache-rules.ts": { "exposed": true },
-        "src/lib/served.ts": { "exposed": true },
-        "src/lib/data.ts": { "exposed": true }
+        "src/lib/build.ts": {
+          "exposed": true
+        },
+        "src/lib/meta.ts": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/lib/scenarios.ts": {
+          "exposed": true
+        },
+        "src/lib/runtime-cache-rules.ts": {
+          "exposed": true
+        },
+        "src/lib/served.ts": {
+          "exposed": true
+        },
+        "src/lib/data.ts": {
+          "exposed": true
+        },
+        "src/lib/workers.ts": {
+          "exposed": true
+        }
       }
     }
   },
   "layerGraphs": {
     "pwa-playground": {
-      "description": "Entries over routes over components over lib; the worker and the rpc page share the rpc group",
+      "description": "Entries over routes over components over lib; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
       "rules": {
-        "entry": ["rpc"],
+        "entry": ["rpc", "lib"],
         "routes": ["components", "lib", "rpc"],
         "infra": [],
         "components": ["lib"],
