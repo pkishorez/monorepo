@@ -633,6 +633,9 @@
       "paths": ["src/lib"],
       "description": "Shared utilities and framework adapters",
       "modules": {
+        "src/lib/haptics.ts": {
+          "exposed": true
+        },
         "src/lib/lucide.ts": {
           "exposed": true
         },

@@ -4,7 +4,6 @@ import { measureZone, nativeScrollers } from '../zone';
 
 /** The last tap anywhere in the tree, for layers to answer; `count` tells a new one from the last. */
 export type TapMark = {
-  readonly kind: 'tap' | 'double-tap';
   readonly x: number;
   readonly y: number;
   readonly count: number;
@@ -83,7 +82,6 @@ export const createTree = (environment: () => Environment) => {
       if (event.kind === 'touch' && event.phase === 'start') active = member;
       if (event.kind === 'tap') {
         tap = {
-          kind: event.count === 2 ? 'double-tap' : 'tap',
           x: event.point.x,
           y: event.point.y,
           count: (tap?.count ?? 0) + 1,

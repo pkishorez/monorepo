@@ -166,16 +166,14 @@ export const tapsFor = (node: Node, tap: TapEvent) =>
     node,
     (registration) =>
       registration.gesture === 'tap' &&
-      registration.count === tap.count &&
       matches(registration, { fingers: tap.fingers, hold: tap.hold?.side }),
   );
 
-export const doubleTapIn = (node: Node, combination: Combination) =>
+/** Whether any hook in the chain answers a Hold on `side`. */
+export const holdUsedIn = (node: Node, side: Side) =>
   every(node).some(
     (registration) =>
-      registration.gesture === 'tap' &&
-      registration.count === 2 &&
-      matches(registration, combination),
+      registration.enabled() && holdMatches(registration.hold, side),
   );
 
 /** The hooks a movement's start goes to, and stays with until it ends. */

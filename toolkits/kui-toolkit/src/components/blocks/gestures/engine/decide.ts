@@ -8,9 +8,10 @@ import {
   sideOf,
 } from './group';
 import type { PointerTracker } from './pointers';
-import { HOLD_LEAD_MS, HOLD_STILL_PX, SLOP_PX, TAP_MAX_MS } from './thresholds';
+import { HOLD_LEAD_MS, SLOP_PX, TAP_MAX_MS } from './thresholds';
 import type {
   Direction,
+  Fingers,
   Point,
   Policy,
   Scroll,
@@ -38,11 +39,31 @@ export type Locked = {
   readonly point: Point;
 };
 
-/** A claimed Pan, Swipe or Pinch and the pointers making it. */
+/**
+ * The stretch of a claim since its fingers last changed: where each of them
+ * was as it began, and the travel and scale the claim had made before it.
+ */
+export type Leg = {
+  readonly from: Readonly<Record<number, Point>>;
+  readonly offset: Point;
+  readonly scale: number;
+};
+
+/**
+ * A claimed Pan, Swipe or Pinch. It lasts until the last of its fingers
+ * lifts: one lifting leaves the rest making it, and one landing again joins
+ * back, up to the number it started with.
+ */
 export type Claim = {
   readonly kind: 'pan' | 'swipe' | 'pinch';
   readonly direction: Direction | undefined;
+  /** The fingers making it now. */
   readonly ids: ReadonlyArray<number>;
+  /** How many fingers it started with. */
+  readonly size: Fingers;
+  /** Where its fingers went down, which its travel is measured from. */
+  readonly origin: Point;
+  readonly leg: Leg;
 };
 
 /** A finger of the press that lifted quickly, not having moved. */
@@ -63,13 +84,7 @@ export const FRESH_PRESS: Press = { tappers: [], spoiled: false };
 /** What the first movement past the slop makes of the touch. */
 export type Decision =
   | { readonly next: 'native' | 'ignoring' }
-  | { readonly next: 'moving'; readonly claim: Claim }
-  | {
-      readonly next: 'held.moving';
-      readonly hold: Locked;
-      readonly claim: Claim;
-    }
-  | { readonly next: 'held.ignoring'; readonly hold: Locked };
+  | { readonly next: 'moving'; readonly claim: Claim };
 
 const pastSlop = (track: Track) => track.travel > SLOP_PX;
 
@@ -79,22 +94,35 @@ const claimGroup = (
   tracks: ReadonlyArray<Track>,
   hold: Side | undefined,
 ): Claim | undefined => {
-  const ids = tracks.map((track) => track.id);
   const group = measureGroup(tracks);
+  const fingers = tracks.length === 2 ? 2 : 1;
+  const claim = (
+    kind: Claim['kind'],
+    direction: Direction | undefined,
+  ): Claim => ({
+    kind,
+    direction,
+    ids: tracks.map((track) => track.id),
+    size: fingers,
+    origin: group.down,
+    leg: {
+      from: Object.fromEntries(
+        tracks.map((track) => [track.id, pointOf(track.down)]),
+      ),
+      offset: { x: 0, y: 0 },
+      scale: 1,
+    },
+  });
   if (tracks.length === 2 && isPinch(group)) {
-    return situation.policy.pinch(hold)
-      ? { kind: 'pinch', direction: undefined, ids }
-      : undefined;
+    return situation.policy.pinch(hold) ? claim('pinch', undefined) : undefined;
   }
   const direction = directionOf(group.offset);
-  const fingers = tracks.length === 2 ? 2 : 1;
   const kind = situation.policy.movement(
     { fingers, hold },
     direction,
     hold === undefined ? situation.start?.edge : undefined,
   );
-  if (kind === undefined) return undefined;
-  return { kind, direction, ids };
+  return kind === undefined ? undefined : claim(kind, direction);
 };
 
 /**
@@ -116,10 +144,9 @@ const decideSingle = (situation: Situation, track: Track): Decision => {
 };
 
 /**
- * What the touch becomes when `moved` first passes the slop, with no Hold
- * yet: one finger pans or swipes; with more, the finger down longest locks
- * as the Hold if it stayed still, and the rest act; two moving together
- * Pinch or pan. Anything else is ignored until every finger lifts.
+ * What the touch becomes when `moved` first passes the slop, with no Hold:
+ * one finger pans or swipes; two that landed together Pinch or pan. Anything
+ * else is ignored until every finger lifts.
  */
 export const decideMovement = (
   situation: Situation,
@@ -127,39 +154,32 @@ export const decideMovement = (
 ): Decision | undefined => {
   if (!pastSlop(moved)) return undefined;
   const tracks = situation.pointers.list();
-  const [longest, ...others] = tracks;
-  if (longest === undefined) return undefined;
-  if (others.length === 0) return decideSingle(situation, longest);
-  if (others.length > 2) return { next: 'ignoring' };
-  const actingLandedAt = Math.min(...others.map((track) => track.down.t));
-  const deliberateHold = actingLandedAt - longest.down.t >= HOLD_LEAD_MS;
-  if (deliberateHold && longest.travel <= HOLD_STILL_PX) {
-    // Browsers report each finger's move of one frame as its own event, at
-    // one time, and not always in landing order. If the finger down longest
-    // has not reported this frame yet, it may be moving too: wait for one
-    // more move of `moved` before locking it as the Hold.
-    if (
-      longest.current.t < moved.current.t &&
-      moved.slopAt === moved.current.t
-    ) {
-      return undefined;
-    }
-    const hold: Locked = {
-      id: longest.id,
-      side: sideOf(
-        longest.current,
-        centroid(others.map((track) => track.current)),
-      ),
-      point: pointOf(longest.current),
-    };
-    const claim = claimGroup(situation, others, hold.side);
-    return claim === undefined
-      ? { next: 'held.ignoring', hold }
-      : { next: 'held.moving', hold, claim };
-  }
+  const [only, ...others] = tracks;
+  if (only === undefined) return undefined;
+  if (others.length === 0) return decideSingle(situation, only);
   if (others.length > 1) return { next: 'ignoring' };
   const claim = claimGroup(situation, tracks, undefined);
   return claim === undefined ? { next: 'ignoring' } : { next: 'moving', claim };
+};
+
+/**
+ * The Hold a finger landing locks: the one finger already down, still, if it
+ * landed at least the Hold lead before. Its side is fixed as it locks.
+ */
+export const lockOnLanding = (
+  situation: Situation,
+  landed: Track,
+): Locked | undefined => {
+  const [held, ...rest] = situation.pointers
+    .list()
+    .filter((track) => track.id !== landed.id);
+  if (held === undefined || rest.length > 0 || pastSlop(held)) return undefined;
+  if (landed.down.t - held.down.t < HOLD_LEAD_MS) return undefined;
+  return {
+    id: held.id,
+    side: sideOf(held.current, landed.current),
+    point: pointOf(held.current),
+  };
 };
 
 /** The acting fingers under a Hold: every pointer but the held one. */
@@ -218,7 +238,6 @@ export const tapOf = (
   if (last - first > TAP_MAX_MS) return undefined;
   return {
     kind: 'tap',
-    count: 1,
     fingers: tappers.length === 2 ? 2 : 1,
     hold:
       hold === undefined ? undefined : { side: hold.side, point: hold.point },
@@ -226,35 +245,24 @@ export const tapOf = (
   };
 };
 
-const lockBeside = (stayer: Track, tappers: ReadonlyArray<Tapper>): Locked => ({
-  id: stayer.id,
-  side: sideOf(stayer.current, centroid(tappers.map((tapper) => tapper.point))),
-  point: pointOf(stayer.current),
-});
-
 /** What a finger lifting does to a press with no Hold. */
 export type Lift =
   | { readonly next: 'tap'; readonly tap: TapEvent }
-  | { readonly next: 'hold-tap'; readonly hold: Locked; readonly tap: TapEvent }
-  | { readonly next: 'wait'; readonly press: Press; readonly waitMs: number }
   | { readonly next: 'done' }
   | { readonly next: 'continue'; readonly press: Press };
 
 /**
- * A finger lifts from a press with no Hold. Every finger up quickly makes a
- * tap of one or two fingers. One lifting quickly while another stays: the
- * one staying is the Hold at once if it has been down the tap time already;
- * otherwise wait for it to lift (a two-finger tap) or for the tap time to
- * run out (then it is the Hold after all, see {@link lockAfterWait}).
+ * A finger lifts from a press with no Hold: fingers that landed together
+ * make a tap of one or two once every one is up, if all lifted quickly.
  */
 export const decideLift = (
   situation: Situation,
   press: Press,
   lifted: Track,
 ): Lift => {
-  const remaining = situation.pointers.list();
+  const remaining = situation.pointers.list().length;
   if (!quick(press, lifted)) {
-    return remaining.length === 0
+    return remaining === 0
       ? { next: 'done' }
       : { next: 'continue', press: { tappers: [], spoiled: true } };
   }
@@ -266,49 +274,10 @@ export const decideLift = (
       up: lifted.current.t,
     },
   ];
-  const [stayer, ...rest] = remaining;
-  if (stayer === undefined) {
-    const tap = tapOf(tappers, undefined);
-    return tap === undefined ? { next: 'done' } : { next: 'tap', tap };
-  }
-  // Three down and one taps: the next to lift may make it a two-finger tap
-  // beside the one staying, the Hold.
-  if (rest.length === 1 && tappers.length === 1) {
+  if (remaining > 0)
     return { next: 'continue', press: { tappers, spoiled: false } };
-  }
-  if (rest.length > 0 || tappers.length > 2) {
-    return { next: 'continue', press: { tappers: [], spoiled: true } };
-  }
-  const now = lifted.current.t;
-  if (now - stayer.down.t >= TAP_MAX_MS) {
-    const hold = lockBeside(stayer, tappers);
-    const tap = tapOf(tappers, hold);
-    return tap === undefined
-      ? { next: 'continue', press: { tappers: [], spoiled: true } }
-      : { next: 'hold-tap', hold, tap };
-  }
-  const first = Math.min(
-    stayer.down.t,
-    ...tappers.map((tapper) => tapper.down),
-  );
-  return {
-    next: 'wait',
-    press: { tappers, spoiled: false },
-    waitMs: Math.max(0, first + TAP_MAX_MS - now),
-  };
-};
-
-/** The tap time ran out with the stayer still down: it locks as the Hold, and the taps were made with it. */
-export const lockAfterWait = (
-  situation: Situation,
-  press: Press,
-):
-  | { readonly hold: Locked; readonly tap: TapEvent | undefined }
-  | undefined => {
-  const [stayer, ...rest] = situation.pointers.list();
-  if (stayer === undefined || rest.length > 0) return undefined;
-  const hold = lockBeside(stayer, press.tappers);
-  return { hold, tap: tapOf(press.tappers, hold) };
+  const tap = tapOf(tappers, undefined);
+  return tap === undefined ? { next: 'done' } : { next: 'tap', tap };
 };
 
 /** An acting finger lifts under a Hold: a tap once every acting finger is up. */

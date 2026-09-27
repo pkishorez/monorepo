@@ -49,17 +49,12 @@ function Live(props: { readonly value: MotionValue<string> }) {
   return <motion.span>{props.value}</motion.span>;
 }
 
-const tapRow = (
-  id: string,
-  label: string,
-  count: 1 | 2,
-  fingers: 1 | 2,
-): Row => ({
+const tapRow = (id: string, label: string, fingers: 1 | 2): Row => ({
   id,
   label,
   live: false,
   Gesture: function TapGesture(props: CellProps) {
-    useTapCell({ ...props, count, fingers });
+    useTapCell({ ...props, fingers });
     return null;
   },
 });
@@ -84,11 +79,9 @@ const moveRow = (id: string, fingers: 1 | 2, mode: Mode): Row => ({
 });
 
 const rowsFor = (mode: Mode): ReadonlyArray<Row> => [
-  tapRow('tap', 'Tap', 1, 1),
-  tapRow('double-tap', 'Double tap', 2, 1),
+  tapRow('tap', 'Tap', 1),
   moveRow('move', 1, mode),
-  tapRow('tap-2', '2-finger tap', 1, 2),
-  tapRow('double-tap-2', '2-finger double tap', 2, 2),
+  tapRow('tap-2', '2-finger tap', 2),
   moveRow('move-2', 2, mode),
   {
     id: 'pinch',

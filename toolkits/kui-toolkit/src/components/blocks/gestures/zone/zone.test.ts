@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { createGestureEngine, type GestureEvent, type Policy } from '../engine';
 import { edgeStrips, type Environment } from '../../environment';
 import { bindPointers, ZONE_SELECTOR } from './bind';
@@ -65,11 +65,10 @@ const pointer = (
   return event;
 };
 
-// Every movement pans; one-finger taps wait for a double tap.
+// Every movement pans.
 const PANS: Policy = {
   movement: () => 'pan',
   pinch: () => true,
-  doubleTap: (combination) => combination.fingers === 1,
 };
 
 describe('bindPointers', () => {
@@ -104,7 +103,8 @@ describe('bindPointers', () => {
     element.dispatchEvent(pointer('pointerdown', 100, 0));
     expect(engine.inspect().fingers).toHaveLength(1);
     window.dispatchEvent(pointer('pointerup', 100, 50));
-    expect(engine.inspect().value).toBe('tapped');
+    expect(engine.inspect().fingers).toEqual([]);
+    expect(engine.inspect().value).toBe('idle');
   });
 
   it('leaves a touch in a nested Gesture Zone to that zone', () => {
@@ -253,18 +253,11 @@ describe('bindPointers', () => {
     expect(click()).toBe(true);
   });
 
-  it('runs double-tap waits on the page timers', () => {
-    vi.useFakeTimers();
-    try {
-      const { element, names } = setup();
-      element.dispatchEvent(pointer('pointerdown', 100, 0));
-      window.dispatchEvent(pointer('pointerup', 100, 40));
-      expect(names()).toEqual([]);
-      vi.advanceTimersByTime(400);
-      expect(names()).toEqual(['tap']);
-    } finally {
-      vi.useRealTimers();
-    }
+  it('fires a tap as the pointer lifts', () => {
+    const { element, names } = setup();
+    element.dispatchEvent(pointer('pointerdown', 100, 0));
+    window.dispatchEvent(pointer('pointerup', 100, 40));
+    expect(names()).toEqual(['tap']);
   });
 
   it('cancels what is under way when unbound', () => {

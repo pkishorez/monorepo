@@ -55,16 +55,12 @@ The Gesture Zone taking a touch from the browser once the app owns it — a Pan 
 _Avoid_: grab, prevent scroll
 
 **Hold**:
-A finger deliberately planted before other fingers act in the Gesture Zone. It works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them, and the lock lasts until it lifts, however many gestures they make. Fingers that land together express a multi-finger gesture, not a Hold.
+A finger deliberately planted before other fingers act in the Gesture Zone. It works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them. It locks the moment another finger lands, and its side is fixed then. The lock lasts until the held finger lifts, however far it wanders and however many gestures the others make. Fingers that land together express a multi-finger gesture, not a Hold.
 _Avoid_: anchor, chord, modifier, touch and hold (that is a long press)
 
 **Tap**:
-One or more fingers touching and lifting without meaningful movement. A Tap may wait briefly when the same Gesture Zone also handles a matching Double Tap.
-_Avoid_: click, press
-
-**Double Tap**:
-Two matching Taps close together in time and position. It takes priority over a matching single Tap when both are handled by the same Gesture Zone.
-_Avoid_: double click
+One or more fingers touching and lifting without meaningful movement. It fires as the fingers lift, never waiting for another Tap.
+_Avoid_: click, press, double tap (not a gesture)
 
 **Pan**:
 Fingers moving freely across the Gesture Zone, followed continuously; on release whatever they moved may coast on with their speed.
@@ -77,6 +73,14 @@ _Avoid_: fling, flick (only the fast release that can commit a Swipe)
 **Pinch**:
 Two fingers moving apart or together to scale around the point between them.
 _Avoid_: zoom (what an app may do with it), spread
+
+**Claim**:
+A Pan, Swipe or Pinch once classified. It stays that gesture until the last of its fingers lifts: one of them lifting and landing again rejoins it, up to the number it started with, and it releases only when none remain.
+_Avoid_: lock, session
+
+**Haptic**:
+A short vibration confirming a Tap or a Hold locking, where the device can vibrate. Opt-in per app; silent everywhere it is not supported.
+_Avoid_: vibration (the device capability), buzz, feedback
 
 **Level**:
 One step on the progressive ladder from plain web (0) through polished (1) and app-like (2) to native gestures (3). A pattern belongs to a Level and drops to the highest lower Level its Environment allows.

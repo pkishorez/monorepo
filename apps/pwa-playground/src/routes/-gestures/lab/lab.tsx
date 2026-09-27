@@ -24,10 +24,12 @@ export function GestureLab(props: {
   readonly onDebug: (debug: boolean) => void;
 }) {
   const [help, setHelp] = useState(false);
+  const [haptics, setHaptics] = useState(true);
   const { Screen, tutorial } = DEMOS[props.demo];
   return (
     <GestureProvider
       scroll="none"
+      haptics={haptics}
       data-testid="lab"
       data-demo={props.demo}
       className="fixed inset-0 h-dvh overflow-hidden bg-background text-foreground"
@@ -37,8 +39,10 @@ export function GestureLab(props: {
           <Menu
             demo={props.demo}
             debug={props.debug}
+            haptics={haptics}
             onDemo={props.onDemo}
             onDebug={props.onDebug}
+            onHaptics={setHaptics}
           />
         }
       >

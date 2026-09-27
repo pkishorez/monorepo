@@ -17,14 +17,9 @@ import { type Common, useLatest, useRegistration } from './register';
 const on = (options: { readonly enabled?: boolean }) => () =>
   options.enabled !== false;
 
-/**
- * Calls `onTap` for a tap of `fingers` with `hold`, or a double tap with
- * `count: 2`. A single tap waits for a second only when a double tap is
- * registered for the same fingers and Hold; otherwise it fires on lift.
- */
+/** Calls `onTap` for a tap of `fingers` with `hold`, as the fingers lift. */
 export function useTap(
   options: Common & {
-    readonly count?: 1 | 2;
     readonly onTap: (event: {
       readonly point: Point;
       readonly hold: Hold | undefined;
@@ -33,10 +28,9 @@ export function useTap(
 ): void {
   const hub = useZone('useTap');
   const latest = useLatest(options);
-  const { count = 1, fingers = 1, hold = 'none' } = options;
-  useRegistration(hub, ['tap', count, fingers, hold], () => ({
+  const { fingers = 1, hold = 'none' } = options;
+  useRegistration(hub, ['tap', fingers, hold], () => ({
     gesture: 'tap',
-    count,
     fingers,
     hold,
     enabled: () => on(latest.current)(),

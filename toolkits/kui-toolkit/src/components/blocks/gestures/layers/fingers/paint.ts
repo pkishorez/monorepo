@@ -16,9 +16,8 @@ const BUBBLE_EXIT_MS = 120;
 // The pop when an Hold locks: an overshoot back to size, and a flash ring.
 const POP_MS = 320;
 const FLASH_MS = 360;
-// A ring bursting out from a tap; a double tap bursts twice.
+// A ring bursting out from a tap.
 const BURST_MS = 360;
-const BURST_GAP_MS = 90;
 // Path kept behind the acting finger: a comet, or a stub for reduced motion.
 const TAIL_MS = 240;
 const STILL_TAIL_MS = 60;
@@ -189,8 +188,8 @@ const paintComet = (
 };
 
 /**
- * A ring bursting from a tap, twice for a double tap. Reduced motion keeps
- * the ring in place and only fades it. Returns whether it is still going.
+ * A ring bursting from a tap. Reduced motion keeps the ring in place and
+ * only fades it. Returns whether it is still going.
  */
 const paintBurst = (
   { ctx, color, now }: Frame,
@@ -198,21 +197,15 @@ const paintBurst = (
   at: number,
   reducedMotion: boolean,
 ): boolean => {
-  const rings = tap.kind === 'double-tap' ? 2 : 1;
-  let going = false;
-  for (let ring = 0; ring < rings; ring++) {
-    const t = (now - at - ring * BURST_GAP_MS) / BURST_MS;
-    if (t >= 1) continue;
-    going = true;
-    if (t < 0) continue;
-    const grow = reducedMotion ? 0.6 : easeOut(t);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = color('--gf-acting', (1 - t) * 0.9);
-    ctx.beginPath();
-    ctx.arc(tap.x, tap.y, HEAD_RADIUS + RING_RADIUS * grow, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  return going;
+  const t = (now - at) / BURST_MS;
+  if (t >= 1) return false;
+  const grow = reducedMotion ? 0.6 : easeOut(t);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = color('--gf-acting', (1 - t) * 0.9);
+  ctx.beginPath();
+  ctx.arc(tap.x, tap.y, HEAD_RADIUS + RING_RADIUS * grow, 0, Math.PI * 2);
+  ctx.stroke();
+  return true;
 };
 
 /**

@@ -25,7 +25,6 @@ type Common = {
 export type Registration =
   | (Common & {
       readonly gesture: 'tap';
-      readonly count: 1 | 2;
       readonly handle: (event: TapEvent) => void;
     })
   | (Common & {

@@ -1,12 +1,7 @@
 import { SimulatedClock } from 'xstate';
 import { describe, expect, it } from 'vitest';
 import { createGestureEngine } from './engine';
-import {
-  DOUBLE_TAP_GAP_MS,
-  HOLD_DRIFT_PX,
-  HOLD_LEAD_MS,
-  TAP_MAX_MS,
-} from './thresholds';
+import { HOLD_LEAD_MS, TAP_MAX_MS } from './thresholds';
 import type {
   Combination,
   Direction,
@@ -23,7 +18,6 @@ type Registered = {
   readonly pan?: ReadonlyArray<Key>;
   readonly swipe?: Partial<Record<Key, ReadonlyArray<Direction>>>;
   readonly pinch?: ReadonlyArray<'none' | 'left' | 'right'>;
-  readonly doubleTap?: ReadonlyArray<Key>;
   /** Edge swipes, from the strip they start in. */
   readonly edge?: ReadonlyArray<Direction>;
 };
@@ -41,8 +35,6 @@ const policyOf = (registered: Registered): Policy => ({
     return registered.swipe?.[key]?.includes(direction) ? 'swipe' : undefined;
   },
   pinch: (hold) => registered.pinch?.includes(hold ?? 'none') ?? false,
-  doubleTap: (combination) =>
-    registered.doubleTap?.includes(keyOf(combination)) ?? false,
 });
 
 const EVERYTHING: Registered = {
@@ -114,9 +106,7 @@ const setup = (
     events
       .filter((event) => event.kind !== 'touch')
       .map((event) =>
-        event.kind === 'tap'
-          ? `tap${event.count === 2 ? ':double' : ''}`
-          : `${event.kind}:${event.phase}`,
+        event.kind === 'tap' ? 'tap' : `${event.kind}:${event.phase}`,
       );
   // Without every move.
   const outcomes = () => names().filter((name) => !name.endsWith(':move'));
@@ -158,15 +148,15 @@ const setup = (
 
 const p = (x: number, y: number) => ({ x, y });
 
-describe('deciding on first movement', () => {
-  it('decides nothing when fingers land', () => {
+describe('deciding', () => {
+  it('decides nothing when fingers land together', () => {
     const g = setup();
     g.down(1, 100, 300, 0);
     g.down(2, 300, 300, 40);
     g.advance(1000);
     expect(g.names()).toEqual([]);
     expect(g.roles()).toEqual(['pending', 'pending']);
-    expect(g.where()).toBe('pressing.down');
+    expect(g.where()).toBe('pressing');
   });
 
   it('pans one finger, with no Hold', () => {
@@ -185,11 +175,14 @@ describe('deciding on first movement', () => {
     });
   });
 
-  it('locks the finger down longest as the Hold when it stayed still while another moved', () => {
+  it('locks the finger down as the Hold the moment another lands', () => {
     const g = setup();
     g.down(1, 100, 300, 0);
     g.move(1, 103, 301, 20);
     g.down(2, 300, 300, 400);
+    expect(g.outcomes()).toEqual(['hold:lock']);
+    expect(g.roles()).toEqual(['hold', 'pending']);
+    expect(g.where()).toBe('held.pressing');
     g.drag({ 2: [p(300, 300), p(300, 200)] }, 400, 500);
     expect(g.outcomes()).toEqual(['hold:lock', 'pan:start']);
     expect(g.last('hold')).toEqual({
@@ -303,14 +296,14 @@ describe('deciding on first movement', () => {
     expect(g.last('pan')).toMatchObject({ fingers: 2, hold: undefined });
   });
 
-  it('still locks a still finger as the Hold, one move later', () => {
+  it('locks no Hold beside a finger already making a gesture', () => {
     const g = setup();
     g.down(1, 50, 300, 0);
+    g.drag({ 1: [p(50, 300), p(50, 250)] }, 0, 80);
     g.down(2, 300, 300, 400);
-    g.move(2, 300, 286, 420);
-    expect(g.outcomes()).toEqual([]);
-    g.move(2, 300, 272, 436);
-    expect(g.outcomes()).toEqual(['hold:lock', 'pan:start']);
+    g.drag({ 2: [p(300, 300), p(300, 200)] }, 400, 500);
+    expect(g.outcomes()).toEqual(['pan:start']);
+    expect(g.roles()).toEqual(['acting', 'free']);
   });
 
   it('pinches when the finger down longest moves too, however slightly first', () => {
@@ -377,7 +370,7 @@ describe('locked until lift', () => {
     expect(g.last('pinch')?.point).toEqual({ x: 250, y: 100 });
   });
 
-  it('ends a two-finger gesture when one of its fingers lifts, and ignores the other', () => {
+  it('carries a Pinch on one finger, holding its scale, and takes the lifted finger back', () => {
     const g = setup();
     g.down(1, 200, 300, 0);
     g.down(2, 300, 300, 10);
@@ -388,17 +381,77 @@ describe('locked until lift', () => {
     );
     g.up(1, 150, 300, 110);
     g.drag({ 2: [p(350, 300), p(350, 100)] }, 110, 200);
+    expect(g.last('pinch')).toMatchObject({
+      phase: 'move',
+      point: { x: 250, y: 100 },
+    });
+    expect(g.last('pinch')?.scale).toBeCloseTo(2);
+    // Landing somewhere else rejoins without a jump.
+    g.down(1, 150, 100, 250);
+    g.drag(
+      { 1: [p(150, 100), p(50, 100)], 2: [p(350, 100), p(450, 100)] },
+      250,
+      340,
+    );
+    expect(g.where()).toBe('moving');
+    expect(g.roles()).toEqual(['acting', 'acting']);
+    g.up(1, 50, 100, 350);
+    g.up(2, 450, 100, 360);
     expect(g.outcomes()).toEqual(['pinch:start', 'pinch:end']);
-    expect(g.where()).toBe('ignoring');
-    g.up(2, 350, 100, 210);
+    expect(g.last('pinch')).toMatchObject({
+      fingers: 2,
+      point: { x: 250, y: 100 },
+    });
+    expect(g.last('pinch')?.scale).toBeCloseTo(4);
     expect(g.where()).toBe('idle');
   });
 
+  it('keeps a two-finger Swipe through a finger lifting and landing again', () => {
+    const g = setup({ swipe: { '2:none': ['right'] } });
+    g.down(1, 100, 300, 0);
+    g.down(2, 100, 400, 10);
+    g.drag(
+      { 1: [p(100, 300), p(200, 300)], 2: [p(100, 400), p(200, 400)] },
+      10,
+      100,
+    );
+    g.up(1, 200, 300, 110);
+    g.drag({ 2: [p(200, 400), p(250, 400)] }, 110, 160);
+    expect(g.last('swipe')?.offset).toEqual({ x: 150, y: 0 });
+    g.down(1, 100, 300, 200);
+    expect(g.last('swipe')?.offset).toEqual({ x: 150, y: 0 });
+    g.drag(
+      { 1: [p(100, 300), p(150, 300)], 2: [p(250, 400), p(300, 400)] },
+      200,
+      260,
+    );
+    g.up(1, 150, 300, 270);
+    g.up(2, 300, 400, 280);
+    expect(g.outcomes()).toEqual(['swipe:start', 'swipe:end']);
+    expect(g.last('swipe')).toMatchObject({
+      fingers: 2,
+      direction: 'right',
+      offset: { x: 200, y: 0 },
+    });
+  });
+
+  it('never grows a gesture past the fingers it started with', () => {
+    const g = setup();
+    g.down(1, 100, 300, 0);
+    g.drag({ 1: [p(100, 300), p(160, 300)] }, 0, 80);
+    g.down(2, 300, 300, 100);
+    g.drag({ 2: [p(300, 300), p(300, 200)] }, 100, 180);
+    expect(g.last('pan')?.offset).toEqual({ x: 60, y: 0 });
+    g.up(1, 160, 300, 190);
+    expect(g.outcomes()).toEqual(['pan:start', 'pan:end']);
+    expect(g.where()).toBe('ignoring');
+  });
+
   it('keeps the Hold for gesture after gesture, each classified afresh', () => {
-    const g = setup({ ...EVERYTHING, doubleTap: [] });
+    const g = setup();
     g.down(1, 50, 300, 0);
     g.down(2, 300, 300, 400);
-    // A tap: the Hold has been down long enough to lock at once.
+    // A tap beside the Hold, locked as it landed.
     g.up(2, 300, 300, 450);
     // A pan.
     g.down(2, 300, 300, 1000);
@@ -452,89 +505,36 @@ describe('locked until lift', () => {
     expect(g.engine.captured()).toBe(true);
   });
 
-  it(`cancels the Hold and what it modifies when it drifts past ${HOLD_DRIFT_PX}px`, () => {
+  it('keeps the Hold on the side it locked, however far it wanders', () => {
     const g = setup();
     g.down(1, 50, 300, 0);
     g.down(2, 300, 300, 100);
-    g.drag({ 2: [p(300, 300), p(300, 250)] }, 100, 150);
-    g.move(1, 50, 300 + HOLD_DRIFT_PX, 160);
-    expect(g.last('hold')?.phase).toBe('lock');
-    g.move(1, 50, 301 + HOLD_DRIFT_PX, 170);
-    expect(g.outcomes()).toEqual([
-      'hold:lock',
-      'pan:start',
-      'pan:cancel',
-      'hold:cancel',
-    ]);
-    const before = g.events.length;
-    g.drag({ 2: [p(300, 250), p(200, 250)] }, 170, 220);
-    g.up(2, 200, 250, 230);
-    expect(g.events.length).toBe(before);
+    g.drag({ 1: [p(50, 300), p(500, 380)] }, 110, 200);
+    g.drag({ 2: [p(300, 300), p(300, 200)] }, 210, 300);
+    expect(g.outcomes()).toEqual(['hold:lock', 'pan:start']);
+    expect(g.last('pan')?.hold).toEqual({
+      side: 'left',
+      point: { x: 500, y: 380 },
+    });
+    expect(g.roles()).toEqual(['hold', 'acting']);
   });
 });
 
 describe('taps', () => {
-  it('fires a tap on lift when no double tap is registered', () => {
+  it('fires a tap as the finger lifts', () => {
     const g = setup({});
     g.down(1, 100, 100, 0);
     g.up(1, 102, 101, 80);
     expect(g.names()).toEqual(['tap']);
     expect(g.last('tap')).toEqual({
       kind: 'tap',
-      count: 1,
       fingers: 1,
       hold: undefined,
       point: { x: 102, y: 101 },
     });
-  });
-
-  it('waits out a double tap only when one is registered for that combination', () => {
-    const g = setup({ doubleTap: ['1:none'] });
-    g.down(1, 100, 100, 0);
-    g.up(1, 100, 100, 60);
-    expect(g.names()).toEqual([]);
-    g.advance(60 + DOUBLE_TAP_GAP_MS);
-    expect(g.names()).toEqual(['tap']);
-
-    // A two-finger tap has no double tap registered: it fires at once.
-    g.down(1, 100, 100, 1000);
-    g.down(2, 200, 100, 1010);
-    g.up(1, 100, 100, 1060);
-    g.up(2, 200, 100, 1070);
+    g.down(1, 100, 100, 200);
+    g.up(1, 100, 100, 260);
     expect(g.names()).toEqual(['tap', 'tap']);
-    expect(g.last('tap')).toMatchObject({
-      fingers: 2,
-      point: { x: 150, y: 100 },
-    });
-  });
-
-  it('makes two quick taps in one place a double tap, with no single tap', () => {
-    const g = setup({ doubleTap: ['1:none'] });
-    g.down(1, 100, 100, 0);
-    g.up(1, 100, 100, 60);
-    g.down(1, 104, 98, 180);
-    g.up(1, 104, 98, 240);
-    g.advance(2000);
-    expect(g.names()).toEqual(['tap:double']);
-  });
-
-  it('gives two taps when the second comes too late, too far away or held too long', () => {
-    const g = setup({ doubleTap: ['1:none'] });
-    g.down(1, 100, 100, 0);
-    g.up(1, 100, 100, 60);
-    g.down(1, 100, 100, 500);
-    g.up(1, 100, 100, 560);
-    g.down(1, 250, 100, 700);
-    g.up(1, 250, 100, 760);
-    g.advance(3000);
-    expect(g.names()).toEqual(['tap', 'tap', 'tap']);
-    g.down(1, 100, 100, 4000);
-    g.up(1, 100, 100, 4050);
-    g.down(1, 100, 100, 4150);
-    g.advance(4150 + TAP_MAX_MS + 1);
-    expect(g.names()).toEqual(['tap', 'tap', 'tap', 'tap']);
-    g.up(1, 100, 100, 5000);
-    expect(g.names()).toHaveLength(4);
   });
 
   it('is nothing when held too long, however long', () => {
@@ -548,61 +548,47 @@ describe('taps', () => {
   it('makes a two-finger tap when both lift within the tap time of the first landing', () => {
     const g = setup({});
     g.down(1, 100, 100, 0);
-    g.down(2, 200, 100, 100);
+    g.down(2, 200, 100, 30);
     g.up(1, 100, 100, 150);
     expect(g.names()).toEqual([]);
-    expect(g.where()).toBe('pressing.waiting');
+    expect(g.where()).toBe('pressing');
     g.up(2, 200, 100, 250);
     expect(g.names()).toEqual(['tap']);
-    expect(g.last('tap')).toMatchObject({ fingers: 2, hold: undefined });
-  });
-
-  it('makes a two-finger double tap', () => {
-    const g = setup({ doubleTap: ['2:none'] });
-    for (const t of [0, 250]) {
-      g.down(1, 100, 100, t);
-      g.down(2, 200, 100, t + 10);
-      g.up(1, 100, 100, t + 60);
-      g.up(2, 200, 100, t + 70);
-    }
-    g.advance(2000);
-    expect(g.names()).toEqual(['tap:double']);
-    expect(g.last('tap')).toMatchObject({ fingers: 2, count: 2 });
-  });
-
-  it('taps with a Hold at once when the finger staying has been down the tap time already', () => {
-    const g = setup({});
-    g.down(1, 300, 300, 0);
-    g.down(2, 100, 300, 500);
-    g.up(2, 100, 300, 560);
-    expect(g.outcomes()).toEqual(['hold:lock', 'tap']);
     expect(g.last('tap')).toMatchObject({
-      fingers: 1,
-      hold: { side: 'right', point: { x: 300, y: 300 } },
-      point: { x: 100, y: 300 },
+      fingers: 2,
+      hold: undefined,
+      point: { x: 150, y: 100 },
     });
-    expect(g.where()).toBe('held.idle');
-    expect(g.engine.captured()).toBe(true);
   });
 
-  it('waits on a young finger staying: the tap time running out makes it the Hold', () => {
+  it('makes no tap of fingers that landed together when one stays too long', () => {
     const g = setup({});
-    g.down(1, 100, 300, 0);
-    g.down(2, 300, 300, 100);
-    g.up(1, 100, 300, 150);
-    g.advance(TAP_MAX_MS - 1);
+    g.down(1, 100, 100, 0);
+    g.down(2, 200, 100, 20);
+    g.up(1, 100, 100, 80);
+    g.up(2, 200, 100, TAP_MAX_MS + 100);
     expect(g.names()).toEqual([]);
-    g.advance(TAP_MAX_MS);
-    expect(g.outcomes()).toEqual(['hold:lock', 'tap']);
-    expect(g.last('tap')).toMatchObject({
-      fingers: 1,
-      hold: { side: 'right' },
-      point: { x: 100, y: 300 },
-    });
-    expect(g.roles()).toEqual(['hold']);
   });
 
-  it('taps two fingers beside a finger held the tap time, before any Hold locked', () => {
+  it('taps with the Hold at once, however young the Hold', () => {
+    for (const lead of [HOLD_LEAD_MS, 500]) {
+      const g = setup({});
+      g.down(1, 300, 300, 0);
+      g.down(2, 100, 300, lead);
+      g.up(2, 100, 300, lead + 60);
+      expect(g.outcomes()).toEqual(['hold:lock', 'tap']);
+      expect(g.last('tap')).toMatchObject({
+        fingers: 1,
+        hold: { side: 'right', point: { x: 300, y: 300 } },
+        point: { x: 100, y: 300 },
+      });
+      expect(g.where()).toBe('held.idle');
+      expect(g.roles()).toEqual(['hold']);
+      expect(g.engine.captured()).toBe(true);
+    }
+  });
+
+  it('taps two fingers beside a Hold', () => {
     const g = setup(EVERYTHING);
     g.down(9, 60, 400, 0);
     g.down(1, 200, 300, 350);
@@ -614,8 +600,8 @@ describe('taps', () => {
     expect(g.last('tap')).toMatchObject({ fingers: 2, hold: { side: 'left' } });
   });
 
-  it('taps one and two acting fingers under a Hold, and double taps', () => {
-    const g = setup({ ...EVERYTHING, doubleTap: ['1:left'] });
+  it('taps one and two acting fingers under a Hold', () => {
+    const g = setup();
     g.down(1, 50, 300, 0);
     g.down(2, 300, 300, 400);
     g.drag({ 2: [p(300, 300), p(300, 200)] }, 400, 450);
@@ -625,22 +611,19 @@ describe('taps', () => {
     g.down(3, 300, 300, 1020);
     g.up(2, 200, 300, 1080);
     g.up(3, 300, 300, 1100);
-    // A double tap under the Hold.
+    // A one-finger tap under the Hold.
     g.down(2, 250, 300, 1500);
     g.up(2, 250, 300, 1550);
-    g.down(2, 252, 300, 1650);
-    g.up(2, 252, 300, 1700);
-    g.advance(2500);
     expect(g.outcomes()).toEqual([
       'hold:lock',
       'pan:start',
       'pan:end',
       'tap',
-      'tap:double',
+      'tap',
     ]);
     expect(g.events.filter((event) => event.kind === 'tap')).toMatchObject([
-      { fingers: 2, count: 1, hold: { side: 'left' } },
-      { fingers: 1, count: 2, hold: { side: 'left' } },
+      { fingers: 2, hold: { side: 'left' } },
+      { fingers: 1, hold: { side: 'left' } },
     ]);
   });
 });

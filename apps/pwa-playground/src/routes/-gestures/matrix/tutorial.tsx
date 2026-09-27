@@ -7,9 +7,8 @@ export const matrixTutorial: Tutorial = {
     'Every gesture the engine reads, with no Hold, a left Hold and a right Hold. Each cell counts what it recognised.',
   tryThis: [
     {
-      gesture: 'Tap, or double tap',
-      result:
-        'The first row counts a tap; two quick taps count in the second row instead, never both.',
+      gesture: 'Tap',
+      result: 'The first row counts it the moment you lift.',
     },
     {
       gesture: 'Drag one finger',
@@ -17,8 +16,9 @@ export const matrixTutorial: Tutorial = {
         'Pan mode shows the offset; Swipe mode shows the direction and how far, and counts past 40% or on a flick.',
     },
     {
-      gesture: 'Two fingers: tap, double tap, drag',
-      result: 'The same three, with two fingers together.',
+      gesture: 'Two fingers: tap, drag',
+      result:
+        'The same two, with two fingers together. Lift one mid-drag and put it back: it is still the same gesture.',
     },
     {
       gesture: 'Pinch',
@@ -27,7 +27,7 @@ export const matrixTutorial: Tutorial = {
     {
       gesture: 'Keep one finger still, then do any of these with the others',
       result:
-        'After a 50ms lead, the still finger becomes the Hold. Its column is left or right of the other fingers, and its chip remains visible without dimming the matrix.',
+        'The finger already down becomes the Hold the moment another lands, if it had a 50ms lead. Its column is left or right of the other fingers, fixed as it locks however far it wanders, and its chip remains visible without dimming the matrix.',
     },
     {
       gesture: 'Flip the Pan / Swipe switch',
@@ -38,8 +38,8 @@ export const matrixTutorial: Tutorial = {
   howItWorks: [
     'The matrix is its own GestureZone with scroll="none", inside the lab\'s root zone, so every touch here is the matrix\'s.',
     "Each cell calls one hook: useTap, usePan, useSwipe or usePinch, with its row's fingers and its column's hold.",
-    'Nothing is decided when fingers land. The first movement past 10px classifies the gesture. A still finger needs a 50ms lead to become the Hold; fingers landing closer together remain a multi-finger gesture.',
-    'Double taps are registered for every combination here, so single taps wait 300ms for a second one. On a screen with no double tap, a tap fires the moment you lift.',
+    'A finger landing 50ms or more after another locks that one as the Hold at once; fingers landing closer together remain a multi-finger gesture, and the first movement past 10px classifies it.',
+    'A gesture stays what it was classified as until the last of its fingers lifts. Taps fire the moment you lift.',
     'A Pan and a Swipe may share fingers and Hold: the Swipe claims its directions and the Pan gets the rest. With Swipes in all four directions a Pan would get nothing, so the switch mounts one set or the other.',
   ],
   code,
