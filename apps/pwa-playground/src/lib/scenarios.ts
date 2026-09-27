@@ -68,9 +68,9 @@ export const scenarios: ReadonlyArray<Scenario> = [
   },
   {
     path: '/gestures',
-    title: 'Gesture Zone',
+    title: 'Gesture Lab',
     summary:
-      'Taps, a sideways swipe and a locked finger driving a grid of dots.',
+      'Every gesture, pull to refresh, swipeable rows, photos, a map and a sidebar.',
     group: 'Gestures',
   },
 ];

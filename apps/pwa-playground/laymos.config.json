@@ -16,10 +16,73 @@
       }
     },
     "routes": {
-      "paths": ["src/routes"],
+      "paths": [
+        "src/routes/__root.tsx",
+        "src/routes/api",
+        "src/routes/auth-sim.tsx",
+        "src/routes/data.tsx",
+        "src/routes/gestures.tsx",
+        "src/routes/index.tsx",
+        "src/routes/install.tsx",
+        "src/routes/offline.tsx",
+        "src/routes/rpc.tsx",
+        "src/routes/runtime-cache.tsx",
+        "src/routes/status.tsx",
+        "src/routes/update.tsx"
+      ],
       "description": "One page per PWA scenario, plus the API endpoints they call",
       "modules": {
-        "src/routes": {}
+        "src/routes/__root.tsx": {},
+        "src/routes/api": {},
+        "src/routes/auth-sim.tsx": {},
+        "src/routes/data.tsx": {},
+        "src/routes/gestures.tsx": {},
+        "src/routes/index.tsx": {},
+        "src/routes/install.tsx": {},
+        "src/routes/offline.tsx": {},
+        "src/routes/rpc.tsx": {},
+        "src/routes/runtime-cache.tsx": {},
+        "src/routes/status.tsx": {},
+        "src/routes/update.tsx": {}
+      }
+    },
+    "gesture-lab": {
+      "paths": ["src/routes/-gestures"],
+      "description": "The Gesture Lab: a shell with a sidebar and tab bar over five gesture demos, each with its tutorial",
+      "moduleGraphs": {
+        "gesture-lab": {
+          "description": "Shows every kui gesture in five demos inside one GestureProvider, each demo a nested Gesture Zone with a tutorial that shows its own wiring",
+          "path": "src/routes/-gestures",
+          "modules": {
+            "lab": {
+              "exposed": true
+            },
+            "sidebar": {},
+            "matrix": {},
+            "inbox": {},
+            "photos": {},
+            "map": {},
+            "sidebar-demo": {},
+            "tutorial": {},
+            "element-size": {}
+          },
+          "rules": {
+            "lab": [
+              "sidebar",
+              "matrix",
+              "inbox",
+              "photos",
+              "map",
+              "sidebar-demo",
+              "tutorial"
+            ],
+            "matrix": ["tutorial"],
+            "inbox": ["tutorial"],
+            "photos": ["tutorial", "element-size"],
+            "map": ["tutorial", "element-size"],
+            "sidebar-demo": ["sidebar", "tutorial"]
+          }
+        }
       }
     },
     "infra": {
@@ -78,13 +141,14 @@
   },
   "layerGraphs": {
     "pwa-playground": {
-      "description": "Entries over routes over components over lib; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
+      "description": "Entries over routes over components over lib; the Gesture Lab sits under its route; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
       "rules": {
         "entry": ["rpc", "lib"],
-        "routes": ["components", "lib", "rpc"],
+        "routes": ["gesture-lab", "components", "lib", "rpc"],
         "infra": [],
         "components": ["lib"],
-        "rpc": []
+        "rpc": [],
+        "gesture-lab": []
       }
     }
   }
