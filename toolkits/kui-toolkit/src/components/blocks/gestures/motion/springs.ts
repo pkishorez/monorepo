@@ -61,7 +61,7 @@ export type GestureSpring = {
 
 /** The quick, near-critical spring used by gesture settles unless overridden. */
 export const DEFAULT_GESTURE_SPRING: GestureSpring = {
-  stiffness: 600,
+  stiffness: 800,
   damping: 50,
   mass: 1,
 };
