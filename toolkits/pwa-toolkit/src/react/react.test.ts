@@ -21,7 +21,6 @@ const info: ClientBuildInfo = {
   update: { mode: 'prompt', checkIntervalMinutes: 60 },
   buildId: null,
   manifestUrl: '/manifest.webmanifest',
-  themeColor: '#123456',
   appleTouchIconUrl: '/icons/apple-touch-icon.png',
 };
 
@@ -53,10 +52,9 @@ describe('hooks during SSR', () => {
 });
 
 describe('pwaHead', () => {
-  it('lists manifest, theme-color, Apple meta and icon, and the Build ID', () => {
+  it('lists the manifest, Apple meta and icon, and the Build ID', () => {
     expect(headTags(info, 'abc')).toEqual({
       meta: [
-        { name: 'theme-color', content: '#123456' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: BUILD_ID_META_NAME, content: 'abc' },
@@ -70,7 +68,7 @@ describe('pwaHead', () => {
 
   it('omits what the build does not have', () => {
     const bare = headTags(
-      { ...info, manifestUrl: null, themeColor: null, appleTouchIconUrl: null },
+      { ...info, manifestUrl: null, appleTouchIconUrl: null },
       null,
     );
     expect(bare.links).toEqual([]);

@@ -130,7 +130,6 @@ describe('virtual module shapes', () => {
       update: config.update,
       buildId: null,
       manifestUrl: '/manifest.webmanifest',
-      themeColor: null,
       appleTouchIconUrl: null,
     });
     expect(client.buildId).toBeNull();

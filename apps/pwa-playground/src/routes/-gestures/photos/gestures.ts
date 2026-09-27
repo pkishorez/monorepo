@@ -6,8 +6,10 @@ import {
   useTap,
 } from 'kui-toolkit/components/blocks/gestures';
 import {
+  animate,
   useMotionValue,
   useMotionValueEvent,
+  useReducedMotion,
   useTransform,
 } from 'kui-toolkit/motion';
 import { useEffect, useRef, useState } from 'react';
@@ -37,6 +39,7 @@ export function usePhotoGestures(viewer: {
   const { size } = viewer;
   const [index, setIndex] = useState(0);
   const [zoomed, setZoomed] = useState(false);
+  const reducedMotion = useReducedMotion();
   const scale = useMotionValue(1);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -106,17 +109,28 @@ export function usePhotoGestures(viewer: {
   });
 
   /**
-   * Paging: the strip follows one finger sideways and coasts on release,
-   * resting on a whole photo (`snap`). Its bounds are the photos either side
-   * of the one showing as the Pan starts, so a flick pages once, and past
-   * the first and last it gives like a rubber band.
+   * Paging: the strip follows one finger sideways. On release, distance and
+   * velocity choose the adjacent photo, then a short ease-out lands it without
+   * bounce. Bounds limit each drag to the photos either side of the current one.
    */
   const current = () => Math.round(-strip.get() / (size.width || 1));
   const home = useRef(0);
+  const pageTo = (to: number) => {
+    const target = -to * size.width;
+    strip.stop();
+    if (reducedMotion) {
+      strip.jump(target);
+      return;
+    }
+    void animate(strip, target, {
+      duration: 0.24,
+      ease: [0.32, 0.72, 0, 1],
+    });
+  };
   usePan({
     axis: 'x',
     x: strip,
-    snap: size.width || undefined,
+    momentum: false,
     enabled: !zoomed,
     onStart: () => {
       home.current = current();
@@ -125,11 +139,21 @@ export function usePhotoGestures(viewer: {
       left: -Math.min(viewer.count - 1, home.current + 1) * size.width,
       right: -Math.max(0, home.current - 1) * size.width,
     }),
+    onEnd: ({ offset, velocity }) => {
+      const threshold = size.width * 0.4;
+      const step =
+        velocity.x <= -0.3 || offset.x <= -threshold
+          ? 1
+          : velocity.x >= 0.3 || offset.x >= threshold
+            ? -1
+            : 0;
+      pageTo(Math.min(viewer.count - 1, Math.max(0, home.current + step)));
+    },
   });
   /** Pages by `step` from a button, the way a flick would. */
   const page = (step: 1 | -1) => () => {
     const to = Math.min(viewer.count - 1, Math.max(0, current() + step));
-    void settle(strip, -to * size.width);
+    pageTo(to);
   };
   const dismiss = useSwipe({
     direction: 'down',

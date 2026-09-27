@@ -161,7 +161,6 @@ export const ClientBuildInfo = Schema.Struct({
   update: UpdateConfig,
   buildId: Schema.NullOr(BuildId),
   manifestUrl: Schema.NullOr(Path),
-  themeColor: Schema.NullOr(Schema.String),
   appleTouchIconUrl: Schema.NullOr(Schema.String),
 });
 export type ClientBuildInfo = typeof ClientBuildInfo.Type;

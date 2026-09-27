@@ -4,12 +4,21 @@ import {
   Outlet,
   createRootRoute,
 } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
 import type { ReactNode } from 'react';
-import { ThemeProvider } from 'next-themes';
-import { AuthBoundary } from '../client/features/auth-boundary/index.ts';
+import {
+  appTheme,
+  AuthBoundary,
+} from '../client/features/auth-boundary/index.ts';
 import appCss from '../styles.css?url';
 
+const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
+  getTheme(),
+);
+
 export const Route = createRootRoute({
+  loader: () => getCurrentTheme(),
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -40,21 +49,21 @@ export const Route = createRootRoute({
 });
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const currentTheme = Route.useLoaderData() ?? 'dark';
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={currentTheme === 'dark' ? 'dark' : undefined}
+      data-theme={currentTheme}
+      style={{ colorScheme: currentTheme }}
+      suppressHydrationWarning
+    >
       <head>
+        <appTheme.Script initialTheme={currentTheme} />
         <HeadContent />
       </head>
       <body>
-        <ThemeProvider
-          attribute="class"
-          storageKey="alchemy-console-theme"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        {children}
         <Scripts />
       </body>
     </html>

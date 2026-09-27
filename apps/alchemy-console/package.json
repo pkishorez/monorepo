@@ -13,7 +13,6 @@
     "auth-toolkit": "workspace:*",
     "effect": "catalog:",
     "kui-toolkit": "workspace:*",
-    "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "rpc-toolkit": "workspace:*",

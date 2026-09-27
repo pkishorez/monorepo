@@ -4,14 +4,14 @@ import { useTransform } from 'kui-toolkit/motion';
 export const PANEL_WIDTH = 240;
 
 /**
- * A second edge Swipe, on the demo's own zone: pulled in from the right
- * edge, the mirror of the lab's sidebar. A Swipe right on the demo, with
+ * A second Swipe, on the demo's own zone: pulled in from anywhere toward
+ * the left, the mirror of the lab's sidebar. A Swipe right on the demo, with
  * this panel closed, is not this zone's: it passes out to the sidebar.
  */
 export function usePanelGestures() {
   const panel = useSwipe({
     direction: 'left',
-    edge: true,
+    edge: false,
     after: 'stay',
     distance: PANEL_WIDTH,
   });

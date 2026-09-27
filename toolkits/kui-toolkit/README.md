@@ -70,6 +70,54 @@ object and a state union, and renders loading, error, and ready states.
 | `NotFoundScreen` | Renders a branded page-not-found message with a link home.                                                      |
 | `ErrorScreen`    | Renders a branded error page with an optional error code and description.                                       |
 
+### `kui-toolkit/components/blocks/theme`
+
+Cookie-backed light and dark mode without a React provider. Create one controller
+per app and reuse it for the document script and every theme control.
+
+```tsx
+import { createTheme } from 'kui-toolkit/components/blocks/theme';
+
+export const appTheme = createTheme({ cookieDomain: 'example.com' });
+
+function ThemeToggle() {
+  const { theme, setTheme, toggleTheme } = appTheme.useTheme();
+  // Render a control with theme, setTheme or toggleTheme.
+}
+
+function Document({ theme, children }) {
+  return (
+    <html className={theme === 'dark' ? 'dark' : undefined} data-theme={theme}>
+      <head>
+        <appTheme.Script initialTheme={theme} />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+The cookie is named `kui-theme`, defaults to `dark`, and is readable during
+server rendering. Omit `cookieDomain` for a host-only cookie. Set it to a parent
+domain to share the preference across that domain's subdomains; an invalid or
+unrelated domain gracefully falls back to a host-only cookie.
+
+| Controller member | What it does                                                                                                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTheme()`      | Reads the current theme and returns `theme`, `setTheme`, and `toggleTheme`. Writing updates the cookie, document class, `color-scheme`, and status-bar theme color.                      |
+| `Script`          | Emits the live `theme-color` meta tag and a small pre-paint script that applies the cookie before hydration, avoiding a wrong-theme flash. Pass the server-read theme as `initialTheme`. |
+| `manifest(theme)` | Returns `theme_color` and `background_color` values from KUI's theme definition for a web app manifest.                                                                                  |
+
+### `kui-toolkit/components/blocks/theme/tanstack-start`
+
+| Export       | What it does                                                                                                                 |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `getTheme()` | Reads `kui-theme` from the active TanStack Start request and returns `light` or `dark`; no cookie header argument is needed. |
+
+Use `getTheme()` in the root loader, put the result on `<html>`, and pass it to
+`appTheme.Script`. The lower-level document props, cookie parsing, bootstrap
+source, and raw theme colors stay private so app integrations cannot drift.
+
 ### `kui-toolkit/components/blocks/er-diagram`
 
 | Export      | What it does                                                                                          |

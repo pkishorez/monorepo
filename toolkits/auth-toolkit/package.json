@@ -98,7 +98,6 @@
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "kui-toolkit": "workspace:*",
-    "next-themes": "catalog:",
     "rpc-toolkit": "workspace:*",
     "use-sync-external-store": "catalog:",
     "zustand": "catalog:"

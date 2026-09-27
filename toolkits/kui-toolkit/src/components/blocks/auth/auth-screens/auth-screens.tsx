@@ -2,7 +2,7 @@ import { CircleAlert } from 'lucide-react';
 import { useState } from 'react';
 
 import { GoogleButton } from '#components/ui/google-button';
-import { useTheme } from 'next-themes';
+import { createTheme } from '../../theme';
 
 import { Button, buttonVariants } from '#components/ui/button';
 import { Spinner } from '#components/ui/spinner';
@@ -14,6 +14,8 @@ import { brandName, ScreenFrame, type Branding } from '../screen-frame';
 import { SessionList, type SessionView } from '../session-list';
 import { AccountHeader, type UserView } from './account-header';
 import { DeviceCodeForm } from './device-code-form';
+
+const themeController = createTheme();
 
 export type { Branding, GrantView, ScopeDescriptions, SessionView, UserView };
 
@@ -40,7 +42,7 @@ export function LoginScreen({
   onSignIn: Action;
 }) {
   const app = brandName(branding);
-  const { resolvedTheme } = useTheme();
+  const { theme } = themeController.useTheme();
   const signIn = useAction(onSignIn);
   const ready = state.status === 'ready' ? state : undefined;
   return (
@@ -65,7 +67,7 @@ export function LoginScreen({
       ) : null}
       <div className="flex justify-center">
         <GoogleButton
-          theme={resolvedTheme === 'light' ? 'light' : 'dark'}
+          theme={theme}
           disabled={signIn.pending}
           onClick={signIn.run}
         />

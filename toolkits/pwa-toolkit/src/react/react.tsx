@@ -174,8 +174,8 @@ export const clearRuntimeCache = (): Promise<void> =>
   );
 
 /**
- * Head tags for the root route: manifest link, theme-color, Apple meta and
- * icon, and the Build ID meta tag. Spread into TanStack Router's `head()`.
+ * Head tags for the root route: manifest link, Apple meta and icon, and the
+ * Build ID meta tag. The app's theme integration owns the live theme color.
  * Hydration-safe: in the browser the Build ID comes from the existing tag.
  */
 export const pwaHead = (): HeadTags => headTags(info, pageBuildId(info));

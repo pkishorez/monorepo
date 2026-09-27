@@ -37,10 +37,11 @@ how long a tap waits and whether a movement is a Pan or a Swipe.
 
 1. **Nothing is decided when fingers land.** The first finger to pass 10px
    decides. One finger down: a one-finger gesture. More: the finger down
-   longest, if it stayed within 5px, locks as the Hold and the rest act (up
-   to 3 fingers in all). Two fingers both moving: a Pinch if their distance
-   changes more than they travel together, else a two-finger Pan or Swipe.
-   Anything else is ignored until every finger lifts.
+   longest locks as the Hold only if it landed at least 50ms before the
+   others and stayed within 5px; the rest act (up to 3 fingers in all).
+   Fingers landing within 50ms stay together: they Pinch if their distance
+   changes more than they travel together, else make a two-finger Pan or
+   Swipe. Anything else is ignored until every finger lifts.
 2. **Locked until lift.** A gesture stays what it was classified as until
    one of its fingers lifts. A Hold stays until it lifts; the other fingers
    can make any number of gestures meanwhile, each classified afresh. The
@@ -57,7 +58,7 @@ how long a tap waits and whether a movement is a Pan or a Swipe.
    movement's main direction decides: a Swipe registered that way (or, for
    a `stay` Swipe resting open, the way back) takes it, else a Pan for the
    combination does. Either stays that kind until lift. So one finger can
-   page photos sideways with a snapping Pan and dismiss with a Swipe down.
+   page photos sideways with a Pan and dismiss with a Swipe down.
 5. **Scroll axis.** `scroll` (`y` by default, `x`, or `none`) is the axis
    the browser keeps for one finger with no Hold: a first movement along it
    scrolls natively, except a registered Swipe the way the scroller cannot
@@ -215,9 +216,9 @@ Reduced motion is read as each animation starts and jumps instead.
 
 `<GestureFingers />` anywhere inside the provider draws every finger under
 it by role: a soft ring while undecided, a bubble growing inside after
-120ms of rest; the Hold popping as it locks, then glowing with its zone
-dimmed and a "Left Hold" / "Right Hold" chip; a comet tail behind a moving
-finger; a burst for each tap. Reduced motion keeps it still. Colours are
+120ms of rest; the Hold popping as it locks, then glowing with a "Left Hold"
+/ "Right Hold" chip; a comet tail behind a moving finger; a burst for each
+tap. Reduced motion keeps it still. Colours are
 `--gf-*` properties set from kui tokens.
 
 ## Testing

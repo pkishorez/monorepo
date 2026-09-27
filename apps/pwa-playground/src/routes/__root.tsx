@@ -7,11 +7,13 @@ import {
   useMatches,
   useRouter,
 } from '@tanstack/react-router';
+import { createServerFn } from '@tanstack/react-start';
+import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
 import { buttonVariants } from 'kui-toolkit/components/ui/button';
 import { PwaProvider, pwaHead } from 'pwa-toolkit/react';
 import { OfflineIndicator, UpdatePrompt } from 'pwa-toolkit/ui';
 import type { ReactNode } from 'react';
-import { AppHeader, ScenarioNav, THEME_SCRIPT } from '../components/index.ts';
+import { appTheme, AppHeader, ScenarioNav } from '../components/index.ts';
 import appCss from '../styles.css?url';
 
 declare module '@tanstack/react-router' {
@@ -21,7 +23,12 @@ declare module '@tanstack/react-router' {
   }
 }
 
+const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
+  getTheme(),
+);
+
 export const Route = createRootRoute({
+  loader: () => getCurrentTheme(),
   head: () => {
     const pwa = pwaHead();
     return {
@@ -110,11 +117,17 @@ function NotFound() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const currentTheme = Route.useLoaderData() ?? 'dark';
   return (
-    // The theme script sets the class before hydration, so React may see a different one.
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={currentTheme === 'dark' ? 'dark' : undefined}
+      data-theme={currentTheme}
+      style={{ colorScheme: currentTheme }}
+      suppressHydrationWarning
+    >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <appTheme.Script initialTheme={currentTheme} />
         <HeadContent />
       </head>
       <body>

@@ -133,7 +133,6 @@ const config = (overrides: Partial<ClientBuildInfo> = {}): ClientBuildInfo => ({
   update: { mode: 'prompt', checkIntervalMinutes: 60 },
   buildId: null,
   manifestUrl: '/manifest.webmanifest',
-  themeColor: null,
   appleTouchIconUrl: null,
   ...overrides,
 });

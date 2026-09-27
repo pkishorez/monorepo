@@ -6,7 +6,7 @@ import { PANEL_WIDTH, usePanelGestures } from './gestures.ts';
 
 export { sidebarTutorial } from './tutorial.tsx';
 
-/** One edge Swipe's live state: its progress as a number and a bar, and where it starts. */
+/** One Swipe's live state: its progress as a number and a bar. */
 function Readout(props: {
   readonly name: string;
   readonly testId: string;
@@ -65,9 +65,8 @@ function Demo() {
     <>
       <div className="flex h-full flex-col gap-3 overflow-hidden p-4">
         <p className="text-sm text-pretty text-muted-foreground">
-          {sidebar.source === 'edge'
-            ? 'This app owns the screen edges: pull the sidebar in from the left edge, the panel from the right.'
-            : 'The browser or system owns the screen edges here, so both Swipes start anywhere: right for the sidebar, left for the panel.'}
+          Start away from the browser&apos;s edge strips. Swipe right anywhere
+          unclaimed for the sidebar, or left here for the panel.
         </p>
         <Readout
           name="Sidebar (the lab's)"
@@ -114,7 +113,7 @@ function Demo() {
   );
 }
 
-/** Sidebar: the lab's own sidebar on show, with a second panel from the right edge. */
+/** Sidebar: the lab's own sidebar on show, with a second panel from the right. */
 export function SidebarScreen() {
   return (
     <GestureZone

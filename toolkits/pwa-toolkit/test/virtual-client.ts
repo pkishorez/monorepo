@@ -8,7 +8,6 @@ const info: ClientBuildInfo = {
   update: { mode: 'prompt', checkIntervalMinutes: 60 },
   buildId: null,
   manifestUrl: '/manifest.webmanifest',
-  themeColor: null,
   appleTouchIconUrl: null,
 };
 

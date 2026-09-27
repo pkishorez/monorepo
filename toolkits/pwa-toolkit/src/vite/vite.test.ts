@@ -68,11 +68,15 @@ describe('pwa() build', () => {
     const info = (await out.runWorker())['__PWA_INFO__'] as WorkerBuildInfo;
 
     const urls = info.precache.map((entry) => entry.url).sort();
-    expect(urls.filter((url) => url.startsWith('/assets/'))).toEqual([
-      expect.stringMatching(/^\/assets\/font-.*\.woff2$/),
-      expect.stringMatching(/^\/assets\/index-.*\.css$/),
-      expect.stringMatching(/^\/assets\/index-.*\.js$/),
-    ]);
+    const assets = urls.filter((url) => url.startsWith('/assets/'));
+    expect(assets).toHaveLength(3);
+    expect(assets).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^\/assets\/font-.*\.woff2$/),
+        expect.stringMatching(/^\/assets\/index-.*\.css$/),
+        expect.stringMatching(/^\/assets\/index-.*\.js$/),
+      ]),
+    );
     expect(urls.filter((url) => !url.startsWith('/assets/'))).toEqual([
       '/_shell',
       '/icon-192.png',

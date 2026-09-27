@@ -7,7 +7,7 @@ import {
 } from 'react';
 import { generatePeerId, type PeerId as PeerIdentifier } from 'effect-webrtc';
 import type { PeerMode } from 'effect-webrtc/signaling/durable';
-import { useTheme } from 'fumadocs-ui/provider/base';
+import { createTheme } from 'kui-toolkit/components/blocks/theme';
 import { DevToolsPanel } from 'kui-toolkit/components/blocks/devtools-panel';
 import { GoogleButton } from 'kui-toolkit/components/ui/google-button';
 import { LoaderCircle } from 'lucide-react';
@@ -17,6 +17,8 @@ import {
   type DurableConversationRuntime,
 } from '../../runtime/index.ts';
 import { DurableChat, PeerProfile, TransportSwitch } from '../../ui/index.ts';
+
+const themeController = createTheme();
 
 function CenteredCard({ children }: { readonly children: ReactNode }) {
   return (
@@ -43,7 +45,7 @@ const storedDeviceName = (userId: string): string => {
 };
 
 function SignIn() {
-  const { resolvedTheme } = useTheme();
+  const { theme } = themeController.useTheme();
   const loginError = authClient.useLoginError();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +81,7 @@ function SignIn() {
       </p>
       <div className="mt-6 w-fit">
         <GoogleButton
-          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          theme={theme}
           onClick={() => void signIn()}
           disabled={pending}
           aria-busy={pending || undefined}

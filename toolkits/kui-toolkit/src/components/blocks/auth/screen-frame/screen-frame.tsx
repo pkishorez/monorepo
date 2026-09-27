@@ -8,12 +8,14 @@ import { BrandLink, type Branding } from './brand';
 import { EmailToggle, MaskedEmail } from './email-privacy';
 import { Loader } from './loader';
 import { ThemeToggle } from './theme-toggle';
+import { createTheme } from '../../theme';
 
 export { BrandLink, brandName, type Branding } from './brand';
 export { MaskedEmail, useEmailPrivacy } from './email-privacy';
 
 const ACCENT =
   '[--primary:var(--sidebar-active-foreground)] [--primary-foreground:var(--sidebar-active)] [--ring:var(--sidebar-active-foreground)]';
+const themeController = createTheme();
 
 interface ScreenFrameProps {
   branding: Branding;
@@ -36,6 +38,7 @@ export function ScreenFrame({
   footer,
   account,
 }: ScreenFrameProps) {
+  const { theme } = themeController.useTheme();
   return (
     <main
       className={cn(
@@ -47,7 +50,7 @@ export function ScreenFrame({
         <EmailToggle />
         <ThemeToggle />
       </div>
-      <Toaster position="bottom-center" richColors />
+      <Toaster position="bottom-center" richColors theme={theme} />
       {loading ? (
         <Loader branding={branding} />
       ) : (

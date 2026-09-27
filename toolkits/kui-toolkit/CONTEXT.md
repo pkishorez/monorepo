@@ -4,6 +4,10 @@ Reusable user-interface blocks and presentation components shared by application
 
 ## Language
 
+**Theme**:
+The shared light or dark appearance used by KUI-based applications. The preference is stored in a user-readable cookie shared by sibling application hosts; without that cookie, the Theme is dark.
+_Avoid_: color mode, system theme
+
 **Studio block**:
 A minimal, read-only inspector for one remotely hosted StdTable, driven by a live Studio RPC client. Its Diagram and Query views remain unavailable until the table snapshot has loaded.
 _Avoid_: Database admin, table editor, data grid.
@@ -51,8 +55,16 @@ The Gesture Zone taking a touch from the browser once the app owns it — a Pan 
 _Avoid_: grab, prevent scroll
 
 **Hold**:
-A finger kept still in the Gesture Zone while other fingers act. It locks the moment another finger moves or taps, and works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them, and the lock lasts until it lifts, however many gestures they make.
+A finger deliberately planted before other fingers act in the Gesture Zone. It works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them, and the lock lasts until it lifts, however many gestures they make. Fingers that land together express a multi-finger gesture, not a Hold.
 _Avoid_: anchor, chord, modifier, touch and hold (that is a long press)
+
+**Tap**:
+One or more fingers touching and lifting without meaningful movement. A Tap may wait briefly when the same Gesture Zone also handles a matching Double Tap.
+_Avoid_: click, press
+
+**Double Tap**:
+Two matching Taps close together in time and position. It takes priority over a matching single Tap when both are handled by the same Gesture Zone.
+_Avoid_: double click
 
 **Pan**:
 Fingers moving freely across the Gesture Zone, followed continuously; on release whatever they moved may coast on with their speed.

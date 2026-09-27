@@ -51,7 +51,8 @@
         "src/components/blocks/source-explorer",
         "src/components/blocks/source-viewer",
         "src/components/blocks/state-machine-visualizer",
-        "src/components/blocks/swim-lane"
+        "src/components/blocks/swim-lane",
+        "src/components/blocks/theme"
       ],
       "description": "Feature-level components composed from UI primitives",
       "modules": {
@@ -94,6 +95,10 @@
           "exposed": true
         },
         "src/components/blocks/swim-lane": {
+          "exposed": true
+        },
+        "src/components/blocks/theme": {
+          "shared": true,
           "exposed": true
         }
       },

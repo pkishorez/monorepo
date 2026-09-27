@@ -56,7 +56,7 @@ const reducedMotion = () =>
 // No bounce: the surface lands, carrying the finger's speed into the landing.
 const SETTLE_SPRING = {
   type: 'spring',
-  visualDuration: 0.35,
+  visualDuration: 0.5,
   bounce: 0,
 } as const;
 

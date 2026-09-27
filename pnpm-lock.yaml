@@ -273,9 +273,6 @@ catalogs:
     motion:
       specifier: 13.2.0
       version: 13.2.0
-    next-themes:
-      specifier: 0.4.6
-      version: 0.4.6
     nostr-tools:
       specifier: 2.25.2
       version: 2.25.2
@@ -467,9 +464,6 @@ importers:
       kui-toolkit:
         specifier: workspace:*
         version: link:../../toolkits/kui-toolkit
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -1031,9 +1025,6 @@ importers:
       kui-toolkit:
         specifier: workspace:*
         version: link:../kui-toolkit
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       rpc-toolkit:
         specifier: workspace:*
         version: link:../rpc-toolkit
@@ -1186,6 +1177,9 @@ importers:
       '@tanstack/react-form':
         specifier: 'catalog:'
         version: 1.33.5(@tanstack/react-start@1.168.49(@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.7)(supports-color@10.2.2))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@tanstack/react-start':
+        specifier: 'catalog:'
+        version: 1.168.49(@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.7)(supports-color@10.2.2)
       '@uiw/codemirror-theme-xcode':
         specifier: 'catalog:'
         version: 4.25.11(@codemirror/language@6.12.4)(@codemirror/state@6.7.1)(@codemirror/view@6.43.6)
@@ -1231,9 +1225,6 @@ importers:
       motion:
         specifier: 'catalog:'
         version: 13.2.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: ^19.2.8
         version: 19.2.8

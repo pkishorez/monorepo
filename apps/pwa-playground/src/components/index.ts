@@ -10,4 +10,4 @@ export {
 } from './scenario.tsx';
 export { ScenarioNav } from './scenario-nav.tsx';
 export { StatusStrip } from './status-strip.tsx';
-export { THEME_SCRIPT } from './theme.tsx';
+export { appTheme, ThemeToggle } from './theme.tsx';
