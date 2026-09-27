@@ -1,12 +1,7 @@
 import { GestureZone, useHold } from 'kui-toolkit/components/blocks/gestures';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { Switch } from 'kui-toolkit/components/ui/switch';
-import {
-  animate,
-  motion,
-  type MotionValue,
-  useMotionValue,
-} from 'kui-toolkit/motion';
+import { motion, type MotionValue, useReducedMotion } from 'kui-toolkit/motion';
 import { cn } from 'kui-toolkit/utils';
 import { type ReactNode, useState } from 'react';
 import {
@@ -30,7 +25,9 @@ const HOLD_LABEL: Record<Hold, string> = {
 
 type CellProps = {
   readonly hold: Hold;
+  readonly onStart: () => void;
   readonly onHit: (detail: string) => void;
+  readonly onCancel: () => void;
 };
 
 /**
@@ -99,44 +96,77 @@ const ROWS: Record<Mode, ReadonlyArray<Row>> = {
   swipe: rowsFor('swipe'),
 };
 
-/** One cell: its gesture's hook, a count, and a glow that springs away on each hit. */
-function Cell(props: { readonly row: Row; readonly hold: Hold }) {
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+const LIFT = { type: 'spring', duration: 0.25, bounce: 0 } as const;
+
+/**
+ * One cell: its gesture's hook and a count. While the gesture runs the cell
+ * lifts, ringed and tinted; when it is recognised a copy of the ring grows
+ * and fades from the cell and the count bumps. A cancelled Swipe only fades.
+ */
+function Cell(props: {
+  readonly row: Row;
+  readonly hold: Hold;
+  readonly onActive: (active: boolean) => void;
+}) {
   const [hits, setHits] = useState({ count: 0, detail: '' });
-  const glow = useMotionValue(0);
+  const [active, setActive] = useState(false);
+  const [popping, setPopping] = useState(false);
+  const still = useReducedMotion() === true;
+  const settle = (active: boolean) => {
+    setActive(active);
+    props.onActive(active);
+  };
   const onHit = (detail: string) => {
     setHits((last) => ({ count: last.count + 1, detail }));
-    glow.jump(1);
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      glow.jump(0);
-      return;
-    }
-    void animate(glow, 0, {
-      duration: 0.18,
-      ease: [0.32, 0.72, 0, 1],
-    });
+    setPopping(true);
+    settle(false);
   };
   const { Gesture } = props.row;
   return (
-    <div
+    <motion.div
       role="cell"
       data-testid={`matrix-cell-${props.row.id}-${props.hold}`}
       data-count={hits.count}
       data-detail={hits.detail}
-      className="relative flex min-w-0 flex-col items-center justify-center overflow-hidden rounded-lg bg-muted px-1 py-1"
+      data-active={active ? '' : undefined}
+      animate={{ scale: active && !still ? 1.03 : 1 }}
+      transition={LIFT}
+      className={cn(
+        'relative flex min-w-0 flex-col items-center justify-center rounded-lg bg-muted px-1 py-1 transition-[background-color,box-shadow] duration-150 ease-out data-active:bg-chart-8/15 data-active:ring-2 data-active:ring-chart-8',
+        (active || popping) && 'z-10',
+      )}
     >
+      {hits.count > 0 ? (
+        <motion.span
+          key={hits.count}
+          aria-hidden="true"
+          initial={{ opacity: 1, scale: 1 }}
+          animate={{ opacity: 0, scale: still ? 1 : 1.3 }}
+          transition={{ duration: 0.28, ease: EASE_OUT }}
+          onAnimationComplete={() => setPopping(false)}
+          className="pointer-events-none absolute inset-0 rounded-lg bg-chart-8/20 ring-2 ring-chart-8"
+        />
+      ) : null}
       <motion.span
-        aria-hidden="true"
-        style={{ opacity: glow }}
-        className="absolute inset-0 bg-chart-8/40"
-      />
-      <span className="relative text-lg leading-none font-semibold tabular-nums">
+        key={hits.count}
+        initial={{ scale: hits.count > 0 && !still ? 1.15 : 1 }}
+        animate={{ scale: 1 }}
+        transition={LIFT}
+        className="relative text-lg leading-none font-semibold tabular-nums"
+      >
         {hits.count}
-      </span>
+      </motion.span>
       <span className="relative mt-1 h-3.5 max-w-full truncate font-mono text-[10px] leading-3.5 text-muted-foreground tabular-nums">
-        <Gesture hold={props.hold} onHit={onHit} />
+        <Gesture
+          hold={props.hold}
+          onStart={() => settle(true)}
+          onHit={onHit}
+          onCancel={() => settle(false)}
+        />
         {props.row.live ? null : hits.detail}
       </span>
-    </div>
+    </motion.div>
   );
 }
 
@@ -157,6 +187,16 @@ function HoldHeader(props: { readonly hold: Hold }) {
 }
 
 function Matrix(props: { readonly mode: Mode }) {
+  // Rows with a gesture under way, so their label lights with the cell.
+  const [activeRows, setActiveRows] = useState<ReadonlySet<string>>(new Set());
+  const onActive = (id: string) => (active: boolean) =>
+    setActiveRows((rows) => {
+      if (rows.has(id) === active) return rows;
+      const next = new Set(rows);
+      if (active) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   return (
     <div
       role="table"
@@ -173,12 +213,18 @@ function Matrix(props: { readonly mode: Mode }) {
         <div key={row.id} role="row" className="contents">
           <div
             role="rowheader"
-            className="flex items-center text-xs leading-tight font-medium"
+            data-active={activeRows.has(row.id) ? '' : undefined}
+            className="flex items-center rounded-md px-1 text-xs leading-tight font-medium transition-colors data-active:bg-chart-8/20"
           >
             {row.label}
           </div>
           {HOLDS.map((hold) => (
-            <Cell key={hold} row={row} hold={hold} />
+            <Cell
+              key={hold}
+              row={row}
+              hold={hold}
+              onActive={onActive(row.id)}
+            />
           ))}
         </div>
       ))}
