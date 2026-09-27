@@ -1,4 +1,7 @@
-import { useSwipe } from 'kui-toolkit/components/blocks/gestures';
+import {
+  type GestureSpring,
+  useSwipe,
+} from 'kui-toolkit/components/blocks/gestures';
 import { useTransform } from 'kui-toolkit/motion';
 
 export const SIDEBAR_WIDTH = 288;
@@ -8,12 +11,13 @@ export const SIDEBAR_WIDTH = 288;
  * open at 1 until a Swipe left drags it back, and everything that moves is a
  * transform of its one `progress` value.
  */
-export function useSidebarGestures() {
+export function useSidebarGestures(spring?: GestureSpring) {
   const sidebar = useSwipe({
     direction: 'right',
     edge: false,
     after: 'stay',
     distance: SIDEBAR_WIDTH,
+    spring,
   });
   const { progress } = sidebar;
   return {

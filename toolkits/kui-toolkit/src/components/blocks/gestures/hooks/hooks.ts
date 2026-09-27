@@ -6,6 +6,7 @@ import {
   createPan,
   createPinch,
   createSwipe,
+  type GestureSpring,
   type PanUpdate,
   type PinchUpdate,
 } from '../motion';
@@ -120,6 +121,8 @@ export function useSwipe(
     readonly edge?: boolean;
     readonly after?: 'return' | 'stay';
     readonly settle?: boolean;
+    /** Overrides the shared settle spring, useful for product-specific tuning. */
+    readonly spring?: GestureSpring;
     readonly progress?: MotionValue<number>;
     readonly onSwipe?: () => void | Promise<void>;
     readonly onCancel?: () => void;

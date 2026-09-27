@@ -188,6 +188,7 @@ const sidebar = useSwipe({
   edge: true,
   after: 'stay',
   distance: 288,
+  spring: { stiffness: 600, damping: 50, mass: 1 }, // optional
 });
 const x = useTransform(sidebar.progress, [0, 1], [-288, 0]);
 const scrim = useTransform(sidebar.progress, [0, 1], [0, 0.5]);
@@ -197,8 +198,9 @@ The finger sets the value each move; release hands it to a spring
 (`settle`) or inertia (`coast`) starting at the finger's speed; a touch
 landing mid-animation catches it (`value.stop()`), and if that touch makes
 no gesture for the hook it carries on where it was going. `settle(value,
-to, { velocity })` and `coast(value, { velocity, min, max, snap })` are
-exported for your own animations (a double tap zoom), with the same spring.
+to, { velocity, spring })` and `coast(value, { velocity, min, max, snap })`
+are exported for your own animations (a double tap zoom). A Swipe accepts
+the same optional `spring`; otherwise it uses `DEFAULT_GESTURE_SPRING`.
 Reduced motion is read as each animation starts and jumps instead.
 
 ## Choosing gestures

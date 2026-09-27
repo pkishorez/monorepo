@@ -53,14 +53,18 @@ const reducedMotion = () =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// Near-critical and deliberately quick: the surface carries the finger's
-// speed into the landing without the elastic tail of a decorative spring.
-const SETTLE_SPRING = {
-  type: 'spring',
+export type GestureSpring = {
+  readonly stiffness: number;
+  readonly damping: number;
+  readonly mass: number;
+};
+
+/** The quick, near-critical spring used by gesture settles unless overridden. */
+export const DEFAULT_GESTURE_SPRING: GestureSpring = {
   stiffness: 600,
   damping: 50,
   mass: 1,
-} as const;
+};
 
 /**
  * Springs `value` to `to`, starting at `velocity` (units per ms) so a
@@ -71,7 +75,10 @@ const SETTLE_SPRING = {
 export const settle = (
   value: MotionValue<number>,
   to: number,
-  options: { readonly velocity?: number } = {},
+  options: {
+    readonly velocity?: number;
+    readonly spring?: GestureSpring;
+  } = {},
 ): Promise<void> => {
   if (reducedMotion() || value.get() === to) {
     value.stop();
@@ -79,7 +86,8 @@ export const settle = (
     return Promise.resolve();
   }
   return animate(value, to, {
-    ...SETTLE_SPRING,
+    type: 'spring',
+    ...(options.spring ?? DEFAULT_GESTURE_SPRING),
     velocity: (options.velocity ?? 0) * 1000,
   }).finished.then(() => undefined);
 };

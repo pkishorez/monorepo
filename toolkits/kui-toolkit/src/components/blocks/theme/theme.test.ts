@@ -1,15 +1,19 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { themeFromCookies } from './cookie.ts';
 import { applyThemeToDocument } from './document.ts';
 import { createTheme } from './theme.ts';
+import { setThemeValue } from './store.ts';
 
 beforeEach(() => {
   document.documentElement.className = '';
   document.documentElement.removeAttribute('data-theme');
   document.documentElement.removeAttribute('style');
+  document.body.removeAttribute('style');
   document.head.innerHTML = '';
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('theme cookies', () => {
   it('defaults missing and invalid values to dark', () => {
@@ -33,6 +37,7 @@ describe('theme document integration', () => {
     expect(document.documentElement.style.backgroundColor).toBe(
       'rgb(10, 10, 10)',
     );
+    expect(document.body.style.backgroundColor).toBe('rgb(10, 10, 10)');
     const dark = document
       .querySelector('meta[name="theme-color"]')
       ?.getAttribute('content');
@@ -46,6 +51,7 @@ describe('theme document integration', () => {
         .querySelector('meta[name="theme-color"]')
         ?.getAttribute('content'),
     ).not.toBe(dark);
+    expect(document.body.style.backgroundColor).toBe('rgb(255, 255, 255)');
   });
 
   it('updates every theme-color tag left by app integrations', () => {
@@ -57,6 +63,24 @@ describe('theme document integration', () => {
         meta.getAttribute('content'),
       ),
     ).toEqual(['#ffffff', '#ffffff']);
+  });
+
+  it('updates the browser chrome surface during an in-place switch', () => {
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    });
+    applyThemeToDocument('dark');
+    setThemeValue('light');
+    expect(document.documentElement.style.backgroundColor).toBe(
+      'rgb(255, 255, 255)',
+    );
+    expect(document.body.style.backgroundColor).toBe('rgb(255, 255, 255)');
+    expect(
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.getAttribute('content'),
+    ).toBe('#ffffff');
   });
 
   it('keeps manifest colors inside the KUI theme controller', () => {

@@ -1,6 +1,6 @@
 import type { MotionValue } from 'motion';
 import { along, type Direction, type MovementEvent, opposite } from '../engine';
-import { band, settle, shouldCommit } from './springs';
+import { band, type GestureSpring, settle, shouldCommit } from './springs';
 
 export type SwipeOptions = {
   readonly direction: Direction;
@@ -10,6 +10,7 @@ export type SwipeOptions = {
   readonly after: 'return' | 'stay';
   /** `false`: the app animates `progress` after release itself. */
   readonly settle: boolean;
+  readonly spring?: GestureSpring;
   readonly onSwipe?: () => void | Promise<void>;
   readonly onCancel?: () => void;
 };
@@ -43,7 +44,7 @@ export const createSwipe = (
   const toward = (to: 0 | 1, velocity: number): Promise<void> => {
     heading = to;
     return options().settle
-      ? settle(progress, to, { velocity })
+      ? settle(progress, to, { velocity, spring: options().spring })
       : Promise.resolve();
   };
 

@@ -27,6 +27,7 @@
     "src/components/blocks/laymos/story-inspection/fixtures",
     "src/components/blocks/monoverse/monoverse/monoverse.fixture.tsx",
     "src/components/blocks/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
+    "src/components/blocks/pwa-playground/pwa-playground.fixture.tsx",
     "src/components/blocks/std-toolkit-studio/std-toolkit-studio.fixture.tsx",
     "src/cosmos.decorator.tsx",
     "src/css.d.ts",
@@ -595,6 +596,15 @@
         }
       }
     },
+    "playgrounds": {
+      "paths": ["src/components/blocks/pwa-playground"],
+      "description": "Product playgrounds composed from reusable KUI blocks",
+      "modules": {
+        "src/components/blocks/pwa-playground": {
+          "exposed": true
+        }
+      }
+    },
     "form": {
       "paths": ["src/form"],
       "description": "Form components and field bindings composed from UI primitives",
@@ -646,6 +656,7 @@
     "frontend": {
       "description": "Frontend component architecture",
       "rules": {
+        "playgrounds": ["blocks"],
         "studio": ["blocks"],
         "architecture-analysis": ["blocks"],
         "monorepo-analysis": ["blocks"],

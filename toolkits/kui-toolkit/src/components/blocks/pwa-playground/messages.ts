@@ -1,5 +1,4 @@
-/** A placeholder message in the feed. */
-export type Message = {
+export type PlaygroundMessage = {
   readonly id: number;
   readonly from: string;
   readonly subject: string;
@@ -41,8 +40,7 @@ const PREVIEW = [
 ];
 const HUES = [6, 7, 8, 9] as const;
 
-/** The `index`th placeholder message: the same one every time. */
-export const message = (index: number): Message => ({
+export const playgroundMessage = (index: number): PlaygroundMessage => ({
   id: index,
   from: FROM[index % FROM.length] ?? '',
   subject: SUBJECT[(index * 5) % SUBJECT.length] ?? '',
@@ -50,5 +48,5 @@ export const message = (index: number): Message => ({
   hue: HUES[index % HUES.length] ?? 6,
 });
 
-export const firstMessages = (count: number) =>
-  Array.from({ length: count }, (_, index) => message(index));
+export const playgroundMessages = (count: number) =>
+  Array.from({ length: count }, (_, index) => playgroundMessage(index));
