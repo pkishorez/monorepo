@@ -1,10 +1,10 @@
 import type { Plugin } from 'vite';
-import { BuildId, MANIFEST_URL } from '../../domain/build/index.js';
+import { BuildId, MANIFEST_URL } from '../../shared/build/index.js';
 import {
   type ResolvedPwaConfig,
   workerConfigOf,
-} from '../../domain/config/index.js';
-import { withManifestDefaults } from '../../domain/manifest/index.js';
+} from '../../shared/config/index.js';
+import { withManifestDefaults } from '../../shared/manifest/index.js';
 import { workerScript } from '../worker-bundle/index.js';
 
 /**

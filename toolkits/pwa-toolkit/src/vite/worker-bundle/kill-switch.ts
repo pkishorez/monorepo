@@ -1,4 +1,4 @@
-import { CACHE_PREFIX } from '../../domain/build/index.js';
+import { CACHE_PREFIX } from '../../shared/build/index.js';
 
 /**
  * The Kill Switch worker. Plain script with no toolkit runtime, so it works

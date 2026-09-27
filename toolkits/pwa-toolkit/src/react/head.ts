@@ -1,5 +1,5 @@
-import { BUILD_ID_META_NAME } from '../domain/build/index.js';
-import type { ClientBuildInfo } from '../domain/config/index.js';
+import { BUILD_ID_META_NAME } from '../shared/build/index.js';
+import type { ClientBuildInfo } from '../shared/config/index.js';
 
 export interface HeadTags {
   readonly meta: Array<{ readonly name: string; readonly content: string }>;

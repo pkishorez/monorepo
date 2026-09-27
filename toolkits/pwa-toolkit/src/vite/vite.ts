@@ -1,6 +1,6 @@
 import * as Schema from 'effect/Schema';
 import type { Plugin } from 'vite';
-import { PwaOptions, resolvePwaConfig } from '../domain/config/index.js';
+import { PwaOptions, resolvePwaConfig } from '../shared/config/index.js';
 import { buildPlugin, makeBuildState } from './build/index.js';
 import { clientModulePlugin } from './client-module/index.js';
 import { devPlugin } from './dev/index.js';

@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite';
-import { VIRTUAL_BUILD_MODULE_ID } from '../../domain/build/index.js';
-import type { WorkerBuildInfo } from '../../domain/config/index.js';
+import { VIRTUAL_BUILD_MODULE_ID } from '../../shared/build/index.js';
+import type { WorkerBuildInfo } from '../../shared/config/index.js';
 import { DEFAULT_ENTRY_ID, DEFAULT_ENTRY_SOURCE } from './entry.js';
 
 const resolved = (id: string) => `\0${id}`;

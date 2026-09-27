@@ -3,29 +3,29 @@
   "sourceRoots": ["src"],
   "ignoredPaths": ["src/virtual.d.ts", "src/vite/tests"],
   "layers": {
-    "domain": {
-      "paths": ["src/domain"],
-      "description": "The words of the problem: Build ID, Precache, manifest, Runtime Cache rules, config, Control Channel. Pure; no I/O.",
+    "shared": {
+      "paths": ["src/shared"],
+      "description": "The words of the problem: Build ID, cache names, manifest, Strategy rules, config, commands. Pure; no I/O.",
       "modules": {
-        "src/domain/build": {
+        "src/shared/build": {
           "shared": true,
           "exposed": true
         },
-        "src/domain/manifest": {
+        "src/shared/manifest": {
           "shared": true,
           "exposed": true
         },
-        "src/domain/runtime-cache": {
+        "src/shared/strategy": {
           "shared": true,
           "exposed": true
         },
-        "src/domain/config": {
+        "src/shared/config": {
           "exposed": true
         },
-        "src/domain/control-channel": {
+        "src/shared/commands": {
           "exposed": true
         },
-        "src/domain/worker-host": {
+        "src/shared/worker-host": {
           "exposed": true
         }
       }
@@ -60,7 +60,7 @@
     },
     "worker": {
       "paths": ["src/worker"],
-      "description": "Service worker runtime: Precache, Runtime Cache, navigation, lifecycle, Control Channel server.",
+      "description": "Service worker runtime: lifecycle, Precache, requests (pages and Strategies), commands, messages.",
       "modules": {
         "src/worker": {
           "exposed": true
@@ -69,7 +69,7 @@
     },
     "client": {
       "paths": ["src/client"],
-      "description": "Tab-side Effect services: registration, updates, install, connectivity, display mode, storage.",
+      "description": "Client-side Effect services: registration, updates, install, connectivity, display mode, storage.",
       "modules": {
         "src/client": {
           "exposed": true
@@ -94,15 +94,15 @@
         }
       }
     },
-    "worker-rpc": {
-      "paths": ["src/worker-rpc"],
+    "rpc": {
+      "paths": ["src/rpc"],
       "description": "Worker RPC: Effect RPC between the Worker Server and each Tab Client.",
       "moduleGraphs": {
-        "worker-rpc": {
-          "description": "Worker Server and Tab Client sharing one Build ID handshake.",
-          "path": "src/worker-rpc",
+        "rpc": {
+          "description": "Worker Server and RPC client sharing one Build ID handshake.",
+          "path": "src/rpc",
           "modules": {
-            "server": {
+            "worker": {
               "exposed": true
             },
             "client": {
@@ -111,7 +111,7 @@
             "handshake": {}
           },
           "rules": {
-            "server": ["handshake"],
+            "worker": ["handshake"],
             "client": ["handshake"]
           }
         }
@@ -120,15 +120,15 @@
   },
   "layerGraphs": {
     "pwa-toolkit": {
-      "description": "Every layer builds on domain; the tab side stacks ui on react on client.",
+      "description": "Every layer builds on shared; the client side stacks ui on react on client.",
       "rules": {
-        "domain": [],
-        "vite": ["domain"],
-        "worker": ["domain"],
-        "client": ["domain"],
+        "shared": [],
+        "vite": ["shared"],
+        "worker": ["shared"],
+        "client": ["shared"],
         "react": ["client"],
         "ui": ["react"],
-        "worker-rpc": ["domain"]
+        "rpc": ["shared"]
       }
     }
   }

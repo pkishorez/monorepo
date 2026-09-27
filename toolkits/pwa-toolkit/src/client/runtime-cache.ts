@@ -1,5 +1,5 @@
 import * as Effect from 'effect/Effect';
-import { isRuntimeCacheName } from '../domain/build/index.js';
+import { isRuntimeCacheName } from '../shared/build/index.js';
 
 /**
  * Deletes every Runtime Cache straight from CacheStorage, which the tab

@@ -1,6 +1,6 @@
 import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
-import { BUILD_ID_META_NAME, BuildId } from '../domain/build/index.js';
+import { BUILD_ID_META_NAME, BuildId } from '../shared/build/index.js';
 
 const decode = Schema.decodeUnknownOption(BuildId);
 

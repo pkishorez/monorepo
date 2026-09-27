@@ -7,15 +7,15 @@ import {
   pagesCacheName,
   precacheCacheName,
   runtimeCacheName,
-} from '../../domain/build/index.js';
+} from '../../shared/build/index.js';
 import {
   resolvePwaConfig,
   type WorkerBuildInfo,
   workerConfigOf,
-} from '../../domain/config/index.js';
-import { makeControlRequest } from '../../domain/control-channel/index.js';
-import type { RuntimeCacheRule } from '../../domain/runtime-cache/index.js';
-import { WorkerHost } from '../../domain/worker-host/index.js';
+} from '../../shared/config/index.js';
+import { makeControlRequest } from '../../shared/commands/index.js';
+import type { RuntimeCacheRule } from '../../shared/strategy/index.js';
+import { WorkerHost } from '../../shared/worker-host/index.js';
 import { makeFakeGlobal, settle, sleep, text } from './fake-global.js';
 import { startServiceWorker } from '../worker.js';
 

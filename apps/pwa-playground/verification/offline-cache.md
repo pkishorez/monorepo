@@ -24,7 +24,7 @@ Test artifact: CDP network emulation from a separate session does not flip `navi
 
 ## 2. Offline Fallback — PARTIAL
 
-Code order (`toolkits/pwa-toolkit/src/worker/navigation/navigation.ts`): network within `networkTimeoutMs` (default 3000), then the saved page (only with `cachePages`), then the App Shell (only with `shell`), then the Offline Fallback. Non-GET, `neverCache` and denylisted paths skip the worker (`fetch-router.ts`).
+Code order (`toolkits/pwa-toolkit/src/worker/requests/pages/pages.ts`): network within `networkTimeoutMs` (default 3000), then the saved page (only with `cachePages`), then the App Shell (only with `shell`), then the Offline Fallback. Non-GET, `neverCache` and denylisted paths skip the worker (`fetch-router.ts`).
 
 Steps: while offline, deleted `/_shell` from the precache with page JS, then navigated to `/status`.
 

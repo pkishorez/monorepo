@@ -1,5 +1,5 @@
 import { matchesGlob } from 'node:path/posix';
-import type { PrecacheEntry } from '../../domain/build/index.js';
+import type { PrecacheEntry } from '../../shared/build/index.js';
 import { isDefaultAsset, isHtml, isSourceMap } from './asset-kind.js';
 import { revisionOf } from './revision.js';
 import { outputPathOf, urlOf } from './url-path.js';
