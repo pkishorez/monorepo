@@ -81,7 +81,7 @@ export function AppHeader() {
   const online = useOnline();
   return (
     <header
-      className="sticky top-0 z-40 border-b border-border bg-background/85 pt-[env(safe-area-inset-top)] backdrop-blur-md supports-backdrop-filter:bg-background/70"
+      className="sticky top-0 z-40 border-b border-border bg-background pt-[env(safe-area-inset-top)]"
       style={{ viewTransitionName: 'site-header' }}
     >
       <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto] items-center gap-x-3 pr-[max(0.5rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:grid-cols-[auto_1fr_auto] sm:pr-4 lg:px-6">
