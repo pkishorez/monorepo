@@ -52,11 +52,10 @@ describe('hooks during SSR', () => {
 });
 
 describe('pwaHead', () => {
-  it('lists the manifest, Apple meta and icon, and the Build ID', () => {
+  it('lists the manifest, Apple icon and the Build ID', () => {
     expect(headTags(info, 'abc')).toEqual({
       meta: [
         { name: 'mobile-web-app-capable', content: 'yes' },
-        { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: BUILD_ID_META_NAME, content: 'abc' },
       ],
       links: [
@@ -72,10 +71,7 @@ describe('pwaHead', () => {
       null,
     );
     expect(bare.links).toEqual([]);
-    expect(bare.meta.map((m) => m.name)).toEqual([
-      'mobile-web-app-capable',
-      'apple-mobile-web-app-capable',
-    ]);
+    expect(bare.meta.map((m) => m.name)).toEqual(['mobile-web-app-capable']);
   });
 
   it('reuses the server-rendered Build ID in the browser', () => {

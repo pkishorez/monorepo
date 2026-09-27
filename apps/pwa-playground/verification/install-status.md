@@ -27,7 +27,7 @@ Observed:
 
 - `/manifest.webmanifest` returns 200 `application/manifest+json`. It has name, short_name, description, theme/background `#18181b`, `id`/`start_url`/`scope` `/` and `display: standalone`, plus 4 icons.
 - Every icon returns 200 `image/png` at the size it declares (checked with `sips`): 192x192, 512x512, maskable 512x512, apple-touch 180x180.
-- The SSR head of `/status` has `link rel=manifest`, `meta theme-color #18181b`, `apple-mobile-web-app-capable`, `mobile-web-app-capable` and `link rel=apple-touch-icon`.
+- The SSR head of `/status` has `link rel=manifest`, `meta theme-color #18181b`, `mobile-web-app-capable` and `link rel=apple-touch-icon`.
 - CDP `Page.getAppManifest`: `errors: []`, display `kStandalone`. `Page.getInstallabilityErrors`: `installabilityErrors: []`.
 
 ## 3. Install Prompt (Chromium) — PASS (real install NOT TESTABLE)
