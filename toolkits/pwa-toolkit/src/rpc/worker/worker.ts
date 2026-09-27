@@ -22,8 +22,8 @@ const platform = Layer.effect(WorkerRunnerPlatform)(
  * to `runServiceWorker({ layer })`.
  *
  * Stateless: the browser may stop the worker at any time, and the next
- * message starts a fresh Worker Server. Tab Clients it no longer knows
- * reconnect, and their streams resume through Subscription Restart. A tab
+ * message starts a fresh Worker Server. Worker Clients it no longer knows
+ * reconnect, and their streams resume through Subscription Restart. A page
  * whose Build ID differs gets `VersionSkew` instead of a connection.
  */
 export const WorkerServer = {

@@ -5,7 +5,6 @@ export {
   type ResolvedPwaConfig,
   resolvePwaConfig,
   UpdateConfig,
-  UpdateMode,
   WorkerBuildInfo,
   WorkerConfig,
   workerConfigOf,

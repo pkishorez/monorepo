@@ -111,7 +111,7 @@
         "src/lib/scenarios.ts": {
           "exposed": true
         },
-        "src/lib/runtime-cache-rules.ts": {
+        "src/lib/strategies.ts": {
           "exposed": true
         },
         "src/lib/served.ts": {

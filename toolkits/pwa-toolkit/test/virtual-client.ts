@@ -5,7 +5,7 @@ const info: ClientBuildInfo = {
   enabled: true,
   swUrl: '/sw.js',
   scope: '/',
-  update: { mode: 'prompt', checkIntervalMinutes: 60 },
+  update: { checkIntervalMinutes: 60 },
   buildId: null,
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: null,

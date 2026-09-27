@@ -1,5 +1,5 @@
 import { useDisplayMode, useOnline } from 'pwa-toolkit/extras';
-import { usePwaUpdate } from 'pwa-toolkit/react';
+import { usePwa } from 'pwa-toolkit/react';
 import { useEffect, useState } from 'react';
 import { pageBuildId } from '../lib/build.ts';
 import { useWorkers } from '../lib/workers.ts';
@@ -29,7 +29,7 @@ function Cell(props: {
 export function StatusStrip() {
   const online = useOnline();
   const displayMode = useDisplayMode();
-  const update = usePwaUpdate();
+  const pwa = usePwa();
   const workers = useWorkers();
   const [buildId, setBuildId] = useState<string | null>(null);
   useEffect(() => setBuildId(pageBuildId()), []);
@@ -46,11 +46,11 @@ export function StatusStrip() {
               outcome: 'success' as const,
             };
 
-  const updateTag = update.state._tag;
+  const updateTag = pwa.status._tag;
   const updateOutcome: Outcome =
-    updateTag === 'Available'
+    updateTag === 'UpdateReady'
       ? 'success'
-      : updateTag === 'Checking' || updateTag === 'Applying'
+      : updateTag === 'Installing' || updateTag === 'Updating'
         ? 'running'
         : updateTag === 'Unsupported'
           ? 'failure'

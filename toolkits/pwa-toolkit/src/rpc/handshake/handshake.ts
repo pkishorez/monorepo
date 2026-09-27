@@ -3,15 +3,15 @@ import * as Schema from 'effect/Schema';
 import { BuildId } from '../../shared/build/index.js';
 
 /**
- * Worker RPC's own envelope, distinct from the Control Channel key so each
+ * Worker RPC's own envelope, distinct from the command key so each
  * listener ignores the other's traffic. Every envelope names its sender's
- * Build ID and the Tab Client connection it belongs to.
+ * Build ID and the Worker Client connection it belongs to.
  *
  * A connection opens with CONNECT, answered by READY or VERSION_SKEW. A
  * worker that does not know the connection (it was stopped and started
- * again) adopts it when the message is a new Request and the tab has no
+ * again) adopts it when the message is a new Request and the page has no
  * other call open (`open: 0`), since nothing was lost; otherwise it answers
- * UNKNOWN_CONNECTION, and the tab opens a new one.
+ * UNKNOWN_CONNECTION, and the page opens a new one.
  */
 export const RPC_ENVELOPE_KEY = '__pwaToolkitRpc';
 const Envelope = {
@@ -20,8 +20,8 @@ const Envelope = {
   connectionId: Schema.String,
 } as const;
 
-/** Tab Client → Worker Server, via `navigator.serviceWorker.controller.postMessage`. */
-export const TabEnvelope = Schema.Union([
+/** Worker Client → Worker Server, via `navigator.serviceWorker.controller.postMessage`. */
+export const ClientEnvelope = Schema.Union([
   Schema.Struct({
     ...Envelope,
     type: Schema.Literals(['CONNECT', 'CLOSE', 'PING']),
@@ -30,13 +30,13 @@ export const TabEnvelope = Schema.Union([
     ...Envelope,
     type: Schema.Literal('MESSAGE'),
     message: Schema.Unknown,
-    /** Calls the tab had open on this connection before this message. */
+    /** Calls the page had open on this connection before this message. */
     open: Schema.Number,
   }),
 ]);
-export type TabEnvelope = typeof TabEnvelope.Type;
+export type ClientEnvelope = typeof ClientEnvelope.Type;
 
-/** Worker Server → Tab Client, via the tab's `Client.postMessage`. */
+/** Worker Server → Worker Client, via the page's `Client.postMessage`. */
 export const WorkerEnvelope = Schema.Union([
   Schema.Struct({
     ...Envelope,
@@ -50,19 +50,21 @@ export const WorkerEnvelope = Schema.Union([
 ]);
 export type WorkerEnvelope = typeof WorkerEnvelope.Type;
 
-/** A tab and its worker belong to different Build IDs. Transient, never supported. */
+/** A page and its worker belong to different Build IDs. Transient, never supported. */
 export class VersionSkew extends Schema.TaggedError<VersionSkew>()(
   'VersionSkew',
-  { tabBuildId: BuildId, workerBuildId: BuildId },
+  { pageBuildId: BuildId, workerBuildId: BuildId },
 ) {}
 
-const decodeTab = Schema.decodeUnknownOption(TabEnvelope);
+const decodeClient = Schema.decodeUnknownOption(ClientEnvelope);
 const decodeWorker = Schema.decodeUnknownOption(WorkerEnvelope);
 const hasKey = (data: unknown): boolean =>
   typeof data === 'object' && data !== null && RPC_ENVELOPE_KEY in data;
 
-export const matchTabEnvelope = (data: unknown): Option.Option<TabEnvelope> =>
-  hasKey(data) ? decodeTab(data) : Option.none();
+export const matchClientEnvelope = (
+  data: unknown,
+): Option.Option<ClientEnvelope> =>
+  hasKey(data) ? decodeClient(data) : Option.none();
 
 export const matchWorkerEnvelope = (
   data: unknown,
@@ -71,12 +73,12 @@ export const matchWorkerEnvelope = (
 
 /** None when both sides run one Build ID. */
 export const checkVersionSkew = (
-  tabBuildId: BuildId,
+  pageBuildId: BuildId,
   workerBuildId: BuildId,
 ): Option.Option<VersionSkew> =>
-  tabBuildId === workerBuildId
+  pageBuildId === workerBuildId
     ? Option.none()
-    : Option.some(new VersionSkew({ tabBuildId, workerBuildId }));
+    : Option.some(new VersionSkew({ pageBuildId, workerBuildId }));
 
 /** Whether an encoded RPC message opens a new call. */
 export const isRequest = (message: unknown): boolean =>
@@ -102,13 +104,13 @@ export const makeInFlight = (idle: () => void = () => {}) => {
     get size() {
       return open.size;
     },
-    /** A message from Tab Client to Worker Server. */
+    /** A message from Worker Client to Worker Server. */
     request(message: unknown): void {
       const m = tagged(message);
       if (m?._tag === 'Request') open.add(String(m.id));
       else if (m?._tag === 'Interrupt') close(String(m.requestId));
     },
-    /** A message from Worker Server to Tab Client. */
+    /** A message from Worker Server to Worker Client. */
     response(message: unknown): void {
       const m = tagged(message);
       if (m?._tag === 'Exit') close(String(m.requestId));

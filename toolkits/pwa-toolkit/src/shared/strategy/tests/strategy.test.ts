@@ -2,13 +2,13 @@ import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
 import { describe, expect, it } from 'vitest';
 import {
-  findRuntimeCacheRule,
+  findStrategyRule,
   isNeverCached,
-  matchRuntimeCacheRule,
-  RuntimeCacheRule,
+  matchStrategyRule,
+  StrategyRule,
 } from '../index.js';
 
-const decode = Schema.decodeUnknownSync(RuntimeCacheRule);
+const decode = Schema.decodeUnknownSync(StrategyRule);
 const self = 'https://app.test';
 const get = (url: string, destination = '') => ({
   url,
@@ -16,7 +16,7 @@ const get = (url: string, destination = '') => ({
   destination,
 });
 
-describe('RuntimeCacheRule', () => {
+describe('StrategyRule', () => {
   it('defaults origin to same-origin', () => {
     const rule = decode({ match: {}, strategy: 'cache-first', cacheName: 'x' });
     expect(rule.match.origin).toBe('same-origin');
@@ -39,7 +39,7 @@ describe('RuntimeCacheRule', () => {
   });
 });
 
-describe('matchRuntimeCacheRule', () => {
+describe('matchStrategyRule', () => {
   const images = decode({
     match: { destination: ['image'], pathPrefix: '/media/' },
     strategy: 'cache-first',
@@ -53,16 +53,16 @@ describe('matchRuntimeCacheRule', () => {
 
   it('requires every present condition', () => {
     expect(
-      matchRuntimeCacheRule(images, get(`${self}/media/a.png`, 'image'), self),
+      matchStrategyRule(images, get(`${self}/media/a.png`, 'image'), self),
     ).toBe(true);
     expect(
-      matchRuntimeCacheRule(images, get(`${self}/other/a.png`, 'image'), self),
+      matchStrategyRule(images, get(`${self}/other/a.png`, 'image'), self),
     ).toBe(false);
     expect(
-      matchRuntimeCacheRule(images, get(`${self}/media/a.png`, 'script'), self),
+      matchStrategyRule(images, get(`${self}/media/a.png`, 'script'), self),
     ).toBe(false);
     expect(
-      matchRuntimeCacheRule(
+      matchStrategyRule(
         images,
         get('https://cdn.test/media/a.png', 'image'),
         self,
@@ -72,24 +72,20 @@ describe('matchRuntimeCacheRule', () => {
 
   it('matches explicit origins and patterns', () => {
     expect(
-      matchRuntimeCacheRule(
+      matchStrategyRule(
         fonts,
         get('https://fonts.gstatic.com/s/a.woff2'),
         self,
       ),
     ).toBe(true);
     expect(
-      matchRuntimeCacheRule(
-        fonts,
-        get('https://fonts.gstatic.com/s/a.css'),
-        self,
-      ),
+      matchStrategyRule(fonts, get('https://fonts.gstatic.com/s/a.css'), self),
     ).toBe(false);
   });
 
   it('only matches GET', () => {
     const post = { ...get(`${self}/media/a.png`, 'image'), method: 'POST' };
-    expect(matchRuntimeCacheRule(images, post, self)).toBe(false);
+    expect(matchStrategyRule(images, post, self)).toBe(false);
   });
 
   it('finds the first matching rule', () => {
@@ -98,14 +94,14 @@ describe('matchRuntimeCacheRule', () => {
       strategy: 'network-first',
       cacheName: 'all',
     });
-    const found = findRuntimeCacheRule(
+    const found = findStrategyRule(
       [images, all],
       get(`${self}/media/a.png`, 'image'),
       self,
     );
     expect(Option.getOrThrow(found).cacheName).toBe('images');
     expect(
-      Option.isNone(findRuntimeCacheRule([fonts], get(`${self}/x`), self)),
+      Option.isNone(findStrategyRule([fonts], get(`${self}/x`), self)),
     ).toBe(true);
   });
 });

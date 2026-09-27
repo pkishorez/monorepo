@@ -1,6 +1,6 @@
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
-import type { RuntimeCacheStrategy } from '../../../shared/strategy/index.js';
+import type { StrategyName } from '../../../shared/strategy/index.js';
 import {
   fetchNetwork,
   type GlobalScope,
@@ -24,7 +24,7 @@ const fetchAndSave = (request: Request, store: CacheStore) =>
 const missing = (request: Request) =>
   new Error(`Not in the Runtime Cache: ${request.url}`);
 
-export const strategies: Record<RuntimeCacheStrategy, Strategy> = {
+export const strategies: Record<StrategyName, Strategy> = {
   'network-first': (request, store, networkTimeoutMs) =>
     networkFirst({
       network: fetchAndSave(request, store),

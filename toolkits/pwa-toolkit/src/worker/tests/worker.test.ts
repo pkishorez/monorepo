@@ -13,8 +13,8 @@ import {
   type WorkerBuildInfo,
   workerConfigOf,
 } from '../../shared/config/index.js';
-import { makeControlRequest } from '../../shared/commands/index.js';
-import type { RuntimeCacheRule } from '../../shared/strategy/index.js';
+import { makeCommand } from '../../shared/commands/index.js';
+import type { StrategyRule } from '../../shared/strategy/index.js';
 import { WorkerHost } from '../../shared/worker-host/index.js';
 import { makeFakeGlobal, settle, sleep, text } from './fake-global.js';
 import { startServiceWorker } from '../worker.js';
@@ -61,7 +61,7 @@ const withPrecache = (fake: ReturnType<typeof makeFakeGlobal>) =>
     '/offline': 'offline',
   });
 
-const rule = (fields: Partial<RuntimeCacheRule>): RuntimeCacheRule => ({
+const rule = (fields: Partial<StrategyRule>): StrategyRule => ({
   match: { origin: 'same-origin', pathPrefix: '/data/' },
   strategy: 'cache-first',
   cacheName: 'data',
@@ -311,7 +311,7 @@ describe('Runtime Cache', () => {
   };
 
   it('cache-first fetches once', async () => {
-    const fake = start(build({ runtimeCache: [rule({})] }));
+    const fake = start(build({ strategies: [rule({})] }));
     counter(fake);
     const first = fake.fetchEvent('/data/a');
     expect(await text(first)).toBe('v1');
@@ -332,9 +332,7 @@ describe('Runtime Cache', () => {
   it('network-first falls back to the cache on failure and timeout', async () => {
     const fake = start(
       build({
-        runtimeCache: [
-          rule({ strategy: 'network-first', networkTimeoutMs: 20 }),
-        ],
+        strategies: [rule({ strategy: 'network-first', networkTimeoutMs: 20 })],
       }),
     );
     counter(fake);
@@ -358,7 +356,7 @@ describe('Runtime Cache', () => {
 
   it('stale-while-revalidate answers from the cache and refreshes it', async () => {
     const fake = start(
-      build({ runtimeCache: [rule({ strategy: 'stale-while-revalidate' })] }),
+      build({ strategies: [rule({ strategy: 'stale-while-revalidate' })] }),
     );
     counter(fake);
     const first = fake.fetchEvent('/data/a');
@@ -373,7 +371,7 @@ describe('Runtime Cache', () => {
   it('network-only never caches; cache-only never fetches', async () => {
     const fake = start(
       build({
-        runtimeCache: [
+        strategies: [
           rule({
             strategy: 'network-only',
             match: { origin: 'same-origin', pathPrefix: '/net/' },
@@ -394,7 +392,7 @@ describe('Runtime Cache', () => {
   });
 
   it('does not save failed responses', async () => {
-    const fake = start(build({ runtimeCache: [rule({})] }));
+    const fake = start(build({ strategies: [rule({})] }));
     fake.setNetwork(() => new Response('boom', { status: 500 }));
     const event = fake.fetchEvent('/data/a');
     expect((await event.response!).status).toBe(500);
@@ -403,7 +401,7 @@ describe('Runtime Cache', () => {
   });
 
   it('trims to maxEntries, oldest first', async () => {
-    const fake = start(build({ runtimeCache: [rule({ maxEntries: 2 })] }));
+    const fake = start(build({ strategies: [rule({ maxEntries: 2 })] }));
     counter(fake);
     for (const path of ['/data/a', '/data/b', '/data/c'])
       await settle(fake.fetchEvent(path));
@@ -411,7 +409,7 @@ describe('Runtime Cache', () => {
   });
 
   it('treats entries older than maxAgeSeconds as missing', async () => {
-    const fake = start(build({ runtimeCache: [rule({ maxAgeSeconds: 60 })] }));
+    const fake = start(build({ strategies: [rule({ maxAgeSeconds: 60 })] }));
     counter(fake);
     fake.caches.seed(DATA, {
       '/data/old': new Response('stale', {
@@ -426,7 +424,7 @@ describe('Runtime Cache', () => {
   });
 });
 
-describe('Control Channel', () => {
+describe('commands', () => {
   const send = (fake: ReturnType<typeof makeFakeGlobal>, data: unknown) => {
     const replies: Array<unknown> = [];
     const event = fake.dispatch('message', {
@@ -436,27 +434,20 @@ describe('Control Channel', () => {
     return settle(event).then(() => replies);
   };
 
-  it('answers GET_BUILD_ID, SKIP_WAITING and CLEAR_RUNTIME_CACHE on the port', async () => {
+  it('answers SKIP_WAITING on the port', async () => {
     const fake = start();
-    fake.caches.seed(PRECACHE, { '/a': 'a' });
-    fake.caches.seed(runtimeCacheName('images'), { '/i.png': 'i' });
-    expect(await send(fake, makeControlRequest('GET_BUILD_ID'))).toEqual([
-      { __pwaToolkit: 1, type: 'BUILD_ID', buildId: 'b2' },
-    ]);
-    expect(await send(fake, makeControlRequest('SKIP_WAITING'))).toEqual([
+    expect(await send(fake, makeCommand('SKIP_WAITING'))).toEqual([
       { __pwaToolkit: 1, type: 'DONE' },
     ]);
     expect(fake.calls.skipWaiting).toBe(1);
-    expect(await send(fake, makeControlRequest('CLEAR_RUNTIME_CACHE'))).toEqual(
-      [{ __pwaToolkit: 1, type: 'DONE' }],
-    );
-    expect([...fake.caches.caches.keys()]).toEqual([PRECACHE]);
   });
 
   it('ignores unknown types and foreign messages', async () => {
     const fake = start();
-    expect(await send(fake, { __pwaToolkit: 1, type: 'NOPE' })).toEqual([]);
-    expect(await send(fake, { __pwaToolkit: 2, type: 'GET_BUILD_ID' })).toEqual(
+    expect(await send(fake, { __pwaToolkit: 1, type: 'GET_BUILD_ID' })).toEqual(
+      [],
+    );
+    expect(await send(fake, { __pwaToolkit: 2, type: 'SKIP_WAITING' })).toEqual(
       [],
     );
     expect(await send(fake, { hello: 'world' })).toEqual([]);
@@ -464,7 +455,7 @@ describe('Control Channel', () => {
 });
 
 describe('WorkerHost', () => {
-  it('delivers messages sent before the layer subscribed, but not Control Channel traffic', async () => {
+  it('delivers messages sent before the layer subscribed, but not commands', async () => {
     const received: Array<unknown> = [];
     const layer = Layer.effectDiscard(
       Effect.gen(function* () {
@@ -481,7 +472,7 @@ describe('WorkerHost', () => {
     startServiceWorker(fake.global, build(), { layer });
     const early = fake.dispatch('message', { data: { rpc: 1 }, ports: [] });
     fake.dispatch('message', {
-      data: makeControlRequest('GET_BUILD_ID'),
+      data: makeCommand('SKIP_WAITING'),
       ports: [],
     });
     expect(early.lifetimes).toHaveLength(1);

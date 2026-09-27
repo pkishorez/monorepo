@@ -1,107 +1,89 @@
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
-import info from 'virtual:pwa-toolkit/client';
 import {
-  PwaClient,
-  type PwaClientServices,
-  PwaUpdate,
-  RuntimeCacheControl,
-  UpdateState,
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+import info from 'virtual:pwa-toolkit/client';
+import { useSubscriptionRef } from '../browser/subscription-ref.js';
+import {
+  clearRuntimeCache as clearRuntimeCacheEffect,
+  Pwa,
+  PwaStatus,
 } from '../client/index.js';
 import { type HeadTags, headTags, pageBuildId } from './head.js';
-import { ServicesContext, useServices } from './services-context.js';
-import { useSubscriptionRef } from '../browser/subscription-ref.js';
 
-/** Structural slice of a TanStack Router instance; used for `auto-on-navigation`. */
-interface NavigationSource {
-  readonly subscribe: (event: 'onResolved', listener: () => void) => () => void;
-}
+/** `null` outside `PwaProvider`, during SSR, and until the service is built. */
+const PwaContext = createContext<Pwa['Service'] | null>(null);
 
-const IDLE = UpdateState.Idle();
-
-const runOr = <A,>(effect: Effect.Effect<A> | undefined, fallback: A) =>
-  effect === undefined ? Promise.resolve(fallback) : Effect.runPromise(effect);
-
-const useService = <I, S>(key: Context.Key<I, S>): S | undefined => {
-  const services = useServices();
-  return services === null
-    ? undefined
-    : Context.get(services as Context.Context<I>, key);
-};
+const UNSUPPORTED = PwaStatus.Unsupported();
 
 /**
- * Builds one PwaClient runtime after mount (never during SSR) from
- * `virtual:pwa-toolkit/client`. Pass `router` so `auto-on-navigation` sees route changes.
+ * Registers the service worker after mount (never during SSR) and gives
+ * `usePwa` its status. Render it once, in the root route.
  */
 export const PwaProvider = (props: {
   readonly children?: ReactNode;
-  readonly router?: NavigationSource;
 }): ReactNode => {
-  const [services, setServices] =
-    useState<Context.Context<PwaClientServices> | null>(null);
+  const [pwa, setPwa] = useState<Pwa['Service'] | null>(null);
 
   useEffect(() => {
-    const runtime = ManagedRuntime.make(PwaClient.layer(info));
+    const runtime = ManagedRuntime.make(Pwa.layer(info));
     let mounted = true;
     runtime.context().then(
-      (context) => mounted && setServices(context),
+      (context) => mounted && setPwa(Context.get(context, Pwa)),
       (error: unknown) =>
         console.error('pwa-toolkit: client failed to start', error),
     );
     return () => {
       mounted = false;
-      setServices(null);
+      setPwa(null);
       void runtime.dispose();
     };
   }, []);
 
-  const { router } = props;
-  useEffect(() => {
-    if (router === undefined || services === null) return;
-    const update = Context.get(services, PwaUpdate);
-    return router.subscribe('onResolved', () => {
-      Effect.runFork(update.navigated);
-    });
-  }, [router, services]);
-
   return (
-    <ServicesContext.Provider value={services}>
-      {props.children}
-    </ServicesContext.Provider>
+    <PwaContext.Provider value={pwa}>{props.children}</PwaContext.Provider>
   );
 };
 
-/** Before mount and during SSR: `Idle`. */
-export const usePwaUpdate = (): {
-  readonly state: UpdateState;
-  readonly check: () => Promise<void>;
-  readonly apply: () => Promise<void>;
+/**
+ * The PWA's status with `checkForUpdate` and `applyUpdate`. `Unsupported`
+ * during SSR and until `PwaProvider` has started.
+ */
+export const usePwa = (): {
+  readonly status: PwaStatus;
+  readonly checkForUpdate: () => Promise<void>;
+  readonly applyUpdate: () => Promise<void>;
 } => {
-  const update = useService(PwaUpdate);
-  const state = useSubscriptionRef(update?.state, IDLE);
+  const pwa = useContext(PwaContext);
+  const status = useSubscriptionRef(pwa?.status, UNSUPPORTED);
   return useMemo(
     () => ({
-      state,
-      check: () => runOr(update?.check, undefined),
-      apply: () => runOr(update?.apply, undefined),
+      status,
+      checkForUpdate: () =>
+        pwa === null
+          ? Promise.resolve()
+          : Effect.runPromise(pwa.checkForUpdate),
+      applyUpdate: () =>
+        pwa === null ? Promise.resolve() : Effect.runPromise(pwa.applyUpdate),
     }),
-    [state, update],
+    [status, pwa],
   );
 };
 
 /** Deletes every Runtime Cache. Works outside `PwaProvider` (e.g. in sign-out). */
 export const clearRuntimeCache = (): Promise<void> =>
-  Effect.runPromise(
-    Effect.flatMap(RuntimeCacheControl, (control) => control.clear).pipe(
-      Effect.provide(RuntimeCacheControl.layer),
-    ),
-  );
+  Effect.runPromise(clearRuntimeCacheEffect);
 
 /**
- * Head tags for the root route: manifest link, Apple meta and icon, and the
- * Build ID meta tag. The app's theme integration owns the live theme color.
- * Hydration-safe: in the browser the Build ID comes from the existing tag.
+ * Head tags for the root route: manifest link, Apple icon, and the Build ID
+ * meta tag (read by Worker RPC). Hydration-safe: in the browser the Build ID
+ * comes from the tag the server rendered.
  */
 export const pwaHead = (): HeadTags => headTags(info, pageBuildId(info));

@@ -4,13 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BUILD_ID_META_NAME } from '../../shared/build/index.js';
 import type { ClientBuildInfo } from '../../shared/config/index.js';
 import { headTags } from '../head.js';
-import { PwaProvider, pwaHead, usePwaUpdate } from '../index.js';
+import { PwaProvider, pwaHead, usePwa } from '../index.js';
 
 const info: ClientBuildInfo = {
   enabled: true,
   swUrl: '/sw.js',
   scope: '/',
-  update: { mode: 'prompt', checkIntervalMinutes: 60 },
+  update: { checkIntervalMinutes: 60 },
   buildId: null,
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: '/icons/apple-touch-icon.png',
@@ -22,11 +22,11 @@ afterEach(() => {
 
 describe('hooks during SSR', () => {
   it('render the documented defaults without touching window', () => {
-    const Probe = () => usePwaUpdate().state._tag;
+    const Probe = () => usePwa().status._tag;
     const html = renderToString(
       createElement(PwaProvider, null, createElement(Probe)),
     );
-    expect(html).toBe('Idle');
+    expect(html).toBe('Unsupported');
   });
 });
 

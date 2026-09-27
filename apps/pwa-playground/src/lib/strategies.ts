@@ -1,4 +1,4 @@
-// Runtime Cache rules for the playground's API endpoints. First match wins,
+// Strategy rules for the playground's API endpoints. First match wins,
 // and user rules run before the preset's, so the catch-all goes last.
 export const TIME_STRATEGIES = [
   'network-first',
@@ -12,7 +12,7 @@ export type TimeStrategy = (typeof TIME_STRATEGIES)[number];
 export const timeUrl = (strategy: TimeStrategy): string =>
   `/api/time/${strategy}`;
 
-export const runtimeCache = [
+export const strategies = [
   ...TIME_STRATEGIES.map((strategy) => ({
     match: { origin: 'same-origin', pathPrefix: timeUrl(strategy) },
     strategy,

@@ -1,1 +1,1 @@
-export { TabClient, VersionSkew } from './client.js';
+export { WorkerClient, VersionSkew } from './client.js';

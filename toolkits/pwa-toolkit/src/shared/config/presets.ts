@@ -1,10 +1,10 @@
-import type { RuntimeCacheRule } from '../strategy/index.js';
+import type { StrategyRule } from '../strategy/index.js';
 
 export const PRESET_NAMES = ['app', 'content'] as const;
 export type PresetName = (typeof PRESET_NAMES)[number];
 
 interface Preset {
-  readonly runtimeCache: ReadonlyArray<RuntimeCacheRule>;
+  readonly strategies: ReadonlyArray<StrategyRule>;
   readonly navigation: {
     readonly shell: boolean;
     readonly cachePages: boolean;
@@ -19,7 +19,7 @@ const DAY_SECONDS = 24 * 60 * 60;
  */
 export const PRESETS: Record<PresetName, Preset> = {
   app: {
-    runtimeCache: [
+    strategies: [
       {
         match: { origin: 'same-origin', destination: ['image'] },
         strategy: 'cache-first',
@@ -31,7 +31,7 @@ export const PRESETS: Record<PresetName, Preset> = {
     navigation: { shell: true, cachePages: false },
   },
   content: {
-    runtimeCache: [
+    strategies: [
       {
         match: { origin: 'same-origin', destination: ['image'] },
         strategy: 'stale-while-revalidate',

@@ -2,7 +2,7 @@ import * as Effect from 'effect/Effect';
 import { isRuntimeCacheName } from '../shared/build/index.js';
 
 /**
- * Deletes every Runtime Cache straight from CacheStorage, which the tab
+ * Deletes every Runtime Cache straight from CacheStorage, which the page
  * shares with the worker, so it works with no registration at all.
  */
 export const clearRuntimeCaches: Effect.Effect<void> = Effect.suspend(() =>

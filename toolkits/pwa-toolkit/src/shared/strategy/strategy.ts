@@ -3,14 +3,14 @@ import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
 import { compilePattern, isValidPattern } from './pattern.js';
 
-export const RuntimeCacheStrategy = Schema.Literals([
+export const StrategyName = Schema.Literals([
   'network-first',
   'cache-first',
   'stale-while-revalidate',
   'network-only',
   'cache-only',
 ]);
-export type RuntimeCacheStrategy = typeof RuntimeCacheStrategy.Type;
+export type StrategyName = typeof StrategyName.Type;
 
 /**
  * Which GET requests a rule applies to. Every present condition must hold.
@@ -40,15 +40,15 @@ const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
  * digits, dashes); the real cache is `runtimeCacheName(cacheName)`.
  * `networkTimeoutMs` applies to `network-first` only.
  */
-export const RuntimeCacheRule = Schema.Struct({
+export const StrategyRule = Schema.Struct({
   match: RuntimeCacheMatch,
-  strategy: RuntimeCacheStrategy,
+  strategy: StrategyName,
   cacheName: Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/)),
   networkTimeoutMs: Schema.optionalKey(PositiveInt),
   maxEntries: Schema.optionalKey(PositiveInt),
   maxAgeSeconds: Schema.optionalKey(PositiveInt),
 });
-export type RuntimeCacheRule = typeof RuntimeCacheRule.Type;
+export type StrategyRule = typeof StrategyRule.Type;
 
 /** The parts of a `Request` rule matching reads; a real `Request` fits. */
 export interface RequestLike {
@@ -58,8 +58,8 @@ export interface RequestLike {
 }
 
 /** Whether `rule` applies to `request`, seen from a worker at `selfOrigin`. */
-export const matchRuntimeCacheRule = (
-  rule: RuntimeCacheRule,
+export const matchStrategyRule = (
+  rule: StrategyRule,
   request: RequestLike,
   selfOrigin: string,
 ): boolean => {
@@ -79,13 +79,13 @@ export const matchRuntimeCacheRule = (
 };
 
 /** The first matching rule; rule order is priority. */
-export const findRuntimeCacheRule = (
-  rules: ReadonlyArray<RuntimeCacheRule>,
+export const findStrategyRule = (
+  rules: ReadonlyArray<StrategyRule>,
   request: RequestLike,
   selfOrigin: string,
-): Option.Option<RuntimeCacheRule> =>
+): Option.Option<StrategyRule> =>
   Option.fromNullishOr(
-    rules.find((rule) => matchRuntimeCacheRule(rule, request, selfOrigin)),
+    rules.find((rule) => matchStrategyRule(rule, request, selfOrigin)),
   );
 
 /**
