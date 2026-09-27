@@ -4,21 +4,27 @@ import { nativeScrollerAt } from './scrollers';
 /** How a Gesture Zone's element is marked, so nested zones can tell whose a touch is. */
 export const ZONE_SELECTOR = '[data-slot="gesture-zone"]';
 
-// Text entry keeps its own touch handling: selecting, caret dragging.
-const OPTED_OUT =
-  'input, textarea, select, [contenteditable="true"], [data-gestures="off"]';
+// Text entry keeps its own touch handling: selecting and caret dragging.
+const TEXT_ENTRY = 'input, textarea, select, [contenteditable="true"]';
+// Semantic controls keep a stationary tap as their native click, but a drag
+// may still become a gesture in the surrounding zone.
+const NATIVE_TAP =
+  'a[href], button, label, summary, [role="button"], [role="checkbox"], [role="link"], [role="menuitem"], [role="option"], [role="radio"], [role="switch"], [role="tab"]';
 
-const optedOut = (target: EventTarget | null) =>
-  target instanceof Element && target.closest(OPTED_OUT) !== null;
+const isTextEntry = (target: EventTarget | null) =>
+  target instanceof Element && target.closest(TEXT_ENTRY) !== null;
+
+const ownsNativeTap = (target: EventTarget | null) =>
+  target instanceof Element && target.closest(NATIVE_TAP) !== null;
 
 /**
- * A touch that starts in a text field, an opted-out subtree, a native
- * scroller or a Gesture Zone nested inside this one is theirs.
+ * A touch that starts in a text field, a native scroller or a Gesture Zone
+ * nested inside this one is theirs.
  */
 const belongsElsewhere = (target: EventTarget | null, zone: Element) =>
   !(target instanceof Element) ||
   target.closest(ZONE_SELECTOR) !== zone ||
-  optedOut(target) ||
+  isTextEntry(target) ||
   nativeScrollerAt(target, zone) !== undefined;
 
 const sample = (
@@ -55,7 +61,13 @@ export const bindPointers = (
     const touch = start(event);
     if (touch === undefined) return;
     tracked.add(event.pointerId);
-    feed({ ...sample(event, 'down'), start: touch });
+    feed({
+      ...sample(event, 'down'),
+      start: {
+        ...touch,
+        ...(ownsNativeTap(event.target) ? { nativeTap: true } : {}),
+      },
+    });
   };
   const onMove = (event: PointerEvent) => {
     if (tracked.has(event.pointerId)) feed(sample(event, 'move'));
@@ -78,7 +90,7 @@ export const bindPointers = (
   // A long press opens the callout menu on touch; the app owns holds here.
   const onContextMenu = (event: Event) => {
     const pointerType = (event as Partial<PointerEvent>).pointerType;
-    if (pointerType !== 'mouse' && !optedOut(event.target)) {
+    if (pointerType !== 'mouse' && !isTextEntry(event.target)) {
       event.preventDefault();
     }
   };

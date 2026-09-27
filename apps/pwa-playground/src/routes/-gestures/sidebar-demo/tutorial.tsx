@@ -37,6 +37,7 @@ export const sidebarTutorial: Tutorial = {
     'They start anywhere in their zone except the narrow edge strips reserved for the browser or operating system. This avoids depending on iOS back-navigation territory, which a normal web app cannot disable reliably.',
     'Nested zones have priority. The panel takes left Swipes here; an unclaimed right Swipe bubbles to the root sidebar. Other demos keep their own horizontal gestures.',
     "A Swipe right here is not the panel's while it is closed, so it passes out from this zone to the root zone, where the sidebar takes it.",
+    'Once either panel commits to closing, it immediately yields that closing direction. This lets the opposite panel begin opening before the first settle finishes.',
     'The menu button calls open(); a demo in the sidebar calls close().',
   ],
   code: `${sidebarCode}\n// The right-hand panel, on this demo's zone\n\n${panelCode}`,

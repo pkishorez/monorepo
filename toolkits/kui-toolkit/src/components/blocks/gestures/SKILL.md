@@ -151,10 +151,12 @@ is read up to the nearest scroller, so a zone around a scroller cannot
 leave its scrolling to the browser. The browser's own pull to refresh and
 overscroll stay out (`overscroll-behavior: contain`).
 
-Inside a zone, text fields, anything under `data-gestures="off"`, and native
-sideways scrollers (a carousel row with `overflow-x: auto`) keep their own
-touch handling. Long-press callouts and text selection are off. A finger
-lifting from a Captured touch does not also click what is under it.
+Inside a zone, text fields and native sideways scrollers (a carousel row with
+`overflow-x: auto`) keep their own touch handling. Buttons, links and other
+semantic controls keep a stationary tap as their native click, while a drag
+starting on them may still become a gesture. Long-press callouts and text
+selection are off. A finger lifting from a Captured touch does not also click
+what is under it.
 
 ## Edges
 
@@ -220,8 +222,9 @@ Reduced motion is read as each animation starts and jumps instead.
 it by role: a soft ring while undecided, a bubble growing inside after
 120ms of rest; the Hold popping as it locks, then glowing with a "Left Hold"
 / "Right Hold" chip; a comet tail behind a moving finger; a burst for each
-tap. Set `tapFeedback={false}` to hide only that tap burst. Reduced motion keeps it still. Colours are
-`--gf-*` properties set from kui tokens.
+tap. Set `tapFeedback={false}` to hide only that tap burst, or `enabled={false}`
+to hide the whole visualization without changing gesture input. Reduced motion
+keeps it still. Colours are `--gf-*` properties set from kui tokens.
 
 ## Testing
 

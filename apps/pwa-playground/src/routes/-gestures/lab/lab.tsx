@@ -19,7 +19,9 @@ export type { DemoId } from './demos.ts';
  */
 export function GestureLab(props: {
   readonly demo: DemoId;
+  readonly debug: boolean;
   readonly onDemo: (demo: DemoId) => void;
+  readonly onDebug: (debug: boolean) => void;
 }) {
   const [help, setHelp] = useState(false);
   const { Screen, tutorial } = DEMOS[props.demo];
@@ -30,14 +32,23 @@ export function GestureLab(props: {
       data-demo={props.demo}
       className="fixed inset-0 h-dvh overflow-hidden bg-background text-foreground"
     >
-      <LabSidebar panel={<Menu demo={props.demo} onDemo={props.onDemo} />}>
+      <LabSidebar
+        panel={
+          <Menu
+            demo={props.demo}
+            debug={props.debug}
+            onDemo={props.onDemo}
+            onDebug={props.onDebug}
+          />
+        }
+      >
         <TopBar demo={props.demo} onHelp={() => setHelp(true)} />
         <main className="relative min-h-0 flex-1 overflow-hidden">
           <Screen key={props.demo} />
         </main>
         <TabBar demo={props.demo} onDemo={props.onDemo} />
       </LabSidebar>
-      <GestureFingers tapFeedback={false} />
+      <GestureFingers enabled={props.debug} tapFeedback={false} />
       <TutorialDialog tutorial={tutorial} open={help} onOpenChange={setHelp} />
     </GestureProvider>
   );

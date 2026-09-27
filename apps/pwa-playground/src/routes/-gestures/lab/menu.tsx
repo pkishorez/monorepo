@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { Button, buttonVariants } from 'kui-toolkit/components/ui/button';
+import { Switch } from 'kui-toolkit/components/ui/switch';
 import { HouseIcon, MoonIcon, SunIcon } from 'kui-toolkit/lucide';
 import { cn } from 'kui-toolkit/utils';
 import { appTheme } from '../../../lib/theme.ts';
@@ -9,7 +10,9 @@ import { DEMO_IDS, DEMOS, type DemoId } from './demos.ts';
 /** The sidebar's contents: the demos, the theme switch, and Home. */
 export function Menu(props: {
   readonly demo: DemoId;
+  readonly debug: boolean;
   readonly onDemo: (demo: DemoId) => void;
+  readonly onDebug: (debug: boolean) => void;
 }) {
   const sidebar = useLabSidebar();
   const { theme, toggleTheme } = appTheme.useTheme();
@@ -43,6 +46,15 @@ export function Menu(props: {
         })}
       </ul>
       <div className="mt-auto">
+        <div className="mb-2 flex h-11 items-center justify-between px-2 text-sm text-muted-foreground">
+          <label htmlFor="gesture-touch-feedback">Touch feedback</label>
+          <Switch
+            id="gesture-touch-feedback"
+            checked={props.debug}
+            onCheckedChange={props.onDebug}
+            aria-label="Show touch feedback"
+          />
+        </div>
         <div className="mb-2 flex items-center justify-between px-2 text-sm text-muted-foreground">
           Theme
           <Button
