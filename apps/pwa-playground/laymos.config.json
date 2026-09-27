@@ -48,10 +48,10 @@
     },
     "gesture-lab": {
       "paths": ["src/routes/-gestures"],
-      "description": "The Gesture Lab: a shell with a sidebar and tab bar over five gesture demos, each with its tutorial",
+      "description": "The Gesture Lab: a shell with a sidebar and tab bar over three gesture demos, each with its tutorial",
       "moduleGraphs": {
         "gesture-lab": {
-          "description": "Shows every kui gesture in five demos inside one GestureProvider, each demo a nested Gesture Zone with a tutorial that shows its own wiring",
+          "description": "Shows kui gestures in three demos inside one GestureProvider, each demo a nested Gesture Zone with a tutorial that shows its own wiring",
           "path": "src/routes/-gestures",
           "modules": {
             "lab": {
@@ -60,26 +60,13 @@
             "sidebar": {},
             "matrix": {},
             "inbox": {},
-            "photos": {},
-            "map": {},
             "sidebar-demo": {},
-            "tutorial": {},
-            "element-size": {}
+            "tutorial": {}
           },
           "rules": {
-            "lab": [
-              "sidebar",
-              "matrix",
-              "inbox",
-              "photos",
-              "map",
-              "sidebar-demo",
-              "tutorial"
-            ],
+            "lab": ["sidebar", "matrix", "inbox", "sidebar-demo", "tutorial"],
             "matrix": ["tutorial"],
             "inbox": ["tutorial"],
-            "photos": ["tutorial", "element-size"],
-            "map": ["tutorial", "element-size"],
             "sidebar-demo": ["sidebar", "tutorial"]
           }
         }

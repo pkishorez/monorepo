@@ -23,7 +23,7 @@ const GROUP_BLURB: Record<ScenarioGroup, string> = {
   Safety:
     'What the worker must never cache, and what signing out wipes from the device.',
   Gestures:
-    'kui’s gestures in a lab of their own: taps, Pans, Swipes and Pinches with or without a held finger, driving springs and momentum in a feed, a photo viewer, a map and a sidebar, with scrolling native and the edges left to whoever owns them.',
+    'kui’s gestures in a lab of their own: taps, Pans and Swipes with or without a held finger, driving springs and momentum in a feed and a sidebar, with scrolling native and the edges left to whoever owns them.',
 };
 
 const README_URL =

@@ -1,25 +1,11 @@
-import {
-  Grid3x3Icon,
-  ImageIcon,
-  InboxIcon,
-  MapIcon,
-  PanelLeftIcon,
-} from 'kui-toolkit/lucide';
+import { Grid3x3Icon, InboxIcon, PanelLeftIcon } from 'kui-toolkit/lucide';
 import type { ComponentType } from 'react';
 import { InboxScreen, inboxTutorial } from '../inbox/index.ts';
-import { MapScreen, mapTutorial } from '../map/index.ts';
 import { MatrixScreen, matrixTutorial } from '../matrix/index.ts';
-import { PhotosScreen, photosTutorial } from '../photos/index.ts';
 import { SidebarScreen, sidebarTutorial } from '../sidebar-demo/index.ts';
 import type { Tutorial } from '../tutorial/index.ts';
 
-export const DEMO_IDS = [
-  'matrix',
-  'inbox',
-  'photos',
-  'map',
-  'sidebar',
-] as const;
+export const DEMO_IDS = ['matrix', 'inbox', 'sidebar'] as const;
 export type DemoId = (typeof DEMO_IDS)[number];
 
 export type Demo = {
@@ -41,18 +27,6 @@ export const DEMOS: Record<DemoId, Demo> = {
     Icon: InboxIcon,
     Screen: InboxScreen,
     tutorial: inboxTutorial,
-  },
-  photos: {
-    title: 'Photos',
-    Icon: ImageIcon,
-    Screen: PhotosScreen,
-    tutorial: photosTutorial,
-  },
-  map: {
-    title: 'Map',
-    Icon: MapIcon,
-    Screen: MapScreen,
-    tutorial: mapTutorial,
   },
   sidebar: {
     title: 'Sidebar',
