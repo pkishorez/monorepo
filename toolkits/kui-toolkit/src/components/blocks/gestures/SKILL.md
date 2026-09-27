@@ -1,6 +1,6 @@
 ---
 name: kui-gestures
-description: Add touch gestures (tap, double tap, Pan, Swipe, Pinch, each with or without a held finger) with kui's gestures block, animated through motion values. Use when making a page or surface respond to gestures, choosing which gesture triggers an action, building a pull to refresh, swipeable row, sidebar, photo viewer or map, or when a gesture misfires, fights scrolling, or breaks browser back.
+description: Add touch gestures (tap, Pan, Swipe, Pinch, each with or without a held finger) with kui's gestures block, animated through motion values, with optional haptics. Use when making a page or surface respond to gestures, choosing which gesture triggers an action, building a pull to refresh, swipeable row, sidebar, photo viewer or map, or when a gesture misfires, fights scrolling, or breaks browser back.
 ---
 
 # kui-gestures
@@ -11,7 +11,7 @@ touch, a finger layer and a debug overlay. The live demo is the Gesture Lab,
 `apps/pwa-playground/src/routes/-gestures/`.
 
 ```tsx
-<GestureProvider scroll="none" className="h-dvh">
+<GestureProvider scroll="none" haptics className="h-dvh">
   <GestureZone scroll="y" className="overflow-y-auto">
     <Feed /> {/* calls useSwipe, useTap… */}
   </GestureZone>
@@ -24,36 +24,36 @@ touch, a finger layer and a debug overlay. The live demo is the Gesture Lab,
 
 Every gesture is **gesture** × **fingers** × **Hold**:
 
-- gesture: `tap` (`count` 1 or 2), **Pan**, **Swipe** (up, down, left or
-  right), **Pinch** (always two fingers).
+- gesture: `tap`, **Pan**, **Swipe** (up, down, left or right), **Pinch**
+  (always two fingers). There is no double tap: taps fire as the fingers lift.
 - fingers: 1 or 2 acting fingers, not counting the Hold.
 - Hold: none, left or right. A **Hold** is a finger kept still while the
   others act, like a held Shift key: every gesture of the other fingers
   happens with it, until it lifts. Its side is where it sits relative to
-  them.
+  them, fixed as it locks.
 
 Classification is the same in every app. What you register only changes
-how long a tap waits and whether a movement is a Pan or a Swipe.
+whether a movement is a Pan or a Swipe.
 
-1. **Nothing is decided when fingers land.** The first finger to pass 10px
-   decides. One finger down: a one-finger gesture. More: the finger down
-   longest locks as the Hold only if it landed at least 50ms before the
-   others and stayed within 5px; the rest act (up to 3 fingers in all).
-   Fingers landing within 50ms stay together: they Pinch if their distance
-   changes more than they travel together, else make a two-finger Pan or
-   Swipe. Anything else is ignored until every finger lifts.
-2. **Locked until lift.** A gesture stays what it was classified as until
-   one of its fingers lifts. A Hold stays until it lifts; the other fingers
-   can make any number of gestures meanwhile, each classified afresh. The
-   Hold drifting more than 24px cancels it and what it modifies.
+1. **The Hold locks as another finger lands.** A finger landing 50ms or
+   more after the one already down, which has not moved past 10px, locks
+   that one as the Hold at once; the rest act (up to 3 fingers in all).
+   Otherwise nothing is decided when fingers land: the first finger to pass
+   10px decides. One finger down: a one-finger gesture. Two landing within
+   50ms stay together: they Pinch if their distance changes more than they
+   travel together, else make a two-finger Pan or Swipe. Anything else is
+   ignored until every finger lifts.
+2. **Locked until the last finger lifts.** A gesture stays what it was
+   classified as until the last of its fingers lifts. One of them lifting
+   leaves the rest carrying it on; landing again, anywhere, it joins back,
+   up to the number it started with. Offset, scale and point carry on from
+   where they were, so nothing jumps; a Pinch down to one finger holds its
+   scale. A Hold stays until it lifts, however far it wanders; the other
+   fingers can make any number of gestures meanwhile, each classified
+   afresh. The Hold lifting ends the gesture under way.
 3. **Taps.** Fingers that land and lift within 300ms without passing the
-   slop. Two fingers tap together when both lift within 300ms of the first
-   landing. One finger lifting quickly while another stays: the staying one
-   is the Hold at once if it has been down 300ms already, else wait for it
-   to lift (a two-finger tap) or for the 300ms to run out (it is the Hold,
-   and the tap was made with it). A single tap waits for a double tap only
-   when a `count: 2` tap is registered for the same fingers and Hold;
-   otherwise it fires on lift.
+   slop, firing as the last one lifts. Two fingers tap together when both
+   lift within 300ms of the first landing.
 4. **A Swipe claims its own directions; a Pan gets the rest.** The first
    movement's main direction decides: a Swipe registered that way (or, for
    a `stay` Swipe resting open, the way back) takes it, else a Pan for the
@@ -79,11 +79,11 @@ Every hook takes `fingers` (1 or 2, default 1; not on Pinch), `hold`
 (`'none'` default, `'left'`, `'right'`, `'any'` for either side) and
 `enabled` (default true). Hooks register with the nearest zone on mount
 and throw outside one. Options are read at gesture time, so changing them
-re-registers nothing; only the key (gesture, fingers, Hold, direction,
-count) does. React never renders during a gesture.
+re-registers nothing; only the key (gesture, fingers, Hold, direction)
+does. React never renders during a gesture.
 
 ```ts
-useTap({ count: 2, fingers: 2, hold: 'left', onTap: ({ point, hold }) => {} });
+useTap({ fingers: 2, hold: 'left', onTap: ({ point, hold }) => {} });
 
 const { x, y } = usePan({ fingers, hold, x?, y?, axis?: 'x' | 'y',
   bounds?: { left, right, top, bottom } | (() => bounds),
@@ -201,20 +201,34 @@ The finger sets the value each move; release hands it to a spring
 landing mid-animation catches it (`value.stop()`), and if that touch makes
 no gesture for the hook it carries on where it was going. `settle(value,
 to, { velocity, spring })` and `coast(value, { velocity, min, max, snap })`
-are exported for your own animations (a double tap zoom). A Swipe accepts
+are exported for your own animations (a zoom button). A Swipe accepts
 the same optional `spring`; otherwise it uses `DEFAULT_GESTURE_SPRING`.
 Reduced motion is read as each animation starts and jumps instead.
 
 ## Choosing gestures
 
-- Map actions to commitment: tap to touch one thing, double tap to zoom or
-  reset, Swipe to commit a step (open, refresh, dismiss), Pan to move
-  freely, Pinch to scale.
+- Map actions to commitment: tap to touch one thing, Swipe to commit a step
+  (open, refresh, dismiss), Pan to move freely, Pinch to scale. For a
+  second action on the same thing, use a Hold or two fingers.
 - Keep one finger along the scroll axis for scrolling; use Swipes at the
   scroller's ends, or a Hold or two fingers, for anything else there.
 - Give left and right Holds clearly different modes and show the active one
   (`useHold`).
 - Give every gesture a visible control too; gestures are shortcuts.
+
+## Haptics
+
+`<GestureProvider haptics>` vibrates briefly for a tap some hook took (10ms)
+and for a Hold locking that some hook in its zone chain answers (20ms), in
+every zone inside it. Pan, Swipe, Pinch and a Hold releasing stay silent,
+as do taps on buttons and links. It is off by default.
+
+It uses the Vibration API, so it works in Chrome on Android and nowhere
+else: iOS and Firefox have no scriptable vibration, and Chrome refuses it
+until the user's first tap on the page. `vibrate(pattern)` from
+`kui-toolkit/lib/haptics` is the same call for your own controls: a
+duration, or alternating on and off durations, in ms, and a no-op where
+unsupported.
 
 ## Showing fingers
 
@@ -235,9 +249,8 @@ keeps it still. Colours are `--gf-*` properties set from kui tokens.
   last (`gesture-overlay-machine`, `data-state` is the state value as JSON).
   Place it with `machineClassName` (fixed) where it covers nothing you touch.
 - **The machine.** `engine/machine.ts` is the whole model: `idle`,
-  `pressing` (`down`, `waiting`), `moving`, `tapped`, `native`, `ignoring`,
-  and `held` with `idle`, `pressing`, `moving`, `tapped` and `ignoring`
-  inside. It touches no DOM and reads registrations through the `Policy`
+  `pressing`, `moving`, `native`, `ignoring`, and `held` with `idle`,
+  `pressing`, `moving` and `ignoring` inside. It touches no DOM and reads registrations through the `Policy`
   its engine is given. Change behaviour there, not in the zone.
 - **Unit tests.** `engine/engine.test.ts` feeds pointer samples to an engine
   on xstate's `SimulatedClock` with a fake policy; `registry/registry.test.ts`

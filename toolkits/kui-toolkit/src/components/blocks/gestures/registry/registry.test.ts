@@ -52,10 +52,9 @@ const swipe = (
   release: vi.fn(),
 });
 
-const tap = (count: 1 | 2, fingers: 1 | 2 = 1, hold: HoldOption = 'none') => ({
+const tap = (fingers: 1 | 2 = 1, hold: HoldOption = 'none') => ({
   ...common(fingers, hold),
   gesture: 'tap' as const,
-  count,
   handle: vi.fn<(event: TapEvent) => void>(),
 });
 
@@ -214,18 +213,26 @@ describe('the zone chain', () => {
 
   it('fires every hook on the same key', () => {
     const root = zone();
-    const a = tap(1);
-    const b = tap(1);
+    const a = tap();
+    const b = tap();
     add(root, a, b);
-    root.dispatch({
+    const took = root.dispatch({
       kind: 'tap',
-      count: 1,
       fingers: 1,
       hold: undefined,
       point: { x: 0, y: 0 },
     });
     expect(a.handle).toHaveBeenCalledOnce();
     expect(b.handle).toHaveBeenCalledOnce();
+    expect(took).toBe(true);
+    expect(
+      root.dispatch({
+        kind: 'tap',
+        fingers: 2,
+        hold: undefined,
+        point: { x: 0, y: 0 },
+      }),
+    ).toBe(false);
   });
 
   it('matches a Hold of either side for hold: any', () => {
@@ -240,13 +247,29 @@ describe('the zone chain', () => {
     expect(root.policy.movement(one, 'up', undefined)).toBeUndefined();
   });
 
-  it('asks a tap to wait only when a double tap is registered for its combination', () => {
+  it('tells a Hold locking apart from one no hook in the chain answers', () => {
     const root = zone();
     const inner = zone(root);
-    add(root, tap(2, 2));
-    add(inner, tap(1));
-    expect(inner.policy.doubleTap(one)).toBe(false);
-    expect(inner.policy.doubleTap({ fingers: 2, hold: undefined })).toBe(true);
+    add(root, tap(1, 'left'));
+    const lock = (side: 'left' | 'right') =>
+      inner.dispatch({
+        kind: 'hold',
+        phase: 'lock',
+        side,
+        point: { x: 0, y: 0 },
+      });
+    expect(lock('left')).toBe(true);
+    expect(lock('right')).toBe(false);
+    add(inner, pan({ hold: 'any' }));
+    expect(lock('right')).toBe(true);
+    expect(
+      inner.dispatch({
+        kind: 'hold',
+        phase: 'release',
+        side: 'left',
+        point: { x: 0, y: 0 },
+      }),
+    ).toBe(false);
   });
 
   it('skips disabled hooks', () => {

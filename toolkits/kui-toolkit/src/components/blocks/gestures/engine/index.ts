@@ -1,12 +1,9 @@
 export {
   along,
   createGestureEngine,
-  DOUBLE_TAP_DISTANCE_PX,
-  DOUBLE_TAP_GAP_MS,
   gestureMachine,
-  HOLD_DRIFT_PX,
-  HOLD_STILL_PX,
   opposite,
+  HOLD_LEAD_MS,
   SLOP_PX,
   TAP_MAX_MS,
 } from './engine';

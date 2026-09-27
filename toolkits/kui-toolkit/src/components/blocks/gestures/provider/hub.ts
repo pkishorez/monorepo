@@ -5,6 +5,7 @@ import {
   type Hold,
   type Scroll,
 } from '../engine';
+import { vibrate } from '#lib/haptics';
 import { edgeStrips, type Environment } from '../../environment';
 import { createRegistry, type Registry } from '../registry';
 import { bindZone, measureZone } from '../zone';
@@ -28,11 +29,16 @@ const createStore = <T>(initial: T) => {
   };
 };
 
+// Haptics: a light tick for a tap, a firmer one for a Hold locking.
+const TAP_HAPTIC_MS = 10;
+const HOLD_HAPTIC_MS = 20;
+
 /**
  * What one Gesture Zone shares with the hooks and layers inside it: its
  * registry, linked to the zone around it; the Hold locked in it or in a zone
  * inside it; and the tree of every zone under the provider. The element,
- * engine and Environment are filled in as the zone mounts.
+ * engine and Environment are filled in as the zone mounts. `haptics` is read
+ * from the provider's zone only.
  */
 export type Hub = {
   readonly parent: Hub | undefined;
@@ -42,6 +48,7 @@ export type Hub = {
   element: HTMLElement | null;
   environment: Environment;
   scroll: Scroll;
+  haptics: boolean;
 };
 
 export const createHub = (options: {
@@ -61,6 +68,7 @@ export const createHub = (options: {
     element: null,
     environment: options.environment,
     scroll: options.scroll,
+    haptics: false,
   };
   return hub;
 };
@@ -81,9 +89,14 @@ const setHold = (hub: Hub, hold: Hold | undefined) => {
   }
 };
 
+/** Whether the provider around this zone turned haptics on. */
+const hapticsOn = (hub: Hub): boolean =>
+  hub.parent === undefined ? hub.haptics : hapticsOn(hub.parent);
+
 /**
  * Runs a mounted zone: an engine reading its element's pointers, whose
  * gestures go to the registry chain, the Hold store and the layers' tree.
+ * With haptics on, a tap a hook took and a Hold some hook answers vibrate.
  * Returns the teardown.
  */
 export const runHub = (hub: Hub, element: HTMLElement): (() => void) => {
@@ -107,7 +120,10 @@ export const runHub = (hub: Hub, element: HTMLElement): (() => void) => {
       );
     }
     hub.tree.hear(member, event);
-    hub.registry.dispatch(event);
+    const took = hub.registry.dispatch(event);
+    if (!took || !hapticsOn(hub)) return;
+    if (event.kind === 'tap') vibrate(TAP_HAPTIC_MS);
+    else if (event.kind === 'hold') vibrate(HOLD_HAPTIC_MS);
   };
   engine = createGestureEngine({
     scroll: hub.scroll,

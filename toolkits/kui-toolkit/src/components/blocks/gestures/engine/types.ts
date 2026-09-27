@@ -42,7 +42,6 @@ export type Phase = 'start' | 'move' | 'end' | 'cancel';
 
 export type TapEvent = {
   readonly kind: 'tap';
-  readonly count: 1 | 2;
   readonly fingers: Fingers;
   readonly hold: Hold | undefined;
   /** Where the fingers tapped; the point between them for two. */
@@ -51,22 +50,24 @@ export type TapEvent = {
 
 /**
  * One phase of a Pan, Swipe or Pinch, all measured on the acting fingers'
- * centroid from where they went down.
+ * centroid from where they went down. A finger of it lifting or landing
+ * again carries the measures on from where they were, so they never jump.
  */
 export type MovementEvent = {
   readonly kind: 'pan' | 'swipe' | 'pinch';
   readonly phase: Phase;
+  /** The fingers it started with, even while one of them is lifted. */
   readonly fingers: Fingers;
   readonly hold: Hold | undefined;
   /** Where the first movement went, which a Swipe is locked to; none for a Pinch. */
   readonly direction: Direction | undefined;
-  /** Where the fingers are. */
+  /** Where the fingers are: `origin` plus `offset`. */
   readonly point: Point;
   /** Travel since the fingers went down, in px. */
   readonly offset: Point;
   /** Speed over the fingers' last 60ms, in px/ms; 0 if they were still for longer. */
   readonly velocity: Point;
-  /** A Pinch's distance between the fingers over the one they went down at; 1 otherwise. */
+  /** A Pinch's distance between the fingers over the one they went down at, held while one is lifted; 1 otherwise. */
   readonly scale: number;
   /** Where the fingers went down: a Pinch's origin. */
   readonly origin: Point;
@@ -92,7 +93,7 @@ export type GestureEvent = TapEvent | MovementEvent | HoldEvent | TouchEvent;
 /**
  * What the registered gestures allow, read at the moment of each decision:
  * the classification is the same in every app, and only these answers change
- * which gesture a combination becomes and how long a tap waits.
+ * which gesture a combination becomes.
  */
 export type Policy = {
   /**
@@ -106,8 +107,6 @@ export type Policy = {
   ) => 'pan' | 'swipe' | undefined;
   /** Whether a Pinch with this Hold does anything. */
   readonly pinch: (hold: Side | undefined) => boolean;
-  /** Whether a double tap is registered, so a single tap must wait for it. */
-  readonly doubleTap: (combination: Combination) => boolean;
 };
 
 /**

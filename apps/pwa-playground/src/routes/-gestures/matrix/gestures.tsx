@@ -20,12 +20,9 @@ type Cell = { readonly hold: Hold; readonly onHit: Hit };
 
 const px = (value: number) => Math.round(value).toString();
 
-/** A tap or double tap of one or two fingers. Double taps make single taps wait. */
-export function useTapCell(
-  cell: Cell & { readonly count: 1 | 2; readonly fingers: 1 | 2 },
-) {
+/** A tap of one or two fingers, as they lift. */
+export function useTapCell(cell: Cell & { readonly fingers: 1 | 2 }) {
   useTap({
-    count: cell.count,
     fingers: cell.fingers,
     hold: cell.hold,
     onTap: ({ point }) => cell.onHit(`${px(point.x)}, ${px(point.y)}`),

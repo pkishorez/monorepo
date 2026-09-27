@@ -13,14 +13,7 @@ import type {
 
 export { along, opposite } from './group';
 export { gestureMachine };
-export {
-  DOUBLE_TAP_DISTANCE_PX,
-  DOUBLE_TAP_GAP_MS,
-  HOLD_DRIFT_PX,
-  HOLD_STILL_PX,
-  SLOP_PX,
-  TAP_MAX_MS,
-} from './thresholds';
+export { HOLD_LEAD_MS, SLOP_PX, TAP_MAX_MS } from './thresholds';
 export type {
   Combination,
   Direction,
@@ -78,7 +71,7 @@ const roleOf = (snapshot: Snapshot, id: number): FingerRole => {
  * `gestureMachine`). `policy` answers what the registered gestures allow at
  * each decision; `scroll` is the axis the browser keeps for one finger. A
  * touch runs from the first pointer down until every pointer is up, and is
- * announced as it starts and ends. Double-tap waits run on `clock`.
+ * announced as it starts and ends. Tap timeouts run on `clock`.
  */
 export const createGestureEngine = (options: {
   readonly scroll?: Scroll;

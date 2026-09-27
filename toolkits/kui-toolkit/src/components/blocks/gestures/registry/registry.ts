@@ -8,8 +8,8 @@ import type {
 } from '../engine';
 import {
   catchersOf,
-  doubleTapIn,
   fallbackOn,
+  holdUsedIn,
   moverFor,
   type Node,
   pinchesFor,
@@ -30,8 +30,8 @@ export type EdgeState = 'edge' | 'zone' | 'off';
  * One Gesture Zone's registered hooks, linked to the zone around it. It
  * answers the engine's decisions from the whole chain, innermost zone first
  * (`policy`), sends each recognized gesture to the innermost zone with a hook
- * for it (`dispatch`), and refuses mistakes as hooks register, in
- * development.
+ * for it (`dispatch`, true when a hook took it), and refuses mistakes as
+ * hooks register, in development.
  */
 export const createRegistry = (options: {
   /** The registry of the zone around this one. */
@@ -54,7 +54,6 @@ export const createRegistry = (options: {
     movement: (combination: Combination, direction: Direction, edge) =>
       moverFor(node, combination, direction, edge)?.kind,
     pinch: (hold) => pinchesFor(node, hold).length > 0,
-    doubleTap: (combination) => doubleTapIn(node, combination),
   };
 
   // The hooks the movement under way goes to, and the ones the touch caught.
@@ -62,7 +61,7 @@ export const createRegistry = (options: {
   const caught = new Set<Registration>();
   const served = new Set<Registration>();
 
-  const dispatch = (event: GestureEvent): void => {
+  const dispatch = (event: GestureEvent): boolean => {
     switch (event.kind) {
       case 'touch':
         if (event.phase === 'start') {
@@ -77,22 +76,26 @@ export const createRegistry = (options: {
           }
           caught.clear();
         }
-        return;
+        return false;
       case 'hold':
-        return;
-      case 'tap':
-        for (const registration of tapsFor(node, event)) {
+        return event.phase === 'lock' && holdUsedIn(node, event.side);
+      case 'tap': {
+        const taps = tapsFor(node, event);
+        for (const registration of taps) {
           served.add(registration);
           if (registration.gesture === 'tap') registration.handle(event);
         }
-        return;
+        return taps.length > 0;
+      }
       default: {
         if (event.phase === 'start') active = targetsOf(node, event);
+        const took = active.length > 0;
         for (const registration of active) {
           served.add(registration);
           if (registration.gesture !== 'tap') registration.handle(event);
         }
         if (event.phase === 'end' || event.phase === 'cancel') active = [];
+        return took;
       }
     }
   };

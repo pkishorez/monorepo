@@ -40,13 +40,21 @@ type ZoneProps = ComponentProps<'div'> & {
 
 function Zone({
   parent,
+  haptics = false,
   scroll = 'y',
   className,
   ref,
   ...props
-}: ZoneProps & { readonly parent: Hub | undefined }) {
+}: ZoneProps & {
+  readonly parent: Hub | undefined;
+  readonly haptics?: boolean;
+}) {
   const environment = useEnvironment();
   const [hub] = useState(() => createHub({ parent, scroll, environment }));
+
+  useEffect(() => {
+    hub.haptics = haptics;
+  }, [hub, haptics]);
 
   useEffect(() => {
     hub.environment = environment;
@@ -89,11 +97,17 @@ function Zone({
  * The app's root Gesture Zone, and the context every gesture hook reads. It
  * is a zone like any other: `scroll` is the axis the browser keeps for one
  * finger with no Hold (`y` by default; `none` keeps nothing), and the
- * browser's own pull to refresh and overscroll stay out. Render
- * `<GestureFingers />` or `<GestureDebugOverlay />` anywhere inside to show
- * every zone under it.
+ * browser's own pull to refresh and overscroll stay out. `haptics` vibrates
+ * for a tap a hook takes and a Hold some hook answers, on every zone inside,
+ * where the device can (not iOS). Render `<GestureFingers />` or
+ * `<GestureDebugOverlay />` anywhere inside to show every zone under it.
  */
-export function GestureProvider(props: ZoneProps) {
+export function GestureProvider(
+  props: ZoneProps & {
+    /** Vibrate on taps and Holds some hook takes: off by default. */
+    readonly haptics?: boolean;
+  },
+) {
   return <Zone {...props} parent={undefined} />;
 }
 

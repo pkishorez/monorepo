@@ -7,12 +7,14 @@ import { appTheme } from '../../../lib/theme.ts';
 import { useLabSidebar } from '../sidebar/index.ts';
 import { DEMO_IDS, DEMOS, type DemoId } from './demos.ts';
 
-/** The sidebar's contents: the demos, the theme switch, and Home. */
+/** The sidebar's contents: the demos, the feedback and theme switches, and Home. */
 export function Menu(props: {
   readonly demo: DemoId;
   readonly debug: boolean;
+  readonly haptics: boolean;
   readonly onDemo: (demo: DemoId) => void;
   readonly onDebug: (debug: boolean) => void;
+  readonly onHaptics: (haptics: boolean) => void;
 }) {
   const sidebar = useLabSidebar();
   const { theme, toggleTheme } = appTheme.useTheme();
@@ -53,6 +55,15 @@ export function Menu(props: {
             checked={props.debug}
             onCheckedChange={props.onDebug}
             aria-label="Show touch feedback"
+          />
+        </div>
+        <div className="mb-2 flex h-11 items-center justify-between px-2 text-sm text-muted-foreground">
+          <label htmlFor="gesture-haptics">Haptics</label>
+          <Switch
+            id="gesture-haptics"
+            checked={props.haptics}
+            onCheckedChange={props.onHaptics}
+            aria-label="Vibrate on taps and Holds"
           />
         </div>
         <div className="mb-2 flex items-center justify-between px-2 text-sm text-muted-foreground">
