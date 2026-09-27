@@ -11,7 +11,7 @@ Do them in order. Each ends on a check.
 
 ### 1. Dependencies and types
 
-In the app's `package.json`: `"pwa-toolkit": "workspace:*"`, plus `effect` from `catalog:` and `kui-toolkit` (`workspace:*`) when using `pwa-toolkit/ui` or `pwa-toolkit/extras`. The app imports the toolkit's `dist`, so run `pnpm --filter pwa-toolkit build` after `pnpm install` and after any toolkit change.
+In the app's `package.json`: `"pwa-toolkit": "workspace:*"`, plus `effect` from `catalog:` and `kui-toolkit` (`workspace:*`) when using `pwa-toolkit/react` or `pwa-toolkit/extras`. The app imports the toolkit's `dist`, so run `pnpm --filter pwa-toolkit build` after `pnpm install` and after any toolkit change.
 
 In `tsconfig.json`, add `"WebWorker"` to `lib` (the worker entry is type-checked with the app). If `tsc` reports two incompatible `Plugin` types, pin one Vite copy:
 
@@ -64,8 +64,7 @@ Done when `pnpm build` prints no `pwa-toolkit:` warning and `dist/client` holds 
 ### 3. Root route
 
 ```tsx
-import { PwaProvider, pwaHead } from 'pwa-toolkit/react';
-import { UpdatePrompt } from 'pwa-toolkit/ui';
+import { PwaProvider, pwaHead, UpdatePrompt } from 'pwa-toolkit/react';
 import { OfflineIndicator, useInstall } from 'pwa-toolkit/extras'; // optional
 
 head: (() => {

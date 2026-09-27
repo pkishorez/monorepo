@@ -4,7 +4,7 @@ Effect-native service worker, precache, update and install utilities that turn a
 
 ## Big picture
 
-A TanStack Start app renders on the server, so the usual PWA plugins, which expect an `index.html`, have nothing to hold on to. pwa-toolkit owns the whole path instead. Its core is five ideas: every deploy is a **Build** with a Build ID; the build ships a **Worker** that answers each request by a **Strategy**; each open page watches one **Status**; and a waiting **Update** is applied only when the user accepts, reloading every open page together. `pwa-toolkit/vite` makes the Build, `pwa-toolkit/worker` runs the Worker, and `pwa-toolkit/client` (with `react` and `ui` on top) gives the page its Status. Everything else is optional: `pwa-toolkit/extras` (Install Prompt, online state, display mode, storage) needs no provider, and Worker RPC (`pwa-toolkit/rpc/*`) is a separate capability. [`apps/pwa-playground`](../../apps/pwa-playground) dogfoods every part, one route per scenario. The words are defined in [CONTEXT.md](CONTEXT.md); the decisions behind the shape are in [docs/adr/](docs/adr/).
+A TanStack Start app renders on the server, so the usual PWA plugins, which expect an `index.html`, have nothing to hold on to. pwa-toolkit owns the whole path instead. Its core is five ideas: every deploy is a **Build** with a Build ID; the build ships a **Worker** that answers each request by a **Strategy**; each open page watches one **Status**; and a waiting **Update** is applied only when the user accepts, reloading every open page together. `pwa-toolkit/vite` makes the Build, `pwa-toolkit/worker` runs the Worker, and `pwa-toolkit/client` (with `react` on top) gives the page its Status. Everything else is optional: `pwa-toolkit/extras` (Install Prompt, online state, display mode, storage) needs no provider, and Worker RPC (`pwa-toolkit/rpc/*`) is a separate capability. [`apps/pwa-playground`](../../apps/pwa-playground) dogfoods every part, one route per scenario. The words are defined in [CONTEXT.md](CONTEXT.md); the decisions behind the shape are in [docs/adr/](docs/adr/).
 
 The plugin leans on Start's prerender, and Start keeps its options to itself, so the app sets them. `pwa()` goes after `tanstackStart()` in the Vite plugins, because the worker builds in a post `buildApp` hook that must run after prerendering; the wrong order throws at config time. `tanstackStart()` needs `spa: { enabled: true, prerender: { outputPath: '/_shell' } }` for the App Shell, a `pages` entry for `/offline` with `prerender: { enabled: true, crawlLinks: false, autoSubfolderIndex: false }` for the Offline Fallback, and `prerender: { autoStaticPathsDiscovery: false }`. When either page is missing from the build, the build warns and prints the exact options.
 
@@ -20,8 +20,8 @@ pnpm add pwa-toolkit effect
 
 - `effect` (peer, required): every subpath is built on it, and Worker RPC on `effect/unstable/rpc`.
 - `vite` (peer, optional): needed by `pwa-toolkit/vite`.
-- `react`, `react-dom` (peers, optional): needed by `pwa-toolkit/react`, `pwa-toolkit/ui` and `pwa-toolkit/extras`.
-- `kui-toolkit` (peer, optional): the components `pwa-toolkit/ui` and `pwa-toolkit/extras` render with.
+- `react`, `react-dom` (peers, optional): needed by `pwa-toolkit/react` and `pwa-toolkit/extras`.
+- `kui-toolkit` (peer, optional): the components `pwa-toolkit/react` (`UpdatePrompt`) and `pwa-toolkit/extras` render with.
 
 ## Exports
 
@@ -55,12 +55,7 @@ pnpm add pwa-toolkit effect
 | `pwaHead`           | Head tags for the root route: manifest link, Apple icon and the Build ID meta tag.     |
 | `usePwa`            | The status with `checkForUpdate` and `applyUpdate`; `Unsupported` before mount.        |
 | `clearRuntimeCache` | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.     |
-
-### `pwa-toolkit/ui`
-
-| Export         | What it does                                                                        |
-| -------------- | ----------------------------------------------------------------------------------- |
-| `UpdatePrompt` | Persistent toast while an update is ready; accepting it reloads every page into it. |
+| `UpdatePrompt`      | Persistent toast while an update is ready; accepting it reloads every page into it.    |
 
 ### `pwa-toolkit/extras`
 
@@ -135,7 +130,7 @@ function RootComponent() {
 export const Route = createFileRoute('/offline')({ component: Offline });
 ```
 
-- Tailwind v4 does not scan `node_modules`, so without the `@source` line the `ui` and `extras` components (built on [`kui-toolkit`](../kui-toolkit)) render unstyled.
+- Tailwind v4 does not scan `node_modules`, so without the `@source` line the `react` and `extras` components (built on [`kui-toolkit`](../kui-toolkit)) render unstyled.
 - The build writes `sw.js`, `manifest.webmanifest`, `_shell.html`, `offline.html` and a `_headers` block with `Cache-Control: no-cache` for the worker and the manifest.
 - A navigation tries the network for `navigation.networkTimeoutMs` (3 s), then a saved page (with `cachePages`), then the App Shell (with `shell`), then redirects to the Offline Fallback. The `/offline` route should only send "Try again" back to a same-origin `from`.
 - Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the worker's caches. `strategies` rules match first-wins, yours before the preset's.

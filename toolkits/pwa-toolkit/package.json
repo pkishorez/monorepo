@@ -39,10 +39,6 @@
       "types": "./dist/react/index.d.ts",
       "default": "./dist/react/index.js"
     },
-    "./ui": {
-      "types": "./dist/ui/index.d.ts",
-      "default": "./dist/ui/index.js"
-    },
     "./extras": {
       "types": "./dist/extras/index.d.ts",
       "default": "./dist/extras/index.js"
