@@ -233,7 +233,8 @@ function Status() {
               data-cache-name={cache.name}
               className="py-2 [overflow-wrap:anywhere]"
             >
-              {cache.name}: {cache.entries} entries
+              {cache.name}: {cache.entries}{' '}
+              {cache.entries === 1 ? 'entry' : 'entries'}
             </li>
           ))}
         </ul>

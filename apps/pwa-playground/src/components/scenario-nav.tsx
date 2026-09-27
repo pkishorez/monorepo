@@ -59,7 +59,7 @@ export function ScenarioNav(props: {
       />
       {SCENARIO_GROUPS.map((group) => (
         <div key={group} className="flex flex-col gap-0.5">
-          <h2 className="px-3 pb-1 font-mono text-[11px] font-medium tracking-wider text-muted-foreground/80 uppercase">
+          <h2 className="px-3 pb-1 font-mono text-[11px] font-medium tracking-wider text-muted-foreground uppercase">
             {group}
           </h2>
           <ul className="flex flex-col gap-0.5">

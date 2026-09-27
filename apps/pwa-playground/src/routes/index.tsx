@@ -22,6 +22,8 @@ const GROUP_BLURB: Record<ScenarioGroup, string> = {
     'Effect RPC into the service worker: unary calls, streams that restart, and Version Skew caught in the act.',
   Safety:
     'What the worker must never cache, and what signing out wipes from the device.',
+  Gestures:
+    'kui’s gesture engine in a scrolling page: one- and two-finger swipes, pinch, holds and chords, with the edges left to the browser and OS.',
 };
 
 const README_URL =
@@ -109,7 +111,7 @@ function Home() {
                             {scenario.summary}
                           </span>
                         </span>
-                        <span className="hidden font-mono text-xs text-muted-foreground/80 sm:inline">
+                        <span className="hidden font-mono text-xs text-muted-foreground sm:inline">
                           {scenario.path}
                         </span>
                         <ArrowRightIcon
@@ -160,7 +162,7 @@ function Home() {
               >
                 {value}
               </dd>
-              <dd className="font-mono text-[11px] text-muted-foreground/80">
+              <dd className="font-mono text-[11px] text-muted-foreground">
                 {env}
               </dd>
             </div>

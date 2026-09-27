@@ -162,9 +162,7 @@ function AuthSim() {
           <h3 className="text-xs text-muted-foreground">Activity</h3>
           <div className="rounded-lg px-3.5 py-2.5 font-mono text-xs text-muted-foreground ring-1 ring-foreground/10">
             {log.length === 0 ? (
-              <p className="text-muted-foreground/70">
-                Sign in or out to see what happens here.
-              </p>
+              <p>Sign in or out to see what happens here.</p>
             ) : null}
             <ul data-testid="auth-log" className="flex flex-col gap-1">
               {log.map((line) => (

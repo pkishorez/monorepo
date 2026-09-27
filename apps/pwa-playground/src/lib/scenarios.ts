@@ -4,6 +4,7 @@ export const SCENARIO_GROUPS = [
   'Updates',
   'Worker RPC',
   'Safety',
+  'Gestures',
 ] as const;
 
 export type ScenarioGroup = (typeof SCENARIO_GROUPS)[number];
@@ -64,6 +65,12 @@ export const scenarios: ReadonlyArray<Scenario> = [
     title: 'Auth never cached',
     summary: 'A session endpoint the worker never caches; sign-out clears.',
     group: 'Safety',
+  },
+  {
+    path: '/gestures',
+    title: 'Gesture Zone',
+    summary: 'Swipes, pinch, holds and chords, clear of the screen edges.',
+    group: 'Gestures',
   },
 ];
 
