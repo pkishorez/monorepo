@@ -25,9 +25,10 @@ export const headTags = (
   info: ClientBuildInfo,
   buildId: string | null,
 ): HeadTags => ({
+  // No `apple-mobile-web-app-capable`: it puts iOS home-screen apps in the
+  // legacy mode, where the status bar ignores an in-place theme switch.
   meta: [
     { name: 'mobile-web-app-capable', content: 'yes' },
-    { name: 'apple-mobile-web-app-capable', content: 'yes' },
     ...(buildId === null
       ? []
       : [{ name: BUILD_ID_META_NAME, content: buildId }]),
