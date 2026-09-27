@@ -65,10 +65,17 @@ const zoomAbout = (view: View, at: Point, scale: number): View => {
   };
 };
 
-/** The view that shows every pin, or the default one when there are none. */
+/**
+ * The view that shows every pin between `top` and `bottom`, the Field's band
+ * clear of its controls, or the default one when there are none.
+ */
 const fitPins = (
   pins: ReadonlyArray<Point>,
-  box: { readonly width: number; readonly height: number },
+  box: {
+    readonly width: number;
+    readonly top: number;
+    readonly bottom: number;
+  },
 ): View => {
   if (pins.length === 0) return DEFAULT_VIEW;
   const xs = pins.map((pin) => pin.x);
@@ -80,12 +87,12 @@ const fitPins = (
   const scale = clampScale(
     Math.min(
       (box.width - FIT_MARGIN_PX * 2) / Math.max(width, SPACING),
-      (box.height - FIT_MARGIN_PX * 2) / Math.max(height, SPACING),
+      (box.bottom - box.top - FIT_MARGIN_PX * 2) / Math.max(height, SPACING),
     ),
   );
   return {
     x: box.width / 2 - (left + width / 2) * scale,
-    y: box.height / 2 - (top + height / 2) * scale,
+    y: (box.top + box.bottom) / 2 - (top + height / 2) * scale,
     scale,
   };
 };
@@ -109,6 +116,8 @@ function Gestures() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const zoneRef = useRef<HTMLDivElement>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
+  const topBarRef = useRef<HTMLDivElement>(null);
+  const bottomBarRef = useRef<HTMLDivElement>(null);
   const field = useRef<Field | undefined>(undefined);
   const runs = useRef<Array<{ stop: () => void }>>([]);
   const drag = useRef<{ view: View; at: Point } | undefined>(undefined);
@@ -193,6 +202,21 @@ function Gestures() {
     }, STATUS_LINGER_MS);
   };
 
+  /** The Field's width and the band of it between its top and bottom controls, in Field px. */
+  const controlsClear = () => {
+    const box = fieldElementRef.current?.getBoundingClientRect();
+    const top = topBarRef.current?.getBoundingClientRect();
+    const bottom = bottomBarRef.current?.getBoundingClientRect();
+    if (box === undefined || top === undefined || bottom === undefined) {
+      return { width: 0, top: 0, bottom: 0 };
+    }
+    return {
+      width: box.width,
+      top: top.bottom - box.top,
+      bottom: bottom.top - box.top,
+    };
+  };
+
   /** Zone px to Field px, per axis: the zone maps proportionally onto the Field. */
   const ratio = () => {
     const zone = zoneRef.current?.getBoundingClientRect();
@@ -271,10 +295,6 @@ function Gestures() {
     const at = toField(event.x, event.y);
     const anchorAt =
       event.anchor === undefined ? at : toField(event.anchor.x, event.anchor.y);
-    const box = fieldElementRef.current?.getBoundingClientRect() ?? {
-      width: 0,
-      height: 0,
-    };
     if (event.kind === 'tap') {
       if (side === 'none') scene.light(at);
       if (side === 'left') {
@@ -292,7 +312,7 @@ function Gestures() {
         scene.state.pins = [];
         show(view());
       }
-      if (side === 'right') glide(fitPins(scene.state.pins, box));
+      if (side === 'right') glide(fitPins(scene.state.pins, controlsClear()));
     }
     const who = side === 'none' ? '' : `${side} anchor · `;
     say(`${who}${ACTION[event.kind]} · ${DID[side][event.kind]}`, true);
@@ -355,7 +375,10 @@ function Gestures() {
           aria-hidden="true"
           className="absolute inset-0 size-full"
         />
-        <div className="absolute inset-x-0 top-0 flex justify-between pt-[max(0.25rem,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))]">
+        <div
+          ref={topBarRef}
+          className="absolute inset-x-0 top-0 flex justify-between pt-[max(0.25rem,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))]"
+        >
           <Link
             to="/"
             aria-label="Back to the overview"
@@ -370,7 +393,10 @@ function Gestures() {
           </Link>
           <Instructions className={iconButton} />
         </div>
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-end pr-[max(0.25rem,env(safe-area-inset-right))] pb-1 pl-[max(0.25rem,env(safe-area-inset-left))]">
+        <div
+          ref={bottomBarRef}
+          className="absolute inset-x-0 bottom-0 flex items-end justify-end pr-[max(0.25rem,env(safe-area-inset-right))] pb-1 pl-[max(0.25rem,env(safe-area-inset-left))]"
+        >
           <p
             ref={statusRef}
             data-testid="gestures-status"
