@@ -1,44 +1,98 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/virtual.d.ts"],
+  "ignoredPaths": ["src/virtual.d.ts", "src/vite/tests"],
   "layers": {
     "domain": {
       "paths": ["src/domain"],
       "description": "The words of the problem: Build ID, Precache, manifest, Runtime Cache rules, config, Control Channel. Pure; no I/O.",
       "modules": {
-        "src/domain/build": { "shared": true, "exposed": true },
-        "src/domain/manifest": { "shared": true, "exposed": true },
-        "src/domain/runtime-cache": { "shared": true, "exposed": true },
-        "src/domain/config": { "exposed": true },
-        "src/domain/control-channel": { "exposed": true },
-        "src/domain/worker-host": { "exposed": true }
+        "src/domain/build": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/domain/manifest": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/domain/runtime-cache": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/domain/config": {
+          "exposed": true
+        },
+        "src/domain/control-channel": {
+          "exposed": true
+        },
+        "src/domain/worker-host": {
+          "exposed": true
+        }
       }
     },
     "vite": {
       "paths": ["src/vite"],
       "description": "The pwa() Vite plugin: manifest, Precache list, Build ID, worker build, headers.",
-      "modules": { "src/vite": { "exposed": true } }
+      "moduleGraphs": {
+        "vite": {
+          "description": "pwa() wires three Vite plugins: build runs the production pipeline, client-module serves the Build ID it leaves to pages, dev serves the dev worker; build and dev share Precache selection and the worker bundle.",
+          "path": "src/vite",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "vite.ts": {},
+            "build": {},
+            "client-module": {},
+            "dev": {},
+            "precache": {},
+            "worker-bundle": {}
+          },
+          "rules": {
+            "index.ts": ["vite.ts"],
+            "vite.ts": ["build", "client-module", "dev"],
+            "build": ["precache", "worker-bundle"],
+            "client-module": ["build"],
+            "dev": ["worker-bundle"]
+          }
+        }
+      }
     },
     "worker": {
       "paths": ["src/worker"],
       "description": "Service worker runtime: Precache, Runtime Cache, navigation, lifecycle, Control Channel server.",
-      "modules": { "src/worker": { "exposed": true } }
+      "modules": {
+        "src/worker": {
+          "exposed": true
+        }
+      }
     },
     "client": {
       "paths": ["src/client"],
       "description": "Tab-side Effect services: registration, updates, install, connectivity, display mode, storage.",
-      "modules": { "src/client": { "exposed": true } }
+      "modules": {
+        "src/client": {
+          "exposed": true
+        }
+      }
     },
     "react": {
       "paths": ["src/react"],
       "description": "React bindings over the client services, and pwaHead().",
-      "modules": { "src/react": { "exposed": true } }
+      "modules": {
+        "src/react": {
+          "exposed": true
+        }
+      }
     },
     "ui": {
       "paths": ["src/ui"],
       "description": "Ready-made kui components: Update Prompt, Install Prompt, offline indicator.",
-      "modules": { "src/ui": { "exposed": true } }
+      "modules": {
+        "src/ui": {
+          "exposed": true
+        }
+      }
     },
     "worker-rpc": {
       "paths": ["src/worker-rpc"],
@@ -48,8 +102,12 @@
           "description": "Worker Server and Tab Client sharing one Build ID handshake.",
           "path": "src/worker-rpc",
           "modules": {
-            "server": { "exposed": true },
-            "client": { "exposed": true },
+            "server": {
+              "exposed": true
+            },
+            "client": {
+              "exposed": true
+            },
             "handshake": {}
           },
           "rules": {

@@ -9,9 +9,5 @@
     "rewriteRelativeImportExtensions": true
   },
   "include": ["src/**/*"],
-  "exclude": [
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/worker/fake-global.ts"
-  ]
+  "exclude": ["src/**/tests/**"]
 }

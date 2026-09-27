@@ -1,10 +1,9 @@
 import * as Schema from 'effect/Schema';
 import type { Plugin } from 'vite';
 import { PwaOptions, resolvePwaConfig } from '../domain/config/index.js';
-import { buildPlugin } from './build-plugin.js';
-import { makeBuildState } from './build-state.js';
-import { clientModulePlugin } from './client-module.js';
-import { devPlugin } from './dev-plugin.js';
+import { buildPlugin, makeBuildState } from './build/index.js';
+import { clientModulePlugin } from './client-module/index.js';
+import { devPlugin } from './dev/index.js';
 
 /**
  * Turns a TanStack Start app into a PWA. Put it after `tanstackStart()`: the
