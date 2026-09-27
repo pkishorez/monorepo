@@ -10,18 +10,18 @@ Browser: agent-browser Chrome, fresh sessions `gpr-ios` and `gpr-android`, drive
 
 Fingers are `Input.dispatchTouchEvent` with one to three `touchPoints`, moved in 16 ms steps; holds are timed waits. State is read from the page (`gestures-page`, `gestures-accent`, `gestures-count`, …), the overlay (`gesture-overlay-state-<kind>` `data-state`, `gesture-overlay-environment`, `gesture-overlay-claimed`, `gesture-overlay-live`, `gesture-overlay-log`) and the track's `translate3d` offset. Settling is sampled every animation frame from just before release. The overlay log is cleared between arbitration checks by toggling the Debug overlay switch off and on.
 
-| #   | Scenario                                                      | iPhone                               | Pixel                                |
-| --- | ------------------------------------------------------------- | ------------------------------------ | ------------------------------------ |
-| 1   | Loads from the worker build; overlay; strips per Environment  | PASS                                 | PASS                                 |
-| 2   | Vertical one-finger scroll stays native                       | PASS                                 | PASS                                 |
-| 3   | Pan: follow the finger, spring settle, slow drag springs back | PASS                                 | PASS                                 |
-| 4   | Two-finger pan, chords, pinch, taps, long press, third finger | PASS                                 | PASS                                 |
-| 5   | Touches starting in an edge strip are not handled             | PASS                                 | PASS                                 |
-| 6   | Arbitration: one gesture per touch                            | PASS                                 | PASS                                 |
-| 7   | Installed display mode flips Environment and edge owner       | PASS                                 | PASS                                 |
-| 8   | Reduced motion                                                | FAIL → fixed locally, needs redeploy | FAIL → fixed locally, needs redeploy |
-| 9   | Rapid sequences, no stuck state                               | PASS                                 | PASS                                 |
-| S   | Smoke: home, status, rpc Echo, offline cold start `/gestures` | PASS                                 | PASS                                 |
+| #   | Scenario                                                      | iPhone                       | Pixel                    |
+| --- | ------------------------------------------------------------- | ---------------------------- | ------------------------ |
+| 1   | Loads from the worker build; overlay; strips per Environment  | PASS                         | PASS                     |
+| 2   | Vertical one-finger scroll stays native                       | PASS                         | PASS                     |
+| 3   | Pan: follow the finger, spring settle, slow drag springs back | PASS                         | PASS                     |
+| 4   | Two-finger pan, chords, pinch, taps, long press, third finger | PASS                         | PASS                     |
+| 5   | Touches starting in an edge strip are not handled             | PASS                         | PASS                     |
+| 6   | Arbitration: one gesture per touch                            | PASS                         | PASS                     |
+| 7   | Installed display mode flips Environment and edge owner       | PASS                         | PASS                     |
+| 8   | Reduced motion                                                | PASS after fix (`b463dd3fd`) | FAIL → fixed, not re-run |
+| 9   | Rapid sequences, no stuck state                               | PASS                         | PASS                     |
+| S   | Smoke: home, status, rpc Echo, offline cold start `/gestures` | PASS                         | PASS                     |
 
 ## 1. Loads from the worker build — PASS
 
@@ -157,3 +157,21 @@ Screenshots: `screenshots/gestures-pr-*-offline-cold-start.png`.
 
 - In emulation, releasing a long press sends compatibility `mousedown` + `click` (the click is swallowed by the zone), and the `mousedown` moves focus from the first menu item back to `body`. Real iOS and Android don't send mouse events after a long press, so this needs a check on a real phone before calling it a bug.
 - The overlay's dashed zone outline and "GESTURE ZONE" label are drawn under the fixed app header when the zone scrolls beneath it. Cosmetic, debug only.
+
+## Re-test after fix (b463dd3fd) — PASS (iPhone)
+
+Stage Build ID `f6e35b025809c680` (label `36292337107-1`, the deploy run for this commit; was `3df34886e23d0df1`), `activated /sw.js`, update Idle, no waiting worker, so no update prompt to accept. Both `/status` and `/gestures` were hard reloaded. The served chunk `/assets/gestures-rIfBlecw.js` has the fix: ``pc=()=>window.matchMedia(`(prefers-reduced-motion: reduce)`).matches`` and `settle({…, instant: pc(), …})`.
+
+Fresh agent-browser session `grm-ios`, iPhone profile (390×844, touch, 5 points), script `/tmp/gestures-cdp/rm-retest.mjs`. Reduced motion was turned on with `Emulation.setEmulatedMedia` while the page was open, with no reload in between (`matchMedia` flipped to true on the same page).
+
+| Step                                    | Settle frames (distinct offsets)        | Ripple animations |
+| --------------------------------------- | --------------------------------------- | ----------------- |
+| Reduced motion off: swipe left          | 27 (−220, −221, −227, −236, …) → −358   | —                 |
+| Reduced motion off: tap / double tap    | —                                       | 1 / 0             |
+| Turned on live: swipe right, swipe left | 2 each (−138 → 0, −220 → −358), instant | —                 |
+| Turned on live: tap / double tap        | —                                       | 0 / 0             |
+| Turned off again: swipe right           | 26 → 0, springs again                   | —                 |
+
+Gestures were still recognized with reduced motion on (`pan ended`, `tap ended`, double tap toggled liked yes → no). A double tap never plays the ripple, even with reduced motion off, because only a single tap triggers it. The single tap is the check that matters, and it went from 1 animation to 0. The Pixel profile was not re-run.
+
+Screenshot: `screenshots/gestures-pr-reduced-motion-fixed.png` (reduced motion on, overlay shows `reduced motion`).
