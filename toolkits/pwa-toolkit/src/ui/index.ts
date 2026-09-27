@@ -1,1 +1,1 @@
-export { InstallPrompt, OfflineIndicator, UpdatePrompt } from './ui.js';
+export { UpdatePrompt } from './ui.js';

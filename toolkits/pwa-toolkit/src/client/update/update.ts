@@ -5,7 +5,7 @@ import * as Schedule from 'effect/Schedule';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import type { UpdateConfig } from '../../shared/config/index.js';
 import { sendControlRequest } from '../commands/index.js';
-import { listen } from '../dom-events.js';
+import { listen } from '../../browser/dom-events.js';
 import { UpdateState } from '../states.js';
 
 const unsupported = Effect.map(

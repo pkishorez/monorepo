@@ -2,7 +2,7 @@ import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import { isToolkitCacheName } from '../shared/build/index.js';
 import type { ClientBuildInfo } from '../shared/config/index.js';
-import { isBrowser } from './dom-events.js';
+import { isBrowser } from '../browser/dom-events.js';
 
 const hasServiceWorkerApi = (): boolean =>
   isBrowser() && 'serviceWorker' in navigator;

@@ -6,16 +6,12 @@ import type * as SubscriptionRef from 'effect/SubscriptionRef';
 import type { BuildId } from '../shared/build/index.js';
 import type { ClientBuildInfo } from '../shared/config/index.js';
 import { readBuildIdMeta } from './build-id-meta.js';
-import { makeConnectivity } from './connectivity.js';
-import { makeDisplayMode } from './display-mode.js';
-import { makeInstall } from './install/index.js';
 import { register } from './registration.js';
 import { clearRuntimeCaches } from './runtime-cache.js';
-import type { DisplayModeValue, InstallState, UpdateState } from './states.js';
-import { storagePersistence } from './storage-persistence.js';
+import type { UpdateState } from './states.js';
 import { makeUpdate } from './update/index.js';
 
-export { type DisplayModeValue, InstallState, UpdateState } from './states.js';
+export { UpdateState } from './states.js';
 
 /** The tab's registration of the toolkit's worker; none when unsupported or disabled. */
 export class PwaRegistration extends Context.Service<
@@ -39,38 +35,6 @@ export class PwaUpdate extends Context.Service<
   }
 >()('pwa-toolkit/PwaUpdate') {}
 
-/** Install Prompt state. Dismissal is remembered for 30 days. */
-export class PwaInstall extends Context.Service<
-  PwaInstall,
-  {
-    readonly state: SubscriptionRef.SubscriptionRef<InstallState>;
-    readonly prompt: Effect.Effect<'accepted' | 'dismissed' | 'unavailable'>;
-    readonly dismiss: Effect.Effect<void>;
-  }
->()('pwa-toolkit/PwaInstall') {}
-
-export class Connectivity extends Context.Service<
-  Connectivity,
-  { readonly online: SubscriptionRef.SubscriptionRef<boolean> }
->()('pwa-toolkit/Connectivity') {}
-
-export class DisplayMode extends Context.Service<
-  DisplayMode,
-  { readonly mode: SubscriptionRef.SubscriptionRef<DisplayModeValue> }
->()('pwa-toolkit/DisplayMode') {}
-
-/** Every member is none where the Storage API is missing. */
-export class StoragePersistence extends Context.Service<
-  StoragePersistence,
-  {
-    readonly persisted: Effect.Effect<Option.Option<boolean>>;
-    readonly persist: Effect.Effect<Option.Option<boolean>>;
-    readonly estimate: Effect.Effect<
-      Option.Option<{ readonly usage: number; readonly quota: number }>
-    >;
-  }
->()('pwa-toolkit/StoragePersistence') {}
-
 /** Deletes every Runtime Cache (use on sign-out). Needs no registration. */
 export class RuntimeCacheControl extends Context.Service<
   RuntimeCacheControl,
@@ -85,10 +49,6 @@ export class RuntimeCacheControl extends Context.Service<
 export type PwaClientServices =
   | PwaRegistration
   | PwaUpdate
-  | PwaInstall
-  | Connectivity
-  | DisplayMode
-  | StoragePersistence
   | RuntimeCacheControl;
 
 const registrationLayer = (config: ClientBuildInfo) =>
@@ -110,18 +70,10 @@ const updateLayer = (config: ClientBuildInfo) =>
   ).pipe(Layer.provideMerge(registrationLayer(config)));
 
 /**
- * All tab-side services. Browser only: build it after hydration, never during
- * SSR (there every service is inert). Install, Connectivity and DisplayMode
- * do not wait for the registration, so no early browser event is missed.
+ * Every client service. Browser only: build it after hydration, never during
+ * SSR (there every service is inert).
  */
 export const PwaClient = {
   layer: (config: ClientBuildInfo): Layer.Layer<PwaClientServices> =>
-    Layer.mergeAll(
-      updateLayer(config),
-      Layer.effect(PwaInstall, makeInstall),
-      Layer.effect(Connectivity, makeConnectivity),
-      Layer.effect(DisplayMode, makeDisplayMode),
-      Layer.succeed(StoragePersistence, storagePersistence),
-      RuntimeCacheControl.layer,
-    ),
+    Layer.mergeAll(updateLayer(config), RuntimeCacheControl.layer),
 };

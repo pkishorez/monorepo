@@ -11,7 +11,8 @@ import { createServerFn } from '@tanstack/react-start';
 import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
 import { buttonVariants } from 'kui-toolkit/components/ui/button';
 import { PwaProvider, pwaHead } from 'pwa-toolkit/react';
-import { OfflineIndicator, UpdatePrompt } from 'pwa-toolkit/ui';
+import { OfflineIndicator, useInstall } from 'pwa-toolkit/extras';
+import { UpdatePrompt } from 'pwa-toolkit/ui';
 import type { ReactNode } from 'react';
 import { appTheme, AppHeader, ScenarioNav } from '../components/index.ts';
 import appCss from '../styles.css?url';
@@ -59,6 +60,8 @@ function RootComponent() {
     select: (matches) =>
       matches.some((match) => match.staticData.chrome === 'bare'),
   });
+  // The browser offers install once, early: listen from the root so /install sees it.
+  useInstall();
   return (
     <PwaProvider router={router}>
       {bare ? <Outlet /> : <Chrome />}

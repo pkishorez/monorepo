@@ -3,128 +3,25 @@ import * as Option from 'effect/Option';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import * as TestClock from 'effect/testing/TestClock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BUILD_ID_META_NAME } from '../../shared/build/index.js';
 import type { ClientBuildInfo } from '../../shared/config/index.js';
 import {
-  matchControlRequest,
   controlReply,
-  type ControlReply,
+  matchControlRequest,
 } from '../../shared/commands/index.js';
 import {
-  Connectivity,
-  DisplayMode,
   PwaClient,
   type PwaClientServices,
-  PwaInstall,
   PwaRegistration,
   PwaUpdate,
   RuntimeCacheControl,
-  StoragePersistence,
 } from '../index.js';
-
-// Hand-rolled browser: just enough of window, document and navigator.
-
-class FakeWorker extends EventTarget {
-  state: ServiceWorkerState = 'installed';
-  constructor(readonly scriptURL = 'https://app.test/sw.js') {
-    super();
-  }
-  readonly received: Array<unknown> = [];
-  reply: ControlReply | null = controlReply.done();
-
-  postMessage(message: unknown, transfer: Array<MessagePort>) {
-    this.received.push(message);
-    if (this.reply !== null) transfer[0]?.postMessage(this.reply);
-  }
-  becomes(state: ServiceWorkerState) {
-    this.state = state;
-    this.dispatchEvent(new Event('statechange'));
-  }
-}
-
-class FakeRegistration extends EventTarget {
-  waiting: FakeWorker | null = null;
-  installing: FakeWorker | null = null;
-  active: FakeWorker | null = null;
-  readonly update = vi.fn(async () => undefined);
-  readonly unregister = vi.fn(async () => true);
-}
-
-class FakeContainer extends EventTarget {
-  controller: FakeWorker | null = null;
-  readonly registration = new FakeRegistration();
-  readonly register = vi.fn(async () => this.registration);
-  readonly others: Array<FakeRegistration> = [];
-  readonly getRegistrations = vi.fn(async () => [
-    this.registration,
-    ...this.others,
-  ]);
-}
-
-class FakeMediaQuery extends EventTarget {
-  constructor(
-    readonly media: string,
-    private readonly env: FakeBrowser,
-  ) {
-    super();
-  }
-  get matches() {
-    return (
-      this.env.displayMode === /\(display-mode: (.+)\)/.exec(this.media)?.[1]
-    );
-  }
-}
-
-class FakeBrowser {
-  displayMode = 'browser';
-  readonly container = new FakeContainer();
-  readonly queries = new Map<string, FakeMediaQuery>();
-  readonly storage = new Map<string, string>();
-  readonly cacheNames = new Set<string>();
-  readonly reload = vi.fn();
-  readonly window = Object.assign(new EventTarget(), {
-    location: { reload: this.reload },
-    matchMedia: (media: string) => {
-      const query = this.queries.get(media) ?? new FakeMediaQuery(media, this);
-      this.queries.set(media, query);
-      return query;
-    },
-  });
-  readonly document = Object.assign(new EventTarget(), {
-    visibilityState: 'visible',
-    meta: null as string | null,
-    querySelector: (selector: string) =>
-      selector === `meta[name="${BUILD_ID_META_NAME}"]` && this.document.meta
-        ? { getAttribute: () => this.document.meta }
-        : null,
-  });
-  readonly navigator: Record<string, unknown> = {
-    serviceWorker: this.container,
-    onLine: true,
-    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0 Safari/537.36',
-    maxTouchPoints: 0,
-  };
-
-  install() {
-    vi.stubGlobal('window', this.window);
-    vi.stubGlobal('document', this.document);
-    vi.stubGlobal('navigator', this.navigator);
-    vi.stubGlobal('localStorage', {
-      getItem: (key: string) => this.storage.get(key) ?? null,
-      setItem: (key: string, value: string) => this.storage.set(key, value),
-    });
-    vi.stubGlobal('caches', {
-      keys: async () => [...this.cacheNames],
-      delete: async (name: string) => this.cacheNames.delete(name),
-    });
-  }
-  setDisplayMode(mode: string) {
-    this.displayMode = mode;
-    for (const query of this.queries.values()) {
-      query.dispatchEvent(new Event('change'));
-    }
-  }
-}
+import {
+  FakeBrowser,
+  FakeRegistration,
+  FakeWorker,
+  fire,
+  settle,
+} from '../../../test/fake-browser.js';
 
 const config = (overrides: Partial<ClientBuildInfo> = {}): ClientBuildInfo => ({
   enabled: true,
@@ -152,13 +49,6 @@ const updateTag = Effect.gen(function* () {
   const update = yield* PwaUpdate;
   return (yield* SubscriptionRef.get(update.state))._tag;
 });
-const installTag = Effect.gen(function* () {
-  const install = yield* PwaInstall;
-  return (yield* SubscriptionRef.get(install.state))._tag;
-});
-const settle = Effect.promise(() => new Promise((r) => setTimeout(r, 5)));
-const fire = (target: EventTarget, type: string) =>
-  Effect.sync(() => target.dispatchEvent(new Event(type)));
 
 let browser: FakeBrowser;
 beforeEach(() => {
@@ -221,23 +111,15 @@ describe('PwaRegistration', () => {
     const result = await run(
       Effect.gen(function* () {
         const registration = yield* PwaRegistration;
-        const online = yield* Connectivity;
-        const mode = yield* DisplayMode;
         return {
           registration: Option.isNone(registration.registration),
           update: yield* updateTag,
-          install: yield* installTag,
-          online: yield* SubscriptionRef.get(online.online),
-          mode: yield* SubscriptionRef.get(mode.mode),
         };
       }),
     );
     expect(result).toEqual({
       registration: true,
       update: 'Unsupported',
-      install: 'Unsupported',
-      online: true,
-      mode: 'browser',
     });
   });
 });
@@ -361,146 +243,6 @@ describe('PwaUpdate', () => {
     };
     expect(await received('prompt')).toBe(0);
     expect(await received('auto-on-navigation')).toBe(1);
-  });
-});
-
-const IOS_SAFARI =
-  'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
-
-const installEvent = (outcome: 'accepted' | 'dismissed') =>
-  Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
-    prompt: vi.fn(async () => undefined),
-    userChoice: Promise.resolve({ outcome }),
-  });
-
-describe('PwaInstall', () => {
-  it('captures beforeinstallprompt and prompts once', async () => {
-    const event = installEvent('accepted');
-    const result = await run(
-      Effect.gen(function* () {
-        const install = yield* PwaInstall;
-        browser.window.dispatchEvent(event);
-        const before = yield* installTag;
-        const first = yield* install.prompt;
-        const second = yield* install.prompt;
-        return { before, first, second, after: yield* installTag };
-      }),
-    );
-    expect(event.defaultPrevented).toBe(true);
-    expect(result).toEqual({
-      before: 'Available',
-      first: 'accepted',
-      second: 'unavailable',
-      after: 'Installed',
-    });
-  });
-
-  it('remembers a native dismissal for 30 days', async () => {
-    const tag = await run(
-      Effect.gen(function* () {
-        const install = yield* PwaInstall;
-        browser.window.dispatchEvent(installEvent('dismissed'));
-        expect(yield* install.prompt).toBe('dismissed');
-        return yield* installTag;
-      }),
-    );
-    expect(tag).toBe('Dismissed');
-    expect(await run(installTag)).toBe('Dismissed');
-  });
-
-  it('forgets a dismissal after 30 days', async () => {
-    const days = (n: number) => String(Date.now() - n * 24 * 60 * 60 * 1000);
-    browser.navigator['userAgent'] = IOS_SAFARI;
-    browser.storage.set('pwa-toolkit:install-dismissed-at', days(29));
-    expect(await run(installTag)).toBe('Dismissed');
-    browser.storage.set('pwa-toolkit:install-dismissed-at', days(31));
-    expect(await run(installTag)).toBe('ManualIos');
-  });
-
-  it('offers manual steps on iOS Safari (iPhone and iPadOS), not other iOS browsers', async () => {
-    browser.navigator['userAgent'] = IOS_SAFARI;
-    expect(await run(installTag)).toBe('ManualIos');
-    browser.navigator['userAgent'] =
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
-    browser.navigator['maxTouchPoints'] = 5;
-    expect(await run(installTag)).toBe('ManualIos');
-    browser.navigator['userAgent'] = IOS_SAFARI.replace(
-      'Version/18.0',
-      'CriOS/140.0',
-    );
-    expect(await run(installTag)).toBe('Unsupported');
-  });
-
-  it('is Installed when running standalone or after appinstalled', async () => {
-    browser.displayMode = 'standalone';
-    expect(await run(installTag)).toBe('Installed');
-    browser.displayMode = 'browser';
-    browser.navigator['standalone'] = true;
-    expect(await run(installTag)).toBe('Installed');
-    delete browser.navigator['standalone'];
-    const tag = await run(
-      Effect.andThen(fire(browser.window, 'appinstalled'), () => installTag),
-    );
-    expect(tag).toBe('Installed');
-  });
-});
-
-describe('Connectivity and DisplayMode', () => {
-  it('follows online and offline events', async () => {
-    const values = await run(
-      Effect.gen(function* () {
-        const { online } = yield* Connectivity;
-        yield* fire(browser.window, 'offline');
-        const offline = yield* SubscriptionRef.get(online);
-        yield* fire(browser.window, 'online');
-        return [offline, yield* SubscriptionRef.get(online)];
-      }),
-    );
-    expect(values).toEqual([false, true]);
-  });
-
-  it('follows display-mode media queries', async () => {
-    const modes = await run(
-      Effect.gen(function* () {
-        const { mode } = yield* DisplayMode;
-        const before = yield* SubscriptionRef.get(mode);
-        browser.setDisplayMode('window-controls-overlay');
-        return [before, yield* SubscriptionRef.get(mode)];
-      }),
-    );
-    expect(modes).toEqual(['browser', 'window-controls-overlay']);
-  });
-});
-
-describe('StoragePersistence', () => {
-  it('is none without the Storage API', async () => {
-    const result = await run(
-      Effect.flatMap(StoragePersistence, (s) => s.persisted),
-    );
-    expect(result).toEqual(Option.none());
-  });
-
-  it('reads persisted, persist and estimate', async () => {
-    browser.navigator['storage'] = {
-      persisted: async () => false,
-      persist: async () => true,
-      estimate: async () => ({ usage: 10 }),
-    };
-    const result = await run(
-      Effect.gen(function* () {
-        const storage = yield* StoragePersistence;
-        return [
-          yield* storage.persisted,
-          yield* storage.persist,
-          yield* storage.estimate,
-        ];
-      }),
-    );
-    expect(result).toEqual([
-      Option.some(false),
-      Option.some(true),
-      Option.some({ usage: 10, quota: 0 }),
-    ]);
   });
 });
 

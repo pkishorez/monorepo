@@ -4,15 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BUILD_ID_META_NAME } from '../../shared/build/index.js';
 import type { ClientBuildInfo } from '../../shared/config/index.js';
 import { headTags } from '../head.js';
-import {
-  PwaProvider,
-  pwaHead,
-  useDisplayMode,
-  useOnline,
-  usePwaInstall,
-  usePwaUpdate,
-  useStoragePersistence,
-} from '../index.js';
+import { PwaProvider, pwaHead, usePwaUpdate } from '../index.js';
 
 const info: ClientBuildInfo = {
   enabled: true,
@@ -30,24 +22,11 @@ afterEach(() => {
 
 describe('hooks during SSR', () => {
   it('render the documented defaults without touching window', () => {
-    const Probe = () =>
-      JSON.stringify({
-        update: usePwaUpdate().state._tag,
-        install: usePwaInstall().state._tag,
-        online: useOnline(),
-        mode: useDisplayMode(),
-        persisted: useStoragePersistence().persisted,
-      });
+    const Probe = () => usePwaUpdate().state._tag;
     const html = renderToString(
       createElement(PwaProvider, null, createElement(Probe)),
     );
-    expect(JSON.parse(html.replaceAll('&quot;', '"'))).toEqual({
-      update: 'Idle',
-      install: 'Unsupported',
-      online: true,
-      mode: 'browser',
-      persisted: null,
-    });
+    expect(html).toBe('Idle');
   });
 });
 

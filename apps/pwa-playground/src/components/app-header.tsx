@@ -9,7 +9,7 @@ import {
   SheetTrigger,
 } from 'kui-toolkit/components/ui/sheet';
 import { MenuIcon, XIcon } from 'kui-toolkit/lucide';
-import { useOnline } from 'pwa-toolkit/react';
+import { useOnline } from 'pwa-toolkit/extras';
 import { useState } from 'react';
 import { buildLabel, buildPreset, pwaEnabled } from '../lib/build.ts';
 import { ScenarioNav } from './scenario-nav.tsx';
