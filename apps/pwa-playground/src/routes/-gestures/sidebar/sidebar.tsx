@@ -19,9 +19,9 @@ export const useLabSidebar = (): Sidebar => {
 };
 
 /**
- * The lab's own sidebar, over `children`: swipe right to pull it in (from
- * the left edge where the app owns it), swipe left or tap the scrim to put
- * it away. The panel, the scrim and the lab behind all move with one value.
+ * The lab's own sidebar, over `children`: swipe right on otherwise unclaimed
+ * space to pull it in, swipe left or tap the scrim to put it away. The panel,
+ * the scrim and the lab behind all move with one value.
  * Render it inside the lab's GestureProvider.
  */
 export function LabSidebar(props: {

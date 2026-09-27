@@ -4,14 +4,14 @@ import { useTransform } from 'kui-toolkit/motion';
 export const SIDEBAR_WIDTH = 288;
 
 /**
- * The lab's sidebar: one edge Swipe right on the lab's root zone. It stays
+ * The lab's sidebar: one Swipe right anywhere on the lab's root zone. It stays
  * open at 1 until a Swipe left drags it back, and everything that moves is a
  * transform of its one `progress` value.
  */
 export function useSidebarGestures() {
   const sidebar = useSwipe({
     direction: 'right',
-    edge: true,
+    edge: false,
     after: 'stay',
     distance: SIDEBAR_WIDTH,
   });

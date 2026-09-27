@@ -6,14 +6,26 @@ import {
   createRootRoute,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { ThemeProvider } from 'next-themes';
+import { createTheme } from 'kui-toolkit/components/blocks/theme';
+import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
 import { lazy, useState, type ReactNode } from 'react';
 
 import appCss from '../styles.css?url';
 
+const cookieDomain =
+  typeof location === 'undefined'
+    ? undefined
+    : location.hostname.endsWith('.kishore.app')
+      ? 'kishore.app'
+      : location.hostname.endsWith('.kishore.computer')
+        ? 'kishore.computer'
+        : undefined;
+const appTheme = createTheme({ cookieDomain });
+
 const getContext = createServerFn().handler(({ context }) => ({
   branding: context.branding,
   authorizationServer: context.authorizationServer,
+  theme: getTheme(),
 }));
 
 type Context = Awaited<ReturnType<typeof getContext>>;
@@ -68,20 +80,21 @@ function NotFound() {
 
 function RootDocument({ children }: { children: ReactNode }) {
   const [queries] = useState(() => new QueryClient());
+  const currentTheme = Route.useLoaderData()?.theme ?? 'dark';
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={currentTheme === 'dark' ? 'dark' : undefined}
+      data-theme={currentTheme}
+      style={{ colorScheme: currentTheme }}
+      suppressHydrationWarning
+    >
       <head>
+        <appTheme.Script initialTheme={currentTheme} />
         <HeadContent />
       </head>
       <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
-          <QueryClientProvider client={queries}>{children}</QueryClientProvider>
-        </ThemeProvider>
+        <QueryClientProvider client={queries}>{children}</QueryClientProvider>
         <Scripts />
       </body>
     </html>

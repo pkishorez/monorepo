@@ -44,7 +44,6 @@ export const clientBuildInfo = (
     update: config.update,
     buildId: context.consumer === 'server' && active ? serverBuildId : null,
     manifestUrl: config.manifest ? MANIFEST_URL : null,
-    themeColor: config.manifest?.theme_color ?? null,
     appleTouchIconUrl: config.manifest
       ? appleTouchIconOf(config.manifest)
       : null,

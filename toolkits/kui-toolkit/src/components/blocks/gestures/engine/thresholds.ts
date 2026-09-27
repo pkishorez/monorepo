@@ -6,6 +6,8 @@ export const SLOP_PX = 10;
  * start a little apart in time is not read as a Hold.
  */
 export const HOLD_STILL_PX = SLOP_PX / 2;
+/** Minimum lead that makes the first finger a deliberate Hold, not a near-simultaneous multi-finger gesture. */
+export const HOLD_LEAD_MS = 50;
 /** Longest press that still counts as a tap. */
 export const TAP_MAX_MS = 300;
 /** Longest wait between the two taps of a double tap. */

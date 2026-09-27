@@ -4,13 +4,19 @@ import {
   Outlet,
   Scripts,
 } from '@tanstack/react-router';
-import * as React from 'react';
+import { createServerFn } from '@tanstack/react-start';
+import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
 import appCss from '@/styles/app.css?url';
 import { appName } from '@/lib/shared';
+import { appTheme } from '@/lib/layout.shared';
 import { RootProvider } from 'fumadocs-ui/provider/tanstack';
-import { useTheme } from 'fumadocs-ui/provider/base';
+
+const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
+  getTheme(),
+);
 
 export const Route = createRootRoute({
+  loader: () => getCurrentTheme(),
   head: () => ({
     meta: [
       {
@@ -39,27 +45,23 @@ export const Route = createRootRoute({
   component: RootComponent,
 });
 
-function ThemeColor() {
-  const { resolvedTheme } = useTheme();
-  React.useEffect(() => {
-    const meta =
-      document.querySelector<HTMLMetaElement>('meta[name="theme-color"]') ??
-      document.head.appendChild(
-        Object.assign(document.createElement('meta'), { name: 'theme-color' }),
-      );
-    meta.content = getComputedStyle(document.body).backgroundColor;
-  }, [resolvedTheme]);
-  return null;
-}
-
 function RootComponent() {
+  const currentTheme = Route.useLoaderData() ?? 'dark';
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={currentTheme === 'dark' ? 'dark' : undefined}
+      data-theme={currentTheme}
+      style={{ colorScheme: currentTheme }}
+      suppressHydrationWarning
+    >
       <head>
+        <appTheme.Script initialTheme={currentTheme} />
         <HeadContent />
       </head>
       <body className="flex min-h-svh flex-col">
         <RootProvider
+          theme={{ enabled: false }}
           search={{
             options: {
               type: 'static',
@@ -67,7 +69,6 @@ function RootComponent() {
             },
           }}
         >
-          <ThemeColor />
           <Outlet />
         </RootProvider>
         <Scripts />

@@ -59,7 +59,7 @@ pnpm add pwa-toolkit effect
 | Export                  | What it does                                                                                             |
 | ----------------------- | -------------------------------------------------------------------------------------------------------- |
 | `PwaProvider`           | Starts the client services after mount; pass `router` so `auto-on-navigation` updates see route changes. |
-| `pwaHead`               | Head tags for the root route: manifest link, theme color, Apple tags and the Build ID meta tag.          |
+| `pwaHead`               | Head tags for the root route: manifest link, Apple tags and the Build ID meta tag.                       |
 | `usePwaUpdate`          | Update state with `check` and `apply`; `Idle` before mount.                                              |
 | `usePwaInstall`         | Install state with `prompt` and `dismiss`; `Unsupported` before mount.                                   |
 | `useOnline`             | Whether the browser is online; `true` before mount.                                                      |
@@ -97,6 +97,10 @@ Four pieces: the plugins in `vite.config.ts`, the head tags and provider in the 
 
 ```tsx
 // vite.config.ts
+import { createTheme } from 'kui-toolkit/components/blocks/theme';
+
+const manifestTheme = createTheme().manifest('dark');
+
 plugins: [
   tailwindcss(),
   tanstackStart({
@@ -105,7 +109,7 @@ plugins: [
     prerender: { autoStaticPathsDiscovery: false },
   }),
   react(),
-  pwa({ manifest: { name: 'PWA Playground', short_name: 'PWA Lab', theme_color: '#18181b', icons }, runtimeCache }),
+  pwa({ manifest: { name: 'PWA Playground', short_name: 'PWA Lab', ...manifestTheme, icons }, runtimeCache }),
 ],
 
 // src/routes/__root.tsx

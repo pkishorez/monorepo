@@ -10,7 +10,7 @@ export const sidebarTutorial: Tutorial = {
     {
       gesture: 'Swipe right slowly, and stop halfway',
       result:
-        'The sidebar follows your finger however slowly. Let go before 40% and it springs back; past it, it springs open.',
+        'The sidebar follows your finger from anywhere unclaimed. Let go before 40% and it settles back; past it, it settles open.',
     },
     {
       gesture: 'Flick right, however short',
@@ -33,9 +33,9 @@ export const sidebarTutorial: Tutorial = {
     },
   ],
   howItWorks: [
-    'Both are useSwipe({ edge: true, after: "stay" }): the sidebar on the lab\'s root zone, the panel on this demo\'s nested zone.',
-    'Installed on iOS the app owns the screen edges, so an edge Swipe starts only in the 24px strip at its edge ("source: edge"). In a browser tab or on Android the browser or system uses the edges for back, so the app never listens there, and the Swipe starts from anywhere in its zone instead ("source: zone").',
-    'That fallback stays off if another hook in the zone chain already takes the same Swipe; the hook reports available: false, and you show a button.',
+    'Both are useSwipe({ edge: false, after: "stay" }): the sidebar on the lab\'s root zone, the panel on this demo\'s nested zone.',
+    'They start anywhere in their zone except the narrow edge strips reserved for the browser or operating system. This avoids depending on iOS back-navigation territory, which a normal web app cannot disable reliably.',
+    'Nested zones have priority. The panel takes left Swipes here; an unclaimed right Swipe bubbles to the root sidebar. Other demos keep their own horizontal gestures.',
     "A Swipe right here is not the panel's while it is closed, so it passes out from this zone to the root zone, where the sidebar takes it.",
     'The menu button calls open(); a demo in the sidebar calls close().',
   ],
@@ -43,7 +43,7 @@ export const sidebarTutorial: Tutorial = {
   animation: [
     'One progress value per Swipe: 0 closed, 1 open, set on every move.',
     "The sidebar's offset, the scrim's opacity, and the lab behind it moving aside and shrinking a little are all useTransforms of that one value.",
-    "On release it springs to 0 or 1, starting at your finger's speed, so a flick lands fast and a slow release lands gently.",
-    'A finger landing mid-spring stops it (the value is caught), and a new drag continues from where it is.',
+    "On release it uses a bounce-free 500ms spring to 0 or 1, seeded with the finger's velocity, so a flick lands fast and a slow release lands gently.",
+    'A finger landing mid-settle catches it immediately, and a new drag continues from that exact position.',
   ],
 };

@@ -8,7 +8,7 @@ import {
   sideOf,
 } from './group';
 import type { PointerTracker } from './pointers';
-import { HOLD_STILL_PX, SLOP_PX, TAP_MAX_MS } from './thresholds';
+import { HOLD_LEAD_MS, HOLD_STILL_PX, SLOP_PX, TAP_MAX_MS } from './thresholds';
 import type {
   Direction,
   Point,
@@ -131,7 +131,9 @@ export const decideMovement = (
   if (longest === undefined) return undefined;
   if (others.length === 0) return decideSingle(situation, longest);
   if (others.length > 2) return { next: 'ignoring' };
-  if (longest.travel <= HOLD_STILL_PX) {
+  const actingLandedAt = Math.min(...others.map((track) => track.down.t));
+  const deliberateHold = actingLandedAt - longest.down.t >= HOLD_LEAD_MS;
+  if (deliberateHold && longest.travel <= HOLD_STILL_PX) {
     // Browsers report each finger's move of one frame as its own event, at
     // one time, and not always in landing order. If the finger down longest
     // has not reported this frame yet, it may be moving too: wait for one

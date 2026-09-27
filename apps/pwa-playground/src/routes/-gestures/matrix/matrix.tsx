@@ -113,7 +113,14 @@ function Cell(props: { readonly row: Row; readonly hold: Hold }) {
   const onHit = (detail: string) => {
     setHits((last) => ({ count: last.count + 1, detail }));
     glow.jump(1);
-    void animate(glow, 0, { duration: 0.7, ease: 'easeOut' });
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      glow.jump(0);
+      return;
+    }
+    void animate(glow, 0, {
+      duration: 0.18,
+      ease: [0.32, 0.72, 0, 1],
+    });
   };
   const { Gesture } = props.row;
   return (

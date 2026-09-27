@@ -1,19 +1,18 @@
 import { Link } from '@tanstack/react-router';
 import { Button, buttonVariants } from 'kui-toolkit/components/ui/button';
-import { Switch } from 'kui-toolkit/components/ui/switch';
-import { HouseIcon } from 'kui-toolkit/lucide';
+import { HouseIcon, MoonIcon, SunIcon } from 'kui-toolkit/lucide';
 import { cn } from 'kui-toolkit/utils';
+import { appTheme } from '../../../lib/theme.ts';
 import { useLabSidebar } from '../sidebar/index.ts';
 import { DEMO_IDS, DEMOS, type DemoId } from './demos.ts';
 
-/** The sidebar's contents: the demos, the state machine switch, and Home. */
+/** The sidebar's contents: the demos, the theme switch, and Home. */
 export function Menu(props: {
   readonly demo: DemoId;
   readonly onDemo: (demo: DemoId) => void;
-  readonly debug: boolean;
-  readonly onDebug: (debug: boolean) => void;
 }) {
   const sidebar = useLabSidebar();
+  const { theme, toggleTheme } = appTheme.useTheme();
   return (
     <div className="flex h-full flex-col gap-4 p-3">
       <p className="px-2 pt-2 text-sm font-semibold">Gesture Lab</p>
@@ -43,15 +42,23 @@ export function Menu(props: {
           );
         })}
       </ul>
-      <label className="flex items-center justify-between gap-3 rounded-md px-2 py-2 text-sm">
-        Show state machine
-        <Switch
-          data-testid="lab-debug"
-          checked={props.debug}
-          onCheckedChange={props.onDebug}
-        />
-      </label>
       <div className="mt-auto">
+        <div className="mb-2 flex items-center justify-between px-2 text-sm text-muted-foreground">
+          Theme
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11 touch-manipulation"
+            aria-label={
+              theme === 'dark'
+                ? 'Switch to light theme'
+                : 'Switch to dark theme'
+            }
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </Button>
+        </div>
         <Link
           to="/"
           className={buttonVariants({

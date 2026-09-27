@@ -36,6 +36,7 @@ export const createSwipe = (
   let heading: 0 | 1 = 0;
   // Committed with `return`: held at 1 until `onSwipe` settles.
   let busy = false;
+  let run = 0;
   let caught = false;
   let drag: { readonly base: number; readonly sign: 1 | -1 } | undefined;
 
@@ -73,11 +74,15 @@ export const createSwipe = (
 
   const commit = async (velocity: number) => {
     const { after, onSwipe } = options();
+    const id = ++run;
     const landed = toward(1, velocity);
     const done = onSwipe?.();
     if (after === 'stay') return;
-    busy = true;
+    busy =
+      done !== undefined &&
+      typeof (done as PromiseLike<void>).then === 'function';
     await Promise.allSettled([landed, done]);
+    if (id !== run) return;
     busy = false;
     await toward(0, 0);
   };
@@ -114,6 +119,7 @@ export const createSwipe = (
     handle: (event: MovementEvent) => {
       switch (event.phase) {
         case 'start':
+          run += 1;
           caught = false;
           progress.stop();
           drag = {

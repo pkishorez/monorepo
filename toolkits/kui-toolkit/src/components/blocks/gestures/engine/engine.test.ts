@@ -1,7 +1,12 @@
 import { SimulatedClock } from 'xstate';
 import { describe, expect, it } from 'vitest';
 import { createGestureEngine } from './engine';
-import { DOUBLE_TAP_GAP_MS, HOLD_DRIFT_PX, TAP_MAX_MS } from './thresholds';
+import {
+  DOUBLE_TAP_GAP_MS,
+  HOLD_DRIFT_PX,
+  HOLD_LEAD_MS,
+  TAP_MAX_MS,
+} from './thresholds';
 import type {
   Combination,
   Direction,
@@ -204,9 +209,22 @@ describe('deciding on first movement', () => {
   it('reads a Hold on the right of the acting fingers as a right Hold', () => {
     const g = setup();
     g.down(1, 300, 300, 0);
-    g.down(2, 100, 300, 30);
-    g.drag({ 2: [p(100, 300), p(100, 200)] }, 30, 130);
+    g.down(2, 100, 300, HOLD_LEAD_MS);
+    g.drag({ 2: [p(100, 300), p(100, 200)] }, HOLD_LEAD_MS, HOLD_LEAD_MS + 100);
     expect(g.last('hold')?.side).toBe('right');
+  });
+
+  it('keeps near-simultaneous fingers together instead of inventing a Hold', () => {
+    const g = setup();
+    g.down(1, 200, 300, 0);
+    g.down(2, 300, 300, HOLD_LEAD_MS - 1);
+    g.drag(
+      { 1: [p(200, 300), p(150, 300)], 2: [p(300, 300), p(350, 300)] },
+      HOLD_LEAD_MS - 1,
+      HOLD_LEAD_MS + 99,
+    );
+    expect(g.outcomes()).toEqual(['pinch:start']);
+    expect(g.last('pinch')).toMatchObject({ fingers: 2, hold: undefined });
   });
 
   it('locks a Hold under two acting fingers, three down in all', () => {

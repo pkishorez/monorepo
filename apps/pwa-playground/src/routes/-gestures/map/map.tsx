@@ -1,7 +1,7 @@
 import { GestureZone, useHold } from 'kui-toolkit/components/blocks/gestures';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { LayersIcon, MapPinIcon, ScanIcon } from 'kui-toolkit/lucide';
-import { motion, useTransform } from 'kui-toolkit/motion';
+import { motion, useReducedMotion, useTransform } from 'kui-toolkit/motion';
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { useElementSize } from '../element-size/index.ts';
 import { useMapGestures } from './gestures.ts';
@@ -32,6 +32,7 @@ function MapView(props: { readonly zone: RefObject<HTMLDivElement | null> }) {
   const size = useElementSize(props.zone);
   const [pins, setPins] = useState<ReadonlyArray<Point>>([]);
   const [layer, setLayer] = useState<Layer>('Dots');
+  const reducedMotion = useReducedMotion();
   const map = useMapGestures({
     size,
     origin: () => {
@@ -68,10 +69,24 @@ function MapView(props: { readonly zone: RefObject<HTMLDivElement | null> }) {
         {pins.map((pin, index) => (
           <motion.span
             key={index}
-            style={{ left: pin.x, top: pin.y, scale: pinScale, originY: 1 }}
-            className="absolute -translate-x-1/2 -translate-y-full text-chart-9"
+            style={{ left: pin.x, top: pin.y }}
+            initial={reducedMotion ? false : { opacity: 0, scale: 0.95, y: 4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{
+              duration: reducedMotion ? 0 : 0.18,
+              ease: [0.32, 0.72, 0, 1],
+            }}
+            className="absolute text-chart-9"
           >
-            <MapPinIcon aria-hidden="true" className="size-7 fill-background" />
+            <motion.span
+              style={{ x: '-50%', y: '-100%', scale: pinScale, originY: 1 }}
+              className="block"
+            >
+              <MapPinIcon
+                aria-hidden="true"
+                className="size-7 fill-background"
+              />
+            </motion.span>
           </motion.span>
         ))}
       </motion.div>

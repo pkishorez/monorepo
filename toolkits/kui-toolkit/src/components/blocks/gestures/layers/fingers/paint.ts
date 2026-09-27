@@ -1,5 +1,5 @@
 import type { Side } from '../../engine';
-import type { TapMark, ZoneSource, ZoneView } from '../../provider';
+import type { TapMark, ZoneSource } from '../../provider';
 import type { Rect } from '../../zone';
 import type { Frame, Painter } from '../canvas';
 import { createTrails, type Trail } from './trails';
@@ -16,18 +16,12 @@ const BUBBLE_EXIT_MS = 120;
 // The pop when an Hold locks: an overshoot back to size, and a flash ring.
 const POP_MS = 320;
 const FLASH_MS = 360;
-// How long the spotlight takes to come up when an Hold locks, and to go.
-const SPOTLIGHT_MS = 160;
 // A ring bursting out from a tap; a double tap bursts twice.
 const BURST_MS = 360;
 const BURST_GAP_MS = 90;
 // Path kept behind the acting finger: a comet, or a stub for reduced motion.
 const TAIL_MS = 240;
 const STILL_TAIL_MS = 60;
-// Around the Hold: lit up to LIT_PX, clear to CLEAR_PX, dimmed past DIM_PX.
-const LIT_PX = 44;
-const CLEAR_PX = 72;
-const DIM_PX = 150;
 const CHIP_HEIGHT = 24;
 const CHIP_INSET = 8;
 
@@ -59,35 +53,6 @@ const paintRing = ({ ctx, color }: Frame, trail: Trail, bubble: number) => {
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = color('--gf-ring', 0.35 * trail.opacity);
   ctx.stroke();
-};
-
-/**
- * Dims the zone around the Hold and lights the area under it, so the
- * locked finger reads as the centre of attention. `k` fades it in and out.
- */
-const paintSpotlight = (
-  { ctx, color }: Frame,
-  zone: Rect,
-  at: Point,
-  k: number,
-) => {
-  const reach = Math.max(
-    DIM_PX + 1,
-    Math.hypot(zone.right - zone.left, zone.bottom - zone.top),
-  );
-  const light = ctx.createRadialGradient(at.x, at.y, 0, at.x, at.y, reach);
-  light.addColorStop(0, color('--gf-hold', 0.3 * k));
-  light.addColorStop(LIT_PX / reach, color('--gf-hold', 0.1 * k));
-  light.addColorStop(CLEAR_PX / reach, color('--gf-dim', 0));
-  light.addColorStop(DIM_PX / reach, color('--gf-dim', 0.45 * k));
-  light.addColorStop(1, color('--gf-dim', 0.6 * k));
-  ctx.fillStyle = light;
-  ctx.fillRect(
-    zone.left,
-    zone.top,
-    zone.right - zone.left,
-    zone.bottom - zone.top,
-  );
 };
 
 /**
@@ -253,26 +218,23 @@ const paintBurst = (
 /**
  * Paints every finger in the zone by its role: a soft ring, with a bubble
  * growing inside while it rests, for a finger not yet decided or in no
- * gesture; the locked Hold with the zone dimmed around it and a chip
- * naming it; a comet for a panning finger; a burst for each tap. Asks for
+ * gesture; the locked Hold with a glow and a chip naming it; a comet for a
+ * panning finger; a burst for each tap. Asks for
  * frames while a finger is down or anything is fading.
  */
 export const createFingerPainter = (source: ZoneSource): Painter => {
   const trails = createTrails();
-  const spotlight = { k: 0, at: { x: 0, y: 0 }, t: 0 };
   const bubbles = new Map<number, number>();
   // When each Hold locked and on which side, kept while it fades.
   const locks = new Map<number, { at: number; side: Side }>();
   let burst: { tap: TapMark; at: number } | undefined;
-  // Kept while the spotlight fades after the Hold lifts.
-  let measuredHold: ReturnType<ZoneView['measure']>;
   let lastFrame = 0;
 
   return (frame) => {
     const reduced = source.environment().reducedMotion;
     const zones = source.zones();
     const inspections = zones.map((zone) => zone.inspect());
-    // The zone the Hold is locked in, if any: the spotlight dims it alone.
+    // The zone the Hold is locked in, if any.
     const index = inspections.findIndex(
       (inspection) => inspection?.hold !== undefined,
     );
@@ -295,20 +257,7 @@ export const createFingerPainter = (source: ZoneSource): Painter => {
       burst = { tap, at: frame.now };
     }
 
-    const target = held === undefined ? 0 : held.opacity;
-    const step = reduced ? 1 : (frame.now - spotlight.t) / SPOTLIGHT_MS;
-    spotlight.k =
-      target > spotlight.k
-        ? Math.min(target, spotlight.k + step)
-        : Math.max(target, spotlight.k - step);
-    spotlight.t = frame.now;
-    if (held !== undefined) spotlight.at = head(held);
-    // The whole element dims, edge strips included, so the zone reads as one surface.
-    if (holding !== undefined) measuredHold = holding.measure();
-    const measured = measuredHold;
-    if (spotlight.k > 0 && measured !== undefined) {
-      paintSpotlight(frame, measured.bounds, spotlight.at, spotlight.k);
-    }
+    const measured = holding?.measure();
 
     let bubbling = false;
     for (const trail of visible) {
@@ -358,6 +307,6 @@ export const createFingerPainter = (source: ZoneSource): Painter => {
     const bursting =
       burst !== undefined && paintBurst(frame, burst.tap, burst.at, reduced);
 
-    return trails.animating() || spotlight.k > 0 || bubbling || bursting;
+    return trails.animating() || bubbling || bursting;
   };
 };

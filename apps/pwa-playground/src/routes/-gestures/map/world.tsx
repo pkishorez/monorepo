@@ -3,6 +3,8 @@
  * no tiles or network. `layer` picks how the ground is textured.
  */
 
+import { AnimatePresence, motion, useReducedMotion } from 'kui-toolkit/motion';
+
 export const WORLD_PX = 1200;
 
 export const LAYERS = ['Dots', 'Grid', 'Plain'] as const;
@@ -12,6 +14,7 @@ const tint = (name: string, alpha: number) =>
   `color-mix(in oklch, var(--${name}) ${alpha * 100}%, transparent)`;
 
 function Ground(props: { readonly layer: Layer }) {
+  const reducedMotion = useReducedMotion();
   return (
     <>
       <defs>
@@ -43,13 +46,26 @@ function Ground(props: { readonly layer: Layer }) {
         </pattern>
       </defs>
       <rect width={WORLD_PX} height={WORLD_PX} fill="var(--muted)" />
-      {props.layer === 'Plain' ? null : (
-        <rect
-          width={WORLD_PX}
-          height={WORLD_PX}
-          fill={props.layer === 'Dots' ? 'url(#map-dots)' : 'url(#map-grid)'}
-        />
-      )}
+      <AnimatePresence initial={false}>
+        {props.layer === 'Plain' ? null : (
+          <motion.rect
+            key={props.layer}
+            width={WORLD_PX}
+            height={WORLD_PX}
+            fill={props.layer === 'Dots' ? 'url(#map-dots)' : 'url(#map-grid)'}
+            initial={reducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              transition: { duration: reducedMotion ? 0 : 0.14 },
+            }}
+            transition={{
+              duration: reducedMotion ? 0 : 0.18,
+              ease: [0.32, 0.72, 0, 1],
+            }}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

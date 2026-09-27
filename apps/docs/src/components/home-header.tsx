@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
-import { ThemeSwitch } from 'fumadocs-ui/layouts/shared/slots/theme-switch';
 import { FlaskConical, Newspaper } from 'lucide-react';
+import { ThemeToggle } from '@/lib/layout.shared';
 import { appName } from '@/lib/shared';
 
 export function HomeHeader() {
@@ -40,7 +40,7 @@ export function HomeHeader() {
             <FlaskConical className="size-3.5" />
             Demos
           </Link>
-          <ThemeSwitch />
+          <ThemeToggle />
         </div>
       </nav>
     </header>

@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
+import { createTheme } from 'kui-toolkit/components/blocks/theme';
 import { pwa } from 'pwa-toolkit/vite';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,6 +18,7 @@ const updateMode =
 const buildLabel = process.env.BUILD_LABEL ?? 'local';
 // `PWA_DEV=true pnpm dev` also runs the worker in dev (Build ID `dev`, no Precache).
 const dev = process.env.PWA_DEV === 'true';
+const manifestTheme = createTheme().manifest('dark');
 
 // `vite preview` stand-in for Cloudflare's asset HTML handling, which serves
 // /_shell from _shell.html. The Precache fetches /_shell, so without this a
@@ -85,8 +87,7 @@ export default defineConfig({
         name: 'PWA Playground',
         short_name: 'PWA Lab',
         description: 'Every pwa-toolkit scenario on one page each.',
-        theme_color: '#18181b',
-        background_color: '#18181b',
+        ...manifestTheme,
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

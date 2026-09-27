@@ -170,6 +170,17 @@ describe('createSwipe', () => {
     expect(s.onCancel).not.toHaveBeenCalled();
   });
 
+  it('accepts another synchronous Swipe while the previous return is moving', async () => {
+    const s = swipe();
+    s.drag(120)();
+    await run(48);
+    expect(s.driver.directions()).toContain('right');
+    s.drag(120)();
+    expect(s.onSwipe).toHaveBeenCalledTimes(2);
+    await run(2000);
+    expect(s.progress.get()).toBe(0);
+  });
+
   it('springs back and cancels below 40%, or on a backward flick', async () => {
     const s = swipe();
     s.drag(60)();

@@ -5,10 +5,9 @@ import { useRunEffect } from 'use-effect-ts';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { GoogleButton } from 'kui-toolkit/components/ui/google-button';
 import { CircleAlert, LoaderCircle } from 'kui-toolkit/lucide';
-import { useTheme } from 'next-themes';
 import { LogoMark } from '../brand/index.ts';
 import { authClient } from '../../connections/auth/index.ts';
-import { ThemeToggle } from './theme-toggle.tsx';
+import { appTheme, ThemeToggle } from './theme-toggle.tsx';
 import { RpcProvider, useRpc } from '../../session/rpc-session/index.ts';
 
 function useAuthAction(action: 'login' | 'logout') {
@@ -80,13 +79,13 @@ function LogoutButton() {
 
 function GoogleSignIn() {
   const auth = useAuthAction('login');
-  const { resolvedTheme } = useTheme();
+  const { theme } = appTheme.useTheme();
   return (
     <>
       {/* The toolkit button centers itself; a shrink-wrapped parent keeps it on the card's left edge. */}
       <div className="w-fit">
         <GoogleButton
-          theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          theme={theme}
           disabled={auth.pending}
           aria-busy={auth.pending || undefined}
           onClick={auth.start}

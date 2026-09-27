@@ -29,7 +29,6 @@ describe('clientBuildInfo', () => {
       enabled: true,
       buildId: 'abc',
       manifestUrl: '/manifest.webmanifest',
-      themeColor: '#000',
       appleTouchIconUrl: '/any.png',
     });
   });

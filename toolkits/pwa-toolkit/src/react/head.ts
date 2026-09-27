@@ -26,9 +26,6 @@ export const headTags = (
   buildId: string | null,
 ): HeadTags => ({
   meta: [
-    ...(info.themeColor === null
-      ? []
-      : [{ name: 'theme-color', content: info.themeColor }]),
     { name: 'mobile-web-app-capable', content: 'yes' },
     { name: 'apple-mobile-web-app-capable', content: 'yes' },
     ...(buildId === null

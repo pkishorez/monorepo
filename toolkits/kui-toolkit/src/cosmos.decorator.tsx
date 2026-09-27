@@ -1,27 +1,18 @@
-import { ThemeProvider } from 'next-themes';
 import { Moon, Sun } from 'lucide-react';
-import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { createTheme } from './components/blocks/theme';
 import './styles/global.css';
 
-const STORAGE_KEY = 'cosmos-theme';
+const themeController = createTheme();
 
 export default function CosmosDecorator({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<'dark' | 'light'>(
-    () => (localStorage.getItem(STORAGE_KEY) as 'dark' | 'light') ?? 'dark',
-  );
-
-  function toggle() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem(STORAGE_KEY, next);
-    setTheme(next);
-  }
+  const { theme, toggleTheme } = themeController.useTheme();
 
   return (
-    <ThemeProvider attribute="data-theme" forcedTheme={theme}>
+    <>
       <div className="bg-background text-foreground min-h-svh">{children}</div>
       <button
-        onClick={toggle}
+        onClick={toggleTheme}
         aria-label="Toggle theme"
         style={{
           position: 'fixed',
@@ -42,6 +33,6 @@ export default function CosmosDecorator({ children }: { children: ReactNode }) {
       >
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
-    </ThemeProvider>
+    </>
   );
 }

@@ -32,7 +32,7 @@ export const mapTutorial: Tutorial = {
     'The map is a GestureZone with scroll="none".',
     'One usePan moves x and y. usePinch gets the same x and y and its own scale, so zooming keeps the point under your fingers still.',
     'The taps are useTap with count and fingers: a one-finger double tap, a two-finger tap and a two-finger double tap. Because a two-finger double tap is registered, a two-finger tap waits 300ms to be sure it is not one.',
-    'A Hold is a finger kept still while the others act. useTap({ hold: "left" }) only answers taps made with a left Hold; useSwipe({ hold: "right" }) only Swipes with a right Hold. useHold shows which one is down.',
+    'A Hold is a finger kept still for at least a 50ms lead before the others act. That lead separates deliberate Hold chords from near-simultaneous multi-finger gestures. useTap({ hold: "left" }) and useSwipe({ hold: "right" }) then match its side; useHold shows which one is down.',
     "The one-finger Pan wins over the lab's sidebar Swipe here: the innermost zone with a hook for a gesture gets it. Use the menu button to open the sidebar.",
   ],
   code,
@@ -40,6 +40,7 @@ export const mapTutorial: Tutorial = {
     'x, y and scale are motion values on one element, transformed from its top left.',
     "Every move sets them directly. On release the Pan coasts with your finger's speed and bounces off its bounds; the Pinch springs back inside its limits.",
     'Taps call settle() on the same values, so zooming by tap uses the same spring as a release.',
-    'Pins are counter-scaled with a useTransform of scale, so they stay the same size.',
+    'Pins enter over 180ms with opacity, scale and a small rise, then remain counter-scaled so they stay the same size while the map zooms.',
+    'Ground patterns crossfade over 180ms when entering and 140ms when leaving. Reduced-motion mode applies both changes immediately.',
   ],
 };

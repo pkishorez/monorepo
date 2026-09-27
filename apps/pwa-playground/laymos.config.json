@@ -135,6 +135,9 @@
         },
         "src/lib/workers.ts": {
           "exposed": true
+        },
+        "src/lib/theme.ts": {
+          "exposed": true
         }
       }
     }
@@ -148,7 +151,7 @@
         "infra": [],
         "components": ["lib"],
         "rpc": [],
-        "gesture-lab": []
+        "gesture-lab": ["lib"]
       }
     }
   }
