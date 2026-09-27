@@ -15,6 +15,9 @@ export const applyThemeToDocument = (theme: Theme, freeze = false): void => {
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
   root.style.backgroundColor = THEME_COLORS[theme];
+  if (document.body !== null) {
+    document.body.style.backgroundColor = THEME_COLORS[theme];
+  }
 
   const metas = [
     ...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]'),

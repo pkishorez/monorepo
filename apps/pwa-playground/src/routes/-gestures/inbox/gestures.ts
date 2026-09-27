@@ -1,4 +1,8 @@
-import { useSwipe, useTap } from 'kui-toolkit/components/blocks/gestures';
+import {
+  type GestureSpring,
+  useSwipe,
+  useTap,
+} from 'kui-toolkit/components/blocks/gestures';
 import { useTransform } from 'kui-toolkit/motion';
 
 /** How far the feed is pulled for a refresh: progress 1. */
@@ -11,12 +15,16 @@ export const ACTIONS_PX = 144;
  * gives the app only while the feed is scrolled to the top. `onRefresh`'s
  * promise holds it open; then it springs home.
  */
-export function usePullToRefresh(onRefresh: () => Promise<void>) {
+export function usePullToRefresh(
+  onRefresh: () => Promise<void>,
+  spring?: GestureSpring,
+) {
   const pull = useSwipe({
     direction: 'down',
     distance: PULL_PX,
     after: 'return',
     onSwipe: onRefresh,
+    spring,
   });
   const { progress, armed } = pull;
   return {
@@ -36,15 +44,19 @@ export function usePullToRefresh(onRefresh: () => Promise<void>) {
  * open until a Swipe right closes it. A Swipe right on a closed row is not
  * this row's, so it passes out to the zones around it.
  */
-export function useRowSwipe(row: {
-  readonly onOpen: () => void;
-  readonly onTap: (open: boolean) => void;
-}) {
+export function useRowSwipe(
+  row: {
+    readonly onOpen: () => void;
+    readonly onTap: (open: boolean) => void;
+  },
+  spring?: GestureSpring,
+) {
   const swipe = useSwipe({
     direction: 'left',
     distance: ACTIONS_PX,
     after: 'stay',
     onSwipe: row.onOpen,
+    spring,
   });
   useTap({ onTap: () => row.onTap(swipe.progress.get() > 0.5) });
   return {

@@ -106,6 +106,17 @@ describe('settle', () => {
     await run(16);
     expect(fast.get()).toBeGreaterThan(slow.get());
   });
+
+  it('accepts a product-specific spring', async () => {
+    const standard = motionValue(0);
+    const soft = motionValue(0);
+    void settle(standard, 1);
+    void settle(soft, 1, {
+      spring: { stiffness: 80, damping: 18, mass: 1 },
+    });
+    await run(48);
+    expect(standard.get()).toBeGreaterThan(soft.get());
+  });
 });
 
 const swipe = (options: Partial<SwipeOptions> = {}) => {

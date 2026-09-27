@@ -1,28 +1,20 @@
-import { GestureZone } from 'kui-toolkit/components/blocks/gestures';
-import { Button } from 'kui-toolkit/components/ui/button';
-import {
-  ArchiveIcon,
-  ArrowDownIcon,
-  LoaderCircleIcon,
-  Trash2Icon,
-} from 'kui-toolkit/lucide';
-import { motion } from 'kui-toolkit/motion';
-import { cn } from 'kui-toolkit/utils';
 import { useRef, useState } from 'react';
+import { motion, useTransform } from 'motion/react';
+import { Archive, ArrowDown, LoaderCircle, Trash2 } from 'lucide-react';
+import { Button } from '#components/ui/button';
+import { cn } from '#lib/utils';
+import { GestureZone, type GestureSpring, useSwipe, useTap } from '../gestures';
 import {
-  ACTIONS_PX,
-  PULL_PX,
-  usePullToRefresh,
-  useRowSwipe,
-} from './gestures.ts';
-import { firstMessages, type Message, message } from './messages.ts';
+  type PlaygroundMessage,
+  playgroundMessage,
+  playgroundMessages,
+} from './messages';
 
-export { inboxTutorial } from './tutorial.tsx';
-
-const REFRESH_MS = 1200;
+const PULL_PX = 72;
+const ACTIONS_PX = 144;
 const NEW_PER_REFRESH = 2;
 
-const AVATAR: Record<Message['hue'], string> = {
+const AVATAR: Record<PlaygroundMessage['hue'], string> = {
   6: 'bg-chart-6',
   7: 'bg-chart-7',
   8: 'bg-chart-8',
@@ -31,25 +23,71 @@ const AVATAR: Record<Message['hue'], string> = {
 
 type Open = { readonly id: number; readonly close: () => void };
 
-/** One message: a nested zone that slides open to its actions. */
+const usePullToRefresh = (
+  onRefresh: () => Promise<void>,
+  spring?: GestureSpring,
+) => {
+  const pull = useSwipe({
+    direction: 'down',
+    distance: PULL_PX,
+    after: 'return',
+    onSwipe: onRefresh,
+    spring,
+  });
+  const { progress, armed } = pull;
+  return {
+    listY: useTransform(progress, (value) => value * PULL_PX),
+    arrowRotate: useTransform(progress, [0, 1], [0, 180]),
+    indicatorOpacity: useTransform(progress, [0, 0.4, 1], [0, 0.6, 1]),
+    indicatorScale: useTransform(progress, [0, 1], [0.6, 1]),
+    pullLabel: useTransform(armed, [0, 1], [1, 0]),
+    releaseLabel: armed,
+  };
+};
+
+const useRowSwipe = (
+  row: {
+    readonly onOpen: () => void;
+    readonly onTap: (open: boolean) => void;
+  },
+  spring?: GestureSpring,
+) => {
+  const swipe = useSwipe({
+    direction: 'left',
+    distance: ACTIONS_PX,
+    after: 'stay',
+    onSwipe: row.onOpen,
+    spring,
+  });
+  useTap({ onTap: () => row.onTap(swipe.progress.get() > 0.5) });
+  return {
+    ...swipe,
+    x: useTransform(swipe.progress, (value) => -value * ACTIONS_PX),
+    actionsOpacity: useTransform(swipe.progress, [0, 0.5], [0, 1]),
+  };
+};
+
 function Row(props: {
-  readonly message: Message;
+  readonly message: PlaygroundMessage;
   readonly read: boolean;
   readonly fresh: boolean;
   readonly open: { current: Open | undefined };
+  readonly spring?: GestureSpring;
   readonly onRead: () => void;
   readonly onRemove: () => void;
 }) {
   const { message: item } = props;
-  const row = useRowSwipe({
-    // Opening one row closes whichever was open.
-    onOpen: () => {
-      const last = props.open.current;
-      if (last !== undefined && last.id !== item.id) last.close();
-      props.open.current = { id: item.id, close: () => row.close() };
+  const row = useRowSwipe(
+    {
+      onOpen: () => {
+        const last = props.open.current;
+        if (last !== undefined && last.id !== item.id) last.close();
+        props.open.current = { id: item.id, close: () => row.close() };
+      },
+      onTap: (open) => (open ? row.close() : props.onRead()),
     },
-    onTap: (open) => (open ? row.close() : props.onRead()),
-  });
+    props.spring,
+  );
   return (
     <div className="relative overflow-hidden border-b border-border">
       <motion.div
@@ -62,7 +100,7 @@ function Row(props: {
           className="h-full flex-1 flex-col gap-1 rounded-none text-xs"
           onClick={props.onRemove}
         >
-          <ArchiveIcon aria-hidden="true" />
+          <Archive aria-hidden="true" />
           Archive
         </Button>
         <Button
@@ -70,7 +108,7 @@ function Row(props: {
           className="h-full flex-1 flex-col gap-1 rounded-none text-xs"
           onClick={props.onRemove}
         >
-          <Trash2Icon aria-hidden="true" />
+          <Trash2 aria-hidden="true" />
           Delete
         </Button>
       </motion.div>
@@ -119,9 +157,14 @@ function RowZone(props: Parameters<typeof Row>[0]) {
   );
 }
 
-/** The feed's content: the pull indicator above a list that follows the pull. */
-function Feed() {
-  const [messages, setMessages] = useState(() => firstMessages(24));
+function Feed(props: {
+  readonly spring?: GestureSpring;
+  readonly refreshDelayMs: number;
+  readonly initialCount: number;
+}) {
+  const [messages, setMessages] = useState(() =>
+    playgroundMessages(props.initialCount),
+  );
   const [fresh, setFresh] = useState<ReadonlySet<number>>(new Set());
   const [read, setRead] = useState<ReadonlySet<number>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
@@ -130,15 +173,15 @@ function Feed() {
 
   const pull = usePullToRefresh(async () => {
     setRefreshing(true);
-    await new Promise((resolve) => setTimeout(resolve, REFRESH_MS));
+    await new Promise((resolve) => setTimeout(resolve, props.refreshDelayMs));
     const arrived = Array.from({ length: NEW_PER_REFRESH }, () => {
       next.current += 1;
-      return { ...message(next.current), id: next.current };
+      return { ...playgroundMessage(next.current), id: next.current };
     });
     setMessages((list) => [...arrived, ...list]);
     setFresh(new Set(arrived.map((item) => item.id)));
     setRefreshing(false);
-  });
+  }, props.spring);
 
   return (
     <div className="relative">
@@ -155,16 +198,13 @@ function Feed() {
       >
         {refreshing ? (
           <>
-            <LoaderCircleIcon
-              aria-hidden="true"
-              className="size-5 animate-spin"
-            />
+            <LoaderCircle aria-hidden="true" className="size-5 animate-spin" />
             <span>Refreshing…</span>
           </>
         ) : (
           <>
             <motion.span style={{ rotate: pull.arrowRotate }}>
-              <ArrowDownIcon aria-hidden="true" className="size-5" />
+              <ArrowDown aria-hidden="true" className="size-5" />
             </motion.span>
             <span className="grid">
               <motion.span
@@ -197,6 +237,7 @@ function Feed() {
               read={read.has(item.id)}
               fresh={fresh.has(item.id)}
               open={open}
+              spring={props.spring}
               onRead={() =>
                 setRead((ids) => {
                   const nextIds = new Set(ids);
@@ -218,15 +259,23 @@ function Feed() {
   );
 }
 
-/** The Inbox: a feed whose zone is the scrolling element itself. */
-export function InboxScreen() {
+/** The real PWA playground inbox, with an injectable settle spring for tuning. */
+export function PwaPlaygroundInbox(props: {
+  readonly spring?: GestureSpring;
+  readonly refreshDelayMs?: number;
+  readonly initialCount?: number;
+}) {
   return (
     <GestureZone
       scroll="y"
       data-testid="inbox-zone"
       className="h-full overflow-y-auto pb-[env(safe-area-inset-bottom)]"
     >
-      <Feed />
+      <Feed
+        spring={props.spring}
+        refreshDelayMs={props.refreshDelayMs ?? 1200}
+        initialCount={props.initialCount ?? 24}
+      />
     </GestureZone>
   );
 }
