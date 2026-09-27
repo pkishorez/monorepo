@@ -21,8 +21,10 @@ export function useSidebarGestures() {
     // The panel slides in from off screen, and stretches a little past open.
     panelX: useTransform(progress, [0, 1], [-SIDEBAR_WIDTH, 0]),
     scrimOpacity: useTransform(progress, [0, 1], [0, 0.4]),
+    // Stop intercepting the next touch as soon as closing begins. This lets a
+    // left close hand straight off to the right panel without a dead frame.
     scrimEvents: useTransform(progress, (value) =>
-      value > 0.02 ? 'auto' : 'none',
+      value > 0.02 && progress.getVelocity() >= 0 ? 'auto' : 'none',
     ),
     // The lab behind gives way: pushed right and down in scale.
     contentX: useTransform(progress, [0, 1], [0, 40]),

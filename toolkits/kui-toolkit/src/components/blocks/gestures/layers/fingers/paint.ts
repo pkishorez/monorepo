@@ -222,7 +222,10 @@ const paintBurst = (
  * panning finger; a burst for each tap. Asks for
  * frames while a finger is down or anything is fading.
  */
-export const createFingerPainter = (source: ZoneSource): Painter => {
+export const createFingerPainter = (
+  source: ZoneSource,
+  options: { readonly tapFeedback?: boolean } = {},
+): Painter => {
   const trails = createTrails();
   const bubbles = new Map<number, number>();
   // When each Hold locked and on which side, kept while it fades.
@@ -252,7 +255,7 @@ export const createFingerPainter = (source: ZoneSource): Painter => {
     );
     const held = visible.find((trail) => trail.role === 'hold');
 
-    const tap = source.tap();
+    const tap = options.tapFeedback === false ? undefined : source.tap();
     if (tap !== undefined && tap.count !== burst?.tap.count) {
       burst = { tap, at: frame.now };
     }

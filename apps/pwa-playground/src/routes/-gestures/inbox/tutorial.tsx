@@ -44,7 +44,7 @@ export const inboxTutorial: Tutorial = {
     'Each Swipe has one progress value: 0 at rest, 1 at the full distance, set on every move.',
     "The list's offset, the arrow's turn, the indicator's fade and scale are all useTransforms of the pull's progress. \"Release to refresh\" is its armed value: 1 while letting go would commit.",
     "Dragging past an end uses rubber-banding: each extra pixel moves the surface less, like increasing friction. On release, velocity continuity starts the settle from the finger's current speed instead of visibly restarting.",
-    'The settle is a bounce-free 500ms spring. After refresh the indicator returns home; a new independent gesture can begin while that work finishes.',
+    'The settle is a quick, near-critical spring seeded with the release velocity. After refresh the indicator returns home; a new independent gesture can begin while that work finishes.',
     "A row's content slides by its progress; the actions fade in behind it. Touch a row mid-settle and it stops under your finger, ready for the next drag.",
   ],
 };

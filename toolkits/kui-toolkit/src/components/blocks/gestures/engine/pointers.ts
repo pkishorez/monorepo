@@ -63,9 +63,16 @@ export const createPointerTracker = () => {
       return track;
     },
     move,
-    /** Moves the pointer to where it lifted, then forgets it. */
+    /** Records a changed lift position, then forgets the pointer. */
     up: (input: Position): Track | undefined => {
-      const track = move(input);
+      const current = tracks.get(input.id);
+      const track =
+        current !== undefined &&
+        (current.current.x !== input.x || current.current.y !== input.y)
+          ? move(input)
+          : current === undefined
+            ? undefined
+            : { ...current, current: at(input) };
       tracks.delete(input.id);
       return track;
     },

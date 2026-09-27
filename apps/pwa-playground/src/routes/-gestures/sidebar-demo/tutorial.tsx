@@ -43,7 +43,7 @@ export const sidebarTutorial: Tutorial = {
   animation: [
     'One progress value per Swipe: 0 closed, 1 open, set on every move.',
     "The sidebar's offset, the scrim's opacity, and the lab behind it moving aside and shrinking a little are all useTransforms of that one value.",
-    "On release it uses a bounce-free 500ms spring to 0 or 1, seeded with the finger's velocity, so a flick lands fast and a slow release lands gently.",
+    "On release it uses a quick, near-critical spring to 0 or 1, seeded with the finger's velocity, so a flick keeps moving and a slow release lands gently without bounce.",
     'A finger landing mid-settle catches it immediately, and a new drag continues from that exact position.',
   ],
 };
