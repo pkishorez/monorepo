@@ -12,5 +12,106 @@
 @layer base {
   body {
     @apply min-h-svh bg-background font-sans text-foreground antialiased;
+    font-synthesis: none;
+  }
+  a,
+  button {
+    touch-action: manipulation;
+  }
+}
+
+/*
+ * Route view transitions. The router starts one per path change (router.tsx,
+ * lib/scenarios.ts) with a `forward`, `back` or `fade` type. Only the
+ * page body moves; the header and sidebar hold still, and the sidebar's active
+ * pill morphs to its new item. Browsers without the API just navigate; those
+ * without transition types get the plain fade.
+ */
+main[data-page] {
+  view-transition-name: page;
+}
+
+/* Clicks go to the live page, never the snapshot overlay. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+/* The page lands at the top; letting its group travel from the old scroll offset would fling it. */
+::view-transition-group(page) {
+  animation: none;
+}
+
+/* The old page leaves fast, then the new one arrives, so the two rarely overlap. */
+::view-transition-old(page) {
+  animation: vt-fade-out 100ms ease-in both;
+}
+
+::view-transition-new(page) {
+  animation: vt-fade-in 240ms cubic-bezier(0.32, 0.72, 0, 1) 50ms both;
+}
+
+html:active-view-transition-type(forward)::view-transition-old(page) {
+  animation-name: vt-out-left;
+}
+html:active-view-transition-type(forward)::view-transition-new(page) {
+  animation-name: vt-in-right;
+}
+html:active-view-transition-type(back)::view-transition-old(page) {
+  animation-name: vt-out-right;
+}
+html:active-view-transition-type(back)::view-transition-new(page) {
+  animation-name: vt-in-left;
+}
+
+::view-transition-group(nav-indicator) {
+  animation-duration: 240ms;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+@keyframes vt-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+@keyframes vt-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+@keyframes vt-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }

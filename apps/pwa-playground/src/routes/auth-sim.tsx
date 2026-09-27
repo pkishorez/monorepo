@@ -4,6 +4,7 @@ import { clearRuntimeCache } from 'pwa-toolkit/react';
 import { useState } from 'react';
 import {
   Actions,
+  type Outcome,
   Panel,
   Readout,
   Readouts,
@@ -31,13 +32,15 @@ function AuthSim() {
   const [user, setUser] = useState<string | null>(null);
   const [cached, setCached] = useState<number | null>(null);
   const [log, setLog] = useState<ReadonlyArray<string>>([]);
+  const [busy, setBusy] = useState(false);
   const note = (line: string) =>
     setLog((lines) =>
       [`${new Date().toLocaleTimeString()} ${line}`, ...lines].slice(0, 8),
     );
 
   const readSession = async () => {
-    const served = await servedFetch(SESSION_URL);
+    setBusy(true);
+    const served = await servedFetch(SESSION_URL).finally(() => setBusy(false));
     setSession(served);
     if (served.error === null) {
       setUser((served.body as { user: string | null } | null)?.user ?? null);
@@ -60,27 +63,51 @@ function AuthSim() {
     await readSession();
   };
 
+  const outcome: Outcome = busy
+    ? 'running'
+    : session === null
+      ? 'idle'
+      : session.error !== null || session.fromCache || (cached ?? 0) > 0
+        ? 'failure'
+        : 'success';
+  const outcomeLabel =
+    outcome === 'running'
+      ? 'Reading'
+      : session === null
+        ? undefined
+        : session.error !== null
+          ? 'Network failed'
+          : session.fromCache || (cached ?? 0) > 0
+            ? 'Cached (bug)'
+            : 'Never cached';
+
   return (
     <ScenarioPage
       id="auth-sim"
       title="Auth never cached"
-      explanation={
-        <>
-          <p>
-            {SESSION_URL} sits under /api/auth/, which the worker never caches
-            (neverCache), even though a catch-all /api/ network-first rule would
-            match it. Every read reaches the network: the x-served-at stamp is
-            always new, and offline it fails instead of answering with a stale
-            session. Offline is not signed out.
-          </p>
-          <p>
-            Signing out calls clearRuntimeCache(), so the next user of the
-            device gets nothing the previous one cached.
-          </p>
-        </>
+      proves={
+        <p>
+          {SESSION_URL} sits under /api/auth/, which the worker never caches
+          (neverCache), even though a catch-all /api/ network-first rule would
+          match it. Every read reaches the network, so offline it fails instead
+          of answering with a stale session. Offline is not signed out, and
+          signing out calls clearRuntimeCache(), so the next user of the device
+          gets nothing the previous one cached.
+        </p>
       }
+      steps={[
+        'Sign in, then read the session twice: x-served-at is new every time and Came from reads network.',
+        'Cached /api/auth entries stays 0.',
+        'Go offline and read again: it fails rather than returning an old session.',
+        'Sign out: every Runtime Cache is deleted; the Precache stays.',
+      ]}
     >
-      <Panel title="Session">
+      <Panel
+        title="Session"
+        outcome={outcome}
+        outcomeLabel={outcomeLabel}
+        outcomeTestId="auth-outcome"
+      >
         <Readouts>
           <Readout
             label="User"
@@ -124,20 +151,28 @@ function AuthSim() {
           </Button>
           <Button
             variant="destructive"
+            className="ml-auto"
             data-testid="auth-sign-out"
             onClick={() => void post('sign-out')}
           >
             Sign out
           </Button>
         </Actions>
-        <ul
-          data-testid="auth-log"
-          className="font-mono text-xs text-muted-foreground"
-        >
-          {log.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
+        <div className="flex flex-col gap-1.5">
+          <h3 className="text-xs text-muted-foreground">Activity</h3>
+          <div className="rounded-lg px-3.5 py-2.5 font-mono text-xs text-muted-foreground ring-1 ring-foreground/10">
+            {log.length === 0 ? (
+              <p className="text-muted-foreground/70">
+                Sign in or out to see what happens here.
+              </p>
+            ) : null}
+            <ul data-testid="auth-log" className="flex flex-col gap-1">
+              {log.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </Panel>
     </ScenarioPage>
   );

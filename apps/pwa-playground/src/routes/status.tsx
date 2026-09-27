@@ -9,46 +9,16 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import {
   Actions,
+  type Outcome,
   Panel,
   Readout,
   Readouts,
   ScenarioPage,
 } from '../components/index.ts';
 import { buildLabel, pageBuildId } from '../lib/build.ts';
+import { readWorkers, type WorkerSnapshot } from '../lib/workers.ts';
 
 export const Route = createFileRoute('/status')({ component: Status });
-
-interface WorkerSnapshot {
-  readonly supported: boolean;
-  readonly controller: string;
-  readonly active: string;
-  readonly waiting: string;
-  readonly installing: string;
-}
-
-const describeWorker = (worker: ServiceWorker | null | undefined) =>
-  worker ? `${worker.state} ${new URL(worker.scriptURL).pathname}` : 'none';
-
-const readWorkers = async (): Promise<WorkerSnapshot> => {
-  const container = navigator.serviceWorker;
-  if (container === undefined) {
-    return {
-      supported: false,
-      controller: 'none',
-      active: 'none',
-      waiting: 'none',
-      installing: 'none',
-    };
-  }
-  const registration = await container.getRegistration();
-  return {
-    supported: true,
-    controller: describeWorker(container.controller),
-    active: describeWorker(registration?.active),
-    waiting: describeWorker(registration?.waiting),
-    installing: describeWorker(registration?.installing),
-  };
-};
 
 interface CacheSummary {
   readonly name: string;
@@ -109,19 +79,46 @@ function Status() {
     };
   }, [refresh]);
 
+  const workerOutcome: Outcome =
+    workers === null
+      ? 'running'
+      : !workers.supported
+        ? 'failure'
+        : workers.controller === 'none'
+          ? 'idle'
+          : 'success';
+  const workerLabel =
+    workers === null
+      ? 'Reading'
+      : !workers.supported
+        ? 'Unsupported'
+        : workers.controller === 'none'
+          ? 'Not in control'
+          : 'In control';
+
   return (
     <ScenarioPage
       id="status"
       title="Status"
-      explanation={
+      proves={
         <p>
-          Everything the tab knows about this build and its service worker.
-          Refreshes every two seconds. The first visit installs the worker and
-          it takes control at once; later builds wait for the Update Prompt.
+          Everything the tab knows about this build and its service worker,
+          refreshed every two seconds. The first visit installs the worker and
+          it takes control at once, with no reload; later builds wait for the
+          Update Prompt.
         </p>
       }
+      steps={[
+        'In a fresh profile, open this page: Controller reads “activated /sw.js” without the page reloading.',
+        'The Precache is named after the Build ID. Match the two in Cache Storage below.',
+        'Deploy a new build and focus this tab: Waiting fills in and Update state turns Available.',
+      ]}
     >
-      <Panel title="Build">
+      <Panel
+        title="Build"
+        outcome={buildId === null ? 'idle' : 'success'}
+        outcomeLabel={buildId === null ? 'No Build ID' : 'Build ID present'}
+      >
         <Readouts>
           <Readout
             label="Build Label"
@@ -141,7 +138,12 @@ function Status() {
         </Readouts>
       </Panel>
 
-      <Panel title="Service worker">
+      <Panel
+        title="Service worker"
+        outcome={workerOutcome}
+        outcomeLabel={workerLabel}
+        outcomeTestId="status-worker-outcome"
+      >
         <Readouts>
           <Readout
             label="Supported"
@@ -207,17 +209,29 @@ function Status() {
         </Actions>
       </Panel>
 
-      <Panel title="Cache Storage" description="Every cache this origin holds.">
+      <Panel
+        title="Cache Storage"
+        description="Every cache this origin holds."
+        outcome={cacheList.length === 0 ? 'idle' : 'success'}
+        outcomeLabel={
+          cacheList.length === 0
+            ? 'Empty'
+            : `${cacheList.length} ${cacheList.length === 1 ? 'cache' : 'caches'}`
+        }
+      >
         <ul
           data-testid="status-caches"
-          className="flex flex-col gap-1 font-mono text-sm"
+          className="flex flex-col divide-y divide-border rounded-lg bg-muted/40 px-3.5 py-1 font-mono text-[13px] ring-1 ring-foreground/5"
         >
-          {cacheList.length === 0 ? <li>no caches</li> : null}
+          {cacheList.length === 0 ? (
+            <li className="py-2 text-muted-foreground">no caches</li>
+          ) : null}
           {cacheList.map((cache) => (
             <li
               key={cache.name}
               data-testid="status-cache"
               data-cache-name={cache.name}
+              className="py-2 [overflow-wrap:anywhere]"
             >
               {cache.name}: {cache.entries} entries
             </li>

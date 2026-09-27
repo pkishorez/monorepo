@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import * as Cause from 'effect/Cause';
 import * as Effect from 'effect/Effect';
 import * as Exit from 'effect/Exit';
@@ -15,6 +15,7 @@ import { TabClient, type VersionSkew } from 'pwa-toolkit/worker-rpc/client';
 import { useEffect, useRef, useState } from 'react';
 import {
   Actions,
+  type Outcome,
   Panel,
   Readout,
   Readouts,
@@ -74,6 +75,8 @@ function RpcPage() {
   const [echo, setEcho] = useState<string>('—');
   const [info, setInfo] = useState<string>('—');
   const [lastError, setLastError] = useState<string>('none');
+  const [echoOutcome, setEchoOutcome] = useState<Outcome>('idle');
+  const [infoOutcome, setInfoOutcome] = useState<Outcome>('idle');
 
   useEffect(() => {
     const scope = Effect.runSync(Scope.make());
@@ -93,14 +96,18 @@ function RpcPage() {
   const run = async <A,>(
     effect: Effect.Effect<A, RpcClientError | VersionSkew>,
     onSuccess: (a: A) => void,
+    setOutcome: (outcome: Outcome) => void,
   ) => {
+    setOutcome('running');
     const exit = await Effect.runPromiseExit(effect);
     if (Exit.isSuccess(exit)) {
       setLastError('none');
+      setOutcome('success');
       return onSuccess(exit.value);
     }
     const message = describeCause(exit.cause);
     setLastError(message);
+    setOutcome('failure');
     // A worker of another build answered: look for the new version.
     if (message.startsWith('VersionSkew')) void update.check();
   };
@@ -109,23 +116,55 @@ function RpcPage() {
     <ScenarioPage
       id="rpc"
       title="Worker RPC"
-      explanation={
-        <>
-          <p>
-            Effect RPC served by the service worker (src/sw.ts) and called from
-            this tab with a Tab Client. Every message carries the tab&apos;s
-            Build ID; a worker of another build answers VersionSkew instead.
-          </p>
-          <p>
-            Open /rpc?fakeBuildId=other to make only this page&apos;s Tab Client
-            claim another Build ID: every call then fails with VersionSkew, and
-            the page asks for an update check. The browser may stop an idle
-            worker; WorkerInfo&apos;s start time changes when it does.
-          </p>
-        </>
+      proves={
+        <p>
+          Effect RPC served by the service worker (src/sw.ts) and called from
+          this tab with a Tab Client. Every message carries the tab&apos;s Build
+          ID; a worker of another build answers VersionSkew instead. The browser
+          may stop an idle worker at any time; WorkerInfo&apos;s start time
+          changes when it does, and calls keep working.
+        </p>
       }
+      steps={[
+        'Press Echo and Ask the worker: both answer within a few milliseconds.',
+        'Start Retrying Ticks, then stop the worker in DevTools (Application → Service workers → Stop). The stream subscribes again and starts over from 1.',
+        <>
+          Open{' '}
+          <Link
+            to="/rpc"
+            search={{ fakeBuildId: 'other' }}
+            className="font-mono underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
+            data-testid="rpc-skew-link"
+          >
+            /rpc?fakeBuildId=other
+          </Link>{' '}
+          to make only this page&apos;s Tab Client claim another Build ID: every
+          call fails with VersionSkew, and the page asks for an update check.
+        </>,
+      ]}
     >
-      <Panel title="Connection">
+      <Panel
+        title="Connection"
+        outcome={
+          client !== null
+            ? fakeBuildId === undefined
+              ? 'success'
+              : 'failure'
+            : connectError !== null
+              ? 'failure'
+              : 'running'
+        }
+        outcomeLabel={
+          client !== null
+            ? fakeBuildId === undefined
+              ? 'Ready'
+              : 'Skewed on purpose'
+            : connectError !== null
+              ? 'Connect failed'
+              : 'Connecting'
+        }
+        outcomeTestId="rpc-client-outcome"
+      >
         <Readouts>
           <Readout
             label="Tab Client"
@@ -145,7 +184,11 @@ function RpcPage() {
         </Readouts>
       </Panel>
 
-      <Panel title="Echo (unary)">
+      <Panel
+        title="Echo (unary)"
+        outcome={echoOutcome}
+        outcomeTestId="rpc-echo-outcome"
+      >
         <Readouts>
           <Readout label="Reply" testId="rpc-echo-result" value={echo} />
         </Readouts>
@@ -155,8 +198,10 @@ function RpcPage() {
             disabled={client === null}
             onClick={() =>
               client &&
-              void run(client.Echo({ text: `hello ${Date.now()}` }), (reply) =>
-                setEcho(`${reply.text} at ${reply.at}`),
+              void run(
+                client.Echo({ text: `hello ${Date.now()}` }),
+                (reply) => setEcho(`${reply.text} at ${reply.at}`),
+                setEchoOutcome,
               )
             }
           >
@@ -165,7 +210,11 @@ function RpcPage() {
         </Actions>
       </Panel>
 
-      <Panel title="WorkerInfo (unary)">
+      <Panel
+        title="WorkerInfo (unary)"
+        outcome={infoOutcome}
+        outcomeTestId="rpc-worker-info-outcome"
+      >
         <Readouts>
           <Readout label="Worker" testId="rpc-worker-info" value={info} />
         </Readouts>
@@ -175,8 +224,11 @@ function RpcPage() {
             disabled={client === null}
             onClick={() =>
               client &&
-              void run(client.WorkerInfo(), (reply) =>
-                setInfo(`build ${reply.buildId}, started ${reply.startedAt}`),
+              void run(
+                client.WorkerInfo(),
+                (reply) =>
+                  setInfo(`build ${reply.buildId}, started ${reply.startedAt}`),
+                setInfoOutcome,
               )
             }
           >
@@ -214,6 +266,41 @@ const restartSchedule = Schedule.max([
   Schedule.spaced('1 second'),
   Schedule.recurs(5),
 ]);
+
+const TICKS_OUTCOME: Record<string, [Outcome, string]> = {
+  idle: ['idle', 'Not run'],
+  streaming: ['running', 'Streaming'],
+  restarting: ['running', 'Restarting'],
+  done: ['success', 'Done'],
+  failed: ['failure', 'Failed'],
+  stopped: ['idle', 'Stopped'],
+};
+
+/** One cell per expected tick, filled as each arrives. Decorative: the Ticks readout has the values. */
+function TickBar(props: {
+  readonly count: number;
+  readonly ticks: ReadonlyArray<number>;
+}) {
+  const received = new Set(props.ticks);
+  return (
+    <div
+      aria-hidden="true"
+      className="grid h-2 gap-1"
+      style={{ gridTemplateColumns: `repeat(${props.count}, minmax(0, 1fr))` }}
+    >
+      {Array.from({ length: props.count }, (_, i) => (
+        <span
+          key={i}
+          className={
+            received.has(i + 1)
+              ? 'rounded-full bg-foreground transition-colors duration-150'
+              : 'rounded-full bg-muted transition-colors duration-150'
+          }
+        />
+      ))}
+    </div>
+  );
+}
 
 function TicksPanel(props: {
   readonly client: Client | null;
@@ -279,8 +366,16 @@ function TicksPanel(props: {
     });
   };
 
+  const [outcome, outcomeLabel] = TICKS_OUTCOME[status] ?? ['idle', status];
   return (
-    <Panel title={props.title} description={props.description}>
+    <Panel
+      title={props.title}
+      description={props.description}
+      outcome={outcome}
+      outcomeLabel={outcomeLabel}
+      outcomeTestId={`${testId}-outcome`}
+    >
+      <TickBar count={count} ticks={ticks} />
       <Readouts>
         <Readout label="Status" testId={`${testId}-status`} value={status} />
         <Readout

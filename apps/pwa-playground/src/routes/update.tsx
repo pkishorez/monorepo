@@ -4,6 +4,7 @@ import { usePwaUpdate } from 'pwa-toolkit/react';
 import { useEffect, useState } from 'react';
 import {
   Actions,
+  type Outcome,
   Panel,
   Readout,
   Readouts,
@@ -13,38 +14,50 @@ import { buildLabel, pageBuildId, updateMode } from '../lib/build.ts';
 
 export const Route = createFileRoute('/update')({ component: Update });
 
+const STATE_OUTCOME: Record<string, [Outcome, string]> = {
+  Idle: ['idle', 'Up to date'],
+  Checking: ['running', 'Checking'],
+  Available: ['success', 'Update ready'],
+  Applying: ['running', 'Applying'],
+  Unsupported: ['failure', 'No worker'],
+};
+
 function Update() {
   const update = usePwaUpdate();
   const [buildId, setBuildId] = useState<string | null>(null);
   const [lastCheck, setLastCheck] = useState<string>('never');
   useEffect(() => setBuildId(pageBuildId()), []);
+  const [outcome, label] = STATE_OUTCOME[update.state._tag] ?? [
+    'idle',
+    update.state._tag,
+  ];
 
   return (
     <ScenarioPage
       id="update"
       title="Update Prompt"
-      explanation={
-        <>
-          <p>
-            Every deploy has a new Build Label, so a new Build ID. The tab
-            checks for a new worker on load, on focus and every 60 minutes; when
-            one is installed and waiting, the state turns Available and the
-            Update Prompt toast appears.
-          </p>
-          <p>
-            Accepting activates the new worker and every open tab reloads into
-            it (Coordinated Reload). Nothing reloads unasked. Try it with two
-            tabs open.
-          </p>
-          <p>
-            Deployed with PWA_UPDATE_MODE=auto-on-navigation, an Available
-            update is applied on the next route change instead: follow any
-            header link once the state turns Available.
-          </p>
-        </>
+      proves={
+        <p>
+          Every deploy has a new Build Label, so a new Build ID. The tab checks
+          for a new worker on load, on focus and every 60 minutes. When one is
+          installed and waiting, the state turns Available and the Update Prompt
+          toast appears. Nothing reloads unasked: accepting activates the new
+          worker and every open tab reloads into it once (Coordinated Reload).
+        </p>
       }
+      steps={[
+        'Open this page in two tabs, then deploy a new build.',
+        'Press Check now, or just focus a tab. Both tabs show “A new version is available.”',
+        'Press Reload in one tab: both reload exactly once and show the new Build ID.',
+        'Deployed with PWA_UPDATE_MODE=auto-on-navigation, an Available update applies on the next route change instead: follow any link once the state turns Available.',
+      ]}
     >
-      <Panel title="This tab">
+      <Panel
+        title="This tab"
+        outcome={outcome}
+        outcomeLabel={label}
+        outcomeTestId="update-outcome"
+      >
         <Readouts>
           <Readout
             label="Build Label"
