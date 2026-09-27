@@ -4,6 +4,24 @@ Companion toolkit that turns a TanStack Start app in this monorepo into an insta
 
 ## Language
 
+### Core
+
+**Client**:
+The app's side in one open page (a browser tab or an installed app's window): it registers the service worker and watches its Status.
+_Avoid_: tab, page client
+
+**Status**:
+The Client's one view of its service worker: Unsupported, Installing, Ready, Update Ready or Updating. Read from the browser's own service worker events, never asked of the worker.
+_Avoid_: update state, lifecycle state, worker state
+
+**Strategy**:
+How the service worker answers one kind of request, such as network-first or cache-first. A Strategy rule matches requests and names the Runtime Cache its responses go to.
+_Avoid_: caching rule, handler, route
+
+**Extras**:
+Optional page features the PWA does not need to work: the Install Prompt, online state, display mode and storage persistence. Each stands alone, with no provider.
+_Avoid_: utilities, helpers, add-ons
+
 ### Offline
 
 **App Shell**:
@@ -25,27 +43,27 @@ _Avoid_: offline page, error page
 ### Versions
 
 **Update Prompt**:
-The in-app message telling the user a new version is ready and offering to reload into it. The new version activates only when the user accepts, unless the app opts into applying updates on navigation.
+The in-app message telling the user a new version is ready and offering to reload into it. The new version activates only when the app calls for it, normally when the user accepts.
 _Avoid_: notification, update toast, reload banner
 
 **Build ID**:
-The identity of one build of the app. Every tab, the Precache, and the service worker each belong to exactly one Build ID.
+The identity of one build of the app. Every Client, the Precache, and the service worker each belong to exactly one Build ID.
 _Avoid_: version number, hash, release
 
 **Coordinated Reload**:
-Accepting an update in any tab activates the new version and reloads every open tab into it, unconditionally, so all tabs always run one Build ID.
+Accepting an update in any Client activates the new version and reloads every open Client into it, unconditionally, so all Clients always run one Build ID.
 _Avoid_: refresh all, force reload
 
 **Version Skew**:
-A tab and the service worker it talks to belonging to different Build IDs. A transient fault, never a supported state.
+A Client and the service worker it talks to belonging to different Build IDs. A transient fault, never a supported state.
 _Avoid_: version mismatch, stale tab
 
-**Control Channel**:
-The toolkit's own frozen message protocol between tabs and service workers of any version, used for lifecycle traffic such as asking a waiting version to activate.
-_Avoid_: control RPC, lifecycle messages
+**Command**:
+The one frozen message a Client sends a service worker outside Worker RPC: asking the waiting version to activate. It must work across every version, since the waiting worker is newer than the Client.
+_Avoid_: Control Channel, control RPC, lifecycle messages
 
 **Install Prompt**:
-The in-app invitation to add the app to the device, using the browser's install flow where it exists and manual steps where it does not (iOS Safari).
+The in-app invitation to add the app to the device's home screen or dock, using the browser's install flow where it exists and manual steps where it does not (iOS Safari). One of the Extras; the service worker itself installs silently.
 _Avoid_: A2HS banner, install banner
 
 ### Setup
@@ -61,16 +79,16 @@ _Avoid_: disable flag, uninstall
 ### Worker RPC
 
 **Worker RPC**:
-Effect RPC where the service worker serves requests and each open tab calls it. An optional capability, independent of caching and updates.
+Effect RPC where the service worker serves requests and each open Client calls it. An optional capability, independent of caching and updates.
 _Avoid_: SW RPC, message bus, bridge
 
 **Worker Server**:
 The Worker RPC server running inside the service worker. Holds no state that must outlive the worker being stopped.
 _Avoid_: SW server, background server
 
-**Tab Client**:
-One tab's Worker RPC connection to the Worker Server.
-_Avoid_: page client, window client (the Service Worker API's own `Client` is the tab itself, not this connection)
+**Worker Client**:
+One Client's Worker RPC connection to the Worker Server.
+_Avoid_: Tab Client, page client (the Service Worker API's own `Client` is the page itself, not this connection)
 
 ### Messaging
 

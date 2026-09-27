@@ -24,12 +24,12 @@ Switch, ...) are defined in
 | `/offline`       | The Offline Fallback, prerendered and precached                           |
 
 The worker is `src/sw.ts`: `runServiceWorker()` plus a Worker Server for the
-group in `src/rpc`. The Runtime Cache rules live in
-`src/lib/runtime-cache-rules.ts`. UI is `kui-toolkit` with Tailwind v4, and
+group in `src/rpc`. The Strategy rules live in
+`src/lib/strategies.ts`. UI is `kui-toolkit` with Tailwind v4, and
 infrastructure is Alchemy (`alchemy.run.ts`, `src/infra`), like `apps/docs`.
 
 `/rpc?fakeBuildId=<id>` simulates Version Skew without touching the library:
-the page swaps the Build ID meta tag while its Tab Client connects, so only
+the page swaps the Build ID meta tag while its Worker Client connects, so only
 that client claims another build.
 
 ## Usage
@@ -63,12 +63,12 @@ Chrome waits on refused localhost connections instead of failing them.
 
 `vite.config.ts` reads four environment variables:
 
-| Variable          | Default  | Effect                                                                 |
-| ----------------- | -------- | ---------------------------------------------------------------------- |
-| `BUILD_LABEL`     | `local`  | Shown in the header and inlined into the client bundle                 |
-| `PWA_ENABLED`     | `true`   | `false` builds the Kill Switch worker                                  |
-| `PWA_PRESET`      | `app`    | `content` switches to the content Preset                               |
-| `PWA_UPDATE_MODE` | `prompt` | `auto-on-navigation` applies a waiting update on the next route change |
+| Variable          | Default  | Effect                                                                         |
+| ----------------- | -------- | ------------------------------------------------------------------------------ |
+| `BUILD_LABEL`     | `local`  | Shown in the header and inlined into the client bundle                         |
+| `PWA_ENABLED`     | `true`   | `false` builds the Kill Switch worker                                          |
+| `PWA_PRESET`      | `app`    | `content` switches to the content Preset                                       |
+| `PWA_UPDATE_MODE` | `prompt` | `auto-on-navigation`: the root applies a ready update on the next route change |
 
 A new `BUILD_LABEL` changes the client bundle, so the Build ID, so open tabs
 get the Update Prompt.
