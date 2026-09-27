@@ -46,7 +46,7 @@ function Readout(props: {
           className="h-full rounded-full bg-chart-8"
         />
       </div>
-      <div data-gestures="off" className="flex gap-2 pt-1">
+      <div className="flex gap-2 pt-1">
         <Button size="sm" variant="outline" onClick={props.onOpen}>
           Open
         </Button>

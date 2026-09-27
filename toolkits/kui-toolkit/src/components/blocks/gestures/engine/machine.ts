@@ -106,20 +106,26 @@ type Enqueue = {
   readonly assign: (update: Partial<Context>) => void;
 };
 
+const flushAway = (context: Context, enqueue: Enqueue) => {
+  if (context.pendingTap === undefined) return;
+  enqueue.emit(gesture(context.pendingTap));
+  enqueue.assign({ pendingTap: undefined });
+};
+
 const tapAway = (
   context: Context,
   enqueue: Enqueue,
   tap: TapEvent | undefined,
 ) => {
+  // Buttons and links own a stationary press as their native click. They are
+  // still tracked so moving past the slop may become a Pan or Swipe.
+  if (context.start?.nativeTap === true) {
+    flushAway(context, enqueue);
+    return;
+  }
   const resolved = resolveTap(context, tap);
   for (const event of resolved.emit) enqueue.emit(gesture(event));
   enqueue.assign({ pendingTap: resolved.pendingTap });
-};
-
-const flushAway = (context: Context, enqueue: Enqueue) => {
-  if (context.pendingTap === undefined) return;
-  enqueue.emit(gesture(context.pendingTap));
-  enqueue.assign({ pendingTap: undefined });
 };
 
 /**

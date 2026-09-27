@@ -111,7 +111,12 @@ export const createSwipe = (
       if (busy) return [];
       const { direction, after } = options();
       const back = opposite(direction);
-      if (progress.isAnimating() || caught) return [direction, back];
+      // Once a close is committed, yield its direction immediately. The
+      // forward direction can still catch and reopen this Swipe, while the
+      // reverse direction is free for an outer drawer to take.
+      if (progress.isAnimating() || caught) {
+        return heading === 0 ? [direction] : [direction, back];
+      }
       const value = progress.get();
       if (value <= 0) return [direction];
       if (value >= 1) return after === 'stay' ? [back] : [];

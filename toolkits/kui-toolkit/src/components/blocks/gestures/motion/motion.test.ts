@@ -287,6 +287,19 @@ describe('createSwipe', () => {
     expect(s.progress.get()).toBeCloseTo(middle + 0.1);
   });
 
+  it('yields the closing direction while settling so an outer Swipe can take it', async () => {
+    const panel = swipe({ after: 'stay', direction: 'left' });
+    panel.driver.open();
+    await run(1000);
+    panel.driver.close();
+    await run(48);
+    panel.driver.catch();
+    expect(panel.driver.directions()).toEqual(['left']);
+    panel.driver.release();
+    await run(1000);
+    expect(panel.progress.get()).toBe(0);
+  });
+
   it('opens with onSwipe and closes with nothing', async () => {
     const s = swipe({ after: 'stay' });
     s.driver.open();

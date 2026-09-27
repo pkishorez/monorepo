@@ -12,9 +12,13 @@ import { FingerLayer } from './fingers';
  * takes no input. Render it anywhere inside a zone; it covers every zone under
  * the provider, with or without the debug overlay.
  */
-export function GestureFingers(props: { readonly tapFeedback?: boolean }) {
+export function GestureFingers(props: {
+  /** Hides the whole finger visualization without changing gesture input. */
+  readonly enabled?: boolean;
+  readonly tapFeedback?: boolean;
+}) {
   const source = useZoneSource('GestureFingers');
-  if (source === undefined) return null;
+  if (source === undefined || props.enabled === false) return null;
   return createPortal(
     <FingerLayer source={source} tapFeedback={props.tapFeedback} />,
     document.body,

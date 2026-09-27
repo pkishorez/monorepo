@@ -153,6 +153,31 @@ describe('bindPointers', () => {
     expect(engine.inspect().fingers).toEqual([]);
   });
 
+  it('keeps a control tap native but turns a drag from it into a gesture', async () => {
+    // Earlier tests may leave a captured click guard armed until the next task.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const { element, names } = setup();
+    const button = document.createElement('button');
+    let clicks = 0;
+    button.addEventListener('click', () => {
+      clicks += 1;
+    });
+    element.append(button);
+
+    button.dispatchEvent(pointer('pointerdown', 100, 0));
+    window.dispatchEvent(pointer('pointerup', 100, 40));
+    button.click();
+    expect(clicks).toBe(1);
+    expect(names()).toEqual([]);
+
+    button.dispatchEvent(pointer('pointerdown', 100, 1000));
+    window.dispatchEvent(pointer('pointermove', 160, 1016));
+    window.dispatchEvent(pointer('pointerup', 160, 1032));
+    button.click();
+    expect(clicks).toBe(1);
+    expect(names()).toEqual(['pan:start', 'pan:end']);
+  });
+
   /** A child of the zone that scrolls sideways when its content is wider than it. */
   const sidewaysRow = (element: HTMLElement, contentWidth: number) => {
     const row = document.createElement('div');

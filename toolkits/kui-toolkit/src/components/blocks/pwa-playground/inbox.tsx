@@ -91,7 +91,6 @@ function Row(props: {
   return (
     <div className="relative overflow-hidden border-b border-border">
       <motion.div
-        data-gestures="off"
         style={{ opacity: row.actionsOpacity, width: ACTIONS_PX }}
         className="absolute inset-y-0 right-0 flex"
       >

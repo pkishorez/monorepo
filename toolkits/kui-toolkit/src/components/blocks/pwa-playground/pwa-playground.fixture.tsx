@@ -75,7 +75,7 @@ function SidebarFixture() {
             panel={
               <div className="flex h-full flex-col gap-2 p-4">
                 <strong className="mb-2 text-sm">Gesture Lab</strong>
-                {['Matrix', 'Inbox', 'Photos', 'Map', 'Sidebar'].map((item) => (
+                {['Matrix', 'Inbox', 'Sidebar'].map((item) => (
                   <div key={item} className="rounded-lg px-3 py-2 text-sm">
                     {item}
                   </div>

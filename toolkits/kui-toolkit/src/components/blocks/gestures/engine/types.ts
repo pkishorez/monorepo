@@ -112,10 +112,11 @@ export type Policy = {
 
 /**
  * What the zone knows about a touch as it starts: the edge strip it started
- * in, and the finger directions its scroller is at the end of, so the
- * browser cannot scroll that way.
+ * in, the finger directions its scroller is at the end of, and whether a
+ * semantic control owns a stationary tap as its native click.
  */
 export type TouchStart = {
   readonly edge: Side | undefined;
   readonly ends: ReadonlyArray<Direction>;
+  readonly nativeTap?: boolean;
 };
