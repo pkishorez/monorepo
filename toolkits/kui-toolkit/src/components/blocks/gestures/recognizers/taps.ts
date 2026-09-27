@@ -1,5 +1,4 @@
-import { distance, elapsed, midpoint } from './geometry';
-import { createPairGate } from './pair';
+import { distance, elapsed } from './geometry';
 import {
   DOUBLE_TAP_DISTANCE_PX,
   DOUBLE_TAP_GAP_MS,
@@ -14,6 +13,7 @@ export const tap: Recognizer = {
   kind: 'tap',
   continuous: false,
   requiresFailureOf: ['double-tap'],
+  fingers: [],
   start: () => {
     let press: Track | undefined;
     // Once recognized it stays recognized while a double tap is decided.
@@ -51,6 +51,7 @@ export const doubleTap: Recognizer = {
   kind: 'double-tap',
   continuous: false,
   requiresFailureOf: [],
+  fingers: [],
   start: () => {
     let first: Track | undefined;
     let firstUp: Sample | undefined;
@@ -92,44 +93,6 @@ export const doubleTap: Recognizer = {
         }
       }
       return waitUntil(deadline);
-    };
-  },
-};
-
-/** Two fingers down and up together, quickly and in place. */
-export const twoFingerTap: Recognizer = {
-  kind: 'two-finger-tap',
-  continuous: false,
-  requiresFailureOf: [],
-  start: () => {
-    const gate = createPairGate();
-    let lifted = 0;
-    return (frame) => {
-      const reading = gate(frame);
-      if (reading.type === 'fail') return FAIL;
-      const since =
-        reading.type === 'paired'
-          ? reading.pair.since
-          : frame.pointers[0]?.down;
-      if (since === undefined) return WAIT;
-      const deadline = since.t + TAP_MAX_MS;
-      if (frame.t >= deadline) return FAIL;
-      if (reading.type === 'waiting') return waitUntil(deadline);
-      const { ids, start } = reading.pair;
-      const input = frame.input;
-      if (input === undefined || !ids.includes(input.track.id)) {
-        return waitUntil(deadline);
-      }
-      if (input.track.travel > SLOP_PX) return FAIL;
-      if (input.type === 'up') lifted += 1;
-      if (lifted < 2) return waitUntil(deadline);
-      const center = midpoint(start[0], start[1]);
-      return end({
-        kind: 'two-finger-tap',
-        x: center.x,
-        y: center.y,
-        duration: elapsed(frame, since),
-      });
     };
   },
 };

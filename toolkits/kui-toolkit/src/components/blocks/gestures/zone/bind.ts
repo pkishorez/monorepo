@@ -1,4 +1,5 @@
 import type { GestureEngine, PointerInput } from '../engine';
+import { nativeScrollerAt } from './scrollers';
 
 // Text entry keeps its own touch handling: selecting, caret dragging.
 const OPTED_OUT =
@@ -6,6 +7,11 @@ const OPTED_OUT =
 
 const optedOut = (target: EventTarget | null) =>
   target instanceof Element && target.closest(OPTED_OUT) !== null;
+
+/** A touch that starts in a text field, an opted-out subtree or a native scroller is theirs. */
+const belongsElsewhere = (target: EventTarget | null, zone: Element) =>
+  optedOut(target) ||
+  (target instanceof Element && nativeScrollerAt(target, zone) !== undefined);
 
 const sample = (
   event: PointerEvent,
@@ -20,10 +26,11 @@ const sample = (
 
 /**
  * Feeds an element's pointer input to an engine. Pointers that go down where
- * `accepts` refuses (an edge strip) are never tracked, so the browser keeps
- * them. Moves and releases are read from the window, so a mouse that leaves
- * the element mid-gesture is still followed. The engine's deadlines are
- * scheduled as ticks on the same clock as event timestamps.
+ * `accepts` refuses (an edge strip), or in something with its own touch
+ * handling, are never tracked, so the browser keeps them. Moves and releases
+ * are read from the window, so a mouse that leaves the element mid-gesture is
+ * still followed. The engine's deadlines are scheduled as ticks on the same
+ * clock as event timestamps. A Captured touch cannot scroll the page.
  */
 export const bindPointers = (
   element: HTMLElement,
@@ -56,7 +63,10 @@ export const bindPointers = (
 
   const onDown = (event: PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (optedOut(event.target) || !accepts(event.clientX, event.clientY)) {
+    if (
+      belongsElsewhere(event.target, element) ||
+      !accepts(event.clientX, event.clientY)
+    ) {
       return;
     }
     tracked.add(event.pointerId);
@@ -88,8 +98,16 @@ export const bindPointers = (
     }
   };
 
+  // Capture. touch-action cannot change mid-touch, so once a recognizer
+  // claims, its moves are held back from the browser here. One the browser
+  // already scrolls is not cancelable, and ends in pointercancel instead.
+  const onTouchMove = (event: TouchEvent) => {
+    if (event.cancelable && engine.captured()) event.preventDefault();
+  };
+
   element.addEventListener('pointerdown', onDown);
   element.addEventListener('contextmenu', onContextMenu);
+  element.addEventListener('touchmove', onTouchMove, { passive: false });
   win.addEventListener('pointermove', onMove);
   win.addEventListener('pointerup', onUp);
   win.addEventListener('pointercancel', onCancel);
@@ -98,6 +116,7 @@ export const bindPointers = (
   return () => {
     element.removeEventListener('pointerdown', onDown);
     element.removeEventListener('contextmenu', onContextMenu);
+    element.removeEventListener('touchmove', onTouchMove);
     win.removeEventListener('pointermove', onMove);
     win.removeEventListener('pointerup', onUp);
     win.removeEventListener('pointercancel', onCancel);

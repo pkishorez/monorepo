@@ -1,24 +1,13 @@
-import { holdSwipe } from './hold-swipe';
-import { longPress } from './long-press';
-import { pan, twoFingerPan } from './pans';
-import { pinch } from './pinch';
-import { doubleTap, tap, twoFingerTap } from './taps';
+import { chord } from './chord';
+import { pan } from './pan';
+import { doubleTap, tap } from './taps';
 import type { GestureKind, Recognizer } from './types';
 
 /**
  * Every recognizer, in claim order: when two become certain on the same
  * input, the earlier one claims the pointers.
  */
-const RECOGNIZERS: ReadonlyArray<Recognizer> = [
-  holdSwipe,
-  pinch,
-  twoFingerPan,
-  twoFingerTap,
-  pan,
-  longPress,
-  doubleTap,
-  tap,
-];
+const RECOGNIZERS: ReadonlyArray<Recognizer> = [chord, pan, doubleTap, tap];
 
 export const GESTURE_KINDS: ReadonlyArray<GestureKind> = RECOGNIZERS.map(
   (recognizer) => recognizer.kind,

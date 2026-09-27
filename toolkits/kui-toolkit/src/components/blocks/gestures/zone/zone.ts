@@ -4,19 +4,21 @@ import { bindPointers, swallowNextClick } from './bind';
 import { edgeStrips } from './edges';
 import { contains, zoneRect } from './geometry';
 
-export { ANDROID_EDGE_STRIP_PX, EDGE_STRIP_PX } from './edges';
+export { ANDROID_EDGE_STRIP_PX, EDGE_STRIP_PX, edgeStrips } from './edges';
 export type { EdgeOwner, EdgeStrips } from './edges';
 export type { Rect } from './geometry';
+export { nativeScrollers } from './scrollers';
 export { swallowNextClick };
 
-/** Where an element's Gesture Zone is right now, in viewport coordinates, and who owns the edges beside it. */
+/**
+ * Where an element's Gesture Zone is right now, in viewport coordinates: the
+ * element's `bounds`, the zone `rect` inside them, and who owns the edges.
+ */
 export const measureZone = (element: HTMLElement, environment: Environment) => {
   const win = element.ownerDocument.defaultView ?? window;
   const strips = edgeStrips(environment);
-  return {
-    strips,
-    rect: zoneRect(element.getBoundingClientRect(), win.innerWidth, strips),
-  };
+  const bounds = element.getBoundingClientRect();
+  return { strips, bounds, rect: zoneRect(bounds, win.innerWidth, strips) };
 };
 
 /**

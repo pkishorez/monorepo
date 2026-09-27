@@ -28,15 +28,14 @@ export type Frame = {
   readonly width: number;
 };
 
-export type GestureKind =
-  | 'tap'
-  | 'double-tap'
-  | 'long-press'
-  | 'pan'
-  | 'two-finger-pan'
-  | 'pinch'
-  | 'two-finger-tap'
-  | 'hold-swipe';
+export type GestureKind = 'tap' | 'double-tap' | 'pan' | 'chord';
+
+/**
+ * What a finger is doing. `pending`: down, not yet decided; `anchor`: the
+ * held finger of a Chord; `acting`: the finger a gesture follows; `free`:
+ * down but part of no gesture.
+ */
+export type FingerRole = 'pending' | 'anchor' | 'acting' | 'free';
 
 /**
  * UIKit's lifecycle. Discrete gestures (taps) go straight from `possible` to
@@ -54,7 +53,7 @@ export type GesturePhase = 'began' | 'changed' | 'ended' | 'cancelled';
 
 type Common = {
   readonly phase: GesturePhase;
-  /** The finger for one-finger gestures, the midpoint for two, the swiping finger for a hold-swipe. */
+  /** The finger for one-finger gestures, the acting finger for a Chord. */
   readonly x: number;
   readonly y: number;
   /** Since the first pointer of the gesture went down, in ms. */
@@ -63,7 +62,7 @@ type Common = {
 
 type Horizontal = {
   readonly direction: 'left' | 'right';
-  /** Signed horizontal travel since the gesture's pointers went down, in px. */
+  /** Signed horizontal travel since the finger went down, in px. */
   readonly dx: number;
   readonly distance: number;
   /** `dx` as a share of the zone's width. */
@@ -72,19 +71,24 @@ type Horizontal = {
   readonly velocity: number;
 };
 
+type Chord = {
+  /** Which side the Anchor is on, by x order when the acting finger landed. */
+  readonly side: 'left' | 'right';
+  readonly anchor: { readonly x: number; readonly y: number };
+  /** Locked by the acting finger's first movement past the slop; undefined until then. */
+  readonly axis: 'vertical' | 'horizontal' | undefined;
+  /** Signed travel of the acting finger since it landed, in px. */
+  readonly dx: number;
+  readonly dy: number;
+  /** Acting finger speed along `axis` over the last 100ms, in px/ms; 0 until it locks. */
+  readonly velocity: number;
+};
+
 export type GestureEvent =
   | ({ readonly kind: 'tap' } & Common)
   | ({ readonly kind: 'double-tap' } & Common)
-  | ({ readonly kind: 'long-press' } & Common)
-  | ({ readonly kind: 'two-finger-tap' } & Common)
   | ({ readonly kind: 'pan' } & Common & Horizontal)
-  | ({ readonly kind: 'two-finger-pan' } & Common & Horizontal)
-  | ({ readonly kind: 'pinch' } & Common & { readonly scale: number })
-  | ({ readonly kind: 'hold-swipe' } & Common &
-      Horizontal & {
-        /** Which finger stays put, by x order: the left one or the right one. */
-        readonly side: 'left-holds' | 'right-holds';
-      });
+  | ({ readonly kind: 'chord' } & Common & Chord);
 
 type WithoutPhase<T> = T extends unknown ? Omit<T, 'phase'> : never;
 
@@ -109,6 +113,8 @@ export type Recognizer = {
   readonly continuous: boolean;
   /** Kinds that must fail before this one may claim: a tap waits out a double tap. */
   readonly requiresFailureOf: ReadonlyArray<GestureKind>;
+  /** The roles of the fingers it claims, in the order they went down. */
+  readonly fingers: ReadonlyArray<Extract<FingerRole, 'anchor' | 'acting'>>;
   /** A fresh reader for one touch sequence. */
   readonly start: () => (frame: Frame) => Verdict;
 };

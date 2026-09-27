@@ -1,4 +1,4 @@
-/** Movement a still finger may make: taps, long press and the held finger of a hold-swipe. */
+/** Movement a still finger may make: taps, and the first finger of a Chord until the second lands. */
 export const SLOP_PX = 10;
 /** Longest press that still counts as a tap. */
 export const TAP_MAX_MS = 300;
@@ -6,13 +6,7 @@ export const TAP_MAX_MS = 300;
 export const DOUBLE_TAP_GAP_MS = 300;
 /** How far apart the two taps of a double tap may land. */
 export const DOUBLE_TAP_DISTANCE_PX = 40;
-/** Hold time before a long press begins; UIKit's default. */
-export const LONG_PRESS_MS = 500;
-/** Midpoint travel before a two-finger swipe is decided. */
-export const TWO_FINGER_START_PX = 16;
-/** Change in finger spread before a pinch is decided. */
-export const PINCH_START_PX = 16;
-/** How long the held finger of a hold-swipe must already be down when the other starts swiping. */
-export const HOLD_MS = 250;
-/** Horizontal travel of the swiping finger before a hold-swipe is decided. */
-export const HOLD_SWIPE_START_PX = 16;
+/** How long the first finger must already be down, and still, when the second lands for the touch to be a Chord. */
+export const ANCHOR_MS = 150;
+/** How far the Anchor may drift during a Chord before it is cancelled. */
+export const ANCHOR_DRIFT_PX = 24;

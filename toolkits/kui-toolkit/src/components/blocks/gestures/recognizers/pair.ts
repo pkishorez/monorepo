@@ -1,13 +1,8 @@
 import { SLOP_PX } from './thresholds';
-import type { Frame, Sample } from './types';
+import type { Frame } from './types';
 
-/** The two pointers of a two-finger gesture, as they were when the second landed. */
-export type Pair = {
-  readonly ids: readonly [number, number];
-  readonly start: readonly [Sample, Sample];
-  /** When the first of the two went down. */
-  readonly since: Sample;
-};
+/** The two pointers of a two-finger gesture, in the order they went down. */
+export type Pair = { readonly ids: readonly [number, number] };
 
 type PairReading =
   | { readonly type: 'waiting' }
@@ -27,11 +22,7 @@ export const createPairGate = () => {
     if (input.type === 'up') return { type: 'fail' };
     if (input.type === 'down' && frame.pointers.length === 2) {
       const [first, second] = frame.pointers;
-      pair = {
-        ids: [first.id, second.id],
-        start: [first.current, second.current],
-        since: first.down,
-      };
+      pair = { ids: [first.id, second.id] };
       return { type: 'paired', pair };
     }
     return input.track.travel > SLOP_PX
