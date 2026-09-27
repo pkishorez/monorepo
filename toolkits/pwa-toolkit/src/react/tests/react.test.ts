@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BUILD_ID_META_NAME } from '../../domain/build/index.js';
-import type { ClientBuildInfo } from '../../domain/config/index.js';
+import { BUILD_ID_META_NAME } from '../../shared/build/index.js';
+import type { ClientBuildInfo } from '../../shared/config/index.js';
 import { headTags } from '../head.js';
 import {
   PwaProvider,

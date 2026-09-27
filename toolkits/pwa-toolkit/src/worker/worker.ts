@@ -2,23 +2,23 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import info from 'virtual:pwa-toolkit/build';
-import type { WorkerBuildInfo } from '../domain/config/index.js';
+import type { WorkerBuildInfo } from '../shared/config/index.js';
 import {
   isControlEnvelope,
   matchControlRequest,
-} from '../domain/control-channel/index.js';
-import { WorkerHost } from '../domain/worker-host/index.js';
-import { serveControlRequest } from './control-channel/index.js';
-import { makeFetchRouter } from './fetch-router.js';
+} from '../shared/commands/index.js';
+import { WorkerHost } from '../shared/worker-host/index.js';
+import { serveControlRequest } from './commands/index.js';
+import { makeFetchRouter } from './requests/index.js';
 import {
   GlobalScope,
   KeepAlive,
   type ServiceWorkerGlobal,
 } from './global-scope/index.js';
 import { onActivate, onInstall } from './lifecycle/index.js';
-import { makeMessageHub } from './message-hub.js';
+import { makeMessageHub } from './messages/index.js';
 
-export { WorkerHost } from '../domain/worker-host/index.js';
+export { WorkerHost } from '../shared/worker-host/index.js';
 
 declare const self: ServiceWorkerGlobalScope;
 

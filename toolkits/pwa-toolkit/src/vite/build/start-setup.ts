@@ -1,4 +1,4 @@
-import type { NavigationConfig } from '../../domain/config/index.js';
+import type { NavigationConfig } from '../../shared/config/index.js';
 
 // Start's plugin whose post `buildApp` hook prerenders pages.
 const START_POST_BUILD = 'tanstack-start-core:post-build';

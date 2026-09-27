@@ -1,9 +1,9 @@
-import { BuildId, MANIFEST_URL } from '../../domain/build/index.js';
+import { BuildId, MANIFEST_URL } from '../../shared/build/index.js';
 import type {
   ClientBuildInfo,
   ResolvedPwaConfig,
-} from '../../domain/config/index.js';
-import type { WebAppManifest } from '../../domain/manifest/index.js';
+} from '../../shared/config/index.js';
+import type { WebAppManifest } from '../../shared/manifest/index.js';
 
 const DEV_BUILD_ID = BuildId.make('dev');
 

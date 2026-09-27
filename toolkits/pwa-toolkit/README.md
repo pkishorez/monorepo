@@ -75,13 +75,13 @@ pnpm add pwa-toolkit effect
 | `InstallPrompt`    | Bottom sheet on small screens, corner card on larger ones, manual steps on iOS Safari. |
 | `OfflineIndicator` | "You're offline" pill in a live region, stacked above sheets.                          |
 
-### `pwa-toolkit/worker-rpc/server`
+### `pwa-toolkit/rpc/worker`
 
 | Export               | What it does                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------ |
 | `WorkerServer.layer` | Serves an Effect `RpcGroup` inside the worker; provide its handlers and pass it to `runServiceWorker`. |
 
-### `pwa-toolkit/worker-rpc/client`
+### `pwa-toolkit/rpc/client`
 
 | Export            | What it does                                                                             |
 | ----------------- | ---------------------------------------------------------------------------------------- |

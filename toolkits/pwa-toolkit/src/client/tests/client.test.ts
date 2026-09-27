@@ -3,13 +3,13 @@ import * as Option from 'effect/Option';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
 import * as TestClock from 'effect/testing/TestClock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BUILD_ID_META_NAME } from '../../domain/build/index.js';
-import type { ClientBuildInfo } from '../../domain/config/index.js';
+import { BUILD_ID_META_NAME } from '../../shared/build/index.js';
+import type { ClientBuildInfo } from '../../shared/config/index.js';
 import {
   matchControlRequest,
   controlReply,
   type ControlReply,
-} from '../../domain/control-channel/index.js';
+} from '../../shared/commands/index.js';
 import {
   Connectivity,
   DisplayMode,

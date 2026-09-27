@@ -1,15 +1,15 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import type { Plugin, ResolvedConfig, ViteBuilder } from 'vite';
-import { computeBuildId, MANIFEST_URL } from '../../domain/build/index.js';
+import { computeBuildId, MANIFEST_URL } from '../../shared/build/index.js';
 import {
   type ResolvedPwaConfig,
   workerConfigOf,
-} from '../../domain/config/index.js';
+} from '../../shared/config/index.js';
 import {
   manifestIconUrls,
   withManifestDefaults,
-} from '../../domain/manifest/index.js';
+} from '../../shared/manifest/index.js';
 import type { BuildState } from './build-state.js';
 import { mergeHeaders } from './headers.js';
 import { bundleFiles, overlay, readTree } from './output-files.js';

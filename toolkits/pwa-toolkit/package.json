@@ -43,13 +43,13 @@
       "types": "./dist/ui/index.d.ts",
       "default": "./dist/ui/index.js"
     },
-    "./worker-rpc/server": {
-      "types": "./dist/worker-rpc/server/index.d.ts",
-      "default": "./dist/worker-rpc/server/index.js"
+    "./rpc/worker": {
+      "types": "./dist/rpc/worker/index.d.ts",
+      "default": "./dist/rpc/worker/index.js"
     },
-    "./worker-rpc/client": {
-      "types": "./dist/worker-rpc/client/index.d.ts",
-      "default": "./dist/worker-rpc/client/index.js"
+    "./rpc/client": {
+      "types": "./dist/rpc/client/index.d.ts",
+      "default": "./dist/rpc/client/index.js"
     }
   },
   "scripts": {

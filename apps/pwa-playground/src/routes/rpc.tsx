@@ -11,7 +11,7 @@ import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
 import type * as RpcGroup from 'effect/unstable/rpc/RpcGroup';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { usePwaUpdate } from 'pwa-toolkit/react';
-import { TabClient, type VersionSkew } from 'pwa-toolkit/worker-rpc/client';
+import { TabClient, type VersionSkew } from 'pwa-toolkit/rpc/client';
 import { useEffect, useRef, useState } from 'react';
 import {
   Actions,

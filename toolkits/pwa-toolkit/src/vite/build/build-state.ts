@@ -1,4 +1,4 @@
-import type { BuildId } from '../../domain/build/index.js';
+import type { BuildId } from '../../shared/build/index.js';
 import type { Selection } from '../precache/index.js';
 
 /**
