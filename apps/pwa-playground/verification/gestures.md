@@ -1,177 +1,208 @@
-# gestures: Gesture Zone, recognizers and debug overlay on the PR stage
+# gestures v3: Anchor, Swipe and Capture on the PR stage
 
-Target: https://pr57-pwa.kishore.app, head `b311960c6`, Build ID `3df34886e23d0df1` (label `36291131225-1`, defaults preset). Date: 2026-09-27.
-Browser: agent-browser Chrome, fresh sessions `gpr-ios` and `gpr-android`, driven over raw CDP (`/tmp/gestures-cdp/run.mjs`, `smoke.mjs`, `rm-live.mjs`; shared plumbing in `lib.mjs`).
+Target: https://pr57-pwa.kishore.app/gestures, head `cd0435a7c`, Build ID `e3d4b5d5fb2296b2`, gestures chunk `gestures-DV2BvYFq.js`. Date: 2026-09-27.
+Behaviour under test: `toolkits/kui-toolkit/src/components/blocks/gestures/SKILL.md` and the Anchor, Swipe and Capture terms in `toolkits/kui-toolkit/CONTEXT.md`.
+
+Browser: agent-browser Chrome, fresh sessions `gv3pr-ios` and `gv3pr-android`, driven over raw CDP by `/tmp/pwa/gv3/pr.mjs` (the builder's `verify.mjs` pointed at the stage, with its own CDP plumbing and more checks).
 
 | Profile | Viewport | UA                                | Touch                     |
 | ------- | -------- | --------------------------------- | ------------------------- |
 | iPhone  | 390×844  | iOS 18 Safari (`platform iPhone`) | touch emulation, 5 points |
 | Pixel   | 412×915  | Android 15 Chrome 140 (Pixel 9)   | touch emulation, 5 points |
 
-Fingers are `Input.dispatchTouchEvent` with one to three `touchPoints`, moved in 16 ms steps; holds are timed waits. State is read from the page (`gestures-page`, `gestures-accent`, `gestures-count`, …), the overlay (`gesture-overlay-state-<kind>` `data-state`, `gesture-overlay-environment`, `gesture-overlay-claimed`, `gesture-overlay-live`, `gesture-overlay-log`) and the track's `translate3d` offset. Settling is sampled every animation frame from just before release. The overlay log is cleared between arbitration checks by toggling the Debug overlay switch off and on.
+Fingers are `Input.dispatchTouchEvent`, moved in 16 ms steps. Lifting one finger of several is a `touchEnd` listing only that finger. State is read from the Field's `data-x`, `data-y`, `data-scale`, `data-pins` and `data-anchor`, the status line (`gestures-status`), the zone's `scrollTop`, and the row's `scrollLeft`. Capture is read from a passive `touchmove` listener on the zone that records `defaultPrevented`. The debug panel's `data-state` is recorded by a MutationObserver.
 
-| #   | Scenario                                                      | iPhone                       | Pixel                    |
-| --- | ------------------------------------------------------------- | ---------------------------- | ------------------------ |
-| 1   | Loads from the worker build; overlay; strips per Environment  | PASS                         | PASS                     |
-| 2   | Vertical one-finger scroll stays native                       | PASS                         | PASS                     |
-| 3   | Pan: follow the finger, spring settle, slow drag springs back | PASS                         | PASS                     |
-| 4   | Two-finger pan, chords, pinch, taps, long press, third finger | PASS                         | PASS                     |
-| 5   | Touches starting in an edge strip are not handled             | PASS                         | PASS                     |
-| 6   | Arbitration: one gesture per touch                            | PASS                         | PASS                     |
-| 7   | Installed display mode flips Environment and edge owner       | PASS                         | PASS                     |
-| 8   | Reduced motion                                                | PASS after fix (`b463dd3fd`) | FAIL → fixed, not re-run |
-| 9   | Rapid sequences, no stuck state                               | PASS                         | PASS                     |
-| S   | Smoke: home, status, rpc Echo, offline cold start `/gestures` | PASS                         | PASS                     |
+## Setup: fresh start, new build live
 
-## 1. Loads from the worker build — PASS
+Each run first loaded `/gestures`, then cleared all site data for the origin (`Storage.clearDataForOrigin`, `all`: worker, caches, storage) and loaded it again. After the reload there was one worker registration (`/sw.js`, activated, controlling the page) and one cache, `pwa-toolkit:precache:e3d4b5d5fb2296b2`, matching the page's Build ID meta. The served gestures chunk contains the v3 chip copy (`Left finger locked`) and no `chord`, so the v3 build is live.
 
-`/status`: Build ID `3df34886e23d0df1`, controller and active `activated /sw.js`, update Idle. `/gestures`: `navigator.serviceWorker.controller` activated, navigation `workerStart > 0`, meta Build ID `3df34886e23d0df1`. Overlay mounted with a full-viewport canvas (780×1688 / 824×1830 device px). Zone computed style `touch-action: pan-y`, `user-select: none`.
+## Results: iPhone (390×844)
 
-| Profile | Environment readout                  | Strip labels on canvas |
-| ------- | ------------------------------------ | ---------------------- |
-| iPhone  | `ios tab compact edges browser 24px` | BROWSER · 24PX         |
-| Pixel   | `android tab compact edges os 32px`  | OS · 32PX              |
+| Area    | Check                                                                 | Result |
+| ------- | --------------------------------------------------------------------- | ------ |
+| Layout  | Bare chrome, Field 40% of the viewport, page fixed, zone `pan-y`      | PASS   |
+| No hold | Sideways swipe scrolls the grid, with momentum, Captured              | PASS   |
+| No hold | Tap lights a dot                                                      | PASS   |
+| No hold | Double tap resets the view                                            | PASS   |
+| No hold | Vertical scroll stays native                                          | PASS   |
+| No hold | Sideways row scrolls natively, grid untouched                         | PASS   |
+| Left    | Lock and status appear at once                                        | PASS   |
+| Left    | Lifting the other finger keeps the lock                               | PASS   |
+| Left    | Tap drops a pin, twice                                                | PASS   |
+| Left    | Pan moves the grid in 2D, with momentum; zone does not scroll         | PASS   |
+| Left    | Lock survives several acting gestures                                 | PASS   |
+| Left    | Releases only when the Anchor lifts                                   | PASS   |
+| Left    | Double tap clears the pins                                            | PASS   |
+| Right   | Right Anchor by relative position                                     | PASS   |
+| Right   | Pan up zooms in, pan down zooms out, about the Anchor point           | PASS   |
+| Right   | Tap zooms in one step (1.5×) about the Anchor                         | PASS   |
+| Right   | Double tap zooms to fit the pins                                      | PASS\* |
+| Rules   | Second finger after a swipe is ignored                                | PASS   |
+| Rules   | Anchor drift (>24px) cancels                                          | PASS   |
+| Rules   | Third finger cancels                                                  | PASS   |
+| Rules   | Capture blocks `touchmove` while locked                               | PASS   |
+| Rules   | A finger held still before lifting doesn't coast                      | PASS   |
+| Rules   | Left and right edge strips (24px) untracked; just inside is tracked   | PASS   |
+| Rules   | Reduced motion                                                        | PASS   |
+| Rules   | Instructions dialog opens with v3 copy and closes                     | PASS   |
+| Rules   | Back button goes to `/` with the header; browser back returns         | PASS   |
+| Rules   | Debug machine panel follows the live state and sits clear of the zone | PASS   |
+| Smoke   | `/`, `/status`, `/rpc` show the normal header                         | PASS   |
 
-Screenshots: `screenshots/gestures-pr-ios-load.png`, `screenshots/gestures-pr-android-load.png`.
+## Results: Pixel (412×915)
 
-## 2. Vertical scroll stays native — PASS
+| Area    | Check                                                                 | Result |
+| ------- | --------------------------------------------------------------------- | ------ |
+| Layout  | Bare chrome, Field 40% of the viewport, page fixed, zone `pan-y`      | PASS   |
+| No hold | Sideways swipe scrolls the grid, with momentum, Captured              | PASS   |
+| No hold | Tap lights a dot                                                      | PASS   |
+| No hold | Double tap resets the view                                            | PASS   |
+| No hold | Vertical scroll stays native                                          | PASS   |
+| No hold | Sideways row scrolls natively, grid untouched                         | PASS   |
+| Left    | Lock and status appear at once                                        | PASS   |
+| Left    | Lifting the other finger keeps the lock                               | PASS   |
+| Left    | Tap drops a pin, twice                                                | PASS   |
+| Left    | Pan moves the grid in 2D, with momentum; zone does not scroll         | PASS   |
+| Left    | Lock survives several acting gestures                                 | PASS   |
+| Left    | Releases only when the Anchor lifts                                   | PASS   |
+| Left    | Double tap clears the pins                                            | PASS   |
+| Right   | Right Anchor by relative position                                     | PASS   |
+| Right   | Pan up zooms in, pan down zooms out, about the Anchor point           | PASS   |
+| Right   | Tap zooms in one step (1.5×) about the Anchor                         | PASS   |
+| Right   | Double tap zooms to fit the pins                                      | PASS\* |
+| Rules   | Second finger after a swipe is ignored                                | PASS   |
+| Rules   | Anchor drift (>24px) cancels                                          | PASS   |
+| Rules   | Third finger cancels                                                  | PASS   |
+| Rules   | Capture blocks `touchmove` while locked                               | PASS   |
+| Rules   | A finger held still before lifting doesn't coast                      | PASS   |
+| Rules   | Left and right edge strips (32px) untracked; just inside is tracked   | PASS   |
+| Rules   | Reduced motion                                                        | PASS   |
+| Rules   | Instructions dialog opens with v3 copy and closes                     | PASS   |
+| Rules   | Back button goes to `/` with the header; browser back returns         | PASS   |
+| Rules   | Debug machine panel follows the live state and sits clear of the zone | PASS   |
+| Smoke   | `/`, `/status`, `/rpc` show the normal header                         | PASS   |
 
-| Start                 | iPhone scrollY | Pixel scrollY | During the drag                                            | Log   |
-| --------------------- | -------------- | ------------- | ---------------------------------------------------------- | ----- |
-| prose (y 700→300)     | 786 → 1354     | 763 → 1336    | claimed none, every recognizer `failed`, 1 `pointercancel` | empty |
-| carousel (down 350px) | 1150 → 646     | 1127 → 643    | claimed none, `pan` failed, room unchanged                 | empty |
+\* Behaviour passes: every pin ends up inside the Field. The visual review found the fitted pins sitting under the Field's controls. This is fixed in `b94121a3e`, which is verified on a local build and not yet deployed (see Defects).
 
-The browser took the touch and the engine cancelled cleanly: nothing was recognized, "Last" stayed `none yet`.
+The full run was repeated three times on the stage. All 31 checks passed on both profiles in the final run. Failures in the earlier runs were harness timing, not the page (see Notes).
 
-## 3. One-finger pan — PASS
+## Evidence
 
-- Swipe left 220 px: mid-drag at dx −100 the track sat at exactly −100 px (claimed `pan`). After release the offset moved over 55 frames through 27 distinct values (−220, −221, −228, −237, −250, …) and landed at exactly −358 (iPhone) / −380 (Pixel), room 2/5.
-- Slow short drag (50 px over 800 ms): held at −408 / −430, released, sprang back over several frames to −358 / −380, still room 2/5, `pan ended`.
-- Rubber band: dragging 250 px right from room 1 moved the track only 99 / 101 px, then it settled back to 0.
+Numbers are iPhone / Pixel where they differ.
 
-Screenshots: `screenshots/gestures-pr-*-pan-mid-drag.png` (finger trail, `pan` claimed).
+**No hold.**
 
-## 4. Multi-finger gestures — PASS
+- Swipe 140px left: the grid moved to x −140 mid-drag and y stayed 0. It read −173 / −164 just after release and came to rest at −418 / −345, so it coasts. All 8 `touchmove` events were `defaultPrevented`.
+- Tap: status `tap · light`.
+- Double tap (two taps 100ms apart, 3px apart): x, y and scale went back to 0, 0, 1 and the status read `double tap · reset`, with no single tap before it.
+- Vertical drag of 200px: the zone's `scrollTop` went from 0 to 262 / 266, the grid did not move, and 0 of 12 moves were prevented.
+- Sideways drag on the row: its `scrollLeft` went from 12 to 252, the grid did not move, and 0 of 10 moves were prevented.
 
-| Gesture                          | Result (both profiles)                                                             |
-| -------------------------------- | ---------------------------------------------------------------------------------- |
-| Two-finger pan left / right      | Accent Indigo → Amber → Indigo, room unchanged, `two-finger-pan ended`             |
-| Chord, left finger holds 300 ms  | Counter `+1`, hint `left-holds`, claimed `hold-swipe`                              |
-| Chord, right finger holds, twice | Counter `-1`, hint `right-holds`                                                   |
-| Pinch out, then in               | Scale ×2.20 (clamped max), then ×0.66                                              |
-| Tap                              | `tap ended`, ripple played (1 WAAPI animation on the ripple span)                  |
-| Double tap                       | Liked no → yes, `double-tap ended`                                                 |
-| Long press 700 ms                | Claimed `long-press` (state `began`) while held; menu open; `getSelection()` empty |
-| Tap elsewhere                    | Menu closed, `tap ended`, like unchanged                                           |
-| Third finger during a pinch      | Pinch `cancelled`, log `pinch cancelled`, scale restored to ×0.66                  |
-| Three fingers from the start     | Nothing logged, nothing changed                                                    |
-| Two-finger tap                   | Room 1/5, Indigo, counter 0, liked no, ×1.00, `two-finger-tap ended`               |
+**Left Anchor.** The first finger went down at (100, y) and the second at (290, y), 60ms later.
 
-Callout: a synthetic `contextmenu` with `pointerType: 'touch'` on a card was cancelled by the zone; one with `pointerType: 'mouse'` was not. Chrome has no `-webkit-touch-callout`, so the class can only be checked on a real iPhone.
+- 30ms after the second finger landed, `data-anchor=left` and the status read `left anchor · Move`. The chip is visible in the screenshot taken then.
+- A quick lift of the second finger counts as a tap (a pin), and the lock holds. Two more taps made 2 and then 3 pins.
+- A pan of (−40, −120): the grid moved in both axes, with y going 0 → −80 while the finger moved. The grid kept going to −91 at release and −171 / −173 at rest. The zone's `scrollTop` stayed 0 and 10 of 10 moves were prevented.
+- Then a pan held still for 250ms before lifting: the view stayed at the same values before and after.
+- Five acting gestures ran under one lock (a lock-lift tap, 2 taps, 2 pans). The lock ended only when finger 1 lifted, with status `left anchor released`.
+- A later double tap under a left Anchor gave 0 pins and status `left anchor · double tap · clear`, with the lock still held.
 
-Screenshots: `screenshots/gestures-pr-*-two-finger-pan.png`, `*-chord-left-holds.png`, `*-pinch-out.png`, `*-long-press-menu.png`.
+**Right Anchor.** The Anchor was at (300, y) and the other finger landed at (110, y).
 
-## 5. Edge strips are not handled — PASS
+- The status read `right anchor · Zoom`.
+- Panning up 100px zoomed 1 → 1.52, and panning back down 60px zoomed out to 1.18. The world point under the Anchor stayed put: (300, 185.6) became (299.3, 185.3).
+- A tap zoomed 1.18 → 1.77 (1.5×). The point under the Anchor stayed within 0.5px.
+- A double tap fitted the 3 pins at scale 3.86 / 4. Status: `right anchor · double tap · fit`.
 
-The zone element starts at x 16, so the strips are checked inside the element. A touch the zone refuses is never fed to the engine, so the overlay keeps the previous sequence's states and live line; that and the room are the evidence.
+**Rules.**
 
-| Profile | Start x                   | Engine touched | Room      | New log entries |
-| ------- | ------------------------- | -------------- | --------- | --------------- |
-| iPhone  | 20 (left strip, 24 px)    | no             | unchanged | 0               |
-| iPhone  | 370 (right strip)         | no             | unchanged | 0               |
-| iPhone  | 28 (control, inside zone) | yes, `pan`     | paged     | 1               |
-| Pixel   | 28 (left strip, 32 px)    | no             | unchanged | 0               |
-| Pixel   | 384 (right strip)         | no             | unchanged | 0               |
-| Pixel   | 36 (control, inside zone) | yes, `pan`     | paged     | 1               |
+- A second finger that landed after a 50px swipe left the status at `swipe · scroll` and set no Anchor.
+- Moving the Anchor 40px after the lock gave `left anchor cancelled`.
+- A third finger gave `left anchor cancelled`.
+- With the lock held and no other finger down, the Anchor wiggling 6px was still Captured: 6 of 6 moves prevented.
+- Swipes and taps that started at x 16 and 374 on iPhone (24px strips) or x 24 and 388 on Pixel (32px strips) moved nothing, changed no status and prevented no moves. A tap at 30 / 38 lit a dot.
 
-Screenshots: `screenshots/gestures-pr-*-edge-strip.png` (finger in the strip mid-swipe, no trail, room unchanged).
+**Debug panel.** The panel sits at top 48 to bottom 282 / 310, above the zone (which starts at 337.6 / 366). The Environment line reads `ios · tab · edges browser 24px` and `android · tab · edges os 32px`. The recorded `data-state` sequences:
 
-## 6. Arbitration — PASS
+- Anchor: `pressing → anchored.pressing → anchored.tapped → anchored.idle → anchored.pressing → anchored.panning → anchored.idle → idle`
+- Swipe: `pressing → swiping → idle`
+- Vertical scroll: `pressing → native → idle`
+- Tap: `pressing → tapped → idle`
 
-Log after each action, cleared before each (both profiles identical):
+`ignoring` passes straight to `idle` when no finger is left, so it is never painted. That is expected.
 
-| Action               | Log          |
-| -------------------- | ------------ |
-| Plain tap            | `tap`        |
-| Double tap           | `double-tap` |
-| Chord (hold + swipe) | `hold-swipe` |
-| One-finger swipe     | `pan`        |
-| Pinch                | `pinch`      |
+**Reduced motion** (emulated `prefers-reduced-motion: reduce`, switched on while the page was open):
 
-No tap also logged a double tap, no chord logged a pan, no pan logged a tap.
+- A swipe stopped at release: the same x at 40ms and 540ms.
+- A double tap reset was already at 0, 0, 1 after 360ms.
+- The lock and chip still show (see `reduced-locked` screenshots).
 
-## 7. Installed display mode — PASS
+**Dialog and back.**
 
-`Emulation.setEmulatedMedia` with `display-mode: standalone` is ignored by this Chrome (`matchMedia('(display-mode: standalone)')` stayed false, same as `install-status.md`). So a `matchMedia` stub for that query was injected before load and the page reloaded.
+- The help dialog shows the one-finger, left-locked and right-locked lines, and its Close button dismisses it.
+- Tapping the back arrow (a real touch, not a click) went to `/` with the header. `history.back()` came back to `/gestures` with the zone mounted.
 
-| Profile | Environment readout                       | Canvas labels |
-| ------- | ----------------------------------------- | ------------- |
-| iPhone  | `ios installed compact edges app 24px`    | APP · 24PX    |
-| Pixel   | `android installed compact edges os 32px` | OS · 32PX     |
+**Smoke.** `/`, `/status` and `/rpc` all rendered the header (`nav-home`) on both profiles.
 
-Installed, a swipe from the strip (x 20 / 28) was still not handled and one from just inside (x 28 / 36) paged, as the SKILL table says: iOS edges become the app's but stay outside the zone. Removing the stub and reloading returned `tab` with the tab owners. The live flip on a real `display-mode` change isn't covered, since the stub can't fire `change`.
+## Defects
 
-Screenshots: `screenshots/gestures-pr-*-installed.png`.
+1. **Fit to pins put pins under the Field's controls. Fixed in `b94121a3e`.**
+   - Symptom: on the stage, the right-Anchor double tap fitted the pins into the whole Field with a 40px margin. On the iPhone the top pin's head landed at y ≈ 22, under the back arrow (`right-fit.png`), and the bottom-right pin sat beside the debug toggle.
+   - Fix: `fitPins` now fits into the band between the Field's top control row and its bottom row, measured from the two rows, so it also follows `safe-area-inset-top` when installed.
+   - Checked on a local build of the fix, with the same script on both profiles (31/31): the pins land at y 88–249 / 88–278, clear of both rows (`right-fit-fixed.png`). Not on the stage until it is redeployed.
 
-## 8. Reduced motion — FAIL on the stage, fixed locally, needs redeploy
+No engine, machine or zone defects were found.
 
-`Emulation.setEmulatedMedia` `prefers-reduced-motion: reduce`, set while the page was open.
+## Visual review
 
-| Check                             | Live toggle (stage)              | After reload (stage)   |
-| --------------------------------- | -------------------------------- | ---------------------- |
-| Environment readout               | `reduced motion` shown           | `reduced motion` shown |
-| Follow the finger (tx at dx −220) | −220                             | −220                   |
-| Settle after release              | **springs**: 27 distinct offsets | instant: −220 → −358   |
-| Tap ripple                        | **played** (1 animation)         | none                   |
-| Long-press menu                   | `animation-name: none`           | `animation-name: none` |
-| Gestures still recognized         | yes                              | yes                    |
+On a small phone the page reads well.
 
-Defect: the playground read reduced motion with motion's `useReducedMotion`, which reads the media query once on mount (`useState(prefersReducedMotion.current)`). Turning the setting on while the app is open left the carousel springing and the ripple playing, even though the overlay already said `reduced motion`. CSS `motion-reduce:` variants were fine.
+- The lock is clear on both sides. The teal glow and ring mark the Anchor. The "Left finger locked" / "Right finger locked" chip sits above the finger on the side it names, inside the zone. Near the top of the zone it moves below the finger, so it never meets the Field.
+- The dashed Anchor marker in the Field mirrors the finger's spot.
+- The comet tail on the acting finger is easy to tell apart from the Anchor (magenta vs teal).
+- The status pill is dark on a dark Field. Its backing hides the dots behind it, and the mono text is readable.
+- The instructions dialog fits at 390px with room to spare.
 
-Fix (`apps/pwa-playground/src/routes/gestures.tsx`): read `matchMedia('(prefers-reduced-motion: reduce)')` when a gesture lands (`settle({ instant })` and the ripple) instead of the hook. `toolkits/kui-toolkit/src/components/blocks/gestures/SKILL.md` now says to read it at that moment. Checked against a local `vp preview` of the fixed build with `rm-live.mjs`: normal → 26 distinct offsets and a ripple; toggled on live → the track jumps straight to its target (2 values), no ripple; toggled off → springs again. The same script against the stage still springs when toggled on. `pnpm lint` + `pnpm test` (348 tests) in kui-toolkit and `pnpm lint` + `pnpm build` in the playground pass.
+Weaker points, none blocking:
 
-Screenshots: `screenshots/gestures-pr-*-reduced-motion-live.png`.
+- **Debug panel labels are tiny.** The state machine visualizer's transition labels are about 6–8 CSS px. Nested states are clipped at the panel's edge when it scrolls to follow the live state. It is a dev aid and it follows the state correctly, but it is hard to read without zooming.
+- **The Environment line** in the zone's bottom corner sits over the hatched "native" row. It has its own backing, so it stays readable.
+- **At high zoom (≥ 2.4×)**, grid dots can sit behind the ghost icon buttons, for example a dot under the bug icon. The icons stay legible.
+- **The status text fades in** over 100ms. A screenshot taken 30ms after a lock catches it half faded. This is expected.
 
-## 9. Rapid sequences — PASS
+## Gaps emulation can't prove
 
-| Sequence                                    | Result                                                                   |
-| ------------------------------------------- | ------------------------------------------------------------------------ |
-| 5 swipes left, 40 ms apart                  | Room 5/5, offset exactly −4 × width (−1432 / −1520), log `pan` ×5        |
-| Swipe right, second swipe 60 ms into settle | Spring interrupted at −1199 / −1284, room 3/5, offset exactly −2 × width |
-| 6 quick taps, then a two-finger tap         | Reset to room 1/5, `two-finger-tap ended`                                |
+- **Real finger contact.** CDP touch points are perfect: fixed 4px radius, no jitter, exact timing. Real finger noise near the 10px slop and 24px drift limits, palm contact and edge-of-screen grip are not exercised.
+- **Browser and OS edge gestures.** The strips are shown to be untracked, but emulated Chrome has no Safari swipe-back or Android system back. That the page never fights them needs a real device.
+- **iOS Safari itself.** Both profiles run Chromium with an iOS UA. WebKit's pointer and touch event order, `touch-action` handling and non-passive `touchmove` Capture on real Safari are unproven here. Capture was checked by `defaultPrevented`, not by watching the page stay still, because Chrome doesn't scroll on two-finger drags under `pan-y`.
+- **Momentum feel.** Coasting is shown by the numbers moving on after release, not by how it feels at 120Hz.
+- **Haptics.** The Android lock buzz (`navigator.vibrate(8)`) can't be felt, and iOS has no Vibration API.
+- **Installed display mode.** Everything ran in a browser tab. The installed iOS edge owner (`app`) and safe-area insets were not exercised on the stage.
+- **The fit fix** is verified on a local build only until the stage is redeployed.
 
-After each sequence the overlay still shows the last outcome (`pan ended`, the rest `failed`) until the next touch; that is by design (the engine starts over on the next first touch). A finger put down after each sequence found all eight recognizers `possible`. No stuck state.
+## Notes
 
-## Smoke — PASS
+- The first runs had harness errors, which were fixed in the script:
+  - A screenshot taken mid-pan held the finger still for more than 100ms, so the pan read as a stop and did not coast. This is correct behaviour for a held finger. The mid-pan picture now comes from its own pan.
+  - A tap after a native scroll landed on the sideways row, which is correctly untracked.
+- Lifting the second finger quickly right after a lock is a tap, so it drops a pin. This is by design.
 
-| Page                           | Result (both profiles)                                                                                                                                                                                      |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                            | Home renders, 9 scenario links including Gestures, controller activated                                                                                                                                     |
-| `/status`                      | Build ID `3df34886e23d0df1`, `activated /sw.js`, Idle, waiting none                                                                                                                                         |
-| `/rpc` Echo                    | `hello <ts> at <iso>`, outcome Passed                                                                                                                                                                       |
-| `/gestures` offline cold start | Tab closed, page and worker targets offline (`fetch('/api/time/network-only')` → `Failed to fetch`), new tab: `/gestures` rendered with zone and overlay, Build ID `3df34886e23d0df1`, a swipe paged to 2/5 |
+## Screenshots
 
-Screenshots: `screenshots/gestures-pr-*-offline-cold-start.png`.
+All in `screenshots/`, one set per profile (`ios`, `android`):
 
-## Notes, not failures
-
-- In emulation, releasing a long press sends compatibility `mousedown` + `click` (the click is swallowed by the zone), and the `mousedown` moves focus from the first menu item back to `body`. Real iOS and Android don't send mouse events after a long press, so this needs a check on a real phone before calling it a bug.
-- The overlay's dashed zone outline and "GESTURE ZONE" label are drawn under the fixed app header when the zone scrolls beneath it. Cosmetic, debug only.
-
-## Re-test after fix (b463dd3fd) — PASS (iPhone)
-
-Stage Build ID `f6e35b025809c680` (label `36292337107-1`, the deploy run for this commit; was `3df34886e23d0df1`), `activated /sw.js`, update Idle, no waiting worker, so no update prompt to accept. Both `/status` and `/gestures` were hard reloaded. The served chunk `/assets/gestures-rIfBlecw.js` has the fix: ``pc=()=>window.matchMedia(`(prefers-reduced-motion: reduce)`).matches`` and `settle({…, instant: pc(), …})`.
-
-Fresh agent-browser session `grm-ios`, iPhone profile (390×844, touch, 5 points), script `/tmp/gestures-cdp/rm-retest.mjs`. Reduced motion was turned on with `Emulation.setEmulatedMedia` while the page was open, with no reload in between (`matchMedia` flipped to true on the same page).
-
-| Step                                    | Settle frames (distinct offsets)        | Ripple animations |
-| --------------------------------------- | --------------------------------------- | ----------------- |
-| Reduced motion off: swipe left          | 27 (−220, −221, −227, −236, …) → −358   | —                 |
-| Reduced motion off: tap / double tap    | —                                       | 1 / 0             |
-| Turned on live: swipe right, swipe left | 2 each (−138 → 0, −220 → −358), instant | —                 |
-| Turned on live: tap / double tap        | —                                       | 0 / 0             |
-| Turned off again: swipe right           | 26 → 0, springs again                   | —                 |
-
-Gestures were still recognized with reduced motion on (`pan ended`, `tap ended`, double tap toggled liked yes → no). A double tap never plays the ripple, even with reduced motion off, because only a single tap triggers it. The single tap is the check that matters, and it went from 1 animation to 0. The Pixel profile was not re-run.
-
-Screenshot: `screenshots/gestures-pr-reduced-motion-fixed.png` (reduced motion on, overlay shows `reduced motion`).
+| File                                         | Shows                                              |
+| -------------------------------------------- | -------------------------------------------------- |
+| `gestures-v3-<p>-load.png`                   | First paint                                        |
+| `gestures-v3-<p>-left-locked.png`            | Left Anchor, 30ms after the lock                   |
+| `gestures-v3-<p>-left-panning.png`           | Left Anchor, other finger panning (comet tail)     |
+| `gestures-v3-<p>-right-locked.png`           | Right Anchor, pins visible                         |
+| `gestures-v3-<p>-right-zooming.png`          | Mid-zoom, 1.5×                                     |
+| `gestures-v3-<p>-right-fit.png`              | Fit on the stage build (pin under the back arrow)  |
+| `gestures-v3-<p>-right-fit-fixed.png`        | Fit with `b94121a3e`, local build                  |
+| `gestures-v3-<p>-chip-near-top.png`          | Lock at the top of the zone, chip below the finger |
+| `gestures-v3-<p>-debug-anchored-panning.png` | Debug on, panel on `anchored.panning`              |
+| `gestures-v3-<p>-debug-idle.png`             | Debug on, idle, strips and native row labelled     |
+| `gestures-v3-<p>-reduced-locked.png`         | Reduced motion, lock still shown                   |
+| `gestures-v3-<p>-instructions.png`           | Help dialog                                        |
+| `gestures-v3-<p>-smoke-home.png`             | `/` with the normal header                         |
