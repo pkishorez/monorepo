@@ -70,7 +70,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
     path: '/gestures',
     title: 'Gesture Zone',
     summary:
-      'Taps, a sideways swipe and two-finger chords driving a field of dots.',
+      'Taps, a sideways swipe and a locked finger driving a grid of dots.',
     group: 'Gestures',
   },
 ];

@@ -1,34 +1,26 @@
+import { SimulatedClock } from 'xstate';
 import { describe, expect, it } from 'vitest';
-import {
-  GESTURE_KINDS,
-  recognizersFor,
-  type GestureEvent,
-  type GestureKind,
-} from '../recognizers';
-import { ANCHOR_DRIFT_PX, ANCHOR_MS } from '../recognizers/thresholds';
 import { createGestureEngine } from './engine';
-
-const WIDTH = 400;
+import { ANCHOR_DRIFT_PX, DOUBLE_TAP_GAP_MS } from './thresholds';
+import type { Axis, GestureEvent } from './types';
 
 /**
- * An engine driven the way the DOM binding drives it: before every input,
- * due ticks fire in order, so holds and timeouts resolve on time.
+ * An engine on a simulated clock, driven the way the DOM binding drives it:
+ * the clock is moved to each input's time first, so holds and double-tap
+ * waits resolve in order.
  */
-const setup = (kinds: ReadonlyArray<GestureKind> = GESTURE_KINDS) => {
+const setup = (axis: Axis = 'x') => {
+  const clock = new SimulatedClock();
   const events: Array<GestureEvent> = [];
   const engine = createGestureEngine({
-    recognizers: recognizersFor(kinds),
-    width: () => WIDTH,
+    axis,
     onGesture: (event) => events.push(event),
+    clock,
   });
+  // A millisecond at a time: the simulated clock starts a timer set while
+  // it fires others at the time it jumped to, not at the one it fired at.
   const advance = (t: number) => {
-    for (
-      let due = engine.nextDeadline();
-      due !== undefined && due <= t;
-      due = engine.nextDeadline()
-    ) {
-      engine.tick(due);
-    }
+    while (clock.now() < t) clock.increment(Math.min(1, t - clock.now()));
   };
   const input =
     (type: 'down' | 'move' | 'up' | 'cancel') =>
@@ -59,14 +51,35 @@ const setup = (kinds: ReadonlyArray<GestureKind> = GESTURE_KINDS) => {
       );
     }
   };
-  const names = () => events.map((event) => `${event.kind}:${event.phase}`);
-  const last = <K extends GestureKind>(kind: K) =>
+  const names = () =>
+    events.map((event) =>
+      'phase' in event ? `${event.kind}:${event.phase}` : event.kind,
+    );
+  // Without the pan's every move.
+  const outcomes = () => names().filter((name) => name !== 'pan:changed');
+  const last = <K extends GestureEvent['kind']>(kind: K) =>
     events.findLast(
       (event): event is Extract<GestureEvent, { kind: K }> =>
         event.kind === kind,
     );
-  const state = (kind: GestureKind) =>
-    engine.inspect().states.find((entry) => entry.kind === kind)?.state;
+  const roles = () => engine.inspect().fingers.map((finger) => finger.role);
+  /** `{ anchored: 'panning' }` as `anchored.panning`. */
+  const where = () => {
+    const value = engine.inspect().value;
+    return typeof value === 'string'
+      ? value
+      : Object.entries(value)
+          .map(([key, child]) => `${key}.${String(child)}`)
+          .join(' ');
+  };
+  /**
+   * Pointer 1 down at `anchorX`, pointer 2 landing beside it 50ms later: 1
+   * locks as the Anchor and 2 is the finger, pressed.
+   */
+  const lock = (anchorX = 100, actingX = 300, t = 0) => {
+    down(1, anchorX, 300, t);
+    down(2, actingX, 300, t + 50);
+  };
   return {
     engine,
     events,
@@ -77,135 +90,131 @@ const setup = (kinds: ReadonlyArray<GestureKind> = GESTURE_KINDS) => {
     cancel,
     drag,
     names,
+    outcomes,
     last,
-    state,
+    roles,
+    where,
+    lock,
   };
 };
 
 describe('tap', () => {
-  it('waits out a double tap, then recognizes', () => {
+  it('waits out a double tap, then taps with no Anchor', () => {
     const g = setup();
     g.down(1, 100, 100, 0);
     g.up(1, 102, 101, 80);
     expect(g.names()).toEqual([]);
-    expect(g.state('tap')).toBe('possible');
-    g.advance(380);
-    expect(g.names()).toEqual(['tap:ended']);
-    expect(g.last('tap')).toMatchObject({ x: 102, y: 101, duration: 80 });
+    g.advance(80 + DOUBLE_TAP_GAP_MS);
+    expect(g.names()).toEqual(['tap']);
+    expect(g.last('tap')).toEqual({
+      kind: 'tap',
+      x: 102,
+      y: 101,
+      anchor: undefined,
+    });
   });
 
-  it('fires on release when no double tap is registered', () => {
-    const g = setup(['tap']);
-    g.down(1, 100, 100, 0);
-    g.up(1, 100, 100, 50);
-    expect(g.names()).toEqual(['tap:ended']);
-  });
-
-  it('fails when the finger moves past the slop', () => {
+  it('is nothing when held too long, however long', () => {
     const g = setup();
     g.down(1, 100, 100, 0);
-    g.move(1, 100, 115, 40);
-    g.up(1, 100, 115, 80);
-    g.advance(1000);
-    expect(g.names()).toEqual([]);
-    expect(g.state('tap')).toBe('failed');
-  });
-
-  it('fails when held too long to be a tap', () => {
-    const g = setup(['tap', 'double-tap']);
-    g.down(1, 100, 100, 0);
-    g.up(1, 100, 100, 400);
-    g.advance(1000);
+    g.up(1, 100, 100, 350);
+    g.down(1, 100, 100, 1000);
+    g.advance(5000);
+    expect(g.roles()).toEqual(['pending']);
+    g.up(1, 100, 100, 5000);
+    g.advance(6000);
     expect(g.names()).toEqual([]);
   });
 });
 
 describe('double tap', () => {
-  it('recognizes two quick taps in one place, and the single tap fails', () => {
+  it('recognizes two quick taps in one place, with no single tap', () => {
     const g = setup();
     g.down(1, 100, 100, 0);
     g.up(1, 100, 100, 60);
     g.down(2, 104, 98, 180);
     g.up(2, 104, 98, 240);
     g.advance(2000);
-    expect(g.names()).toEqual(['double-tap:ended']);
-    expect(g.last('double-tap')).toMatchObject({ duration: 240 });
-    expect(g.state('tap')).toBe('failed');
+    expect(g.names()).toEqual(['double-tap']);
+    expect(g.last('double-tap')).toMatchObject({ x: 104, y: 98 });
   });
 
-  it('gives two taps when the second comes too late', () => {
+  it('gives two taps when the second comes too late or too far away', () => {
     const g = setup();
     g.down(1, 100, 100, 0);
     g.up(1, 100, 100, 60);
     g.down(2, 100, 100, 500);
     g.up(2, 100, 100, 560);
-    g.advance(2000);
-    expect(g.names()).toEqual(['tap:ended', 'tap:ended']);
-  });
-
-  it('gives two taps when the second lands too far away', () => {
-    const g = setup();
-    g.down(1, 100, 100, 0);
-    g.up(1, 100, 100, 60);
-    g.down(2, 250, 100, 150);
-    // The first tap is released as soon as the double tap fails.
-    expect(g.names()).toEqual(['tap:ended']);
-    g.up(2, 250, 100, 200);
-    g.advance(2000);
-    expect(g.names()).toEqual(['tap:ended', 'tap:ended']);
+    g.down(3, 100, 100, 1000);
+    g.up(3, 100, 100, 1060);
+    g.down(4, 250, 100, 1150);
+    // The third tap is released as soon as the fourth lands too far away.
+    expect(g.names()).toEqual(['tap', 'tap', 'tap']);
+    g.up(4, 250, 100, 1200);
+    g.advance(3000);
+    expect(g.names()).toEqual(['tap', 'tap', 'tap', 'tap']);
     expect(g.last('tap')).toMatchObject({ x: 250 });
   });
 });
 
-describe('pan', () => {
-  it('follows a sideways drag with progress, direction and velocity', () => {
+describe('swipe', () => {
+  it('follows a sideways drag along the axis only, and is Captured', () => {
     const g = setup();
     g.down(1, 50, 300, 0);
     g.drag(1, { x: 50, y: 300 }, { x: 170, y: 306 }, 0, 160);
+    expect(g.engine.captured()).toBe(true);
+    expect(g.roles()).toEqual(['acting']);
     g.up(1, 170, 306, 176);
-    const kinds = g.names();
-    expect(kinds[0]).toBe('pan:began');
-    expect(kinds.at(-1)).toBe('pan:ended');
-    expect(kinds.every((name) => name.startsWith('pan:'))).toBe(true);
+    const names = g.names();
+    expect(names[0]).toBe('pan:began');
+    expect(names.at(-1)).toBe('pan:ended');
+    expect(names.every((name) => name.startsWith('pan:'))).toBe(true);
     expect(g.last('pan')).toMatchObject({
-      direction: 'right',
       dx: 120,
-      distance: 120,
-      progress: 120 / WIDTH,
+      dy: 0,
+      velocityY: 0,
+      anchor: undefined,
     });
-    expect(g.last('pan')?.velocity).toBeGreaterThan(0.5);
-    expect(g.engine.inspect().claimed).toBe('pan');
+    expect(g.last('pan')?.velocityX).toBeGreaterThan(0.5);
+    expect(g.engine.captured()).toBe(false);
   });
 
-  it('reports leftward travel as negative', () => {
-    const g = setup();
-    g.down(1, 300, 300, 0);
-    g.drag(1, { x: 300, y: 300 }, { x: 200, y: 300 }, 0, 100);
-    g.up(1, 200, 300, 110);
-    expect(g.last('pan')).toMatchObject({ direction: 'left', dx: -100 });
-    expect(g.last('pan')?.velocity).toBeLessThan(0);
-  });
-
-  it('leaves a vertical drag alone, even if it turns sideways later', () => {
+  it('leaves a drag along the other axis to the browser, even if it turns later', () => {
     const g = setup();
     g.down(1, 100, 300, 0);
     g.move(1, 102, 320, 16);
+    expect(g.where()).toBe('native');
     g.move(1, 200, 330, 32);
+    expect(g.roles()).toEqual(['free']);
+    expect(g.engine.captured()).toBe(false);
     g.up(1, 200, 330, 48);
     g.advance(1000);
     expect(g.names()).toEqual([]);
-    expect(g.state('pan')).toBe('failed');
+    expect(g.where()).toBe('idle');
   });
 
-  it('ignores a second finger once going', () => {
+  it('follows the other axis when the zone pans on y', () => {
+    const g = setup('y');
+    g.down(1, 100, 300, 0);
+    g.drag(1, { x: 100, y: 300 }, { x: 104, y: 200 }, 0, 100);
+    g.up(1, 104, 200, 116);
+    expect(g.last('pan')).toMatchObject({ phase: 'ended', dx: 0, dy: -100 });
+    g.down(1, 100, 300, 1000);
+    g.move(1, 130, 302, 1016);
+    expect(g.where()).toBe('native');
+  });
+
+  it('keeps a second finger out of a pan under way', () => {
     const g = setup();
     g.down(1, 100, 300, 0);
     g.drag(1, { x: 100, y: 300 }, { x: 150, y: 300 }, 0, 48);
     g.down(2, 300, 300, 60);
     g.move(2, 340, 300, 80);
     g.drag(1, { x: 150, y: 300 }, { x: 200, y: 300 }, 80, 112);
-    g.up(2, 340, 300, 120);
+    expect(g.roles()).toEqual(['acting', 'free']);
     g.up(1, 200, 300, 130);
+    expect(g.engine.captured()).toBe(true);
+    g.up(2, 340, 300, 140);
     expect(new Set(g.events.map((event) => event.kind))).toEqual(
       new Set(['pan']),
     );
@@ -213,238 +222,264 @@ describe('pan', () => {
   });
 });
 
-describe('chord', () => {
-  /** The Anchor down at `anchor` at 0, the acting finger landing at `acting` at `t`. */
-  const land = (anchor: number, acting: number, t = ANCHOR_MS) => {
+describe('release velocity', () => {
+  it('is the flick when the finger lifts moving', () => {
     const g = setup();
-    g.down(1, anchor, 300, 0);
-    g.down(2, acting, 300, t);
-    return g;
-  };
-  const roles = (g: ReturnType<typeof setup>) =>
-    g.engine.inspect().fingers.map((finger) => finger.role);
+    g.down(1, 300, 300, 0);
+    g.drag(1, { x: 300, y: 300 }, { x: 200, y: 300 }, 0, 100);
+    g.up(1, 200, 300, 110);
+    expect(g.last('pan')?.velocityX).toBeLessThan(-0.5);
+  });
 
-  it('claims the moment the second finger lands, before either moves', () => {
-    const g = land(100, 250);
-    expect(g.names()).toEqual(['chord:began']);
-    expect(g.last('chord')).toMatchObject({
+  it('is 0 when the finger was held still before lifting', () => {
+    const g = setup();
+    g.down(1, 300, 300, 0);
+    g.drag(1, { x: 300, y: 300 }, { x: 200, y: 300 }, 0, 100);
+    g.up(1, 200, 300, 260);
+    expect(g.last('pan')).toMatchObject({
+      phase: 'ended',
+      velocityX: 0,
+      velocityY: 0,
+    });
+  });
+
+  it('is 0 for an acting pan held still, whether it or the Anchor lifts', () => {
+    const g = setup();
+    g.lock();
+    g.drag(2, { x: 300, y: 300 }, { x: 300, y: 200 }, 50, 150);
+    g.up(2, 300, 200, 310);
+    expect(g.last('pan')).toMatchObject({ velocityX: 0, velocityY: 0 });
+
+    g.down(2, 300, 300, 1000);
+    g.drag(2, { x: 300, y: 300 }, { x: 300, y: 200 }, 1000, 1100);
+    expect(g.last('pan')?.velocityY).toBeLessThan(-0.5);
+    g.up(1, 100, 300, 1300);
+    expect(g.last('pan')).toMatchObject({
+      phase: 'ended',
+      velocityX: 0,
+      velocityY: 0,
+    });
+  });
+
+  it("is the acting finger's own, not the Anchor's", () => {
+    const g = setup();
+    g.lock();
+    g.drag(2, { x: 300, y: 300 }, { x: 300, y: 200 }, 50, 150);
+    g.move(1, 110, 300, 250);
+    g.up(2, 300, 200, 270);
+    expect(g.last('pan')).toMatchObject({ velocityX: 0, velocityY: 0 });
+  });
+});
+
+describe('Anchor', () => {
+  it('locks the moment a second finger lands beside a still first, and is Captured', () => {
+    const g = setup();
+    g.down(1, 100, 300, 0);
+    g.move(1, 104, 303, 30);
+    expect(g.engine.captured()).toBe(false);
+    g.down(2, 300, 300, 40);
+    expect(g.names()).toEqual(['anchor:locked']);
+    expect(g.last('anchor')).toEqual({
+      kind: 'anchor',
+      phase: 'locked',
+      x: 104,
+      y: 303,
       side: 'left',
-      anchor: { x: 100, y: 300 },
-      x: 250,
-      axis: undefined,
-      dx: 0,
-      dy: 0,
-      velocity: 0,
-      duration: ANCHOR_MS,
     });
-    expect(g.engine.inspect().claimed).toBe('chord');
+    expect(g.roles()).toEqual(['anchor', 'pending']);
     expect(g.engine.captured()).toBe(true);
-    expect(roles(g)).toEqual(['anchor', 'acting']);
+    expect(g.where()).toBe('anchored.pressing');
+    expect(g.engine.inspect().anchor).toEqual({ side: 'left', x: 104, y: 303 });
   });
 
-  it('is nothing when the second finger lands sooner: no claim, no capture', () => {
-    const g = land(100, 250, ANCHOR_MS - 1);
-    g.drag(2, { x: 250, y: 300 }, { x: 250, y: 200 }, ANCHOR_MS, 300);
-    g.up(2, 250, 200, 310);
-    g.up(1, 100, 300, 320);
-    g.advance(2000);
-    expect(g.names()).toEqual([]);
-    expect(g.engine.inspect().claimed).toBeUndefined();
-    expect(g.engine.captured()).toBe(false);
+  it('is left or right of the finger landing beside it, wherever in the zone', () => {
+    const left = setup();
+    left.lock(300, 350);
+    expect(left.last('anchor')?.side).toBe('left');
+    const right = setup();
+    right.lock(100, 50);
+    expect(right.last('anchor')?.side).toBe('right');
   });
 
-  it('is nothing when the first finger moved before the second landed', () => {
+  it('keeps its side for the whole lock, wherever the finger goes', () => {
     const g = setup();
-    g.down(1, 100, 300, 0);
-    g.move(1, 100, 314, 100);
-    g.down(2, 250, 300, 200);
-    expect(g.names()).toEqual([]);
-    expect(g.state('chord')).toBe('failed');
+    g.lock(100, 300);
+    g.drag(2, { x: 300, y: 300 }, { x: 20, y: 300 }, 50, 200);
+    expect(g.last('pan')?.anchor?.side).toBe('left');
   });
 
-  it('tells which side the Anchor is on', () => {
-    expect(land(100, 250).last('chord')?.side).toBe('left');
-    expect(land(300, 150).last('chord')?.side).toBe('right');
+  it('is not made when the first finger already moved', () => {
+    const swipe = setup();
+    swipe.down(1, 100, 300, 0);
+    swipe.drag(1, { x: 100, y: 300 }, { x: 150, y: 300 }, 0, 48);
+    swipe.down(2, 300, 300, 60);
+    expect(swipe.names()).not.toContain('anchor:locked');
+    expect(swipe.roles()).toEqual(['acting', 'free']);
+    const scroll = setup();
+    scroll.down(1, 100, 300, 0);
+    scroll.move(1, 100, 330, 16);
+    scroll.down(2, 300, 300, 40);
+    expect(scroll.names()).toEqual([]);
+    expect(scroll.engine.captured()).toBe(false);
   });
 
-  it('locks the axis by the first movement past the slop', () => {
-    const g = land(100, 250);
-    g.move(2, 252, 294, 170);
-    expect(g.last('chord')).toMatchObject({
-      phase: 'changed',
-      axis: undefined,
-    });
-    g.drag(2, { x: 252, y: 294 }, { x: 256, y: 220 }, 170, 250);
-    expect(g.last('chord')).toMatchObject({ axis: 'vertical', dy: -80 });
-    expect(g.last('chord')?.velocity).toBeLessThan(-0.5);
-    // Turning sideways later keeps it vertical.
-    g.drag(2, { x: 256, y: 220 }, { x: 380, y: 216 }, 250, 330);
-    expect(g.last('chord')).toMatchObject({ axis: 'vertical', dx: 130 });
-    g.up(2, 380, 216, 340);
-    expect(g.last('chord')?.phase).toBe('ended');
-  });
-
-  it('locks sideways, with velocity along x', () => {
-    const g = land(100, 250);
-    g.drag(2, { x: 250, y: 300 }, { x: 150, y: 304 }, ANCHOR_MS, 230);
-    expect(g.last('chord')).toMatchObject({ axis: 'horizontal', dx: -100 });
-    expect(g.last('chord')?.velocity).toBeLessThan(-0.5);
-  });
-
-  it('ends when the Anchor lifts, and holds the capture until every finger is up', () => {
-    const g = land(100, 250);
-    g.drag(2, { x: 250, y: 300 }, { x: 250, y: 250 }, ANCHOR_MS, 200);
-    g.up(1, 100, 300, 210);
-    expect(g.names().at(-1)).toBe('chord:ended');
-    expect(g.last('chord')).toMatchObject({ x: 250, y: 250 });
-    expect(roles(g)).toEqual(['free']);
-    expect(g.engine.captured()).toBe(true);
-    g.up(2, 250, 250, 220);
-    expect(g.engine.captured()).toBe(false);
-  });
-
-  it('cancels when the Anchor drifts too far', () => {
-    const g = land(100, 250);
-    g.move(1, 100, 300 + ANCHOR_DRIFT_PX, 170);
-    expect(g.names()).toEqual(['chord:began']);
-    g.move(1, 100, 301 + ANCHOR_DRIFT_PX, 180);
-    expect(g.names()).toEqual(['chord:began', 'chord:cancelled']);
-  });
-});
-
-describe('arbitration', () => {
-  it('shows every recognizer settled after a claim, and who claimed', () => {
+  it('modifies every tap, double tap and pan until it lifts', () => {
     const g = setup();
-    g.down(1, 50, 300, 0);
-    g.drag(1, { x: 50, y: 300 }, { x: 120, y: 300 }, 0, 64);
-    const inspection = g.engine.inspect();
-    expect(inspection.claimed).toBe('pan');
-    expect(
-      Object.fromEntries(
-        inspection.states.map((entry) => [entry.kind, entry.state]),
-      ),
-    ).toEqual({
-      chord: 'failed',
-      pan: 'changed',
-      'double-tap': 'failed',
-      tap: 'failed',
-    });
-  });
-
-  it('marks fingers pending until the touch is decided, then acting or free', () => {
-    const g = setup();
-    g.down(1, 50, 300, 0);
-    expect(g.engine.inspect().fingers[0]?.role).toBe('pending');
-    g.drag(1, { x: 50, y: 300 }, { x: 120, y: 300 }, 0, 64);
-    expect(g.engine.inspect().fingers[0]?.role).toBe('acting');
-    g.down(2, 300, 300, 80);
-    expect(g.engine.inspect().fingers.map((f) => f.role)).toEqual([
-      'acting',
-      'free',
+    g.lock();
+    const anchor = { side: 'left', x: 100, y: 300 };
+    // Tap.
+    g.up(2, 300, 300, 100);
+    g.advance(500);
+    // Double tap.
+    g.down(2, 300, 300, 1000);
+    g.up(2, 300, 300, 1050);
+    g.down(2, 302, 300, 1150);
+    g.up(2, 302, 300, 1200);
+    // Pan, up and down first.
+    g.down(2, 300, 300, 1500);
+    g.drag(2, { x: 300, y: 300 }, { x: 280, y: 200 }, 1500, 1600);
+    g.up(2, 280, 200, 1616);
+    // Another tap after the pan.
+    g.down(2, 250, 250, 2000);
+    g.up(2, 250, 250, 2040);
+    g.advance(2500);
+    expect(g.outcomes()).toEqual([
+      'anchor:locked',
+      'tap',
+      'double-tap',
+      'pan:began',
+      'pan:ended',
+      'tap',
     ]);
-  });
-
-  it('captures only a claimed touch', () => {
-    const g = setup();
-    g.down(1, 100, 300, 0);
-    g.move(1, 100, 320, 16);
-    expect(g.engine.captured()).toBe(false);
-    g.up(1, 100, 320, 32);
-    g.down(1, 50, 300, 1000);
-    g.drag(1, { x: 50, y: 300 }, { x: 120, y: 300 }, 1000, 1064);
+    for (const event of g.events) {
+      if (event.kind !== 'anchor') expect(event.anchor).toEqual(anchor);
+    }
+    expect(g.roles()).toEqual(['anchor']);
     expect(g.engine.captured()).toBe(true);
+    expect(g.where()).toBe('anchored.idle');
   });
 
-  it('starts every recognizer over on the next touch', () => {
+  it('pans the other finger freely in 2D', () => {
     const g = setup();
-    g.down(1, 50, 300, 0);
-    g.drag(1, { x: 50, y: 300 }, { x: 120, y: 300 }, 0, 64);
-    g.up(1, 120, 300, 80);
-    g.down(1, 50, 300, 1000);
-    expect(g.engine.inspect().states.every((s) => s.state === 'possible')).toBe(
-      true,
-    );
-    expect(g.engine.inspect().claimed).toBeUndefined();
+    g.lock();
+    g.drag(2, { x: 300, y: 300 }, { x: 304, y: 200 }, 50, 130);
+    expect(g.roles()).toEqual(['anchor', 'acting']);
+    g.drag(2, { x: 304, y: 200 }, { x: 360, y: 150 }, 130, 210);
+    expect(g.last('pan')).toMatchObject({ dx: 60, dy: -150 });
+    expect(g.where()).toBe('anchored.panning');
   });
 
-  it('asks for a tick only while something waits on time', () => {
+  it('releases when it lifts, ending a pan under way first', () => {
     const g = setup();
-    expect(g.engine.nextDeadline()).toBeUndefined();
-    g.down(1, 100, 100, 0);
-    expect(g.engine.nextDeadline()).toBe(300);
-    g.up(1, 100, 100, 50);
-    expect(g.engine.nextDeadline()).toBe(350);
-    g.advance(350);
-    expect(g.engine.nextDeadline()).toBeUndefined();
-  });
-});
-
-describe('a third pointer', () => {
-  it('cancels a gesture under way and ignores the rest of the touch', () => {
-    const g = setup();
-    g.down(1, 100, 300, 0);
-    g.down(2, 200, 300, 200);
-    g.drag(2, { x: 200, y: 300 }, { x: 200, y: 240 }, 200, 264);
-    expect(g.names().at(-1)).toBe('chord:changed');
-    g.down(3, 300, 400, 280);
-    expect(g.names().at(-1)).toBe('chord:cancelled');
+    g.lock();
+    g.drag(2, { x: 300, y: 300 }, { x: 300, y: 200 }, 50, 150);
+    g.up(1, 100, 300, 160);
+    expect(g.outcomes().slice(-2)).toEqual(['pan:ended', 'anchor:released']);
+    expect(g.last('pan')?.anchor).toEqual({ side: 'left', x: 100, y: 300 });
+    // The other finger is still down: Captured, part of nothing.
+    expect(g.roles()).toEqual(['free']);
+    expect(g.engine.captured()).toBe(true);
     const before = g.events.length;
-    g.move(2, 200, 200, 290);
-    g.up(3, 300, 400, 300);
-    g.up(2, 200, 200, 310);
-    g.up(1, 100, 300, 320);
+    g.move(2, 300, 150, 170);
+    g.up(2, 300, 150, 180);
+    expect(g.events.length).toBe(before);
+    expect(g.engine.captured()).toBe(false);
+    expect(g.where()).toBe('idle');
+  });
+
+  it('releases a tap still waiting on a double tap before it goes', () => {
+    const g = setup();
+    g.lock();
+    g.up(2, 300, 300, 90);
+    g.up(1, 100, 300, 150);
+    expect(g.outcomes()).toEqual(['anchor:locked', 'tap', 'anchor:released']);
+  });
+
+  it('cancels when it drifts, and ignores the rest of the touch', () => {
+    const g = setup();
+    g.lock();
+    g.drag(2, { x: 300, y: 300 }, { x: 300, y: 250 }, 50, 98);
+    g.move(1, 100, 300 + ANCHOR_DRIFT_PX, 110);
+    expect(g.last('anchor')?.phase).toBe('locked');
+    g.move(1, 100, 301 + ANCHOR_DRIFT_PX, 120);
+    expect(g.outcomes().slice(-2)).toEqual([
+      'pan:cancelled',
+      'anchor:cancelled',
+    ]);
+    expect(g.engine.captured()).toBe(true);
+    const before = g.events.length;
+    g.drag(2, { x: 300, y: 250 }, { x: 200, y: 250 }, 120, 170);
+    g.up(2, 200, 250, 180);
+    g.up(1, 100, 325, 190);
     g.advance(2000);
     expect(g.events.length).toBe(before);
-    expect(g.engine.inspect().ignoring).toBe(true);
   });
 
-  it('fails everything still deciding, and the next touch works again', () => {
+  it('leaves a finger held still beside it undecided, and nothing', () => {
     const g = setup();
-    g.down(1, 100, 300, 0);
-    g.down(2, 150, 300, 10);
-    g.down(3, 200, 300, 20);
-    g.up(1, 100, 300, 60);
-    g.up(2, 150, 300, 70);
-    g.up(3, 200, 300, 80);
+    g.lock();
+    g.advance(1500);
+    expect(g.roles()).toEqual(['anchor', 'pending']);
+    g.up(2, 300, 300, 1600);
+    g.advance(2500);
+    expect(g.outcomes()).toEqual(['anchor:locked']);
+  });
+
+  it('a third finger cancels it and the pan under way', () => {
+    const g = setup();
+    g.lock();
+    g.drag(2, { x: 300, y: 300 }, { x: 300, y: 240 }, 50, 114);
+    g.down(3, 250, 400, 130);
+    expect(g.outcomes().slice(-2)).toEqual([
+      'pan:cancelled',
+      'anchor:cancelled',
+    ]);
+    const before = g.events.length;
+    g.move(2, 300, 200, 140);
+    g.up(3, 250, 400, 150);
+    g.up(2, 300, 200, 160);
+    g.up(1, 100, 300, 170);
     g.advance(2000);
-    expect(g.names()).toEqual([]);
-    g.down(1, 100, 300, 3000);
-    g.up(1, 100, 300, 3050);
-    g.advance(4000);
-    expect(g.names()).toEqual(['tap:ended']);
+    expect(g.events.length).toBe(before);
+    expect(g.where()).toBe('idle');
   });
 });
 
 describe('pointercancel', () => {
-  it('cancels a claimed gesture', () => {
+  it('cancels a pan under way', () => {
     const g = setup();
     g.down(1, 50, 300, 0);
     g.drag(1, { x: 50, y: 300 }, { x: 120, y: 300 }, 0, 64);
     g.cancel(1, 120, 300, 80);
     expect(g.names().at(-1)).toBe('pan:cancelled');
     expect(g.last('pan')).toMatchObject({ dx: 70 });
-    expect(g.state('pan')).toBe('cancelled');
-  });
-
-  it('fails everything when the browser takes a vertical scroll', () => {
-    const g = setup();
-    g.down(1, 100, 300, 0);
-    g.move(1, 100, 306, 16);
-    g.cancel(1, 100, 306, 20);
-    g.advance(2000);
-    expect(g.names()).toEqual([]);
-    expect(g.engine.inspect().states.every((s) => s.state === 'failed')).toBe(
-      true,
-    );
   });
 
   it('cancelAll acts like the platform taking every pointer', () => {
     const g = setup();
-    g.down(1, 50, 300, 0);
-    g.drag(1, { x: 50, y: 300 }, { x: 120, y: 300 }, 0, 64);
+    g.lock();
+    g.drag(2, { x: 300, y: 300 }, { x: 250, y: 300 }, 50, 114);
     g.engine.cancelAll();
-    expect(g.names().at(-1)).toBe('pan:cancelled');
+    expect(g.outcomes().slice(-2)).toEqual([
+      'pan:cancelled',
+      'anchor:cancelled',
+    ]);
     expect(g.engine.inspect().fingers).toEqual([]);
     expect(g.engine.captured()).toBe(false);
+  });
+});
+
+describe('inspect', () => {
+  it('reports the last tap with a count, for layers to answer once', () => {
+    const g = setup();
+    g.down(1, 100, 100, 0);
+    g.up(1, 100, 100, 50);
+    g.advance(1000);
+    expect(g.engine.inspect().tap).toEqual({
+      kind: 'tap',
+      x: 100,
+      y: 100,
+      count: 1,
+    });
   });
 });

@@ -1,20 +1,29 @@
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import type { Environment } from '../environment';
 import { CanvasLayer, type ZoneSource } from '../layer';
 import { edgeStrips } from '../zone';
 import { createDebugPainter } from './paint';
+
+// The visualizer and its layout engine load only when the overlay is shown.
+const MachinePanel = lazy(() =>
+  import('./machine-panel').then((module) => ({
+    default: module.MachinePanel,
+  })),
+);
 
 // Inside the zone's bottom-left corner, clear of the edge.
 const INSET_PX = 6;
 
 /**
  * The zone and its edge strips labelled with who owns them, native
- * scrollers shaded, each finger's pointer id, and the Environment in one
- * line in the zone's corner. Repaints only when something changes.
+ * scrollers shaded, each finger's pointer id, the Environment in one line in
+ * the zone's corner, and the live gestures machine placed by
+ * `machineClassName`. Repaints only when something changes.
  */
 export function DebugOverlay(props: {
   readonly source: ZoneSource;
   readonly environment: Environment;
+  readonly machineClassName?: string;
 }) {
   const lineRef = useRef<HTMLParagraphElement>(null);
   const [paint] = useState(() =>
@@ -45,6 +54,12 @@ export function DebugOverlay(props: {
         {environment.reducedMotion ? ' · reduced motion' : ''} · edges{' '}
         {strips.left.owner} {strips.left.width}px
       </p>
+      <Suspense>
+        <MachinePanel
+          source={props.source}
+          className={props.machineClassName ?? 'inset-x-2 top-2 h-40'}
+        />
+      </Suspense>
     </CanvasLayer>
   );
 }

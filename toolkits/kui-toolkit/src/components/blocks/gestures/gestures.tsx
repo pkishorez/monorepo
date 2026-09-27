@@ -14,28 +14,23 @@ import {
 import { createPortal } from 'react-dom';
 import { cn } from '#lib/utils';
 import { DebugOverlay } from './debug-overlay';
-import { createGestureEngine, type GestureEngine } from './engine';
+import {
+  createGestureEngine,
+  type Anchor,
+  type Axis,
+  type GestureEngine,
+  type GestureEvent,
+} from './engine';
 import {
   createEnvironmentStore,
   serverEnvironment,
   type Environment,
 } from './environment';
-import {
-  GESTURE_KINDS,
-  recognizersFor,
-  type GestureEvent,
-  type GestureKind,
-} from './recognizers';
 import { FingerLayer } from './fingers';
 import type { ZoneSource } from './layer';
-import {
-  bindZone,
-  measureZone,
-  nativeScrollers,
-  swallowNextClick,
-} from './zone';
+import { bindZone, measureZone, nativeScrollers } from './zone';
 
-export type { Environment, GestureEvent };
+export type { Anchor, Axis, Environment, GestureEvent };
 export { ANDROID_EDGE_STRIP_PX, EDGE_STRIP_PX } from './zone';
 
 let environmentStore: ReturnType<typeof createEnvironmentStore> | undefined;
@@ -62,34 +57,39 @@ const notify = (hub: Hub) => {
   for (const listener of hub.listeners) listener();
 };
 
-// Lifting a finger after one of these must not also click what is under it.
-const CLAIMS_CLICK: ReadonlySet<GestureKind> = new Set(['pan', 'chord']);
-
 const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
   if (typeof ref === 'function') ref(value);
   else if (ref !== null && ref !== undefined) ref.current = value;
 };
 
+// The axis a swipe follows is the one the browser must not scroll.
+const TOUCH_ACTION: Record<Axis, string> = {
+  x: 'touch-pan-y overscroll-x-none',
+  y: 'touch-pan-x overscroll-y-none',
+};
+
 /**
  * A region where the app owns touch input: the element minus the edge
- * strips the browser or OS swipes from. Vertical scrolling stays native
- * (`touch-action: pan-y`) until a recognizer claims the touch; then it is
- * Captured and the page holds still until every finger lifts. Touches that
- * start in a native sideways scroller inside are left to it. Everything else
- * is recognized and handed to `onGesture`, one call per phase. Long-press
- * callouts and text selection are off inside, so holds work. `recognizers`
- * picks the gestures, all of them by default. Frames never re-render React:
- * `onGesture` should write styles directly for anything that follows a
- * finger.
+ * strips the browser or OS swipes from. Every gesture is a tap, a double tap
+ * or a pan, handed to `onGesture` one call per phase. One finger swipes
+ * along `axis` (sideways by default) while the other axis scrolls natively.
+ * A second finger landing while the first is still makes the first the
+ * Anchor: locked at once, it modifies every gesture of the other finger,
+ * which pans freely, until it lifts. Once a swipe starts or an Anchor locks
+ * the touch is Captured and the page holds still until every finger lifts.
+ * Touches that start in a native sideways scroller inside are left to it.
+ * Long-press callouts and text selection are off inside, so holds work.
+ * Frames never re-render React: `onGesture` should write styles directly for
+ * anything that follows a finger.
  */
 export function GestureZone({
-  recognizers = GESTURE_KINDS,
+  axis = 'x',
   onGesture,
   className,
   ref,
   ...props
 }: ComponentProps<'div'> & {
-  readonly recognizers?: ReadonlyArray<GestureKind>;
+  readonly axis?: Axis;
   readonly onGesture?: (event: GestureEvent) => void;
 }) {
   const environment = useEnvironment();
@@ -100,7 +100,6 @@ export function GestureZone({
     listeners: new Set(),
   }));
   const handler = useRef(onGesture);
-  const kinds = recognizers.join(' ');
 
   useEffect(() => {
     hub.environment = environment;
@@ -110,19 +109,9 @@ export function GestureZone({
   useEffect(() => {
     const element = hub.element;
     if (element === null) return;
-    const win = element.ownerDocument.defaultView ?? window;
     const engine = createGestureEngine({
-      recognizers: recognizersFor(kinds.split(' ') as Array<GestureKind>),
-      width: () => {
-        const { rect } = measureZone(element, hub.environment);
-        return rect.right - rect.left;
-      },
-      onGesture: (event) => {
-        if (event.phase === 'ended' && CLAIMS_CLICK.has(event.kind)) {
-          swallowNextClick(win);
-        }
-        handler.current?.(event);
-      },
+      axis,
+      onGesture: (event) => handler.current?.(event),
     });
     const stopNotifying = engine.subscribe(() => notify(hub));
     hub.engine = engine;
@@ -131,9 +120,10 @@ export function GestureZone({
     return () => {
       unbind();
       stopNotifying();
+      engine.stop();
       hub.engine = undefined;
     };
-  }, [hub, kinds]);
+  }, [hub, axis]);
 
   const setElement = useCallback(
     (node: HTMLDivElement | null) => {
@@ -149,7 +139,8 @@ export function GestureZone({
         ref={setElement}
         data-slot="gesture-zone"
         className={cn(
-          'touch-pan-y overscroll-x-none select-none [-webkit-touch-callout:none]',
+          TOUCH_ACTION[axis],
+          'select-none [-webkit-touch-callout:none]',
           className,
         )}
         {...props}
@@ -196,11 +187,12 @@ const useZoneSource = (component: string): ZoneSource | undefined => {
 
 /**
  * Shows every finger in the enclosing Gesture Zone by what it is doing: a
- * soft ring while undecided or free, the Anchor of a Chord locked with the
- * zone dimmed around it, and a comet tail behind the acting finger. Paints
- * only while fingers are down or fading, and takes no input. Render it
- * anywhere inside a `GestureZone`; it works with or without the debug
- * overlay.
+ * soft ring while undecided, with a bubble growing inside while it rests;
+ * the Anchor popping as it locks, then glowing with the zone dimmed around
+ * it and a "Left finger locked" chip; a comet tail behind a panning finger;
+ * a burst for each tap. Paints only while fingers are down or fading, and
+ * takes no input. Render it anywhere inside a `GestureZone`; it works with
+ * or without the debug overlay.
  */
 export function GestureFingers() {
   const source = useZoneSource('GestureFingers');
@@ -211,16 +203,24 @@ export function GestureFingers() {
 /**
  * Shows what the enclosing Gesture Zone sees: the zone and its edge strips
  * labelled with who owns them, native scrollers inside it, every finger's
- * pointer id, and the Environment in one line. It never takes input and
- * paints only while something changes. Render it anywhere inside a
- * `GestureZone`.
+ * pointer id, the Environment in one line, and the gestures state machine
+ * with its current state lit. `machineClassName` places the machine
+ * (`position: fixed`; a strip along the top by default): put it where it
+ * covers no part of the zone. It never takes input. Render it anywhere
+ * inside a `GestureZone`.
  */
-export function GestureDebugOverlay() {
+export function GestureDebugOverlay(props: {
+  readonly machineClassName?: string;
+}) {
   const source = useZoneSource('GestureDebugOverlay');
   const environment = useEnvironment();
   if (source === undefined) return null;
   return createPortal(
-    <DebugOverlay source={source} environment={environment} />,
+    <DebugOverlay
+      source={source}
+      environment={environment}
+      machineClassName={props.machineClassName}
+    />,
     document.body,
   );
 }

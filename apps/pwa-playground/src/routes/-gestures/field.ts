@@ -1,114 +1,92 @@
 /** A point in the Field, in its CSS pixels. */
 export type Point = { readonly x: number; readonly y: number };
 
-/** What the Field shows. Gestures write it; every frame reads it. */
+/**
+ * What the Field shows. Gestures write it; every frame reads it. The grid
+ * lives in world units, one dot every {@link SPACING}; the view places it:
+ * a Field point is `world × scale + offset`.
+ */
 export type FieldState = {
-  /** Sideways offset of the dots, px; they wrap. */
-  flow: number;
-  /** How far the dots lean toward `pullAt`, 0 to 1. */
-  pull: number;
-  pullAt: Point;
-  /** Swirl around `spinAt`, in radians at its centre. */
-  spin: number;
-  spinAt: Point;
-  /** Dot size, 0 to 1. */
-  size: number;
-  /** Palette offset, in palette colours; wraps. */
-  hue: number;
-  /** The Anchor of the Chord in progress, mapped onto the Field. */
-  anchor: Point | undefined;
+  view: { x: number; y: number; scale: number };
+  /** Pins dropped on the grid, in world units. */
+  pins: Array<Point>;
+  /** The locked Anchor, mapped onto the Field. */
+  anchor: { readonly at: Point; readonly side: 'left' | 'right' } | undefined;
 };
 
-const SPACING = 28;
-const PALETTE = ['--chart-6', '--chart-8', '--chart-9', '--chart-7'];
-const PULL_REACH = 220;
-const SPIN_REACH = 150;
-const RIPPLE_MS = 520;
-const BLOOM_MS = 720;
-const BLOOM_REACH = 70;
-// Share of the way a moved focus point travels each frame.
-const FOCUS_EASE = 0.2;
+export const SPACING = 28;
+const DOT_RADIUS = 2.2;
+const PIN_RADIUS = 5;
+const LIT_MS = 1200;
+const LIT_REACH = 3;
 
 type Rgb = readonly [number, number, number];
-type Effect = {
-  readonly kind: 'ripple' | 'bloom';
-  readonly at: Point;
-  readonly start: number;
-};
+type Lit = { readonly at: Point; readonly start: number };
 
 // Canvas takes neither var() nor alpha on a token, so each token is painted
 // into one pixel once and read back as sRGB.
-const readPalette = (element: HTMLElement): ReadonlyArray<Rgb> => {
+const readColors = <K extends string>(
+  element: HTMLElement,
+  tokens: Record<K, string>,
+): Record<K, Rgb> => {
   const probe = document.createElement('canvas');
   probe.width = 1;
   probe.height = 1;
   const ctx = probe.getContext('2d', { willReadFrequently: true });
   const style = getComputedStyle(element);
-  return PALETTE.map((name) => {
-    if (ctx === null) return [255, 255, 255];
+  const out = {} as Record<K, Rgb>;
+  for (const key of Object.keys(tokens) as Array<K>) {
+    if (ctx === null) {
+      out[key] = [255, 255, 255];
+      continue;
+    }
     ctx.clearRect(0, 0, 1, 1);
-    ctx.fillStyle = style.getPropertyValue(name).trim();
+    ctx.fillStyle = style.getPropertyValue(tokens[key]).trim();
     ctx.fillRect(0, 0, 1, 1);
     const [r = 0, g = 0, b = 0] = ctx.getImageData(0, 0, 1, 1).data;
-    return [r, g, b];
-  });
+    out[key] = [r, g, b];
+  }
+  return out;
 };
 
 const rgba = ([r, g, b]: Rgb, alpha: number) =>
   `rgba(${r}, ${g}, ${b}, ${alpha})`;
 
-/** The palette colour at `position`, blending between neighbours; wraps. */
-const colorAt = (palette: ReadonlyArray<Rgb>, position: number): Rgb => {
-  const n = palette.length;
-  const wrapped = ((position % n) + n) % n;
-  const index = Math.floor(wrapped);
-  const k = wrapped - index;
-  const a = palette[index];
-  const b = palette[(index + 1) % n];
-  return [
-    a[0] + (b[0] - a[0]) * k,
-    a[1] + (b[1] - a[1]) * k,
-    a[2] + (b[2] - a[2]) * k,
-  ];
-};
+/** The Field point a world point is drawn at. */
+export const toScreen = (state: FieldState, world: Point): Point => ({
+  x: world.x * state.view.scale + state.view.x,
+  y: world.y * state.view.scale + state.view.y,
+});
 
-/** Moves `current` part of the way to `target`; whether it still has to go. */
-const ease = (current: { x: number; y: number }, target: Point) => {
-  current.x += (target.x - current.x) * FOCUS_EASE;
-  current.y += (target.y - current.y) * FOCUS_EASE;
-  if (Math.hypot(target.x - current.x, target.y - current.y) > 0.5) {
-    return true;
-  }
-  current.x = target.x;
-  current.y = target.y;
-  return false;
-};
+/** The world point under a Field point. */
+export const toWorld = (state: FieldState, at: Point): Point => ({
+  x: (at.x - state.view.x) / state.view.scale,
+  y: (at.y - state.view.y) / state.view.scale,
+});
 
 /**
- * The Field: a grid of softly glowing dots on a canvas, painted one frame
- * at a time and only while something moves. Gestures write `state` and call
- * `invalidate`; `ripple` and `bloom` play at a point unless motion is
- * reduced. Colours are kui chart tokens read from the canvas's element.
+ * The Field: a grid of dots on a canvas, painted one frame at a time and
+ * only while something changes. Gestures write `state` and call
+ * `invalidate`; `light` makes the dot nearest a point glow and fade, or
+ * just glow for a while when motion is reduced. Colours are kui tokens read
+ * from the canvas's element.
  */
 export const createField = (
   canvas: HTMLCanvasElement,
   reducedMotion: () => boolean,
 ) => {
   const state: FieldState = {
-    flow: 0,
-    pull: 0,
-    pullAt: { x: 0, y: 0 },
-    spin: 0,
-    spinAt: { x: 0, y: 0 },
-    size: 0.3,
-    hue: 0,
+    view: { x: 0, y: 0, scale: 1 },
+    pins: [],
     anchor: undefined,
   };
-  // Where the dots are drawn leaning and swirling toward, easing after
-  // `pullAt` and `spinAt` so a new focus glides rather than jumps.
-  const focus = { pull: { x: 0, y: 0 }, spin: { x: 0, y: 0 } };
-  const effects: Array<Effect> = [];
-  const palette = readPalette(canvas);
+  const lit: Array<Lit> = [];
+  const colors = readColors(canvas, {
+    dot: '--muted-foreground',
+    lit: '--chart-9',
+    pin: '--chart-7',
+    anchor: '--chart-8',
+  });
   let frame = 0;
 
   const draw = () => {
@@ -125,106 +103,110 @@ export const createField = (
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
     const now = performance.now();
-    let moving = ease(focus.pull, state.pullAt);
-    moving = ease(focus.spin, state.spinAt) || moving;
-    while (effects.length > 0) {
-      const first = effects[0];
-      const life = first.kind === 'ripple' ? RIPPLE_MS : BLOOM_MS;
-      if (now - first.start < life) break;
-      effects.shift();
-    }
-    const blooms = effects.filter((effect) => effect.kind === 'bloom');
+    while (lit.length > 0 && now - lit[0].start >= LIT_MS) lit.shift();
 
-    ctx.globalCompositeOperation = 'lighter';
-    const radius = 1 + state.size * 3.5;
-    const shift = ((state.flow % SPACING) + SPACING) % SPACING;
-    const columns = Math.ceil(width / SPACING) + 2;
-    const rows = Math.ceil(height / SPACING) + 1;
-    for (let row = 0; row < rows; row++) {
-      for (let column = -1; column < columns; column++) {
-        let x = column * SPACING + shift + SPACING / 2;
-        let y = row * SPACING + SPACING / 2;
-        // The dot's place in the flowing grid, so its colour flows with it.
-        const home = column - Math.floor(state.flow / SPACING);
-        const tint = colorAt(
-          palette,
-          ((home * SPACING) / width) * 2 + state.hue,
-        );
-
-        const pd = Math.hypot(focus.pull.x - x, focus.pull.y - y);
-        const lean = state.pull * 0.5 * Math.exp(-pd / PULL_REACH);
-        x += (focus.pull.x - x) * lean;
-        y += (focus.pull.y - y) * lean;
-
-        const sd = Math.hypot(x - focus.spin.x, y - focus.spin.y);
-        const angle = state.spin * Math.exp(-sd / SPIN_REACH);
-        if (angle !== 0) {
-          const dx = x - focus.spin.x;
-          const dy = y - focus.spin.y;
-          x = focus.spin.x + dx * Math.cos(angle) - dy * Math.sin(angle);
-          y = focus.spin.y + dx * Math.sin(angle) + dy * Math.cos(angle);
-        }
-
-        let swell = 1;
-        for (const bloom of blooms) {
-          const t = (now - bloom.start) / BLOOM_MS;
-          const reach = Math.exp(
-            -Math.hypot(x - bloom.at.x, y - bloom.at.y) / BLOOM_REACH,
-          );
-          swell += 1.6 * reach * Math.min(1, t * 6) * (1 - t) ** 2;
-        }
-        const r = radius * swell;
-        ctx.fillStyle = rgba(tint, 0.16);
-        ctx.beginPath();
-        ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = rgba(tint, 0.85);
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.fill();
+    const { scale } = state.view;
+    const step = SPACING * scale;
+    const radius = DOT_RADIUS * scale;
+    const first = toWorld(state, { x: 0, y: 0 });
+    const last = toWorld(state, { x: width, y: height });
+    ctx.fillStyle = rgba(colors.dot, 0.55);
+    ctx.beginPath();
+    for (
+      let i = Math.floor(first.x / SPACING);
+      i <= Math.ceil(last.x / SPACING);
+      i++
+    ) {
+      for (
+        let j = Math.floor(first.y / SPACING);
+        j <= Math.ceil(last.y / SPACING);
+        j++
+      ) {
+        const at = toScreen(state, { x: i * SPACING, y: j * SPACING });
+        ctx.moveTo(at.x + radius, at.y);
+        ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
       }
     }
+    ctx.fill();
 
-    for (const effect of effects) {
-      if (effect.kind !== 'ripple') continue;
-      const t = (now - effect.start) / RIPPLE_MS;
-      ctx.strokeStyle = rgba(colorAt(palette, state.hue + 1), (1 - t) * 0.8);
+    for (const dot of lit) {
+      const t = reducedMotion() ? 0 : (now - dot.start) / LIT_MS;
+      const at = toScreen(state, dot.at);
+      const glow = ctx.createRadialGradient(
+        at.x,
+        at.y,
+        0,
+        at.x,
+        at.y,
+        step * LIT_REACH,
+      );
+      glow.addColorStop(0, rgba(colors.lit, 0.5 * (1 - t)));
+      glow.addColorStop(1, rgba(colors.lit, 0));
+      ctx.fillStyle = glow;
+      ctx.fillRect(
+        at.x - step * LIT_REACH,
+        at.y - step * LIT_REACH,
+        step * LIT_REACH * 2,
+        step * LIT_REACH * 2,
+      );
+      ctx.fillStyle = rgba(colors.lit, 1 - t * 0.6);
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, radius * 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const pin of state.pins) {
+      const at = toScreen(state, pin);
+      ctx.strokeStyle = rgba(colors.pin, 0.9);
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(effect.at.x, effect.at.y, 8 + 64 * t * (2 - t), 0, Math.PI * 2);
+      ctx.moveTo(at.x, at.y);
+      ctx.lineTo(at.x, at.y - PIN_RADIUS * 2.4);
       ctx.stroke();
+      ctx.fillStyle = rgba(colors.pin, 1);
+      ctx.beginPath();
+      ctx.arc(at.x, at.y - PIN_RADIUS * 2.4, PIN_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     if (state.anchor !== undefined) {
-      const { x, y } = state.anchor;
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, 64);
-      const color = colorAt(palette, 1);
-      glow.addColorStop(0, rgba(color, 0.55));
-      glow.addColorStop(1, rgba(color, 0));
-      ctx.fillStyle = glow;
-      ctx.fillRect(x - 64, y - 64, 128, 128);
+      const { x, y } = state.anchor.at;
+      ctx.strokeStyle = rgba(colors.anchor, 0.8);
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.arc(x, y, 18, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = rgba(colors.anchor, 0.8);
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
     }
-    ctx.globalCompositeOperation = 'source-over';
 
-    if (moving || effects.length > 0) invalidate();
+    if (lit.length > 0) invalidate();
   };
 
   const invalidate = () => {
     if (frame === 0) frame = requestAnimationFrame(draw);
   };
 
-  const play = (kind: Effect['kind'], at: Point) => {
-    if (reducedMotion()) return;
-    effects.push({ kind, at, start: performance.now() });
-    invalidate();
-  };
-
   invalidate();
   return {
     state,
     invalidate,
-    ripple: (at: Point) => play('ripple', at),
-    bloom: (at: Point) => play('bloom', at),
+    /** Lights the dot nearest a Field point. */
+    light: (at: Point) => {
+      const world = toWorld(state, at);
+      lit.push({
+        at: {
+          x: Math.round(world.x / SPACING) * SPACING,
+          y: Math.round(world.y / SPACING) * SPACING,
+        },
+        start: performance.now(),
+      });
+      invalidate();
+    },
     destroy: () => cancelAnimationFrame(frame),
   };
 };

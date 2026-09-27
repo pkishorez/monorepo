@@ -11,4 +11,4 @@ export {
   settle,
   shouldCommit,
 } from './gestures';
-export type { Environment, GestureEvent } from './gestures';
+export type { Anchor, Axis, Environment, GestureEvent } from './gestures';

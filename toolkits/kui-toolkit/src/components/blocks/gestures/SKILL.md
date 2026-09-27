@@ -1,43 +1,110 @@
 ---
 name: kui-gestures
-description: Add touch gestures (tap, double tap, sideways swipe, two-finger Chord) with kui's gestures block. Use when making a page or surface respond to gestures, when choosing which gesture triggers an action, or when a gesture misfires, fights scrolling, or breaks browser back.
+description: Add touch gestures (tap, double tap, pan, and a locked finger that modifies them) with kui's gestures block. Use when making a page or surface respond to gestures, when choosing which gesture triggers an action, or when a gesture misfires, fights scrolling, or breaks browser back.
 ---
 
 # kui-gestures
 
-`kui-toolkit/components/blocks/gestures`: a Gesture Zone, a recognizer engine
-behind it, a finger layer and a debug overlay. The live demo is
+`kui-toolkit/components/blocks/gestures`: a Gesture Zone, one XState
+machine behind it, a finger layer and a debug overlay. The live demo is
 `apps/pwa-playground/src/routes/gestures.tsx`.
 
 ```tsx
-<GestureZone recognizers={['pan', 'chord']} onGesture={(event) => { … }}>
+<GestureZone axis="x" onGesture={(event) => { … }}>
   <GestureFingers />
-  {showDebug ? <GestureDebugOverlay /> : null}
+  {showDebug ? <GestureDebugOverlay machineClassName="…" /> : null}
   …content…
 </GestureZone>
 ```
+
+## The model
+
+Every gesture is one of three actions, **tap**, **double tap** or **pan**,
+optionally modified by a held finger, the **Anchor**, like a held Shift key:
+
+| Anchor | tap | double tap | pan                                                                       |
+| ------ | --- | ---------- | ------------------------------------------------------------------------- |
+| none   | tap | double tap | a **swipe** along `axis` (default `'x'`); the other axis scrolls natively |
+| left   | tap | double tap | free 2D pan                                                               |
+| right  | tap | double tap | free 2D pan                                                               |
+
+- The Anchor is the first finger, when a second finger lands while it is
+  still within 10px of where it went down. It locks **at once**; nothing is
+  timed. It is `left` if it is left of the finger landing beside it, else
+  `right`, and keeps that side until it lifts.
+- The lock lasts until the **Anchor** lifts. The other finger can tap,
+  double tap and pan any number of times in between; lifting it never ends
+  the lock. The Anchor drifting more than 24px cancels the lock.
+- A second finger after the first already moved (a swipe, or the browser
+  scrolling) is ignored. A third finger cancels everything until every
+  finger lifts.
+
+## Events
+
+`onGesture` gets one small union:
+
+```ts
+type Anchor = { side: 'left' | 'right'; x: number; y: number };
+type GestureEvent =
+  | { kind: 'tap' | 'double-tap'; x; y; anchor: Anchor | undefined }
+  | {
+      kind: 'pan';
+      phase: 'began' | 'changed' | 'ended' | 'cancelled';
+      x;
+      y;
+      dx;
+      dy;
+      velocityX;
+      velocityY;
+      anchor: Anchor | undefined;
+    }
+  | { kind: 'anchor'; phase: 'locked' | 'released' | 'cancelled'; x; y; side };
+```
+
+- `anchor` on a tap or pan is the Anchor held while it happened; `undefined`
+  means no modifier. Branch on `event.anchor?.side`.
+- A tap waits ~300ms for a second tap; two taps close in time and place are
+  one `double-tap` and no `tap`.
+- A swipe reports its axis only: with `axis="x"`, `dy` and `velocityY` are 0.
+  An Anchored pan reports both.
+- `dx`/`dy` are travel since the finger went down. `velocityX`/`velocityY`
+  (px/ms) come from that finger's last 100ms only: a finger held still that
+  long before lifting reads 0, so it does not fling.
+- The Anchor lifting mid-pan ends the pan `ended` (so a flick still coasts),
+  then emits `anchor released`. Treat `cancelled` (drift, a third finger, the
+  browser taking the touch, the page losing focus) as "put everything back".
+
+## The machine
+
+`engine/machine.ts` is the whole model as one XState v5 machine: `idle`,
+`pressing`, `swiping`, `tapped`, `native`, `ignoring`, and `anchored` with
+`idle`, `pressing`, `panning` and `tapped` inside it for the other finger.
+It touches no DOM: `engine/engine.ts` keeps the pointers and feeds it, and
+double-tap waits are delayed transitions on the actor's clock. Change
+behaviour in the machine, not in the zone.
 
 ## The Gesture Zone
 
 The element's bounds minus a strip along each side edge of the viewport
 (24px; 32px on Android). Inside it the app owns touch input, in a browser tab
-and installed alike. The zone keeps vertical scrolling native
-(`touch-action: pan-y`), so it can be a scroll container itself, and turns off
-long-press callouts and text selection so holds work. Text fields and anything
-under `data-gestures="off"` keep their own touch handling.
+and installed alike. `axis="x"` sets `touch-action: pan-y` (vertical
+scrolling stays native, so the zone can be a scroll container itself);
+`axis="y"` sets `pan-x`. Long-press callouts and text selection are off, so
+holds work. Text fields and anything under `data-gestures="off"` keep their
+own touch handling.
 
-**Capture.** Once a recognizer claims a touch, the zone holds the page still
-until every finger lifts: its non-passive `touchmove` listener calls
-`preventDefault()`. `touch-action` cannot change mid-touch, so this is the only
-way. A Chord claims the moment its second finger lands, so it is Captured
-before either finger moves. A touch the browser already started scrolling ends
-in `pointercancel` and cannot be Captured.
+**Capture.** Once a swipe starts or an Anchor locks, the zone holds the page
+still until every finger lifts: its non-passive `touchmove` listener calls
+`preventDefault()`. `touch-action` cannot change mid-touch, so this is the
+only way. A finger lifting from a Captured touch does not also click what is
+under it; a plain tap still clicks. A touch the browser already started
+scrolling ends in `pointercancel` and cannot be Captured.
 
 **Native scrollers step back.** Write normal CSS; the zone follows it. A touch
 that starts inside an element that scrolls sideways (`overflow-x: auto` or
 `scroll` with content wider than the box) or has a `touch-action` with `pan-x`,
 `pan-left` or `pan-right` is never tracked: a carousel row inside the zone just
-scrolls. `data-gestures="off"` is the manual override for anything else.
+scrolls.
 
 The edge strips belong to someone else, and a gesture started there would
 fire twice or be torn away mid-swipe:
@@ -48,45 +115,15 @@ fire twice or be torn away mid-swipe:
 | Android, tab or installed | OS             | system back from both edges                                                                |
 | iOS installed             | app            | no system edge swipe; reserved for edge gestures such as a sidebar, still outside the zone |
 
-## Recognizer vocabulary
-
-Every `onGesture` event has `kind`, `phase`, `x`, `y`, `duration` (ms). Only
-gestures that resolve unambiguously are in the set.
-
-| kind         | fingers                  | phases                  | extra fields                                          |
-| ------------ | ------------------------ | ----------------------- | ----------------------------------------------------- |
-| `tap`        | 1, quick and still       | ended                   | waits ~300ms for `double-tap` to fail                 |
-| `double-tap` | 1, twice                 | ended                   |                                                       |
-| `pan`        | 1, sideways past 10px    | began → changed → ended | `direction`, `dx`, `distance`, `progress`, `velocity` |
-| `chord`      | 1 held ≥150ms + 1 acting | began → changed → ended | `side`, `anchor`, `axis`, `dx`, `dy`, `velocity`      |
-
-A **Chord** is decided when the second finger lands. If the first has been down
-at least 150ms and moved no more than 10px, it is the Anchor and the chord
-begins at once, before anything moves; otherwise nothing claims and the
-browser does what it likes with the two fingers. `side` is where the Anchor is
-(`left` or `right` of the acting finger); `x`, `y`, `dx`, `dy` follow the
-acting finger. `axis` stays undefined until the acting finger passes 10px, then
-locks to `vertical` or `horizontal` for the rest of the touch; `velocity` is
-along it, in px/ms. Lifting either finger ends the chord; the Anchor drifting
-more than 24px cancels it. A second finger landing during a `pan` is ignored.
-
-Continuous gestures can end `cancelled`: a third finger landed, the browser
-took the touch (`pointercancel`, usually a vertical scroll), or the page lost
-focus. Treat `cancelled` as "put everything back".
-
-Arbitration is UIKit's: every recognizer reads each touch, the first to become
-certain claims it, the rest fail. `tap` waits for `double-tap` to fail, so
-register only the kinds the surface uses: a zone without `double-tap` gets
-instant taps.
-
 ## Choosing gestures
 
-- Keep gestures to one or two fingers. A third finger cancels the touch,
-  because iOS and Android take three-finger input for system actions.
-- Map vertical movement to scrolling. The one vertical gesture is the acting
-  finger of a Chord, which is Captured, so it never scrolls the page.
-- Start swipes inside the zone. Gestures that must start at the screen edge
-  (a drawer, swipe back) belong to App Frame, which owns edges per
+- Map the three actions to three levels of commitment: tap to touch one
+  thing, double tap to undo or reset, pan to move. Give left and right
+  Anchors two clearly different modes, and say which one is active.
+- Keep vertical movement for scrolling, unless an Anchor is held: an
+  Anchored pan is Captured, so it never scrolls the page.
+- Start gestures inside the zone. Gestures that must start at the screen
+  edge (a drawer, swipe back) belong to App Frame, which owns edges per
   Environment.
 - Give every gesture a visible control too; gestures are shortcuts, not the
   only way in.
@@ -113,27 +150,41 @@ mount, so turning the setting on while the app is open would still spring.
 ## Showing fingers
 
 Render `<GestureFingers />` inside the zone to draw every finger by its role:
-a soft ring while it is undecided or part of no gesture, the Anchor locked with
-a glow, a slow pulse and a "Left finger locked" chip while the zone dims around
-it, and a comet tail behind the acting finger that grows with speed. It works
-with the debug overlay off, takes no input, and paints only while fingers are
-down or fading. Reduced motion drops the pulse and keeps the tail short. The
-colours are `--gf-*` custom properties on the layer, set from kui tokens.
+
+- **Pressed:** a soft ring. A finger at rest grows a bubble inside it after
+  120ms, so a quick tap or a scroll never shows one; moving shrinks it away
+  fast. The bubble is only feedback; it never decides the lock.
+- **Locked:** a pop (a scale overshoot and a flash ring), then a glow, a slow
+  pulse, the area under the Anchor lit while the rest of the zone dims, and
+  a "Left finger locked" / "Right finger locked" chip kept inside the zone
+  (below the finger near its top). It fades when the Anchor lifts.
+- **Panning:** a comet tail that grows and brightens with speed.
+- **Tap / double tap:** one or two ring bursts at the finger.
+
+Reduced motion drops the pop, pulse and burst growth, keeps the tail short,
+and still shows the bubble and the lock. It takes no input and paints only
+while fingers are down or fading. The colours are `--gf-*` custom properties
+on the layer, set from kui tokens.
 
 ## Testing
 
 - **Debug overlay.** Render `<GestureDebugOverlay />` inside the zone. It
   outlines the zone, shades and labels each edge strip with its owner, hatches
   native scrollers labelled "native", marks each finger with its pointer id,
-  and puts the Environment in one line in the zone's corner
-  (`gesture-overlay-environment`, e.g. `ios · tab · edges browser 24px`). It
-  takes no input, so leave it on while you try gestures on a real phone.
-- **Engine tests.** Recognition is pure: `engine/engine.test.ts` feeds pointer
-  samples (`id`, `x`, `y`, `t`, `down`/`move`/`up`/`cancel`) and asserts the
-  events, `inspect()` (finger roles, recognizer states) and `captured()`. Add
-  a case there for any new threshold or conflict.
+  puts the Environment in one line in the zone's corner
+  (`gesture-overlay-environment`, e.g. `ios · tab · edges browser 24px`), and
+  draws the machine with the state machine visualizer, following the current
+  state (`gesture-overlay-machine`, `data-state` is the state value as JSON).
+  Place the machine with `machineClassName` (fixed position) where it covers
+  none of the zone. It takes no input, so leave it on on a real phone.
+- **Engine tests.** `engine/engine.test.ts` feeds pointer samples (`id`,
+  `x`, `y`, `t`, `down`/`move`/`up`/`cancel`) to an engine on xstate's
+  `SimulatedClock`, advanced a millisecond at a time, and asserts the events,
+  `inspect()` (finger roles, Anchor, state value) and `captured()`. Add a
+  case there for any new threshold or transition.
 - **Browser automation.** Emulate a phone with touch, then drive fingers with
-  CDP `Input.dispatchTouchEvent` (several `touchPoints` for a Chord, a timed
-  wait of 150ms+ before the second finger). Chrome does not scroll on
-  two-finger drags under `pan-y`, so check Capture by the zone's `touchmove`
-  events being `defaultPrevented`, not by scroll position.
+  CDP `Input.dispatchTouchEvent`. `touchEnd` releases the points it lists,
+  so lift one finger of two with a `touchEnd` listing only that one; a
+  `touchEnd` listing the others lifts the Anchor instead. Chrome does not
+  scroll on two-finger drags under `pan-y`, so check Capture by the zone's
+  `touchmove` events being `defaultPrevented`, not by scroll position.

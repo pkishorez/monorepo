@@ -1,4 +1,5 @@
-import type { Sample, Track } from '../recognizers';
+import type { Sample, Track } from './types';
+import { createVelocityTracker } from './velocity';
 
 type Position = { readonly id: number } & Sample;
 
@@ -8,9 +9,17 @@ const at = (input: Position): Sample => ({
   t: input.t,
 });
 
-/** The pointers currently down, in the order they went down. */
+/**
+ * The pointers currently down, in the order they went down, and each one's
+ * velocity. A lifted pointer's velocity is kept until the next touch starts,
+ * so a pan ended by its own finger lifting can still read it.
+ */
 export const createPointerTracker = () => {
   const tracks = new Map<number, Track>();
+  const velocities = new Map<
+    number,
+    ReturnType<typeof createVelocityTracker>
+  >();
 
   const move = (input: Position): Track | undefined => {
     const previous = tracks.get(input.id);
@@ -25,14 +34,17 @@ export const createPointerTracker = () => {
       ),
     };
     tracks.set(input.id, next);
+    velocities.get(input.id)?.add(current);
     return next;
   };
 
   return {
     size: () => tracks.size,
     has: (id: number) => tracks.has(id),
+    get: (id: number) => tracks.get(id),
     list: (): ReadonlyArray<Track> => [...tracks.values()],
     down: (input: Position): Track => {
+      if (tracks.size === 0) velocities.clear();
       const sample = at(input);
       const track: Track = {
         id: input.id,
@@ -41,6 +53,9 @@ export const createPointerTracker = () => {
         travel: 0,
       };
       tracks.set(input.id, track);
+      const velocity = createVelocityTracker();
+      velocity.add(sample);
+      velocities.set(input.id, velocity);
       return track;
     },
     move,
@@ -50,6 +65,10 @@ export const createPointerTracker = () => {
       tracks.delete(input.id);
       return track;
     },
-    clear: () => tracks.clear(),
+    /** Pointer `id`'s velocity at `t`, in px/ms. */
+    velocity: (id: number, t: number) =>
+      velocities.get(id)?.at(t) ?? { x: 0, y: 0 },
   };
 };
+
+export type PointerTracker = ReturnType<typeof createPointerTracker>;
