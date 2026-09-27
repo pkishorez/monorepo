@@ -65,6 +65,17 @@ export const PwaOptions = Schema.Struct({
   /** Worker entry, relative to the Vite root. Default: `src/sw.ts` if it exists, else the built-in entry. */
   worker: Schema.optionalKey(Schema.NonEmptyString),
   swUrl: Schema.optionalKey(Path),
+  /**
+   * What the page reports about its build. Default: the time the build
+   * runs, and `git rev-parse --short HEAD` (with `-dirty` for uncommitted
+   * changes), or none when git is not available.
+   */
+  version: Schema.optionalKey(
+    Schema.Struct({
+      commit: Schema.optionalKey(Schema.NonEmptyString),
+      builtAt: Schema.optionalKey(Schema.NonEmptyString),
+    }),
+  ),
 });
 /** What the user writes. */
 export type PwaOptions = typeof PwaOptions.Encoded;
@@ -82,6 +93,11 @@ export interface ResolvedPwaConfig {
   /** `null` means: `src/sw.ts` if it exists, else the built-in entry. */
   readonly worker: string | null;
   readonly swUrl: string;
+  /** Overrides from `version`; the plugin fills the rest when it starts. */
+  readonly version: {
+    readonly commit: string | null;
+    readonly builtAt: string | null;
+  };
 }
 
 /**
@@ -119,6 +135,10 @@ export const resolvePwaConfig = (
     },
     worker: options.worker ?? null,
     swUrl: options.swUrl ?? '/sw.js',
+    version: {
+      commit: options.version?.commit ?? null,
+      builtAt: options.version?.builtAt ?? null,
+    },
   };
 };
 
@@ -155,6 +175,10 @@ export const ClientBuildInfo = Schema.Struct({
   scope: Path,
   update: UpdateConfig,
   buildId: Schema.NullOr(BuildId),
+  /** When the build ran (ISO 8601). Server environment only, like `buildId`. */
+  builtAt: Schema.NullOr(Schema.String),
+  /** The git commit the build came from. Server environment only. */
+  commit: Schema.NullOr(Schema.String),
   manifestUrl: Schema.NullOr(Path),
   appleTouchIconUrl: Schema.NullOr(Schema.String),
 });

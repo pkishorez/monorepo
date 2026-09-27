@@ -9,6 +9,7 @@ import { usePwa } from 'pwa-toolkit/react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Actions,
+  BuiltAt,
   type Outcome,
   Panel,
   Readout,
@@ -129,6 +130,16 @@ function Status() {
             label="Build ID (meta)"
             testId="status-build-id"
             value={buildId ?? 'none'}
+          />
+          <Readout
+            label="Built"
+            testId="status-built-at"
+            value={<BuiltAt iso={pwa.version.builtAt} />}
+          />
+          <Readout
+            label="Commit"
+            testId="status-commit"
+            value={pwa.version.commit ?? 'unknown'}
           />
           <Readout
             label="Status"

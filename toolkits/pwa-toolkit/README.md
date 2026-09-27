@@ -49,13 +49,13 @@ pnpm add pwa-toolkit effect
 
 ### `pwa-toolkit/react`
 
-| Export              | What it does                                                                           |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| `PwaProvider`       | Registers the worker after mount and gives `usePwa` its status; render it in the root. |
-| `pwaHead`           | Head tags for the root route: manifest link, Apple icon and the Build ID meta tag.     |
-| `usePwa`            | The status with `checkForUpdate` and `applyUpdate`; `Unsupported` before mount.        |
-| `clearRuntimeCache` | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.     |
-| `UpdatePrompt`      | Persistent toast while an update is ready; accepting it reloads every page into it.    |
+| Export              | What it does                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `PwaProvider`       | Registers the worker after mount and gives `usePwa` its status; render it in the root.                          |
+| `pwaHead`           | Head tags for the root route: manifest link, Apple icon, and meta tags for the Build ID, build time and commit. |
+| `usePwa`            | The status with `checkForUpdate` and `applyUpdate` (`Unsupported` before mount), and the page's `version`.      |
+| `clearRuntimeCache` | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                              |
+| `UpdatePrompt`      | Persistent toast while an update is ready; accepting it reloads every page into it.                             |
 
 ### `pwa-toolkit/extras`
 
@@ -134,6 +134,7 @@ export const Route = createFileRoute('/offline')({ component: Offline });
 - The build writes `sw.js`, `manifest.webmanifest`, `_shell.html`, `offline.html` and a `_headers` block with `Cache-Control: no-cache` for the worker and the manifest.
 - A navigation tries the network for `navigation.networkTimeoutMs` (3 s), then a saved page (with `cachePages`), then the App Shell (with `shell`), then redirects to the Offline Fallback. The `/offline` route should only send "Try again" back to a same-origin `from`.
 - Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the worker's caches. `strategies` rules match first-wins, yours before the preset's.
+- `usePwa().version` is `{ buildId, builtAt, commit }` for the build that rendered this page, read from its meta tags. `builtAt` is an ISO string from when the build ran; `commit` is `git rev-parse --short HEAD`, with `-dirty` for uncommitted changes. Either is `null` when unknown: git is missing, the build is not a checkout, or git fails. Set `version: { commit, builtAt }` in `pwa({...})` to supply them yourself, for example from CI. Neither feeds the Build ID, so rebuilding the same code is still no update.
 - The status comes from the browser's own service worker events; the page never asks the worker. `UpdatePrompt` never reloads unasked. To apply a ready update on the next route change instead, call `usePwa().applyUpdate` from `router.subscribe('onResolved', …)`, as the playground's root does.
 
 ### Call the service worker with Worker RPC

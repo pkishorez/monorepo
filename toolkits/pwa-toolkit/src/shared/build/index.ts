@@ -1,7 +1,9 @@
 export {
   BUILD_ID_META_NAME,
   BuildId,
+  BUILT_AT_META_NAME,
   CACHE_PREFIX,
+  COMMIT_META_NAME,
   computeBuildId,
   isPrecacheCacheName,
   isRuntimeCacheName,

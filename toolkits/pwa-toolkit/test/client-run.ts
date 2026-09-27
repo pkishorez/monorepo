@@ -13,6 +13,8 @@ export const config = (
   scope: '/',
   update: { checkIntervalMinutes: 60 },
   buildId: null,
+  builtAt: null,
+  commit: null,
   manifestUrl: '/manifest.webmanifest',
   appleTouchIconUrl: null,
   ...overrides,

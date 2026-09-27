@@ -21,6 +21,10 @@ export type PrecacheList = typeof PrecacheList.Type;
 
 /** Meta tag the page reads its Build ID from: `<meta name=… content=buildId>`. */
 export const BUILD_ID_META_NAME = 'pwa-toolkit:build-id';
+/** Meta tag with the time the build ran, as an ISO 8601 string. */
+export const BUILT_AT_META_NAME = 'pwa-toolkit:built-at';
+/** Meta tag with the git commit the build came from. */
+export const COMMIT_META_NAME = 'pwa-toolkit:commit';
 
 /** Virtual module the plugin serves to the service worker bundle. */
 export const VIRTUAL_BUILD_MODULE_ID = 'virtual:pwa-toolkit/build';
