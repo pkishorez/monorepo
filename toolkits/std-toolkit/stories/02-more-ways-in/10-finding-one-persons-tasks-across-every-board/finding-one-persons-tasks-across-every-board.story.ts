@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { StdTable } from 'std-toolkit/db';
+import { StdTable } from '@kstackz/std-toolkit/db';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 

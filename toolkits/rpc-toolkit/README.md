@@ -1,4 +1,4 @@
-# rpc-toolkit
+# @kstackz/rpc-toolkit
 
 Effect RPC and HttpApi Cannotations, WebSocket clients, and Cloudflare runtime and deployment integrations
 
@@ -13,7 +13,7 @@ Vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions behind the shape are
 ## Install
 
 ```sh
-pnpm add rpc-toolkit effect
+pnpm add @kstackz/rpc-toolkit effect
 ```
 
 - `effect` (peer, required): every subpath builds on `effect/unstable/rpc` or `effect/unstable/httpapi`.
@@ -21,27 +21,27 @@ pnpm add rpc-toolkit effect
 
 ## Exports
 
-### `rpc-toolkit/rpc/cannotation`
+### `@kstackz/rpc-toolkit/rpc/cannotation`
 
 | Export             | What it does                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Cannotation`      | Namespace holding the RPC flavour of Cannotation.                                                                                           |
 | `Cannotation.make` | Builds a Declaration for `Rpc` and `RpcGroup` targets; the result carries `with`, `get`, `layer`, `clientLayer`, `middleware`, and `value`. |
 
-### `rpc-toolkit/http/cannotation`
+### `@kstackz/rpc-toolkit/http/cannotation`
 
 | Export             | What it does                                                                                                                                                                |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Cannotation`      | Namespace holding the HttpApi flavour of Cannotation.                                                                                                                       |
 | `Cannotation.make` | Same shape as the RPC flavour over `HttpApiEndpoint` and `HttpApiGroup`, plus a `security` option that feeds OpenAPI and hands the credential to the server implementation. |
 
-### `rpc-toolkit/rpc/invocation`
+### `@kstackz/rpc-toolkit/rpc/invocation`
 
 | Export           | What it does                                                                                                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `InvocationKind` | Context reference set by the server to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay. |
 
-### `rpc-toolkit/rpc/websocket-client`
+### `@kstackz/rpc-toolkit/rpc/websocket-client`
 
 Long-form guide: [src/rpc/websocket-client/README.md](src/rpc/websocket-client/README.md).
 
@@ -53,7 +53,7 @@ Long-form guide: [src/rpc/websocket-client/README.md](src/rpc/websocket-client/R
 | `connectionStatus`       | Stream of `connecting`, `connected`, or `reconnecting`, deduplicated and primed with the current value.             |
 | `keepSubscribed`         | Re-runs a subscription stream after every reconnect until the consumer interrupts it.                               |
 
-### `rpc-toolkit/rpc/cloudflare/hibernating-rpc`
+### `@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc`
 
 Long-form guide: [src/rpc/cloudflare/hibernating-rpc/README.md](src/rpc/cloudflare/hibernating-rpc/README.md).
 
@@ -63,13 +63,13 @@ Long-form guide: [src/rpc/cloudflare/hibernating-rpc/README.md](src/rpc/cloudfla
 | `StreamCheckpoint`            | Inside a streaming handler, gives `get`, `put`, and `clear` for a small cursor that survives hibernation.            |
 | `fromDurableObjectState`      | Builds the `state` and `upgrade` ports from a raw workerd `DurableObjectState` when Alchemy is not in use.           |
 
-### `rpc-toolkit/rpc/cloudflare/alchemy/rpc-worker`
+### `@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/rpc-worker`
 
 | Export      | What it does                                                                                |
 | ----------- | ------------------------------------------------------------------------------------------- |
 | `RpcWorker` | Re-export of Alchemy's `Cloudflare.RpcWorker` for Effect RPC over a Worker service binding. |
 
-### `rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker`
+### `@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker`
 
 | Export             | What it does                                                                                                                  |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -85,7 +85,7 @@ The contract declares a `Role` Cannotation and attaches it to a group and to one
 import { Context, Effect, Layer, Option, Schema } from 'effect';
 import { Headers } from 'effect/unstable/http';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { Cannotation } from 'rpc-toolkit/rpc/cannotation';
+import { Cannotation } from '@kstackz/rpc-toolkit/rpc/cannotation';
 
 class CurrentUser extends Context.Service<
   CurrentUser,
@@ -142,8 +142,8 @@ The server rechecks authorization on every call, charges admission only on fresh
 ```ts
 // server.ts
 import { Effect, Layer, Option, Schema, Stream } from 'effect';
-import { StreamCheckpoint } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
-import { InvocationKind } from 'rpc-toolkit/rpc/invocation';
+import { StreamCheckpoint } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { InvocationKind } from '@kstackz/rpc-toolkit/rpc/invocation';
 import { Access, Counter } from './contract.js';
 
 export const makeHandlers = (auth: {
@@ -205,7 +205,7 @@ import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import {
   keepSubscribed,
   layerWebSocketProtocol,
-} from 'rpc-toolkit/rpc/websocket-client';
+} from '@kstackz/rpc-toolkit/rpc/websocket-client';
 import { Access, Counter } from './contract.js';
 
 export const watchCounter = (

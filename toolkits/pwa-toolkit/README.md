@@ -1,10 +1,10 @@
-# pwa-toolkit
+# @kstackz/pwa-toolkit
 
 Effect-native service worker, precache, update and install utilities that turn a TanStack Start app into a PWA
 
 ## Big picture
 
-A TanStack Start app renders on the server, so the usual PWA plugins, which expect an `index.html`, have nothing to hold on to. pwa-toolkit owns the whole path instead. Its core is five ideas: every deploy is a **Build** with a Build ID; the build ships a **Worker** that answers each request by a **Strategy**; each open page watches one **Status**; and a waiting **Update** is applied only when the user accepts, reloading every open page together. `pwa-toolkit/vite` makes the Build, `pwa-toolkit/worker` runs the Worker, and `pwa-toolkit/client` (with `react` on top) gives the page its Status. Everything else is optional: `pwa-toolkit/extras` (Install Prompt, online state, display mode, storage) needs no provider, and Worker RPC (`pwa-toolkit/rpc/*`) is a separate capability. [`apps/pwa-playground`](../../apps/pwa-playground) dogfoods every part, one route per scenario. The words are defined in [CONTEXT.md](CONTEXT.md); the decisions behind the shape are in [docs/adr/](docs/adr/).
+A TanStack Start app renders on the server, so the usual PWA plugins, which expect an `index.html`, have nothing to hold on to. pwa-toolkit owns the whole path instead. Its core is five ideas: every deploy is a **Build** with a Build ID; the build ships a **Worker** that answers each request by a **Strategy**; each open page watches one **Status**; and a waiting **Update** is applied only when the user accepts, reloading every open page together. `@kstackz/pwa-toolkit/vite` makes the Build, `@kstackz/pwa-toolkit/worker` runs the Worker, and `@kstackz/pwa-toolkit/client` (with `react` on top) gives the page its Status. Everything else is optional: `@kstackz/pwa-toolkit/extras` (Install Prompt, online state, display mode, storage) needs no provider, and Worker RPC (`@kstackz/pwa-toolkit/rpc/*`) is a separate capability. [`apps/pwa-playground`](../../apps/pwa-playground) dogfoods every part, one route per scenario. The words are defined in [CONTEXT.md](CONTEXT.md); the decisions behind the shape are in [docs/adr/](docs/adr/).
 
 The plugin leans on Start's prerender, and Start keeps its options to itself, so the app sets them. `pwa()` goes after `tanstackStart()` in the Vite plugins, because the worker builds in a post `buildApp` hook that must run after prerendering; the wrong order throws at config time. `tanstackStart()` needs `spa: { enabled: true, prerender: { outputPath: '/_shell' } }` for the App Shell, a `pages` entry for `/offline` with `prerender: { enabled: true, crawlLinks: false, autoSubfolderIndex: false }` for the Offline Fallback, and `prerender: { autoStaticPathsDiscovery: false }`. When either page is missing from the build, the build warns and prints the exact options.
 
@@ -15,30 +15,30 @@ Pick a `preset` by app kind, from the playground's lifecycle runs. `app` (the de
 ## Install
 
 ```sh
-pnpm add pwa-toolkit effect
+pnpm add @kstackz/pwa-toolkit effect
 ```
 
 - `effect` (peer, required): every subpath is built on it, and Worker RPC on `effect/unstable/rpc`.
-- `vite` (peer, optional): needed by `pwa-toolkit/vite`.
-- `react`, `react-dom` (peers, optional): needed by `pwa-toolkit/react` and `pwa-toolkit/extras`.
-- `kui-toolkit` (peer, optional): the components `pwa-toolkit/react` (`UpdatePrompt`) and `pwa-toolkit/extras` render with.
+- `vite` (peer, optional): needed by `@kstackz/pwa-toolkit/vite`.
+- `react`, `react-dom` (peers, optional): needed by `@kstackz/pwa-toolkit/react` and `@kstackz/pwa-toolkit/extras`.
+- `@kstackz/ui-toolkit` (peer, optional): the components `@kstackz/pwa-toolkit/react` (`UpdatePrompt`) and `@kstackz/pwa-toolkit/extras` render with.
 
 ## Exports
 
-### `pwa-toolkit/vite`
+### `@kstackz/pwa-toolkit/vite`
 
 | Export | What it does                                                                                                                                                |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pwa`  | Vite plugins that emit the manifest, pick the Precache, compute the Build ID, build the worker (or the Kill Switch) and add `no-cache` rules to `_headers`. |
 
-### `pwa-toolkit/worker`
+### `@kstackz/pwa-toolkit/worker`
 
 | Export             | What it does                                                                                                      |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `runServiceWorker` | Starts the worker; call it once at the top of the entry, optionally with a `layer` such as a Worker Server.       |
 | `WorkerHost`       | Service given to that `layer`: the worker's Build ID and a stream of every `message` event that is not a command. |
 
-### `pwa-toolkit/client`
+### `@kstackz/pwa-toolkit/client`
 
 | Export              | What it does                                                                                                         |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -47,7 +47,7 @@ pnpm add pwa-toolkit effect
 | `PwaStatus`         | Tagged enum `Unsupported`, `Installing`, `Ready`, `UpdateReady`, `Updating`.                                         |
 | `clearRuntimeCache` | Effect that deletes every Runtime Cache, with no registration or `Pwa` needed.                                       |
 
-### `pwa-toolkit/react`
+### `@kstackz/pwa-toolkit/react`
 
 | Export              | What it does                                                                                                    |
 | ------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -57,7 +57,7 @@ pnpm add pwa-toolkit effect
 | `clearRuntimeCache` | Deletes every Runtime Cache; works outside `PwaProvider`, for example in sign-out.                              |
 | `UpdatePrompt`      | Persistent toast while an update is ready; accepting it reloads every page into it.                             |
 
-### `pwa-toolkit/extras`
+### `@kstackz/pwa-toolkit/extras`
 
 | Export                  | What it does                                                                                                      |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -73,13 +73,13 @@ pnpm add pwa-toolkit effect
 | `useStoragePersistence` | Persisted flag with `persist` and `estimate`; `null` while unknown.                                               |
 | `StoragePersistence`    | The Effect service behind `useStoragePersistence`, with its `layer`.                                              |
 
-### `pwa-toolkit/rpc/worker`
+### `@kstackz/pwa-toolkit/rpc/worker`
 
 | Export               | What it does                                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------------------------ |
 | `WorkerServer.layer` | Serves an Effect `RpcGroup` inside the worker; provide its handlers and pass it to `runServiceWorker`. |
 
-### `pwa-toolkit/rpc/client`
+### `@kstackz/pwa-toolkit/rpc/client`
 
 | Export               | What it does                                                                              |
 | -------------------- | ----------------------------------------------------------------------------------------- |
@@ -124,13 +124,13 @@ function RootComponent() {
 }
 
 /* src/styles.css */
-@source '../node_modules/pwa-toolkit/dist';
+@source '../node_modules/@kstackz/pwa-toolkit/dist';
 
 // src/routes/offline.tsx: the worker redirects here as /offline?from=<page>
 export const Route = createFileRoute('/offline')({ component: Offline });
 ```
 
-- Tailwind v4 does not scan `node_modules`, so without the `@source` line the `react` and `extras` components (built on [`kui-toolkit`](../kui-toolkit)) render unstyled.
+- Tailwind v4 does not scan `node_modules`, so without the `@source` line the `react` and `extras` components (built on [`@kstackz/ui-toolkit`](../ui-toolkit)) render unstyled.
 - The build writes `sw.js`, `manifest.webmanifest`, `_shell.html`, `offline.html` and a `_headers` block with `Cache-Control: no-cache` for the worker and the manifest.
 - A navigation tries the network for `navigation.networkTimeoutMs` (3 s), then a saved page (with `cachePages`), then the App Shell (with `shell`), then redirects to the Offline Fallback. The `/offline` route should only send "Try again" back to a same-origin `from`.
 - Paths under `neverCache` (default `/api/auth/`), non-GET requests and `navigation.denylist` never reach the worker's caches. `strategies` rules match first-wins, yours before the preset's.
@@ -181,7 +181,7 @@ const ticks = client
 Runtime Caches outlive a session, so the next person on the device would see the last one's data. Call `clearRuntimeCache()` after the sign-out request. From the playground's `/auth-sim` page.
 
 ```ts
-import { clearRuntimeCache } from 'pwa-toolkit/react';
+import { clearRuntimeCache } from '@kstackz/pwa-toolkit/react';
 
 const signOut = async () => {
   await fetch('/api/auth/session', {
@@ -194,5 +194,5 @@ const signOut = async () => {
 ```
 
 - It deletes every `pwa-toolkit:runtime:*` cache and leaves the Precache alone, so the app still opens offline.
-- It needs no `PwaProvider`; outside React, run the `clearRuntimeCache` Effect from `pwa-toolkit/client`.
+- It needs no `PwaProvider`; outside React, run the `clearRuntimeCache` Effect from `@kstackz/pwa-toolkit/client`.
 - `/api/auth/` is in `neverCache` by default, so session reads always hit the network and fail offline. Treat a failed read as "unknown", not as signed out.

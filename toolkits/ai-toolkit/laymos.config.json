@@ -1,0 +1,138 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/**/*.test.ts"],
+  "layers": {
+    "runtime": {
+      "paths": ["src/runtime"],
+      "description": "Runs one Coding Harness turn and records it in the AI Table.",
+      "moduleGraphs": {
+        "runtime": {
+          "description": "The host runs a Claude or Codex turn through a Transcript and records Thread, Run, and Message state.",
+          "path": "src/runtime",
+          "modules": {
+            "constants.ts": {
+              "exposed": true
+            },
+            "protocol": {
+              "exposed": true
+            },
+            "table": {
+              "exposed": true
+            },
+            "transcript": {},
+            "interaction-mailbox": {},
+            "harnesses/claude": {},
+            "harnesses/codex": {},
+            "host": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "table": ["protocol"],
+            "transcript": ["protocol", "table", "constants.ts"],
+            "harnesses/claude": [
+              "protocol",
+              "transcript",
+              "interaction-mailbox",
+              "constants.ts"
+            ],
+            "harnesses/codex": [
+              "protocol",
+              "transcript",
+              "interaction-mailbox",
+              "constants.ts"
+            ],
+            "host": [
+              "protocol",
+              "table",
+              "transcript",
+              "interaction-mailbox",
+              "harnesses/claude",
+              "harnesses/codex",
+              "constants.ts"
+            ]
+          }
+        }
+      }
+    },
+    "rpc": {
+      "paths": ["src/rpc"],
+      "description": "Browser-safe Effect RPC declaration and server handler layer.",
+      "moduleGraphs": {
+        "rpc": {
+          "description": "One public group composed from common, Claude, and Codex calls.",
+          "path": "src/rpc",
+          "modules": {
+            "contract": {
+              "exposed": true
+            },
+            "live": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "live": ["contract"]
+          }
+        }
+      }
+    },
+    "playground": {
+      "paths": ["src/playground"],
+      "description": "Demo-only RPC contract, record subscriptions, and browser sync.",
+      "moduleGraphs": {
+        "playground": {
+          "description": "Adds Thread creation and read-only record sync beside the AI RPC.",
+          "path": "src/playground",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "contract": {
+              "exposed": true
+            },
+            "live": {
+              "exposed": true
+            },
+            "sync": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "index.ts": ["contract", "sync"],
+            "live": ["contract"],
+            "sync": ["contract"]
+          }
+        }
+      }
+    },
+    "client": {
+      "paths": ["src/client"],
+      "description": "Browser-safe folding of Message rows into rendered turns.",
+      "modules": {
+        "src/client/message": {
+          "exposed": true
+        }
+      }
+    },
+    "cli": {
+      "paths": ["src/cli"],
+      "description": "Effect CLI entrypoint and Playground Server composition root.",
+      "modules": {
+        "src/cli": {}
+      }
+    }
+  },
+  "layerGraphs": {
+    "ai-toolkit": {
+      "description": "RPC forwards requests to the runtime; the table is the only channel back.",
+      "rules": {
+        "runtime": [],
+        "rpc": ["runtime"],
+        "playground": ["runtime", "rpc"],
+        "client": ["runtime"],
+        "cli": ["runtime", "rpc", "playground"]
+      }
+    }
+  }
+}

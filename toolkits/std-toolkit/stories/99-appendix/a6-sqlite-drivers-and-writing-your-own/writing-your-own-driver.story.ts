@@ -1,8 +1,8 @@
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { Ulid } from 'std-toolkit/core';
-import { SQLite, type SQLiteDriver } from 'std-toolkit/db/sqlite';
-import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+import { Ulid } from '@kstackz/std-toolkit/core';
+import { SQLite, type SQLiteDriver } from '@kstackz/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { table } from '../../01-one-task-one-table/02-making-a-table-for-tasks-to-live-in/making-a-table-for-tasks-to-live-in.story.js';
 import { task } from '../../01-one-task-one-table/03-telling-the-table-where-each-task-goes/telling-the-table-where-each-task-goes.story.js';
 

@@ -1,9 +1,14 @@
 {
-  "name": "effect-webrtc",
-  "version": "0.0.2",
+  "name": "@kstackz/effect-webrtc",
+  "version": "0.0.0",
   "private": false,
   "description": "Effect-native peer sessions and RPC over WebRTC data channels",
-  "keywords": ["effect", "rpc", "webrtc", "peer-to-peer"],
+  "keywords": [
+    "effect",
+    "rpc",
+    "webrtc",
+    "peer-to-peer"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,7 +16,11 @@
     "directory": "packages/effect-webrtc"
   },
   "type": "module",
-  "files": ["README.md", "LICENSE", "dist/"],
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist/"
+  ],
   "exports": {
     ".": {
       "types": "./dist/effect-webrtc/index.d.ts",
@@ -75,23 +84,32 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/flow": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.76",
     "effect": "4.0.0-rc.112"
   },
   "peerDependenciesMeta": {
+    "@kstackz/auth-toolkit": {
+      "optional": true
+    },
+    "@kstackz/rpc-toolkit": {
+      "optional": true
+    },
     "alchemy": {
       "optional": true
     }
   },
   "dependencies": {
-    "@pkishorez/flow": "workspace:*",
     "@cloudflare/workers-types": "catalog:",
-    "auth-toolkit": "workspace:*",
     "nostr-tools": "catalog:",
-    "rpc-toolkit": "workspace:*",
     "werift": "catalog:"
   },
   "devDependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/flow": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
     "@tsconfig/node22": "catalog:",
     "@typescript/native": "catalog:",
     "alchemy": "catalog:",

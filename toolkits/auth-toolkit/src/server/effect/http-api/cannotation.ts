@@ -1,4 +1,4 @@
-import { Cannotation } from 'rpc-toolkit/http/cannotation';
+import { Cannotation } from '@kstackz/rpc-toolkit/http/cannotation';
 
 import {
   AuthFailures,
@@ -7,7 +7,7 @@ import {
 } from '../../current-auth/index.js';
 
 export const cannotation = Cannotation.make<AuthPolicy>()(
-  'auth-toolkit/http-api/Authz',
+  '@kstackz/auth-toolkit/http-api/Authz',
   {
     provides: auth.CurrentAuth,
     error: AuthFailures,

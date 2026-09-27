@@ -3,14 +3,14 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from 'kui-toolkit/components/ui/accordion';
+} from '@kstackz/ui-toolkit/components/ui/accordion';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from 'kui-toolkit/components/ui/dialog';
+} from '@kstackz/ui-toolkit/components/ui/dialog';
 import type { ReactNode } from 'react';
 import { CodeBlock } from './code-block.tsx';
 

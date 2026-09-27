@@ -24,17 +24,17 @@ The behavioral decisions are recorded in [ADR 0004](./adr/0004-adapter-independe
 The target package surface is:
 
 ```text
-std-toolkit/db
-std-toolkit/db/dynamodb
-std-toolkit/db/sqlite
-std-toolkit/db/sqlite/node
-std-toolkit/db/sqlite/bun
-std-toolkit/db/sqlite/better-sqlite3
-std-toolkit/db/sqlite/durable-object
-std-toolkit/db/idb
+@kstackz/std-toolkit/db
+@kstackz/std-toolkit/db/dynamodb
+@kstackz/std-toolkit/db/sqlite
+@kstackz/std-toolkit/db/sqlite/node
+@kstackz/std-toolkit/db/sqlite/bun
+@kstackz/std-toolkit/db/sqlite/better-sqlite3
+@kstackz/std-toolkit/db/sqlite/durable-object
+@kstackz/std-toolkit/db/idb
 ```
 
-Remove the legacy `std-toolkit/dynamodb`, `std-toolkit/sqlite`, `std-toolkit/idb`, and `std-toolkit/sqlite/adapters/*` exports after all workspace consumers move to the new entrypoints.
+Remove the legacy `@kstackz/std-toolkit/dynamodb`, `@kstackz/std-toolkit/sqlite`, `@kstackz/std-toolkit/idb`, and `@kstackz/std-toolkit/sqlite/adapters/*` exports after all workspace consumers move to the new entrypoints.
 
 ### Deep-module rule
 
@@ -113,7 +113,7 @@ src/db/
     └── setup/             ← versioned store and index upgrades
 ```
 
-Every module keeps the deep-module door (`index.ts` + `<module>.ts`); supporting files inside each module may vary. Adapters live directly under `db`; there is no additional `adapters` directory. Each adapter has exactly one named layer, `domain/`, holding its pure functions; every peer module is by definition the tier that does IO or assembly. The IO edge keeps its natural name per adapter (`client/` for DynamoDB's signed HTTP client, `database/` for SQLite's and IDB's held connections) — the shape is symmetric, the name is honest. SQLite drivers are nested for cohesion but have independent package exports. `std-toolkit/db/sqlite` must not import any driver module. This keeps environment-specific dependencies out of the base SQLite bundle.
+Every module keeps the deep-module door (`index.ts` + `<module>.ts`); supporting files inside each module may vary. Adapters live directly under `db`; there is no additional `adapters` directory. Each adapter has exactly one named layer, `domain/`, holding its pure functions; every peer module is by definition the tier that does IO or assembly. The IO edge keeps its natural name per adapter (`client/` for DynamoDB's signed HTTP client, `database/` for SQLite's and IDB's held connections) — the shape is symmetric, the name is honest. SQLite drivers are nested for cohesion but have independent package exports. `@kstackz/std-toolkit/db/sqlite` must not import any driver module. This keeps environment-specific dependencies out of the base SQLite bundle.
 
 ## Dependency graph
 
@@ -346,7 +346,7 @@ Each phase should leave the package buildable and should be committed independen
 
 - [ ] Add `src/db/index.ts` and `src/db/db.ts`.
 - [ ] Create the `portable` and `adapters` deep-module skeletons.
-- [ ] Add the new `std-toolkit/db*` package exports.
+- [ ] Add the new `@kstackz/std-toolkit/db*` package exports.
 - [ ] Add initial Laymos boundaries for the new modules while leaving old boundaries intact.
 - [ ] Add compile-only package-entrypoint tests.
 - [ ] Confirm that importing the base SQLite entrypoint does not resolve an environment driver.

@@ -8,10 +8,15 @@ import {
   useRouter,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
-import { buttonVariants } from 'kui-toolkit/components/ui/button';
-import { PwaProvider, pwaHead, UpdatePrompt, usePwa } from 'pwa-toolkit/react';
-import { OfflineIndicator, useInstall } from 'pwa-toolkit/extras';
+import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
+import { buttonVariants } from '@kstackz/ui-toolkit/components/ui/button';
+import {
+  PwaProvider,
+  pwaHead,
+  UpdatePrompt,
+  usePwa,
+} from '@kstackz/pwa-toolkit/react';
+import { OfflineIndicator, useInstall } from '@kstackz/pwa-toolkit/extras';
 import { type ReactNode, useEffect } from 'react';
 import { appTheme, AppHeader, ScenarioNav } from '../components/index.ts';
 import { updateMode } from '../lib/build.ts';

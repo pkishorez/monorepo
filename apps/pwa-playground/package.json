@@ -17,8 +17,8 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "effect": "catalog:",
-    "kui-toolkit": "workspace:*",
-    "pwa-toolkit": "workspace:*",
+    "@kstackz/ui-toolkit": "workspace:*",
+    "@kstackz/pwa-toolkit": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

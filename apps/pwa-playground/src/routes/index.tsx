@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { ArrowRightIcon, ArrowUpRightIcon } from 'kui-toolkit/lucide';
-import { buttonVariants } from 'kui-toolkit/components/ui/button';
+import { ArrowRightIcon, ArrowUpRightIcon } from '@kstackz/ui-toolkit/lucide';
+import { buttonVariants } from '@kstackz/ui-toolkit/components/ui/button';
 import { StatusStrip } from '../components/index.ts';
 import { buildPreset, pwaEnabled, updateMode } from '../lib/build.ts';
 import {

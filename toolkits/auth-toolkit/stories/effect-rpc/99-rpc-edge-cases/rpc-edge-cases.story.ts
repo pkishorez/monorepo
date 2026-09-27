@@ -7,8 +7,8 @@ import {
   RpcServer,
 } from 'effect/unstable/rpc';
 import { Story } from 'laymos/story';
-import { Authz } from 'auth-toolkit/rpc';
-import { authzCookies } from 'auth-toolkit/rpc/server';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { authzCookies } from '@kstackz/auth-toolkit/rpc/server';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
 
 const GetSettings = Rpc.make('GetSettings', {

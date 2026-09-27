@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { projectJournal, type Entry, type Journal } from '@pkishorez/flow';
+import { projectJournal, type Entry, type Journal } from '@kstackz/flow';
 import { renderFlowText, simplifyFlowList } from '../output.js';
 
 describe('flow output', () => {

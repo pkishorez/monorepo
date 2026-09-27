@@ -1,13 +1,13 @@
-import { ChevronRightIcon } from 'kui-toolkit/lucide';
+import { ChevronRightIcon } from '@kstackz/ui-toolkit/lucide';
 import {
   NewTracesRow,
   TraceList,
-} from 'kui-toolkit/components/blocks/otel-trace-viewer';
+} from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer';
 import type {
   OtelSpan,
   TraceGroup,
-} from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import { cn } from 'kui-toolkit/lib/utils';
+} from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import { cn } from '@kstackz/ui-toolkit/lib/utils';
 import type { ColumnWidths, TraceListSettings } from './state';
 import { groupTracesBy } from './filtering';
 

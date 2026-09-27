@@ -1,7 +1,7 @@
 # hibernating-rpc
 
 ```ts
-import { makeHibernatingWebSocketRpc } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { makeHibernatingWebSocketRpc } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 ```
 
 An Effect `RpcServer` that runs over **hibernatable** Durable Object WebSockets, so your
@@ -102,7 +102,7 @@ Wire the Durable Object:
 ```ts
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
-import { makeHibernatingWebSocketRpc } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { makeHibernatingWebSocketRpc } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 
 const CounterObject = Cloudflare.DurableObject(
   'CounterObject',
@@ -154,7 +154,7 @@ The fix is a read-resume-write sandwich around code that otherwise doesn't chang
 
 ```ts
 // ✅ survives hibernation
-import { StreamCheckpoint } from 'rpc-toolkit/rpc/cloudflare/hibernating-rpc';
+import { StreamCheckpoint } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
 
 const Cursor = Schema.Struct({ cursor: Schema.Number });
 

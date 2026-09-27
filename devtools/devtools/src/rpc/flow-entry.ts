@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
-import { EntityESchema, ESchema } from 'std-toolkit/eschema';
-import type { Entry } from '@pkishorez/flow';
+import { EntityESchema, ESchema } from '@kstackz/std-toolkit/eschema';
+import type { Entry } from '@kstackz/flow';
 
 /**
  * How the DevTools Flow Store keeps one Entry: keyed by the Entry id, indexed

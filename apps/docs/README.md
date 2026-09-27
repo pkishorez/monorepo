@@ -5,7 +5,7 @@ Documentation site for the monorepo, with live demos of its workspace packages, 
 ## Big picture
 
 The site is built with Fumadocs on TanStack Start. Docs pages come from MDX in
-`content/docs` (today: `std-toolkit`) and a blog from `content/blog`. The build
+`content/docs` (today: `@kstackz/std-toolkit`) and a blog from `content/blog`. The build
 prerenders every route to static HTML. A Cloudflare Worker serves the output,
 plus a few `/api` routes for search, page source and WebRTC signaling. It lives
 at [docs.kishore.app](https://docs.kishore.app).
@@ -13,16 +13,16 @@ at [docs.kishore.app](https://docs.kishore.app).
 It also hosts the interactive demos under `/demos`, with their code in
 `src/demos`. Each demo exercises a workspace package end to end:
 
-- `kai-toolkit`: a chat playground over `kai-toolkit/rpc`, `kai-toolkit/table`
-  and `kai-toolkit/client`.
-- `effect-webrtc`: browser to browser and browser to Node peers over
-  `effect-webrtc/signaling`, with a Node peer in `src/effect-webrtc-node.ts`
+- `@kstackz/ai-toolkit`: a chat playground over `@kstackz/ai-toolkit/rpc`, `@kstackz/ai-toolkit/table`
+  and `@kstackz/ai-toolkit/client`.
+- `@kstackz/effect-webrtc`: browser to browser and browser to Node peers over
+  `@kstackz/effect-webrtc/signaling`, with a Node peer in `src/effect-webrtc-node.ts`
   (`pnpm --filter docs webrtc:node`).
 - `durable-webrtc`: the same signaling backed by a Durable Object, with login
-  through `auth-toolkit/client`.
+  through `@kstackz/auth-toolkit/client`.
 
-The UI uses `kui-toolkit`, tracing uses `@pkishorez/effect-tracer` and
-`@pkishorez/flow`, and `rpc-toolkit` and `std-toolkit` sit underneath. The
+The UI uses `@kstackz/ui-toolkit`, tracing uses `@kstackz/effect-tracer` and
+`@kstackz/flow`, and `@kstackz/rpc-toolkit` and `@kstackz/std-toolkit` sit underneath. The
 infrastructure is declared with Alchemy in `alchemy.run.ts` and `src/infra`.
 
 ## Usage

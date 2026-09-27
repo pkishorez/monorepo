@@ -3,7 +3,7 @@ import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
 import {
   layerWebSocketProtocol,
   RpcConnection,
-} from 'rpc-toolkit/rpc/websocket-client';
+} from '@kstackz/rpc-toolkit/rpc/websocket-client';
 import type { Scope } from 'effect/Scope';
 import type { PeerId } from '../../peer-identity/index.js';
 import {

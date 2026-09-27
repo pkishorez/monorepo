@@ -1,4 +1,4 @@
-import type { createToastManager } from 'kui-toolkit/components/ui/toast';
+import type { createToastManager } from '@kstackz/ui-toolkit/components/ui/toast';
 import { useEffect, useRef } from 'react';
 import type { PwaStatus } from '../client/index.js';
 

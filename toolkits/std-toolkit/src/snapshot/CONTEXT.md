@@ -17,7 +17,7 @@ A comparison of a current **table snapshot** with an earlier one, yielding **sna
 _Avoid_: Safety assessment, snapshot approval, approved snapshot file, contract file, enforcement baseline (retired: nothing is stored inside the table).
 
 **Snapshot guard**:
-The Alchemy resource in `std-toolkit/alchemy` that keeps the last accepted **table snapshot** for one physical table in Alchemy state. On each deploy it runs **snapshot verification** against that snapshot and fails the deploy when the new one is not upgradable; a `requires-backfill` change is accepted with a warning. A new physical target starts a fresh baseline. It runs only at deploy, never in a layer or a request.
+The Alchemy resource in `@kstackz/std-toolkit/alchemy` that keeps the last accepted **table snapshot** for one physical table in Alchemy state. On each deploy it runs **snapshot verification** against that snapshot and fails the deploy when the new one is not upgradable; a `requires-backfill` change is accepted with a warning. A new physical target starts a fresh baseline. It runs only at deploy, never in a layer or a request.
 _Avoid_: Enforcement, deploy gate, contract resource.
 
 **Snapshot document format**:

@@ -6,7 +6,7 @@ Project commands: `pnpm test` (vitest run) · `pnpm lint` (vp check + tsc --noEm
 
 ## North Star
 
-std-toolkit gains a third database adapter: an in-browser IndexedDB adapter at `src/db/idb` — the browser sibling of the SQLite adapter, not a DynamoDB emulator. It implements the shared single-table topology (partition key / sort key item collections, `IndexDefinition`, Entity services, `EntityRegistry`) over one IndexedDB object store per logical table, so browser apps get a sync-compatible local store that preserves the `_u` convergence ordering and `_d` soft-delete tombstones the tanstack-sync engine depends on. The constraint we slip scope before violating: behavioral parity with the SQLite adapter's shared-kernel semantics (the 7 SortKeyCondition operators, sort-direction inference, soft delete, `_u` stamping). Good looks like: `pnpm test` green including the repo's first shared conformance suite running identical assertions against both better-sqlite3 and fake-indexeddb, with the adapter exported at `std-toolkit/idb`.
+std-toolkit gains a third database adapter: an in-browser IndexedDB adapter at `src/db/idb` — the browser sibling of the SQLite adapter, not a DynamoDB emulator. It implements the shared single-table topology (partition key / sort key item collections, `IndexDefinition`, Entity services, `EntityRegistry`) over one IndexedDB object store per logical table, so browser apps get a sync-compatible local store that preserves the `_u` convergence ordering and `_d` soft-delete tombstones the tanstack-sync engine depends on. The constraint we slip scope before violating: behavioral parity with the SQLite adapter's shared-kernel semantics (the 7 SortKeyCondition operators, sort-direction inference, soft delete, `_u` stamping). Good looks like: `pnpm test` green including the repo's first shared conformance suite running identical assertions against both better-sqlite3 and fake-indexeddb, with the adapter exported at `@kstackz/std-toolkit/idb`.
 
 ## Glossary
 
@@ -338,7 +338,7 @@ export class EntityRegistry<TTable, TEntities, TSingleEntities> {
 
 ## Task: Package wiring — ./idb export, README, depcruise [AFK]
 
-**Why.** Until `std-toolkit/idb` resolves, the adapter exists only for this repo's tests — this slice makes it a consumable deliverable, matching how `./sqlite` and `./dynamodb` ship.
+**Why.** Until `@kstackz/std-toolkit/idb` resolves, the adapter exists only for this repo's tests — this slice makes it a consumable deliverable, matching how `./sqlite` and `./dynamodb` ship.
 
 **What.** Add the `"./idb"` subpath export to `package.json`, add an `indexeddb` keyword, write `src/db/idb/README.md`, and prove the module respects the repo's dependency-boundary rules.
 
@@ -363,7 +363,7 @@ export class EntityRegistry<TTable, TEntities, TSingleEntities> {
 }
 ```
 
-Consumers import as `import { IdbTable, IdbEntity, EntityRegistry, idbLayer } from 'std-toolkit/idb'`. (Internal-only otherwise.)
+Consumers import as `import { IdbTable, IdbEntity, EntityRegistry, idbLayer } from '@kstackz/std-toolkit/idb'`. (Internal-only otherwise.)
 
 **Inputs from predecessors.** Task `EntityRegistry with buffered transact` produced the barrel `src/db/idb/index.ts` whose exports the README documents: `IdbTable`, `IdbEntity`, `IdbSingleEntity`, `EntityRegistry`, `IdbDB`, `IdbDBError`, `idbLayer`.
 

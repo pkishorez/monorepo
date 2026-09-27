@@ -20,7 +20,7 @@ async function loadPlaywright(): Promise<typeof import('playwright-core')> {
     throw new SnapshotRenderError({
       reason: 'playwright-missing',
       message:
-        'playwright-core is not installed. Add it next to @pkishorez/devtools: `pnpm add -D playwright-core`.',
+        'playwright-core is not installed. Add it next to @kstackz/devtools: `pnpm add -D playwright-core`.',
     });
   }
 }

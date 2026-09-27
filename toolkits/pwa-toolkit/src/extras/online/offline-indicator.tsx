@@ -1,4 +1,4 @@
-import { WifiOffIcon } from 'kui-toolkit/lucide';
+import { WifiOffIcon } from '@kstackz/ui-toolkit/lucide';
 import type { ReactNode } from 'react';
 import { useOnline } from './online.js';
 

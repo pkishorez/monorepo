@@ -1,8 +1,8 @@
 import { Effect, Semaphore } from 'effect';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { ChevronRight, Layers, LoaderCircle } from 'kui-toolkit/lucide';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { ChevronRight, Layers, LoaderCircle } from '@kstackz/ui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../queries/index.ts';
 import {

@@ -10,12 +10,18 @@
   "format": false,
   "fixed": [
     [
-      "@pkishorez/effect-tracer",
-      "@pkishorez/flow",
-      "std-toolkit",
-      "@pkishorez/lotel",
-      "laymos",
-      "@pkishorez/devtools"
+      "@kstackz/ai-toolkit",
+      "@kstackz/auth-toolkit",
+      "@kstackz/devtools",
+      "@kstackz/effect-tracer",
+      "@kstackz/effect-webrtc",
+      "@kstackz/flow",
+      "@kstackz/lotel",
+      "@kstackz/pwa-toolkit",
+      "@kstackz/rpc-toolkit",
+      "@kstackz/std-toolkit",
+      "@kstackz/ui-toolkit",
+      "laymos"
     ]
   ],
   "linked": [],

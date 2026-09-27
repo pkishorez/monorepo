@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { InstallPrompt, useDisplayMode, useInstall } from 'pwa-toolkit/extras';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import {
+  InstallPrompt,
+  useDisplayMode,
+  useInstall,
+} from '@kstackz/pwa-toolkit/extras';
 import { useState } from 'react';
 import {
   Actions,

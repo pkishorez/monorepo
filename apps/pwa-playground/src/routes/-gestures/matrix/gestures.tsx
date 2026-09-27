@@ -3,13 +3,13 @@ import {
   usePinch,
   useSwipe,
   useTap,
-} from 'kui-toolkit/components/blocks/gestures';
+} from '@kstackz/ui-toolkit/components/blocks/gestures';
 import {
   type MotionValue,
   useMotionValue,
   useMotionValueEvent,
   useTransform,
-} from 'kui-toolkit/motion';
+} from '@kstackz/ui-toolkit/motion';
 import { useRef } from 'react';
 
 /** A column of the matrix: the Hold every cell in it registers. */

@@ -1,24 +1,24 @@
-import { StdTable, type TableDefinition } from 'std-toolkit/db';
-import type { DynamoDBConfig } from 'std-toolkit/db/dynamodb';
-import type { IDBConfig } from 'std-toolkit/db/idb';
-import { Memory, type MemoryTable } from 'std-toolkit/db/memory';
-import type { SQLiteConfig } from 'std-toolkit/db/sqlite';
+import { StdTable, type TableDefinition } from '@kstackz/std-toolkit/db';
+import type { DynamoDBConfig } from '@kstackz/std-toolkit/db/dynamodb';
+import type { IDBConfig } from '@kstackz/std-toolkit/db/idb';
+import { Memory, type MemoryTable } from '@kstackz/std-toolkit/db/memory';
+import type { SQLiteConfig } from '@kstackz/std-toolkit/db/sqlite';
 import type {
   BetterSQLite3Config,
   BetterSQLite3Driver,
-} from 'std-toolkit/db/sqlite/better-sqlite3';
+} from '@kstackz/std-toolkit/db/sqlite/better-sqlite3';
 import type {
   BunSQLiteConfig,
   BunSQLiteDriver,
-} from 'std-toolkit/db/sqlite/bun';
+} from '@kstackz/std-toolkit/db/sqlite/bun';
 import type {
   DurableObjectSQLiteConfig,
   DurableObjectSQLiteDriver,
-} from 'std-toolkit/db/sqlite/durable-object';
+} from '@kstackz/std-toolkit/db/sqlite/durable-object';
 import type {
   NodeSQLiteConfig,
   NodeSQLiteDriver,
-} from 'std-toolkit/db/sqlite/node';
+} from '@kstackz/std-toolkit/db/sqlite/node';
 
 const people = StdTable.make('people').primary('pk', 'sk').build();
 

@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 import { consoleTable } from '../table/index.ts';
 
 // Stored secrets per provider. Views never include this field.

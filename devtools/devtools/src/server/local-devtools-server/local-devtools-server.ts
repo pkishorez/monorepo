@@ -6,8 +6,8 @@ import { Effect, Layer } from 'effect';
 import { HttpRouter } from 'effect/unstable/http';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
-import { LotelOtlpHttpLive, LotelRpcLive } from '@pkishorez/lotel';
-import { sqliteTelemetryStoreLayer } from '@pkishorez/lotel/sqlite';
+import { LotelOtlpHttpLive, LotelRpcLive } from '@kstackz/lotel';
+import { sqliteTelemetryStoreLayer } from '@kstackz/lotel/sqlite';
 import { DevtoolsRpc } from '../../rpc/index.js';
 import { FlowRpcLive, sqliteFlowStoreLayer } from '../flow-store/index.js';
 import {

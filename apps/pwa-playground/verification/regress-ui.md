@@ -54,7 +54,7 @@ Overall the redesign is calm and well organised: clear eyebrow → title → lea
    - Home scenario paths (`/install`…, 12px) and the "This build" switch names (`PWA_PRESET`…, 11px): 3.23:1.
    - Auth-sim "Sign in or out to see what happens here." (`/70`): 2.71:1 light, 4.00:1 dark.
    - With plain `text-muted-foreground` every page measured ≥4.5:1 in both themes.
-2. **Destructive buttons under AA in light mode**: "Clear every Runtime Cache" and "Sign out" red on pale red, 3.97:1 at 14px. This is kui-toolkit's `destructive` variant; not changed here.
+2. **Destructive buttons under AA in light mode**: "Clear every Runtime Cache" and "Sign out" red on pale red, 3.97:1 at 14px. This is ui-toolkit's `destructive` variant; not changed here.
 3. **Desktop Install Prompt card covers page content.** The fixed bottom-right card sits over the State panel's values and over the page's "Next: Status" link (agent-browser refused the click: "covered by … card-description"). The page leaves no room for it. Suggest bottom padding on `/install` while the card shows, or placing the card so it doesn't cover the main column.
 4. **Identifiers set as body prose.** Lead paragraphs put `beforeinstallprompt`, `x-pwa-toolkit-cached-at`, `src/lib/runtime-cache-rules.ts` and `ManualIos` in Inter. At 390px `x-pwa-toolkit-cached-at` breaks across lines at its hyphens, and "(ManualIos)" reads as "Manuallos" because Inter's capital I and lowercase l look alike. Wrap them in `<code>` (mono) like the RPC page's `/rpc?fakeBuildId=other` link.
 5. **Home status strip on mobile**: five cells in a two-column grid leave "Update" alone with an empty half-row. Minor.

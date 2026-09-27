@@ -1,6 +1,6 @@
 # The per-table test file replaces the CLI
 
-The `std-toolkit snapshot` CLI, its `std-toolkit.snapshot.ts` entry convention, its file-based baseline, and the Jiti dependency are removed. This supersedes ADR 0003. In their place `std-toolkit/snapshot/vitest` offers one call per table, `expectTableSnapshot(table, file)`. It captures the table snapshot and compares it with the committed JSON file as parsed data, so formatting never fails the test. On a mismatch the failure message is the classified change list, so a reviewer or an agent reads "Task v1 edited" rather than a JSON diff. `vitest -u` accepts the current document, as it does for any file snapshot.
+The `std-toolkit snapshot` CLI, its `std-toolkit.snapshot.ts` entry convention, its file-based baseline, and the Jiti dependency are removed. This supersedes ADR 0003. In their place `@kstackz/std-toolkit/snapshot/vitest` offers one call per table, `expectTableSnapshot(table, file)`. It captures the table snapshot and compares it with the committed JSON file as parsed data, so formatting never fails the test. On a mismatch the failure message is the classified change list, so a reviewer or an agent reads "Task v1 edited" rather than a JSON diff. `vitest -u` accepts the current document, as it does for any file snapshot.
 
 The table snapshot is the only snapshot document. There is no ESchema-only document: a nested ESchema is captured under its own identity inside the table snapshot, and its versions are frozen by the same rules as a top-level one.
 

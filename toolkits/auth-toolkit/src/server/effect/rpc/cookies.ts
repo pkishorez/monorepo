@@ -13,7 +13,7 @@ interface RequestAuthStateValue {
 export class RequestAuthState extends Context.Service<
   RequestAuthState,
   RequestAuthStateValue
->()('auth-toolkit/server/rpc/RequestAuthState') {}
+>()('@kstackz/auth-toolkit/server/rpc/RequestAuthState') {}
 
 // Bridges refreshed cookies from forked RPC handler fibers back to a
 // completed non-streaming HTTP response. Use with RpcSerialization.layerJson.

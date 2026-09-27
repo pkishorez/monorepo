@@ -1,15 +1,15 @@
-import { TraceDock } from 'kui-toolkit/components/blocks/otel-trace-viewer';
-import type { TraceGroup } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-model';
-import type { TraceView } from 'kui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { TraceDock } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer';
+import type { TraceGroup } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-model';
+import type { TraceView } from '@kstackz/ui-toolkit/components/blocks/otel-trace-viewer/trace-presentation';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   AlertTriangleIcon,
   BookOpenText,
   ChartNoAxesGantt,
   GitBranchIcon,
   XIcon,
-} from 'kui-toolkit/lucide';
-import { cn } from 'kui-toolkit/lib/utils';
+} from '@kstackz/ui-toolkit/lucide';
+import { cn } from '@kstackz/ui-toolkit/lib/utils';
 import { useLotelStore } from './state';
 
 export function TraceWorkspace({

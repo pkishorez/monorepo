@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { StdTable } from 'std-toolkit/db';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 import { fresh } from '../../env.js';
 import { TaskV4 } from '../18-removing-and-renaming-fields/removing-and-renaming-fields.story.js';
 

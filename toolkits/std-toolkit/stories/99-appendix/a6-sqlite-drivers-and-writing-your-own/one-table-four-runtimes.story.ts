@@ -1,14 +1,14 @@
 import { DatabaseSync } from 'node:sqlite';
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { Ulid } from 'std-toolkit/core';
-import { SQLite } from 'std-toolkit/db/sqlite';
-import { makeBetterSQLite3 } from 'std-toolkit/db/sqlite/better-sqlite3';
+import { Ulid } from '@kstackz/std-toolkit/core';
+import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
+import { makeBetterSQLite3 } from '@kstackz/std-toolkit/db/sqlite/better-sqlite3';
 import {
   makeDurableObjectSQLite,
   type DurableObjectSQLiteStorage,
-} from 'std-toolkit/db/sqlite/durable-object';
-import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+} from '@kstackz/std-toolkit/db/sqlite/durable-object';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { table } from '../../01-one-task-one-table/02-making-a-table-for-tasks-to-live-in/making-a-table-for-tasks-to-live-in.story.js';
 import { task } from '../../01-one-task-one-table/03-telling-the-table-where-each-task-goes/telling-the-table-where-each-task-goes.story.js';
 
@@ -96,7 +96,7 @@ export const oneTableFourRuntimes = Story.make({
   questions: [
     Story.question('Which runtimes can run the SQLite table?', {
       answer:
-        'Any that has SQLite: there is a driver for `node:sqlite`, for `better-sqlite3`, for Bun, and for Cloudflare Durable Objects, each one entrypoint under `std-toolkit/db/sqlite/`. This proof runs the same program on three of them (the Bun driver only runs under Bun, so it is named and not proved) and gets the same answer, stamp included.',
+        'Any that has SQLite: there is a driver for `node:sqlite`, for `better-sqlite3`, for Bun, and for Cloudflare Durable Objects, each one entrypoint under `@kstackz/std-toolkit/db/sqlite/`. This proof runs the same program on three of them (the Bun driver only runs under Bun, so it is named and not proved) and gets the same answer, stamp included.',
       proof: Story.trace(
         Effect.gen(function* () {
           // The same program on three drivers, each over a database in memory.

@@ -1,11 +1,11 @@
 import { Effect, Fiber, Stream } from 'effect';
-import type { PeerId } from 'effect-webrtc';
+import type { PeerId } from '@kstackz/effect-webrtc';
 import {
   DurableSignaling,
   type DurableSignaling as DurableConnection,
   type PeerDescriptor,
   type PeerMode,
-} from 'effect-webrtc/signaling/durable';
+} from '@kstackz/effect-webrtc/signaling/durable';
 import {
   bootConversationWith,
   type ConversationRuntime,

@@ -1,15 +1,15 @@
 import { Effect, Semaphore } from 'effect';
 import { useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import { Input } from 'kui-toolkit/components/ui/input';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from 'kui-toolkit/components/ui/dropdown-menu';
+} from '@kstackz/ui-toolkit/components/ui/dropdown-menu';
 import {
   Database,
   Search,
@@ -20,7 +20,7 @@ import {
   ArrowRight,
   RefreshCw,
   EllipsisVertical,
-} from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import type { storeView } from '../../../../shared/contracts/stores/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../queries/index.ts';

@@ -1,7 +1,7 @@
 # gestures v3: Anchor, Swipe and Capture on the PR stage
 
 Target: https://pr57-pwa.kishore.app/gestures, head `cd0435a7c`, Build ID `e3d4b5d5fb2296b2`, gestures chunk `gestures-DV2BvYFq.js`. Date: 2026-09-27.
-Behaviour under test: `toolkits/kui-toolkit/src/components/blocks/gestures/SKILL.md` and the Anchor, Swipe and Capture terms in `toolkits/kui-toolkit/CONTEXT.md`.
+Behaviour under test: `toolkits/ui-toolkit/src/components/blocks/gestures/SKILL.md` and the Anchor, Swipe and Capture terms in `toolkits/ui-toolkit/CONTEXT.md`.
 
 Browser: agent-browser Chrome, fresh sessions `gv3pr-ios` and `gv3pr-android`, driven over raw CDP by `/tmp/pwa/gv3/pr.mjs` (the builder's `verify.mjs` pointed at the stage, with its own CDP plumbing and more checks).
 

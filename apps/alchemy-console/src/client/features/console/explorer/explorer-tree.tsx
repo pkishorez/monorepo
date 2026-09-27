@@ -12,18 +12,18 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   useSidebar,
-} from 'kui-toolkit/components/ui/sidebar';
+} from '@kstackz/ui-toolkit/components/ui/sidebar';
 import {
   Collapsible,
   CollapsibleContent,
-} from 'kui-toolkit/components/ui/collapsible';
+} from '@kstackz/ui-toolkit/components/ui/collapsible';
 import {
   ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
   Layers,
   Search,
-} from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/lucide';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcQuery, rpcQueryKeys } from '../queries/index.ts';
 import type { NavigationLink } from '../state-view/index.ts';

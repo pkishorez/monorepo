@@ -10,7 +10,7 @@ const PACKAGE = 'pwa-toolkit';
 
 /**
  * Serves `virtual:pwa-toolkit/client` to the client and server environments,
- * and keeps `pwa-toolkit` inside Vite's module graph there (not pre-bundled,
+ * and keeps `@kstackz/pwa-toolkit` inside Vite's module graph there (not pre-bundled,
  * not externalized) so its import of the virtual module resolves.
  */
 export const clientModulePlugin = (

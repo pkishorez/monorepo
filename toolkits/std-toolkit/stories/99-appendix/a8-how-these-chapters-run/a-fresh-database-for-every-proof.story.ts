@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import type { DatabaseError } from 'std-toolkit/db';
+import type { DatabaseError } from '@kstackz/std-toolkit/db';
 import { adapterNames, fresh } from '../../env.js';
 import { table } from '../../01-one-task-one-table/02-making-a-table-for-tasks-to-live-in/making-a-table-for-tasks-to-live-in.story.js';
 import { task } from '../../01-one-task-one-table/03-telling-the-table-where-each-task-goes/telling-the-table-where-each-task-goes.story.js';

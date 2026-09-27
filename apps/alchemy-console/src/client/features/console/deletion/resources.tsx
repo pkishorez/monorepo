@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Check,
   CircleAlert,
@@ -7,7 +7,7 @@ import {
   ShieldCheck,
   Trash2,
   Unlink,
-} from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/lucide';
 import type {
   deletionEvent,
   deletionPlan,

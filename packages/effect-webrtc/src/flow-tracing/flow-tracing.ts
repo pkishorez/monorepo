@@ -5,7 +5,7 @@ import {
   type ActivationRef,
   type FlowInstance,
   type MessageToken,
-} from '@pkishorez/flow';
+} from '@kstackz/flow';
 import { Effect, Schema } from 'effect';
 import type { Scope } from 'effect/Scope';
 import type {

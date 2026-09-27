@@ -1,10 +1,10 @@
-# std-toolkit/db/dynamodb
+# @kstackz/std-toolkit/db/dynamodb
 
 DynamoDB adapter for StdTable, with create and delete helpers for DynamoDB Local.
 
 ## Big picture
 
-DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies the StdTable operations and nothing else: there are no native reads, expression updates, or batch writes, so every write goes through `insert`, `update`, or `getAndUpdate` and application code never handles DynamoDB attribute values ([ADR 0015](../../../docs/adr/0015-rich-values-encoded-storage-key-paths.md)). `make` returns only the layer and never touches the physical table. Deployed tables come from `DynamoDB.table` in [`std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy), which creates every index and guards the table snapshot. For DynamoDB Local and tests, `DynamoDB.createTable` creates the table if it is missing and `DynamoDB.deleteTable` removes it. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
+DynamoDB is the reference topology every other adapter mirrors. `DynamoDB.make` realizes a StdTable on one physical table through `aws4fetch`, so no AWS SDK is required. Its layer supplies the StdTable operations and nothing else: there are no native reads, expression updates, or batch writes, so every write goes through `insert`, `update`, or `getAndUpdate` and application code never handles DynamoDB attribute values ([ADR 0015](../../../docs/adr/0015-rich-values-encoded-storage-key-paths.md)). `make` returns only the layer and never touches the physical table. Deployed tables come from `DynamoDB.table` in [`@kstackz/std-toolkit/alchemy`](../../../README.md#std-toolkitalchemy), which creates every index and guards the table snapshot. For DynamoDB Local and tests, `DynamoDB.createTable` creates the table if it is missing and `DynamoDB.deleteTable` removes it. Divergences are in [CONTEXT.md](CONTEXT.md); shared vocabulary is in [db/CONTEXT.md](../CONTEXT.md).
 
 ## Install
 
@@ -12,7 +12,7 @@ See the [top README](../../../README.md).
 
 ## Exports
 
-### `std-toolkit/db/dynamodb`
+### `@kstackz/std-toolkit/db/dynamodb`
 
 | Export                        | What it does                                                                                |
 | ----------------------------- | ------------------------------------------------------------------------------------------- |
@@ -30,8 +30,8 @@ Lifted from story 24, which runs against DynamoDB Local.
 
 ```ts
 import { Effect } from 'effect';
-import { StdTable } from 'std-toolkit/db';
-import { DynamoDB } from 'std-toolkit/db/dynamodb';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { DynamoDB } from '@kstackz/std-toolkit/db/dynamodb';
 
 const table = StdTable.make('board').primary('pk', 'sk').build();
 

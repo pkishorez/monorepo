@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { WifiOffIcon } from 'kui-toolkit/lucide';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { WifiOffIcon } from '@kstackz/ui-toolkit/lucide';
 import { useEffect, useState } from 'react';
 import { ScenarioPage } from '../components/index.ts';
 

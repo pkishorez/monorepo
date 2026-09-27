@@ -1,5 +1,5 @@
-import type { FlowStatus } from '@pkishorez/flow';
-import { cn } from 'kui-toolkit/lib/utils';
+import type { FlowStatus } from '@kstackz/flow';
+import { cn } from '@kstackz/ui-toolkit/lib/utils';
 
 export interface FlowFeedRow {
   readonly id: string;

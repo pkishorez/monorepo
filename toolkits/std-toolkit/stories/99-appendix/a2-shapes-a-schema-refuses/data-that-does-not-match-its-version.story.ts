@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 // A task shape with one step of history: v2 added a priority, and old rows get `normal`.
 const Task = EntityESchema.make('Task', 'taskId', {

@@ -1,10 +1,10 @@
-# auth-toolkit/rpc and auth-toolkit/rpc/server
+# @kstackz/auth-toolkit/rpc and @kstackz/auth-toolkit/rpc/server
 
-Protects Effect RPCs with the same Server-Side Verification `auth-toolkit/server`
+Protects Effect RPCs with the same Server-Side Verification `@kstackz/auth-toolkit/server`
 does for plain requests. `Authz` is the Auth Cannotation for the RPC Sibling, built
-with `rpc-toolkit/rpc/cannotation`: its Declaration lives in `auth-toolkit/rpc` and
+with `@kstackz/rpc-toolkit/rpc/cannotation`: its Declaration lives in `@kstackz/auth-toolkit/rpc` and
 is safe to import from contract code shared with the browser; its Server
-Implementation lives in `auth-toolkit/rpc/server`.
+Implementation lives in `@kstackz/auth-toolkit/rpc/server`.
 
 `Authz.guard()` requires a valid session; `Authz.guard(policy)` additionally
 authorizes the current user and session. `Authz.policy(invariant, reason)` builds a policy
@@ -17,7 +17,7 @@ hand-written Effect rule for anything the invariant form cannot express.
 import { Effect, Schema } from 'effect';
 import { pipe } from 'effect/Function';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { Authz } from 'auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
 
 const hasAcmeEmail = Authz.policy(
   ({ user }) => user.email.endsWith('@acme.com'),
@@ -52,7 +52,7 @@ carry `user.id`, `user.email`, and `user.name`. `Authz.scope('notes:write')`
 builds a policy only a Token Principal with that Scope passes:
 
 ```ts
-import { Authz } from 'auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
 
 const Handlers = PrivateApi.toLayer({
   Me: () => Effect.map(Authz.CurrentAuth, ({ user }) => user.email),
@@ -67,7 +67,7 @@ handlers. One `resolverLive` can serve both Siblings:
 // server.ts
 import { Layer } from 'effect';
 import { RpcServer } from 'effect/unstable/rpc';
-import { authzLayer, resolverLive } from 'auth-toolkit/rpc/server';
+import { authzLayer, resolverLive } from '@kstackz/auth-toolkit/rpc/server';
 
 const RpcLive = RpcServer.layer(PrivateApi).pipe(
   Layer.provide(Handlers),
@@ -87,8 +87,8 @@ still run normally:
 
 ```ts
 import { Effect, Layer } from 'effect';
-import { Authz } from 'auth-toolkit/rpc';
-import { authzLayer } from 'auth-toolkit/rpc/server';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { authzLayer } from '@kstackz/auth-toolkit/rpc/server';
 
 const TestResolver = Layer.succeed(
   Authz.Resolver,
@@ -121,7 +121,7 @@ import {
   authzCookies,
   authzLayer,
   resolverLive,
-} from 'auth-toolkit/rpc/server';
+} from '@kstackz/auth-toolkit/rpc/server';
 
 const makeApp = Effect.gen(function* () {
   const rpcApp = yield* RpcServer.toHttpEffect(PrivateApi);

@@ -1,6 +1,6 @@
 {
-  "name": "std-toolkit",
-  "version": "0.0.11",
+  "name": "@kstackz/std-toolkit",
+  "version": "0.0.0",
   "private": false,
   "description": "Single-table design toolkit: database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration",
   "keywords": [
@@ -148,9 +148,9 @@
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@tanstack/react-db": ">=0.1.64",
+    "@tanstack/react-db": "0.4.1",
     "effect": "4.0.0-rc.112",
-    "react": "^18 || ^19",
+    "react": "19.2.8",
     "alchemy": "2.0.0-beta.76",
     "vitest": "catalog:"
   },

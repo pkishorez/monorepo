@@ -5,7 +5,7 @@ import {
   createRootRoute,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
+import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
 import type { ReactNode } from 'react';
 import {
   appTheme,

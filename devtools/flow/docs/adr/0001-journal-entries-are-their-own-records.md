@@ -12,7 +12,7 @@ traces, processes, and a much longer span of time.
 An Entry is now a first-class record with its own schema, its own sink
 (Flow Telemetry), its own transport (the Flow RPC), and its own store table.
 A span may be linked from an Entry through its Trace Link, but the span is
-never the Entry. The `@pkishorez/flow` package depends on Effect alone; the
+never the Entry. The `@kstackz/flow` package depends on Effect alone; the
 StdTable-backed Flow Store lives in DevTools, because std-toolkit's sync engine
 records Flows and a store inside the package would have made the two
 workspaces depend on each other.

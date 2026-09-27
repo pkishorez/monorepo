@@ -2,7 +2,7 @@
 
 The Client side exposes one service, `Pwa`: a single Status (Unsupported, Installing, Ready, Update Ready, Updating) plus `checkForUpdate` and `applyUpdate`. The Status is read from the browser's own service worker events (`controllerchange`, `updatefound`, `statechange`, the registration's `installing` / `waiting` / `active`), so the Client never asks the worker how it is. The only message outside Worker RPC is the activate Command; the `GET_BUILD_ID` and `CLEAR_RUNTIME_CACHE` messages were never sent by any Client and are gone ([ADR 0002](0002-control-channel-separate-from-worker-rpc.md) still explains why that one message stays out of Worker RPC).
 
-Everything the PWA does not need to work (the Install Prompt, online state, display mode, storage persistence) moved to `pwa-toolkit/extras`. Each Extra keeps its service, hook and UI in one folder, builds its own page-wide service on first use, and needs no provider; nothing in the core imports it.
+Everything the PWA does not need to work (the Install Prompt, online state, display mode, storage persistence) moved to `@kstackz/pwa-toolkit/extras`. Each Extra keeps its service, hook and UI in one folder, builds its own page-wide service on first use, and needs no provider; nothing in the core imports it.
 
 ## Considered Options
 

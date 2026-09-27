@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { RefreshCw } from 'kui-toolkit/lucide';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { RefreshCw } from '@kstackz/ui-toolkit/lucide';
 
 export function RefreshButton({
   query,

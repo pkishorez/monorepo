@@ -1,4 +1,4 @@
-# std-toolkit
+# @kstackz/std-toolkit
 
 Single-table design toolkit: database-agnostic sync over single-table item collections, with schema evolution, portable database adapters, and TanStack DB integration
 
@@ -6,7 +6,7 @@ Single-table design toolkit: database-agnostic sync over single-table item colle
 
 Applications that store many entity types in one table, then mirror that data into a browser, end up writing the same three things by hand: a schema that can still read last year's rows, a storage layer that is bolted to one database, and a sync loop that keeps a client cache fresh. std-toolkit provides each as a separate subpath that shares one Entity model, so they compose without glue code.
 
-`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot` captures the resulting storage contract as one document per table, and `studio-rpc` serves it to Std Studio. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `std-toolkit/snapshot/vitest` is the one test a table needs. Snapshot never runs inside an adapter or at request time.
+`core` defines the Entity envelope and metadata every other subpath speaks. `eschema` gives versioned schemas that migrate on read. `db` defines a StdTable once, and the DynamoDB, SQLite, IndexedDB, and Memory adapters realize it without changing application code. `sync` drives TanStack DB Collections from any backend and persists its replica through the same StdTable contract. `snapshot` captures the resulting storage contract as one document per table, and `studio-rpc` serves it to Std Studio. `alchemy` deploys a table and refuses a deploy that would break a stored version, keeping the accepted snapshot in Alchemy state. `@kstackz/std-toolkit/snapshot/vitest` is the one test a table needs. Snapshot never runs inside an adapter or at request time.
 
 Each subpath owns its vocabulary in a `CONTEXT.md`: [core](src/core/CONTEXT.md), [eschema](src/eschema/CONTEXT.md), [snapshot](src/snapshot/CONTEXT.md), [db](src/db/CONTEXT.md), [sync](src/sync/CONTEXT.md). The [context map](CONTEXT-MAP.md) explains how they relate. Decisions live in [docs/adr/](docs/adr/), [src/db/docs/adr/](src/db/docs/adr/), and [src/sync/docs/adr/](src/sync/docs/adr/). Longer reads: [Evolving schema](docs/evolving-schema.md), [Sync guide](docs/sync-guide.md). The [stories](stories/) folder is a guided walkthrough that runs as tests.
 
@@ -19,21 +19,21 @@ npm install std-toolkit effect
 Node 24 or later. Peer dependencies:
 
 - `effect` (required): every subpath is built on Effect Services, Layers, and Schema.
-- `@tanstack/react-db` (optional): `std-toolkit/sync` creates and drives TanStack DB Collections.
-- `react` (optional): required by `@tanstack/react-db`; only needed when you use `std-toolkit/sync`.
-- `alchemy` (optional): only `std-toolkit/alchemy` imports it, to deploy a table and guard its snapshot.
+- `@tanstack/react-db` (optional): `@kstackz/std-toolkit/sync` creates and drives TanStack DB Collections.
+- `react` (optional): required by `@tanstack/react-db`; only needed when you use `@kstackz/std-toolkit/sync`.
+- `alchemy` (optional): only `@kstackz/std-toolkit/alchemy` imports it, to deploy a table and guard its snapshot.
 
 ## Exports
 
-### `std-toolkit/core`
+### `@kstackz/std-toolkit/core`
 
 See [src/core/README.md](src/core/README.md).
 
-### `std-toolkit/eschema`
+### `@kstackz/std-toolkit/eschema`
 
 See [src/eschema/README.md](src/eschema/README.md).
 
-### `std-toolkit/snapshot`
+### `@kstackz/std-toolkit/snapshot`
 
 | Export                        | What it does                                                                             |
 | ----------------------------- | ---------------------------------------------------------------------------------------- |
@@ -44,12 +44,12 @@ See [src/eschema/README.md](src/eschema/README.md).
 | `TableSnapshotESchema`        | The ESchema of the stored table snapshot document.                                       |
 | `SnapshotIncompatible`        | Error raised when a new snapshot is not upgradable from the accepted one.                |
 
-### `std-toolkit/snapshot/vitest`
+### `@kstackz/std-toolkit/snapshot/vitest`
 
 The recommended test for a table, in one call. It needs `vitest` as a peer.
 
 ```ts
-import { expectTableSnapshot } from 'std-toolkit/snapshot/vitest';
+import { expectTableSnapshot } from '@kstackz/std-toolkit/snapshot/vitest';
 import { it } from 'vitest';
 import { table } from '../src/table.js';
 
@@ -64,7 +64,7 @@ The file holds the table snapshot: topology, entities, and every version of ever
 | --------------------- | ---------------------------------------------------------------------- |
 | `expectTableSnapshot` | Captures the table's snapshot and compares it with the committed file. |
 
-### `std-toolkit/alchemy`
+### `@kstackz/std-toolkit/alchemy`
 
 Deploys a StdTable with Alchemy. Each target keeps the last accepted table snapshot in Alchemy state and fails the deploy when the new one is not upgradable from it. Add `providers()` to the stack's providers.
 
@@ -74,11 +74,11 @@ Deploys a StdTable with Alchemy. Each target keeps the last accepted table snaps
 | `D1.table`       | Guards the snapshot, then creates or updates the table and its indexes in D1.     |
 | `providers`      | Every provider std-toolkit's resources need, to merge into a stack's `providers`. |
 
-### `std-toolkit/studio-rpc`
+### `@kstackz/std-toolkit/studio-rpc`
 
 See [src/studio-rpc/README.md](src/studio-rpc/README.md).
 
-### `std-toolkit/db`
+### `@kstackz/std-toolkit/db`
 
 | Export          | What it does                                                                                      |
 | --------------- | ------------------------------------------------------------------------------------------------- |
@@ -87,23 +87,23 @@ See [src/studio-rpc/README.md](src/studio-rpc/README.md).
 
 The built `StdTable` exposes `entity`, `singleEntity`, `transact`, `scan`, `subscribe`, `drift`, `reindex`, and `dangerouslyRemoveAllItems`. See [src/db/CONTEXT.md](src/db/CONTEXT.md).
 
-### `std-toolkit/db/dynamodb`
+### `@kstackz/std-toolkit/db/dynamodb`
 
 See [src/db/dynamodb/README.md](src/db/dynamodb/README.md).
 
-### `std-toolkit/db/idb`
+### `@kstackz/std-toolkit/db/idb`
 
 See [src/db/idb/README.md](src/db/idb/README.md).
 
-### `std-toolkit/db/memory`
+### `@kstackz/std-toolkit/db/memory`
 
 See [src/db/memory/README.md](src/db/memory/README.md).
 
-### `std-toolkit/db/sqlite`
+### `@kstackz/std-toolkit/db/sqlite`
 
 See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the driver entrypoints `./db/sqlite/node`, `./db/sqlite/bun`, `./db/sqlite/better-sqlite3`, `./db/sqlite/d1`, and `./db/sqlite/durable-object`.
 
-### `std-toolkit/sync`
+### `@kstackz/std-toolkit/sync`
 
 See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced` and `./sync/platform/browser`.
 
@@ -116,10 +116,10 @@ The same `Task` schema serves storage and sync. The table is realized in memory 
 ```ts
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
 import { Effect, Schema } from 'effect';
-import { StdTable } from 'std-toolkit/db';
-import { Memory } from 'std-toolkit/db/memory';
-import { EntityESchema } from 'std-toolkit/eschema';
-import { createStdSync, strategy } from 'std-toolkit/sync';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { Memory } from '@kstackz/std-toolkit/db/memory';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 
 // 1. The shape of a task; `taskId` identifies one.
 const Task = EntityESchema.make('Task', 'taskId', {
@@ -176,20 +176,23 @@ const screen = createLiveQueryCollection({
 - `EntityESchema.make(...).build()` produces a schema that encodes with a `_v` stamp and decodes any past version to the latest shape.
 - `table.entity(Task).primary({ pk: ['boardId'] })` maps key paths of the value to the table's key attributes; the sort key is always the id field. A key path may reach into nested objects and union branches (`owner.teamId`) and must end at a string or number.
 - `Memory.make(table).layer` satisfies the `StdTableService<'board'>` requirement of every `task.*` call. Any other adapter's layer does the same.
-- `createStdSync` keeps its local copy in memory by default. In a real page pass `platform: browser()` from `std-toolkit/sync/platform/browser` to keep it in IndexedDB and let one tab read for all.
+- `createStdSync` keeps its local copy in memory by default. In a real page pass `platform: browser()` from `@kstackz/std-toolkit/sync/platform/browser` to keep it in IndexedDB and let one tab read for all.
 - A partition's strategy starts when a TanStack query filters on `boardId`. `after` is exclusive: return entities strictly after it.
 - `onInsert` writes through to the same table, so the next poll confirms the optimistic row.
 
 ### Deploy a table and refuse a breaking change
 
-An application deploys its table through `std-toolkit/alchemy`. The first deploy records the table snapshot in Alchemy state. Every later deploy compares the new snapshot with the accepted one and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from `apps/alchemy-console/alchemy.run.ts`.
+An application deploys its table through `@kstackz/std-toolkit/alchemy`. The first deploy records the table snapshot in Alchemy state. Every later deploy compares the new snapshot with the accepted one and fails before the table is touched if a stored version was edited or removed, or the key layout moved. Lifted from `apps/alchemy-console/alchemy.run.ts`.
 
 ```ts
 import { Stack, Stage } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import { D1, providers as stdToolkitProviders } from 'std-toolkit/alchemy';
+import {
+  D1,
+  providers as stdToolkitProviders,
+} from '@kstackz/std-toolkit/alchemy';
 import { consoleTable } from './src/server/storage/table/index.ts';
 // Entities register on the table as their modules load; the snapshot must see all of them.
 import './src/server/storage/stores/index.ts';

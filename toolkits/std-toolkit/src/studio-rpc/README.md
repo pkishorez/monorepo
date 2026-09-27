@@ -1,4 +1,4 @@
-# std-toolkit/studio-rpc
+# @kstackz/std-toolkit/studio-rpc
 
 One generic, read-only Effect RPC group that exposes a single StdTable to a Studio client.
 
@@ -14,7 +14,7 @@ See the [top README](../../README.md).
 
 ## Exports
 
-### `std-toolkit/studio-rpc`
+### `@kstackz/std-toolkit/studio-rpc`
 
 | Export            | What it does                                                                             |
 | ----------------- | ---------------------------------------------------------------------------------------- |
@@ -29,7 +29,7 @@ Merge the group into the one the application already serves and provide its hand
 
 ```ts
 import { Layer } from 'effect';
-import { StudioRpc } from 'std-toolkit/studio-rpc';
+import { StudioRpc } from '@kstackz/std-toolkit/studio-rpc';
 
 const HostedRpc = ApplicationRpc.merge(StudioRpc);
 

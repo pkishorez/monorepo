@@ -5,7 +5,7 @@ import {
   layerWebSocketProtocol,
   keepSubscribed,
   connectionStatus,
-} from 'rpc-toolkit/rpc/websocket-client';
+} from '@kstackz/rpc-toolkit/rpc/websocket-client';
 ```
 
 The browser half of the pair. Two jobs:
@@ -41,7 +41,7 @@ a new connection is established.
 import * as Layer from 'effect/Layer';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
 import { RpcClient } from 'effect/unstable/rpc';
-import { layerWebSocketProtocol } from 'rpc-toolkit/rpc/websocket-client';
+import { layerWebSocketProtocol } from '@kstackz/rpc-toolkit/rpc/websocket-client';
 
 const protocol = layerWebSocketProtocol({
   url: '/rpc/chat',

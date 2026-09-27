@@ -1,26 +1,26 @@
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useState } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from 'kui-toolkit/components/ui/collapsible';
+} from '@kstackz/ui-toolkit/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from 'kui-toolkit/components/ui/dialog';
+} from '@kstackz/ui-toolkit/components/ui/dialog';
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from 'kui-toolkit/components/ui/empty';
-import { Input } from 'kui-toolkit/components/ui/input';
-import { Label } from 'kui-toolkit/components/ui/label';
+} from '@kstackz/ui-toolkit/components/ui/empty';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
+import { Label } from '@kstackz/ui-toolkit/components/ui/label';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -31,8 +31,8 @@ import {
   PlusIcon,
   Trash2Icon,
   XIcon,
-} from 'kui-toolkit/lucide';
-import { cn } from 'kui-toolkit/utils';
+} from '@kstackz/ui-toolkit/lucide';
+import { cn } from '@kstackz/ui-toolkit/utils';
 import type { ProjectEntry, RegistryTool, Worktree } from '../../rpc/index.js';
 import { basename, useProjectRegistry } from './registry.js';
 import { shortenHome, worktreeLabel } from './worktree-switcher.js';

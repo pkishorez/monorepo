@@ -1,10 +1,10 @@
-# auth-toolkit/http-api and auth-toolkit/http-api/server
+# @kstackz/auth-toolkit/http-api and @kstackz/auth-toolkit/http-api/server
 
 Protects Effect HTTP API endpoints with the same Server-Side Verification
-`auth-toolkit/server` uses for plain requests. `Authz` is the Auth Cannotation for
-the HTTP Sibling, built with `rpc-toolkit/http/cannotation`: its Declaration lives
-in `auth-toolkit/http-api` and is safe to import from contract code shared with
-the browser; its Server Implementation lives in `auth-toolkit/http-api/server`.
+`@kstackz/auth-toolkit/server` uses for plain requests. `Authz` is the Auth Cannotation for
+the HTTP Sibling, built with `@kstackz/rpc-toolkit/http/cannotation`: its Declaration lives
+in `@kstackz/auth-toolkit/http-api` and is safe to import from contract code shared with
+the browser; its Server Implementation lives in `@kstackz/auth-toolkit/http-api/server`.
 
 `Authz.guard()` requires valid Current Auth; `Authz.guard(policy)` additionally
 authorizes the verified User and Session. `Authz.policy(invariant, reason)` builds a policy
@@ -16,7 +16,7 @@ hand-written Effect rule for anything the invariant form cannot express.
 // contract.ts — shared by client and server
 import { Effect, Schema } from 'effect';
 import { HttpApiEndpoint, HttpApiGroup } from 'effect/unstable/httpapi';
-import { Authz } from 'auth-toolkit/http-api';
+import { Authz } from '@kstackz/auth-toolkit/http-api';
 
 const administratorOnly = Authz.policy(
   ({ user }) => user.role === 'admin',
@@ -42,7 +42,7 @@ builds a policy only a Token Principal with that Scope passes:
 
 ```ts
 import { HttpApi, HttpApiBuilder } from 'effect/unstable/httpapi';
-import { Authz } from 'auth-toolkit/http-api';
+import { Authz } from '@kstackz/auth-toolkit/http-api';
 
 class Api extends HttpApi.make('api').add(PrivateApi) {}
 
@@ -59,7 +59,10 @@ API handlers. One `resolverLive` can serve both Siblings:
 ```ts
 // server.ts
 import { Layer } from 'effect';
-import { authzLayer, resolverLive } from 'auth-toolkit/http-api/server';
+import {
+  authzLayer,
+  resolverLive,
+} from '@kstackz/auth-toolkit/http-api/server';
 
 export const ApiLive = HttpApiBuilder.layer(Api).pipe(
   Layer.provide(Handlers),
@@ -92,8 +95,8 @@ still run normally:
 
 ```ts
 import { Effect, Layer } from 'effect';
-import { Authz } from 'auth-toolkit/http-api';
-import { authzLayer } from 'auth-toolkit/http-api/server';
+import { Authz } from '@kstackz/auth-toolkit/http-api';
+import { authzLayer } from '@kstackz/auth-toolkit/http-api/server';
 
 const TestResolver = Layer.succeed(
   Authz.Resolver,

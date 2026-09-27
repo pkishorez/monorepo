@@ -1,12 +1,12 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { createStdSync, strategy } from 'std-toolkit/sync';
+import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import {
   buildPacedUpdate,
   paceStrategy,
   type PaceStrategyFactory,
-} from 'std-toolkit/sync/paced';
+} from '@kstackz/std-toolkit/sync/paced';
 import { fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {
@@ -116,7 +116,7 @@ export const typingFastWithoutFloodingTheServer = Story.make({
   questions: [
     Story.question('Ten keystrokes: how many writes reach the server?', {
       answer:
-        'One, with a debounce pace. `buildPacedUpdate` from `std-toolkit/sync/paced` turns every keystroke into a paced update: its `optimistic` half changes the row on the screen at once, and its `commit` half gets only what the pace lets through, with the keystrokes in between merged into one set of changes. `paceStrategy.debounce` waits for a pause in typing (30 milliseconds here) before it lets the latest title through.',
+        'One, with a debounce pace. `buildPacedUpdate` from `@kstackz/std-toolkit/sync/paced` turns every keystroke into a paced update: its `optimistic` half changes the row on the screen at once, and its `commit` half gets only what the pace lets through, with the keystrokes in between merged into one set of changes. `paceStrategy.debounce` waits for a pause in typing (30 milliseconds here) before it lets the latest title through.',
       proof: onBoard(
         Story.flow(
           Effect.gen(function* () {

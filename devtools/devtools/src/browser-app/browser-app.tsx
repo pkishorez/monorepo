@@ -8,9 +8,9 @@ import {
   RouterProvider,
   useMatchRoute,
 } from '@tanstack/react-router';
-import { Toaster } from 'kui-toolkit/components/ui/sonner';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { ArrowRightIcon, MoonIcon, SunIcon } from 'kui-toolkit/lucide';
+import { Toaster } from '@kstackz/ui-toolkit/components/ui/sonner';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { ArrowRightIcon, MoonIcon, SunIcon } from '@kstackz/ui-toolkit/lucide';
 import { DevtoolsRpcProvider } from '../client/devtools-rpc/index.js';
 import { Flow } from '../ui/flow/flow/index.js';
 import { Lotel } from '../ui/lotel/lotel/index.js';

@@ -82,7 +82,7 @@ Metrics are outside the Telemetry Tool's scope.
 
 **devtools**:
 The command-line program through which developers start the DevTools Server
-and run Client Commands. It is the binary of the `@pkishorez/devtools`
+and run Client Commands. It is the binary of the `@kstackz/devtools`
 package; DevTools remains the name of what it hosts.
 _Avoid_: DevTools CLI, kstack.
 

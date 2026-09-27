@@ -1,10 +1,10 @@
 import { Effect } from 'effect';
 import { IDBFactory } from 'fake-indexeddb';
 import { Story } from 'laymos/story';
-import { DynamoDB } from 'std-toolkit/db/dynamodb';
-import { IDB } from 'std-toolkit/db/idb';
-import { SQLite } from 'std-toolkit/db/sqlite';
-import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+import { DynamoDB } from '@kstackz/std-toolkit/db/dynamodb';
+import { IDB } from '@kstackz/std-toolkit/db/idb';
+import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { adapterNames, fresh } from '../../env.js';
 import {
   table,
@@ -77,7 +77,7 @@ export const swappingMemoryForSqliteIndexeddbDynamodb = Story.make({
     ),
     Story.question('What does each database need before the first write?', {
       answer:
-        "Only that the physical table exists. SQLite needs `SQLite.setup` once, since nothing else creates a SQLite table. IndexedDB creates its store and indexes the first time the table opens the database, which is how the browser works. DynamoDB is built from a table name, region and credentials; in production the Alchemy target owns the real table, and here `DynamoDB.createTable` and `deleteTable` stand in for it. Memory has nothing to prepare. Whether a new shape is safe for the rows already stored is not any adapter's job: the snapshot guard in `std-toolkit/alchemy` checks that at deploy time. In every case the program is run the same way, wrapped in the layer.",
+        "Only that the physical table exists. SQLite needs `SQLite.setup` once, since nothing else creates a SQLite table. IndexedDB creates its store and indexes the first time the table opens the database, which is how the browser works. DynamoDB is built from a table name, region and credentials; in production the Alchemy target owns the real table, and here `DynamoDB.createTable` and `deleteTable` stand in for it. Memory has nothing to prepare. Whether a new shape is safe for the rows already stored is not any adapter's job: the snapshot guard in `@kstackz/std-toolkit/alchemy` checks that at deploy time. In every case the program is run the same way, wrapped in the layer.",
       proof: Story.trace(
         Effect.gen(function* () {
           // A private IndexedDB (a fake one here; in a browser this is `window.indexedDB`).

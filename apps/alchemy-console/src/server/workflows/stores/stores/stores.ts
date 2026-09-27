@@ -1,5 +1,5 @@
 import { Effect, Stream } from 'effect';
-import { Authz } from 'auth-toolkit/rpc';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
 import { StoreError } from '../../../../shared/contracts/stores/index.ts';
 import {
   BrowseError,

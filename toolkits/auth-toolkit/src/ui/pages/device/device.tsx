@@ -2,7 +2,7 @@ import {
   DeviceScreen,
   type Branding,
   type DeviceState,
-} from 'kui-toolkit/components/blocks/auth';
+} from '@kstackz/ui-toolkit/components/blocks/auth';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 

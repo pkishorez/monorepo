@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 // v2 adds a slug worked out from the title alone: nothing from the clock, nothing random, nothing from outside the row.
 const Task = EntityESchema.make('Task', 'taskId', {

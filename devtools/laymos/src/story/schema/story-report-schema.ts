@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { JournalSchema } from '@pkishorez/flow';
+import { JournalSchema } from '@kstackz/flow';
 
 export { JournalSchema };
 

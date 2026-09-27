@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { FlowRpc } from '@pkishorez/flow/rpc';
-import { LotelRpc } from '@pkishorez/lotel/rpc';
+import { FlowRpc } from '@kstackz/flow/rpc';
+import { LotelRpc } from '@kstackz/lotel/rpc';
 import { GitRpc } from './git.js';
 import { MonoverseRpc } from './monoverse.js';
 import {

@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
-import { Authz } from 'auth-toolkit/rpc';
-import { nextUlid } from 'std-toolkit/core';
-import type { DatabaseError } from 'std-toolkit/db';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
+import { nextUlid } from '@kstackz/std-toolkit/core';
+import type { DatabaseError } from '@kstackz/std-toolkit/db';
 import {
   CredentialError,
   ProviderFailure,

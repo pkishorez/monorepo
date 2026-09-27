@@ -1,15 +1,15 @@
 import { Link } from '@tanstack/react-router';
-import { Badge } from 'kui-toolkit/components/ui/badge';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Badge } from '@kstackz/ui-toolkit/components/ui/badge';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Sheet,
   SheetClose,
   SheetContent,
   SheetTitle,
   SheetTrigger,
-} from 'kui-toolkit/components/ui/sheet';
-import { MenuIcon, XIcon } from 'kui-toolkit/lucide';
-import { useOnline } from 'pwa-toolkit/extras';
+} from '@kstackz/ui-toolkit/components/ui/sheet';
+import { MenuIcon, XIcon } from '@kstackz/ui-toolkit/lucide';
+import { useOnline } from '@kstackz/pwa-toolkit/extras';
 import { useState } from 'react';
 import { buildLabel, buildPreset, pwaEnabled } from '../lib/build.ts';
 import { ScenarioNav } from './scenario-nav.tsx';

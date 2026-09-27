@@ -1,8 +1,8 @@
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import react from '@vitejs/plugin-react';
-import { createTheme } from 'kui-toolkit/components/blocks/theme';
-import { pwa } from 'pwa-toolkit/vite';
+import { createTheme } from '@kstackz/ui-toolkit/components/blocks/theme';
+import { pwa } from '@kstackz/pwa-toolkit/vite';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
@@ -55,7 +55,7 @@ export default defineConfig({
     rolldownOptions: { external: ['cloudflare:workers'] },
   },
   ssr: {
-    noExternal: ['kui-toolkit'],
+    noExternal: ['@kstackz/ui-toolkit'],
     resolve: {
       mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'],
     },

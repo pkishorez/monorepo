@@ -5,8 +5,12 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react';
-import type { SessionStatus } from 'effect-webrtc';
-import { AnimatePresence, motion, useReducedMotion } from 'kui-toolkit/motion';
+import type { SessionStatus } from '@kstackz/effect-webrtc';
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from '@kstackz/ui-toolkit/motion';
 import {
   Activity,
   ArrowLeft,

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-} from 'kui-toolkit/components/ui/dropdown-menu';
+} from '@kstackz/ui-toolkit/components/ui/dropdown-menu';
 import {
   Cloud,
   EllipsisVertical,
@@ -14,7 +14,7 @@ import {
   Pencil,
   Plus,
   Trash2,
-} from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/lucide';
 import { QueryError, ListSkeleton } from '../query-feedback/index.ts';
 import {
   CredentialDialog,

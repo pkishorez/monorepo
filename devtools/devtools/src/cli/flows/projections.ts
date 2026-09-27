@@ -3,7 +3,7 @@ import {
   projectJournal,
   type Entry,
   type Projection,
-} from '@pkishorez/flow';
+} from '@kstackz/flow';
 
 /** Projects one Flow per Journal from every stored Entry. */
 export const projectFlows = (

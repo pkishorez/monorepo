@@ -6,7 +6,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { DevToolsPanel } from 'kui-toolkit/components/blocks/devtools-panel';
+import { DevToolsPanel } from '@kstackz/ui-toolkit/components/blocks/devtools-panel';
 import {
   bootConversation,
   type ConversationRuntime,

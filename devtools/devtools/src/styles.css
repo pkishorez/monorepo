@@ -1,9 +1,9 @@
 @source './**/*.ts';
 @source './**/*.tsx';
 
-@import 'kui-toolkit/styles/global.css';
-@import 'kui-toolkit/styles/typography.css';
-@import 'kui-toolkit/styles/font-inter.css';
+@import '@kstackz/ui-toolkit/styles/global.css';
+@import '@kstackz/ui-toolkit/styles/typography.css';
+@import '@kstackz/ui-toolkit/styles/font-inter.css';
 
 ::view-transition-old(root),
 ::view-transition-new(root) {

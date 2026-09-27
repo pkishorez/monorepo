@@ -1,7 +1,7 @@
 import { Effect, Layer, Stream } from 'effect';
-import { PeerId, WebRtc } from 'effect-webrtc';
-import { layer as weriftPlatform } from 'effect-webrtc/platform/werift';
-import { layer as nostrSignaling } from 'effect-webrtc/signaling/nostr';
+import { PeerId, WebRtc } from '@kstackz/effect-webrtc';
+import { layer as weriftPlatform } from '@kstackz/effect-webrtc/platform/werift';
+import { layer as nostrSignaling } from '@kstackz/effect-webrtc/signaling/nostr';
 import { Messages, rtc, signaling } from '../contract/index.ts';
 import type { Transcript } from './transcript.ts';
 

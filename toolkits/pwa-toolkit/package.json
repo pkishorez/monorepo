@@ -1,5 +1,5 @@
 {
-  "name": "pwa-toolkit",
+  "name": "@kstackz/pwa-toolkit",
   "version": "0.0.0",
   "private": false,
   "description": "Effect-native service worker, precache, update and install utilities that turn a TanStack Start app into a PWA",
@@ -61,13 +61,13 @@
   },
   "peerDependencies": {
     "effect": "4.0.0-rc.112",
-    "kui-toolkit": "workspace:*",
+    "@kstackz/ui-toolkit": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "vite": "catalog:"
   },
   "peerDependenciesMeta": {
-    "kui-toolkit": {
+    "@kstackz/ui-toolkit": {
       "optional": true
     },
     "react": {
@@ -87,7 +87,7 @@
     "@types/react-dom": "catalog:",
     "@typescript/native": "catalog:",
     "effect": "catalog:",
-    "kui-toolkit": "workspace:*",
+    "@kstackz/ui-toolkit": "workspace:*",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",

@@ -16,11 +16,11 @@ that prove a behavior and keep their proof next to the prose. `laymos stories`
 runs them and reports a verdict per Story.
 
 The library entry does everything the CLI does, so other tools can host it.
-[@pkishorez/devtools](../devtools/README.md) serves Architecture Analyses, change sets, and
+[@kstackz/devtools](../devtools/README.md) serves Architecture Analyses, change sets, and
 Story reports over RPC to its browser UI using the browser-safe schema
 subpaths. Stories capture traces with
-[@pkishorez/effect-tracer](../effect-tracer/README.md) and Flows with
-[@pkishorez/flow](../flow/README.md).
+[@kstackz/effect-tracer](../effect-tracer/README.md) and Flows with
+[@kstackz/flow](../flow/README.md).
 
 Terms are defined in [CONTEXT.md](./CONTEXT.md). Decisions are in
 [docs/adr/](./docs/adr/). The config reference is in
@@ -209,7 +209,7 @@ prose answer and a proof Effect. `Story.assert` decides the verdict.
 ```ts
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { EntityESchema } from 'std-toolkit/eschema';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 
 const Task = EntityESchema.make('Task', 'taskId', {
   boardId: Schema.String,

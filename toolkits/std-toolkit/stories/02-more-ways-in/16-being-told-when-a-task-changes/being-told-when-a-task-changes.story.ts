@@ -1,6 +1,6 @@
 import { Effect, Fiber, Stream } from 'effect';
 import { Story } from 'laymos/story';
-import { defaultBroadcaster } from 'std-toolkit/core';
+import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
 import { fresh } from '../../env.js';
 import {
   table,

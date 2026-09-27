@@ -1,4 +1,4 @@
-import { SourceViewer } from 'kui-toolkit/components/blocks/source-viewer';
+import { SourceViewer } from '@kstackz/ui-toolkit/components/blocks/source-viewer';
 
 /** Source as it is on disk, highlighted by KUI's shared Shiki viewer. */
 export function CodeBlock(props: { readonly code: string }) {

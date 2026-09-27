@@ -4,8 +4,8 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Schedule from 'effect/Schedule';
 import * as Stream from 'effect/Stream';
-import { runServiceWorker, WorkerHost } from 'pwa-toolkit/worker';
-import { WorkerServer } from 'pwa-toolkit/rpc/worker';
+import { runServiceWorker, WorkerHost } from '@kstackz/pwa-toolkit/worker';
+import { WorkerServer } from '@kstackz/pwa-toolkit/rpc/worker';
 import { PlaygroundRpcs } from './rpc/index.ts';
 
 // When this worker instance started; changes each time the browser restarts it.

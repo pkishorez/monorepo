@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import { StdTable } from 'std-toolkit/db';
-import { Memory } from 'std-toolkit/db/memory';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { Memory } from '@kstackz/std-toolkit/db/memory';
 import { fresh } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import { table } from '../../01-one-task-one-table/02-making-a-table-for-tasks-to-live-in/making-a-table-for-tasks-to-live-in.story.js';

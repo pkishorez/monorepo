@@ -4,7 +4,7 @@ import {
   type Branding,
   type ConsentState,
   type ScopeDescriptions,
-} from 'kui-toolkit/components/blocks/auth';
+} from '@kstackz/ui-toolkit/components/blocks/auth';
 import { useMemo } from 'react';
 
 import {

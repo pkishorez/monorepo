@@ -6,8 +6,8 @@ import {
   createRootRoute,
 } from '@tanstack/react-router';
 import { createServerFn } from '@tanstack/react-start';
-import { createTheme } from 'kui-toolkit/components/blocks/theme';
-import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
+import { createTheme } from '@kstackz/ui-toolkit/components/blocks/theme';
+import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
 import { lazy, useState, type ReactNode } from 'react';
 
 import appCss from '../styles.css?url';
@@ -64,7 +64,7 @@ export const Route = createRootRoute({
 
 // Pages render in the browser only; the server bundle cannot load the UI block.
 const NotFoundScreen = lazy(() =>
-  import('kui-toolkit/components/blocks/auth').then((block) => ({
+  import('@kstackz/ui-toolkit/components/blocks/auth').then((block) => ({
     default: block.NotFoundScreen,
   })),
 );

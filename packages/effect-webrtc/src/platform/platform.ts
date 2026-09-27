@@ -96,4 +96,4 @@ interface WebRtcPlatformService {
 export class WebRtcPlatform extends Context.Service<
   WebRtcPlatform,
   WebRtcPlatformService
->()('effect-webrtc/WebRtcPlatform') {}
+>()('@kstackz/effect-webrtc/WebRtcPlatform') {}

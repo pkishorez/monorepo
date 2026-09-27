@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect';
 import { Story } from 'laymos/story';
-import { ESchema } from 'std-toolkit/eschema';
+import { ESchema } from '@kstackz/std-toolkit/eschema';
 import { fresh } from '../../env.js';
 import { table } from '../10-finding-one-persons-tasks-across-every-board/finding-one-persons-tasks-across-every-board.story.js';
 

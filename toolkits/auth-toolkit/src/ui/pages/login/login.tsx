@@ -1,4 +1,7 @@
-import { LoginScreen, type Branding } from 'kui-toolkit/components/blocks/auth';
+import {
+  LoginScreen,
+  type Branding,
+} from '@kstackz/ui-toolkit/components/blocks/auth';
 import { useMemo } from 'react';
 
 import { createAuthorizationClient, pageQuery } from '../../client/index.js';

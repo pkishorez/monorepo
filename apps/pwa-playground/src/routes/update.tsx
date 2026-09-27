@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { usePwa } from 'pwa-toolkit/react';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { usePwa } from '@kstackz/pwa-toolkit/react';
 import { useState } from 'react';
 import {
   Actions,

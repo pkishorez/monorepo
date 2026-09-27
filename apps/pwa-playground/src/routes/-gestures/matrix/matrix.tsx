@@ -1,8 +1,15 @@
-import { GestureZone, useHold } from 'kui-toolkit/components/blocks/gestures';
-import { Button } from 'kui-toolkit/components/ui/button';
-import { Switch } from 'kui-toolkit/components/ui/switch';
-import { motion, type MotionValue, useReducedMotion } from 'kui-toolkit/motion';
-import { cn } from 'kui-toolkit/utils';
+import {
+  GestureZone,
+  useHold,
+} from '@kstackz/ui-toolkit/components/blocks/gestures';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Switch } from '@kstackz/ui-toolkit/components/ui/switch';
+import {
+  motion,
+  type MotionValue,
+  useReducedMotion,
+} from '@kstackz/ui-toolkit/motion';
+import { cn } from '@kstackz/ui-toolkit/utils';
 import { type ReactNode, useState } from 'react';
 import {
   type Hold,

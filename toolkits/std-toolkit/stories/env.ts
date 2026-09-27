@@ -23,19 +23,19 @@
 import 'fake-indexeddb/auto';
 import { Cause, Effect, Match, Queue, Semaphore, Stream } from 'effect';
 import { IDBFactory } from 'fake-indexeddb';
-import { Ulid } from 'std-toolkit/core';
-import type { TableDefinition } from 'std-toolkit/db';
-import { DynamoDB } from 'std-toolkit/db/dynamodb';
-import { IDB } from 'std-toolkit/db/idb';
-import { Memory } from 'std-toolkit/db/memory';
-import { SQLite } from 'std-toolkit/db/sqlite';
-import { makeNodeSQLite } from 'std-toolkit/db/sqlite/node';
+import { Ulid } from '@kstackz/std-toolkit/core';
+import type { TableDefinition } from '@kstackz/std-toolkit/db';
+import { DynamoDB } from '@kstackz/std-toolkit/db/dynamodb';
+import { IDB } from '@kstackz/std-toolkit/db/idb';
+import { Memory } from '@kstackz/std-toolkit/db/memory';
+import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
+import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import {
   syncStore,
   type Doorbell,
   type Leadership,
   type StdSyncPlatform,
-} from 'std-toolkit/sync';
+} from '@kstackz/std-toolkit/sync';
 
 export type AdapterName = 'memory' | 'sqlite' | 'idb' | 'dynamodb';
 

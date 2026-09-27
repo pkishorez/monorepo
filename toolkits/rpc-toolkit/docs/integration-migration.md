@@ -5,7 +5,7 @@ Agreed design from the grill-with-docs session, implemented by the package migra
 ## Public structure
 
 ```text
-rpc-toolkit/
+@kstackz/rpc-toolkit/
   rpc/
     cannotation/
     invocation/
@@ -18,7 +18,7 @@ rpc-toolkit/
   http/
     cannotation/
 
-std-toolkit/
+@kstackz/std-toolkit/
   db/
     dynamodb/
       alchemy/

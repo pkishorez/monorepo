@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 export const DEFAULT_ENTRY_ID = 'virtual:pwa-toolkit/default-entry';
 
-export const DEFAULT_ENTRY_SOURCE = `import { runServiceWorker } from 'pwa-toolkit/worker';
+export const DEFAULT_ENTRY_SOURCE = `import { runServiceWorker } from '@kstackz/pwa-toolkit/worker';
 runServiceWorker();
 `;
 

@@ -10,7 +10,7 @@ import { lazyService } from '../lazy-service/index.js';
 export class Online extends Context.Service<
   Online,
   { readonly online: SubscriptionRef.SubscriptionRef<boolean> }
->()('pwa-toolkit/Online') {
+>()('@kstackz/pwa-toolkit/Online') {
   static readonly layer: Layer.Layer<Online> = Layer.effect(
     this,
     Effect.gen(function* () {

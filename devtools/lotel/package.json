@@ -1,6 +1,6 @@
 {
-  "name": "@pkishorez/lotel",
-  "version": "0.0.11",
+  "name": "@kstackz/lotel",
+  "version": "0.0.0",
   "private": false,
   "description": "Telemetry contracts and orchestration for DevTools",
   "repository": {
@@ -41,10 +41,10 @@
     "test:watch": "vp test src --watch"
   },
   "dependencies": {
-    "effect": "catalog:",
-    "std-toolkit": "workspace:*"
+    "effect": "catalog:"
   },
   "devDependencies": {
+    "@kstackz/std-toolkit": "workspace:*",
     "@tsconfig/node22": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
@@ -52,5 +52,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "peerDependencies": {
+    "@kstackz/std-toolkit": "workspace:*"
   }
 }

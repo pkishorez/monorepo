@@ -5,10 +5,10 @@ import {
   type ActivationRef,
   type FlowInstance,
   type MessageToken,
-} from '@pkishorez/flow';
+} from '@kstackz/flow';
 
 /**
- * One Flow that exercises every capability of `@pkishorez/flow`:
+ * One Flow that exercises every capability of `@kstackz/flow`:
  *
  * - two origins (a browser and a server runtime) writing the same Flow id,
  * - participants grouped by path, including one that only ever receives,

@@ -51,7 +51,7 @@
     },
     "ui": {
       "paths": ["src/ui"],
-      "description": "Connects the Auth Worker's data to the kui-toolkit auth screens; owns no markup of its own",
+      "description": "Connects the Auth Worker's data to the ui-toolkit auth screens; owns no markup of its own",
       "moduleGraphs": {
         "ui": {
           "description": "Four page doors (Home Page, Login Screen, Consent Screen, Device Screen) over one same-origin Better Auth client, the User's Sessions and Grants, and one rule for which screen a visitor may see.",

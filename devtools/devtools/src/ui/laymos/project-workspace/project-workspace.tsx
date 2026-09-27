@@ -8,9 +8,9 @@ import {
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
-} from 'kui-toolkit/components/ui/empty';
-import { toast } from 'kui-toolkit/components/ui/sonner';
-import { Laymos as AnalysisExplorer } from 'kui-toolkit/components/blocks/laymos';
+} from '@kstackz/ui-toolkit/components/ui/empty';
+import { toast } from '@kstackz/ui-toolkit/components/ui/sonner';
+import { Laymos as AnalysisExplorer } from '@kstackz/ui-toolkit/components/blocks/laymos';
 import {
   DevtoolsClient,
   useDevtoolsRuntime,

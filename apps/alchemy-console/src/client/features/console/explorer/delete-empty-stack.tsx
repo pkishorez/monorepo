@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
 import { useState } from 'react';
-import { Button } from 'kui-toolkit/components/ui/button';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -8,8 +8,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from 'kui-toolkit/components/ui/dialog';
-import { Trash2 } from 'kui-toolkit/lucide';
+} from '@kstackz/ui-toolkit/components/ui/dialog';
+import { Trash2 } from '@kstackz/ui-toolkit/lucide';
 import { isAlchemyManagedStack } from '../../../../shared/contracts/targets/index.ts';
 import { Rpc } from '../../../connections/rpc/index.ts';
 import { useRpcAction } from '../queries/index.ts';

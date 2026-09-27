@@ -1,12 +1,12 @@
 import { createLiveQueryCollection, eq } from '@tanstack/react-db';
 import { Effect } from 'effect';
 import { Story } from 'laymos/story';
-import type { Entity } from 'std-toolkit/core';
+import type { Entity } from '@kstackz/std-toolkit/core';
 import {
   createStdSync,
   strategy,
   type StdSyncPlatform,
-} from 'std-toolkit/sync';
+} from '@kstackz/std-toolkit/sync';
 import { browserTabs, fresh, platform } from '../../env.js';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 import {

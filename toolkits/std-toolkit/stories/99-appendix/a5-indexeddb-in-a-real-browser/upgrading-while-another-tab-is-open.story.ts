@@ -1,9 +1,9 @@
 import { Effect } from 'effect';
 import { IDBFactory } from 'fake-indexeddb';
 import { Story } from 'laymos/story';
-import { Ulid } from 'std-toolkit/core';
-import { StdTable } from 'std-toolkit/db';
-import { IDB } from 'std-toolkit/db/idb';
+import { Ulid } from '@kstackz/std-toolkit/core';
+import { StdTable } from '@kstackz/std-toolkit/db';
+import { IDB } from '@kstackz/std-toolkit/db/idb';
 import { Task } from '../../01-one-task-one-table/01-defining-the-shape-of-a-task/defining-the-shape-of-a-task.story.js';
 
 // The plain table of chapter 2 and the indexed one of chapter 10, declared
