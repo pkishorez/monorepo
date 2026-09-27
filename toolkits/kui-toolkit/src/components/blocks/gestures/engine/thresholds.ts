@@ -1,4 +1,4 @@
-/** Movement a still finger may make: taps, and the first finger of a Chord until the second lands. */
+/** Movement a still finger may make: a tap, and a finger that becomes the Anchor. */
 export const SLOP_PX = 10;
 /** Longest press that still counts as a tap. */
 export const TAP_MAX_MS = 300;
@@ -6,7 +6,5 @@ export const TAP_MAX_MS = 300;
 export const DOUBLE_TAP_GAP_MS = 300;
 /** How far apart the two taps of a double tap may land. */
 export const DOUBLE_TAP_DISTANCE_PX = 40;
-/** How long the first finger must already be down, and still, when the second lands for the touch to be a Chord. */
-export const ANCHOR_MS = 150;
-/** How far the Anchor may drift during a Chord before it is cancelled. */
+/** How far a locked Anchor may drift before it is cancelled. */
 export const ANCHOR_DRIFT_PX = 24;

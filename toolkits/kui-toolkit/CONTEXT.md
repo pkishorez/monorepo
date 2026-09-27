@@ -51,16 +51,16 @@ One gesture's reader inside the gestures engine, moving through possible, began,
 _Avoid_: detector, gesture handler, listener
 
 **Capture**:
-The Gesture Zone taking a touch from the browser once a Recognizer claims it, so the page cannot scroll until every finger lifts. A touch the browser has already started scrolling can no longer be Captured.
-_Avoid_: lock, grab, prevent scroll
-
-**Chord**:
-A two-finger touch where one finger was already held still when the other landed. The held finger is the Anchor; the other acts, up and down or sideways. Decided the moment the second finger lands; two fingers landing together are not a Chord.
-_Avoid_: hold-swipe, combo, modifier gesture
+The Gesture Zone taking a touch from the browser once the app owns it — a pan started, or an Anchor locked — so the page cannot scroll until every finger lifts. A touch the browser has already started scrolling can no longer be Captured.
+_Avoid_: grab, prevent scroll
 
 **Anchor**:
-The held finger of a Chord, shown locked in place while the other finger acts.
-_Avoid_: holder, pivot, locked finger
+The first finger in the Gesture Zone, when a second finger lands while it is still. It locks at once and works like a held Shift key: every tap, double tap or pan by the other finger is modified by it, and the lock lasts until the Anchor lifts, however many gestures the other finger makes. It is a left or right Anchor by where it sits relative to the other finger when that finger lands.
+_Avoid_: chord, hold-swipe, holder, pivot, modifier gesture
+
+**Swipe**:
+A one-finger pan in the Gesture Zone with no Anchor held. It follows the zone's axis, sideways by default; a drag that starts along the other axis is left to the browser to scroll.
+_Avoid_: plain pan, one-finger pan
 
 **Level**:
 One step on the progressive ladder from plain web (0) through polished (1) and app-like (2) to native gestures (3). A pattern belongs to a Level and drops to the highest lower Level its Environment allows.

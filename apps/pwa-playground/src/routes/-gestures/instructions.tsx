@@ -15,7 +15,6 @@ type Finger = {
   /** Held still: drawn filled, with a ring. */
   readonly held?: boolean;
   readonly moves?: 'sideways' | 'both';
-  readonly double?: boolean;
 };
 
 const sideways = (x: number) =>
@@ -42,12 +41,6 @@ function Diagram(props: { readonly fingers: ReadonlyArray<Finger> }) {
             className={finger.held ? 'fill-current' : undefined}
           />
           {finger.held ? <circle cx={finger.x} cy={16} r={7.5} /> : null}
-          {finger.double ? (
-            <>
-              <circle cx={finger.x} cy={16} r={8} opacity={0.6} />
-              <circle cx={finger.x} cy={16} r={12} opacity={0.3} />
-            </>
-          ) : null}
           {finger.moves === undefined ? null : <path d={sideways(finger.x)} />}
           {finger.moves === 'both' ? <path d={upDown(finger.x)} /> : null}
         </g>
@@ -56,31 +49,16 @@ function Diagram(props: { readonly fingers: ReadonlyArray<Finger> }) {
   );
 }
 
-const GESTURES: ReadonlyArray<{
+const MODES: ReadonlyArray<{
   readonly fingers: ReadonlyArray<Finger>;
   readonly text: ReactNode;
 }> = [
   {
-    fingers: [{ x: 28 }],
-    text: (
-      <>
-        <b>Tap</b>: a ripple.
-      </>
-    ),
-  },
-  {
-    fingers: [{ x: 28, double: true }],
-    text: (
-      <>
-        <b>Double tap</b>: the dots bloom.
-      </>
-    ),
-  },
-  {
     fingers: [{ x: 28, moves: 'sideways' }],
     text: (
       <>
-        <b>Swipe sideways</b>: the dots flow, and coast when you let go.
+        <b>One finger</b>: swipe sideways to scroll the grid, tap to light a
+        dot, double tap to reset the view.
       </>
     ),
   },
@@ -91,8 +69,8 @@ const GESTURES: ReadonlyArray<{
     ],
     text: (
       <>
-        <b>Hold left, move the right finger</b>: up and down for Pull, sideways
-        for Spin.
+        <b>Left finger locked</b>: pan to move the grid, tap to drop a pin,
+        double tap to clear the pins.
       </>
     ),
   },
@@ -103,8 +81,8 @@ const GESTURES: ReadonlyArray<{
     ],
     text: (
       <>
-        <b>Hold right, move the left finger</b>: up and down for Size, sideways
-        for Hue.
+        <b>Right finger locked</b>: pan up or down to zoom, tap to zoom in,
+        double tap to zoom to fit the pins.
       </>
     ),
   },
@@ -131,15 +109,16 @@ export function Instructions(props: { readonly className?: string }) {
         <DialogHeader>
           <DialogTitle>Gestures</DialogTitle>
           <DialogDescription>
-            Touch the lower half; the field above answers. For a chord, put one
-            finger down and hold it still, then put the other down.
+            Touch the lower half; the grid above answers. To lock a finger, keep
+            it still and touch with another. It stays locked until you lift it,
+            and changes what the other finger does.
           </DialogDescription>
         </DialogHeader>
         <ul className="flex flex-col gap-3">
-          {GESTURES.map((gesture, index) => (
+          {MODES.map((mode, index) => (
             <li key={index} className="flex items-center gap-3 text-pretty">
-              <Diagram fingers={gesture.fingers} />
-              <span>{gesture.text}</span>
+              <Diagram fingers={mode.fingers} />
+              <span>{mode.text}</span>
             </li>
           ))}
         </ul>

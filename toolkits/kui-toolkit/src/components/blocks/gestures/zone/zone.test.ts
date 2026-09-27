@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createGestureEngine } from '../engine';
+import { createGestureEngine, type GestureEvent } from '../engine';
 import type { Environment } from '../environment';
-import { recognizersFor, type GestureEvent } from '../recognizers';
 import { bindPointers } from './bind';
 import { edgeStrips } from './edges';
 import { contains, zoneRect } from './geometry';
@@ -90,20 +89,22 @@ describe('bindPointers', () => {
     document.body.append(element);
     const events: Array<GestureEvent> = [];
     const engine = createGestureEngine({
-      recognizers: recognizersFor(['tap', 'pan']),
-      width: () => 400,
       onGesture: (event) => events.push(event),
     });
     const unbind = bindPointers(element, engine, (x) => x >= 24);
-    const names = () => events.map((event) => `${event.kind}:${event.phase}`);
+    const names = () =>
+      events.map((event) =>
+        'phase' in event ? `${event.kind}:${event.phase}` : event.kind,
+      );
     return { element, engine, names, unbind };
   };
 
   it('recognizes pointers that go down in the zone', () => {
-    const { element, names } = setup();
+    const { element, engine } = setup();
     element.dispatchEvent(pointer('pointerdown', 100, 0));
+    expect(engine.inspect().fingers).toHaveLength(1);
     window.dispatchEvent(pointer('pointerup', 100, 50));
-    expect(names()).toEqual(['tap:ended']);
+    expect(engine.inspect().value).toBe('tapped');
   });
 
   it('leaves pointers that go down in an edge strip to the platform', () => {
@@ -134,12 +135,11 @@ describe('bindPointers', () => {
   });
 
   it('ignores text fields inside the zone', () => {
-    const { element, names } = setup();
+    const { element, engine } = setup();
     const input = document.createElement('input');
     element.append(input);
     input.dispatchEvent(pointer('pointerdown', 100, 0));
-    window.dispatchEvent(pointer('pointerup', 100, 50));
-    expect(names()).toEqual([]);
+    expect(engine.inspect().fingers).toEqual([]);
   });
 
   /** A child of the zone that scrolls sideways when its content is wider than it. */
@@ -165,24 +165,22 @@ describe('bindPointers', () => {
   });
 
   it('keeps a touch in an overflow box with nothing to scroll', () => {
-    const { element, names } = setup();
+    const { element, engine } = setup();
     const cell = sidewaysRow(element, 300);
     cell.dispatchEvent(pointer('pointerdown', 100, 0));
-    window.dispatchEvent(pointer('pointerup', 100, 50));
-    expect(names()).toEqual(['tap:ended']);
+    expect(engine.inspect().fingers).toHaveLength(1);
   });
 
   it('leaves a touch under an explicit sideways touch-action to the browser', () => {
-    const { element, names } = setup();
+    const { element, engine } = setup();
     const strip = document.createElement('div');
     strip.style.setProperty('touch-action', 'pan-x');
     element.append(strip);
     strip.dispatchEvent(pointer('pointerdown', 100, 0));
-    window.dispatchEvent(pointer('pointerup', 100, 50));
-    expect(names()).toEqual([]);
+    expect(engine.inspect().fingers).toEqual([]);
   });
 
-  it('holds back touch moves only once a recognizer claims', () => {
+  it('holds back touch moves only once the touch is Captured', () => {
     const { element } = setup();
     const touchmove = () => {
       const event = new Event('touchmove', { bubbles: true, cancelable: true });
@@ -198,18 +196,36 @@ describe('bindPointers', () => {
     expect(touchmove()).toBe(false);
   });
 
-  it('resolves holds with a scheduled tick', () => {
+  it('swallows the click after a Captured touch, but not after a tap', async () => {
+    // Earlier tests leave a swallow armed until the next task.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const { element } = setup();
+    const click = () => {
+      const event = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      });
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    element.dispatchEvent(pointer('pointerdown', 100, 0));
+    window.dispatchEvent(pointer('pointerup', 100, 40));
+    expect(click()).toBe(false);
+    element.dispatchEvent(pointer('pointerdown', 100, 1000));
+    window.dispatchEvent(pointer('pointermove', 160, 1016));
+    window.dispatchEvent(pointer('pointerup', 160, 1032));
+    expect(click()).toBe(true);
+  });
+
+  it('runs double-tap waits on the page timers', () => {
     vi.useFakeTimers();
     try {
-      const { element, engine } = setup();
-      element.dispatchEvent(pointer('pointerdown', 100, performance.now()));
-      expect(engine.inspect().states.find((s) => s.kind === 'tap')?.state).toBe(
-        'possible',
-      );
+      const { element, names } = setup();
+      element.dispatchEvent(pointer('pointerdown', 100, 0));
+      window.dispatchEvent(pointer('pointerup', 100, 40));
+      expect(names()).toEqual([]);
       vi.advanceTimersByTime(400);
-      expect(engine.inspect().states.find((s) => s.kind === 'tap')?.state).toBe(
-        'failed',
-      );
+      expect(names()).toEqual(['tap']);
     } finally {
       vi.useRealTimers();
     }

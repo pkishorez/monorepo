@@ -29,8 +29,8 @@ const sample = (
  * `accepts` refuses (an edge strip), or in something with its own touch
  * handling, are never tracked, so the browser keeps them. Moves and releases
  * are read from the window, so a mouse that leaves the element mid-gesture is
- * still followed. The engine's deadlines are scheduled as ticks on the same
- * clock as event timestamps. A Captured touch cannot scroll the page.
+ * still followed. A Captured touch cannot scroll the page, and a finger
+ * lifting from one does not also click what is under it.
  */
 export const bindPointers = (
   element: HTMLElement,
@@ -39,27 +39,7 @@ export const bindPointers = (
 ): (() => void) => {
   const win = element.ownerDocument.defaultView ?? window;
   const tracked = new Set<number>();
-  let timer: number | undefined;
-
-  const schedule = () => {
-    if (timer !== undefined) win.clearTimeout(timer);
-    timer = undefined;
-    const due = engine.nextDeadline();
-    if (due === undefined) return;
-    timer = win.setTimeout(
-      () => {
-        timer = undefined;
-        engine.tick(Math.max(due, win.performance.now()));
-        schedule();
-      },
-      Math.max(0, due - win.performance.now()),
-    );
-  };
-
-  const feed = (input: PointerInput) => {
-    engine.feed(input);
-    schedule();
-  };
+  const feed = (input: PointerInput) => engine.feed(input);
 
   const onDown = (event: PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -77,6 +57,7 @@ export const bindPointers = (
   };
   const onEnd = (type: 'up' | 'cancel') => (event: PointerEvent) => {
     if (!tracked.delete(event.pointerId)) return;
+    if (engine.captured()) swallowNextClick(win);
     feed(sample(event, type));
   };
   const onUp = onEnd('up');
@@ -85,7 +66,6 @@ export const bindPointers = (
   const onAway = () => {
     tracked.clear();
     engine.cancelAll();
-    schedule();
   };
   const onVisibility = () => {
     if (win.document.visibilityState === 'hidden') onAway();
@@ -98,8 +78,8 @@ export const bindPointers = (
     }
   };
 
-  // Capture. touch-action cannot change mid-touch, so once a recognizer
-  // claims, its moves are held back from the browser here. One the browser
+  // Capture. touch-action cannot change mid-touch, so once the app owns the
+  // touch, its moves are held back from the browser here. One the browser
   // already scrolls is not cancelable, and ends in pointercancel instead.
   const onTouchMove = (event: TouchEvent) => {
     if (event.cancelable && engine.captured()) event.preventDefault();
@@ -122,12 +102,11 @@ export const bindPointers = (
     win.removeEventListener('pointercancel', onCancel);
     win.removeEventListener('blur', onAway);
     win.document.removeEventListener('visibilitychange', onVisibility);
-    if (timer !== undefined) win.clearTimeout(timer);
     engine.cancelAll();
   };
 };
 
-/** A gesture that ends over a link or button must not also click it. */
+/** A Captured touch that ends over a link or button must not also click it. */
 export const swallowNextClick = (win: Window) => {
   const swallow = (event: Event) => {
     event.preventDefault();

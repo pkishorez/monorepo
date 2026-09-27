@@ -90,6 +90,7 @@
           "exposed": true
         },
         "src/components/blocks/state-machine-visualizer": {
+          "shared": true,
           "exposed": true
         },
         "src/components/blocks/swim-lane": {

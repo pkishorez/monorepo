@@ -1,5 +1,4 @@
-import type { Finger } from '../engine';
-import type { FingerRole } from '../recognizers';
+import type { Finger, FingerRole } from '../engine';
 
 // How long a lifted finger takes to fade.
 const FADE_MS = 280;
