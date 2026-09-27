@@ -4,6 +4,14 @@ import { useSwipe, type GestureSpring } from '../gestures';
 
 const SIDEBAR_WIDTH = 288;
 
+/**
+ * Taps fall through the scrim while the sidebar closes, so the page answers at
+ * once. Open, it takes taps even when it last moved backwards, as it does
+ * springing back from a rubber-banded drag past 1.
+ */
+export const scrimTakesTaps = (progress: number, velocity: number): boolean =>
+  progress > 0.02 && (progress >= 1 || velocity >= 0);
+
 const useSidebarMotion = (spring?: GestureSpring) => {
   const sidebar = useSwipe({
     direction: 'right',
@@ -18,7 +26,7 @@ const useSidebarMotion = (spring?: GestureSpring) => {
     panelX: useTransform(progress, [0, 1], [-SIDEBAR_WIDTH, 0]),
     scrimOpacity: useTransform(progress, [0, 1], [0, 0.4]),
     scrimEvents: useTransform(progress, (value) =>
-      value > 0.02 && progress.getVelocity() >= 0 ? 'auto' : 'none',
+      scrimTakesTaps(value, progress.getVelocity()) ? 'auto' : 'none',
     ),
     contentX: useTransform(progress, [0, 1], [0, 40]),
     contentScale: useTransform(progress, [0, 1], [1, 0.94]),
