@@ -79,6 +79,10 @@ reducedMotion, onUpdate })`, which carries the release speed into a spring.
 Past a bound, `rubberBand(overshoot, size)` gives resistance. Keep React state
 for the settled result only.
 
+Read `reducedMotion` from `matchMedia('(prefers-reduced-motion: reduce)')` at
+the moment the gesture lands. motion's `useReducedMotion` reads it once on
+mount, so turning the setting on while the app is open would still spring.
+
 ## Testing
 
 - **Debug overlay.** Render `<GestureDebugOverlay />` inside the zone. It

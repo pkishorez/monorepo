@@ -11,7 +11,6 @@ import { Button } from 'kui-toolkit/components/ui/button';
 import { Label } from 'kui-toolkit/components/ui/label';
 import { Switch } from 'kui-toolkit/components/ui/switch';
 import { HeartIcon } from 'kui-toolkit/lucide';
-import { useReducedMotion } from 'kui-toolkit/motion';
 import { cn } from 'kui-toolkit/utils';
 import {
   type CSSProperties,
@@ -50,6 +49,11 @@ const clampScale = (scale: number) =>
 const wrap = (index: number, length: number) =>
   ((index % length) + length) % length;
 
+// Read when a gesture lands, so turning the setting on applies at once;
+// motion's useReducedMotion reads it only on mount.
+const prefersReducedMotion = () =>
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const GUIDE: ReadonlyArray<ReactNode> = [
   <>
     <b>Swipe</b> one finger sideways to page through the rooms. The card follows
@@ -76,7 +80,6 @@ const GUIDE: ReadonlyArray<ReactNode> = [
 ];
 
 function Gestures() {
-  const reducedMotion = useReducedMotion() ?? false;
   const [debug, setDebug] = useState(true);
   const [page, setPage] = useState(0);
   const [accent, setAccent] = useState(0);
@@ -117,7 +120,7 @@ function Gestures() {
       from: offset.current,
       to: -target * width,
       velocity,
-      instant: reducedMotion,
+      instant: prefersReducedMotion(),
       onUpdate: place,
     });
   };
@@ -166,7 +169,7 @@ function Gestures() {
 
   const ripple = (x: number, y: number) => {
     const element = rippleRef.current;
-    if (element === null || reducedMotion) return;
+    if (element === null || prefersReducedMotion()) return;
     element.style.left = `${x}px`;
     element.style.top = `${y}px`;
     element.animate(
