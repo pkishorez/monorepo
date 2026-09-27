@@ -8,12 +8,12 @@ import type { ClientBuildInfo } from '../domain/config/index.js';
 import { readBuildIdMeta } from './build-id-meta.js';
 import { makeConnectivity } from './connectivity.js';
 import { makeDisplayMode } from './display-mode.js';
-import { makeInstall } from './install.js';
+import { makeInstall } from './install/index.js';
 import { register } from './registration.js';
 import { clearRuntimeCaches } from './runtime-cache.js';
 import type { DisplayModeValue, InstallState, UpdateState } from './states.js';
 import { storagePersistence } from './storage-persistence.js';
-import { makeUpdate } from './update.js';
+import { makeUpdate } from './update/index.js';
 
 export { type DisplayModeValue, InstallState, UpdateState } from './states.js';
 
