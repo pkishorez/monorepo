@@ -64,7 +64,7 @@ export type MovementEvent = {
   readonly point: Point;
   /** Travel since the fingers went down, in px. */
   readonly offset: Point;
-  /** Speed over the fingers' last 100ms, in px/ms; 0 if they were still for longer. */
+  /** Speed over the fingers' last 60ms, in px/ms; 0 if they were still for longer. */
   readonly velocity: Point;
   /** A Pinch's distance between the fingers over the one they went down at; 1 otherwise. */
   readonly scale: number;

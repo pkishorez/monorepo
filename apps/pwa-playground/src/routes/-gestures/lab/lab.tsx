@@ -37,7 +37,7 @@ export function GestureLab(props: {
         </main>
         <TabBar demo={props.demo} onDemo={props.onDemo} />
       </LabSidebar>
-      <GestureFingers />
+      <GestureFingers tapFeedback={false} />
       <TutorialDialog tutorial={tutorial} open={help} onOpenChange={setHelp} />
     </GestureProvider>
   );

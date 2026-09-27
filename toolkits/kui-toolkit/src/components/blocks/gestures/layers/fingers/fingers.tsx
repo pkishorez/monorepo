@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import type { ZoneSource } from '../../provider';
 import { CanvasLayer } from '../canvas';
 import { createFingerPainter } from './paint';
@@ -7,8 +7,17 @@ import { createFingerPainter } from './paint';
  * The zone's fingers, drawn by role over the page. Colours are custom
  * properties on the layer, set from kui tokens.
  */
-export function FingerLayer(props: { readonly source: ZoneSource }) {
-  const [paint] = useState(() => createFingerPainter(props.source));
+export function FingerLayer(props: {
+  readonly source: ZoneSource;
+  readonly tapFeedback?: boolean;
+}) {
+  const paint = useMemo(
+    () =>
+      createFingerPainter(props.source, {
+        tapFeedback: props.tapFeedback,
+      }),
+    [props.source, props.tapFeedback],
+  );
   return (
     <CanvasLayer
       source={props.source}

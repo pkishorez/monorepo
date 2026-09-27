@@ -127,8 +127,8 @@ function RootDocument({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <head>
-        <appTheme.Script initialTheme={currentTheme} />
         <HeadContent />
+        <appTheme.Script initialTheme={currentTheme} />
       </head>
       <body>
         {children}

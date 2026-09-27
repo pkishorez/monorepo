@@ -97,6 +97,15 @@ describe('settle', () => {
     await run(2000);
     expect(value.get()).toBe(100);
   });
+
+  it('carries a faster release farther into its first frame', async () => {
+    const slow = motionValue(0.4);
+    const fast = motionValue(0.4);
+    void settle(slow, 1);
+    void settle(fast, 1, { velocity: 0.004 });
+    await run(16);
+    expect(fast.get()).toBeGreaterThan(slow.get());
+  });
 });
 
 const swipe = (options: Partial<SwipeOptions> = {}) => {

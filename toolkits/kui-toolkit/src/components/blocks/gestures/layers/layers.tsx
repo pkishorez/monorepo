@@ -7,15 +7,18 @@ import { FingerLayer } from './fingers';
  * Shows every finger under the enclosing GestureProvider by what it is
  * doing: a soft ring while undecided, with a bubble growing inside while it
  * rests; the Hold popping as it locks, then glowing with a "Left Hold" chip;
- * a comet tail behind a moving finger; a
- * burst for each tap. Paints only while fingers are down or fading, and
- * takes no input. Render it anywhere inside a zone; it covers every zone
- * under the provider, with or without the debug overlay.
+ * a comet tail behind a moving finger; a burst for each tap unless
+ * `tapFeedback` is false. Paints only while fingers are down or fading, and
+ * takes no input. Render it anywhere inside a zone; it covers every zone under
+ * the provider, with or without the debug overlay.
  */
-export function GestureFingers() {
+export function GestureFingers(props: { readonly tapFeedback?: boolean }) {
   const source = useZoneSource('GestureFingers');
   if (source === undefined) return null;
-  return createPortal(<FingerLayer source={source} />, document.body);
+  return createPortal(
+    <FingerLayer source={source} tapFeedback={props.tapFeedback} />,
+    document.body,
+  );
 }
 
 /**

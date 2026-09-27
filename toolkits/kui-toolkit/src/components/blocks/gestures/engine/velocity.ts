@@ -1,12 +1,12 @@
 // Velocity is measured over the last stretch of movement only, so a drag
 // that slows to a stop before release reads as a stop, not a flick.
-const WINDOW_MS = 100;
+const WINDOW_MS = 60;
 
 type Sample = { readonly x: number; readonly y: number; readonly t: number };
 
 /**
  * One finger's recent positions, and its velocity in px/ms at a given
- * moment: from the samples in the 100ms before it only, so a finger held
+ * moment: from the samples in the 60ms before it only, so a finger held
  * still for longer reads as 0, whatever it did before.
  */
 export const createVelocityTracker = () => {

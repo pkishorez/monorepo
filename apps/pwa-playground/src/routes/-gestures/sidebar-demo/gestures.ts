@@ -20,7 +20,7 @@ export function usePanelGestures() {
     x: useTransform(panel.progress, [0, 1], [PANEL_WIDTH, 0]),
     scrimOpacity: useTransform(panel.progress, [0, 1], [0, 0.3]),
     scrimEvents: useTransform(panel.progress, (value) =>
-      value > 0.02 ? 'auto' : 'none',
+      value > 0.02 && panel.progress.getVelocity() >= 0 ? 'auto' : 'none',
     ),
   };
 }

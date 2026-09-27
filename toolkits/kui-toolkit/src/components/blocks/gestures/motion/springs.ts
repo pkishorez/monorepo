@@ -53,11 +53,13 @@ const reducedMotion = () =>
   typeof window.matchMedia === 'function' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// No bounce: the surface lands, carrying the finger's speed into the landing.
+// Near-critical and deliberately quick: the surface carries the finger's
+// speed into the landing without the elastic tail of a decorative spring.
 const SETTLE_SPRING = {
   type: 'spring',
-  visualDuration: 0.5,
-  bounce: 0,
+  stiffness: 600,
+  damping: 50,
+  mass: 1,
 } as const;
 
 /**

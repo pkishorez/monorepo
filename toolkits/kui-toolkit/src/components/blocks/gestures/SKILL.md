@@ -68,7 +68,7 @@ how long a tap waits and whether a movement is a Pan or a Swipe.
    down, the zone holds the page still until every finger lifts. A two-finger
    drag never scrolls the page.
 7. **Release velocity** comes from the gesture's own fingers, over their
-   last 100ms: held still that long before lifting reads 0, so nothing flings.
+   last 60ms: held still that long before lifting reads 0, so nothing flings.
 
 A combination nobody registered does nothing; two fingers are still
 Captured.
@@ -218,7 +218,7 @@ Reduced motion is read as each animation starts and jumps instead.
 it by role: a soft ring while undecided, a bubble growing inside after
 120ms of rest; the Hold popping as it locks, then glowing with a "Left Hold"
 / "Right Hold" chip; a comet tail behind a moving finger; a burst for each
-tap. Reduced motion keeps it still. Colours are
+tap. Set `tapFeedback={false}` to hide only that tap burst. Reduced motion keeps it still. Colours are
 `--gf-*` properties set from kui tokens.
 
 ## Testing
