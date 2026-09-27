@@ -1,6 +1,6 @@
 import { createToastManager, Toaster } from 'kui-toolkit/components/ui/toast';
 import { type ReactNode, useState } from 'react';
-import { usePwa } from '../react/index.js';
+import { usePwa } from './react.js';
 import { useUpdateToast } from './update-toast.js';
 
 /**

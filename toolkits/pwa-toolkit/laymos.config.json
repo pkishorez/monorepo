@@ -90,18 +90,9 @@
     },
     "react": {
       "paths": ["src/react"],
-      "description": "React bindings over the client services, and pwaHead().",
+      "description": "React bindings over the client service, pwaHead(), and the ready-made Update Prompt.",
       "modules": {
         "src/react": {
-          "exposed": true
-        }
-      }
-    },
-    "ui": {
-      "paths": ["src/ui"],
-      "description": "Ready-made kui component for the core: the Update Prompt.",
-      "modules": {
-        "src/ui": {
           "exposed": true
         }
       }
@@ -159,7 +150,7 @@
   },
   "layerGraphs": {
     "pwa-toolkit": {
-      "description": "Every layer builds on shared; in the page, ui stacks on react on client, and extras stand beside them on browser alone.",
+      "description": "Every layer builds on shared; in the page, react stacks on client, and extras stand beside them on browser alone.",
       "rules": {
         "shared": [],
         "browser": [],
@@ -167,7 +158,6 @@
         "worker": ["shared"],
         "client": ["shared", "browser"],
         "react": ["client"],
-        "ui": ["react"],
         "extras": ["browser"],
         "rpc": ["shared"]
       }
