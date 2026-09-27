@@ -1,4 +1,4 @@
-import type { Environment } from '../environment';
+import type { Environment } from './environment';
 
 /** Width of the strip along each side edge that is left to the browser or OS. */
 export const EDGE_STRIP_PX = 24;
@@ -28,8 +28,8 @@ const strips = (owner: EdgeOwner, width: number): EdgeStrips => ({
  * Who owns each side edge in this Environment. In a browser tab the browser
  * swipes back and forward from them; on Android the OS swipes back from both,
  * tab or installed. An installed iOS app has no system edge swipe, so the
- * edges are the app's, but they stay out of the Gesture Zone: they are where
- * edge gestures such as a sidebar belong.
+ * edges are the app's: a Gesture Zone listens in them only for edge swipes,
+ * such as a sidebar pulled in from the left.
  */
 export const edgeStrips = (environment: Environment): EdgeStrips => {
   switch (environment.platform) {

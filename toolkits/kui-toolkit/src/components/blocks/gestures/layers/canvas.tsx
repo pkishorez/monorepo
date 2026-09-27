@@ -1,24 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { cn } from '#lib/utils';
-import type { Inspection } from '../engine';
-import type { Environment } from '../environment';
-import type { EdgeStrips, Rect } from '../zone';
-
-/** What a layer reads from the Gesture Zone it is rendered in. */
-export type ZoneSource = {
-  /** Called after every input and tick. */
-  readonly subscribe: (listener: () => void) => () => void;
-  readonly inspect: () => Inspection | undefined;
-  readonly measure: () =>
-    | {
-        readonly bounds: Rect;
-        readonly rect: Rect;
-        readonly strips: EdgeStrips;
-      }
-    | undefined;
-  readonly scrollers: () => ReadonlyArray<Element>;
-  readonly environment: () => Environment;
-};
+import type { ZoneSource } from '../provider';
 
 /** One frame to paint, in viewport CSS pixels. */
 export type Frame = {

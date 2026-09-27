@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createEnvironmentStore, readEnvironment } from './environment';
+import {
+  createEnvironmentStore,
+  edgeStrips,
+  type Environment,
+  readEnvironment,
+} from './environment';
 
 const IPHONE =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
@@ -132,5 +137,30 @@ describe('createEnvironmentStore', () => {
     expect(store.get().display).toBe('tab');
     store.subscribe(() => {})();
     expect(store.get().display).toBe('installed');
+  });
+});
+
+const env = (
+  platform: Environment['platform'],
+  display: Environment['display'],
+): Environment => ({
+  platform,
+  display,
+  viewport: platform === 'desktop' ? 'wide' : 'compact',
+  reducedMotion: false,
+});
+
+describe('edgeStrips', () => {
+  it.each([
+    ['iOS Safari tab', env('ios', 'tab'), 'browser', 24],
+    ['iOS installed', env('ios', 'installed'), 'app', 24],
+    ['Android tab', env('android', 'tab'), 'os', 32],
+    ['Android installed', env('android', 'installed'), 'os', 32],
+    ['desktop tab', env('desktop', 'tab'), 'browser', 24],
+  ] as const)('%s: both edges belong to the %s, %ipx', (_, e, owner, width) => {
+    expect(edgeStrips(e)).toEqual({
+      left: { owner, width },
+      right: { owner, width },
+    });
   });
 });

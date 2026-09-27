@@ -6,6 +6,9 @@ import {
   WATCHED_QUERIES,
 } from './detect';
 
+export { ANDROID_EDGE_STRIP_PX, EDGE_STRIP_PX, edgeStrips } from './edges';
+export type { EdgeOwner, EdgeStrips } from './edges';
+
 /** Where the app runs. Edge ownership, and so the Gesture Zone, is decided from this alone. */
 export type Environment = {
   readonly platform: 'ios' | 'android' | 'desktop';

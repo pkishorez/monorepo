@@ -1,11 +1,31 @@
-export { createGestureEngine } from './engine';
+export {
+  along,
+  createGestureEngine,
+  DOUBLE_TAP_DISTANCE_PX,
+  DOUBLE_TAP_GAP_MS,
+  gestureMachine,
+  HOLD_DRIFT_PX,
+  HOLD_STILL_PX,
+  opposite,
+  SLOP_PX,
+  TAP_MAX_MS,
+} from './engine';
 export type {
   Clock,
+  Combination,
+  Direction,
   Finger,
+  Fingers,
   GestureEngine,
+  GestureEvent,
+  Hold,
   Inspection,
+  MovementEvent,
+  Point,
   PointerInput,
-  TapMark,
+  Policy,
+  Scroll,
+  Side,
+  TapEvent,
+  TouchStart,
 } from './engine';
-export { gestureMachine } from './machine';
-export type { Anchor, Axis, FingerRole, GestureEvent, Side } from './types';

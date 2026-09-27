@@ -1,3 +1,4 @@
+import { SLOP_PX } from './thresholds';
 import type { Sample, Track } from './types';
 import { createVelocityTracker } from './velocity';
 
@@ -25,13 +26,15 @@ export const createPointerTracker = () => {
     const previous = tracks.get(input.id);
     if (previous === undefined) return undefined;
     const current = at(input);
+    const travel = Math.max(
+      previous.travel,
+      Math.hypot(current.x - previous.down.x, current.y - previous.down.y),
+    );
     const next: Track = {
       ...previous,
       current,
-      travel: Math.max(
-        previous.travel,
-        Math.hypot(current.x - previous.down.x, current.y - previous.down.y),
-      ),
+      travel,
+      slopAt: previous.slopAt ?? (travel > SLOP_PX ? current.t : undefined),
     };
     tracks.set(input.id, next);
     velocities.get(input.id)?.add(current);
@@ -51,6 +54,7 @@ export const createPointerTracker = () => {
         down: sample,
         current: sample,
         travel: 0,
+        slopAt: undefined,
       };
       tracks.set(input.id, track);
       const velocity = createVelocityTracker();

@@ -1,5 +1,8 @@
-import type { GestureEngine, PointerInput } from '../engine';
+import type { GestureEngine, PointerInput, TouchStart } from '../engine';
 import { nativeScrollerAt } from './scrollers';
+
+/** How a Gesture Zone's element is marked, so nested zones can tell whose a touch is. */
+export const ZONE_SELECTOR = '[data-slot="gesture-zone"]';
 
 // Text entry keeps its own touch handling: selecting, caret dragging.
 const OPTED_OUT =
@@ -8,10 +11,15 @@ const OPTED_OUT =
 const optedOut = (target: EventTarget | null) =>
   target instanceof Element && target.closest(OPTED_OUT) !== null;
 
-/** A touch that starts in a text field, an opted-out subtree or a native scroller is theirs. */
+/**
+ * A touch that starts in a text field, an opted-out subtree, a native
+ * scroller or a Gesture Zone nested inside this one is theirs.
+ */
 const belongsElsewhere = (target: EventTarget | null, zone: Element) =>
+  !(target instanceof Element) ||
+  target.closest(ZONE_SELECTOR) !== zone ||
   optedOut(target) ||
-  (target instanceof Element && nativeScrollerAt(target, zone) !== undefined);
+  nativeScrollerAt(target, zone) !== undefined;
 
 const sample = (
   event: PointerEvent,
@@ -26,8 +34,8 @@ const sample = (
 
 /**
  * Feeds an element's pointer input to an engine. Pointers that go down where
- * `accepts` refuses (an edge strip), or in something with its own touch
- * handling, are never tracked, so the browser keeps them. Moves and releases
+ * `start` refuses (an edge strip no edge Swipe wants), or in something with
+ * its own touch handling, are never tracked, so the browser keeps them. Moves and releases
  * are read from the window, so a mouse that leaves the element mid-gesture is
  * still followed. A Captured touch cannot scroll the page, and a finger
  * lifting from one does not also click what is under it.
@@ -35,7 +43,7 @@ const sample = (
 export const bindPointers = (
   element: HTMLElement,
   engine: GestureEngine,
-  accepts: (x: number, y: number) => boolean,
+  start: (event: PointerEvent) => TouchStart | undefined,
 ): (() => void) => {
   const win = element.ownerDocument.defaultView ?? window;
   const tracked = new Set<number>();
@@ -43,14 +51,11 @@ export const bindPointers = (
 
   const onDown = (event: PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (
-      belongsElsewhere(event.target, element) ||
-      !accepts(event.clientX, event.clientY)
-    ) {
-      return;
-    }
+    if (belongsElsewhere(event.target, element)) return;
+    const touch = start(event);
+    if (touch === undefined) return;
     tracked.add(event.pointerId);
-    feed(sample(event, 'down'));
+    feed({ ...sample(event, 'down'), start: touch });
   };
   const onMove = (event: PointerEvent) => {
     if (tracked.has(event.pointerId)) feed(sample(event, 'move'));

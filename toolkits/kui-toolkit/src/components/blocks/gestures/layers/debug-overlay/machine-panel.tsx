@@ -10,9 +10,9 @@ import {
   layoutStateMachine,
   serializeV5,
   StateMachineSvg,
-} from '../../state-machine-visualizer';
-import { gestureMachine } from '../engine';
-import type { ZoneSource } from '../layer';
+} from '../../../state-machine-visualizer';
+import { gestureMachine } from '../../engine';
+import type { ZoneSource } from '../../provider';
 
 type Diagram = Awaited<ReturnType<typeof layoutStateMachine>>;
 type Highlights = NonNullable<
@@ -31,7 +31,7 @@ const loadDiagram = () =>
 
 const IDLE = JSON.stringify('idle');
 
-/** `{ anchored: 'panning' }` as `['anchored', 'panning']`. */
+/** `{ held: 'moving' }` as `['held', 'moving']`. */
 const leafPath = (value: StateValue): ReadonlyArray<string> => {
   if (typeof value === 'string') return [value];
   const [key, child] = Object.entries(value)[0] ?? [];
@@ -46,7 +46,7 @@ const DIMMED: Highlight = { kind: 'dimmed' };
 
 /**
  * The gestures machine, drawn with the state machine visualizer and
- * following the current state: it is lit, the states it can go to next are
+ * following the state of the zone touched last: it is lit, the states it can go to next are
  * marked, the rest dimmed. Read only and never takes input, so it can sit
  * over anything.
  */
@@ -61,7 +61,7 @@ export function MachinePanel(props: {
   // A string, so an unchanged state is the same snapshot.
   const state = useSyncExternalStore(
     source.subscribe,
-    () => JSON.stringify(source.inspect()?.value ?? 'idle'),
+    () => JSON.stringify(source.active()?.value ?? 'idle'),
     () => IDLE,
   );
 
