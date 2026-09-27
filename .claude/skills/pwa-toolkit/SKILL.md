@@ -3,7 +3,7 @@ name: pwa-toolkit
 description: PWA setup with pwa-toolkit for a TanStack Start app deployed with Alchemy. Use when adding offline support, a service worker, install or update prompts, Worker RPC, or a Kill Switch to an app in this monorepo, or when one of those misbehaves.
 ---
 
-`apps/pwa-playground` is the reference app: every snippet below is lifted from it and verified in a real browser (`apps/pwa-playground/verification/`). When in doubt, copy the playground, not your memory of other PWA plugins. Words like App Shell, Offline Fallback, Build ID and Kill Switch are defined in `toolkits/pwa-toolkit/CONTEXT.md`; the Exports are in `toolkits/pwa-toolkit/README.md`.
+`apps/pwa-playground` is the reference app: every snippet below is lifted from it and verified in a real browser (`apps/pwa-playground/verification/`). When in doubt, copy the playground, not your memory of other PWA plugins. Words like Client, Status, Strategy, App Shell, Offline Fallback, Build ID and Kill Switch are defined in `toolkits/pwa-toolkit/CONTEXT.md`; the Exports are in `toolkits/pwa-toolkit/README.md`.
 
 ## Steps
 
@@ -11,7 +11,7 @@ Do them in order. Each ends on a check.
 
 ### 1. Dependencies and types
 
-In the app's `package.json`: `"pwa-toolkit": "workspace:*"`, plus `effect` from `catalog:` and `kui-toolkit` (`workspace:*`) when using `pwa-toolkit/ui`. The app imports the toolkit's `dist`, so run `pnpm --filter pwa-toolkit build` after `pnpm install` and after any toolkit change.
+In the app's `package.json`: `"pwa-toolkit": "workspace:*"`, plus `effect` from `catalog:` and `kui-toolkit` (`workspace:*`) when using `pwa-toolkit/ui` or `pwa-toolkit/extras`. The app imports the toolkit's `dist`, so run `pnpm --filter pwa-toolkit build` after `pnpm install` and after any toolkit change.
 
 In `tsconfig.json`, add `"WebWorker"` to `lib` (the worker entry is type-checked with the app). If `tsc` reports two incompatible `Plugin` types, pin one Vite copy:
 
@@ -44,7 +44,7 @@ plugins: [
     enabled: process.env.PWA_ENABLED !== 'false', // false builds the Kill Switch
     dev: process.env.PWA_DEV === 'true',
     manifest: { name, short_name, description, theme_color, background_color, icons },
-    runtimeCache, // optional; see step 7
+    strategies, // optional; see step 7
   }),
 ],
 ```
@@ -53,9 +53,9 @@ Put the manifest icons in `public/icons/` (192, 512, maskable 512, apple-touch 1
 
 Choose `preset` by app kind (evidence: `apps/pwa-playground/verification/lifecycle.md`):
 
-- `app` (the default): signed-in dashboards and tools. The App Shell renders any route offline, visited or not. Add Runtime Cache rules (step 7) for the data needed offline. Data fetched only during SSR is never in the tab's cache, so fetch offline-critical data in the browser (or warm it) under a network-first rule.
+- `app` (the default): signed-in dashboards and tools. The App Shell renders any route offline, visited or not. Add Strategy rules (step 7) for the data needed offline. Data fetched only during SSR is never in the tab's cache, so fetch offline-critical data in the browser (or warm it) under a network-first rule.
 - `content`: docs and content sites. Visited pages come back offline with their SSR content; unvisited pages get the Offline Fallback. Saved pages belong to their Build ID and are dropped when an update activates, so they stay safe across updates; they come back once revisited.
-- Offline-first tools that edit data offline: `app` plus std-toolkit's sync. That is outside this toolkit; do not build it on Runtime Cache rules.
+- Offline-first tools that edit data offline: `app` plus std-toolkit's sync. That is outside this toolkit; do not build it on Strategy rules.
 
 While an update waits, navigations get the active build's App Shell, not the network, so a reload or a new tab stays on the active Build ID until the user accepts. Without the App Shell (`content`), such a page loads the new build and shows the Update Prompt at once; accepting fixes it.
 
@@ -65,7 +65,8 @@ Done when `pnpm build` prints no `pwa-toolkit:` warning and `dist/client` holds 
 
 ```tsx
 import { PwaProvider, pwaHead } from 'pwa-toolkit/react';
-import { InstallPrompt, OfflineIndicator, UpdatePrompt } from 'pwa-toolkit/ui';
+import { UpdatePrompt } from 'pwa-toolkit/ui';
+import { OfflineIndicator, useInstall } from 'pwa-toolkit/extras'; // optional
 
 head: (() => {
   const pwa = pwaHead();
@@ -82,9 +83,9 @@ head: (() => {
   };
 },
   function RootComponent() {
-    const router = useRouter();
+    useInstall(); // only with the Install Prompt: catches the browser's early offer
     return (
-      <PwaProvider router={router}>
+      <PwaProvider>
         <Outlet />
         <OfflineIndicator />
         <UpdatePrompt />
@@ -93,7 +94,9 @@ head: (() => {
   });
 ```
 
-`pwaHead()` renders the Build ID meta tag that Worker RPC and updates read, so it goes in the root `head`, spread into both `meta` and `links`. Pass `router` to `PwaProvider`; `auto-on-navigation` updates need it. Render `<InstallPrompt />` where the app should invite installs: the root, or one page (the playground uses `/install`). It shows only while install is possible and remembers a dismissal for 30 days.
+`pwaHead()` renders the manifest link and the Build ID meta tag that Worker RPC reads, so it goes in the root `head`, spread into both `meta` and `links`. `PwaProvider` registers the worker; `usePwa()` gives any component the Status (`Unsupported`, `Installing`, `Ready`, `UpdateReady`, `Updating`) with `checkForUpdate` and `applyUpdate`. To apply a ready update on the next route change instead of on the prompt, call `applyUpdate` from `router.subscribe('onResolved', …)` (the playground's `UpdateOnNavigation`).
+
+The Extras (`pwa-toolkit/extras`) need no provider. Render `<InstallPrompt />` where the app should invite installs (the playground uses `/install`), and call `useInstall()` in the root so the browser's one early offer is caught. It shows only while install is possible and remembers a dismissal for 30 days.
 
 Done when the SSR HTML of any page has `link rel=manifest` and `meta name="pwa-toolkit:build-id"`.
 
@@ -102,7 +105,7 @@ Done when the SSR HTML of any page has `link rel=manifest` and `meta name="pwa-t
 Tailwind v4 skips `node_modules`, so the prebuilt UI renders unstyled without this line in the app's stylesheet (path relative to the CSS file):
 
 ```css
-@source '../node_modules/pwa-toolkit/dist/ui';
+@source '../node_modules/pwa-toolkit/dist';
 ```
 
 Done when the offline pill and update toast have their background and position.
@@ -143,12 +146,12 @@ await clearRuntimeCache(); // every pwa-toolkit:runtime:* cache; the Precache st
 
 Done when sign-out calls `clearRuntimeCache()` and no `/api/auth/*` entry shows up in any cache after a session read.
 
-### 7. Runtime Cache rules (optional)
+### 7. Strategy rules (optional)
 
 Rules are first-match-wins and run before the preset's, so the catch-all goes last. `cacheName` is lowercase letters, digits and dashes.
 
 ```ts
-export const runtimeCache = [
+export const strategies = [
   {
     match: { origin: 'same-origin', pathPrefix: '/api/data' },
     strategy: 'network-first' as const,
@@ -167,11 +170,12 @@ A loader's data is cached only if the browser fetched it. A user whose only visi
 
 ### 8. Worker RPC (only when asked)
 
-Create `src/sw.ts`; `pwa()` uses it automatically when it exists, otherwise a built-in entry. Copy `apps/pwa-playground/src/sw.ts` (`runServiceWorker({ layer: WorkerServer.layer(Group).pipe(Layer.provide(handlers)) })`) and call it from tabs with `TabClient.make(Group)` inside a scope, as `apps/pwa-playground/src/routes/rpc.tsx` does.
+Create `src/sw.ts`; `pwa()` uses it automatically when it exists, otherwise a built-in entry. Copy `apps/pwa-playground/src/sw.ts` (`runServiceWorker({ layer: WorkerServer.layer(Group).pipe(Layer.provide(handlers)) })`) and call it from pages with `WorkerClient.make(Group)` inside a scope, as `apps/pwa-playground/src/routes/rpc.tsx` does.
 
 - Call `runServiceWorker` synchronously at the top of the entry, once.
 - The Worker Server is stateless: the browser stops idle workers. Streams must restart from scratch (`Stream.retry`) and each handler must emit everything a fresh subscriber needs.
-- On `VersionSkew`, call `usePwaUpdate().check()`.
+- On `VersionSkew`, call `usePwa().checkForUpdate()`.
+- `WorkerClient.make` fails at once when no worker will ever control the page (PWA off in this build, or a hard reload); on a first visit it waits for the worker to take control.
 
 ### 9. Alchemy deploy
 
@@ -205,6 +209,6 @@ The worker is off in `vite dev`, and a tab with it off removes any worker and to
 - Stopping the dev or preview server is no substitute: the automation Chrome waits on refused localhost connections instead of failing them.
 - Stop workers with `ServiceWorker.stopAllWorkers`. agent-browser attaches to workers with wait-for-debugger, so the next worker start pauses before its script runs and every navigation hangs. Keep a CDP client calling `Runtime.runIfWaitingForDebugger` on service worker targets while you do this.
 - A worker with DevTools attached is never stopped for idleness. Force stops instead of waiting for them.
-- `UpdatePrompt` needs a waiting worker, which means a second deploy with a different Build ID (any client bundle change, such as a new `BUILD_LABEL`).
+- `UpdatePrompt` needs a waiting worker, which means a second deploy with a different Build ID (any client bundle change, such as a new `BUILD_LABEL`). Locally, rebuild with a new `BUILD_LABEL` while `vite preview` runs: the new `sw.js` is read from disk, so the update is found. Restart `vite preview` before checking the reloaded pages, because it keeps the first build's server bundle in memory and keeps rendering the old Build ID.
 - Headless Chrome fires a real `beforeinstallprompt` but never resolves `prompt()`; accepted and dismissed outcomes need headed Chrome. It ignores the `display-mode` media emulation, so stub `matchMedia('(display-mode: standalone)')` to test `Installed`.
 - Test Version Skew on the playground with `/rpc?fakeBuildId=other`.
