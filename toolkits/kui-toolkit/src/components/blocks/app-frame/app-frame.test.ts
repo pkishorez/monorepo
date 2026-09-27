@@ -3,7 +3,7 @@ import {
   ANDROID_EDGE_STRIP_PX,
   EDGE_STRIP_PX,
   type Environment,
-} from '../gestures';
+} from '../environment';
 import { opensFrom, sidebarGestures } from './app-frame';
 
 const environment = (

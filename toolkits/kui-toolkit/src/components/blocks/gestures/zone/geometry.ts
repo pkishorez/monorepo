@@ -1,4 +1,4 @@
-import type { EdgeStrips } from './edges';
+import type { EdgeStrips } from '../../environment';
 
 export type Rect = {
   readonly left: number;

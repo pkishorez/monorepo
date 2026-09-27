@@ -1,107 +1,138 @@
 import { and, assign, enqueueActions, not, setup } from 'xstate';
+import {
+  actingTracks,
+  type Claim,
+  decideActing,
+  decideActingLift,
+  decideLift,
+  decideMovement,
+  FRESH_PRESS,
+  leans,
+  type Locked,
+  lockAfterWait,
+  type Press,
+  type Situation,
+} from './decide';
+import { doubled, holdEvent, holdOf, movementEvent } from './events';
+import { pointOf } from './group';
 import type { PointerTracker } from './pointers';
 import {
-  ANCHOR_DRIFT_PX,
   DOUBLE_TAP_DISTANCE_PX,
   DOUBLE_TAP_GAP_MS,
-  SLOP_PX,
+  HOLD_DRIFT_PX,
   TAP_MAX_MS,
 } from './thresholds';
 import type {
-  Anchor,
-  AnchorPhase,
-  Axis,
   GestureEvent,
-  PanPhase,
-  Side,
+  Phase,
+  Policy,
+  Scroll,
+  TapEvent,
+  TouchStart,
   Track,
 } from './types';
 
 export type MachineInput = {
   /** Kept up to date by the engine before every event it sends. */
   readonly pointers: PointerTracker;
-  readonly axis: Axis;
+  readonly policy: Policy;
+  readonly scroll: Scroll;
 };
 
 /** One pointer input; `track` is the pointer after it, even one that just lifted. */
 export type MachineEvent = {
   readonly type: 'down' | 'move' | 'up' | 'cancel';
   readonly track: Track;
+  /** On the first finger down: what the zone knows about the touch. */
+  readonly start?: TouchStart;
 };
 
 type Context = MachineInput & {
-  /** The finger a tap, double tap or pan is read from, while it is down. */
-  finger: number | undefined;
-  anchor: (Anchor & { readonly id: number }) | undefined;
-  /** A tap waiting to see if a second one makes it a double tap. */
-  pendingTap:
-    | { readonly x: number; readonly y: number; anchor: Anchor | undefined }
-    | undefined;
-  /** The press has been down too long to be a tap. */
-  tapExpired: boolean;
-  panning: boolean;
-  /** The app owns this touch: set by a pan or a lock, until every finger lifts. */
+  start: TouchStart | undefined;
+  hold: Locked | undefined;
+  /** The Pan, Swipe or Pinch under way. */
+  claim: Claim | undefined;
+  press: Press;
+  /** A tap waiting to see if a second makes it a double tap. */
+  pendingTap: TapEvent | undefined;
+  /** The app owns this touch until every finger lifts: 2+ fingers, a claim or a Hold. */
   captured: boolean;
+  /** One finger inside the slop heading for a claim at a scroller's end. */
+  leaning: boolean;
+  /** How long `pressing.waiting` waits for the stayer, in ms. */
+  waitMs: number;
 };
-
-const publicAnchor = (context: Context): Anchor | undefined =>
-  context.anchor === undefined
-    ? undefined
-    : { side: context.anchor.side, x: context.anchor.x, y: context.anchor.y };
-
-/** The finger's track, from the event when it is the one that just lifted. */
-const fingerTrack = (
-  context: Context,
-  event: MachineEvent,
-): Track | undefined =>
-  event.track.id === context.finger
-    ? event.track
-    : context.finger === undefined
-      ? undefined
-      : context.pointers.get(context.finger);
-
-const panEvent = (
-  context: Context,
-  event: MachineEvent,
-  phase: PanPhase,
-): GestureEvent | undefined => {
-  const track = fingerTrack(context, event);
-  if (track === undefined) return undefined;
-  const free = context.anchor !== undefined;
-  const keepX = free || context.axis === 'x';
-  const keepY = free || context.axis === 'y';
-  // Read at this event's time: a finger held still reads as a stop.
-  const velocity = context.pointers.velocity(track.id, event.track.current.t);
-  return {
-    kind: 'pan',
-    phase,
-    x: track.current.x,
-    y: track.current.y,
-    dx: keepX ? track.current.x - track.down.x : 0,
-    dy: keepY ? track.current.y - track.down.y : 0,
-    velocityX: keepX ? velocity.x : 0,
-    velocityY: keepY ? velocity.y : 0,
-    anchor: publicAnchor(context),
-  };
-};
-
-const anchorEvent = (
-  phase: AnchorPhase,
-  at: { readonly x: number; readonly y: number },
-  side: Side,
-): GestureEvent => ({ kind: 'anchor', phase, x: at.x, y: at.y, side });
 
 const gesture = (event: GestureEvent) => ({ type: 'gesture' as const, event });
 
+const situation = (context: Context): Situation => context;
+
+const sameCombination = (a: TapEvent, b: TapEvent) =>
+  a.fingers === b.fingers && a.hold?.side === b.hold?.side;
+
+const near = (a: TapEvent, b: TapEvent) =>
+  Math.hypot(a.point.x - b.point.x, a.point.y - b.point.y) <=
+  DOUBLE_TAP_DISTANCE_PX;
+
 /**
- * The whole gesture model as one machine. One finger goes down
- * (`pressing`) and becomes a tap, the first half of a double tap
- * (`tapped`), a swipe along the zone's axis, or a drag along the other axis
- * left to the browser (`native`). A second finger landing while the first is
- * still makes the first the Anchor, locked at once (`anchored`): like a held
- * Shift key it modifies every tap, double tap or pan of the other finger,
- * which now pans freely, until the Anchor itself lifts. A third finger, or
- * the browser taking a pointer, leave the rest of the touch to `ignoring`.
+ * What a new tap does to the one waiting, if any: completes a double tap,
+ * lets the first go and takes its place, or goes out at once when no double
+ * tap is registered for its combination.
+ */
+const resolveTap = (
+  context: Context,
+  tap: TapEvent | undefined,
+): {
+  readonly emit: ReadonlyArray<TapEvent>;
+  readonly pendingTap: TapEvent | undefined;
+} => {
+  const first = context.pendingTap;
+  if (tap === undefined) return { emit: [], pendingTap: first };
+  if (first !== undefined && sameCombination(first, tap) && near(first, tap)) {
+    return { emit: [doubled(tap)], pendingTap: undefined };
+  }
+  const waits = context.policy.doubleTap({
+    fingers: tap.fingers,
+    hold: tap.hold?.side,
+  });
+  const flushed = first === undefined ? [] : [first];
+  return waits
+    ? { emit: flushed, pendingTap: tap }
+    : { emit: [...flushed, tap], pendingTap: undefined };
+};
+
+type Enqueue = {
+  readonly emit: (event: ReturnType<typeof gesture>) => void;
+  readonly assign: (update: Partial<Context>) => void;
+};
+
+const tapAway = (
+  context: Context,
+  enqueue: Enqueue,
+  tap: TapEvent | undefined,
+) => {
+  const resolved = resolveTap(context, tap);
+  for (const event of resolved.emit) enqueue.emit(gesture(event));
+  enqueue.assign({ pendingTap: resolved.pendingTap });
+};
+
+const flushAway = (context: Context, enqueue: Enqueue) => {
+  if (context.pendingTap === undefined) return;
+  enqueue.emit(gesture(context.pendingTap));
+  enqueue.assign({ pendingTap: undefined });
+};
+
+/**
+ * The whole gesture model as one machine. Nothing is decided when fingers
+ * land (`pressing`); the first movement past the slop decides: one finger
+ * pans or swipes (`moving`), or along the scroll axis is left to the browser
+ * (`native`); with more fingers the one down longest, if still, locks as the
+ * Hold (`held`), and like a held Shift key it modifies every tap and
+ * movement of the other fingers until it lifts; two fingers moving together
+ * Pinch or pan. Fingers that land and lift quickly tap, a double tap waiting
+ * in `tapped` only when one is registered. A gesture stays what it was
+ * classified as until its fingers lift. Anything else, or the browser taking
+ * a pointer, leaves the rest of the touch to `ignoring`.
  */
 export const gestureMachine = setup({
   types: {
@@ -110,107 +141,192 @@ export const gestureMachine = setup({
     input: {} as MachineInput,
     emitted: {} as ReturnType<typeof gesture>,
   },
+  delays: {
+    // The rest of the tap time from the first landing, for a young stayer.
+    tapTimeLeft: ({ context }) => context.waitMs,
+  },
   guards: {
-    isFinger: ({ context, event }) => event.track.id === context.finger,
-    isAnchor: ({ context, event }) => event.track.id === context.anchor?.id,
-    pastSlop: ({ event }) => event.track.travel > SLOP_PX,
-    alongAxis: ({ context, event }) => {
-      const { current, down } = event.track;
-      const dx = Math.abs(current.x - down.x);
-      const dy = Math.abs(current.y - down.y);
-      return context.axis === 'x' ? dx > dy : dy > dx;
-    },
-    drifted: ({ event }) => event.track.travel > ANCHOR_DRIFT_PX,
-    quick: ({ context }) => !context.tapExpired,
-    secondTap: ({ context }) => context.pendingTap !== undefined,
-    near: ({ context, event }) =>
-      context.pendingTap !== undefined &&
-      Math.hypot(
-        event.track.down.x - context.pendingTap.x,
-        event.track.down.y - context.pendingTap.y,
-      ) <= DOUBLE_TAP_DISTANCE_PX,
+    decides: ({ context, event }, params: { readonly next: string }) =>
+      decideMovement(situation(context), event.track)?.next === params.next,
+    decidesActing: ({ context, event }, params: { readonly next: string }) =>
+      decideActing(situation(context), event.track)?.next === params.next,
+    lifts: ({ context, event }, params: { readonly next: string }) =>
+      decideLift(situation(context), context.press, event.track).next ===
+      params.next,
+    liftsActing: ({ context, event }, params: { readonly next: string }) =>
+      decideActingLift(situation(context), context.press, event.track)?.next ===
+      params.next,
+    isHold: ({ context, event }) => event.track.id === context.hold?.id,
+    drifted: ({ event }) => event.track.travel > HOLD_DRIFT_PX,
+    inClaim: ({ context, event }) =>
+      context.claim?.ids.includes(event.track.id) ?? false,
+    tapPending: ({ context }) => context.pendingTap !== undefined,
+    // A third acting finger under a Hold, or a fourth finger.
+    tooMany: ({ context }) =>
+      context.hold === undefined
+        ? context.pointers.size() > 3
+        : actingTracks(situation(context)).length > 2,
     noPointers: ({ context }) => context.pointers.size() === 0,
+    oneFinger: ({ context }) => context.pointers.size() === 1,
+    noActing: ({ context }) => actingTracks(situation(context)).length === 0,
   },
   actions: {
-    press: assign({
-      finger: ({ event }) => event.track.id,
-      tapExpired: false,
+    begin: assign({
+      start: ({ event }) => event.start,
+      press: FRESH_PRESS,
+      captured: false,
+      leaning: false,
     }),
-    expireTap: assign({ tapExpired: true }),
-    pan: enqueueActions(
-      ({ context, event, enqueue }, params: { readonly phase: PanPhase }) => {
-        const pan = panEvent(context, event, params.phase);
-        if (pan !== undefined) enqueue.emit(gesture(pan));
-        enqueue.assign({ panning: true, captured: true });
-      },
-    ),
-    endPan: enqueueActions(
-      ({ context, event, enqueue }, params: { readonly phase: PanPhase }) => {
-        if (!context.panning) return;
-        const pan = panEvent(context, event, params.phase);
-        if (pan !== undefined) enqueue.emit(gesture(pan));
-        enqueue.assign({ panning: false });
-      },
-    ),
-    holdTap: assign({
-      pendingTap: ({ context, event }) => ({
-        x: event.track.current.x,
-        y: event.track.current.y,
-        anchor: publicAnchor(context),
-      }),
+    capture: assign({
+      captured: ({ context }) =>
+        context.captured || context.pointers.size() >= 2,
     }),
+    lean: assign({
+      leaning: ({ context, event }) => leans(situation(context), event.track),
+    }),
+    resetPress: assign({ press: FRESH_PRESS }),
+    // A finger landing while a tap waits on a stayer makes it no tap at all.
+    spoilTapped: assign({
+      press: ({ context }) =>
+        context.press.tappers.length > 0
+          ? { tappers: [], spoiled: true }
+          : context.press,
+    }),
+    // A first tap waiting for a second is let go as a single tap.
     flushTap: enqueueActions(({ context, enqueue }) => {
-      const tap = context.pendingTap;
-      if (tap === undefined) return;
-      enqueue.emit(gesture({ kind: 'tap', ...tap }));
+      if (context.pendingTap === undefined) return;
+      enqueue.emit(gesture(context.pendingTap));
       enqueue.assign({ pendingTap: undefined });
     }),
-    doubleTap: enqueueActions(({ context, event, enqueue }) => {
-      enqueue.emit(
-        gesture({
-          kind: 'double-tap',
-          x: event.track.current.x,
-          y: event.track.current.y,
-          anchor: publicAnchor(context),
-        }),
+    /** Applies the first movement's decision: locks the Hold, claims the gesture. */
+    decide: enqueueActions(({ context, event, enqueue }) => {
+      const decision = decideMovement(situation(context), event.track);
+      if (decision === undefined) return;
+      enqueue.assign({ leaning: false });
+      const hold = 'hold' in decision ? decision.hold : undefined;
+      if (hold !== undefined) {
+        enqueue.assign({ hold, captured: true });
+        enqueue.emit(gesture(holdEvent('lock', hold)));
+      }
+      if (!('claim' in decision)) return;
+      const start = movementEvent(
+        decision.claim,
+        'start',
+        { pointers: context.pointers, hold, start: context.start },
+        event.track,
       );
-      enqueue.assign({ pendingTap: undefined });
+      enqueue.assign({ claim: decision.claim, captured: true });
+      if (start !== undefined) enqueue.emit(gesture(start));
     }),
-    // The finger down becomes the Anchor, on the side of the one landing.
-    lock: enqueueActions(({ context, event, enqueue }) => {
-      const held =
-        context.finger === undefined
-          ? undefined
-          : context.pointers.get(context.finger);
-      if (held === undefined) return;
-      const side: Side =
-        held.current.x < event.track.current.x ? 'left' : 'right';
-      enqueue.assign({
-        anchor: { id: held.id, side, x: held.current.x, y: held.current.y },
-        captured: true,
-      });
-      enqueue.emit(gesture(anchorEvent('locked', held.current, side)));
+    decideActing: enqueueActions(({ context, event, enqueue }) => {
+      const decision = decideActing(situation(context), event.track);
+      if (decision?.next !== 'moving') return;
+      const start = movementEvent(
+        decision.claim,
+        'start',
+        context,
+        event.track,
+      );
+      enqueue.assign({ claim: decision.claim });
+      if (start !== undefined) enqueue.emit(gesture(start));
     }),
-    followAnchor: assign({
-      anchor: ({ context, event }) =>
-        context.anchor === undefined
-          ? undefined
-          : {
-              ...context.anchor,
-              x: event.track.current.x,
-              y: event.track.current.y,
-            },
-    }),
-    endAnchor: enqueueActions(
-      ({ context, enqueue }, params: { readonly phase: AnchorPhase }) => {
-        const anchor = context.anchor;
-        if (anchor === undefined) return;
-        enqueue.emit(gesture(anchorEvent(params.phase, anchor, anchor.side)));
-        enqueue.assign({ anchor: undefined });
+    follow: enqueueActions(
+      ({ context, event, enqueue }, params: { readonly phase: Phase }) => {
+        const claim = context.claim;
+        if (claim === undefined) return;
+        const phase = movementEvent(claim, params.phase, context, event.track);
+        if (phase !== undefined) enqueue.emit(gesture(phase));
+        if (params.phase !== 'move') enqueue.assign({ claim: undefined });
       },
     ),
-    settleIfEmpty: assign({
-      finger: undefined,
+    /** Applies a lift of a press with no Hold: taps, and a Hold locked by a tap. */
+    lift: enqueueActions(({ context, event, enqueue }) => {
+      const lift = decideLift(situation(context), context.press, event.track);
+      switch (lift.next) {
+        case 'tap':
+          tapAway(context, enqueue, lift.tap);
+          return;
+        case 'hold-tap':
+          enqueue.assign({
+            hold: lift.hold,
+            captured: true,
+            press: FRESH_PRESS,
+          });
+          enqueue.emit(gesture(holdEvent('lock', lift.hold)));
+          tapAway(context, enqueue, lift.tap);
+          return;
+        case 'wait':
+          enqueue.assign({ press: lift.press, waitMs: lift.waitMs });
+          return;
+        case 'continue':
+          enqueue.assign({ press: lift.press });
+          return;
+        case 'done':
+          flushAway(context, enqueue);
+      }
+    }),
+    lockAfterWait: enqueueActions(({ context, enqueue }) => {
+      const locked = lockAfterWait(situation(context), context.press);
+      if (locked === undefined) return;
+      enqueue.assign({ hold: locked.hold, captured: true, press: FRESH_PRESS });
+      enqueue.emit(gesture(holdEvent('lock', locked.hold)));
+      tapAway(context, enqueue, locked.tap);
+    }),
+    liftActing: enqueueActions(({ context, event, enqueue }) => {
+      const lift = decideActingLift(
+        situation(context),
+        context.press,
+        event.track,
+      );
+      if (lift === undefined) return;
+      if (lift.next === 'tap') {
+        tapAway(context, enqueue, lift.tap);
+      } else if (lift.next === 'continue') {
+        enqueue.assign({ press: lift.press });
+      } else {
+        flushAway(context, enqueue);
+      }
+    }),
+    // The tap time ran out under a Hold with an acting finger still down:
+    // one that already lifted tapped on its own.
+    expireActingPress: enqueueActions(({ context, enqueue }) => {
+      const [tapper, ...more] = context.press.tappers;
+      flushAway(context, enqueue);
+      if (tapper !== undefined && more.length === 0) {
+        enqueue.emit(
+          gesture({
+            kind: 'tap',
+            count: 1,
+            fingers: 1,
+            hold: holdOf(context.hold),
+            point: tapper.point,
+          }),
+        );
+      }
+      enqueue.assign({ press: FRESH_PRESS });
+    }),
+    followHold: assign({
+      hold: ({ context, event }) =>
+        context.hold === undefined
+          ? undefined
+          : { ...context.hold, point: pointOf(event.track.current) },
+    }),
+    endHold: enqueueActions(
+      (
+        { context, enqueue },
+        params: { readonly phase: 'release' | 'cancel' },
+      ) => {
+        const hold = context.hold;
+        if (hold === undefined) return;
+        enqueue.emit(gesture(holdEvent(params.phase, hold)));
+        enqueue.assign({ hold: undefined });
+      },
+    ),
+    settle: assign({
+      claim: undefined,
+      hold: undefined,
+      press: FRESH_PRESS,
+      leaning: false,
       captured: ({ context }) =>
         context.captured && context.pointers.size() > 0,
     }),
@@ -219,12 +335,14 @@ export const gestureMachine = setup({
   id: 'gestures',
   context: ({ input }) => ({
     ...input,
-    finger: undefined,
-    anchor: undefined,
+    start: undefined,
+    hold: undefined,
+    claim: undefined,
+    press: FRESH_PRESS,
     pendingTap: undefined,
-    tapExpired: false,
-    panning: false,
     captured: false,
+    leaning: false,
+    waitMs: 0,
   }),
   initial: 'idle',
   // The browser took a pointer, usually for a scroll.
@@ -232,70 +350,114 @@ export const gestureMachine = setup({
     cancel: {
       target: '.ignoring',
       actions: [
-        { type: 'endPan', params: { phase: 'cancelled' } },
+        { type: 'follow', params: { phase: 'cancel' } },
         'flushTap',
-        { type: 'endAnchor', params: { phase: 'cancelled' } },
+        { type: 'endHold', params: { phase: 'cancel' } },
       ],
     },
   },
   states: {
     idle: {
-      entry: 'settleIfEmpty',
-      on: { down: { target: 'pressing', actions: 'press' } },
+      entry: 'settle',
+      always: { guard: 'tapPending', target: 'tapped' },
+      on: { down: { target: 'pressing', actions: 'begin' } },
     },
-    /** One finger down, undecided. */
+    /** Fingers down, nothing moved yet. */
     pressing: {
-      after: { [TAP_MAX_MS]: { actions: ['flushTap', 'expireTap'] } },
+      initial: 'down',
+      // Too long for this press to be the second tap of a double tap.
+      after: { [TAP_MAX_MS]: { actions: 'flushTap' } },
       on: {
-        // A second finger while this one is still: this one locks.
-        down: {
-          target: 'anchored.pressing',
-          actions: ['flushTap', 'lock', 'press'],
-        },
+        down: [
+          {
+            guard: 'tooMany',
+            target: 'ignoring',
+            actions: ['capture', 'flushTap'],
+          },
+          { target: '.down', actions: ['capture', 'spoilTapped'] },
+        ],
         move: [
           {
-            guard: and(['isFinger', 'pastSlop', 'alongAxis']),
-            target: 'swiping',
-            actions: ['flushTap', { type: 'pan', params: { phase: 'began' } }],
-          },
-          {
-            guard: and(['isFinger', 'pastSlop']),
+            guard: { type: 'decides', params: { next: 'native' } },
             target: 'native',
             actions: 'flushTap',
           },
+          {
+            guard: { type: 'decides', params: { next: 'moving' } },
+            target: 'moving',
+            actions: ['flushTap', 'decide'],
+          },
+          {
+            guard: { type: 'decides', params: { next: 'held.moving' } },
+            target: 'held.moving',
+            actions: ['flushTap', 'decide'],
+          },
+          {
+            guard: { type: 'decides', params: { next: 'held.ignoring' } },
+            target: 'held.ignoring',
+            actions: ['flushTap', 'decide'],
+          },
+          {
+            guard: { type: 'decides', params: { next: 'ignoring' } },
+            target: 'ignoring',
+            actions: 'flushTap',
+          },
+          { actions: 'lean' },
         ],
         up: [
           {
-            guard: and(['isFinger', 'quick', 'secondTap']),
-            target: 'idle',
-            actions: 'doubleTap',
+            guard: { type: 'lifts', params: { next: 'hold-tap' } },
+            target: 'held',
+            actions: 'lift',
           },
           {
-            guard: and(['isFinger', 'quick']),
-            target: 'tapped',
-            actions: 'holdTap',
+            guard: { type: 'lifts', params: { next: 'wait' } },
+            target: '.waiting',
+            actions: 'lift',
           },
-          { guard: 'isFinger', target: 'idle', actions: 'flushTap' },
+          {
+            guard: { type: 'lifts', params: { next: 'continue' } },
+            target: '.down',
+            actions: 'lift',
+          },
+          { target: 'idle', actions: 'lift' },
         ],
       },
+      states: {
+        down: {},
+        /**
+         * A finger tapped while another stays: it is a two-finger tap if
+         * that one lifts in the tap time, or the Hold when the time runs out.
+         */
+        waiting: {
+          after: {
+            tapTimeLeft: {
+              guard: 'oneFinger',
+              target: '#gestures.held',
+              actions: 'lockAfterWait',
+            },
+          },
+        },
+      },
     },
-    /** A one-finger pan along the zone's axis, Captured. A second finger is left out of it. */
-    swiping: {
+    /** A Pan, Swipe or Pinch with no Hold, Captured. Another finger is left out of it. */
+    moving: {
       on: {
+        down: { actions: 'capture' },
         move: {
-          guard: 'isFinger',
-          actions: { type: 'pan', params: { phase: 'changed' } },
+          guard: 'inClaim',
+          actions: { type: 'follow', params: { phase: 'move' } },
         },
         up: [
           {
-            guard: and(['isFinger', not('noPointers')]),
+            guard: and(['inClaim', not('noPointers')]),
             target: 'ignoring',
-            actions: { type: 'endPan', params: { phase: 'ended' } },
+            actions: { type: 'follow', params: { phase: 'end' } },
           },
           {
-            guard: 'isFinger',
+            guard: 'inClaim',
             target: 'idle',
-            actions: { type: 'endPan', params: { phase: 'ended' } },
+            actions: { type: 'follow', params: { phase: 'end' } },
           },
         ],
       },
@@ -303,107 +465,113 @@ export const gestureMachine = setup({
     /** A tap, waiting to see if a second makes it a double tap. */
     tapped: {
       after: { [DOUBLE_TAP_GAP_MS]: { target: 'idle', actions: 'flushTap' } },
-      on: {
-        down: [
-          { guard: 'near', target: 'pressing', actions: 'press' },
-          { target: 'pressing', actions: ['flushTap', 'press'] },
-        ],
-      },
+      on: { down: { target: 'pressing', actions: 'begin' } },
     },
     /**
-     * The Anchor is locked and the touch Captured. Inside, the other finger
-     * taps, double taps and pans, in 2D, as often as it likes.
+     * The Hold is locked and the touch Captured. Inside, the other fingers
+     * tap, double tap, pan, swipe and pinch, as often as they like.
      */
-    anchored: {
+    held: {
       initial: 'idle',
       on: {
         move: [
-          // Drift cancels: the Anchor was not held still after all.
+          // Drift cancels: the finger was not held still after all.
           {
-            guard: and(['isAnchor', 'drifted']),
+            guard: and(['isHold', 'drifted']),
             target: 'ignoring',
             actions: [
-              { type: 'endPan', params: { phase: 'cancelled' } },
+              { type: 'follow', params: { phase: 'cancel' } },
               'flushTap',
-              { type: 'endAnchor', params: { phase: 'cancelled' } },
+              { type: 'endHold', params: { phase: 'cancel' } },
             ],
           },
-          { guard: 'isAnchor', actions: 'followAnchor' },
+          { guard: 'isHold', actions: 'followHold' },
         ],
-        // Lifting the Anchor releases it, ending a pan under way so a flick
-        // still coasts.
+        // Lifting the Hold releases it, ending a gesture under way so a
+        // flick still coasts.
         up: {
-          guard: 'isAnchor',
+          guard: 'isHold',
           target: 'ignoring',
           actions: [
-            { type: 'endPan', params: { phase: 'ended' } },
+            { type: 'follow', params: { phase: 'end' } },
             'flushTap',
-            { type: 'endAnchor', params: { phase: 'released' } },
+            { type: 'endHold', params: { phase: 'release' } },
           ],
         },
-        // A third finger.
-        down: {
-          target: 'ignoring',
-          actions: [
-            { type: 'endPan', params: { phase: 'cancelled' } },
-            'flushTap',
-            { type: 'endAnchor', params: { phase: 'cancelled' } },
-          ],
-        },
+        down: [
+          {
+            guard: 'tooMany',
+            target: 'ignoring',
+            actions: [
+              { type: 'follow', params: { phase: 'cancel' } },
+              'flushTap',
+              { type: 'endHold', params: { phase: 'cancel' } },
+            ],
+          },
+        ],
       },
       states: {
         idle: {
-          on: { down: { target: 'pressing', actions: 'press' } },
+          always: { guard: 'tapPending', target: 'tapped' },
+          on: { down: { target: 'pressing', actions: 'resetPress' } },
         },
         pressing: {
-          after: { [TAP_MAX_MS]: { actions: ['flushTap', 'expireTap'] } },
+          after: { [TAP_MAX_MS]: { actions: 'expireActingPress' } },
           on: {
-            move: {
-              guard: and(['isFinger', 'pastSlop']),
-              target: 'panning',
-              actions: [
-                'flushTap',
-                { type: 'pan', params: { phase: 'began' } },
-              ],
-            },
+            move: [
+              {
+                guard: { type: 'decidesActing', params: { next: 'moving' } },
+                target: 'moving',
+                actions: ['flushTap', 'decideActing'],
+              },
+              {
+                guard: { type: 'decidesActing', params: { next: 'ignoring' } },
+                target: 'ignoring',
+                actions: 'flushTap',
+              },
+            ],
             up: [
               {
-                guard: and(['isFinger', 'quick', 'secondTap']),
-                target: 'idle',
-                actions: 'doubleTap',
+                guard: { type: 'liftsActing', params: { next: 'continue' } },
+                actions: 'liftActing',
               },
               {
-                guard: and(['isFinger', 'quick']),
-                target: 'tapped',
-                actions: 'holdTap',
+                guard: not('isHold'),
+                target: 'idle',
+                actions: 'liftActing',
               },
-              { guard: 'isFinger', target: 'idle', actions: 'flushTap' },
             ],
           },
         },
-        panning: {
+        moving: {
           on: {
             move: {
-              guard: 'isFinger',
-              actions: { type: 'pan', params: { phase: 'changed' } },
+              guard: 'inClaim',
+              actions: { type: 'follow', params: { phase: 'move' } },
             },
-            up: {
-              guard: 'isFinger',
-              target: 'idle',
-              actions: { type: 'endPan', params: { phase: 'ended' } },
-            },
+            up: [
+              {
+                guard: and(['inClaim', not('noActing')]),
+                target: 'ignoring',
+                actions: { type: 'follow', params: { phase: 'end' } },
+              },
+              {
+                guard: 'inClaim',
+                target: 'idle',
+                actions: { type: 'follow', params: { phase: 'end' } },
+              },
+            ],
           },
         },
         tapped: {
           after: {
             [DOUBLE_TAP_GAP_MS]: { target: 'idle', actions: 'flushTap' },
           },
-          on: {
-            down: [
-              { guard: 'near', target: 'pressing', actions: 'press' },
-              { target: 'pressing', actions: ['flushTap', 'press'] },
-            ],
-          },
+          on: { down: { target: 'pressing', actions: 'resetPress' } },
+        },
+        /** Acting fingers that make nothing; the Hold stays locked. */
+        ignoring: {
+          always: { guard: 'noActing', target: 'idle' },
         },
       },
     },
@@ -413,6 +581,7 @@ export const gestureMachine = setup({
     },
     /** Not a gesture; wait for every finger to lift. */
     ignoring: {
+      on: { down: { actions: 'capture' } },
       always: { guard: 'noPointers', target: 'idle' },
     },
   },

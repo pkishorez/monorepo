@@ -43,20 +43,28 @@ Who handles a swipe that starts at a screen edge in the current Environment: the
 _Avoid_: gesture conflict, edge zone
 
 **Gesture Zone**:
-An element region where the app owns touch input: its bounds minus the viewport's edge strips, whose Edge Ownership lies elsewhere or is reserved for edge gestures. Vertical scrolling stays native inside it until a touch is Captured, and a touch that starts in a native scroller inside it belongs to that scroller.
+An element region where the app owns touch input: its bounds minus the viewport's edge strips, whose Edge Ownership lies elsewhere or is reserved for edge gestures. Vertical scrolling stays native inside it until a touch is Captured, and a touch that starts in a native scroller inside it belongs to that scroller. Zones nest: a touch belongs to the innermost zone it starts in, and a gesture that zone does not handle passes out to the zone around it.
 _Avoid_: touch area, gesture surface, hit area
 
 **Capture**:
-The Gesture Zone taking a touch from the browser once the app owns it — a pan started, or an Anchor locked — so the page cannot scroll until every finger lifts. A touch the browser has already started scrolling can no longer be Captured.
+The Gesture Zone taking a touch from the browser once the app owns it — a Pan or Swipe started, a second finger landed, or a Hold locked — so the page cannot scroll until every finger lifts. A touch the browser has already started scrolling can no longer be Captured.
 _Avoid_: grab, prevent scroll
 
-**Anchor**:
-The first finger in the Gesture Zone, when a second finger lands while it is still. It locks at once and works like a held Shift key: every tap, double tap or pan by the other finger is modified by it, and the lock lasts until the Anchor lifts, however many gestures the other finger makes. It is a left or right Anchor by where it sits relative to the other finger when that finger lands.
-_Avoid_: chord, hold-swipe, holder, pivot, modifier gesture
+**Hold**:
+A finger kept still in the Gesture Zone while other fingers act. It locks the moment another finger moves or taps, and works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them, and the lock lasts until it lifts, however many gestures they make.
+_Avoid_: anchor, chord, modifier, touch and hold (that is a long press)
+
+**Pan**:
+Fingers moving freely across the Gesture Zone, followed continuously; on release whatever they moved may coast on with their speed.
+_Avoid_: drag (moving an element itself), scroll
 
 **Swipe**:
-A one-finger pan in the Gesture Zone with no Anchor held. It follows the zone's axis, sideways by default; a drag that starts along the other axis is left to the browser to scroll.
-_Avoid_: plain pan, one-finger pan
+Fingers moving in one of four directions, followed continuously as progress toward a commit, however slowly. On release it commits if it went far enough or was flicked, and springs back otherwise.
+_Avoid_: fling, flick (only the fast release that can commit a Swipe)
+
+**Pinch**:
+Two fingers moving apart or together to scale around the point between them.
+_Avoid_: zoom (what an app may do with it), spread
 
 **Level**:
 One step on the progressive ladder from plain web (0) through polished (1) and app-like (2) to native gestures (3). A pattern belongs to a Level and drops to the highest lower Level its Environment allows.

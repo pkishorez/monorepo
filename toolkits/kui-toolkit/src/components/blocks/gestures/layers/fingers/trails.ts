@@ -1,4 +1,6 @@
-import type { Finger, FingerRole } from '../engine';
+import type { Finger } from '../../engine';
+
+type FingerRole = Finger['role'];
 
 // How long a lifted finger takes to fade.
 const FADE_MS = 280;

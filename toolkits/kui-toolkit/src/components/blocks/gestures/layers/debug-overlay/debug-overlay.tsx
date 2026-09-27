@@ -1,7 +1,7 @@
 import { lazy, Suspense, useRef, useState } from 'react';
-import type { Environment } from '../environment';
-import { CanvasLayer, type ZoneSource } from '../layer';
-import { edgeStrips } from '../zone';
+import { edgeStrips, type Environment } from '../../../environment';
+import type { ZoneSource } from '../../provider';
+import { CanvasLayer } from '../canvas';
 import { createDebugPainter } from './paint';
 
 // The visualizer and its layout engine load only when the overlay is shown.
@@ -15,10 +15,11 @@ const MachinePanel = lazy(() =>
 const INSET_PX = 6;
 
 /**
- * The zone and its edge strips labelled with who owns them, native
+ * Every zone and the edge strips labelled with who owns them, native
  * scrollers shaded, each finger's pointer id, the Environment in one line in
- * the zone's corner, and the live gestures machine placed by
- * `machineClassName`. Repaints only when something changes.
+ * the outermost zone's corner, and the live gestures machine of the zone
+ * touched last, placed by `machineClassName`. Repaints only when something
+ * changes.
  */
 export function DebugOverlay(props: {
   readonly source: ZoneSource;

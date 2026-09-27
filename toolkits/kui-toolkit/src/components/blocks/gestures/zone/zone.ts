@@ -1,14 +1,12 @@
-import type { GestureEngine } from '../engine';
-import type { Environment } from '../environment';
-import { bindPointers, swallowNextClick } from './bind';
-import { edgeStrips } from './edges';
+import type { GestureEngine, Scroll, Side, TouchStart } from '../engine';
+import { edgeStrips, type Environment } from '../../environment';
+import { bindPointers } from './bind';
 import { contains, zoneRect } from './geometry';
+import { scrollEnds } from './scrollers';
 
-export { ANDROID_EDGE_STRIP_PX, EDGE_STRIP_PX, edgeStrips } from './edges';
-export type { EdgeOwner, EdgeStrips } from './edges';
+export { swallowNextClick, ZONE_SELECTOR } from './bind';
 export type { Rect } from './geometry';
 export { nativeScrollers } from './scrollers';
-export { swallowNextClick };
 
 /**
  * Where an element's Gesture Zone is right now, in viewport coordinates: the
@@ -21,16 +19,53 @@ export const measureZone = (element: HTMLElement, environment: Environment) => {
   return { strips, bounds, rect: zoneRect(bounds, win.innerWidth, strips) };
 };
 
+/** The edge strip a point inside the element's bounds lies in, if any. */
+const stripAt = (
+  zone: ReturnType<typeof measureZone>,
+  x: number,
+  y: number,
+  viewportWidth: number,
+): Side | undefined => {
+  if (!contains(zone.bounds, x, y) || contains(zone.rect, x, y)) {
+    return undefined;
+  }
+  if (x <= zone.strips.left.width) return 'left';
+  if (x >= viewportWidth - zone.strips.right.width) return 'right';
+  return undefined;
+};
+
 /**
- * Makes an element a Gesture Zone for `engine`: pointers that go down inside
- * it, clear of the edge strips, are recognized; the rest stay the platform's.
- * Returns the unbind.
+ * Makes an element a Gesture Zone for `engine`: pointers that go down
+ * inside it, clear of the edge strips, are its own, and so are pointers in a
+ * strip the app owns where an edge Swipe wants them (`wantsStrip`); the rest
+ * stay the platform's. Each touch starts with the strip it started in and
+ * the ends its scroller is at along `scroll`. Returns the unbind.
  */
 export const bindZone = (
   element: HTMLElement,
   engine: GestureEngine,
-  environment: () => Environment,
+  options: {
+    readonly environment: () => Environment;
+    readonly scroll: Scroll;
+    readonly wantsStrip: (side: Side) => boolean;
+  },
 ): (() => void) =>
-  bindPointers(element, engine, (x, y) =>
-    contains(measureZone(element, environment()).rect, x, y),
-  );
+  bindPointers(element, engine, (event): TouchStart | undefined => {
+    const zone = measureZone(element, options.environment());
+    const { clientX: x, clientY: y } = event;
+    const inside = contains(zone.rect, x, y);
+    const win = element.ownerDocument.defaultView ?? window;
+    const strip = stripAt(zone, x, y, win.innerWidth);
+    const edge =
+      strip !== undefined &&
+      zone.strips[strip].owner === 'app' &&
+      options.wantsStrip(strip)
+        ? strip
+        : undefined;
+    if (!inside && edge === undefined) return undefined;
+    const ends =
+      options.scroll === 'none' || !(event.target instanceof Element)
+        ? []
+        : scrollEnds(event.target, options.scroll);
+    return { edge, ends };
+  });

@@ -2,7 +2,7 @@ import {
   ANDROID_EDGE_STRIP_PX,
   EDGE_STRIP_PX,
   type Environment,
-} from '../gestures';
+} from '../environment';
 
 /**
  * How the mobile sidebar may be swiped. `edge-swipe` opens from a touch that

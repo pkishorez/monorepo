@@ -1,6 +1,7 @@
-import type { Anchor, TapMark } from '../engine';
-import type { Frame, Painter, ZoneSource } from '../layer';
-import type { Rect } from '../zone';
+import type { Side } from '../../engine';
+import type { TapMark, ZoneSource, ZoneView } from '../../provider';
+import type { Rect } from '../../zone';
+import type { Frame, Painter } from '../canvas';
 import { createTrails, type Trail } from './trails';
 
 const RING_RADIUS = 22;
@@ -12,10 +13,10 @@ const PULSE_MS = 1600;
 const REST_DELAY_MS = 120;
 const REST_GROW_MS = 280;
 const BUBBLE_EXIT_MS = 120;
-// The pop when an Anchor locks: an overshoot back to size, and a flash ring.
+// The pop when an Hold locks: an overshoot back to size, and a flash ring.
 const POP_MS = 320;
 const FLASH_MS = 360;
-// How long the spotlight takes to come up when an Anchor locks, and to go.
+// How long the spotlight takes to come up when an Hold locks, and to go.
 const SPOTLIGHT_MS = 160;
 // A ring bursting out from a tap; a double tap bursts twice.
 const BURST_MS = 360;
@@ -23,7 +24,7 @@ const BURST_GAP_MS = 90;
 // Path kept behind the acting finger: a comet, or a stub for reduced motion.
 const TAIL_MS = 240;
 const STILL_TAIL_MS = 60;
-// Around the Anchor: lit up to LIT_PX, clear to CLEAR_PX, dimmed past DIM_PX.
+// Around the Hold: lit up to LIT_PX, clear to CLEAR_PX, dimmed past DIM_PX.
 const LIT_PX = 44;
 const CLEAR_PX = 72;
 const DIM_PX = 150;
@@ -48,7 +49,7 @@ const paintRing = ({ ctx, color }: Frame, trail: Trail, bubble: number) => {
   if (bubble > 0) {
     ctx.beginPath();
     ctx.arc(at.x, at.y, RING_RADIUS * (0.55 + 0.45 * bubble), 0, Math.PI * 2);
-    ctx.fillStyle = color('--gf-anchor', 0.22 * bubble * trail.opacity);
+    ctx.fillStyle = color('--gf-hold', 0.22 * bubble * trail.opacity);
     ctx.fill();
   }
   ctx.beginPath();
@@ -61,7 +62,7 @@ const paintRing = ({ ctx, color }: Frame, trail: Trail, bubble: number) => {
 };
 
 /**
- * Dims the zone around the Anchor and lights the area under it, so the
+ * Dims the zone around the Hold and lights the area under it, so the
  * locked finger reads as the centre of attention. `k` fades it in and out.
  */
 const paintSpotlight = (
@@ -75,8 +76,8 @@ const paintSpotlight = (
     Math.hypot(zone.right - zone.left, zone.bottom - zone.top),
   );
   const light = ctx.createRadialGradient(at.x, at.y, 0, at.x, at.y, reach);
-  light.addColorStop(0, color('--gf-anchor', 0.3 * k));
-  light.addColorStop(LIT_PX / reach, color('--gf-anchor', 0.1 * k));
+  light.addColorStop(0, color('--gf-hold', 0.3 * k));
+  light.addColorStop(LIT_PX / reach, color('--gf-hold', 0.1 * k));
   light.addColorStop(CLEAR_PX / reach, color('--gf-dim', 0));
   light.addColorStop(DIM_PX / reach, color('--gf-dim', 0.45 * k));
   light.addColorStop(1, color('--gf-dim', 0.6 * k));
@@ -90,32 +91,32 @@ const paintSpotlight = (
 };
 
 /**
- * The Anchor: a strong glow and ring, which pop in with an overshoot and a
+ * The Hold: a strong glow and ring, which pop in with an overshoot and a
  * flash when it locks, then pulse slowly. Reduced motion keeps it still.
  */
-const paintAnchor = (
+const paintHold = (
   { ctx, color, now }: Frame,
-  anchor: Trail,
+  held: Trail,
   lockedAt: number,
   reducedMotion: boolean,
 ) => {
-  const at = head(anchor);
-  const alpha = anchor.opacity;
+  const at = head(held);
+  const alpha = held.opacity;
   const since = now - lockedAt;
   const scale = reducedMotion
     ? 1
     : 0.6 + 0.4 * backOut(clamp01(since / POP_MS));
   const radius = RING_RADIUS * scale;
   const glow = ctx.createRadialGradient(at.x, at.y, 0, at.x, at.y, radius * 2);
-  glow.addColorStop(0, color('--gf-anchor', 0.6 * alpha));
-  glow.addColorStop(1, color('--gf-anchor', 0));
+  glow.addColorStop(0, color('--gf-hold', 0.6 * alpha));
+  glow.addColorStop(1, color('--gf-hold', 0));
   ctx.fillStyle = glow;
   ctx.beginPath();
   ctx.arc(at.x, at.y, radius * 2, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.lineWidth = 2.5;
-  ctx.strokeStyle = color('--gf-anchor', 0.95 * alpha);
+  ctx.strokeStyle = color('--gf-hold', 0.95 * alpha);
   ctx.beginPath();
   ctx.arc(at.x, at.y, radius, 0, Math.PI * 2);
   ctx.stroke();
@@ -123,7 +124,7 @@ const paintAnchor = (
   if (since < FLASH_MS) {
     const t = easeOut(since / FLASH_MS);
     ctx.lineWidth = 3 * (1 - t);
-    ctx.strokeStyle = color('--gf-anchor', (1 - t) * 0.8 * alpha);
+    ctx.strokeStyle = color('--gf-hold', (1 - t) * 0.8 * alpha);
     ctx.beginPath();
     ctx.arc(at.x, at.y, RING_RADIUS * (1 + 1.4 * t), 0, Math.PI * 2);
     ctx.stroke();
@@ -131,24 +132,24 @@ const paintAnchor = (
   }
   const phase = ((since - FLASH_MS) % PULSE_MS) / PULSE_MS;
   ctx.lineWidth = 1.5;
-  ctx.strokeStyle = color('--gf-anchor', (1 - phase) * 0.5 * alpha);
+  ctx.strokeStyle = color('--gf-hold', (1 - phase) * 0.5 * alpha);
   ctx.beginPath();
   ctx.arc(at.x, at.y, RING_RADIUS + phase * RING_RADIUS, 0, Math.PI * 2);
   ctx.stroke();
 };
 
 /**
- * A chip beside the Anchor saying which finger is locked, kept inside the
+ * A chip beside the Hold saying which finger is locked, kept inside the
  * zone: above the finger, or below it when above would leave the zone.
  */
 const paintLockChip = (
   { ctx, color, font }: Frame,
-  anchor: Trail,
-  side: Anchor['side'],
+  held: Trail,
+  side: Side,
   zone: Rect,
 ) => {
-  const at = head(anchor);
-  const text = `${side === 'left' ? 'Left' : 'Right'} finger locked`;
+  const at = head(held);
+  const text = `${side === 'left' ? 'Left' : 'Right'} Hold`;
   ctx.font = `600 12px ${font}`;
   const w = ctx.measureText(text).width + 20;
   const x = Math.min(
@@ -160,7 +161,7 @@ const paintLockChip = (
     above < zone.top + CHIP_INSET
       ? Math.min(at.y + RING_RADIUS * 2, zone.bottom - CHIP_HEIGHT - CHIP_INSET)
       : above;
-  ctx.globalAlpha = anchor.opacity;
+  ctx.globalAlpha = held.opacity;
   ctx.fillStyle = color('--gf-chip', 0.94);
   ctx.beginPath();
   ctx.roundRect(x, y, w, CHIP_HEIGHT, CHIP_HEIGHT / 2);
@@ -252,7 +253,7 @@ const paintBurst = (
 /**
  * Paints every finger in the zone by its role: a soft ring, with a bubble
  * growing inside while it rests, for a finger not yet decided or in no
- * gesture; the locked Anchor with the zone dimmed around it and a chip
+ * gesture; the locked Hold with the zone dimmed around it and a chip
  * naming it; a comet for a panning finger; a burst for each tap. Asks for
  * frames while a finger is down or anything is fading.
  */
@@ -260,38 +261,51 @@ export const createFingerPainter = (source: ZoneSource): Painter => {
   const trails = createTrails();
   const spotlight = { k: 0, at: { x: 0, y: 0 }, t: 0 };
   const bubbles = new Map<number, number>();
-  // When each Anchor locked and on which side, kept while it fades.
-  const locks = new Map<number, { at: number; side: Anchor['side'] }>();
+  // When each Hold locked and on which side, kept while it fades.
+  const locks = new Map<number, { at: number; side: Side }>();
   let burst: { tap: TapMark; at: number } | undefined;
+  // Kept while the spotlight fades after the Hold lifts.
+  let measuredHold: ReturnType<ZoneView['measure']>;
   let lastFrame = 0;
 
   return (frame) => {
     const reduced = source.environment().reducedMotion;
-    const inspection = source.inspect();
+    const zones = source.zones();
+    const inspections = zones.map((zone) => zone.inspect());
+    // The zone the Hold is locked in, if any: the spotlight dims it alone.
+    const index = inspections.findIndex(
+      (inspection) => inspection?.hold !== undefined,
+    );
+    const holding = zones[index];
+    const hold = inspections[index]?.hold;
     const dt = frame.now - lastFrame;
     lastFrame = frame.now;
-    trails.record(inspection?.fingers ?? [], frame.now);
+    trails.record(
+      inspections.flatMap((inspection) => inspection?.fingers ?? []),
+      frame.now,
+    );
     const visible = trails.visible(
       frame.now,
       reduced ? STILL_TAIL_MS : TAIL_MS,
     );
-    const anchor = visible.find((trail) => trail.role === 'anchor');
+    const held = visible.find((trail) => trail.role === 'hold');
 
-    const tap = inspection?.tap;
+    const tap = source.tap();
     if (tap !== undefined && tap.count !== burst?.tap.count) {
       burst = { tap, at: frame.now };
     }
 
-    const target = anchor === undefined ? 0 : anchor.opacity;
+    const target = held === undefined ? 0 : held.opacity;
     const step = reduced ? 1 : (frame.now - spotlight.t) / SPOTLIGHT_MS;
     spotlight.k =
       target > spotlight.k
         ? Math.min(target, spotlight.k + step)
         : Math.max(target, spotlight.k - step);
     spotlight.t = frame.now;
-    if (anchor !== undefined) spotlight.at = head(anchor);
+    if (held !== undefined) spotlight.at = head(held);
     // The whole element dims, edge strips included, so the zone reads as one surface.
-    const measured = source.measure();
+    if (holding !== undefined) measuredHold = holding.measure();
+    const measured = measuredHold;
     if (spotlight.k > 0 && measured !== undefined) {
       paintSpotlight(frame, measured.bounds, spotlight.at, spotlight.k);
     }
@@ -314,8 +328,8 @@ export const createFingerPainter = (source: ZoneSource): Painter => {
       bubbles.set(trail.id, bubble);
       bubbling ||= bubble > 0;
 
-      if (trail.role === 'anchor') {
-        const side = inspection?.anchor?.side;
+      if (trail.role === 'hold') {
+        const side = hold?.side;
         if (!locks.has(trail.id) && side !== undefined) {
           locks.set(trail.id, { at: frame.now, side });
         }
@@ -329,18 +343,16 @@ export const createFingerPainter = (source: ZoneSource): Painter => {
       if (!visible.some((trail) => trail.id === id)) bubbles.delete(id);
     }
     for (const id of locks.keys()) {
-      if (
-        !visible.some((trail) => trail.id === id && trail.role === 'anchor')
-      ) {
+      if (!visible.some((trail) => trail.id === id && trail.role === 'hold')) {
         locks.delete(id);
       }
     }
 
-    const lock = anchor === undefined ? undefined : locks.get(anchor.id);
-    if (anchor !== undefined && lock !== undefined) {
-      paintAnchor(frame, anchor, lock.at, reduced);
+    const lock = held === undefined ? undefined : locks.get(held.id);
+    if (held !== undefined && lock !== undefined) {
+      paintHold(frame, held, lock.at, reduced);
       if (measured !== undefined) {
-        paintLockChip(frame, anchor, lock.side, measured.rect);
+        paintLockChip(frame, held, lock.side, measured.rect);
       }
     }
     const bursting =
