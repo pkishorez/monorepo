@@ -1,1 +1,1 @@
-export { serveControlRequest } from './commands.js';
+export { serveCommand } from './commands.js';

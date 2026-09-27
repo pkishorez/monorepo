@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { usePwaUpdate } from 'pwa-toolkit/react';
+import { usePwa } from 'pwa-toolkit/react';
 import { useEffect, useState } from 'react';
 import {
   Actions,
@@ -14,22 +14,22 @@ import { buildLabel, pageBuildId, updateMode } from '../lib/build.ts';
 
 export const Route = createFileRoute('/update')({ component: Update });
 
-const STATE_OUTCOME: Record<string, [Outcome, string]> = {
-  Idle: ['idle', 'Up to date'],
-  Checking: ['running', 'Checking'],
-  Available: ['success', 'Update ready'],
-  Applying: ['running', 'Applying'],
+const STATUS_OUTCOME: Record<string, [Outcome, string]> = {
+  Installing: ['running', 'Installing'],
+  Ready: ['idle', 'Up to date'],
+  UpdateReady: ['success', 'Update ready'],
+  Updating: ['running', 'Updating'],
   Unsupported: ['failure', 'No worker'],
 };
 
 function Update() {
-  const update = usePwaUpdate();
+  const pwa = usePwa();
   const [buildId, setBuildId] = useState<string | null>(null);
   const [lastCheck, setLastCheck] = useState<string>('never');
   useEffect(() => setBuildId(pageBuildId()), []);
-  const [outcome, label] = STATE_OUTCOME[update.state._tag] ?? [
+  const [outcome, label] = STATUS_OUTCOME[pwa.status._tag] ?? [
     'idle',
-    update.state._tag,
+    pwa.status._tag,
   ];
 
   return (
@@ -40,16 +40,17 @@ function Update() {
         <p>
           Every deploy has a new Build Label, so a new Build ID. The tab checks
           for a new worker on load, on focus and every 60 minutes. When one is
-          installed and waiting, the state turns Available and the Update Prompt
-          toast appears. Nothing reloads unasked: accepting activates the new
-          worker and every open tab reloads into it once (Coordinated Reload).
+          installed and waiting, the status turns UpdateReady and the Update
+          Prompt toast appears. Nothing reloads unasked: accepting activates the
+          new worker and every open tab reloads into it once (Coordinated
+          Reload).
         </p>
       }
       steps={[
         'Open this page in two tabs, then deploy a new build.',
         'Press Check now, or just focus a tab. Both tabs show “A new version is available.”',
         'Press Reload in one tab: both reload exactly once and show the new Build ID.',
-        'Deployed with PWA_UPDATE_MODE=auto-on-navigation, an Available update applies on the next route change instead: follow any link once the state turns Available.',
+        'Deployed with PWA_UPDATE_MODE=auto-on-navigation, a ready update applies on the next route change instead (the root calls usePwa().applyUpdate): follow any link once the status turns UpdateReady.',
       ]}
     >
       <Panel
@@ -75,9 +76,9 @@ function Update() {
             value={updateMode}
           />
           <Readout
-            label="Update state"
+            label="Status"
             testId="update-state"
-            value={update.state._tag}
+            value={pwa.status._tag}
           />
           <Readout
             label="Last check"
@@ -89,8 +90,8 @@ function Update() {
           <Button
             data-testid="update-check"
             onClick={() =>
-              void update
-                .check()
+              void pwa
+                .checkForUpdate()
                 .then(() => setLastCheck(new Date().toISOString()))
             }
           >
@@ -99,8 +100,8 @@ function Update() {
           <Button
             variant="outline"
             data-testid="update-apply"
-            disabled={update.state._tag !== 'Available'}
-            onClick={() => void update.apply()}
+            disabled={pwa.status._tag !== 'UpdateReady'}
+            onClick={() => void pwa.applyUpdate()}
           >
             Apply update
           </Button>

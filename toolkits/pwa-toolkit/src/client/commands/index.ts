@@ -1,1 +1,1 @@
-export { sendControlRequest } from './commands.js';
+export { sendCommand } from './commands.js';

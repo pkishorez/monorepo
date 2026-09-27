@@ -10,11 +10,12 @@ import {
 import { createServerFn } from '@tanstack/react-start';
 import { getTheme } from 'kui-toolkit/components/blocks/theme/tanstack-start';
 import { buttonVariants } from 'kui-toolkit/components/ui/button';
-import { PwaProvider, pwaHead } from 'pwa-toolkit/react';
+import { PwaProvider, pwaHead, usePwa } from 'pwa-toolkit/react';
 import { OfflineIndicator, useInstall } from 'pwa-toolkit/extras';
 import { UpdatePrompt } from 'pwa-toolkit/ui';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { appTheme, AppHeader, ScenarioNav } from '../components/index.ts';
+import { updateMode } from '../lib/build.ts';
 import appCss from '../styles.css?url';
 
 declare module '@tanstack/react-router' {
@@ -55,7 +56,6 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
-  const router = useRouter();
   const bare = useMatches({
     select: (matches) =>
       matches.some((match) => match.staticData.chrome === 'bare'),
@@ -63,12 +63,24 @@ function RootComponent() {
   // The browser offers install once, early: listen from the root so /install sees it.
   useInstall();
   return (
-    <PwaProvider router={router}>
+    <PwaProvider>
       {bare ? <Outlet /> : <Chrome />}
+      {updateMode === 'auto-on-navigation' && <UpdateOnNavigation />}
       <OfflineIndicator />
       <UpdatePrompt />
     </PwaProvider>
   );
+}
+
+/** PWA_UPDATE_MODE=auto-on-navigation: a ready update applies on the next route change. */
+function UpdateOnNavigation() {
+  const router = useRouter();
+  const { applyUpdate } = usePwa();
+  useEffect(
+    () => router.subscribe('onResolved', () => void applyUpdate()),
+    [router, applyUpdate],
+  );
+  return null;
 }
 
 /** Header, scenario sidebar and the page between them. */

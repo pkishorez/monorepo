@@ -3,12 +3,9 @@ import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import info from 'virtual:pwa-toolkit/build';
 import type { WorkerBuildInfo } from '../shared/config/index.js';
-import {
-  isControlEnvelope,
-  matchControlRequest,
-} from '../shared/commands/index.js';
+import { isCommandEnvelope, matchCommand } from '../shared/commands/index.js';
 import { WorkerHost } from '../shared/worker-host/index.js';
-import { serveControlRequest } from './commands/index.js';
+import { serveCommand } from './commands/index.js';
 import { makeFetchRouter } from './requests/index.js';
 import {
   GlobalScope,
@@ -78,12 +75,10 @@ export const startServiceWorker = <E>(
   });
 
   global.addEventListener('message', (event) => {
-    if (!isControlEnvelope(event.data)) return hub.publish(event);
-    const request = matchControlRequest(event.data);
+    if (!isCommandEnvelope(event.data)) return hub.publish(event);
+    const request = matchCommand(event.data);
     if (Option.isSome(request)) {
-      event.waitUntil(
-        run(serveControlRequest(build.buildId, request.value, event), event),
-      );
+      event.waitUntil(run(serveCommand(request.value, event), event));
     }
   });
 

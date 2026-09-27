@@ -5,7 +5,7 @@ import {
   useOnline,
   useStoragePersistence,
 } from 'pwa-toolkit/extras';
-import { usePwaUpdate } from 'pwa-toolkit/react';
+import { usePwa } from 'pwa-toolkit/react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Actions,
@@ -48,7 +48,7 @@ const formatBytes = (bytes: number) =>
   `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 
 function Status() {
-  const update = usePwaUpdate();
+  const pwa = usePwa();
   const online = useOnline();
   const displayMode = useDisplayMode();
   const storage = useStoragePersistence();
@@ -111,7 +111,7 @@ function Status() {
       steps={[
         'In a fresh profile, open this page: Controller reads “activated /sw.js” without the page reloading.',
         'The Precache is named after the Build ID. Match the two in Cache Storage below.',
-        'Deploy a new build and focus this tab: Waiting fills in and Update state turns Available.',
+        'Deploy a new build and focus this tab: Waiting fills in and Status turns UpdateReady.',
       ]}
     >
       <Panel
@@ -131,9 +131,9 @@ function Status() {
             value={buildId ?? 'none'}
           />
           <Readout
-            label="Update state"
+            label="Status"
             testId="status-update-state"
-            value={update.state._tag}
+            value={pwa.status._tag}
           />
         </Readouts>
       </Panel>

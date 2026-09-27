@@ -1,8 +1,8 @@
 export {
-  findRuntimeCacheRule,
+  findStrategyRule,
   isNeverCached,
-  matchRuntimeCacheRule,
+  matchStrategyRule,
   type RequestLike,
-  RuntimeCacheRule,
-  RuntimeCacheStrategy,
+  StrategyRule,
+  StrategyName,
 } from './strategy.js';

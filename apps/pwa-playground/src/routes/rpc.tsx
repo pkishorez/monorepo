@@ -10,8 +10,8 @@ import type { RpcClient } from 'effect/unstable/rpc/RpcClient';
 import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
 import type * as RpcGroup from 'effect/unstable/rpc/RpcGroup';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { usePwaUpdate } from 'pwa-toolkit/react';
-import { TabClient, type VersionSkew } from 'pwa-toolkit/rpc/client';
+import { usePwa } from 'pwa-toolkit/react';
+import { WorkerClient, type VersionSkew } from 'pwa-toolkit/rpc/client';
 import { useEffect, useRef, useState } from 'react';
 import {
   Actions,
@@ -41,13 +41,13 @@ const describeCause = (cause: Cause.Cause<unknown>): string => {
   const error = Cause.squash(cause) as { _tag?: string; message?: string };
   if (error?._tag === 'VersionSkew') {
     const skew = error as unknown as VersionSkew;
-    return `VersionSkew: tab ${skew.tabBuildId}, worker ${skew.workerBuildId}`;
+    return `VersionSkew: tab ${skew.pageBuildId}, worker ${skew.workerBuildId}`;
   }
   return `${error?._tag ?? 'Error'}: ${error?.message ?? String(error)}`;
 };
 
 /**
- * The Tab Client reads the tab's Build ID from the meta tag once, when it
+ * The Worker Client reads the tab's Build ID from the meta tag once, when it
  * connects. With ?fakeBuildId= the page swaps the tag's content for that
  * moment only, so this client (and nothing else) claims another build.
  */
@@ -58,7 +58,7 @@ const connect = (fakeBuildId: string | undefined) =>
     );
     const real = meta?.getAttribute('content') ?? null;
     if (fakeBuildId !== undefined && meta) meta.content = fakeBuildId;
-    return yield* TabClient.make(PlaygroundRpcs).pipe(
+    return yield* WorkerClient.make(PlaygroundRpcs).pipe(
       Effect.ensuring(
         Effect.sync(() => {
           if (meta && real !== null) meta.content = real;
@@ -69,7 +69,7 @@ const connect = (fakeBuildId: string | undefined) =>
 
 function RpcPage() {
   const { fakeBuildId } = Route.useSearch();
-  const update = usePwaUpdate();
+  const pwa = usePwa();
   const [client, setClient] = useState<Client | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [echo, setEcho] = useState<string>('—');
@@ -109,7 +109,7 @@ function RpcPage() {
     setLastError(message);
     setOutcome('failure');
     // A worker of another build answered: look for the new version.
-    if (message.startsWith('VersionSkew')) void update.check();
+    if (message.startsWith('VersionSkew')) void pwa.checkForUpdate();
   };
 
   return (
@@ -119,10 +119,10 @@ function RpcPage() {
       proves={
         <p>
           Effect RPC served by the service worker (src/sw.ts) and called from
-          this tab with a Tab Client. Every message carries the tab&apos;s Build
-          ID; a worker of another build answers VersionSkew instead. The browser
-          may stop an idle worker at any time; WorkerInfo&apos;s start time
-          changes when it does, and calls keep working.
+          this tab with a Worker Client. Every message carries the tab&apos;s
+          Build ID; a worker of another build answers VersionSkew instead. The
+          browser may stop an idle worker at any time; WorkerInfo&apos;s start
+          time changes when it does, and calls keep working.
         </p>
       }
       steps={[
@@ -138,8 +138,9 @@ function RpcPage() {
           >
             /rpc?fakeBuildId=other
           </Link>{' '}
-          to make only this page&apos;s Tab Client claim another Build ID: every
-          call fails with VersionSkew, and the page asks for an update check.
+          to make only this page&apos;s Worker Client claim another Build ID:
+          every call fails with VersionSkew, and the page asks for an update
+          check.
         </>,
       ]}
     >
@@ -167,7 +168,7 @@ function RpcPage() {
       >
         <Readouts>
           <Readout
-            label="Tab Client"
+            label="Worker Client"
             testId="rpc-client"
             value={client !== null ? 'ready' : (connectError ?? 'connecting')}
           />

@@ -19,7 +19,7 @@ export type PrecacheEntry = typeof PrecacheEntry.Type;
 export const PrecacheList = Schema.Array(PrecacheEntry);
 export type PrecacheList = typeof PrecacheList.Type;
 
-/** Meta tag the tab reads its Build ID from: `<meta name=… content=buildId>`. */
+/** Meta tag the page reads its Build ID from: `<meta name=… content=buildId>`. */
 export const BUILD_ID_META_NAME = 'pwa-toolkit:build-id';
 
 /** Virtual module the plugin serves to the service worker bundle. */

@@ -29,7 +29,7 @@ export const onInstall = (
 
 /**
  * Deletes other builds' Precaches, other builds' saved pages, and Runtime
- * Caches no rule uses any more, then takes control of every open tab.
+ * Caches no rule uses any more, then takes control of every open page.
  */
 export const onActivate = (
   info: WorkerBuildInfo,
@@ -47,6 +47,6 @@ const keptRuntimeCaches = (
   config: WorkerConfig,
 ): ReadonlySet<string> =>
   new Set([
-    ...config.runtimeCache.map((rule) => runtimeCacheName(rule.cacheName)),
+    ...config.strategies.map((rule) => runtimeCacheName(rule.cacheName)),
     ...(config.navigation.cachePages ? [pagesCacheName(buildId)] : []),
   ]);

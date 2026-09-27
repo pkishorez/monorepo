@@ -66,13 +66,11 @@ describe('resolvePwaConfig', () => {
         denylist: [],
       },
       neverCache: ['/api/auth/'],
-      update: { mode: 'prompt', checkIntervalMinutes: 60 },
+      update: { checkIntervalMinutes: 60 },
       worker: null,
       swUrl: '/sw.js',
     });
-    expect(config.runtimeCache.map((rule) => rule.cacheName)).toEqual([
-      'images',
-    ]);
+    expect(config.strategies.map((rule) => rule.cacheName)).toEqual(['images']);
   });
 
   it('puts explicit options over the preset and user rules first', () => {
@@ -81,26 +79,23 @@ describe('resolvePwaConfig', () => {
         preset: 'content',
         manifest,
         navigation: { shell: true },
-        runtimeCache: [
+        strategies: [
           {
             match: { pathPrefix: '/api/' },
             strategy: 'network-first',
             cacheName: 'api',
           },
         ],
-        update: { mode: 'auto-on-navigation' },
+        update: { checkIntervalMinutes: 5 },
       }),
     );
     expect(config.navigation.shell).toBe(true);
     expect(config.navigation.cachePages).toBe(true);
-    expect(config.runtimeCache.map((rule) => rule.cacheName)).toEqual([
+    expect(config.strategies.map((rule) => rule.cacheName)).toEqual([
       'api',
       'images',
     ]);
-    expect(config.update).toEqual({
-      mode: 'auto-on-navigation',
-      checkIntervalMinutes: 60,
-    });
+    expect(config.update).toEqual({ checkIntervalMinutes: 5 });
   });
 
   it('rejects invalid options', () => {

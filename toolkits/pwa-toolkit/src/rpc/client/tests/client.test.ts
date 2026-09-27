@@ -12,7 +12,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BuildId } from '../../../shared/build/index.js';
 import { WorkerHost } from '../../../shared/worker-host/index.js';
 import { WorkerServer } from '../../worker/index.js';
-import { TabClient } from '../index.js';
+import { WorkerClient } from '../index.js';
+import { controllerComing } from '../page-environment.js';
 
 const Group = RpcGroup.make(
   Rpc.make('add', {
@@ -32,20 +33,22 @@ const Group = RpcGroup.make(
 const later = (f: () => void) => setTimeout(f, 0);
 
 /**
- * An in-memory service worker and one tab: `navigator.serviceWorker`, its
+ * An in-memory service worker and one page: `navigator.serviceWorker`, its
  * controller, `self.clients`, and a worker that can be stopped and is woken
  * again by the next message, with all of its state gone.
  */
-const makeBrowser = (builds: { tab: string; worker: string }) => {
+const makeBrowser = (builds: { page: string; worker: string }) => {
   const workerBuildId = BuildId.make(builds.worker);
   const container = Object.assign(new EventTarget(), {
     controller: null as unknown,
+    // Nothing active yet: a first visit, so calls wait for a controller.
+    getRegistration: async () => undefined,
   });
   const lifetimes: Array<Promise<unknown>> = [];
   const stats = { starts: 0, ticksInterrupted: 0 };
 
-  const tab = {
-    id: 'tab-1',
+  const page = {
+    id: 'page-1',
     postMessage: (message: unknown) => {
       const data = structuredClone(message);
       later(() =>
@@ -53,7 +56,7 @@ const makeBrowser = (builds: { tab: string; worker: string }) => {
       );
     },
   };
-  const openTabs = new Map([[tab.id, tab]]);
+  const openPages = new Map([[page.id, page]]);
 
   let running:
     | {
@@ -93,7 +96,7 @@ const makeBrowser = (builds: { tab: string; worker: string }) => {
       const data = structuredClone(message);
       later(() => {
         const current = (running ??= start());
-        const open = openTabs.get(tab.id);
+        const open = openPages.get(page.id);
         const event = {
           data,
           // A stopped worker sends nothing more, not even its shutdown.
@@ -111,11 +114,11 @@ const makeBrowser = (builds: { tab: string; worker: string }) => {
   };
 
   vi.stubGlobal('self', {
-    clients: { get: async (id: string) => openTabs.get(id) },
+    clients: { get: async (id: string) => openPages.get(id) },
   });
   vi.stubGlobal('navigator', { serviceWorker: container });
   vi.stubGlobal('document', {
-    querySelector: () => ({ getAttribute: () => builds.tab }),
+    querySelector: () => ({ getAttribute: () => builds.page }),
   });
 
   return {
@@ -134,7 +137,7 @@ const makeBrowser = (builds: { tab: string; worker: string }) => {
         current.alive = false;
         yield* Fiber.interrupt(current.fiber);
       }),
-    closeTab: () => openTabs.delete(tab.id),
+    closePage: () => openPages.delete(page.id),
   };
 };
 
@@ -145,11 +148,11 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('Worker RPC', () => {
   it('answers a unary call and holds the worker alive while it is in flight', async () => {
-    const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
+    const browser = makeBrowser({ page: 'build-a', worker: 'build-a' });
     browser.claim();
     const result = await run(
       Effect.gen(function* () {
-        const client = yield* TabClient.make(Group);
+        const client = yield* WorkerClient.make(Group);
         return yield* client.add({ a: 1, b: 2 });
       }),
     );
@@ -159,10 +162,10 @@ describe('Worker RPC', () => {
   });
 
   it('waits for a controller before the first call goes out', async () => {
-    const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
+    const browser = makeBrowser({ page: 'build-a', worker: 'build-a' });
     setTimeout(browser.claim, 50);
     const result = await run(
-      Effect.flatMap(TabClient.make(Group), (client) =>
+      Effect.flatMap(WorkerClient.make(Group), (client) =>
         client.add({ a: 2, b: 2 }),
       ),
     );
@@ -170,11 +173,11 @@ describe('Worker RPC', () => {
   });
 
   it('streams every chunk of a stream call', async () => {
-    const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
+    const browser = makeBrowser({ page: 'build-a', worker: 'build-a' });
     browser.claim();
     const chunks = await run(
       Effect.gen(function* () {
-        const client = yield* TabClient.make(Group);
+        const client = yield* WorkerClient.make(Group);
         return yield* Stream.runCollect(client.count({ to: 5 }));
       }),
     );
@@ -182,11 +185,11 @@ describe('Worker RPC', () => {
   });
 
   it('fails calls with VersionSkew when the worker belongs to another Build ID', async () => {
-    const browser = makeBrowser({ tab: 'build-new', worker: 'build-old' });
+    const browser = makeBrowser({ page: 'build-new', worker: 'build-old' });
     browser.claim();
     const [first, second] = await run(
       Effect.gen(function* () {
-        const client = yield* TabClient.make(Group);
+        const client = yield* WorkerClient.make(Group);
         const first = yield* Effect.flip(client.add({ a: 1, b: 1 }));
         const second = yield* Effect.flip(client.add({ a: 1, b: 1 }));
         return [first, second] as const;
@@ -195,18 +198,18 @@ describe('Worker RPC', () => {
     for (const error of [first, second]) {
       expect(error._tag).toBe('VersionSkew');
       expect(error).toMatchObject({
-        tabBuildId: 'build-new',
+        pageBuildId: 'build-new',
         workerBuildId: 'build-old',
       });
     }
   });
 
   it('answers the next call without error after the worker is stopped while idle', async () => {
-    const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
+    const browser = makeBrowser({ page: 'build-a', worker: 'build-a' });
     browser.claim();
     const results = await run(
       Effect.gen(function* () {
-        const client = yield* TabClient.make(Group);
+        const client = yield* WorkerClient.make(Group);
         const first = yield* client.add({ a: 1, b: 1 });
         yield* browser.stop();
         const second = yield* client.add({ a: 2, b: 3 });
@@ -219,11 +222,11 @@ describe('Worker RPC', () => {
   });
 
   it('reconnects after the worker is stopped, and a retried stream restarts', async () => {
-    const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
+    const browser = makeBrowser({ page: 'build-a', worker: 'build-a' });
     browser.claim();
     const { seen, sum } = await run(
       Effect.gen(function* () {
-        const client = yield* TabClient.make(Group, {
+        const client = yield* WorkerClient.make(Group, {
           livenessInterval: '50 millis',
         });
         const seen: number[] = [];
@@ -249,21 +252,65 @@ describe('Worker RPC', () => {
     expect(sum).toBe(42);
   }, 10_000);
 
-  it('treats a tab that clients.get no longer finds as disconnected', async () => {
-    const browser = makeBrowser({ tab: 'build-a', worker: 'build-a' });
+  it('treats a page that clients.get no longer finds as disconnected', async () => {
+    const browser = makeBrowser({ page: 'build-a', worker: 'build-a' });
     browser.claim();
     await run(
       Effect.gen(function* () {
-        const client = yield* TabClient.make(Group);
+        const client = yield* WorkerClient.make(Group);
         const ticking = yield* client
           .ticks()
           .pipe(Stream.runDrain, Effect.forkScoped);
         yield* Effect.sleep('60 millis');
-        browser.closeTab();
+        browser.closePage();
         yield* Effect.sleep('100 millis');
         expect(browser.stats.ticksInterrupted).toBe(1);
         yield* Fiber.interrupt(ticking);
       }),
     );
+  });
+});
+
+describe('controllerComing', () => {
+  const containerWith = (registration: unknown) =>
+    Object.assign(new EventTarget(), {
+      controller: null as unknown,
+      getRegistration: async () => registration,
+    }) as unknown as ServiceWorkerContainer;
+  const outcome = (
+    enabled: boolean,
+    container: ServiceWorkerContainer,
+    graceMs = 10,
+  ) =>
+    Effect.runPromise(
+      controllerComing({ enabled, container, graceMs }).pipe(
+        Effect.as('waits'),
+        Effect.catch((error) => Effect.succeed(error.message)),
+      ),
+    );
+
+  it('fails at once when the PWA is off in this build', async () => {
+    expect(await outcome(false, containerWith(undefined))).toContain(
+      'the PWA is off in this build',
+    );
+  });
+
+  it('waits on a first visit, with nothing active yet', async () => {
+    expect(await outcome(true, containerWith(undefined))).toBe('waits');
+    expect(
+      await outcome(true, containerWith({ active: null, installing: {} })),
+    ).toBe('waits');
+  });
+
+  it('fails after the grace period when an active worker does not control the page', async () => {
+    expect(
+      await outcome(true, containerWith({ active: {}, installing: null })),
+    ).toContain('hard reload');
+  });
+
+  it('waits when the active worker takes control within the grace period', async () => {
+    const container = containerWith({ active: {}, installing: null });
+    setTimeout(() => container.dispatchEvent(new Event('controllerchange')), 1);
+    expect(await outcome(true, container, 200)).toBe('waits');
   });
 });

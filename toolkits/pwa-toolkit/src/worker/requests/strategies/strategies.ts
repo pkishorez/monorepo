@@ -5,7 +5,7 @@ import {
   runtimeCacheName,
 } from '../../../shared/build/index.js';
 import type { WorkerConfig } from '../../../shared/config/index.js';
-import { findRuntimeCacheRule } from '../../../shared/strategy/index.js';
+import { findStrategyRule } from '../../../shared/strategy/index.js';
 import {
   deleteCaches,
   type GlobalScope,
@@ -23,18 +23,16 @@ export const handleRuntimeCache = (
   request: Request,
   origin: string,
 ): Option.Option<Effect.Effect<Response, Error, GlobalScope | KeepAlive>> =>
-  Option.map(
-    findRuntimeCacheRule(config.runtimeCache, request, origin),
-    (rule) =>
-      strategies[rule.strategy](
-        request,
-        cacheStore({
-          name: runtimeCacheName(rule.cacheName),
-          maxEntries: rule.maxEntries,
-          maxAgeSeconds: rule.maxAgeSeconds,
-        }),
-        rule.networkTimeoutMs,
-      ),
+  Option.map(findStrategyRule(config.strategies, request, origin), (rule) =>
+    strategies[rule.strategy](
+      request,
+      cacheStore({
+        name: runtimeCacheName(rule.cacheName),
+        maxEntries: rule.maxEntries,
+        maxAgeSeconds: rule.maxAgeSeconds,
+      }),
+      rule.networkTimeoutMs,
+    ),
   );
 
 /** Deletes every Runtime Cache, e.g. on sign-out. */

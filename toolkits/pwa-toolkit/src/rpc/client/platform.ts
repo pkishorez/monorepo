@@ -14,7 +14,7 @@ import {
   makeInFlight,
   matchWorkerEnvelope,
   RPC_ENVELOPE_KEY,
-  type TabEnvelope,
+  type ClientEnvelope,
   VersionSkew,
 } from '../handshake/index.js';
 import type { SkewState } from './version-skew.js';
@@ -67,7 +67,7 @@ const makePort = (controller: ServiceWorker, buildId: BuildId) => {
     transfers: ReadonlyArray<unknown> = [],
   ) => {
     if (closed) return;
-    const envelope: TabEnvelope = {
+    const envelope: ClientEnvelope = {
       [RPC_ENVELOPE_KEY]: 1,
       buildId,
       connectionId,
@@ -101,14 +101,14 @@ const lost = (message: string) =>
   new WorkerError({ reason: new WorkerReceiveError({ message }) });
 
 /**
- * Effect's `WorkerPlatform` for a Tab Client: every frame goes through
+ * Effect's `WorkerPlatform` for a Worker Client: every frame goes through
  * `navigator.serviceWorker.controller.postMessage`, which wakes a stopped
  * worker, and replies arrive on `navigator.serviceWorker`. One spawned
  * "worker" is one connection; it fails, and Effect's worker protocol opens a
  * new one, when the worker answers VERSION_SKEW or UNKNOWN_CONNECTION, when
  * the controller changes, or when no READY comes within the liveness interval.
  */
-export const makeTabPlatform = (options: Options) =>
+export const makeClientPlatform = (options: Options) =>
   Worker.makePlatform<ServiceWorkerContainer>()({
     setup: ({ worker: container, scope }) =>
       Effect.gen(function* () {
@@ -157,7 +157,7 @@ export const makeTabPlatform = (options: Options) =>
               return emit([1, envelope.message]);
             case 'VERSION_SKEW': {
               const skew = new VersionSkew({
-                tabBuildId: options.buildId,
+                pageBuildId: options.buildId,
                 workerBuildId: envelope.buildId,
               });
               options.skew.set(skew, port.controller);
@@ -165,7 +165,7 @@ export const makeTabPlatform = (options: Options) =>
                 new WorkerError({
                   reason: new WorkerSpawnError({
                     message:
-                      'Version Skew: the tab and the service worker belong to different Build IDs',
+                      'Version Skew: the page and the service worker belong to different Build IDs',
                     cause: skew,
                   }),
                 }),
@@ -174,18 +174,18 @@ export const makeTabPlatform = (options: Options) =>
             case 'UNKNOWN_CONNECTION':
               return fail(
                 lost(
-                  'The Worker Server no longer knows this Tab Client; the service worker was restarted',
+                  'The Worker Server no longer knows this Worker Client; the service worker was restarted',
                 ),
               );
           }
         };
         const onControllerChange = () =>
-          fail(lost('The service worker controlling this tab changed'));
+          fail(lost('The service worker controlling this page changed'));
 
         const connectTimeout = setTimeout(() => {
           if (!ready) fail(lost('No Worker Server answered the handshake'));
         }, options.livenessMs);
-        // A stopped worker cannot tell the tab it lost its calls. While calls
+        // A stopped worker cannot tell the page it lost its calls. While calls
         // are in flight, a PING wakes it; a restarted worker answers
         // UNKNOWN_CONNECTION.
         const liveness = setInterval(() => {

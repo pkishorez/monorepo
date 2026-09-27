@@ -15,7 +15,7 @@ import {
   TIME_STRATEGIES,
   type TimeStrategy,
   timeUrl,
-} from '../lib/runtime-cache-rules.ts';
+} from '../lib/strategies.ts';
 import { type Served, servedFetch } from '../lib/served.ts';
 
 export const Route = createFileRoute('/runtime-cache')({
@@ -127,7 +127,7 @@ function RuntimeCache() {
           browser&apos;s HTTP cache stays out of it. The worker adds
           x-pwa-toolkit-cached-at to every copy it saves, so an answer with that
           header came from its Runtime Cache, and an old x-served-at shows which
-          copy it was. The rules live in src/lib/runtime-cache-rules.ts.
+          copy it was. The rules live in src/lib/strategies.ts.
         </p>
       }
       steps={[

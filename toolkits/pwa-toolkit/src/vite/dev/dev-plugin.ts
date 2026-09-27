@@ -11,7 +11,7 @@ import { workerScript } from '../worker-bundle/index.js';
  * Dev server: serves the manifest, and, only with `dev: true`, a worker
  * built with Build ID `dev` and an empty Precache (so everything goes to the
  * network). Without `dev: true` the worker URL falls through to the app and
- * the tab does not register. Rebuilt after any file change.
+ * the page does not register. Rebuilt after any file change.
  */
 export const devPlugin = (config: ResolvedPwaConfig): Plugin => ({
   name: 'pwa-toolkit:dev',

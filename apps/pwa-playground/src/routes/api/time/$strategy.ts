@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { servedHeaders } from '../../../lib/served.ts';
 
-// One endpoint per Runtime Cache strategy (rules in src/lib/runtime-cache-rules.ts).
+// One endpoint per Runtime Cache strategy (rules in src/lib/strategies.ts).
 export const Route = createFileRoute('/api/time/$strategy')({
   server: {
     handlers: {

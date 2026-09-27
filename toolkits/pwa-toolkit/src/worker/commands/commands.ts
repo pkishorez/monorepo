@@ -1,45 +1,31 @@
 import * as Effect from 'effect/Effect';
-import type { BuildId } from '../../shared/build/index.js';
-import {
-  type ControlReply,
-  type ControlRequest,
-  controlReply,
-} from '../../shared/commands/index.js';
+import { type Command, commandReply } from '../../shared/commands/index.js';
 import { attempt, GlobalScope } from '../global-scope/index.js';
-import { clearRuntimeCaches } from '../requests/strategies/index.js';
 
 /**
- * Answers one Control Channel request on the port the tab transferred with
- * it. A request without a port gets no reply (the tab times out).
+ * Answers one command on the port the client transferred with it. A command
+ * without a port gets no reply (the client times out).
  */
-export const serveControlRequest = (
-  buildId: BuildId,
-  request: ControlRequest,
+export const serveCommand = (
+  command: Command,
   event: ExtendableMessageEvent,
 ): Effect.Effect<void, never, GlobalScope> =>
   Effect.gen(function* () {
     const port = event.ports[0];
     if (port === undefined) return;
-    const reply = yield* answer(buildId, request).pipe(
+    const reply = yield* answer(command).pipe(
       Effect.catch((error) =>
-        Effect.succeed(controlReply.failed(error.message)),
+        Effect.succeed(commandReply.failed(error.message)),
       ),
     );
     port.postMessage(reply);
   });
 
-const answer = (
-  buildId: BuildId,
-  request: ControlRequest,
-): Effect.Effect<ControlReply, Error, GlobalScope> => {
-  switch (request.type) {
-    case 'GET_BUILD_ID':
-      return Effect.succeed(controlReply.buildId(buildId));
+const answer = (command: Command) => {
+  switch (command.type) {
     case 'SKIP_WAITING':
       return Effect.flatMap(GlobalScope, (scope) =>
         attempt(() => scope.skipWaiting()),
-      ).pipe(Effect.as(controlReply.done()));
-    case 'CLEAR_RUNTIME_CACHE':
-      return Effect.as(clearRuntimeCaches, controlReply.done());
+      ).pipe(Effect.as(commandReply.done()));
   }
 };

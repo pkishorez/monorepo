@@ -1,7 +1,7 @@
 import { makeInFlight } from '../handshake/index.js';
 
 /** The part of a Service Worker API `Client` the Worker Server talks to. */
-export interface TabHandle {
+export interface PageHandle {
   readonly id: string;
   postMessage(message: unknown, transfer: Transferable[]): void;
 }
@@ -10,12 +10,12 @@ export interface Connection {
   readonly portId: number;
   readonly clientId: string;
   readonly connectionId: string;
-  tab: TabHandle;
+  page: PageHandle;
   readonly inFlight: ReturnType<typeof makeInFlight>;
 }
 
 /**
- * The Tab Client connections this worker instance has seen. Each gets the
+ * The Worker Client connections this worker instance has seen. Each gets the
  * numeric port id Effect's runner protocol uses. Held in memory only, so a
  * restarted worker starts empty.
  */
@@ -27,20 +27,20 @@ export const makeConnections = (onIdle: () => void) => {
     `${clientId}\u0000${connectionId}`;
 
   return {
-    open(tab: TabHandle, connectionId: string): Connection {
-      const existing = byKey.get(keyOf(tab.id, connectionId));
+    open(page: PageHandle, connectionId: string): Connection {
+      const existing = byKey.get(keyOf(page.id, connectionId));
       if (existing) {
-        existing.tab = tab;
+        existing.page = page;
         return existing;
       }
       const connection: Connection = {
         portId: nextPortId++,
-        clientId: tab.id,
+        clientId: page.id,
         connectionId,
-        tab,
+        page,
         inFlight: makeInFlight(onIdle),
       };
-      byKey.set(keyOf(tab.id, connectionId), connection);
+      byKey.set(keyOf(page.id, connectionId), connection);
       byPort.set(connection.portId, connection);
       return connection;
     },

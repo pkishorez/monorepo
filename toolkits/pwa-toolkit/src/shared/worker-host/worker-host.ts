@@ -5,7 +5,7 @@ import type { BuildId } from '../build/index.js';
 interface WorkerHostService {
   readonly buildId: BuildId;
   /**
-   * Every `message` event that is not Control Channel traffic, from worker
+   * Every `message` event that is not a command, from worker
    * start. Listeners are registered synchronously at script start and events
    * are buffered until the first subscriber, so none are lost.
    */

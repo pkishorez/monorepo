@@ -1,11 +1,8 @@
 import * as Schema from 'effect/Schema';
 import { BuildId, PrecacheList } from '../build/index.js';
 import { WebAppManifest } from '../manifest/index.js';
-import { RuntimeCacheRule } from '../strategy/index.js';
+import { StrategyRule } from '../strategy/index.js';
 import { PRESET_NAMES, PRESETS } from './presets.js';
-
-export const UpdateMode = Schema.Literals(['prompt', 'auto-on-navigation']);
-export type UpdateMode = typeof UpdateMode.Type;
 
 const Path = Schema.String.check(Schema.isStartsWith('/'));
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
@@ -22,8 +19,8 @@ export const NavigationConfig = Schema.Struct({
 });
 export type NavigationConfig = typeof NavigationConfig.Type;
 
+/** The page never reloads unasked; it only checks for a newer build this often. */
 export const UpdateConfig = Schema.Struct({
-  mode: UpdateMode,
   checkIntervalMinutes: PositiveInt,
 });
 export type UpdateConfig = typeof UpdateConfig.Type;
@@ -48,7 +45,7 @@ export const PwaOptions = Schema.Struct({
       warnAboveBytes: Schema.optionalKey(f.warnAboveBytes),
     })),
   ),
-  runtimeCache: Schema.optionalKey(Schema.Array(RuntimeCacheRule)),
+  strategies: Schema.optionalKey(Schema.Array(StrategyRule)),
   navigation: Schema.optionalKey(
     NavigationConfig.mapFields((f) => ({
       shell: Schema.optionalKey(f.shell),
@@ -62,7 +59,6 @@ export const PwaOptions = Schema.Struct({
   neverCache: Schema.optionalKey(Schema.Array(Path)),
   update: Schema.optionalKey(
     UpdateConfig.mapFields((f) => ({
-      mode: Schema.optionalKey(f.mode),
       checkIntervalMinutes: Schema.optionalKey(f.checkIntervalMinutes),
     })),
   ),
@@ -79,7 +75,7 @@ export interface ResolvedPwaConfig {
   readonly preset: (typeof PRESET_NAMES)[number];
   readonly manifest: WebAppManifest | null;
   readonly precache: typeof PrecacheConfig.Type;
-  readonly runtimeCache: ReadonlyArray<RuntimeCacheRule>;
+  readonly strategies: ReadonlyArray<StrategyRule>;
   readonly navigation: NavigationConfig;
   readonly neverCache: ReadonlyArray<string>;
   readonly update: UpdateConfig;
@@ -90,7 +86,7 @@ export interface ResolvedPwaConfig {
 
 /**
  * Fills every default. Precedence: explicit option, then preset, then base.
- * User `runtimeCache` rules come first, then the preset's (first match wins).
+ * User `strategies` rules come first, then the preset's (first match wins).
  */
 export const resolvePwaConfig = (
   options: typeof PwaOptions.Type,
@@ -107,7 +103,7 @@ export const resolvePwaConfig = (
       exclude: options.precache?.exclude ?? [],
       warnAboveBytes: options.precache?.warnAboveBytes ?? 5 * 1024 * 1024,
     },
-    runtimeCache: [...(options.runtimeCache ?? []), ...defaults.runtimeCache],
+    strategies: [...(options.strategies ?? []), ...defaults.strategies],
     navigation: {
       shell: options.navigation?.shell ?? defaults.navigation.shell,
       shellPath: options.navigation?.shellPath ?? '/_shell',
@@ -119,7 +115,6 @@ export const resolvePwaConfig = (
     },
     neverCache: options.neverCache ?? ['/api/auth/'],
     update: {
-      mode: options.update?.mode ?? 'prompt',
       checkIntervalMinutes: options.update?.checkIntervalMinutes ?? 60,
     },
     worker: options.worker ?? null,
@@ -129,14 +124,14 @@ export const resolvePwaConfig = (
 
 /** The config the worker runs with; part of the Build ID input. */
 export const WorkerConfig = Schema.Struct({
-  runtimeCache: Schema.Array(RuntimeCacheRule),
+  strategies: Schema.Array(StrategyRule),
   navigation: NavigationConfig,
   neverCache: Schema.Array(Path),
 });
 export type WorkerConfig = typeof WorkerConfig.Type;
 
 export const workerConfigOf = (config: ResolvedPwaConfig): WorkerConfig => ({
-  runtimeCache: config.runtimeCache,
+  strategies: config.strategies,
   navigation: config.navigation,
   neverCache: config.neverCache,
 });
@@ -152,7 +147,7 @@ export type WorkerBuildInfo = typeof WorkerBuildInfo.Type;
 /**
  * Default export of `virtual:pwa-toolkit/client` (client and ssr).
  * `buildId` is `null` in the client environment, which builds before the ID
- * exists; the tab reads it from the Build ID meta tag instead.
+ * exists; the page reads it from the Build ID meta tag instead.
  */
 export const ClientBuildInfo = Schema.Struct({
   enabled: Schema.Boolean,

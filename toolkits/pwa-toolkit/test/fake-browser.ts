@@ -4,8 +4,8 @@ import * as Effect from 'effect/Effect';
 import { vi } from 'vitest';
 import { BUILD_ID_META_NAME } from '../src/shared/build/index.js';
 import {
-  controlReply,
-  type ControlReply,
+  commandReply,
+  type CommandReply,
 } from '../src/shared/commands/index.js';
 
 export class FakeWorker extends EventTarget {
@@ -14,7 +14,7 @@ export class FakeWorker extends EventTarget {
     super();
   }
   readonly received: Array<unknown> = [];
-  reply: ControlReply | null = controlReply.done();
+  reply: CommandReply | null = commandReply.done();
 
   postMessage(message: unknown, transfer: Array<MessagePort>) {
     this.received.push(message);

@@ -6,9 +6,10 @@ import { pwa } from 'pwa-toolkit/vite';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
-import { runtimeCache } from './src/lib/runtime-cache-rules.ts';
+import { strategies } from './src/lib/strategies.ts';
 
 // Deploy-time switches. CI sets them from the workflow inputs; see README.
+// PWA_UPDATE_MODE is the app's own: the root applies a ready update on navigation.
 const enabled = process.env.PWA_ENABLED !== 'false';
 const preset = process.env.PWA_PRESET === 'content' ? 'content' : 'app';
 const updateMode =
@@ -82,7 +83,6 @@ export default defineConfig({
       enabled,
       dev,
       preset,
-      update: { mode: updateMode },
       manifest: {
         name: 'PWA Playground',
         short_name: 'PWA Lab',
@@ -104,7 +104,7 @@ export default defineConfig({
           },
         ],
       },
-      runtimeCache,
+      strategies,
     }),
     previewCleanUrls(),
   ],

@@ -81,7 +81,7 @@
     },
     "client": {
       "paths": ["src/client"],
-      "description": "Client-side Effect services for the core: registration, updates, Runtime Cache clearing.",
+      "description": "Client-side Effect service for the core: registration, the one status stream, the activate command, Runtime Cache clearing.",
       "modules": {
         "src/client": {
           "exposed": true

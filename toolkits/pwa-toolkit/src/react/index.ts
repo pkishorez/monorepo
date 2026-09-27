@@ -1,6 +1,1 @@
-export {
-  clearRuntimeCache,
-  PwaProvider,
-  pwaHead,
-  usePwaUpdate,
-} from './react.js';
+export { clearRuntimeCache, PwaProvider, pwaHead, usePwa } from './react.js';

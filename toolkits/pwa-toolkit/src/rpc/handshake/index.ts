@@ -2,10 +2,10 @@ export {
   checkVersionSkew,
   isRequest,
   makeInFlight,
-  matchTabEnvelope,
+  matchClientEnvelope,
   matchWorkerEnvelope,
   RPC_ENVELOPE_KEY,
-  TabEnvelope,
+  ClientEnvelope,
   VersionSkew,
   WorkerEnvelope,
 } from './handshake.js';
