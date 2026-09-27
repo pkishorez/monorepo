@@ -5,11 +5,6 @@ type Point = { readonly x: number; readonly y: number };
 export const distance = (a: Point, b: Point): number =>
   Math.hypot(a.x - b.x, a.y - b.y);
 
-export const midpoint = (a: Point, b: Point): Point => ({
-  x: (a.x + b.x) / 2,
-  y: (a.y + b.y) / 2,
-});
-
 /** The fields every horizontal gesture reports, from its signed travel. */
 export const horizontal = (dx: number, width: number, velocity: number) => ({
   direction: dx < 0 ? ('left' as const) : ('right' as const),

@@ -23,7 +23,7 @@ const GROUP_BLURB: Record<ScenarioGroup, string> = {
   Safety:
     'What the worker must never cache, and what signing out wipes from the device.',
   Gestures:
-    'kui’s gesture engine in a scrolling page: one- and two-finger swipes, pinch, holds and chords, with the edges left to the browser and OS.',
+    'kui’s gesture engine, full screen: taps, a sideways swipe and two-finger chords, with scrolling native and the edges left to the browser and OS.',
 };
 
 const README_URL =

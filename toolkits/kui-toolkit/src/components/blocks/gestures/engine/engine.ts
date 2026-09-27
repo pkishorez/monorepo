@@ -1,4 +1,5 @@
 import type {
+  FingerRole,
   Frame,
   GestureEvent,
   GestureKind,
@@ -27,9 +28,12 @@ export type PointerInput = {
   readonly t: number;
 };
 
-/** Everything the debug overlay shows: pointers, every recognizer's state, and who claimed. */
+/** A pointer that is down, and what it is doing. */
+export type Finger = Track & { readonly role: FingerRole };
+
+/** Everything the finger layer and debug overlay show: fingers, every recognizer's state, and who claimed. */
 export type Inspection = {
-  readonly pointers: ReadonlyArray<Track>;
+  readonly fingers: ReadonlyArray<Finger>;
   readonly states: ReadonlyArray<{
     readonly kind: GestureKind;
     readonly state: RecognizerState;
@@ -59,6 +63,8 @@ export const createGestureEngine = (options: {
   const pointers = createPointerTracker();
   const listeners = new Set<() => void>();
   const claims = new Map<number, GestureKind>();
+  // The claiming gesture's fingers while it runs.
+  const roles = new Map<number, FingerRole>();
   const slots: Array<Slot> = options.recognizers.map((r) => createSlot(r, 0));
   let sequence = 0;
   let width = 0;
@@ -67,6 +73,15 @@ export const createGestureEngine = (options: {
 
   const emit: Emit = (slot, phase, event) => {
     slot.last = event;
+    if (phase === 'began') {
+      const down = pointers.list();
+      for (const [index, role] of slot.recognizer.fingers.entries()) {
+        const finger = down[index];
+        if (finger !== undefined) roles.set(finger.id, role);
+      }
+    } else if (phase !== 'changed') {
+      roles.clear();
+    }
     options.onGesture({ ...event, phase } as GestureEvent);
   };
 
@@ -76,6 +91,7 @@ export const createGestureEngine = (options: {
     sequence += 1;
     ignoring = false;
     claimed = undefined;
+    roles.clear();
     width = options.width();
     for (const [index, slot] of slots.entries()) {
       const carried =
@@ -129,6 +145,13 @@ export const createGestureEngine = (options: {
     }
     if (restarted) claimed = resolveClaims(slots, claims, emit) ?? claimed;
   };
+
+  const unclaimedRole = (): FingerRole =>
+    !ignoring &&
+    claimed === undefined &&
+    slots.some((slot) => slot.state === 'possible')
+      ? 'pending'
+      : 'free';
 
   const notify = () => {
     for (const listener of listeners) listener();
@@ -193,8 +216,16 @@ export const createGestureEngine = (options: {
       ignoreRest();
       notify();
     },
+    /**
+     * Whether the current touch is Captured: a recognizer claimed it and a
+     * finger is still down, so the page must not scroll.
+     */
+    captured: (): boolean => claimed !== undefined && pointers.size() > 0,
     inspect: (): Inspection => ({
-      pointers: pointers.list(),
+      fingers: pointers.list().map((track) => ({
+        ...track,
+        role: roles.get(track.id) ?? unclaimedRole(),
+      })),
       states: slots.map((slot) => ({
         kind: slot.recognizer.kind,
         state: slot.state,

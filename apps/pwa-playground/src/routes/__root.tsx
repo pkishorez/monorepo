@@ -4,6 +4,7 @@ import {
   Link,
   Outlet,
   Scripts,
+  useMatches,
   useRouter,
 } from '@tanstack/react-router';
 import { buttonVariants } from 'kui-toolkit/components/ui/button';
@@ -12,6 +13,13 @@ import { OfflineIndicator, UpdatePrompt } from 'pwa-toolkit/ui';
 import type { ReactNode } from 'react';
 import { AppHeader, ScenarioNav, THEME_SCRIPT } from '../components/index.ts';
 import appCss from '../styles.css?url';
+
+declare module '@tanstack/react-router' {
+  interface StaticDataRouteOption {
+    /** `bare`: the page fills the screen itself, with no header or sidebar. */
+    readonly chrome?: 'bare';
+  }
+}
 
 export const Route = createRootRoute({
   head: () => {
@@ -40,8 +48,23 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const router = useRouter();
+  const bare = useMatches({
+    select: (matches) =>
+      matches.some((match) => match.staticData.chrome === 'bare'),
+  });
   return (
     <PwaProvider router={router}>
+      {bare ? <Outlet /> : <Chrome />}
+      <OfflineIndicator />
+      <UpdatePrompt />
+    </PwaProvider>
+  );
+}
+
+/** Header, scenario sidebar and the page between them. */
+function Chrome() {
+  return (
+    <>
       <a
         href="#content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring"
@@ -57,9 +80,7 @@ function RootComponent() {
           <Outlet />
         </div>
       </div>
-      <OfflineIndicator />
-      <UpdatePrompt />
-    </PwaProvider>
+    </>
   );
 }
 

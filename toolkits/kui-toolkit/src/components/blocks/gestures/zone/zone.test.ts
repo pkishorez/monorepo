@@ -112,7 +112,7 @@ describe('bindPointers', () => {
     window.dispatchEvent(pointer('pointermove', 120, 16));
     window.dispatchEvent(pointer('pointerup', 120, 32));
     expect(names()).toEqual([]);
-    expect(engine.inspect().pointers).toEqual([]);
+    expect(engine.inspect().fingers).toEqual([]);
   });
 
   it('cancels a gesture the browser takes with pointercancel', () => {
@@ -140,6 +140,62 @@ describe('bindPointers', () => {
     input.dispatchEvent(pointer('pointerdown', 100, 0));
     window.dispatchEvent(pointer('pointerup', 100, 50));
     expect(names()).toEqual([]);
+  });
+
+  /** A child of the zone that scrolls sideways when its content is wider than it. */
+  const sidewaysRow = (element: HTMLElement, contentWidth: number) => {
+    const row = document.createElement('div');
+    row.style.overflowX = 'auto';
+    Object.defineProperty(row, 'clientWidth', { value: 300 });
+    Object.defineProperty(row, 'scrollWidth', { value: contentWidth });
+    const cell = document.createElement('div');
+    row.append(cell);
+    element.append(row);
+    return cell;
+  };
+
+  it('leaves a touch that starts in a native sideways scroller to it', () => {
+    const { element, engine, names } = setup();
+    const cell = sidewaysRow(element, 900);
+    cell.dispatchEvent(pointer('pointerdown', 100, 0));
+    window.dispatchEvent(pointer('pointermove', 160, 16));
+    window.dispatchEvent(pointer('pointerup', 160, 32));
+    expect(names()).toEqual([]);
+    expect(engine.inspect().fingers).toEqual([]);
+  });
+
+  it('keeps a touch in an overflow box with nothing to scroll', () => {
+    const { element, names } = setup();
+    const cell = sidewaysRow(element, 300);
+    cell.dispatchEvent(pointer('pointerdown', 100, 0));
+    window.dispatchEvent(pointer('pointerup', 100, 50));
+    expect(names()).toEqual(['tap:ended']);
+  });
+
+  it('leaves a touch under an explicit sideways touch-action to the browser', () => {
+    const { element, names } = setup();
+    const strip = document.createElement('div');
+    strip.style.setProperty('touch-action', 'pan-x');
+    element.append(strip);
+    strip.dispatchEvent(pointer('pointerdown', 100, 0));
+    window.dispatchEvent(pointer('pointerup', 100, 50));
+    expect(names()).toEqual([]);
+  });
+
+  it('holds back touch moves only once a recognizer claims', () => {
+    const { element } = setup();
+    const touchmove = () => {
+      const event = new Event('touchmove', { bubbles: true, cancelable: true });
+      element.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    element.dispatchEvent(pointer('pointerdown', 100, 0));
+    window.dispatchEvent(pointer('pointermove', 104, 8));
+    expect(touchmove()).toBe(false);
+    window.dispatchEvent(pointer('pointermove', 140, 16));
+    expect(touchmove()).toBe(true);
+    window.dispatchEvent(pointer('pointerup', 140, 32));
+    expect(touchmove()).toBe(false);
   });
 
   it('resolves holds with a scheduled tick', () => {

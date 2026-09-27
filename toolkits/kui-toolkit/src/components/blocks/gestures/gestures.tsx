@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '#lib/utils';
-import { DebugOverlay, type OverlaySource } from './debug-overlay';
+import { DebugOverlay } from './debug-overlay';
 import { createGestureEngine, type GestureEngine } from './engine';
 import {
   createEnvironmentStore,
@@ -26,7 +26,14 @@ import {
   type GestureEvent,
   type GestureKind,
 } from './recognizers';
-import { bindZone, measureZone, swallowNextClick } from './zone';
+import { FingerLayer } from './fingers';
+import type { ZoneSource } from './layer';
+import {
+  bindZone,
+  measureZone,
+  nativeScrollers,
+  swallowNextClick,
+} from './zone';
 
 export type { Environment, GestureEvent };
 export { ANDROID_EDGE_STRIP_PX, EDGE_STRIP_PX } from './zone';
@@ -41,28 +48,22 @@ const useEnvironment = (): Environment =>
     () => serverEnvironment,
   );
 
-/** What a zone shares with the overlay inside it; mutated in effects only. */
+/** What a zone shares with the layers inside it; mutated in effects only. */
 type Hub = {
   element: HTMLElement | null;
   engine: GestureEngine | undefined;
   environment: Environment;
-  readonly listeners: Set<(event: GestureEvent | undefined) => void>;
+  readonly listeners: Set<() => void>;
 };
 
 const ZoneContext = createContext<Hub | undefined>(undefined);
 
-const notify = (hub: Hub, event: GestureEvent | undefined) => {
-  for (const listener of hub.listeners) listener(event);
+const notify = (hub: Hub) => {
+  for (const listener of hub.listeners) listener();
 };
 
 // Lifting a finger after one of these must not also click what is under it.
-const CLAIMS_CLICK: ReadonlySet<GestureKind> = new Set([
-  'pan',
-  'two-finger-pan',
-  'pinch',
-  'hold-swipe',
-  'long-press',
-]);
+const CLAIMS_CLICK: ReadonlySet<GestureKind> = new Set(['pan', 'chord']);
 
 const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
   if (typeof ref === 'function') ref(value);
@@ -71,12 +72,15 @@ const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
 
 /**
  * A region where the app owns touch input: the element minus the edge
- * strips the browser or OS swipes from. Vertical one-finger scrolling stays
- * native (`touch-action: pan-y`); everything else inside is recognized and
- * handed to `onGesture`, one call per phase. Long-press callouts and text
- * selection are off inside, so holds work. `recognizers` picks the gestures,
- * all of them by default. Frames never re-render React: `onGesture` should
- * write styles directly for anything that follows a finger.
+ * strips the browser or OS swipes from. Vertical scrolling stays native
+ * (`touch-action: pan-y`) until a recognizer claims the touch; then it is
+ * Captured and the page holds still until every finger lifts. Touches that
+ * start in a native sideways scroller inside are left to it. Everything else
+ * is recognized and handed to `onGesture`, one call per phase. Long-press
+ * callouts and text selection are off inside, so holds work. `recognizers`
+ * picks the gestures, all of them by default. Frames never re-render React:
+ * `onGesture` should write styles directly for anything that follows a
+ * finger.
  */
 export function GestureZone({
   recognizers = GESTURE_KINDS,
@@ -118,13 +122,12 @@ export function GestureZone({
           swallowNextClick(win);
         }
         handler.current?.(event);
-        notify(hub, event);
       },
     });
-    const stopNotifying = engine.subscribe(() => notify(hub, undefined));
+    const stopNotifying = engine.subscribe(() => notify(hub));
     hub.engine = engine;
     const unbind = bindZone(element, engine, () => hub.environment);
-    notify(hub, undefined);
+    notify(hub);
     return () => {
       unbind();
       stopNotifying();
@@ -158,27 +161,20 @@ export function GestureZone({
 const subscribeNothing = () => () => {};
 
 /**
- * Shows what the enclosing Gesture Zone sees: the zone and its edge strips
- * labelled with who owns them, every pointer with a fading trail, each
- * recognizer's state and which one claimed, a log of recognized gestures,
- * and the Environment. It never takes input and paints only while something
- * changes. Render it anywhere inside a `GestureZone`.
+ * What the layers inside a zone read from it, or nothing until it is on
+ * the client: layers are portalled to the body.
  */
-export function GestureDebugOverlay() {
+const useZoneSource = (component: string): ZoneSource | undefined => {
   const hub = useContext(ZoneContext);
   if (hub === undefined) {
-    throw new Error(
-      'GestureDebugOverlay must be rendered inside a GestureZone',
-    );
+    throw new Error(`${component} must be rendered inside a GestureZone`);
   }
-  const environment = useEnvironment();
-  // Portalled to the body, so render only once there is one.
   const mounted = useSyncExternalStore(
     subscribeNothing,
     () => true,
     () => false,
   );
-  const source = useMemo<OverlaySource>(
+  const source = useMemo<ZoneSource>(
     () => ({
       subscribe: (listener) => {
         hub.listeners.add(listener);
@@ -189,10 +185,40 @@ export function GestureDebugOverlay() {
         hub.element === null
           ? undefined
           : measureZone(hub.element, hub.environment),
+      scrollers: () =>
+        hub.element === null ? [] : nativeScrollers(hub.element),
+      environment: () => hub.environment,
     }),
     [hub],
   );
-  if (!mounted) return null;
+  return mounted ? source : undefined;
+};
+
+/**
+ * Shows every finger in the enclosing Gesture Zone by what it is doing: a
+ * soft ring while undecided or free, the Anchor of a Chord locked with the
+ * zone dimmed around it, and a comet tail behind the acting finger. Paints
+ * only while fingers are down or fading, and takes no input. Render it
+ * anywhere inside a `GestureZone`; it works with or without the debug
+ * overlay.
+ */
+export function GestureFingers() {
+  const source = useZoneSource('GestureFingers');
+  if (source === undefined) return null;
+  return createPortal(<FingerLayer source={source} />, document.body);
+}
+
+/**
+ * Shows what the enclosing Gesture Zone sees: the zone and its edge strips
+ * labelled with who owns them, native scrollers inside it, every finger's
+ * pointer id, and the Environment in one line. It never takes input and
+ * paints only while something changes. Render it anywhere inside a
+ * `GestureZone`.
+ */
+export function GestureDebugOverlay() {
+  const source = useZoneSource('GestureDebugOverlay');
+  const environment = useEnvironment();
+  if (source === undefined) return null;
   return createPortal(
     <DebugOverlay source={source} environment={environment} />,
     document.body,
@@ -257,6 +283,61 @@ export const settle = (options: {
   const controls = animate(options.from, options.to, {
     ...SETTLE_SPRING,
     velocity: options.velocity * 1000,
+    onUpdate: options.onUpdate,
+  });
+  return {
+    finished: controls.finished.then(() => undefined),
+    stop: () => controls.stop(),
+  };
+};
+
+// motion's inertia defaults, which feel like a UIScrollView flick: the
+// surface runs on 0.8 × the release speed (per second) and slows over ~1s.
+const COAST_POWER = 0.8;
+const COAST_TIME_CONSTANT = 325;
+
+/**
+ * Lets a released surface run on with the finger's speed (units per ms)
+ * and slow to a stop by friction, calling `onUpdate` every frame. Past `min`
+ * or `max` it bounces back to the bound. `snap` is a step it must come to
+ * rest on, for detents. `instant` jumps straight to where it would rest, for
+ * reduced motion. `stop` freezes it where it is, as with {@link settle}.
+ * Rest is judged to half a unit, so coast pixels, not fractions.
+ */
+export const coast = (options: {
+  readonly from: number;
+  readonly velocity: number;
+  readonly min?: number;
+  readonly max?: number;
+  readonly snap?: number;
+  readonly instant: boolean;
+  readonly onUpdate: (value: number) => void;
+}): { readonly finished: Promise<void>; readonly stop: () => void } => {
+  const { from, min, max, snap } = options;
+  const clamp = (value: number) =>
+    Math.min(max ?? Infinity, Math.max(min ?? -Infinity, value));
+  const detent =
+    snap === undefined
+      ? undefined
+      : (value: number) => Math.round(value / snap) * snap;
+  const ideal = from + COAST_POWER * options.velocity * 1000;
+  // Where it comes to rest. Released past a bound, it goes straight back.
+  const rest =
+    clamp(from) !== from ? clamp(from) : clamp(detent?.(ideal) ?? ideal);
+  if (options.instant) {
+    options.onUpdate(rest);
+    return { finished: Promise.resolve(), stop: () => {} };
+  }
+  // Inertia reads only the start and plots its own way; the end is given
+  // because motion skips an animation whose keyframes do not change.
+  const controls = animate(from, rest, {
+    type: 'inertia',
+    velocity: options.velocity * 1000,
+    power: COAST_POWER,
+    timeConstant: COAST_TIME_CONSTANT,
+    min,
+    max,
+    modifyTarget: detent,
     onUpdate: options.onUpdate,
   });
   return {

@@ -43,12 +43,24 @@ Who handles a swipe that starts at a screen edge in the current Environment: the
 _Avoid_: gesture conflict, edge zone
 
 **Gesture Zone**:
-An element region where the app owns touch input: its bounds minus the viewport's edge strips, whose Edge Ownership lies elsewhere or is reserved for edge gestures. Vertical scrolling stays native inside it.
+An element region where the app owns touch input: its bounds minus the viewport's edge strips, whose Edge Ownership lies elsewhere or is reserved for edge gestures. Vertical scrolling stays native inside it until a touch is Captured, and a touch that starts in a native scroller inside it belongs to that scroller.
 _Avoid_: touch area, gesture surface, hit area
 
 **Recognizer**:
 One gesture's reader inside the gestures engine, moving through possible, began, changed, ended, cancelled or failed. The first recognizer to become certain claims the touch and the rest fail.
 _Avoid_: detector, gesture handler, listener
+
+**Capture**:
+The Gesture Zone taking a touch from the browser once a Recognizer claims it, so the page cannot scroll until every finger lifts. A touch the browser has already started scrolling can no longer be Captured.
+_Avoid_: lock, grab, prevent scroll
+
+**Chord**:
+A two-finger touch where one finger was already held still when the other landed. The held finger is the Anchor; the other acts, up and down or sideways. Decided the moment the second finger lands; two fingers landing together are not a Chord.
+_Avoid_: hold-swipe, combo, modifier gesture
+
+**Anchor**:
+The held finger of a Chord, shown locked in place while the other finger acts.
+_Avoid_: holder, pivot, locked finger
 
 **Level**:
 One step on the progressive ladder from plain web (0) through polished (1) and app-like (2) to native gestures (3). A pattern belongs to a Level and drops to the highest lower Level its Environment allows.
