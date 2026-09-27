@@ -93,7 +93,7 @@ head: (() => {
   });
 ```
 
-`pwaHead()` renders the manifest link and the Build ID meta tag that Worker RPC reads, so it goes in the root `head`, spread into both `meta` and `links`. `PwaProvider` registers the worker; `usePwa()` gives any component the Status (`Unsupported`, `Installing`, `Ready`, `UpdateReady`, `Updating`) with `checkForUpdate` and `applyUpdate`. To apply a ready update on the next route change instead of on the prompt, call `applyUpdate` from `router.subscribe('onResolved', …)` (the playground's `UpdateOnNavigation`).
+`pwaHead()` renders the manifest link and the Build ID meta tag that Worker RPC reads, so it goes in the root `head`, spread into both `meta` and `links`. `PwaProvider` registers the worker; `usePwa()` gives any component the Status (`Unsupported`, `Installing`, `Ready`, `UpdateReady`, `Updating`) with `checkForUpdate` and `applyUpdate`, plus `version: { buildId, builtAt, commit }` for the build that rendered the page (`null` fields when unknown; override with `pwa({ version: { commit, builtAt } })`). To apply a ready update on the next route change instead of on the prompt, call `applyUpdate` from `router.subscribe('onResolved', …)` (the playground's `UpdateOnNavigation`).
 
 The Extras (`pwa-toolkit/extras`) need no provider. Render `<InstallPrompt />` where the app should invite installs (the playground uses `/install`), and call `useInstall()` in the root so the browser's one early offer is caught. It shows only while install is possible and remembers a dismissal for 30 days.
 

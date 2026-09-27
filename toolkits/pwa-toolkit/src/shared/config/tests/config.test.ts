@@ -124,6 +124,8 @@ describe('virtual module shapes', () => {
       scope: '/',
       update: config.update,
       buildId: null,
+      builtAt: null,
+      commit: null,
       manifestUrl: '/manifest.webmanifest',
       appleTouchIconUrl: null,
     });

@@ -16,7 +16,12 @@ import {
   Pwa,
   PwaStatus,
 } from '../client/index.js';
-import { type HeadTags, headTags, pageBuildId } from './head.js';
+import {
+  type HeadTags,
+  headTags,
+  pageVersion,
+  type PwaVersion,
+} from './head.js';
 
 /** `null` outside `PwaProvider`, during SSR, and until the service is built. */
 const PwaContext = createContext<Pwa['Service'] | null>(null);
@@ -53,19 +58,23 @@ export const PwaProvider = (props: {
 };
 
 /**
- * The PWA's status with `checkForUpdate` and `applyUpdate`. `Unsupported`
- * during SSR and until `PwaProvider` has started.
+ * The PWA's status with `checkForUpdate` and `applyUpdate`, and the
+ * `version` this page runs. `status` is `Unsupported` during SSR and until
+ * `PwaProvider` has started; `version` is known from the first render.
  */
 export const usePwa = (): {
   readonly status: PwaStatus;
+  readonly version: PwaVersion;
   readonly checkForUpdate: () => Promise<void>;
   readonly applyUpdate: () => Promise<void>;
 } => {
   const pwa = useContext(PwaContext);
   const status = useSubscriptionRef(pwa?.status, UNSUPPORTED);
+  const version = useMemo(() => pageVersion(info), []);
   return useMemo(
     () => ({
       status,
+      version,
       checkForUpdate: () =>
         pwa === null
           ? Promise.resolve()
@@ -73,7 +82,7 @@ export const usePwa = (): {
       applyUpdate: () =>
         pwa === null ? Promise.resolve() : Effect.runPromise(pwa.applyUpdate),
     }),
-    [status, pwa],
+    [status, version, pwa],
   );
 };
 
@@ -82,8 +91,8 @@ export const clearRuntimeCache = (): Promise<void> =>
   Effect.runPromise(clearRuntimeCacheEffect);
 
 /**
- * Head tags for the root route: manifest link, Apple icon, and the Build ID
- * meta tag (read by Worker RPC). Hydration-safe: in the browser the Build ID
- * comes from the tag the server rendered.
+ * Head tags for the root route: manifest link, Apple icon, and the meta
+ * tags for the Build ID (read by Worker RPC), build time and commit.
+ * Hydration-safe: in the browser they come from the tags the server rendered.
  */
-export const pwaHead = (): HeadTags => headTags(info, pageBuildId(info));
+export const pwaHead = (): HeadTags => headTags(info, pageVersion(info));

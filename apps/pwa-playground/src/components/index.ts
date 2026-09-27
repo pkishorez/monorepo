@@ -1,4 +1,5 @@
 export { AppHeader } from './app-header.tsx';
+export { BuiltAt } from './built-at.tsx';
 export {
   Actions,
   type Outcome,

@@ -1,16 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button } from 'kui-toolkit/components/ui/button';
 import { usePwa } from 'pwa-toolkit/react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Actions,
+  BuiltAt,
   type Outcome,
   Panel,
   Readout,
   Readouts,
   ScenarioPage,
 } from '../components/index.ts';
-import { buildLabel, pageBuildId, updateMode } from '../lib/build.ts';
+import { buildLabel, updateMode } from '../lib/build.ts';
 
 export const Route = createFileRoute('/update')({ component: Update });
 
@@ -24,9 +25,7 @@ const STATUS_OUTCOME: Record<string, [Outcome, string]> = {
 
 function Update() {
   const pwa = usePwa();
-  const [buildId, setBuildId] = useState<string | null>(null);
-  const [lastCheck, setLastCheck] = useState<string>('never');
-  useEffect(() => setBuildId(pageBuildId()), []);
+  const [lastCheck, setLastCheck] = useState<string | null>(null);
   const [outcome, label] = STATUS_OUTCOME[pwa.status._tag] ?? [
     'idle',
     pwa.status._tag,
@@ -68,7 +67,17 @@ function Update() {
           <Readout
             label="Build ID"
             testId="update-build-id"
-            value={buildId ?? 'none'}
+            value={pwa.version.buildId ?? 'none'}
+          />
+          <Readout
+            label="Built"
+            testId="update-built-at"
+            value={<BuiltAt iso={pwa.version.builtAt} />}
+          />
+          <Readout
+            label="Commit"
+            testId="update-commit"
+            value={pwa.version.commit ?? 'unknown'}
           />
           <Readout
             label="Update mode"
@@ -83,7 +92,7 @@ function Update() {
           <Readout
             label="Last check"
             testId="update-last-check"
-            value={lastCheck}
+            value={lastCheck === null ? 'never' : <BuiltAt iso={lastCheck} />}
           />
         </Readouts>
         <Actions>
