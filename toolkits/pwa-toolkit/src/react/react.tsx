@@ -1,25 +1,18 @@
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
-import * as Option from 'effect/Option';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import info from 'virtual:pwa-toolkit/client';
 import {
-  Connectivity,
-  DisplayMode,
-  type DisplayModeValue,
-  InstallState,
   PwaClient,
   type PwaClientServices,
-  PwaInstall,
   PwaUpdate,
   RuntimeCacheControl,
-  StoragePersistence,
   UpdateState,
 } from '../client/index.js';
 import { type HeadTags, headTags, pageBuildId } from './head.js';
 import { ServicesContext, useServices } from './services-context.js';
-import { useSubscriptionRef } from './subscription-ref.js';
+import { useSubscriptionRef } from '../browser/subscription-ref.js';
 
 /** Structural slice of a TanStack Router instance; used for `auto-on-navigation`. */
 interface NavigationSource {
@@ -27,7 +20,6 @@ interface NavigationSource {
 }
 
 const IDLE = UpdateState.Idle();
-const INSTALL_UNSUPPORTED = InstallState.Unsupported();
 
 const runOr = <A,>(effect: Effect.Effect<A> | undefined, fallback: A) =>
   effect === undefined ? Promise.resolve(fallback) : Effect.runPromise(effect);
@@ -96,72 +88,6 @@ export const usePwaUpdate = (): {
       apply: () => runOr(update?.apply, undefined),
     }),
     [state, update],
-  );
-};
-
-/** Before mount and during SSR: `Unsupported`. */
-export const usePwaInstall = (): {
-  readonly state: InstallState;
-  readonly prompt: () => Promise<'accepted' | 'dismissed' | 'unavailable'>;
-  readonly dismiss: () => void;
-} => {
-  const install = useService(PwaInstall);
-  const state = useSubscriptionRef(install?.state, INSTALL_UNSUPPORTED);
-  return useMemo(
-    () => ({
-      state,
-      prompt: () => runOr(install?.prompt, 'unavailable' as const),
-      dismiss: () => void runOr(install?.dismiss, undefined),
-    }),
-    [state, install],
-  );
-};
-
-/** Before mount and during SSR: `true`. */
-export const useOnline = (): boolean =>
-  useSubscriptionRef(useService(Connectivity)?.online, true);
-
-/** Before mount and during SSR: `'browser'`. */
-export const useDisplayMode = (): DisplayModeValue =>
-  useSubscriptionRef(useService(DisplayMode)?.mode, 'browser');
-
-/** `null` while unknown or where the Storage API is missing. */
-export const useStoragePersistence = (): {
-  readonly persisted: boolean | null;
-  readonly persist: () => Promise<boolean | null>;
-  readonly estimate: () => Promise<{
-    readonly usage: number;
-    readonly quota: number;
-  } | null>;
-} => {
-  const storage = useService(StoragePersistence);
-  const [persisted, setPersisted] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (storage === undefined) return;
-    let mounted = true;
-    void Effect.runPromise(storage.persisted).then(
-      (value) => mounted && setPersisted(Option.getOrNull(value)),
-    );
-    return () => {
-      mounted = false;
-    };
-  }, [storage]);
-
-  return useMemo(
-    () => ({
-      persisted,
-      persist: async () => {
-        const value = Option.getOrNull(
-          await runOr(storage?.persist, Option.none()),
-        );
-        setPersisted(value);
-        return value;
-      },
-      estimate: async () =>
-        Option.getOrNull(await runOr(storage?.estimate, Option.none())),
-    }),
-    [persisted, storage],
   );
 };
 

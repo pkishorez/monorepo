@@ -3,9 +3,9 @@ import { Button } from 'kui-toolkit/components/ui/button';
 import {
   useDisplayMode,
   useOnline,
-  usePwaUpdate,
   useStoragePersistence,
-} from 'pwa-toolkit/react';
+} from 'pwa-toolkit/extras';
+import { usePwaUpdate } from 'pwa-toolkit/react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Actions,

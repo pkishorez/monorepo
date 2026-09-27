@@ -43,6 +43,10 @@
       "types": "./dist/ui/index.d.ts",
       "default": "./dist/ui/index.js"
     },
+    "./extras": {
+      "types": "./dist/extras/index.d.ts",
+      "default": "./dist/extras/index.js"
+    },
     "./rpc/worker": {
       "types": "./dist/rpc/worker/index.d.ts",
       "default": "./dist/rpc/worker/index.js"

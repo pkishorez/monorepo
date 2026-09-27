@@ -3,7 +3,7 @@
 
 /* The app's own classes, and pwa-toolkit's prebuilt UI (kui registers its own). */
 @source './';
-@source '../node_modules/pwa-toolkit/dist/ui';
+@source '../node_modules/pwa-toolkit/dist';
 
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;

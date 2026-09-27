@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button } from 'kui-toolkit/components/ui/button';
-import { useDisplayMode, usePwaInstall } from 'pwa-toolkit/react';
-import { InstallPrompt } from 'pwa-toolkit/ui';
+import { InstallPrompt, useDisplayMode, useInstall } from 'pwa-toolkit/extras';
 import { useState } from 'react';
 import {
   Actions,
@@ -23,7 +22,7 @@ const STATE_OUTCOME: Record<string, [Outcome, string]> = {
 };
 
 function Install() {
-  const install = usePwaInstall();
+  const install = useInstall();
   const displayMode = useDisplayMode();
   const [outcome, setOutcome] = useState<string>('none yet');
   const [stateOutcome, stateLabel] = STATE_OUTCOME[install.state._tag] ?? [
