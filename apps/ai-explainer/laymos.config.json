@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/playground/rounds"],
+  "layers": {
+    "studio": {
+      "paths": ["src/studio.tsx"],
+      "description": "Registers every Explainer with Remotion Studio and the renderer.",
+      "modules": { "src/studio.tsx": {} }
+    },
+    "playground": {
+      "paths": ["src/playground"],
+      "description": "Shows each Round's Prototypes side by side and saves the Pick.",
+      "modules": { "src/playground": {} }
+    },
+    "explainers": {
+      "paths": ["src/explainers"],
+      "description": "One module per Explainer; Explainers never reach each other.",
+      "modules": { "src/explainers/laymos": { "exposed": true } }
+    },
+    "foundation": {
+      "paths": ["src/foundation"],
+      "description": "What every Explainer shares: look, voice, Scenes and the timing that turns them into video.",
+      "modules": {
+        "src/foundation/explainer": { "exposed": true },
+        "src/foundation/stage": { "exposed": true, "shared": true },
+        "src/foundation/voice": { "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "video": {
+      "description": "Studio and Playground show Explainers; Explainers are built only from the Foundation.",
+      "rules": {
+        "studio": ["explainers"],
+        "playground": ["explainers", "foundation"],
+        "explainers": ["foundation"],
+        "foundation": []
+      }
+    }
+  }
+}
