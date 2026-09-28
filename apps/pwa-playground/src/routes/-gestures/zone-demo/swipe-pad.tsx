@@ -198,7 +198,8 @@ export function SwipePad(props: { readonly reset: number }) {
         />
       </div>
       <p className="text-center text-[11px] text-muted-foreground">
-        Hold a bottom corner to steer one half. Hold left and tap to reset.
+        Rest a finger on a bottom corner, then steer one half with another. Left
+        and tap resets.
       </p>
     </section>
   );

@@ -8,7 +8,7 @@ export type { DemoId } from './demos.ts';
 
 // The Hold Zones on the bottom corners: just under half the screen's width
 // each, so they never meet, up to a size that leaves most of a wide screen
-// alone. On a phone they cover the tab bar.
+// alone. A quick tap on them is still an ordinary tap.
 const HOLD_SHARE = 0.48;
 const MAX_HOLD_RADIUS = 200;
 

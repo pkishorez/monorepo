@@ -52,12 +52,13 @@ function Toolbar() {
 - **Tap** — one finger touching and lifting without moving 8px. It is also a
   Gesture that did not move. Two fingers are never a Tap.
 - **Hold** — with `holdRadius`, a quarter circle on each bottom corner is a
-  Hold Zone. A finger landing there while no finger is on the zone starts
-  that Hold at once, and the corner is shaded. Every Gesture the other fingers
-  make falls under it until no finger is left, even after the Hold finger
-  lifts. While it is on, a finger landing in either corner does nothing.
-  Under a Hold nothing is clicked. Alone, a Hold does nothing, so keep the
-  corners free of buttons.
+  Hold Zone. The first finger landing there becomes that Hold when another
+  finger lands at least 150ms later while it is still, and that side's edge
+  of the zone glows. Until then it is an ordinary finger: a quick touch is a
+  Tap that clicks, a movement is a Gesture, and two fingers landing together
+  are a pinch. Every Gesture the other fingers make falls under the Hold until
+  no finger is left, even after the Hold finger lifts. While it is on, a
+  finger landing in either corner does nothing, and nothing is clicked.
 - **Interrupted** — when the browser takes the touch (a Native Scroll,
   Android's back gesture, an incoming call) or the page loses focus, the
   Gesture and any Swipe end at once with `interrupted: true`. Treat it as a
@@ -128,13 +129,12 @@ snapping and opening are decided by what you build on top, for example
 viewport px. It never waits for a second Tap. With no Hold, what is under the
 finger is still clicked as usual.
 
-## `useHold()` and the shade
+## `useHold()` and the glow
 
 `useHold()` returns the Hold on now as React state: `'none'`, `'left'` or
-`'right'`. The zone also sets `data-hold` on itself. While a Hold is on, its
-corner shows a subtle shaded quarter circle, a `data-slot="gesture-hold"`
-element with `data-side` and `data-active`. It waits 100ms, then eases in
-over a quarter of a second, so a quick tap on a corner never shows it. Tint
+`'right'`. The zone also sets `data-hold` on itself. While a Hold is on, a
+soft light glows along that side's edge of the zone, a
+`data-slot="gesture-hold"` element with `data-side` and `data-active`. Tint
 it with `--gesture-hold`; it is the foreground colour by default.
 
 ## Not in the block yet

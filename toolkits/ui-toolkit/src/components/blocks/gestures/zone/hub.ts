@@ -138,9 +138,16 @@ export const createHub = (options: HubOptions = {}) => {
   const sink: PointerSink = {
     holding: () => holds.hold() !== 'none',
     down: (sample: PointerSample) => {
-      const landing = holds.down(sample.id, options.holdAt?.(sample));
-      if (landing === 'hold') tellHold();
-      if (landing !== 'finger') return;
+      const landing = holds.down(sample, options.holdAt?.(sample));
+      if (landing === 'aside') return;
+      if (landing === 'held') {
+        // The corner finger's Gesture was only waiting to see: it ends, and
+        // this finger starts a new one under the Hold.
+        if (gesture.active()) endGesture(STILL, true);
+        gesture = createGestureReading();
+        swipe = createSwipeReading();
+        tellHold();
+      }
       if (gesture.down(sample) === 'start') {
         moved = false;
         under = holds.hold();
@@ -154,6 +161,7 @@ export const createHub = (options: HubOptions = {}) => {
       endSwipe(swipe.join(gesture.velocity(sample.t)));
     },
     move: (sample: PointerSample) => {
+      holds.move(sample);
       const values = gesture.move(sample);
       if (values === undefined) return;
       if (Math.max(Math.abs(values.x), Math.abs(values.y)) >= AXIS_LOCK_PX) {

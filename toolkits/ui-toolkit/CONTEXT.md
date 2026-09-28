@@ -59,11 +59,11 @@ One continuous touch in the Gesture Zone, from the first finger landing to the l
 _Avoid_: pan, pinch, drag (moving an element itself), shortcut (a Gesture an app binds to a command), interaction
 
 **Hold**:
-A finger landing in a Hold Zone while no finger is on the Gesture Zone: a modifier, like a held Shift key, that puts every Gesture the other fingers make under the left or right Hold, giving an app a further set of shortcuts. How long it is pressed does not matter, and it is never part of a Gesture itself. Alone it does nothing. It stays in effect until no finger is left on the zone: lifting the Hold finger during a Gesture does not end it, and it can be put back. While it is in effect, a finger landing in either Hold Zone does nothing, so the other Hold can only start after every finger has lifted. A listener takes Gestures under exactly one of left, right, or no Hold.
+A modifier, like a held Shift key, that puts every Gesture the other fingers make under the left or right Hold, giving an app a further set of shortcuts. It starts from the first finger landing in a Hold Zone, once another finger lands a moment later while that finger is still. Until then the corner finger is ordinary: lifting, it is a Tap; moving, it is a Gesture; with a finger landing at almost the same time, it is half of a pinch. The Hold finger is never part of a Gesture itself. The Hold stays in effect until no finger is left on the zone: lifting the Hold finger during a Gesture does not end it, and it can be put back. While it is in effect, a finger landing in either Hold Zone does nothing, so the other Hold can only start after every finger has lifted. A listener takes Gestures under exactly one of left, right, or no Hold.
 _Avoid_: anchor, chord, touch and hold (that is a long press), modifier key
 
 **Hold Zone**:
-A quarter circle of configurable radius on the bottom-left or bottom-right corner of the Gesture Zone, present only when the zone turns Hold Zones on. Every touch that starts in it is a Hold; nothing under it is clicked, so an app leaves these corners free. It is shaded while its Hold is on, after a short pause so a quick tap on it never shows.
+A quarter circle of configurable radius on the bottom-left or bottom-right corner of the Gesture Zone, present only when the zone turns Hold Zones on, where the first finger down can become a Hold. While a Hold is on, the zone's edge on that side glows.
 _Avoid_: hotspot, modifier key
 
 **Tap**:
