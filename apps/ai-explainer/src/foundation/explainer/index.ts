@@ -1,1 +1,5 @@
-export { defineExplainer } from './explainer.tsx';
+export {
+  defineCanvasExplainer,
+  defineExplainer,
+  type Cue,
+} from './explainer.tsx';

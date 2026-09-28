@@ -20,8 +20,9 @@
     },
     "foundation": {
       "paths": ["src/foundation"],
-      "description": "What every Explainer shares: look, voice, Scenes and the timing that turns them into video.",
+      "description": "What every Explainer shares: look, motion, voice, Scenes and the timing that turns them into video.",
       "modules": {
+        "src/foundation/canvas": { "exposed": true, "shared": true },
         "src/foundation/explainer": { "exposed": true },
         "src/foundation/stage": { "exposed": true, "shared": true },
         "src/foundation/voice": { "exposed": true }
