@@ -6,7 +6,7 @@ import { type BuildVersion, resolveBuildVersion } from './build-version.js';
 import { clientBuildInfo } from './client-info.js';
 
 const RESOLVED_ID = `\0${VIRTUAL_CLIENT_MODULE_ID}`;
-const PACKAGE = 'pwa-toolkit';
+const PACKAGE = '@kstackz/pwa-toolkit';
 
 /**
  * Serves `virtual:pwa-toolkit/client` to the client and server environments,

@@ -155,7 +155,7 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
     key: PartitionKey,
     strategy: SyncStrategy<TItem, any, R>,
   ) => {
-    if (mountScope === null || sessions.has(key)) return;
+    if (mountScope === null || outdatedReported || sessions.has(key)) return;
     const scope = runner.runSync(Scope.fork(mountScope));
     sessions.set(key, scope);
     const state = makeSyncStateStore({
@@ -233,19 +233,33 @@ export const buildCollection = <S extends AnyEntityESchema, R>(args: {
         runner.runSync(
           Effect.forkIn(
             Effect.gen(function* () {
-              yield* advance(true).pipe(
-                Effect.catch((error) =>
-                  Effect.logError(
-                    `[sync] could not read the local copy of "${name}"`,
-                    error,
+              const changes = yield* Stream.toPull(
+                platform.doorbell.listen(name),
+              ).pipe(Scope.provide(scope));
+              // Callback streams install their listeners in a child fiber.
+              // Let it start before hydration; its queue buffers any rings.
+              yield* Effect.yieldNow;
+              const read = (seeding = false) =>
+                advance(seeding).pipe(
+                  Effect.catch((error) =>
+                    Effect.flatMap(isOutdated(error), (outdated) =>
+                      outdated
+                        ? Effect.void
+                        : Effect.logError(
+                            `[sync] could not read the local copy of "${name}"`,
+                            error,
+                          ),
+                    ),
                   ),
-                ),
-              );
+                );
+              yield* read(true);
               callbacks.markReady();
               if (global) startSession(GLOBAL_PARTITION_KEY, global);
-              yield* platform.doorbell
-                .listen(name)
-                .pipe(Stream.runForEach(() => advance().pipe(Effect.ignore)));
+              yield* Stream.fromPull(Effect.succeed(changes)).pipe(
+                Stream.runForEach(() =>
+                  outdatedReported ? Effect.void : read(),
+                ),
+              );
             }),
             scope,
           ),

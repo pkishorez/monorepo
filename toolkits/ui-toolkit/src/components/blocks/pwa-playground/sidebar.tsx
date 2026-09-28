@@ -1,4 +1,9 @@
-import { createContext, type ReactNode, useContext } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useSyncExternalStore,
+} from 'react';
 import { motion, useTransform } from 'motion/react';
 import { useSwipe, type GestureSpring } from '../gestures';
 
@@ -60,6 +65,11 @@ export function PwaPlaygroundSidebar(props: {
   readonly contained?: boolean;
 }) {
   const sidebar = useSidebarMotion(props.spring);
+  const visible = useSyncExternalStore(
+    (notify) => sidebar.progress.on('change', notify),
+    () => sidebar.progress.get() > 0.02,
+    () => false,
+  );
   const position = props.contained ? 'absolute' : 'fixed';
   return (
     <SidebarContext value={sidebar}>
@@ -78,6 +88,7 @@ export function PwaPlaygroundSidebar(props: {
         type="button"
         aria-label="Close the menu"
         data-testid="lab-scrim"
+        aria-hidden={!visible}
         tabIndex={-1}
         onClick={sidebar.close}
         style={{
@@ -90,6 +101,8 @@ export function PwaPlaygroundSidebar(props: {
       <motion.nav
         aria-label="Gesture Lab"
         data-testid="lab-sidebar"
+        inert={!visible}
+        aria-hidden={!visible}
         style={{ x: sidebar.panelX, width: SIDEBAR_WIDTH, position }}
         className="inset-y-0 left-0 z-40 flex flex-col border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-sidebar-foreground shadow-lg"
       >
