@@ -34,10 +34,11 @@ export function TopBar(props: { readonly demo: DemoId }) {
   );
 }
 
-/** Every demo along the bottom. */
+/** Every demo along the bottom, clear of `inset` px on each side. */
 export function TabBar(props: {
   readonly demo: DemoId;
   readonly onDemo: (demo: DemoId) => void;
+  readonly inset: number;
 }) {
   return (
     <Tabs
@@ -45,7 +46,11 @@ export function TabBar(props: {
       onValueChange={(value) => props.onDemo(value as DemoId)}
       className="shrink-0 border-t border-border pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
     >
-      <TabsList variant="line" className="h-14! w-full gap-0 py-0">
+      <TabsList
+        variant="line"
+        className="h-14! w-full gap-0 py-0"
+        style={{ paddingInline: props.inset }}
+      >
         {DEMO_IDS.map((id) => {
           const { title, Icon } = DEMOS[id];
           return (

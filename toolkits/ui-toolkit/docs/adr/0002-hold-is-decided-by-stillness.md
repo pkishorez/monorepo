@@ -1,5 +1,5 @@
 ---
-status: superseded by ADR-0003
+status: superseded by ADR-0003, ADR-0005
 ---
 
 # A Hold is decided by stillness, not by a landing lead

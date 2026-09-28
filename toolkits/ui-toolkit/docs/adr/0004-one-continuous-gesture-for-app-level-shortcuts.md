@@ -12,5 +12,5 @@ Supersedes ADR 0003.
 
 ## Consequences
 
-- Tap, Hold and scrolling inside the zone are not part of the block yet; the zone keeps every touch in it from the browser.
+- Tap, Hold and scrolling inside the zone came later: see ADR 0005.
 - x and y are how far the point under the first finger moved, so scaling and rotating about the Gesture's origin keeps content under the fingers.

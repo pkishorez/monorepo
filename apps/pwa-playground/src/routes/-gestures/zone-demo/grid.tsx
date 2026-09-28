@@ -1,7 +1,26 @@
-import { useGesture } from '@kstackz/ui-toolkit/components/blocks/gestures';
-import { useMotionValueEvent } from '@kstackz/ui-toolkit/motion';
-import { useCallback, useId, useLayoutEffect, useRef } from 'react';
-import { type Camera, follow, matrixOf } from './camera.ts';
+import {
+  type GestureEnd,
+  type GestureState,
+  type Hold,
+  type Point,
+  useGesture,
+  useHold,
+} from '@kstackz/ui-toolkit/components/blocks/gestures';
+import {
+  type AnimationPlaybackControls,
+  animate,
+  useMotionValueEvent,
+} from '@kstackz/ui-toolkit/motion';
+import { cn } from '@kstackz/ui-toolkit/utils';
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from 'react';
+import { type Camera, follow, matrixOf, settle } from './camera.ts';
 
 const MINOR = 40;
 const MAJOR = 200;
@@ -10,26 +29,24 @@ const MAJOR = 200;
 const readout = (camera: Camera, home: Camera) =>
   `${Math.round(camera.x - home.x)}, ${Math.round(camera.y - home.y)} · ×${camera.scale.toFixed(2)} · ${Math.round(camera.rotation)}°`;
 
-/**
- * An endless grid steered by every Gesture in the zone, wherever it lands:
- * one finger pans, two also zoom and turn about the first finger. The grid
- * keeps its own camera; each Gesture moves it and is folded in on release.
- */
-export function InfiniteGrid() {
-  const id = useId();
-  const svg = useRef<SVGSVGElement>(null);
-  const layers = useRef<Array<SVGElement | null>>([]);
-  const text = useRef<HTMLSpanElement>(null);
-  const camera = useRef<Camera | undefined>(undefined);
-  const home = useRef<Camera | undefined>(undefined);
-  // Where the current Gesture started, in the grid's px.
-  const origin = useRef({ x: 0, y: 0 });
+type Steering = {
+  readonly gesture: GestureState;
+  /** Where its current Gesture started, in the grid's px. */
+  readonly origin: RefObject<Point>;
+};
 
+// One Hold's Gestures steering the grid: each is folded into the camera on
+// release, and its values start over. An interrupted one is dropped.
+function useSteering(
+  hold: Hold,
+  svg: RefObject<SVGSVGElement | null>,
+  fold: (end: GestureEnd, origin: Point) => void,
+): Steering {
+  const origin = useRef<Point>({ x: 0, y: 0 });
   const gesture = useGesture({
+    hold,
     onEnd: (end) => {
-      if (camera.current === undefined) return;
-      camera.current = follow(camera.current, end, origin.current);
-      // The camera now holds this Gesture, so the values start over here.
+      if (!end.interrupted) fold(end, origin.current);
       gesture.x.jump(0);
       gesture.y.jump(0);
       gesture.scale.jump(1);
@@ -37,18 +54,63 @@ export function InfiniteGrid() {
     },
   });
 
+  useLayoutEffect(() => {
+    const box = svg.current?.getBoundingClientRect();
+    if (gesture.origin === undefined || box === undefined) return;
+    origin.current = {
+      x: gesture.origin.x - box.left,
+      y: gesture.origin.y - box.top,
+    };
+  }, [gesture.origin, svg]);
+
+  return { gesture, origin };
+}
+
+function useRedraw(gesture: GestureState, draw: () => void) {
+  useMotionValueEvent(gesture.x, 'change', draw);
+  useMotionValueEvent(gesture.y, 'change', draw);
+  useMotionValueEvent(gesture.scale, 'change', draw);
+  useMotionValueEvent(gesture.rotation, 'change', draw);
+}
+
+const valuesOf = ({ gesture }: Steering) => ({
+  x: gesture.x.get(),
+  y: gesture.y.get(),
+  scale: gesture.scale.get(),
+  rotation: gesture.rotation.get(),
+});
+
+/**
+ * An endless grid steered by every Gesture with no Hold or under the left
+ * Hold, wherever it lands: one finger pans, two also zoom and turn about the
+ * first finger. The grid keeps its own camera; each Gesture moves it and is
+ * folded in on release. `reset` changing springs it back home. Under the
+ * right Hold it rests.
+ */
+export function InfiniteGrid(props: { readonly reset: number }) {
+  const id = useId();
+  const hold = useHold();
+  const svg = useRef<SVGSVGElement>(null);
+  const layers = useRef<Array<SVGElement | null>>([]);
+  const text = useRef<HTMLSpanElement>(null);
+  const camera = useRef<Camera | undefined>(undefined);
+  const home = useRef<Camera | undefined>(undefined);
+  const settling = useRef<AnimationPlaybackControls | undefined>(undefined);
+
+  const fold = (end: GestureEnd, origin: Point) => {
+    if (camera.current !== undefined) {
+      camera.current = follow(camera.current, end, origin);
+    }
+  };
+  const plain = useSteering('none', svg, fold);
+  const left = useSteering('left', svg, fold);
+
   const draw = useCallback(() => {
     if (camera.current === undefined) return;
-    const shown = follow(
-      camera.current,
-      {
-        x: gesture.x.get(),
-        y: gesture.y.get(),
-        scale: gesture.scale.get(),
-        rotation: gesture.rotation.get(),
-      },
-      origin.current,
-    );
+    let shown = camera.current;
+    for (const steering of [plain, left]) {
+      shown = follow(shown, valuesOf(steering), steering.origin.current);
+    }
     const matrix = matrixOf(shown);
     for (const layer of layers.current) {
       layer?.setAttribute(
@@ -59,7 +121,7 @@ export function InfiniteGrid() {
     if (text.current !== null && home.current !== undefined) {
       text.current.textContent = readout(shown, home.current);
     }
-  }, [gesture]);
+  }, [plain, left]);
 
   // Start with the world's 0,0 in the middle of the grid.
   useLayoutEffect(() => {
@@ -75,26 +137,49 @@ export function InfiniteGrid() {
     draw();
   }, [draw]);
 
-  useLayoutEffect(() => {
-    const box = svg.current?.getBoundingClientRect();
-    if (gesture.origin === undefined || box === undefined) return;
-    origin.current = {
-      x: gesture.origin.x - box.left,
-      y: gesture.origin.y - box.top,
-    };
-  }, [gesture.origin]);
+  useRedraw(plain.gesture, draw);
+  useRedraw(left.gesture, draw);
 
-  useMotionValueEvent(gesture.x, 'change', draw);
-  useMotionValueEvent(gesture.y, 'change', draw);
-  useMotionValueEvent(gesture.scale, 'change', draw);
-  useMotionValueEvent(gesture.rotation, 'change', draw);
+  // A new Gesture takes over from a reset still springing home.
+  const steering = plain.gesture.active || left.gesture.active;
+  useEffect(() => {
+    if (steering) settling.current?.stop();
+  }, [steering]);
+
+  useEffect(() => {
+    const from = camera.current;
+    const to = home.current;
+    if (props.reset === 0 || from === undefined || to === undefined) return;
+    const controls = animate(0, 1, {
+      type: 'spring',
+      stiffness: 220,
+      damping: 28,
+      onUpdate: (progress) => {
+        camera.current = settle(from, to, progress);
+        draw();
+      },
+      onComplete: () => {
+        camera.current = to;
+        draw();
+      },
+    });
+    settling.current = controls;
+    return () => controls.stop();
+  }, [props.reset, draw]);
 
   const layer = (index: number) => (node: SVGElement | null) => {
     layers.current[index] = node;
   };
 
   return (
-    <section className="relative min-h-0 flex-1 overflow-hidden border-b border-border bg-muted/30">
+    <section
+      data-testid="zone-grid-section"
+      data-resting={hold === 'right' ? '' : undefined}
+      className={cn(
+        'relative min-h-0 flex-1 overflow-hidden border-b border-border bg-muted/30 transition-[opacity,filter] duration-200',
+        hold === 'right' && 'opacity-35 grayscale',
+      )}
+    >
       <svg
         ref={svg}
         data-testid="zone-grid"
@@ -149,7 +234,7 @@ export function InfiniteGrid() {
         </g>
       </svg>
       <p className="pointer-events-none absolute inset-x-3 top-2 flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
-        <span className="shrink-0">useGesture</span>
+        <span className="shrink-0">useGesture · no Hold, left</span>
         <span
           ref={text}
           data-testid="grid-readout"

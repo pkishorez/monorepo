@@ -1,5 +1,4 @@
-/** The attribute a control keeps its own touch handling with, such as a slider. */
-export const NO_GESTURE_ATTRIBUTE = 'data-nogesture';
+import { isTextEntry, nativeScrollKeeps, zoneGestureOf } from './native-scroll';
 
 /** How the Gesture Zone's element is marked. */
 export const ZONE_SELECTOR = '[data-slot="gesture-zone"]';
@@ -14,9 +13,11 @@ export type PointerSample = {
 
 /**
  * What the zone does with its pointers. `up` returns whether the release
- * ended a real Gesture, so it must not also click what is under it.
+ * must not also click what is under it.
  */
 export type PointerSink = {
+  /** Whether a Hold is on: the zone then captures every touch. */
+  readonly holding: () => boolean;
   readonly down: (sample: PointerSample) => void;
   readonly move: (sample: PointerSample) => void;
   readonly up: (sample: PointerSample) => boolean;
@@ -24,15 +25,12 @@ export type PointerSink = {
   readonly cancelAll: () => void;
 };
 
-// Text entry keeps its own touch handling: selecting and caret dragging.
-const TEXT_ENTRY = 'input, textarea, select, [contenteditable="true"]';
-const OWN_HANDLING = `${TEXT_ENTRY}, [${NO_GESTURE_ATTRIBUTE}]`;
-
 const STYLE_ID = 'kui-gesture-zone';
 
-// The browser decides what a touch may pan or zoom as the finger lands, so
-// the zone keeps every touch in it from the browser.
-const RULES = `${ZONE_SELECTOR} { touch-action: none; }`;
+// The browser decides what a touch may do as the finger lands. The zone lets
+// it pan, so a Native Scroll can keep a touch, and takes the rest at the
+// first movement. Nothing in the zone zooms the page.
+const RULES = `${ZONE_SELECTOR} { touch-action: pan-x pan-y; }`;
 
 const installStyle = (doc: Document) => {
   if (doc.getElementById(STYLE_ID) !== null) return;
@@ -42,12 +40,6 @@ const installStyle = (doc: Document) => {
   doc.head.appendChild(style);
 };
 
-const handlesItself = (target: EventTarget | null) =>
-  !(target instanceof Element) || target.closest(OWN_HANDLING) !== null;
-
-const isTextEntry = (target: EventTarget | null) =>
-  target instanceof Element && target.closest(TEXT_ENTRY) !== null;
-
 const sampleOf = (event: PointerEvent): PointerSample => ({
   id: event.pointerId,
   x: event.clientX,
@@ -55,7 +47,7 @@ const sampleOf = (event: PointerEvent): PointerSample => ({
   t: event.timeStamp,
 });
 
-/** A release that ended a Gesture over a link or button must not also click it. */
+/** A release over a link or button that must not also click it. */
 const swallowNextClick = (win: Window) => {
   const swallow = (event: Event) => {
     event.preventDefault();
@@ -69,11 +61,14 @@ const swallowNextClick = (win: Window) => {
 };
 
 /**
- * Makes `element` a Gesture Zone: every touch in it is kept from the browser
- * and fed to `sink`, except in text entry or under `data-nogesture`. Moves
- * and releases are read from the window, so a mouse that leaves the element
- * mid-Gesture is still followed. The browser taking a touch, such as for
- * the system back gesture, or leaving the page mid-touch cancels every
+ * Makes `element` a Gesture Zone and feeds its pointers to `sink`. Touches
+ * where the zone is disabled, and in text entry, are left alone. At a
+ * touch's first movement the zone captures it, unless it is one finger with
+ * no Hold that a Native Scroll keeps: then the browser scrolls, every
+ * pointer is cancelled, and the zone takes nothing until every finger lifts.
+ * Moves and releases are read from the window, so a mouse that leaves the
+ * element mid-Gesture is still followed. The browser taking a touch, such as
+ * for the system back gesture, or leaving the page mid-touch cancels every
  * pointer. Returns the unbind.
  */
 export const bindTouchInput = (
@@ -84,10 +79,16 @@ export const bindTouchInput = (
   const win = doc.defaultView ?? window;
   installStyle(doc);
   const tracked = new Set<number>();
+  // Where each finger on the zone landed, until the touch is decided.
+  const landed = new Map<number, { x: number; y: number }>();
+  // Who the fingers on the screen belong to, decided at their first movement.
+  let owner: 'undecided' | 'zone' | 'browser' = 'undecided';
 
   const onDown = (event: PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (handlesItself(event.target)) return;
+    if (owner === 'browser' || zoneGestureOf(event.target) === 'disabled') {
+      return;
+    }
     tracked.add(event.pointerId);
     sink.down(sampleOf(event));
   };
@@ -115,16 +116,57 @@ export const bindTouchInput = (
       event.preventDefault();
     }
   };
-  // Backs up touch-action where a browser still scrolls or zooms: iOS Safari
-  // pinch-zooms the page from its own gesture events.
-  const onTouchMove = (event: TouchEvent) => {
-    if (event.cancelable && tracked.size > 0) event.preventDefault();
+
+  const onTouchStart = (event: TouchEvent) => {
+    for (const touch of event.changedTouches) {
+      landed.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
+    }
   };
+  // The fingers on screen that landed in the zone.
+  const onZone = (event: TouchEvent) =>
+    [...event.touches].filter(
+      (touch) => touch.target instanceof Node && element.contains(touch.target),
+    );
+  const decide = (event: TouchEvent) => {
+    const touches = onZone(event);
+    const [touch] = touches;
+    const start =
+      touch === undefined ? undefined : landed.get(touch.identifier);
+    if (touches.length !== 1 || start === undefined || sink.holding()) {
+      return 'zone';
+    }
+    const zoneGesture = zoneGestureOf(touch.target);
+    if (zoneGesture === 'disabled') return 'browser';
+    if (zoneGesture === 'enabled') return 'zone';
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    return nativeScrollKeeps(touch.target, element, dx, dy)
+      ? 'browser'
+      : 'zone';
+  };
+  const onTouchMove = (event: TouchEvent) => {
+    if (owner === 'undecided') {
+      owner = decide(event);
+      if (owner === 'browser' && tracked.size > 0) onAway();
+    }
+    if (owner === 'zone' && event.cancelable) event.preventDefault();
+  };
+  const onTouchEnd = (event: TouchEvent) => {
+    for (const touch of event.changedTouches) landed.delete(touch.identifier);
+    if (onZone(event).length === 0) {
+      landed.clear();
+      owner = 'undecided';
+    }
+  };
+  // iOS Safari pinch-zooms the page from its own gesture events.
   const onSafariGesture = (event: Event) => event.preventDefault();
 
   element.addEventListener('pointerdown', onDown);
   element.addEventListener('contextmenu', onContextMenu);
+  element.addEventListener('touchstart', onTouchStart, { passive: true });
   element.addEventListener('touchmove', onTouchMove, { passive: false });
+  element.addEventListener('touchend', onTouchEnd);
+  element.addEventListener('touchcancel', onTouchEnd);
   element.addEventListener('gesturestart', onSafariGesture);
   win.addEventListener('pointermove', onMove);
   win.addEventListener('pointerup', onUp);
@@ -134,7 +176,10 @@ export const bindTouchInput = (
   return () => {
     element.removeEventListener('pointerdown', onDown);
     element.removeEventListener('contextmenu', onContextMenu);
+    element.removeEventListener('touchstart', onTouchStart);
     element.removeEventListener('touchmove', onTouchMove);
+    element.removeEventListener('touchend', onTouchEnd);
+    element.removeEventListener('touchcancel', onTouchEnd);
     element.removeEventListener('gesturestart', onSafariGesture);
     win.removeEventListener('pointermove', onMove);
     win.removeEventListener('pointerup', onUp);
