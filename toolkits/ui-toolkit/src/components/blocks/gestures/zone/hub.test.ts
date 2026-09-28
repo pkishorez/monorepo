@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Hold } from '../hold-reading';
+import type { Hold } from '../zone-machine';
 import type { Axis } from '../swipe-reading';
 import {
   createHub,
@@ -36,13 +36,7 @@ const tapListener = (hold: Hold = 'none') =>
     tap: vi.fn(),
   }) satisfies TapListener;
 
-// Hold Zones on the left and right of a 400px-wide zone, below y = 900.
-const holdAt = ({ x, y }: { x: number; y: number }) => {
-  if (y < 900) return undefined;
-  if (x < 50) return 'left' as const;
-  if (x > 350) return 'right' as const;
-  return undefined;
-};
+const holding = () => createHub({ holds: () => true });
 
 describe('hub', () => {
   it('hands one Gesture to every enabled listener, first finger to last', () => {
@@ -148,84 +142,121 @@ describe('hub', () => {
     expect(tap.tap).toHaveBeenCalledTimes(1);
   });
 
-  it('hands Gestures under a Hold only to listeners of that Hold, and never clicks', () => {
-    const hub = createHub({ holdAt });
+  it('makes a still finger the left Hold when a finger to its right acts', () => {
+    const hub = holding();
     const plain = gestureListener();
     const left = gestureListener(true, 'left');
-    const leftTap = tapListener('left');
-    const plainTap = tapListener();
+    const leftSwipe = swipeListener(undefined, true, 'left');
     hub.addGesture(plain);
     hub.addGesture(left);
-    hub.addTap(leftTap);
-    hub.addTap(plainTap);
-    hub.sink.down(at(1, 10, 950));
-    expect(hub.hold()).toBe('none');
-    hub.sink.down(at(2, 200, 400, 200));
+    hub.addSwipe(leftSwipe);
+    hub.sink.down(at(1, 50, 400));
+    hub.sink.down(at(2, 250, 400));
+    hub.sink.move(at(2, 262, 400));
     expect(hub.hold()).toBe('left');
-    expect(hub.sink.up(at(2, 200, 400, 250))).toBe(true);
-    expect(leftTap.tap).toHaveBeenCalledTimes(1);
-    expect(plainTap.tap).not.toHaveBeenCalled();
-    expect(left.begin).toHaveBeenCalledTimes(1);
-    // The corner finger's own Gesture only waited, and ended as interrupted.
+    // The Gesture with no Hold only waited, and ended as interrupted.
     expect(plain.finish).toHaveBeenCalledWith(
-      expect.objectContaining({ interrupted: true, x: 0, y: 0 }),
+      expect.objectContaining({ interrupted: true }),
     );
+    // Under the Hold, the Swipe keeps the way it came before the Hold locked.
+    expect(left.begin).toHaveBeenCalledWith({ x: 250, y: 400 });
+    expect(leftSwipe.update).toHaveBeenLastCalledWith('x', 12);
+    expect(hub.sink.up(at(2, 262, 400))).toBe(true);
+    expect(left.finish).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the Hold for the Gesture after the Hold finger lifts, until every finger has', () => {
-    const hub = createHub({ holdAt });
+  it('makes a still finger the right Hold when a finger to its left acts', () => {
+    const hub = holding();
+    hub.sink.down(at(1, 300, 400));
+    hub.sink.down(at(2, 100, 400));
+    hub.sink.move(at(2, 100, 380));
+    expect(hub.hold()).toBe('right');
+  });
+
+  it('keeps two moving fingers a pinch, even when one drifts only a little', () => {
+    const hub = holding();
+    const plain = gestureListener();
+    hub.addGesture(plain);
+    hub.sink.down(at(1, 100, 400));
+    hub.sink.down(at(2, 200, 400));
+    hub.sink.move(at(1, 95, 400));
+    hub.sink.move(at(2, 300, 400));
+    expect(hub.hold()).toBe('none');
+    expect(plain.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ scale: 2.05 }),
+    );
+    expect(plain.finish).not.toHaveBeenCalled();
+  });
+
+  it('taps under the Hold beside a still finger, again and again, and never clicks', () => {
+    const hub = holding();
+    const leftTap = tapListener('left');
+    const plainTap = tapListener();
+    hub.addTap(leftTap);
+    hub.addTap(plainTap);
+    hub.sink.down(at(1, 50, 400));
+    hub.sink.down(at(2, 250, 400));
+    expect(hub.sink.up(at(2, 250, 400))).toBe(true);
+    expect(hub.hold()).toBe('left');
+    hub.sink.down(at(3, 260, 300));
+    expect(hub.sink.up(at(3, 260, 300))).toBe(true);
+    expect(leftTap.tap).toHaveBeenCalledTimes(2);
+    expect(leftTap.tap).toHaveBeenLastCalledWith({ point: { x: 260, y: 300 } });
+    expect(plainTap.tap).not.toHaveBeenCalled();
+    hub.sink.up(at(1, 50, 400));
+    expect(hub.hold()).toBe('none');
+  });
+
+  it('keeps the Hold after the Hold finger lifts, until every finger has', () => {
+    const hub = holding();
     const watcher = vi.fn();
     hub.watchHold(watcher);
     const left = gestureListener(true, 'left');
     hub.addGesture(left);
-    hub.sink.down(at(1, 10, 950));
-    hub.sink.down(at(2, 200, 400, 200));
-    hub.sink.up(at(1, 10, 950));
+    hub.sink.down(at(1, 50, 400));
+    hub.sink.down(at(2, 200, 400));
     hub.sink.move(at(2, 240, 400));
-    // Back on the other corner, it does nothing: no pinch, no new Hold.
-    hub.sink.down(at(3, 390, 950));
+    hub.sink.up(at(1, 50, 400));
     hub.sink.move(at(2, 260, 400));
+    expect(hub.hold()).toBe('left');
     expect(left.update).toHaveBeenLastCalledWith({
       x: 60,
       y: 0,
       scale: 1,
       rotation: 0,
     });
-    expect(hub.hold()).toBe('left');
     hub.sink.up(at(2, 260, 400));
     expect(left.finish).toHaveBeenCalledTimes(1);
-    hub.sink.up(at(3, 390, 950));
     expect(hub.hold()).toBe('none');
     expect(watcher).toHaveBeenCalledTimes(2);
   });
 
-  it('treats a corner as ordinary once a Gesture with no Hold is under way', () => {
-    const hub = createHub({ holdAt });
-    const plain = gestureListener();
-    hub.addGesture(plain);
-    hub.sink.down(at(1, 200, 400));
-    hub.sink.down(at(2, 10, 950));
+  it('makes no Hold once a Swipe is under way, or with Holds off', () => {
+    const hub = holding();
+    hub.sink.down(at(1, 250, 400));
+    hub.sink.move(at(1, 280, 400));
+    hub.sink.down(at(2, 50, 400));
+    hub.sink.move(at(1, 320, 400));
     expect(hub.hold()).toBe('none');
-    hub.sink.up(at(2, 10, 950));
-    hub.sink.up(at(1, 200, 400));
-    expect(plain.begin).toHaveBeenCalledTimes(1);
+    hub.sink.up(at(1, 320, 400));
+    hub.sink.up(at(2, 50, 400));
+    const plain = createHub();
+    plain.sink.down(at(1, 50, 400));
+    plain.sink.down(at(2, 250, 400));
+    plain.sink.move(at(2, 290, 400));
+    expect(plain.hold()).toBe('none');
   });
 
-  it('keeps a pinch that starts in a corner a pinch, and a quick corner touch a Tap', () => {
-    const hub = createHub({ holdAt });
-    const plain = gestureListener();
-    const tap = tapListener();
-    hub.addGesture(plain);
-    hub.addTap(tap);
-    hub.sink.down(at(1, 10, 950));
-    hub.sink.up(at(1, 10, 950, 80));
-    expect(tap.tap).toHaveBeenCalledTimes(1);
-    hub.sink.down(at(1, 10, 950, 1000));
-    hub.sink.down(at(2, 110, 950, 1040));
-    hub.sink.move(at(2, 210, 950, 1060));
+  it('clicks after a long still press, and ends a Hold when the touch is taken away', () => {
+    const hub = holding();
+    hub.sink.down(at(1, 50, 400, 0));
+    expect(hub.sink.up(at(1, 50, 400, 1000))).toBe(false);
+    hub.sink.down(at(1, 50, 400));
+    hub.sink.down(at(2, 250, 400));
+    hub.sink.move(at(2, 290, 400));
+    expect(hub.sink.holding()).toBe(true);
+    hub.sink.cancelAll();
     expect(hub.hold()).toBe('none');
-    expect(plain.update).toHaveBeenLastCalledWith(
-      expect.objectContaining({ scale: 2 }),
-    );
+    expect(hub.state()).toBe('idle');
   });
 });

@@ -1,6 +1,6 @@
 ---
 name: kui-gestures
-description: Add app-level touch gestures with kui's gestures block — one Gesture Zone per screen, read anywhere inside with useGesture (movement, scale, rotation), useSwipe (one finger, one axis) and useTap, each optionally under a left or right Hold from the bottom corners. Use when a screen should respond to gestures that are not tied to one element, such as opening a sidebar, pulling to refresh, or steering a map or canvas from anywhere; or when choosing between these hooks and Motion's own element gestures.
+description: Add app-level touch gestures with kui's gestures block — one Gesture Zone per screen, read anywhere inside with useGesture (movement, scale, rotation), useSwipe (one finger, one axis) and useTap, each optionally under a left or right Hold made by a resting finger. Use when a screen should respond to gestures that are not tied to one element, such as opening a sidebar, pulling to refresh, or steering a map or canvas from anywhere; or when choosing between these hooks and Motion's own element gestures.
 ---
 
 # kui-gestures
@@ -10,7 +10,7 @@ screen, and hooks that read its Gestures anywhere inside it. The live demo is th
 `apps/pwa-playground/src/routes/-gestures/`.
 
 ```tsx
-<GestureZone className="fixed inset-0" holdRadius={88}>
+<GestureZone className="fixed inset-0" holds>
   <Canvas />
   <Sidebar />
 </GestureZone>;
@@ -50,15 +50,17 @@ function Toolbar() {
   real movement (8px). A second finger ends it as `interrupted`, and no new
   Swipe starts until every finger has lifted.
 - **Tap** — one finger touching and lifting without moving 8px. It is also a
-  Gesture that did not move. Two fingers are never a Tap.
-- **Hold** — with `holdRadius`, a quarter circle on each bottom corner is a
-  Hold Zone. The first finger landing there becomes that Hold when another
-  finger lands at least 150ms later while it is still, and that side's edge
-  of the zone glows. Until then it is an ordinary finger: a quick touch is a
-  Tap that clicks, a movement is a Gesture, and two fingers landing together
-  are a pinch. Every Gesture the other fingers make falls under the Hold until
-  no finger is left, even after the Hold finger lifts. While it is on, a
-  finger landing in either corner does nothing, and nothing is clicked.
+  Gesture that did not move. Two fingers are never a Tap, except that a tap
+  beside a resting finger is a Tap under that Hold.
+- **Hold** — with `holds`, a finger resting anywhere becomes a Hold when a
+  second finger acts beside it: moves 8px, or taps, while the resting one has
+  moved under 4px. It is the left Hold when it rests left of the acting
+  finger, the right Hold when right of it, and that side's edge of the zone
+  glows. Two fingers that both move are a pinch, and once a Gesture has moved
+  or pinched, no Hold starts until every finger lifts. Every Gesture the other
+  fingers make falls under the Hold until no finger is left, even after the
+  Hold finger lifts. Under a Hold nothing is clicked and nothing scrolls.
+  Without `holds`, two fingers are always a pinch.
 - **Interrupted** — when the browser takes the touch (a Native Scroll,
   Android's back gesture, an incoming call) or the page loses focus, the
   Gesture and any Swipe end at once with `interrupted: true`. Treat it as a
@@ -136,6 +138,10 @@ finger is still clicked as usual.
 soft light glows along that side's edge of the zone, a
 `data-slot="gesture-hold"` element with `data-side` and `data-active`. Tint
 it with `--gesture-hold`; it is the foreground colour by default.
+
+The zone also sets `data-state` to its machine's state (`idle`, `pressing`,
+`moving`, `deciding`, `held.acting`, `held.waiting` or `multi`), which helps
+when a Gesture does not do what you expect.
 
 ## Not in the block yet
 
