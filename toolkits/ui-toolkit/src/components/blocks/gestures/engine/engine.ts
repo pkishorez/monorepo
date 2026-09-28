@@ -78,38 +78,70 @@ export const createGestureEngine = (options: {
   readonly policy: Policy;
   readonly onGesture: (event: GestureEvent) => void;
   readonly clock?: Clock;
+  readonly onError?: (error: unknown) => void;
 }) => {
   const pointers = createPointerTracker();
   const listeners = new Set<() => void>();
 
-  const actor = createActor(gestureMachine, {
-    input: {
-      pointers,
-      policy: options.policy,
-      scroll: options.scroll ?? 'y',
-    },
-    ...(options.clock === undefined ? {} : { clock: options.clock }),
-  });
   const notify = () => {
     for (const listener of listeners) listener();
   };
-  actor.on('gesture', ({ event }) => options.onGesture(event));
-  // Timers move the machine with no input, so every snapshot notifies.
-  actor.subscribe(notify);
+  let stopped = false;
+  const makeActor = () => {
+    const next = createActor(gestureMachine, {
+      input: {
+        pointers,
+        policy: options.policy,
+        scroll: options.scroll ?? 'y',
+      },
+      ...(options.clock === undefined ? {} : { clock: options.clock }),
+    });
+    next.on('gesture', ({ event }) => options.onGesture(event));
+    next.subscribe({
+      next: notify,
+      error: (error) => {
+        if (options.onError !== undefined) options.onError(error);
+        else console.error('Gesture engine failed', error);
+        notify();
+      },
+    });
+    return next;
+  };
+  let actor = makeActor();
   actor.start();
+
+  const recover = () => {
+    if (
+      stopped ||
+      pointers.size() !== 0 ||
+      actor.getSnapshot().status !== 'error'
+    )
+      return;
+    actor.stop();
+    actor = makeActor();
+    actor.start();
+  };
 
   const send = (
     type: PointerInput['type'],
     track: Track,
     start?: TouchStart,
   ) => {
-    actor.send({ type, track, ...(start === undefined ? {} : { start }) });
+    if (actor.getSnapshot().status === 'active') {
+      actor.send({ type, track, ...(start === undefined ? {} : { start }) });
+    }
     if (type !== 'down' && type !== 'move' && pointers.size() === 0) {
-      options.onGesture({ kind: 'touch', phase: 'end' });
+      try {
+        options.onGesture({ kind: 'touch', phase: 'end' });
+      } finally {
+        recover();
+      }
     }
   };
 
   const feed = (input: PointerInput) => {
+    if (stopped) return;
+    recover();
     if (input.type === 'down') {
       if (pointers.has(input.id)) return;
       if (pointers.size() === 0) {
@@ -130,7 +162,11 @@ export const createGestureEngine = (options: {
     /** Cancels whatever is under way, as if the platform had taken every pointer. */
     cancelAll: () => {
       const down = pointers.list();
-      if (down.length === 0) return;
+      if (stopped) return;
+      if (down.length === 0) {
+        recover();
+        return;
+      }
       // One at a time, so the first cancel still sees the others.
       for (const { id, current } of down) {
         const track = pointers.up({ id, ...current });
@@ -149,11 +185,13 @@ export const createGestureEngine = (options: {
     },
     inspect: (): Inspection => {
       const snapshot = actor.getSnapshot();
-      const { hold } = snapshot.context;
+      const hold =
+        snapshot.status === 'error' ? undefined : snapshot.context.hold;
       return {
         fingers: pointers.list().map((track) => ({
           ...track,
-          role: roleOf(snapshot, track.id),
+          role:
+            snapshot.status === 'error' ? 'free' : roleOf(snapshot, track.id),
         })),
         hold:
           hold === undefined
@@ -167,7 +205,11 @@ export const createGestureEngine = (options: {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
-    stop: () => actor.stop(),
+    stop: () => {
+      stopped = true;
+      actor.stop();
+      listeners.clear();
+    },
   };
 };
 

@@ -7,10 +7,8 @@ import {
 import {
   type MotionValue,
   useMotionValue,
-  useMotionValueEvent,
   useTransform,
 } from '@kstackz/ui-toolkit/motion';
-import { useRef } from 'react';
 
 /** A column of the matrix: the Hold every cell in it registers. */
 export type Hold = 'none' | 'left' | 'right';
@@ -50,6 +48,7 @@ export function usePanCell(
     x,
     y,
     momentum: false,
+    onCancel: cell.onCancel,
     onStart: () => {
       x.jump(0);
       y.jump(0);
@@ -70,6 +69,7 @@ export function useSwipeCell(
     fingers: cell.fingers,
     hold: cell.hold,
     distance: 120,
+    onStart: cell.onStart,
     onCancel: cell.onCancel,
   };
   const progress = [
@@ -90,20 +90,6 @@ export function useSwipeCell(
       onSwipe: () => cell.onHit('right'),
     }),
   ].map((swipe) => swipe.progress);
-  const most = useTransform(() =>
-    Math.max(...progress.map((value) => value.get())),
-  );
-  // Started as progress leaves 0; over once every Swipe is home again, so
-  // the spring back after a commit does not start it twice.
-  const moving = useRef(false);
-  useMotionValueEvent(most, 'change', (value) => {
-    if (value > 0 && !moving.current) {
-      moving.current = true;
-      cell.onStart();
-    } else if (value <= 0) {
-      moving.current = false;
-    }
-  });
   return useTransform(() => {
     const values = progress.map((value) => value.get());
     const most = Math.max(...values);
@@ -120,6 +106,7 @@ export function usePinchCell(cell: Cell): MotionValue<string> {
     scale,
     min: 0.25,
     max: 4,
+    onCancel: cell.onCancel,
     onStart: () => {
       scale.jump(1);
       cell.onStart();

@@ -280,6 +280,8 @@ export const decideActing = (
   if (hold === undefined || moved.id === hold.id || !pastSlop(moved)) {
     return undefined;
   }
+  const acting = actingTracks(situation);
+  if (acting.length > 1 && !settled(acting, moved)) return undefined;
   const claim = claimActing(situation);
   return claim === undefined ? { next: 'ignoring' } : { next: 'moving', claim };
 };

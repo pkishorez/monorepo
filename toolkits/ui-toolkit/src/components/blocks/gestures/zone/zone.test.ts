@@ -190,6 +190,29 @@ describe('bindPointers', () => {
     return cell;
   };
 
+  it('swallows a control click under a Hold and reports a held tap', async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const { element, engine, names, unbind } = setup();
+    const button = document.createElement('button');
+    let clicks = 0;
+    button.addEventListener('click', () => {
+      clicks += 1;
+    });
+    element.append(button);
+    element.dispatchEvent(pointer('pointerdown', 100, 0));
+    element.dispatchEvent(pointer('pointerdown', 200, 400, { pointerId: 2 }));
+    window.dispatchEvent(pointer('pointerup', 200, 440, { pointerId: 2 }));
+    expect(engine.inspect().hold?.side).toBe('left');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    button.dispatchEvent(pointer('pointerdown', 200, 500, { pointerId: 3 }));
+    window.dispatchEvent(pointer('pointerup', 200, 540, { pointerId: 3 }));
+    button.click();
+    expect(clicks).toBe(0);
+    expect(names()).toEqual(['hold:lock', 'tap', 'tap']);
+    unbind();
+    engine.stop();
+  });
+
   it('leaves a touch that starts in a native sideways scroller to it', () => {
     const { element, engine, names } = setup();
     const cell = sidewaysRow(element, 900);
