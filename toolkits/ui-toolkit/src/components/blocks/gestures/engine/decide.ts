@@ -8,7 +8,7 @@ import {
   sideOf,
 } from './group';
 import type { PointerTracker } from './pointers';
-import { HOLD_LEAD_MS, SLOP_PX, TAP_MAX_MS } from './thresholds';
+import { FRAME_MS, HOLD_STILL_SHARE, SLOP_PX, TAP_MAX_MS } from './thresholds';
 import type {
   Direction,
   Fingers,
@@ -88,6 +88,11 @@ export type Decision =
 
 const pastSlop = (track: Track) => track.travel > SLOP_PX;
 
+const quick = (press: Press, track: Track) =>
+  !press.spoiled &&
+  !pastSlop(track) &&
+  track.current.t - track.down.t <= TAP_MAX_MS;
+
 /** A Pinch, Pan or Swipe of the acting fingers, if anyone registered it. */
 const claimGroup = (
   situation: Situation,
@@ -144,47 +149,124 @@ const decideSingle = (situation: Situation, track: Track): Decision => {
 };
 
 /**
- * What the touch becomes when `moved` first passes the slop, with no Hold:
- * one finger pans or swipes; two that landed together Pinch or pan. Anything
- * else is ignored until every finger lifts.
+ * Whether several fingers down are ready to be read: one passed the slop in
+ * an earlier frame than `moved`'s. A browser may deliver one finger's move of
+ * a frame before another's, so the frame it passed the slop in is read whole.
+ */
+const settled = (tracks: ReadonlyArray<Track>, moved: Track): boolean =>
+  tracks.some(
+    (track) =>
+      track.slopAt !== undefined && moved.current.t - track.slopAt > FRAME_MS,
+  );
+
+/**
+ * What the touch becomes when it first moves past the slop, with no Hold:
+ * one finger pans or swipes; two that did not make a Hold Pinch or pan.
+ * Anything else is ignored until every finger lifts.
  */
 export const decideMovement = (
   situation: Situation,
   moved: Track,
 ): Decision | undefined => {
-  if (!pastSlop(moved)) return undefined;
   const tracks = situation.pointers.list();
   const [only, ...others] = tracks;
   if (only === undefined) return undefined;
-  if (others.length === 0) return decideSingle(situation, only);
+  if (others.length === 0) {
+    return pastSlop(only) ? decideSingle(situation, only) : undefined;
+  }
+  if (!settled(tracks, moved)) return undefined;
   if (others.length > 1) return { next: 'ignoring' };
   const claim = claimGroup(situation, tracks, undefined);
   return claim === undefined ? { next: 'ignoring' } : { next: 'moving', claim };
 };
 
+const lockOf = (held: Track, acting: ReadonlyArray<Point>): Locked => ({
+  id: held.id,
+  side: sideOf(held.current, centroid(acting)),
+  point: pointOf(held.current),
+});
+
 /**
- * The Hold a finger landing locks: the one finger already down, still, if it
- * landed at least the Hold lead before. Its side is fixed as it locks.
+ * The Hold the fingers' first movement past the slop locks, with no Hold
+ * yet: the first finger down, still beside the one or two that landed after
+ * it, having moved no more than a share of their travel.
  */
-export const lockOnLanding = (
+export const lockOnMovement = (
   situation: Situation,
-  landed: Track,
+  moved: Track,
 ): Locked | undefined => {
-  const [held, ...rest] = situation.pointers
-    .list()
-    .filter((track) => track.id !== landed.id);
-  if (held === undefined || rest.length > 0 || pastSlop(held)) return undefined;
-  if (landed.down.t - held.down.t < HOLD_LEAD_MS) return undefined;
-  return {
-    id: held.id,
-    side: sideOf(held.current, landed.current),
-    point: pointOf(held.current),
-  };
+  if (situation.hold !== undefined) return undefined;
+  const tracks = situation.pointers.list();
+  const [held, ...acting] = tracks;
+  if (held === undefined || acting.length === 0 || acting.length > 2) {
+    return undefined;
+  }
+  if (!settled(tracks, moved) || pastSlop(held)) return undefined;
+  const travel = Math.max(...acting.map((track) => track.travel));
+  if (held.travel > travel * HOLD_STILL_SHARE) return undefined;
+  return lockOf(
+    held,
+    acting.map((track) => track.current),
+  );
+};
+
+/**
+ * The Hold a tap locks as it lifts, with no Hold yet: the first finger down,
+ * still, beside a quick finger that landed after it, once the tap time since
+ * the first landed has run out, so the two can no longer tap together.
+ */
+export const lockOnLift = (
+  situation: Situation,
+  press: Press,
+  lifted: Track,
+): Locked | undefined => {
+  if (situation.hold !== undefined || !quick(press, lifted)) return undefined;
+  const [held, ...rest] = situation.pointers.list();
+  if (held === undefined || pastSlop(held) || held.down.t > lifted.down.t) {
+    return undefined;
+  }
+  if (lifted.current.t - held.down.t <= TAP_MAX_MS) return undefined;
+  return lockOf(held, [lifted.current, ...rest.map((track) => track.current)]);
+};
+
+/**
+ * The Hold a tap locks as the tap time since the first finger landed runs
+ * out, with no Hold yet: the first finger down, still, beside quick fingers
+ * that landed after it and already lifted.
+ */
+export const lockOnExpiry = (
+  situation: Situation,
+  press: Press,
+): Locked | undefined => {
+  if (
+    situation.hold !== undefined ||
+    press.spoiled ||
+    press.tappers.length === 0
+  ) {
+    return undefined;
+  }
+  const [held, ...rest] = situation.pointers.list();
+  if (held === undefined || pastSlop(held)) return undefined;
+  if (press.tappers.some((tapper) => tapper.down < held.down.t)) {
+    return undefined;
+  }
+  return lockOf(held, [
+    ...press.tappers.map((tapper) => tapper.point),
+    ...rest.map((track) => track.current),
+  ]);
 };
 
 /** The acting fingers under a Hold: every pointer but the held one. */
 export const actingTracks = (situation: Situation): ReadonlyArray<Track> =>
   situation.pointers.list().filter((track) => track.id !== situation.hold?.id);
+
+/** A Pinch, Pan or Swipe of the acting fingers under a Hold, if anyone registered it. */
+export const claimActing = (situation: Situation): Claim | undefined => {
+  const acting = actingTracks(situation);
+  return acting.length > 2 || situation.hold === undefined
+    ? undefined
+    : claimGroup(situation, acting, situation.hold.side);
+};
 
 /** What the acting fingers' first movement past the slop becomes, under a Hold. */
 export const decideActing = (
@@ -198,9 +280,7 @@ export const decideActing = (
   if (hold === undefined || moved.id === hold.id || !pastSlop(moved)) {
     return undefined;
   }
-  const acting = actingTracks(situation);
-  const claim =
-    acting.length > 2 ? undefined : claimGroup(situation, acting, hold.side);
+  const claim = claimActing(situation);
   return claim === undefined ? { next: 'ignoring' } : { next: 'moving', claim };
 };
 
@@ -221,11 +301,6 @@ export const leans = (situation: Situation, moved: Track): boolean => {
     claimGroup(situation, [moved], undefined)?.kind === 'swipe'
   );
 };
-
-const quick = (press: Press, track: Track) =>
-  !press.spoiled &&
-  !pastSlop(track) &&
-  track.current.t - track.down.t <= TAP_MAX_MS;
 
 /** A tap of one or two fingers, if they all lifted within the tap time of the first landing. */
 export const tapOf = (

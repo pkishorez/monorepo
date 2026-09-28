@@ -3,7 +3,7 @@ export {
   createGestureEngine,
   gestureMachine,
   opposite,
-  HOLD_LEAD_MS,
+  HOLD_STILL_SHARE,
   SLOP_PX,
   TAP_MAX_MS,
 } from './engine';

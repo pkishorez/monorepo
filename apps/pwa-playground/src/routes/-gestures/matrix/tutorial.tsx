@@ -27,7 +27,7 @@ export const matrixTutorial: Tutorial = {
     {
       gesture: 'Keep one finger still, then do any of these with the others',
       result:
-        'The finger already down becomes the Hold the moment another lands, if it had a 50ms lead. Its column is left or right of the other fingers, fixed as it locks however far it wanders, and its chip remains visible without dimming the matrix.',
+        'The first finger down becomes the Hold if it stays still while another moves or taps, however soon after it the other landed. Its column is left or right of the other fingers, fixed as it locks however far it wanders, and its chip remains visible without dimming the matrix.',
     },
     {
       gesture: 'Flip the Pan / Swipe switch',
@@ -38,7 +38,7 @@ export const matrixTutorial: Tutorial = {
   howItWorks: [
     'The matrix is its own GestureZone with scroll="none", inside the lab\'s root zone, so every touch here is the matrix\'s.',
     "Each cell calls one hook: useTap, usePan, useSwipe or usePinch, with its row's fingers and its column's hold.",
-    'A finger landing 50ms or more after another locks that one as the Hold at once; fingers landing closer together remain a multi-finger gesture, and the first movement past 10px classifies it.',
+    'Nothing is decided as fingers land. The first movement past 10px classifies the touch: if the first finger down stayed still, it locks as the Hold; if it moved too, the fingers make a multi-finger gesture.',
     'A gesture stays what it was classified as until the last of its fingers lifts. Taps fire the moment you lift.',
     'A Pan and a Swipe may share fingers and Hold: the Swipe claims its directions and the Pan gets the rest. With Swipes in all four directions a Pan would get nothing, so the switch mounts one set or the other.',
   ],
