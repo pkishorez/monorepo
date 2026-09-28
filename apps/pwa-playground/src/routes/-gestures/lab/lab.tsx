@@ -6,7 +6,7 @@ export { parseDemo } from './demos.ts';
 export type { DemoId } from './demos.ts';
 
 // The Hold Zones on the bottom corners; the tab bar leaves them free.
-const HOLD_RADIUS = 88;
+const HOLD_RADIUS = 160;
 
 /**
  * The Gesture Lab, full screen: one Gesture Zone around everything, with a

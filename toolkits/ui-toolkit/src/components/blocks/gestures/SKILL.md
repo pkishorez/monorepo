@@ -133,8 +133,9 @@ finger is still clicked as usual.
 `useHold()` returns the Hold on now as React state: `'none'`, `'left'` or
 `'right'`. The zone also sets `data-hold` on itself. Each corner's glow is a
 `data-slot="gesture-hold"` element with `data-side` and, while on,
-`data-active`; recolour it with `--gesture-hold-from` and
-`--gesture-hold-to`.
+`data-active`. It waits 100ms, then eases in over a quarter of a second, so a
+quick tap on a corner never shows it. Recolour it with `--gesture-hold`; it is the foreground colour
+by default.
 
 ## Not in the block yet
 

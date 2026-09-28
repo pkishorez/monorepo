@@ -50,8 +50,10 @@ export type GestureZoneProps = ComponentProps<'div'> & {
   readonly holdRadius?: number;
 };
 
-// The glow on a Hold Zone while its Hold is on: a gradient from the corner
-// out to a bright rim, in --gesture-hold-from and --gesture-hold-to.
+// The glow on a Hold Zone while its Hold is on: a soft, blurred light in
+// --gesture-hold (the foreground colour by default) that eases out of the
+// corner in a quarter of a second. It waits 100ms first, so a quick tap
+// there never shows it, and fades fast when the Hold ends.
 function HoldGlow(props: {
   readonly side: Side;
   readonly radius: number;
@@ -59,10 +61,8 @@ function HoldGlow(props: {
 }) {
   const { side, radius, on } = props;
   const corner = side === 'left' ? '0 100%' : '100% 100%';
-  const from = (percent: number) =>
-    `color-mix(in oklab, var(--gesture-hold-from, var(--chart-9)) ${percent}%, transparent)`;
-  const to = (percent: number) =>
-    `color-mix(in oklab, var(--gesture-hold-to, var(--chart-6)) ${percent}%, transparent)`;
+  const light = (percent: number) =>
+    `color-mix(in oklab, var(--gesture-hold, var(--foreground)) ${percent}%, transparent)`;
   return (
     <div
       aria-hidden="true"
@@ -70,13 +70,15 @@ function HoldGlow(props: {
       data-side={side}
       data-active={on ? '' : undefined}
       className={cn(
-        'pointer-events-none absolute bottom-0 z-50 opacity-0 transition-opacity duration-300 data-active:opacity-100 data-active:duration-75',
-        side === 'left' ? 'left-0' : 'right-0',
+        'pointer-events-none absolute bottom-0 z-50 scale-40 opacity-0 blur-[28px] transition-[opacity,scale,filter] duration-150 ease-out data-active:scale-100 data-active:opacity-100 data-active:blur-[10px] data-active:delay-100 data-active:duration-250',
+        side === 'left'
+          ? 'left-0 origin-bottom-left'
+          : 'right-0 origin-bottom-right',
       )}
       style={{
         width: radius,
         height: radius,
-        background: `radial-gradient(circle ${radius}px at ${corner}, ${from(70)} 0, ${to(35)} ${radius * 0.7}px, ${to(15)} ${radius - 3}px, ${to(85)} ${radius - 1.5}px, transparent ${radius}px)`,
+        background: `radial-gradient(circle ${radius}px at ${corner}, ${light(40)} 0, ${light(18)} 55%, transparent 100%)`,
       }}
     />
   );

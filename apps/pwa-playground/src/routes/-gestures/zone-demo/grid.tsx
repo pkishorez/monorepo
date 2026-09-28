@@ -6,11 +6,7 @@ import {
   useGesture,
   useHold,
 } from '@kstackz/ui-toolkit/components/blocks/gestures';
-import {
-  type AnimationPlaybackControls,
-  animate,
-  useMotionValueEvent,
-} from '@kstackz/ui-toolkit/motion';
+import { animate, useMotionValueEvent } from '@kstackz/ui-toolkit/motion';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import {
   type RefObject,
@@ -21,9 +17,16 @@ import {
   useRef,
 } from 'react';
 import { type Camera, follow, matrixOf, settle } from './camera.ts';
+import { type Coast, cap, glide } from './glide.ts';
 
 const MINOR = 40;
 const MAJOR = 200;
+
+// The fastest a released grid carries on: px, zoom (log of scale) and
+// degrees per second.
+const MAX_PAN = 5000;
+const MAX_ZOOM = 3;
+const MAX_TURN = 540;
 
 // Where 0,0 is on screen, relative to where it started, then zoom and turn.
 const readout = (camera: Camera, home: Camera) =>
@@ -35,18 +38,18 @@ type Steering = {
   readonly origin: RefObject<Point>;
 };
 
-// One Hold's Gestures steering the grid: each is folded into the camera on
-// release, and its values start over. An interrupted one is dropped.
+// One Hold's Gestures steering the grid: each is released into the camera,
+// and its values start over. An interrupted one is dropped.
 function useSteering(
   hold: Hold,
   svg: RefObject<SVGSVGElement | null>,
-  fold: (end: GestureEnd, origin: Point) => void,
+  release: (end: GestureEnd, origin: Point) => void,
 ): Steering {
   const origin = useRef<Point>({ x: 0, y: 0 });
   const gesture = useGesture({
     hold,
     onEnd: (end) => {
-      if (!end.interrupted) fold(end, origin.current);
+      if (!end.interrupted) release(end, origin.current);
       gesture.x.jump(0);
       gesture.y.jump(0);
       gesture.scale.jump(1);
@@ -84,8 +87,8 @@ const valuesOf = ({ gesture }: Steering) => ({
  * An endless grid steered by every Gesture with no Hold or under the left
  * Hold, wherever it lands: one finger pans, two also zoom and turn about the
  * first finger. The grid keeps its own camera; each Gesture moves it and is
- * folded in on release. `reset` changing springs it back home. Under the
- * right Hold it rests.
+ * folded in on release, then carries on at the speed it was let go with.
+ * `reset` changing springs it back home. Under the right Hold it rests.
  */
 export function InfiniteGrid(props: { readonly reset: number }) {
   const id = useId();
@@ -95,15 +98,36 @@ export function InfiniteGrid(props: { readonly reset: number }) {
   const text = useRef<HTMLSpanElement>(null);
   const camera = useRef<Camera | undefined>(undefined);
   const home = useRef<Camera | undefined>(undefined);
-  const settling = useRef<AnimationPlaybackControls | undefined>(undefined);
+  // A release gliding on, or a reset springing home.
+  const coasting = useRef<Coast | undefined>(undefined);
 
-  const fold = (end: GestureEnd, origin: Point) => {
-    if (camera.current !== undefined) {
-      camera.current = follow(camera.current, end, origin);
-    }
-  };
-  const plain = useSteering('none', svg, fold);
-  const left = useSteering('left', svg, fold);
+  // Folds the Gesture into the camera, then lets it glide on about the point
+  // under the finger, slowing to a stop.
+  function release(end: GestureEnd, origin: Point) {
+    if (camera.current === undefined) return;
+    camera.current = follow(camera.current, end, origin);
+    const pivot = { x: origin.x + end.x, y: origin.y + end.y };
+    const { velocity } = end;
+    coasting.current?.stop();
+    coasting.current = glide(
+      [
+        cap(velocity.x, MAX_PAN),
+        cap(velocity.y, MAX_PAN),
+        cap(velocity.scale / end.scale, MAX_ZOOM),
+        cap(velocity.rotation, MAX_TURN),
+      ],
+      ([x = 0, y = 0, zoom = 0, rotation = 0]) => {
+        if (camera.current === undefined) return false;
+        const step = { x, y, scale: Math.exp(zoom), rotation };
+        camera.current = follow(camera.current, step, pivot);
+        pivot.x += x;
+        pivot.y += y;
+        draw();
+      },
+    );
+  }
+  const plain = useSteering('none', svg, release);
+  const left = useSteering('left', svg, release);
 
   const draw = useCallback(() => {
     if (camera.current === undefined) return;
@@ -140,16 +164,17 @@ export function InfiniteGrid(props: { readonly reset: number }) {
   useRedraw(plain.gesture, draw);
   useRedraw(left.gesture, draw);
 
-  // A new Gesture takes over from a reset still springing home.
+  // A finger landing catches the grid, gliding or springing home.
   const steering = plain.gesture.active || left.gesture.active;
-  useEffect(() => {
-    if (steering) settling.current?.stop();
+  useLayoutEffect(() => {
+    if (steering) coasting.current?.stop();
   }, [steering]);
 
   useEffect(() => {
     const from = camera.current;
     const to = home.current;
     if (props.reset === 0 || from === undefined || to === undefined) return;
+    coasting.current?.stop();
     const controls = animate(0, 1, {
       type: 'spring',
       stiffness: 220,
@@ -163,7 +188,7 @@ export function InfiniteGrid(props: { readonly reset: number }) {
         draw();
       },
     });
-    settling.current = controls;
+    coasting.current = controls;
     return () => controls.stop();
   }, [props.reset, draw]);
 

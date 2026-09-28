@@ -58,7 +58,7 @@ export function TabBar(props: {
               key={id}
               value={id}
               data-testid={`lab-tab-${id}`}
-              className="h-full flex-col gap-0.5 text-[11px]"
+              className="h-full flex-col gap-0.5 text-[11px] after:hidden"
             >
               <Icon className="size-5" />
               {title}
