@@ -34,6 +34,12 @@ export function GestureLab(props: {
       data-demo={props.demo}
       className="fixed inset-0 h-dvh overflow-hidden bg-background text-foreground"
     >
+      {/* Safari samples this opaque edge while the sidebar moves and dims the page. */}
+      <div
+        aria-hidden="true"
+        data-testid="lab-status-bar-surface"
+        className="pointer-events-none fixed inset-x-0 top-0 z-50 h-[max(12px,env(safe-area-inset-top))] bg-background"
+      />
       <LabSidebar
         panel={
           <Menu
