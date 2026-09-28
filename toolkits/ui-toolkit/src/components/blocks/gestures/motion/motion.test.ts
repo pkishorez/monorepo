@@ -492,3 +492,146 @@ describe('createPinch', () => {
     expect(p.x.get()).toBeCloseTo(0);
   });
 });
+
+describe('cancellation and disposal', () => {
+  it('notifies pan and pinch cancellation without reporting completion', () => {
+    const onCancel = vi.fn();
+    const onEnd = vi.fn();
+    const x = motionValue(0),
+      y = motionValue(0),
+      scale = motionValue(1);
+    const pan = createPan(
+      { x, y },
+      () => ({ momentum: false, onCancel, onEnd }),
+      () => ({ width: 300, height: 300 }),
+    );
+    pan.handle(event('start', { kind: 'pan', offset: { x: 30, y: 0 } }));
+    pan.handle(event('cancel', { kind: 'pan' }));
+    const pinch = createPinch(
+      {
+        scale,
+        originX: motionValue(0),
+        originY: motionValue(0),
+        x: undefined,
+        y: undefined,
+      },
+      () => ({ min: 1, max: 4, onCancel, onEnd }),
+      () => ({ left: 0, top: 0 }),
+    );
+    pinch.handle(event('start', { kind: 'pinch', scale: 2 }));
+    pinch.handle(event('cancel', { kind: 'pinch' }));
+    expect(onCancel).toHaveBeenCalledTimes(2);
+    expect(onEnd).not.toHaveBeenCalled();
+  });
+
+  it('notifies swipe cancellation and clears its armed state', () => {
+    const onCancel = vi.fn(),
+      onSwipe = vi.fn();
+    const progress = motionValue(0),
+      armed = motionValue(0);
+    const swipe = createSwipe({ progress, armed }, () => ({
+      direction: 'right',
+      distance: 100,
+      after: 'return',
+      settle: true,
+      onCancel,
+      onSwipe,
+    }));
+    swipe.handle(event('start', { offset: { x: 60, y: 0 } }));
+    expect(armed.get()).toBe(1);
+    swipe.handle(event('cancel'));
+    expect(armed.get()).toBe(0);
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onSwipe).not.toHaveBeenCalled();
+    swipe.dispose();
+  });
+
+  it('reports no cancel for a cancelled drag back', async () => {
+    const onCancel = vi.fn();
+    const progress = motionValue(0);
+    const swipe = createSwipe({ progress, armed: motionValue(0) }, () => ({
+      direction: 'right',
+      distance: 100,
+      after: 'stay',
+      settle: true,
+      onCancel,
+    }));
+    swipe.open();
+    await run(1000);
+    swipe.handle(
+      event('start', { direction: 'left', offset: { x: -30, y: 0 } }),
+    );
+    swipe.handle(event('cancel', { direction: 'left' }));
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('does not resume an async swipe after it is disposed', async () => {
+    let finish!: () => void;
+    const done = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const progress = motionValue(0);
+    const swipe = createSwipe({ progress, armed: motionValue(0) }, () => ({
+      direction: 'right',
+      distance: 100,
+      after: 'return',
+      settle: true,
+      onSwipe: () => done,
+    }));
+    swipe.open();
+    await run(1000);
+    expect(progress.get()).toBe(1);
+    swipe.dispose();
+    progress.set(0.5);
+    finish();
+    await run(1000);
+    expect(progress.get()).toBe(0.5);
+    expect(progress.isAnimating()).toBe(false);
+  });
+});
+
+it('reports a new swipe start while the previous return animation is still running', () => {
+  const onStart = vi.fn();
+  const progress = motionValue(0);
+  const swipe = createSwipe({ progress, armed: motionValue(0) }, () => ({
+    direction: 'right',
+    distance: 100,
+    after: 'return',
+    settle: true,
+    onStart,
+  }));
+  swipe.handle(event('start', { offset: { x: 20, y: 0 } }));
+  swipe.handle(event('end', { offset: { x: 20, y: 0 } }));
+  expect(progress.get()).toBeGreaterThan(0);
+  swipe.handle(event('start', { offset: { x: 10, y: 0 } }));
+  expect(onStart).toHaveBeenCalledTimes(2);
+  swipe.dispose();
+});
+
+it.each(['throw', 'reject'])(
+  'recovers a swipe when its action fails by %s',
+  async (failure) => {
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const progress = motionValue(0);
+    const swipe = createSwipe({ progress, armed: motionValue(0) }, () => ({
+      direction: 'right',
+      distance: 100,
+      after: 'return',
+      settle: true,
+      onSwipe: () => {
+        if (failure === 'throw') throw new Error('action failed');
+        return Promise.reject(new Error('action failed'));
+      },
+    }));
+    try {
+      swipe.open();
+      await run(1000);
+      expect(report).toHaveBeenCalledOnce();
+      expect(progress.get()).toBe(0);
+      expect(swipe.directions()).toEqual(['right']);
+    } finally {
+      swipe.dispose();
+      report.mockRestore();
+    }
+  },
+);

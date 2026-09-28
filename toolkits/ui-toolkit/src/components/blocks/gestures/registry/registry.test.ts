@@ -399,3 +399,52 @@ describe('development checks', () => {
     ).toThrow();
   });
 });
+
+describe('registration cleanup', () => {
+  it('cancels a removed ancestor handler once and stops child dispatch to it', () => {
+    const root = zone();
+    const inner = zone(root);
+    const registration = pan();
+    const remove = root.add(registration);
+    inner.dispatch(movement('pan', 'start', 'right'));
+    inner.dispatch(movement('pan', 'move', 'right'));
+    remove();
+    remove();
+    inner.dispatch(movement('pan', 'move', 'right'));
+    inner.dispatch(movement('pan', 'end', 'right'));
+    expect(
+      registration.handle.mock.calls.map(([event]) => event.phase),
+    ).toEqual(['start', 'move', 'cancel']);
+  });
+
+  it('does not resume a removed hook when the touch that caught it ends', () => {
+    const root = zone();
+    const inner = zone(root);
+    const registration = swipe('right');
+    const remove = root.add(registration);
+    inner.dispatch({ kind: 'touch', phase: 'start' });
+    expect(registration.catch).toHaveBeenCalledOnce();
+    remove();
+    inner.dispatch({ kind: 'touch', phase: 'end' });
+    expect(registration.release).not.toHaveBeenCalled();
+  });
+
+  it('clears an incomplete interaction on failure without replaying cancellation', () => {
+    const root = zone();
+    const registration = pan();
+    root.add(registration);
+    root.dispatch({ kind: 'touch', phase: 'start' });
+    root.dispatch(movement('pan', 'start', 'right'));
+    root.cancel();
+    root.cancel();
+    root.dispatch({ kind: 'touch', phase: 'end' });
+    expect(
+      registration.handle.mock.calls.map(([event]) => event.phase),
+    ).toEqual(['start', 'cancel']);
+    root.dispatch(movement('pan', 'start', 'right'));
+    root.dispatch(movement('pan', 'end', 'right'));
+    expect(
+      registration.handle.mock.calls.map(([event]) => event.phase),
+    ).toEqual(['start', 'cancel', 'start', 'end']);
+  });
+});

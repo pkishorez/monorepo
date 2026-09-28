@@ -59,6 +59,7 @@ export function usePan(
     readonly snap?: number;
     readonly onStart?: (event: PanUpdate) => void;
     readonly onEnd?: (event: PanUpdate) => void;
+    readonly onCancel?: () => void;
   } = {},
 ): { readonly x: MotionValue<number>; readonly y: MotionValue<number> } {
   const hub = useZone('usePan');
@@ -118,6 +119,7 @@ export function useSwipe(
     /** Overrides the shared settle spring, useful for product-specific tuning. */
     readonly spring?: GestureSpring;
     readonly progress?: MotionValue<number>;
+    readonly onStart?: () => void;
     readonly onSwipe?: () => void | Promise<void>;
     readonly onCancel?: () => void;
   },
@@ -141,6 +143,7 @@ export function useSwipe(
       settle: latest.current.settle !== false,
     })),
   );
+  useEffect(() => driver.dispose, [driver]);
   const { direction, fingers = 1, hold = 'none', edge = false } = options;
   const registration = useRegistration(
     hub,
@@ -198,6 +201,7 @@ export function usePinch(
     readonly y?: MotionValue<number>;
     readonly onStart?: (event: PinchUpdate) => void;
     readonly onEnd?: (event: PinchUpdate) => void;
+    readonly onCancel?: () => void;
   } = {},
 ): {
   readonly scale: MotionValue<number>;

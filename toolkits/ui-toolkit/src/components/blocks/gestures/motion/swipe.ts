@@ -11,6 +11,7 @@ export type SwipeOptions = {
   /** `false`: the app animates `progress` after release itself. */
   readonly settle: boolean;
   readonly spring?: GestureSpring;
+  readonly onStart?: () => void;
   readonly onSwipe?: () => void | Promise<void>;
   readonly onCancel?: () => void;
 };
@@ -76,16 +77,23 @@ export const createSwipe = (
   const commit = async (velocity: number) => {
     const { after, onSwipe } = options();
     const id = ++run;
-    const landed = toward(1, velocity);
-    const done = onSwipe?.();
-    if (after === 'stay') return;
-    busy =
-      done !== undefined &&
-      typeof (done as PromiseLike<void>).then === 'function';
-    await Promise.allSettled([landed, done]);
-    if (id !== run) return;
-    busy = false;
-    await toward(0, 0);
+    try {
+      const landed = toward(1, velocity);
+      const done = onSwipe?.();
+      busy =
+        after === 'return' &&
+        done !== undefined &&
+        typeof (done as PromiseLike<void>).then === 'function';
+      await Promise.all([landed, done]);
+      if (id !== run) return;
+      busy = false;
+      if (after === 'return') await toward(0, 0);
+    } catch (error) {
+      console.error('Swipe action failed', error);
+      if (id !== run) return;
+      busy = false;
+      await toward(0, 0);
+    }
   };
 
   const release = (event: MovementEvent) => {
@@ -104,6 +112,9 @@ export const createSwipe = (
   };
 
   return {
+    dispose: () => {
+      run += 1;
+    },
     /** Open and staying open: a `stay` Swipe at 1 or springing there. */
     opened: (): boolean => options().after === 'stay' && heading === 1,
     /** The directions a new Swipe may take it now. */
@@ -132,6 +143,7 @@ export const createSwipe = (
             base: progress.get(),
             sign: event.direction === options().direction ? 1 : -1,
           };
+          options().onStart?.();
           follow(event);
           return;
         case 'move':
@@ -141,10 +153,15 @@ export const createSwipe = (
           follow(event);
           release(event);
           return;
-        case 'cancel':
+        case 'cancel': {
+          const forward = drag?.sign === 1;
           drag = undefined;
           armed.set(0);
+          run += 1;
+          busy = false;
           void toward(heading, 0);
+          if (forward) options().onCancel?.();
+        }
       }
     },
     catch: () => {

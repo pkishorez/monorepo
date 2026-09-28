@@ -17,6 +17,7 @@ export type PanOptions = {
   readonly snap?: number;
   readonly onStart?: (event: PanUpdate) => void;
   readonly onEnd?: (event: PanUpdate) => void;
+  readonly onCancel?: () => void;
 };
 
 /** What a Pan tells the app as it starts and ends. */
@@ -120,6 +121,7 @@ export const createPan = (
         case 'cancel':
           void settle(values.x, origin.x);
           void settle(values.y, origin.y);
+          options().onCancel?.();
       }
     },
     catch: () => {

@@ -1,5 +1,5 @@
 import { SimulatedClock } from 'xstate';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createGestureEngine } from './engine';
 import { TAP_MAX_MS } from './thresholds';
 import type {
@@ -863,5 +863,201 @@ describe('touches', () => {
     ]);
     expect(g.engine.inspect().fingers).toEqual([]);
     expect(g.engine.captured()).toBe(false);
+  });
+});
+
+describe('hold regressions', () => {
+  it('delivers rapid repeat taps before the initial hold deadline', () => {
+    const g = setup();
+    g.down(1, 50, 200, 0);
+    g.down(2, 250, 200, 50);
+    g.up(2, 250, 200, 90);
+    expect(g.outcomes()).toEqual([]);
+    g.down(3, 250, 200, 140);
+    expect(g.outcomes()).toEqual(['hold:lock', 'tap']);
+    g.up(3, 250, 200, 180);
+    g.down(4, 250, 200, 750);
+    g.up(4, 250, 200, 790);
+    expect(g.outcomes()).toEqual(['hold:lock', 'tap', 'tap', 'tap']);
+    expect(g.where()).toBe('held.idle');
+    g.up(1, 50, 200, 800);
+    g.advance(1500);
+    expect(g.where()).toBe('idle');
+    expect(g.last('hold')?.phase).toBe('release');
+  });
+
+  it('treats every tap under a Hold as a gesture, even on a control', () => {
+    const g = setup();
+    g.down(1, 50, 200, 0, { edge: undefined, ends: [], nativeTap: true });
+    g.down(2, 250, 200, 400);
+    g.up(2, 250, 200, 440);
+    g.down(3, 250, 200, 500);
+    g.up(3, 250, 200, 540);
+    expect(g.outcomes()).toEqual(['hold:lock', 'tap', 'tap']);
+    g.down(4, 250, 200, 600, { edge: undefined, ends: [], nativeTap: true });
+    g.up(4, 250, 200, 640);
+    expect(g.outcomes()).toEqual(['hold:lock', 'tap', 'tap', 'tap']);
+    g.up(1, 50, 200, 700);
+  });
+
+  it('turns a quick tap beside a resting finger into a held tap', () => {
+    const g = setup();
+    g.down(1, 50, 200, 0);
+    g.down(2, 250, 200, 50, { edge: undefined, ends: [], nativeTap: true });
+    g.up(2, 250, 200, 90);
+    expect(g.outcomes()).toEqual([]);
+    g.advance(TAP_MAX_MS + 1);
+    expect(g.outcomes()).toEqual(['hold:lock', 'tap']);
+    expect(g.last('tap')).toMatchObject({ fingers: 1, hold: { side: 'left' } });
+    g.up(1, 50, 200, 800);
+  });
+
+  it('keeps a lone finger on a control as its native click', () => {
+    const g = setup();
+    g.down(1, 50, 200, 0, { edge: undefined, ends: [], nativeTap: true });
+    g.up(1, 50, 200, 40);
+    expect(g.outcomes()).toEqual([]);
+  });
+
+  it('makes a two-finger tap from a control a gesture', () => {
+    const g = setup();
+    g.down(1, 50, 200, 0, { edge: undefined, ends: [], nativeTap: true });
+    g.down(2, 150, 200, 20);
+    g.up(1, 50, 200, 80);
+    g.up(2, 150, 200, 90);
+    expect(g.last('tap')).toMatchObject({ fingers: 2 });
+  });
+
+  it.each([false, true])(
+    'reads both acting fingers before classifying a held pan (reverse: %s)',
+    (reverse) => {
+      const g = setup();
+      g.down(1, 50, 200, 0);
+      g.down(2, 200, 200, 400);
+      g.up(2, 200, 200, 450);
+      g.down(2, 200, 200, 500);
+      g.down(3, 300, 200, 501);
+      const ids = reverse ? [3, 2] : [2, 3];
+      for (const id of ids) g.move(id, (id === 2 ? 200 : 300) + 12, 200, 520);
+      expect(g.last('pan')).toBeUndefined();
+      for (const id of ids) g.move(id, (id === 2 ? 200 : 300) + 24, 200, 536);
+      expect(g.last('pan')).toMatchObject({
+        fingers: 2,
+        hold: { side: 'left' },
+      });
+      expect(g.last('pinch')).toBeUndefined();
+      g.engine.cancelAll();
+      expect(g.where()).toBe('idle');
+    },
+  );
+
+  it('does not emit a partial tap when one acting finger stays too long', () => {
+    const g = setup();
+    g.down(1, 50, 200, 0);
+    g.down(2, 200, 200, 400);
+    g.up(2, 200, 200, 450);
+    g.down(2, 200, 200, 500);
+    g.down(3, 300, 200, 510);
+    g.up(2, 200, 200, 550);
+    g.advance(1000);
+    g.up(3, 300, 200, 1100);
+    expect(g.outcomes()).toEqual(['hold:lock', 'tap']);
+    g.down(4, 200, 200, 1200);
+    g.up(4, 200, 200, 1250);
+    expect(g.outcomes()).toEqual(['hold:lock', 'tap', 'tap']);
+    g.engine.cancelAll();
+  });
+});
+
+describe('recovery', () => {
+  it.each(['release', 'cancelAll'])(
+    'recovers a failed actor after %s and reports the failure',
+    (ending) => {
+      let fail = true;
+      const onError = vi.fn();
+      const events: GestureEvent[] = [];
+      const engine = createGestureEngine({
+        scroll: 'none',
+        policy: {
+          movement: () => {
+            if (fail) {
+              fail = false;
+              throw new Error('broken policy');
+            }
+            return 'pan';
+          },
+          pinch: () => true,
+        },
+        onGesture: (event) => events.push(event),
+        onError,
+      });
+      engine.feed({ type: 'down', id: 1, x: 100, y: 100, t: 0 });
+      engine.feed({ type: 'move', id: 1, x: 140, y: 100, t: 20 });
+      expect(onError).toHaveBeenCalledOnce();
+      if (ending === 'cancelAll') engine.cancelAll();
+      else engine.feed({ type: 'up', id: 1, x: 140, y: 100, t: 40 });
+      expect(engine.inspect()).toMatchObject({
+        value: 'idle',
+        fingers: [],
+        hold: undefined,
+      });
+      engine.cancelAll();
+      engine.feed({ type: 'down', id: 2, x: 100, y: 100, t: 100 });
+      engine.feed({ type: 'up', id: 2, x: 100, y: 100, t: 140 });
+      expect(events.filter((event) => event.kind === 'tap')).toHaveLength(1);
+      engine.stop();
+    },
+  );
+
+  it('drains varied releases and cancellations and accepts a fresh tap', () => {
+    let seed = 731;
+    const random = (n: number) => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed % n;
+    };
+    const scrolls: Scroll[] = ['none', 'x', 'y'];
+    for (let trial = 0; trial < 500; trial++) {
+      const g = setup(trial % 3 === 0 ? {} : EVERYTHING, scrolls[trial % 3]);
+      const down = new Map<number, { x: number; y: number }>();
+      let id = 0;
+      let t = 0;
+      for (let step = 0; step < 30; step++) {
+        t += 1 + random(100);
+        const choice = random(10);
+        if (down.size === 0 || (choice < 3 && down.size < 5)) {
+          const point = { x: 50 + random(300), y: 100 + random(300) };
+          down.set(++id, point);
+          g.down(id, point.x, point.y, t);
+        } else {
+          const key = [...down.keys()][random(down.size)];
+          const point = down.get(key)!;
+          if (choice < 7) {
+            point.x += random(41) - 20;
+            point.y += random(41) - 20;
+            g.move(key, point.x, point.y, t);
+          } else {
+            down.delete(key);
+            (choice === 9 ? g.cancel : g.up)(key, point.x, point.y, t);
+          }
+        }
+      }
+      for (const [key, point] of down) g.up(key, point.x, point.y, ++t);
+      const outcomes = g.outcomes();
+      g.advance(t + TAP_MAX_MS + 1);
+      expect(g.outcomes()).toEqual(outcomes);
+      expect(g.engine.inspect()).toMatchObject({
+        value: 'idle',
+        fingers: [],
+        hold: undefined,
+      });
+      expect(g.engine.captured()).toBe(false);
+      const before = g.events.filter((event) => event.kind === 'tap').length;
+      g.down(++id, 150, 200, t + 400);
+      g.up(id, 150, 200, t + 420);
+      expect(g.events.filter((event) => event.kind === 'tap')).toHaveLength(
+        before + 1,
+      );
+      g.engine.stop();
+    }
   });
 });

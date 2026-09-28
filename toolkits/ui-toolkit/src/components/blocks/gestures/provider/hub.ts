@@ -47,6 +47,7 @@ export type Hub = {
   readonly registry: Registry;
   readonly tree: Tree;
   readonly hold: ReturnType<typeof createStore<Hold | undefined>>;
+  readonly holds: Map<Hub, Hold>;
   element: HTMLElement | null;
   environment: Environment;
   scroll: Scroll;
@@ -67,6 +68,7 @@ export const createHub = (options: {
     }),
     tree: options.parent?.tree ?? createTree(() => hub.environment),
     hold: createStore<Hold | undefined>(undefined),
+    holds: new Map(),
     element: null,
     environment: options.environment,
     scroll: options.scroll,
@@ -87,7 +89,9 @@ export const boxOf = (hub: Hub) =>
 /** Sets the Hold on this zone and every zone around it, for `useHold` anywhere out. */
 const setHold = (hub: Hub, hold: Hold | undefined) => {
   for (let at: Hub | undefined = hub; at !== undefined; at = at.parent) {
-    at.hold.set(hold);
+    at.holds.delete(hub);
+    if (hold !== undefined) at.holds.set(hub, hold);
+    at.hold.set([...at.holds.values()].at(-1));
   }
 };
 
@@ -131,6 +135,11 @@ export const runHub = (hub: Hub, element: HTMLElement): (() => void) => {
     scroll: hub.scroll,
     policy: hub.registry.policy,
     onGesture,
+    onError: (error) => {
+      hub.registry.cancel();
+      setHold(hub, undefined);
+      console.error('Gesture engine failed', error);
+    },
   });
   const running = engine;
   const leave = hub.tree.add(member, hub.parent === undefined);
@@ -142,6 +151,7 @@ export const runHub = (hub: Hub, element: HTMLElement): (() => void) => {
   });
   return () => {
     unbind();
+    hub.registry.cancel();
     stopNotifying();
     running.stop();
     leave();

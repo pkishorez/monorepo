@@ -7,6 +7,7 @@ export type PinchOptions = {
   readonly max: number;
   readonly onStart?: (event: PinchUpdate) => void;
   readonly onEnd?: (event: PinchUpdate) => void;
+  readonly onCancel?: () => void;
 };
 
 /** What a Pinch tells the app as it starts and ends. */
@@ -119,6 +120,7 @@ export const createPinch = (
           void settle(scale, from.scale);
           if (x !== undefined) void settle(x, from.x);
           if (y !== undefined) void settle(y, from.y);
+          options().onCancel?.();
       }
     },
     catch: () => {

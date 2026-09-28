@@ -10,7 +10,7 @@ import {
   useReducedMotion,
 } from '@kstackz/ui-toolkit/motion';
 import { cn } from '@kstackz/ui-toolkit/utils';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import {
   type Hold,
   usePanCell,
@@ -103,13 +103,17 @@ const ROWS: Record<Mode, ReadonlyArray<Row>> = {
   swipe: rowsFor('swipe'),
 };
 
-const EASE_OUT = [0.23, 1, 0.32, 1] as const;
-const LIFT = { type: 'spring', duration: 0.25, bounce: 0 } as const;
+const PULSE_SECONDS = 0.3;
+const PULSE = {
+  duration: PULSE_SECONDS,
+  times: [0, 0.25, 1],
+  ease: [0.4, 0, 0.2, 1] as const,
+};
 
 /**
  * One cell: its gesture's hook and a count. While the gesture runs the cell
- * lifts, ringed and tinted; when it is recognised a copy of the ring grows
- * and fades from the cell and the count bumps. A cancelled Swipe only fades.
+ * stays ringed and tinted; each recognition restarts a 300ms filled pulse.
+ * Reduced motion keeps the same brief highlight without scaling or fading.
  */
 function Cell(props: {
   readonly row: Row;
@@ -120,6 +124,11 @@ function Cell(props: {
   const [active, setActive] = useState(false);
   const [popping, setPopping] = useState(false);
   const still = useReducedMotion() === true;
+  useEffect(() => {
+    if (hits.count === 0) return;
+    const timer = setTimeout(() => setPopping(false), PULSE_SECONDS * 1000);
+    return () => clearTimeout(timer);
+  }, [hits.count]);
   const settle = (active: boolean) => {
     setActive(active);
     props.onActive(active);
@@ -137,29 +146,36 @@ function Cell(props: {
       data-count={hits.count}
       data-detail={hits.detail}
       data-active={active ? '' : undefined}
+      data-pulsing={popping ? '' : undefined}
+      initial={false}
       animate={{ scale: active && !still ? 1.03 : 1 }}
-      transition={LIFT}
+      transition={{ duration: still ? 0 : 0.12, ease: 'easeOut' }}
       className={cn(
-        'relative flex min-w-0 flex-col items-center justify-center rounded-lg bg-muted px-1 py-1 transition-[background-color,box-shadow] duration-150 ease-out data-active:bg-chart-8/15 data-active:ring-2 data-active:ring-chart-8',
+        'relative flex min-w-0 flex-col items-center justify-center rounded-lg bg-muted px-1 py-1 data-active:bg-chart-8/35 data-active:ring-2 data-active:ring-chart-8',
         (active || popping) && 'z-10',
       )}
     >
-      {hits.count > 0 ? (
+      {popping ? (
         <motion.span
-          key={hits.count}
+          key={`pulse-${hits.count}`}
           aria-hidden="true"
           initial={{ opacity: 1, scale: 1 }}
-          animate={{ opacity: 0, scale: still ? 1 : 1.3 }}
-          transition={{ duration: 0.28, ease: EASE_OUT }}
-          onAnimationComplete={() => setPopping(false)}
-          className="pointer-events-none absolute inset-0 rounded-lg bg-chart-8/20 ring-2 ring-chart-8"
+          animate={
+            still
+              ? { opacity: 1, scale: 1 }
+              : { opacity: [1, 1, 0], scale: [1, 1.02, 1.08] }
+          }
+          transition={PULSE}
+          className="pointer-events-none absolute inset-0 rounded-lg bg-chart-8/50 ring-3 ring-chart-8"
         />
       ) : null}
       <motion.span
-        key={hits.count}
-        initial={{ scale: hits.count > 0 && !still ? 1.15 : 1 }}
-        animate={{ scale: 1 }}
-        transition={LIFT}
+        key={`count-${hits.count}`}
+        initial={{ scale: hits.count > 0 && !still ? 1.2 : 1 }}
+        animate={{
+          scale: popping && !still ? [1.2, 1.2, 1] : 1,
+        }}
+        transition={still ? { duration: 0 } : PULSE}
         className="relative text-lg leading-none font-semibold tabular-nums"
       >
         {hits.count}
@@ -167,7 +183,10 @@ function Cell(props: {
       <span className="relative mt-1 h-3.5 max-w-full truncate font-mono text-[10px] leading-3.5 text-muted-foreground tabular-nums">
         <Gesture
           hold={props.hold}
-          onStart={() => settle(true)}
+          onStart={() => {
+            setPopping(false);
+            settle(true);
+          }}
           onHit={onHit}
           onCancel={() => settle(false)}
         />
