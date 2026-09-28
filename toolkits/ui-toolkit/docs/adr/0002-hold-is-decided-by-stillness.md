@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0003
+---
+
 # A Hold is decided by stillness, not by a landing lead
 
 A Hold used to lock when a second finger landed at least 50ms after a first one that had not moved. Fingers that landed closer together became a two-finger gesture. People plant a finger and act with the other without timing their landings, so a planted finger was often read as half of a Pinch or a two-finger Swipe. Now nothing is decided as fingers land. The first finger down becomes the Hold if it stays still while the fingers that landed after it act. It locks when one of them moves past the slop while it has moved no more than half as far, or when one of them lifts as a tap. How long before the others the first finger landed plays no part. The first finger down remains the only one that can be the Hold, so a still second finger beside a moving first one is a two-finger gesture.

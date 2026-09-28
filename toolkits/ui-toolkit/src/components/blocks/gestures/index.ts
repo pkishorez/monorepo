@@ -1,5 +1,12 @@
-export { useHold, usePan, usePinch, useSwipe, useTap } from './hooks';
-export { GestureDebugOverlay, GestureFingers } from './layers';
-export { DEFAULT_GESTURE_SPRING, coast, settle } from './motion';
-export type { GestureSpring } from './motion';
-export { GestureProvider, GestureZone } from './provider';
+export { NO_GESTURE_ATTRIBUTE } from './touch-input';
+export { GestureZone, useGesture, useSwipe } from './zone';
+export type {
+  GestureEnd,
+  GestureOptions,
+  GestureState,
+  GestureZoneProps,
+  SwipeOptions,
+  SwipeState,
+} from './zone';
+export type { GestureValues, Point } from './gesture-reading';
+export type { Axis, SwipeEnd } from './swipe-reading';

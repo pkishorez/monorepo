@@ -27,7 +27,6 @@
     "src/components/blocks/laymos/story-inspection/fixtures",
     "src/components/blocks/monoverse/monoverse/monoverse.fixture.tsx",
     "src/components/blocks/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
-    "src/components/blocks/pwa-playground/pwa-playground.fixture.tsx",
     "src/components/blocks/std-toolkit-studio/std-toolkit-studio.fixture.tsx",
     "src/cosmos.decorator.tsx",
     "src/css.d.ts",
@@ -92,7 +91,6 @@
           "exposed": true
         },
         "src/components/blocks/state-machine-visualizer": {
-          "shared": true,
           "exposed": true
         },
         "src/components/blocks/swim-lane": {
@@ -105,28 +103,26 @@
       },
       "moduleGraphs": {
         "gestures": {
-          "description": "Reads touch gestures (tap, Pan, Swipe, Pinch, each with or without a Hold) in nested Gesture Zones and drives motion values from them. layers -> provider is intended: the finger and debug layers find the zones they draw over through the provider's context",
+          "description": "One Gesture Zone per screen for app-level gestures: reads each continuous Gesture (movement, scale, rotation) and each one-finger Swipe from the fingers, and hands them as motion values to every enabled useGesture and useSwipe. touch-input wraps the browser; gesture-reading and swipe-reading are pure; zone puts them together for React",
           "path": "src/components/blocks/gestures",
           "modules": {
             "index.ts": {
               "exposed": true
             },
-            "engine": {},
             "zone": {},
-            "registry": {},
-            "motion": {},
-            "provider": {},
-            "hooks": {},
-            "layers": {}
+            "gesture-reading": {},
+            "swipe-reading": {},
+            "touch-input": {}
           },
           "rules": {
-            "index.ts": ["hooks", "provider", "layers", "motion"],
-            "hooks": ["provider", "motion", "registry", "engine"],
-            "provider": ["zone", "engine", "registry"],
-            "layers": ["provider", "engine", "zone"],
-            "zone": ["engine"],
-            "registry": ["engine"],
-            "motion": ["engine"]
+            "index.ts": [
+              "zone",
+              "touch-input",
+              "gesture-reading",
+              "swipe-reading"
+            ],
+            "zone": ["touch-input", "gesture-reading", "swipe-reading"],
+            "swipe-reading": ["gesture-reading"]
           }
         },
         "auth-screens": {
@@ -596,15 +592,6 @@
         }
       }
     },
-    "playgrounds": {
-      "paths": ["src/components/blocks/pwa-playground"],
-      "description": "Product playgrounds composed from reusable KUI blocks",
-      "modules": {
-        "src/components/blocks/pwa-playground": {
-          "exposed": true
-        }
-      }
-    },
     "form": {
       "paths": ["src/form"],
       "description": "Form components and field bindings composed from UI primitives",
@@ -633,9 +620,6 @@
       "paths": ["src/lib"],
       "description": "Shared utilities and framework adapters",
       "modules": {
-        "src/lib/haptics.ts": {
-          "exposed": true
-        },
         "src/lib/lucide.ts": {
           "exposed": true
         },
@@ -659,7 +643,6 @@
     "frontend": {
       "description": "Frontend component architecture",
       "rules": {
-        "playgrounds": ["blocks"],
         "studio": ["blocks"],
         "architecture-analysis": ["blocks"],
         "monorepo-analysis": ["blocks"],

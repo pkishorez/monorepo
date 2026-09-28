@@ -24,6 +24,7 @@
         "src/routes/gestures.tsx",
         "src/routes/index.tsx",
         "src/routes/install.tsx",
+        "src/routes/motion.tsx",
         "src/routes/offline.tsx",
         "src/routes/rpc.tsx",
         "src/routes/runtime-cache.tsx",
@@ -39,6 +40,7 @@
         "src/routes/gestures.tsx": {},
         "src/routes/index.tsx": {},
         "src/routes/install.tsx": {},
+        "src/routes/motion.tsx": {},
         "src/routes/offline.tsx": {},
         "src/routes/rpc.tsx": {},
         "src/routes/runtime-cache.tsx": {},
@@ -48,27 +50,29 @@
     },
     "gesture-lab": {
       "paths": ["src/routes/-gestures"],
-      "description": "The Gesture Lab: a shell with a sidebar and tab bar over three gesture demos, each with its tutorial",
+      "description": "The Gesture Lab: a shell with a top bar and tab bar over one Gesture Zone demo",
       "moduleGraphs": {
         "gesture-lab": {
-          "description": "Shows kui gestures in three demos inside one GestureProvider, each demo a nested Gesture Zone with a tutorial that shows its own wiring",
+          "description": "Shows kui's Gesture Zone in one demo: useGesture steering an endless grid and useSwipe driving a pad, both inside the lab's zone",
           "path": "src/routes/-gestures",
           "modules": {
             "lab": {
               "exposed": true
             },
-            "sidebar": {},
-            "matrix": {},
-            "inbox": {},
-            "sidebar-demo": {},
-            "tutorial": {}
+            "zone-demo": {}
           },
           "rules": {
-            "lab": ["sidebar", "matrix", "inbox", "sidebar-demo", "tutorial"],
-            "matrix": ["tutorial"],
-            "inbox": ["tutorial"],
-            "sidebar-demo": ["sidebar", "tutorial"]
+            "lab": ["zone-demo"]
           }
+        }
+      }
+    },
+    "motion-course": {
+      "paths": ["src/routes/-motion"],
+      "description": "Motion 101: Framer Motion's gesture ideas as lessons with live demos and code, ending with real screens",
+      "modules": {
+        "src/routes/-motion": {
+          "exposed": true
         }
       }
     },
@@ -134,11 +138,12 @@
       "description": "Entries over routes over components over lib; the Gesture Lab sits under its route; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
       "rules": {
         "entry": ["rpc", "lib"],
-        "routes": ["gesture-lab", "components", "lib", "rpc"],
+        "routes": ["gesture-lab", "motion-course", "components", "lib", "rpc"],
         "infra": [],
         "components": ["lib"],
         "rpc": [],
-        "gesture-lab": ["lib"]
+        "gesture-lab": [],
+        "motion-course": []
       }
     }
   }

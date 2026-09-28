@@ -42,45 +42,41 @@ _Avoid_: native toolkit, app shell (a pwa-toolkit term for the offline boot page
 What the running app can know about where it runs: platform, display mode (browser tab or installed), primary input, reduced-motion preference, and which browser capabilities exist. Every Native block decision is derived from it.
 _Avoid_: device, context, user agent
 
-**Edge Ownership**:
-Who handles a swipe that starts at a screen edge in the current Environment: the app, the browser, or the operating system. The app acts on an edge only when it owns it.
-_Avoid_: gesture conflict, edge zone
-
 **Gesture Zone**:
-An element region where the app owns touch input: its bounds minus the viewport's edge strips, whose Edge Ownership lies elsewhere or is reserved for edge gestures. Vertical scrolling stays native inside it until a touch is Captured, and a touch that starts in a native scroller inside it belongs to that scroller. Zones nest: a touch belongs to the innermost zone it starts in, and a gesture that zone does not handle passes out to the zone around it.
-_Avoid_: touch area, gesture surface, hit area
+The one region per screen where the app owns touch input for app-level shortcuts — opening a sidebar, pulling to refresh, going back, steering something elsewhere on screen. Where the app places it and how large it makes it is the app's choice. Its Gestures are not tied to any element under the finger: any part of the app, even one hidden right now, can listen to them. Gestures that belong to one element, such as swiping one email, are that element's own and not the zone's.
+_Avoid_: touch area, gesture surface, hit area, nested zone, provider (only how the zone is reached)
+
+**Native Scroll**:
+_Planned, not in the block yet: today the Gesture Zone keeps every touch from the browser, so nothing inside it scrolls._ An element inside the Gesture Zone that can scroll right now, whose scrolling the browser keeps: one finger moving along its scroll axis scrolls it, unless it is already at its end that way and a Swipe that way is listening, which then gets the touch. Everything else on it — Taps, movement across its axis, Pinches, anything under a Hold — is the app's. Which elements are Native Scrolls is detected as a finger lands; an element can opt out and be taken over. The choice is made at the first movement: a touch the browser started scrolling stays the browser's until it lifts, even when it reaches the end.
+_Avoid_: scroller, scroll container, overflow
 
 **Capture**:
-The Gesture Zone taking a touch from the browser once the app owns it — a Pan or Swipe started, a second finger landed, or a Hold locked — so the page cannot scroll until every finger lifts. A touch the browser has already started scrolling can no longer be Captured.
+The Gesture Zone taking a touch from the browser so the page cannot scroll or zoom until every finger lifts. Today the zone captures every touch that lands in it.
 _Avoid_: grab, prevent scroll
 
+**Gesture**:
+One continuous touch in the Gesture Zone, from the first finger landing to the last one lifting. Fingers may join and leave freely without ending it or turning it into something else. It is never classified up front: it reports movement, scale and rotation relative to where it started, and their speeds, all at once. One finger only moves it; two fingers can also scale and rotate it. Listeners read the parts they want.
+_Avoid_: pan, pinch, drag (moving an element itself), shortcut (a Gesture an app binds to a command), interaction
+
 **Hold**:
-The first finger down, staying still while the fingers that landed after it act in the Gesture Zone. It works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them. Landing first and staying still make it; how long before the others it landed does not matter. It locks as another finger starts moving or taps, and its side is fixed then. The lock lasts until the held finger lifts, however far it wanders and however many gestures the others make. If the first finger moves, the fingers express a multi-finger gesture instead, not a Hold.
-_Avoid_: anchor, chord, modifier, touch and hold (that is a long press)
+_Planned, not in the block yet._ A finger pressed in a Hold Zone: a modifier, like a held Shift key, that adds a left or right flag to every Gesture the other fingers make while it stays down, giving an app a further set of shortcuts. Where the finger lands decides it, never how still it stays or when it landed. It lasts until the finger lifts or leaves its Hold Zone. Pressed alone and lifted, it does nothing; moving before another finger lands, it was never a Hold and starts an ordinary Gesture. With one Hold down, a finger landing in the other Hold Zone is ignored.
+_Avoid_: anchor, chord, touch and hold (that is a long press)
+
+**Hold Zone**:
+_Planned, not in the block yet._ A quarter circle of configurable radius on the bottom-left or bottom-right corner of the Gesture Zone where a finger becomes the Hold, present only when the zone turns Hold Zones on. It takes every touch that starts in it, and highlights subtly the moment a finger lands in it, telling the user their next finger will act with that Hold.
+_Avoid_: hotspot, modifier key
 
 **Tap**:
-One or more fingers touching and lifting without meaningful movement. It fires as the fingers lift, never waiting for another Tap.
-_Avoid_: click, press, double tap (not a gesture)
-
-**Pan**:
-Fingers moving freely across the Gesture Zone, followed continuously; on release whatever they moved may coast on with their speed.
-_Avoid_: drag (moving an element itself), scroll
+_Planned, not in the block yet._ One finger touching and lifting without meaningful movement. It fires as the finger lifts, never waiting for another Tap. With no Hold, the element under it is still clicked as usual; under a Hold it is a shortcut only, and nothing is clicked.
+_Avoid_: click, press, double tap and two-finger tap (not Gestures)
 
 **Swipe**:
-Fingers moving in one of four directions, followed continuously as progress toward a commit, however slowly. On release it commits if it went far enough or was flicked, and springs back otherwise.
-_Avoid_: fling, flick (only the fast release that can commit a Swipe)
+A one-finger Gesture read along one axis — horizontal or vertical, fixed by its first real movement — as the signed distance moved from where it started and the speed it is moving at. It judges nothing: completing, snapping, opening and refreshing are decisions of what is built on top of it, such as a sidebar or pull-to-refresh. Two fingers are never a Swipe: a second finger landing, or the browser taking the touch, ends it as interrupted, and no new Swipe starts until every finger has lifted.
+_Avoid_: fling, flick, drag, commit (a decision made on top of a Swipe)
 
-**Pinch**:
-Two fingers moving apart or together to scale around the point between them.
-_Avoid_: zoom (what an app may do with it), spread
-
-**Claim**:
-A Pan, Swipe or Pinch once classified. It stays that gesture until the last of its fingers lifts: one of them lifting and landing again rejoins it, up to the number it started with, and it releases only when none remain.
-_Avoid_: lock, session
-
-**Haptic**:
-A short vibration confirming a Tap or a Hold locking, where the device can vibrate. Opt-in per app; silent everywhere it is not supported.
-_Avoid_: vibration (the device capability), buzz, feedback
+**Active**:
+A Gesture or Swipe listener while a Gesture it reads is under way; it stops being Active when the last finger lifts. A listener that is not enabled is never Active.
+_Avoid_: dragging, pressed, engaged
 
 **Level**:
 One step on the progressive ladder from plain web (0) through polished (1) and app-like (2) to native gestures (3). A pattern belongs to a Level and drops to the highest lower Level its Environment allows.
