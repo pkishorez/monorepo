@@ -1,27 +1,15 @@
 import { Link } from '@tanstack/react-router';
-import {
-  Button,
-  buttonVariants,
-} from '@kstackz/ui-toolkit/components/ui/button';
+import { buttonVariants } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Tabs,
   TabsList,
   TabsTrigger,
 } from '@kstackz/ui-toolkit/components/ui/tabs';
-import {
-  CircleQuestionMarkIcon,
-  HouseIcon,
-  MenuIcon,
-} from '@kstackz/ui-toolkit/lucide';
-import { useLabSidebar } from '../sidebar/index.ts';
+import { HouseIcon } from '@kstackz/ui-toolkit/lucide';
 import { DEMO_IDS, DEMOS, type DemoId } from './demos.ts';
 
-/** Home, the demo's title, its tutorial and the menu. */
-export function TopBar(props: {
-  readonly demo: DemoId;
-  readonly onHelp: () => void;
-}) {
-  const sidebar = useLabSidebar();
+/** Home and the demo's title. */
+export function TopBar(props: { readonly demo: DemoId }) {
   return (
     <header className="sticky top-0 z-20 box-content flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background pt-[max(12px,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))]">
       <Link
@@ -42,26 +30,6 @@ export function TopBar(props: {
       >
         {DEMOS[props.demo].title}
       </h1>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-11"
-        aria-label="How this demo works"
-        data-testid="lab-help"
-        onClick={props.onHelp}
-      >
-        <CircleQuestionMarkIcon aria-hidden="true" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-11"
-        aria-label="Menu"
-        data-testid="lab-menu"
-        onClick={sidebar.open}
-      >
-        <MenuIcon aria-hidden="true" />
-      </Button>
     </header>
   );
 }
@@ -77,7 +45,7 @@ export function TabBar(props: {
       onValueChange={(value) => props.onDemo(value as DemoId)}
       className="shrink-0 border-t border-border pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]"
     >
-      <TabsList variant="line" className="h-14! w-full gap-0 p-0">
+      <TabsList variant="line" className="h-14! w-full gap-0 py-0">
         {DEMO_IDS.map((id) => {
           const { title, Icon } = DEMOS[id];
           return (

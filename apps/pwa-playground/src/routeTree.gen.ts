@@ -14,6 +14,7 @@ import { Route as AuthSimRouteImport } from './routes/auth-sim'
 import { Route as DataRouteImport } from './routes/data'
 import { Route as GesturesRouteImport } from './routes/gestures'
 import { Route as InstallRouteImport } from './routes/install'
+import { Route as MotionRouteImport } from './routes/motion'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as RpcRouteImport } from './routes/rpc'
 import { Route as RuntimeCacheRouteImport } from './routes/runtime-cache'
@@ -46,6 +47,11 @@ const GesturesRoute = GesturesRouteImport.update({
 const InstallRoute = InstallRouteImport.update({
   id: '/install',
   path: '/install',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MotionRoute = MotionRouteImport.update({
+  id: '/motion',
+  path: '/motion',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfflineRoute = OfflineRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/data': typeof DataRoute
   '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
+  '/motion': typeof MotionRoute
   '/offline': typeof OfflineRoute
   '/rpc': typeof RpcRoute
   '/runtime-cache': typeof RuntimeCacheRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/data': typeof DataRoute
   '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
+  '/motion': typeof MotionRoute
   '/offline': typeof OfflineRoute
   '/rpc': typeof RpcRoute
   '/runtime-cache': typeof RuntimeCacheRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/data': typeof DataRoute
   '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
+  '/motion': typeof MotionRoute
   '/offline': typeof OfflineRoute
   '/rpc': typeof RpcRoute
   '/runtime-cache': typeof RuntimeCacheRoute
@@ -143,6 +152,7 @@ export interface FileRouteTypes {
     | '/data'
     | '/gestures'
     | '/install'
+    | '/motion'
     | '/offline'
     | '/rpc'
     | '/runtime-cache'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/data'
     | '/gestures'
     | '/install'
+    | '/motion'
     | '/offline'
     | '/rpc'
     | '/runtime-cache'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/data'
     | '/gestures'
     | '/install'
+    | '/motion'
     | '/offline'
     | '/rpc'
     | '/runtime-cache'
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   DataRoute: typeof DataRoute
   GesturesRoute: typeof GesturesRoute
   InstallRoute: typeof InstallRoute
+  MotionRoute: typeof MotionRoute
   OfflineRoute: typeof OfflineRoute
   RpcRoute: typeof RpcRoute
   RuntimeCacheRoute: typeof RuntimeCacheRoute
@@ -234,6 +247,13 @@ declare module '@tanstack/react-router' {
       path: '/install'
       fullPath: '/install'
       preLoaderRoute: typeof InstallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/motion': {
+      id: '/motion'
+      path: '/motion'
+      fullPath: '/motion'
+      preLoaderRoute: typeof MotionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offline': {
@@ -301,6 +321,7 @@ const rootRouteChildren: RootRouteChildren = {
   DataRoute: DataRoute,
   GesturesRoute: GesturesRoute,
   InstallRoute: InstallRoute,
+  MotionRoute: MotionRoute,
   OfflineRoute: OfflineRoute,
   RpcRoute: RpcRoute,
   RuntimeCacheRoute: RuntimeCacheRoute,

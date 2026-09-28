@@ -1,8 +1,10 @@
-export {
-  bindZone,
-  measureZone,
-  nativeScrollers,
-  swallowNextClick,
-  ZONE_SELECTOR,
-} from './zone';
-export type { Rect } from './zone';
+export { GestureZone } from './zone';
+export type { GestureZoneProps } from './zone';
+export { useGesture, useSwipe } from './hooks';
+export type {
+  GestureOptions,
+  GestureState,
+  SwipeOptions,
+  SwipeState,
+} from './hooks';
+export type { GestureEnd } from './hub';

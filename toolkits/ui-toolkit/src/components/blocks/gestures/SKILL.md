@@ -1,271 +1,98 @@
 ---
 name: kui-gestures
-description: Add touch gestures (tap, Pan, Swipe, Pinch, each with or without a held finger) with kui's gestures block, animated through motion values, with optional haptics. Use when making a page or surface respond to gestures, choosing which gesture triggers an action, building a pull to refresh, swipeable row, sidebar, photo viewer or map, or when a gesture misfires, fights scrolling, or breaks browser back.
+description: Add app-level touch gestures with kui's gestures block — one Gesture Zone per screen, read anywhere inside with useGesture (movement, scale, rotation) and useSwipe (one finger, one axis) as motion values. Use when a screen should respond to gestures that are not tied to one element, such as opening a sidebar, pulling to refresh, or steering a map or canvas from anywhere; or when choosing between these hooks and Motion's own element gestures.
 ---
 
 # kui-gestures
 
-`@kstackz/ui-toolkit/components/blocks/gestures`: hooks that turn touches in a
-Gesture Zone into motion values, one XState machine that classifies every
-touch, a finger layer and a debug overlay. The live demo is the Gesture Lab,
+`@kstackz/ui-toolkit/components/blocks/gestures`: one Gesture Zone per
+screen, and two hooks that read its Gestures anywhere inside it as motion
+values. The live demo is the Gesture Lab,
 `apps/pwa-playground/src/routes/-gestures/`.
 
 ```tsx
-<GestureProvider scroll="none" haptics className="h-dvh">
-  <GestureZone scroll="y" className="overflow-y-auto">
-    <Feed /> {/* calls useSwipe, useTap… */}
-  </GestureZone>
-  <GestureFingers />
-  {debug ? <GestureDebugOverlay machineClassName="…" /> : null}
-</GestureProvider>
+<GestureZone className="fixed inset-0">
+  <Canvas />
+  <Sidebar />
+</GestureZone>;
+
+function Canvas() {
+  const { x, y, scale, rotation, origin, active } = useGesture({
+    onEnd: (end) => save(end),
+  });
+  // ...
+}
+
+function Sidebar() {
+  const { axis, dx, dy, active } = useSwipe({
+    axis: 'x',
+    enabled: !open,
+    onEnd: ({ distance, velocity, interrupted }) => decide(),
+  });
+  // ...
+}
 ```
 
 ## The model
 
-Every gesture is **gesture** × **fingers** × **Hold**:
+- **Gesture Zone** — the region where the app owns touch, for app-level
+  shortcuts. Every touch in it is kept from the browser: no page scroll or
+  pinch-zoom. One per screen; zones do not nest. Text entry and anything
+  under `data-nogesture` keep their own touch handling.
+- **Gesture** — one continuous touch, from the first finger landing to the
+  last one lifting. Fingers may join and leave freely; it never ends or turns
+  into something else until every finger is up. It is never classified: one
+  finger moves it, two also scale and rotate it.
+- **Swipe** — a one-finger Gesture read along one axis, fixed by its first
+  real movement (8px). A second finger ends it as `interrupted`, and no new
+  Swipe starts until every finger has lifted.
+- **Interrupted** — when the browser takes the touch (Android's back
+  gesture, an incoming call) or the page loses focus, the Gesture and any
+  Swipe end at once with `interrupted: true`. Treat it as a cancel: snap
+  back rather than complete.
 
-- gesture: `tap`, **Pan**, **Swipe** (up, down, left or right), **Pinch**
-  (always two fingers). There is no double tap: taps fire as the fingers lift.
-- fingers: 1 or 2 acting fingers, not counting the Hold.
-- Hold: none, left or right. A **Hold** is a finger kept still while the
-  others act, like a held Shift key: every gesture of the other fingers
-  happens with it, until it lifts. Its side is where it sits relative to
-  them, fixed as it locks.
+Every enabled listener receives every Gesture or Swipe, wherever it lands in
+the zone and wherever the listener renders, even hidden. There is no routing
+to the element under the finger. Your app's state decides which listeners
+are `enabled`; when two enabled listeners of one kind take the same Gesture,
+development logs a warning. `enabled` is read as each Gesture or Swipe
+starts.
 
-Classification is the same in every app. What you register only changes
-whether a movement is a Pan or a Swipe.
+Gestures that belong to one element, such as dragging a card or swiping one
+row, are not the zone's: use Motion's own `drag` and gesture props on that
+element.
 
-1. **The first finger down is the Hold if it stays still.** Nothing is
-   decided as fingers land, however far apart in time. One finger down: the
-   first to pass 10px makes a one-finger gesture. With more down, the first
-   movement past 10px decides, read a frame later so every finger's move of
-   that frame is in. If the first finger down is still (under 10px, and no
-   more than half as far as the others went), it locks as the Hold and the
-   one or two others act, up to 3 fingers in all. Otherwise two fingers
-   Pinch if their distance changes more than they travel together, else make
-   a two-finger Pan or Swipe. So a Pinch needs both fingers moving. Anything
-   else is ignored until every finger lifts.
-2. **Locked until the last finger lifts.** A gesture stays what it was
-   classified as until the last of its fingers lifts. One of them lifting
-   leaves the rest carrying it on; landing again, anywhere, it joins back,
-   up to the number it started with. Offset, scale and point carry on from
-   where they were, so nothing jumps; a Pinch down to one finger holds its
-   scale. A Hold stays until it lifts, however far it wanders; the other
-   fingers can make any number of gestures meanwhile, each classified
-   afresh. The Hold lifting ends the gesture under way.
-3. **Taps.** Fingers that land and lift within 300ms without passing the
-   slop, firing as the last one lifts. Two fingers tap together when both
-   lift within 300ms of the first landing. A finger tapping beside the
-   first finger down, which stays, is a tap with that one as the Hold: it
-   fires as it lifts, or once 300ms have passed since the first landed if
-   the two could still have tapped together.
-4. **A Swipe claims its own directions; a Pan gets the rest.** The first
-   movement's main direction decides: a Swipe registered that way (or, for
-   a `stay` Swipe resting open, the way back) takes it, else a Pan for the
-   combination does. Either stays that kind until lift. So one finger can
-   page photos sideways with a Pan and dismiss with a Swipe down.
-5. **Scroll axis.** `scroll` (`y` by default, `x`, or `none`) is the axis
-   the browser keeps for one finger with no Hold: a first movement along it
-   scrolls natively, except a registered Swipe the way the scroller cannot
-   go (at the top, finger moving down). That is pull to refresh on a
-   scrolling feed. Pans never get that exception.
-6. **Capture.** Once a gesture is claimed, a Hold locked, or a second finger
-   down, the zone holds the page still until every finger lifts. A two-finger
-   drag never scrolls the page.
-7. **Release velocity** comes from the gesture's own fingers, over their
-   last 60ms: held still that long before lifting reads 0, so nothing flings.
+## `useGesture({ enabled?, onEnd? })`
 
-A combination nobody registered does nothing; two fingers are still
-Captured.
+| Field        | Meaning                                                                         |
+| ------------ | ------------------------------------------------------------------------------- |
+| `x`, `y`     | MotionValue, px: how far the point under the first finger has moved             |
+| `scale`      | MotionValue, multiplier from 1                                                  |
+| `rotation`   | MotionValue, degrees, clockwise positive                                        |
+| `origin`     | Where the Gesture started, viewport px: the point scale and rotation turn about |
+| `active`     | React state: true from the first finger down until the last lifts               |
+| `onEnd(end)` | Final values, `origin`, `velocity` of each value per second, `interrupted`      |
 
-## Hooks
+Scale and rotate about `origin`, then move by `x` and `y`, and what was under
+the fingers stays under them. The values are relative to the Gesture's
+start and have no bounds: keep your own running position (a camera, an
+offset) and fold each Gesture into it in `onEnd`. They keep their last
+values until the next Gesture starts, then begin again from 0 (scale 1).
 
-Every hook takes `fingers` (1 or 2, default 1; not on Pinch), `hold`
-(`'none'` default, `'left'`, `'right'`, `'any'` for either side) and
-`enabled` (default true). Hooks register with the nearest zone on mount
-and throw outside one. Options are read at gesture time, so changing them
-re-registers nothing; only the key (gesture, fingers, Hold, direction)
-does. React never renders during a gesture.
+## `useSwipe({ enabled?, axis?, onEnd? })`
 
-```ts
-useTap({ fingers: 2, hold: 'left', onTap: ({ point, hold }) => {} });
+| Field        | Meaning                                                                           |
+| ------------ | --------------------------------------------------------------------------------- |
+| `axis`       | `'x'` or `'y'`, the current or last Swipe's axis                                  |
+| `dx`, `dy`   | MotionValue, signed px along the axis: right and down positive; the other stays 0 |
+| `active`     | React state: true from the move that fixes the axis until it ends                 |
+| `onEnd(end)` | `axis`, `distance`, `origin`, `velocity` (px/s along the axis), `interrupted`     |
 
-const { x, y } = usePan({ fingers, hold, x?, y?, axis?: 'x' | 'y',
-  bounds?: { left, right, top, bottom } | (() => bounds),
-  momentum?: true, snap?: number, onStart?, onEnd? });
+`axis` limits it to Swipes along one axis. It judges nothing: completing,
+snapping and opening are decided by what you build on top, for example
+`animate(value, target, { type: 'spring', velocity })` from `onEnd`.
 
-const { progress, armed, source, available, open, close } = useSwipe({
-  direction: 'down', distance: 72, edge?: false,
-  after?: 'return' | 'stay', settle?: true, progress?,
-  onSwipe?: () => refresh(), onCancel?,
-});
+## Not in the block yet
 
-const { scale, originX, originY } = usePinch({ hold, scale?, min?: 1,
-  max?: 4, x?, y?, onStart?, onEnd? });
-
-const hold = useHold(); // { side, point } | undefined, renders on lock/release only
-```
-
-- **Pan**: `x`/`y` follow the fingers from where they were, rubber-band past
-  `bounds` and spring back; on release they coast with the fingers' speed
-  (`momentum`), resting on a multiple of `snap`. Pass your own values to
-  share them; `bounds` as a function follows a zoom.
-- **Swipe**: `progress` is travel over `distance`: 0 at rest, 1 committed,
-  clamped at 0, rubber-banded past 1, following the finger however slowly.
-  Release commits at 40% or past or on a forward flick of 0.3px/ms; a
-  backward flick always cancels. `armed`
-  is 1 while releasing now would commit: show "Release to refresh" off it.
-  It springs to 1 and runs `onSwipe`, or back to 0 and runs `onCancel`,
-  carrying the finger's speed. `after: 'return'` holds at 1 until
-  `onSwipe`'s promise settles, then springs home; `after: 'stay'` stays at
-  1 until a Swipe the opposite way drags it back. `open()` commits as if
-  swiped (it runs `onSwipe`); `close()` springs to 0. `settle: false`
-  leaves the animation after release to you.
-- **Pinch**: `scale` is the start scale times the fingers' distance over
-  the one they landed at, rubber-banded past `min`/`max` and springing back.
-  Given a Pan's `x`/`y` it moves them too, so the point under the fingers
-  stays there: put the transformed element at the zone's top left with
-  `originX: 0, originY: 0`. Without them, `originX`/`originY` (px from the
-  zone's top left) are where the fingers landed.
-
-A one-finger no-Hold Pan along the zone's `scroll` axis, and an edge
-Swipe that is not one finger sideways, throw in development. A Pan with no
-`axis` sharing a combination with a Swipe only warns, since the Swipe
-takes its directions from it; a Pan with an `axis` beside a Swipe is fine.
-Several hooks on the same key all fire; several Swipe directions on one
-combination are fine.
-
-## Zones and bubbling
-
-`GestureProvider` is the app's root zone; `GestureZone` is a region inside
-it with its own `scroll`. They are one implementation. Zones nest: a touch
-belongs to the innermost zone it starts in, which classifies it by its own
-`scroll`. The gesture goes to the innermost zone, walking outward, with a
-hook for its key (gesture, fingers, Hold, and direction for a Swipe), and
-the tap wait and Pan-or-Swipe decisions read the whole chain the same way.
-In each zone a Swipe claims its directions before a Pan (rule 4); a zone
-with neither for the movement passes it out. So a closed row's Swipe right
-passes out to the sidebar around it, while a map's Pan inside the sidebar's
-zone wins over the sidebar. One exception: an open `after: 'stay'` Swipe (a drawer) claims its way
-back before any zone inside it, outermost first, since it sits on top of
-them. Swiping left with the sidebar open closes it rather than opening a
-right-hand panel inside.
-
-**Put a zone on the scrolling element itself, or inside it.** Touch-action
-is read up to the nearest scroller, so a zone around a scroller cannot
-leave its scrolling to the browser. The browser's own pull to refresh and
-overscroll stay out (`overscroll-behavior: contain`).
-
-Inside a zone, text fields and native sideways scrollers (a carousel row with
-`overflow-x: auto`) keep their own touch handling. Buttons, links and other
-semantic controls keep a stationary tap as their native click, while a drag
-starting on them may still become a gesture. Long-press callouts and text
-selection are off. A finger lifting from a Captured touch does not also click
-what is under it.
-
-## Edges
-
-`edge: true` on a sideways Swipe starts it at the edge opposite its
-direction: a Swipe right from the left edge. Top and bottom edges are never
-offered. Who owns the edges depends on the Environment:
-
-| Environment               | Edges owned by | The edge Swipe                                   |
-| ------------------------- | -------------- | ------------------------------------------------ |
-| iOS installed             | app            | starts only in the 24px strip (`source: 'edge'`) |
-| iOS Safari tab, desktop   | browser        | starts anywhere in the zone (`source: 'zone'`)   |
-| Android, tab or installed | OS (32px)      | starts anywhere in the zone (`source: 'zone'`)   |
-
-Strips the browser or OS own are never listened in, and nothing but edge
-Swipes starts in a strip the app owns. The fallback from anywhere never
-beats an inner zone: any zone inside that wants the movement (its own Pan,
-or a Swipe that way) gets it first, so a map's or a photo viewer's sideways
-drag never opens the sidebar. The fallback only fires where nothing inside
-wants the movement. It is off, with a development warning and
-`available: false`, when another hook in its own zone or one around it
-already takes that Swipe: show a button instead.
-
-## Animating with motion values
-
-The hooks set motion values; `<motion.div style={{ x, y, scale }}>` does
-the DOM writes. Derive everything else with `useTransform`:
-
-```tsx
-const sidebar = useSwipe({
-  direction: 'right',
-  edge: true,
-  after: 'stay',
-  distance: 288,
-  spring: { stiffness: 600, damping: 50, mass: 1 }, // optional
-});
-const x = useTransform(sidebar.progress, [0, 1], [-288, 0]);
-const scrim = useTransform(sidebar.progress, [0, 1], [0, 0.5]);
-```
-
-The finger sets the value each move; release hands it to a spring
-(`settle`) or inertia (`coast`) starting at the finger's speed; a touch
-landing mid-animation catches it (`value.stop()`), and if that touch makes
-no gesture for the hook it carries on where it was going. `settle(value,
-to, { velocity, spring })` and `coast(value, { velocity, min, max, snap })`
-are exported for your own animations (a zoom button). A Swipe accepts
-the same optional `spring`; otherwise it uses `DEFAULT_GESTURE_SPRING`.
-Reduced motion is read as each animation starts and jumps instead.
-
-## Choosing gestures
-
-- Map actions to commitment: tap to touch one thing, Swipe to commit a step
-  (open, refresh, dismiss), Pan to move freely, Pinch to scale. For a
-  second action on the same thing, use a Hold or two fingers.
-- Keep one finger along the scroll axis for scrolling; use Swipes at the
-  scroller's ends, or a Hold or two fingers, for anything else there.
-- Give left and right Holds clearly different modes and show the active one
-  (`useHold`).
-- Give every gesture a visible control too; gestures are shortcuts.
-
-## Haptics
-
-`<GestureProvider haptics>` vibrates briefly for a tap some hook took (10ms)
-and for a Hold locking that some hook in its zone chain answers (20ms), in
-every zone inside it. Pan, Swipe, Pinch and a Hold releasing stay silent,
-as do taps on buttons and links. It is off by default.
-
-Haptics are switched off in the block for now, whatever a provider asks:
-the prop is kept, but nothing vibrates until they are revisited.
-
-It uses the Vibration API, so it works in Chrome on Android and nowhere
-else: iOS and Firefox have no scriptable vibration, and Chrome refuses it
-until the user's first tap on the page. `vibrate(pattern)` from
-`@kstackz/ui-toolkit/lib/haptics` is the same call for your own controls: a
-duration, or alternating on and off durations, in ms, and a no-op where
-unsupported.
-
-## Showing fingers
-
-`<GestureFingers />` anywhere inside the provider draws every finger under
-it by role: a soft ring while undecided, a bubble growing inside after
-120ms of rest; the Hold popping as it locks, then glowing with a "Left Hold"
-/ "Right Hold" chip; a comet tail behind a moving finger; a burst for each
-tap. Set `tapFeedback={false}` to hide only that tap burst, or `enabled={false}`
-to hide the whole visualization without changing gesture input. Reduced motion
-keeps it still. Colours are `--gf-*` properties set from kui tokens.
-
-## Testing
-
-- **Debug overlay.** `<GestureDebugOverlay />` outlines every zone with its
-  scroll rule, labels the edge strips with their owner, hatches native
-  scrollers, numbers each finger, shows the Environment in one line
-  (`gesture-overlay-environment`) and draws the machine of the zone touched
-  last (`gesture-overlay-machine`, `data-state` is the state value as JSON).
-  Place it with `machineClassName` (fixed) where it covers nothing you touch.
-- **The machine.** `engine/machine.ts` is the whole model: `idle`,
-  `pressing`, `moving`, `native`, `ignoring`, and `held` with `idle`,
-  `pressing`, `moving` and `ignoring` inside. It touches no DOM and reads registrations through the `Policy`
-  its engine is given. Change behaviour there, not in the zone.
-- **Unit tests.** `engine/engine.test.ts` feeds pointer samples to an engine
-  on xstate's `SimulatedClock` with a fake policy; `registry/registry.test.ts`
-  checks the chain and development checks; `motion/motion.test.ts` runs
-  motion on fake timers installed before it loads (`vi.hoisted`).
-- **Browser automation.** Emulate a phone with touch and drive fingers with
-  CDP `Input.dispatchTouchEvent`. `touchEnd` releases the points it lists,
-  so lift one finger of two with a `touchEnd` listing only that one. Check
-  Capture by the zone's `touchmove` events being `defaultPrevented`, not by
-  scroll position.
+Tap, Hold, scrolling inside the zone, and ready-made layers such as a
+sidebar or pull to refresh.
