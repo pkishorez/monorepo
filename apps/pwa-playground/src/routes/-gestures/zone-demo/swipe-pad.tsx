@@ -12,10 +12,18 @@ import {
 } from '@kstackz/ui-toolkit/motion';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type Coast, cap, glide } from './glide.ts';
 
 const PUCK = 40;
 
 const HOME = { type: 'spring', stiffness: 400, damping: 30 } as const;
+
+// The fastest a released puck carries on, in px per second.
+const MAX_SPEED = 5000;
+
+// How far past the pad's reach the puck's travel may go: softened, it is
+// then all but at the edge.
+const EDGE = 3;
 
 // Follows the finger closely near the middle and never leaves the pad.
 const soft = (distance: number, reach: number) =>
@@ -27,13 +35,17 @@ const describe = (end: SwipeEnd) =>
 /**
  * A still grid showing every Swipe with no Hold or under the right Hold: the
  * puck follows the finger along the Swipe's axis and stays where the Swipe
- * leaves it, adding each Swipe to the last; an interrupted one springs back. `reset` changing springs it back
- * to the middle. Under the left Hold it rests.
+ * leaves it, adding each Swipe to the last. On release it glides on at the
+ * Swipe's speed, slowing to a stop; an interrupted one springs back. Its
+ * position reads live above it. `reset` changing springs it back to the
+ * middle. Under the left Hold it rests.
  */
 export function SwipePad(props: { readonly reset: number }) {
   const hold = useHold();
   const pad = useRef<HTMLDivElement>(null);
   const distance = useRef<HTMLSpanElement>(null);
+  const position = useRef<HTMLSpanElement>(null);
+  const coasting = useRef<Coast | undefined>(undefined);
   const reach = useRef({ x: 0, y: 0 });
   // Every finished Swipe added up, before softening to the pad.
   const travelled = useRef({ x: 0, y: 0 });
@@ -41,16 +53,28 @@ export function SwipePad(props: { readonly reset: number }) {
   const puckY = useMotionValue(0);
   const [last, setLast] = useState<SwipeEnd | undefined>(undefined);
 
-  // An interrupted Swipe is dropped: the puck springs back to where it was.
+  // A finished Swipe glides on until it slows to a stop or reaches the
+  // edge. An interrupted one is dropped: the puck springs back.
   const onEnd = (end: SwipeEnd) => {
     setLast(end);
-    if (!end.interrupted) {
-      travelled.current[end.axis] += end.distance;
+    const { axis } = end;
+    const puck = axis === 'x' ? puckX : puckY;
+    const limit = EDGE * reach.current[axis];
+    if (end.interrupted) {
+      const back = soft(travelled.current[axis], reach.current[axis]);
+      void animate(puck, back, { ...HOME, velocity: end.velocity });
       return;
     }
-    const puck = end.axis === 'x' ? puckX : puckY;
-    const back = soft(travelled.current[end.axis], reach.current[end.axis]);
-    void animate(puck, back, { ...HOME, velocity: end.velocity });
+    const along = (moved: number) =>
+      Math.max(-limit, Math.min(limit, travelled.current[axis] + moved));
+    travelled.current[axis] = along(end.distance);
+    coasting.current?.stop();
+    coasting.current = glide([cap(end.velocity, MAX_SPEED)], ([moved = 0]) => {
+      const next = along(moved);
+      travelled.current[axis] = next;
+      puck.set(soft(next, reach.current[axis]));
+      return Math.abs(next) < limit;
+    });
   };
   const plain = useSwipe({ onEnd });
   const right = useSwipe({ hold: 'right', onEnd });
@@ -71,8 +95,15 @@ export function SwipePad(props: { readonly reset: number }) {
     return () => resizes.disconnect();
   }, []);
 
+  // A Swipe starting catches the puck mid-glide.
+  const swiping = plain.active || right.active;
+  useLayoutEffect(() => {
+    if (swiping) coasting.current?.stop();
+  }, [swiping]);
+
   useEffect(() => {
     if (props.reset === 0) return;
+    coasting.current?.stop();
     travelled.current = { x: 0, y: 0 };
     setLast(undefined);
     const controls = [animate(puckX, 0, HOME), animate(puckY, 0, HOME)];
@@ -94,6 +125,14 @@ export function SwipePad(props: { readonly reset: number }) {
   useMotionValueEvent(plain.dy, 'change', follow('y'));
   useMotionValueEvent(right.dx, 'change', follow('x'));
   useMotionValueEvent(right.dy, 'change', follow('y'));
+
+  // Where the puck is from the middle, as it moves, glides and springs.
+  const show = () => {
+    if (position.current === null) return;
+    position.current.textContent = `x ${Math.round(puckX.get())} · y ${Math.round(puckY.get())}`;
+  };
+  useMotionValueEvent(puckX, 'change', show);
+  useMotionValueEvent(puckY, 'change', show);
 
   return (
     <section
@@ -121,6 +160,13 @@ export function SwipePad(props: { readonly reset: number }) {
             'linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)',
         }}
       >
+        <span
+          ref={position}
+          data-testid="swipe-position"
+          className="absolute top-2 left-2 rounded bg-background/80 px-1.5 font-mono text-xs tabular-nums"
+        >
+          x 0 · y 0
+        </span>
         <div
           aria-hidden="true"
           className={cn(
