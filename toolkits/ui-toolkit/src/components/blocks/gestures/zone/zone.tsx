@@ -50,18 +50,18 @@ export type GestureZoneProps = ComponentProps<'div'> & {
   readonly holdRadius?: number;
 };
 
-// The glow on a Hold Zone while its Hold is on: a soft, blurred light in
-// --gesture-hold (the foreground colour by default) that eases out of the
-// corner in a quarter of a second. It waits 100ms first, so a quick tap
-// there never shows it, and fades fast when the Hold ends.
-function HoldGlow(props: {
+// The Hold Zone's shade while its Hold is on: the quarter circle itself,
+// faintly tinted in --gesture-hold (the foreground colour by default), with
+// a soft shadow round its edge. It waits 100ms, so a quick tap there never
+// shows it, eases in over a quarter of a second, and fades fast when the
+// Hold ends.
+function HoldShade(props: {
   readonly side: Side;
   readonly radius: number;
   readonly on: boolean;
 }) {
   const { side, radius, on } = props;
-  const corner = side === 'left' ? '0 100%' : '100% 100%';
-  const light = (percent: number) =>
+  const tint = (percent: number) =>
     `color-mix(in oklab, var(--gesture-hold, var(--foreground)) ${percent}%, transparent)`;
   return (
     <div
@@ -70,15 +70,16 @@ function HoldGlow(props: {
       data-side={side}
       data-active={on ? '' : undefined}
       className={cn(
-        'pointer-events-none absolute bottom-0 z-50 scale-40 opacity-0 blur-[28px] transition-[opacity,scale,filter] duration-150 ease-out data-active:scale-100 data-active:opacity-100 data-active:blur-[10px] data-active:delay-100 data-active:duration-250',
+        'pointer-events-none absolute bottom-0 z-50 scale-90 opacity-0 transition-[opacity,scale] duration-150 ease-out data-active:scale-100 data-active:opacity-100 data-active:delay-100 data-active:duration-250',
         side === 'left'
-          ? 'left-0 origin-bottom-left'
-          : 'right-0 origin-bottom-right',
+          ? 'left-0 origin-bottom-left rounded-tr-full'
+          : 'right-0 origin-bottom-right rounded-tl-full',
       )}
       style={{
         width: radius,
         height: radius,
-        background: `radial-gradient(circle ${radius}px at ${corner}, ${light(40)} 0, ${light(18)} 55%, transparent 100%)`,
+        background: tint(5),
+        boxShadow: `0 0 28px 2px rgb(0 0 0 / 0.28), inset 0 0 18px ${tint(8)}, inset 0 0 0 1px ${tint(10)}`,
       }}
     />
   );
@@ -144,8 +145,8 @@ export function GestureZone({
         {children}
         {holdRadius !== undefined && holdRadius > 0 && (
           <>
-            <HoldGlow side="left" radius={holdRadius} on={hold === 'left'} />
-            <HoldGlow side="right" radius={holdRadius} on={hold === 'right'} />
+            <HoldShade side="left" radius={holdRadius} on={hold === 'left'} />
+            <HoldShade side="right" radius={holdRadius} on={hold === 'right'} />
           </>
         )}
       </div>

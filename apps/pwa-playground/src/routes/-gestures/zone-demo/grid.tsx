@@ -170,6 +170,12 @@ export function InfiniteGrid(props: { readonly reset: number }) {
     if (steering) coasting.current?.stop();
   }, [steering]);
 
+  // draw changes with every render; a reset must only run when `reset` does.
+  const redraw = useRef(draw);
+  useLayoutEffect(() => {
+    redraw.current = draw;
+  });
+
   useEffect(() => {
     const from = camera.current;
     const to = home.current;
@@ -181,16 +187,16 @@ export function InfiniteGrid(props: { readonly reset: number }) {
       damping: 28,
       onUpdate: (progress) => {
         camera.current = settle(from, to, progress);
-        draw();
+        redraw.current();
       },
       onComplete: () => {
         camera.current = to;
-        draw();
+        redraw.current();
       },
     });
     coasting.current = controls;
     return () => controls.stop();
-  }, [props.reset, draw]);
+  }, [props.reset]);
 
   const layer = (index: number) => (node: SVGElement | null) => {
     layers.current[index] = node;

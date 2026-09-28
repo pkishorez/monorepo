@@ -63,7 +63,7 @@ A finger landing in a Hold Zone while no finger is on the Gesture Zone: a modifi
 _Avoid_: anchor, chord, touch and hold (that is a long press), modifier key
 
 **Hold Zone**:
-A quarter circle of configurable radius on the bottom-left or bottom-right corner of the Gesture Zone, present only when the zone turns Hold Zones on. Every touch that starts in it is a Hold; nothing under it is clicked, so an app leaves these corners free. It glows while its Hold is on, after a short pause so a quick tap on it never shows.
+A quarter circle of configurable radius on the bottom-left or bottom-right corner of the Gesture Zone, present only when the zone turns Hold Zones on. Every touch that starts in it is a Hold; nothing under it is clicked, so an app leaves these corners free. It is shaded while its Hold is on, after a short pause so a quick tap on it never shows.
 _Avoid_: hotspot, modifier key
 
 **Tap**:

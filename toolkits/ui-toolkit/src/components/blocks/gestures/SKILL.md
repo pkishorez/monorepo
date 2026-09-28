@@ -53,7 +53,7 @@ function Toolbar() {
   Gesture that did not move. Two fingers are never a Tap.
 - **Hold** — with `holdRadius`, a quarter circle on each bottom corner is a
   Hold Zone. A finger landing there while no finger is on the zone starts
-  that Hold at once, and the corner glows. Every Gesture the other fingers
+  that Hold at once, and the corner is shaded. Every Gesture the other fingers
   make falls under it until no finger is left, even after the Hold finger
   lifts. While it is on, a finger landing in either corner does nothing.
   Under a Hold nothing is clicked. Alone, a Hold does nothing, so keep the
@@ -128,14 +128,14 @@ snapping and opening are decided by what you build on top, for example
 viewport px. It never waits for a second Tap. With no Hold, what is under the
 finger is still clicked as usual.
 
-## `useHold()` and the glow
+## `useHold()` and the shade
 
 `useHold()` returns the Hold on now as React state: `'none'`, `'left'` or
-`'right'`. The zone also sets `data-hold` on itself. Each corner's glow is a
-`data-slot="gesture-hold"` element with `data-side` and, while on,
-`data-active`. It waits 100ms, then eases in over a quarter of a second, so a
-quick tap on a corner never shows it. Recolour it with `--gesture-hold`; it is the foreground colour
-by default.
+`'right'`. The zone also sets `data-hold` on itself. While a Hold is on, its
+corner shows a subtle shaded quarter circle, a `data-slot="gesture-hold"`
+element with `data-side` and `data-active`. It waits 100ms, then eases in
+over a quarter of a second, so a quick tap on a corner never shows it. Tint
+it with `--gesture-hold`; it is the foreground colour by default.
 
 ## Not in the block yet
 
