@@ -23,7 +23,7 @@ export function TopBar(props: {
 }) {
   const sidebar = useLabSidebar();
   return (
-    <header className="sticky top-0 z-20 box-content flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background pt-[env(safe-area-inset-top)] pr-[max(0.25rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))]">
+    <header className="sticky top-0 z-20 box-content flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background pt-[max(12px,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))]">
       <Link
         to="/"
         aria-label="Home"

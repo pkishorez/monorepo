@@ -104,7 +104,7 @@ export function PwaPlaygroundSidebar(props: {
         inert={!visible}
         aria-hidden={!visible}
         style={{ x: sidebar.panelX, width: SIDEBAR_WIDTH, position }}
-        className="inset-y-0 left-0 z-40 flex flex-col border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-sidebar-foreground shadow-lg"
+        className="inset-y-0 left-0 z-40 flex flex-col border-r border-sidebar-border bg-sidebar pt-[max(12px,env(safe-area-inset-top))] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-sidebar-foreground shadow-lg"
       >
         {props.panel}
       </motion.nav>
