@@ -2,50 +2,50 @@
   {
     "id": "hook",
     "text": "Every codebase has an architecture diagram. And almost every one of them is lying.",
-    "speaker": "af_heart",
-    "speed": 1,
-    "seconds": 5.425
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 5.475
   },
   {
     "id": "familiar-world",
     "text": "You draw the boxes on day one. The interface talks to features, features talk to services, and nothing reaches back up.",
-    "speaker": "af_heart",
-    "speed": 1,
-    "seconds": 8.025
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 7.875
   },
   {
     "id": "disruption",
     "text": "Then someone ships on a Friday. One quiet import skips a layer. Nobody notices, and the diagram keeps smiling.",
-    "speaker": "af_heart",
-    "speed": 1,
-    "seconds": 7.8
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 7.625
   },
   {
     "id": "mechanism",
     "text": "Laymos moves that diagram out of your head and into one config file. Layers own folders. Modules draw borders inside them. Rules say who may depend on whom.",
-    "speaker": "af_heart",
-    "speed": 1,
-    "seconds": 11.125
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 10.775
   },
   {
     "id": "discovery",
     "text": "Then it reads your real imports and compares. The moment code crosses a line that the config never allowed, lint fails and points at the exact file.",
-    "speaker": "af_heart",
-    "speed": 1,
-    "seconds": 9.85
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 9.55
   },
   {
     "id": "consequence",
     "text": "So the architecture you drew is the architecture you have. Reviews argue about design, not about stray imports.",
-    "speaker": "af_heart",
-    "speed": 1,
-    "seconds": 7.3
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 7.4
   },
   {
     "id": "recap",
     "text": "Declare the layers. Let laymos check every import. Keep the diagram honest.",
-    "speaker": "af_heart",
-    "speed": 1,
-    "seconds": 5.35
+    "speaker": "am_michael",
+    "speed": 1.2,
+    "seconds": 5.425
   }
 ]

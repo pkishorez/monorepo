@@ -42,7 +42,7 @@ const lineY = (i: number) => -190 + 36 * i;
 // Highlights land first; the camera follows a beat later.
 const after = 0.25;
 
-function Drawing({ frame, cue }: { frame: number; cue: Cue }) {
+export function Drawing({ frame, cue }: { frame: number; cue: Cue }) {
   const mechanism = cue('mechanism', 'into one');
   const discovery = cue('discovery');
   const consequence = cue('consequence');
