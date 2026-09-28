@@ -35,14 +35,16 @@ Every gesture is **gesture** × **fingers** × **Hold**:
 Classification is the same in every app. What you register only changes
 whether a movement is a Pan or a Swipe.
 
-1. **The Hold locks as another finger lands.** A finger landing 50ms or
-   more after the one already down, which has not moved past 10px, locks
-   that one as the Hold at once; the rest act (up to 3 fingers in all).
-   Otherwise nothing is decided when fingers land: the first finger to pass
-   10px decides. One finger down: a one-finger gesture. Two landing within
-   50ms stay together: they Pinch if their distance changes more than they
-   travel together, else make a two-finger Pan or Swipe. Anything else is
-   ignored until every finger lifts.
+1. **The first finger down is the Hold if it stays still.** Nothing is
+   decided as fingers land, however far apart in time. One finger down: the
+   first to pass 10px makes a one-finger gesture. With more down, the first
+   movement past 10px decides, read a frame later so every finger's move of
+   that frame is in. If the first finger down is still (under 10px, and no
+   more than half as far as the others went), it locks as the Hold and the
+   one or two others act, up to 3 fingers in all. Otherwise two fingers
+   Pinch if their distance changes more than they travel together, else make
+   a two-finger Pan or Swipe. So a Pinch needs both fingers moving. Anything
+   else is ignored until every finger lifts.
 2. **Locked until the last finger lifts.** A gesture stays what it was
    classified as until the last of its fingers lifts. One of them lifting
    leaves the rest carrying it on; landing again, anywhere, it joins back,
@@ -53,7 +55,10 @@ whether a movement is a Pan or a Swipe.
    afresh. The Hold lifting ends the gesture under way.
 3. **Taps.** Fingers that land and lift within 300ms without passing the
    slop, firing as the last one lifts. Two fingers tap together when both
-   lift within 300ms of the first landing.
+   lift within 300ms of the first landing. A finger tapping beside the
+   first finger down, which stays, is a tap with that one as the Hold: it
+   fires as it lifts, or once 300ms have passed since the first landed if
+   the two could still have tapped together.
 4. **A Swipe claims its own directions; a Pan gets the rest.** The first
    movement's main direction decides: a Swipe registered that way (or, for
    a `stay` Swipe resting open, the way back) takes it, else a Pan for the
@@ -222,6 +227,9 @@ Reduced motion is read as each animation starts and jumps instead.
 and for a Hold locking that some hook in its zone chain answers (20ms), in
 every zone inside it. Pan, Swipe, Pinch and a Hold releasing stay silent,
 as do taps on buttons and links. It is off by default.
+
+Haptics are switched off in the block for now, whatever a provider asks:
+the prop is kept, but nothing vibrates until they are revisited.
 
 It uses the Vibration API, so it works in Chrome on Android and nowhere
 else: iOS and Firefox have no scriptable vibration, and Chrome refuses it

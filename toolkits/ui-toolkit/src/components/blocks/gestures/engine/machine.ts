@@ -2,6 +2,7 @@ import { and, assign, enqueueActions, not, setup } from 'xstate';
 import {
   actingTracks,
   type Claim,
+  claimActing,
   decideActing,
   decideActingLift,
   decideLift,
@@ -9,9 +10,12 @@ import {
   FRESH_PRESS,
   leans,
   type Locked,
-  lockOnLanding,
+  lockOnExpiry,
+  lockOnLift,
+  lockOnMovement,
   type Press,
   type Situation,
+  tapOf,
 } from './decide';
 import {
   claimTracks,
@@ -76,13 +80,13 @@ const tapAway = (context: Context, enqueue: Enqueue, tap: TapEvent) => {
 };
 
 /**
- * The whole gesture model as one machine. Nothing is decided when the first
- * finger lands (`pressing`). Another landing a moment later locks the one
- * down as the Hold (`held`): like a held Shift key it modifies every tap and
- * movement of the other fingers until it lifts, however far it wanders.
- * Otherwise the first movement past the slop decides: one finger pans or
- * swipes (`moving`), or along the scroll axis is left to the browser
- * (`native`); two fingers that landed together Pinch or pan. Fingers that
+ * The whole gesture model as one machine. Nothing is decided as fingers land
+ * (`pressing`). The first finger down staying still while one landed after
+ * it moves past the slop or taps locks it as the Hold (`held`): like a held
+ * Shift key it modifies every tap and movement of the other fingers until it
+ * lifts, however far it wanders. Otherwise the first movement past the slop
+ * decides: one finger pans or swipes (`moving`), or along the scroll axis is
+ * left to the browser (`native`); two fingers moving together Pinch or pan. Fingers that
  * land and lift quickly tap. A gesture stays what it was classified as until
  * the last of its fingers lifts: one of them may lift and land again. Anything
  * else, or the browser taking a pointer, leaves the rest of the touch to
@@ -106,8 +110,18 @@ export const gestureMachine = setup({
     liftsActing: ({ context, event }, params: { readonly next: string }) =>
       decideActingLift(situation(context), context.press, event.track)?.next ===
       params.next,
-    locksHold: ({ context, event }) =>
-      lockOnLanding(situation(context), event.track) !== undefined,
+    locksOnMove: ({ context, event }, params: { readonly next: string }) => {
+      const hold = lockOnMovement(situation(context), event.track);
+      if (hold === undefined) return false;
+      const claim = claimActing({ ...situation(context), hold });
+      return (claim === undefined ? 'ignoring' : 'moving') === params.next;
+    },
+    locksOnLift: ({ context, event }) =>
+      lockOnLift(situation(context), context.press, event.track) !== undefined,
+    locksOnExpiry: ({ context }) =>
+      lockOnExpiry(situation(context), context.press) !== undefined,
+    // Only one finger is down.
+    alone: ({ context }) => context.pointers.size() === 1,
     isHold: ({ context, event }) => event.track.id === context.hold?.id,
     inClaim: ({ context, event }) =>
       context.claim?.ids.includes(event.track.id) ?? false,
@@ -118,10 +132,10 @@ export const gestureMachine = setup({
       context.claim !== undefined &&
       event.track.id !== context.hold?.id &&
       context.claim.ids.length < context.claim.size,
-    // A third finger with no Hold, or a third acting finger under one.
+    // A fourth finger with no Hold, or a third acting finger under one.
     tooMany: ({ context }) =>
       context.hold === undefined
-        ? context.pointers.size() > 2
+        ? context.pointers.size() > 3
         : actingTracks(situation(context)).length > 2,
     noPointers: ({ context }) => context.pointers.size() === 0,
     noActing: ({ context }) => actingTracks(situation(context)).length === 0,
@@ -148,9 +162,9 @@ export const gestureMachine = setup({
           ? { tappers: [], spoiled: true }
           : context.press,
     }),
-    /** Locks the finger already down as the Hold, as another lands. */
-    lockHold: enqueueActions(({ context, event, enqueue }) => {
-      const hold = lockOnLanding(situation(context), event.track);
+    /** Locks the first finger down as the Hold, as the others first move, and claims their gesture. */
+    lockOnMove: enqueueActions(({ context, event, enqueue }) => {
+      const hold = lockOnMovement(situation(context), event.track);
       if (hold === undefined) return;
       enqueue.assign({
         hold,
@@ -159,6 +173,40 @@ export const gestureMachine = setup({
         press: FRESH_PRESS,
       });
       enqueue.emit(gesture(holdEvent('lock', hold)));
+      const held = { ...context, hold };
+      const claim = claimActing(situation(held));
+      if (claim === undefined) return;
+      enqueue.assign({ claim });
+      const start = movementEvent(claim, 'start', held, event.track);
+      if (start !== undefined) enqueue.emit(gesture(start));
+    }),
+    /** Locks the first finger down as the Hold, as another taps beside it. */
+    lockOnLift: enqueueActions(({ context, event, enqueue }) => {
+      const hold = lockOnLift(situation(context), context.press, event.track);
+      if (hold === undefined) return;
+      enqueue.assign({ hold, captured: true, leaning: false });
+      enqueue.emit(gesture(holdEvent('lock', hold)));
+      const held = { ...context, hold };
+      const lift = decideActingLift(
+        situation(held),
+        context.press,
+        event.track,
+      );
+      if (lift?.next === 'tap') tapAway(held, enqueue, lift.tap);
+      enqueue.assign({
+        press: lift?.next === 'continue' ? lift.press : FRESH_PRESS,
+      });
+    }),
+    /** Locks the first finger down as the Hold, once fingers that tapped beside it can no longer tap with it. */
+    lockOnExpiry: enqueueActions(({ context, enqueue }) => {
+      const hold = lockOnExpiry(situation(context), context.press);
+      if (hold === undefined) return;
+      enqueue.assign({ hold, captured: true, leaning: false });
+      enqueue.emit(gesture(holdEvent('lock', hold)));
+      if (context.pointers.size() > 1) return;
+      const tap = tapOf(context.press.tappers, hold);
+      if (tap !== undefined) tapAway(context, enqueue, tap);
+      enqueue.assign({ press: FRESH_PRESS });
     }),
     /** Applies the first movement's decision: claims the gesture. */
     decide: enqueueActions(({ context, event, enqueue }) => {
@@ -307,13 +355,38 @@ export const gestureMachine = setup({
     },
     /** Fingers down, nothing moved yet. */
     pressing: {
+      // Fingers that tapped beside the first one still down can no longer
+      // tap together with it: it was a Hold.
+      after: {
+        [TAP_MAX_MS]: [
+          {
+            guard: and(['locksOnExpiry', 'alone']),
+            target: 'held.idle',
+            actions: 'lockOnExpiry',
+          },
+          {
+            guard: 'locksOnExpiry',
+            target: 'held.pressing',
+            actions: 'lockOnExpiry',
+          },
+        ],
+      },
       on: {
         down: [
-          { guard: 'locksHold', target: 'held.pressing', actions: 'lockHold' },
           { guard: 'tooMany', target: 'ignoring', actions: 'capture' },
           { actions: ['capture', 'spoilTapped'] },
         ],
         move: [
+          {
+            guard: { type: 'locksOnMove', params: { next: 'moving' } },
+            target: 'held.moving',
+            actions: 'lockOnMove',
+          },
+          {
+            guard: { type: 'locksOnMove', params: { next: 'ignoring' } },
+            target: 'held.ignoring',
+            actions: 'lockOnMove',
+          },
           {
             guard: { type: 'decides', params: { next: 'native' } },
             target: 'native',
@@ -330,6 +403,16 @@ export const gestureMachine = setup({
           { actions: 'lean' },
         ],
         up: [
+          {
+            guard: and(['locksOnLift', 'alone']),
+            target: 'held.idle',
+            actions: 'lockOnLift',
+          },
+          {
+            guard: 'locksOnLift',
+            target: 'held.pressing',
+            actions: 'lockOnLift',
+          },
           {
             guard: { type: 'lifts', params: { next: 'continue' } },
             actions: 'lift',

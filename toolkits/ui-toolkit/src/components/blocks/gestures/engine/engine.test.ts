@@ -1,7 +1,7 @@
 import { SimulatedClock } from 'xstate';
 import { describe, expect, it } from 'vitest';
 import { createGestureEngine } from './engine';
-import { HOLD_LEAD_MS, TAP_MAX_MS } from './thresholds';
+import { TAP_MAX_MS } from './thresholds';
 import type {
   Combination,
   Direction,
@@ -175,14 +175,13 @@ describe('deciding', () => {
     });
   });
 
-  it('locks the finger down as the Hold the moment another lands', () => {
+  it('locks the first finger down as the Hold as one landed after it moves', () => {
     const g = setup();
     g.down(1, 100, 300, 0);
     g.move(1, 103, 301, 20);
     g.down(2, 300, 300, 400);
-    expect(g.outcomes()).toEqual(['hold:lock']);
-    expect(g.roles()).toEqual(['hold', 'pending']);
-    expect(g.where()).toBe('held.pressing');
+    expect(g.outcomes()).toEqual([]);
+    expect(g.roles()).toEqual(['pending', 'pending']);
     g.drag({ 2: [p(300, 300), p(300, 200)] }, 400, 500);
     expect(g.outcomes()).toEqual(['hold:lock', 'pan:start']);
     expect(g.last('hold')).toEqual({
@@ -202,19 +201,52 @@ describe('deciding', () => {
   it('reads a Hold on the right of the acting fingers as a right Hold', () => {
     const g = setup();
     g.down(1, 300, 300, 0);
-    g.down(2, 100, 300, HOLD_LEAD_MS);
-    g.drag({ 2: [p(100, 300), p(100, 200)] }, HOLD_LEAD_MS, HOLD_LEAD_MS + 100);
+    g.down(2, 100, 300, 50);
+    g.drag({ 2: [p(100, 300), p(100, 200)] }, 50, 150);
     expect(g.last('hold')?.side).toBe('right');
+  });
+
+  it('locks a Hold for fingers that landed together, however near the other comes', () => {
+    const g = setup();
+    g.down(1, 100, 300, 0);
+    g.down(2, 300, 300, 5);
+    g.drag({ 2: [p(300, 300), p(140, 310)] }, 5, 105);
+    expect(g.outcomes()).toEqual(['hold:lock', 'pan:start']);
+    expect(g.last('pan')).toMatchObject({
+      fingers: 1,
+      hold: { side: 'left' },
+    });
+  });
+
+  it('makes no Hold of the second finger down staying still while the first moves', () => {
+    const g = setup();
+    g.down(1, 100, 300, 0);
+    g.down(2, 300, 300, 5);
+    g.drag({ 1: [p(100, 300), p(200, 300)] }, 5, 105);
+    expect(g.outcomes()).toEqual(['pinch:start']);
+    expect(g.last('pinch')).toMatchObject({ fingers: 2, hold: undefined });
+  });
+
+  it('reads a finger lagging behind the other as moving with it, not as a Hold', () => {
+    const g = setup();
+    g.down(1, 100, 300, 0);
+    g.down(2, 200, 300, 5);
+    g.move(1, 100, 307, 21);
+    g.move(2, 200, 312, 21);
+    g.move(1, 100, 320, 37);
+    g.move(2, 200, 325, 37);
+    expect(g.outcomes()).toEqual(['pan:start']);
+    expect(g.last('pan')).toMatchObject({ fingers: 2, hold: undefined });
   });
 
   it('keeps near-simultaneous fingers together instead of inventing a Hold', () => {
     const g = setup();
     g.down(1, 200, 300, 0);
-    g.down(2, 300, 300, HOLD_LEAD_MS - 1);
+    g.down(2, 300, 300, 49);
     g.drag(
       { 1: [p(200, 300), p(150, 300)], 2: [p(300, 300), p(350, 300)] },
-      HOLD_LEAD_MS - 1,
-      HOLD_LEAD_MS + 99,
+      49,
+      149,
     );
     expect(g.outcomes()).toEqual(['pinch:start']);
     expect(g.last('pinch')).toMatchObject({ fingers: 2, hold: undefined });
@@ -312,6 +344,9 @@ describe('deciding', () => {
     g.down(2, 300, 300, 30);
     g.move(1, 194, 300, 40);
     g.move(2, 311, 300, 40);
+    expect(g.outcomes()).toEqual([]);
+    // Read a frame later, once every finger's move of the frame is in.
+    g.move(1, 193, 300, 56);
     expect(g.outcomes()).toEqual(['pinch:start']);
   });
 
@@ -509,9 +544,17 @@ describe('locked until lift', () => {
     const g = setup();
     g.down(1, 50, 300, 0);
     g.down(2, 300, 300, 100);
-    g.drag({ 1: [p(50, 300), p(500, 380)] }, 110, 200);
-    g.drag({ 2: [p(300, 300), p(300, 200)] }, 210, 300);
-    expect(g.outcomes()).toEqual(['hold:lock', 'pan:start']);
+    g.drag({ 2: [p(300, 300), p(300, 250)] }, 100, 150);
+    g.up(2, 300, 250, 160);
+    g.drag({ 1: [p(50, 300), p(500, 380)] }, 170, 250);
+    g.down(2, 300, 300, 300);
+    g.drag({ 2: [p(300, 300), p(300, 200)] }, 300, 400);
+    expect(g.outcomes()).toEqual([
+      'hold:lock',
+      'pan:start',
+      'pan:end',
+      'pan:start',
+    ]);
     expect(g.last('pan')?.hold).toEqual({
       side: 'left',
       point: { x: 500, y: 380 },
@@ -561,6 +604,37 @@ describe('taps', () => {
     });
   });
 
+  it('makes a two-finger tap whichever finger lifts first, and locks no Hold', () => {
+    const g = setup({});
+    g.down(1, 100, 100, 0);
+    g.down(2, 200, 100, 30);
+    g.up(2, 200, 100, 100);
+    g.up(1, 100, 100, 150);
+    g.advance(1000);
+    expect(g.outcomes()).toEqual(['tap']);
+    expect(g.last('tap')).toMatchObject({ fingers: 2, hold: undefined });
+  });
+
+  it('locks no Hold beside a first finger that tapped', () => {
+    const g = setup({});
+    g.down(1, 100, 100, 0);
+    g.down(2, 200, 100, 30);
+    g.up(1, 100, 100, 100);
+    g.advance(1000);
+    expect(g.names()).toEqual([]);
+    expect(g.where()).toBe('pressing');
+  });
+
+  it('locks no Hold beside a finger that lifted slowly, and the other goes on alone', () => {
+    const g = setup();
+    g.down(1, 100, 300, 0);
+    g.down(2, 300, 300, 30);
+    g.up(2, 300, 300, 600);
+    g.drag({ 1: [p(100, 300), p(100, 200)] }, 700, 800);
+    expect(g.outcomes()).toEqual(['pan:start']);
+    expect(g.last('pan')).toMatchObject({ fingers: 1, hold: undefined });
+  });
+
   it('makes no tap of fingers that landed together when one stays too long', () => {
     const g = setup({});
     g.down(1, 100, 100, 0);
@@ -570,12 +644,13 @@ describe('taps', () => {
     expect(g.names()).toEqual([]);
   });
 
-  it('taps with the Hold at once, however young the Hold', () => {
-    for (const lead of [HOLD_LEAD_MS, 500]) {
+  it('taps with the Hold once the two can no longer tap together', () => {
+    for (const lead of [50, 500]) {
       const g = setup({});
       g.down(1, 300, 300, 0);
       g.down(2, 100, 300, lead);
       g.up(2, 100, 300, lead + 60);
+      g.advance(TAP_MAX_MS);
       expect(g.outcomes()).toEqual(['hold:lock', 'tap']);
       expect(g.last('tap')).toMatchObject({
         fingers: 1,

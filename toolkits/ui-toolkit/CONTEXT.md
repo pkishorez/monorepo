@@ -55,7 +55,7 @@ The Gesture Zone taking a touch from the browser once the app owns it — a Pan 
 _Avoid_: grab, prevent scroll
 
 **Hold**:
-A finger deliberately planted before other fingers act in the Gesture Zone. It works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them. It locks the moment another finger lands, and its side is fixed then. The lock lasts until the held finger lifts, however far it wanders and however many gestures the others make. Fingers that land together express a multi-finger gesture, not a Hold.
+The first finger down, staying still while the fingers that landed after it act in the Gesture Zone. It works like a held Shift key: every gesture of the other fingers happens with a left or right Hold, by where the held finger sits relative to them. Landing first and staying still make it; how long before the others it landed does not matter. It locks as another finger starts moving or taps, and its side is fixed then. The lock lasts until the held finger lifts, however far it wanders and however many gestures the others make. If the first finger moves, the fingers express a multi-finger gesture instead, not a Hold.
 _Avoid_: anchor, chord, modifier, touch and hold (that is a long press)
 
 **Tap**:

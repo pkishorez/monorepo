@@ -29,7 +29,9 @@ const createStore = <T>(initial: T) => {
   };
 };
 
-// Haptics: a light tick for a tap, a firmer one for a Hold locking.
+// Haptics: a light tick for a tap, a firmer one for a Hold locking. Off
+// everywhere for now, whatever a provider asks, until they are revisited.
+const HAPTICS_ENABLED = false;
 const TAP_HAPTIC_MS = 10;
 const HOLD_HAPTIC_MS = 20;
 
@@ -121,7 +123,7 @@ export const runHub = (hub: Hub, element: HTMLElement): (() => void) => {
     }
     hub.tree.hear(member, event);
     const took = hub.registry.dispatch(event);
-    if (!took || !hapticsOn(hub)) return;
+    if (!took || !HAPTICS_ENABLED || !hapticsOn(hub)) return;
     if (event.kind === 'tap') vibrate(TAP_HAPTIC_MS);
     else if (event.kind === 'hold') vibrate(HOLD_HAPTIC_MS);
   };

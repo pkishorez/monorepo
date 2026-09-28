@@ -13,7 +13,7 @@ import type {
 
 export { along, opposite } from './group';
 export { gestureMachine };
-export { HOLD_LEAD_MS, SLOP_PX, TAP_MAX_MS } from './thresholds';
+export { HOLD_STILL_SHARE, SLOP_PX, TAP_MAX_MS } from './thresholds';
 export type {
   Combination,
   Direction,
