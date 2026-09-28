@@ -1,3 +1,7 @@
+---
+status: partly superseded by ADR-0006 (how a Hold starts)
+---
+
 # A Hold locks the Gesture under it, and scrollable elements keep their own touches
 
 A Hold is a finger landing in a bottom-corner Hold Zone while no finger is on the zone. How long it is pressed plays no part. Every Gesture the other fingers make falls under it, and it stays on until no finger is left, even when the Hold finger lifts first. That lets someone lift the Hold to see what is under it, or let go of it a moment before the moving finger, without the Gesture changing meaning or being cut short. A listener takes Gestures under exactly one of left, right or no Hold. So under a Hold nothing is clicked, and a finger landing in either corner does nothing until every finger has lifted.

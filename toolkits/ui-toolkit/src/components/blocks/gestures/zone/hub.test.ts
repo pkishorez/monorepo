@@ -159,14 +159,17 @@ describe('hub', () => {
     hub.addTap(leftTap);
     hub.addTap(plainTap);
     hub.sink.down(at(1, 10, 950));
+    expect(hub.hold()).toBe('none');
+    hub.sink.down(at(2, 200, 400, 200));
     expect(hub.hold()).toBe('left');
-    expect(left.begin).not.toHaveBeenCalled();
-    hub.sink.down(at(2, 200, 400));
-    expect(hub.sink.up(at(2, 200, 400))).toBe(true);
+    expect(hub.sink.up(at(2, 200, 400, 250))).toBe(true);
     expect(leftTap.tap).toHaveBeenCalledTimes(1);
     expect(plainTap.tap).not.toHaveBeenCalled();
     expect(left.begin).toHaveBeenCalledTimes(1);
-    expect(plain.begin).not.toHaveBeenCalled();
+    // The corner finger's own Gesture only waited, and ended as interrupted.
+    expect(plain.finish).toHaveBeenCalledWith(
+      expect.objectContaining({ interrupted: true, x: 0, y: 0 }),
+    );
   });
 
   it('keeps the Hold for the Gesture after the Hold finger lifts, until every finger has', () => {
@@ -176,7 +179,7 @@ describe('hub', () => {
     const left = gestureListener(true, 'left');
     hub.addGesture(left);
     hub.sink.down(at(1, 10, 950));
-    hub.sink.down(at(2, 200, 400));
+    hub.sink.down(at(2, 200, 400, 200));
     hub.sink.up(at(1, 10, 950));
     hub.sink.move(at(2, 240, 400));
     // Back on the other corner, it does nothing: no pinch, no new Hold.
@@ -206,5 +209,23 @@ describe('hub', () => {
     hub.sink.up(at(2, 10, 950));
     hub.sink.up(at(1, 200, 400));
     expect(plain.begin).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a pinch that starts in a corner a pinch, and a quick corner touch a Tap', () => {
+    const hub = createHub({ holdAt });
+    const plain = gestureListener();
+    const tap = tapListener();
+    hub.addGesture(plain);
+    hub.addTap(tap);
+    hub.sink.down(at(1, 10, 950));
+    hub.sink.up(at(1, 10, 950, 80));
+    expect(tap.tap).toHaveBeenCalledTimes(1);
+    hub.sink.down(at(1, 10, 950, 1000));
+    hub.sink.down(at(2, 110, 950, 1040));
+    hub.sink.move(at(2, 210, 950, 1060));
+    expect(hub.hold()).toBe('none');
+    expect(plain.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({ scale: 2 }),
+    );
   });
 });
