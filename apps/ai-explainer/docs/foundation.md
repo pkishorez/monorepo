@@ -6,7 +6,7 @@ open. An open part runs on the default listed and is decided by a Round.
 | Part   | Now                                                       | Decided by         |
 | ------ | --------------------------------------------------------- | ------------------ |
 | Look   | ui-toolkit's light theme, Inter, on a dotted board        | 01-look-and-motion |
-| Voice  | Kokoro `af_heart`, speed 1                                | open               |
+| Voice  | Kokoro `am_michael` (Michael), speed 1.2                  | 02-voice           |
 | Motion | One canvas: the camera travels between regions of a board | 01-look-and-motion |
 | Sound  | narration only                                            | open               |
 | Scenes | none: Explainers draw their own content on the canvas     | open               |
@@ -42,6 +42,13 @@ open. An open part runs on the default listed and is decided by a Round.
   on a resting frame reads as jitter.
 - A genuinely new idea gets a calm change (`FadeThrough`): the board fades to
   its background, the camera jumps while hidden, and the board fades back.
+
+## Voice
+
+- Kokoro's Michael: an American male voice, deep and steady, like a calm
+  documentary narrator who knows the subject well.
+- Speed 1.2. At 1 the narration dragged; above 1.3 Kokoro starts to clip.
+- Only local Kokoro voices, no cloud voices.
 
 ## Where each part lives
 

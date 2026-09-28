@@ -1,1 +1,1 @@
-export { laymos } from './laymos.tsx';
+export { Drawing as laymosCanvas, laymos } from './laymos.tsx';
