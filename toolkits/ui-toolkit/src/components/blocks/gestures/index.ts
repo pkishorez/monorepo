@@ -12,5 +12,5 @@ export type {
   TapOptions,
 } from './zone';
 export type { GestureValues, Point } from './gesture-reading';
-export type { Hold, Side } from './hold-reading';
+export type { Hold, Side } from './zone-machine';
 export type { Axis, SwipeEnd } from './swipe-reading';

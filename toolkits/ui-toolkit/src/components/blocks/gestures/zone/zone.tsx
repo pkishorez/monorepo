@@ -11,9 +11,8 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { cn } from '#lib/utils';
-import type { Point } from '../gesture-reading';
-import type { Hold, Side } from '../hold-reading';
 import { bindTouchInput } from '../touch-input';
+import type { Hold, Side } from '../zone-machine';
 import { createHub, type Hub } from './hub';
 
 const ZoneContext = createContext<Hub | undefined>(undefined);
@@ -23,31 +22,16 @@ const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
   else if (ref !== null && ref !== undefined) ref.current = value;
 };
 
-// The Hold Zone `point` lands in: a quarter circle of `radius` on each of
-// the element's bottom corners.
-const cornerOf = (
-  element: Element | null,
-  radius: number | undefined,
-  point: Point,
-): Side | undefined => {
-  if (element === null || radius === undefined || radius <= 0) return undefined;
-  const box = element.getBoundingClientRect();
-  const within = (x: number) =>
-    Math.hypot(point.x - x, point.y - box.bottom) <= radius;
-  if (within(box.left)) return 'left';
-  if (within(box.right)) return 'right';
-  return undefined;
-};
-
 const useHoldOf = (hub: Hub): Hold =>
   useSyncExternalStore(hub.watchHold, hub.hold, () => 'none');
 
 export type GestureZoneProps = ComponentProps<'div'> & {
   /**
-   * The radius in px of the Hold Zones, a quarter circle on each bottom
-   * corner. Without it the zone has no Hold Zones.
+   * Whether a finger held still while another acts becomes a Hold, on its
+   * side of the acting finger. Off by default: two fingers are then always
+   * a pinch.
    */
-  readonly holdRadius?: number;
+  readonly holds?: boolean;
 };
 
 // The glow along the zone's left or right edge while that Hold is on: a soft
@@ -84,14 +68,15 @@ function HoldGlow(props: { readonly side: Side; readonly on: boolean }) {
 /**
  * The screen's Gesture Zone: the app owns touch in it, and any component
  * inside, shown or hidden, reads its Gestures with `useGesture`, `useSwipe`
- * and `useTap`. With `holdRadius`, a finger on a bottom corner is a Hold. There
- * is one per screen: zones do not nest.
+ * and `useTap`. With `holds`, a finger held still while another acts is a
+ * Hold. There is one per screen: zones do not nest. It sets `data-state` to
+ * the zone machine's state, for debugging.
  */
 export function GestureZone({
   className,
   ref,
   children,
-  holdRadius,
+  holds = false,
   ...props
 }: GestureZoneProps) {
   if (useContext(ZoneContext) !== undefined) {
@@ -99,27 +84,30 @@ export function GestureZone({
       'GestureZone cannot be nested: use one per screen and read it with useGesture, useSwipe or useTap anywhere inside.',
     );
   }
-  const node = useRef<HTMLDivElement | null>(null);
-  const radius = useRef(holdRadius);
+  const allowed = useRef(holds);
   useLayoutEffect(() => {
-    radius.current = holdRadius;
+    allowed.current = holds;
   });
-  const [hub] = useState(() =>
-    createHub({
-      holdAt: (point) => cornerOf(node.current, radius.current, point),
-    }),
-  );
+  const [hub] = useState(() => createHub({ holds: () => allowed.current }));
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const hold = useHoldOf(hub);
 
   useEffect(() => {
     if (element === null) return;
-    return bindTouchInput(element, hub.sink);
+    const unbind = bindTouchInput(element, hub.sink);
+    const show = () => {
+      element.dataset.state = hub.state();
+    };
+    show();
+    const unwatch = hub.watch(show);
+    return () => {
+      unwatch();
+      unbind();
+    };
   }, [hub, element]);
 
   const attach = useCallback(
     (next: HTMLDivElement | null) => {
-      node.current = next;
       setElement(next);
       assignRef(ref, next);
     },
@@ -139,7 +127,7 @@ export function GestureZone({
         {...props}
       >
         {children}
-        {holdRadius !== undefined && holdRadius > 0 && (
+        {holds && (
           <>
             <HoldGlow side="left" on={hold === 'left'} />
             <HoldGlow side="right" on={hold === 'right'} />

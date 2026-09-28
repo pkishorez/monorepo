@@ -1,7 +1,7 @@
 import { type MotionValue, useMotionValue } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Point } from '../gesture-reading';
-import type { Hold } from '../hold-reading';
+import type { Hold } from '../zone-machine';
 import type { Axis, SwipeEnd } from '../swipe-reading';
 import type { GestureEnd, Tap } from './hub';
 import { useZone } from './zone';
