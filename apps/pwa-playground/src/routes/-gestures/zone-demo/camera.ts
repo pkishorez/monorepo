@@ -43,3 +43,18 @@ export const matrixOf = (camera: Camera): string => {
   const b = Math.sin(radians(camera.rotation)) * camera.scale;
   return `matrix(${a} ${b} ${-b} ${a} ${camera.x} ${camera.y})`;
 };
+
+/**
+ * Part way from one camera to another, `progress` 0 to 1: the shortest turn
+ * back, and zoom that changes evenly.
+ */
+export const settle = (from: Camera, to: Camera, progress: number): Camera => {
+  const turns = Math.round((from.rotation - to.rotation) / 360) * 360;
+  const mix = (a: number, b: number) => a + (b - a) * progress;
+  return {
+    x: mix(from.x, to.x),
+    y: mix(from.y, to.y),
+    scale: from.scale * (to.scale / from.scale) ** progress,
+    rotation: mix(from.rotation, to.rotation + turns),
+  };
+};

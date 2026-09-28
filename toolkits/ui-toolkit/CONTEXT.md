@@ -47,27 +47,27 @@ The one region per screen where the app owns touch input for app-level shortcuts
 _Avoid_: touch area, gesture surface, hit area, nested zone, provider (only how the zone is reached)
 
 **Native Scroll**:
-_Planned, not in the block yet: today the Gesture Zone keeps every touch from the browser, so nothing inside it scrolls._ An element inside the Gesture Zone that can scroll right now, whose scrolling the browser keeps: one finger moving along its scroll axis scrolls it, unless it is already at its end that way and a Swipe that way is listening, which then gets the touch. Everything else on it — Taps, movement across its axis, Pinches, anything under a Hold — is the app's. Which elements are Native Scrolls is detected as a finger lands; an element can opt out and be taken over. The choice is made at the first movement: a touch the browser started scrolling stays the browser's until it lifts, even when it reaches the end.
+An element inside the Gesture Zone that can scroll right now, whose scrolling the browser keeps. The choice is made at a touch's first movement: when it is one finger with no Hold and an element under it can still scroll that way, the browser keeps the touch until every finger lifts, even when it reaches the end, and the Gesture it started ends as interrupted. At its end that way, under a Hold, or with two fingers down before the first movement, the zone captures the touch instead. An element where the zone is turned on always gives its scrolling up to the zone.
 _Avoid_: scroller, scroll container, overflow
 
 **Capture**:
-The Gesture Zone taking a touch from the browser so the page cannot scroll or zoom until every finger lifts. Today the zone captures every touch that lands in it.
-_Avoid_: grab, prevent scroll
+The Gesture Zone taking a touch from the browser at its first movement, so nothing scrolls or zooms until every finger lifts. By default the zone captures every touch except one a Native Scroll keeps. Any element inside can turn the zone off for itself and what it holds — the zone then never takes a touch there — or turn it back on, which captures every touch there even over a Native Scroll. The nearest such element decides.
+_Avoid_: grab, prevent scroll, dead zone
 
 **Gesture**:
 One continuous touch in the Gesture Zone, from the first finger landing to the last one lifting. Fingers may join and leave freely without ending it or turning it into something else. It is never classified up front: it reports movement, scale and rotation relative to where it started, and their speeds, all at once. One finger only moves it; two fingers can also scale and rotate it. Listeners read the parts they want.
 _Avoid_: pan, pinch, drag (moving an element itself), shortcut (a Gesture an app binds to a command), interaction
 
 **Hold**:
-_Planned, not in the block yet._ A finger pressed in a Hold Zone: a modifier, like a held Shift key, that adds a left or right flag to every Gesture the other fingers make while it stays down, giving an app a further set of shortcuts. Where the finger lands decides it, never how still it stays or when it landed. It lasts until the finger lifts or leaves its Hold Zone. Pressed alone and lifted, it does nothing; moving before another finger lands, it was never a Hold and starts an ordinary Gesture. With one Hold down, a finger landing in the other Hold Zone is ignored.
-_Avoid_: anchor, chord, touch and hold (that is a long press)
+A finger landing in a Hold Zone while no finger is on the Gesture Zone: a modifier, like a held Shift key, that puts every Gesture the other fingers make under the left or right Hold, giving an app a further set of shortcuts. How long it is pressed does not matter, and it is never part of a Gesture itself. Alone it does nothing. It stays in effect until no finger is left on the zone: lifting the Hold finger during a Gesture does not end it, and it can be put back. While it is in effect, a finger landing in either Hold Zone does nothing, so the other Hold can only start after every finger has lifted. A listener takes Gestures under exactly one of left, right, or no Hold.
+_Avoid_: anchor, chord, touch and hold (that is a long press), modifier key
 
 **Hold Zone**:
-_Planned, not in the block yet._ A quarter circle of configurable radius on the bottom-left or bottom-right corner of the Gesture Zone where a finger becomes the Hold, present only when the zone turns Hold Zones on. It takes every touch that starts in it, and highlights subtly the moment a finger lands in it, telling the user their next finger will act with that Hold.
+A quarter circle of configurable radius on the bottom-left or bottom-right corner of the Gesture Zone, present only when the zone turns Hold Zones on. Every touch that starts in it is a Hold; nothing under it is clicked, so an app leaves these corners free. It is highlighted from the moment its Hold starts until the Hold ends.
 _Avoid_: hotspot, modifier key
 
 **Tap**:
-_Planned, not in the block yet._ One finger touching and lifting without meaningful movement. It fires as the finger lifts, never waiting for another Tap. With no Hold, the element under it is still clicked as usual; under a Hold it is a shortcut only, and nothing is clicked.
+One finger touching and lifting without meaningful movement, with no other finger down except a Hold. It fires as the finger lifts, never waiting for another Tap. It is also a Gesture that did not move. With no Hold, the element under it is still clicked as usual; under a Hold it is a shortcut only, and nothing is clicked. Two fingers are never a Tap.
 _Avoid_: click, press, double tap and two-finger tap (not Gestures)
 
 **Swipe**:

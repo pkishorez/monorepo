@@ -70,7 +70,7 @@ export const scenarios: ReadonlyArray<Scenario> = [
     path: '/gestures',
     title: 'Gesture Lab',
     summary:
-      'One Gesture Zone: an endless grid to pan, pinch and turn, and a Swipe pad.',
+      'One Gesture Zone: an endless grid to pan, pinch and turn, a Swipe pad, and a Hold on each bottom corner to steer one of them.',
     group: 'Gestures',
   },
   {
