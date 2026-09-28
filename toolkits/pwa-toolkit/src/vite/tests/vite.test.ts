@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
-import { createBuilder } from 'vite';
+import { build, createBuilder } from 'vite';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { WorkerBuildInfo } from '../../shared/config/index.js';
 import type { PwaOptions } from '../../shared/config/index.js';
@@ -63,6 +63,45 @@ const buildFixture = async (
 };
 
 describe('pwa() build', () => {
+  it('bundles virtual imports from an installed scoped package for SSR', async () => {
+    const installedRoot = join(temp, 'installed');
+    const packageRoot = join(
+      installedRoot,
+      'node_modules/@kstackz/pwa-toolkit',
+    );
+    await mkdir(packageRoot, { recursive: true });
+    await writeFile(
+      join(packageRoot, 'package.json'),
+      JSON.stringify({
+        name: '@kstackz/pwa-toolkit',
+        type: 'module',
+        exports: { './rpc/client': './client.js' },
+      }),
+    );
+    await writeFile(
+      join(packageRoot, 'client.js'),
+      "export { default } from 'virtual:pwa-toolkit/client';",
+    );
+    await writeFile(
+      join(installedRoot, 'server.js'),
+      "export { default } from '@kstackz/pwa-toolkit/rpc/client';",
+    );
+    await build({
+      configFile: false,
+      root: installedRoot,
+      logLevel: 'silent',
+      plugins: [pwa({ enabled: false })],
+      build: {
+        ssr: 'server.js',
+        outDir: join(installedRoot, 'dist'),
+        rolldownOptions: { output: { entryFileNames: 'server.mjs' } },
+      },
+    });
+    const entry = pathToFileURL(join(installedRoot, 'dist/server.mjs')).href;
+    const server = await import(/* @vite-ignore */ entry);
+    expect(server.default).toMatchObject({ enabled: false, buildId: null });
+  });
+
   it('writes the worker, manifest, headers and Precache', async () => {
     const out = await buildFixture('app', { manifest, worker: 'src/sw.js' });
     const info = (await out.runWorker())['__PWA_INFO__'] as WorkerBuildInfo;

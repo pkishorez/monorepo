@@ -3,6 +3,8 @@ import { Effect, Schema } from 'effect';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Entity } from '../../core/index.js';
 import { EntityESchema } from '../../eschema/index.js';
+import { storedReplicaEntity } from '../domain/stored-entity/index.js';
+import { makeSyncStore } from '../platform/sync-store/index.js';
 import type { SyncEvent } from '../domain/sync-event/index.js';
 import { createStdSync, strategy } from '../index.js';
 import { backend, sharedPlatform, Todo, todo } from './support.js';
@@ -14,6 +16,7 @@ const track = <T extends { dispose: () => Promise<void> }>(std: T) => {
 };
 afterEach(async () => {
   await Promise.all(open.splice(0).map((std) => std.dispose()));
+  vi.restoreAllMocks();
 });
 
 const titles = (rows: ReadonlyArray<{ title: string }>) =>
@@ -230,4 +233,91 @@ describe('two tabs sharing a platform', () => {
     expect(reads.one).toBeGreaterThan(0);
     expect(reads.two).toBe(0);
   });
+});
+
+describe('reading the shared Sync Replica', () => {
+  it('buffers a Doorbell rung after the initial page was read', async () => {
+    const platform = sharedPlatform();
+    const writer = track(createStdSync({ name: 'hydrating', platform }));
+    const writes = writer.collection(Todo, {
+      onInsert: (items) =>
+        Effect.succeed(items.map((item) => todo(item.id, 1))),
+    });
+    await writes.preload();
+
+    const read = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    const query = storedReplicaEntity.query;
+    vi.spyOn(storedReplicaEntity, 'query').mockImplementationOnce((...args) =>
+      query(...args).pipe(
+        Effect.tap(() =>
+          Effect.promise(() => {
+            read.resolve();
+            return resume.promise;
+          }),
+        ),
+      ),
+    );
+    const follower = track(createStdSync({ name: 'hydrating', platform }));
+    const rows = follower.collection(Todo);
+    const ready = rows.preload();
+    try {
+      await read.promise;
+      await writes.insert({ id: 'new', listId: 'a', title: 'new' }).isPersisted
+        .promise;
+    } finally {
+      resume.resolve();
+    }
+    await ready;
+    await vi.waitFor(() => expect(titles(rows.toArray)).toEqual(['new']));
+  });
+
+  it.each(['hydration', 'doorbell'] as const)(
+    'reports Outdated Application once during %s',
+    async (phase) => {
+      const platform = sharedPlatform();
+      const local = track(makeSyncStore(platform.store('local-version')));
+      const reported: SyncEvent[] = [];
+      const std = track(
+        createStdSync({
+          name: 'local-version',
+          platform,
+          onEvent: (event) => Effect.sync(() => void reported.push(event)),
+        }),
+      );
+      const rows = std.collection(Todo);
+      const writeNewer = () =>
+        Effect.runPromise(
+          local.provide(
+            storedReplicaEntity.insert({
+              collection: 'local-version.todo',
+              key: 'new',
+              seq: '00000000000000000000000000000001',
+              entity: {
+                ...todo('new', 1),
+                meta: { ...todo('new', 1).meta, _v: 'v2' },
+              },
+            }),
+          ),
+        );
+      if (phase === 'hydration') await writeNewer();
+      await rows.preload();
+      if (phase === 'doorbell') await writeNewer();
+      await Effect.runPromise(platform.doorbell.ring('local-version.todo'));
+      await vi.waitFor(() =>
+        expect(reported).toEqual([
+          {
+            _tag: 'OutdatedApplication',
+            collection: 'local-version.todo',
+            version: 'v2',
+            latestVersion: 'v1',
+          },
+        ]),
+      );
+      await Effect.runPromise(platform.doorbell.ring('local-version.todo'));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(reported).toHaveLength(1);
+      expect(rows.size).toBe(0);
+    },
+  );
 });
