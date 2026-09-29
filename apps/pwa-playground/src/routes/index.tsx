@@ -23,7 +23,7 @@ const GROUP_BLURB: Record<ScenarioGroup, string> = {
   Safety:
     'What the worker must never cache, and what signing out wipes from the device.',
   Gestures:
-    'kui’s Gesture Lab: nested zones, trapping and useGesture, one Case at a time with every finger drawn; and Motion 101.',
+    'use-gesture on real screens: a sidebar and pull to refresh, the Swipe they are built on, and the core Gesture Lab; and Motion 101.',
 };
 
 const README_URL =

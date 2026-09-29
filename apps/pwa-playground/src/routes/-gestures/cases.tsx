@@ -2,50 +2,10 @@ import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import { Slider } from '@kstackz/ui-toolkit/components/ui/slider';
 import { motion } from '@kstackz/ui-toolkit/motion';
 import { type ReactNode, useContext, useRef, useState } from 'react';
+import { Code, Controls, Toggle } from './controls.tsx';
 import type { Guide } from './panel.tsx';
 import { LaneContext, useLabStore } from './store.ts';
 import { LabProvider, LabZone, NoZone } from './zone.tsx';
-
-/**
- * The Case's own switches, above its zones. They are marked disabled for
- * the zones, so a second finger can flip one in the middle of a Gesture
- * without joining it.
- */
-function Controls(props: { readonly children: ReactNode }) {
-  return (
-    <div
-      data-zone-gesture="disabled"
-      className="flex shrink-0 flex-wrap items-center gap-1.5"
-    >
-      {props.children}
-    </div>
-  );
-}
-
-function Toggle(props: {
-  readonly label: string;
-  readonly on: boolean;
-  readonly onChange: (on: boolean) => void;
-}) {
-  return (
-    <Button
-      size="sm"
-      variant={props.on ? 'default' : 'outline'}
-      aria-pressed={props.on}
-      onClick={() => props.onChange(!props.on)}
-      className="font-mono text-xs"
-    >
-      {props.label}:
-      <span className="inline-block w-[3ch] text-left">
-        {props.on ? 'on' : 'off'}
-      </span>
-    </Button>
-  );
-}
-
-const Code = (props: { readonly children: ReactNode }) => (
-  <code>{props.children}</code>
-);
 
 function FingersStage() {
   return <LabZone n={1} name="Zone" className="flex-1" />;
@@ -548,8 +508,9 @@ export const CASES: ReadonlyArray<Case> = [
 
 export type CaseId = string;
 
-export const parseCase = (value: unknown): CaseId =>
-  CASES.some((c) => c.id === value) ? (value as CaseId) : 'fingers';
+/** The Case `value` names in `cases`, or the first. */
+export const parseCase = (cases: ReadonlyArray<Case>, value: unknown): CaseId =>
+  cases.find((c) => c.id === value)?.id ?? (cases[0] as Case).id;
 
-export const caseOf = (id: CaseId) =>
-  CASES.find((c) => c.id === id) ?? (CASES[0] as Case);
+export const caseOf = (cases: ReadonlyArray<Case>, id: CaseId) =>
+  cases.find((c) => c.id === id) ?? (cases[0] as Case);

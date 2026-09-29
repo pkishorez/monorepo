@@ -68,9 +68,9 @@ export const scenarios: ReadonlyArray<Scenario> = [
   },
   {
     path: '/gestures',
-    title: 'Gesture Lab',
+    title: 'Gestures',
     summary:
-      'Ten Cases of nested zones, trapping and useGesture, every finger drawn.',
+      'use-gesture’s three layers: the sidebar and pull-to-refresh Patterns, the Swipe Recognizer and the core Gesture Lab.',
     group: 'Gestures',
   },
   {
