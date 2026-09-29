@@ -7,7 +7,7 @@ import {
   useMatches,
   useRouter,
 } from '@tanstack/react-router';
-import { createServerFn } from '@tanstack/react-start';
+import { createIsomorphicFn, createServerFn } from '@tanstack/react-start';
 import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
 import { buttonVariants } from '@kstackz/ui-toolkit/components/ui/button';
 import {
@@ -34,8 +34,19 @@ const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
   getTheme(),
 );
 
+// The server reads the theme cookie. The browser already shows the theme, so
+// rerunning the loaders (Reload, a pull to refresh) never needs the network,
+// and works offline.
+const currentTheme = createIsomorphicFn()
+  .server(() => getCurrentTheme())
+  .client(async () =>
+    document.documentElement.dataset['theme'] === 'light'
+      ? ('light' as const)
+      : ('dark' as const),
+  );
+
 export const Route = createRootRoute({
-  loader: () => getCurrentTheme(),
+  loader: () => currentTheme(),
   head: () => {
     const pwa = pwaHead();
     return {
