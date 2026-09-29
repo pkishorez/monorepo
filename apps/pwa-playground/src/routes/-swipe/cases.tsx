@@ -1,4 +1,4 @@
-import type { Fingers } from '@kstackz/use-gesture';
+import type { Fingers } from '@kstackz/use-gesture/recognizers';
 import { useLayoutEffect, useRef, useState } from 'react';
 import {
   type Case,

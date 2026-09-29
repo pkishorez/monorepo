@@ -1,6 +1,6 @@
 import { type MotionValue, useMotionValue } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { type Pointers, useGesture } from '../../core';
+import { type Pointers, useGesture } from '../../core/index.ts';
 import {
   along,
   type CommitRule,
@@ -18,7 +18,7 @@ import {
   type SwipeCancel,
   type SwipeRelease,
   startsFrom,
-} from './swipe';
+} from './swipe.ts';
 
 export type SwipeOptions = {
   /** Whether it takes the next Gesture: true by default. Read as its first finger lands. */

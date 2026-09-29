@@ -1,4 +1,4 @@
-import type { Pointer } from '@kstackz/use-gesture';
+import type { Pointer } from '@kstackz/use-gesture/core';
 import { motion } from '@kstackz/ui-toolkit/motion';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { useEffect } from 'react';

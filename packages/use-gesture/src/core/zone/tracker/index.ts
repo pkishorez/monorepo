@@ -1,2 +1,2 @@
-export { createTracker } from './tracker';
-export type { GestureEnd, Pointer, Pointers, Tracker } from './tracker';
+export { createTracker } from './tracker.ts';
+export type { GestureEnd, Pointer, Pointers, Tracker } from './tracker.ts';

@@ -6,7 +6,7 @@ import {
   useTransform,
 } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { type SwipeRelease, useSwipe } from '../../recognizers';
+import { type SwipeRelease, useSwipe } from '../../recognizers/index.ts';
 
 export type SidebarOptions = {
   /** The screen edge it lives on. */

@@ -2,8 +2,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GestureProvider, GestureZone } from '../../../core';
-import { type Swipe, type SwipeOptions, useSwipe } from '..';
+import { GestureProvider, GestureZone } from '../../../core/zone/index.ts';
+import { type Swipe, type SwipeOptions, useSwipe } from '../index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

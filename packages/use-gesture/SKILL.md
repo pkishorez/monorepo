@@ -13,6 +13,19 @@ for the highest one that fits:
 2. **Recognizers** — `useSwipe`: one generic meaning, with live feedback.
 3. **Core** — `useGesture`: every finger, and nothing else.
 
+Each layer has its own entry point:
+
+```ts
+import {
+  GestureProvider,
+  GestureZone,
+  usePullToRefresh,
+  useSidebar,
+} from '@kstackz/use-gesture';
+import { useSwipe } from '@kstackz/use-gesture/recognizers';
+import { useGesture } from '@kstackz/use-gesture/core';
+```
+
 ```tsx
 // The whole app is a zone; the inbox list is one inside it; each row is one
 // inside that, trapped while its actions are open. The Motion card is

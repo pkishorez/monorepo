@@ -6,7 +6,7 @@ import {
   type SwipeRelease,
   type SwipeState,
   useSwipe,
-} from '@kstackz/use-gesture';
+} from '@kstackz/use-gesture/recognizers';
 import {
   type MotionValue,
   motion,

@@ -6,7 +6,7 @@ import {
   useTransform,
 } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { useSwipe } from '../../recognizers';
+import { useSwipe } from '../../recognizers/index.ts';
 
 export type PullToRefreshOptions = {
   /** Runs once a pull is released armed; the indicator holds until it settles. */

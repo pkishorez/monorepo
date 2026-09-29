@@ -3,13 +3,13 @@ import { MotionGlobalConfig } from 'motion/react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GestureProvider, GestureZone } from '../../../core';
+import { GestureProvider, GestureZone } from '../../../core/zone/index.ts';
 import {
   type PullToRefresh,
   type PullToRefreshOptions,
   usePullToRefresh,
-} from '..';
-import { resist } from '../use-pull-to-refresh';
+} from '../index.ts';
+import { resist } from '../use-pull-to-refresh.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

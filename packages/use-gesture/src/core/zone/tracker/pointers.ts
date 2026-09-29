@@ -1,5 +1,5 @@
 import { type MotionValue, motionValue } from 'motion/react';
-import type { PointerSample } from '../../touch-input';
+import type { PointerSample } from '../../touch-input/index.ts';
 
 /**
  * A point in viewport px at time `t`, in ms since the Gesture's first

@@ -1,4 +1,8 @@
-import { isTextEntry, nativeScrollKeeps, zoneGestureOf } from './native-scroll';
+import {
+  isTextEntry,
+  nativeScrollKeeps,
+  zoneGestureOf,
+} from './native-scroll.ts';
 
 /** How a Gesture Zone's element is marked. */
 export const ZONE_SELECTOR = '[data-slot="gesture-zone"]';

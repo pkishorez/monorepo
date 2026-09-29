@@ -5,6 +5,6 @@ export type {
   Fingers,
   SwipeCancel,
   SwipeRelease,
-} from './swipe';
-export { useSwipe } from './use-swipe';
-export type { Swipe, SwipeOptions, SwipeState } from './use-swipe';
+} from './swipe.ts';
+export { useSwipe } from './use-swipe.ts';
+export type { Swipe, SwipeOptions, SwipeState } from './use-swipe.ts';
