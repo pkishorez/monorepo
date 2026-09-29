@@ -97,7 +97,7 @@ export function LabZone(props: {
         } as CSSProperties
       }
       className={cn(
-        'min-h-0 rounded-xl border-2 border-(--zone) p-2 pt-9 transition-[background-color,border-style] duration-150',
+        'relative min-h-0 rounded-xl border-2 border-(--zone) p-2 pt-9 transition-[background-color,border-style] duration-150',
         !heard && 'border-dashed',
         props.className,
       )}

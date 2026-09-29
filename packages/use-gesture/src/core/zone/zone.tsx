@@ -1,6 +1,7 @@
 import { type MotionValue, useMotionValue } from 'motion/react';
 import {
   type ComponentProps,
+  type CSSProperties,
   createContext,
   type ReactNode,
   type Ref,
@@ -73,14 +74,14 @@ export type GestureZoneProps = ComponentProps<'div'> & {
   readonly trapped?: boolean;
 };
 
-// `:where` keeps it at zero specificity, so any class on the zone wins.
-const ZONE_CSS = `:where([data-slot='gesture-zone']) {
-  position: relative;
-  overscroll-behavior: contain;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}`;
+// Touch defaults for the zone's own element, as inline style so they need no
+// stylesheet; `style` on the zone overrides any of them.
+const ZONE_STYLE: CSSProperties = {
+  overscrollBehavior: 'contain',
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+  WebkitTouchCallout: 'none',
+};
 
 /**
  * An area where the app owns touch, read with `useGesture` by any component
@@ -90,6 +91,7 @@ const ZONE_CSS = `:where([data-slot='gesture-zone']) {
  */
 export function GestureZone({
   ref,
+  style,
   children,
   trapped = false,
   ...props
@@ -121,13 +123,11 @@ export function GestureZone({
 
   return (
     <ZoneContext value={{ tracker, element }}>
-      <style href="kstackz-use-gesture-zone" precedence="default">
-        {ZONE_CSS}
-      </style>
       <div
         ref={attach}
         data-slot="gesture-zone"
         data-trapped={trapped ? '' : undefined}
+        style={{ ...ZONE_STYLE, ...style }}
         {...props}
       >
         {children}
