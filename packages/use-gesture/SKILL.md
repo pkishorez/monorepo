@@ -152,6 +152,17 @@ that for an element and what it holds; the nearest one decides:
 A finger landing on a `disabled` element never starts a Gesture and never
 joins one. Text entry is always left alone. Nothing in a zone zooms the page.
 
+## Screen edges
+
+A touch that lands within 24px of the left or right edge of the screen, in a
+zone, is kept from the browser's own edge swipe: back and forward on iOS,
+in Safari and installed. The zone cancels that touch's `touchstart`, the one
+thing iOS listens to, so a tap there does not click. Links, buttons, form
+fields, `[role=button]`, focusable elements and anything
+`data-zone-gesture="disabled"` are left alone and still click, so they
+still let an edge swipe go back. Android's system back gesture cannot be
+stopped by a page.
+
 ## With Framer Motion
 
 An element that uses Motion's own `drag`, `whileTap` or `onPan` inside a

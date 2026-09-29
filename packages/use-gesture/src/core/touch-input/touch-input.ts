@@ -38,6 +38,31 @@ export type PointerSink = {
 
 const STYLE_ID = 'kui-gesture-zone';
 
+/**
+ * How far from a side edge, in px, a touch in a zone is kept from the
+ * browser's own edge swipe: back and forward on iOS, in Safari and installed.
+ */
+export const EDGE_GUARD_PX = 24;
+
+// Taps on these must still click, so their touches are left to the browser.
+const INTERACTIVE =
+  'a[href], button, input, select, textarea, label, summary, [role="button"], [role="link"], [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Whether a touch landing at `x` on `target` must be kept from the browser's
+ * edge swipe: it lands in a zone, within EDGE_GUARD_PX of a side edge, on
+ * nothing that is turned off for the zone or must still click.
+ */
+export const guardsEdge = (
+  target: EventTarget | null,
+  x: number,
+  width: number,
+) =>
+  (x <= EDGE_GUARD_PX || x >= width - EDGE_GUARD_PX) &&
+  zoneOf(target) !== null &&
+  zoneGestureOf(target) !== 'disabled' &&
+  !(target instanceof Element && target.closest(INTERACTIVE) !== null);
+
 // The browser decides what a touch may do as the finger lands. A zone lets
 // it pan, so a Native Scroll can keep a touch, and takes the rest at the
 // first movement. Nothing in a zone zooms the page.
@@ -154,6 +179,14 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
     swallowing = false;
     for (const touch of event.changedTouches) {
       landed.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
+      // iOS starts its back and forward swipe from here, before any touchmove
+      // the zone could hold back; only a touchstart kept from it stops that.
+      if (
+        event.cancelable &&
+        guardsEdge(touch.target, touch.clientX, win.innerWidth)
+      ) {
+        event.preventDefault();
+      }
     }
   };
   const decide = (event: TouchEvent) => {
@@ -204,7 +237,7 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
       win.addEventListener('contextmenu', onContextMenu, { capture: true });
       win.addEventListener('touchstart', onTouchStart, {
         capture: true,
-        passive: true,
+        passive: false,
       });
       win.addEventListener('touchend', onTouchEnd, {
         capture: true,

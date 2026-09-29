@@ -209,6 +209,46 @@ describe('GestureProvider, GestureZone and useGesture', () => {
     });
   });
 
+  describe('at a side edge', () => {
+    const touchStart = (target: Element, x: number) => {
+      const point = { identifier: 1, target, clientX: x, clientY: 100 };
+      const event = new Event('touchstart', {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.assign(event, { touches: [point], changedTouches: [point] });
+      target.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+
+    const renderEdge = () =>
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone data-testid="screen">
+              <button type="button" data-testid="menu" />
+              <div data-testid="slider" data-zone-gesture="disabled" />
+            </GestureZone>
+            <div data-testid="page" />
+          </GestureProvider>,
+        ),
+      );
+
+    it('keeps a touch that lands there from the browser’s back swipe', () => {
+      renderEdge();
+      expect(touchStart(find('screen'), 5)).toBe(true);
+      expect(touchStart(find('screen'), innerWidth - 5)).toBe(true);
+      expect(touchStart(find('screen'), 100)).toBe(false);
+    });
+
+    it('leaves it to the browser on what must click, is turned off, or is outside every zone', () => {
+      renderEdge();
+      expect(touchStart(find('menu'), 5)).toBe(false);
+      expect(touchStart(find('slider'), 5)).toBe(false);
+      expect(touchStart(find('page'), 5)).toBe(false);
+    });
+  });
+
   it('throws outside a zone or provider', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => act(() => root.render(<Listener name="lost" />))).toThrow(

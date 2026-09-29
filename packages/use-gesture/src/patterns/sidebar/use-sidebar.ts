@@ -29,7 +29,7 @@ export type SidebarOptions = {
 };
 
 export type Sidebar = {
-  /** Its translateX in px: `-width` or `width` closed, 0 open. */
+  /** Its translateX in px: `-width` or `width` closed, 0 open, never past either. */
   readonly x: MotionValue<number>;
   /** 0 closed to 1 open, for a scrim. */
   readonly progress: MotionValue<number>;
@@ -56,9 +56,20 @@ export function useSidebar(options: SidebarOptions): Sidebar {
   const at = (amount: number) =>
     closed + sign * Math.min(Math.max(amount, 0), width);
 
-  const x = useMotionValue(at(open ? width : 0));
+  // Where the springs put it, which may overshoot; `x` stops dead at both ends.
+  const position = useMotionValue(at(open ? width : 0));
+  const x = useMotionValue(position.get());
+  useEffect(
+    () =>
+      position.on('change', (v) =>
+        x.set(Math.min(Math.max(v, Math.min(closed, 0)), Math.max(closed, 0))),
+      ),
+    [position, x, closed],
+  );
   const progress = useTransform(x, [closed, 0], [0, 1]);
   const moving = useRef<'open' | 'close' | undefined>(undefined);
+  // How open it was, in px, when fingers took it.
+  const base = useRef(0);
   const animation = useRef<AnimationPlaybackControls | undefined>(undefined);
   // Where it is headed, so settling after a Swipe is not redone as `open` catches up.
   const target = useRef(open);
@@ -67,7 +78,7 @@ export function useSidebar(options: SidebarOptions): Sidebar {
     moving.current = undefined;
     target.current = next;
     animation.current?.stop();
-    animation.current = animate(x, at(next ? width : 0), {
+    animation.current = animate(position, at(next ? width : 0), {
       ...SPRING,
       velocity,
     });
@@ -88,8 +99,10 @@ export function useSidebar(options: SidebarOptions): Sidebar {
     if (target.current !== open) settle(open);
   });
 
+  // Fingers take it from wherever it is, even mid-spring.
   const grab = (way: 'open' | 'close') => () => {
     animation.current?.stop();
+    base.current = sign * (x.get() - closed);
     moving.current = way;
   };
 
@@ -97,8 +110,11 @@ export function useSidebar(options: SidebarOptions): Sidebar {
   const release = (way: 'open' | 'close') => (at?: SwipeRelease) => {
     if (moving.current !== way) return;
     if (at === undefined) return settle(open);
-    const opens =
-      way === 'open' ? at.projected >= width / 2 : at.projected < width / 2;
+    const headed =
+      way === 'open'
+        ? base.current + at.projected
+        : base.current - at.projected;
+    const opens = headed >= width / 2;
     settle(opens, (way === 'open' ? sign : -sign) * at.velocity);
     change(opens);
   };
@@ -121,10 +137,10 @@ export function useSidebar(options: SidebarOptions): Sidebar {
 
   useEffect(() => {
     const offOpen = opening.offset.on('change', (offset) => {
-      if (moving.current === 'open') x.set(at(offset));
+      if (moving.current === 'open') position.set(at(base.current + offset));
     });
     const offClose = closing.offset.on('change', (offset) => {
-      if (moving.current === 'close') x.set(at(width - offset));
+      if (moving.current === 'close') position.set(at(base.current - offset));
     });
     return () => {
       offOpen();
