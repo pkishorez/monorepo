@@ -1,4 +1,5 @@
 import { GestureZone } from '@kstackz/ui-toolkit/components/blocks/gestures';
+import { useState } from 'react';
 import { TabBar, TopBar } from './bars.tsx';
 import { DEMOS, type DemoId } from './demos.ts';
 
@@ -15,13 +16,15 @@ export function GestureLab(props: {
   readonly onDemo: (demo: DemoId) => void;
 }) {
   const { Screen } = DEMOS[props.demo];
+  const [feedback, setFeedback] = useState(true);
   return (
     <GestureZone
       data-testid="lab"
       data-demo={props.demo}
+      holdFeedback={feedback}
       className="fixed inset-0 flex h-dvh flex-col overflow-hidden bg-background text-foreground after:pointer-events-none after:absolute after:right-2 after:bottom-[calc(env(safe-area-inset-bottom)+3.75rem)] after:font-mono after:text-[10px] after:text-muted-foreground after:content-[attr(data-state)]"
     >
-      <TopBar demo={props.demo} />
+      <TopBar demo={props.demo} feedback={feedback} onFeedback={setFeedback} />
       <main className="relative min-h-0 flex-1 overflow-hidden">
         <Screen key={props.demo} />
       </main>

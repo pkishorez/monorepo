@@ -59,8 +59,12 @@ export type GestureZoneProps = ComponentProps<'div'> & {
    * only while some enabled listener takes Gestures under the Hold.
    */
   readonly holdRadius?: number;
-  /** Whether a Hold that took a press also clicks softly: true by default. */
-  readonly holdSound?: boolean;
+  /**
+   * Whether a Hold that took a press is confirmed: a short vibration where
+   * the browser can vibrate (Android), a soft click where it cannot (iOS).
+   * True by default.
+   */
+  readonly holdFeedback?: boolean;
 };
 
 // The Hold Zone lit up: a quarter circle on the bottom-left corner, glowing
@@ -150,7 +154,7 @@ export function GestureZone({
   ref,
   children,
   holdRadius,
-  holdSound = true,
+  holdFeedback = true,
   ...props
 }: GestureZoneProps) {
   if (useContext(ZoneContext) !== undefined) {
@@ -159,9 +163,9 @@ export function GestureZone({
     );
   }
   const node = useRef<HTMLDivElement | null>(null);
-  const settings = useRef({ holdRadius, holdSound });
+  const settings = useRef({ holdRadius, holdFeedback });
   useLayoutEffect(() => {
-    settings.current = { holdRadius, holdSound };
+    settings.current = { holdRadius, holdFeedback };
   });
   const [feedback] = useState(() =>
     typeof document === 'undefined' ? undefined : createHoldFeedback(document),
@@ -170,8 +174,9 @@ export function GestureZone({
     createHub({
       inHoldZone: (point) =>
         inCorner(node.current, settings.current.holdRadius, point),
-      onHold: (pressed) =>
-        feedback?.tick(pressed && settings.current.holdSound),
+      onHold: (pressed) => {
+        if (pressed && settings.current.holdFeedback) feedback?.tick();
+      },
     }),
   );
   const [element, setElement] = useState<HTMLDivElement | null>(null);
@@ -188,13 +193,18 @@ export function GestureZone({
     };
     show();
     const unwatchState = hub.watchState(show);
-    // Each change of phase happens while a touch is handled: the moment
-    // the browser lets sound start for the click to come.
-    const unwatchPhase = hub.watchPhase(() =>
-      feedback?.prepare(settings.current.holdSound),
-    );
+    // Browsers let sound start only as a finger lifts, so the click for the
+    // next pressed Hold is unlocked then, on screens where one can happen.
+    const unlock = () => {
+      if (settings.current.holdFeedback && hub.holdTakesPress()) {
+        feedback?.prepare();
+      }
+    };
+    element.addEventListener('pointerup', unlock);
+    element.addEventListener('touchend', unlock);
     return () => {
-      unwatchPhase();
+      element.removeEventListener('pointerup', unlock);
+      element.removeEventListener('touchend', unlock);
       unwatchState();
       resizes.disconnect();
       unbind();

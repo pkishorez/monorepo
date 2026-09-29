@@ -230,14 +230,15 @@ export const createHub = (options: HubOptions = {}) => {
       ),
     );
 
+  const wantsHold = () => wanted((listener) => listener.hold());
+  const wantsPinch = () =>
+    [...gestures].some((listener) => listener.enabled() && !listener.hold());
+
   const machine = createActor(zoneMachine, {
     input: {
       inHoldZone: options.inHoldZone ?? (() => false),
-      wantsHold: () => wanted((listener) => listener.hold()),
-      wantsPinch: () =>
-        [...gestures].some(
-          (listener) => listener.enabled() && !listener.hold(),
-        ),
+      wantsHold,
+      wantsPinch,
       output,
     },
   }).start();
@@ -298,6 +299,8 @@ export const createHub = (options: HubOptions = {}) => {
     /** Where the Hold is now, for showing it. */
     phase,
     watchPhase: watching(phase),
+    /** Whether the Hold, if it starts now, takes a press: a pinch is expected. */
+    holdTakesPress: () => wantsHold() && wantsPinch(),
     /** Where the first finger down landed, in viewport px. */
     origin: () => gesture.origin(),
     /** The machine's state now, such as `held.acting`, for debugging. */

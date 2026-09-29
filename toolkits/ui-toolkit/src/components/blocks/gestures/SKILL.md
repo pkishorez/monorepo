@@ -59,10 +59,11 @@ function Toolbar() {
   corner is ordinary screen. When no enabled `useGesture` without a Hold
   expects a pinch, the Hold starts the moment another finger lands beside
   the corner finger, and the corner glows faintly as the corner finger lands.
-  When one does, the corner finger must press still for 300ms, shown by a
+  When one does, the corner finger must press still for 200ms, shown by a
   filling ring, so fingers landing together stay a pinch; the Hold then
-  ticks (a short vibration on Android, and a soft click unless
-  `holdSound={false}`). Until the
+  ticks: a short vibration where the browser can vibrate (Android), a soft
+  click where it cannot (iOS, unless the phone is on silent). Only a pressed
+  Hold ticks; `holdFeedback={false}` turns it off. Until the
   Hold starts, the corner finger is ordinary: lifting, it is a Tap that
   clicks; moving, a Gesture. Once on, the Hold lasts until every finger
   lifts, even after the Hold finger lifts. Under it nothing is clicked and
@@ -122,7 +123,7 @@ values until the next Gesture starts, then begin again from 0 (scale 1).
 A one-finger screen (only `usePan`, `useSwipe` and `useTap`) gets the
 quickest Hold: it starts as soon as a second finger lands. A screen that
 pinches or rotates with `useGesture` keeps its pinches, and its Hold takes
-the 300ms press. Mixing both on one screen works, but a pinch that starts
+the 200ms press. Mixing both on one screen works, but a pinch that starts
 in the corner can then become a Hold after a slow second finger: prefer
 one or the other per screen, and use `usePan` rather than `useGesture`
 whenever one finger is enough.

@@ -5,11 +5,25 @@ import {
   TabsList,
   TabsTrigger,
 } from '@kstackz/ui-toolkit/components/ui/tabs';
-import { HouseIcon } from '@kstackz/ui-toolkit/lucide';
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import {
+  HouseIcon,
+  VibrateIcon,
+  VibrateOffIcon,
+} from '@kstackz/ui-toolkit/lucide';
+import { ThemeToggle } from '../../../components/index.ts';
 import { DEMO_IDS, DEMOS, type DemoId } from './demos.ts';
 
-/** Home and the demo's title. */
-export function TopBar(props: { readonly demo: DemoId }) {
+/**
+ * Home, the demo's title, whether a pressed Hold is confirmed (a vibration
+ * on Android, a click on iOS), and the theme.
+ */
+export function TopBar(props: {
+  readonly demo: DemoId;
+  readonly feedback: boolean;
+  readonly onFeedback: (on: boolean) => void;
+}) {
+  const FeedbackIcon = props.feedback ? VibrateIcon : VibrateOffIcon;
   return (
     <header className="sticky top-0 z-20 box-content flex h-12 shrink-0 items-center gap-1 border-b border-border bg-background pt-[max(12px,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))]">
       <Link
@@ -30,6 +44,21 @@ export function TopBar(props: { readonly demo: DemoId }) {
       >
         {DEMOS[props.demo].title}
       </h1>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-11"
+        aria-label="Hold feedback"
+        aria-pressed={props.feedback}
+        data-testid="lab-feedback"
+        onClick={() => props.onFeedback(!props.feedback)}
+      >
+        <FeedbackIcon
+          aria-hidden="true"
+          className={props.feedback ? undefined : 'text-muted-foreground'}
+        />
+      </Button>
+      <ThemeToggle />
     </header>
   );
 }

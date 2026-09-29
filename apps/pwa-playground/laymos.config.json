@@ -135,14 +135,14 @@
   },
   "layerGraphs": {
     "pwa-playground": {
-      "description": "Entries over routes over components over lib; the Gesture Lab sits under its route; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
+      "description": "Entries over routes over components over lib; the Gesture Lab sits under its route and reuses the theme toggle; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
       "rules": {
         "entry": ["rpc", "lib"],
         "routes": ["gesture-lab", "motion-course", "components", "lib", "rpc"],
         "infra": [],
         "components": ["lib"],
         "rpc": [],
-        "gesture-lab": [],
+        "gesture-lab": ["components"],
         "motion-course": []
       }
     }

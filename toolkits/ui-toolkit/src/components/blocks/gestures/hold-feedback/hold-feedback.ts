@@ -6,13 +6,15 @@ const TICK_GAIN = 0.12;
 type Haptic = { readonly vibrate?: (pattern: number) => boolean };
 
 /**
- * Tells the user the Hold came on: a short vibration where the browser has
- * one (Android; iOS Safari has none), and a soft click sound when `sound`.
- * Browsers only play sound once a touch has unlocked it, so `prepare` must
- * be called while handling a touch.
+ * Tells the user a pressed Hold came on: a short vibration where the
+ * browser can vibrate (Android), and a soft click sound where it cannot
+ * (iOS Safari). Browsers only start sound once a touch has lifted on the
+ * page, so `prepare` must be called while handling a finger lifting; iOS
+ * also mutes it while the phone is on silent.
  */
 export const createHoldFeedback = (doc: Document) => {
   const win = doc.defaultView ?? window;
+  const haptic = win.navigator as Haptic;
   let audio: AudioContext | undefined;
 
   const click = (context: AudioContext) => {
@@ -31,16 +33,17 @@ export const createHoldFeedback = (doc: Document) => {
   };
 
   return {
-    /** Unlocks sound while a touch is being handled. */
-    prepare: (sound: boolean) => {
-      if (!sound || typeof win.AudioContext !== 'function') return;
+    /** Unlocks sound, where it is the feedback, while a finger lifts. */
+    prepare: () => {
+      if (typeof haptic.vibrate === 'function') return;
+      if (typeof win.AudioContext !== 'function') return;
       audio ??= new win.AudioContext();
       if (audio.state === 'suspended') void audio.resume();
     },
-    /** The Hold came on. */
-    tick: (sound: boolean) => {
-      (win.navigator as Haptic).vibrate?.(10);
-      if (sound && audio?.state === 'running') click(audio);
+    /** A pressed Hold came on. */
+    tick: () => {
+      if (typeof haptic.vibrate === 'function') haptic.vibrate(12);
+      else if (audio?.state === 'running') click(audio);
     },
     dispose: () => {
       void audio?.close();
