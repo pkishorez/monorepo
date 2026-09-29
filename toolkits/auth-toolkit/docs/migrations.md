@@ -12,9 +12,9 @@ pnpm db:generate
 ```
 
 This runs the Better Auth Relations v2 adapter to regenerate
-`src/infra/primary/sqlite/schema/schema.generated.ts`, formats it, then runs
+`src/auth-worker/database/sqlite/schema/schema.generated.ts`, formats it, then runs
 Drizzle Kit to add a timestamped folder under
-`src/infra/primary/sqlite/migration/migrations/` containing `migration.sql`
+`src/auth-worker/database/sqlite/migration/migrations/` containing `migration.sql`
 and `snapshot.json`.
 
 Do not edit `schema.generated.ts` or any migration folder by hand. Normal

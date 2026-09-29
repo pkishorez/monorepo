@@ -3,7 +3,7 @@ import {
   authzCookies,
   authzLayer,
   resolverLive,
-} from '@kstackz/auth-toolkit/rpc/server';
+} from '@kstackz/auth-toolkit/server/rpc';
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../../handlers/console-handlers/index.ts';
 import { FetchHttpClient } from 'effect/unstable/http';

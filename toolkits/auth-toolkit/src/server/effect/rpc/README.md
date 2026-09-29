@@ -1,10 +1,10 @@
-# @kstackz/auth-toolkit/rpc and @kstackz/auth-toolkit/rpc/server
+# @kstackz/auth-toolkit/rpc and @kstackz/auth-toolkit/server/rpc
 
-Protects Effect RPCs with the same Server-Side Verification `@kstackz/auth-toolkit/server`
+Protects Effect RPCs with the same Server-Side Verification `@kstackz/auth-toolkit/server/session`
 does for plain requests. `Authz` is the Auth Cannotation for the RPC Sibling, built
 with `@kstackz/rpc-toolkit/rpc/cannotation`: its Declaration lives in `@kstackz/auth-toolkit/rpc` and
 is safe to import from contract code shared with the browser; its Server
-Implementation lives in `@kstackz/auth-toolkit/rpc/server`.
+Implementation lives in `@kstackz/auth-toolkit/server/rpc`.
 
 `Authz.guard()` requires a valid session; `Authz.guard(policy)` additionally
 authorizes the current user and session. `Authz.policy(invariant, reason)` builds a policy
@@ -67,7 +67,7 @@ handlers. One `resolverLive` can serve both Siblings:
 // server.ts
 import { Layer } from 'effect';
 import { RpcServer } from 'effect/unstable/rpc';
-import { authzLayer, resolverLive } from '@kstackz/auth-toolkit/rpc/server';
+import { authzLayer, resolverLive } from '@kstackz/auth-toolkit/server/rpc';
 
 const RpcLive = RpcServer.layer(PrivateApi).pipe(
   Layer.provide(Handlers),
@@ -88,7 +88,7 @@ still run normally:
 ```ts
 import { Effect, Layer } from 'effect';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzLayer } from '@kstackz/auth-toolkit/rpc/server';
+import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 
 const TestResolver = Layer.succeed(
   Authz.Resolver,
@@ -121,7 +121,7 @@ import {
   authzCookies,
   authzLayer,
   resolverLive,
-} from '@kstackz/auth-toolkit/rpc/server';
+} from '@kstackz/auth-toolkit/server/rpc';
 
 const makeApp = Effect.gen(function* () {
   const rpcApp = yield* RpcServer.toHttpEffect(PrivateApi);
@@ -142,10 +142,9 @@ still works without the wrapper, but refreshed cookies are not relayed.
 
 ## Files
 
-| File                           | Role                                                                                         |
-| ------------------------------ | -------------------------------------------------------------------------------------------- |
-| `src/server/current-auth/`     | The identity, errors, and `policy()` every `Authz` carries                                   |
-| `src/server/rpc/authz.ts`      | The curated `Authz` the contract subpath exports; `cannotation.ts` holds the raw Cannotation |
-| `src/server/rpc/middleware.ts` | The Server Implementation: verification, policy evaluation, and `authzLayer`                 |
-| `src/server/rpc/cookies.ts`    | Per-HTTP-request verification caching and `authzCookies`                                     |
-| `src/server/rpc/rpc.ts`        | Composes the above into the module's public surface                                          |
+| Path                                 | Role                                                                                                                                                                             |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/server/effect/current-auth/`    | The identity, errors, `policy()` and `resolverLive` every `Authz` shares, over the vanilla Session and Access Token doors                                                        |
+| `src/server/effect/rpc/cannotation/` | The raw Cannotation, private to the rpc graph                                                                                                                                    |
+| `src/server/effect/rpc/declaration/` | The curated `Authz` that `@kstackz/auth-toolkit/rpc` exports                                                                                                                     |
+| `src/server/effect/rpc/server/`      | The Server Implementation behind `@kstackz/auth-toolkit/server/rpc`: verification and policy evaluation (`middleware.ts`), per-request caching and `authzCookies` (`cookies.ts`) |

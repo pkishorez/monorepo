@@ -2,7 +2,7 @@ import type { Session, User } from 'better-auth';
 import { Effect, Layer } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcTest } from 'effect/unstable/rpc';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzLayer } from '@kstackz/auth-toolkit/rpc/server';
+import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 
 type Resolve = (typeof Authz.Resolver)['Service']['resolve'];
 

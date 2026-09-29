@@ -8,7 +8,7 @@ import {
 } from 'effect/unstable/rpc';
 import { Story } from 'laymos/story';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzCookies } from '@kstackz/auth-toolkit/rpc/server';
+import { authzCookies } from '@kstackz/auth-toolkit/server/rpc';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';
 
 const GetProfile = Rpc.make('GetProfileForBatch', {
