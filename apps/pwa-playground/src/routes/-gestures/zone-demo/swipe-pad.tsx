@@ -1,7 +1,6 @@
 import {
   type Axis,
   type SwipeEnd,
-  useHold,
   useSwipe,
 } from '@kstackz/ui-toolkit/components/blocks/gestures';
 import {
@@ -33,15 +32,14 @@ const describe = (end: SwipeEnd) =>
   `${end.axis} · ${Math.round(end.distance)}px · ${Math.round(end.velocity)}px/s${end.interrupted ? ' · interrupted' : ''}`;
 
 /**
- * A still grid showing every Swipe with no Hold or under the right Hold: the
+ * A still grid showing every Swipe, with no Hold or under it: the
  * puck follows the finger along the Swipe's axis and stays where the Swipe
  * leaves it, adding each Swipe to the last. On release it glides on at the
  * Swipe's speed, slowing to a stop; an interrupted one springs back. Its
  * position reads live above it. `reset` changing springs it back to the
- * middle. Under the left Hold it rests.
+ * middle.
  */
 export function SwipePad(props: { readonly reset: number }) {
-  const hold = useHold();
   const pad = useRef<HTMLDivElement>(null);
   const distance = useRef<HTMLSpanElement>(null);
   const position = useRef<HTMLSpanElement>(null);
@@ -77,8 +75,8 @@ export function SwipePad(props: { readonly reset: number }) {
     });
   };
   const plain = useSwipe({ onEnd });
-  const right = useSwipe({ hold: 'right', onEnd });
-  const swipe = right.active ? right : plain;
+  const held = useSwipe({ hold: true, onEnd });
+  const swipe = held.active ? held : plain;
 
   useLayoutEffect(() => {
     const node = pad.current;
@@ -96,7 +94,7 @@ export function SwipePad(props: { readonly reset: number }) {
   }, []);
 
   // A Swipe starting catches the puck mid-glide.
-  const swiping = plain.active || right.active;
+  const swiping = plain.active || held.active;
   useLayoutEffect(() => {
     if (swiping) coasting.current?.stop();
   }, [swiping]);
@@ -123,8 +121,8 @@ export function SwipePad(props: { readonly reset: number }) {
   };
   useMotionValueEvent(plain.dx, 'change', follow('x'));
   useMotionValueEvent(plain.dy, 'change', follow('y'));
-  useMotionValueEvent(right.dx, 'change', follow('x'));
-  useMotionValueEvent(right.dy, 'change', follow('y'));
+  useMotionValueEvent(held.dx, 'change', follow('x'));
+  useMotionValueEvent(held.dy, 'change', follow('y'));
 
   // Where the puck is from the middle, as it moves, glides and springs.
   const show = () => {
@@ -137,14 +135,10 @@ export function SwipePad(props: { readonly reset: number }) {
   return (
     <section
       data-testid="swipe-section"
-      data-resting={hold === 'left' ? '' : undefined}
-      className={cn(
-        'flex min-h-0 flex-1 flex-col gap-2 p-3 transition-[opacity,filter] duration-200',
-        hold === 'left' && 'opacity-35 grayscale',
-      )}
+      className="flex min-h-0 flex-1 flex-col gap-2 p-3"
     >
       <p className="flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
-        <span className="shrink-0">useSwipe · no Hold, right</span>
+        <span className="shrink-0">useSwipe · no Hold and Hold</span>
         <span className="font-mono tabular-nums" data-testid="swipe-last">
           {last === undefined ? 'no swipe yet' : describe(last)}
         </span>
@@ -198,8 +192,8 @@ export function SwipePad(props: { readonly reset: number }) {
         />
       </div>
       <p className="text-center text-[11px] text-muted-foreground">
-        Rest a finger anywhere, then steer one half with another beside it. Rest
-        left and tap resets.
+        Press the bottom-left corner until the ring fills: then only the pad
+        moves, and a tap resets both.
       </p>
     </section>
   );

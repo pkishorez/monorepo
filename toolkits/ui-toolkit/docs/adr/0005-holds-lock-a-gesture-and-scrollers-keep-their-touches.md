@@ -1,5 +1,5 @@
 ---
-status: partly superseded by ADR-0006, then ADR-0007 (how a Hold starts)
+status: partly superseded by ADR-0006, ADR-0007, then ADR-0008 (how a Hold starts)
 ---
 
 # A Hold locks the Gesture under it, and scrollable elements keep their own touches

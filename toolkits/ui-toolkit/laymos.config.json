@@ -103,7 +103,7 @@
       },
       "moduleGraphs": {
         "gestures": {
-          "description": "One Gesture Zone per screen for app-level gestures: reads the Hold and each continuous Gesture (movement, scale, rotation), one-finger Swipe and Tap from the fingers, and hands them to every enabled useGesture, useSwipe and useTap under the same Hold. touch-input wraps the browser and leaves Native Scrolls their touches; zone-machine is the XState machine deciding the phases and the Hold; gesture-reading and swipe-reading are pure; zone puts them together for React",
+          "description": "One Gesture Zone per screen for app-level gestures: reads the Hold and each continuous Gesture (movement, scale, rotation), one-finger Swipe and Tap from the fingers, and hands them to every enabled useGesture, useSwipe and useTap under the same Hold. touch-input wraps the browser and leaves Native Scrolls their touches; zone-machine is the XState machine deciding the phases and the Hold; hold-feedback plays the haptic and click when the Hold comes on; gesture-reading and swipe-reading are pure; zone puts them together for React",
           "path": "src/components/blocks/gestures",
           "modules": {
             "index.ts": {
@@ -112,6 +112,7 @@
             "zone": {},
             "gesture-reading": {},
             "zone-machine": {},
+            "hold-feedback": {},
             "swipe-reading": {},
             "touch-input": {}
           },
@@ -127,6 +128,7 @@
               "touch-input",
               "gesture-reading",
               "zone-machine",
+              "hold-feedback",
               "swipe-reading"
             ],
             "zone-machine": ["gesture-reading", "swipe-reading"],

@@ -25,12 +25,32 @@ export type GestureEnd = GestureValues & {
   readonly interrupted: boolean;
 };
 
+/**
+ * A finished Pan: how far the finger moved in px, where it started in
+ * viewport px, and its speed in px per second. `interrupted` when a second
+ * finger landed or the browser took the touch.
+ */
+export type PanEnd = {
+  readonly x: number;
+  readonly y: number;
+  readonly origin: Point;
+  readonly velocity: Point;
+  readonly interrupted: boolean;
+};
+
 /** A Tap: where the finger touched, in viewport px. */
 export type Tap = { readonly point: Point };
 
+/**
+ * Where the Hold is: `off`; `armed`, a finger in the Hold Zone that starts
+ * it when another lands; `pressing`, a finger in the Hold Zone that starts
+ * it if it stays still; or `on`.
+ */
+export type HoldPhase = 'off' | 'armed' | 'pressing' | 'on';
+
 type Listener = {
   readonly enabled: () => boolean;
-  /** The one Hold it takes Gestures under. */
+  /** Whether it takes Gestures under the Hold, rather than with none. */
   readonly hold: () => Hold;
 };
 
@@ -38,6 +58,12 @@ export type GestureListener = Listener & {
   readonly begin: (origin: Point) => void;
   readonly update: (values: GestureValues) => void;
   readonly finish: (end: GestureEnd) => void;
+};
+
+export type PanListener = Listener & {
+  readonly begin: (origin: Point) => void;
+  readonly update: (x: number, y: number) => void;
+  readonly finish: (end: PanEnd) => void;
 };
 
 export type SwipeListener = Listener & {
@@ -53,8 +79,10 @@ export type TapListener = Listener & {
 };
 
 export type HubOptions = {
-  /** Whether a still finger can become a Hold. Read as a second finger lands. */
-  readonly holds?: () => boolean;
+  /** Whether a point in viewport px is in the Hold Zone. None by default. */
+  readonly inHoldZone?: (point: Point) => boolean;
+  /** The Hold came on; `pressed` when it took a press. */
+  readonly onHold?: (pressed: boolean) => void;
 };
 
 const STILL: GestureValues = { x: 0, y: 0, scale: 0, rotation: 0 };
@@ -87,20 +115,22 @@ const register = <T>(listeners: Set<T>, listener: T, drop: () => void) => {
 /**
  * The zone's hub: every listener the hooks register, and the pointer sink
  * that feeds the zone machine. The machine decides the phases, and with them
- * the Hold; the hub reads the Gesture, Swipe and Tap the machine asks for and
- * hands them to each enabled listener under the same Hold. Which listeners
- * take a Gesture is fixed as it begins; which take a Swipe, as its axis is
- * fixed; which take a Tap, as it lifts.
+ * the Hold; the hub reads the Gesture, Pan, Swipe and Tap the machine asks
+ * for and hands them to each enabled listener under the same Hold. Which
+ * listeners take a Gesture or Pan is fixed as it begins; which take a Swipe,
+ * as its axis is fixed; which take a Tap, as it lifts.
  */
 export const createHub = (options: HubOptions = {}) => {
   const gestures = new Set<GestureListener>();
+  const pans = new Set<PanListener>();
   const swipes = new Set<SwipeListener>();
   const taps = new Set<TapListener>();
   let gesture = createGestureReading();
   let swipe = createSwipeReading();
-  // The Hold the current Gesture is under, fixed as it begins.
-  let under: Hold = 'none';
+  // Whether the current Gesture is under the Hold, fixed as it begins.
+  let under: Hold = false;
   let gesturing: ReadonlyArray<GestureListener> = [];
+  let panning: ReadonlyArray<PanListener> = [];
   let swiping: ReadonlyArray<SwipeListener> = [];
   // Whether the Gesture did more than a Tap: moved or had two fingers.
   let moved = false;
@@ -110,8 +140,22 @@ export const createHub = (options: HubOptions = {}) => {
     swiping = [];
   };
 
+  const endPan = (velocity: GestureValues, interrupted: boolean) => {
+    const { x, y } = gesture.values();
+    const end: PanEnd = {
+      x,
+      y,
+      origin: gesture.origin(),
+      velocity: { x: velocity.x, y: velocity.y },
+      interrupted,
+    };
+    for (const listener of panning) listener.finish(end);
+    panning = [];
+  };
+
   const endGesture = (velocity: GestureValues, interrupted: boolean) => {
     endSwipe(swipe.end(velocity, interrupted));
+    endPan(velocity, interrupted);
     const origin = gesture.origin();
     const end = { ...gesture.values(), origin, velocity, interrupted };
     for (const listener of gesturing) listener.finish(end);
@@ -138,15 +182,21 @@ export const createHub = (options: HubOptions = {}) => {
       gesture.down(finger);
       moved = false;
       under = hold;
+      const origin = gesture.origin();
       gesturing = taking(gestures, under);
       warnOverlap('useGesture', gesturing.length);
-      for (const listener of gesturing) listener.begin(gesture.origin());
-      swipe.start(gesture.origin());
+      for (const listener of gesturing) listener.begin(origin);
+      panning = taking(pans, under);
+      warnOverlap('usePan', panning.length);
+      for (const listener of panning) listener.begin(origin);
+      swipe.start(origin);
     },
     join: (finger) => {
+      const velocity = gesture.velocity(finger.t);
       gesture.down(finger);
       moved = true;
-      endSwipe(swipe.join(gesture.velocity(finger.t)));
+      endSwipe(swipe.join(velocity));
+      endPan(velocity, true);
     },
     move: (finger) => {
       const values = gesture.move(finger);
@@ -155,6 +205,7 @@ export const createHub = (options: HubOptions = {}) => {
         moved = true;
       }
       for (const listener of gesturing) listener.update(values);
+      for (const listener of panning) listener.update(values.x, values.y);
       const step = swipe.move(values);
       if (step === undefined) return;
       if (step.started) startSwipe(step.axis);
@@ -169,10 +220,26 @@ export const createHub = (options: HubOptions = {}) => {
       gesture = createGestureReading();
       swipe = createSwipeReading();
     },
+    held: (pressed) => options.onHold?.(pressed),
   };
 
+  const wanted = (predicate: (listener: Listener) => boolean) =>
+    [gestures, pans, swipes, taps].some((listeners) =>
+      [...listeners].some(
+        (listener) => listener.enabled() && predicate(listener),
+      ),
+    );
+
   const machine = createActor(zoneMachine, {
-    input: { holds: options.holds ?? (() => false), output },
+    input: {
+      inHoldZone: options.inHoldZone ?? (() => false),
+      wantsHold: () => wanted((listener) => listener.hold()),
+      wantsPinch: () =>
+        [...gestures].some(
+          (listener) => listener.enabled() && !listener.hold(),
+        ),
+      output,
+    },
   }).start();
 
   const sink: PointerSink = {
@@ -181,46 +248,68 @@ export const createHub = (options: HubOptions = {}) => {
     move: (finger) => machine.send({ type: 'finger.move', finger }),
     up: (finger) => {
       // Only one finger lifting without moving, with no Hold, still clicks.
-      const clicks = machine.getSnapshot().matches('pressing');
+      const snapshot = machine.getSnapshot();
+      const clicks =
+        snapshot.matches('pressing') ||
+        snapshot.matches('armed') ||
+        snapshot.matches('arming');
       machine.send({ type: 'finger.up', finger });
       return !clicks;
     },
     cancelAll: () => machine.send({ type: 'cancel' }),
   };
 
-  const hold = (): Hold => machine.getSnapshot().context.hold;
+  const phase = (): HoldPhase => {
+    const snapshot = machine.getSnapshot();
+    if (snapshot.matches('held')) return 'on';
+    if (snapshot.matches('armed')) return 'armed';
+    if (snapshot.matches('arming')) return 'pressing';
+    return 'off';
+  };
 
-  return {
-    sink,
-    /** The Hold on now: `none` when there is none. */
-    hold,
-    /** Calls `watcher` whenever the Hold changes; returns the unwatch. */
-    watchHold: (watcher: () => void) => {
-      let last = hold();
+  // Calls `watcher` whenever `read` gives something new; returns the unwatch.
+  const watching =
+    <T>(read: () => T) =>
+    (watcher: () => void) => {
+      let last = read();
       const subscription = machine.subscribe(() => {
-        if (hold() === last) return;
-        last = hold();
+        const next = read();
+        if (next === last) return;
+        last = next;
         watcher();
       });
       return () => subscription.unsubscribe();
-    },
+    };
+
+  const state = () => {
+    const value = machine.getSnapshot().value;
+    return typeof value === 'string'
+      ? value
+      : Object.entries(value)
+          .map(([parent, child]) => `${parent}.${String(child)}`)
+          .join();
+  };
+
+  return {
+    sink,
+    /** Whether the Hold is on now. */
+    hold: () => phase() === 'on',
+    watchHold: watching(() => phase() === 'on'),
+    /** Where the Hold is now, for showing it. */
+    phase,
+    watchPhase: watching(phase),
+    /** Where the first finger down landed, in viewport px. */
+    origin: () => gesture.origin(),
     /** The machine's state now, such as `held.acting`, for debugging. */
-    state: () => {
-      const value = machine.getSnapshot().value;
-      return typeof value === 'string'
-        ? value
-        : Object.entries(value)
-            .map(([parent, child]) => `${parent}.${String(child)}`)
-            .join();
-    },
-    /** Calls `watcher` on every step of the machine; returns the unwatch. */
-    watch: (watcher: () => void) => {
-      const subscription = machine.subscribe(watcher);
-      return () => subscription.unsubscribe();
-    },
+    state,
+    watchState: watching(state),
     addGesture: (listener: GestureListener) =>
       register(gestures, listener, () => {
         gesturing = gesturing.filter((other) => other !== listener);
+      }),
+    addPan: (listener: PanListener) =>
+      register(pans, listener, () => {
+        panning = panning.filter((other) => other !== listener);
       }),
     addSwipe: (listener: SwipeListener) =>
       register(swipes, listener, () => {

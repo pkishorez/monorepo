@@ -59,11 +59,19 @@ One continuous touch in the Gesture Zone, from the first finger landing to the l
 _Avoid_: pan, pinch, drag (moving an element itself), shortcut (a Gesture an app binds to a command), interaction
 
 **Hold**:
-A modifier, like a held Shift key, that puts every Gesture the other fingers make under the left or right Hold, giving an app a further set of shortcuts. A finger resting anywhere in the zone becomes the Hold when another finger acts beside it — moves or taps — while it has stayed still; it is the left Hold when it rests left of the acting finger and the right Hold when right of it. Two fingers that both move are a pinch, and once a Gesture has moved or pinched no Hold starts until every finger lifts. The Hold finger is never part of a Gesture itself. The Hold stays in effect until no finger is left on the zone: lifting the Hold finger during a Gesture does not end it. While a Hold is on, that side's edge of the zone glows. A zone turns Holds on; without them two fingers are always a pinch. A listener takes Gestures under exactly one of left, right, or no Hold.
-_Avoid_: anchor, chord, touch and hold (that is a long press), modifier key, Hold Zone (Holds are no longer tied to a corner)
+A mode, like a held Shift key, that puts every Gesture the other fingers make under the Hold, giving an app a further set of shortcuts. It starts from a finger in the Hold Zone, and only on a screen where something takes Gestures under the Hold. Where nothing on the screen expects a pinch, it starts the moment another finger lands; where something does, the finger must first press still for a moment, so that fingers landing together stay a pinch, and the Hold then ticks. Until it starts, the corner finger is ordinary: lifting, it is a Tap; moving, a Gesture. The Hold finger is never part of a Gesture itself. The Hold stays in effect until no finger is left on the zone: lifting the Hold finger during a Gesture does not end it. A listener takes Gestures either under the Hold or with none.
+_Avoid_: anchor, chord, touch and hold (that is a long press), modifier key, left or right Hold (there is one Hold)
+
+**Hold Zone**:
+A quarter circle on the bottom-left corner of the Gesture Zone where a finger can start the Hold. It is live only while something on the screen takes Gestures under the Hold; otherwise it is ordinary screen. While the Hold is on, the zone's left edge glows.
+_Avoid_: hotspot, modifier key
+
+**Pan**:
+A one-finger Gesture read as how far the finger has moved, with no scale or rotation. A second finger landing, or the browser taking the touch, ends it as interrupted. A screen whose Gestures are all one finger can start the Hold at once.
+_Avoid_: drag (moving an element itself), scroll
 
 **Tap**:
-One finger touching and lifting without meaningful movement, with no other finger down except a Hold. A tap beside a resting finger makes that finger the Hold, and is itself a Tap under it. It fires as the finger lifts, never waiting for another Tap. It is also a Gesture that did not move. With no Hold, the element under it is still clicked as usual; under a Hold it is a shortcut only, and nothing is clicked. Two fingers are never a Tap.
+One finger touching and lifting without meaningful movement, with no other finger down except a Hold. It fires as the finger lifts, never waiting for another Tap. It is also a Gesture that did not move. With no Hold, the element under it is still clicked as usual; under a Hold it is a shortcut only, and nothing is clicked. Two fingers are never a Tap.
 _Avoid_: click, press, double tap and two-finger tap (not Gestures)
 
 **Swipe**:

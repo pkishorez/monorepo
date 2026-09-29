@@ -1,8 +1,9 @@
-import { Grid3x3Icon } from '@kstackz/ui-toolkit/lucide';
+import { GalleryHorizontalIcon, Grid3x3Icon } from '@kstackz/ui-toolkit/lucide';
 import type { ComponentType } from 'react';
+import { CardsDemo } from '../cards-demo/index.ts';
 import { ZoneDemo } from '../zone-demo/index.ts';
 
-export const DEMO_IDS = ['zone'] as const;
+export const DEMO_IDS = ['zone', 'cards'] as const;
 export type DemoId = (typeof DEMO_IDS)[number];
 
 export type Demo = {
@@ -13,6 +14,7 @@ export type Demo = {
 
 export const DEMOS: Record<DemoId, Demo> = {
   zone: { title: 'Zone', Icon: Grid3x3Icon, Screen: ZoneDemo },
+  cards: { title: 'Cards', Icon: GalleryHorizontalIcon, Screen: CardsDemo },
 };
 
 /** The demo a `?demo=` value names, or the first. */

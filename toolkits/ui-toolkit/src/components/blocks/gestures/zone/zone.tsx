@@ -11,53 +11,79 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { cn } from '#lib/utils';
+import type { Point } from '../gesture-reading';
+import { createHoldFeedback } from '../hold-feedback';
 import { bindTouchInput } from '../touch-input';
-import type { Hold, Side } from '../zone-machine';
-import { createHub, type Hub } from './hub';
+import { HOLD_PRESS_MS } from '../zone-machine';
+import { createHub, type HoldPhase, type Hub } from './hub';
 
 const ZoneContext = createContext<Hub | undefined>(undefined);
+
+// The Hold Zone's radius by default: 40% of the zone's width, up to 200px.
+const HOLD_SHARE = 0.4;
+const MAX_HOLD_RADIUS = 200;
+
+// The ring filling around a finger pressing for the Hold.
+const RING_RADIUS = 30;
+const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
   if (typeof ref === 'function') ref(value);
   else if (ref !== null && ref !== undefined) ref.current = value;
 };
 
-const useHoldOf = (hub: Hub): Hold =>
-  useSyncExternalStore(hub.watchHold, hub.hold, () => 'none');
+// Whether `point` lands in the quarter circle of `radius` on the element's
+// bottom-left corner.
+const inCorner = (
+  element: Element | null,
+  radius: number | undefined,
+  point: Point,
+) => {
+  if (element === null) return false;
+  const box = element.getBoundingClientRect();
+  const reach = radius ?? Math.min(box.width * HOLD_SHARE, MAX_HOLD_RADIUS);
+  return Math.hypot(point.x - box.left, point.y - box.bottom) <= reach;
+};
+
+const usePhase = (hub: Hub): HoldPhase =>
+  useSyncExternalStore(hub.watchPhase, hub.phase, () => 'off');
 
 export type GestureZoneProps = ComponentProps<'div'> & {
   /**
-   * Whether a finger held still while another acts becomes a Hold, on its
-   * side of the acting finger. Off by default: two fingers are then always
-   * a pinch.
+   * The radius in px of the Hold Zone, a quarter circle on the bottom-left
+   * corner: 40% of the zone's width, up to 200px, by default. It is live
+   * only while some enabled listener takes Gestures under the Hold.
    */
-  readonly holds?: boolean;
+  readonly holdRadius?: number;
+  /** Whether a Hold that took a press also clicks softly: true by default. */
+  readonly holdSound?: boolean;
 };
 
-// The glow along the zone's left or right edge while that Hold is on: a soft
-// light in --gesture-hold (the foreground colour by default) that fades
-// inward and towards the top and bottom. It slides in over a quarter of a
-// second and fades fast when the Hold ends.
-function HoldGlow(props: { readonly side: Side; readonly on: boolean }) {
-  const { side, on } = props;
+// The glow along the zone's left edge: faint while a finger in the Hold
+// Zone is ready to start the Hold, full while it is on. A soft light in
+// --gesture-hold (the foreground colour by default) that fades inward and
+// towards the top and bottom; it comes in fast and fades out in 150ms.
+function HoldGlow(props: { readonly phase: HoldPhase }) {
   const light = (percent: number) =>
     `color-mix(in oklab, var(--gesture-hold, var(--foreground)) ${percent}%, transparent)`;
-  const inward = side === 'left' ? 'to right' : 'to left';
   const ends =
     'linear-gradient(to bottom, transparent, black 12%, black 88%, transparent)';
+  const shown = props.phase === 'armed' || props.phase === 'on';
   return (
     <div
       aria-hidden="true"
       data-slot="gesture-hold"
-      data-side={side}
-      data-active={on ? '' : undefined}
+      data-phase={props.phase}
+      data-active={props.phase === 'on' ? '' : undefined}
       className={cn(
-        'pointer-events-none absolute inset-y-0 z-50 w-16 opacity-0 transition-[opacity,translate] duration-150 ease-out data-active:translate-x-0 data-active:opacity-100 data-active:duration-250',
-        side === 'left' ? 'left-0 -translate-x-6' : 'right-0 translate-x-6',
+        'pointer-events-none absolute inset-y-0 left-0 z-50 w-16 -translate-x-6 opacity-0 transition-[opacity,translate] duration-150 ease-out',
+        shown && 'translate-x-0 duration-100',
+        props.phase === 'armed' && 'opacity-50',
+        props.phase === 'on' && 'opacity-100',
       )}
       style={{
-        background: `linear-gradient(${inward}, ${light(30)} 0, ${light(12)} 30%, ${light(4)} 60%, transparent 100%)`,
-        boxShadow: `inset ${side === 'left' ? 2 : -2}px 0 0 ${light(45)}`,
+        background: `linear-gradient(to right, ${light(30)} 0, ${light(12)} 30%, ${light(4)} 60%, transparent 100%)`,
+        boxShadow: `inset 2px 0 0 ${light(45)}`,
         maskImage: ends,
         WebkitMaskImage: ends,
       }}
@@ -65,32 +91,85 @@ function HoldGlow(props: { readonly side: Side; readonly on: boolean }) {
   );
 }
 
+// A ring around the pressing finger that fills over HOLD_PRESS_MS, so the
+// wait for the Hold is never hidden.
+function HoldRing(props: { readonly at: Point }) {
+  const circle = useRef<SVGCircleElement>(null);
+  useLayoutEffect(() => {
+    const animation = circle.current?.animate(
+      [{ strokeDashoffset: RING_LENGTH }, { strokeDashoffset: 0 }],
+      { duration: HOLD_PRESS_MS, easing: 'linear', fill: 'forwards' },
+    );
+    return () => animation?.cancel();
+  }, []);
+  const size = 2 * (RING_RADIUS + 4);
+  return (
+    <svg
+      aria-hidden="true"
+      data-slot="gesture-hold-ring"
+      width={size}
+      height={size}
+      className="pointer-events-none absolute z-50 -rotate-90"
+      style={{ left: props.at.x - size / 2, top: props.at.y - size / 2 }}
+    >
+      <circle
+        ref={circle}
+        cx={size / 2}
+        cy={size / 2}
+        r={RING_RADIUS}
+        fill="none"
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeDasharray={RING_LENGTH}
+        strokeDashoffset={RING_LENGTH}
+        style={{
+          stroke:
+            'color-mix(in oklab, var(--gesture-hold, var(--foreground)) 60%, transparent)',
+        }}
+      />
+    </svg>
+  );
+}
+
 /**
  * The screen's Gesture Zone: the app owns touch in it, and any component
- * inside, shown or hidden, reads its Gestures with `useGesture`, `useSwipe`
- * and `useTap`. With `holds`, a finger held still while another acts is a
- * Hold. There is one per screen: zones do not nest. It sets `data-state` to
- * the zone machine's state, for debugging.
+ * inside, shown or hidden, reads its Gestures with `useGesture`, `usePan`,
+ * `useSwipe` and `useTap`. While some enabled listener takes Gestures under
+ * the Hold, a finger in the bottom-left Hold Zone can start it. There is one
+ * per screen: zones do not nest. It sets `data-state` to the zone machine's
+ * state, for debugging.
  */
 export function GestureZone({
   className,
   ref,
   children,
-  holds = false,
+  holdRadius,
+  holdSound = true,
   ...props
 }: GestureZoneProps) {
   if (useContext(ZoneContext) !== undefined) {
     throw new Error(
-      'GestureZone cannot be nested: use one per screen and read it with useGesture, useSwipe or useTap anywhere inside.',
+      'GestureZone cannot be nested: use one per screen and read it with useGesture, usePan, useSwipe or useTap anywhere inside.',
     );
   }
-  const allowed = useRef(holds);
+  const node = useRef<HTMLDivElement | null>(null);
+  const settings = useRef({ holdRadius, holdSound });
   useLayoutEffect(() => {
-    allowed.current = holds;
+    settings.current = { holdRadius, holdSound };
   });
-  const [hub] = useState(() => createHub({ holds: () => allowed.current }));
+  const [feedback] = useState(() =>
+    typeof document === 'undefined' ? undefined : createHoldFeedback(document),
+  );
+  const [hub] = useState(() =>
+    createHub({
+      inHoldZone: (point) =>
+        inCorner(node.current, settings.current.holdRadius, point),
+      onHold: (pressed) =>
+        feedback?.tick(pressed && settings.current.holdSound),
+    }),
+  );
   const [element, setElement] = useState<HTMLDivElement | null>(null);
-  const hold = useHoldOf(hub);
+  const phase = usePhase(hub);
 
   useEffect(() => {
     if (element === null) return;
@@ -99,27 +178,44 @@ export function GestureZone({
       element.dataset.state = hub.state();
     };
     show();
-    const unwatch = hub.watch(show);
+    const unwatchState = hub.watchState(show);
+    // Each change of phase happens while a touch is handled: the moment
+    // the browser lets sound start for the click to come.
+    const unwatchPhase = hub.watchPhase(() =>
+      feedback?.prepare(settings.current.holdSound),
+    );
     return () => {
-      unwatch();
+      unwatchPhase();
+      unwatchState();
       unbind();
     };
-  }, [hub, element]);
+  }, [hub, element, feedback]);
+
+  useEffect(() => () => feedback?.dispose(), [feedback]);
 
   const attach = useCallback(
     (next: HTMLDivElement | null) => {
+      node.current = next;
       setElement(next);
       assignRef(ref, next);
     },
     [ref],
   );
 
+  // Where the pressing finger landed, in the zone's own px.
+  const pressing = (() => {
+    if (phase !== 'pressing' || element === null) return undefined;
+    const box = element.getBoundingClientRect();
+    const origin = hub.origin();
+    return { x: origin.x - box.left, y: origin.y - box.top };
+  })();
+
   return (
     <ZoneContext value={hub}>
       <div
         ref={attach}
         data-slot="gesture-zone"
-        data-hold={hold === 'none' ? undefined : hold}
+        data-hold={phase === 'on' ? '' : undefined}
         className={cn(
           'relative overscroll-contain select-none [-webkit-touch-callout:none]',
           className,
@@ -127,12 +223,8 @@ export function GestureZone({
         {...props}
       >
         {children}
-        {holds && (
-          <>
-            <HoldGlow side="left" on={hold === 'left'} />
-            <HoldGlow side="right" on={hold === 'right'} />
-          </>
-        )}
+        <HoldGlow phase={phase} />
+        {pressing !== undefined && <HoldRing at={pressing} />}
       </div>
     </ZoneContext>
   );
@@ -147,7 +239,8 @@ export const useZone = (user: string): Hub => {
   return hub;
 };
 
-/** Which Hold is on right now, as React state: `none` when there is none. */
-export function useHold(): Hold {
-  return useHoldOf(useZone('useHold'));
+/** Whether the Hold is on right now, as React state. */
+export function useHold(): boolean {
+  const hub = useZone('useHold');
+  return useSyncExternalStore(hub.watchHold, hub.hold, () => false);
 }
