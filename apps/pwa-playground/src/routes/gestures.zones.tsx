@@ -1,5 +1,8 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import {
+  createFileRoute,
+  Link,
+  stripSearchParams,
+} from '@tanstack/react-router';
 import {
   Checklist,
   Code,
@@ -7,12 +10,26 @@ import {
   Page,
   Playground,
 } from '../components/index.ts';
-import { ZONE_DEFAULTS, ZonesDemo, zonesCode } from './-demos/index.ts';
+import {
+  ZONE_DEFAULTS,
+  ZonesDemo,
+  type ZoneOptions,
+  parseZones,
+  zonesCode,
+} from './-demos/index.ts';
 
-export const Route = createFileRoute('/gestures/zones')({ component: Zones });
+// The options live in the URL, so a configured playground is a link.
+export const Route = createFileRoute('/gestures/zones')({
+  validateSearch: parseZones,
+  search: { middlewares: [stripSearchParams(ZONE_DEFAULTS)] },
+  component: Zones,
+});
 
 function Zones() {
-  const [options, setOptions] = useState(ZONE_DEFAULTS);
+  const options = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setOptions = (next: ZoneOptions) =>
+    void navigate({ search: next, replace: true, resetScroll: false });
   return (
     <Page
       path="/gestures/zones"

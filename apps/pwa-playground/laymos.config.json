@@ -132,7 +132,7 @@
     },
     "lib": {
       "paths": ["src/lib"],
-      "description": "Build info, the chapter registry and reading order, worker snapshot, Runtime Cache rules, API helpers",
+      "description": "Build info, the chapter registry and reading order, search-param parsing, worker snapshot, Runtime Cache rules, API helpers",
       "modules": {
         "src/lib/build.ts": {
           "exposed": true
@@ -158,6 +158,9 @@
         },
         "src/lib/chapters.ts": {
           "exposed": true
+        },
+        "src/lib/search.ts": {
+          "exposed": true
         }
       }
     }
@@ -177,7 +180,7 @@
           "lib",
           "rpc"
         ],
-        "gesture-demos": ["components"],
+        "gesture-demos": ["components", "lib"],
         "shell": ["components", "lib"],
         "infra": [],
         "components": ["lib"],

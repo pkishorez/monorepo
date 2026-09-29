@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, stripSearchParams } from '@tanstack/react-router';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import { clearRuntimeCache } from '@kstackz/pwa-toolkit/react';
 import { cn } from '@kstackz/ui-toolkit/utils';
@@ -22,9 +22,16 @@ import {
   type TimeStrategy,
   timeUrl,
 } from '../lib/strategies.ts';
+import { oneOf } from '../lib/search.ts';
 import { type Served, servedFetch } from '../lib/served.ts';
 
+type Search = { readonly strategy: TimeStrategy };
+
 export const Route = createFileRoute('/runtime-cache')({
+  validateSearch: (s: Record<string, unknown>): Search => ({
+    strategy: oneOf(s['strategy'], TIME_STRATEGIES, 'network-first'),
+  }),
+  search: { middlewares: [stripSearchParams({ strategy: 'network-first' })] },
   component: RuntimeCache,
 });
 
@@ -150,7 +157,14 @@ pwa({
 });`;
 
 function RuntimeCache() {
-  const [strategy, setStrategy] = useState<TimeStrategy>('network-first');
+  const { strategy } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setStrategy = (next: TimeStrategy) =>
+    void navigate({
+      search: { strategy: next },
+      replace: true,
+      resetScroll: false,
+    });
   const [calls, setCalls] = useState<
     Readonly<Partial<Record<TimeStrategy, ReadonlyArray<Call>>>>
   >({});

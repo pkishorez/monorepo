@@ -24,6 +24,7 @@ import {
   Value,
   Values,
 } from '../../components/index.ts';
+import { oneOf } from '../../lib/search.ts';
 import { Fingers, MAIL, pct, Phone, px } from './kit.tsx';
 
 export type SidebarOptions = {
@@ -37,6 +38,15 @@ export const SIDEBAR_DEFAULTS: SidebarOptions = {
   width: 240,
   enabled: true,
 };
+
+const WIDTHS = [200, 240, 280] as const;
+
+/** Options from a URL's search params; anything unknown falls back. */
+export const parseSidebar = (s: Record<string, unknown>): SidebarOptions => ({
+  side: oneOf(s['side'], ['left', 'right'], SIDEBAR_DEFAULTS.side),
+  width: oneOf(s['width'], WIDTHS, SIDEBAR_DEFAULTS.width),
+  enabled: oneOf(s['enabled'], [true, false], SIDEBAR_DEFAULTS.enabled),
+});
 
 export const sidebarCode = (
   o: SidebarOptions,
@@ -208,11 +218,7 @@ export function SidebarDemo(props: {
           <Segmented
             label="Width"
             value={options.width}
-            options={[
-              { value: 200, label: '200' },
-              { value: 240, label: '240' },
-              { value: 280, label: '280' },
-            ]}
+            options={WIDTHS.map((w) => ({ value: w, label: String(w) }))}
             onChange={(width) => set({ width })}
           />
           <Toggle

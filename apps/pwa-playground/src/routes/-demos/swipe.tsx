@@ -26,6 +26,7 @@ import {
   Value,
   Values,
 } from '../../components/index.ts';
+import { oneOf } from '../../lib/search.ts';
 import { Fingers, px } from './kit.tsx';
 
 type Rule = 'either' | 'distance' | 'flick';
@@ -41,6 +42,17 @@ export const SWIPE_DEFAULTS: SwipeOptions = {
   fingers: 1,
   rule: 'either',
 };
+
+/** Options from a URL's search params; anything unknown falls back. */
+export const parseSwipe = (s: Record<string, unknown>): SwipeOptions => ({
+  direction: oneOf(
+    s['direction'],
+    ['left', 'right', 'up', 'down'],
+    SWIPE_DEFAULTS.direction,
+  ),
+  fingers: oneOf(s['fingers'], [1, 2, 3], SWIPE_DEFAULTS.fingers),
+  rule: oneOf(s['rule'], ['either', 'distance', 'flick'], SWIPE_DEFAULTS.rule),
+});
 
 const RULES: Record<Rule, CommitRule> = {
   either: { distance: 80, velocity: 500 },
