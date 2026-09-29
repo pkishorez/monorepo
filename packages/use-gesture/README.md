@@ -11,10 +11,12 @@ package does that part once. A `GestureProvider` follows every finger, and
 `GestureZone`s mark the areas where the app owns touch. `useGesture` hands
 over each finger of a touch, including lifted ones, as motion values.
 
-The core never decides what a touch means. Swipes, pinches and holds are read
-from its fingers, by the app or by the Recognizers and Patterns planned on
-top of it. It started as ui-toolkit's gestures block; ui-toolkit's Native
-block builds its app-like navigation on it.
+The core never decides what a touch means. Two layers above it do:
+Recognizers such as `useSwipe` read one generic meaning with live feedback,
+and Patterns such as `useSidebar` and `usePullToRefresh` are whole touch
+behaviours an app uses as they are. Each layer depends only on the one below.
+It started as ui-toolkit's gestures block; ui-toolkit's Native block builds
+its app-like navigation on it.
 
 The language is in [CONTEXT.md](./CONTEXT.md), and the decisions that shaped
 it are in [docs/adr/](./docs/adr/). They are numbered from 0002 because 0001
@@ -36,12 +38,15 @@ pnpm add @kstackz/use-gesture motion react react-dom
 
 ### `@kstackz/use-gesture`
 
-| Export                   | What it does                                                                            |
-| ------------------------ | --------------------------------------------------------------------------------------- |
-| `GestureProvider`        | Follows every finger for the zones inside it and runs one Gesture at a time.            |
-| `GestureZone`            | A `div` that marks where the app owns touch; zones nest, and `trapped` stops the walk.  |
-| `useGesture`             | Reads the Gestures its nearest zone hears, as each finger's motion values.              |
-| `ZONE_GESTURE_ATTRIBUTE` | The `data-zone-gesture` attribute that turns a zone off or on for an element inside it. |
+| Export                   | What it does                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `GestureProvider`        | Follows every finger for the zones inside it and runs one Gesture at a time.                          |
+| `GestureZone`            | A `div` that marks where the app owns touch; zones nest, and `trapped` stops the walk.                |
+| `useGesture`             | Reads the Gestures its nearest zone hears, as each finger's motion values.                            |
+| `ZONE_GESTURE_ATTRIBUTE` | The `data-zone-gesture` attribute that turns a zone off or on for an element inside it.               |
+| `useSwipe`               | The Swipe Recognizer: fingers moving one way, with live offset, velocity and whether it would Commit. |
+| `useSidebar`             | A sidebar that follows a Swipe from its edge and settles open or closed.                              |
+| `usePullToRefresh`       | Pull to refresh: a resisted Swipe down that refreshes when released armed.                            |
 
 ## Usage
 
@@ -85,3 +90,43 @@ function RowActions({ row }) {
   it as a cancel.
 - The browser still decides whether a release clicks; `preventClick()` stops
   it once the app has acted.
+
+### Open a sidebar from the screen's edge
+
+A sidebar Pattern returns motion values; the app renders them. The hook sits
+inside the zone that covers the screen, so a Swipe from the left edge opens
+it and a Swipe back anywhere closes it.
+
+```tsx
+function Shell({ children }) {
+  const [open, setOpen] = useState(false);
+  const sidebar = useSidebar({
+    side: 'left',
+    width: 280,
+    open,
+    onOpenChange: setOpen,
+  });
+  return (
+    <>
+      <motion.div
+        className="fixed inset-0 bg-black/40"
+        style={{
+          opacity: sidebar.progress,
+          pointerEvents: open ? 'auto' : 'none',
+        }}
+        onClick={() => sidebar.setOpen(false)}
+      />
+      <motion.aside
+        className="fixed inset-y-0 left-0 w-[280px]"
+        style={{ x: sidebar.x }}
+      />
+      {children}
+    </>
+  );
+}
+```
+
+- Two Swipes run inside it: one enabled while closed, one while open.
+- It settles by the release's `projected` position, so a quick flick opens
+  it from a few px.
+- `x` animates from the fingers' own velocity, and `setOpen` animates it too.
