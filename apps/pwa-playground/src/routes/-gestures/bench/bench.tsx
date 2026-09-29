@@ -43,7 +43,7 @@ export const usePuck = () => {
 
 export type Puck = ReturnType<typeof usePuck>;
 
-function PuckShape(props: {
+export function PuckShape(props: {
   readonly puck: Puck;
   readonly hold: boolean;
   readonly active: boolean;
@@ -70,16 +70,16 @@ function PuckShape(props: {
 }
 
 /**
- * One hook under test: its call as the title, a puck it moves, a live
+ * One hook under test: its call as the title, what it moves, a live
  * readout, and a highlight while it is Active.
  */
 export function Lane(props: {
   readonly title: string;
   readonly hold: boolean;
   readonly active: boolean;
-  readonly puck: Puck;
   readonly readout: RefObject<HTMLSpanElement | null>;
   readonly badge?: ReactNode;
+  readonly children: ReactNode;
 }) {
   return (
     <section
@@ -94,18 +94,18 @@ export function Lane(props: {
           : 'border-border',
       )}
     >
-      <header className="flex items-baseline justify-between gap-2">
+      <header className="relative z-10 flex items-baseline justify-between gap-2">
         <code className="text-xs font-semibold">{props.title}</code>
         {props.badge}
       </header>
       <span
         ref={props.readout}
-        className="font-mono text-[11px] text-muted-foreground tabular-nums"
+        className="relative z-10 font-mono text-[11px] text-muted-foreground tabular-nums"
       >
         waiting
       </span>
       <div className="flex min-h-0 flex-1 items-center justify-center">
-        <PuckShape puck={props.puck} hold={props.hold} active={props.active} />
+        {props.children}
       </div>
     </section>
   );

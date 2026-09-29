@@ -3,7 +3,51 @@ import { createGestureReading } from './gesture-reading';
 
 const at = (id: number, x: number, y: number, t = 0) => ({ id, x, y, t });
 
+// Where a point `p` goes under a Gesture: scaled and turned about the
+// origin, then moved by x and y.
+const apply = (
+  values: { x: number; y: number; scale: number; rotation: number },
+  origin: { x: number; y: number },
+  p: { x: number; y: number },
+) => {
+  const radians = (values.rotation * Math.PI) / 180;
+  const dx = p.x - origin.x;
+  const dy = p.y - origin.y;
+  const cos = Math.cos(radians) * values.scale;
+  const sin = Math.sin(radians) * values.scale;
+  return {
+    x: origin.x + values.x + cos * dx - sin * dy,
+    y: origin.y + values.y + sin * dx + cos * dy,
+  };
+};
+
 describe('gesture reading', () => {
+  it('keeps both landing points under their fingers through any two-finger movement', () => {
+    const reading = createGestureReading();
+    const a0 = { x: 120, y: 300 };
+    const b0 = { x: 260, y: 340 };
+    reading.down(at(1, a0.x, a0.y));
+    reading.down(at(2, b0.x, b0.y));
+    let a = a0;
+    let b = b0;
+    let values = { x: 0, y: 0, scale: 1, rotation: 0 };
+    // A pinch that also turns and drifts, one finger at a time, as browsers
+    // deliver it.
+    for (let step = 1; step <= 40; step += 1) {
+      a = { x: a0.x - step * 1.5, y: a0.y + step * 2 };
+      values = reading.move(at(1, a.x, a.y)) ?? values;
+      b = { x: b0.x + step * 3, y: b0.y - step * 4 };
+      values = reading.move(at(2, b.x, b.y)) ?? values;
+    }
+    const origin = reading.origin();
+    const aNow = apply(values, origin, a0);
+    const bNow = apply(values, origin, b0);
+    expect(aNow.x).toBeCloseTo(a.x);
+    expect(aNow.y).toBeCloseTo(a.y);
+    expect(bNow.x).toBeCloseTo(b.x);
+    expect(bNow.y).toBeCloseTo(b.y);
+  });
+
   it('moves with one finger relative to where it landed', () => {
     const reading = createGestureReading();
     expect(reading.down(at(1, 100, 100))).toBe('start');
