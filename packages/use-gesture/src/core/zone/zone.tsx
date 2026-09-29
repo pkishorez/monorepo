@@ -11,7 +11,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { cn } from '#lib/utils';
 import { createTouchInput } from '../touch-input';
 import {
   createTracker,
@@ -74,6 +73,15 @@ export type GestureZoneProps = ComponentProps<'div'> & {
   readonly trapped?: boolean;
 };
 
+// `:where` keeps it at zero specificity, so any class on the zone wins.
+const ZONE_CSS = `:where([data-slot='gesture-zone']) {
+  position: relative;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}`;
+
 /**
  * An area where the app owns touch, read with `useGesture` by any component
  * inside it, shown or hidden. A Gesture starting in it is heard here and by
@@ -81,7 +89,6 @@ export type GestureZoneProps = ComponentProps<'div'> & {
  * each other. Zones nest, and must be inside a GestureProvider.
  */
 export function GestureZone({
-  className,
   ref,
   children,
   trapped = false,
@@ -114,14 +121,13 @@ export function GestureZone({
 
   return (
     <ZoneContext value={{ tracker, element }}>
+      <style href="kstackz-use-gesture-zone" precedence="default">
+        {ZONE_CSS}
+      </style>
       <div
         ref={attach}
         data-slot="gesture-zone"
         data-trapped={trapped ? '' : undefined}
-        className={cn(
-          'relative overscroll-contain select-none [-webkit-touch-callout:none]',
-          className,
-        )}
         {...props}
       >
         {children}

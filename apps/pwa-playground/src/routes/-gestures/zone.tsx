@@ -4,7 +4,7 @@ import {
   GestureZone,
   type Pointers,
   useGesture,
-} from '@kstackz/ui-toolkit/components/blocks/gestures';
+} from '@kstackz/use-gesture';
 import { LockIcon } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { type CSSProperties, type ReactNode, useContext } from 'react';

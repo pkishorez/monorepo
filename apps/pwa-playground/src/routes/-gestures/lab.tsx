@@ -1,4 +1,4 @@
-import { GestureProvider } from '@kstackz/ui-toolkit/components/blocks/gestures';
+import { GestureProvider } from '@kstackz/use-gesture';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   Select,

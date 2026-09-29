@@ -1,0 +1,41 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "layers": {
+    "core": {
+      "paths": ["src/core"],
+      "description": "Core — a GestureProvider follows every finger of each Gesture, with motion values, and hands it to every enabled useGesture in the nested GestureZones that hear it. It never says what a Gesture means.",
+      "moduleGraphs": {
+        "core": {
+          "description": "touch-input listens to the page and holds the browser back on each zone, leaving Native Scrolls their touches; zone follows the fingers, walks up the zones to find who hears each Gesture, and puts it together for React. Whether a release clicks is the browser's call unless a listener prevents it",
+          "path": "src/core",
+          "modules": {
+            "index.ts": { "exposed": true },
+            "zone": {},
+            "touch-input": {}
+          },
+          "rules": {
+            "index.ts": ["zone", "touch-input"],
+            "zone": ["touch-input"]
+          }
+        }
+      }
+    },
+    "facade": {
+      "paths": ["src/index.ts"],
+      "description": "Facade — the package's one entry point.",
+      "modules": {
+        "src/index.ts": { "exposed": true }
+      }
+    }
+  },
+  "layerGraphs": {
+    "use-gesture": {
+      "description": "The facade re-exports each layer; lower layers never import higher ones.",
+      "rules": {
+        "core": [],
+        "facade": ["core"]
+      }
+    }
+  }
+}

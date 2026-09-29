@@ -21,6 +21,7 @@
       "@kstackz/rpc-toolkit",
       "@kstackz/std-toolkit",
       "@kstackz/ui-toolkit",
+      "@kstackz/use-gesture",
       "laymos"
     ]
   ],

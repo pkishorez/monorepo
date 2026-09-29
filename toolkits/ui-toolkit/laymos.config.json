@@ -42,7 +42,6 @@
         "src/components/blocks/er-diagram",
         "src/components/blocks/file-tree",
         "src/components/blocks/flow-swimlane",
-        "src/components/blocks/gestures",
         "src/components/blocks/git-changes",
         "src/components/blocks/json",
         "src/components/blocks/markdown-viewer",
@@ -102,21 +101,6 @@
         }
       },
       "moduleGraphs": {
-        "gestures": {
-          "description": "Touch gestures: a GestureProvider follows every finger of each Gesture, with motion values, and hands it to every enabled useGesture in the nested GestureZones that hear it. touch-input listens to the page and holds the browser back on each zone, leaving Native Scrolls their touches; zone follows the fingers, walks up the zones to find who hears each Gesture, and puts it together for React. Whether a release clicks is the browser's call unless a listener prevents it",
-          "path": "src/components/blocks/gestures",
-          "modules": {
-            "index.ts": {
-              "exposed": true
-            },
-            "zone": {},
-            "touch-input": {}
-          },
-          "rules": {
-            "index.ts": ["zone", "touch-input"],
-            "zone": ["touch-input"]
-          }
-        },
         "auth-screens": {
           "description": "The Auth Worker's four screens (Home Page, Login Screen, Consent Screen, Device Screen) as pure views: state in, actions out, one frame and one loader",
           "path": "src/components/blocks/auth",

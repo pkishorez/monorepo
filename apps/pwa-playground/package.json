@@ -20,7 +20,9 @@
     "@kstackz/ui-toolkit": "workspace:*",
     "@kstackz/pwa-toolkit": "workspace:*",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "@kstackz/use-gesture": "workspace:*",
+    "motion": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
