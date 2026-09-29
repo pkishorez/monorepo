@@ -1,15 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ScenarioPage } from '../components/index.ts';
+import { Page } from '../components/index.ts';
 import { MotionCourse } from './-motion/index.ts';
 
 export const Route = createFileRoute('/motion')({ component: Motion });
 
 function Motion() {
   return (
-    <ScenarioPage
-      id="motion"
+    <Page
+      path="/motion"
       title="Motion 101: from motion values to momentum"
-      proves={
+      testId="scenario-motion"
+      lede={
         <>
           <p>
             Framer Motion&apos;s gesture ideas, one at a time: motion values,
@@ -26,7 +27,10 @@ function Motion() {
         </>
       }
     >
-      <MotionCourse />
-    </ScenarioPage>
+      {/* Its demos use Motion's own drag: the app's swipes stay out of them. */}
+      <div data-zone-gesture="disabled" className="flex flex-col gap-10">
+        <MotionCourse />
+      </div>
+    </Page>
   );
 }

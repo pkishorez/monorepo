@@ -1,38 +1,73 @@
 # pwa-playground
 
-Test bed that dogfoods pwa-toolkit: one TanStack Start page per PWA scenario, published at pwa.kishore.app.
+A field guide to PWAs that runs live: one playground per pwa-toolkit and use-gesture capability, published at pwa.kishore.app.
 
 ## Big picture
 
-`@kstackz/pwa-toolkit` turns a TanStack Start app into a PWA. This app is where every
-part of it gets exercised in a real browser, and where the evidence for its
-Presets comes from. Each route is one scenario: a short explanation, live
-readouts, and buttons, all with stable `data-testid`s for browser automation.
-The words used here (App Shell, Precache, Runtime Cache, Build ID, Kill
-Switch, ...) are defined in
-[`toolkits/pwa-toolkit/CONTEXT.md`](../../toolkits/pwa-toolkit/CONTEXT.md).
+`@kstackz/pwa-toolkit` turns a TanStack Start app into a PWA, and
+`@kstackz/use-gesture` gives it native-feeling touch. This app is where both
+are exercised in a real browser, and where the evidence for pwa-toolkit's
+Presets comes from. The home page explains what a PWA is; every other page
+is one capability's playground. The words used here (App Shell, Precache,
+Runtime Cache, Build ID, Kill Switch, Gesture Zone, Swipe, ...) are defined in
+[`toolkits/pwa-toolkit/CONTEXT.md`](../../toolkits/pwa-toolkit/CONTEXT.md) and
+[`packages/use-gesture/CONTEXT.md`](../../packages/use-gesture/CONTEXT.md).
 
-| Route            | Scenario                                                                  |
-| ---------------- | ------------------------------------------------------------------------- |
-| `/status`        | Build ID, controller and registration, update state, storage, caches      |
-| `/install`       | Install Prompt and its state                                              |
-| `/update`        | Update Prompt, check now, Coordinated Reload                              |
-| `/runtime-cache` | One `/api/time/<strategy>` endpoint per Runtime Cache strategy            |
-| `/data`          | A loader whose `/api/data` fetch is cached network-first                  |
-| `/rpc`           | Worker RPC: `Echo`, `Ticks` (stream), `WorkerInfo`, and Version Skew      |
-| `/auth-sim`      | `/api/auth/session` is never cached; sign-out calls `clearRuntimeCache()` |
-| `/offline`       | The Offline Fallback, prerendered and precached                           |
+Pages are grouped into chapters by what a PWA promises. `src/lib/chapters.ts`
+is the only list: the nav, the home page, prev/next links, swipe paging and
+the view-transition direction all read it.
+
+| Chapter    | Routes                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------- |
+| Install    | `/install`                                                                                          |
+| Offline    | `/runtime-cache`, `/data`, `/offline`, `/auth-sim`                                                  |
+| Updates    | `/update`                                                                                           |
+| The worker | `/status` (Inspector), `/rpc`                                                                       |
+| Gestures   | `/gestures`, `/gestures/sidebar`, `/gestures/pull-to-refresh`, `/gestures/swipe`, `/gestures/zones` |
+| Deep dives | `/gestures/lab`, `/gestures/swipe-lab`, `/motion`: dense benches, out of the swipe order            |
+
+Every playground has the same shape, from `src/components`: a `Page` (chapter,
+title, lede), a `Playground` with a `Stage`, a few `Controls` and live
+`Values`, a `Code` block generated from the current controls, a three-point
+`Notice`, and a folded `Checklist` with the full test script. Stable
+`data-testid`s stay on every readout and button for browser automation.
+
+The app itself is the first gesture demo. `src/shell` wraps every page in one
+`GestureProvider` and one zone: on a touch screen a Swipe in from the left edge
+opens the menu (`useSidebar` with `edge: 24`), a Swipe sideways turns the page
+(two `useSwipe`s), and a pull at the top reloads the route's loaders plus
+anything a page registers with `usePageRefresh`. On a keyboard, ← and → turn
+the page. Gesture playgrounds pass `gestures` to `Playground`, which makes it a
+trapped zone, so a demo's touches never reach the app's own swipes.
 
 The worker is `src/sw.ts`: `runServiceWorker()` plus a Worker Server for the
-group in `src/rpc`. The Strategy rules live in
-`src/lib/strategies.ts`. UI is `@kstackz/ui-toolkit` with Tailwind v4, and
-infrastructure is Alchemy (`alchemy.run.ts`, `src/infra`), like `apps/docs`.
+group in `src/rpc`. The Strategy rules live in `src/lib/strategies.ts`. UI is
+`@kstackz/ui-toolkit` with Tailwind v4, and infrastructure is Alchemy
+(`alchemy.run.ts`, `src/infra`), like `apps/docs`.
 
 `/rpc?fakeBuildId=<id>` simulates Version Skew without touching the library:
 the page swaps the Build ID meta tag while its Worker Client connects, so only
 that client claims another build.
 
 ## Usage
+
+### Add a playground
+
+Add the route to a chapter in `src/lib/chapters.ts`, then build the page from
+the kit. A gesture demo lives in `src/routes/-demos`, renders its own `Stage`,
+`Controls` and `Values` (its hooks must sit inside the trapped zone), and
+exports a function that turns its options into the snippet `Code` shows.
+
+```tsx
+<Page path="/gestures/swipe" lede={<p>One sentence on what it shows.</p>}>
+  <Playground gestures>
+    <SwipeDemo options={options} onOptions={setOptions} />
+  </Playground>
+  <Code title="Swipe" code={swipeCode(options)} />
+  <Notice items={['Three things to look for.', '…', '…']} />
+  <Checklist steps={['The full test script, one step per line.']} />
+</Page>
+```
 
 ### Run locally
 

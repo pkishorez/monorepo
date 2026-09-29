@@ -10,19 +10,28 @@ import type { RpcClient } from 'effect/unstable/rpc/RpcClient';
 import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
 import type * as RpcGroup from 'effect/unstable/rpc/RpcGroup';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { Input } from '@kstackz/ui-toolkit/components/ui/input';
+import { cn } from '@kstackz/ui-toolkit/utils';
 import { usePwa } from '@kstackz/pwa-toolkit/react';
 import {
   WorkerClient,
   type VersionSkew,
 } from '@kstackz/pwa-toolkit/rpc/client';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import {
   Actions,
+  Checklist,
+  Code,
+  Controls,
+  Notice,
   type Outcome,
-  Panel,
-  Readout,
-  Readouts,
-  ScenarioPage,
+  OutcomeChip,
+  Page,
+  Playground,
+  Segmented,
+  Stage,
+  Value,
+  Values,
 } from '../components/index.ts';
 import { BUILD_ID_META_NAME } from '../lib/meta.ts';
 import { PlaygroundRpcs } from '../rpc/index.ts';
@@ -70,253 +79,61 @@ const connect = (fakeBuildId: string | undefined) =>
     );
   });
 
-function RpcPage() {
-  const { fakeBuildId } = Route.useSearch();
-  const pwa = usePwa();
-  const [client, setClient] = useState<Client | null>(null);
-  const [connectError, setConnectError] = useState<string | null>(null);
-  const [echo, setEcho] = useState<string>('—');
-  const [info, setInfo] = useState<string>('—');
-  const [lastError, setLastError] = useState<string>('none');
-  const [echoOutcome, setEchoOutcome] = useState<Outcome>('idle');
-  const [infoOutcome, setInfoOutcome] = useState<Outcome>('idle');
+type Call = 'echo' | 'info' | 'ticks' | 'retry';
 
-  useEffect(() => {
-    const scope = Effect.runSync(Scope.make());
-    setClient(null);
-    setConnectError(null);
-    Effect.runPromiseExit(Scope.provide(connect(fakeBuildId), scope)).then(
-      (exit) =>
-        Exit.isSuccess(exit)
-          ? setClient(exit.value)
-          : setConnectError(describeCause(exit.cause)),
-    );
-    return () => {
-      void Effect.runPromise(Scope.close(scope, Exit.void));
-    };
-  }, [fakeBuildId]);
+const CALLS: ReadonlyArray<{ readonly value: Call; readonly label: string }> = [
+  { value: 'echo', label: 'Echo' },
+  { value: 'info', label: 'WorkerInfo' },
+  { value: 'ticks', label: 'Ticks' },
+  { value: 'retry', label: 'Retrying ticks' },
+];
 
-  const run = async <A,>(
-    effect: Effect.Effect<A, RpcClientError | VersionSkew>,
-    onSuccess: (a: A) => void,
-    setOutcome: (outcome: Outcome) => void,
-  ) => {
-    setOutcome('running');
-    const exit = await Effect.runPromiseExit(effect);
-    if (Exit.isSuccess(exit)) {
-      setLastError('none');
-      setOutcome('success');
-      return onSuccess(exit.value);
-    }
-    const message = describeCause(exit.cause);
-    setLastError(message);
-    setOutcome('failure');
-    // A worker of another build answered: look for the new version.
-    if (message.startsWith('VersionSkew')) void pwa.checkForUpdate();
-  };
+const ABOUT: Record<Call, string> = {
+  echo: 'A unary call: the worker sends your text straight back, stamped.',
+  info: 'Which build the worker runs and when it started. Stop it in DevTools and the start time changes.',
+  ticks: 'A stream of five ticks, one a second. A stopped worker fails it.',
+  retry:
+    'Twenty ticks with Stream.retry: stop the worker mid-stream and it subscribes again, from 1.',
+};
 
-  return (
-    <ScenarioPage
-      id="rpc"
-      title="Worker RPC"
-      proves={
-        <p>
-          Effect RPC served by the service worker (src/sw.ts) and called from
-          this tab with a Worker Client. Every message carries the tab&apos;s
-          Build ID; a worker of another build answers VersionSkew instead. The
-          browser may stop an idle worker at any time; WorkerInfo&apos;s start
-          time changes when it does, and calls keep working.
-        </p>
-      }
-      steps={[
-        'Press Echo and Ask the worker: both answer within a few milliseconds.',
-        'Start Retrying Ticks, then stop the worker in DevTools (Application → Service workers → Stop). The stream subscribes again and starts over from 1.',
-        <>
-          Open{' '}
-          <Link
-            to="/rpc"
-            search={{ fakeBuildId: 'other' }}
-            className="font-mono underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
-            data-testid="rpc-skew-link"
-          >
-            /rpc?fakeBuildId=other
-          </Link>{' '}
-          to make only this page&apos;s Worker Client claim another Build ID:
-          every call fails with VersionSkew, and the page asks for an update
-          check.
-        </>,
-      ]}
-    >
-      <Panel
-        title="Connection"
-        outcome={
-          client !== null
-            ? fakeBuildId === undefined
-              ? 'success'
-              : 'failure'
-            : connectError !== null
-              ? 'failure'
-              : 'running'
-        }
-        outcomeLabel={
-          client !== null
-            ? fakeBuildId === undefined
-              ? 'Ready'
-              : 'Skewed on purpose'
-            : connectError !== null
-              ? 'Connect failed'
-              : 'Connecting'
-        }
-        outcomeTestId="rpc-client-outcome"
-      >
-        <Readouts>
-          <Readout
-            label="Worker Client"
-            testId="rpc-client"
-            value={client !== null ? 'ready' : (connectError ?? 'connecting')}
-          />
-          <Readout
-            label="Claimed Build ID"
-            testId="rpc-claimed-build-id"
-            value={fakeBuildId ?? 'this page (meta tag)'}
-          />
-          <Readout
-            label="Last error"
-            testId="rpc-last-error"
-            value={lastError}
-          />
-        </Readouts>
-      </Panel>
+const CODE: Record<Call, string> = {
+  echo: `const client = yield* WorkerClient.make(PlaygroundRpcs);
+const reply = yield* client.Echo({ text: 'hello' });
+// { text: 'hello', at: '2026-09-30T…' }`,
+  info: `const client = yield* WorkerClient.make(PlaygroundRpcs);
+const info = yield* client.WorkerInfo();
+// { buildId, startedAt }: startedAt changes when the browser restarts it`,
+  ticks: `yield* client.Ticks({ count: 5 }).pipe(
+  Stream.runForEach((n) => Effect.log(n)),
+);`,
+  retry: `yield* client.Ticks({ count: 20 }).pipe(
+  Stream.retry(Schedule.spaced('1 second')), // a stopped worker restarts it
+  Stream.runForEach((n) => Effect.log(n)),
+);`,
+};
 
-      <Panel
-        title="Echo (unary)"
-        outcome={echoOutcome}
-        outcomeTestId="rpc-echo-outcome"
-      >
-        <Readouts>
-          <Readout label="Reply" testId="rpc-echo-result" value={echo} />
-        </Readouts>
-        <Actions>
-          <Button
-            data-testid="rpc-echo"
-            disabled={client === null}
-            onClick={() =>
-              client &&
-              void run(
-                client.Echo({ text: `hello ${Date.now()}` }),
-                (reply) => setEcho(`${reply.text} at ${reply.at}`),
-                setEchoOutcome,
-              )
-            }
-          >
-            Echo
-          </Button>
-        </Actions>
-      </Panel>
-
-      <Panel
-        title="WorkerInfo (unary)"
-        outcome={infoOutcome}
-        outcomeTestId="rpc-worker-info-outcome"
-      >
-        <Readouts>
-          <Readout label="Worker" testId="rpc-worker-info" value={info} />
-        </Readouts>
-        <Actions>
-          <Button
-            data-testid="rpc-worker-info-call"
-            disabled={client === null}
-            onClick={() =>
-              client &&
-              void run(
-                client.WorkerInfo(),
-                (reply) =>
-                  setInfo(`build ${reply.buildId}, started ${reply.startedAt}`),
-                setInfoOutcome,
-              )
-            }
-          >
-            Ask the worker
-          </Button>
-        </Actions>
-      </Panel>
-
-      <TicksPanel
-        client={client}
-        title="Ticks (stream)"
-        description="Five ticks, one per second. A stopped worker fails the stream."
-        testId="rpc-ticks"
-        count={5}
-        retrying={false}
-        setLastError={setLastError}
-      />
-
-      <TicksPanel
-        client={client}
-        title="Retrying Ticks (Subscription Restart)"
-        description="Twenty ticks, one per second, with Stream.retry: when the worker is stopped mid-stream, the stream subscribes again and the worker starts over from 1."
-        testId="rpc-retry-ticks"
-        count={20}
-        retrying
-        setLastError={setLastError}
-      />
-    </ScenarioPage>
-  );
-}
-
-// Up to five restarts in a row, one second apart; the count resets once a
-// tick arrives again.
+// Up to five restarts in a row, one second apart.
 const restartSchedule = Schedule.max([
   Schedule.spaced('1 second'),
   Schedule.recurs(5),
 ]);
 
-const TICKS_OUTCOME: Record<string, [Outcome, string]> = {
-  idle: ['idle', 'Not run'],
-  streaming: ['running', 'Streaming'],
-  restarting: ['running', 'Restarting'],
-  done: ['success', 'Done'],
-  failed: ['failure', 'Failed'],
-  stopped: ['idle', 'Stopped'],
+const TICKS_OUTCOME: Record<string, Outcome> = {
+  idle: 'idle',
+  streaming: 'running',
+  restarting: 'running',
+  done: 'success',
+  failed: 'failure',
+  stopped: 'idle',
 };
 
-/** One cell per expected tick, filled as each arrives. Decorative: the Ticks readout has the values. */
-function TickBar(props: {
-  readonly count: number;
-  readonly ticks: ReadonlyArray<number>;
-}) {
-  const received = new Set(props.ticks);
-  return (
-    <div
-      aria-hidden="true"
-      className="grid h-2 gap-1"
-      style={{ gridTemplateColumns: `repeat(${props.count}, minmax(0, 1fr))` }}
-    >
-      {Array.from({ length: props.count }, (_, i) => (
-        <span
-          key={i}
-          className={
-            received.has(i + 1)
-              ? 'rounded-full bg-foreground transition-colors duration-150'
-              : 'rounded-full bg-muted transition-colors duration-150'
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-function TicksPanel(props: {
-  readonly client: Client | null;
-  readonly title: string;
-  readonly description: string;
-  readonly testId: string;
-  readonly count: number;
-  readonly retrying: boolean;
-  /** Called with the error text, or 'none' once the stream succeeds. */
-  readonly setLastError: (message: string) => void;
-}) {
-  const { client, testId, count, retrying, setLastError } = props;
+/** A Ticks stream from the worker, started and stopped by the page. */
+const useTicks = (
+  client: Client | null,
+  count: number,
+  retrying: boolean,
+  setLastError: (message: string) => void,
+) => {
   const [ticks, setTicks] = useState<ReadonlyArray<number>>([]);
   const [status, setStatus] = useState<string>('idle');
   const [subscriptions, setSubscriptions] = useState(0);
@@ -370,48 +187,316 @@ function TicksPanel(props: {
     });
   };
 
-  const [outcome, outcomeLabel] = TICKS_OUTCOME[status] ?? ['idle', status];
+  const running = status === 'streaming' || status === 'restarting';
+  return { ticks, status, subscriptions, start, stop, running };
+};
+
+/** One cell per expected tick, filled as each arrives. */
+function TickBar(props: {
+  readonly count: number;
+  readonly ticks: ReadonlyArray<number>;
+}) {
+  const received = new Set(props.ticks);
   return (
-    <Panel
-      title={props.title}
-      description={props.description}
-      outcome={outcome}
-      outcomeLabel={outcomeLabel}
-      outcomeTestId={`${testId}-outcome`}
+    <div
+      aria-hidden="true"
+      className="grid h-2.5 w-full max-w-sm gap-1"
+      style={{ gridTemplateColumns: `repeat(${props.count}, minmax(0, 1fr))` }}
     >
-      <TickBar count={count} ticks={ticks} />
-      <Readouts>
-        <Readout label="Status" testId={`${testId}-status`} value={status} />
-        <Readout
-          label="Ticks"
-          testId={testId}
-          value={ticks.join(', ') || '—'}
+      {Array.from({ length: props.count }, (_, i) => (
+        <span
+          key={i}
+          className={cn(
+            'rounded-full transition-colors duration-150',
+            received.has(i + 1) ? 'bg-foreground' : 'bg-foreground/10',
+          )}
         />
-        {retrying && (
-          <Readout
-            label="Subscriptions"
-            testId={`${testId}-subscriptions`}
-            value={String(subscriptions)}
+      ))}
+    </div>
+  );
+}
+
+/** What went to the worker and what came back. */
+function Exchange(props: {
+  readonly sent: ReactNode;
+  readonly got: ReactNode;
+  readonly outcome: Outcome;
+  /** Names the chip `<testId>-outcome`. */
+  readonly testId: string;
+  readonly resultTestId: string;
+}) {
+  return (
+    <div className="flex w-full max-w-sm flex-col gap-2 font-mono text-[13px]">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-muted-foreground">→ worker</span>
+        <OutcomeChip
+          outcome={props.outcome}
+          testId={`${props.testId}-outcome`}
+        />
+      </div>
+      <div className="rounded-lg bg-background px-3 py-2 ring-1 ring-foreground/10">
+        {props.sent}
+      </div>
+      <span className="text-xs text-muted-foreground">← reply</span>
+      <div
+        data-testid={props.resultTestId}
+        className="min-h-[2lh] rounded-lg bg-background px-3 py-2 ring-1 ring-foreground/10 [overflow-wrap:anywhere]"
+      >
+        {props.got}
+      </div>
+    </div>
+  );
+}
+
+function RpcPage() {
+  const { fakeBuildId } = Route.useSearch();
+  const pwa = usePwa();
+  const [call, setCall] = useState<Call>('echo');
+  const [client, setClient] = useState<Client | null>(null);
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [text, setText] = useState('hello, worker');
+  const [echo, setEcho] = useState<string>('—');
+  const [info, setInfo] = useState<string>('—');
+  const [lastError, setLastError] = useState<string>('none');
+  const [echoOutcome, setEchoOutcome] = useState<Outcome>('idle');
+  const [infoOutcome, setInfoOutcome] = useState<Outcome>('idle');
+  const ticks = useTicks(client, 5, false, setLastError);
+  const retry = useTicks(client, 20, true, setLastError);
+
+  useEffect(() => {
+    const scope = Effect.runSync(Scope.make());
+    setClient(null);
+    setConnectError(null);
+    Effect.runPromiseExit(Scope.provide(connect(fakeBuildId), scope)).then(
+      (exit) =>
+        Exit.isSuccess(exit)
+          ? setClient(exit.value)
+          : setConnectError(describeCause(exit.cause)),
+    );
+    return () => {
+      void Effect.runPromise(Scope.close(scope, Exit.void));
+    };
+  }, [fakeBuildId]);
+
+  const run = async <A,>(
+    effect: Effect.Effect<A, RpcClientError | VersionSkew>,
+    onSuccess: (a: A) => void,
+    setOutcome: (outcome: Outcome) => void,
+  ) => {
+    setOutcome('running');
+    const exit = await Effect.runPromiseExit(effect);
+    if (Exit.isSuccess(exit)) {
+      setLastError('none');
+      setOutcome('success');
+      return onSuccess(exit.value);
+    }
+    const message = describeCause(exit.cause);
+    setLastError(message);
+    setOutcome('failure');
+    // A worker of another build answered: look for the new version.
+    if (message.startsWith('VersionSkew')) void pwa.checkForUpdate();
+  };
+
+  const stream = call === 'retry' ? retry : ticks;
+  const streamId = call === 'retry' ? 'rpc-retry-ticks' : 'rpc-ticks';
+
+  return (
+    <Page
+      path="/rpc"
+      testId="scenario-rpc"
+      lede={
+        <p>
+          The worker is a small server living in the browser. The tab calls it
+          with typed Effect RPC: single answers, streams, and a clear error when
+          the two run different builds.
+        </p>
+      }
+    >
+      <Playground>
+        <Stage className="gap-5">
+          {call === 'echo' ? (
+            <Exchange
+              testId="rpc-echo"
+              resultTestId="rpc-echo-result"
+              outcome={echoOutcome}
+              sent={`Echo({ text: '${text}' })`}
+              got={echo}
+            />
+          ) : call === 'info' ? (
+            <Exchange
+              testId="rpc-worker-info"
+              resultTestId="rpc-worker-info"
+              outcome={infoOutcome}
+              sent="WorkerInfo()"
+              got={info}
+            />
+          ) : (
+            <div className="flex w-full max-w-sm flex-col items-center gap-4">
+              <div className="flex w-full items-center justify-between font-mono text-xs text-muted-foreground">
+                <span>Ticks({`{ count: ${call === 'retry' ? 20 : 5} }`})</span>
+                <OutcomeChip
+                  outcome={TICKS_OUTCOME[stream.status] ?? 'idle'}
+                  label={stream.status}
+                  testId={`${streamId}-outcome`}
+                />
+              </div>
+              <TickBar count={call === 'retry' ? 20 : 5} ticks={stream.ticks} />
+              <p
+                data-testid={streamId}
+                className="min-h-[1lh] font-mono text-[13px] tabular-nums"
+              >
+                {stream.ticks.join(' ') || '—'}
+              </p>
+            </div>
+          )}
+        </Stage>
+        <Controls>
+          <Segmented
+            label="Call"
+            value={call}
+            options={CALLS}
+            onChange={setCall}
+            testId="rpc-call"
           />
-        )}
-      </Readouts>
-      <Actions>
-        <Button
-          data-testid={`${testId}-start`}
-          disabled={client === null}
-          onClick={start}
-        >
-          Start
-        </Button>
-        <Button
-          data-testid={`${testId}-stop`}
-          variant="outline"
-          disabled={status !== 'streaming' && status !== 'restarting'}
-          onClick={stop}
-        >
-          Stop
-        </Button>
-      </Actions>
-    </Panel>
+          <p className="-mt-1 text-sm text-pretty text-muted-foreground">
+            {ABOUT[call]}
+          </p>
+          {call === 'echo' ? (
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (client === null) return;
+                const started = performance.now();
+                void run(
+                  client.Echo({ text }),
+                  (reply) =>
+                    setEcho(
+                      `${reply.text} · ${Math.round(performance.now() - started)} ms`,
+                    ),
+                  setEchoOutcome,
+                );
+              }}
+            >
+              <label htmlFor="echo-text" className="sr-only">
+                Text to echo
+              </label>
+              <Input
+                id="echo-text"
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                className="min-h-10 text-base md:text-sm"
+              />
+              <Button
+                type="submit"
+                data-testid="rpc-echo"
+                disabled={client === null}
+                className="min-h-10"
+              >
+                Send
+              </Button>
+            </form>
+          ) : call === 'info' ? (
+            <Actions>
+              <Button
+                data-testid="rpc-worker-info-call"
+                disabled={client === null}
+                onClick={() =>
+                  client &&
+                  void run(
+                    client.WorkerInfo(),
+                    (reply) =>
+                      setInfo(
+                        `build ${reply.buildId}, started ${reply.startedAt.slice(11, 19)}`,
+                      ),
+                    setInfoOutcome,
+                  )
+                }
+              >
+                Ask the worker
+              </Button>
+            </Actions>
+          ) : (
+            <Actions>
+              <Button
+                data-testid={`${streamId}-start`}
+                disabled={client === null}
+                onClick={stream.start}
+              >
+                Start
+              </Button>
+              <Button
+                variant="outline"
+                data-testid={`${streamId}-stop`}
+                disabled={!stream.running}
+                onClick={stream.stop}
+              >
+                Stop
+              </Button>
+            </Actions>
+          )}
+        </Controls>
+        <Values>
+          <Value label="Client" testId="rpc-client">
+            {client !== null ? 'ready' : (connectError ?? 'connecting')}
+          </Value>
+          <Value label="Claims" testId="rpc-claimed-build-id">
+            {fakeBuildId ?? 'this build'}
+          </Value>
+          <Value label="Last error" testId="rpc-last-error">
+            {lastError}
+          </Value>
+          {call === 'ticks' || call === 'retry' ? (
+            <Value label="Status" testId={`${streamId}-status`}>
+              {stream.status}
+            </Value>
+          ) : null}
+          {call === 'retry' ? (
+            <Value label="Subscribed" testId="rpc-retry-ticks-subscriptions">
+              {retry.subscriptions}×
+            </Value>
+          ) : null}
+          <div data-testid="rpc-client-outcome" className="sr-only">
+            {client !== null
+              ? fakeBuildId === undefined
+                ? 'Ready'
+                : 'Skewed on purpose'
+              : connectError !== null
+                ? 'Connect failed'
+                : 'Connecting'}
+          </div>
+        </Values>
+      </Playground>
+      <Code title="Worker RPC" code={CODE[call]} />
+      <Notice
+        items={[
+          <>
+            The group lives in <code>src/rpc</code> and is shared: the worker
+            serves it in <code>src/sw.ts</code>, the tab calls it here.
+          </>,
+          'The browser stops an idle worker whenever it likes. The next call wakes it, which is why WorkerInfo’s start time moves.',
+          <>
+            Every message carries the tab’s Build ID. Open{' '}
+            <Link
+              to="/rpc"
+              search={{ fakeBuildId: 'other' }}
+              className="font-mono underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
+              data-testid="rpc-skew-link"
+            >
+              ?fakeBuildId=other
+            </Link>{' '}
+            and every call fails with <code>VersionSkew</code>, which asks for
+            an update check.
+          </>,
+        ]}
+      />
+      <Checklist
+        steps={[
+          'Send an Echo and ask WorkerInfo: both answer within a few milliseconds.',
+          'Start Retrying ticks, then stop the worker in DevTools (Application → Service workers → Stop). The stream subscribes again and starts over from 1.',
+          'Open ?fakeBuildId=other: only this page’s client claims another Build ID, every call fails with VersionSkew, and the page asks for an update check.',
+        ]}
+      />
+    </Page>
   );
 }

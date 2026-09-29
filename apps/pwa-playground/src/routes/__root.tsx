@@ -18,8 +18,9 @@ import {
 } from '@kstackz/pwa-toolkit/react';
 import { OfflineIndicator, useInstall } from '@kstackz/pwa-toolkit/extras';
 import { type ReactNode, useEffect } from 'react';
-import { appTheme, AppHeader, ScenarioNav } from '../components/index.ts';
+import { appTheme } from '../components/index.ts';
 import { updateMode } from '../lib/build.ts';
+import { AppShell } from '../shell/index.ts';
 import appCss from '../styles.css?url';
 
 declare module '@tanstack/react-router' {
@@ -68,7 +69,13 @@ function RootComponent() {
   useInstall();
   return (
     <PwaProvider>
-      {bare ? <Outlet /> : <Chrome />}
+      {bare ? (
+        <Outlet />
+      ) : (
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      )}
       {updateMode === 'auto-on-navigation' && <UpdateOnNavigation />}
       <OfflineIndicator />
       <UpdatePrompt />
@@ -87,48 +94,23 @@ function UpdateOnNavigation() {
   return null;
 }
 
-/** Header, scenario sidebar and the page between them. */
-function Chrome() {
-  return (
-    <>
-      <a
-        href="#content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:ring-2 focus:ring-ring"
-      >
-        Skip to content
-      </a>
-      <AppHeader />
-      <div className="mx-auto grid w-full max-w-6xl pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[max(1rem,env(safe-area-inset-left))] lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-12 lg:px-6">
-        <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] overflow-y-auto py-10 lg:block">
-          <ScenarioNav morph testIdPrefix="nav" />
-        </aside>
-        <div id="content" className="min-w-0">
-          <Outlet />
-        </div>
-      </div>
-    </>
-  );
-}
-
 function NotFound() {
   return (
     <main data-page className="flex max-w-[60ch] flex-col gap-4 py-16">
-      <p className="font-mono text-xs tracking-wider text-muted-foreground uppercase">
+      <p className="text-xs font-medium tracking-[0.08em] text-muted-foreground uppercase">
         404
       </p>
-      <h1 className="text-3xl font-semibold tracking-tight">
-        No scenario lives here
-      </h1>
+      <h1 className="font-display text-4xl font-medium">Nothing lives here</h1>
       <p className="text-muted-foreground">
-        This address isn&apos;t one of the playground&apos;s pages. The overview
-        lists every scenario.
+        This address isn&apos;t one of the playground&apos;s pages. The menu
+        lists every one, or start from the beginning.
       </p>
       <div>
         <Link
           to="/"
           className={buttonVariants({ className: 'min-h-11 sm:min-h-9' })}
         >
-          Go to the overview
+          What is a PWA
         </Link>
       </div>
     </main>

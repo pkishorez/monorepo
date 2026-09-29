@@ -7,9 +7,36 @@
 
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  /* Headlines: the system's serif (New York on Apple, Georgia elsewhere).
+     Nothing to download, so it paints offline, and it sets titles apart
+     from the Inter body. */
+  --font-display: ui-serif, 'New York', 'Iowan Old Style', Georgia, serif;
+}
+
+/* Code colours, one hue per role, readable on both themes. */
+:root {
+  --code-comment: var(--muted-foreground);
+  --code-string: oklch(0.5 0.12 150);
+  --code-keyword: oklch(0.5 0.17 300);
+  --code-number: oklch(0.55 0.14 55);
+  --code-tag: oklch(0.5 0.13 240);
+  --code-hook: oklch(0.52 0.14 20);
+}
+.dark,
+[data-theme='dark'] {
+  --code-string: oklch(0.8 0.12 150);
+  --code-keyword: oklch(0.78 0.12 300);
+  --code-number: oklch(0.82 0.12 70);
+  --code-tag: oklch(0.78 0.11 235);
+  --code-hook: oklch(0.8 0.11 30);
 }
 
 @layer base {
+  html,
+  body {
+    /* The app frame scrolls inside itself; the page never rubber-bands. */
+    overscroll-behavior: none;
+  }
   body {
     @apply min-h-svh bg-background font-sans text-foreground antialiased;
     font-synthesis: none;
@@ -22,7 +49,7 @@
 
 /*
  * Route view transitions. The router starts one per path change (router.tsx,
- * lib/scenarios.ts) with a `forward`, `back` or `fade` type. Only the
+ * lib/chapters.ts) with a `forward`, `back` or `fade` type. Only the
  * page body moves; the header and sidebar hold still, and the sidebar's active
  * pill morphs to its new item. Browsers without the API just navigate; those
  * without transition types get the plain fade.

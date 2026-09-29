@@ -25,7 +25,9 @@
         "src/routes/gestures.lab.tsx",
         "src/routes/gestures.pull-to-refresh.tsx",
         "src/routes/gestures.sidebar.tsx",
+        "src/routes/gestures.swipe-lab.tsx",
         "src/routes/gestures.swipe.tsx",
+        "src/routes/gestures.zones.tsx",
         "src/routes/index.tsx",
         "src/routes/install.tsx",
         "src/routes/motion.tsx",
@@ -35,7 +37,7 @@
         "src/routes/status.tsx",
         "src/routes/update.tsx"
       ],
-      "description": "One page per PWA scenario, plus the API endpoints they call",
+      "description": "One page per playground, the home page, the full-screen benches, and the API endpoints they call",
       "modules": {
         "src/routes/__root.tsx": {},
         "src/routes/api": {},
@@ -45,7 +47,9 @@
         "src/routes/gestures.lab.tsx": {},
         "src/routes/gestures.pull-to-refresh.tsx": {},
         "src/routes/gestures.sidebar.tsx": {},
+        "src/routes/gestures.swipe-lab.tsx": {},
         "src/routes/gestures.swipe.tsx": {},
+        "src/routes/gestures.zones.tsx": {},
         "src/routes/index.tsx": {},
         "src/routes/install.tsx": {},
         "src/routes/motion.tsx": {},
@@ -54,6 +58,15 @@
         "src/routes/runtime-cache.tsx": {},
         "src/routes/status.tsx": {},
         "src/routes/update.tsx": {}
+      }
+    },
+    "gesture-demos": {
+      "paths": ["src/routes/-demos"],
+      "description": "The gesture playgrounds' live demos: a sidebar, pull to refresh, a swipe card and nested zones, each with its controls, live values and the code its options describe",
+      "modules": {
+        "src/routes/-demos": {
+          "exposed": true
+        }
       }
     },
     "gesture-lab": {
@@ -74,20 +87,20 @@
         }
       }
     },
-    "pattern-demos": {
-      "paths": ["src/routes/-patterns"],
-      "description": "useSidebar and usePullToRefresh on real screens, with a guide, options and live values that never move the layout",
-      "modules": {
-        "src/routes/-patterns": {
-          "exposed": true
-        }
-      }
-    },
     "motion-course": {
       "paths": ["src/routes/-motion"],
       "description": "Motion 101: Framer Motion's gesture ideas as lessons with live demos and code, ending with real screens",
       "modules": {
         "src/routes/-motion": {
+          "exposed": true
+        }
+      }
+    },
+    "shell": {
+      "paths": ["src/shell"],
+      "description": "The app frame and its gestures: one Gesture Provider and zone, the edge-swipe menu, swipe paging and pull to refresh",
+      "modules": {
+        "src/shell": {
           "exposed": true
         }
       }
@@ -101,7 +114,7 @@
     },
     "components": {
       "paths": ["src/components"],
-      "description": "App header, scenario nav, scenario page layout, status strip and theme toggle",
+      "description": "The playground kit: page, playground, stage, controls, live values, code, notes, state track, theme toggle",
       "modules": {
         "src/components": {
           "exposed": true
@@ -119,16 +132,13 @@
     },
     "lib": {
       "paths": ["src/lib"],
-      "description": "Build info, scenario list and transition order, worker snapshot, Runtime Cache rules, API helpers",
+      "description": "Build info, the chapter registry and reading order, worker snapshot, Runtime Cache rules, API helpers",
       "modules": {
         "src/lib/build.ts": {
           "exposed": true
         },
         "src/lib/meta.ts": {
           "shared": true,
-          "exposed": true
-        },
-        "src/lib/scenarios.ts": {
           "exposed": true
         },
         "src/lib/strategies.ts": {
@@ -145,31 +155,36 @@
         },
         "src/lib/theme.ts": {
           "exposed": true
+        },
+        "src/lib/chapters.ts": {
+          "exposed": true
         }
       }
     }
   },
   "layerGraphs": {
     "pwa-playground": {
-      "description": "Entries over routes over components over lib; the Gesture Lab, Swipe Lab and Pattern demos sit under their routes, the Swipe Lab and demos on the Lab's bench; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
+      "description": "Entries over routes over shell over components over lib; the demos, labs and course sit under their routes, the Swipe Lab on the Gesture Lab's bench; the router reads the reading order from lib; the worker and the rpc page share the rpc group",
       "rules": {
         "entry": ["rpc", "lib"],
         "routes": [
+          "gesture-demos",
           "gesture-lab",
           "swipe-lab",
-          "pattern-demos",
           "motion-course",
+          "shell",
           "components",
           "lib",
           "rpc"
         ],
+        "gesture-demos": ["components"],
+        "shell": ["components", "lib"],
         "infra": [],
         "components": ["lib"],
         "rpc": [],
         "gesture-lab": [],
         "motion-course": [],
-        "swipe-lab": ["gesture-lab"],
-        "pattern-demos": ["gesture-lab"]
+        "swipe-lab": ["gesture-lab"]
       }
     }
   }

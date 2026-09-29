@@ -1,6 +1,6 @@
 {
   "name": "pwa-playground",
-  "description": "Test bed that dogfoods pwa-toolkit: one TanStack Start page per PWA scenario, published at pwa.kishore.app.",
+  "description": "A field guide to PWAs that runs live: one playground per pwa-toolkit and use-gesture capability, published at pwa.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,

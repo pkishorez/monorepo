@@ -25,6 +25,8 @@ import { Route as GesturesLabRouteImport } from './routes/gestures.lab'
 import { Route as GesturesPullToRefreshRouteImport } from './routes/gestures.pull-to-refresh'
 import { Route as GesturesSidebarRouteImport } from './routes/gestures.sidebar'
 import { Route as GesturesSwipeRouteImport } from './routes/gestures.swipe'
+import { Route as GesturesSwipeLabRouteImport } from './routes/gestures.swipe-lab'
+import { Route as GesturesZonesRouteImport } from './routes/gestures.zones'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
 import { Route as ApiTimeStrategyRouteImport } from './routes/api/time/$strategy'
 
@@ -108,6 +110,16 @@ const GesturesSwipeRoute = GesturesSwipeRouteImport.update({
   path: '/gestures/swipe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GesturesSwipeLabRoute = GesturesSwipeLabRouteImport.update({
+  id: '/gestures/swipe-lab',
+  path: '/gestures/swipe-lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesZonesRoute = GesturesZonesRouteImport.update({
+  id: '/gestures/zones',
+  path: '/gestures/zones',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   id: '/api/auth/session',
   path: '/api/auth/session',
@@ -135,6 +147,8 @@ export interface FileRoutesByFullPath {
   '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
   '/gestures/sidebar': typeof GesturesSidebarRoute
   '/gestures/swipe': typeof GesturesSwipeRoute
+  '/gestures/swipe-lab': typeof GesturesSwipeLabRoute
+  '/gestures/zones': typeof GesturesZonesRoute
   '/gestures/': typeof GesturesIndexRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/time/$strategy': typeof ApiTimeStrategyRoute
@@ -155,6 +169,8 @@ export interface FileRoutesByTo {
   '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
   '/gestures/sidebar': typeof GesturesSidebarRoute
   '/gestures/swipe': typeof GesturesSwipeRoute
+  '/gestures/swipe-lab': typeof GesturesSwipeLabRoute
+  '/gestures/zones': typeof GesturesZonesRoute
   '/gestures': typeof GesturesIndexRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/time/$strategy': typeof ApiTimeStrategyRoute
@@ -176,6 +192,8 @@ export interface FileRoutesById {
   '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
   '/gestures/sidebar': typeof GesturesSidebarRoute
   '/gestures/swipe': typeof GesturesSwipeRoute
+  '/gestures/swipe-lab': typeof GesturesSwipeLabRoute
+  '/gestures/zones': typeof GesturesZonesRoute
   '/gestures/': typeof GesturesIndexRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/time/$strategy': typeof ApiTimeStrategyRoute
@@ -198,6 +216,8 @@ export interface FileRouteTypes {
     | '/gestures/pull-to-refresh'
     | '/gestures/sidebar'
     | '/gestures/swipe'
+    | '/gestures/swipe-lab'
+    | '/gestures/zones'
     | '/gestures/'
     | '/api/auth/session'
     | '/api/time/$strategy'
@@ -218,6 +238,8 @@ export interface FileRouteTypes {
     | '/gestures/pull-to-refresh'
     | '/gestures/sidebar'
     | '/gestures/swipe'
+    | '/gestures/swipe-lab'
+    | '/gestures/zones'
     | '/gestures'
     | '/api/auth/session'
     | '/api/time/$strategy'
@@ -238,6 +260,8 @@ export interface FileRouteTypes {
     | '/gestures/pull-to-refresh'
     | '/gestures/sidebar'
     | '/gestures/swipe'
+    | '/gestures/swipe-lab'
+    | '/gestures/zones'
     | '/gestures/'
     | '/api/auth/session'
     | '/api/time/$strategy'
@@ -259,6 +283,8 @@ export interface RootRouteChildren {
   GesturesPullToRefreshRoute: typeof GesturesPullToRefreshRoute
   GesturesSidebarRoute: typeof GesturesSidebarRoute
   GesturesSwipeRoute: typeof GesturesSwipeRoute
+  GesturesSwipeLabRoute: typeof GesturesSwipeLabRoute
+  GesturesZonesRoute: typeof GesturesZonesRoute
   GesturesIndexRoute: typeof GesturesIndexRoute
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
   ApiTimeStrategyRoute: typeof ApiTimeStrategyRoute
@@ -378,6 +404,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GesturesSwipeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gestures/swipe-lab': {
+      id: '/gestures/swipe-lab'
+      path: '/gestures/swipe-lab'
+      fullPath: '/gestures/swipe-lab'
+      preLoaderRoute: typeof GesturesSwipeLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures/zones': {
+      id: '/gestures/zones'
+      path: '/gestures/zones'
+      fullPath: '/gestures/zones'
+      preLoaderRoute: typeof GesturesZonesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/session': {
       id: '/api/auth/session'
       path: '/api/auth/session'
@@ -411,6 +451,8 @@ const rootRouteChildren: RootRouteChildren = {
   GesturesPullToRefreshRoute: GesturesPullToRefreshRoute,
   GesturesSidebarRoute: GesturesSidebarRoute,
   GesturesSwipeRoute: GesturesSwipeRoute,
+  GesturesSwipeLabRoute: GesturesSwipeLabRoute,
+  GesturesZonesRoute: GesturesZonesRoute,
   GesturesIndexRoute: GesturesIndexRoute,
   ApiAuthSessionRoute: ApiAuthSessionRoute,
   ApiTimeStrategyRoute: ApiTimeStrategyRoute,
