@@ -73,6 +73,9 @@ function SidebarApp(props: {
   });
   const progressText = useTransform(sidebar.progress, pct);
   const xText = useTransform(sidebar.x, (v) => `${Math.round(v)}px`);
+  // The inbox steps back as the sidebar comes in, so the swipe reads at a glance.
+  const scale = useTransform(sidebar.progress, [0, 1], [1, 0.9]);
+  const borderRadius = useTransform(sidebar.progress, [0, 1], [0, 20]);
   // Whether any of the scrim shows; flips rarely, unlike progress itself.
   const [showing, setShowing] = useState(false);
   useMotionValueEvent(sidebar.progress, 'change', (v) => setShowing(v > 0));
@@ -80,8 +83,14 @@ function SidebarApp(props: {
 
   return (
     <>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="flex h-full flex-col">
+      <div className="relative min-h-0 flex-1 overflow-hidden bg-muted">
+        <motion.div
+          style={{ scale, borderRadius }}
+          className={cn(
+            'flex h-full flex-col overflow-hidden bg-background',
+            side === 'left' ? 'origin-right' : 'origin-left',
+          )}
+        >
           <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2">
             <Button
               size="icon"
@@ -104,7 +113,7 @@ function SidebarApp(props: {
               </li>
             ))}
           </ul>
-        </div>
+        </motion.div>
         {edge === 0 || !band ? null : (
           // Where an opening Swipe must start; drawing only, it takes no touch.
           <div
@@ -184,6 +193,8 @@ const GUIDE: PatternGuide = {
     'Drag it most of the way open, then back a little, and lift while moving back.',
     'Tap the dimmed list, a sidebar item, or the menu button.',
     'Tap the menu button and grab the sidebar while it is still moving.',
+    'Swipe right, left, right, left in quick succession, starting right at the edge, with one finger down the whole time and again lifting in between.',
+    'Flick it open as hard as you can.',
     'In Options, set open from to 24 and swipe right from the middle, then from inside the dashed strip.',
     'With a strip set, scroll the list starting inside the strip.',
     'Switch the side and the width, and turn Swipes off.',
@@ -200,6 +211,8 @@ const GUIDE: PatternGuide = {
       only <Code>setOpen</Code> moves it.
     </>,
     'Grabbing it mid-spring stops the spring and it follows your finger from where it was.',
+    'Back and forth, it follows every swipe from wherever it is, and the app never goes back a page: a touch that lands within 24px of a side edge in a zone is kept from the browser’s own back swipe. The inbox steps back as it comes in.',
+    'It stops dead at fully open: no bounce past its edge.',
     <>
       With <Code>edge</Code> set, only a Swipe from the strip opens it, and the
       strip is always the sidebar’s: an edge swipe that starts a little downward

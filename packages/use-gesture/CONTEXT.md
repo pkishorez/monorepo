@@ -23,7 +23,7 @@ An element inside a Gesture Zone that can scroll right now, whose scrolling the 
 _Avoid_: scroller, scroll container, overflow
 
 **Capture**:
-A Gesture Zone taking a touch from the browser at its first movement, so nothing scrolls or zooms until every finger lifts. By default the zone captures every touch except one a Native Scroll keeps. Any element inside can turn the zone off for itself and what it holds — the zone then never takes a touch there — or turn it back on, which captures every touch there even over a Native Scroll. The nearest such element decides. A listener can do the same for touches landing where it listens, such as a Swipe from an edge.
+A Gesture Zone taking a touch from the browser at its first movement, so nothing scrolls or zooms until every finger lifts. By default the zone captures every touch except one a Native Scroll keeps. Any element inside can turn the zone off for itself and what it holds — the zone then never takes a touch there — or turn it back on, which captures every touch there even over a Native Scroll. The nearest such element decides. A listener can do the same for touches landing where it listens, such as a Swipe from an edge. A zone also keeps touches landing at a side edge of the screen from the browser's own edge swipe, except on what must still click.
 _Avoid_: grab, prevent scroll, dead zone
 
 **Gesture**:
