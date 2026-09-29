@@ -32,6 +32,10 @@ const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
   else if (ref !== null && ref !== undefined) ref.current = value;
 };
 
+// The Hold Zone's radius: `radius`, or its share of `width`.
+const reachOf = (width: number, radius: number | undefined) =>
+  radius ?? Math.min(width * HOLD_SHARE, MAX_HOLD_RADIUS);
+
 // Whether `point` lands in the quarter circle of `radius` on the element's
 // bottom-left corner.
 const inCorner = (
@@ -41,7 +45,7 @@ const inCorner = (
 ) => {
   if (element === null) return false;
   const box = element.getBoundingClientRect();
-  const reach = radius ?? Math.min(box.width * HOLD_SHARE, MAX_HOLD_RADIUS);
+  const reach = reachOf(box.width, radius);
   return Math.hypot(point.x - box.left, point.y - box.bottom) <= reach;
 };
 
@@ -59,16 +63,17 @@ export type GestureZoneProps = ComponentProps<'div'> & {
   readonly holdSound?: boolean;
 };
 
-// The glow along the zone's left edge: faint while a finger in the Hold
-// Zone is ready to start the Hold, full while it is on. A soft light in
-// --gesture-hold (the foreground colour by default) that fades inward and
-// towards the top and bottom; it comes in fast and fades out in 150ms.
-function HoldGlow(props: { readonly phase: HoldPhase }) {
+// The Hold Zone lit up: a quarter circle on the bottom-left corner, glowing
+// out from the corner. Faint while a finger there is ready to start the
+// Hold or pressing for it, full while it is on. A soft light in
+// --gesture-hold (the foreground colour by default) that comes in fast and
+// fades out in 150ms.
+function HoldGlow(props: {
+  readonly phase: HoldPhase;
+  readonly radius: number;
+}) {
   const light = (percent: number) =>
     `color-mix(in oklab, var(--gesture-hold, var(--foreground)) ${percent}%, transparent)`;
-  const ends =
-    'linear-gradient(to bottom, transparent, black 12%, black 88%, transparent)';
-  const shown = props.phase === 'armed' || props.phase === 'on';
   return (
     <div
       aria-hidden="true"
@@ -76,16 +81,17 @@ function HoldGlow(props: { readonly phase: HoldPhase }) {
       data-phase={props.phase}
       data-active={props.phase === 'on' ? '' : undefined}
       className={cn(
-        'pointer-events-none absolute inset-y-0 left-0 z-50 w-16 -translate-x-6 opacity-0 transition-[opacity,translate] duration-150 ease-out',
-        shown && 'translate-x-0 duration-100',
-        props.phase === 'armed' && 'opacity-50',
+        'pointer-events-none absolute bottom-0 left-0 z-50 origin-bottom-left scale-90 rounded-tr-full opacity-0 transition-[opacity,scale] duration-150 ease-out',
+        props.phase !== 'off' && 'scale-100 duration-100',
+        props.phase === 'armed' && 'opacity-60',
+        props.phase === 'pressing' && 'opacity-40',
         props.phase === 'on' && 'opacity-100',
       )}
       style={{
-        background: `linear-gradient(to right, ${light(30)} 0, ${light(12)} 30%, ${light(4)} 60%, transparent 100%)`,
-        boxShadow: `inset 2px 0 0 ${light(45)}`,
-        maskImage: ends,
-        WebkitMaskImage: ends,
+        width: props.radius,
+        height: props.radius,
+        background: `radial-gradient(circle at bottom left, ${light(28)} 0, ${light(14)} 45%, ${light(4)} 85%, transparent 100%)`,
+        boxShadow: `inset -1.5px 1.5px 0 ${light(40)}`,
       }}
     />
   );
@@ -170,10 +176,13 @@ export function GestureZone({
   );
   const [element, setElement] = useState<HTMLDivElement | null>(null);
   const phase = usePhase(hub);
+  const [width, setWidth] = useState(0);
 
   useEffect(() => {
     if (element === null) return;
     const unbind = bindTouchInput(element, hub.sink);
+    const resizes = new ResizeObserver(() => setWidth(element.clientWidth));
+    resizes.observe(element);
     const show = () => {
       element.dataset.state = hub.state();
     };
@@ -187,6 +196,7 @@ export function GestureZone({
     return () => {
       unwatchPhase();
       unwatchState();
+      resizes.disconnect();
       unbind();
     };
   }, [hub, element, feedback]);
@@ -223,7 +233,7 @@ export function GestureZone({
         {...props}
       >
         {children}
-        <HoldGlow phase={phase} />
+        <HoldGlow phase={phase} radius={reachOf(width, holdRadius)} />
         {pressing !== undefined && <HoldRing at={pressing} />}
       </div>
     </ZoneContext>

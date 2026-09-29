@@ -63,7 +63,7 @@ A mode, like a held Shift key, that puts every Gesture the other fingers make un
 _Avoid_: anchor, chord, touch and hold (that is a long press), modifier key, left or right Hold (there is one Hold)
 
 **Hold Zone**:
-A quarter circle on the bottom-left corner of the Gesture Zone where a finger can start the Hold. It is live only while something on the screen takes Gestures under the Hold; otherwise it is ordinary screen. While the Hold is on, the zone's left edge glows.
+A quarter circle on the bottom-left corner of the Gesture Zone where a finger can start the Hold. It is live only while something on the screen takes Gestures under the Hold; otherwise it is ordinary screen. While the Hold is on, the Hold Zone glows.
 _Avoid_: hotspot, modifier key
 
 **Pan**:
