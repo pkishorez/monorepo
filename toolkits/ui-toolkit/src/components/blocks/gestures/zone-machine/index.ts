@@ -1,8 +1,2 @@
-export { STILL_PX, zoneMachine } from './zone-machine';
-export type {
-  Hold,
-  Side,
-  ZoneEvent,
-  ZoneInput,
-  ZoneOutput,
-} from './zone-machine';
+export { HOLD_PRESS_MS, zoneMachine } from './zone-machine';
+export type { Hold, ZoneEvent, ZoneInput, ZoneOutput } from './zone-machine';

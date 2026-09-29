@@ -1,3 +1,7 @@
+---
+status: partly superseded by ADR-0008 (how a Hold starts)
+---
+
 # A Hold is a still finger beside an acting one, decided by one state machine
 
 A Hold could only start in a corner Hold Zone, and only when a second finger landed at least 150ms after a still corner finger (ADR 0006). The hidden timer and the corner made it hard to trigger, and its glow looked unreliable because it only reported that. Now a finger anywhere becomes the Hold when another finger acts beside it, moving 8px or tapping, while it has moved under 4px. It is the left Hold when it rests left of the acting finger and the right Hold when right of it. Two fingers that both move are a pinch. A zone turns Holds on with `holds`; without them, two fingers are always a pinch.

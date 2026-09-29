@@ -1,7 +1,6 @@
 import {
   type GestureEnd,
   type GestureState,
-  type Hold,
   type Point,
   useGesture,
   useHold,
@@ -38,16 +37,14 @@ type Steering = {
   readonly origin: RefObject<Point>;
 };
 
-// One Hold's Gestures steering the grid: each is released into the camera,
-// and its values start over. An interrupted one is dropped.
+// The Gestures with no Hold steering the grid: each is released into the
+// camera, and its values start over. An interrupted one is dropped.
 function useSteering(
-  hold: Hold,
   svg: RefObject<SVGSVGElement | null>,
   release: (end: GestureEnd, origin: Point) => void,
 ): Steering {
   const origin = useRef<Point>({ x: 0, y: 0 });
   const gesture = useGesture({
-    hold,
     onEnd: (end) => {
       if (!end.interrupted) release(end, origin.current);
       gesture.x.jump(0);
@@ -84,11 +81,12 @@ const valuesOf = ({ gesture }: Steering) => ({
 });
 
 /**
- * An endless grid steered by every Gesture with no Hold or under the left
- * Hold, wherever it lands: one finger pans, two also zoom and turn about the
- * first finger. The grid keeps its own camera; each Gesture moves it and is
- * folded in on release, then carries on at the speed it was let go with.
- * `reset` changing springs it back home. Under the right Hold it rests.
+ * An endless grid steered by every Gesture with no Hold, wherever it lands:
+ * one finger pans, two also zoom and turn about the first finger. The grid
+ * keeps its own camera; each Gesture moves it and is folded in on release,
+ * then carries on at the speed it was let go with. `reset` changing springs
+ * it back home. Under the Hold it rests. Because it reads two fingers, the
+ * Hold here takes a still press in the corner.
  */
 export function InfiniteGrid(props: { readonly reset: number }) {
   const id = useId();
@@ -126,15 +124,11 @@ export function InfiniteGrid(props: { readonly reset: number }) {
       },
     );
   }
-  const plain = useSteering('none', svg, release);
-  const left = useSteering('left', svg, release);
+  const plain = useSteering(svg, release);
 
   const draw = useCallback(() => {
     if (camera.current === undefined) return;
-    let shown = camera.current;
-    for (const steering of [plain, left]) {
-      shown = follow(shown, valuesOf(steering), steering.origin.current);
-    }
+    const shown = follow(camera.current, valuesOf(plain), plain.origin.current);
     const matrix = matrixOf(shown);
     for (const layer of layers.current) {
       layer?.setAttribute(
@@ -145,7 +139,7 @@ export function InfiniteGrid(props: { readonly reset: number }) {
     if (text.current !== null && home.current !== undefined) {
       text.current.textContent = readout(shown, home.current);
     }
-  }, [plain, left]);
+  }, [plain]);
 
   // Start with the world's 0,0 in the middle of the grid.
   useLayoutEffect(() => {
@@ -162,10 +156,9 @@ export function InfiniteGrid(props: { readonly reset: number }) {
   }, [draw]);
 
   useRedraw(plain.gesture, draw);
-  useRedraw(left.gesture, draw);
 
   // A finger landing catches the grid, gliding or springing home.
-  const steering = plain.gesture.active || left.gesture.active;
+  const steering = plain.gesture.active;
   useLayoutEffect(() => {
     if (steering) coasting.current?.stop();
   }, [steering]);
@@ -205,10 +198,10 @@ export function InfiniteGrid(props: { readonly reset: number }) {
   return (
     <section
       data-testid="zone-grid-section"
-      data-resting={hold === 'right' ? '' : undefined}
+      data-resting={hold ? '' : undefined}
       className={cn(
         'relative min-h-0 flex-1 overflow-hidden border-b border-border bg-muted/30 transition-[opacity,filter] duration-200',
-        hold === 'right' && 'opacity-35 grayscale',
+        hold && 'opacity-35 grayscale',
       )}
     >
       <svg
@@ -265,7 +258,7 @@ export function InfiniteGrid(props: { readonly reset: number }) {
         </g>
       </svg>
       <p className="pointer-events-none absolute inset-x-3 top-2 flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
-        <span className="shrink-0">useGesture · no Hold, left</span>
+        <span className="shrink-0">useGesture · no Hold</span>
         <span
           ref={text}
           data-testid="grid-readout"

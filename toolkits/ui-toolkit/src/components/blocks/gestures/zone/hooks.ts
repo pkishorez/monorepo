@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Point } from '../gesture-reading';
 import type { Hold } from '../zone-machine';
 import type { Axis, SwipeEnd } from '../swipe-reading';
-import type { GestureEnd, Tap } from './hub';
+import type { GestureEnd, PanEnd, Tap } from './hub';
 import { useZone } from './zone';
 
 // The latest options, read by the zone mid-Gesture without re-registering.
@@ -15,14 +15,14 @@ const useLatest = <T>(value: T) => {
   return ref;
 };
 
-/** The Hold a listener takes Gestures under: only that one, `none` by default. */
+/** Whether a listener takes Gestures under the Hold: none by default. */
 const holdOf = (options: { readonly hold?: Hold }): Hold =>
-  options.hold ?? 'none';
+  options.hold ?? false;
 
 export type GestureOptions = {
   /** Whether it takes the next Gesture: true by default. Read as each Gesture starts. */
   readonly enabled?: boolean;
-  /** Only Gestures under this Hold: `none`, with no Hold, by default. */
+  /** Only Gestures under the Hold, rather than with none: false by default. */
   readonly hold?: Hold;
   readonly onEnd?: (end: GestureEnd) => void;
 };
@@ -51,7 +51,9 @@ export type GestureState = {
  * it. Applied about `origin`, they keep what was under the fingers under
  * them. They keep their last values after the fingers lift and start again
  * from 0 (scale 1) with the next Gesture. They have no bounds; what they
- * mean is up to the caller.
+ * mean is up to the caller. An enabled useGesture with no Hold tells the
+ * zone a pinch is expected, so the Hold then takes a still press to start;
+ * use usePan when one finger is enough.
  */
 export function useGesture(options: GestureOptions = {}): GestureState {
   const hub = useZone('useGesture');
@@ -93,10 +95,70 @@ export function useGesture(options: GestureOptions = {}): GestureState {
   return { x, y, scale, rotation, origin, active };
 }
 
+export type PanOptions = {
+  /** Whether it takes the next Pan: true by default. Read as each Pan starts. */
+  readonly enabled?: boolean;
+  /** Only Pans under the Hold, rather than with none: false by default. */
+  readonly hold?: Hold;
+  readonly onEnd?: (end: PanEnd) => void;
+};
+
+export type PanState = {
+  /** Movement in px of the one finger since it landed. */
+  readonly x: MotionValue<number>;
+  readonly y: MotionValue<number>;
+  /** Where the current or last Pan started, in viewport px. None before the first. */
+  readonly origin: Point | undefined;
+  /** True from the finger landing until it lifts or a second one lands. */
+  readonly active: boolean;
+};
+
+/**
+ * Reads every one-finger Gesture in the zone under its Hold as a movement
+ * in px from where it started. A second finger, or the browser taking the
+ * touch, ends it with `interrupted` in `onEnd`. `x` and `y` keep their last
+ * values until the next Pan starts. Prefer it to useGesture when you only
+ * need one finger: a screen whose Gestures need no second finger starts
+ * the Hold the moment a finger lands in the Hold Zone.
+ */
+export function usePan(options: PanOptions = {}): PanState {
+  const hub = useZone('usePan');
+  const latest = useLatest(options);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const [active, setActive] = useState(false);
+  const [origin, setOrigin] = useState<Point | undefined>(undefined);
+
+  useEffect(
+    () =>
+      hub.addPan({
+        enabled: () => latest.current.enabled !== false,
+        hold: () => holdOf(latest.current),
+        begin: (start) => {
+          x.jump(0);
+          y.jump(0);
+          setOrigin(start);
+          setActive(true);
+        },
+        update: (movedX, movedY) => {
+          x.set(movedX);
+          y.set(movedY);
+        },
+        finish: (end) => {
+          setActive(false);
+          latest.current.onEnd?.(end);
+        },
+      }),
+    [hub, latest, x, y],
+  );
+
+  return { x, y, origin, active };
+}
+
 export type SwipeOptions = {
   /** Whether it takes the next Swipe: true by default. Read as each Swipe starts. */
   readonly enabled?: boolean;
-  /** Only Swipes under this Hold: `none`, with no Hold, by default. */
+  /** Only Swipes under the Hold, rather than with none: false by default. */
   readonly hold?: Hold;
   /** Only Swipes along this axis; either by default. */
   readonly axis?: Axis;
@@ -158,7 +220,7 @@ export function useSwipe(options: SwipeOptions = {}): SwipeState {
 export type TapOptions = {
   /** Whether it takes the next Tap: true by default. Read as each Tap lands. */
   readonly enabled?: boolean;
-  /** Only Taps under this Hold: `none`, with no Hold, by default. */
+  /** Only Taps under the Hold, rather than with none: false by default. */
   readonly hold?: Hold;
   readonly onTap: (tap: Tap) => void;
 };

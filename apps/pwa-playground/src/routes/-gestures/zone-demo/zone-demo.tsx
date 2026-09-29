@@ -4,13 +4,14 @@ import { InfiniteGrid } from './grid.tsx';
 import { SwipePad } from './swipe-pad.tsx';
 
 /**
- * The hooks reading the one Gesture Zone around the lab. With no Hold, a
- * Gesture anywhere drives both halves; under the left Hold only the grid,
- * under the right only the pad. A Tap under the left Hold resets both.
+ * A screen that reads two fingers: with no Hold, a Gesture anywhere drives
+ * both halves, and two fingers zoom and turn the grid. Under the Hold, which
+ * here takes a still press in the corner, only the pad moves, and a Tap
+ * resets both.
  */
 export function ZoneDemo() {
   const [resets, setResets] = useState(0);
-  useTap({ hold: 'left', onTap: () => setResets((count) => count + 1) });
+  useTap({ hold: true, onTap: () => setResets((count) => count + 1) });
   return (
     <div className="flex h-full flex-col">
       <InfiniteGrid reset={resets} />

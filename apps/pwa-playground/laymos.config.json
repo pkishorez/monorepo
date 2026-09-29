@@ -50,19 +50,20 @@
     },
     "gesture-lab": {
       "paths": ["src/routes/-gestures"],
-      "description": "The Gesture Lab: a shell with a top bar and tab bar over one Gesture Zone demo",
+      "description": "The Gesture Lab: a shell with a top bar and tab bar over the Gesture Zone demos",
       "moduleGraphs": {
         "gesture-lab": {
-          "description": "Shows kui's Gesture Zone in one demo: useGesture steering an endless grid and useSwipe driving a pad, both inside the lab's zone",
+          "description": "Shows kui's Gesture Zone in two demos inside the lab's zone: a two-finger screen (useGesture steering an endless grid, useSwipe driving a pad) and a one-finger screen (a card deck with useSwipe, useTap and usePan under the Hold)",
           "path": "src/routes/-gestures",
           "modules": {
             "lab": {
               "exposed": true
             },
-            "zone-demo": {}
+            "zone-demo": {},
+            "cards-demo": {}
           },
           "rules": {
-            "lab": ["zone-demo"]
+            "lab": ["zone-demo", "cards-demo"]
           }
         }
       }
