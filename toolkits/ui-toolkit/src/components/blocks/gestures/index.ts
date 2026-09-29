@@ -1,26 +1,11 @@
 export { ZONE_GESTURE_ATTRIBUTE } from './touch-input';
 export type { ZoneGesture } from './touch-input';
-export {
-  GestureZone,
-  useGesture,
-  useHold,
-  usePan,
-  useSwipe,
-  useTap,
-} from './zone';
+export { GestureProvider, GestureZone, useGesture } from './zone';
 export type {
   GestureEnd,
   GestureOptions,
   GestureState,
   GestureZoneProps,
-  PanEnd,
-  PanOptions,
-  PanState,
-  SwipeOptions,
-  SwipeState,
-  Tap,
-  TapOptions,
+  Pointer,
+  Pointers,
 } from './zone';
-export type { GestureValues, Point } from './gesture-reading';
-export type { Hold } from './zone-machine';
-export type { Axis, SwipeEnd } from './swipe-reading';

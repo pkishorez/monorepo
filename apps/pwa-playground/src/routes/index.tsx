@@ -23,7 +23,7 @@ const GROUP_BLURB: Record<ScenarioGroup, string> = {
   Safety:
     'What the worker must never cache, and what signing out wipes from the device.',
   Gestures:
-    'kui’s Gesture Zone in a lab of its own: one continuous Gesture pans, zooms and turns an endless grid, while a one-finger Swipe drives a pad below.',
+    'kui’s Gesture Zone, where useGesture follows every finger of a touch, and Motion 101.',
 };
 
 const README_URL =

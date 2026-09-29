@@ -48,25 +48,6 @@
         "src/routes/update.tsx": {}
       }
     },
-    "gesture-lab": {
-      "paths": ["src/routes/-gestures"],
-      "description": "The Gesture Lab: a shell with a top bar and tab bar over the Gesture Zone demos",
-      "moduleGraphs": {
-        "gesture-lab": {
-          "description": "A test bench for kui's Gesture Zone inside the lab's zone: one tab per hook (usePan, useGesture, useSwipe with useTap), each with a lane with no Hold and a lane under the Hold, live values and a log",
-          "path": "src/routes/-gestures",
-          "modules": {
-            "lab": {
-              "exposed": true
-            },
-            "bench": {}
-          },
-          "rules": {
-            "lab": ["bench"]
-          }
-        }
-      }
-    },
     "motion-course": {
       "paths": ["src/routes/-motion"],
       "description": "Motion 101: Framer Motion's gesture ideas as lessons with live demos and code, ending with real screens",
@@ -135,14 +116,13 @@
   },
   "layerGraphs": {
     "pwa-playground": {
-      "description": "Entries over routes over components over lib; the Gesture Lab sits under its route and reuses the theme toggle; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
+      "description": "Entries over routes over components over lib; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
       "rules": {
         "entry": ["rpc", "lib"],
-        "routes": ["gesture-lab", "motion-course", "components", "lib", "rpc"],
+        "routes": ["motion-course", "components", "lib", "rpc"],
         "infra": [],
         "components": ["lib"],
         "rpc": [],
-        "gesture-lab": ["components"],
         "motion-course": []
       }
     }
