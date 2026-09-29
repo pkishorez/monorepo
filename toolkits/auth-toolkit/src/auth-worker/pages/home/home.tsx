@@ -17,14 +17,14 @@ import { useUserAccess } from '../user-access/index.js';
 interface HomePageProps {
   branding: Branding;
   scopes: ScopeDescriptions | undefined;
-  multiSession: MultiSessionOptions | undefined;
+  multiSession: MultiSessionOptions;
 }
 
 export function HomePage({ branding, scopes, multiSession }: HomePageProps) {
   const client = useMemo(createAuthorizationClient, []);
   const session = client.useSession();
   const show = useScreenRoute('home', session);
-  const accounts = useSignedInAccounts(client, session.data, multiSession);
+  const accounts = useSignedInAccounts(client, session, multiSession);
   const access = useUserAccess(client, {
     currentSessionId: session.data?.session.id,
     grants: scopes !== undefined,
@@ -52,7 +52,7 @@ export function HomePage({ branding, scopes, multiSession }: HomePageProps) {
       state={state}
       scopeDescriptions={scopes}
       accounts={accounts}
-      onSignOut={accounts ? accounts.onSignOut : () => client.signOut()}
+      onSignOut={accounts?.onSignOut}
       onReauthenticate={() =>
         client.signIn.social({
           provider: 'google',

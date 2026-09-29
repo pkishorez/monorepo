@@ -5,7 +5,6 @@ import {
   navigate,
   unwrap,
   type AuthorizationClient,
-  type UserRecord,
 } from '../auth-api/index.js';
 import { ADD_ACCOUNT, RETURN_TO } from '../screen-routing/index.js';
 import { arrangeAccounts } from './accounts.js';
@@ -25,11 +24,12 @@ export interface MultiSessionOptions {
  * Account or the account list is still loading. */
 export function useSignedInAccounts(
   client: AuthorizationClient,
-  active: { user: UserRecord; session: { token: string } } | null | undefined,
-  options: MultiSessionOptions | undefined,
+  session: ReturnType<AuthorizationClient['useSession']>,
+  options: MultiSessionOptions,
 ): AccountsView | undefined {
   const queries = useQueryClient();
-  const enabled = options !== undefined && active != null;
+  const active = session.data;
+  const enabled = active != null;
   const records = useQuery({
     queryKey: ACCOUNTS,
     enabled,
@@ -46,7 +46,10 @@ export function useSignedInAccounts(
     active,
     options.maximumAccounts,
   );
-  const refresh = () => queries.invalidateQueries({ queryKey: EVERYTHING });
+  const refresh = async () => {
+    await session.refetch();
+    await queries.invalidateQueries({ queryKey: EVERYTHING });
+  };
   return {
     active: accounts.active,
     others: accounts.others,
@@ -55,7 +58,11 @@ export function useSignedInAccounts(
       const sessionToken = accounts.tokens[id];
       if (!sessionToken) return;
       await unwrap(
-        client.multiSession.setActive({ sessionToken }),
+        client.multiSession.setActive({
+          sessionToken,
+          // Avoid the plugin's delayed refetch racing the awaited refresh below.
+          fetchOptions: { disableSignal: true },
+        }),
         'Could not switch account. Try again.',
       );
       await refresh();

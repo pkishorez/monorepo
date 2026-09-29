@@ -23,7 +23,7 @@ import {
 interface ConsentPageProps {
   branding: Branding;
   scopes: ScopeDescriptions | undefined;
-  multiSession: MultiSessionOptions | undefined;
+  multiSession: MultiSessionOptions;
 }
 
 const useClientName = (client: AuthorizationClient, clientId: string) =>
@@ -48,7 +48,7 @@ export function ConsentPage({
   const client = useMemo(createAuthorizationClient, []);
   const session = client.useSession();
   const show = useScreenRoute('consent', session);
-  const accounts = useSignedInAccounts(client, session.data, multiSession);
+  const accounts = useSignedInAccounts(client, session, multiSession);
   const query = useMemo(pageQuery, []);
   const clientId = query.get('client_id') ?? '';
   const requested = (query.get('scope') ?? '').split(' ').filter(Boolean);
@@ -84,7 +84,6 @@ export function ConsentPage({
         session.data
           ? {
               email: session.data.user.email,
-              onSignOut: multiSession ? undefined : () => void client.signOut(),
             }
           : undefined
       }

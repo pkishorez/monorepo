@@ -76,9 +76,8 @@ export default {
     <DeviceScreen
       branding={branding}
       state={{
-        status: 'confirm',
-        userCode: 'WDJB-MJHT',
-        clientId: 'northwind-cli',
+        status: 'enter',
+        code: 'WDJB-MJHT',
       }}
       account={{ email: account.email }}
       accounts={accountsView(3)}
