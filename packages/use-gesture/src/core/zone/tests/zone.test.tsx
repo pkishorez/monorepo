@@ -137,6 +137,22 @@ describe('GestureProvider, GestureZone and useGesture', () => {
     expect(screen).not.toHaveBeenCalled();
   });
 
+  it('sets touch defaults as inline style that `style` overrides, and no position', () => {
+    act(() =>
+      root.render(
+        <GestureProvider>
+          <GestureZone data-testid="plain" />
+          <GestureZone data-testid="own" style={{ userSelect: 'text' }} />
+        </GestureProvider>,
+      ),
+    );
+    const plain = (find('plain') as HTMLElement).style;
+    expect(plain.overscrollBehavior).toBe('contain');
+    expect(plain.userSelect).toBe('none');
+    expect(plain.position).toBe('');
+    expect((find('own') as HTMLElement).style.userSelect).toBe('text');
+  });
+
   it('throws outside a zone or provider', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => act(() => root.render(<Listener name="lost" />))).toThrow(

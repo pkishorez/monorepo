@@ -51,8 +51,10 @@ function RowActions({ row }) {
   runs one Gesture at a time. Usually one at the app's root; separate
   sections may each have their own.
 - **Gesture Zone** — an area where the app, not the browser, owns touch.
-  A `div` that takes every div prop, so it can be the card itself. Zones
-  nest and sit side by side.
+  A `div` that takes every div prop, so it can be the card itself. It
+  sets only touch defaults, as inline style that `style` overrides:
+  `overscroll-behavior: contain`, no text selection and no iOS callout. It
+  sets no `position`. Zones nest and sit side by side.
 - **Gesture** — one continuous touch, from the first finger landing in a
   zone to the last one lifting. Every finger that lands in between,
   wherever it lands, is part of it. It is never classified: pan, pinch,
