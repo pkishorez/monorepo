@@ -36,6 +36,7 @@ version. See [docs/adr/0002-one-version-for-the-kstack-packages.md](./docs/adr/0
 | [`toolkits/rpc-toolkit`](./toolkits/rpc-toolkit)     | [`@kstackz/rpc-toolkit`](https://www.npmjs.com/package/@kstackz/rpc-toolkit)     | RPC and HTTP Cannotations, WebSocket clients, and Cloudflare runtime and Alchemy deployment integrations. |
 | [`toolkits/auth-toolkit`](./toolkits/auth-toolkit)   | [`@kstackz/auth-toolkit`](https://www.npmjs.com/package/@kstackz/auth-toolkit)   | Shared authentication worker, sessions, and authorization integrations.                                   |
 | [`packages/effect-webrtc`](./packages/effect-webrtc) | [`@kstackz/effect-webrtc`](https://www.npmjs.com/package/@kstackz/effect-webrtc) | Effect-native peer sessions and RPC over WebRTC data channels.                                            |
+| [`packages/use-gesture`](./packages/use-gesture)     | [`@kstackz/use-gesture`](https://www.npmjs.com/package/@kstackz/use-gesture)     | Touch gestures for React: every finger of a touch as motion values, in nested zones that own touch.       |
 
 ### Developer tools
 

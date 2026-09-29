@@ -157,9 +157,9 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
   const decide = (event: TouchEvent) => {
     const touches = [...event.touches];
     const [touch] = touches;
-    const start =
-      touch === undefined ? undefined : landed.get(touch.identifier);
-    if (touches.length !== 1 || start === undefined) return 'zone';
+    if (touches.length !== 1 || touch === undefined) return 'zone';
+    const start = landed.get(touch.identifier);
+    if (start === undefined) return 'zone';
     const zone = zoneOf(touch.target);
     if (zone === null) return 'zone';
     if (zoneGestureOf(touch.target) === 'enabled') return 'zone';

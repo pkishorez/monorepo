@@ -1,8 +1,4 @@
-import type {
-  GestureEnd,
-  Pointer,
-  Pointers,
-} from '@kstackz/ui-toolkit/components/blocks/gestures';
+import type { GestureEnd, Pointer, Pointers } from '@kstackz/use-gesture';
 import { type MotionValue, motionValue } from '@kstackz/ui-toolkit/motion';
 import { createContext, useContext, useSyncExternalStore } from 'react';
 

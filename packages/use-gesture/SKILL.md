@@ -1,11 +1,11 @@
 ---
-name: kui-gestures
-description: Add touch gestures with kui's gestures block — a GestureProvider at the root, nested GestureZones for the areas that own touch, and useGesture, which reports every finger of a touch as motion values and leaves what it means to the app. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
+name: use-gesture
+description: Add touch gestures with @kstackz/use-gesture — a GestureProvider at the root, nested GestureZones for the areas that own touch, and useGesture, which reports every finger of a touch as motion values and leaves what it means to the app. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
 ---
 
-# kui-gestures
+# use-gesture
 
-`@kstackz/ui-toolkit/components/blocks/gestures`: a `GestureProvider`,
+`@kstackz/use-gesture`: a `GestureProvider`,
 `GestureZone`s that nest, and `useGesture`, which reads the Gestures its
 nearest zone hears.
 
@@ -114,7 +114,7 @@ are its own for that Gesture; the next Gesture has new ones.
 
 ## Clicks under the zone
 
-The block never decides whether a Gesture clicks what is under it: the
+The package never decides whether a Gesture clicks what is under it: the
 browser does, as it would outside a zone. It skips the click when the touch
 moved or used several fingers. A finger lifting while others stay down never
 clicks. Call `preventClick()` in `onEnd` when your app acted on the Gesture
@@ -148,7 +148,7 @@ zone should be marked `data-zone-gesture="disabled"`. Otherwise the zone
 also follows the finger and holds the browser back, and one touch gets two
 reactions. Outside every zone, or with no provider, nothing here runs.
 
-## Not in the block yet
+## Not in the package yet
 
 Helpers that read Pointers: pan, pinch and rotation, N-finger swipes, and
 one finger holding while others move.

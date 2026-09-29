@@ -1,0 +1,49 @@
+{
+  "name": "@kstackz/use-gesture",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Touch gestures for React: every finger of a touch as motion values, in nested zones that own touch.",
+  "keywords": [
+    "react",
+    "gestures",
+    "touch",
+    "motion"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "packages/use-gesture"
+  },
+  "type": "module",
+  "files": [
+    "README.md",
+    "LICENSE",
+    "SKILL.md",
+    "src/"
+  ],
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && laymos lint",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "motion": "13.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "laymos": "workspace:*",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
