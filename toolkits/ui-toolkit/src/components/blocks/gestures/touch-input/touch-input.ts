@@ -47,17 +47,29 @@ const sampleOf = (event: PointerEvent): PointerSample => ({
   t: event.timeStamp,
 });
 
-/** A release over a link or button that must not also click it. */
+// How long a swallowed release waits for its click. Mobile browsers send
+// it a moment after the finger lifts, sometimes after other tasks.
+const CLICK_WAIT_MS = 600;
+
+/**
+ * A release over a link or button that must not also click it. The click
+ * arrives later than the release, so it is swallowed until it comes, the
+ * next finger lands, or CLICK_WAIT_MS passes.
+ */
 const swallowNextClick = (win: Window) => {
+  const stop = () => {
+    win.removeEventListener('click', swallow, { capture: true });
+    win.removeEventListener('pointerdown', stop, { capture: true });
+    win.clearTimeout(timer);
+  };
   const swallow = (event: Event) => {
     event.preventDefault();
     event.stopPropagation();
+    stop();
   };
-  win.addEventListener('click', swallow, { capture: true, once: true });
-  win.setTimeout(
-    () => win.removeEventListener('click', swallow, { capture: true }),
-    0,
-  );
+  win.addEventListener('click', swallow, { capture: true });
+  win.addEventListener('pointerdown', stop, { capture: true });
+  const timer = win.setTimeout(stop, CLICK_WAIT_MS);
 };
 
 /**
@@ -83,6 +95,9 @@ export const bindTouchInput = (
   const landed = new Map<number, { x: number; y: number }>();
   // Who the fingers on the screen belong to, decided at their first movement.
   let owner: 'undecided' | 'zone' | 'browser' = 'undecided';
+  // A finger's release must not click: cancel the touch's end too, which
+  // stops the browser's click and mouse events for it altogether.
+  let swallowing = false;
 
   const onDown = (event: PointerEvent) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -97,7 +112,9 @@ export const bindTouchInput = (
   };
   const onUp = (event: PointerEvent) => {
     if (!tracked.delete(event.pointerId)) return;
-    if (sink.up(sampleOf(event))) swallowNextClick(win);
+    if (!sink.up(sampleOf(event))) return;
+    swallowNextClick(win);
+    if (event.pointerType !== 'mouse') swallowing = true;
   };
   const onCancel = (event: PointerEvent) => {
     if (tracked.has(event.pointerId)) onAway();
@@ -118,6 +135,8 @@ export const bindTouchInput = (
   };
 
   const onTouchStart = (event: TouchEvent) => {
+    // A swallow meant for a touch whose end came first must not reach this one.
+    swallowing = false;
     for (const touch of event.changedTouches) {
       landed.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
     }
@@ -152,6 +171,10 @@ export const bindTouchInput = (
     if (owner === 'zone' && event.cancelable) event.preventDefault();
   };
   const onTouchEnd = (event: TouchEvent) => {
+    if (swallowing && event.type === 'touchend' && event.cancelable) {
+      event.preventDefault();
+    }
+    swallowing = false;
     for (const touch of event.changedTouches) landed.delete(touch.identifier);
     if (onZone(event).length === 0) {
       landed.clear();

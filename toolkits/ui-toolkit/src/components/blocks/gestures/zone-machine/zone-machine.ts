@@ -11,8 +11,8 @@ const MOVE_PX = AXIS_LOCK_PX;
 
 /**
  * How long a finger must press still in the Hold Zone to start the Hold
- * when a two-finger Gesture is also expected. Fingers of a pinch land well
- * within it.
+ * when a two-finger Gesture is also expected; fingers of a pinch land well
+ * within it. A finger in the Hold Zone pressed longer is never a Tap.
  */
 export const HOLD_PRESS_MS = 200;
 
@@ -189,7 +189,26 @@ export const zoneMachine = setup({
             'beginHeld',
           ],
         },
-        'finger.up': { target: 'idle', actions: ['track', 'leave'] },
+      },
+      initial: 'quick',
+      states: {
+        quick: {
+          description: 'Lifting now is a Tap that clicks.',
+          after: { press: 'lingering' },
+          on: {
+            'finger.up': { target: '#zone.idle', actions: ['track', 'leave'] },
+          },
+        },
+        lingering: {
+          description:
+            'Pressed too long for a Tap: lifting now does nothing and clicks nothing.',
+          on: {
+            'finger.up': {
+              target: '#zone.idle',
+              actions: ['track', ({ context }) => context.output.interrupt()],
+            },
+          },
+        },
       },
     },
     arming: {

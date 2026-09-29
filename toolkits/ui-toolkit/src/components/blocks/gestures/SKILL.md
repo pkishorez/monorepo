@@ -64,8 +64,9 @@ function Toolbar() {
   ticks: a short vibration where the browser can vibrate (Android), a soft
   click where it cannot (iOS, unless the phone is on silent). Only a pressed
   Hold ticks; `holdFeedback={false}` turns it off. Until the
-  Hold starts, the corner finger is ordinary: lifting, it is a Tap that
-  clicks; moving, a Gesture. Once on, the Hold lasts until every finger
+  Hold starts, the corner finger is ordinary: lifting within 200ms, it is
+  a Tap that clicks; moving, a Gesture. Pressed longer and lifted alone, it
+  is nothing, and nothing under it is clicked. Once on, the Hold lasts until every finger
   lifts, even after the Hold finger lifts. Under it nothing is clicked and
   nothing scrolls.
 - **Interrupted** — when the browser takes the touch (a Native Scroll,

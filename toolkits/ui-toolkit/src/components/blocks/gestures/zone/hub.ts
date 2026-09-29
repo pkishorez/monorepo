@@ -252,7 +252,7 @@ export const createHub = (options: HubOptions = {}) => {
       const snapshot = machine.getSnapshot();
       const clicks =
         snapshot.matches('pressing') ||
-        snapshot.matches('armed') ||
+        snapshot.matches({ armed: 'quick' }) ||
         snapshot.matches('arming');
       machine.send({ type: 'finger.up', finger });
       return !clicks;

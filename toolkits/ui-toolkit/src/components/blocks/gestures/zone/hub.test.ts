@@ -206,6 +206,27 @@ describe('hub', () => {
     expect(hub.hold()).toBe(false);
   });
 
+  it('keeps a long corner press from being a Tap or a click, with no pinch expected', () => {
+    vi.useFakeTimers();
+    try {
+      const { hub } = cornered();
+      hub.addTap(tapListener(true));
+      const plainTap = tapListener();
+      hub.addTap(plainTap);
+      hub.sink.down(at(1, 10, 990));
+      vi.advanceTimersByTime(HOLD_PRESS_MS - 1);
+      expect(hub.sink.up(at(1, 10, 990))).toBe(false);
+      hub.sink.down(at(1, 10, 990));
+      vi.advanceTimersByTime(HOLD_PRESS_MS);
+      expect(hub.phase()).toBe('armed');
+      expect(hub.sink.up(at(1, 10, 990))).toBe(true);
+      expect(plainTap.tap).toHaveBeenCalledTimes(1);
+      expect(hub.state()).toBe('idle');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('takes a still press to start the Hold when a pinch is expected', () => {
     vi.useFakeTimers();
     try {
