@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Hold } from '../zone-machine';
+import { type Hold, HOLD_PRESS_MS } from '../zone-machine';
 import type { Axis } from '../swipe-reading';
 import {
   createHub,
@@ -215,7 +215,7 @@ describe('hub', () => {
       hub.addTap(heldTap);
       hub.sink.down(at(1, 10, 990));
       expect(hub.phase()).toBe('pressing');
-      vi.advanceTimersByTime(299);
+      vi.advanceTimersByTime(HOLD_PRESS_MS - 1);
       expect(hub.hold()).toBe(false);
       vi.advanceTimersByTime(1);
       expect(hub.hold()).toBe(true);

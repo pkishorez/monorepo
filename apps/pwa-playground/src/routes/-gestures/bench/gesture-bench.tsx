@@ -49,7 +49,7 @@ function GestureLane(props: { readonly hold: boolean }) {
  */
 export function GestureBench() {
   return (
-    <Bench how="Pan with one finger, pinch and turn with two. A pinch is expected, so for the Hold press the bottom-left corner until the ring fills and it clicks, then pan or pinch with other fingers.">
+    <Bench how="Pan with one finger, pinch and turn with two. A pinch is expected, so for the Hold press the bottom-left corner until the ring fills (a buzz on Android, a click on iOS), then pan or pinch with other fingers.">
       <GestureLane hold={false} />
       <GestureLane hold />
     </Bench>

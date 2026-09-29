@@ -14,7 +14,7 @@ const MOVE_PX = AXIS_LOCK_PX;
  * when a two-finger Gesture is also expected. Fingers of a pinch land well
  * within it.
  */
-export const HOLD_PRESS_MS = 300;
+export const HOLD_PRESS_MS = 200;
 
 type Finger = { readonly landed: Point; readonly at: Point };
 
