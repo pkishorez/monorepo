@@ -54,11 +54,9 @@ catalog:
   '@changesets/cli': 3.0.0
   '@cloudflare/workers-types': 5.20260904.1
   '@codemirror/lang-json': 6.0.2
-  '@dagrejs/dagre': 3.1.1
   '@effect/opentelemetry': 4.0.0-rc.112
   '@effect/platform-node': 4.0.0-rc.112
   '@effect/platform-node-shared': 4.0.0-rc.112
-  '@emotion/is-prop-valid': 1.4.0
   '@fontsource-variable/inter': 5.3.0
   '@fontsource-variable/jetbrains-mono': 5.3.0
   '@opentelemetry/api': 1.9.1
@@ -90,7 +88,6 @@ catalog:
   '@tanstack/react-router-devtools': 1.167.1
   '@tanstack/react-start': 1.168.49
   '@tsconfig/node22': 22.0.6
-  '@xstate/react': 6.1.0
   '@types/better-sqlite3': 9.6.0
   '@types/bun': 1.4.1
   '@types/mdx': 2.0.14
@@ -112,20 +109,16 @@ catalog:
   clsx: 2.1.1
   cmdk: 1.1.1
   cn: 0.2.6
-  date-fns: 4.4.0
   del-cli: 7.0.0
   drizzle-kit: 1.0.0-rc.4
   drizzle-orm: 1.0.0-rc.4
   effect: 4.0.0-rc.112
-  elkjs: 0.12.0
   embla-carousel-react: 8.6.0
   env-paths: 4.0.0
   fake-indexeddb: 6.2.5
   fumadocs-core: 16.15.7
   fumadocs-mdx: 15.4.0
   fumadocs-ui: 16.15.7
-  globals: 17.12.0
-  gray-matter: 4.0.3
   idb: 8.0.3
   input-otp: 1.5.0
   kleur: 4.1.5
@@ -147,8 +140,6 @@ catalog:
   react-markdown: 10.1.0
   react-resizable-panels: 4.12.3
   recharts: 3.10.1
-  rehype-slug: 6.0.0
-  remark-frontmatter: 5.0.0
   remark-gfm: 4.0.1
   shadcn: 4.21.0
   shiki: 4.4.3
@@ -163,13 +154,11 @@ catalog:
   typescript: 7.0.2
   ulidx: 2.4.1
   use-sync-external-store: 1.6.0
-  vaul: 1.1.2
   werift: 0.24.4
   vite: npm:@voidzero-dev/vite-plus-core@0.3.0
   vite-plus: 0.3.0
   vitest: 4.1.11
   wrangler: 4.129.0
-  xstate: 5.32.6
   yaml: 2.9.0
   yoctocolors: 2.2.0
   zustand: 5.0.15
@@ -177,5 +166,3 @@ catalog:
 catalogs:
   typescript6:
     typescript: npm:@typescript/typescript6@6.0.2
-  xstate6:
-    xstate-v6: npm:xstate@6.0.0-alpha.23

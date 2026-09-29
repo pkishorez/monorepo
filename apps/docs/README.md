@@ -7,7 +7,7 @@ Documentation site for the monorepo, with live demos of its workspace packages, 
 The site is built with Fumadocs on TanStack Start. Docs pages come from MDX in
 `content/docs` (today: `@kstackz/std-toolkit`) and a blog from `content/blog`. The build
 prerenders every route to static HTML. A Cloudflare Worker serves the output,
-plus a few `/api` routes for search, page source and WebRTC signaling. It lives
+plus a few `/api` routes for search and page source. It lives
 at [docs.kishore.app](https://docs.kishore.app).
 
 It also hosts the interactive demos under `/demos`, with their code in
@@ -15,11 +15,6 @@ It also hosts the interactive demos under `/demos`, with their code in
 
 - `@kstackz/ai-toolkit`: a chat playground over `@kstackz/ai-toolkit/rpc`, `@kstackz/ai-toolkit/table`
   and `@kstackz/ai-toolkit/client`.
-- `@kstackz/effect-webrtc`: browser to browser and browser to Node peers over
-  `@kstackz/effect-webrtc/signaling`, with a Node peer in `src/effect-webrtc-node.ts`
-  (`pnpm --filter docs webrtc:node`).
-- `durable-webrtc`: the same signaling backed by a Durable Object, with login
-  through `@kstackz/auth-toolkit/clients/browser`.
 
 The UI uses `@kstackz/ui-toolkit`, tracing uses `@kstackz/effect-tracer` and
 `@kstackz/flow`, and `@kstackz/rpc-toolkit` and `@kstackz/std-toolkit` sit underneath. The
@@ -72,10 +67,9 @@ First-time setup, once per Cloudflare account:
 
 1. Have Cloudflare credentials in the environment (`CLOUDFLARE_API_TOKEN`,
    `CLOUDFLARE_ACCOUNT_ID`) for the account that owns the `kishore.app` zone.
-   The demo signaling also needs AWS credentials; see `deploy-docs.yml` for the
+   The deploy also needs AWS credentials; see `deploy-docs.yml` for the
    full list.
-2. Run the first deploy. It creates the Worker, the Durable Object and the
-   state store, and uploads the assets.
+2. Run the first deploy. It creates the Worker and the state store, and uploads the assets.
 3. The custom domain is declared in `src/infra/stage.ts` (`domainFor`), so the
    deploy binds it. Cloudflare provisions the DNS record and TLS cert because
    the `kishore.app` zone already exists in the account. No dashboard steps.

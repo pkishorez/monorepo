@@ -12,20 +12,19 @@ Tailwind classes, theme tokens, and React are resolved once, in the app.
 
 Three layers live here. `components/ui` is the shadcn primitive set on Base
 UI. `components/blocks` are larger pieces built on those primitives: auth
-screens, ER and flow diagrams, the OpenTelemetry trace viewer, the Laymos and
+screens, flow diagrams, the OpenTelemetry trace viewer, the Laymos and
 Monoverse explorers, JSON and source viewers. `form`, `hooks`, `lib`, and
 `styles` are the glue: a TanStack Form hook, a few DOM hooks, class helpers,
 and the Tailwind theme.
 
 Blocks that read data from sibling Packages take that data as props or as an
-Effect loader. `er-diagram` and `std-toolkit-studio` read `@kstackz/std-toolkit`
-snapshots and RPC clients. `flow-swimlane` and `devtools-panel` read
+Effect loader. `flow-swimlane` and `devtools-panel` read
 `@kstackz/flow` and `@kstackz/effect-tracer`. `otel-trace-viewer` reads
 `@kstackz/lotel` records. `laymos` and `monoverse` read `laymos` analyses.
 `apps/docs`, `apps/alchemy-console`, and `devtools/devtools` consume this
 Package.
 
-Domain terms for the Studio block are in [CONTEXT.md](./CONTEXT.md).
+Domain terms are in [CONTEXT.md](./CONTEXT.md).
 
 ## Install
 
@@ -45,10 +44,9 @@ Peer dependencies:
 - `@kstackz/flow` (optional): flow projection types for `flow-swimlane` and `devtools-panel`.
 - `@kstackz/effect-tracer` (optional): trace recorder types for `devtools-panel`.
 - `@kstackz/lotel` (optional): stored span and log record types for `otel-trace-viewer`.
-- `@kstackz/std-toolkit` (optional): table snapshot and Studio RPC client types for `er-diagram` and `std-toolkit-studio`.
 - `laymos` (optional): analysis and diff types for `laymos`, `monoverse`, and `diff-viewer`.
-- `effect` (optional): `laymos`, `monoverse`, `std-toolkit-studio`, `flow-swimlane`, and `devtools-panel` run Effect programs or read Effect types.
-- `use-effect-ts` (optional): runs the Effect loaders of `laymos`, `monoverse`, and `std-toolkit-studio` inside React.
+- `effect` (optional): `laymos`, `monoverse`, `flow-swimlane`, and `devtools-panel` run Effect programs or read Effect types.
+- `use-effect-ts` (optional): runs the Effect loaders of `laymos` and `monoverse` inside React.
 - `zustand` (optional): persisted settings store for the `auth` screens.
 - `@tanstack/react-query`, `@tanstack/react-db` (optional): declared so consumers dedupe one copy; the toolkit does not import them directly.
 
@@ -118,12 +116,6 @@ Use `getTheme()` in the root loader, put the result on `<html>`, and pass it to
 `appTheme.Script`. The lower-level document props, cookie parsing, bootstrap
 source, and raw theme colors stay private so app integrations cannot drift.
 
-### `@kstackz/ui-toolkit/components/blocks/er-diagram`
-
-| Export      | What it does                                                                                                   |
-| ----------- | -------------------------------------------------------------------------------------------------------------- |
-| `ERDiagram` | Draws an Entity Relationship diagram from a `@kstackz/std-toolkit` table snapshot, with field detail popovers. |
-
 ### `@kstackz/ui-toolkit/components/blocks/flow-swimlane`
 
 | Export              | What it does                                                                                           |
@@ -172,12 +164,6 @@ Views over a Laymos `ArchitectureAnalysis`. `Laymos` composes the rest.
 | `transformSpan`      | Converts a stored span record into the viewer's span shape.                           |
 | `transformLog`       | Converts a stored log record into the viewer's event shape.                           |
 
-### `@kstackz/ui-toolkit/components/blocks/std-toolkit-studio`
-
-| Export             | What it does                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------------- |
-| `StdToolkitStudio` | Read-only inspector for one remote StdTable driven by a Studio RPC client, with Diagram and Query views. |
-
 ### `@kstackz/ui-toolkit/components/blocks/*`
 
 Resolves to `src/components/blocks/<name>/index.ts`. Blocks below are reached
@@ -219,55 +205,18 @@ this way.
 | ---------------- | --------------------------------------------------------------------------------------------- |
 | `MarkdownViewer` | Renders a Markdown string with GFM support and highlights fenced code through `SourceViewer`. |
 
-#### `sequence`
-
-Step-based animations for blog posts. The long-form guide is
-[src/components/blocks/sequence/README.md](./src/components/blocks/sequence/README.md).
-
-| Export            | What it does                                                                                |
-| ----------------- | ------------------------------------------------------------------------------------------- |
-| `step`            | Defines one frame from a name, its default props, and a render function.                    |
-| `useSteps`        | Builds the controller that tracks the active step and moves forward, back, or to the start. |
-| `Screen`          | Renders the active step of a controller inside a sized canvas at a given speed.             |
-| `StepNav`         | Prebuilt Prev, Restart, and Next bar bound to a controller.                                 |
-| `Div`             | A motion-enabled div that inherits the Screen's animation duration.                         |
-| `Present`         | Mounts and unmounts children with enter and exit presets.                                   |
-| `enter`           | Enter presets: the initial and animate pair an element mounts with.                         |
-| `exit`            | Exit presets: the variant an element leaves with.                                           |
-| `loop`            | Builds a repeating transition of a given duration.                                          |
-| `stagger`         | Builds a delay for the i-th element of a group.                                             |
-| `motion`          | Re-export of `motion/react`'s `motion`.                                                     |
-| `AnimatePresence` | Re-export of `motion/react`'s `AnimatePresence`.                                            |
-
 #### `source-viewer`
 
 | Export         | What it does                                                                           |
 | -------------- | -------------------------------------------------------------------------------------- |
 | `SourceViewer` | Highlights a source file with Shiki and marks ranges, sections, and per-line statuses. |
 
-#### `state-machine-visualizer`
-
-| Export               | What it does                                                                              |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| `StateMachineViewer` | Interactive pan-and-zoom viewer for a laid-out state machine with focus and follow modes. |
-| `StateMachineSvg`    | The static SVG of a laid-out state machine, for custom viewports and highlights.          |
-| `layoutStateMachine` | Lays out a serialized machine with ELK and returns node and edge positions.               |
-| `serializeV5`        | Converts an XState v5 machine into the serialized shape.                                  |
-| `serializeV6`        | Converts an XState v6 machine into the serialized shape.                                  |
-
-#### `swim-lane`
-
-| Export     | What it does                                                          |
-| ---------- | --------------------------------------------------------------------- |
-| `SwimLane` | Data-driven sequence diagram with evenly spaced actor lanes and zoom. |
-
 ### `@kstackz/ui-toolkit/components/*`
 
 Resolves to `src/components/<path>.tsx`. In practice this is the shadcn
 primitive set under `components/ui/*`, one file per component. Each file
 exports the component and its parts (for example `Dialog`, `DialogContent`,
-`DialogTitle`). `components/blocks/hello` also resolves here to a `Hello`
-sample card.
+`DialogTitle`).
 
 | File                  | What it does                                                     |
 | --------------------- | ---------------------------------------------------------------- |
@@ -293,7 +242,7 @@ sample card.
 | `ui/context-menu`     | Right-click menu.                                                |
 | `ui/dialog`           | Modal dialog.                                                    |
 | `ui/direction`        | Text direction provider and hook from Base UI.                   |
-| `ui/drawer`           | Bottom sheet on vaul.                                            |
+| `ui/drawer`           | Bottom sheet on Base UI.                                         |
 | `ui/dropdown-menu`    | Button-triggered menu.                                           |
 | `ui/empty`            | Empty state with media, title, and description.                  |
 | `ui/field`            | Form field layout: label, description, error, group, set.        |

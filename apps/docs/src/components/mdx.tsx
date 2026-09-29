@@ -1,7 +1,6 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import type { MDXComponents } from 'mdx/types';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
-import { SwimLane } from '@kstackz/ui-toolkit/components/blocks/swim-lane';
 import { StatusBadge } from './status-badge';
 import { ESchemaPlayground } from './eschema-playground';
 
@@ -11,7 +10,6 @@ export function getMDXComponents(components?: MDXComponents) {
     Button,
     StatusBadge,
     ESchemaPlayground,
-    SwimLane,
     ...components,
   } satisfies MDXComponents;
 }
