@@ -124,20 +124,26 @@ describe('createAuthWorker', () => {
     expect(options.verification.storeInDatabase).toBe(true);
   });
 
-  it('always installs Admin, Bearer, and Device Login, and Dash only with a non-empty API key', () => {
+  it('always installs Admin, Bearer, Device Login, and Signed-in Accounts, and Dash only with a non-empty API key', () => {
     createAuthWorker(config);
     expect(
       mocks.betterAuth.mock.calls[0]?.[0].plugins.map(
         (plugin: { id: string }) => plugin.id,
       ),
-    ).toEqual(['admin', 'bearer', 'device-authorization']);
+    ).toEqual(['admin', 'bearer', 'device-authorization', 'multi-session']);
 
     createAuthWorker({ ...config, dashApiKey: '  dash-key  ' });
     expect(
       mocks.betterAuth.mock.calls[1]?.[0].plugins.map(
         (plugin: { id: string }) => plugin.id,
       ),
-    ).toEqual(['admin', 'bearer', 'device-authorization', 'dash']);
+    ).toEqual([
+      'admin',
+      'bearer',
+      'device-authorization',
+      'multi-session',
+      'dash',
+    ]);
     expect(
       mocks.betterAuth.mock.calls[1]?.[0].plugins.find(
         (plugin: { id: string }) => plugin.id === 'dash',
@@ -149,8 +155,33 @@ describe('createAuthWorker', () => {
       mocks.betterAuth.mock.calls[2]?.[0].plugins.map(
         (plugin: { id: string }) => plugin.id,
       ),
-    ).toEqual(['admin', 'bearer', 'device-authorization']);
+    ).toEqual(['admin', 'bearer', 'device-authorization', 'multi-session']);
   });
+
+  it.each([
+    [undefined, 5],
+    [{}, 5],
+    [{ maximumAccounts: 3 }, 3],
+  ] as const)(
+    'uses the same account limit for the plugin and pages with %j',
+    async (multiSession, expected) => {
+      const { handler } = createAuthWorker({
+        ...config,
+        multiSession,
+        pages: {
+          assets: {},
+          fetch: async (_request, context) =>
+            Response.json(context.multiSession),
+        },
+      });
+      const plugin = mocks.betterAuth.mock.calls[0]?.[0].plugins.find(
+        (plugin: { id: string }) => plugin.id === 'multi-session',
+      );
+      expect(plugin.options.maximumSessions).toBe(expected);
+      const page = await handler(new Request('https://auth.example.com/login'));
+      expect(await page.json()).toEqual({ maximumAccounts: expected });
+    },
+  );
 
   it('passes the optional User Admission Policy to Better Auth', () => {
     const validateUser = vi.fn();

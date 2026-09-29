@@ -25,7 +25,7 @@ export function SessionList({
   onOpenChange: (value: string | null) => void;
   sessions: ReadonlyArray<SessionView>;
   now?: Date | undefined;
-  onSignOut: Action;
+  onSignOut: Action | undefined;
   onRevoke: (id: string) => Promise<unknown>;
   onRevokeOthers: Action;
 }) {

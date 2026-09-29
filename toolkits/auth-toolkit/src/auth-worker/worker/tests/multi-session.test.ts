@@ -7,7 +7,7 @@ const baseURL = 'https://auth.example.com';
 const secret = 'test-secret-test-secret-test-secret';
 const origin = 'https://app.example.com';
 
-const make = (multiSession?: { enabled?: boolean; maximumAccounts?: number }) =>
+const make = (multiSession?: { maximumAccounts?: number }) =>
   createAuthWorker({
     baseURL,
     secret,
@@ -68,20 +68,23 @@ const whoIs = async (worker: Worker, cookie: string) =>
 const setCookies = (response: Response) => response.headers.getSetCookie();
 
 describe('Signed-in Accounts', () => {
-  it('is off unless enabled: the account endpoints do not exist', async () => {
-    for (const worker of [make(), make({}), make({ enabled: false })]) {
+  it('supports Signed-in Accounts without explicit configuration', async () => {
+    for (const worker of [make(), make({})]) {
       const ada = await signIn(worker, 'ada@example.com');
       const response = await get(
         worker,
         '/multi-session/list-device-sessions',
-        ada.active,
+        cookieHeader(ada.active, ada.account),
       );
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject([
+        { user: { email: 'ada@example.com' } },
+      ]);
     }
   });
 
   it('lists every Signed-in Account and keeps the first when a second signs in', async () => {
-    const worker = make({ enabled: true });
+    const worker = make();
     const ada = await signIn(worker, 'ada@example.com');
     const mary = await signIn(worker, 'mary@example.com');
     const cookie = cookieHeader(mary.active, ada.account, mary.account);
@@ -97,7 +100,7 @@ describe('Signed-in Accounts', () => {
   });
 
   it('switching changes what Server-Side Verification sees', async () => {
-    const worker = make({ enabled: true });
+    const worker = make();
     const ada = await signIn(worker, 'ada@example.com');
     const mary = await signIn(worker, 'mary@example.com');
     const cookie = cookieHeader(mary.active, ada.account, mary.account);
@@ -120,7 +123,7 @@ describe('Signed-in Accounts', () => {
   });
 
   it('signing out one account leaves the other and makes it active', async () => {
-    const worker = make({ enabled: true });
+    const worker = make();
     const ada = await signIn(worker, 'ada@example.com');
     const mary = await signIn(worker, 'mary@example.com');
     const cookie = cookieHeader(mary.active, ada.account, mary.account);
@@ -147,7 +150,7 @@ describe('Signed-in Accounts', () => {
   });
 
   it('signing out of all accounts leaves nothing', async () => {
-    const worker = make({ enabled: true });
+    const worker = make();
     const ada = await signIn(worker, 'ada@example.com');
     const mary = await signIn(worker, 'mary@example.com');
     const cookie = cookieHeader(mary.active, ada.account, mary.account);
@@ -164,8 +167,53 @@ describe('Signed-in Accounts', () => {
     expect(await whoIs(worker, cookie)).toBeUndefined();
   });
 
+  it.each(['approve', 'deny'])(
+    'can %s a device code after choosing another account before lookup',
+    async (answer) => {
+      const worker = make();
+      const ada = await signIn(worker, 'ada@example.com');
+      const mary = await signIn(worker, 'mary@example.com');
+      const cookie = cookieHeader(ada.active, ada.account, mary.account);
+      const code = (await (
+        await post(worker, '/device/code', '', { client_id: 'demo' })
+      ).json()) as { user_code: string };
+
+      const switched = await post(worker, '/multi-session/set-active', cookie, {
+        sessionToken: mary.token,
+      });
+      expect(switched.status).toBe(200);
+      const nextActive = setCookies(switched).find((value) =>
+        value.startsWith(`${mary.active.split('=')[0]}=`),
+      )!;
+      const selected = cookieHeader(
+        nextActive.split(';')[0]!,
+        ada.account,
+        mary.account,
+      );
+      expect(await whoIs(worker, selected)).toBe('mary@example.com');
+      const claimed = await get(
+        worker,
+        `/device?user_code=${code.user_code}`,
+        selected,
+      );
+      expect(await claimed.json()).toMatchObject({
+        status: 'pending',
+        client_id: 'demo',
+      });
+
+      const wrongAccount = await post(worker, `/device/${answer}`, cookie, {
+        userCode: code.user_code,
+      });
+      expect(wrongAccount.status).toBe(403);
+      const answered = await post(worker, `/device/${answer}`, selected, {
+        userCode: code.user_code,
+      });
+      expect(answered.status).toBe(200);
+    },
+  );
+
   it('leaves a Device Login Session alone', async () => {
-    const worker = make({ enabled: true });
+    const worker = make();
     const context = await worker.auth.$context;
     const user = await context.internalAdapter.createUser(
       { name: 'Ada', email: 'ada@example.com', emailVerified: true },

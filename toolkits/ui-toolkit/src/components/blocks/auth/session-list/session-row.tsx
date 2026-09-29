@@ -27,7 +27,7 @@ export function SessionRow({
   alwaysOpen?: boolean;
   session: SessionView;
   now: Date;
-  onEnd: Action;
+  onEnd: Action | undefined;
 }) {
   const name = session.userAgent?.trim() || 'Unknown device';
   const Row = alwaysOpen ? OpenRow : DisclosureItem;
@@ -62,7 +62,8 @@ export function SessionRow({
         variant={session.current ? 'outline' : 'destructive'}
         size="sm"
         className="self-start"
-        action={onEnd}
+        disabled={!onEnd}
+        action={async () => onEnd?.()}
       >
         {session.current ? 'Sign out of this browser' : 'Revoke session'}
       </ActionButton>

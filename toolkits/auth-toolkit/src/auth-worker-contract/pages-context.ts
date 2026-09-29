@@ -16,6 +16,6 @@ export interface PagesContext {
   authorizationServer?:
     | { scopes: Readonly<Record<string, string>> }
     | undefined;
-  /** Present when the browser may hold several Signed-in Accounts. */
-  multiSession?: { maximumAccounts: number } | undefined;
+  /** The Signed-in Account limit for this browser. */
+  multiSession: { maximumAccounts: number };
 }
