@@ -21,3 +21,4 @@ The block moves out of ui-toolkit into `@kstackz/use-gesture`, with the core unt
 - Its velocity is measured over the last 100ms and re-read while a finger rests, so a Swipe that stops before lifting shows it would no longer Commit before the finger lifts.
 - Patterns are hooks only. They return motion values and state, and the app renders them.
 - A pull to refresh starts only when its list is already at the top: a scroll that reaches the top mid-touch stays the browser's until every finger lifts, as the core decides.
+- A listener can claim touches that land where it listens, even over an element that could scroll them; a Swipe with `from` claims its edge. Without that, the first movement's few noisy px decided whether an edge swipe opened a sidebar or scrolled the list under it. The claim is asked only at a touch's first movement, so taps under it still click.

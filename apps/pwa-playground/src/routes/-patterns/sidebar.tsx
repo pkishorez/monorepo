@@ -27,6 +27,7 @@ import {
 type Options = {
   readonly side: 'left' | 'right';
   readonly width: number;
+  /** The `edge` strip's width; 0 opens from anywhere. */
   readonly edge: number;
   readonly enabled: boolean;
   readonly band: boolean;
@@ -65,7 +66,7 @@ function SidebarApp(props: {
   const sidebar = useSidebar({
     side,
     width,
-    edge,
+    ...(edge === 0 ? {} : { edge }),
     enabled,
     open: props.open,
     onOpenChange: props.onOpenChange,
@@ -104,7 +105,8 @@ function SidebarApp(props: {
             ))}
           </ul>
         </div>
-        {band ? (
+        {edge === 0 || !band ? null : (
+          // Where an opening Swipe must start; drawing only, it takes no touch.
           <div
             aria-hidden="true"
             style={{
@@ -117,7 +119,7 @@ function SidebarApp(props: {
               side === 'left' ? 'left-0 border-r-2' : 'right-0 border-l-2',
             )}
           />
-        ) : null}
+        )}
         <motion.div
           aria-hidden="true"
           style={{ opacity: sidebar.progress }}
@@ -174,22 +176,23 @@ function SidebarApp(props: {
 
 const GUIDE: PatternGuide = {
   try: [
-    'Start inside the dashed band at the edge and drag slowly past half the sidebar’s width, then lift.',
-    'Start in the band, drag a little, and lift slowly.',
-    'Start in the band and flick a short way, fast.',
-    'Start in the middle of the list and swipe sideways.',
+    'Swipe right anywhere on the list, slowly, past half the sidebar’s width, then lift.',
+    'Swipe right a little and lift slowly.',
+    'Flick right a short way, fast.',
+    'Scroll the list up and down, from the middle and from right by the edge.',
     'With it open, swipe back from anywhere: on the sidebar, on the dimmed list, or right next to it.',
     'Drag it most of the way open, then back a little, and lift while moving back.',
     'Tap the dimmed list, a sidebar item, or the menu button.',
     'Tap the menu button and grab the sidebar while it is still moving.',
-    'Scroll the list up and down.',
-    'In Options, switch the side, the width and the edge, and turn Swipes off.',
+    'In Options, set open from to 24 and swipe right from the middle, then from inside the dashed strip.',
+    'With a strip set, scroll the list starting inside the strip.',
+    'Switch the side and the width, and turn Swipes off.',
   ],
   expect: [
     'It follows your finger from the moment 10px locked the Swipe, and the list dims with it. Past half its width, it opens.',
     'Short of half, it springs back closed.',
     'A flick opens it from a few px: it settles where the momentum would carry it, not where your finger stopped.',
-    'From the middle nothing moves: only the band opens it. That keeps sideways gestures in the page free.',
+    'Scrolling never moves it: a vertical first movement locks the other axis, and the list keeps its own scroll.',
     'Closing works from anywhere, since there is nothing else to swipe while it is open.',
     'It decides by where it is headed, not where it is: moving back when you lift closes it even from mostly open.',
     <>
@@ -197,7 +200,13 @@ const GUIDE: PatternGuide = {
       only <Code>setOpen</Code> moves it.
     </>,
     'Grabbing it mid-spring stops the spring and it follows your finger from where it was.',
-    'Scrolling never moves it: a vertical first movement locks the other axis, and the list keeps its own scroll.',
+    <>
+      With <Code>edge</Code> set, only a Swipe from the strip opens it, and the
+      strip is always the sidebar’s: an edge swipe that starts a little downward
+      still opens it rather than scrolling the list. Without a strip, the list
+      and the sidebar share every touch by its first movement.
+    </>,
+    'A scroll that starts inside the strip does not scroll the list while it is closed: the strip is the sidebar’s. Open, the strip is the list’s again.',
     <>
       <Code>enabled: false</Code> leaves only the buttons. The bar at the bottom
       shows <Code>open</Code>, <Code>dragging</Code>, <Code>progress</Code> and{' '}
@@ -214,7 +223,7 @@ export function SidebarDemo(props: {
   const [options, setOptions] = useState<Options>({
     side: 'left',
     width: 280,
-    edge: 24,
+    edge: 0,
     enabled: true,
     band: true,
   });
@@ -252,9 +261,10 @@ export function SidebarDemo(props: {
             onChange={(width) => set({ width })}
           />
           <Choice
-            label="edge"
+            label="open from"
             value={options.edge}
             options={[
+              { value: 0, label: 'anywhere' },
               { value: 16, label: '16' },
               { value: 24, label: '24' },
               { value: 48, label: '48' },
@@ -267,7 +277,7 @@ export function SidebarDemo(props: {
             onChange={(enabled) => set({ enabled })}
           />
           <Toggle
-            label="edge band"
+            label="show edge"
             on={options.band}
             onChange={(band) => set({ band })}
           />

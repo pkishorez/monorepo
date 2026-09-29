@@ -165,6 +165,15 @@ export type GestureOptions = {
   readonly onPointer?: (pointer: Pointer, pointers: Pointers) => void;
   /** The last finger lifted: every finger of the Gesture, lifted ones included. */
   readonly onEnd?: (pointers: Pointers, end: GestureEnd) => void;
+  /**
+   * Whether it captures a touch whose first finger landed at `point`, in
+   * viewport px, even over an element that could scroll it. Read at the
+   * touch's first movement; taps are never affected.
+   */
+  readonly captures?: (point: {
+    readonly x: number;
+    readonly y: number;
+  }) => boolean;
 };
 
 export type GestureState = {
@@ -204,6 +213,7 @@ export function useGesture(options: GestureOptions = {}): GestureState {
         pointers.set(next);
         latest.current.onPointer?.(pointer, next);
       },
+      captures: (point) => latest.current.captures?.(point) === true,
       end: (last, end) => {
         latest.current.onEnd?.(last, end);
         pointers.set(NONE);

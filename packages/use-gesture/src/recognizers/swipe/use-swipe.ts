@@ -26,7 +26,10 @@ export type SwipeOptions = {
   readonly direction: Direction;
   /** How many fingers: 1 by default. */
   readonly fingers?: Fingers;
-  /** Where the first finger must land; anywhere in the zone by default. */
+  /**
+   * Where the first finger must land; anywhere in the zone by default. A touch
+   * that lands there is the Swipe's even over an element that scrolls.
+   */
   readonly from?: Edge;
   /** What it needs at release to Commit: `{ distance: 80, velocity: 500 }` by default. */
   readonly commit?: CommitRule;
@@ -145,12 +148,18 @@ export function useSwipe(options: SwipeOptions): Swipe {
 
   useGesture({
     enabled: options.enabled !== false,
+    // A Swipe from an edge owns touches that start there, over any scroller.
+    captures: (point) => {
+      const { from } = latest.current;
+      const viewport = { width: innerWidth, height: innerHeight };
+      return from !== undefined && startsFrom(from, point, viewport);
+    },
     onStart: (pointers) => {
       const [first] = pointers.values();
       const viewport = { width: innerWidth, height: innerHeight };
       if (
         first === undefined ||
-        !startsFrom(latest.current.from, first, viewport)
+        !startsFrom(latest.current.from, first.start, viewport)
       ) {
         return;
       }

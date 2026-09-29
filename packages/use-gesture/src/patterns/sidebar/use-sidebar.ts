@@ -18,7 +18,11 @@ export type SidebarOptions = {
   /** Whether it starts open, when it controls itself. */
   readonly defaultOpen?: boolean;
   readonly onOpenChange?: (open: boolean) => void;
-  /** How far from `side`, in px, a Swipe must start to open it: 24 by default. */
+  /**
+   * Opt in to opening only from a strip along `side`, this many px wide. A
+   * touch that starts there is always the sidebar's, even over a list that
+   * scrolls. Without it, a Swipe that starts anywhere opens it.
+   */
   readonly edge?: number;
   /** Whether Swipes open and close it: true by default. */
   readonly enabled?: boolean;
@@ -38,12 +42,12 @@ export type Sidebar = {
 const SPRING = { type: 'spring', stiffness: 400, damping: 40 } as const;
 
 /**
- * A sidebar that follows a Swipe from its edge to open and a Swipe back from
- * anywhere to close, then settles open or closed by where the fingers'
- * momentum would carry it, past half its width.
+ * A sidebar that follows a Swipe toward open, from anywhere or only from its
+ * `edge`, and a Swipe back from anywhere to close, then settles open or
+ * closed by where the fingers' momentum would carry it, past half its width.
  */
 export function useSidebar(options: SidebarOptions): Sidebar {
-  const { side, width, edge = 24, enabled = true } = options;
+  const { side, width, edge, enabled = true } = options;
   const [own, setOwn] = useState(options.defaultOpen ?? false);
   const open = options.open ?? own;
   // Which way opening moves x, and x when closed.
@@ -102,7 +106,7 @@ export function useSidebar(options: SidebarOptions): Sidebar {
   const opening = useSwipe({
     enabled: enabled && !open,
     direction: side === 'left' ? 'right' : 'left',
-    from: { edge: side, within: edge },
+    ...(edge === undefined ? {} : { from: { edge: side, within: edge } }),
     onStart: grab('open'),
     onCommit: release('open'),
     onCancel: (_reason, at) => release('open')(at),
