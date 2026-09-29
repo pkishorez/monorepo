@@ -19,12 +19,13 @@ inherits whether or not it sets anything. Vocabulary follows
 | `dashApiKey`          | Connects the Worker to Better Auth Infrastructure (Dash). Absent or blank leaves Dash disabled.                                                                                                                            |
 | `validateUser`        | The User Admission Policy. See below.                                                                                                                                                                                      |
 | `authorizationServer` | Turns on the Authorization Server Role. See below.                                                                                                                                                                         |
-| `multiSession`        | Lets a browser hold several Signed-in Accounts. Off unless `enabled` is true. See below.                                                                                                                                   |
+| `multiSession`        | Caps the Signed-in Accounts a browser can hold. See below.                                                                                                                                                                 |
 
 ## Always on
 
 - **Admin plugin.** The Worker always includes better-auth's Admin plugin so the hosted dashboard can persist and enforce bans. It does not expose the Admin client API and does not bootstrap local Administrators.
 - **Rate limiting is disabled.** better-auth's built-in rate limiter is off. Put rate limiting in front of the Worker if you need it.
+- **Signed-in Accounts.** Better Auth's `multiSession` plugin runs on every deployment. See below.
 - **Device Login.** The `deviceAuthorization` and `bearer` plugins run on every deployment, so a CLI can sign in without the Authorization Server Role. A Device Login token is a Session sent as a bearer, not an Access Token.
 - **Pages.** The handler serves `/`, `/login`, `/device`, and `/error` from a prebuilt TanStack Start app with embedded assets. No assets binding and no build step in the consumer. With the Authorization Server Role on it also serves `/consent` and `/.well-known/*`.
 - **CORS.** `trustedOrigins` drives both better-auth's origin validation and the credentialed CORS headers the handler adds on `/api/auth/*`. Preflights from untrusted origins get 403.
@@ -65,12 +66,12 @@ authorizationServer: {
 ## Signed-in Accounts
 
 ```ts
-multiSession: { enabled: true, maximumAccounts: 3 }
+createAuthWorker({ ...config, multiSession: { maximumAccounts: 5 } });
 ```
 
-- Off by default; `{}` and `{ enabled: false }` also mean off, and every page is then exactly as without the option.
-- `maximumAccounts` caps the Signed-in Accounts per browser, default 5. The account switcher hides "Add another account" at the cap.
-- With it on, every page shows an account switcher top-right: switch in place, add another account, sign out of the active one, or sign out of all. Sign-out moves there from the page bodies.
+- Always on. Omit `multiSession` to use the default of 5. `maximumAccounts` is passed to Better Auth and must be a positive integer or `createAuthWorker` throws. The account switcher hides "Add another account" at the limit. Stricter enforcement of new sign-ins is deferred.
+- Every page shows an account switcher top-right: switch in place, add another account, sign out of the active one, or sign out of all. The Home Page's "Sign out of this browser" signs out only the Active Account, and stays disabled until the account list loads.
+- The Device Screen never looks up a prefilled code on its own: looking up a code claims it for the Active Account, so the User picks the account first and then presses Continue. The switcher is hidden from then on.
 - An Account Switch rewrites the session cookie, so it changes the User for every First-Party app on the Shared Cookie Domain at once, and a consumer app's `signOut()` signs out every account. A browser holds one Signed-in Account per User. See [ADR 0012](./adr/0012-account-switch-is-browser-wide.md).
 
 ## Consumer Backend behaviour worth knowing

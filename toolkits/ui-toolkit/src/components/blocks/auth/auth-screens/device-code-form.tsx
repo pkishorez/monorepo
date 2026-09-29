@@ -17,15 +17,16 @@ export function DeviceCodeForm({
 }: {
   initialCode?: string | undefined;
   initialError?: string | undefined;
-  onCheck: (code: string) => Promise<unknown>;
+  onCheck: ((code: string) => Promise<unknown>) | undefined;
 }) {
   const id = useId();
   const [code, setCode] = useState(initialCode);
   const [error, setError] = useState(initialError);
-  const check = useAction(() => onCheck(code), setError);
+  const check = useAction(async () => onCheck?.(code), setError);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
+    if (!onCheck || check.pending) return;
     setError(undefined);
     check.run();
   };
@@ -37,6 +38,7 @@ export function DeviceCodeForm({
         <Input
           id={`${id}-code`}
           value={code}
+          disabled={!onCheck || check.pending}
           onChange={(event) => {
             setCode(event.target.value);
             setError(undefined);
@@ -68,7 +70,7 @@ export function DeviceCodeForm({
         type="submit"
         size="lg"
         className="relative"
-        disabled={check.pending || code.trim() === ''}
+        disabled={!onCheck || check.pending || code.trim() === ''}
         aria-busy={check.pending}
       >
         <PendingContent pending={check.pending}>Continue</PendingContent>

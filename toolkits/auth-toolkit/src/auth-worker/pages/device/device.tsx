@@ -4,7 +4,7 @@ import {
   type DeviceState,
 } from '@kstackz/ui-toolkit/components/blocks/auth';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   createAuthorizationClient,
@@ -20,7 +20,7 @@ import {
 
 interface DevicePageProps {
   branding: Branding;
-  multiSession: MultiSessionOptions | undefined;
+  multiSession: MultiSessionOptions;
 }
 
 const NOT_WAITING =
@@ -35,32 +35,38 @@ const lookUp = async (client: AuthorizationClient, raw: string) => {
     NOT_WAITING,
   );
   if (found?.status !== 'pending') throw new Error(NOT_WAITING);
-  return { userCode, clientId: found.client_id ?? 'Unknown device' };
+  if (!found.client_id) {
+    throw new Error(
+      'This code belongs to another account. Switch to that account or get a new code from your device.',
+    );
+  }
+  return { userCode, clientId: found.client_id };
 };
 
 export function DevicePage({ branding, multiSession }: DevicePageProps) {
   const client = useMemo(createAuthorizationClient, []);
   const session = client.useSession();
   const show = useScreenRoute('device', session);
-  const accounts = useSignedInAccounts(client, session.data, multiSession);
+  const accounts = useSignedInAccounts(client, session, multiSession);
   const [prefilled] = useState(() => pageQuery().get('user_code') ?? '');
-  const [step, setStep] = useState<DeviceState>(
-    prefilled ? { status: 'loading' } : { status: 'enter' },
-  );
+  const [step, setStep] = useState<DeviceState>({
+    status: 'enter',
+    code: prefilled,
+  });
+  const busy = useRef(false);
+  const [pending, setPending] = useState(false);
 
-  useEffect(() => {
-    if (!show || !prefilled) return;
-    let current = true;
-    lookUp(client, prefilled).then(
-      (found) => current && setStep({ status: 'confirm', ...found }),
-      (cause: Error) =>
-        current &&
-        setStep({ status: 'enter', code: prefilled, error: cause.message }),
-    );
-    return () => {
-      current = false;
-    };
-  }, [client, show, prefilled]);
+  const run = async (action: () => Promise<unknown>) => {
+    if (busy.current) return;
+    busy.current = true;
+    setPending(true);
+    try {
+      await action();
+    } finally {
+      busy.current = false;
+      setPending(false);
+    }
+  };
 
   const finishing = step.status === 'finishing' ? step : undefined;
   const claimed = useQuery({
@@ -88,34 +94,30 @@ export function DevicePage({ branding, multiSession }: DevicePageProps) {
     return () => clearTimeout(timer);
   }, [finishing, claimed]);
 
-  const check = async (code: string) => {
-    const found = await lookUp(client, code);
-    setStep({ status: 'confirm', ...found });
-  };
+  const check = (code: string) =>
+    run(async () => {
+      const found = await lookUp(client, code);
+      setStep({ status: 'confirm', ...found });
+    });
 
   const answer = async (approved: boolean) => {
     if (step.status !== 'confirm') return;
     const { userCode, clientId } = step;
-    try {
-      await unwrap(
-        approved
-          ? client.device.approve({ userCode })
-          : client.device.deny({ userCode }),
-        NOT_WAITING,
-      );
-      setStep(
-        approved
-          ? { status: 'finishing', userCode, clientId }
-          : { status: 'done', approved, clientId },
-      );
-    } catch (cause) {
-      setStep({
-        status: 'enter',
-        code: userCode,
-        error: (cause as Error).message,
-      });
-    }
+    await unwrap(
+      approved
+        ? client.device.approve({ userCode })
+        : client.device.deny({ userCode }),
+      NOT_WAITING,
+    );
+    setStep(
+      approved
+        ? { status: 'finishing', userCode, clientId }
+        : { status: 'done', approved, clientId },
+    );
   };
+
+  // Looking up a code claims it for the current account.
+  const canChooseAccount = step.status === 'enter' && !pending;
 
   return (
     <DeviceScreen
@@ -125,12 +127,23 @@ export function DevicePage({ branding, multiSession }: DevicePageProps) {
         session.data
           ? {
               email: session.data.user.email,
-              onSignOut: multiSession ? undefined : () => void client.signOut(),
             }
           : undefined
       }
-      accounts={accounts}
-      onCheck={check}
+      accounts={
+        accounts && canChooseAccount
+          ? {
+              ...accounts,
+              onSwitch: (id) => run(() => accounts.onSwitch(id)),
+              onSignOut: () => run(accounts.onSignOut),
+              onSignOutAll: () => run(accounts.onSignOutAll),
+              onAdd: () => {
+                if (!busy.current) accounts.onAdd();
+              },
+            }
+          : undefined
+      }
+      onCheck={pending || !accounts ? undefined : check}
       onAnswer={answer}
     />
   );

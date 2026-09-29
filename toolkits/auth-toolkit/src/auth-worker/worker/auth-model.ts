@@ -24,24 +24,23 @@ interface AuthModelConfig {
   multiSession?: MultiSessionConfig | undefined;
 }
 
-/** Several Signed-in Accounts per browser, switchable from the Auth Worker's
- * pages. Off unless `enabled` is true: one account per browser, no switcher. */
+/** Signed-in Accounts per browser, switchable from the Auth Worker's pages. */
 export interface MultiSessionConfig {
-  /** @default false */
-  enabled?: boolean | undefined;
   /** @default 5 */
   maximumAccounts?: number | undefined;
 }
 
 export const DEFAULT_MAXIMUM_ACCOUNTS = 5;
 
-/** The account limit when Signed-in Accounts are on, else `undefined`. */
 export const multiSessionAccounts = (
   config: MultiSessionConfig | undefined,
-): number | undefined =>
-  config?.enabled === true
-    ? (config.maximumAccounts ?? DEFAULT_MAXIMUM_ACCOUNTS)
-    : undefined;
+): number => {
+  const maximum = config?.maximumAccounts ?? DEFAULT_MAXIMUM_ACCOUNTS;
+  if (!Number.isSafeInteger(maximum) || maximum < 1) {
+    throw new Error('multiSession.maximumAccounts must be a positive integer.');
+  }
+  return maximum;
+};
 
 export interface ScopeDefinition {
   name: string;
@@ -95,9 +94,7 @@ export const authModelOptions = (
       admin(),
       bearer(),
       deviceAuthorization({ verificationUri: AUTH_PAGES.device }),
-      ...(maximumAccounts !== undefined
-        ? [multiSession({ maximumSessions: maximumAccounts })]
-        : []),
+      multiSession({ maximumSessions: maximumAccounts }),
     ],
   } satisfies BetterAuthOptions;
 };

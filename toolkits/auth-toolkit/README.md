@@ -223,7 +223,7 @@ export const authWorker = await Cloudflare.Worker('auth-worker', {
 - Swap `database` for `memoryPrimaryDatabase()` in tests. The same migrations run.
 - `d1PrimaryDatabaseResource` applies pending migrations on every `alchemy deploy`.
 - Add `authorizationServer` only when a Third-Party program needs Access Tokens. See [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md).
-- Add `multiSession: { enabled: true }` to let a browser hold several Signed-in Accounts and switch between them from every page. See [ADR 0012](./docs/adr/0012-account-switch-is-browser-wide.md).
+- A browser can hold several Signed-in Accounts and switch between them from every page. `multiSession: { maximumAccounts }` changes the cap, default 5. See [ADR 0012](./docs/adr/0012-account-switch-is-browser-wide.md).
 
 ### Guard an Effect RPC on a Consumer Backend
 
@@ -353,7 +353,7 @@ Layer.mergeAll(
 ```
 
 - In the browser, `useSession` is a Direct Session Check against the Auth Worker, sent with its cookie. `signIn.google` returns to the current page; a failed sign-in comes back as `useLoginError`, and `dismiss` clears it from the URL.
-- `signOut` ends the current Session. With `multiSession` on, switching accounts happens on the Auth Worker's pages and every app on the Shared Cookie Domain follows.
+- `signOut` ends every Signed-in Account in the browser. Switching accounts happens on the Auth Worker's pages and every app on the Shared Cookie Domain follows.
 - In the CLI, `login` prints the code and device URL, opens the browser when run in a terminal, polls until the User approves, and stores the Session at `$XDG_STATE_HOME/<app>/auth.json` (default `~/.local/state`) with mode `0600`.
 - `whoami` asks the Auth Worker who the Session belongs to. `token` reads it. `logout` ends the Session at the Auth Worker and deletes the file.
 - Every request names the CLI as `<app>/<version>`, which is how it appears on the Home Page.

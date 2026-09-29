@@ -179,8 +179,7 @@ export const createAuthWorker = (
   const maximumAccounts = multiSessionAccounts(config.multiSession);
   const pagesContext: PagesContext = {
     branding,
-    multiSession:
-      maximumAccounts !== undefined ? { maximumAccounts } : undefined,
+    multiSession: { maximumAccounts },
     authorizationServer: role
       ? {
           scopes: Object.fromEntries(

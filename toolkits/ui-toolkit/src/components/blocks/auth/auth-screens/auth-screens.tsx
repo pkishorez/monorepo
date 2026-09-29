@@ -136,8 +136,8 @@ export function HomeScreen({
   scopeDescriptions?: ScopeDescriptions | undefined;
   now?: Date | undefined;
   accounts?: AccountsView | undefined;
-  /** Signs out this browser's Session for the shown User. */
-  onSignOut: Action;
+  /** Signs out this browser's Session for the shown User; disabled until available. */
+  onSignOut: Action | undefined;
   onReauthenticate: Action;
   onRevokeSession: (id: string) => Promise<unknown>;
   onRevokeOtherSessions: Action;
@@ -224,7 +224,7 @@ function HomeLists({
   state: Extract<HomeState, { status: 'ready' }>;
   now: Date | undefined;
   scopeDescriptions: ScopeDescriptions;
-  onSignOut: Action;
+  onSignOut: Action | undefined;
   onRevokeSession: (id: string) => Promise<unknown>;
   onRevokeOtherSessions: Action;
   onRevokeGrant: (clientId: string) => Promise<unknown>;
@@ -301,6 +301,7 @@ export function ConsentScreen({
       title={`Allow ${state.clientName} to use your account?`}
       description={`${state.clientName} wants to act for you in ${app}. It will be able to:`}
       account={account}
+      accounts={accounts}
       footer={<Answers onAnswer={onAnswer} accept="Allow" />}
     >
       <ScopeList requested={state.scopes} descriptions={scopeDescriptions} />
@@ -338,7 +339,7 @@ export function DeviceScreen({
   state: DeviceState;
   account: Account | undefined;
   accounts?: AccountsView | undefined;
-  onCheck: (code: string) => Promise<unknown>;
+  onCheck: ((code: string) => Promise<unknown>) | undefined;
   onAnswer: (approved: boolean) => Promise<unknown>;
 }) {
   switch (state.status) {

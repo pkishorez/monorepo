@@ -28,6 +28,7 @@ interface SessionState {
     session: { id: string; token: string };
   } | null;
   isPending: boolean;
+  refetch: () => Promise<void>;
 }
 
 export interface SessionRecord {
@@ -76,13 +77,15 @@ export interface AuthorizationClient {
     approve: (input: { userCode: string }) => Result<unknown>;
     deny: (input: { userCode: string }) => Result<unknown>;
   };
-  /** Present only when the Auth Worker allows several Signed-in Accounts;
-   * the endpoints 404 otherwise. */
+  /** Signed-in Accounts are supported by every Auth Worker. */
   multiSession: {
     listDeviceSessions: () => Result<
       Array<{ user: UserRecord; session: { id: string; token: string } }>
     >;
-    setActive: (input: { sessionToken: string }) => Result<unknown>;
+    setActive: (input: {
+      sessionToken: string;
+      fetchOptions?: { disableSignal: boolean };
+    }) => Result<unknown>;
     revoke: (input: { sessionToken: string }) => Result<unknown>;
   };
 }
