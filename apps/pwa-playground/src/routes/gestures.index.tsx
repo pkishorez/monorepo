@@ -1,134 +1,163 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowRightIcon } from '@kstackz/ui-toolkit/lucide';
-import { ScenarioPage } from '../components/index.ts';
+import { Code, Page } from '../components/index.ts';
 
 export const Route = createFileRoute('/gestures/')({ component: Gestures });
 
-type Page = {
-  readonly to:
-    | '/gestures/lab'
-    | '/gestures/swipe'
-    | '/gestures/sidebar'
-    | '/gestures/pull-to-refresh';
-  readonly title: string;
-  readonly summary: string;
-};
-
 type Layer = {
   readonly name: string;
-  readonly blurb: string;
-  readonly pages: ReadonlyArray<Page>;
+  readonly from: string;
+  readonly body: string;
+  readonly hooks: ReadonlyArray<{
+    readonly name: string;
+    readonly to: string;
+    readonly what: string;
+  }>;
 };
 
+// Top to bottom: reach for the highest layer that fits.
 const LAYERS: ReadonlyArray<Layer> = [
   {
     name: 'Patterns',
-    blurb:
-      'Whole touch behaviours an app uses as they are, on real screens. Start here.',
-    pages: [
+    from: '@kstackz/use-gesture',
+    body: 'Whole touch behaviours, used as they are. Each returns motion values and state; you render them however you like.',
+    hooks: [
       {
+        name: 'useSidebar',
         to: '/gestures/sidebar',
-        title: 'useSidebar',
-        summary:
-          'An inbox whose sidebar opens from its edge, follows the finger and settles by momentum.',
+        what: 'a drawer that follows the finger',
       },
       {
+        name: 'usePullToRefresh',
         to: '/gestures/pull-to-refresh',
-        title: 'usePullToRefresh',
-        summary:
-          'An inbox you pull down with resistance, armed past a distance, holding while it refreshes.',
+        what: 'pull, arm, refresh',
       },
     ],
   },
   {
     name: 'Recognizers',
-    blurb:
-      'One generic meaning read from a touch, with live feedback: what the Patterns are built from.',
-    pages: [
+    from: '@kstackz/use-gesture/recognizers',
+    body: 'One generic meaning read from a touch, with live feedback while it happens and a verdict at release. Patterns are built from these.',
+    hooks: [
       {
+        name: 'useSwipe',
         to: '/gestures/swipe',
-        title: 'useSwipe',
-        summary:
-          'Nine Cases: directions, finger counts, flicks, the commit rule, edges, scrollers and Swipes side by side.',
+        what: 'one direction, a finger count, a rule',
       },
     ],
   },
   {
     name: 'Core',
-    blurb:
-      'Every finger of a touch and nothing else: zones, nesting, trapping and useGesture.',
-    pages: [
+    from: '@kstackz/use-gesture/core',
+    body: 'Every finger of a touch and nothing else, inside zones that decide who hears it. It never says what a touch means.',
+    hooks: [
       {
-        to: '/gestures/lab',
-        title: 'Gesture Lab',
-        summary:
-          'Ten Cases of nested zones, trapping and useGesture, every finger drawn.',
+        name: 'useGesture',
+        to: '/gestures/zones',
+        what: 'zones, trapping and every finger',
       },
     ],
   },
 ];
 
+const APP_CODE = `// shell/app-shell.tsx: one provider, one zone for the whole app
+<GestureProvider>
+  <GestureZone className="fixed inset-0">
+    <Frame />  {/* the hooks below live here */}
+  </GestureZone>
+</GestureProvider>
+
+const touch = useMedia('(pointer: coarse)'); // fingers only, never a mouse
+
+// The menu opens from the left edge.
+const menu = useSidebar({ side: 'left', width: 288, edge: 24, enabled: touch });
+
+// Two Swipes turn the page; one that starts in the edge is the menu's.
+const toNext = useSwipe({ direction: 'left', enabled: touch, onCommit: next });
+const toPrev = useSwipe({ direction: 'right', enabled: touch, onCommit: prev });
+
+// A pull at the top reloads the route's data.
+const pull = usePullToRefresh({ enabled: touch, onRefresh: () => router.invalidate() });
+
+// Every demo is <GestureZone trapped>: its touches never turn the page.`;
+
 function Gestures() {
   return (
-    <ScenarioPage
-      id="gestures"
-      title="Gestures: three layers of @kstackz/use-gesture"
-      proves={
+    <Page
+      path="/gestures"
+      testId="scenario-gestures"
+      lede={
         <>
           <p>
-            The core reports every finger and never decides what a touch means.
-            Recognizers read one meaning from it, such as a Swipe. Patterns are
-            whole behaviours built from Recognizers, such as a sidebar. Each
-            layer uses only the one below.
+            A native app owns every touch. A web page shares them with the
+            browser, which wants to scroll, zoom and go back. use-gesture takes
+            touches for the app only where you say so, and leaves the rest to
+            the browser.
           </p>
           <p>
-            Each page is full screen and works best on a phone. Every one has a
-            guide saying what to try and what should happen.
+            It comes in three layers. Each one is built only on the one below.
           </p>
         </>
       }
     >
-      <div className="flex flex-col divide-y divide-border border-y border-border">
-        {LAYERS.map((layer) => (
-          <section
+      <ol className="flex flex-col">
+        {LAYERS.map((layer, i) => (
+          <li
             key={layer.name}
-            aria-label={layer.name}
-            className="grid gap-3 py-6 md:grid-cols-[minmax(0,15rem)_1fr] md:gap-8"
+            className="grid gap-x-6 gap-y-3 border-t border-border py-7 sm:grid-cols-[3.5rem_minmax(0,1fr)]"
           >
-            <div className="flex flex-col gap-1.5">
-              <h2 className="text-base font-semibold tracking-tight">
-                {layer.name}
-              </h2>
-              <p className="text-sm leading-relaxed text-pretty text-muted-foreground">
-                {layer.blurb}
+            <span
+              aria-hidden="true"
+              className="font-display text-3xl leading-none text-muted-foreground/70 tabular-nums"
+            >
+              {String(i + 1).padStart(2, '0')}
+            </span>
+            <div className="flex max-w-[60ch] flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <h2 className="font-display text-2xl font-medium">
+                  {layer.name}
+                </h2>
+                <code className="w-fit font-mono text-xs text-muted-foreground">
+                  {layer.from}
+                </code>
+              </div>
+              <p className="text-[17px] leading-relaxed text-pretty text-muted-foreground">
+                {layer.body}
               </p>
+              <ul className="flex flex-col">
+                {layer.hooks.map((hook) => (
+                  <li key={hook.name}>
+                    <Link
+                      to={hook.to}
+                      className="group -mx-3 flex min-h-12 items-center gap-3 rounded-lg px-3 transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      <span className="font-mono text-sm font-medium">
+                        {hook.name}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                        {hook.what}
+                      </span>
+                      <ArrowRightIcon
+                        aria-hidden="true"
+                        className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 motion-reduce:transition-none"
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="flex flex-col gap-1">
-              {layer.pages.map((page) => (
-                <li key={page.to}>
-                  <Link
-                    to={page.to}
-                    className="group -mx-3 flex min-h-14 items-center gap-4 rounded-lg px-3 py-2.5 transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  >
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span className="font-mono font-medium">
-                        {page.title}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {page.summary}
-                      </span>
-                    </span>
-                    <ArrowRightIcon
-                      aria-hidden="true"
-                      className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 ease-out group-hover:translate-x-0.5 motion-reduce:transition-none"
-                    />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
+          </li>
         ))}
-      </div>
-    </ScenarioPage>
+      </ol>
+      <section className="flex flex-col gap-4 border-t border-border pt-8">
+        <h2 className="font-display text-2xl font-medium">In this app</h2>
+        <p className="max-w-[60ch] text-[17px] leading-relaxed text-pretty text-muted-foreground">
+          Everything you swipe in this app is one provider, one zone and a few
+          hooks. Demo stages are trapped zones inside it, so the app and the
+          demos never fight over a touch.
+        </p>
+        <Code title="How the app wires it" code={APP_CODE} />
+      </section>
+    </Page>
   );
 }

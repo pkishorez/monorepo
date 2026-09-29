@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { BackToGestures, ThemeToggle } from '../components/index.ts';
+import { BackLink, ThemeToggle } from '../components/index.ts';
 import {
   CASES,
   type CaseId,
@@ -7,13 +7,13 @@ import {
   parseCase,
 } from './-gestures/index.ts';
 
-type GestureSearch = { readonly case: CaseId };
+// Optional, so a plain link opens the first case.
+type GestureSearch = { readonly case?: CaseId };
 
 export const Route = createFileRoute('/gestures/lab')({
   staticData: { chrome: 'bare' },
-  validateSearch: (search: Record<string, unknown>): GestureSearch => ({
-    case: parseCase(CASES, search.case),
-  }),
+  validateSearch: (search: Record<string, unknown>): GestureSearch =>
+    search.case === undefined ? {} : { case: parseCase(CASES, search.case) },
   component: Lab,
 });
 
@@ -23,11 +23,11 @@ function Lab() {
   return (
     <GestureLab
       cases={CASES}
-      id={search.case}
+      id={parseCase(CASES, search.case)}
       onCase={(next) =>
         void navigate({ search: { case: next }, replace: true })
       }
-      start={<BackToGestures />}
+      start={<BackLink to="/gestures/zones" label="Zones" />}
       end={<ThemeToggle />}
     />
   );
