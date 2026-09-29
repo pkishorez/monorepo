@@ -1,10 +1,10 @@
-# @kstackz/auth-toolkit/http-api and @kstackz/auth-toolkit/http-api/server
+# @kstackz/auth-toolkit/http-api and @kstackz/auth-toolkit/server/http-api
 
 Protects Effect HTTP API endpoints with the same Server-Side Verification
-`@kstackz/auth-toolkit/server` uses for plain requests. `Authz` is the Auth Cannotation for
+`@kstackz/auth-toolkit/server/session` uses for plain requests. `Authz` is the Auth Cannotation for
 the HTTP Sibling, built with `@kstackz/rpc-toolkit/http/cannotation`: its Declaration lives
 in `@kstackz/auth-toolkit/http-api` and is safe to import from contract code shared with
-the browser; its Server Implementation lives in `@kstackz/auth-toolkit/http-api/server`.
+the browser; its Server Implementation lives in `@kstackz/auth-toolkit/server/http-api`.
 
 `Authz.guard()` requires valid Current Auth; `Authz.guard(policy)` additionally
 authorizes the verified User and Session. `Authz.policy(invariant, reason)` builds a policy
@@ -62,7 +62,7 @@ import { Layer } from 'effect';
 import {
   authzLayer,
   resolverLive,
-} from '@kstackz/auth-toolkit/http-api/server';
+} from '@kstackz/auth-toolkit/server/http-api';
 
 export const ApiLive = HttpApiBuilder.layer(Api).pipe(
   Layer.provide(Handlers),
@@ -96,7 +96,7 @@ still run normally:
 ```ts
 import { Effect, Layer } from 'effect';
 import { Authz } from '@kstackz/auth-toolkit/http-api';
-import { authzLayer } from '@kstackz/auth-toolkit/http-api/server';
+import { authzLayer } from '@kstackz/auth-toolkit/server/http-api';
 
 const TestResolver = Layer.succeed(
   Authz.Resolver,
@@ -122,10 +122,9 @@ the same name and different paths.
 
 ## Files
 
-| File                                   | Role                                                                                         |
-| -------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `src/server/current-auth/`             | The identity, errors, and `policy()` every `Authz` carries                                   |
-| `src/server/http-api/authz.ts`         | The curated `Authz` the contract subpath exports; `cannotation.ts` holds the raw Cannotation |
-| `src/server/http-api/middleware.ts`    | The Server Implementation: verification, policies, and refreshed-cookie relay                |
-| `src/server/http-api/http-api.ts`      | `authzLayer` and the module's public surface                                                 |
-| `src/server/http-api/http-api.test.ts` | Type-safe handlers, failures, policy inheritance, and cookies                                |
+| Path                                      | Role                                                                                                                         |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `src/server/effect/current-auth/`         | The identity, errors, `policy()` and `resolverLive` every `Authz` shares, over the vanilla Session and Access Token doors    |
+| `src/server/effect/http-api/cannotation/` | The raw Cannotation, private to the http-api graph                                                                           |
+| `src/server/effect/http-api/declaration/` | The curated `Authz` that `@kstackz/auth-toolkit/http-api` exports                                                            |
+| `src/server/effect/http-api/server/`      | The Server Implementation behind `@kstackz/auth-toolkit/server/http-api`: verification, policies, and refreshed-cookie relay |

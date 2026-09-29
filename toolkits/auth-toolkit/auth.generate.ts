@@ -8,7 +8,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import {
   authModelOptions,
   authorizationServerOptions,
-} from './src/worker/auth-model.ts';
+} from './src/auth-worker/worker/auth-model.ts';
 
 const identity = authModelOptions({
   google: {

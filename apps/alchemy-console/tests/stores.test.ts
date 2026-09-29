@@ -2,7 +2,7 @@ import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/unstable/rpc';
 import { FetchHttpClient } from 'effect/unstable/http';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
-import { authzLayer } from '@kstackz/auth-toolkit/rpc/server';
+import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { expect, it } from 'vite-plus/test';

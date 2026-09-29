@@ -1,6 +1,6 @@
 # @kstackz/auth-toolkit
 
-Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1), a client subpath for React session hooks, a cli subpath for Device Login, and a server subpath for backend-to-backend verification
+Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser and CLI clients
 
 ## Big picture
 
@@ -14,9 +14,13 @@ CLI, and MCP are three stories on that one split, not three systems.
 
 The package builds on `@kstackz/rpc-toolkit` for the `Authz` Cannotation that guards
 Effect RPC and HTTP API endpoints, and on `@kstackz/ui-toolkit` for the prebuilt
-login, consent, device, and home pages the Worker serves itself. Effect is
-optional: `@kstackz/auth-toolkit/server` and `@kstackz/auth-toolkit/server/mcp` are plain
-TypeScript.
+login, consent, device, and home pages the Worker serves itself. Subpaths
+are named for the program that imports them: `worker/*` for the Auth Worker,
+`server/*` for a Consumer Backend, `clients/*` for a First-Party browser or
+CLI. `rpc` and `http-api` are declarations both sides share. Effect is
+optional: `server/session`, `server/access-token`, and `server/mcp` are plain
+TypeScript. The source is laid out the same way, all resting on one Auth
+Worker Contract ([ADR 0013](./docs/adr/0013-one-auth-worker-contract-three-program-graphs.md)).
 
 Vocabulary lives in [`CONTEXT.md`](./CONTEXT.md). Decisions live in
 [`docs/adr/`](./docs/adr/). Every `createAuthWorker` option, and the
@@ -38,10 +42,10 @@ pnpm add @kstackz/auth-toolkit
 
 Peer dependencies, all optional; install the ones your subpaths need:
 
-- `effect`: the `rpc`, `rpc/server`, `http-api`, `http-api/server`, and `cli` subpaths are Effect Layers and Services.
-- `react`: `@kstackz/auth-toolkit/client` returns React hooks.
-- `better-sqlite3`: `@kstackz/auth-toolkit/database/memory` runs SQLite in-process for tests.
-- `alchemy`: `@kstackz/auth-toolkit/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
+- `effect`: the `rpc`, `server/rpc`, `http-api`, `server/http-api`, and `clients/cli` subpaths are Effect Layers and Services.
+- `react`: `@kstackz/auth-toolkit/clients/browser` returns React hooks.
+- `better-sqlite3`: `@kstackz/auth-toolkit/worker/database/memory` runs SQLite in-process for tests.
+- `alchemy`: `@kstackz/auth-toolkit/worker/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
 
 ## Exports
 
@@ -54,13 +58,25 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `validateTrustedOrigins` | Throws when a trusted origin pattern is neither a full origin nor a host pattern.                                  |
 | `AUTH_PAGES`             | The paths of the login, consent, device, and error pages.                                                          |
 
-### `@kstackz/auth-toolkit/client`
+### `@kstackz/auth-toolkit/worker/database/d1`
 
-| Export             | What it does                                                                                                      |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `createAuthClient` | Builds the browser client for the Auth Worker with `useSession`, `useLoginError`, `signIn.google`, and `signOut`. |
+| Export              | What it does                                                       |
+| ------------------- | ------------------------------------------------------------------ |
+| `d1PrimaryDatabase` | Builds the Primary Database Provider from a Cloudflare D1 binding. |
 
-### `@kstackz/auth-toolkit/server`
+### `@kstackz/auth-toolkit/worker/database/memory`
+
+| Export                  | What it does                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `memoryPrimaryDatabase` | Builds an in-memory SQLite Primary Database Provider migrated with the shipped `.sql` files. |
+
+### `@kstackz/auth-toolkit/worker/alchemy/d1`
+
+| Export                      | What it does                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------- |
+| `d1PrimaryDatabaseResource` | Declares the D1 database as an Alchemy resource with the package's migrations attached. |
+
+### `@kstackz/auth-toolkit/server/session`
 
 | Export          | What it does                                                                                                                   |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -92,7 +108,7 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `Authz.Forbidden`               | Error for a Principal a policy rejected.                                                        |
 | `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification.                         |
 
-### `@kstackz/auth-toolkit/rpc/server`
+### `@kstackz/auth-toolkit/server/rpc`
 
 | Export         | What it does                                                                                            |
 | -------------- | ------------------------------------------------------------------------------------------------------- |
@@ -114,14 +130,20 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `Authz.Forbidden`               | Error for a Principal a policy rejected; HTTP 403.                                               |
 | `Authz.VerificationUnavailable` | Error when the Auth Worker could not complete Server-Side Verification; HTTP 503.                |
 
-### `@kstackz/auth-toolkit/http-api/server`
+### `@kstackz/auth-toolkit/server/http-api`
 
 | Export         | What it does                                                                                                    |
 | -------------- | --------------------------------------------------------------------------------------------------------------- |
 | `authzLayer`   | Server Implementation of the HTTP API Auth Cannotation; requires `Authz.Resolver` and relays refreshed cookies. |
-| `resolverLive` | Production Current Auth Resolver; the same value `@kstackz/auth-toolkit/rpc/server` exports.                    |
+| `resolverLive` | Production Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                    |
 
-### `@kstackz/auth-toolkit/cli`
+### `@kstackz/auth-toolkit/clients/browser`
+
+| Export             | What it does                                                                                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `createAuthClient` | Builds the browser client for the Auth Worker with `useSession`, `useLoginError`, `signIn.google`, and `signOut`. |
+
+### `@kstackz/auth-toolkit/clients/cli`
 
 | Export                      | What it does                                                                                                            |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -135,36 +157,18 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `AuthWorkerRejected`        | Error when the Auth Worker answered with a 4xx status.                                                                  |
 | `InvalidAuthWorkerResponse` | Error when the Auth Worker's response did not have the expected shape.                                                  |
 
-### `@kstackz/auth-toolkit/database/d1`
-
-| Export              | What it does                                                       |
-| ------------------- | ------------------------------------------------------------------ |
-| `d1PrimaryDatabase` | Builds the Primary Database Provider from a Cloudflare D1 binding. |
-
-### `@kstackz/auth-toolkit/database/memory`
-
-| Export                  | What it does                                                                                 |
-| ----------------------- | -------------------------------------------------------------------------------------------- |
-| `memoryPrimaryDatabase` | Builds an in-memory SQLite Primary Database Provider migrated with the shipped `.sql` files. |
-
-### `@kstackz/auth-toolkit/alchemy/d1`
-
-| Export                      | What it does                                                                            |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `d1PrimaryDatabaseResource` | Declares the D1 database as an Alchemy resource with the package's migrations attached. |
-
 ## Usage
 
 ### Stand up the Auth Worker
 
 Your Worker entrypoint calls `createAuthWorker` once and hands every request
 to its `handler`. The same call runs in tests with the in-memory Provider, as
-`src/worker/tests/device-login.test.ts` does.
+`src/auth-worker/worker/tests/device-login.test.ts` does.
 
 ```ts
 // src/worker.ts
 import { createAuthWorker } from '@kstackz/auth-toolkit/worker';
-import { d1PrimaryDatabase } from '@kstackz/auth-toolkit/database/d1';
+import { d1PrimaryDatabase } from '@kstackz/auth-toolkit/worker/database/d1';
 
 interface Env {
   DB: D1Database;
@@ -203,7 +207,7 @@ export default {
 ```ts
 // alchemy.run.ts
 import * as Cloudflare from 'alchemy/Cloudflare';
-import { d1PrimaryDatabaseResource } from '@kstackz/auth-toolkit/alchemy/d1';
+import { d1PrimaryDatabaseResource } from '@kstackz/auth-toolkit/worker/alchemy/d1';
 
 const db = d1PrimaryDatabaseResource('auth-db');
 
@@ -254,7 +258,7 @@ import {
   authzCookies,
   authzLayer,
   resolverLive,
-} from '@kstackz/auth-toolkit/rpc/server';
+} from '@kstackz/auth-toolkit/server/rpc';
 
 const dependencies = Layer.mergeAll(
   Handlers,
@@ -276,16 +280,48 @@ const app = Effect.gen(function* () {
 - No credential fails with `Authz.Unauthenticated`; a rejected policy with `Authz.Forbidden`; an unreachable Auth Worker with `Authz.VerificationUnavailable`.
 - `authzCookies` verifies once per batched request and relays refreshed cookies. It needs the non-framing JSON serializer.
 - Tests replace only `Authz.Resolver` with `Layer.succeed(Authz.Resolver, Authz.Resolver.of({ resolve }))`; the Cannotation and policies still run.
-- Without Effect, call `verifyRequest` from `@kstackz/auth-toolkit/server` and append each `refreshedCookies` entry as its own `Set-Cookie` header.
+- Without Effect, call `verifyRequest` from `@kstackz/auth-toolkit/server/session` and append each `refreshedCookies` entry as its own `Set-Cookie` header.
 
-### Sign a CLI in with Device Login
+### Sign a User in from a First-Party client
 
-`CliAuth` is the CLI's browser: it keeps the Session, attaches it to every
-call, and drops it on sign-out. Lifted from `src/cli/tests/cli.test.ts`.
+Both clients hold a Session and talk only to the Auth Worker. In a browser,
+`createAuthClient` gives React hooks over the Auth Worker's cookie; lifted
+from `apps/alchemy-console/src/client/features/auth-boundary`. In a CLI,
+`CliAuth` plays the browser's part: it runs Device Login, keeps the Session,
+attaches it to every call, and drops it on sign-out; lifted from
+`src/clients/cli/tests/cli.test.ts`.
+
+```tsx
+// Browser: this app's origin must be in the Auth Worker's `trustedOrigins`.
+import { createAuthClient } from '@kstackz/auth-toolkit/clients/browser';
+
+const authClient = createAuthClient({ baseURL: 'https://auth.example.com' });
+
+export function AuthBoundary({ children }: { children: ReactNode }) {
+  const session = authClient.useSession();
+  const loginError = authClient.useLoginError();
+  if (session.isPending) return <p>Checking your session…</p>;
+  if (session.data) return children;
+  return (
+    <>
+      {loginError.error && <p>{loginError.error.description}</p>}
+      <button
+        onClick={() => {
+          loginError.dismiss();
+          void authClient.signIn.google();
+        }}
+      >
+        Sign in with Google
+      </button>
+    </>
+  );
+}
+```
 
 ```ts
+// CLI
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { CliAuth } from '@kstackz/auth-toolkit/cli';
+import { CliAuth } from '@kstackz/auth-toolkit/clients/cli';
 import { Console, Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/unstable/http';
 
@@ -316,7 +352,9 @@ Layer.mergeAll(
 );
 ```
 
-- `login` prints the code and device URL, opens the browser when run in a terminal, polls until the User approves, and stores the Session at `$XDG_STATE_HOME/<app>/auth.json` (default `~/.local/state`) with mode `0600`.
+- In the browser, `useSession` is a Direct Session Check against the Auth Worker, sent with its cookie. `signIn.google` returns to the current page; a failed sign-in comes back as `useLoginError`, and `dismiss` clears it from the URL.
+- `signOut` ends the current Session. With `multiSession` on, switching accounts happens on the Auth Worker's pages and every app on the Shared Cookie Domain follows.
+- In the CLI, `login` prints the code and device URL, opens the browser when run in a terminal, polls until the User approves, and stores the Session at `$XDG_STATE_HOME/<app>/auth.json` (default `~/.local/state`) with mode `0600`.
 - `whoami` asks the Auth Worker who the Session belongs to. `token` reads it. `logout` ends the Session at the Auth Worker and deletes the file.
 - Every request names the CLI as `<app>/<version>`, which is how it appears on the Home Page.
 - No Session or a dead one fails with `SignedOut`. A denied or expired code fails `login` with `DeviceLoginFailed`. Auth Worker problems fail with `AuthWorkerUnreachable`, `AuthWorkerUnavailable`, `AuthWorkerRejected`, or `InvalidAuthWorkerResponse`, each with a printable `message`.

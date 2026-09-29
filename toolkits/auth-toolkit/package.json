@@ -2,7 +2,7 @@
   "name": "@kstackz/auth-toolkit",
   "version": "0.0.0",
   "private": false,
-  "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1), a client subpath for React session hooks, a cli subpath for Device Login, and a server subpath for backend-to-backend verification",
+  "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser and CLI clients",
   "keywords": [
     "better-auth",
     "auth",
@@ -23,62 +23,62 @@
     "dist/"
   ],
   "exports": {
-    "./client": {
-      "types": "./dist/client/index.d.ts",
-      "default": "./dist/client/index.js"
+    "./worker": {
+      "types": "./dist/auth-worker/worker/index.d.ts",
+      "default": "./dist/auth-worker/app/worker.js"
     },
-    "./server": {
-      "types": "./dist/server/verification/session/index.d.ts",
-      "default": "./dist/server/verification/session/index.js"
+    "./worker/database/d1": {
+      "types": "./dist/auth-worker/database/sqlite/d1/database/index.d.ts",
+      "default": "./dist/auth-worker/database/sqlite/d1/database/index.js"
+    },
+    "./worker/database/memory": {
+      "types": "./dist/auth-worker/database/sqlite/memory/index.d.ts",
+      "default": "./dist/auth-worker/database/sqlite/memory/index.js"
+    },
+    "./worker/alchemy/d1": {
+      "types": "./dist/auth-worker/database/sqlite/d1/resource/index.d.ts",
+      "default": "./dist/auth-worker/database/sqlite/d1/resource/index.js"
+    },
+    "./server/session": {
+      "types": "./dist/server/vanilla/session/index.d.ts",
+      "default": "./dist/server/vanilla/session/index.js"
     },
     "./server/access-token": {
-      "types": "./dist/server/verification/access-token/index.d.ts",
-      "default": "./dist/server/verification/access-token/index.js"
+      "types": "./dist/server/vanilla/access-token/index.d.ts",
+      "default": "./dist/server/vanilla/access-token/index.js"
     },
     "./server/mcp": {
-      "types": "./dist/server/mcp/index.d.ts",
-      "default": "./dist/server/mcp/index.js"
+      "types": "./dist/server/vanilla/mcp/index.d.ts",
+      "default": "./dist/server/vanilla/mcp/index.js"
+    },
+    "./server/rpc": {
+      "types": "./dist/server/effect/rpc/server/index.d.ts",
+      "default": "./dist/server/effect/rpc/server/index.js"
+    },
+    "./server/http-api": {
+      "types": "./dist/server/effect/http-api/server/index.d.ts",
+      "default": "./dist/server/effect/http-api/server/index.js"
     },
     "./rpc": {
-      "types": "./dist/server/effect/rpc/authz.d.ts",
-      "default": "./dist/server/effect/rpc/authz.js"
-    },
-    "./rpc/server": {
-      "types": "./dist/server/effect/rpc/index.d.ts",
-      "default": "./dist/server/effect/rpc/index.js"
+      "types": "./dist/server/effect/rpc/declaration/index.d.ts",
+      "default": "./dist/server/effect/rpc/declaration/index.js"
     },
     "./http-api": {
-      "types": "./dist/server/effect/http-api/authz.d.ts",
-      "default": "./dist/server/effect/http-api/authz.js"
+      "types": "./dist/server/effect/http-api/declaration/index.d.ts",
+      "default": "./dist/server/effect/http-api/declaration/index.js"
     },
-    "./http-api/server": {
-      "types": "./dist/server/effect/http-api/index.d.ts",
-      "default": "./dist/server/effect/http-api/index.js"
+    "./clients/browser": {
+      "types": "./dist/clients/browser/index.d.ts",
+      "default": "./dist/clients/browser/index.js"
     },
-    "./cli": {
-      "types": "./dist/cli/index.d.ts",
-      "default": "./dist/cli/index.js"
-    },
-    "./worker": {
-      "types": "./dist/worker/index.d.ts",
-      "default": "./dist/app/worker.js"
-    },
-    "./database/d1": {
-      "types": "./dist/infra/primary/sqlite/d1/database/index.d.ts",
-      "default": "./dist/infra/primary/sqlite/d1/database/index.js"
-    },
-    "./database/memory": {
-      "types": "./dist/infra/primary/sqlite/memory/index.d.ts",
-      "default": "./dist/infra/primary/sqlite/memory/index.js"
-    },
-    "./alchemy/d1": {
-      "types": "./dist/infra/primary/sqlite/d1/resource/index.d.ts",
-      "default": "./dist/infra/primary/sqlite/d1/resource/index.js"
+    "./clients/cli": {
+      "types": "./dist/clients/cli/index.d.ts",
+      "default": "./dist/clients/cli/index.js"
     }
   },
   "scripts": {
-    "build": "rm -rf ./dist && vp build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/infra/primary/sqlite/migration/migrations dist/infra/primary/sqlite/migration/",
-    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/infra/primary/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
+    "build": "rm -rf ./dist && vp build --config vite.app.config.ts && node scripts/bundle-app.mts && tsc -p tsconfig.build.json && cp -R src/auth-worker/database/sqlite/migration/migrations dist/auth-worker/database/sqlite/migration/",
+    "db:generate": "auth generate --config ./auth.generate.ts --output ./src/auth-worker/database/sqlite/schema/schema.generated.ts -y && pnpm fmt && drizzle-kit generate",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && laymos lint",
     "lint:tsc": "tsc --noEmit && tsc -p tsconfig.app.json --noEmit",
