@@ -151,5 +151,8 @@ reactions. Outside every zone, or with no provider, nothing here runs.
 ## Not in the block yet
 
 Helpers that read Pointers: pan, pinch and rotation, N-finger swipes, and
-one finger holding while others move. The Gesture Lab in
-`apps/pwa-playground` is a placeholder until its demo is rebuilt.
+one finger holding while others move.
+
+The Gesture Lab in `apps/pwa-playground` (`/gestures`) shows each rule
+above as a Case you can touch, with every finger drawn and a log of who
+heard what.
