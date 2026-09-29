@@ -8,7 +8,7 @@ import {
   GestureZone,
   type Pointers,
   useGesture,
-} from '..';
+} from '../index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

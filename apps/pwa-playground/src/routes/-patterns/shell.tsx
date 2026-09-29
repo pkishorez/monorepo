@@ -1,4 +1,4 @@
-import { type Pointers, useGesture } from '@kstackz/use-gesture';
+import { type Pointers, useGesture } from '@kstackz/use-gesture/core';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import { SlidersHorizontalIcon, XIcon } from '@kstackz/ui-toolkit/lucide';
 import { motion, useMotionValueEvent } from '@kstackz/ui-toolkit/motion';

@@ -1,7 +1,11 @@
-import { type PointerSink, TRAPPED_ATTRIBUTE, zoneOf } from '../../touch-input';
-import { createPointers, type Pointer, type Pointers } from './pointers';
+import {
+  type PointerSink,
+  TRAPPED_ATTRIBUTE,
+  zoneOf,
+} from '../../touch-input/index.ts';
+import { createPointers, type Pointer, type Pointers } from './pointers.ts';
 
-export type { Pointer, Pointers } from './pointers';
+export type { Pointer, Pointers } from './pointers.ts';
 
 /**
  * How a Gesture ended. `interrupted` when the browser took the touch or the

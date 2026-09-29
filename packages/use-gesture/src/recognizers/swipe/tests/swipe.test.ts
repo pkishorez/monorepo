@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { commits, createVelocity, fingersMatch, lock, release } from '../swipe';
+import {
+  commits,
+  createVelocity,
+  fingersMatch,
+  lock,
+  release,
+} from '../swipe.ts';
 
 describe('lock', () => {
   it('waits for the first few px', () => {

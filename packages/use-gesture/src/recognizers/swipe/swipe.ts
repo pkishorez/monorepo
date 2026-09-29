@@ -1,4 +1,4 @@
-import type { Pointers } from '../../core';
+import type { Pointers } from '../../core/index.ts';
 
 /** The way a Swipe's fingers must move. */
 export type Direction = 'up' | 'down' | 'left' | 'right';

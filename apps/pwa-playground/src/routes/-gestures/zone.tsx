@@ -1,10 +1,9 @@
+import { GestureProvider, GestureZone } from '@kstackz/use-gesture';
 import {
   type GestureEnd,
-  GestureProvider,
-  GestureZone,
   type Pointers,
   useGesture,
-} from '@kstackz/use-gesture';
+} from '@kstackz/use-gesture/core';
 import { LockIcon } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { type CSSProperties, type ReactNode, useContext } from 'react';

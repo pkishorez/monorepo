@@ -15,6 +15,8 @@ The core never decides what a touch means. Two layers above it do:
 Recognizers such as `useSwipe` read one generic meaning with live feedback,
 and Patterns such as `useSidebar` and `usePullToRefresh` are whole touch
 behaviours an app uses as they are. Each layer depends only on the one below.
+The Patterns come from the package root with the provider and zone;
+Recognizers and Core have their own entry points.
 It started as ui-toolkit's gestures block; ui-toolkit's Native block builds
 its app-like navigation on it.
 
@@ -38,15 +40,24 @@ pnpm add @kstackz/use-gesture motion react react-dom
 
 ### `@kstackz/use-gesture`
 
-| Export                   | What it does                                                                                          |
-| ------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `GestureProvider`        | Follows every finger for the zones inside it and runs one Gesture at a time.                          |
-| `GestureZone`            | A `div` that marks where the app owns touch; zones nest, and `trapped` stops the walk.                |
-| `useGesture`             | Reads the Gestures its nearest zone hears, as each finger's motion values.                            |
-| `ZONE_GESTURE_ATTRIBUTE` | The `data-zone-gesture` attribute that turns a zone off or on for an element inside it.               |
-| `useSwipe`               | The Swipe Recognizer: fingers moving one way, with live offset, velocity and whether it would Commit. |
-| `useSidebar`             | A sidebar that follows a Swipe from anywhere, or only its edge, and settles open or closed.           |
-| `usePullToRefresh`       | Pull to refresh: a resisted Swipe down that refreshes when released armed.                            |
+| Export             | What it does                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| `GestureProvider`  | Follows every finger for the zones inside it and runs one Gesture at a time.                |
+| `GestureZone`      | A `div` that marks where the app owns touch; zones nest, and `trapped` stops the walk.      |
+| `useSidebar`       | A sidebar that follows a Swipe from anywhere, or only its edge, and settles open or closed. |
+| `usePullToRefresh` | Pull to refresh: a resisted Swipe down that refreshes when released armed.                  |
+
+### `@kstackz/use-gesture/recognizers`
+
+| Export     | What it does                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| `useSwipe` | The Swipe Recognizer: fingers moving one way, with live offset, velocity and whether it would Commit. |
+
+### `@kstackz/use-gesture/core`
+
+| Export       | What it does                                                               |
+| ------------ | -------------------------------------------------------------------------- |
+| `useGesture` | Reads the Gestures its nearest zone hears, as each finger's motion values. |
 
 ## Usage
 
@@ -57,6 +68,9 @@ trapped while its actions are open, so the screen's own gestures never hear
 touches that start on it.
 
 ```tsx
+import { GestureProvider, GestureZone } from '@kstackz/use-gesture';
+import { useGesture } from '@kstackz/use-gesture/core';
+
 <GestureProvider>
   <GestureZone className="fixed inset-0">
     {rows.map((row) => (
@@ -99,6 +113,8 @@ a Swipe back anywhere closes it. `edge: 24` would open it only from the left
 edge instead, and make touches there always the sidebar's.
 
 ```tsx
+import { useSidebar } from '@kstackz/use-gesture';
+
 function Shell({ children }) {
   const [open, setOpen] = useState(false);
   const sidebar = useSidebar({

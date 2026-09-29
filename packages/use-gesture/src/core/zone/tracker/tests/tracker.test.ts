@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { TRAPPED_ATTRIBUTE } from '../../../touch-input';
-import type { Pointers } from '../pointers';
-import { createTracker, type GestureListener, type Tracker } from '../tracker';
+import { TRAPPED_ATTRIBUTE } from '../../../touch-input/index.ts';
+import type { Pointers } from '../pointers.ts';
+import {
+  createTracker,
+  type GestureListener,
+  type Tracker,
+} from '../tracker.ts';
 
 const listener = (enabled = true) =>
   ({

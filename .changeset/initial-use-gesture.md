@@ -3,6 +3,10 @@
 '@kstackz/ui-toolkit': patch
 ---
 
-Initial release: the gestures block moves out of `@kstackz/ui-toolkit` into its own package.
+Introducing `@kstackz/use-gesture`: touch gestures for React, with every finger of a touch as motion values, in nested zones that own touch.
 
-`GestureProvider`, `GestureZone` and `useGesture` now come from `@kstackz/use-gesture`; `@kstackz/ui-toolkit/components/blocks/gestures` is gone. The zone no longer needs Tailwind: it sets its touch defaults (overscroll contained, no text selection, no iOS callout) as inline style that `style` overrides, and no longer sets `position: relative`; add it where the zone holds absolutely placed children.
+- `@kstackz/use-gesture`: `GestureProvider`, `GestureZone`, and the ready-made `useSidebar` and `usePullToRefresh`.
+- `@kstackz/use-gesture/recognizers`: `useSwipe`, fingers moving one way, with live offset, velocity and whether a release would commit.
+- `@kstackz/use-gesture/core`: `useGesture`, every finger of each touch and nothing else.
+
+The gestures block moves here from `@kstackz/ui-toolkit`; `@kstackz/ui-toolkit/components/blocks/gestures` is gone.

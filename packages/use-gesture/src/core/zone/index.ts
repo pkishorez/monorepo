@@ -1,4 +1,4 @@
-export { GestureProvider, GestureZone, useGesture } from './zone';
+export { GestureProvider, GestureZone, useGesture } from './zone.tsx';
 export type {
   GestureEnd,
   GestureOptions,
@@ -6,4 +6,4 @@ export type {
   GestureZoneProps,
   Pointer,
   Pointers,
-} from './zone';
+} from './zone.tsx';

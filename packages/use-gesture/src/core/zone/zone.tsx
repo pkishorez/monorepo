@@ -12,16 +12,16 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createTouchInput } from '../touch-input';
+import { createTouchInput } from '../touch-input/index.ts';
 import {
   createTracker,
   type GestureEnd,
   type Pointer,
   type Pointers,
   type Tracker,
-} from './tracker';
+} from './tracker/index.ts';
 
-export type { GestureEnd, Pointer, Pointers } from './tracker';
+export type { GestureEnd, Pointer, Pointers } from './tracker/index.ts';
 
 type Provided = {
   readonly tracker: Tracker;

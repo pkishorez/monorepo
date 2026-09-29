@@ -55,7 +55,7 @@ export default defineConfig({
     rolldownOptions: { external: ['cloudflare:workers'] },
   },
   ssr: {
-    noExternal: ['@kstackz/ui-toolkit', '@kstackz/use-gesture'],
+    noExternal: ['@kstackz/ui-toolkit'],
     resolve: {
       mainFields: ['browser', 'module', 'jsnext:main', 'jsnext'],
     },
