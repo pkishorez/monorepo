@@ -34,6 +34,7 @@ import {
   Values,
 } from '../components/index.ts';
 import { BUILD_ID_META_NAME } from '../lib/meta.ts';
+import { oneOf } from '../lib/search.ts';
 import { PlaygroundRpcs } from '../rpc/index.ts';
 
 type Client = RpcClient<
@@ -41,11 +42,20 @@ type Client = RpcClient<
   RpcClientError | VersionSkew
 >;
 
+const CALL_IDS = ['echo', 'info', 'ticks', 'retry'] as const;
+
+type Call = (typeof CALL_IDS)[number];
+
 export const Route = createFileRoute('/rpc')({
-  validateSearch: (search): { fakeBuildId?: string } =>
-    typeof search['fakeBuildId'] === 'string' && search['fakeBuildId'] !== ''
+  validateSearch: (search): { fakeBuildId?: string; call?: Call } => ({
+    ...(typeof search['fakeBuildId'] === 'string' &&
+    search['fakeBuildId'] !== ''
       ? { fakeBuildId: search['fakeBuildId'] }
-      : {},
+      : {}),
+    ...(search['call'] === undefined
+      ? {}
+      : { call: oneOf(search['call'], CALL_IDS, 'echo') }),
+  }),
   component: RpcPage,
 });
 
@@ -78,8 +88,6 @@ const connect = (fakeBuildId: string | undefined) =>
       ),
     );
   });
-
-type Call = 'echo' | 'info' | 'ticks' | 'retry';
 
 const CALLS: ReadonlyArray<{ readonly value: Call; readonly label: string }> = [
   { value: 'echo', label: 'Echo' },
@@ -249,9 +257,17 @@ function Exchange(props: {
 }
 
 function RpcPage() {
-  const { fakeBuildId } = Route.useSearch();
+  const search = Route.useSearch();
+  const { fakeBuildId } = search;
+  const call = search.call ?? 'echo';
+  const navigate = Route.useNavigate();
+  const setCall = (next: Call) =>
+    void navigate({
+      search: (prev) => ({ ...prev, call: next === 'echo' ? undefined : next }),
+      replace: true,
+      resetScroll: false,
+    });
   const pwa = usePwa();
-  const [call, setCall] = useState<Call>('echo');
   const [client, setClient] = useState<Client | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [text, setText] = useState('hello, worker');

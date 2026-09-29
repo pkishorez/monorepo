@@ -16,6 +16,7 @@ import {
   Value,
   Values,
 } from '../../components/index.ts';
+import { oneOf } from '../../lib/search.ts';
 import { Fingers } from './kit.tsx';
 
 export type ZoneOptions = {
@@ -24,6 +25,12 @@ export type ZoneOptions = {
 };
 
 export const ZONE_DEFAULTS: ZoneOptions = { trapList: false, trapRow: false };
+
+/** Options from a URL's search params; anything unknown falls back. */
+export const parseZones = (s: Record<string, unknown>): ZoneOptions => ({
+  trapList: oneOf(s['trapList'], [true, false], ZONE_DEFAULTS.trapList),
+  trapRow: oneOf(s['trapRow'], [true, false], ZONE_DEFAULTS.trapRow),
+});
 
 // Pads each tag so the zone names line up in a column.
 const tag = (text: string, name: string) => `${text.padEnd(36)}{/* ${name} */}`;

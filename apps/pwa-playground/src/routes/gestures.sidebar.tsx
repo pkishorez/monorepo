@@ -1,5 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { createFileRoute, stripSearchParams } from '@tanstack/react-router';
 import {
   Checklist,
   Code,
@@ -7,14 +6,26 @@ import {
   Page,
   Playground,
 } from '../components/index.ts';
-import { SIDEBAR_DEFAULTS, SidebarDemo, sidebarCode } from './-demos/index.ts';
+import {
+  SIDEBAR_DEFAULTS,
+  SidebarDemo,
+  type SidebarOptions,
+  parseSidebar,
+  sidebarCode,
+} from './-demos/index.ts';
 
+// The options live in the URL, so a configured playground is a link.
 export const Route = createFileRoute('/gestures/sidebar')({
+  validateSearch: parseSidebar,
+  search: { middlewares: [stripSearchParams(SIDEBAR_DEFAULTS)] },
   component: Sidebar,
 });
 
 function Sidebar() {
-  const [options, setOptions] = useState(SIDEBAR_DEFAULTS);
+  const options = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setOptions = (next: SidebarOptions) =>
+    void navigate({ search: next, replace: true, resetScroll: false });
   return (
     <Page
       path="/gestures/sidebar"

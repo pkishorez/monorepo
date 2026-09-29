@@ -1,5 +1,8 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import {
+  createFileRoute,
+  Link,
+  stripSearchParams,
+} from '@tanstack/react-router';
 import {
   Checklist,
   Code,
@@ -7,12 +10,26 @@ import {
   Page,
   Playground,
 } from '../components/index.ts';
-import { SWIPE_DEFAULTS, SwipeDemo, swipeCode } from './-demos/index.ts';
+import {
+  SWIPE_DEFAULTS,
+  SwipeDemo,
+  type SwipeOptions,
+  parseSwipe,
+  swipeCode,
+} from './-demos/index.ts';
 
-export const Route = createFileRoute('/gestures/swipe')({ component: Swipe });
+// The options live in the URL, so a configured playground is a link.
+export const Route = createFileRoute('/gestures/swipe')({
+  validateSearch: parseSwipe,
+  search: { middlewares: [stripSearchParams(SWIPE_DEFAULTS)] },
+  component: Swipe,
+});
 
 function Swipe() {
-  const [options, setOptions] = useState(SWIPE_DEFAULTS);
+  const options = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setOptions = (next: SwipeOptions) =>
+    void navigate({ search: next, replace: true, resetScroll: false });
   return (
     <Page
       path="/gestures/swipe"
