@@ -21,6 +21,14 @@ export type GestureListener = {
   /** A finger landed or lifted. */
   readonly pointer: (pointer: Pointer, pointers: Pointers) => void;
   readonly end: (pointers: Pointers, end: GestureEnd) => void;
+  /**
+   * Whether it captures a touch whose first finger landed at `point`, even
+   * over a Native Scroll. Read at the touch's first movement.
+   */
+  readonly captures?: (point: {
+    readonly x: number;
+    readonly y: number;
+  }) => boolean;
 };
 
 /**
@@ -94,6 +102,13 @@ export const createTracker = () => {
         listener.pointer(pointer, fingers.pointers());
       }
       return fingers.active() ? true : finish(false);
+    },
+    captures: () => {
+      const [first] = fingers.pointers().values();
+      if (first === undefined) return false;
+      return taking.some(
+        (listener) => listener.captures?.(first.start) === true,
+      );
     },
     cancelAll: () => {
       if (!fingers.active()) return;

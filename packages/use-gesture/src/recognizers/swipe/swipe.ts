@@ -1,4 +1,4 @@
-import type { Pointer, Pointers } from '../../core';
+import type { Pointers } from '../../core';
 
 /** The way a Swipe's fingers must move. */
 export type Direction = 'up' | 'down' | 'left' | 'right';
@@ -104,14 +104,14 @@ export const fingersMatch = (fingers: Fingers, count: number) =>
     ? count === fingers
     : count >= fingers[0] && count <= fingers[1];
 
-/** Whether `pointer` landed where `from` asks, in a `width` × `height` viewport. */
+/** Whether a finger landing at `point` is where `from` asks, in a `width` × `height` viewport. */
 export const startsFrom = (
   from: Edge | undefined,
-  pointer: Pointer,
+  point: { readonly x: number; readonly y: number },
   viewport: { readonly width: number; readonly height: number },
 ) => {
   if (from === undefined) return true;
-  const { x, y } = pointer.start;
+  const { x, y } = point;
   switch (from.edge) {
     case 'left':
       return x <= from.within;

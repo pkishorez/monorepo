@@ -32,6 +32,8 @@ export type PointerSink = {
   readonly up: (sample: PointerSample) => boolean;
   /** The browser took the touch, or the page lost focus: end it as interrupted. */
   readonly cancelAll: () => void;
+  /** Whether a listener of the Gesture under way captures its touch, even over a Native Scroll. */
+  readonly captures: () => boolean;
 };
 
 const STYLE_ID = 'kui-gesture-zone';
@@ -163,6 +165,7 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
     const zone = zoneOf(touch.target);
     if (zone === null) return 'zone';
     if (zoneGestureOf(touch.target) === 'enabled') return 'zone';
+    if (sink.captures()) return 'zone';
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
     return nativeScrollKeeps(touch.target, zone, dx, dy) ? 'browser' : 'zone';

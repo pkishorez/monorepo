@@ -80,7 +80,7 @@ afterEach(() => {
 });
 
 describe('useSidebar', () => {
-  it('follows a Swipe from its edge and opens past half its width', () => {
+  it('follows a Swipe and opens past half its width', () => {
     const onOpenChange = render();
     expect(sidebar.x.get()).toBe(-200);
     act(() => pointer('pointerdown', 10));
@@ -110,10 +110,18 @@ describe('useSidebar', () => {
     expect(onOpenChange).toHaveBeenCalledWith(true);
   });
 
-  it('opens only from a Swipe that starts at its edge', () => {
+  it('opens from a Swipe that starts anywhere by default', () => {
     const onOpenChange = render();
     swipe(100, 350, 16, 200);
+    expect(onOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  it('opens only from its edge strip when `edge` opts in', () => {
+    const onOpenChange = render({ edge: 24 });
+    swipe(100, 350, 16, 200);
     expect(onOpenChange).not.toHaveBeenCalled();
+    swipe(10, 250, 16, 200);
+    expect(onOpenChange).toHaveBeenCalledWith(true);
   });
 
   it('closes from a Swipe back anywhere while open', () => {
@@ -125,7 +133,7 @@ describe('useSidebar', () => {
   });
 
   it('works from the right edge', () => {
-    const onOpenChange = render({ side: 'right' });
+    const onOpenChange = render({ side: 'right', edge: 24 });
     expect(sidebar.x.get()).toBe(200);
     swipe(innerWidth - 10, innerWidth - 170, 16, 200);
     expect(onOpenChange).toHaveBeenCalledWith(true);

@@ -45,7 +45,7 @@ pnpm add @kstackz/use-gesture motion react react-dom
 | `useGesture`             | Reads the Gestures its nearest zone hears, as each finger's motion values.                            |
 | `ZONE_GESTURE_ATTRIBUTE` | The `data-zone-gesture` attribute that turns a zone off or on for an element inside it.               |
 | `useSwipe`               | The Swipe Recognizer: fingers moving one way, with live offset, velocity and whether it would Commit. |
-| `useSidebar`             | A sidebar that follows a Swipe from its edge and settles open or closed.                              |
+| `useSidebar`             | A sidebar that follows a Swipe from anywhere, or only its edge, and settles open or closed.           |
 | `usePullToRefresh`       | Pull to refresh: a resisted Swipe down that refreshes when released armed.                            |
 
 ## Usage
@@ -91,11 +91,12 @@ function RowActions({ row }) {
 - The browser still decides whether a release clicks; `preventClick()` stops
   it once the app has acted.
 
-### Open a sidebar from the screen's edge
+### Open a sidebar with a swipe
 
 A sidebar Pattern returns motion values; the app renders them. The hook sits
-inside the zone that covers the screen, so a Swipe from the left edge opens
-it and a Swipe back anywhere closes it.
+inside the zone that covers the screen, so a Swipe right anywhere opens it and
+a Swipe back anywhere closes it. `edge: 24` would open it only from the left
+edge instead, and make touches there always the sidebar's.
 
 ```tsx
 function Shell({ children }) {

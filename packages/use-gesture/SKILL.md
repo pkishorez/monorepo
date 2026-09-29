@@ -91,7 +91,7 @@ let each act on its own direction.
 A zone rendered through a portal still reaches its provider through React,
 but hears only fingers that land in it in the DOM.
 
-## `useGesture({ enabled?, onStart?, onPointer?, onEnd? })`
+## `useGesture({ enabled?, onStart?, onPointer?, onEnd?, captures? })`
 
 Returns `pointers`, a `MotionValue<ReadonlyMap<number, Pointer>>` of every
 finger of the Gesture under way by id, in landing order and lifted ones
@@ -105,6 +105,11 @@ from the first finger landing until the last lifts.
 | `onEnd(pointers, end)`         | The last finger lifted; `end` is `{ interrupted, preventClick }` |
 
 Nothing fires as fingers move: read that from each Pointer's motion values.
+
+`captures(point)` claims a touch whose first finger landed at `point` (viewport
+px) even over an element that could scroll it, as `data-zone-gesture="enabled"`
+does for an element. It is asked at the touch's first movement, so taps are
+never affected. A Swipe with `from` uses it to own its edge.
 
 | `Pointer` field | Meaning                                                                         |
 | --------------- | ------------------------------------------------------------------------------- |
@@ -168,13 +173,15 @@ const pull = usePullToRefresh({ onRefresh: () => refetch(), distance: 72 });
 <motion.div style={{ y: pull.y }}>{pull.state}</motion.div>
 ```
 
-| Pattern            | Options                                                                       | Returns                                        |
-| ------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------- |
-| `useSidebar`       | `side`, `width`, `open`/`defaultOpen`, `onOpenChange`, `edge` (24), `enabled` | `x`, `progress`, `open`, `setOpen`, `dragging` |
-| `usePullToRefresh` | `onRefresh` (may return a promise), `distance` (72), `enabled`                | `y`, `progress`, `state`                       |
+| Pattern            | Options                                                                           | Returns                                        |
+| ------------------ | --------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `useSidebar`       | `side`, `width`, `open`/`defaultOpen`, `onOpenChange`, `edge` (opt-in), `enabled` | `x`, `progress`, `open`, `setOpen`, `dragging` |
+| `usePullToRefresh` | `onRefresh` (may return a promise), `distance` (72), `enabled`                    | `y`, `progress`, `state`                       |
 
-A sidebar opens from a Swipe that starts within `edge` px of its side and
-closes from a Swipe back anywhere; it settles by where the momentum would
+A sidebar opens from a Swipe toward open that starts anywhere, or, with
+`edge`, only within that many px of its side; a touch there is then always
+the sidebar's, even over a list that scrolls. It closes from a Swipe back
+anywhere; it settles by where the momentum would
 carry it, past half its width. A pull arms at `distance` of indicator travel,
 which takes twice that pull, and holds at `distance` while `onRefresh`
 runs. It starts only where the list is already at its top.
@@ -185,7 +192,7 @@ runs. It starts only where the list is already at its top.
 const swipe = useSwipe({
   direction: 'down', // 'up' | 'down' | 'left' | 'right'
   fingers: 2, // exact, or [min, max]; 1 by default
-  from: { edge: 'top', within: 24 }, // optional
+  from: { edge: 'top', within: 24 }, // optional; owns touches there
   commit: { velocity: 800 }, // { distance: 80, velocity: 500 } by default
   onStart, // Tracking: the axis locked with the right fingers
   onCommit, // (release) => …

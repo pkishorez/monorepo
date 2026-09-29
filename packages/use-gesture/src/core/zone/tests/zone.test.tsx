@@ -153,6 +153,62 @@ describe('GestureProvider, GestureZone and useGesture', () => {
     expect((find('own') as HTMLElement).style.userSelect).toBe('text');
   });
 
+  describe('over an element that scrolls', () => {
+    // jsdom has no Touch: plain events carry the touch lists instead.
+    const touch = (type: string, target: Element, x: number, y: number) => {
+      const point = { identifier: 1, target, clientX: x, clientY: y };
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, {
+        touches: type === 'touchend' ? [] : [point],
+        changedTouches: [point],
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+
+    const scrolled = (captures: NonNullable<GestureOptions['captures']>) => {
+      const onEnd = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener name="listener" onEnd={onEnd} captures={captures} />
+              <div data-testid="list" style={{ overflowY: 'auto' }} />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      const list = find('list');
+      Object.defineProperties(list, {
+        scrollHeight: { value: 1000 },
+        clientHeight: { value: 400 },
+      });
+      list.scrollTop = 100;
+      act(() => {
+        pointer('pointerdown', list, 1, 10, 100);
+        touch('touchstart', list, 10, 100);
+      });
+      // A first movement barely downward: the list could scroll that way.
+      let move: Event | undefined;
+      act(() => {
+        move = touch('touchmove', list, 11, 102);
+      });
+      return { onEnd, move };
+    };
+
+    it('lets it keep a touch it can scroll', () => {
+      const { onEnd, move } = scrolled(() => false);
+      expect(move?.defaultPrevented).toBe(false);
+      expect(onEnd.mock.lastCall?.[1]).toMatchObject({ interrupted: true });
+    });
+
+    it('keeps the touch for a listener that captures where it landed', () => {
+      const { onEnd, move } = scrolled((point) => point.x <= 24);
+      expect(move?.defaultPrevented).toBe(true);
+      expect(onEnd).not.toHaveBeenCalled();
+    });
+  });
+
   it('throws outside a zone or provider', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => act(() => root.render(<Listener name="lost" />))).toThrow(
