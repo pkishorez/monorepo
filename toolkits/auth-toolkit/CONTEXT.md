@@ -8,6 +8,10 @@ Curated building blocks over better-auth for standing up one shared Auth Worker 
 The shared authentication service that owns the Primary Database and is the source of truth for sign-in, sign-out, and session validation. Always plays the Identity Role and serves the Home Page, the Login Screen, and the Device Screen; optionally also the Authorization Server Role, in which case it also serves the Consent Screen.
 _Avoid_: auth server (ambiguous with any backend that merely talks to it), backend
 
+**Auth Worker Contract**:
+What every program talking to the Auth Worker may rely on without running it: where its API and pages live, its issuer and public keys, what an Access Token says about its User, and the shape of a User and a Session. The Auth Worker keeps it; Consumer Backends, First-Party programs, and the Auth Worker's own pages read it.
+_Avoid_: shared, common, types
+
 **First-Party**:
 A program the deployment owns, in which the User signs in to the product itself: a web app or a CLI. Served by the Identity Role alone; its credential is a Session and there is nothing to register or consent to.
 _Avoid_: internal app, our client
@@ -74,7 +78,7 @@ _Avoid_: OAuth provider (collides with Provider), authorization mode
 
 **Client Application**:
 A Third-Party program that holds an Access Token to act for a User: an MCP client or an approved third-party web app. A First-Party CLI is not one; it holds a Session through Device Login. Whether it registered itself or was approved by hand does not change what it is.
-_Avoid_: client (reserved for the browser side), Provider, third party (some Client Applications are first-party)
+_Avoid_: client (reserved for a First-Party program's side: the browser, the CLI), Provider, third party (some Client Applications are first-party)
 
 **Grant**:
 The standing permission a User has given one Client Application: which Scopes it may use on the User's behalf. Created when the User accepts on the Consent Screen. Revoking it on the Home Page stops the Client Application from obtaining new Access Tokens; the ones it already holds last until they expire. One Grant per Client Application per User. Grants are Third-Party only; a Session is never a Grant.

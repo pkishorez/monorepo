@@ -10,7 +10,7 @@ import {
   Stream,
 } from 'effect';
 import type * as Cloudflare from 'alchemy/Cloudflare';
-import { verifyRequest } from '@kstackz/auth-toolkit/server';
+import { verifyRequest } from '@kstackz/auth-toolkit/server/session';
 import {
   isTrustedOrigin,
   validateTrustedOrigins,

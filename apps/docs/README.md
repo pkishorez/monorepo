@@ -19,7 +19,7 @@ It also hosts the interactive demos under `/demos`, with their code in
   `@kstackz/effect-webrtc/signaling`, with a Node peer in `src/effect-webrtc-node.ts`
   (`pnpm --filter docs webrtc:node`).
 - `durable-webrtc`: the same signaling backed by a Durable Object, with login
-  through `@kstackz/auth-toolkit/client`.
+  through `@kstackz/auth-toolkit/clients/browser`.
 
 The UI uses `@kstackz/ui-toolkit`, tracing uses `@kstackz/effect-tracer` and
 `@kstackz/flow`, and `@kstackz/rpc-toolkit` and `@kstackz/std-toolkit` sit underneath. The
