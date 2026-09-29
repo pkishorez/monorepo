@@ -1,13 +1,9 @@
-export { GestureZone, useHold } from './zone';
-export type { GestureZoneProps } from './zone';
-export { useGesture, usePan, useSwipe, useTap } from './hooks';
+export { GestureProvider, GestureZone, useGesture } from './zone';
 export type {
+  GestureEnd,
   GestureOptions,
   GestureState,
-  PanOptions,
-  PanState,
-  SwipeOptions,
-  SwipeState,
-  TapOptions,
-} from './hooks';
-export type { GestureEnd, PanEnd, Tap } from './hub';
+  GestureZoneProps,
+  Pointer,
+  Pointers,
+} from './zone';

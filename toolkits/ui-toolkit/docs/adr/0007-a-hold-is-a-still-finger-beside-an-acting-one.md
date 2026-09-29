@@ -1,5 +1,5 @@
 ---
-status: partly superseded by ADR-0008 (how a Hold starts)
+status: superseded by ADR-0008, then ADR-0009
 ---
 
 # A Hold is a still finger beside an acting one, decided by one state machine

@@ -103,36 +103,18 @@
       },
       "moduleGraphs": {
         "gestures": {
-          "description": "One Gesture Zone per screen for app-level gestures: reads the Hold and each continuous Gesture (movement, scale, rotation), one-finger Swipe and Tap from the fingers, and hands them to every enabled useGesture, useSwipe and useTap under the same Hold. touch-input wraps the browser and leaves Native Scrolls their touches; zone-machine is the XState machine deciding the phases and the Hold; hold-feedback plays the haptic and click when the Hold comes on; gesture-reading and swipe-reading are pure; zone puts them together for React",
+          "description": "Touch gestures: a GestureProvider follows every finger of each Gesture, with motion values, and hands it to every enabled useGesture in the nested GestureZones that hear it. touch-input listens to the page and holds the browser back on each zone, leaving Native Scrolls their touches; zone follows the fingers, walks up the zones to find who hears each Gesture, and puts it together for React. Whether a release clicks is the browser's call unless a listener prevents it",
           "path": "src/components/blocks/gestures",
           "modules": {
             "index.ts": {
               "exposed": true
             },
             "zone": {},
-            "gesture-reading": {},
-            "zone-machine": {},
-            "hold-feedback": {},
-            "swipe-reading": {},
             "touch-input": {}
           },
           "rules": {
-            "index.ts": [
-              "zone",
-              "touch-input",
-              "gesture-reading",
-              "zone-machine",
-              "swipe-reading"
-            ],
-            "zone": [
-              "touch-input",
-              "gesture-reading",
-              "zone-machine",
-              "hold-feedback",
-              "swipe-reading"
-            ],
-            "zone-machine": ["gesture-reading", "swipe-reading"],
-            "swipe-reading": ["gesture-reading"]
+            "index.ts": ["zone", "touch-input"],
+            "zone": ["touch-input"]
           }
         },
         "auth-screens": {
