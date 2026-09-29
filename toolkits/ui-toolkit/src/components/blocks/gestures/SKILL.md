@@ -58,10 +58,11 @@ function Toolbar() {
   is live only while some enabled listener takes `hold: true`; otherwise the
   corner is ordinary screen. When no enabled `useGesture` without a Hold
   expects a pinch, the Hold starts the moment another finger lands beside
-  the corner finger, and the edge glows faintly as the corner finger lands.
+  the corner finger, and the corner glows faintly as the corner finger lands.
   When one does, the corner finger must press still for 300ms, shown by a
   filling ring, so fingers landing together stay a pinch; the Hold then
-  ticks (a haptic, and a soft click unless `holdSound={false}`). Until the
+  ticks (a short vibration on Android, and a soft click unless
+  `holdSound={false}`). Until the
   Hold starts, the corner finger is ordinary: lifting, it is a Tap that
   clicks; moving, a Gesture. Once on, the Hold lasts until every finger
   lifts, even after the Hold finger lifts. Under it nothing is clicked and
@@ -159,9 +160,10 @@ finger is still clicked as usual.
 ## `useHold()`, the glow and the ring
 
 `useHold()` returns whether the Hold is on, as React state. The zone sets
-`data-hold` on itself while it is on. A soft light along the zone's left
-edge, a `data-slot="gesture-hold"` element, shows it: `data-phase` is
-`armed` (faint: a corner finger ready to start it) or `on`, and
+`data-hold` on itself while it is on. The Hold Zone itself lights up, a
+quarter-circle `data-slot="gesture-hold"` element glowing out from the
+corner: `data-phase` is `armed` (faint: a corner finger ready to start it),
+`pressing` (faint, with the ring) or `on`, and
 `data-active` is set while it is on. While a corner finger presses for the
 Hold, a ring (`data-slot="gesture-hold-ring"`) fills around it. Tint both
 with `--gesture-hold`; it is the foreground colour by default.

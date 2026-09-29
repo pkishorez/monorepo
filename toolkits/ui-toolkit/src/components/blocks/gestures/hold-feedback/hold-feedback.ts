@@ -6,30 +6,14 @@ const TICK_GAIN = 0.12;
 type Haptic = { readonly vibrate?: (pattern: number) => boolean };
 
 /**
- * Tells the user the Hold came on: a haptic tick where the platform has
- * one, and a soft click sound when `sound`. Android vibrates; iOS Safari
- * has no vibration, but toggling a hidden switch input plays its system
- * haptic (Safari 17.4+). Browsers only play sound once a touch has unlocked
- * it, so `prepare` must be called while handling a touch.
+ * Tells the user the Hold came on: a short vibration where the browser has
+ * one (Android; iOS Safari has none), and a soft click sound when `sound`.
+ * Browsers only play sound once a touch has unlocked it, so `prepare` must
+ * be called while handling a touch.
  */
 export const createHoldFeedback = (doc: Document) => {
   const win = doc.defaultView ?? window;
   let audio: AudioContext | undefined;
-  let toggle: HTMLLabelElement | undefined;
-
-  const switchLabel = () => {
-    if (toggle !== undefined) return toggle;
-    const label = doc.createElement('label');
-    label.ariaHidden = 'true';
-    label.style.display = 'none';
-    const input = doc.createElement('input');
-    input.type = 'checkbox';
-    input.setAttribute('switch', '');
-    label.appendChild(input);
-    doc.body.appendChild(label);
-    toggle = label;
-    return label;
-  };
 
   const click = (context: AudioContext) => {
     const now = context.currentTime;
@@ -55,13 +39,10 @@ export const createHoldFeedback = (doc: Document) => {
     },
     /** The Hold came on. */
     tick: (sound: boolean) => {
-      const haptic = win.navigator as Haptic;
-      if (typeof haptic.vibrate === 'function') haptic.vibrate(10);
-      else switchLabel().click();
+      (win.navigator as Haptic).vibrate?.(10);
       if (sound && audio?.state === 'running') click(audio);
     },
     dispose: () => {
-      toggle?.remove();
       void audio?.close();
     },
   };

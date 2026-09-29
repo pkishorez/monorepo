@@ -1,9 +1,8 @@
-import { GalleryHorizontalIcon, Grid3x3Icon } from '@kstackz/ui-toolkit/lucide';
+import { Grid3x3Icon, HandIcon, MoveIcon } from '@kstackz/ui-toolkit/lucide';
 import type { ComponentType } from 'react';
-import { CardsDemo } from '../cards-demo/index.ts';
-import { ZoneDemo } from '../zone-demo/index.ts';
+import { GestureBench, PanBench, SwipeTapBench } from '../bench/index.ts';
 
-export const DEMO_IDS = ['zone', 'cards'] as const;
+export const DEMO_IDS = ['pan', 'gesture', 'swipe'] as const;
 export type DemoId = (typeof DEMO_IDS)[number];
 
 export type Demo = {
@@ -13,8 +12,9 @@ export type Demo = {
 };
 
 export const DEMOS: Record<DemoId, Demo> = {
-  zone: { title: 'Zone', Icon: Grid3x3Icon, Screen: ZoneDemo },
-  cards: { title: 'Cards', Icon: GalleryHorizontalIcon, Screen: CardsDemo },
+  pan: { title: 'usePan', Icon: MoveIcon, Screen: PanBench },
+  gesture: { title: 'useGesture', Icon: Grid3x3Icon, Screen: GestureBench },
+  swipe: { title: 'Swipe · Tap', Icon: HandIcon, Screen: SwipeTapBench },
 };
 
 /** The demo a `?demo=` value names, or the first. */
