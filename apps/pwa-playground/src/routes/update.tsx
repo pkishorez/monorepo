@@ -65,6 +65,7 @@ function Update() {
   const check = () =>
     pwa.checkForUpdate().then(() => setLastCheck(new Date().toISOString()));
   usePageRefresh(check);
+  const ready = pwa.status._tag === 'UpdateReady';
 
   return (
     <Page
@@ -95,13 +96,18 @@ function Update() {
         </Stage>
         <Controls>
           <Actions>
-            <Button data-testid="update-check" onClick={() => void check()}>
+            <Button
+              // Once a build waits, applying it is the next step.
+              variant={ready ? 'outline' : 'default'}
+              data-testid="update-check"
+              onClick={() => void check()}
+            >
               Check now
             </Button>
             <Button
-              variant="outline"
+              variant={ready ? 'default' : 'outline'}
               data-testid="update-apply"
-              disabled={pwa.status._tag !== 'UpdateReady'}
+              disabled={!ready}
               onClick={() => void pwa.applyUpdate()}
             >
               Apply update
