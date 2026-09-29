@@ -1,7 +1,7 @@
 import { usePan } from '@kstackz/ui-toolkit/components/blocks/gestures';
 import { useMotionValueEvent } from '@kstackz/ui-toolkit/motion';
 import { useRef } from 'react';
-import { Bench, Lane, signed, useNote, usePuck } from './bench.tsx';
+import { Bench, Lane, PuckShape, signed, useNote, usePuck } from './bench.tsx';
 
 function PanLane(props: { readonly hold: boolean }) {
   const { hold } = props;
@@ -29,13 +29,9 @@ function PanLane(props: { readonly hold: boolean }) {
   useMotionValueEvent(pan.x, 'change', show);
   useMotionValueEvent(pan.y, 'change', show);
   return (
-    <Lane
-      title={name}
-      hold={hold}
-      active={pan.active}
-      puck={puck}
-      readout={readout}
-    />
+    <Lane title={name} hold={hold} active={pan.active} readout={readout}>
+      <PuckShape puck={puck} hold={hold} active={pan.active} />
+    </Lane>
   );
 }
 

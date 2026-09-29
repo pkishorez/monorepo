@@ -4,7 +4,7 @@ import {
 } from '@kstackz/ui-toolkit/components/blocks/gestures';
 import { useMotionValueEvent } from '@kstackz/ui-toolkit/motion';
 import { useRef, useState } from 'react';
-import { Bench, Lane, signed, useNote, usePuck } from './bench.tsx';
+import { Bench, Lane, PuckShape, signed, useNote, usePuck } from './bench.tsx';
 
 function SwipeTapLane(props: { readonly hold: boolean }) {
   const { hold } = props;
@@ -43,14 +43,15 @@ function SwipeTapLane(props: { readonly hold: boolean }) {
       title={`useSwipe + useTap({ hold: ${hold} })`}
       hold={hold}
       active={swipe.active}
-      puck={puck}
       readout={readout}
       badge={
         <span className="font-mono text-[11px] text-muted-foreground">
           taps {taps}
         </span>
       }
-    />
+    >
+      <PuckShape puck={puck} hold={hold} active={swipe.active} />
+    </Lane>
   );
 }
 
