@@ -4,13 +4,15 @@
   "layers": {
     "core": {
       "paths": ["src/core"],
-      "description": "Core — a GestureProvider follows every finger of each Gesture, with motion values, and hands it to every enabled useGesture in the nested GestureZones that hear it. It never says what a Gesture means.",
+      "description": "Core \u2014 a GestureProvider follows every finger of each Gesture, with motion values, and hands it to every enabled useGesture in the nested GestureZones that hear it. It never says what a Gesture means.",
       "moduleGraphs": {
         "core": {
           "description": "touch-input listens to the page and holds the browser back on each zone, leaving Native Scrolls their touches; zone follows the fingers, walks up the zones to find who hears each Gesture, and puts it together for React. Whether a release clicks is the browser's call unless a listener prevents it",
           "path": "src/core",
           "modules": {
-            "index.ts": { "exposed": true },
+            "index.ts": {
+              "exposed": true
+            },
             "zone": {},
             "touch-input": {}
           },
@@ -21,11 +23,52 @@
         }
       }
     },
+    "recognizers": {
+      "paths": ["src/recognizers"],
+      "description": "Recognizers \u2014 one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live values for feedback, then a Commit or a Cancel. They never know about each other.",
+      "moduleGraphs": {
+        "recognizers": {
+          "description": "Each Recognizer reads Pointers from useGesture on its own.",
+          "path": "src/recognizers",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "swipe": {}
+          },
+          "rules": {
+            "index.ts": ["swipe"]
+          }
+        }
+      }
+    },
+    "patterns": {
+      "paths": ["src/patterns"],
+      "description": "Patterns \u2014 purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the values their UI needs and settling themselves.",
+      "moduleGraphs": {
+        "patterns": {
+          "description": "Each Pattern stands alone on the Recognizers.",
+          "path": "src/patterns",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "sidebar": {},
+            "pull-to-refresh": {}
+          },
+          "rules": {
+            "index.ts": ["sidebar", "pull-to-refresh"]
+          }
+        }
+      }
+    },
     "facade": {
       "paths": ["src/index.ts"],
-      "description": "Facade — the package's one entry point.",
+      "description": "Facade \u2014 the package's one entry point.",
       "modules": {
-        "src/index.ts": { "exposed": true }
+        "src/index.ts": {
+          "exposed": true
+        }
       }
     }
   },
@@ -34,7 +77,9 @@
       "description": "The facade re-exports each layer; lower layers never import higher ones.",
       "rules": {
         "core": [],
-        "facade": ["core"]
+        "recognizers": ["core"],
+        "patterns": ["recognizers"],
+        "facade": ["core", "recognizers", "patterns"]
       }
     }
   }

@@ -1,13 +1,17 @@
 ---
 name: use-gesture
-description: Add touch gestures with @kstackz/use-gesture — a GestureProvider at the root, nested GestureZones for the areas that own touch, and useGesture, which reports every finger of a touch as motion values and leaves what it means to the app. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
+description: Add touch gestures with @kstackz/use-gesture — a GestureProvider at the root, nested GestureZones for the areas that own touch, Patterns such as useSidebar and usePullToRefresh, Recognizers such as useSwipe, and useGesture, which reports every finger of a touch as motion values. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
 ---
 
 # use-gesture
 
-`@kstackz/use-gesture`: a `GestureProvider`,
-`GestureZone`s that nest, and `useGesture`, which reads the Gestures its
-nearest zone hears.
+`@kstackz/use-gesture`: a `GestureProvider`, `GestureZone`s that nest, and
+three layers of hooks that read the Gestures their nearest zone hears. Reach
+for the highest one that fits:
+
+1. **Patterns** — `useSidebar`, `usePullToRefresh`: one UI behaviour, done.
+2. **Recognizers** — `useSwipe`: one generic meaning, with live feedback.
+3. **Core** — `useGesture`: every finger, and nothing else.
 
 ```tsx
 // The whole app is a zone; the inbox list is one inside it; each row is one
@@ -148,10 +152,70 @@ zone should be marked `data-zone-gesture="disabled"`. Otherwise the zone
 also follows the finger and holds the browser back, and one touch gets two
 reactions. Outside every zone, or with no provider, nothing here runs.
 
+## Patterns
+
+Hooks only: each returns motion values and state, and you render it. Put the
+hook inside the zone whose Gestures it should hear.
+
+```tsx
+const sidebar = useSidebar({ side: 'left', width: 280, open, onOpenChange });
+<motion.aside style={{ x: sidebar.x }} />
+<motion.div style={{ opacity: sidebar.progress }} onClick={() => sidebar.setOpen(false)} />
+
+const pull = usePullToRefresh({ onRefresh: () => refetch(), distance: 72 });
+<motion.div style={{ y: pull.y }}>{pull.state}</motion.div>
+```
+
+| Pattern            | Options                                                                       | Returns                                        |
+| ------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------- |
+| `useSidebar`       | `side`, `width`, `open`/`defaultOpen`, `onOpenChange`, `edge` (24), `enabled` | `x`, `progress`, `open`, `setOpen`, `dragging` |
+| `usePullToRefresh` | `onRefresh` (may return a promise), `distance` (72), `enabled`                | `y`, `progress`, `state`                       |
+
+A sidebar opens from a Swipe that starts within `edge` px of its side and
+closes from a Swipe back anywhere; it settles by where the momentum would
+carry it, past half its width. A pull arms at `distance` of indicator travel,
+which takes twice that pull, and holds at `distance` while `onRefresh`
+runs. It starts only where the list is already at its top.
+
+## `useSwipe`
+
+```tsx
+const swipe = useSwipe({
+  direction: 'down', // 'up' | 'down' | 'left' | 'right'
+  fingers: 2, // exact, or [min, max]; 1 by default
+  from: { edge: 'top', within: 24 }, // optional
+  commit: { velocity: 800 }, // { distance: 80, velocity: 500 } by default
+  onStart, // Tracking: the axis locked with the right fingers
+  onCommit, // (release) => …
+  onCancel, // (reason, release?) => …
+});
+// swipe.offset, swipe.progress, swipe.velocity, swipe.willCommit: MotionValues
+// swipe.state: 'idle' | 'possible' | 'tracking'
+```
+
+- It is `possible` from the first finger landing where `from` asks. After
+  10px it locks: moving the wrong way Cancels with `direction`, the wrong
+  finger count with `fingers`.
+- While `tracking`, `offset` follows the average of the fingers toward
+  `direction` and clamps at 0 when they come back.
+- It decides as the **first** finger lifts. It Commits when `offset` reaches
+  `distance` or the release velocity reaches `velocity`; otherwise it Cancels
+  with `short`. A finger landing after it locks Cancels with `fingers`; the
+  browser taking the touch Cancels with `interrupted`.
+- `willCommit` says at every moment whether letting go now would Commit.
+  Velocity is measured over the last 100ms, so it falls while the fingers
+  rest: a flick that stops shows it before the finger lifts.
+- A flick is `commit: { velocity }` with no `distance`.
+- `release` has `offset`, `velocity` and `projected`, where momentum would
+  carry it, for choosing where to settle.
+
+Recognizers never know about each other. Two that hear one Gesture can both
+Commit: keep them apart with `enabled`, `from`, zones and `trapped`.
+
 ## Not in the package yet
 
-Helpers that read Pointers: pan, pinch and rotation, N-finger swipes, and
-one finger holding while others move.
+Recognizers for pan, pinch, rotation, tap and one finger holding while
+others move; Patterns for swiping a row's actions.
 
 The Gesture Lab in `apps/pwa-playground` (`/gestures`) shows each rule
 above as a Case you can touch, with every finger drawn and a log of who
