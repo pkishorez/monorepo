@@ -69,7 +69,8 @@ export const scenarios: ReadonlyArray<Scenario> = [
   {
     path: '/gestures',
     title: 'Gesture Lab',
-    summary: 'The Gesture Zone’s useGesture. Demo pending.',
+    summary:
+      'Ten Cases of nested zones, trapping and useGesture, every finger drawn.',
     group: 'Gestures',
   },
   {
