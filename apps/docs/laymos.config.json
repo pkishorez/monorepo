@@ -4,30 +4,24 @@
   "ignoredPaths": ["src/routeTree.gen.ts", "src/styles", "src/types.d.ts"],
   "layers": {
     "entry": {
-      "paths": [
-        "src/router.tsx",
-        "src/start.ts",
-        "src/server.ts",
-        "src/effect-webrtc-node.ts"
-      ],
-      "description": "Host entries — TanStack Start server, router, worker forwarding",
+      "paths": ["src/router.tsx", "src/start.ts", "src/server.ts"],
+      "description": "Host entries \u2014 TanStack Start server, router, worker forwarding",
       "modules": {
         "src/router.tsx": {},
         "src/start.ts": {},
-        "src/server.ts": {},
-        "src/effect-webrtc-node.ts": {}
+        "src/server.ts": {}
       }
     },
     "routes": {
       "paths": ["src/routes"],
-      "description": "Route surface — pages and API handlers",
+      "description": "Route surface \u2014 pages and API handlers",
       "modules": {
         "src/routes": {}
       }
     },
     "infra": {
       "paths": ["src/infra"],
-      "description": "Deployable resources — each worker defined separately, composed by alchemy.run.ts",
+      "description": "Deployable resources \u2014 each worker defined separately, composed by alchemy.run.ts",
       "modules": {
         "src/infra": {}
       }
@@ -79,87 +73,6 @@
         }
       }
     },
-    "effect-webrtc-app": {
-      "paths": ["src/demos/effect-webrtc/app"],
-      "description": "Effect WebRTC demo — adapts the Conversation Runtime to the page and Flow diagnostics",
-      "modules": {
-        "src/demos/effect-webrtc/app/effect-webrtc-page": {
-          "exposed": true
-        }
-      }
-    },
-    "effect-webrtc-ui": {
-      "paths": ["src/demos/effect-webrtc/ui"],
-      "description": "Effect WebRTC demo — renders setup and horizontally snapping Conversation panels from values and callbacks",
-      "modules": {
-        "src/demos/effect-webrtc/ui": {
-          "exposed": true
-        }
-      }
-    },
-    "effect-webrtc-node": {
-      "paths": ["src/demos/effect-webrtc/node"],
-      "description": "Effect WebRTC demo — a Node Peer CLI that connects to one browser Peer and exchanges Messages",
-      "modules": {
-        "src/demos/effect-webrtc/node": {
-          "exposed": true
-        }
-      }
-    },
-    "effect-webrtc-runtime": {
-      "paths": ["src/demos/effect-webrtc/runtime"],
-      "description": "Effect WebRTC demo — owns one local Peer, its Conversations, Transcripts, Nostr signaling, and tracing",
-      "modules": {
-        "src/demos/effect-webrtc/runtime": {
-          "exposed": true
-        }
-      }
-    },
-    "effect-webrtc-contract": {
-      "paths": ["src/demos/effect-webrtc/contract"],
-      "description": "Effect WebRTC demo — the Messages RPC Contract",
-      "modules": {
-        "src/demos/effect-webrtc/contract": {
-          "exposed": true
-        }
-      }
-    },
-    "durable-webrtc-app": {
-      "paths": ["src/demos/durable-webrtc/app"],
-      "description": "Durable WebRTC demo — authenticates the user and boots one named peer",
-      "modules": {
-        "src/demos/durable-webrtc/app/durable-webrtc-page": {
-          "exposed": true
-        }
-      }
-    },
-    "durable-webrtc-auth": {
-      "paths": ["src/demos/durable-webrtc/auth"],
-      "description": "Durable WebRTC demo — browser auth client",
-      "modules": {
-        "src/demos/durable-webrtc/auth": {
-          "exposed": true
-        }
-      }
-    },
-    "durable-webrtc-runtime": {
-      "paths": ["src/demos/durable-webrtc/runtime"],
-      "description": "Durable WebRTC demo — composes authenticated Durable signaling with the conversation runtime",
-      "modules": {
-        "src/demos/durable-webrtc/runtime": {
-          "exposed": true
-        }
-      }
-    },
-    "durable-webrtc-ui": {
-      "paths": ["src/demos/durable-webrtc/ui"],
-      "description": "Durable WebRTC demo — peer profile, directory, and conversations",
-      "modules": {
-        "src/demos/durable-webrtc/ui": {
-          "exposed": true
-        }
-      }
-    },
     "ai-playground-app": {
       "paths": ["src/demos/ai-toolkit/app"],
       "description": "AI playground screen joining live records to the presentation layer.",
@@ -192,36 +105,10 @@
     "docs-site": {
       "description": "Docs app: entries over routes over components over lib",
       "rules": {
-        "entry": ["components", "effect-webrtc-node"],
-        "routes": [
-          "components",
-          "lib",
-          "effect-webrtc-app",
-          "durable-webrtc-app",
-          "ai-playground-app"
-        ],
+        "entry": ["components"],
+        "routes": ["components", "lib", "ai-playground-app"],
         "infra": [],
         "components": ["lib"]
-      }
-    },
-    "effect-webrtc-demo": {
-      "description": "Effect WebRTC demo: page and Node Peer over the Conversation Runtime, UI, and Messages RPC Contract",
-      "rules": {
-        "effect-webrtc-app": ["effect-webrtc-runtime", "effect-webrtc-ui"],
-        "effect-webrtc-runtime": ["effect-webrtc-contract"],
-        "effect-webrtc-node": ["effect-webrtc-contract"]
-      }
-    },
-    "durable-webrtc-demo": {
-      "description": "Durable WebRTC demo: authenticated page over a Durable peer directory and shared WebRTC conversation runtime",
-      "rules": {
-        "durable-webrtc-app": [
-          "durable-webrtc-auth",
-          "durable-webrtc-runtime",
-          "durable-webrtc-ui"
-        ],
-        "durable-webrtc-runtime": ["effect-webrtc-runtime"],
-        "durable-webrtc-ui": ["durable-webrtc-runtime", "effect-webrtc-ui"]
       }
     },
     "ai-playground": {

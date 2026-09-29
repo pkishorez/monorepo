@@ -17,12 +17,11 @@ and Patterns such as `useSidebar` and `usePullToRefresh` are whole touch
 behaviours an app uses as they are. Each layer depends only on the one below.
 The Patterns come from the package root with the provider and zone;
 Recognizers and Core have their own entry points.
-It started as ui-toolkit's gestures block; ui-toolkit's Native block builds
-its app-like navigation on it.
+It started as ui-toolkit's gestures block.
 
 The language is in [CONTEXT.md](./CONTEXT.md), and the decisions that shaped
 it are in [docs/adr/](./docs/adr/). They are numbered from 0002 because 0001
-is the Native block's and stayed in ui-toolkit. The agent guide is
+was ui-toolkit's, for its since-removed Native block. The agent guide is
 [SKILL.md](./SKILL.md).
 
 ## Install

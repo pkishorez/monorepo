@@ -11,12 +11,10 @@
   },
   "exports": {
     "./components/blocks/auth": "./src/components/blocks/auth/auth-screens/index.ts",
-    "./components/blocks/er-diagram": "./src/components/blocks/er-diagram/er-diagram/index.ts",
     "./components/blocks/flow-swimlane": "./src/components/blocks/flow-swimlane/flow-swimlane/index.ts",
     "./components/blocks/laymos": "./src/components/blocks/laymos/analysis-explorer/index.ts",
     "./components/blocks/monoverse": "./src/components/blocks/monoverse/monoverse/index.ts",
     "./components/blocks/otel-trace-viewer": "./src/components/blocks/otel-trace-viewer/trace-viewer/index.ts",
-    "./components/blocks/std-toolkit-studio": "./src/components/blocks/std-toolkit-studio/std-toolkit-studio/index.ts",
     "./components/blocks/*": "./src/components/blocks/*/index.ts",
     "./components/blocks/theme/tanstack-start": "./src/components/blocks/theme/tanstack-start/index.ts",
     "./components/*": "./src/components/*.tsx",
@@ -40,8 +38,6 @@
   "dependencies": {
     "@base-ui/react": "catalog:",
     "@codemirror/lang-json": "catalog:",
-    "@dagrejs/dagre": "catalog:",
-    "@emotion/is-prop-valid": "catalog:",
     "@fontsource-variable/inter": "catalog:",
     "@fontsource-variable/jetbrains-mono": "catalog:",
     "@shadcn/react": "catalog:",
@@ -58,10 +54,7 @@
     "clsx": "catalog:",
     "cmdk": "catalog:",
     "cn": "catalog:",
-    "date-fns": "catalog:",
-    "elkjs": "catalog:",
     "embla-carousel-react": "catalog:",
-    "gray-matter": "catalog:",
     "input-otp": "catalog:",
     "lucide-react": "catalog:",
     "motion": "catalog:",
@@ -69,18 +62,13 @@
     "react-markdown": "catalog:",
     "react-resizable-panels": "catalog:",
     "recharts": "catalog:",
-    "rehype-slug": "catalog:",
-    "remark-frontmatter": "catalog:",
     "remark-gfm": "catalog:",
     "shadcn": "catalog:",
     "shiki": "catalog:",
     "sonner": "catalog:",
     "tailwind-merge": "catalog:",
     "tailwindcss": "catalog:",
-    "tw-animate-css": "catalog:",
-    "vaul": "catalog:",
-    "xstate": "catalog:",
-    "xstate-v6": "catalog:xstate6"
+    "tw-animate-css": "catalog:"
   },
   "devDependencies": {
     "@kstackz/effect-tracer": "workspace:*",
@@ -95,7 +83,6 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "effect": "catalog:",
-    "globals": "catalog:",
     "laymos": "workspace:*",
     "react-cosmos": "catalog:",
     "react-cosmos-plugin-vite": "catalog:",
@@ -115,7 +102,6 @@
     "laymos": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "@kstackz/std-toolkit": "workspace:*",
     "use-effect-ts": "workspace:*",
     "zustand": "5.0.15"
   },
@@ -136,9 +122,6 @@
       "optional": true
     },
     "laymos": {
-      "optional": true
-    },
-    "@kstackz/std-toolkit": {
       "optional": true
     },
     "use-effect-ts": {
