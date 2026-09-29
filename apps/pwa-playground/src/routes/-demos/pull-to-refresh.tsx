@@ -11,6 +11,7 @@ import {
   Value,
   Values,
 } from '../../components/index.ts';
+import { oneOf } from '../../lib/search.ts';
 import { Fingers, MAIL, pct, Phone, px } from './kit.tsx';
 
 export type PullOptions = {
@@ -24,6 +25,16 @@ export const PULL_DEFAULTS: PullOptions = {
   seconds: 1.5,
   enabled: true,
 };
+
+const DISTANCES = [48, 72, 112] as const;
+const SECONDS = [0.5, 1.5, 3] as const;
+
+/** Options from a URL's search params; anything unknown falls back. */
+export const parsePull = (s: Record<string, unknown>): PullOptions => ({
+  distance: oneOf(s['distance'], DISTANCES, PULL_DEFAULTS.distance),
+  seconds: oneOf(s['seconds'], SECONDS, PULL_DEFAULTS.seconds),
+  enabled: oneOf(s['enabled'], [true, false], PULL_DEFAULTS.enabled),
+});
 
 export const pullCode = (
   o: PullOptions,
@@ -169,21 +180,13 @@ export function PullDemo(props: {
           <Segmented
             label="Distance to arm"
             value={options.distance}
-            options={[
-              { value: 48, label: '48px' },
-              { value: 72, label: '72px' },
-              { value: 112, label: '112px' },
-            ]}
+            options={DISTANCES.map((d) => ({ value: d, label: `${d}px` }))}
             onChange={(distance) => set({ distance })}
           />
           <Segmented
             label="Refresh takes"
             value={options.seconds}
-            options={[
-              { value: 0.5, label: '0.5s' },
-              { value: 1.5, label: '1.5s' },
-              { value: 3, label: '3s' },
-            ]}
+            options={SECONDS.map((t) => ({ value: t, label: `${t}s` }))}
             onChange={(seconds) => set({ seconds })}
           />
           <Toggle

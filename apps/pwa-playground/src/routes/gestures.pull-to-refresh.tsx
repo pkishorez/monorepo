@@ -1,5 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { createFileRoute, stripSearchParams } from '@tanstack/react-router';
 import {
   Checklist,
   Code,
@@ -7,14 +6,26 @@ import {
   Page,
   Playground,
 } from '../components/index.ts';
-import { PULL_DEFAULTS, PullDemo, pullCode } from './-demos/index.ts';
+import {
+  PULL_DEFAULTS,
+  PullDemo,
+  type PullOptions,
+  parsePull,
+  pullCode,
+} from './-demos/index.ts';
 
+// The options live in the URL, so a configured playground is a link.
 export const Route = createFileRoute('/gestures/pull-to-refresh')({
+  validateSearch: parsePull,
+  search: { middlewares: [stripSearchParams(PULL_DEFAULTS)] },
   component: PullToRefresh,
 });
 
 function PullToRefresh() {
-  const [options, setOptions] = useState(PULL_DEFAULTS);
+  const options = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const setOptions = (next: PullOptions) =>
+    void navigate({ search: next, replace: true, resetScroll: false });
   return (
     <Page
       path="/gestures/pull-to-refresh"
