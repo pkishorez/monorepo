@@ -10,11 +10,8 @@
     "src/components/blocks/auth/login-screen.fixture.tsx",
     "src/components/blocks/auth/not-found-screen.fixture.tsx",
     "src/components/blocks/devtools-panel/devtools-panel.fixture.tsx",
-    "src/components/blocks/er-diagram/er-diagram.fixture.tsx",
-    "src/components/blocks/er-diagram/fixtures",
     "src/components/blocks/flow-swimlane/examples",
     "src/components/blocks/flow-swimlane/flow-swimlane.fixture.tsx",
-    "src/components/blocks/hello.tsx",
     "src/components/blocks/laymos/analysis-explorer/fixtures",
     "src/components/blocks/laymos/layer-inspection/details/fixtures",
     "src/components/blocks/laymos/layer-inspection/fixtures",
@@ -28,7 +25,6 @@
     "src/components/blocks/laymos/story-inspection/fixtures",
     "src/components/blocks/monoverse/monoverse/monoverse.fixture.tsx",
     "src/components/blocks/otel-trace-viewer/otel-trace-viewer.fixture.tsx",
-    "src/components/blocks/std-toolkit-studio/std-toolkit-studio.fixture.tsx",
     "src/cosmos.decorator.tsx",
     "src/css.d.ts",
     "src/styles"
@@ -36,29 +32,20 @@
   "layers": {
     "blocks": {
       "paths": [
-        "src/components/blocks/app-frame",
         "src/components/blocks/auth",
         "src/components/blocks/diff-viewer",
-        "src/components/blocks/environment",
-        "src/components/blocks/er-diagram",
         "src/components/blocks/file-tree",
         "src/components/blocks/flow-swimlane",
         "src/components/blocks/git-changes",
         "src/components/blocks/json",
         "src/components/blocks/markdown-viewer",
         "src/components/blocks/otel-trace-viewer",
-        "src/components/blocks/sequence",
         "src/components/blocks/source-explorer",
         "src/components/blocks/source-viewer",
-        "src/components/blocks/state-machine-visualizer",
-        "src/components/blocks/swim-lane",
         "src/components/blocks/theme"
       ],
       "description": "Feature-level components composed from UI primitives",
       "modules": {
-        "src/components/blocks/app-frame": {
-          "exposed": true
-        },
         "src/components/blocks/diff-viewer": {
           "shared": true,
           "exposed": true
@@ -66,9 +53,6 @@
         "src/components/blocks/file-tree": {
           "shared": true,
           "exposed": true
-        },
-        "src/components/blocks/environment": {
-          "shared": true
         },
         "src/components/blocks/git-changes": {
           "exposed": true
@@ -80,20 +64,11 @@
         "src/components/blocks/markdown-viewer": {
           "exposed": true
         },
-        "src/components/blocks/sequence": {
-          "exposed": true
-        },
         "src/components/blocks/source-explorer": {
           "exposed": true
         },
         "src/components/blocks/source-viewer": {
           "shared": true,
-          "exposed": true
-        },
-        "src/components/blocks/state-machine-visualizer": {
-          "exposed": true
-        },
-        "src/components/blocks/swim-lane": {
           "exposed": true
         },
         "src/components/blocks/theme": {
@@ -199,59 +174,6 @@
             "waterfall-view": ["trace-model", "trace-presentation"],
             "narrative-view": ["trace-model", "trace-presentation"],
             "span-inspection": ["trace-model", "trace-presentation"]
-          }
-        },
-        "er-diagram": {
-          "description": "Presents table snapshots as clean field-level entity relationship diagrams",
-          "path": "src/components/blocks/er-diagram",
-          "modules": {
-            "er-diagram": {
-              "exposed": true
-            },
-            "relationship-presentation": {},
-            "graph-layout": {},
-            "diagram-canvas": {},
-            "complex-field-details": {}
-          },
-          "rules": {
-            "er-diagram": [
-              "relationship-presentation",
-              "graph-layout",
-              "diagram-canvas",
-              "complex-field-details"
-            ],
-            "graph-layout": ["relationship-presentation"],
-            "diagram-canvas": ["graph-layout"],
-            "complex-field-details": ["relationship-presentation"]
-          }
-        }
-      }
-    },
-    "studio": {
-      "paths": ["src/components/blocks/std-toolkit-studio"],
-      "description": "Composes reusable Blocks into the Std Toolkit Studio",
-      "moduleGraphs": {
-        "std-toolkit-studio": {
-          "description": "Loads, queries, and presents one StdTable through Studio RPC",
-          "path": "src/components/blocks/std-toolkit-studio",
-          "modules": {
-            "std-toolkit-studio": {
-              "exposed": true
-            },
-            "snapshot-session": {},
-            "query-model": {},
-            "query-workspace": {},
-            "record-table": {},
-            "record-details": {}
-          },
-          "rules": {
-            "std-toolkit-studio": ["snapshot-session", "query-workspace"],
-            "query-workspace": [
-              "query-model",
-              "record-table",
-              "record-details"
-            ],
-            "record-table": ["query-model"]
           }
         }
       }
@@ -626,7 +548,6 @@
     "frontend": {
       "description": "Frontend component architecture",
       "rules": {
-        "studio": ["blocks"],
         "architecture-analysis": ["blocks"],
         "monorepo-analysis": ["blocks"],
         "devtools-panel": ["blocks"],

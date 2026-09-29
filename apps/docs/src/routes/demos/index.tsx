@@ -12,13 +12,6 @@ const demos = [
       'Run Claude and Codex, answer tool requests, and inspect the typed messages synced back from the playground server.',
     to: '/demos/ai-toolkit',
   },
-  {
-    name: 'webrtc',
-    title: 'WebRTC Chat',
-    description:
-      'Chat directly over WebRTC, using Nostr or your signed-in devices to find each other.',
-    to: '/demos/webrtc',
-  },
 ] as const;
 
 export const Route = createFileRoute('/demos/')({
