@@ -100,7 +100,7 @@ const walk = (target: Element | null) => {
  * Gesture took, and a log. Every Lab zone's hook reports here; several
  * hooks hear the same Gesture, so each report is counted once.
  */
-export const createLabStore = () => {
+export const createLabStore = (options: { readonly walk: boolean }) => {
   let state: State = { runs: new Map(), strays: [], log: [] };
   const listeners = new Set<() => void>();
   let keys = 0;
@@ -197,6 +197,7 @@ export const createLabStore = () => {
       // Every hook that hears it starts in this same moment; explain the
       // walk once they all have.
       queueMicrotask(() => {
+        if (!options.walk) return;
         const settled = state.runs.get(lane);
         if (settled?.key === run.key) explainWalk(settled);
       });

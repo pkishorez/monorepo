@@ -13,22 +13,23 @@ import {
   HandIcon,
 } from '@kstackz/ui-toolkit/lucide';
 import { type ReactNode, useEffect, useState } from 'react';
-import { CASES, type CaseId, caseOf } from './cases.tsx';
+import { type Case, type CaseId, caseOf } from './cases.tsx';
 import { Overlay, useStrays } from './overlay.tsx';
 import { Panel } from './panel.tsx';
 import { createLabStore, LabStoreContext, useLabStore } from './store.ts';
 
-const LABELS: Record<CaseId, string> = Object.fromEntries(
-  CASES.map((c, i) => [c.id, `${i + 1}. ${c.title}`]),
-);
-
 function Picker(props: {
+  readonly cases: ReadonlyArray<Case>;
   readonly id: CaseId;
   readonly onCase: (id: CaseId) => void;
 }) {
-  const index = CASES.findIndex((c) => c.id === props.id);
+  const { cases } = props;
+  const labels: Record<CaseId, string> = Object.fromEntries(
+    cases.map((c, i) => [c.id, `${i + 1}. ${c.title}`]),
+  );
+  const index = cases.findIndex((c) => c.id === props.id);
   const step = (by: number) => {
-    const next = CASES[(index + by + CASES.length) % CASES.length];
+    const next = cases[(index + by + cases.length) % cases.length];
     if (next !== undefined) props.onCase(next.id);
   };
   return (
@@ -44,7 +45,7 @@ function Picker(props: {
       </Button>
       <Select
         value={props.id}
-        items={LABELS}
+        items={labels}
         onValueChange={(next) => {
           if (next !== null) props.onCase(next);
         }}
@@ -62,9 +63,9 @@ function Picker(props: {
           data-zone-gesture="disabled"
           alignItemWithTrigger={false}
         >
-          {CASES.map((c) => (
+          {cases.map((c) => (
             <SelectItem key={c.id} value={c.id}>
-              {LABELS[c.id]}
+              {labels[c.id]}
             </SelectItem>
           ))}
         </SelectContent>
@@ -82,9 +83,13 @@ function Picker(props: {
   );
 }
 
-function Stage(props: { readonly id: CaseId }) {
+function Stage(props: {
+  readonly cases: ReadonlyArray<Case>;
+  readonly id: CaseId;
+  readonly legend: ReactNode | undefined;
+}) {
   const store = useLabStore();
-  const current = caseOf(props.id);
+  const current = caseOf(props.cases, props.id);
   const { Stage: Zones } = current;
   useStrays();
   // A new Case starts with a clean slate.
@@ -110,7 +115,7 @@ function Stage(props: { readonly id: CaseId }) {
       >
         <Zones key={current.id} />
       </main>
-      <Panel key={current.id} guide={current.guide} />
+      <Panel key={current.id} guide={current.guide} legend={props.legend} />
       <Overlay />
     </>
   );
@@ -122,13 +127,18 @@ function Stage(props: { readonly id: CaseId }) {
  * header and panel are marked disabled, so they work while a Gesture runs.
  */
 export function GestureLab(props: {
+  readonly cases: ReadonlyArray<Case>;
   readonly id: CaseId;
   readonly onCase: (id: CaseId) => void;
   /** The Lab's own buttons, such as Home and the theme. */
   readonly start: ReactNode;
   readonly end: ReactNode;
+  /** The Guide's "Reading the marks"; the zone and finger legend by default. */
+  readonly legend?: ReactNode;
+  /** Whether the log explains which zones a Gesture walked: true by default. */
+  readonly walk?: boolean;
 }) {
-  const [store] = useState(createLabStore);
+  const [store] = useState(() => createLabStore({ walk: props.walk ?? true }));
   return (
     <LabStoreContext value={store}>
       <GestureProvider>
@@ -138,10 +148,10 @@ export function GestureLab(props: {
             className="box-content flex h-12 shrink-0 items-center gap-1 border-b border-border pt-[max(12px,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pl-[max(0.25rem,env(safe-area-inset-left))]"
           >
             {props.start}
-            <Picker id={props.id} onCase={props.onCase} />
+            <Picker cases={props.cases} id={props.id} onCase={props.onCase} />
             {props.end}
           </header>
-          <Stage id={props.id} />
+          <Stage cases={props.cases} id={props.id} legend={props.legend} />
         </div>
       </GestureProvider>
     </LabStoreContext>

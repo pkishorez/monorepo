@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthSimRouteImport } from './routes/auth-sim'
 import { Route as DataRouteImport } from './routes/data'
-import { Route as GesturesRouteImport } from './routes/gestures'
 import { Route as InstallRouteImport } from './routes/install'
 import { Route as MotionRouteImport } from './routes/motion'
 import { Route as OfflineRouteImport } from './routes/offline'
@@ -21,6 +20,11 @@ import { Route as RuntimeCacheRouteImport } from './routes/runtime-cache'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as UpdateRouteImport } from './routes/update'
 import { Route as ApiDataRouteImport } from './routes/api/data'
+import { Route as GesturesIndexRouteImport } from './routes/gestures.index'
+import { Route as GesturesLabRouteImport } from './routes/gestures.lab'
+import { Route as GesturesPullToRefreshRouteImport } from './routes/gestures.pull-to-refresh'
+import { Route as GesturesSidebarRouteImport } from './routes/gestures.sidebar'
+import { Route as GesturesSwipeRouteImport } from './routes/gestures.swipe'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
 import { Route as ApiTimeStrategyRouteImport } from './routes/api/time/$strategy'
 
@@ -37,11 +41,6 @@ const AuthSimRoute = AuthSimRouteImport.update({
 const DataRoute = DataRouteImport.update({
   id: '/data',
   path: '/data',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GesturesRoute = GesturesRouteImport.update({
-  id: '/gestures',
-  path: '/gestures',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InstallRoute = InstallRouteImport.update({
@@ -84,6 +83,31 @@ const ApiDataRoute = ApiDataRouteImport.update({
   path: '/api/data',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GesturesIndexRoute = GesturesIndexRouteImport.update({
+  id: '/gestures/',
+  path: '/gestures/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesLabRoute = GesturesLabRouteImport.update({
+  id: '/gestures/lab',
+  path: '/gestures/lab',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesPullToRefreshRoute = GesturesPullToRefreshRouteImport.update({
+  id: '/gestures/pull-to-refresh',
+  path: '/gestures/pull-to-refresh',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesSidebarRoute = GesturesSidebarRouteImport.update({
+  id: '/gestures/sidebar',
+  path: '/gestures/sidebar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesSwipeRoute = GesturesSwipeRouteImport.update({
+  id: '/gestures/swipe',
+  path: '/gestures/swipe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
   id: '/api/auth/session',
   path: '/api/auth/session',
@@ -99,7 +123,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth-sim': typeof AuthSimRoute
   '/data': typeof DataRoute
-  '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
   '/motion': typeof MotionRoute
   '/offline': typeof OfflineRoute
@@ -108,6 +131,11 @@ export interface FileRoutesByFullPath {
   '/status': typeof StatusRoute
   '/update': typeof UpdateRoute
   '/api/data': typeof ApiDataRoute
+  '/gestures/lab': typeof GesturesLabRoute
+  '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
+  '/gestures/sidebar': typeof GesturesSidebarRoute
+  '/gestures/swipe': typeof GesturesSwipeRoute
+  '/gestures/': typeof GesturesIndexRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/time/$strategy': typeof ApiTimeStrategyRoute
 }
@@ -115,7 +143,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth-sim': typeof AuthSimRoute
   '/data': typeof DataRoute
-  '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
   '/motion': typeof MotionRoute
   '/offline': typeof OfflineRoute
@@ -124,6 +151,11 @@ export interface FileRoutesByTo {
   '/status': typeof StatusRoute
   '/update': typeof UpdateRoute
   '/api/data': typeof ApiDataRoute
+  '/gestures/lab': typeof GesturesLabRoute
+  '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
+  '/gestures/sidebar': typeof GesturesSidebarRoute
+  '/gestures/swipe': typeof GesturesSwipeRoute
+  '/gestures': typeof GesturesIndexRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/time/$strategy': typeof ApiTimeStrategyRoute
 }
@@ -132,7 +164,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth-sim': typeof AuthSimRoute
   '/data': typeof DataRoute
-  '/gestures': typeof GesturesRoute
   '/install': typeof InstallRoute
   '/motion': typeof MotionRoute
   '/offline': typeof OfflineRoute
@@ -141,6 +172,11 @@ export interface FileRoutesById {
   '/status': typeof StatusRoute
   '/update': typeof UpdateRoute
   '/api/data': typeof ApiDataRoute
+  '/gestures/lab': typeof GesturesLabRoute
+  '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
+  '/gestures/sidebar': typeof GesturesSidebarRoute
+  '/gestures/swipe': typeof GesturesSwipeRoute
+  '/gestures/': typeof GesturesIndexRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/time/$strategy': typeof ApiTimeStrategyRoute
 }
@@ -150,7 +186,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth-sim'
     | '/data'
-    | '/gestures'
     | '/install'
     | '/motion'
     | '/offline'
@@ -159,6 +194,11 @@ export interface FileRouteTypes {
     | '/status'
     | '/update'
     | '/api/data'
+    | '/gestures/lab'
+    | '/gestures/pull-to-refresh'
+    | '/gestures/sidebar'
+    | '/gestures/swipe'
+    | '/gestures/'
     | '/api/auth/session'
     | '/api/time/$strategy'
   fileRoutesByTo: FileRoutesByTo
@@ -166,7 +206,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth-sim'
     | '/data'
-    | '/gestures'
     | '/install'
     | '/motion'
     | '/offline'
@@ -175,6 +214,11 @@ export interface FileRouteTypes {
     | '/status'
     | '/update'
     | '/api/data'
+    | '/gestures/lab'
+    | '/gestures/pull-to-refresh'
+    | '/gestures/sidebar'
+    | '/gestures/swipe'
+    | '/gestures'
     | '/api/auth/session'
     | '/api/time/$strategy'
   id:
@@ -182,7 +226,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth-sim'
     | '/data'
-    | '/gestures'
     | '/install'
     | '/motion'
     | '/offline'
@@ -191,6 +234,11 @@ export interface FileRouteTypes {
     | '/status'
     | '/update'
     | '/api/data'
+    | '/gestures/lab'
+    | '/gestures/pull-to-refresh'
+    | '/gestures/sidebar'
+    | '/gestures/swipe'
+    | '/gestures/'
     | '/api/auth/session'
     | '/api/time/$strategy'
   fileRoutesById: FileRoutesById
@@ -199,7 +247,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthSimRoute: typeof AuthSimRoute
   DataRoute: typeof DataRoute
-  GesturesRoute: typeof GesturesRoute
   InstallRoute: typeof InstallRoute
   MotionRoute: typeof MotionRoute
   OfflineRoute: typeof OfflineRoute
@@ -208,6 +255,11 @@ export interface RootRouteChildren {
   StatusRoute: typeof StatusRoute
   UpdateRoute: typeof UpdateRoute
   ApiDataRoute: typeof ApiDataRoute
+  GesturesLabRoute: typeof GesturesLabRoute
+  GesturesPullToRefreshRoute: typeof GesturesPullToRefreshRoute
+  GesturesSidebarRoute: typeof GesturesSidebarRoute
+  GesturesSwipeRoute: typeof GesturesSwipeRoute
+  GesturesIndexRoute: typeof GesturesIndexRoute
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
   ApiTimeStrategyRoute: typeof ApiTimeStrategyRoute
 }
@@ -233,13 +285,6 @@ declare module '@tanstack/react-router' {
       path: '/data'
       fullPath: '/data'
       preLoaderRoute: typeof DataRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/gestures': {
-      id: '/gestures'
-      path: '/gestures'
-      fullPath: '/gestures'
-      preLoaderRoute: typeof GesturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/install': {
@@ -298,6 +343,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDataRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gestures/': {
+      id: '/gestures/'
+      path: '/gestures'
+      fullPath: '/gestures/'
+      preLoaderRoute: typeof GesturesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures/lab': {
+      id: '/gestures/lab'
+      path: '/gestures/lab'
+      fullPath: '/gestures/lab'
+      preLoaderRoute: typeof GesturesLabRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures/pull-to-refresh': {
+      id: '/gestures/pull-to-refresh'
+      path: '/gestures/pull-to-refresh'
+      fullPath: '/gestures/pull-to-refresh'
+      preLoaderRoute: typeof GesturesPullToRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures/sidebar': {
+      id: '/gestures/sidebar'
+      path: '/gestures/sidebar'
+      fullPath: '/gestures/sidebar'
+      preLoaderRoute: typeof GesturesSidebarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures/swipe': {
+      id: '/gestures/swipe'
+      path: '/gestures/swipe'
+      fullPath: '/gestures/swipe'
+      preLoaderRoute: typeof GesturesSwipeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/session': {
       id: '/api/auth/session'
       path: '/api/auth/session'
@@ -319,7 +399,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthSimRoute: AuthSimRoute,
   DataRoute: DataRoute,
-  GesturesRoute: GesturesRoute,
   InstallRoute: InstallRoute,
   MotionRoute: MotionRoute,
   OfflineRoute: OfflineRoute,
@@ -328,6 +407,11 @@ const rootRouteChildren: RootRouteChildren = {
   StatusRoute: StatusRoute,
   UpdateRoute: UpdateRoute,
   ApiDataRoute: ApiDataRoute,
+  GesturesLabRoute: GesturesLabRoute,
+  GesturesPullToRefreshRoute: GesturesPullToRefreshRoute,
+  GesturesSidebarRoute: GesturesSidebarRoute,
+  GesturesSwipeRoute: GesturesSwipeRoute,
+  GesturesIndexRoute: GesturesIndexRoute,
   ApiAuthSessionRoute: ApiAuthSessionRoute,
   ApiTimeStrategyRoute: ApiTimeStrategyRoute,
 }

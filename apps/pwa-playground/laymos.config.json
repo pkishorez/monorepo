@@ -21,7 +21,11 @@
         "src/routes/api",
         "src/routes/auth-sim.tsx",
         "src/routes/data.tsx",
-        "src/routes/gestures.tsx",
+        "src/routes/gestures.index.tsx",
+        "src/routes/gestures.lab.tsx",
+        "src/routes/gestures.pull-to-refresh.tsx",
+        "src/routes/gestures.sidebar.tsx",
+        "src/routes/gestures.swipe.tsx",
         "src/routes/index.tsx",
         "src/routes/install.tsx",
         "src/routes/motion.tsx",
@@ -37,7 +41,11 @@
         "src/routes/api": {},
         "src/routes/auth-sim.tsx": {},
         "src/routes/data.tsx": {},
-        "src/routes/gestures.tsx": {},
+        "src/routes/gestures.index.tsx": {},
+        "src/routes/gestures.lab.tsx": {},
+        "src/routes/gestures.pull-to-refresh.tsx": {},
+        "src/routes/gestures.sidebar.tsx": {},
+        "src/routes/gestures.swipe.tsx": {},
         "src/routes/index.tsx": {},
         "src/routes/install.tsx": {},
         "src/routes/motion.tsx": {},
@@ -50,9 +58,27 @@
     },
     "gesture-lab": {
       "paths": ["src/routes/-gestures"],
-      "description": "The Gesture Lab: one Case at a time of kui's GestureProvider, nested GestureZones and useGesture, with every finger drawn over the screen and a log of who heard what",
+      "description": "The Gesture Lab's bench: a Case picker, zones drawn in their colors, every finger over the screen and a log of who heard what, run with the core's own Cases or any other set",
       "modules": {
         "src/routes/-gestures": {
+          "exposed": true
+        }
+      }
+    },
+    "swipe-lab": {
+      "paths": ["src/routes/-swipe"],
+      "description": "The Swipe Lab: useSwipe's Cases on the Gesture Lab's bench, each Swipe shown with its state, offset and speed against its rule, and how it ended",
+      "modules": {
+        "src/routes/-swipe": {
+          "exposed": true
+        }
+      }
+    },
+    "pattern-demos": {
+      "paths": ["src/routes/-patterns"],
+      "description": "useSidebar and usePullToRefresh on real screens, with a guide, options and live values that never move the layout",
+      "modules": {
+        "src/routes/-patterns": {
           "exposed": true
         }
       }
@@ -125,15 +151,25 @@
   },
   "layerGraphs": {
     "pwa-playground": {
-      "description": "Entries over routes over components over lib; the Gesture Lab sits under its route; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
+      "description": "Entries over routes over components over lib; the Gesture Lab, Swipe Lab and Pattern demos sit under their routes, the Swipe Lab and demos on the Lab's bench; the router reads the scenario order from lib; the worker and the rpc page share the rpc group",
       "rules": {
         "entry": ["rpc", "lib"],
-        "routes": ["gesture-lab", "motion-course", "components", "lib", "rpc"],
+        "routes": [
+          "gesture-lab",
+          "swipe-lab",
+          "pattern-demos",
+          "motion-course",
+          "components",
+          "lib",
+          "rpc"
+        ],
         "infra": [],
         "components": ["lib"],
         "rpc": [],
         "gesture-lab": [],
-        "motion-course": []
+        "motion-course": [],
+        "swipe-lab": ["gesture-lab"],
+        "pattern-demos": ["gesture-lab"]
       }
     }
   }

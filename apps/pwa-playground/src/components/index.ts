@@ -1,4 +1,5 @@
 export { AppHeader } from './app-header.tsx';
+export { BackToGestures } from './back-link.tsx';
 export { BuiltAt } from './built-at.tsx';
 export {
   Actions,

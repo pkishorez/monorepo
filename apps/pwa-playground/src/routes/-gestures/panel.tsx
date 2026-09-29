@@ -282,7 +282,10 @@ export type Guide = {
   readonly expect: ReadonlyArray<ReactNode>;
 };
 
-function GuideView(props: { readonly guide: Guide }) {
+function GuideView(props: {
+  readonly guide: Guide;
+  readonly legend: ReactNode | undefined;
+}) {
   return (
     <div className="flex flex-col gap-4 text-[13px] leading-relaxed [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:font-mono [&_code]:text-xs">
       <section>
@@ -314,7 +317,7 @@ function GuideView(props: { readonly guide: Guide }) {
         <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Reading the marks
         </h3>
-        <Legend />
+        {props.legend ?? <Legend />}
       </section>
     </div>
   );
@@ -327,7 +330,10 @@ type Tab = (typeof TABS)[number];
  * Under the stage: the latest log line always, then the Case's guide, the
  * Gesture's fingers with their values, or the whole log.
  */
-export function Panel(props: { readonly guide: Guide }) {
+export function Panel(props: {
+  readonly guide: Guide;
+  readonly legend?: ReactNode;
+}) {
   const [tab, setTab] = useState<Tab>('Guide');
   const { log } = useLab();
   const [latest] = log;
@@ -375,7 +381,9 @@ export function Panel(props: { readonly guide: Guide }) {
         role="tabpanel"
         className="min-h-0 flex-1 overflow-y-auto px-3 py-2 [scrollbar-gutter:stable]"
       >
-        {tab === 'Guide' ? <GuideView guide={props.guide} /> : null}
+        {tab === 'Guide' ? (
+          <GuideView guide={props.guide} legend={props.legend} />
+        ) : null}
         {tab === 'Fingers' ? <Fingers /> : null}
         {tab === 'Log' ? <Log /> : null}
       </div>
