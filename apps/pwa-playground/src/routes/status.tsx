@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
+import { cn } from '@kstackz/ui-toolkit/utils';
 import {
   useDisplayMode,
   useOnline,
@@ -10,14 +11,19 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Actions,
   BuiltAt,
-  type Outcome,
-  Panel,
-  Readout,
-  Readouts,
-  ScenarioPage,
+  Checklist,
+  Code,
+  Controls,
+  Page,
+  Playground,
+  Section,
+  Stage,
+  Value,
+  Values,
 } from '../components/index.ts';
 import { buildLabel, pageBuildId } from '../lib/build.ts';
 import { readWorkers, type WorkerSnapshot } from '../lib/workers.ts';
+import { usePageRefresh } from '../shell/index.ts';
 
 export const Route = createFileRoute('/status')({ component: Status });
 
@@ -48,6 +54,60 @@ const readCaches = async (): Promise<ReadonlyArray<CacheSummary>> => {
 const formatBytes = (bytes: number) =>
   `${(bytes / 1024 / 1024).toFixed(2)} MiB`;
 
+/** The worker's lifecycle as four slots, each holding a worker or nothing. */
+function Lifecycle(props: { readonly workers: WorkerSnapshot | null }) {
+  const w = props.workers;
+  const slots = [
+    ['Installing', w?.installing, 'status-installing'],
+    ['Waiting', w?.waiting, 'status-waiting'],
+    ['Active', w?.active, 'status-active'],
+    ['Controls this tab', w?.controller, 'status-controller'],
+  ] as const;
+  return (
+    <ol
+      aria-label="Service worker lifecycle"
+      className="grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-4"
+    >
+      {slots.map(([label, value, testId]) => {
+        const on = value !== undefined && value !== 'none';
+        return (
+          <li
+            key={label}
+            className={cn(
+              'flex min-h-20 flex-col justify-between gap-2 rounded-xl p-3 transition-colors duration-150',
+              on
+                ? 'bg-background ring-1 ring-foreground/25'
+                : 'border border-dashed border-foreground/15',
+            )}
+          >
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <span
+              data-testid={testId}
+              className={cn(
+                'font-mono text-xs [overflow-wrap:anywhere]',
+                !on && 'text-muted-foreground',
+              )}
+            >
+              {value ?? '…'}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+const CODE = `import { usePwa } from '@kstackz/pwa-toolkit/react';
+import { useStoragePersistence } from '@kstackz/pwa-toolkit/extras';
+
+const pwa = usePwa();
+pwa.version; // { buildId, builtAt, commit }
+pwa.status;  // { _tag: 'Ready' | 'UpdateReady' | … }
+
+const storage = useStoragePersistence();
+await storage.persist();   // ask the browser not to evict
+await storage.estimate();  // { usage, quota }`;
+
 function Status() {
   const pwa = usePwa();
   const online = useOnline();
@@ -69,6 +129,7 @@ function Status() {
         : `${formatBytes(usage.usage)} of ${formatBytes(usage.quota)}`,
     );
   }, [storage]);
+  usePageRefresh(refresh);
 
   useEffect(() => {
     void refresh();
@@ -80,185 +141,123 @@ function Status() {
     };
   }, [refresh]);
 
-  const workerOutcome: Outcome =
-    workers === null
-      ? 'running'
-      : !workers.supported
-        ? 'failure'
-        : workers.controller === 'none'
-          ? 'idle'
-          : 'success';
-  const workerLabel =
-    workers === null
-      ? 'Reading'
-      : !workers.supported
-        ? 'Unsupported'
-        : workers.controller === 'none'
-          ? 'Not in control'
-          : 'In control';
-
   return (
-    <ScenarioPage
-      id="status"
-      title="Status"
-      proves={
+    <Page
+      path="/status"
+      testId="scenario-status"
+      lede={
         <p>
-          Everything the tab knows about this build and its service worker,
-          refreshed every two seconds. The first visit installs the worker and
-          it takes control at once, with no reload; later builds wait for the
-          Update Prompt.
+          Everything this tab knows about its build and its worker, read again
+          every two seconds. Watch a worker move from slot to slot as a new
+          build arrives.
         </p>
       }
-      steps={[
-        'In a fresh profile, open this page: Controller reads “activated /sw.js” without the page reloading.',
-        'The Precache is named after the Build ID. Match the two in Cache Storage below.',
-        'Deploy a new build and focus this tab: Waiting fills in and Status turns UpdateReady.',
-      ]}
     >
-      <Panel
-        title="Build"
-        outcome={buildId === null ? 'idle' : 'success'}
-        outcomeLabel={buildId === null ? 'No Build ID' : 'Build ID present'}
-      >
-        <Readouts>
-          <Readout
-            label="Build Label"
-            testId="status-build-label"
-            value={buildLabel}
-          />
-          <Readout
-            label="Build ID (meta)"
-            testId="status-build-id"
-            value={buildId ?? 'none'}
-          />
-          <Readout
-            label="Built"
-            testId="status-built-at"
-            value={<BuiltAt iso={pwa.version.builtAt} />}
-          />
-          <Readout
-            label="Commit"
-            testId="status-commit"
-            value={pwa.version.commit ?? 'unknown'}
-          />
-          <Readout
-            label="Status"
-            testId="status-update-state"
-            value={pwa.status._tag}
-          />
-        </Readouts>
-      </Panel>
-
-      <Panel
-        title="Service worker"
-        outcome={workerOutcome}
-        outcomeLabel={workerLabel}
-        outcomeTestId="status-worker-outcome"
-      >
-        <Readouts>
-          <Readout
-            label="Supported"
-            testId="status-sw-supported"
-            value={workers === null ? '…' : String(workers.supported)}
-          />
-          <Readout
-            label="Controller"
-            testId="status-controller"
-            value={workers?.controller ?? '…'}
-          />
-          <Readout
-            label="Active"
-            testId="status-active"
-            value={workers?.active ?? '…'}
-          />
-          <Readout
-            label="Waiting"
-            testId="status-waiting"
-            value={workers?.waiting ?? '…'}
-          />
-          <Readout
-            label="Installing"
-            testId="status-installing"
-            value={workers?.installing ?? '…'}
-          />
-        </Readouts>
-      </Panel>
-
-      <Panel title="Device">
-        <Readouts>
-          <Readout
-            label="Display mode"
-            testId="status-display-mode"
-            value={displayMode}
-          />
-          <Readout
-            label="Online"
-            testId="status-online"
-            value={String(online)}
-          />
-          <Readout
-            label="Storage persisted"
-            testId="status-persisted"
-            value={
-              storage.persisted === null ? 'unknown' : String(storage.persisted)
-            }
-          />
-          <Readout
-            label="Storage estimate"
-            testId="status-estimate"
-            value={estimate}
-          />
-        </Readouts>
-        <Actions>
-          <Button
-            variant="outline"
-            data-testid="status-persist"
-            onClick={() => void storage.persist()}
+      <Playground>
+        <Stage className="py-8">
+          <Lifecycle workers={workers} />
+          <p
+            data-testid="status-worker-outcome"
+            className="text-sm text-muted-foreground"
           >
-            Request persistent storage
-          </Button>
-        </Actions>
-      </Panel>
-
-      <Panel
-        title="Cache Storage"
-        description="Every cache this origin holds."
-        outcome={cacheList.length === 0 ? 'idle' : 'success'}
-        outcomeLabel={
-          cacheList.length === 0
-            ? 'Empty'
-            : `${cacheList.length} ${cacheList.length === 1 ? 'cache' : 'caches'}`
-        }
-      >
-        <ul
-          data-testid="status-caches"
-          className="flex flex-col divide-y divide-border rounded-lg bg-muted/40 px-3.5 py-1 font-mono text-[13px] ring-1 ring-foreground/5"
-        >
-          {cacheList.length === 0 ? (
-            <li className="py-2 text-muted-foreground">no caches</li>
-          ) : null}
-          {cacheList.map((cache) => (
-            <li
-              key={cache.name}
-              data-testid="status-cache"
-              data-cache-name={cache.name}
-              className="py-2 [overflow-wrap:anywhere]"
+            {workers === null
+              ? 'Reading the worker…'
+              : !workers.supported
+                ? 'This browser has no service workers.'
+                : workers.controller === 'none'
+                  ? 'No worker controls this tab yet.'
+                  : 'A worker controls this tab.'}
+          </p>
+        </Stage>
+        <Controls>
+          <Actions>
+            <Button data-testid="status-refresh" onClick={() => void refresh()}>
+              Refresh now
+            </Button>
+            <Button
+              variant="outline"
+              data-testid="status-persist"
+              onClick={() => void storage.persist()}
             >
-              {cache.name}: {cache.entries}{' '}
-              {cache.entries === 1 ? 'entry' : 'entries'}
-            </li>
-          ))}
-        </ul>
-        <Actions>
-          <Button
-            variant="outline"
-            data-testid="status-refresh"
-            onClick={() => void refresh()}
+              Request persistent storage
+            </Button>
+          </Actions>
+        </Controls>
+        <Values>
+          <Value label="Label" testId="status-build-label">
+            {buildLabel}
+          </Value>
+          <Value label="Build ID" testId="status-build-id">
+            {buildId ?? 'none'}
+          </Value>
+          <Value label="Built" testId="status-built-at">
+            <BuiltAt iso={pwa.version.builtAt} />
+          </Value>
+          <Value label="Commit" testId="status-commit">
+            {pwa.version.commit?.slice(0, 7) ?? 'unknown'}
+          </Value>
+          <Value label="Status" testId="status-update-state">
+            {pwa.status._tag}
+          </Value>
+        </Values>
+      </Playground>
+
+      <div className="grid gap-8 md:grid-cols-2">
+        <Section title="This device">
+          <dl className="flex flex-col gap-1.5 rounded-xl p-4 ring-1 ring-foreground/10">
+            <Value label="Service workers" testId="status-sw-supported">
+              {workers === null ? '…' : workers.supported ? 'yes' : 'no'}
+            </Value>
+            <Value label="Display mode" testId="status-display-mode">
+              {displayMode}
+            </Value>
+            <Value label="Online" testId="status-online">
+              {String(online)}
+            </Value>
+            <Value label="Persisted" testId="status-persisted">
+              {storage.persisted === null
+                ? 'unknown'
+                : String(storage.persisted)}
+            </Value>
+            <Value label="Storage" testId="status-estimate">
+              {estimate}
+            </Value>
+          </dl>
+        </Section>
+        <Section title="Cache storage">
+          <ul
+            data-testid="status-caches"
+            className="flex flex-col divide-y divide-border rounded-xl px-4 py-1.5 font-mono text-[13px] ring-1 ring-foreground/10"
           >
-            Refresh now
-          </Button>
-        </Actions>
-      </Panel>
-    </ScenarioPage>
+            {cacheList.length === 0 ? (
+              <li className="py-2 text-muted-foreground">no caches</li>
+            ) : null}
+            {cacheList.map((cache) => (
+              <li
+                key={cache.name}
+                data-testid="status-cache"
+                data-cache-name={cache.name}
+                className="flex justify-between gap-3 py-2"
+              >
+                <span className="min-w-0 [overflow-wrap:anywhere]">
+                  {cache.name}
+                </span>
+                <span className="shrink-0 text-muted-foreground tabular-nums">
+                  {cache.entries}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      </div>
+      <Code title="Reading it yourself" code={CODE} />
+      <Checklist
+        steps={[
+          'In a fresh profile, open this page: Controls this tab fills in without the page reloading.',
+          'The precache is named after the Build ID. Match the two in Cache storage.',
+          'Deploy a new build and focus this tab: Waiting fills in and Status turns UpdateReady.',
+        ]}
+      />
+    </Page>
   );
 }
