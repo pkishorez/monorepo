@@ -19,7 +19,7 @@ import {
   SIDEBAR_STYLE,
 } from './geometry.ts';
 import { useMobileProgress, useOpenProgress } from './motion.ts';
-import { useHydrated, useOpenState, useToggleShortcut } from './state.ts';
+import { useHydrated, useOpenState } from './state.ts';
 
 interface FrameState {
   readonly open: boolean;
@@ -111,7 +111,6 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
   const isMobile = useIsMobile();
   const { open, shown, setOpen } = useOpenState();
   const toggle = useCallback(() => setOpen(!open), [open, setOpen]);
-  useToggleShortcut(toggle);
 
   // The two values everything is drawn from. The server can't know either,
   // so until hydration ends the classes give both by the breakpoint.
