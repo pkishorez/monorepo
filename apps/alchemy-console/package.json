@@ -17,6 +17,7 @@
     "react-dom": "catalog:",
     "@kstackz/rpc-toolkit": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
+    "@kstackz/use-gesture": "workspace:*",
     "use-effect-ts": "workspace:*"
   },
   "devDependencies": {

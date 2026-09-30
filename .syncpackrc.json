@@ -5,7 +5,7 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": ["public-monorepo", "docs", "pwa-playground"],
+      "packages": ["public-monorepo", "docs", "kstack"],
       "isIgnored": true
     },
     {

@@ -154,6 +154,11 @@
   body {
     @apply font-sans bg-background text-foreground overflow-y-scroll;
   }
+  /* An App Shell with a sidebar fills the screen and scrolls inside, so the page
+     keeps no empty scrollbar track at its edge. */
+  body:has([data-slot='app-shell']) {
+    @apply overflow-hidden;
+  }
   html {
     @apply font-sans;
   }

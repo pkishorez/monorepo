@@ -1,23 +1,14 @@
 import { useEffect, useState } from 'react';
-import type { ComponentType, CSSProperties, ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@kstackz/ui-toolkit/components/ui/sidebar';
+  AppShell,
+  useAppShell,
+} from '@kstackz/ui-toolkit/components/blocks/app-shell';
 import { ChevronRight } from '@kstackz/ui-toolkit/lucide';
 import { Logo, LogoMark } from '../../brand/index.ts';
 import { StateTree, StateOverview } from '../explorer/index.ts';
 import { ResourceBrowser } from '../resources/index.ts';
 import type { ExplorerLocation, NavigationLink } from '../state-view/index.ts';
-import {
-  defaultSidebarWidth,
-  SidebarResizeHandle,
-} from './sidebar-resize-handle.tsx';
 
 export function StoreExplorer({
   storeId,
@@ -38,38 +29,28 @@ export function StoreExplorer({
   sidebarHeader: ReactNode;
   sidebarFooter: ReactNode;
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
-  const [sidebarResizing, setSidebarResizing] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(256);
   useEffect(() => {
     document.title = [stage, stack, storeName, 'Alchemy Console']
       .filter(Boolean)
       .join(' · ');
   }, [stage, stack, storeName]);
   return (
-    <SidebarProvider
-      open={sidebarOpen}
-      onOpenChange={setSidebarOpen}
-      // The width transition is for opening and closing; a drag must track the cursor exactly.
-      className={`min-h-svh ${
-        sidebarResizing
-          ? '[&_[data-slot=sidebar-container]]:transition-none [&_[data-slot=sidebar-gap]]:transition-none'
-          : ''
-      }`}
-      style={{ '--sidebar-width': `${sidebarWidth}px` } as CSSProperties}
-    >
-      <Sidebar collapsible="offcanvas">
-        <SidebarHeader className="gap-2 p-2">
-          <NavigationLink
-            home
-            title="Alchemy Console"
-            className="flex h-8 items-center rounded-md px-2 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-          >
-            <Logo />
-          </NavigationLink>
-          {sidebarHeader}
-        </SidebarHeader>
-        <SidebarContent>
+    <AppShell
+      sidebar={{
+        header: (
+          <>
+            <NavigationLink
+              home
+              title="Alchemy Console"
+              className="flex h-8 items-center rounded-md px-2 hover:bg-sidebar-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Logo />
+            </NavigationLink>
+            {sidebarHeader}
+          </>
+        ),
+        content: (
           <StateTree
             key={storeId}
             storeId={storeId}
@@ -77,67 +58,72 @@ export function StoreExplorer({
             stage={stage}
             NavigationLink={NavigationLink}
           />
-        </SidebarContent>
-        <SidebarFooter className="border-t p-2">{sidebarFooter}</SidebarFooter>
-        <SidebarResizeHandle
-          value={sidebarWidth}
-          onValueChange={setSidebarWidth}
-          onResizingChange={setSidebarResizing}
-        />
-      </Sidebar>
-      <SidebarInset className="min-w-0">
-        <div className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-4">
-          <SidebarTrigger aria-label="Toggle navigation" />
-          {!sidebarOpen && (
-            <>
-              <NavigationLink
-                home
-                title="Alchemy Console"
-                className="grid size-7 shrink-0 place-items-center rounded-md hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                <LogoMark className="size-5" />
-                <span className="sr-only">Alchemy Console</span>
-              </NavigationLink>
-              <span
-                className="h-4 w-px shrink-0 bg-border"
-                aria-hidden="true"
-              />
-            </>
-          )}
-          <Breadcrumb
+        ),
+        footer: sidebarFooter,
+        width: sidebarWidth,
+        onWidthChange: setSidebarWidth,
+      }}
+      header={{
+        title: (
+          <HeaderTitle
             storeName={storeName}
             stack={stack}
             stage={stage}
             NavigationLink={NavigationLink}
           />
-        </div>
-        <div className="flex min-h-0 flex-1">
-          <div className="min-w-0 flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-              {stack === undefined || stage === undefined ? (
-                <StateOverview
-                  key={stack}
-                  storeId={storeId}
-                  stack={stack}
-                  storeName={storeName}
-                  NavigationLink={NavigationLink}
-                  StageAction={StageAction}
-                  onStackDeleted={onStackDeleted}
-                />
-              ) : (
-                <ResourceBrowser
-                  key={`${stack}/${stage}`}
-                  storeId={storeId}
-                  stack={stack}
-                  stage={stage}
-                  StageAction={StageAction}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+        ),
+      }}
+    >
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        {stack === undefined || stage === undefined ? (
+          <StateOverview
+            key={stack}
+            storeId={storeId}
+            stack={stack}
+            storeName={storeName}
+            NavigationLink={NavigationLink}
+            StageAction={StageAction}
+            onStackDeleted={onStackDeleted}
+          />
+        ) : (
+          <ResourceBrowser
+            key={`${stack}/${stage}`}
+            storeId={storeId}
+            stack={stack}
+            stage={stage}
+            StageAction={StageAction}
+          />
+        )}
+      </div>
+    </AppShell>
+  );
+}
+
+// Where you are; with the sidebar shut, the logo leads it, as the way home.
+function HeaderTitle(
+  props: ExplorerLocation & {
+    storeName: string | null;
+    NavigationLink: NavigationLink;
+  },
+) {
+  const { open } = useAppShell();
+  return (
+    <div className="flex min-w-0 items-center gap-2 font-normal">
+      {!open && (
+        <>
+          <props.NavigationLink
+            home
+            title="Alchemy Console"
+            className="grid size-7 shrink-0 place-items-center rounded-md hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <LogoMark className="size-5" />
+            <span className="sr-only">Alchemy Console</span>
+          </props.NavigationLink>
+          <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+        </>
+      )}
+      <Breadcrumb {...props} />
+    </div>
   );
 }
 

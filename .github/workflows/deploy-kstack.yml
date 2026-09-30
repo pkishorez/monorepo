@@ -1,0 +1,145 @@
+name: 🚀 deploy:kstack
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage to deploy: prod, or pr<N> for a preview of that PR'
+        required: true
+        type: string
+
+concurrency:
+  group: kstack-${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      affected: ${{ steps.affected.outputs.affected }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+
+      # affected.sh counts the app's workspace dependencies too, so a change
+      # in toolkits/ui-toolkit (or anything it uses) deploys the app.
+      - name: Check kstack affected
+        id: affected
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'affected=true' >> "$GITHUB_OUTPUT"
+          else
+            .github/scripts/affected.sh apps/kstack .github/workflows/deploy-kstack.yml "$BASE"
+          fi
+
+  deploy:
+    needs: detect
+    if: needs.detect.outputs.affected == 'true'
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Opt-in required by the accident guard in apps/kstack/src/infra/stage.ts.
+      ALLOW_DEPLOY: 'true'
+      STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Validate stage
+        run: |
+          if ! printf '%s' "$STAGE" | grep -qxE 'prod|pr[0-9]+'; then
+            echo "::error::Stage must be 'prod' or 'pr<N>', got '$STAGE'." >&2
+            exit 1
+          fi
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "::error::Unexpected ref '${{ github.ref }}' — pushes deploy only from main." >&2
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.18.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --filter kstack...
+
+      # Build the app's workspace dependencies; Alchemy builds the app itself.
+      - name: Build workspace dependencies
+        run: pnpm --filter 'kstack^...' run build
+
+      - name: Bootstrap Alchemy state store
+        run: pnpm -C apps/kstack exec alchemy cloudflare bootstrap
+
+      - name: Deploy kstack
+        run: pnpm -C apps/kstack exec alchemy deploy --stage "$STAGE" --yes
+
+      - name: Mark PR as having a preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$STAGE" in
+            pr[0-9]*) gh api -X POST "repos/${{ github.repository }}/issues/${STAGE#pr}/labels" -f 'labels[]=preview:kstack' --silent ;;
+          esac
+
+      - name: State tree
+        if: always()
+        run: pnpm -C apps/kstack exec alchemy state tree || true
+
+  summary:
+    needs: [detect, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Job summary
+        env:
+          STAGE: ${{ inputs.stage || (github.event_name == 'pull_request' && format('pr{0}', github.event.number)) || 'prod' }}
+          AFFECTED: ${{ needs.detect.outputs.affected }}
+          RESULT: ${{ needs.deploy.result }}
+        run: |
+          if [ "$STAGE" = "prod" ]; then
+            url="https://kstack.kishore.app"
+          else
+            url="https://$STAGE-kstack.kishore.app"
+          fi
+          case "$RESULT" in
+            success) status="✅ deployed" ;;
+            failure) status="❌ failed" ;;
+            skipped) if [ "$AFFECTED" = false ]; then status="⏭️ unchanged, skipped"; else status="⏭️ not eligible"; fi ;;
+            *) status="$RESULT" ;;
+          esac
+          {
+            echo "## Deploy — \`$STAGE\`"
+            echo ""
+            echo "| App | Status | URL |"
+            echo "| --- | --- | --- |"
+            echo "| kstack | $status | $url |"
+          } >> "$GITHUB_STEP_SUMMARY"

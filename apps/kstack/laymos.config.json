@@ -1,0 +1,60 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": ["src/routeTree.gen.ts", "src/styles.css"],
+  "layers": {
+    "entry": {
+      "paths": ["src/router.tsx"],
+      "description": "The TanStack router",
+      "modules": {
+        "src/router.tsx": {}
+      }
+    },
+    "routes": {
+      "paths": ["src/routes/__root.tsx", "src/routes/index.tsx"],
+      "description": "The document and the home page listing every Example",
+      "modules": {
+        "src/routes/__root.tsx": {},
+        "src/routes/index.tsx": {}
+      }
+    },
+    "app-shell-example": {
+      "paths": ["src/routes/app-shell"],
+      "description": "The App Shell Example: a small workspace in ui-toolkit's App Shell, its sidebar, header and account menu each turned on or off by Tweaks",
+      "modules": {
+        "src/routes/app-shell": {}
+      }
+    },
+    "infra": {
+      "paths": ["src/infra"],
+      "description": "Deployable resources, composed by alchemy.run.ts",
+      "modules": {
+        "src/infra": {}
+      }
+    },
+    "common": {
+      "paths": ["src/common"],
+      "description": "What every Example shares: the theme the document boots with, and Tweaks: how an Example declares its settings, saves them and shows them",
+      "modules": {
+        "src/common/theme.ts": {
+          "exposed": true
+        },
+        "src/common/tweaks.tsx": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "kstack": {
+      "description": "The router over the routes; each Example is self-contained and shares only the theme",
+      "rules": {
+        "entry": [],
+        "routes": ["common"],
+        "app-shell-example": ["common"],
+        "infra": [],
+        "common": []
+      }
+    }
+  }
+}

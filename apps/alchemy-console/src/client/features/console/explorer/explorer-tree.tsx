@@ -11,8 +11,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  useSidebar,
-} from '@kstackz/ui-toolkit/components/ui/sidebar';
+} from '@kstackz/ui-toolkit/components/blocks/app-shell';
 import {
   Collapsible,
   CollapsibleContent,
@@ -173,7 +172,6 @@ function StackNode({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { isMobile, setOpenMobile } = useSidebar();
   const managed = isAlchemyManagedStack(name);
   const stages = useRpcQuery(
     Effect.flatMap(Rpc, (rpc) =>
@@ -191,9 +189,6 @@ function StackNode({
       )
     : stageNames;
   if (needle && !stackMatches && visibleStages.length === 0) return null;
-  const closeOnMobile = () => {
-    if (isMobile) setOpenMobile(false);
-  };
   return (
     <Collapsible
       open={open}
@@ -209,10 +204,7 @@ function StackNode({
           <NavigationLink
             stack={name}
             title={name}
-            onClick={() => {
-              onOpenChange(!open);
-              closeOnMobile();
-            }}
+            onClick={() => onOpenChange(!open)}
           />
         }
       >
@@ -267,7 +259,6 @@ function StackNode({
                     stack={name}
                     stage={stageName}
                     title={stageName}
-                    onClick={closeOnMobile}
                   />
                 }
               >

@@ -7,11 +7,22 @@ import { THEME_COLORS } from './model.ts';
 // top of the app can never change the status bar's color.
 const css = `[data-slot="status-bar"]{position:fixed;inset:0 0 auto;z-index:2147483647;pointer-events:none;height:env(safe-area-inset-top);background-color:light-dark(${THEME_COLORS.light},${THEME_COLORS.dark})}@media (display-mode:standalone){[data-slot="status-bar"]{height:max(12px,env(safe-area-inset-top))}}`;
 
-export function StatusBar() {
+/**
+ * `color` paints it in place of the Theme's background, for an app whose top
+ * edge changes, such as a page that moves aside for a sidebar. Any CSS color.
+ */
+export function StatusBar(props: { readonly color?: string }) {
   return createElement(
     Fragment,
     null,
     createElement('style', null, css),
-    createElement('div', { 'aria-hidden': true, 'data-slot': 'status-bar' }),
+    createElement('div', {
+      'aria-hidden': true,
+      'data-slot': 'status-bar',
+      style:
+        props.color === undefined
+          ? undefined
+          : { backgroundColor: props.color },
+    }),
   );
 }
