@@ -11,20 +11,21 @@ Presets comes from. The home page explains what a PWA is; every other page
 is one capability's playground. The words used here (App Shell, Precache,
 Runtime Cache, Build ID, Kill Switch, Gesture Zone, Swipe, ...) are defined in
 [`toolkits/pwa-toolkit/CONTEXT.md`](../../toolkits/pwa-toolkit/CONTEXT.md) and
-[`packages/use-gesture/CONTEXT.md`](../../packages/use-gesture/CONTEXT.md).
+[`packages/use-gesture/CONTEXT.md`](../../packages/use-gesture/CONTEXT.md);
+the app's own (Page Turn, Turn Surface, ...) in [`CONTEXT.md`](CONTEXT.md).
 
 Pages are grouped into chapters by what a PWA promises. `src/lib/chapters.ts`
-is the only list: the nav, the home page, prev/next links, swipe paging and
-the view-transition direction all read it.
+is the only list: the nav, the home page and prev/next links read it, and
+each page declares its neighbours in it for Page Turns.
 
-| Chapter    | Routes                                                                                              |
-| ---------- | --------------------------------------------------------------------------------------------------- |
-| Install    | `/install`                                                                                          |
-| Offline    | `/runtime-cache`, `/data`, `/offline`, `/auth-sim`                                                  |
-| Updates    | `/update`                                                                                           |
-| The worker | `/status` (Inspector), `/rpc`                                                                       |
-| Gestures   | `/gestures`, `/gestures/sidebar`, `/gestures/pull-to-refresh`, `/gestures/swipe`, `/gestures/zones` |
-| Deep dives | `/gestures/lab`, `/gestures/swipe-lab`, `/motion`: dense benches, out of the swipe order            |
+| Chapter    | Routes                                                                                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Install    | `/install`                                                                                                                 |
+| Offline    | `/runtime-cache`, `/data`, `/offline`, `/auth-sim`                                                                         |
+| Updates    | `/update`                                                                                                                  |
+| The worker | `/status` (Inspector), `/rpc`                                                                                              |
+| Gestures   | `/gestures`, `/gestures/sidebar`, `/gestures/pull-to-refresh`, `/gestures/swipe`, `/gestures/page-turn`, `/gestures/zones` |
+| Deep dives | `/gestures/lab`, `/gestures/swipe-lab`, `/motion`: dense benches, out of the swipe order                                   |
 
 Every playground has the same shape, from `src/components`: a `Page` (chapter,
 title, lede), a `Playground` with a `Stage`, a few `Controls` and live
@@ -34,10 +35,13 @@ title, lede), a `Playground` with a `Stage`, a few `Controls` and live
 
 The app itself is the first gesture demo. `src/shell` wraps every page in one
 `GestureProvider` and one zone: on a touch screen a Swipe in from the left edge
-opens the menu (`useSidebar` with `edge: 24`), a Swipe sideways turns the page
-(two `useSwipe`s), and a pull at the top reloads the route's loaders plus
-anything a page registers with `usePageRefresh`. On a keyboard, ← and → turn
-the page. Gesture playgrounds pass `gestures` to `Playground`, which makes it a
+opens the menu (`useSidebar` with `edge: 24`), a Swipe sideways turns the page,
+and a pull at the top reloads the route's loaders plus anything a page
+registers with `usePageRefresh`. Page Turns live in `src/page-turn`, to move
+into pwa-toolkit once settled: each page declares its neighbours with
+`usePageTurn`, and a Swipe, ← and → or a click on a link to either turns to it,
+with a Placeholder Page standing in until it loads. `/gestures/page-turn` slows
+every load down to test that. Gesture playgrounds pass `gestures` to `Playground`, which makes it a
 trapped zone, so a demo's touches never reach the app's own swipes.
 
 The worker is `src/sw.ts`: `runServiceWorker()` plus a Worker Server for the

@@ -17,7 +17,7 @@ export interface Chapter {
 
 /**
  * Every page, grouped by what a PWA promises. The nav, the home page,
- * prev/next links, swipe paging and view-transition direction all read it.
+ * and prev/next links read it; each page declares its neighbours for Page Turns from it.
  */
 export const chapters: ReadonlyArray<Chapter> = [
   {
@@ -118,6 +118,11 @@ export const chapters: ReadonlyArray<Chapter> = [
         summary: 'One direction, a finger count and a rule for when it counts.',
       },
       {
+        path: '/gestures/page-turn',
+        title: 'Page turns',
+        summary: 'Turn to the next page before it loads, and change your mind.',
+      },
+      {
         path: '/gestures/zones',
         title: 'Zones',
         summary: 'Who hears a touch: nesting, trapping and every finger.',
@@ -178,25 +183,4 @@ export const neighbours = (
     prev: index === -1 ? undefined : (readingOrder[index - 1] ?? home),
     next: readingOrder[index + 1],
   };
-};
-
-/**
- * View-transition types for a route change, for the router's
- * `defaultViewTransition`: `forward` deeper into the reading order, `back`
- * toward home. `false` skips it: the first render, a reload of the same page,
- * or reduced motion. styles.css keys the animations off these types.
- */
-export const viewTransitionTypes = (change: {
-  readonly fromLocation?: { readonly pathname: string };
-  readonly toLocation: { readonly pathname: string };
-  readonly pathChanged: boolean;
-}): Array<string> | false => {
-  if (change.fromLocation === undefined || !change.pathChanged) return false;
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    return false;
-  }
-  const from = readingIndex(change.fromLocation.pathname);
-  const to = readingIndex(change.toLocation.pathname);
-  if (from === null || to === null) return ['fade'];
-  return [to > from ? 'forward' : 'back'];
 };

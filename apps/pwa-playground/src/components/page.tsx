@@ -3,6 +3,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import type { ReactNode } from 'react';
 import { chapterOf, neighbours, pageAt } from '../lib/chapters.ts';
+import { usePageTurn } from '../page-turn/index.ts';
 
 function PrevNext(props: { readonly path: string }) {
   const { prev, next } = neighbours(props.path);
@@ -59,7 +60,7 @@ export function Key(props: { readonly children: ReactNode }) {
 
 /**
  * One page: chapter, title and a short lede, then the page's sections, then
- * the way on. `data-page` gives it the `page` view-transition name.
+ * the way on. It declares its neighbours in reading order for Page Turns.
  */
 export function Page(props: {
   readonly path: string;
@@ -70,6 +71,8 @@ export function Page(props: {
   readonly children: ReactNode;
 }) {
   const chapter = chapterOf(props.path);
+  const { prev, next } = neighbours(props.path);
+  usePageTurn({ prev: prev?.path, next: next?.path });
   const title = props.title ?? pageAt(props.path)?.title ?? '';
   return (
     <main

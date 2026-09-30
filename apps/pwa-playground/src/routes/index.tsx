@@ -6,8 +6,9 @@ import { usePwa } from '@kstackz/pwa-toolkit/react';
 import type { ReactNode } from 'react';
 import { Key } from '../components/index.ts';
 import { buildPreset, pwaEnabled, updateMode } from '../lib/build.ts';
-import { chapters } from '../lib/chapters.ts';
+import { chapters, neighbours } from '../lib/chapters.ts';
 import { useWorkers } from '../lib/workers.ts';
+import { usePageTurn } from '../page-turn/index.ts';
 import { useTouch } from '../shell/index.ts';
 
 export const Route = createFileRoute('/')({ component: Home });
@@ -218,6 +219,7 @@ const WAYS: ReadonlyArray<readonly [ReactNode, string]> = [
 ];
 
 function Home() {
+  usePageTurn({ next: neighbours('/').next?.path });
   return (
     <main
       data-testid="scenario-home"

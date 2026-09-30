@@ -23,6 +23,7 @@
         "src/routes/data.tsx",
         "src/routes/gestures.index.tsx",
         "src/routes/gestures.lab.tsx",
+        "src/routes/gestures.page-turn.tsx",
         "src/routes/gestures.pull-to-refresh.tsx",
         "src/routes/gestures.sidebar.tsx",
         "src/routes/gestures.swipe-lab.tsx",
@@ -45,6 +46,7 @@
         "src/routes/data.tsx": {},
         "src/routes/gestures.index.tsx": {},
         "src/routes/gestures.lab.tsx": {},
+        "src/routes/gestures.page-turn.tsx": {},
         "src/routes/gestures.pull-to-refresh.tsx": {},
         "src/routes/gestures.sidebar.tsx": {},
         "src/routes/gestures.swipe-lab.tsx": {},
@@ -96,6 +98,15 @@
         }
       }
     },
+    "page-turn": {
+      "paths": ["src/page-turn"],
+      "description": "Page Turns: pages that declare their neighbours, a Turn Surface that follows the finger with a Placeholder Page beside it, and the loads and route transitions behind them",
+      "modules": {
+        "src/page-turn": {
+          "exposed": true
+        }
+      }
+    },
     "shell": {
       "paths": ["src/shell"],
       "description": "The app frame and its gestures: one Gesture Provider and zone, the edge-swipe menu, swipe paging and pull to refresh",
@@ -132,7 +143,7 @@
     },
     "lib": {
       "paths": ["src/lib"],
-      "description": "Build info, the chapter registry and reading order, search-param parsing, worker snapshot, Runtime Cache rules, API helpers",
+      "description": "Build info, the chapter registry and reading order, search-param parsing, worker snapshot, Runtime Cache rules, API helpers, the simulated load for Page Turns",
       "modules": {
         "src/lib/build.ts": {
           "exposed": true
@@ -161,15 +172,18 @@
         },
         "src/lib/search.ts": {
           "exposed": true
+        },
+        "src/lib/simulated-load.ts": {
+          "exposed": true
         }
       }
     }
   },
   "layerGraphs": {
     "pwa-playground": {
-      "description": "Entries over routes over shell over components over lib; the demos, labs and course sit under their routes, the Swipe Lab on the Gesture Lab's bench; the router reads the reading order from lib; the worker and the rpc page share the rpc group",
+      "description": "Entries over routes over shell over components over lib; the demos, labs and course sit under their routes, the Swipe Lab on the Gesture Lab's bench; the router, shell, pages and page kit share Page Turns; the worker and the rpc page share the rpc group",
       "rules": {
-        "entry": ["rpc", "lib"],
+        "entry": ["rpc", "lib", "page-turn"],
         "routes": [
           "gesture-demos",
           "gesture-lab",
@@ -178,16 +192,18 @@
           "shell",
           "components",
           "lib",
-          "rpc"
+          "rpc",
+          "page-turn"
         ],
         "gesture-demos": ["components", "lib"],
-        "shell": ["components", "lib"],
+        "shell": ["components", "lib", "page-turn"],
         "infra": [],
-        "components": ["lib"],
+        "components": ["lib", "page-turn"],
         "rpc": [],
         "gesture-lab": [],
         "motion-course": [],
-        "swipe-lab": ["gesture-lab"]
+        "swipe-lab": ["gesture-lab"],
+        "page-turn": []
       }
     }
   }
