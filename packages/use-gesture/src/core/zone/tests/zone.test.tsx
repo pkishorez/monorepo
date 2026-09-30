@@ -330,6 +330,31 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       expect(find('watch').getAttribute('data-active')).toBe('true');
     });
 
+    it('never tells a dropped listener the Direction it wanted', () => {
+      const wanted = vi.fn();
+      const other = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener
+                name="sidebar"
+                directions={['right']}
+                onDirection={wanted}
+              />
+              <Listener name="menu" directions={['up']} onDirection={other} />
+              <GestureZone data-testid="row">
+                <Listener name="row" directions={['right']} />
+              </GestureZone>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('row', 5, 0)).toBe(true);
+      expect(wanted).not.toHaveBeenCalled();
+      expect(other).toHaveBeenCalledWith('right');
+    });
+
     it('passes a Direction the inner zone does not want out to the zone around it', () => {
       const row = vi.fn();
       act(() =>
