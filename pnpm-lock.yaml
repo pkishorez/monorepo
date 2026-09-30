@@ -570,6 +570,9 @@ importers:
 
   apps/kstack:
     dependencies:
+      '@kstackz/pwa-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/pwa-toolkit
       '@kstackz/ui-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/ui-toolkit

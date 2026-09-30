@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
-import { MoonIcon, SunIcon } from '@kstackz/ui-toolkit/lucide';
-import type { ReactNode } from 'react';
+import { MoonIcon, RefreshCwIcon, SunIcon } from '@kstackz/ui-toolkit/lucide';
+import { usePwa } from '@kstackz/pwa-toolkit/react';
+import { type ReactNode, useState } from 'react';
 import { appTheme } from '../common/theme.ts';
 
 export const Route = createFileRoute('/')({
@@ -65,6 +66,67 @@ function ThemeToggle() {
   );
 }
 
+/**
+ * Checks for a new deploy. A found one downloads, then the Update Prompt asks
+ * to reload; once it waits, this button reloads into it too.
+ */
+function UpdateCheck() {
+  const pwa = usePwa();
+  const [result, setResult] = useState<
+    'checking' | 'downloading' | 'current'
+  >();
+  const status = pwa.status._tag;
+  // No worker yet (dev, first visit, or an unsupported browser): nothing to check.
+  if (status === 'Unsupported' || status === 'Installing') return null;
+
+  if (status !== 'Ready') {
+    return (
+      <Button
+        size="sm"
+        className="min-h-11 md:min-h-8"
+        disabled={status === 'Updating'}
+        onClick={() => void pwa.applyUpdate()}
+      >
+        Update now
+      </Button>
+    );
+  }
+
+  const check = async () => {
+    setResult('checking');
+    await pwa.checkForUpdate();
+    // `update()` resolves once the new worker is found, before it downloads.
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration?.installing) return setResult('downloading');
+    setResult('current');
+    setTimeout(() => setResult(undefined), 3000);
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="min-h-11 md:min-h-8"
+      disabled={result === 'checking' || result === 'downloading'}
+      onClick={() => void check()}
+    >
+      <RefreshCwIcon
+        aria-hidden="true"
+        className={result === 'checking' ? 'animate-spin' : undefined}
+      />
+      <span role="status">
+        {result === 'checking'
+          ? 'Checking…'
+          : result === 'downloading'
+            ? 'Downloading…'
+            : result === 'current'
+              ? 'Up to date'
+              : 'Check for updates'}
+      </span>
+    </Button>
+  );
+}
+
 function Home() {
   return (
     <div className="min-h-dvh pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
@@ -74,7 +136,10 @@ function Home() {
           <img src="/favicon.svg" alt="" className="size-6 rounded-md" />
           kstack
         </span>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <UpdateCheck />
+          <ThemeToggle />
+        </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
         <h1 className="text-2xl font-semibold tracking-tight">Examples</h1>

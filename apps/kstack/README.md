@@ -35,6 +35,12 @@ UI is `@kstackz/ui-toolkit` (shadcn on Base UI) with Tailwind v4, touch is
 `@kstackz/use-gesture`, and infrastructure is Alchemy (`alchemy.run.ts`,
 `src/infra`), like `apps/docs`.
 
+kstack installs as a PWA through `@kstackz/pwa-toolkit` (`app` preset): the
+`pwa()` plugin in `vite.config.ts` writes the manifest and service worker, and
+the root shows an Update Prompt when a new deploy is ready. The home page's
+**Check for updates** button asks for one on demand. `/offline` is the Offline
+Fallback the worker needs; the worker is off in `pnpm dev`.
+
 ## Usage
 
 ### Add an Example
