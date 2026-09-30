@@ -100,11 +100,12 @@ server rendering. Omit `cookieDomain` for a host-only cookie. Set it to a parent
 domain to share the preference across that domain's subdomains; an invalid or
 unrelated domain gracefully falls back to a host-only cookie.
 
-| Controller member | What it does                                                                                                                                                                             |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useTheme()`      | Reads the current theme and returns `theme`, `setTheme`, and `toggleTheme`. Writing updates the cookie, document class, `color-scheme`, and status-bar theme color.                      |
-| `Script`          | Emits the live `theme-color` meta tag and a small pre-paint script that applies the cookie before hydration, avoiding a wrong-theme flash. Pass the server-read theme as `initialTheme`. |
-| `manifest(theme)` | Returns `theme_color` and `background_color` values from KUI's theme definition for a web app manifest.                                                                                  |
+| Controller member | What it does                                                                                                                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTheme()`      | Reads the current theme and returns `theme`, `setTheme`, and `toggleTheme`. Writing updates the cookie, document class, `color-scheme`, and status-bar theme color.                                                    |
+| `Script`          | Emits the live `theme-color` meta tag and a small pre-paint script that applies the cookie before hydration, avoiding a wrong-theme flash. Pass the server-read theme as `initialTheme`.                               |
+| `StatusBar`       | Paints the strip under the status bar in the live theme color, above every layer. An installed iOS web app takes its status-bar color from this strip, not the `theme-color` meta, so render it once in the app frame. |
+| `manifest(theme)` | Returns `theme_color` and `background_color` values from KUI's theme definition for a web app manifest.                                                                                                                |
 
 ### `@kstackz/ui-toolkit/components/blocks/theme/tanstack-start`
 
