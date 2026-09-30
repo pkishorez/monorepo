@@ -7,3 +7,7 @@ Reusable user-interface blocks and presentation components shared by application
 **Theme**:
 The shared light or dark appearance used by KUI-based applications. The preference is stored in a user-readable cookie shared by sibling application hosts; without that cookie, the Theme is dark.
 _Avoid_: color mode, system theme
+
+**Status Bar Surface**:
+The opaque strip at the top edge of an app, in the Theme's background, that nothing covers. An installed iOS web app colors its status bar from it rather than from the declared theme color, so it is what makes the status bar follow a Theme switch.
+_Avoid_: header background, notch fill

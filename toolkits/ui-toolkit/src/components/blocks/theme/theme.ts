@@ -1,6 +1,7 @@
 import { createElement, Fragment } from 'react';
 import { bootstrapSource } from './document.ts';
 import { THEME_COLORS, type Theme } from './model.ts';
+import { StatusBar } from './status-bar.ts';
 import { setThemeValue, useThemeValue } from './store.ts';
 
 export function createTheme(
@@ -35,6 +36,7 @@ export function createTheme(
   return {
     useTheme,
     Script,
+    StatusBar,
     manifest: (theme: Theme) => ({
       theme_color: THEME_COLORS[theme],
       background_color: THEME_COLORS[theme],
