@@ -38,10 +38,11 @@ The app itself is the first gesture demo. `src/shell` wraps every page in one
 opens the menu (`useSidebar` with `edge: 24`), a Swipe sideways turns the page,
 and a pull at the top reloads the route's loaders plus anything a page
 registers with `usePageRefresh`. Page Turns live in `src/page-turn`, to move
-into pwa-toolkit once settled: each page declares its neighbours with
-`usePageTurn`, and a Swipe, ← and → or a click on a link to either turns to it,
-with a Placeholder Page standing in until it loads. `/gestures/page-turn` slows
-every load down to test that. Gesture playgrounds pass `gestures` to `Playground`, which makes it a
+into pwa-toolkit once settled, with the app's instance in `src/lib/page-turn.ts`:
+each page declares its neighbours with `pageTurn.usePageTurn`. A Swipe turns to
+one with a Placeholder Page showing its loading screen until it loads; a link,
+← and →, Back and Forward play the same motion as a view transition.
+`/gestures/page-turn` slows loads down to test that. Gesture playgrounds pass `gestures` to `Playground`, which makes it a
 trapped zone, so a demo's touches never reach the app's own swipes.
 
 The worker is `src/sw.ts`: `runServiceWorker()` plus a Worker Server for the

@@ -47,13 +47,19 @@ export const useSimulatedLoad = (): SimulatedLoad =>
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** A Page Turn `load`: the router's preload, as slow or broken as the setting says. */
+// The page that sets it loads for real, so you can always get back to it.
+const SETTING_PAGE = '/gestures/page-turn';
+
+/**
+ * A Page Turn `load`: the router's preload, as slow or broken as the setting
+ * says, for every page but the one that sets it.
+ */
 export const simulateLoad = async (
-  _to: string,
+  to: string,
   preload: () => Promise<void>,
 ): Promise<void> => {
   const setting = read();
-  if (setting === 'real') return preload();
+  if (setting === 'real' || to === SETTING_PAGE) return preload();
   if (setting === 'hang') return new Promise(() => undefined);
   if (setting === 'fail') {
     await wait(1000);

@@ -3,7 +3,8 @@ import { ArrowLeftIcon, ArrowRightIcon } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import type { ReactNode } from 'react';
 import { chapterOf, neighbours, pageAt } from '../lib/chapters.ts';
-import { usePageTurn } from '../page-turn/index.ts';
+import { Skeleton } from '@kstackz/ui-toolkit/components/ui/skeleton';
+import { pageTurn } from '../lib/page-turn.ts';
 
 function PrevNext(props: { readonly path: string }) {
   const { prev, next } = neighbours(props.path);
@@ -72,7 +73,7 @@ export function Page(props: {
 }) {
   const chapter = chapterOf(props.path);
   const { prev, next } = neighbours(props.path);
-  usePageTurn({ prev: prev?.path, next: next?.path });
+  pageTurn.usePageTurn({ prev: prev?.path, next: next?.path });
   const title = props.title ?? pageAt(props.path)?.title ?? '';
   return (
     <main
@@ -95,6 +96,30 @@ export function Page(props: {
       </header>
       {props.children}
       <PrevNext path={props.path} />
+    </main>
+  );
+}
+
+/**
+ * A page while it loads, in the shape of `Page`: a chapter, a title, a lede
+ * and a playground. Routes without their own loading screen show it.
+ */
+export function PageSkeleton() {
+  return (
+    <main
+      aria-hidden="true"
+      className="flex min-w-0 flex-col gap-10 pt-8 pb-10 lg:pt-12"
+    >
+      <div className="flex max-w-[62ch] flex-col gap-3">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-10 w-3/4 sm:h-12" />
+        <div className="flex flex-col gap-2.5 pt-1">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-11/12" />
+          <Skeleton className="h-4 w-2/3" />
+        </div>
+      </div>
+      <Skeleton className="h-80 rounded-2xl" />
     </main>
   );
 }

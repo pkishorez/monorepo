@@ -1,5 +1,6 @@
 import { createRouter } from '@tanstack/react-router';
-import { pageTurnTransition } from './page-turn/index.ts';
+import { PageSkeleton } from './components/index.ts';
+import { pageTurn } from './lib/page-turn.ts';
 import { routeTree } from './routeTree.gen';
 
 export function getRouter() {
@@ -9,8 +10,10 @@ export function getRouter() {
     scrollRestoration: true,
     // Pages scroll inside the app frame (shell/app-shell.tsx), not the window.
     scrollToTopSelectors: ['#content'],
-    // Crossfades the page, or replays a Page Turn through history, where the
-    // browser has view transitions; plain navigation elsewhere.
-    defaultViewTransition: pageTurnTransition,
+    // Turns between a page and its neighbours, crossfades anything else,
+    // where the browser has view transitions; plain navigation elsewhere.
+    defaultViewTransition: pageTurn.viewTransition,
+    // What a page shows while it loads, and in a Page Turn before it has.
+    defaultPendingComponent: PageSkeleton,
   });
 }

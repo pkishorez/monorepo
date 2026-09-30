@@ -20,14 +20,14 @@ import {
   setSimulatedLoad,
   useSimulatedLoad,
 } from '../lib/simulated-load.ts';
-import { usePageTurnState } from '../page-turn/index.ts';
+import { pageTurn } from '../lib/page-turn.ts';
 
 export const Route = createFileRoute('/gestures/page-turn')({
   component: PageTurns,
 });
 
 function Live() {
-  const turn = usePageTurnState();
+  const turn = pageTurn.usePageTurnState();
   const [willTurn, setWillTurn] = useState(false);
   useMotionValueEvent(turn.willTurn, 'change', setWillTurn);
   const percent = useTransform(turn.progress, (p) => `${Math.round(p * 100)}%`);
@@ -57,9 +57,10 @@ function PageTurns() {
       lede={
         <p>
           Swipe sideways and the page follows your finger while the next one
-          comes in beside it. Let go past the point where it will turn, and it
-          finishes the move straight away, loaded or not: a blank page waits in
-          its place until the real one arrives.
+          comes in beside it, as its own loading screen until it has loaded. Let
+          go past the point where it will turn, and it finishes the move
+          straight away; the real page takes the loading screen's place as it
+          arrives.
         </p>
       }
     >
@@ -77,23 +78,22 @@ function PageTurns() {
       </Playground>
       <Notice
         items={[
-          'The setting holds on every page, so you can turn back and forth through the whole app with slow pages.',
-          'A page waiting for its load is still the old address: nothing changes in history until the new page shows.',
-          'A load that takes longer than 8 seconds has failed.',
+          'A finger turns the page before it has loaded: the page coming in shows its own loading screen until it has, and the address changes only as it lands.',
+          'A link, an arrow key, Back or Forward turns the same way, as a view transition, whichever way history moves: the direction comes from which side of the page you left the other one is.',
+          'The setting slows every page but this one, so you can always come back here to change it.',
         ]}
       />
       <Checklist
         steps={[
           'Set 2 s. Swipe left a little and let go early. The page springs back.',
-          'Swipe left past the point where it will turn and let go. A blank page with a spinner takes its place, then the real page fades in.',
-          'Set 5 s. Turn, and while the spinner shows, swipe right. You are back where you were, at once. Wait five seconds: nothing happens.',
+          'Swipe left past the point where it will turn and let go. The next page comes in as its loading screen, then the real page takes its place.',
+          'Set 5 s. Turn, and while it loads, swipe right. You are back where you were, at once, and nothing lands later.',
           'Turn again straight away. The same load carries on, so it arrives sooner.',
-          'Turn, and while it waits, start swiping right but let go early. It goes back to waiting.',
-          'Set Fails. Turn, and the blank page says the page did not load. Set Real and press Try again.',
+          'Set Fails. Turn, and the page coming in says it did not load. Swipe back, or turn back to this page from anywhere: it always loads.',
           'Set Hangs. Turn, and wait eight seconds for it to fail.',
-          'Turn to the next page, then use the browser Back button. It turns back the same way. Forward turns again.',
-          'On a keyboard, press → and ← to turn. Click Next at the foot of the page: it turns the same way.',
-          'Open the menu from the left edge while a page waits: the edge still opens the menu.',
+          'Click Next at the foot of the page, or press →. The page turns the same way, without a loading screen.',
+          'Turn forward twice, back once, then use the browser Back button twice. Each step turns toward where that page sits: forward, then back.',
+          'Jump to a page that is not a neighbour from the menu. It crossfades.',
         ]}
       />
     </Page>
