@@ -68,7 +68,9 @@ function ThemeToggle() {
 
 /**
  * Checks for a new deploy. A found one downloads, then the Update Prompt asks
- * to reload; once it waits, this button reloads into it too.
+ * to reload; once it waits, this button reloads into it too. Always shown, so
+ * the header never shifts: disabled until the worker is running, and saying
+ * so in dev, where there is none.
  */
 function UpdateCheck() {
   const pwa = usePwa();
@@ -76,10 +78,8 @@ function UpdateCheck() {
     'checking' | 'downloading' | 'current'
   >();
   const status = pwa.status._tag;
-  // No worker yet (dev, first visit, or an unsupported browser): nothing to check.
-  if (status === 'Unsupported' || status === 'Installing') return null;
 
-  if (status !== 'Ready') {
+  if (status === 'UpdateReady' || status === 'Updating') {
     return (
       <Button
         size="sm"
@@ -102,12 +102,14 @@ function UpdateCheck() {
     setTimeout(() => setResult(undefined), 3000);
   };
 
+  // `pnpm dev` runs no worker, so its pages carry no Build ID.
+  const dev = pwa.version.buildId === null;
   return (
     <Button
       variant="ghost"
       size="sm"
       className="min-h-11 md:min-h-8"
-      disabled={result === 'checking' || result === 'downloading'}
+      disabled={status !== 'Ready' || result !== undefined}
       onClick={() => void check()}
     >
       <RefreshCwIcon
@@ -115,13 +117,15 @@ function UpdateCheck() {
         className={result === 'checking' ? 'animate-spin' : undefined}
       />
       <span role="status">
-        {result === 'checking'
-          ? 'Checking…'
-          : result === 'downloading'
-            ? 'Downloading…'
-            : result === 'current'
-              ? 'Up to date'
-              : 'Check for updates'}
+        {dev
+          ? 'No updates in dev'
+          : result === 'checking'
+            ? 'Checking…'
+            : result === 'downloading'
+              ? 'Downloading…'
+              : result === 'current'
+                ? 'Up to date'
+                : 'Check for updates'}
       </span>
     </Button>
   );
