@@ -16,6 +16,8 @@ import { PhotoArt } from './photo.tsx';
 type Columns = 3 | 5;
 
 const SPRING = { type: 'spring', visualDuration: 0.3, bounce: 0 } as const;
+/** Tiles falling into a new grid: quick to start, long to settle. */
+const FALL = { duration: 400, easing: 'cubic-bezier(0.32, 0.72, 0, 1)' };
 
 type GridProps = {
   readonly photos: ReadonlyArray<Photo>;
@@ -67,21 +69,27 @@ function Tiles(
   // Measured instead of the grid, whose transform may not have caught up.
   const still = useRef<HTMLDivElement>(null);
   const scale = useMotionValue(1);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
   const ox = useMotionValue(0);
   const oy = useMotionValue(0);
   const transformOrigin = useMotionTemplate`${ox}px ${oy}px`;
   const pinch = useRef<
     { a: number; b: number; origin: Point; stop: () => void } | undefined
   >(undefined);
+  // The tiles still falling into the last grid.
+  const falling = useRef<Array<Animation>>([]);
+  const land = () => {
+    for (const fall of falling.current) fall.finish();
+    falling.current = [];
+  };
 
-  // A pinch past a threshold swaps the columns, then eases from the size the
-  // fingers left the tiles at to their new one, pinned to the photo under them.
-  const switchTo = (next: Columns, from: number, origin: Point) => {
+  // A pinch past a threshold swaps the columns. The photo under the fingers
+  // stays under them, and each tile on screen falls from where the pinch left
+  // it into its place in the new grid; tiles new to the screen fade in.
+  const switchTo = (next: Columns, origin: Point) => {
     const el = scroller.current;
     const first = photos[0] === undefined ? undefined : tiles.get(photos[0].id);
     if (el === null || first === undefined) return;
+    land();
     const pitch = first.offsetWidth + 2;
     const col = Math.min(
       Math.max(Math.floor((origin.x - first.offsetLeft) / pitch), 0),
@@ -92,29 +100,54 @@ function Tiles(
     const tile = anchor === undefined ? undefined : tiles.get(anchor.id);
     if (tile === undefined) return;
     const clamp = (v: number) => Math.min(Math.max(v, 0), 1);
-    const fx = clamp((origin.x - tile.offsetLeft) / tile.offsetWidth);
     const fy = clamp((origin.y - tile.offsetTop) / tile.offsetHeight);
-    const seen = { x: origin.x, y: origin.y - el.scrollTop };
+    const seen = origin.y - el.scrollTop;
+    const view = el.getBoundingClientRect();
+    const onScreen = (top: number, bottom: number) =>
+      bottom > view.top && top < view.bottom;
+    // Where each tile on screen is now, scaled by the pinch.
+    const before = new Map<HTMLElement, DOMRect>();
+    for (const t of tiles.values()) {
+      const rect = t.getBoundingClientRect();
+      if (onScreen(rect.top, rect.bottom)) before.set(t, rect);
+    }
 
     flushSync(() => setColumns(next));
-    const q = {
-      x: tile.offsetLeft + fx * tile.offsetWidth,
-      y: tile.offsetTop + fy * tile.offsetHeight,
-    };
-    el.scrollTop = q.y - seen.y;
-    ox.set(q.x);
-    oy.set(q.y);
-    scale.set((from * next) / columns);
-    x.set(seen.x - q.x);
-    y.set(seen.y - (q.y - el.scrollTop));
-    settle();
+    el.scrollTop = tile.offsetTop + fy * tile.offsetHeight - seen;
+    scale.jump(1);
+    // The new grid's place on screen, from layout: its transform is only
+    // cleared on the next frame.
+    const box = still.current?.getBoundingClientRect();
+    if (box === undefined) return;
+    for (const t of tiles.values()) {
+      const left = box.left + t.offsetLeft;
+      const top = box.top + t.offsetTop;
+      const from = before.get(t);
+      if (from !== undefined) {
+        const k = from.width / t.offsetWidth;
+        falling.current.push(
+          t.animate(
+            [
+              {
+                transform: `translate(${from.left - left}px, ${from.top - top}px) scale(${k})`,
+              },
+              { transform: 'none' },
+            ],
+            FALL,
+          ),
+        );
+      } else if (onScreen(top, top + t.offsetHeight)) {
+        falling.current.push(
+          t.animate([{ opacity: 0 }, { opacity: 1 }], {
+            ...FALL,
+            duration: 250,
+          }),
+        );
+      }
+    }
   };
 
-  const settle = () => {
-    animate(scale, 1, SPRING);
-    animate(x, 0, SPRING);
-    animate(y, 0, SPRING);
-  };
+  const settle = () => animate(scale, 1, SPRING);
 
   const at = (point: Point): Point => {
     const box = still.current?.getBoundingClientRect();
@@ -124,10 +157,9 @@ function Tiles(
   };
 
   const begin = (a: Pointer, b: Pointer) => {
-    for (const v of [scale, x, y]) v.stop();
+    scale.stop();
     scale.jump(1);
-    x.jump(0);
-    y.jump(0);
+    land();
     const start = between(a, b);
     const origin = at(start);
     ox.set(origin.x);
@@ -152,8 +184,8 @@ function Tiles(
     current.stop();
     pinch.current = undefined;
     const s = scale.get();
-    if (columns === 3 && s < 0.88) switchTo(5, s, current.origin);
-    else if (columns === 5 && s > 1.14) switchTo(3, s, current.origin);
+    if (columns === 3 && s < 0.88) switchTo(5, current.origin);
+    else if (columns === 5 && s > 1.14) switchTo(3, current.origin);
     else settle();
   };
 
@@ -202,7 +234,7 @@ function Tiles(
       if (next === undefined) return;
       sum = 0;
       quiet = event.timeStamp + 400;
-      switchTo(next, 1, at({ x: event.clientX, y: event.clientY }));
+      switchTo(next, at({ x: event.clientX, y: event.clientY }));
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -221,8 +253,6 @@ function Tiles(
         style={{
           gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
           scale,
-          x,
-          y,
           transformOrigin,
         }}
       >
@@ -346,7 +376,7 @@ const Tile = memo(function Tile(props: {
         };
       }}
       aria-label={`Photo, ${DAY.format(photo.taken)}`}
-      className="relative block aspect-square scroll-mt-[calc(env(safe-area-inset-top)+3.5rem)] scroll-mb-[calc(env(safe-area-inset-bottom)+5.5rem)] overflow-hidden bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+      className="relative block aspect-square origin-top-left scroll-mt-[calc(env(safe-area-inset-top)+3.5rem)] scroll-mb-[calc(env(safe-area-inset-bottom)+5.5rem)] overflow-hidden bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
       style={{ visibility: props.hidden ? 'hidden' : undefined }}
       onClick={() => props.onOpen(props.index)}
     >
