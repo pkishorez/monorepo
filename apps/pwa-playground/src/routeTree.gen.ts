@@ -22,6 +22,7 @@ import { Route as UpdateRouteImport } from './routes/update'
 import { Route as ApiDataRouteImport } from './routes/api/data'
 import { Route as GesturesIndexRouteImport } from './routes/gestures.index'
 import { Route as GesturesLabRouteImport } from './routes/gestures.lab'
+import { Route as GesturesPageTurnRouteImport } from './routes/gestures.page-turn'
 import { Route as GesturesPullToRefreshRouteImport } from './routes/gestures.pull-to-refresh'
 import { Route as GesturesSidebarRouteImport } from './routes/gestures.sidebar'
 import { Route as GesturesSwipeRouteImport } from './routes/gestures.swipe'
@@ -95,6 +96,11 @@ const GesturesLabRoute = GesturesLabRouteImport.update({
   path: '/gestures/lab',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GesturesPageTurnRoute = GesturesPageTurnRouteImport.update({
+  id: '/gestures/page-turn',
+  path: '/gestures/page-turn',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GesturesPullToRefreshRoute = GesturesPullToRefreshRouteImport.update({
   id: '/gestures/pull-to-refresh',
   path: '/gestures/pull-to-refresh',
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/update': typeof UpdateRoute
   '/api/data': typeof ApiDataRoute
   '/gestures/lab': typeof GesturesLabRoute
+  '/gestures/page-turn': typeof GesturesPageTurnRoute
   '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
   '/gestures/sidebar': typeof GesturesSidebarRoute
   '/gestures/swipe': typeof GesturesSwipeRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/update': typeof UpdateRoute
   '/api/data': typeof ApiDataRoute
   '/gestures/lab': typeof GesturesLabRoute
+  '/gestures/page-turn': typeof GesturesPageTurnRoute
   '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
   '/gestures/sidebar': typeof GesturesSidebarRoute
   '/gestures/swipe': typeof GesturesSwipeRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/update': typeof UpdateRoute
   '/api/data': typeof ApiDataRoute
   '/gestures/lab': typeof GesturesLabRoute
+  '/gestures/page-turn': typeof GesturesPageTurnRoute
   '/gestures/pull-to-refresh': typeof GesturesPullToRefreshRoute
   '/gestures/sidebar': typeof GesturesSidebarRoute
   '/gestures/swipe': typeof GesturesSwipeRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
     | '/update'
     | '/api/data'
     | '/gestures/lab'
+    | '/gestures/page-turn'
     | '/gestures/pull-to-refresh'
     | '/gestures/sidebar'
     | '/gestures/swipe'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
     | '/update'
     | '/api/data'
     | '/gestures/lab'
+    | '/gestures/page-turn'
     | '/gestures/pull-to-refresh'
     | '/gestures/sidebar'
     | '/gestures/swipe'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/update'
     | '/api/data'
     | '/gestures/lab'
+    | '/gestures/page-turn'
     | '/gestures/pull-to-refresh'
     | '/gestures/sidebar'
     | '/gestures/swipe'
@@ -280,6 +292,7 @@ export interface RootRouteChildren {
   UpdateRoute: typeof UpdateRoute
   ApiDataRoute: typeof ApiDataRoute
   GesturesLabRoute: typeof GesturesLabRoute
+  GesturesPageTurnRoute: typeof GesturesPageTurnRoute
   GesturesPullToRefreshRoute: typeof GesturesPullToRefreshRoute
   GesturesSidebarRoute: typeof GesturesSidebarRoute
   GesturesSwipeRoute: typeof GesturesSwipeRoute
@@ -383,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GesturesLabRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gestures/page-turn': {
+      id: '/gestures/page-turn'
+      path: '/gestures/page-turn'
+      fullPath: '/gestures/page-turn'
+      preLoaderRoute: typeof GesturesPageTurnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gestures/pull-to-refresh': {
       id: '/gestures/pull-to-refresh'
       path: '/gestures/pull-to-refresh'
@@ -448,6 +468,7 @@ const rootRouteChildren: RootRouteChildren = {
   UpdateRoute: UpdateRoute,
   ApiDataRoute: ApiDataRoute,
   GesturesLabRoute: GesturesLabRoute,
+  GesturesPageTurnRoute: GesturesPageTurnRoute,
   GesturesPullToRefreshRoute: GesturesPullToRefreshRoute,
   GesturesSidebarRoute: GesturesSidebarRoute,
   GesturesSwipeRoute: GesturesSwipeRoute,
