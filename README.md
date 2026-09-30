@@ -17,7 +17,7 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | [`apps/docs`](./apps/docs)                       | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers.        |
 | [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials. |
-| [`apps/kstack`](./apps/kstack)                   | Examples of the app layouts and behaviours kstack supports, each a complete app, published at kstack.kishore.app.             |
+| [`apps/kstack`](./apps/kstack)                   | Showcases of the app layouts and behaviours kstack supports, each a complete app, published at kstack.kishore.app.            |
 
 ## kstack packages
 

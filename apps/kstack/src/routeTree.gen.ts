@@ -11,9 +11,15 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppShellRouteRouteImport } from './routes/app-shell/route'
+import { Route as GesturesRouteRouteImport } from './routes/gestures/route'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as AppShellIndexRouteImport } from './routes/app-shell/index'
 import { Route as AppShellSectionRouteImport } from './routes/app-shell/$section'
+import { Route as FeaturesIndexRouteImport } from './routes/features/index'
+import { Route as FeaturesFeatureRouteImport } from './routes/features/$feature'
+import { Route as GesturesIndexRouteImport } from './routes/gestures/index'
+import { Route as GesturesTopicRouteImport } from './routes/gestures/$topic'
+import { Route as GesturesTopicScenarioRouteImport } from './routes/gestures_.$topic.$scenario'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppShellRouteRoute = AppShellRouteRouteImport.update({
   id: '/app-shell',
   path: '/app-shell',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesRouteRoute = GesturesRouteRouteImport.update({
+  id: '/gestures',
+  path: '/gestures',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfflineRoute = OfflineRouteImport.update({
@@ -40,47 +51,118 @@ const AppShellSectionRoute = AppShellSectionRouteImport.update({
   path: '/$section',
   getParentRoute: () => AppShellRouteRoute,
 } as any)
+const FeaturesIndexRoute = FeaturesIndexRouteImport.update({
+  id: '/features/',
+  path: '/features/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeaturesFeatureRoute = FeaturesFeatureRouteImport.update({
+  id: '/features/$feature',
+  path: '/features/$feature',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GesturesIndexRoute = GesturesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => GesturesRouteRoute,
+} as any)
+const GesturesTopicRoute = GesturesTopicRouteImport.update({
+  id: '/$topic',
+  path: '/$topic',
+  getParentRoute: () => GesturesRouteRoute,
+} as any)
+const GesturesTopicScenarioRoute = GesturesTopicScenarioRouteImport.update({
+  id: '/gestures_/$topic/$scenario',
+  path: '/gestures/$topic/$scenario',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app-shell': typeof AppShellRouteRouteWithChildren
+  '/gestures': typeof GesturesRouteRouteWithChildren
   '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
+  '/features/$feature': typeof FeaturesFeatureRoute
+  '/gestures/$topic': typeof GesturesTopicRoute
   '/app-shell/': typeof AppShellIndexRoute
+  '/features/': typeof FeaturesIndexRoute
+  '/gestures/': typeof GesturesIndexRoute
+  '/gestures/$topic/$scenario': typeof GesturesTopicScenarioRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
+  '/features/$feature': typeof FeaturesFeatureRoute
+  '/gestures/$topic': typeof GesturesTopicRoute
   '/app-shell': typeof AppShellIndexRoute
+  '/features': typeof FeaturesIndexRoute
+  '/gestures': typeof GesturesIndexRoute
+  '/gestures/$topic/$scenario': typeof GesturesTopicScenarioRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app-shell': typeof AppShellRouteRouteWithChildren
+  '/gestures': typeof GesturesRouteRouteWithChildren
   '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
+  '/features/$feature': typeof FeaturesFeatureRoute
+  '/gestures/$topic': typeof GesturesTopicRoute
   '/app-shell/': typeof AppShellIndexRoute
+  '/features/': typeof FeaturesIndexRoute
+  '/gestures/': typeof GesturesIndexRoute
+  '/gestures_/$topic/$scenario': typeof GesturesTopicScenarioRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/app-shell' | '/offline' | '/app-shell/$section' | '/app-shell/'
+    | '/'
+    | '/app-shell'
+    | '/gestures'
+    | '/offline'
+    | '/app-shell/$section'
+    | '/features/$feature'
+    | '/gestures/$topic'
+    | '/app-shell/'
+    | '/features/'
+    | '/gestures/'
+    | '/gestures/$topic/$scenario'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/offline' | '/app-shell/$section' | '/app-shell'
+  to:
+    | '/'
+    | '/offline'
+    | '/app-shell/$section'
+    | '/features/$feature'
+    | '/gestures/$topic'
+    | '/app-shell'
+    | '/features'
+    | '/gestures'
+    | '/gestures/$topic/$scenario'
   id:
     | '__root__'
     | '/'
     | '/app-shell'
+    | '/gestures'
     | '/offline'
     | '/app-shell/$section'
+    | '/features/$feature'
+    | '/gestures/$topic'
     | '/app-shell/'
+    | '/features/'
+    | '/gestures/'
+    | '/gestures_/$topic/$scenario'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppShellRouteRoute: typeof AppShellRouteRouteWithChildren
+  GesturesRouteRoute: typeof GesturesRouteRouteWithChildren
   OfflineRoute: typeof OfflineRoute
+  FeaturesFeatureRoute: typeof FeaturesFeatureRoute
+  FeaturesIndexRoute: typeof FeaturesIndexRoute
+  GesturesTopicScenarioRoute: typeof GesturesTopicScenarioRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -97,6 +179,13 @@ declare module '@tanstack/react-router' {
       path: '/app-shell'
       fullPath: '/app-shell'
       preLoaderRoute: typeof AppShellRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures': {
+      id: '/gestures'
+      path: '/gestures'
+      fullPath: '/gestures'
+      preLoaderRoute: typeof GesturesRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offline': {
@@ -120,6 +209,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppShellSectionRouteImport
       parentRoute: typeof AppShellRouteRoute
     }
+    '/features/': {
+      id: '/features/'
+      path: '/features'
+      fullPath: '/features/'
+      preLoaderRoute: typeof FeaturesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/features/$feature': {
+      id: '/features/$feature'
+      path: '/features/$feature'
+      fullPath: '/features/$feature'
+      preLoaderRoute: typeof FeaturesFeatureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gestures/': {
+      id: '/gestures/'
+      path: '/'
+      fullPath: '/gestures/'
+      preLoaderRoute: typeof GesturesIndexRouteImport
+      parentRoute: typeof GesturesRouteRoute
+    }
+    '/gestures/$topic': {
+      id: '/gestures/$topic'
+      path: '/$topic'
+      fullPath: '/gestures/$topic'
+      preLoaderRoute: typeof GesturesTopicRouteImport
+      parentRoute: typeof GesturesRouteRoute
+    }
+    '/gestures_/$topic/$scenario': {
+      id: '/gestures_/$topic/$scenario'
+      path: '/gestures/$topic/$scenario'
+      fullPath: '/gestures/$topic/$scenario'
+      preLoaderRoute: typeof GesturesTopicScenarioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -137,10 +261,28 @@ const AppShellRouteRouteWithChildren = AppShellRouteRoute._addFileChildren(
   AppShellRouteRouteChildren,
 )
 
+interface GesturesRouteRouteChildren {
+  GesturesTopicRoute: typeof GesturesTopicRoute
+  GesturesIndexRoute: typeof GesturesIndexRoute
+}
+
+const GesturesRouteRouteChildren: GesturesRouteRouteChildren = {
+  GesturesTopicRoute: GesturesTopicRoute,
+  GesturesIndexRoute: GesturesIndexRoute,
+}
+
+const GesturesRouteRouteWithChildren = GesturesRouteRoute._addFileChildren(
+  GesturesRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppShellRouteRoute: AppShellRouteRouteWithChildren,
+  GesturesRouteRoute: GesturesRouteRouteWithChildren,
   OfflineRoute: OfflineRoute,
+  FeaturesFeatureRoute: FeaturesFeatureRoute,
+  FeaturesIndexRoute: FeaturesIndexRoute,
+  GesturesTopicScenarioRoute: GesturesTopicScenarioRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

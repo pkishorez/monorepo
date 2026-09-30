@@ -1,14 +1,12 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
-import { SectionPage } from './components/section-page.tsx';
-import { sectionAt } from './lib/sections.ts';
+import { hasSection, SectionPage } from '../../showcases/app-shell/index.ts';
 
 export const Route = createFileRoute('/app-shell/$section')({
   beforeLoad: ({ params }) => {
-    if (sectionAt(params.section) === undefined) throw notFound();
+    if (!hasSection(params.section)) throw notFound();
   },
   component: function Section() {
     const { section } = Route.useParams();
-    const found = sectionAt(section);
-    return found === undefined ? null : <SectionPage section={found} />;
+    return <SectionPage slug={section} />;
   },
 });

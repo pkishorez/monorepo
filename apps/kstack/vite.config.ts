@@ -22,8 +22,6 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     tanstackStart({
-      // An Example keeps its components, hooks and helpers beside its routes.
-      router: { routeFileIgnorePattern: '^(components|hooks|lib)$' },
       // App Shell and Offline Fallback, both precached by pwa().
       spa: { enabled: true, prerender: { outputPath: '/_shell' } },
       pages: [
@@ -47,7 +45,7 @@ export default defineConfig({
         name: 'kstack',
         short_name: 'kstack',
         description:
-          'Examples of the app layouts and behaviours kstack supports.',
+          'Showcases of the app layouts and behaviours kstack supports.',
         ...createTheme().manifest('dark'),
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

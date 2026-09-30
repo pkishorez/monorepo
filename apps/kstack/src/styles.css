@@ -11,7 +11,7 @@
 @layer base {
   html,
   body {
-    /* Each Example scrolls inside itself; the page never rubber-bands. */
+    /* Each Showcase scrolls inside itself; the page never rubber-bands. */
     overscroll-behavior: none;
   }
   body {
@@ -24,19 +24,19 @@
   }
 }
 
-/* Opening an Example grows its card into the whole screen. */
+/* Opening a Showcase grows its card into the whole screen. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
 }
 
-::view-transition-group(example) {
+::view-transition-group(showcase) {
   animation-duration: 320ms;
   animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(example) {
+  ::view-transition-group(showcase) {
     animation: none;
   }
 }

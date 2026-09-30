@@ -1,10 +1,10 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { Example } from './components/example.tsx';
+import { AppShellShowcase } from '../../showcases/app-shell/index.ts';
 
 export const Route = createFileRoute('/app-shell')({
   component: () => (
-    <Example>
+    <AppShellShowcase>
       <Outlet />
-    </Example>
+    </AppShellShowcase>
   ),
 });
