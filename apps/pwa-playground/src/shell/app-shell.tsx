@@ -30,7 +30,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ThemeToggle } from '../components/index.ts';
+import { appTheme, ThemeToggle } from '../components/index.ts';
 import { useTouch, useWide } from './media.ts';
 import { ChapterNav } from './nav.tsx';
 import { type Pager, usePager } from './pager.ts';
@@ -366,6 +366,7 @@ export function AppShell(props: { readonly children: ReactNode }) {
         >
           <Frame>{props.children}</Frame>
         </GestureZone>
+        <appTheme.StatusBar />
       </RefreshProvider>
     </GestureProvider>
   );
