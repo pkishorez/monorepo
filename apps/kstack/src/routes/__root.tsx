@@ -8,6 +8,7 @@ import {
 import { createIsomorphicFn, createServerFn } from '@tanstack/react-start';
 import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
 import { buttonVariants } from '@kstackz/ui-toolkit/components/ui/button';
+import { PwaProvider, pwaHead, UpdatePrompt } from '@kstackz/pwa-toolkit/react';
 import type { ReactNode } from 'react';
 import { appTheme } from '../common/theme.ts';
 import appCss from '../styles.css?url';
@@ -27,29 +28,39 @@ const currentTheme = createIsomorphicFn()
 
 export const Route = createRootRoute({
   loader: () => currentTheme(),
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
-      },
-      { title: 'kstack' },
-      // Not `apple-mobile-web-app-capable`: that legacy mode keeps the iOS
-      // status bar from following the page.
-      { name: 'mobile-web-app-capable', content: 'yes' },
-    ],
-    links: [
-      { rel: 'stylesheet', href: appCss },
-      { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-      { rel: 'manifest', href: '/manifest.webmanifest' },
-      { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
-    ],
-  }),
+  head: () => {
+    const pwa = pwaHead();
+    return {
+      meta: [
+        { charSet: 'utf-8' },
+        {
+          name: 'viewport',
+          content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+        },
+        { title: 'kstack' },
+        ...pwa.meta,
+      ],
+      links: [
+        { rel: 'stylesheet', href: appCss },
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        ...pwa.links,
+      ],
+    };
+  },
   shellComponent: RootDocument,
-  component: Outlet,
+  component: RootComponent,
   notFoundComponent: NotFound,
 });
+
+// The service worker finds each new deploy; the prompt asks before reloading.
+function RootComponent() {
+  return (
+    <PwaProvider>
+      <Outlet />
+      <UpdatePrompt />
+    </PwaProvider>
+  );
+}
 
 function NotFound() {
   return (

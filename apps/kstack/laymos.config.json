@@ -11,11 +11,16 @@
       }
     },
     "routes": {
-      "paths": ["src/routes/__root.tsx", "src/routes/index.tsx"],
-      "description": "The document and the home page listing every Example",
+      "paths": [
+        "src/routes/__root.tsx",
+        "src/routes/index.tsx",
+        "src/routes/offline.tsx"
+      ],
+      "description": "The document, the home page listing every Example, and the offline page the service worker falls back to",
       "modules": {
         "src/routes/__root.tsx": {},
-        "src/routes/index.tsx": {}
+        "src/routes/index.tsx": {},
+        "src/routes/offline.tsx": {}
       }
     },
     "app-shell-example": {

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppShellRouteRouteImport } from './routes/app-shell/route'
+import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as AppShellIndexRouteImport } from './routes/app-shell/index'
 import { Route as AppShellSectionRouteImport } from './routes/app-shell/$section'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppShellRouteRoute = AppShellRouteRouteImport.update({
   id: '/app-shell',
   path: '/app-shell',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OfflineRoute = OfflineRouteImport.update({
+  id: '/offline',
+  path: '/offline',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppShellIndexRoute = AppShellIndexRouteImport.update({
@@ -38,11 +44,13 @@ const AppShellSectionRoute = AppShellSectionRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app-shell': typeof AppShellRouteRouteWithChildren
+  '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
   '/app-shell/': typeof AppShellIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
   '/app-shell': typeof AppShellIndexRoute
 }
@@ -50,20 +58,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app-shell': typeof AppShellRouteRouteWithChildren
+  '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
   '/app-shell/': typeof AppShellIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app-shell' | '/app-shell/$section' | '/app-shell/'
+  fullPaths:
+    '/' | '/app-shell' | '/offline' | '/app-shell/$section' | '/app-shell/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app-shell/$section' | '/app-shell'
-  id: '__root__' | '/' | '/app-shell' | '/app-shell/$section' | '/app-shell/'
+  to: '/' | '/offline' | '/app-shell/$section' | '/app-shell'
+  id:
+    | '__root__'
+    | '/'
+    | '/app-shell'
+    | '/offline'
+    | '/app-shell/$section'
+    | '/app-shell/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppShellRouteRoute: typeof AppShellRouteRouteWithChildren
+  OfflineRoute: typeof OfflineRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -80,6 +97,13 @@ declare module '@tanstack/react-router' {
       path: '/app-shell'
       fullPath: '/app-shell'
       preLoaderRoute: typeof AppShellRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/offline': {
+      id: '/offline'
+      path: '/offline'
+      fullPath: '/offline'
+      preLoaderRoute: typeof OfflineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app-shell/': {
@@ -116,6 +140,7 @@ const AppShellRouteRouteWithChildren = AppShellRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppShellRouteRoute: AppShellRouteRouteWithChildren,
+  OfflineRoute: OfflineRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

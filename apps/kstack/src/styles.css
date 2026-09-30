@@ -2,6 +2,7 @@
 @import '@kstackz/ui-toolkit/styles/font-inter.css';
 
 @source './';
+@source '../node_modules/@kstackz/pwa-toolkit/dist';
 
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
