@@ -24,10 +24,11 @@ const MAIL = [
 
 /**
  * Rows that open from a Swipe left, beside a sidebar that opens from a Swipe
- * right anywhere. An open row's zone is trapped, so its Swipe right closes it
- * and the sidebar never hears it.
+ * right anywhere. A shut row wants only a Swipe left, so a Swipe right on it
+ * passes out to the sidebar. An open row wants the Swipe right that closes
+ * it, so its zone takes that one and the sidebar never moves.
  */
-export function TrappedWhenOpen() {
+export function OpenRowAndSidebar() {
   const sidebar = useSidebar({ side: 'left', width: WIDTH });
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   useStageStatus(
@@ -36,7 +37,7 @@ export function TrappedWhenOpen() {
       : sidebar.open
         ? 'Sidebar open'
         : open.size > 0
-          ? `Trapped: ${[...open].join(', ')}`
+          ? `Open: ${[...open].join(', ')}`
           : undefined,
   );
 
@@ -46,7 +47,6 @@ export function TrappedWhenOpen() {
         {MAIL.map((mail) => (
           <GestureZone
             key={mail.from}
-            trapped={open.has(mail.from)}
             className="relative h-14 overflow-hidden"
           >
             <Row

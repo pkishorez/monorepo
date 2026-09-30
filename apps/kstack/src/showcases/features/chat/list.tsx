@@ -25,8 +25,8 @@ export interface ListActions {
 /**
  * Every chat under a header. The header, and a strip along the left edge,
  * are the app's zone, where a Swipe right opens the sidebar; the list is its
- * own trapped zone, where a Swipe right on a row is that row's, and a pull
- * from its top refreshes.
+ * own zone, which takes Swipes left and right for its rows, so the sidebar
+ * never hears them, and a pull from its top refreshes.
  */
 export function List(
   props: ListActions & { readonly chats: ReadonlyArray<Chat> },
@@ -57,7 +57,7 @@ export function List(
         </div>
       </header>
       <div className="relative min-h-0 flex-1">
-        <GestureZone trapped className="absolute inset-0">
+        <GestureZone className="absolute inset-0">
           <Chats {...props} />
         </GestureZone>
         {/* The app's, not the list's: a Swipe right from here opens the sidebar. */}

@@ -13,7 +13,7 @@ import twoFingers from './two-fingers.tsx?raw';
 import { VerticalList } from './vertical-list.tsx';
 import verticalList from './vertical-list.tsx?raw';
 
-/** Native Scroll: when the browser scrolls, and when the zone takes the touch. */
+/** Native Scroll: when the browser scrolls, and when a zone that wants the touch takes it. */
 export const scrollVsGesture: Topic = {
   slug: 'scroll-vs-gesture',
   title: 'Scroll vs gesture',

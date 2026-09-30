@@ -26,9 +26,9 @@ const SPRING = { type: 'spring', visualDuration: 0.3, bounce: 0 } as const;
 
 /**
  * One mail over the list, sliding in from the right. `progress` is how far
- * in it is, 0 to 1, for the list to follow. It is its own trapped zone: a
- * Swipe right from the left edge takes it back under the finger, and no
- * touch in it reaches the list or the sidebars.
+ * in it is, 0 to 1, for the list to follow. It is its own trapped zone, so
+ * the sidebars never hear its touches: a Swipe right from the left edge
+ * takes it back under the finger.
  */
 export function Message(props: {
   readonly mail: Mail;

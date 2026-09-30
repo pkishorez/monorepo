@@ -36,6 +36,17 @@ export function SelectRange() {
   };
 
   useGesture({
+    // A touch on the list is the hold's, whichever way it trembles.
+    captures: (point) => {
+      const box = list.current?.getBoundingClientRect();
+      return (
+        box !== undefined &&
+        point.x >= box.left &&
+        point.x <= box.right &&
+        point.y >= box.top &&
+        point.y <= box.bottom
+      );
+    },
     onStart: (pointers) => {
       const [first] = pointers.values();
       setTo(undefined);

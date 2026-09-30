@@ -23,8 +23,6 @@ import { whenOf } from './time.ts';
 const ACTIONS = 160;
 /** How far a row travels right before letting go toggles unread. */
 const UNREAD = 88;
-/** How far a finger moves before the row picks an axis. */
-const LOCK = 10;
 const SPRING = { type: 'spring', visualDuration: 0.22, bounce: 0 } as const;
 
 // Past a limit the row follows at a third of the finger.
@@ -86,6 +84,7 @@ export function Row(props: {
   });
 
   useGesture({
+    directions: ['left', 'right'],
     onStart: (pointers) => {
       const [finger] = pointers.values();
       if (finger === undefined || !ref.current?.contains(finger.target)) return;
@@ -94,11 +93,6 @@ export function Row(props: {
         const current = drag.current;
         if (current === undefined) return;
         const dx = finger.dx.get();
-        const dy = finger.dy.get();
-        if (current.axis === undefined) {
-          if (Math.hypot(dx, dy) < LOCK) return;
-          current.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-        }
         if (current.axis === 'x')
           x.set(resist(current.base + dx, -ACTIONS, UNREAD));
       };
@@ -112,6 +106,12 @@ export function Row(props: {
           offY();
         },
       };
+    },
+    // The row picks the axis the touch first moved along.
+    onDirection: (direction) => {
+      const current = drag.current;
+      if (current === undefined) return;
+      current.axis = direction === 'left' || direction === 'right' ? 'x' : 'y';
     },
     onEnd: (_pointers, end) => {
       const current = drag.current;

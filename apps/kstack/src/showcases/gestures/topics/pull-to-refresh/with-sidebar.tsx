@@ -9,8 +9,8 @@ const WIDTH = 200;
 
 /**
  * A list that pulls to refresh, with a sidebar that opens from a Swipe right
- * anywhere. Each Swipe locks to the axis the finger moved along most in its
- * first 10px, so a diagonal drag goes to one of them, never both.
+ * anywhere. A touch's Direction is read once, at its first movement, as the
+ * way it moved most, so a diagonal drag goes to one of them, never both.
  */
 export function WithSidebar() {
   const [rows, setRows] = useState(() =>

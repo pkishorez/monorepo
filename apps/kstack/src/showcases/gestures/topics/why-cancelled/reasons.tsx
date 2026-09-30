@@ -10,7 +10,7 @@ type Outcome = {
 
 const MEANING: Record<Outcome['reason'], string> = {
   committed: 'It counted',
-  direction: 'Moved the wrong way first',
+  direction: 'The touch first moved another way',
   fingers: 'Wrong number of fingers',
   short: 'Not far or fast enough',
   interrupted: 'The browser took the touch',

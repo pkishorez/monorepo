@@ -203,14 +203,14 @@ function Underlay(props: {
 }
 
 /**
- * Over an open row: a trapped zone, so its touches reach nothing else. A
- * Swipe moves it either way; a tap shuts it.
+ * Over an open row: a zone whose Swipe right shuts it; a tap shuts it too.
+ * A Swipe left goes on to the zones around it, and one up or down scrolls
+ * the list, which shuts it.
  */
 function OpenRow(props: { readonly swipe: RowSwipe }) {
   const { swipe } = props;
   return (
     <GestureZone
-      trapped
       className="absolute inset-0"
       onClick={(event) => {
         event.stopPropagation();
@@ -223,6 +223,10 @@ function OpenRow(props: { readonly swipe: RowSwipe }) {
 }
 
 function OpenRowDrag(props: { readonly swipe: RowSwipe }) {
-  useRowDrag(props.swipe, { enabled: true, pick: () => props.swipe.grip() });
+  useRowDrag(props.swipe, {
+    enabled: true,
+    ways: ['right'],
+    pick: () => props.swipe.grip(),
+  });
   return null;
 }

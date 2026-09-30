@@ -2,7 +2,7 @@ import { Toaster } from '@kstackz/ui-toolkit/components/ui/sonner';
 import { GestureZone, useSidebar } from '@kstackz/use-gesture';
 import { useGesture } from '@kstackz/use-gesture/core';
 import { motion, useMotionValue, useTransform } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { appTheme } from '../../../common/theme.ts';
 import { Compose } from './compose.tsx';
 import { FOLDERS, type FolderId, inFolder } from './data.ts';
@@ -11,7 +11,7 @@ import { Folders } from './folders.tsx';
 import { Inbox } from './inbox.tsx';
 import { type Mailbox, useMailbox } from './mailbox.ts';
 import { Message } from './message.tsx';
-import { EDGE, rowAt, useRowSwipe } from './row-swipe.ts';
+import { EDGE, useRowSwipe } from './row-swipe.ts';
 
 const SIDEBAR_WIDTH = 288;
 
@@ -54,8 +54,9 @@ export function MailApp() {
 
 /**
  * Everything the root zone hears. The folders open from a Swipe right
- * anywhere but on a row, whose own Swipe right toggles read; the filters
- * only from the right edge. A touch anywhere but on the open row shuts it.
+ * anywhere the list's rows do not take it, and always from the left edge;
+ * the filters only from the right edge. A touch anywhere but on the open
+ * row shuts it, and while a row is open no sidebar opens.
  */
 function Screen(props: {
   readonly box: Mailbox;
@@ -69,12 +70,16 @@ function Screen(props: {
   // How far the open mail is in, 0 to 1.
   const reveal = useMotionValue(0);
 
+  const swipe = useRowSwipe({
+    onToggleRead: box.toggleRead,
+    onAway: box.archive,
+  });
   const folders = useSidebar({
     side: 'left',
     width: SIDEBAR_WIDTH,
     open: side === 'folders',
     onOpenChange: (open) => setSide(open ? 'folders' : undefined),
-    enabled: side !== 'filters',
+    enabled: side !== 'filters' && !swipe.open,
   });
   const filters = useSidebar({
     side: 'right',
@@ -82,19 +87,15 @@ function Screen(props: {
     edge: EDGE,
     open: side === 'filters',
     onOpenChange: (open) => setSide(open ? 'filters' : undefined),
-    enabled: side !== 'folders',
+    enabled: side !== 'folders' && !swipe.open,
   });
-  const swipe = useRowSwipe({
-    onToggleRead: box.toggleRead,
-    onAway: box.archive,
+  // The left edge is the folders', even over a row, whose Swipe right
+  // would otherwise take it.
+  useGesture({
+    enabled: side === undefined && !swipe.open,
+    captures: (point) => point.x <= EDGE,
   });
 
-  // A Swipe right that lands on a row is the row's. The folders' Swipe
-  // hears it too, so as it starts moving them they are sent back shut,
-  // and `shown`, the folders as painted, never follows.
-  const shown = useMotionValue(0);
-  const onRow = useRef(false);
-  const sentBack = useRef(false);
   const shutRow = useRef(false);
   useGesture({
     onStart: (pointers) => {
@@ -103,30 +104,19 @@ function Screen(props: {
       const landed = first.target?.closest<HTMLElement>('[data-row]');
       shutRow.current = swipe.open && landed?.dataset.row !== swipe.id;
       if (shutRow.current) swipe.close();
-      onRow.current = rowAt(first) !== undefined;
-      sentBack.current = false;
     },
     onEnd: (_pointers, end) => {
-      onRow.current = false;
       // A touch that shut the open row does nothing else.
       if (shutRow.current) end.preventClick();
     },
   });
-  useEffect(() =>
-    folders.progress.on('change', (progress) => {
-      if (!onRow.current) return shown.set(progress);
-      if (sentBack.current) return;
-      sentBack.current = true;
-      folders.setOpen(false);
-    }),
-  );
 
   const lift = useTransform(
-    [shown, filters.progress],
+    [folders.progress, filters.progress],
     ([l = 0, r = 0]: Array<number>) => Math.max(l, r),
   );
   const pageX = useTransform(
-    [shown, filters.progress],
+    [folders.progress, filters.progress],
     ([l = 0, r = 0]: Array<number>) => (l - r) * SIDEBAR_WIDTH,
   );
   const scale = useTransform(lift, [0, 1], [1, 0.92]);
@@ -134,7 +124,7 @@ function Screen(props: {
   const origin = useTransform(filters.progress, (r) =>
     r > 0 ? '100% 50%' : '0% 50%',
   );
-  const foldersX = useTransform(shown, [0, 1], ['-20%', '0%']);
+  const foldersX = useTransform(folders.progress, [0, 1], ['-20%', '0%']);
   const filtersX = useTransform(filters.progress, [0, 1], ['20%', '0%']);
   const behind = useTransform(reveal, [0, 1], ['0%', '-25%']);
 
@@ -157,7 +147,7 @@ function Screen(props: {
         aria-label="Folders"
         inert={side !== 'folders'}
         className="absolute inset-y-0 left-0 bg-sidebar text-sidebar-foreground"
-        style={{ width: SIDEBAR_WIDTH, x: foldersX, opacity: shown }}
+        style={{ width: SIDEBAR_WIDTH, x: foldersX, opacity: folders.progress }}
       >
         <Folders
           mails={box.mails}

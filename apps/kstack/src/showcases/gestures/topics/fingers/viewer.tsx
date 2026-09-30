@@ -28,7 +28,7 @@ function Row(props: { readonly pointer: Pointer }) {
 
 /** Every finger of the Gesture, listed live; a lifted one stays, marked. */
 export function Viewer() {
-  const { pointers } = useGesture();
+  const { pointers } = useGesture({ directions: 'all' });
   const [list, setList] = useState<ReadonlyArray<Pointer>>([]);
   useMotionValueEvent(pointers, 'change', (map) => setList([...map.values()]));
   const down = list.filter((pointer) => pointer.end === undefined).length;
