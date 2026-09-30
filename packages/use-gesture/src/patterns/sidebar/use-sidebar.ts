@@ -39,7 +39,18 @@ export type Sidebar = {
   readonly dragging: boolean;
 };
 
-const SPRING = { type: 'spring', stiffness: 400, damping: 40 } as const;
+// Drawer-fast, no bounce; shutting is quicker than opening, as the eye has
+// already moved on. A Swipe's velocity still carries into either.
+const OPEN_SPRING = {
+  type: 'spring',
+  visualDuration: 0.25,
+  bounce: 0,
+} as const;
+const CLOSE_SPRING = {
+  type: 'spring',
+  visualDuration: 0.2,
+  bounce: 0,
+} as const;
 
 /**
  * A sidebar that follows a Swipe toward open, from anywhere or only from its
@@ -78,8 +89,12 @@ export function useSidebar(options: SidebarOptions): Sidebar {
     moving.current = undefined;
     target.current = next;
     animation.current?.stop();
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      position.jump(at(next ? width : 0));
+      return;
+    }
     animation.current = animate(position, at(next ? width : 0), {
-      ...SPRING,
+      ...(next ? OPEN_SPRING : CLOSE_SPRING),
       velocity,
     });
   };
