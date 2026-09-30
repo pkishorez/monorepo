@@ -9,10 +9,9 @@ import {
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   ArrowDownIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
   LoaderCircleIcon,
   MenuIcon,
+  TriangleAlertIcon,
   XIcon,
 } from '@kstackz/ui-toolkit/lucide';
 import {
@@ -31,9 +30,10 @@ import {
   useState,
 } from 'react';
 import { appTheme, ThemeToggle } from '../components/index.ts';
+import { simulateLoad } from '../lib/simulated-load.ts';
+import { PageTurnProvider, TurnSurface } from '../page-turn/index.ts';
 import { useTouch, useWide } from './media.ts';
 import { ChapterNav } from './nav.tsx';
-import { type Pager, usePager } from './pager.ts';
 import { RefreshProvider, useRefreshAll } from './refresh.tsx';
 
 /** The menu's width, and the strip along the left edge that opens it. */
@@ -166,46 +166,39 @@ function PullIndicator(props: {
   );
 }
 
-/** The neighbouring page's name at the side the finger pulls from. */
-function TurnHint(props: { readonly pager: Pager; readonly side: -1 | 1 }) {
-  const { pager, side } = props;
-  const page = side === 1 ? pager.next : pager.prev;
-  const opacity = useTransform(pager.x, (x) =>
-    Math.min(Math.max((-side * x) / 80, 0), 1),
-  );
-  const [armed, setArmed] = useState(false);
-  useMotionValueEvent(pager.armed, 'change', (on) =>
-    setArmed(on && pager.way.get() === side),
-  );
-  if (page === undefined) return null;
+/**
+ * The Placeholder Page: blank while its page loads, with a spinner, or what
+ * went wrong and a way to try again.
+ */
+function TurnPlaceholder(props: {
+  readonly load: string;
+  readonly retry: () => void;
+}) {
+  if (props.load === 'failed') {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+        <TriangleAlertIcon
+          aria-hidden="true"
+          className="size-5 text-destructive"
+        />
+        <p className="text-sm text-muted-foreground">
+          This page didn&apos;t load.
+        </p>
+        <Button variant="outline" className="min-h-11" onClick={props.retry}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
   return (
-    <motion.div
-      aria-hidden="true"
-      style={{ opacity }}
-      className={cn(
-        'pointer-events-none absolute top-1/2 z-20 flex max-w-40 -translate-y-1/2 items-center gap-1.5 text-sm font-medium transition-colors duration-150',
-        side === 1 ? 'right-3 flex-row-reverse text-right' : 'left-3',
-        armed ? 'text-foreground' : 'text-muted-foreground',
-      )}
-    >
-      <span
-        className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-full ring-1 transition-colors duration-150',
-          armed
-            ? 'bg-foreground text-background ring-foreground'
-            : 'ring-foreground/15',
-        )}
-      >
-        {side === 1 ? (
-          <ArrowRightIcon className="size-4" />
-        ) : (
-          <ArrowLeftIcon className="size-4" />
-        )}
-      </span>
-      <span className="line-clamp-2 rounded-md bg-background/90 px-1.5 py-0.5">
-        {page.title}
-      </span>
-    </motion.div>
+    <div className="flex h-full items-center justify-center">
+      {props.load === 'loading' ? (
+        <LoaderCircleIcon
+          aria-hidden="true"
+          className="size-5 animate-spin text-muted-foreground motion-reduce:animate-none"
+        />
+      ) : null}
+    </div>
   );
 }
 
@@ -302,10 +295,6 @@ function Frame(props: { readonly children: ReactNode }) {
     open: menuOpen,
     onOpenChange: setMenuOpen,
   });
-  const pager = usePager({
-    enabled: touch && !menuOpen,
-    edge: wide ? 0 : EDGE,
-  });
   const pull = usePullToRefresh({
     enabled: touch && !menuOpen,
     onRefresh: useRefreshAll(),
@@ -328,23 +317,31 @@ function Frame(props: { readonly children: ReactNode }) {
         <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border px-3 py-8 lg:block">
           <ChapterNav morph testIdPrefix="nav" />
         </aside>
-        <div className="relative min-w-0 flex-1 overflow-hidden">
-          <PullIndicator pull={pull} />
-          <TurnHint pager={pager} side={-1} />
-          <TurnHint pager={pager} side={1} />
-          <div
-            id="content"
-            data-scroll-restoration-id="content"
-            className="h-full overflow-x-hidden overflow-y-auto overscroll-contain"
-          >
-            <motion.div
-              style={{ x: pager.x, y: pull.y }}
-              className="mx-auto w-full max-w-[52rem] pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[max(1rem,env(safe-area-inset-left))] sm:px-8"
+        <PageTurnProvider
+          swipe={{ enabled: touch && !menuOpen, edge: wide ? 0 : EDGE }}
+          load={simulateLoad}
+        >
+          <div className="relative min-w-0 flex-1 overflow-hidden">
+            <PullIndicator pull={pull} />
+            <TurnSurface
+              className="h-full bg-muted"
+              placeholder={(turn) => <TurnPlaceholder {...turn} />}
             >
-              {props.children}
-            </motion.div>
+              <div
+                id="content"
+                data-scroll-restoration-id="content"
+                className="h-full overflow-x-hidden overflow-y-auto overscroll-contain"
+              >
+                <motion.div
+                  style={{ y: pull.y }}
+                  className="mx-auto w-full max-w-[52rem] pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[max(1rem,env(safe-area-inset-left))] sm:px-8"
+                >
+                  {props.children}
+                </motion.div>
+              </div>
+            </TurnSurface>
           </div>
-        </div>
+        </PageTurnProvider>
       </div>
       {wide ? null : <Drawer sidebar={sidebar} menuButton={menuButton} />}
     </>
