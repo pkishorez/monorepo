@@ -468,7 +468,7 @@ export function BoundsLesson() {
         '“Only 0.5% of the object may leave the bounds during momentum” is a capped overshoot. It is not dragElastic, and Framer has no prop for it.',
       ]}
     >
-      <dl className="grid gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10">
+      <dl className="grid gap-px overflow-hidden rounded-lg bg-border ring-1 ring-edge">
         {TERMS.map(([term, when, meaning]) => (
           <div
             key={term}

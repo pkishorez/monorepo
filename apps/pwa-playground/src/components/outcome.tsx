@@ -33,7 +33,7 @@ export function OutcomeChip(props: {
           ? 'bg-destructive/10 text-destructive ring-destructive/20'
           : props.outcome === 'success'
             ? 'bg-positive/10 text-foreground ring-positive/25'
-            : 'bg-muted/60 text-muted-foreground ring-foreground/10',
+            : 'bg-muted/60 text-muted-foreground ring-edge',
       )}
     >
       <span

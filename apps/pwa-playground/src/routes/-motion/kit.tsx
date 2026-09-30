@@ -56,7 +56,7 @@ export function Lesson(props: {
 
       <div
         className={cn(
-          'grid gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:p-5',
+          'grid gap-4 rounded-xl bg-card p-4 ring-1 ring-edge sm:p-5',
           props.controls !== undefined && 'lg:grid-cols-[minmax(0,1fr)_15rem]',
         )}
       >

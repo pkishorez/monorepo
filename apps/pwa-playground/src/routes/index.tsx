@@ -168,7 +168,7 @@ function Promises() {
 /** Page, worker, and the two places an answer can come from. */
 function WorkerDiagram() {
   const box =
-    'flex flex-col items-center justify-center gap-0.5 rounded-lg bg-card px-3 py-2.5 text-center ring-1 ring-foreground/10';
+    'flex flex-col items-center justify-center gap-0.5 rounded-lg bg-card px-3 py-2.5 text-center ring-1 ring-edge';
   const arrow = (
     <span aria-hidden="true" className="text-muted-foreground">
       ⇄
@@ -321,7 +321,7 @@ function Home() {
           The app is its own first gesture demo. On a touch screen these work on
           every page; demo stages keep their touches to themselves.
         </p>
-        <dl className="grid max-w-xl gap-px overflow-hidden rounded-xl bg-border ring-1 ring-foreground/10">
+        <dl className="grid max-w-xl gap-px overflow-hidden rounded-xl bg-border ring-1 ring-edge">
           {WAYS.map(([how, what], i) => (
             <div
               key={i}
@@ -347,7 +347,7 @@ function Home() {
             new Build ID, so open tabs get the update prompt.
           </p>
         </div>
-        <dl className="grid gap-px self-start overflow-hidden rounded-xl bg-border ring-1 ring-foreground/10 sm:grid-cols-3">
+        <dl className="grid gap-px self-start overflow-hidden rounded-xl bg-border ring-1 ring-edge sm:grid-cols-3">
           {[
             ['Preset', 'PWA_PRESET', buildPreset, 'home-preset'],
             ['Update mode', 'PWA_UPDATE_MODE', updateMode, 'home-update-mode'],

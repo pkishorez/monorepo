@@ -62,7 +62,7 @@ function Offline() {
     >
       <Playground>
         <Stage className="gap-5 py-10 text-center">
-          <span className="flex size-14 items-center justify-center rounded-full bg-background ring-1 ring-foreground/10">
+          <span className="flex size-14 items-center justify-center rounded-full bg-background ring-1 ring-edge">
             <WifiOffIcon
               aria-hidden="true"
               className="size-6 text-muted-foreground"

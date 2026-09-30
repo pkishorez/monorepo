@@ -491,7 +491,7 @@ function SwipeLesson() {
                     );
                 });
               }}
-              className="relative z-10 flex h-16 w-full cursor-grab items-center rounded-lg bg-background px-4 text-sm shadow ring-1 ring-foreground/10 active:cursor-grabbing"
+              className="relative z-10 flex h-16 w-full cursor-grab items-center rounded-lg bg-background px-4 text-sm shadow ring-1 ring-edge active:cursor-grabbing"
             >
               A message you can swipe away
             </motion.div>

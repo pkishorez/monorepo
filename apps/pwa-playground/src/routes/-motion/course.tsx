@@ -140,7 +140,7 @@ export function MotionCourse() {
         <h2 id="words-title" className="text-sm font-medium">
           The words, in one line each
         </h2>
-        <dl className="grid gap-px overflow-hidden rounded-lg bg-border ring-1 ring-foreground/10 sm:grid-cols-2">
+        <dl className="grid gap-px overflow-hidden rounded-lg bg-border ring-1 ring-edge sm:grid-cols-2">
           {WORDS.map(([word, meaning]) => (
             <div
               key={word}

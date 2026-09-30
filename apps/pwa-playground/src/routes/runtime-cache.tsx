@@ -75,7 +75,7 @@ function Path(props: {
         ? 'bg-destructive/10 text-destructive ring-destructive/30'
         : on
           ? 'bg-foreground text-background ring-foreground'
-          : 'bg-background text-muted-foreground ring-foreground/10',
+          : 'bg-background text-muted-foreground ring-edge',
     );
   const line = (on: boolean) =>
     cn(

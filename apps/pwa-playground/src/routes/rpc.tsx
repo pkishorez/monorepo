@@ -242,13 +242,13 @@ function Exchange(props: {
           testId={`${props.testId}-outcome`}
         />
       </div>
-      <div className="rounded-lg bg-background px-3 py-2 ring-1 ring-foreground/10">
+      <div className="rounded-lg bg-background px-3 py-2 ring-1 ring-edge">
         {props.sent}
       </div>
       <span className="text-xs text-muted-foreground">← reply</span>
       <div
         data-testid={props.resultTestId}
-        className="min-h-[2lh] rounded-lg bg-background px-3 py-2 ring-1 ring-foreground/10 [overflow-wrap:anywhere]"
+        className="min-h-[2lh] rounded-lg bg-background px-3 py-2 ring-1 ring-edge [overflow-wrap:anywhere]"
       >
         {props.got}
       </div>

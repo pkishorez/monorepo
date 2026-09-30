@@ -62,7 +62,7 @@ export function ScreenFrame({
         <Loader branding={branding} />
       ) : (
         <div className="flex w-full max-w-xl animate-in flex-col gap-4 duration-100 fade-in-0 motion-reduce:animate-none">
-          <section className="flex flex-col gap-6 rounded-xl bg-card p-6 text-card-foreground shadow-sm ring-1 ring-foreground/10 sm:p-8">
+          <section className="flex flex-col gap-6 rounded-xl bg-card p-6 text-card-foreground shadow-sm ring-1 ring-edge sm:p-8">
             {header ?? (
               <header className="flex flex-col gap-6">
                 <BrandLink branding={branding} />

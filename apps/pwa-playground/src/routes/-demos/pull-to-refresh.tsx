@@ -98,7 +98,7 @@ function Screen(props: {
             >
               <div
                 className={cn(
-                  'flex h-9 items-center gap-2 rounded-full bg-card px-3.5 text-sm shadow-md ring-1 ring-foreground/10 transition-colors duration-150',
+                  'flex h-9 items-center gap-2 rounded-full bg-card px-3.5 text-sm shadow-md ring-1 ring-edge transition-colors duration-150',
                   pull.state === 'armed' && 'text-positive',
                 )}
               >

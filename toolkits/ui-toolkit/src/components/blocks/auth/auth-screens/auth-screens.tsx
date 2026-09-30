@@ -373,7 +373,7 @@ export function DeviceScreen({
           accounts={accounts}
           footer={<Answers onAnswer={onAnswer} accept="Sign in" />}
         >
-          <dl className="grid grid-cols-1 divide-y divide-border/60 rounded-lg ring-1 ring-foreground/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+          <dl className="grid grid-cols-1 divide-y divide-border/60 rounded-lg ring-1 ring-edge sm:grid-cols-2 sm:divide-x sm:divide-y-0">
             <div className="flex flex-col gap-1 px-4 py-3.5">
               <dt className="text-xs text-muted-foreground">Device</dt>
               <dd className="truncate text-base font-medium">

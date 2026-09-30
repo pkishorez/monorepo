@@ -34,7 +34,7 @@ export function Checklist(props: {
   readonly title?: string;
 }) {
   return (
-    <details className="group rounded-xl ring-1 ring-foreground/10 open:bg-muted/20">
+    <details className="group rounded-xl ring-1 ring-edge open:bg-muted/20">
       <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2 rounded-xl px-4 text-sm font-medium select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
         <ChevronRightIcon
           aria-hidden="true"

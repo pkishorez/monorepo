@@ -161,7 +161,7 @@ function TransformLesson() {
           </motion.div>
           <div
             ref={track}
-            className="relative h-10 rounded-full bg-background ring-1 ring-foreground/10"
+            className="relative h-10 rounded-full bg-background ring-1 ring-edge"
             style={{ width: TRACK }}
           >
             <motion.div

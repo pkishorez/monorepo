@@ -35,7 +35,7 @@ export function StateTrack(props: {
                 'flex h-8 items-center rounded-full px-3 font-mono text-xs transition-colors duration-150',
                 on
                   ? 'bg-foreground text-background'
-                  : 'text-muted-foreground ring-1 ring-foreground/10',
+                  : 'text-muted-foreground ring-1 ring-edge',
               )}
             >
               {state.id}

@@ -9,7 +9,7 @@ function PrevNext(props: { readonly path: string }) {
   const { prev, next } = neighbours(props.path);
   if (prev === undefined && next === undefined) return null;
   const linkClass =
-    'group flex min-h-16 flex-col justify-center gap-0.5 rounded-lg px-4 py-3 ring-1 ring-foreground/10 transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+    'group flex min-h-16 flex-col justify-center gap-0.5 rounded-lg px-4 py-3 ring-1 ring-edge transition-colors duration-150 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
   return (
     <nav aria-label="More pages" className="flex flex-col gap-3">
       <div className="grid gap-3 sm:grid-cols-2">

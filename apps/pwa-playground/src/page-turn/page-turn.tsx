@@ -396,7 +396,7 @@ export function TurnSurface(props: {
         style={{ x: pageX, scale: pageScale, viewTransitionName: 'page-turn' }}
         className={cn(
           'absolute inset-0 bg-background',
-          busy && 'ring-1 ring-foreground/10',
+          busy && 'ring-1 ring-edge',
           busy && !placeholderOnTop && 'z-10 shadow-2xl',
         )}
       >
@@ -412,7 +412,7 @@ export function TurnSurface(props: {
           visibility: busy ? 'visible' : 'hidden',
         }}
         className={cn(
-          'absolute inset-0 bg-background ring-1 ring-foreground/10',
+          'absolute inset-0 bg-background ring-1 ring-edge',
           placeholderOnTop && 'z-10 shadow-2xl',
         )}
       >

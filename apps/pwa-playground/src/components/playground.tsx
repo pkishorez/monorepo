@@ -4,7 +4,7 @@ import { cn } from '@kstackz/ui-toolkit/utils';
 import { type ReactNode, useId } from 'react';
 
 const FRAME =
-  'grid overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10 md:grid-cols-[minmax(0,1fr)_minmax(0,17rem)]';
+  'grid overflow-hidden rounded-2xl bg-card ring-1 ring-edge md:grid-cols-[minmax(0,1fr)_minmax(0,17rem)]';
 
 /**
  * The live part of a page: a Stage on top, then Controls and Values side by
