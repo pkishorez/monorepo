@@ -31,7 +31,7 @@ import {
 } from 'react';
 import { appTheme, ThemeToggle } from '../components/index.ts';
 import { simulateLoad } from '../lib/simulated-load.ts';
-import { PageTurnProvider, TurnSurface } from '../page-turn/index.ts';
+import { pageTurn } from '../lib/page-turn.ts';
 import { useTouch, useWide } from './media.ts';
 import { ChapterNav } from './nav.tsx';
 import { RefreshProvider, useRefreshAll } from './refresh.tsx';
@@ -166,41 +166,33 @@ function PullIndicator(props: {
   );
 }
 
-/**
- * The Placeholder Page: blank while its page loads, with a spinner, or what
- * went wrong and a way to try again.
- */
-function TurnPlaceholder(props: {
-  readonly load: string;
-  readonly retry: () => void;
-}) {
-  if (props.load === 'failed') {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <TriangleAlertIcon
-          aria-hidden="true"
-          className="size-5 text-destructive"
-        />
-        <p className="text-sm text-muted-foreground">
-          This page didn&apos;t load.
-        </p>
-        <Button variant="outline" className="min-h-11" onClick={props.retry}>
-          Try again
-        </Button>
-      </div>
-    );
-  }
+/** In the Placeholder Page when its page could not load: what happened, and a way to try again. */
+function TurnFailed(props: { readonly retry: () => void }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      {props.load === 'loading' ? (
-        <LoaderCircleIcon
-          aria-hidden="true"
-          className="size-5 animate-spin text-muted-foreground motion-reduce:animate-none"
-        />
-      ) : null}
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+      <TriangleAlertIcon
+        aria-hidden="true"
+        className="size-5 text-destructive"
+      />
+      <p className="text-sm text-muted-foreground">
+        This page didn&apos;t load.
+      </p>
+      <Button variant="outline" className="min-h-11" onClick={props.retry}>
+        Try again
+      </Button>
     </div>
   );
 }
+
+// Where a page sits in the scroller, so a loading screen lines up with it.
+const PAGE_PADDING =
+  'mx-auto w-full max-w-[52rem] pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[max(1rem,env(safe-area-inset-left))] sm:px-8';
+
+const framePage = (page: ReactNode) => (
+  <div className="h-full overflow-hidden">
+    <div className={PAGE_PADDING}>{page}</div>
+  </div>
+);
 
 function Drawer(props: {
   readonly sidebar: ReturnType<typeof useSidebar>;
@@ -317,31 +309,29 @@ function Frame(props: { readonly children: ReactNode }) {
         <aside className="hidden w-60 shrink-0 overflow-y-auto border-r border-border px-3 py-8 lg:block">
           <ChapterNav morph testIdPrefix="nav" />
         </aside>
-        <PageTurnProvider
+        <pageTurn.Provider
           swipe={{ enabled: touch && !menuOpen, edge: wide ? 0 : EDGE }}
           load={simulateLoad}
         >
           <div className="relative min-w-0 flex-1 overflow-hidden">
             <PullIndicator pull={pull} />
-            <TurnSurface
+            <pageTurn.Surface
               className="h-full bg-muted dark:bg-black"
-              placeholder={(turn) => <TurnPlaceholder {...turn} />}
+              frame={framePage}
+              failed={(retry) => <TurnFailed retry={retry} />}
             >
               <div
                 id="content"
                 data-scroll-restoration-id="content"
                 className="h-full overflow-x-hidden overflow-y-auto overscroll-contain"
               >
-                <motion.div
-                  style={{ y: pull.y }}
-                  className="mx-auto w-full max-w-[52rem] pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)] pl-[max(1rem,env(safe-area-inset-left))] sm:px-8"
-                >
+                <motion.div style={{ y: pull.y }} className={PAGE_PADDING}>
                   {props.children}
                 </motion.div>
               </div>
-            </TurnSurface>
+            </pageTurn.Surface>
           </div>
-        </PageTurnProvider>
+        </pageTurn.Provider>
       </div>
       {wide ? null : <Drawer sidebar={sidebar} menuButton={menuButton} />}
     </>

@@ -3,7 +3,7 @@ export { BuiltAt } from './built-at.tsx';
 export { Code } from './code.tsx';
 export { Checklist, Hint, Notice } from './notes.tsx';
 export { type Outcome, OutcomeChip } from './outcome.tsx';
-export { Key, Page, Section } from './page.tsx';
+export { Key, Page, PageSkeleton, Section } from './page.tsx';
 export {
   Actions,
   Controls,

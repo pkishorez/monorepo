@@ -175,6 +175,9 @@
         },
         "src/lib/simulated-load.ts": {
           "exposed": true
+        },
+        "src/lib/page-turn.ts": {
+          "exposed": true
         }
       }
     }
@@ -183,7 +186,7 @@
     "pwa-playground": {
       "description": "Entries over routes over shell over components over lib; the demos, labs and course sit under their routes, the Swipe Lab on the Gesture Lab's bench; the router, shell, pages and page kit share Page Turns; the worker and the rpc page share the rpc group",
       "rules": {
-        "entry": ["rpc", "lib", "page-turn"],
+        "entry": ["rpc", "lib", "components"],
         "routes": [
           "gesture-demos",
           "gesture-lab",
@@ -192,18 +195,18 @@
           "shell",
           "components",
           "lib",
-          "rpc",
-          "page-turn"
+          "rpc"
         ],
         "gesture-demos": ["components", "lib"],
-        "shell": ["components", "lib", "page-turn"],
+        "shell": ["components", "lib"],
         "infra": [],
-        "components": ["lib", "page-turn"],
+        "components": ["lib"],
         "rpc": [],
         "gesture-lab": [],
         "motion-course": [],
         "swipe-lab": ["gesture-lab"],
-        "page-turn": []
+        "page-turn": [],
+        "lib": ["page-turn"]
       }
     }
   }

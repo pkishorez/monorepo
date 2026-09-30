@@ -5,7 +5,7 @@ A field guide to PWAs that runs live, one playground per capability.
 ## Language
 
 **Page Turn**:
-Moving from one page to the page a page declares before or after it, shown as the current page leaving to one side while the other comes in from the opposite one, whether a finger, a key or a link asked for it. The page coming in need not be loaded yet: a Placeholder Page stands in for it until it is, and until then the turn can still be taken back.
+Moving from one page to the page it declares before or after it, shown as the current page leaving to one side while the other comes in from the opposite one, whether a finger, a key, a link or Back and Forward asked for it. Which way it turns comes from where the pages sit, never from which way history moved. Under a finger the page coming in need not be loaded yet: a Placeholder Page stands in for it until it is, and until then the turn can still be taken back.
 _Avoid_: page transition, paging, route animation
 
 **Turn Surface**:
@@ -13,7 +13,7 @@ The part of the screen a Page Turn moves: the page inside it and the Placeholder
 _Avoid_: page frame, viewport, stage
 
 **Placeholder Page**:
-The blank, page-sized stand-in for the page a Page Turn goes to, shown until that page has loaded and then turning into it. It says so when the page could not load.
+The stand-in for the page a finger's Page Turn goes to: that page's own loading screen, shown until the page has loaded and then turning into it. It says so when the page could not load.
 _Avoid_: skeleton, loading screen, card
 
 **Will Turn**:
