@@ -121,13 +121,21 @@ export const createTracker = () => {
     settled = true;
     direction = way;
     const taker = pick(way);
-    if (way !== undefined) {
-      for (const { listener } of taking) listener.direction?.(way);
-    }
-    if (taker === undefined) return;
     const dropped = taking.filter(
-      ({ zone, listener }) => zone !== taker.zone && listener.acts?.() === true,
+      ({ zone, listener }) =>
+        taker !== undefined &&
+        zone !== taker.zone &&
+        listener.acts?.() === true,
     );
+    // A dropped listener never hears a Direction it wanted, or it would
+    // start acting on a touch it is about to lose.
+    const told = taking.filter(
+      (entry) =>
+        !dropped.includes(entry) || !wants(entry.listener.directions?.(), way),
+    );
+    if (way !== undefined) {
+      for (const { listener } of told) listener.direction?.(way);
+    }
     taking = taking.filter((entry) => !dropped.includes(entry));
     const end = { interrupted: true, preventClick: () => {} };
     for (const { listener } of dropped) listener.end(fingers.pointers(), end);
