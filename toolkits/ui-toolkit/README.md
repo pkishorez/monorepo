@@ -46,6 +46,7 @@ Peer dependencies:
 - `@kstackz/lotel` (optional): stored span and log record types for `otel-trace-viewer`.
 - `laymos` (optional): analysis and diff types for `laymos`, `monoverse`, and `diff-viewer`.
 - `effect` (optional): `laymos`, `monoverse`, `flow-swimlane`, and `devtools-panel` run Effect programs or read Effect types.
+- `@kstackz/use-gesture` (optional): the swipe that opens the `app-shell` sidebar.
 - `use-effect-ts` (optional): runs the Effect loaders of `laymos` and `monoverse` inside React.
 - `zustand` (optional): persisted settings store for the `auth` screens.
 - `@tanstack/react-query`, `@tanstack/react-db` (optional): declared so consumers dedupe one copy; the toolkit does not import them directly.
@@ -53,6 +54,47 @@ Peer dependencies:
 ## Exports
 
 Import individual subpaths. There is no root barrel.
+
+### `@kstackz/ui-toolkit/components/blocks/app-shell`
+
+An app's whole screen: an optional sidebar, an optional header, and the page.
+Mobile first: on a phone the page moves aside, shrinks and dims to show the
+sidebar, following a finger on a touch screen; on a wide screen the sidebar sits
+beside the page. Crossing the breakpoint morphs one into the other, and the open
+state carries across.
+
+```tsx
+import { AppShell } from '@kstackz/ui-toolkit/components/blocks/app-shell';
+
+<AppShell
+  sidebar={{
+    header: <AppLink />,
+    nav: [
+      {
+        label: 'Workspace',
+        items: [
+          {
+            title: 'Overview',
+            icon: HomeIcon,
+            active,
+            render: <Link to="/" />,
+          },
+        ],
+      },
+    ],
+    footer: <AccountMenu />,
+  }}
+  header={{ title: 'Overview', actions: <PageActions /> }}
+>
+  <Page />
+</AppShell>;
+```
+
+| Export                                    | What it does                                                                                                                                                                                                                                 |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AppShell`                                | Lays out the screen. `sidebar` takes a `header`, a `nav` list or custom `content`, a `footer`, and a `width` with `onWidthChange` for a drag-to-resize edge. `header` takes a `title` and `actions`. `swipe` is `anywhere`, `edge` or `off`. |
+| `useAppShell()`                           | Returns `open`, `setOpen`, `toggle`, and `isMobile`, inside an `AppShell`.                                                                                                                                                                   |
+| `SidebarGroup`, `SidebarMenu` and friends | The pieces `nav` is built from, for custom `content`: groups with labels, menus, menu buttons and nested sub-menus, a search input, and loading placeholders. A menu button shuts the sidebar when tapped on a phone.                        |
 
 ### `@kstackz/ui-toolkit/components/blocks/auth`
 
@@ -272,7 +314,6 @@ exports the component and its parts (for example `Dialog`, `DialogContent`,
 | `ui/select`           | Dropdown select.                                                 |
 | `ui/separator`        | Divider line.                                                    |
 | `ui/sheet`            | Side panel dialog.                                               |
-| `ui/sidebar`          | App sidebar with provider, menus, and rail.                      |
 | `ui/skeleton`         | Loading placeholder.                                             |
 | `ui/slider`           | Range slider.                                                    |
 | `ui/sonner`           | `Toaster` and `toast` from sonner.                               |

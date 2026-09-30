@@ -403,6 +403,9 @@ importers:
       '@kstackz/ui-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/ui-toolkit
+      '@kstackz/use-gesture':
+        specifier: workspace:*
+        version: link:../../packages/use-gesture
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.102.8(react@19.2.8)
@@ -565,11 +568,8 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-core@0.3.0
         version: '@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
 
-  apps/pwa-playground:
+  apps/kstack:
     dependencies:
-      '@kstackz/pwa-toolkit':
-        specifier: workspace:*
-        version: link:../../toolkits/pwa-toolkit
       '@kstackz/ui-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/ui-toolkit
@@ -1393,6 +1393,9 @@ importers:
       '@kstackz/std-toolkit':
         specifier: workspace:*
         version: link:../std-toolkit
+      '@kstackz/use-gesture':
+        specifier: workspace:*
+        version: link:../../packages/use-gesture
       '@tailwindcss/vite':
         specifier: 'catalog:'
         version: 4.3.3(@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))

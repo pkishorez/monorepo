@@ -32,6 +32,7 @@
   "layers": {
     "blocks": {
       "paths": [
+        "src/components/blocks/app-shell",
         "src/components/blocks/auth",
         "src/components/blocks/diff-viewer",
         "src/components/blocks/file-tree",
@@ -46,6 +47,9 @@
       ],
       "description": "Feature-level components composed from UI primitives",
       "modules": {
+        "src/components/blocks/app-shell": {
+          "exposed": true
+        },
         "src/components/blocks/diff-viewer": {
           "shared": true,
           "exposed": true
@@ -449,14 +453,9 @@
           "exposed": true
         },
         "src/components/ui/sheet.tsx": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/components/ui/sidebar.tsx": {
           "exposed": true
         },
         "src/components/ui/skeleton.tsx": {
-          "shared": true,
           "exposed": true
         },
         "src/components/ui/slider.tsx": {
@@ -492,7 +491,6 @@
           "exposed": true
         },
         "src/components/ui/tooltip.tsx": {
-          "shared": true,
           "exposed": true
         }
       }

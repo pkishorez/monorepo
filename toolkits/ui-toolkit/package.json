@@ -75,6 +75,7 @@
     "@kstackz/flow": "workspace:*",
     "@kstackz/lotel": "workspace:*",
     "@kstackz/std-toolkit": "workspace:*",
+    "@kstackz/use-gesture": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tanstack/react-query": "catalog:",
@@ -96,6 +97,7 @@
     "@kstackz/effect-tracer": "workspace:*",
     "@kstackz/flow": "workspace:*",
     "@kstackz/lotel": "workspace:*",
+    "@kstackz/use-gesture": "workspace:*",
     "@tanstack/react-db": "0.4.1",
     "@tanstack/react-query": "5.102.8",
     "effect": "4.0.0-rc.112",
@@ -131,6 +133,9 @@
       "optional": true
     },
     "@kstackz/flow": {
+      "optional": true
+    },
+    "@kstackz/use-gesture": {
       "optional": true
     }
   },

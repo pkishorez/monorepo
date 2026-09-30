@@ -249,7 +249,3 @@ Commit: keep them apart with `enabled`, `from`, zones and `trapped`.
 
 Recognizers for pan, pinch, rotation, tap and one finger holding while
 others move; Patterns for swiping a row's actions.
-
-The Gesture Lab in `apps/pwa-playground` (`/gestures`) shows each rule
-above as a Case you can touch, with every finger drawn and a log of who
-heard what.
