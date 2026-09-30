@@ -1,7 +1,6 @@
-import type { Pointers } from '../../core/index.ts';
+import type { Direction, Pointers } from '../../core/index.ts';
 
-/** The way a Swipe's fingers must move. */
-export type Direction = 'up' | 'down' | 'left' | 'right';
+export type { Direction } from '../../core/index.ts';
 
 /** How many fingers must be down as a Swipe locks: exactly `n`, or `[min, max]`. */
 export type Fingers = number | readonly [min: number, max: number];
@@ -23,9 +22,10 @@ export type CommitRule = {
 };
 
 /**
- * Why a Swipe Cancelled: it first moved the wrong way; the wrong number of
- * fingers were down as it locked, or one landed after; it lifted without
- * meeting its CommitRule; or the Gesture was Interrupted.
+ * Why a Swipe Cancelled: the touch's Direction was not its own; the wrong
+ * number of fingers were down as it locked, or one landed after; it lifted
+ * without meeting its CommitRule; or the Gesture was Interrupted, by the
+ * browser or another zone.
  */
 export type SwipeCancel = 'direction' | 'fingers' | 'short' | 'interrupted';
 
@@ -38,9 +38,6 @@ export type SwipeRelease = {
   /** Where its momentum would carry `offset`: for choosing where to settle. */
   readonly projected: number;
 };
-
-/** How far the fingers move, in px, before a Swipe locks its axis. */
-export const LOCK_DISTANCE = 10;
 
 /** The ms of movement velocity is measured over. */
 export const VELOCITY_WINDOW = 100;
@@ -82,21 +79,6 @@ export const movement = (pointers: Pointers): Movement => {
 export const along = (direction: Direction, move: Movement) => {
   const [axis, sign] = AXES[direction];
   return sign * (axis === 'x' ? move.dx : move.dy);
-};
-
-/**
- * Whether a Swipe can lock yet: `wait` until the fingers have moved
- * LOCK_DISTANCE, then `locked` when they went mostly toward `direction`, or
- * `direction` when they went another way.
- */
-export const lock = (
-  direction: Direction,
-  move: Movement,
-): 'wait' | 'locked' | 'direction' => {
-  if (Math.hypot(move.dx, move.dy) < LOCK_DISTANCE) return 'wait';
-  const horizontal = Math.abs(move.dx) > Math.abs(move.dy);
-  if ((AXES[direction][0] === 'x') !== horizontal) return 'direction';
-  return along(direction, move) > 0 ? 'locked' : 'direction';
 };
 
 export const fingersMatch = (fingers: Fingers, count: number) =>

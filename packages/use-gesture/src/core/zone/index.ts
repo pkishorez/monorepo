@@ -6,4 +6,6 @@ export type {
   GestureZoneProps,
   Pointer,
   Pointers,
+  Direction,
+  Directions,
 } from './zone.tsx';

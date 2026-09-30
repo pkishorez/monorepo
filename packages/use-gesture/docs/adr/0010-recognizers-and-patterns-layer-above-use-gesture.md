@@ -1,3 +1,7 @@
+---
+status: partly superseded by ADR-0012 (how two Recognizers are kept apart)
+---
+
 # Recognizers and Patterns layer above useGesture
 
 `useGesture` reports fingers and nothing else (ADR 0009), which lets an app express any gesture but leaves every app to rebuild the same readings: a swipe down, a sidebar that follows the finger and settles, a pull to refresh. Those readings now live in the package as two layers above the core, each depending only on the one below. A **Recognizer**, such as `useSwipe`, reads one generic meaning from a Gesture with filters on direction, finger count and where it starts. It is Possible from the first finger, Tracking once its axis locks, and ends in a Commit or a Cancel, with live values for feedback on the way. A **Pattern**, such as `useSidebar` or `usePullToRefresh`, is built from Recognizers and gives exactly the values one UI needs, settling itself when the fingers lift. An app uses a Pattern; when none fits it builds its own from Recognizers, and when those do not fit, from `useGesture`.

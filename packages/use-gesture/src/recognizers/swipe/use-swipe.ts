@@ -12,7 +12,6 @@ import {
   type Fingers,
   fingersDown,
   fingersMatch,
-  lock,
   movement,
   release,
   type SwipeCancel,
@@ -28,12 +27,13 @@ export type SwipeOptions = {
   readonly fingers?: Fingers;
   /**
    * Where the first finger must land; anywhere in the zone by default. A touch
-   * that lands there is the Swipe's even over an element that scrolls.
+   * that lands there is the Swipe's even over an element that scrolls, and it
+   * takes no touch that lands anywhere else.
    */
   readonly from?: Edge;
   /** What it needs at release to Commit: `{ distance: 80, velocity: 500 }` by default. */
   readonly commit?: CommitRule;
-  /** Its axis locked toward `direction` with the right fingers: it is Tracking. */
+  /** The touch's Direction is `direction`, with the right fingers: it is Tracking. */
   readonly onStart?: () => void;
   /** It met its CommitRule as its first finger lifted. */
   readonly onCommit?: (release: SwipeRelease) => void;
@@ -42,8 +42,8 @@ export type SwipeOptions = {
 };
 
 /**
- * `possible` from the first finger landing where `from` asks until the axis
- * locks, then `tracking` until it Commits or Cancels.
+ * `possible` from the first finger landing where `from` asks until the
+ * touch's Direction is read, then `tracking` until it Commits or Cancels.
  */
 export type SwipeState = 'idle' | 'possible' | 'tracking';
 
@@ -61,6 +61,8 @@ export type Swipe = {
 
 type Run = {
   phase: 'possible' | 'tracking' | 'done';
+  // Whether the touch's Direction is the Swipe's own.
+  locked: boolean;
   pointers: Pointers;
   readonly velocity: ReturnType<typeof createVelocity>;
   readonly unsubscribes: Array<() => void>;
@@ -79,9 +81,11 @@ const useLatest = <T>(value: T) => {
 };
 
 /**
- * The Swipe Recognizer: fingers moving one way. It locks its axis after the
- * first few px, follows the fingers while Tracking, and decides at the first
- * finger lifting, so a two-finger Swipe is judged as its fingers leave.
+ * The Swipe Recognizer: fingers moving one way. It wants its own Direction,
+ * or, with `from`, captures touches landing at that edge. It locks once the
+ * touch's Direction is read, follows the fingers while Tracking, and
+ * decides at the first finger lifting, so a two-finger Swipe is judged as
+ * its fingers leave.
  */
 export function useSwipe(options: SwipeOptions): Swipe {
   const latest = useLatest(options);
@@ -118,9 +122,7 @@ export function useSwipe(options: SwipeOptions): Swipe {
     const { direction, fingers = 1 } = latest.current;
     const move = movement(current.pointers);
     if (current.phase === 'possible') {
-      const locked = lock(direction, move);
-      if (locked === 'wait') return;
-      if (locked === 'direction') return cancel(current, 'direction');
+      if (!current.locked) return;
       if (!fingersMatch(fingers, fingersDown(current.pointers))) {
         return cancel(current, 'fingers');
       }
@@ -148,6 +150,7 @@ export function useSwipe(options: SwipeOptions): Swipe {
 
   useGesture({
     enabled: options.enabled !== false,
+    directions: options.from === undefined ? [options.direction] : [],
     // A Swipe from an edge owns touches that start there, over any scroller.
     captures: (point) => {
       const { from } = latest.current;
@@ -167,11 +170,21 @@ export function useSwipe(options: SwipeOptions): Swipe {
       progress.set(0);
       run.current = {
         phase: 'possible',
+        locked: false,
         pointers,
         velocity: createVelocity(),
         unsubscribes: [],
       };
       setState('possible');
+    },
+    onDirection: (way) => {
+      const current = run.current;
+      if (current === undefined || current.phase !== 'possible') return;
+      if (way !== latest.current.direction) {
+        return cancel(current, 'direction');
+      }
+      current.locked = true;
+      step(current);
     },
     onPointer: (pointer, pointers) => {
       const current = run.current;

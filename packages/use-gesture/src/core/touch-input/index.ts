@@ -1,3 +1,5 @@
+export { directionOf, SLOP, wants } from './direction.ts';
+export type { Direction, Directions } from './direction.ts';
 export { ZONE_GESTURE_ATTRIBUTE } from './native-scroll.ts';
 export type { ZoneGesture } from './native-scroll.ts';
 export {

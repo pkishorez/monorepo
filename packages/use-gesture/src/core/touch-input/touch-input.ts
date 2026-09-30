@@ -1,3 +1,4 @@
+import { type Direction, directionOf } from './direction.ts';
 import {
   isTextEntry,
   nativeScrollKeeps,
@@ -36,8 +37,29 @@ export type PointerSink = {
   readonly up: (sample: PointerSample) => boolean;
   /** The browser took the touch, or the page lost focus: end it as interrupted. */
   readonly cancelAll: () => void;
-  /** Whether a listener of the Gesture under way captures its touch, even over a Native Scroll. */
-  readonly captures: () => boolean;
+  /** The Direction of the Gesture under way, once it is read. */
+  readonly direction: () => Direction | undefined;
+  /**
+   * How a zone would take the Gesture under way if it first moved in
+   * `direction`: a listener captures where its first finger landed, or one
+   * wants that Direction. None when no listener would take it.
+   */
+  readonly pick: (
+    direction: Direction | undefined,
+  ) => 'captures' | 'directions' | undefined;
+  /**
+   * The Gesture first moved in `direction`: tell every listener, and leave
+   * it with the zone that takes it. Once per Gesture.
+   */
+  readonly settle: (direction: Direction | undefined) => void;
+  /**
+   * Whether a listener of the Gesture under way could take a touch landing
+   * at `point`: it captures there, or wants `inward`.
+   */
+  readonly claimsEdge: (
+    point: { readonly x: number; readonly y: number },
+    inward: Direction,
+  ) => boolean;
 };
 
 const STYLE_ID = 'kui-gesture-zone';
@@ -68,7 +90,7 @@ export const guardsEdge = (
   !(target instanceof Element && target.closest(INTERACTIVE) !== null);
 
 // The browser decides what a touch may do as the finger lands. A zone lets
-// it pan, so a Native Scroll can keep a touch, and takes the rest at the
+// it pan, so the browser can scroll whatever the zone does not take at the
 // first movement. Nothing in a zone zooms the page.
 const RULES = `${ZONE_SELECTOR} { touch-action: pan-x pan-y; }`;
 
@@ -124,10 +146,10 @@ const swallowNextClick = (win: Window) => {
  *
  * Holding the browser back has to happen on each zone's own element, since
  * a blocking touch listener on the whole page would make every scroll wait:
- * `bindZone` adds it. At a touch's first movement the Gesture keeps it,
- * unless it is one finger that a Native Scroll keeps: then the browser
- * scrolls, the Gesture is cancelled, and nothing is tracked until every
- * finger lifts.
+ * `bindZone` adds it. A touch's first movement reads its Direction and
+ * decides who owns it: the zone when a listener takes it, or when two
+ * fingers are down; otherwise the browser, which scrolls, while the Gesture
+ * is cancelled and nothing is tracked until every finger lifts.
  */
 export const createTouchInput = (win: Window, sink: PointerSink) => {
   const doc = win.document;
@@ -185,27 +207,36 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
       landed.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
       // iOS starts its back and forward swipe from here, before any touchmove
       // the zone could hold back; only a touchstart kept from it stops that.
+      const { clientX: x, clientY: y } = touch;
       if (
         event.cancelable &&
-        guardsEdge(touch.target, touch.clientX, win.innerWidth)
+        guardsEdge(touch.target, x, win.innerWidth) &&
+        sink.claimsEdge({ x, y }, x <= EDGE_GUARD_PX ? 'right' : 'left')
       ) {
         event.preventDefault();
       }
     }
   };
+  // Who owns a touch, from its first movement; first match wins.
   const decide = (event: TouchEvent) => {
     const touches = [...event.touches];
     const [touch] = touches;
-    if (touches.length !== 1 || touch === undefined) return 'zone';
-    const start = landed.get(touch.identifier);
-    if (start === undefined) return 'zone';
-    const zone = zoneOf(touch.target);
-    if (zone === null) return 'zone';
-    if (zoneGestureOf(touch.target) === 'enabled') return 'zone';
-    if (sink.captures()) return 'zone';
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    return nativeScrollKeeps(touch.target, zone, dx, dy) ? 'browser' : 'zone';
+    const start = touch && landed.get(touch.identifier);
+    const dx = touch && start ? touch.clientX - start.x : 0;
+    const dy = touch && start ? touch.clientY - start.y : 0;
+    const direction = sink.direction() ?? directionOf(dx, dy);
+    const how = sink.pick(direction);
+    const owner = ((): 'zone' | 'browser' => {
+      if (touches.length !== 1 || touch === undefined) return 'zone';
+      const zone = zoneOf(touch.target);
+      if (zone === null) return 'zone';
+      if (zoneGestureOf(touch.target) === 'enabled') return 'zone';
+      if (how === 'captures') return 'zone';
+      if (nativeScrollKeeps(touch.target, zone, dx, dy)) return 'browser';
+      return how === 'directions' ? 'zone' : 'browser';
+    })();
+    sink.settle(direction);
+    return owner;
   };
   // From each zone's element: keeps a Gesture's touch from the browser.
   const onTouchMove = (event: TouchEvent) => {
