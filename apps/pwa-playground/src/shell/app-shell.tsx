@@ -240,7 +240,7 @@ function Drawer(props: {
         style={{ opacity: sidebar.progress }}
         onClick={() => sidebar.setOpen(false)}
         className={cn(
-          'fixed inset-0 z-40 bg-black/45 dark:bg-black/60',
+          'fixed inset-0 z-40 bg-black/45 dark:bg-black/75',
           !(sidebar.open || sidebar.dragging || showing) &&
             'pointer-events-none',
         )}
