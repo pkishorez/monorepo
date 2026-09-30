@@ -1,3 +1,21 @@
+/*
+ * Why the page coming in is not the live page during a drag.
+ *
+ * The router renders only the matched route, and pages read their data
+ * through it, so a page the finger drags in cannot run until the router
+ * navigates. Native stacks (UIKit, Ionic, Stackflow) keep both pages mounted
+ * and change the URL on release, but only for swiping back to a page still in
+ * the stack; none drags in a page that is not mounted. Rendering the target
+ * beside the current page would mean a second router or reaching into this
+ * one, so a Page Turn shows a Placeholder Page and changes the URL on release.
+ *
+ * React's `startGestureTransition` (experimental as of React 19.3, formerly
+ * `useSwipeTransition`) is the intended fix: the destination is an optimistic
+ * render the gesture scrubs through, cancelled or committed on release. Move
+ * to it once it is stable and TanStack Router works with it.
+ * https://github.com/facebook/react/pull/32785
+ */
+
 import { useLocation, useNavigate, useRouter } from '@tanstack/react-router';
 import {
   type AnimationPlaybackControls,
@@ -29,6 +47,8 @@ import { useTurnSwipes } from './swipes.ts';
 /** A turn that waits longer than this for its page has failed. */
 const TIMEOUT = 8000;
 const SPRING = { type: 'spring', stiffness: 380, damping: 40 } as const;
+/** How dark a page gets, at most, as it sinks behind another in the dark theme. */
+const SINK_SHADE = 0.6;
 
 type Neighbours = { readonly prev?: string; readonly next?: string };
 
@@ -339,6 +359,16 @@ export function usePageTurnState() {
   };
 }
 
+function Shade(props: { readonly opacity: MotionValue<number> }) {
+  return (
+    <motion.div
+      aria-hidden="true"
+      style={{ opacity: props.opacity }}
+      className="pointer-events-none absolute inset-0 dark:bg-black"
+    />
+  );
+}
+
 /**
  * The part of the screen a Page Turn moves: the page inside it, and the
  * Placeholder Page that comes in beside it. Everything outside holds still.
@@ -377,6 +407,14 @@ export function TurnSurface(props: {
     () => placeholderAt(sideNow(), progress.get()).scale,
   );
   const veilShown = useTransform(veil, (v) => (v > 0 ? 'visible' : 'hidden'));
+  // The page further from you dims as it sinks: invisible in light, where a
+  // shadow already shows depth, and strong in dark, where a shadow cannot.
+  const pageShade = useTransform(() =>
+    sideNow() === 'next' ? progress.get() * SINK_SHADE : 0,
+  );
+  const placeholderShade = useTransform(() =>
+    sideNow() === 'prev' ? (1 - progress.get()) * SINK_SHADE : 0,
+  );
 
   const busy = turn.phase !== 'idle';
   // The page is off screen, or on its way off, once a turn is let go.
@@ -401,6 +439,7 @@ export function TurnSurface(props: {
         )}
       >
         {props.children}
+        <Shade opacity={pageShade} />
       </motion.div>
       <motion.div
         aria-hidden={!busy}
@@ -417,6 +456,7 @@ export function TurnSurface(props: {
         )}
       >
         {busy ? props.placeholder?.({ load, retry }) : null}
+        <Shade opacity={placeholderShade} />
       </motion.div>
       <motion.div
         aria-hidden="true"
