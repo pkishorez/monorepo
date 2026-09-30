@@ -42,15 +42,23 @@ type ViewerProps = {
   readonly onClosed: () => void;
 };
 
+type PhotosProps = ViewerProps & {
+  /** It started going back to its tile. */
+  readonly onClosing: () => void;
+};
+
 /**
  * One photo over the whole screen, grown from its tile. Swipe between
  * photos, pinch or double-tap to zoom, pan when zoomed, swipe down to put it
- * back. Its zone is trapped: nothing here reaches the library behind it.
+ * back. Its zone takes every touch; the albums are off while it is open.
+ * Once it starts going back it is inert, so touches reach the grid under it
+ * at once, and the grid scrolls while it settles.
  */
 export function Viewer(props: ViewerProps) {
+  const [closing, setClosing] = useState(false);
   return (
-    <GestureZone trapped className="absolute inset-0 z-20">
-      <Photos {...props} />
+    <GestureZone className="absolute inset-0 z-20" inert={closing}>
+      <Photos {...props} onClosing={() => setClosing(true)} />
     </GestureZone>
   );
 }
@@ -81,7 +89,7 @@ const TIME = new Intl.DateTimeFormat('en-US', {
 
 type Segment = { readonly stop: (interrupted: boolean) => void };
 
-function Photos(props: ViewerProps) {
+function Photos(props: PhotosProps) {
   const { photos } = props;
   const [screen, setScreen] = useState<Size>(() => ({
     w: window.innerWidth,
@@ -122,16 +130,22 @@ function Photos(props: ViewerProps) {
       iy: (size.h - side) / 2,
     };
   };
-  const lift = useRef<Lift | undefined>(undefined);
-  lift.current ??= liftOf(props.start);
-  const liftX = useTransform(open, (v) => (lift.current?.x ?? 0) * (1 - v));
-  const liftY = useTransform(open, (v) => (lift.current?.y ?? 0) * (1 - v));
-  const liftScale = useTransform(open, (v) => {
-    const k = lift.current?.k ?? 1;
-    return k + (1 - k) * v;
+  const [opened] = useState(() => liftOf(props.start));
+  // Where its tile is: fixed as it opens, and measured every frame as it
+  // goes back, so it lands on its tile even while the grid scrolls, or
+  // follows it off the screen.
+  const tile = useTransform(open, () =>
+    closing.current ? liftOf(here.current) : opened,
+  );
+  const liftX = useTransform(() => (tile.get()?.x ?? 0) * (1 - open.get()));
+  const liftY = useTransform(() => (tile.get()?.y ?? 0) * (1 - open.get()));
+  const liftScale = useTransform(() => {
+    const k = tile.get()?.k ?? 1;
+    return k + (1 - k) * open.get();
   });
-  const liftClip = useTransform(open, (v) => {
-    const { ix = 0, iy = 0 } = lift.current ?? {};
+  const liftClip = useTransform(() => {
+    const { ix = 0, iy = 0 } = tile.get() ?? {};
+    const v = open.get();
     return `inset(${iy * (1 - v)}px ${ix * (1 - v)}px)`;
   });
 
@@ -195,7 +209,7 @@ function Photos(props: ViewerProps) {
     const photo = photos[here.current];
     if (closing.current || photo === undefined) return;
     closing.current = true;
-    lift.current = liftOf(here.current);
+    props.onClosing();
     const zoom = zoomOf(photo.id);
     animate(zoom.z, 1, SPRING);
     animate(zoom.x, 0, SPRING);
@@ -356,6 +370,7 @@ function Photos(props: ViewerProps) {
   const chromeTimer = useRef<number | undefined>(undefined);
 
   useGesture({
+    directions: 'all',
     onPointer: (_pointer, pointers) => {
       if (closing.current) return;
       const fingers = down(pointers);
