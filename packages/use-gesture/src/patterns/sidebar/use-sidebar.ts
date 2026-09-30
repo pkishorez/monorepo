@@ -43,12 +43,12 @@ export type Sidebar = {
 // already moved on. A Swipe's velocity still carries into either.
 const OPEN_SPRING = {
   type: 'spring',
-  visualDuration: 0.25,
+  visualDuration: 0.18,
   bounce: 0,
 } as const;
 const CLOSE_SPRING = {
   type: 'spring',
-  visualDuration: 0.2,
+  visualDuration: 0.15,
   bounce: 0,
 } as const;
 
