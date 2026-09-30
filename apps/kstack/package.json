@@ -1,6 +1,6 @@
 {
   "name": "kstack",
-  "description": "Examples of the app layouts and behaviours kstack supports, each a complete app, published at kstack.kishore.app.",
+  "description": "Showcases of the app layouts and behaviours kstack supports, each a complete app, published at kstack.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,

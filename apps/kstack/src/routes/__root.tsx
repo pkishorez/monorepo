@@ -70,7 +70,7 @@ function NotFound() {
         Nothing lives here
       </h1>
       <Link to="/" className={buttonVariants({ className: 'min-h-11' })}>
-        All examples
+        All showcases
       </Link>
     </main>
   );

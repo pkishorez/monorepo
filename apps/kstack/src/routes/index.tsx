@@ -9,22 +9,17 @@ export const Route = createFileRoute('/')({
   component: Home,
 });
 
-/** One Example: a complete app of one layout or behaviour, under its own route. */
-interface Example {
-  readonly to: '/app-shell';
+/** One Showcase: a complete app of one layout or behaviour, under its own route. */
+interface Showcase {
+  readonly to: '/app-shell' | '/gestures' | '/features';
   readonly title: string;
-  readonly summary: string;
   readonly preview: ReactNode;
 }
 
-const EXAMPLES: ReadonlyArray<Example> = [
-  {
-    to: '/app-shell',
-    title: 'App Shell',
-    summary:
-      'A sidebar, a header and the page. On a phone the sidebar pushes the page aside; on a wide screen it sits beside it. Tweak each part on or off.',
-    preview: <AppShellPreview />,
-  },
+const SHOWCASES: ReadonlyArray<Showcase> = [
+  { to: '/app-shell', title: 'App Shell', preview: <AppShellPreview /> },
+  { to: '/gestures', title: 'Gestures', preview: <GesturesPreview /> },
+  { to: '/features', title: 'Features', preview: <FeaturesPreview /> },
 ];
 
 /** A wireframe of the App Shell: the sidebar, and the page as a card beside it. */
@@ -46,7 +41,34 @@ function AppShellPreview() {
   );
 }
 
-// The card last opened, so going back shrinks the Example into it.
+/** Two fingers on a card, one dragging it aside. */
+function GesturesPreview() {
+  return (
+    <div className="relative size-full overflow-hidden bg-sidebar p-3">
+      <div className="absolute inset-y-3 right-3 left-10 rounded-md bg-background shadow-sm" />
+      <span className="absolute top-[38%] left-[40%] size-6 rounded-full bg-primary/25 ring-2 ring-primary/60" />
+      <span className="absolute top-[52%] left-[58%] size-6 rounded-full bg-primary/25 ring-2 ring-primary/60" />
+    </div>
+  );
+}
+
+/** An inbox, one row swiped open to its actions. */
+function FeaturesPreview() {
+  return (
+    <div className="flex size-full flex-col gap-1.5 bg-background p-2">
+      <div className="h-1.5 w-1/3 rounded-full bg-foreground/25" />
+      <div className="h-6 rounded bg-foreground/8" />
+      <div className="flex h-6 overflow-hidden rounded">
+        <div className="w-3/4 -translate-x-0 bg-foreground/8" />
+        <div className="w-1/8 bg-primary/40" />
+        <div className="w-1/8 bg-destructive/50" />
+      </div>
+      <div className="h-6 rounded bg-foreground/8" />
+    </div>
+  );
+}
+
+// The card last opened, so going back shrinks the Showcase into it.
 let opened: string | undefined;
 
 function ThemeToggle() {
@@ -146,24 +168,21 @@ function Home() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 pt-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        <h1 className="text-2xl font-semibold tracking-tight">Examples</h1>
-        <p className="mt-1 text-muted-foreground">
-          Each one is a complete app. Open one, then read its folder.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Showcases</h1>
         <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {EXAMPLES.map((example) => (
-            <li key={example.to}>
+          {SHOWCASES.map((showcase) => (
+            <li key={showcase.to}>
               <Link
-                to={example.to}
+                to={showcase.to}
                 viewTransition
                 onClick={(event) => {
-                  opened = example.to;
+                  opened = showcase.to;
                   // Named now, before the view transition snapshots this page.
                   const preview =
                     event.currentTarget.querySelector<HTMLElement>(
                       '[data-preview]',
                     );
-                  if (preview) preview.style.viewTransitionName = 'example';
+                  if (preview) preview.style.viewTransitionName = 'showcase';
                 }}
                 className="group flex flex-col overflow-hidden rounded-xl bg-card ring-1 ring-edge transition-shadow duration-150 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
@@ -171,19 +190,14 @@ function Home() {
                   data-preview
                   className="aspect-[16/10] border-b border-border"
                   style={
-                    opened === example.to
-                      ? { viewTransitionName: 'example' }
+                    opened === showcase.to
+                      ? { viewTransitionName: 'showcase' }
                       : undefined
                   }
                 >
-                  {example.preview}
+                  {showcase.preview}
                 </div>
-                <div className="flex flex-col gap-1 p-4">
-                  <span className="font-medium">{example.title}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {example.summary}
-                  </span>
-                </div>
+                <span className="p-4 font-medium">{showcase.title}</span>
               </Link>
             </li>
           ))}
