@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import type { Photo } from './data.ts';
 import { between, down, track } from './fingers.ts';
+import type { Flight } from './grid.tsx';
 import { PhotoArt } from './photo.tsx';
 
 const SPRING = { type: 'spring', visualDuration: 0.3, bounce: 0 } as const;
@@ -38,6 +39,8 @@ type ViewerProps = {
   readonly start: number;
   /** Where a photo's tile is on screen now, to grow from and shrink back to. */
   readonly rectOf: (id: string) => DOMRect | undefined;
+  /** Hands the closing photo to the grid; false when it has no tile for it. */
+  readonly onHandOff: (flight: Flight) => boolean;
   readonly onIndexChange: (index: number) => void;
   readonly onClosed: () => void;
 };
@@ -52,7 +55,8 @@ type PhotosProps = ViewerProps & {
  * photos, pinch or double-tap to zoom, pan when zoomed, swipe down to put it
  * back. Its zone takes every touch; the albums are off while it is open.
  * Once it starts going back it is inert, so touches reach the grid under it
- * at once, and the grid scrolls while it settles.
+ * at once, and it hands the photo to the grid, which flies it onto its tile
+ * inside its scrolling content, so it scrolls with the tile.
  */
 export function Viewer(props: ViewerProps) {
   const [closing, setClosing] = useState(false);
@@ -103,6 +107,9 @@ function Photos(props: PhotosProps) {
   const here = useRef(props.start);
   const [chrome, setChrome] = useState(true);
   const closing = useRef(false);
+  // The grid has the photo now; only the backdrop fades here.
+  const [away, setAway] = useState(false);
+  const art = useRef<HTMLDivElement>(null);
 
   // 0 at its tile, 1 open; the backdrop and chrome follow it and `dim`.
   const open = useMotionValue(0);
@@ -130,21 +137,18 @@ function Photos(props: PhotosProps) {
       iy: (size.h - side) / 2,
     };
   };
-  const [opened] = useState(() => liftOf(props.start));
-  // Where its tile is: fixed as it opens, and measured every frame as it
-  // goes back, so it lands on its tile even while the grid scrolls, or
-  // follows it off the screen.
-  const tile = useTransform(open, () =>
-    closing.current ? liftOf(here.current) : opened,
-  );
-  const liftX = useTransform(() => (tile.get()?.x ?? 0) * (1 - open.get()));
-  const liftY = useTransform(() => (tile.get()?.y ?? 0) * (1 - open.get()));
+  // Where its tile is as it opens; where it shrinks to if the grid cannot
+  // take it back.
+  const tile = useRef<Lift | undefined>(undefined);
+  tile.current ??= liftOf(props.start);
+  const liftX = useTransform(() => (tile.current?.x ?? 0) * (1 - open.get()));
+  const liftY = useTransform(() => (tile.current?.y ?? 0) * (1 - open.get()));
   const liftScale = useTransform(() => {
-    const k = tile.get()?.k ?? 1;
+    const k = tile.current?.k ?? 1;
     return k + (1 - k) * open.get();
   });
   const liftClip = useTransform(() => {
-    const { ix = 0, iy = 0 } = tile.get() ?? {};
+    const { ix = 0, iy = 0 } = tile.current ?? {};
     const v = open.get();
     return `inset(${iy * (1 - v)}px ${ix * (1 - v)}px)`;
   });
@@ -210,12 +214,31 @@ function Photos(props: PhotosProps) {
     if (closing.current || photo === undefined) return;
     closing.current = true;
     props.onClosing();
-    const zoom = zoomOf(photo.id);
-    animate(zoom.z, 1, SPRING);
-    animate(zoom.x, 0, SPRING);
-    animate(zoom.y, 0, SPRING);
-    animate(dx, 0, SPRING);
-    animate(dy, 0, SPRING);
+    const box = art.current?.getBoundingClientRect();
+    const size = fit(photo, screen);
+    const v = open.get();
+    const handed =
+      box !== undefined &&
+      props.onHandOff({
+        photo,
+        size,
+        center: { x: box.left + box.width / 2, y: box.top + box.height / 2 },
+        scale: box.width / size.w,
+        clip: {
+          x: (tile.current?.ix ?? 0) * (1 - v),
+          y: (tile.current?.iy ?? 0) * (1 - v),
+        },
+      });
+    if (handed) setAway(true);
+    else {
+      tile.current = liftOf(here.current);
+      const zoom = zoomOf(photo.id);
+      animate(zoom.z, 1, SPRING);
+      animate(zoom.x, 0, SPRING);
+      animate(zoom.y, 0, SPRING);
+      animate(dx, 0, SPRING);
+      animate(dy, 0, SPRING);
+    }
     void animate(open, 0, SPRING).then(props.onClosed);
   };
 
@@ -519,6 +542,7 @@ function Photos(props: PhotosProps) {
                     style={{
                       width: size.w,
                       height: size.h,
+                      visibility: current && away ? 'hidden' : undefined,
                       ...(current
                         ? {
                             x: liftX,
@@ -529,7 +553,11 @@ function Photos(props: PhotosProps) {
                         : { x: 0, y: 0, scale: 1, clipPath: 'none' }),
                     }}
                   >
-                    <PhotoArt photo={neighbour} />
+                    {/* Motion attaches a ref only once, so the one that moves
+                        to each photo in turn sits on a plain div. */}
+                    <div ref={current ? art : undefined} className="size-full">
+                      <PhotoArt photo={neighbour} />
+                    </div>
                   </motion.div>
                 </motion.div>
               </motion.div>

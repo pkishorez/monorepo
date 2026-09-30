@@ -5,6 +5,7 @@ import {
   motion,
   useMotionTemplate,
   useMotionValue,
+  useTransform,
 } from 'motion/react';
 import { memo, type RefObject, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -23,6 +24,23 @@ type GridProps = {
   /** Every tile on screen by photo id, for the viewer to grow from. */
   readonly tiles: Map<string, HTMLElement>;
   readonly onOpen: (index: number) => void;
+  /** A photo the viewer handed back, on its way to its tile. */
+  readonly flight: Flight | undefined;
+  readonly onLanded: () => void;
+};
+
+type Point = { readonly x: number; readonly y: number };
+
+/** A closing photo as the viewer hands it over, to land on its tile. */
+export type Flight = {
+  readonly photo: Photo;
+  /** Its size fitted to the screen, before any scale. */
+  readonly size: { readonly w: number; readonly h: number };
+  /** Where its centre is on the screen now. */
+  readonly center: Point;
+  readonly scale: number;
+  /** How much of each side is cut away now, in its own px. */
+  readonly clip: Point;
 };
 
 /**
@@ -40,8 +58,6 @@ export function Grid(props: GridProps) {
     </GestureZone>
   );
 }
-
-type Point = { readonly x: number; readonly y: number };
 
 function Tiles(
   props: GridProps & { readonly scroller: RefObject<HTMLDivElement | null> },
@@ -215,13 +231,92 @@ function Tiles(
             key={photo.id}
             photo={photo}
             index={index}
-            hidden={photo.id === props.hidden}
+            hidden={
+              photo.id === props.hidden || photo.id === props.flight?.photo.id
+            }
             tiles={tiles}
             onOpen={props.onOpen}
           />
         ))}
+        {props.flight === undefined ? null : (
+          // Clipped to the content, so it never makes it scroll further.
+          <div className="pointer-events-none absolute inset-0 overflow-clip">
+            <Ghost
+              key={props.flight.photo.id}
+              flight={props.flight}
+              tiles={tiles}
+              still={still}
+              onLanded={props.onLanded}
+            />
+          </div>
+        )}
       </motion.div>
     </div>
+  );
+}
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+/**
+ * The closing photo, flying from where the viewer left it onto its tile.
+ * It lives in the scrolling content, placed by where its tile sits in it, so
+ * the grid's own scrolling carries it with the tile, and the header covers it
+ * like any tile.
+ */
+function Ghost(props: {
+  readonly flight: Flight;
+  readonly tiles: Map<string, HTMLElement>;
+  readonly still: RefObject<HTMLDivElement | null>;
+  readonly onLanded: () => void;
+}) {
+  const { flight, tiles } = props;
+  const { w, h } = flight.size;
+  const side = Math.min(w, h);
+  // 0 where the viewer left it, 1 on its tile.
+  const t = useMotionValue(0);
+  // Its centre in the content, taken once as it is handed over.
+  const [from] = useState(() => {
+    const box = props.still.current?.getBoundingClientRect();
+    return {
+      x: flight.center.x - (box?.left ?? 0),
+      y: flight.center.y - (box?.top ?? 0),
+    };
+  });
+  // Where its tile is in the content, which scrolling never changes; it
+  // stays on the last one found if the tile goes.
+  const last = useRef({ ...from, k: flight.scale });
+  const tile = useTransform(() => {
+    t.get();
+    const el = tiles.get(flight.photo.id);
+    if (el !== undefined) {
+      last.current = {
+        x: el.offsetLeft + el.offsetWidth / 2,
+        y: el.offsetTop + el.offsetHeight / 2,
+        k: el.offsetWidth / side,
+      };
+    }
+    return last.current;
+  });
+  const x = useTransform(() => lerp(from.x, tile.get().x, t.get()) - w / 2);
+  const y = useTransform(() => lerp(from.y, tile.get().y, t.get()) - h / 2);
+  const scale = useTransform(() => lerp(flight.scale, tile.get().k, t.get()));
+  const clipPath = useTransform(() => {
+    const v = t.get();
+    return `inset(${lerp(flight.clip.y, (h - side) / 2, v)}px ${lerp(flight.clip.x, (w - side) / 2, v)}px)`;
+  });
+
+  const landed = useRef(props.onLanded);
+  useEffect(() => {
+    void animate(t, 1, SPRING).then(() => landed.current());
+  }, [t]);
+
+  return (
+    <motion.div
+      className="absolute top-0 left-0"
+      style={{ width: w, height: h, x, y, scale, clipPath }}
+    >
+      <PhotoArt photo={flight.photo} />
+    </motion.div>
   );
 }
 

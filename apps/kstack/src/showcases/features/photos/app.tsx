@@ -5,7 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 import { appTheme } from '../../../common/theme.ts';
 import { Albums } from './albums.tsx';
 import { ALBUMS } from './data.ts';
-import { Grid } from './grid.tsx';
+import { type Flight, Grid } from './grid.tsx';
 import { Viewer } from './viewer.tsx';
 
 // Plain sRGB per theme, like the Theme's own strip.
@@ -34,6 +34,7 @@ function Library() {
   const [albumsOpen, setAlbumsOpen] = useState(false);
   const [viewer, setViewer] = useState<{ start: number } | undefined>();
   const [showing, setShowing] = useState<string | undefined>();
+  const [flight, setFlight] = useState<Flight | undefined>();
   const tiles = useRef(new Map<string, HTMLElement>());
 
   const onOpen = useCallback(
@@ -60,6 +61,8 @@ function Library() {
         hidden={showing}
         tiles={tiles.current}
         onOpen={onOpen}
+        flight={flight}
+        onLanded={() => setFlight(undefined)}
       />
       <header className="absolute inset-x-0 top-0 z-10 bg-background/80 pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] backdrop-blur-md">
         <div className="flex h-14 items-center gap-1 px-2">
@@ -93,6 +96,11 @@ function Library() {
           photos={photos}
           start={viewer.start}
           rectOf={(id) => tiles.current.get(id)?.getBoundingClientRect()}
+          onHandOff={(next) => {
+            if (!tiles.current.has(next.photo.id)) return false;
+            setFlight(next);
+            return true;
+          }}
           onIndexChange={(index) => {
             const id = photos[index]?.id;
             setShowing(id);

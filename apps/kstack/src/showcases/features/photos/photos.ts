@@ -16,6 +16,7 @@ export const photos: Feature = {
     'Zoom in, then swipe down: it pans; at 1x the same swipe shrinks the photo back into its tile.',
     'Swipe down a little and let go slowly: the photo springs back and the background returns.',
     'Swipe to another photo, then swipe down: it closes onto that photo’s tile, scrolled into view.',
+    'Swipe a photo down and scroll the grid at once: the photo rides along with its tile and slides under the header.',
   ],
   App,
   files: codeFiles(
