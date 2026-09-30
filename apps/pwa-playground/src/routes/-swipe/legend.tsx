@@ -23,11 +23,9 @@ export function SwipeLegend() {
     <dl className="grid gap-x-4 gap-y-2 text-[13px] sm:grid-cols-2 [&_dd]:text-muted-foreground [&_dt]:flex [&_dt]:flex-wrap [&_dt]:items-center [&_dt]:gap-1.5">
       <div>
         <dt>
-          <Mark className="text-muted-foreground ring-1 ring-foreground/10">
-            idle
-          </Mark>
+          <Mark className="text-muted-foreground ring-1 ring-edge">idle</Mark>
           <Mark className="bg-foreground text-background">possible</Mark>
-          <Mark className="text-muted-foreground ring-1 ring-foreground/10">
+          <Mark className="text-muted-foreground ring-1 ring-edge">
             tracking
           </Mark>
         </dt>

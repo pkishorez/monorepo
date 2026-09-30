@@ -71,13 +71,13 @@ const useManifest = () => {
 function ManifestCard(props: { readonly manifest: Manifest | null }) {
   const m = props.manifest;
   return (
-    <div className="flex items-center gap-4 rounded-2xl bg-background p-3 pr-5 shadow-sm ring-1 ring-foreground/10">
+    <div className="flex items-center gap-4 rounded-2xl bg-background p-3 pr-5 shadow-sm ring-1 ring-edge">
       <img
         src="/icons/icon-192.png"
         alt=""
         width={56}
         height={56}
-        className="size-14 rounded-[14px] ring-1 ring-foreground/10"
+        className="size-14 rounded-[14px] ring-1 ring-edge"
       />
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="truncate font-medium">

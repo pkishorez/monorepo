@@ -273,7 +273,7 @@ export function SwipeProbe(props: {
       )}
       <div
         className={cn(
-          'relative flex flex-col gap-1.5 rounded-lg bg-background/85 p-2 font-mono text-[11px] leading-4 shadow-sm ring-1 ring-foreground/10',
+          'relative flex flex-col gap-1.5 rounded-lg bg-background/85 p-2 font-mono text-[11px] leading-4 shadow-sm ring-1 ring-edge',
           props.className,
         )}
       >
@@ -297,7 +297,7 @@ export function SwipeProbe(props: {
                   'rounded px-1.5 py-px',
                   swipe.state === state
                     ? 'bg-foreground text-background'
-                    : 'text-muted-foreground ring-1 ring-foreground/10',
+                    : 'text-muted-foreground ring-1 ring-edge',
                 )}
               >
                 {state}
@@ -308,7 +308,7 @@ export function SwipeProbe(props: {
             className={cn(
               'ml-auto shrink-0 rounded px-1.5 py-px text-center',
               compact ? 'w-[10ch]' : 'w-[16ch]',
-              !tracking && 'text-muted-foreground ring-1 ring-foreground/10',
+              !tracking && 'text-muted-foreground ring-1 ring-edge',
               tracking && willCommit && 'bg-positive/15 text-positive',
               tracking && !willCommit && 'bg-destructive/10 text-destructive',
             )}

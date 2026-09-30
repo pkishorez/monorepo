@@ -115,7 +115,7 @@ function AuthSim() {
     >
       <Playground>
         <Stage className="gap-6">
-          <div className="flex w-full max-w-sm items-center gap-4 rounded-2xl bg-background p-4 shadow-sm ring-1 ring-foreground/10">
+          <div className="flex w-full max-w-sm items-center gap-4 rounded-2xl bg-background p-4 shadow-sm ring-1 ring-edge">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted">
               <UserIcon
                 aria-hidden="true"

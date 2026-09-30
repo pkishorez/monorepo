@@ -70,7 +70,7 @@ function OnlineDot() {
   return (
     <span
       data-testid="online"
-      className="flex h-7 items-center gap-1.5 rounded-full px-2.5 font-mono text-xs text-muted-foreground ring-1 ring-foreground/10"
+      className="flex h-7 items-center gap-1.5 rounded-full px-2.5 font-mono text-xs text-muted-foreground ring-1 ring-edge"
     >
       <span
         aria-hidden="true"
@@ -146,7 +146,7 @@ function PullIndicator(props: {
       <div
         role="status"
         className={cn(
-          'flex h-9 items-center gap-2 rounded-full bg-card px-3.5 text-sm shadow-md ring-1 ring-foreground/10 transition-colors duration-150',
+          'flex h-9 items-center gap-2 rounded-full bg-card px-3.5 text-sm shadow-md ring-1 ring-edge transition-colors duration-150',
           pull.state === 'armed' && 'text-positive',
         )}
       >
@@ -240,7 +240,7 @@ function Drawer(props: {
         style={{ opacity: sidebar.progress }}
         onClick={() => sidebar.setOpen(false)}
         className={cn(
-          'fixed inset-0 z-40 bg-black/45',
+          'fixed inset-0 z-40 bg-black/45 dark:bg-black/60',
           !(sidebar.open || sidebar.dragging || showing) &&
             'pointer-events-none',
         )}
@@ -251,7 +251,7 @@ function Drawer(props: {
         aria-label="Menu"
         inert={!sidebar.open}
         style={{ x: sidebar.x, width: DRAWER }}
-        className="fixed inset-y-0 left-0 z-50 flex flex-col overflow-y-auto bg-background pt-[env(safe-area-inset-top)] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] shadow-2xl ring-1 ring-foreground/10"
+        className="fixed inset-y-0 left-0 z-50 flex flex-col overflow-y-auto bg-popover pt-[env(safe-area-inset-top)] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[env(safe-area-inset-left)] shadow-2xl ring-1 ring-edge"
       >
         <div className="flex h-14 shrink-0 items-center justify-between pr-1.5 pl-5">
           <span className="text-sm font-semibold">PWA Playground</span>
@@ -324,7 +324,7 @@ function Frame(props: { readonly children: ReactNode }) {
           <div className="relative min-w-0 flex-1 overflow-hidden">
             <PullIndicator pull={pull} />
             <TurnSurface
-              className="h-full bg-muted"
+              className="h-full bg-muted dark:bg-black"
               placeholder={(turn) => <TurnPlaceholder {...turn} />}
             >
               <div

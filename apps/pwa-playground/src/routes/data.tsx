@@ -117,7 +117,7 @@ function DataPage(props: {
 
 function Card(props: { readonly children: ReactNode }) {
   return (
-    <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-background p-5 shadow-sm ring-1 ring-foreground/10">
+    <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-background p-5 shadow-sm ring-1 ring-edge">
       {props.children}
     </div>
   );

@@ -50,7 +50,7 @@ export function Code(props: {
     return () => clearTimeout(timer);
   }, [copied]);
   return (
-    <figure className="flex min-w-0 flex-col overflow-hidden rounded-xl bg-muted/40 ring-1 ring-foreground/10">
+    <figure className="flex min-w-0 flex-col overflow-hidden rounded-xl bg-muted/40 ring-1 ring-edge">
       <figcaption className="flex h-10 items-center justify-between gap-2 border-b border-border pr-1 pl-4">
         <span className="truncate font-mono text-xs text-muted-foreground">
           {props.title ?? 'Code'}

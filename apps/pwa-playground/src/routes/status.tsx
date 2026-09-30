@@ -204,7 +204,7 @@ function Status() {
 
       <div className="grid gap-8 md:grid-cols-2">
         <Section title="This device">
-          <dl className="flex flex-col gap-1.5 rounded-xl p-4 ring-1 ring-foreground/10">
+          <dl className="flex flex-col gap-1.5 rounded-xl p-4 ring-1 ring-edge">
             <Value label="Service workers" testId="status-sw-supported">
               {workers === null ? '…' : workers.supported ? 'yes' : 'no'}
             </Value>
@@ -227,7 +227,7 @@ function Status() {
         <Section title="Cache storage">
           <ul
             data-testid="status-caches"
-            className="flex flex-col divide-y divide-border rounded-xl px-4 py-1.5 font-mono text-[13px] ring-1 ring-foreground/10"
+            className="flex flex-col divide-y divide-border rounded-xl px-4 py-1.5 font-mono text-[13px] ring-1 ring-edge"
           >
             {cacheList.length === 0 ? (
               <li className="py-2 text-muted-foreground">no caches</li>

@@ -175,7 +175,7 @@ function Screen(props: {
           style={{ x, y, rotate, opacity }}
           className={cn(
             'flex h-52 w-40 flex-col items-center justify-center gap-3 rounded-3xl bg-background shadow-lg ring-1 transition-[box-shadow,color] duration-150',
-            armed ? 'text-positive ring-2 ring-positive' : 'ring-foreground/10',
+            armed ? 'text-positive ring-2 ring-positive' : 'ring-edge',
           )}
         >
           <Arrow aria-hidden="true" className="size-10" />

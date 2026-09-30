@@ -19,7 +19,7 @@ export function DisclosureList({
       onValueChange={(values) =>
         onOpenChange((values[0] as string | undefined) ?? null)
       }
-      className="flex flex-col rounded-lg ring-1 ring-foreground/10"
+      className="flex flex-col rounded-lg ring-1 ring-edge"
     >
       {children}
     </Accordion.Root>
@@ -63,7 +63,7 @@ export function OpenRow({
   ...row
 }: RowProps & { children: ReactNode }) {
   return (
-    <div className="rounded-lg ring-1 ring-foreground/10">
+    <div className="rounded-lg ring-1 ring-edge">
       <div className="flex min-w-0 items-center gap-3 px-3.5 py-3 text-sm">
         <RowSummary {...row} />
       </div>

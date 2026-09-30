@@ -27,7 +27,7 @@ export function ScopeList({
     );
   }
   return (
-    <ul className="flex flex-col divide-y divide-border/60 rounded-lg ring-1 ring-foreground/10 text-sm">
+    <ul className="flex flex-col divide-y divide-border/60 rounded-lg ring-1 ring-edge text-sm">
       {requested.map((scope) => (
         <li key={scope} className="flex items-start gap-3 px-3.5 py-3">
           <Check
