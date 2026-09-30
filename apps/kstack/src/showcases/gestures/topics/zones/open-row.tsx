@@ -94,11 +94,12 @@ function RowBody(props: {
 }
 
 /**
- * A list that counts Swipes right, over rows that are trapped only while
- * their actions are open. An open row's Swipe right shuts it; the list never
- * hears it.
+ * A list that counts Swipes right, over rows that are each a zone. A shut
+ * row wants only a Swipe left, so a Swipe right passes out to the list. An
+ * open row wants the Swipe right that shuts it, so its zone takes that one
+ * and the list drops it; nothing is trapped.
  */
-export function TrappedWhileOpen() {
+export function OpenRow() {
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
   const [count, setCount] = useState(0);
   const list = useSwipe({
@@ -109,7 +110,7 @@ export function TrappedWhileOpen() {
     list.state === 'tracking'
       ? 'The list hears it'
       : open.size > 0
-        ? `${open.size} open: trapped`
+        ? `${open.size} open: its row takes a Swipe right`
         : undefined,
   );
 
@@ -125,10 +126,7 @@ export function TrappedWhileOpen() {
       <ul className="flex flex-col divide-y divide-border border-y border-border">
         {ROWS.map((title, i) => (
           <li key={title} className="h-12">
-            <GestureZone
-              trapped={open.has(i)}
-              className="relative h-full overflow-hidden"
-            >
+            <GestureZone className="relative h-full overflow-hidden">
               <RowBody
                 title={title}
                 open={open.has(i)}

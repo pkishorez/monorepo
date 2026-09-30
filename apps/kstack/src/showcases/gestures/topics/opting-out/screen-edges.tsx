@@ -7,12 +7,15 @@ import { useStageStatus } from '../../stage/index.ts';
 const EDGE = 24;
 
 /**
- * The whole screen is a zone, so a touch landing within 24px of a side edge
- * is kept from the browser's back swipe. Buttons at the edge still click.
+ * A listener captures the 24px strips along the side edges, so a touch
+ * landing there is kept from the browser's back swipe; a zone guards an
+ * edge only when a listener could take a touch there. Buttons at the edge
+ * still click.
  */
 export function ScreenEdges() {
   const [said, setSaid] = useState<string>();
   useGesture({
+    captures: (point) => point.x < EDGE || point.x > innerWidth - EDGE,
     onStart: (pointers) => {
       const [first] = pointers.values();
       if (first === undefined) return;

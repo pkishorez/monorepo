@@ -103,6 +103,8 @@ export function PanWhenZoomed() {
   };
 
   useGesture({
+    // Every touch on the card: one finger pans once zoomed in.
+    directions: 'all',
     onPointer: (_, pointers) => {
       stop.current?.();
       stop.current = undefined;

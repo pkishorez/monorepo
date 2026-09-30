@@ -8,8 +8,8 @@ import { Reveal } from './reveal.tsx';
 import reveal from './reveal.tsx?raw';
 import { RowsScrollSidebar } from './rows-scroll-sidebar.tsx';
 import rowsScrollSidebar from './rows-scroll-sidebar.tsx?raw';
-import { TrappedWhenOpen } from './trapped-when-open.tsx';
-import trappedWhenOpen from './trapped-when-open.tsx?raw';
+import { OpenRowAndSidebar } from './open-row-and-sidebar.tsx';
+import openRowAndSidebar from './open-row-and-sidebar.tsx?raw';
 
 /** Rows that swipe open to their actions, built from Swipes: each row is its own zone. */
 export const swipeRows: Topic = {
@@ -26,12 +26,12 @@ export const swipeRows: Topic = {
       file: 'reveal.tsx',
     },
     {
-      slug: 'trapped-when-open',
+      slug: 'open-row-and-sidebar',
       sentence:
-        'An open row is trapped. Open one, swipe it right, then swipe right on a closed row.',
-      Demo: TrappedWhenOpen,
-      source: trappedWhenOpen,
-      file: 'trapped-when-open.tsx',
+        'An open row takes its closing swipe. Open one, swipe it right, then swipe right on a closed row.',
+      Demo: OpenRowAndSidebar,
+      source: openRowAndSidebar,
+      file: 'open-row-and-sidebar.tsx',
     },
     {
       slug: 'one-at-a-time',

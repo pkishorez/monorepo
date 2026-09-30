@@ -28,7 +28,7 @@ const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * A messenger: the chat list, a sidebar with your profile, and the open
  * thread sliding over the list. The app's zone holds them all; the list and
- * the thread each own a trapped zone inside it.
+ * the thread each own a zone inside it.
  */
 export function ChatApp() {
   const [chats, setChats] = useState(() => createChats(Date.now()));

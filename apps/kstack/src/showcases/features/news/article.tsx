@@ -56,8 +56,8 @@ export function useReading() {
 export type Reading = ReturnType<typeof useReading>;
 
 /**
- * An article over the feeds, in a trapped zone so nothing under it hears its
- * touches. A swipe right from the left edge takes it back, following the
+ * An article over the feeds, in its own zone; the sidebars are off while it
+ * is open. A swipe right from the left edge takes it back, following the
  * finger; the feeds slide in behind it.
  */
 export function ArticleView(props: {
@@ -68,7 +68,7 @@ export function ArticleView(props: {
   readonly onSave: () => void;
 }) {
   return (
-    <GestureZone trapped className="absolute inset-0 z-10">
+    <GestureZone className="absolute inset-0 z-10">
       <Page {...props} />
     </GestureZone>
   );

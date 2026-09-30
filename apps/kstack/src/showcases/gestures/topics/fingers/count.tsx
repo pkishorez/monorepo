@@ -8,7 +8,7 @@ import { useStageStatus } from '../../stage/index.ts';
  * finger stays, faded, until the last one lifts.
  */
 export function Count() {
-  const { pointers } = useGesture();
+  const { pointers } = useGesture({ directions: 'all' });
   const [list, setList] = useState<ReadonlyArray<Pointer>>([]);
   useMotionValueEvent(pointers, 'change', (map) => setList([...map.values()]));
   const down = list.filter((pointer) => pointer.end === undefined).length;

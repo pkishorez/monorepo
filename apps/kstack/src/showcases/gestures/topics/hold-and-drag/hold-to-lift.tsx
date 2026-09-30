@@ -109,6 +109,7 @@ export function HoldToLift() {
   };
 
   useGesture({
+    directions: 'all',
     onStart: (pointers) => {
       const [finger] = pointers.values();
       const id =

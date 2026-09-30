@@ -31,8 +31,10 @@ const TABS = [
 
 /**
  * A sidebar that opens only from the left edge of the screen, and tabs that
- * follow a Swipe from anywhere else. The tabs are their own zone, and a strip
- * along the edge sits outside it, so a Swipe from the edge never moves them.
+ * follow a Swipe from anywhere else. The tabs are their own zone inside the
+ * sidebar's. The sidebar captures touches landing at the edge, so its zone
+ * takes them and the tabs inside it drop them: a Swipe from the edge never
+ * moves the tabs.
  */
 export function EdgeSidebar() {
   const sidebar = useSidebar({ side: 'left', width: WIDTH, edge: EDGE });
@@ -52,8 +54,6 @@ export function EdgeSidebar() {
       <GestureZone className="absolute inset-0 pt-[env(safe-area-inset-top)]">
         <Tabs onDraggingChange={setTabsDragging} />
       </GestureZone>
-      {/* Outside the tabs' zone: only the sidebar hears a touch here. */}
-      <div className="absolute inset-y-0 left-0 z-10" style={{ width: EDGE }} />
       <motion.div
         className="absolute inset-0 z-20 bg-black/40"
         style={{

@@ -88,6 +88,8 @@ export function Zoom() {
   };
 
   useGesture({
+    // Every touch on the card, so a second finger landing late still pinches.
+    directions: 'all',
     onPointer: (_, pointers) => {
       stop.current?.();
       stop.current = undefined;

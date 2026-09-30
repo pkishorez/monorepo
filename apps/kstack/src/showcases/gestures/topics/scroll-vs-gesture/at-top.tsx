@@ -6,8 +6,9 @@ import { useStageStatus } from '../../stage/index.ts';
 const SPRING = { type: 'spring', stiffness: 500, damping: 45 } as const;
 
 /**
- * A list already at its top can't scroll down any further, so a drag down
- * is the zone's: the list follows it, with resistance.
+ * A list already at its top can't scroll down any further, and the Swipe
+ * wants down, so a drag down is the zone's: the list follows it, with
+ * resistance. A drag up scrolls the list.
  */
 export function AtTop() {
   const [scrolling, setScrolling] = useState(false);

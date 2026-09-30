@@ -8,10 +8,10 @@ import { Siblings } from './siblings.tsx';
 import siblings from './siblings.tsx?raw';
 import { Trapped } from './trapped.tsx';
 import trapped from './trapped.tsx?raw';
-import { TrappedWhileOpen } from './trapped-while-open.tsx';
-import trappedWhileOpen from './trapped-while-open.tsx?raw';
+import { OpenRow } from './open-row.tsx';
+import openRow from './open-row.tsx?raw';
 
-/** Who hears a touch: zones that nest, sit side by side, and trap. */
+/** Who hears a touch and who takes it: zones that nest, sit side by side, and trap. */
 export const zones: Topic = {
   slug: 'zones',
   title: 'Zones',
@@ -40,12 +40,12 @@ export const zones: Topic = {
       file: 'trapped.tsx',
     },
     {
-      slug: 'trapped-while-open',
+      slug: 'open-row',
       sentence:
-        'Rows trapped only while open. Swipe a row right, then open one and swipe it right.',
-      Demo: TrappedWhileOpen,
-      source: trappedWhileOpen,
-      file: 'trapped-while-open.tsx',
+        'The innermost zone that wants a swipe takes it. Swipe a row right, then open one and swipe it right.',
+      Demo: OpenRow,
+      source: openRow,
+      file: 'open-row.tsx',
     },
     {
       slug: 'showcase-sidebar',

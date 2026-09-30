@@ -26,7 +26,8 @@ const codeOf = (scenario: Scenario) => (
 /**
  * A Scenario on its Topic's page: its sentence, then its demo in a card that
  * is a trapped Gesture Zone, so the Showcase's own sidebar never hears it.
- * A Scenario that needs the whole screen shows a way to open it instead.
+ * A touch the demo does not want still scrolls the page. A Scenario that
+ * needs the whole screen shows a way to open it instead.
  */
 export function Stage(props: {
   readonly topic: string;

@@ -38,9 +38,9 @@ const MAIL = Array.from({ length: 24 }, (_, i) => ({
 /**
  * A long list of rows that open from a Swipe left, a sidebar that opens from
  * a Swipe right, and scrolling up and down, all on one card. The scrolling
- * list is the rows' zone: a zone per row would take every touch that lands
- * on it, scrolling included. Each row acts only on a touch that lands on it,
- * and the sidebar waits while a row is open.
+ * list is the rows' zone. Nothing wants up or down, so those scroll the
+ * list, and at its end the page. Each row acts only on a touch that lands
+ * on it, and the sidebar waits while a row is open.
  */
 export function RowsScrollSidebar() {
   const [open, setOpen] = useState<number>();

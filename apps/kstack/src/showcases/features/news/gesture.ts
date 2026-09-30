@@ -1,12 +1,14 @@
-import { type Pointer, useGesture } from '@kstackz/use-gesture/core';
+import {
+  type Direction,
+  type Pointer,
+  useGesture,
+} from '@kstackz/use-gesture/core';
 import { animate, useMotionValue } from 'motion/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { Pager } from './pager.ts';
 
 // Both side strips belong to the sidebars.
 const EDGE = 24;
-// Px a finger moves before its direction decides what it does.
-const LOCK = 10;
 /** Px a row slides left to save; also where its hint is fully shown. */
 export const SAVE_AT = 88;
 // Px/s left that saves however short the swipe.
@@ -16,6 +18,7 @@ const SPRING = { type: 'spring', visualDuration: 0.22, bounce: 0 } as const;
 
 type Run = {
   mode: 'pending' | 'page' | 'row' | 'none';
+  direction?: Direction;
   readonly pointer: Pointer;
   readonly row: string | undefined;
   readonly off: Array<() => void>;
@@ -27,7 +30,8 @@ type Run = {
  * Every sideways touch on the reader, decided by where it lands and which
  * way it first moves: left on an article slides it to save, right on the
  * first tab is the sidebar's, and anything else sideways turns the tab.
- * Up and down stays with the feed's own scroll.
+ * On the first tab it takes only Swipes left, so a Swipe right there goes
+ * on to the sidebar. Up and down stays with the feed's own scroll.
  */
 export function useReaderGesture(props: {
   readonly pager: Pager;
@@ -43,18 +47,18 @@ export function useReaderGesture(props: {
 
   const step = (r: Run) => {
     const dx = r.pointer.dx.get();
-    const dy = r.pointer.dy.get();
     const { pager } = latest.current;
     if (r.mode === 'pending') {
-      if (Math.hypot(dx, dy) < LOCK) return;
-      if (Math.abs(dx) <= Math.abs(dy)) r.mode = 'none';
-      else if (dx < 0 && r.row !== undefined) {
+      if (r.direction === undefined) return;
+      if (r.direction === 'up' || r.direction === 'down') r.mode = 'none';
+      else if (r.direction === 'left' && r.row !== undefined) {
         r.mode = 'row';
         rowX.stop();
         rowX.set(0);
         setRow(r.row);
-      } else if (dx > 0 && pager.current() === 0) r.mode = 'none';
-      else {
+      } else if (r.direction === 'right' && pager.current() === 0) {
+        r.mode = 'none';
+      } else {
         r.mode = 'page';
         r.base = pager.grab();
         r.page = pager.current();
@@ -68,6 +72,7 @@ export function useReaderGesture(props: {
   };
 
   useGesture({
+    directions: props.pager.page === 0 ? ['left'] : ['left', 'right'],
     onStart: (pointers) => {
       const [pointer] = pointers.values();
       if (pointer === undefined) return;
@@ -87,6 +92,13 @@ export function useReaderGesture(props: {
         pointer.dx.on('change', () => step(r)),
         pointer.dy.on('change', () => step(r)),
       );
+    },
+    // What the touch does is decided by the Direction it first moved in.
+    onDirection: (direction) => {
+      const r = run.current;
+      if (r?.mode !== 'pending') return;
+      r.direction = direction;
+      step(r);
     },
     onPointer: (pointer) => {
       const r = run.current;

@@ -33,9 +33,9 @@ export interface ThreadActions {
 }
 
 /**
- * One open chat, sliding over the list from the right, in its own trapped
- * zone. `x` is its offset: the app slides it in and out, a Swipe right from
- * the left edge drags it.
+ * One open chat, sliding over the list from the right, in its own zone; the
+ * sidebar is off while it is open. `x` is its offset: the app slides it in
+ * and out, a Swipe right from the left edge drags it.
  */
 export function Thread(
   props: ThreadActions & {
@@ -48,10 +48,7 @@ export function Thread(
       className="absolute inset-0 z-20 shadow-[-12px_0_32px_rgb(0_0_0/0.12)]"
       style={{ x: props.x }}
     >
-      <GestureZone
-        trapped
-        className="absolute inset-0 flex flex-col bg-background"
-      >
+      <GestureZone className="absolute inset-0 flex flex-col bg-background">
         <Body {...props} />
       </GestureZone>
     </motion.div>

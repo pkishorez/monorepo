@@ -210,6 +210,8 @@ export function useBoardGesture(props: {
   };
 
   useGesture({
+    // Sideways turns the page or slides a card; up and down is the columns'.
+    directions: ['left', 'right'],
     // A lifted card keeps the touch, even over a column that could scroll.
     captures: () => run.current?.mode === 'lifted',
     onStart: (pointers) => {
@@ -257,10 +259,11 @@ export function useBoardGesture(props: {
     },
   });
 
-  // Workaround: the zone hands a touch to a column's scroll at its first
-  // movement, and a finger held on a card still trembles a px or two. Those
-  // first few px are kept from the zone while a hold may lift, so it decides
-  // on a real movement, or on the lifted card.
+  // Workaround: the zone decides who owns a touch at its first movement, a
+  // column's scroll or whoever wants its Direction, and a finger held on a
+  // card still trembles a px or two. Those first few px are kept from the
+  // zone while a hold may lift, so it decides on a real movement, or on the
+  // lifted card.
   useEffect(() => {
     const zone = latest.current.pager.ref.current;
     if (zone === null) return;

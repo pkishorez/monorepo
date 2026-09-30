@@ -117,7 +117,7 @@ export function useRowSwipe(actions: {
     },
     follow: (dx) => {
       const width = grip.current?.width ?? 0;
-      // An open row only shuts to the right; a shut one gives way past READ_AT.
+      // An open row only shuts, to the right; a shut one gives way past READ_AT.
       const at = base.current + dx;
       if (base.current < 0) return x.set(Math.max(Math.min(at, 0), -width));
       x.set(at > READ_AT ? READ_AT + (at - READ_AT) / 3 : Math.max(at, -width));
@@ -140,17 +140,20 @@ export function useRowSwipe(actions: {
 }
 
 /**
- * Swipes left and right that move `swipe`'s row, for the row `pick` finds
- * under the first finger. Put it in the zone whose touches should move rows.
- * A touch that moved the row never also clicks it.
+ * Swipes that move `swipe`'s row, left and right unless `ways` says
+ * otherwise, for the row `pick` finds under the first finger. Put it in the
+ * zone whose touches should move rows. A touch that moved the row never
+ * also clicks it.
  */
 export function useRowDrag(
   swipe: RowSwipe,
   options: {
     readonly enabled: boolean;
+    readonly ways?: ReadonlyArray<'left' | 'right'>;
     readonly pick: (pointer: Pointer) => Grip | undefined;
   },
 ) {
+  const { ways = ['left', 'right'] } = options;
   const landed = useRef<Grip | undefined>(undefined);
   const moving = useRef<'left' | 'right' | undefined>(undefined);
   const moved = useRef(false);
@@ -178,14 +181,14 @@ export function useRowDrag(
     swipe.release(at && (way === 'left' ? -at.velocity : at.velocity));
   };
   const left = useSwipe({
-    enabled: options.enabled,
+    enabled: options.enabled && ways.includes('left'),
     direction: 'left',
     onStart: start('left'),
     onCommit: end('left'),
     onCancel: (_reason, at) => end('left')(at),
   });
   const right = useSwipe({
-    enabled: options.enabled,
+    enabled: options.enabled && ways.includes('right'),
     direction: 'right',
     onStart: start('right'),
     onCommit: end('right'),
