@@ -41,6 +41,8 @@ export default defineConfig({
     react(),
     // After tanstackStart(): the worker builds after prerendering.
     pwa({
+      // `PWA_DEV=true pnpm dev` runs the worker in dev too (Build ID `dev`).
+      dev: process.env['PWA_DEV'] === 'true',
       manifest: {
         name: 'kstack',
         short_name: 'kstack',
