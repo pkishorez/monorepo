@@ -39,12 +39,12 @@ pnpm add @kstackz/use-gesture motion react react-dom
 
 ### `@kstackz/use-gesture`
 
-| Export             | What it does                                                                                     |
-| ------------------ | ------------------------------------------------------------------------------------------------ |
-| `GestureProvider`  | Follows every finger for the zones inside it and runs one Gesture at a time.                     |
-| `GestureZone`      | A `div` that marks where the app can own touch; zones nest, and `trapped` keeps its Gestures in. |
-| `useSidebar`       | A sidebar that follows a Swipe from anywhere, or only its edge, and settles open or closed.      |
-| `usePullToRefresh` | Pull to refresh: a resisted Swipe down that refreshes when released armed.                       |
+| Export             | What it does                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `GestureProvider`  | Follows every finger for the zones inside it and runs one Gesture at a time. Nested, it does nothing. |
+| `GestureZone`      | A `div` that marks where the app can own touch; zones nest, and `trapped` keeps its Gestures in.      |
+| `useSidebar`       | A sidebar that follows a Swipe from anywhere, or only its edge, and settles open or closed.           |
+| `usePullToRefresh` | Pull to refresh: a resisted Swipe down that refreshes when released armed.                            |
 
 ### `@kstackz/use-gesture/recognizers`
 

@@ -65,7 +65,8 @@ function RowActions({ row }) {
 
 - **Gesture Provider** — follows every finger for the zones inside it and
   runs one Gesture at a time. Usually one at the app's root; separate
-  sections may each have their own.
+  sections may each have their own. One inside another does nothing, so a
+  component may always wrap itself in one.
 - **Gesture Zone** — an area where the app can own touch. It takes a touch
   only when a listener in it wants it; the browser keeps the rest. A `div`
   that takes every div prop, so it can be the card itself. It sets only

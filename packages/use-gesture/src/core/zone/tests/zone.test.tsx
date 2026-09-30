@@ -248,6 +248,26 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       return move?.defaultPrevented;
     };
 
+    it('joins a provider inside another to the outer one, so an open inner sidebar lets the outer one take the edge', () => {
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener name="outer" captures={(point) => point.x <= 150} />
+              <GestureProvider>
+                <GestureZone data-testid="inner">
+                  <Listener name="inner-sidebar" directions={['left']} />
+                </GestureZone>
+              </GestureProvider>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('inner', 5, 0)).toBe(true);
+      expect(find('outer').getAttribute('data-active')).toBe('true');
+      expect(find('inner-sidebar').getAttribute('data-active')).toBe('false');
+    });
+
     it('leaves a touch no listener wants to the browser, ending the Gesture', () => {
       const onEnd = vi.fn();
       act(() =>

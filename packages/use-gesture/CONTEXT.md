@@ -7,7 +7,7 @@ Touch gestures for React: every finger of a touch, read in nested areas that own
 ### Core
 
 **Gesture Provider**:
-The one place that follows every finger for the Gesture Zones inside it and runs the one Gesture under way. An app usually has one at its root; separate sections may each have their own, each with its own Gesture.
+The one place that follows every finger for the Gesture Zones inside it and runs the one Gesture under way. An app usually has one at its root; separate sections may each have their own, each with its own Gesture. One inside another adds nothing: its zones belong to the outer one, so nested screens, such as an app shell inside an app shell, share one Gesture.
 _Avoid_: router, tracker, root zone
 
 **Gesture Zone**:

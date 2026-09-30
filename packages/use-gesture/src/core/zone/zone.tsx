@@ -47,9 +47,20 @@ const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
 /**
  * Tracks every Gesture in the Gesture Zones inside it: the one place its
  * fingers are followed. Put one at the app's root; separate sections may
- * each have their own, and each then runs its own Gesture.
+ * each have their own, and each then runs its own Gesture. One inside
+ * another does nothing: its zones join the outer one, so nested screens
+ * share one Gesture.
  */
 export function GestureProvider(props: { readonly children?: ReactNode }) {
+  const outer = useContext(ProviderContext);
+  return outer === undefined ? (
+    <Provider>{props.children}</Provider>
+  ) : (
+    props.children
+  );
+}
+
+function Provider(props: { readonly children?: ReactNode }) {
   const [provided] = useState(() => {
     const tracker = createTracker();
     const input =
