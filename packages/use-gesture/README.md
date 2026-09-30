@@ -39,12 +39,12 @@ pnpm add @kstackz/use-gesture motion react react-dom
 
 ### `@kstackz/use-gesture`
 
-| Export             | What it does                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------- |
-| `GestureProvider`  | Follows every finger for the zones inside it and runs one Gesture at a time.                |
-| `GestureZone`      | A `div` that marks where the app owns touch; zones nest, and `trapped` stops the walk.      |
-| `useSidebar`       | A sidebar that follows a Swipe from anywhere, or only its edge, and settles open or closed. |
-| `usePullToRefresh` | Pull to refresh: a resisted Swipe down that refreshes when released armed.                  |
+| Export             | What it does                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `GestureProvider`  | Follows every finger for the zones inside it and runs one Gesture at a time.                     |
+| `GestureZone`      | A `div` that marks where the app can own touch; zones nest, and `trapped` keeps its Gestures in. |
+| `useSidebar`       | A sidebar that follows a Swipe from anywhere, or only its edge, and settles open or closed.      |
+| `usePullToRefresh` | Pull to refresh: a resisted Swipe down that refreshes when released armed.                       |
 
 ### `@kstackz/use-gesture/recognizers`
 
@@ -62,9 +62,9 @@ pnpm add @kstackz/use-gesture motion react react-dom
 
 ### Swipe a row open inside a list
 
-The whole screen is a zone, and each row is a zone inside it. A row is
-trapped while its actions are open, so the screen's own gestures never hear
-touches that start on it.
+The whole screen is a zone, and each row is a zone inside it. A shut row
+wants left and right, an open one only right, so up and down still scroll
+and a swipe left on an open row reaches the screen's own gestures.
 
 ```tsx
 import { GestureProvider, GestureZone } from '@kstackz/use-gesture';
@@ -73,7 +73,7 @@ import { useGesture } from '@kstackz/use-gesture/core';
 <GestureProvider>
   <GestureZone className="fixed inset-0">
     {rows.map((row) => (
-      <GestureZone key={row.id} trapped={row.actionsOpen}>
+      <GestureZone key={row.id}>
         <RowActions row={row} />
       </GestureZone>
     ))}
@@ -82,6 +82,7 @@ import { useGesture } from '@kstackz/use-gesture/core';
 
 function RowActions({ row }) {
   useGesture({
+    directions: row.actionsOpen ? ['right'] : ['left', 'right'],
     onEnd: (pointers, { interrupted, preventClick }) => {
       const [first] = pointers.values();
       if (interrupted || pointers.size !== 1 || first === undefined) return;
@@ -96,7 +97,9 @@ function RowActions({ row }) {
 ```
 
 - The first finger decides who hears the Gesture: the row's zone, then each
-  zone around it, up to the first trapped one.
+  zone around it, up to the first trapped one. At the first movement the
+  innermost zone that wants its Direction takes it; with none, the browser
+  scrolls.
 - `onEnd` sees every finger, lifted ones included, so finger count and
   distance are read once the touch is over.
 - `interrupted` means the browser took the touch, for example to scroll. Treat
@@ -109,7 +112,8 @@ function RowActions({ row }) {
 A sidebar Pattern returns motion values; the app renders them. The hook sits
 inside the zone that covers the screen, so a Swipe right anywhere opens it and
 a Swipe back anywhere closes it. `edge: 24` would open it only from the left
-edge instead, and make touches there always the sidebar's.
+edge instead: it then captures touches landing there and leaves the rest of
+the screen to the browser.
 
 ```tsx
 import { useSidebar } from '@kstackz/use-gesture';

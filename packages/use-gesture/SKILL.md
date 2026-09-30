@@ -28,7 +28,8 @@ import { useGesture } from '@kstackz/use-gesture/core';
 
 ```tsx
 // The whole app is a zone; the inbox list is one inside it; each row is one
-// inside that, trapped while its actions are open. The Motion card is
+// inside that. A row wants left and right while shut, only right while open,
+// so a swipe left on an open row reaches the sidebar. The Motion card is
 // Motion's own.
 <GestureProvider>
   <GestureZone className="fixed inset-0">
@@ -36,7 +37,7 @@ import { useGesture } from '@kstackz/use-gesture/core';
     <GestureZone>
       <PullToRefresh />
       {rows.map((row) => (
-        <GestureZone key={row.id} trapped={row.actionsOpen}>
+        <GestureZone key={row.id}>
           <RowActions row={row} />
         </GestureZone>
       ))}
@@ -47,6 +48,8 @@ import { useGesture } from '@kstackz/use-gesture/core';
 
 function RowActions({ row }) {
   useGesture({
+    // Without directions the hook only watches: up and down still scroll.
+    directions: row.actionsOpen ? ['right'] : ['left', 'right'],
     onEnd: (pointers, { interrupted }) => {
       const [first] = pointers.values();
       if (interrupted || pointers.size !== 1 || first === undefined) return;
@@ -63,11 +66,13 @@ function RowActions({ row }) {
 - **Gesture Provider** — follows every finger for the zones inside it and
   runs one Gesture at a time. Usually one at the app's root; separate
   sections may each have their own.
-- **Gesture Zone** — an area where the app, not the browser, owns touch.
-  A `div` that takes every div prop, so it can be the card itself. It
-  sets only touch defaults, as inline style that `style` overrides:
-  `overscroll-behavior: contain`, no text selection and no iOS callout. It
-  sets no `position`. Zones nest and sit side by side.
+- **Gesture Zone** — an area where the app can own touch. It takes a touch
+  only when a listener in it wants it; the browser keeps the rest. A `div`
+  that takes every div prop, so it can be the card itself. It sets only
+  touch defaults, as inline style that `style` overrides: no text selection
+  and no iOS callout. It sets no `position` and no `overscroll-behavior`, so
+  a list at its end hands the scroll on; a full-screen app sets
+  `overscroll-behavior` itself. Zones nest and sit side by side.
 - **Gesture** — one continuous touch, from the first finger landing in a
   zone to the last one lifting. Every finger that lands in between,
   wherever it lands, is part of it. It is never classified: pan, pinch,
@@ -75,36 +80,53 @@ function RowActions({ row }) {
   reads from it.
 - **Pointer** — one finger of a Gesture. A lifted Pointer stays in the
   Gesture until it ends.
-- **Interrupted** — the browser took the touch (a Native Scroll, Android's
-  back gesture, an incoming call) or the page lost focus. The Gesture ends
-  at once with every finger lifted where it was. Treat it as a cancel.
+- **Direction** — the way a touch first moves: up, down, left or right,
+  whichever it moved most. Read once, at the first movement.
+- **Interrupted** — the browser took the touch (a scroll, Android's back
+  gesture, an incoming call), the page lost focus, or another zone took it
+  from a hook that acts. The Gesture ends at once with every finger lifted
+  where it was. Treat it as a cancel.
 
-## Who hears a Gesture
+## Who hears a Gesture, and who takes it
 
-The first finger decides, once, as it lands:
+As the first finger lands:
 
 1. Find the innermost zone under it.
 2. That zone hears the Gesture, then the zone around it, and so on up. The
    walk stops at the first zone with `trapped`, which still hears it.
-3. Every enabled `useGesture` in those zones takes the Gesture. A hook
-   belongs to its nearest `GestureZone` in the React tree.
+3. Every enabled `useGesture` in those zones gets `onStart`. A hook belongs
+   to its nearest `GestureZone` in the React tree. Nothing is kept from the
+   browser yet.
 
-Later fingers join the same Gesture wherever they land; who hears it does
-not change. Sibling zones never hear each other. `trapped` and `enabled` are
-read as each Gesture starts, so they can follow your app's state, such as
-`trapped={optionsOpen}`.
+At the first movement, one zone takes it, in two passes:
+
+1. The innermost zone with a hook whose `captures` claims where the first
+   finger landed, however deep that zone sits.
+2. Only if none does: the innermost zone with a hook whose `directions`
+   holds the Direction.
+
+Hooks that act (they have `directions` or `captures`) in every other zone,
+around it or inside it, drop the Gesture as interrupted. Hooks that only
+watch keep hearing it in every zone that heard it. If no zone takes it, the
+browser scrolls and the Gesture ends as interrupted.
+
+Later fingers join the same Gesture wherever they land. Sibling zones never
+hear each other. `trapped` only hides a zone's Gestures from the zones around
+it; it never keeps a touch from the browser. `trapped` and `enabled` are read
+as each Gesture starts, and `directions` at the first movement, so they can
+follow your app's state.
 
 From coarse to fine, the controls are: nesting zones; `trapped` on a zone;
-`enabled` on a hook; `data-zone-gesture` on any element; and your handlers,
-which check direction, finger count, timing, or which element the first
+`enabled` and `directions` on a hook; `data-zone-gesture` on any element; and
+your handlers, which check finger count, timing, or which element the first
 finger landed on (`pointer.target`). When a card's swipe left and the
-sidebar's swipe right both start on the card, leave the card untrapped and
-let each act on its own direction.
+sidebar's swipe right both start on the card, each wants its own Direction,
+and each gets only its own.
 
 A zone rendered through a portal still reaches its provider through React,
 but hears only fingers that land in it in the DOM.
 
-## `useGesture({ enabled?, onStart?, onPointer?, onEnd?, captures? })`
+## `useGesture({ enabled?, directions?, captures?, onStart?, onDirection?, onPointer?, onEnd? })`
 
 Returns `pointers`, a `MotionValue<ReadonlyMap<number, Pointer>>` of every
 finger of the Gesture under way by id, in landing order and lifted ones
@@ -114,15 +136,24 @@ from the first finger landing until the last lifts.
 | Callback                       | When                                                             |
 | ------------------------------ | ---------------------------------------------------------------- |
 | `onStart(pointers)`            | The first finger landed                                          |
+| `onDirection(direction)`       | The first movement; the same Direction for every hook            |
 | `onPointer(pointer, pointers)` | A finger landed or lifted; `pointer` is that finger              |
 | `onEnd(pointers, end)`         | The last finger lifted; `end` is `{ interrupted, preventClick }` |
 
-Nothing fires as fingers move: read that from each Pointer's motion values.
+Nothing else fires as fingers move: read that from each Pointer's motion
+values.
+
+`directions` lists the Directions the hook takes touches in:
+`['left', 'right']`, or `'all'` for a drag, a pan or a hold. An element under
+the finger that can still scroll that way keeps the touch instead. Without
+`directions` or `captures` the hook only watches: it gets every finger until
+the browser takes the touch, and never keeps it from the browser.
 
 `captures(point)` claims a touch whose first finger landed at `point` (viewport
-px) even over an element that could scroll it, as `data-zone-gesture="enabled"`
-does for an element. It is asked at the touch's first movement, so taps are
-never affected. A Swipe with `from` uses it to own its edge.
+px), whichever way it moves, even over an element that could scroll it, as
+`data-zone-gesture="enabled"` does for an element. It is asked at the touch's
+first movement, so taps are never affected. A Swipe with `from` uses it to
+own its edge.
 
 | `Pointer` field | Meaning                                                                         |
 | --------------- | ------------------------------------------------------------------------------- |
@@ -147,15 +178,24 @@ it started on does click, so call `preventClick()` there too.
 
 ## Scrolling inside a zone
 
-By default an element that can scroll keeps a one-finger touch that moves
-the way it can still scroll, decided at the first movement; the Gesture it
-started ends as interrupted. Only elements between the finger and the
-innermost zone around it count, so a card zone inside a scrolling list takes
-its own touches. Everything else is the zone's, including a scroller already
-at its end and two fingers. While a Gesture runs nothing scrolls, not even
-under a finger on a `disabled` element: the browser treats every finger on
-the screen as one touch. `data-zone-gesture` changes
-that for an element and what it holds; the nearest one decides:
+The browser waits for the first `touchmove` before it scrolls. There the zone
+reads the Direction and decides who owns the touch, once; first match wins:
+
+1. Two or more fingers are down: the zone's, so a pinch needs no setup.
+2. The finger landed on an element marked `enabled`: the zone's.
+3. A hook's `captures` claims where it landed: the zone's.
+4. An element between the finger and the innermost zone can still scroll
+   that way: the browser's.
+5. A hook's `directions` holds the Direction: the zone's.
+6. Anything else: the browser's. It scrolls whatever can scroll, the page
+   included, so a list at its end hands the scroll on.
+
+When the browser takes it, the Gesture ends as interrupted. When the zone
+takes it, nothing scrolls until every finger lifts, not even under a finger
+on a `disabled` element: the browser treats every finger on the screen as
+one touch. With a mouse, which never scrolls, the Direction is read once it
+has moved 10px. `data-zone-gesture` changes the rules for an element and
+what it holds; the nearest one decides:
 
 | Value      | Meaning                                                            |
 | ---------- | ------------------------------------------------------------------ |
@@ -168,9 +208,12 @@ joins one. Text entry is always left alone. Nothing in a zone zooms the page.
 ## Screen edges
 
 A touch that lands within 24px of the left or right edge of the screen, in a
-zone, is kept from the browser's own edge swipe: back and forward on iOS,
-in Safari and installed. The zone cancels that touch's `touchstart`, the one
-thing iOS listens to, so a tap there does not click. Links, buttons, form
+zone, is kept from the browser's own edge swipe (back and forward on iOS, in
+Safari and installed) when a hook that hears it could take it there: its
+`captures` claims the spot, or its `directions` holds the Direction away
+from that edge (`right` at the left edge). The zone cancels that touch's
+`touchstart`, the one thing iOS listens to, so a tap there does not click.
+Where no hook could take it, the back swipe works. Links, buttons, form
 fields, `[role=button]`, focusable elements and anything
 `data-zone-gesture="disabled"` are left alone and still click, so they
 still let an edge swipe go back. Android's system back gesture cannot be
@@ -203,8 +246,10 @@ const pull = usePullToRefresh({ onRefresh: () => refetch(), distance: 72 });
 | `usePullToRefresh` | `onRefresh` (may return a promise), `distance` (72), `enabled`                    | `y`, `progress`, `state`                       |
 
 A sidebar opens from a Swipe toward open that starts anywhere, or, with
-`edge`, only within that many px of its side; a touch there is then always
-the sidebar's, even over a list that scrolls. It closes from a Swipe back
+`edge`, only within that many px of its side. With `edge` it wants no
+Direction: it captures touches landing there, even over a list that scrolls
+or a zone inside it that wants the same Direction, and leaves the rest of
+the screen alone. It closes from a Swipe back
 anywhere; it settles by where the momentum would
 carry it, past half its width. A pull arms at `distance` of indicator travel,
 which takes twice that pull, and holds at `distance` while `onRefresh`
@@ -218,7 +263,7 @@ const swipe = useSwipe({
   fingers: 2, // exact, or [min, max]; 1 by default
   from: { edge: 'top', within: 24 }, // optional; owns touches there
   commit: { velocity: 800 }, // { distance: 80, velocity: 500 } by default
-  onStart, // Tracking: the axis locked with the right fingers
+  onStart, // Tracking: the touch's Direction is its own, with the right fingers
   onCommit, // (release) => …
   onCancel, // (reason, release?) => …
 });
@@ -226,15 +271,18 @@ const swipe = useSwipe({
 // swipe.state: 'idle' | 'possible' | 'tracking'
 ```
 
-- It is `possible` from the first finger landing where `from` asks. After
-  10px it locks: moving the wrong way Cancels with `direction`, the wrong
-  finger count with `fingers`.
+- It wants its own `direction`; with `from` it wants none and captures its
+  edge instead.
+- It is `possible` from the first finger landing where `from` asks. It
+  locks when the engine reads the touch's Direction: another Direction
+  Cancels with `direction` at once, whoever takes the touch; the wrong
+  finger count Cancels with `fingers`.
 - While `tracking`, `offset` follows the average of the fingers toward
   `direction` and clamps at 0 when they come back.
 - It decides as the **first** finger lifts. It Commits when `offset` reaches
   `distance` or the release velocity reaches `velocity`; otherwise it Cancels
   with `short`. A finger landing after it locks Cancels with `fingers`; the
-  browser taking the touch Cancels with `interrupted`.
+  browser or another zone taking the touch Cancels with `interrupted`.
 - `willCommit` says at every moment whether letting go now would Commit.
   Velocity is measured over the last 100ms, so it falls while the fingers
   rest: a flick that stops shows it before the finger lifts.
@@ -242,8 +290,9 @@ const swipe = useSwipe({
 - `release` has `offset`, `velocity` and `projected`, where momentum would
   carry it, for choosing where to settle.
 
-Recognizers never know about each other. Two that hear one Gesture can both
-Commit: keep them apart with `enabled`, `from`, zones and `trapped`.
+Recognizers never know about each other. Two in different zones that want
+the same Direction never both act: the innermost zone takes it. Two in the
+zone that takes it can both Commit: keep them apart with `enabled`.
 
 ## Not in the package yet
 

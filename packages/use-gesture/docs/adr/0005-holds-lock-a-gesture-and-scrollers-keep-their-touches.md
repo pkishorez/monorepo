@@ -1,5 +1,5 @@
 ---
-status: partly superseded by ADR-0006, ADR-0007, ADR-0008, then ADR-0009 (the Hold is gone)
+status: partly superseded by ADR-0006, ADR-0007, ADR-0008, then ADR-0009 (the Hold is gone), then ADR-0012 (what a zone captures)
 ---
 
 # A Hold locks the Gesture under it, and scrollable elements keep their own touches

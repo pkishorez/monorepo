@@ -1,24 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  commits,
-  createVelocity,
-  fingersMatch,
-  lock,
-  release,
-} from '../swipe.ts';
-
-describe('lock', () => {
-  it('waits for the first few px', () => {
-    expect(lock('down', { dx: 3, dy: 6 })).toBe('wait');
-  });
-
-  it('locks toward its direction and refuses any other', () => {
-    expect(lock('down', { dx: 2, dy: 12 })).toBe('locked');
-    expect(lock('down', { dx: 2, dy: -12 })).toBe('direction');
-    expect(lock('down', { dx: 12, dy: 2 })).toBe('direction');
-    expect(lock('left', { dx: -12, dy: 2 })).toBe('locked');
-  });
-});
+import { commits, createVelocity, fingersMatch, release } from '../swipe.ts';
 
 describe('createVelocity', () => {
   it('measures px/s over the last 100ms', () => {

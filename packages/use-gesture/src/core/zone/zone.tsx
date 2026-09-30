@@ -12,7 +12,11 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createTouchInput } from '../touch-input/index.ts';
+import {
+  createTouchInput,
+  type Direction,
+  type Directions,
+} from '../touch-input/index.ts';
 import {
   createTracker,
   type GestureEnd,
@@ -22,6 +26,7 @@ import {
 } from './tracker/index.ts';
 
 export type { GestureEnd, Pointer, Pointers } from './tracker/index.ts';
+export type { Direction, Directions } from '../touch-input/index.ts';
 
 type Provided = {
   readonly tracker: Tracker;
@@ -69,7 +74,8 @@ export function GestureProvider(props: { readonly children?: ReactNode }) {
 export type GestureZoneProps = ComponentProps<'div'> & {
   /**
    * Whether Gestures that start in it stay in it, rather than also reaching
-   * the zones around it. False by default. Read as a Gesture starts.
+   * the zones around it. It never keeps a touch from the browser. False by
+   * default. Read as a Gesture starts.
    */
   readonly trapped?: boolean;
 };
@@ -77,17 +83,18 @@ export type GestureZoneProps = ComponentProps<'div'> & {
 // Touch defaults for the zone's own element, as inline style so they need no
 // stylesheet; `style` on the zone overrides any of them.
 const ZONE_STYLE: CSSProperties = {
-  overscrollBehavior: 'contain',
   userSelect: 'none',
   WebkitUserSelect: 'none',
   WebkitTouchCallout: 'none',
 };
 
 /**
- * An area where the app owns touch, read with `useGesture` by any component
- * inside it, shown or hidden. A Gesture starting in it is heard here and by
- * each zone around it up to the first trapped one; sibling zones never hear
- * each other. Zones nest, and must be inside a GestureProvider.
+ * An area where the app can own touch, read with `useGesture` by any
+ * component inside it, shown or hidden. A Gesture starting in it is heard
+ * here and by each zone around it up to the first trapped one; sibling
+ * zones never hear each other. At the first movement one of them takes it,
+ * if a listener wants it; otherwise the browser scrolls. Zones nest, and
+ * must be inside a GestureProvider.
  */
 export function GestureZone({
   ref,
@@ -163,12 +170,24 @@ export type GestureOptions = {
   readonly onStart?: (pointers: Pointers) => void;
   /** A finger landed or lifted; `pointer` is that finger. */
   readonly onPointer?: (pointer: Pointer, pointers: Pointers) => void;
-  /** The last finger lifted: every finger of the Gesture, lifted ones included. */
+  /**
+   * The last finger lifted: every finger of the Gesture, lifted ones
+   * included. Also when the browser or another zone took it, `interrupted`.
+   */
   readonly onEnd?: (pointers: Pointers, end: GestureEnd) => void;
   /**
+   * The Directions it takes touches in: `['left', 'right']`, or `'all'`. An
+   * element under the finger that can still scroll that way keeps it
+   * instead. Read at the touch's first movement. Without `directions` or
+   * `captures` it only watches, and never keeps a touch from the browser.
+   */
+  readonly directions?: Directions;
+  /** The Gesture first moved in `direction`: read once, for every listener. */
+  readonly onDirection?: (direction: Direction) => void;
+  /**
    * Whether it captures a touch whose first finger landed at `point`, in
-   * viewport px, even over an element that could scroll it. Read at the
-   * touch's first movement; taps are never affected.
+   * viewport px, whichever way it moves, even over an element that could
+   * scroll it. Read at the touch's first movement; taps are never affected.
    */
   readonly captures?: (point: {
     readonly x: number;
@@ -189,7 +208,8 @@ export type GestureState = {
 
 /**
  * Reads every Gesture its nearest Gesture Zone hears: each that starts in
- * it, or in a zone inside it that is not trapped. It reports each finger
+ * it, or in a zone inside it that is not trapped, until another zone takes
+ * it, unless it only watches. It reports each finger
  * that lands between the first landing and the last lifting, with where,
  * when and on what it landed and motion values that follow it. It never
  * classifies anything; what a Gesture means is up to the caller.
@@ -214,6 +234,11 @@ export function useGesture(options: GestureOptions = {}): GestureState {
         latest.current.onPointer?.(pointer, next);
       },
       captures: (point) => latest.current.captures?.(point) === true,
+      directions: () => latest.current.directions,
+      acts: () =>
+        latest.current.captures !== undefined ||
+        latest.current.directions !== undefined,
+      direction: (direction) => latest.current.onDirection?.(direction),
       end: (last, end) => {
         latest.current.onEnd?.(last, end);
         pointers.set(NONE);

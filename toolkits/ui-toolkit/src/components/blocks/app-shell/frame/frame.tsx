@@ -67,7 +67,7 @@ export function Frame(props: FrameProps) {
       </div>
     );
   }
-  // A swipe needs a Gesture Zone to own the screen's touches.
+  // A swipe needs a Gesture Zone; it takes only the swipes the sidebar wants.
   return (
     <GestureProvider>
       <GestureZone className={root} style={props.style}>

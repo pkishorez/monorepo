@@ -3,7 +3,7 @@
  * with, for itself and what it holds; the nearest one decides. `enabled`:
  * the zone captures every touch there, even over something that scrolls.
  * `disabled`: the zone never takes a touch there. Without one, the zone
- * captures every touch except one a scrollable element keeps.
+ * captures a touch only when a listener takes it.
  */
 export const ZONE_GESTURE_ATTRIBUTE = 'data-zone-gesture';
 

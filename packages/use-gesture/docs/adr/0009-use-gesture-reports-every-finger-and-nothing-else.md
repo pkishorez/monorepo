@@ -1,3 +1,7 @@
+---
+status: partly superseded by ADR-0012 (who keeps a Gesture)
+---
+
 # useGesture reports every finger; zones nest and pass Gestures up
 
 The zone built its own meanings on top of the fingers: a Hold from the bottom-left corner, a Pan, a one-finger Swipe, a Tap, and a movement, scale and rotation for the whole Gesture. Each meaning needed rules against the others, such as a press timer so the Hold would not break pinching, and an app could not add one of its own: a two-finger swipe down, or a tap with a fourth finger during a three-finger swipe, was impossible to express. And there was one zone per screen, so a card could not have Gestures of its own.

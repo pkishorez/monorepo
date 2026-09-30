@@ -147,7 +147,7 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       ),
     );
     const plain = (find('plain') as HTMLElement).style;
-    expect(plain.overscrollBehavior).toBe('contain');
+    expect(plain.overscrollBehavior).toBe('');
     expect(plain.userSelect).toBe('none');
     expect(plain.position).toBe('');
     expect((find('own') as HTMLElement).style.userSelect).toBe('text');
@@ -209,8 +209,187 @@ describe('GestureProvider, GestureZone and useGesture', () => {
     });
   });
 
+  describe('at the first movement', () => {
+    const touch = (
+      type: string,
+      target: Element,
+      x: number,
+      y: number,
+      fingers = 1,
+    ) => {
+      const points = Array.from({ length: fingers }, (_, i) => ({
+        identifier: i + 1,
+        target,
+        clientX: x + i * 50,
+        clientY: y,
+      }));
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, {
+        touches: type === 'touchend' ? [] : points,
+        changedTouches: points,
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+
+    // A touch landing at 100, 100 on `id` and first moving by dx, dy.
+    const first = (id: string, dx: number, dy: number, fingers = 1) => {
+      const target = find(id);
+      act(() => {
+        for (let i = 0; i < fingers; i++) {
+          pointer('pointerdown', target, i + 1, 100 + i * 50, 100);
+        }
+        touch('touchstart', target, 100, 100, fingers);
+      });
+      let move: Event | undefined;
+      act(() => {
+        move = touch('touchmove', target, 100 + dx, 100 + dy, fingers);
+      });
+      return move?.defaultPrevented;
+    };
+
+    it('leaves a touch no listener wants to the browser, ending the Gesture', () => {
+      const onEnd = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone data-testid="card">
+              <Listener name="row" directions={['left', 'right']} />
+              <Listener name="watch" onEnd={onEnd} />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('card', 1, 4)).toBe(false);
+      expect(onEnd.mock.lastCall?.[1]).toMatchObject({ interrupted: true });
+    });
+
+    it('keeps a touch a listener wants, and tells every listener its Direction', () => {
+      const onDirection = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone data-testid="card">
+              <Listener name="row" directions={['left', 'right']} />
+              <Listener name="watch" onDirection={onDirection} />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('card', -4, 1)).toBe(true);
+      expect(onDirection).toHaveBeenCalledWith('left');
+    });
+
+    it('takes every touch for a listener that wants all Directions', () => {
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone data-testid="card">
+              <Listener name="drag" directions="all" />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('card', 0, -3)).toBe(true);
+    });
+
+    it('always keeps a touch with two fingers down', () => {
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone data-testid="card">
+              <Listener name="watch" />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('card', 0, 5, 2)).toBe(true);
+    });
+
+    it('gives it to the innermost zone that wants it; acting listeners elsewhere drop it, watchers keep it', () => {
+      const sidebar = vi.fn();
+      const row = vi.fn();
+      const watch = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener name="sidebar" directions={['left']} onEnd={sidebar} />
+              <Listener name="watch" onEnd={watch} />
+              <GestureZone data-testid="row">
+                <Listener name="row" directions={['left']} onEnd={row} />
+              </GestureZone>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('row', -5, 0)).toBe(true);
+      expect(sidebar.mock.lastCall?.[1]).toMatchObject({ interrupted: true });
+      expect(row).not.toHaveBeenCalled();
+      expect(watch).not.toHaveBeenCalled();
+      expect(find('watch').getAttribute('data-active')).toBe('true');
+    });
+
+    it('passes a Direction the inner zone does not want out to the zone around it', () => {
+      const row = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener name="sidebar" directions={['left']} />
+              <GestureZone data-testid="row">
+                <Listener name="row" directions={['right']} onEnd={row} />
+              </GestureZone>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('row', -5, 0)).toBe(true);
+      expect(row.mock.lastCall?.[1]).toMatchObject({ interrupted: true });
+      expect(find('sidebar').getAttribute('data-active')).toBe('true');
+    });
+
+    it('gives a spot a listener captures to its zone before any Direction inside it', () => {
+      const row = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener name="sidebar" captures={(point) => point.x <= 150} />
+              <GestureZone data-testid="row">
+                <Listener name="row" directions={['right']} onEnd={row} />
+              </GestureZone>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('row', 5, 0)).toBe(true);
+      expect(row.mock.lastCall?.[1]).toMatchObject({ interrupted: true });
+      expect(find('sidebar').getAttribute('data-active')).toBe('true');
+    });
+
+    it('leaves what a trapped zone does not want to the browser, never to the zones around it', () => {
+      const outer = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener name="outer" directions={['down']} onStart={outer} />
+              <GestureZone data-testid="card" trapped>
+                <Listener name="row" directions={['left']} />
+              </GestureZone>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(first('card', 0, 5)).toBe(false);
+      expect(outer).not.toHaveBeenCalled();
+    });
+  });
+
   describe('at a side edge', () => {
     const touchStart = (target: Element, x: number) => {
+      act(() => pointer('pointerdown', target, 1, x, 100));
       const point = { identifier: 1, target, clientX: x, clientY: 100 };
       const event = new Event('touchstart', {
         bubbles: true,
@@ -218,6 +397,7 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       });
       Object.assign(event, { touches: [point], changedTouches: [point] });
       target.dispatchEvent(event);
+      act(() => pointer('pointerup', target, 1, x, 100));
       return event.defaultPrevented;
     };
 
@@ -226,6 +406,12 @@ describe('GestureProvider, GestureZone and useGesture', () => {
         root.render(
           <GestureProvider>
             <GestureZone data-testid="screen">
+              <Listener
+                name="edges"
+                captures={(point) =>
+                  point.x <= 24 || point.x >= innerWidth - 24
+                }
+              />
               <button type="button" data-testid="menu" />
               <div data-testid="slider" data-zone-gesture="disabled" />
             </GestureZone>
@@ -239,6 +425,34 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       expect(touchStart(find('screen'), 5)).toBe(true);
       expect(touchStart(find('screen'), innerWidth - 5)).toBe(true);
       expect(touchStart(find('screen'), 100)).toBe(false);
+    });
+
+    it('leaves it to the browser when no listener could take a touch there', () => {
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone data-testid="screen">
+              <Listener name="watch" />
+              <Listener name="down" directions={['down']} />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(touchStart(find('screen'), 5)).toBe(false);
+    });
+
+    it('keeps it for a listener that wants the Direction away from the edge', () => {
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone data-testid="screen">
+              <Listener name="right" directions={['right']} />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      expect(touchStart(find('screen'), 5)).toBe(true);
+      expect(touchStart(find('screen'), innerWidth - 5)).toBe(false);
     });
 
     it('leaves it to the browser on what must click, is turned off, or is outside every zone', () => {

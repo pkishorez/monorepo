@@ -1,3 +1,7 @@
+---
+status: partly superseded by ADR-0012 (the guard applies only when a listener could take a touch at the edge)
+---
+
 # Zones keep the screen edges from the back swipe
 
 On iOS, in Safari and in an installed app, a swipe from the left edge goes back a page and one from the right goes forward. A zone held the browser back only at a touch's first `touchmove`, but iOS decides on its edge swipe from `touchstart`, so a sidebar swipe that started right at the edge sometimes went back instead, most often in quick back-and-forth swipes. Now a zone cancels the `touchstart` of a touch that lands within 24px of a side edge: the one signal a page has to keep iOS from starting its edge swipe.
