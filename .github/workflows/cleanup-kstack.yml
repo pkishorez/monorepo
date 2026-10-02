@@ -57,11 +57,11 @@ jobs:
       - name: Look for the stage
         id: lookup
         run: |
-          if ! stages=$(pnpm -C apps/kstack exec alchemy state stages --stack Kstack 2>&1); then
+          if ! stages=$(pnpm -C apps/kstack exec alchemy state list Kstack 2>&1); then
             echo "::warning::Could not list stages for the Kstack stack — attempting destroy anyway."
             echo "$stages"
             echo "exists=true" >> "$GITHUB_OUTPUT"
-          elif printf '%s\n' "$stages" | grep -qxF "$STAGE"; then
+          elif printf '%s\n' "$stages" | grep -qxF "Kstack/$STAGE/"; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::No '$STAGE' stage in the Kstack stack — nothing to destroy."
@@ -76,13 +76,13 @@ jobs:
 
       - name: State tree
         if: steps.lookup.outputs.exists == 'true'
-        run: pnpm -C apps/kstack exec alchemy state tree || true
+        run: pnpm -C apps/kstack exec alchemy state list --recursive || true
 
       - name: Force-clear orphaned state on destroy failure
         if: steps.destroy.outcome == 'failure'
         run: |
           echo "::warning::alchemy destroy failed for stage '$STAGE' — force-clearing alchemy state so the stage does not linger. Some cloud resources may need manual cleanup."
-          pnpm -C apps/kstack exec alchemy state clear --stack Kstack --stage "$STAGE" --yes
+          pnpm -C apps/kstack exec alchemy state delete "Kstack/$STAGE" --recursive
 
       - name: Remove preview label
         if: steps.destroy.outcome != 'failure'
