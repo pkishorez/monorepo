@@ -1,15 +1,13 @@
 import { readEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { EntityESchema, OutdatedVersion } from '../index.js';
 
 describe('ESchema', () => {
   describe('Decoding', () => {
     describe('Decode', () => {
-      itEffect('decodes v1 data without migration', () =>
+      it.effect('decodes v1 data without migration', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             name: Schema.String,
@@ -26,7 +24,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('decodes and migrates v1 to v2', () =>
+      it.effect('decodes and migrates v1 to v2', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.Number,
@@ -43,7 +41,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('decodes latest version without running migrations', () =>
+      it.effect('decodes latest version without running migrations', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,
@@ -64,7 +62,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('fails with OutdatedVersion on a newer version', () =>
+      it.effect('fails with OutdatedVersion on a newer version', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,
@@ -78,7 +76,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('treats missing _v as the earliest version (v1)', () =>
+      it.effect('treats missing _v as the earliest version (v1)', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,

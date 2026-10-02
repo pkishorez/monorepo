@@ -1,5 +1,5 @@
 import { Context, Effect, Ref, SynchronizedRef } from 'effect';
-import { HttpServerResponse } from 'effect/unstable/http';
+import { HttpServerResponse } from 'effect/http';
 
 import { appendRefreshedCookies } from '../../current-auth/index.js';
 import type { Verification } from './middleware.js';

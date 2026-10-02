@@ -1,6 +1,6 @@
 import { Effect, Layer, Schema } from 'effect';
-import { RpcTest } from 'effect/unstable/rpc';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { RpcTest } from 'effect/rpc';
+import { FetchHttpClient } from 'effect/http';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 import { SQLite } from '@kstackz/std-toolkit/db/sqlite';

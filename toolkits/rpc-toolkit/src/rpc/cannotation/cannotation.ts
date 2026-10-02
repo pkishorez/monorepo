@@ -6,7 +6,7 @@ import {
   type Schema,
   type Scope,
 } from 'effect';
-import { Rpc, RpcGroup, RpcMiddleware } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup, RpcMiddleware } from 'effect/rpc';
 
 type Identifier<K> = K extends { readonly Identifier: infer I } ? I : never;
 type Shape<K> = K extends { readonly Service: infer S } ? S : never;

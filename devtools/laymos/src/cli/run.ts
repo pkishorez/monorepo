@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { Command, Flag } from 'effect/unstable/cli';
+import { Command, Flag } from 'effect/cli';
 
 import { makeInspectCommand } from './inspect/index.js';
 import { makeLintCommand } from './lint/index.js';
@@ -8,7 +8,7 @@ import { skillsCommand } from './skills.js';
 
 const rootCommand = Command.make('laymos', {}, () => Effect.void).pipe(
   Command.withSharedFlags({
-    config: Flag.string('config').pipe(
+    config: Flag.String('config').pipe(
       Flag.withDefault('laymos.config.json'),
       Flag.withDescription(
         'Config file path. Project paths are relative to its directory.',

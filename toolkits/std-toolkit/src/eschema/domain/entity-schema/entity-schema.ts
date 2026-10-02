@@ -125,7 +125,7 @@ const makeEntityCodec = <M extends VersionedMeta>(
         value: Schema.toType(latestSchema(eschema)),
         meta: metaSchema,
       }),
-      SchemaTransformation.transformOrFail({
+      SchemaTransformation.transformEffect({
         decode: (input) =>
           decode(input).pipe(Effect.mapError(schemaIssue(input))),
         encode: (input) =>

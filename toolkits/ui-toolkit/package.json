@@ -100,7 +100,7 @@
     "@kstackz/use-gesture": "workspace:*",
     "@tanstack/react-db": "0.4.1",
     "@tanstack/react-query": "5.102.8",
-    "effect": "4.0.0-rc.112",
+    "effect": "^4.0.0",
     "laymos": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",

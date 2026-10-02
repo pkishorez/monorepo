@@ -1,12 +1,12 @@
 import { Effect, Layer, Schema } from 'effect';
-import { FetchHttpClient, HttpEffect } from 'effect/unstable/http';
+import { FetchHttpClient, HttpEffect } from 'effect/http';
 import {
   RpcClient,
   RpcGroup,
   RpcSerialization,
   RpcServer,
   RpcTest,
-} from 'effect/unstable/rpc';
+} from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { Ulid } from '../../core/index.js';
 import { StdTable } from '../../db/index.js';

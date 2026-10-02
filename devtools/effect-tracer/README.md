@@ -14,7 +14,7 @@ telemetry layers export them over OTLP/HTTP to a collector such as the
 
 The full telemetry layer uses the OpenTelemetry SDK and also exports metrics.
 The dev-telemetry layer does the same job for local development with
-`effect/unstable/observability` and `fetch`, batching every 100 ms and
+`effect/observability` and `fetch`, batching every 100 ms and
 exporting provisional spans while they run.
 
 [laymos](../laymos/README.md) Stories use the recorder to attach traces to
@@ -28,7 +28,7 @@ pnpm add @kstackz/effect-tracer
 
 Peer dependencies:
 
-- `effect` (`4.0.0-rc.112`): the recorder installs an Effect Tracer and
+- `effect` (`^4.0.0`): the recorder installs an Effect Tracer and
   Logger, and the layers are Effect Layers.
 
 ## Exports

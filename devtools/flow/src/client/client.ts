@@ -1,10 +1,6 @@
 import { Context, Effect, Layer } from 'effect';
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientRequest,
-} from 'effect/unstable/http';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
+import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { FlowRpc } from '../rpc/index.js';
 
 export const DEFAULT_FLOW_ENDPOINT = 'http://127.0.0.1:14400';

@@ -1,5 +1,5 @@
 import { Cause, Exit, Option, Tracer } from 'effect';
-import { OtlpResource } from 'effect/unstable/observability';
+import { OtlpResource } from 'effect/observability';
 import type { RequestQueue } from './request-queue.js';
 import { nextSequence, sequenceAttribute } from '../../sequence/index.js';
 

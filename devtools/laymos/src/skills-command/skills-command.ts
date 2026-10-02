@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { Console, Effect, FileSystem } from 'effect';
-import { Argument, Command, Flag } from 'effect/unstable/cli';
+import { Argument, Command, Flag } from 'effect/cli';
 
 export type SkillsCommandOptions = {
   /** Folder holding one sub-folder per skill, each with a `SKILL.md`. */
@@ -28,19 +28,19 @@ const fail = (message: string) =>
     ),
   );
 
-const nameArgument = Argument.string('name').pipe(
+const nameArgument = Argument.String('name').pipe(
   Argument.withDescription('Skill to print or install; omit for all skills'),
   Argument.optional,
 );
 
-const installFlag = Flag.directory('install', { mustExist: false }).pipe(
+const installFlag = Flag.Directory('install', { mustExist: false }).pipe(
   Flag.withDescription(
     'Copy the skill folder(s) into <dir>/<name>/ instead of printing',
   ),
   Flag.optional,
 );
 
-const formatFlag = Flag.choice('format', ['json', 'text']).pipe(
+const formatFlag = Flag.Literals('format', ['json', 'text']).pipe(
   Flag.withDescription('List skills as readable text or JSON'),
   Flag.withDefault('text' as 'json' | 'text'),
 );

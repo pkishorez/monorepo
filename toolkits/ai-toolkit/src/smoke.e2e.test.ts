@@ -1,7 +1,7 @@
 import { NodeSocket } from '@effect/platform-node';
 import { Effect, Layer, Stream } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
-import { Socket } from 'effect/unstable/socket';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
+import { Socket } from 'effect/socket';
 import { describe, expect, it } from 'vitest';
 import { AiPlaygroundServerRpc } from './playground/contract/index.js';
 

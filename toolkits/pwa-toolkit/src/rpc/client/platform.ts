@@ -2,13 +2,13 @@ import * as Deferred from 'effect/Deferred';
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Scope from 'effect/Scope';
-import * as Worker from 'effect/unstable/workers/Worker';
+import * as Worker from 'effect/workers/Worker';
 import {
   WorkerError,
   WorkerReceiveError,
   WorkerSpawnError,
-} from 'effect/unstable/workers/WorkerError';
-import type { PlatformMessage } from 'effect/unstable/workers/WorkerRunner';
+} from 'effect/workers/WorkerError';
+import type { PlatformMessage } from 'effect/workers/WorkerRunner';
 import type { BuildId } from '../../shared/build/index.js';
 import {
   makeInFlight,

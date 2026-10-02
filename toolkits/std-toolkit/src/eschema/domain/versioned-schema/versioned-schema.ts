@@ -51,12 +51,12 @@ export function versionedSchema(
   const composed = surrogate
     .pipe(
       Schema.decodeTo(Schema.toType(latest), {
-        decode: SchemaGetter.transformOrFail((input: unknown) =>
+        decode: SchemaGetter.transformEffect((input: unknown) =>
           readEncoded(eschema, input).pipe(
             Effect.mapError((error) => toIssue(input, error)),
           ),
         ),
-        encode: SchemaGetter.transformOrFail((input: unknown) =>
+        encode: SchemaGetter.transformEffect((input: unknown) =>
           writeEncoded(eschema, input as never).pipe(
             Effect.mapError((error) => toIssue(input, error)),
           ),

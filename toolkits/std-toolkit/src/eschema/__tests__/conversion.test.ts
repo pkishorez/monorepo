@@ -1,15 +1,12 @@
 import { Effect, Option, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from '@effect/vitest';
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
 import { EntityESchema, ESchema, ValueESchema } from '../index.js';
-
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 
 const due = new Date('2026-09-01T09:00:00.000Z');
 
 describe('field conversions', () => {
-  itEffect('stores the encoded side and hands back the value', () =>
+  it.effect('stores the encoded side and hands back the value', () =>
     Effect.gen(function* () {
       const Task = EntityESchema.make('Task', 'taskId', {
         dueAt: Schema.DateFromString,
@@ -39,7 +36,7 @@ describe('field conversions', () => {
     }),
   );
 
-  itEffect('migrates values after each version converts its own fields', () =>
+  it.effect('migrates values after each version converts its own fields', () =>
     Effect.gen(function* () {
       const Task = EntityESchema.make('Task', 'taskId', {
         dueText: Schema.String,
@@ -79,7 +76,7 @@ describe('field conversions', () => {
     }),
   );
 
-  itEffect('keeps conversions of a nested ESchema and a ValueESchema', () =>
+  it.effect('keeps conversions of a nested ESchema and a ValueESchema', () =>
     Effect.gen(function* () {
       const Window = ESchema.make('Window', {
         from: Schema.DateFromString,

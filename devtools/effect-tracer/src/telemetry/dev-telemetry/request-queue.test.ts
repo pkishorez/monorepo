@@ -1,6 +1,6 @@
 import { Effect, Fiber } from 'effect';
 import { TestClock } from 'effect/testing';
-import { HttpClient, HttpClientResponse } from 'effect/unstable/http';
+import { HttpClient, HttpClientResponse } from 'effect/http';
 import { expect, it } from 'vitest';
 import { makeRequestQueue } from './request-queue.js';
 import { makeDevTelemetryLayer } from './dev-telemetry.js';

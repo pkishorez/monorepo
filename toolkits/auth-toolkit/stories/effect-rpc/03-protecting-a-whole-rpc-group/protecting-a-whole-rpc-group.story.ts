@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { Story } from 'laymos/story';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 import { authLayer, resolvedAuth, runRpc } from '../support.js';

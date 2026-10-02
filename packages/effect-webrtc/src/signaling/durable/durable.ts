@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Option, PubSub, Stream } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import {
   layerWebSocketProtocol,
   RpcConnection,

@@ -1,4 +1,4 @@
-import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import type { Rpc, RpcGroup } from 'effect/rpc';
 import { validateTrustedOrigins } from '@kstackz/auth-toolkit/worker';
 import { DurableRpcWorker } from '@kstackz/rpc-toolkit/rpc/cloudflare/alchemy/durable-rpc-worker';
 import { DurableSignalingRpcs } from '../rpc/index.js';

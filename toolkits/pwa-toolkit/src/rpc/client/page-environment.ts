@@ -1,10 +1,7 @@
 import * as Effect from 'effect/Effect';
 import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
-import {
-  WorkerError,
-  WorkerSpawnError,
-} from 'effect/unstable/workers/WorkerError';
+import { WorkerError, WorkerSpawnError } from 'effect/workers/WorkerError';
 import { BUILD_ID_META_NAME, BuildId } from '../../shared/build/index.js';
 
 const spawnError = (message: string) =>

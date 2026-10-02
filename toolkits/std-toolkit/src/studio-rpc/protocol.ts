@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Rpc } from 'effect/unstable/rpc';
+import { Rpc } from 'effect/rpc';
 import { EntityMetaSchema, SingleEntityMetaSchema } from '../core/index.js';
 import { TableSnapshotESchema } from '../snapshot/index.js';
 

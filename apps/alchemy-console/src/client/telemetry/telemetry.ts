@@ -1,6 +1,6 @@
 import { makeDevTelemetryLayer } from '@kstackz/effect-tracer/telemetry/dev-telemetry';
 import { Layer } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient } from 'effect/http';
 
 export function telemetryLayer() {
   // The collector runs on the developer's machine, not in deployed Workers.

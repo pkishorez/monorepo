@@ -1,5 +1,5 @@
 import { Cause, Clock, Logger, References } from 'effect';
-import { OtlpResource } from 'effect/unstable/observability';
+import { OtlpResource } from 'effect/observability';
 import type { RequestQueue } from './request-queue.js';
 import { nextSequence, sequenceAttribute } from '../../sequence/index.js';
 
@@ -51,7 +51,7 @@ export const makeLogger = (options: LogExporterOptions) =>
     const message = Array.isArray(logOptions.message)
       ? logOptions.message
       : [logOptions.message];
-    const currentSpan = logOptions.fiber.currentSpan;
+    const currentSpan = logOptions.fiber.cache.span;
 
     options.queue.offer({
       url: options.url,

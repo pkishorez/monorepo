@@ -5,7 +5,7 @@ import {
   HttpServerRequest,
   HttpServerResponse,
   HttpStaticServer,
-} from 'effect/unstable/http';
+} from 'effect/http';
 
 /** Serves the bundled browser application and machine-readable health data. */
 export function makeBrowserApplicationLive({

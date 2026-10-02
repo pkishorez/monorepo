@@ -1,5 +1,5 @@
 import { Cause, Effect, Layer, Logger } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient } from 'effect/http';
 import { Stack } from 'alchemy/Stack';
 import { Stage } from 'alchemy/Stage';
 import { State } from 'alchemy/State';
@@ -7,7 +7,7 @@ import { makeHttpStateStore } from 'alchemy/State/HttpStateStore';
 import { PlatformServices } from 'alchemy/Util/PlatformServices';
 import { AlchemyContext } from 'alchemy/AlchemyContext';
 import { ArtifactStore, createArtifactStore } from 'alchemy/Artifacts';
-import { Cli } from 'alchemy/Cli/Cli';
+import { Cli } from 'alchemy/Report';
 import { apply } from 'alchemy/Apply';
 import { RandomProvider } from 'alchemy/Random';
 import { KeyPairProvider } from 'alchemy/KeyPair';
@@ -136,13 +136,21 @@ export const execute = (
       choices: input.credentials,
     });
     const cli = {
+      // The console reports deletion progress itself, so planning stays quiet.
+      startPlanningSession: () =>
+        Effect.succeed({
+          update: () => Effect.void,
+          succeed: () => Effect.void,
+          fail: () => Effect.void,
+          close: Effect.void,
+        }),
       approvePlan: () => Effect.succeed(false),
       displayPlan: () => Effect.void,
       startApplySession: (plan: import('alchemy/Plan').Plan) =>
         Effect.succeed({
-          emit: (event: import('alchemy/Cli/Event').ApplyEvent) =>
+          emit: (event: import('alchemy/Report').ApplyEvent) =>
             Effect.sync(() => {
-              if (event.kind !== 'status-change') return;
+              if (event._tag !== 'apply.resource.status') return;
               // Never send provider annotations/errors: they can contain credentials and props.
               const matching = [
                 ...Object.values(plan.deletions)
@@ -164,7 +172,9 @@ export const execute = (
               emit({
                 kind: 'progress',
                 id: matching.length === 1 ? redact(matching[0]!) : null,
-                status: event.status,
+                // Alchemy calls a kept resource `orphaned`; the console calls
+                // it `retained`, after its `retain` removal policy.
+                status: event.status === 'orphaned' ? 'retained' : event.status,
                 message:
                   event.status === 'fail'
                     ? 'Alchemy could not finish this resource. Check permissions and retry after reviewing the remaining state.'

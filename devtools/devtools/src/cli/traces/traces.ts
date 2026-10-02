@@ -1,17 +1,17 @@
 import { Effect } from 'effect';
-import { Argument, Command, Flag } from 'effect/unstable/cli';
+import { Argument, Command, Flag } from 'effect/cli';
 
 import { clientFlags, output, runClient } from '../client-command/index.js';
 import { simplifyTrace, simplifyTraceSummary, traceJson } from './simplify.js';
 import { renderTraceSummariesText, renderTraceText } from './text.js';
 
-const limit = Flag.integer('limit').pipe(
+const limit = Flag.Int('limit').pipe(
   Flag.withAlias('n'),
   Flag.withDescription('Maximum number of Traces to return'),
   Flag.withDefault(20),
 );
 
-const traceId = Argument.string('trace-id').pipe(
+const traceId = Argument.String('trace-id').pipe(
   Argument.withDescription('Trace ID to retrieve'),
 );
 

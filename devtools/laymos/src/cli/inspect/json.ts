@@ -1,6 +1,6 @@
-import { Flag } from 'effect/unstable/cli';
+import { Flag } from 'effect/cli';
 
-export const jsonFlag = Flag.boolean('json').pipe(
+export const jsonFlag = Flag.Boolean('json').pipe(
   Flag.withDefault(false),
   Flag.withDescription('Print stable JSON for tools.'),
 );
