@@ -127,7 +127,7 @@ jobs:
         run: printf 'BUILD_LABEL=%s\nPWA_ENABLED=%s\nPWA_PRESET=%s\nPWA_UPDATE_MODE=%s\n' "$BUILD_LABEL" "$PWA_ENABLED" "$PWA_PRESET" "$PWA_UPDATE_MODE" > apps/pwa-playground/build-env.txt
 
       - name: Bootstrap Alchemy state store
-        run: pnpm -C apps/pwa-playground exec alchemy cloudflare bootstrap
+        run: pnpm -C apps/pwa-playground exec alchemy provider cloudflare bootstrap
 
       - name: Deploy pwa-playground
         run: pnpm -C apps/pwa-playground exec alchemy deploy --stage "$STAGE" --yes
@@ -142,7 +142,7 @@ jobs:
 
       - name: State tree
         if: always()
-        run: pnpm -C apps/pwa-playground exec alchemy state tree || true
+        run: pnpm -C apps/pwa-playground exec alchemy state list --recursive || true
 
   summary:
     needs: [detect, deploy]

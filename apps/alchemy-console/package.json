@@ -38,7 +38,7 @@
   "scripts": {
     "build": "vp build",
     "dev": "portless run --force alchemy dev",
-    "dev:force": "alchemy unsafe nuke --local --yes && pnpm dev",
+    "dev:force": "alchemy state unsafe nuke --backend local --yes && pnpm dev",
     "fmt": "vp fmt",
     "lint": "vp check && pnpm lint:tsc && pnpm lint:laymos",
     "lint:laymos": "laymos lint",
