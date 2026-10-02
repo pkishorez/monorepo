@@ -110,7 +110,7 @@ const catalogue: Record<string, (payload: Payload) => SnapshotCheck> = {
     check: 'maxLength',
     maxLength: number(p, 'maxLength'),
   }),
-  'effect/schema/isLengthBetween': (p) => ({
+  'effect/schema/isBetweenLength': (p) => ({
     check: 'lengthBetween',
     minimum: number(p, 'minimum'),
     maximum: number(p, 'maximum'),

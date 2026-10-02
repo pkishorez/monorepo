@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option, Schema, Stream } from 'effect';
-import { HttpServerResponse } from 'effect/unstable/http';
-import { Rpc, RpcGroup, RpcSerialization } from 'effect/unstable/rpc';
+import { HttpServerResponse } from 'effect/http';
+import { Rpc, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { afterEach, expect, expectTypeOf, it, vi } from 'vitest';
 import { Cannotation } from '../rpc/cannotation/index.js';
 import { InvocationKind } from '../rpc/invocation/index.js';

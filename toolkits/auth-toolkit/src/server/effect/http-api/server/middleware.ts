@@ -1,5 +1,5 @@
 import { Effect, Option } from 'effect';
-import { HttpEffect } from 'effect/unstable/http';
+import { HttpEffect } from 'effect/http';
 
 import { appendRefreshedCookies, auth } from '../../current-auth/index.js';
 import { cannotation } from '../cannotation/index.js';

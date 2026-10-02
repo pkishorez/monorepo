@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { HttpClient } from 'effect/unstable/http';
+import { HttpClient } from 'effect/http';
 import { Manifest } from './schemas.js';
 
 const DYNAMODB_SPEC_URL =

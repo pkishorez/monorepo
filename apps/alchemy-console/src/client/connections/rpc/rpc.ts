@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
+import { FetchHttpClient } from 'effect/http';
 
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { telemetryLayer } from '../../telemetry/index.ts';

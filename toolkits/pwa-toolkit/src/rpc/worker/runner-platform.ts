@@ -3,7 +3,7 @@ import * as FiberSet from 'effect/FiberSet';
 import * as Option from 'effect/Option';
 import * as Queue from 'effect/Queue';
 import * as Stream from 'effect/Stream';
-import type * as WorkerRunner from 'effect/unstable/workers/WorkerRunner';
+import type * as WorkerRunner from 'effect/workers/WorkerRunner';
 import type { BuildId } from '../../shared/build/index.js';
 import type { WorkerHost } from '../../shared/worker-host/index.js';
 import {

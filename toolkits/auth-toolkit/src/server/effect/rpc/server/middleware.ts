@@ -1,5 +1,5 @@
 import { Effect, Option, Ref } from 'effect';
-import { Cookies } from 'effect/unstable/http';
+import { Cookies } from 'effect/http';
 
 import { cannotation } from '../cannotation/index.js';
 import { auth, type CurrentAuthResolution } from '../../current-auth/index.js';

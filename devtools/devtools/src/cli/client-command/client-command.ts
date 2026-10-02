@@ -1,5 +1,5 @@
 import { Console, Effect } from 'effect';
-import { Flag } from 'effect/unstable/cli';
+import { Flag } from 'effect/cli';
 
 import {
   urlFlag,
@@ -8,7 +8,7 @@ import {
 } from './connection.js';
 import { reportClientError, type ClientError } from './errors.js';
 
-const formatFlag = Flag.choice('format', ['json', 'text']).pipe(
+const formatFlag = Flag.Literals('format', ['json', 'text']).pipe(
   Flag.withDescription('Output as machine-readable JSON or readable text'),
   Flag.withDefault('json' as 'json' | 'text'),
 );

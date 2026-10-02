@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { HARNESS_IDS } from '../../runtime/protocol/index.js';
 import { MessageSchema, ThreadSchema } from '../../runtime/table/index.js';
 import { AiRpc } from '../../rpc/contract/index.js';

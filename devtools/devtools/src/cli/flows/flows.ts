@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { Argument, Command, Flag } from 'effect/unstable/cli';
+import { Argument, Command, Flag } from 'effect/cli';
 
 import { clientFlags, output, runClient } from '../client-command/index.js';
 import {
@@ -9,13 +9,13 @@ import {
 } from './output.js';
 import { projectFlows } from './projections.js';
 
-const limit = Flag.integer('limit').pipe(
+const limit = Flag.Int('limit').pipe(
   Flag.withAlias('n'),
   Flag.withDescription('Maximum number of Flows to return'),
   Flag.withDefault(20),
 );
 
-const flowId = Argument.string('flow-id').pipe(
+const flowId = Argument.String('flow-id').pipe(
   Argument.withDescription('Flow ID to retrieve'),
 );
 

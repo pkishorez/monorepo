@@ -1,14 +1,12 @@
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 import { Schema } from 'effect';
 import { EntityMetaSchema } from '../entity/index.js';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 import { Effect } from 'effect';
 
 describe('Core', () => {
   describe('rpc', () => {
-    itEffect('works with Effect', () =>
+    it.effect('works with Effect', () =>
       Effect.gen(function* () {
         const result = yield* Effect.succeed('hello');
         expect(result).toBe('hello');

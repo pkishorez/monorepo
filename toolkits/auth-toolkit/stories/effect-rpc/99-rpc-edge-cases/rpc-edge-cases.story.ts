@@ -1,11 +1,6 @@
 import { Effect, Ref, Schema } from 'effect';
-import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
-import {
-  Rpc,
-  RpcGroup,
-  RpcSerialization,
-  RpcServer,
-} from 'effect/unstable/rpc';
+import { HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Rpc, RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Story } from 'laymos/story';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 import { authzCookies } from '@kstackz/auth-toolkit/server/rpc';

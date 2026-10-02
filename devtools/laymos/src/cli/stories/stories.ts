@@ -1,12 +1,12 @@
 import { Console, Effect, Stream } from 'effect';
-import { Command, Flag } from 'effect/unstable/cli';
+import { Command, Flag } from 'effect/cli';
 
 import { planStories } from '../../orchestrator/run-stories/index.js';
 import type { StoryReport } from '../../story/schema/index.js';
 import { startProgress } from './progress.js';
 import { renderStoryReports, renderSummary } from './report.js';
 
-const concurrencyFlag = Flag.integer('concurrency').pipe(
+const concurrencyFlag = Flag.Int('concurrency').pipe(
   Flag.withAlias('c'),
   Flag.withDefault(16),
   Flag.withDescription('How many Stories run at once.'),

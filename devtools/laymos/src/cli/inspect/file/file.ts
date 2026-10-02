@@ -1,16 +1,16 @@
 import { Console, Effect } from 'effect';
-import { Argument, Command, Flag } from 'effect/unstable/cli';
+import { Argument, Command, Flag } from 'effect/cli';
 
 import { inspectFile } from '../../../orchestrator/inspect/index.js';
 import { resolveInspectionTarget } from '../path.js';
 import { jsonFlag, renderJson } from '../json.js';
 import { renderFileInspection } from './report.js';
 
-const pathArgument = Argument.string('path').pipe(
+const pathArgument = Argument.String('path').pipe(
   Argument.withDescription('Exact project-relative supported source file.'),
 );
 
-const recursiveFlag = Flag.boolean('recursive').pipe(
+const recursiveFlag = Flag.Boolean('recursive').pipe(
   Flag.withDefault(false),
   Flag.withDescription('Include dependencies reached transitively.'),
 );

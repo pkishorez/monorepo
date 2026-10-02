@@ -45,14 +45,17 @@ const tolerateUnavailableCollector = <Exporter extends object>(
     },
   });
 
+// A batch processor rejects a flush with its own timer when the exporter is
+// slow, so a missing collector must be tolerated here too, not only in the
+// exporter.
 const sequencedSpans = (inner: SpanProcessor): SpanProcessor => ({
   onStart: (span, context) => {
     span.setAttribute(sequenceAttribute, nextSequence());
     inner.onStart(span, context);
   },
   onEnd: (span) => inner.onEnd(span),
-  forceFlush: () => inner.forceFlush(),
-  shutdown: () => inner.shutdown(),
+  forceFlush: () => inner.forceFlush().catch(() => undefined),
+  shutdown: () => inner.shutdown().catch(() => undefined),
 });
 
 const sequencedLogs = (inner: LogRecordProcessor): LogRecordProcessor => ({
@@ -60,8 +63,8 @@ const sequencedLogs = (inner: LogRecordProcessor): LogRecordProcessor => ({
     record.setAttribute(sequenceAttribute, nextSequence());
     inner.onEmit(record, context);
   },
-  forceFlush: () => inner.forceFlush(),
-  shutdown: () => inner.shutdown(),
+  forceFlush: () => inner.forceFlush().catch(() => undefined),
+  shutdown: () => inner.shutdown().catch(() => undefined),
 });
 
 export const makeOtlpLayer = (options: {

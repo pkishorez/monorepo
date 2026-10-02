@@ -7,8 +7,8 @@ import {
   Layer,
   Path,
 } from 'effect';
-import { Headers, HttpClient } from 'effect/unstable/http';
-import { RpcClient } from 'effect/unstable/rpc';
+import { Headers, HttpClient } from 'effect/http';
+import { RpcClient } from 'effect/rpc';
 import { spawn } from 'node:child_process';
 import {
   AuthWorkerRejected,

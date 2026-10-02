@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { DevtoolsRpc } from '../../rpc/index.js';
 import { LogEntitySchema, SpanEntitySchema } from '@kstackz/lotel/telemetry';
-import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import type { Rpc, RpcGroup } from 'effect/rpc';
 import type { Entity } from '@kstackz/std-toolkit/core';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import {

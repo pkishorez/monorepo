@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { EntrySchema } from '../journal/index.js';
 
 export class FlowRpcError extends Schema.TaggedError<FlowRpcError>(

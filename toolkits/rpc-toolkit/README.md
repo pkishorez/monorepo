@@ -16,7 +16,7 @@ Vocabulary is in [CONTEXT.md](CONTEXT.md) and the decisions behind the shape are
 pnpm add @kstackz/rpc-toolkit effect
 ```
 
-- `effect` (peer, required): every subpath builds on `effect/unstable/rpc` or `effect/unstable/httpapi`.
+- `effect` (peer, required): every subpath builds on `effect/rpc` or `effect/http-api`.
 - `alchemy` (peer, optional): needed only by `rpc/cloudflare/alchemy/*`, which wraps Alchemy's Cloudflare resources.
 
 ## Exports
@@ -83,8 +83,8 @@ The contract declares a `Role` Cannotation and attaches it to a group and to one
 
 ```ts
 import { Context, Effect, Layer, Option, Schema } from 'effect';
-import { Headers } from 'effect/unstable/http';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Headers } from 'effect/http';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { Cannotation } from '@kstackz/rpc-toolkit/rpc/cannotation';
 
 class CurrentUser extends Context.Service<
@@ -200,8 +200,8 @@ export default class CounterWorker extends DurableRpcWorker<CounterWorker>()(
 
 ```ts
 import { Effect, Layer, Stream } from 'effect';
-import { Headers } from 'effect/unstable/http';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
+import { Headers } from 'effect/http';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import {
   keepSubscribed,
   layerWebSocketProtocol,

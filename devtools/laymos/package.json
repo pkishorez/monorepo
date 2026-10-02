@@ -77,10 +77,11 @@
     "effect": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:typescript6",
+    "vite": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
-    "effect": "4.0.0-rc.112"
+    "effect": "^4.0.0"
   },
   "publishConfig": {
     "access": "public"

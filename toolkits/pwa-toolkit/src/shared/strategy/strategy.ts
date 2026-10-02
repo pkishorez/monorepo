@@ -22,7 +22,9 @@ const RuntimeCacheMatch = Schema.Struct({
   origin: Schema.String.pipe(
     Schema.withDecodingDefaultKey(Effect.succeed('same-origin')),
   ),
-  pathPrefix: Schema.optionalKey(Schema.String.check(Schema.isStartsWith('/'))),
+  pathPrefix: Schema.optionalKey(
+    Schema.String.check(Schema.isStartingWith('/')),
+  ),
   pattern: Schema.optionalKey(
     Schema.String.check(
       Schema.makeFilter<string>((source) => isValidPattern(source), {

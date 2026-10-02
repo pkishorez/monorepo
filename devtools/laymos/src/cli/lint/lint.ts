@@ -1,5 +1,5 @@
 import { Console, Effect } from 'effect';
-import { Command } from 'effect/unstable/cli';
+import { Command } from 'effect/cli';
 
 import { analyzeProject } from '../../orchestrator/analyze-project/index.js';
 import { getStoryTree } from '../../orchestrator/run-stories/index.js';

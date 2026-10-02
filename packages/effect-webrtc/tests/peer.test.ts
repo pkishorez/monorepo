@@ -1,5 +1,5 @@
 import { Deferred, Effect, Layer, Schema, Stream } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { PeerId, WebRtc } from '../src/effect-webrtc/index.js';
 import { layer as memoryPlatform } from '../src/platform/memory/index.js';

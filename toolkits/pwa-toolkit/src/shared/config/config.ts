@@ -4,7 +4,7 @@ import { WebAppManifest } from '../manifest/index.js';
 import { StrategyRule } from '../strategy/index.js';
 import { PRESET_NAMES, PRESETS } from './presets.js';
 
-const Path = Schema.String.check(Schema.isStartsWith('/'));
+const Path = Schema.String.check(Schema.isStartingWith('/'));
 const PositiveInt = Schema.Int.check(Schema.isGreaterThan(0));
 
 /** How navigations resolve: network, then App Shell, then Offline Fallback. */

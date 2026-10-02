@@ -3,7 +3,7 @@ import {
   HttpClient,
   HttpClientRequest,
   type HttpClientError,
-} from 'effect/unstable/http';
+} from 'effect/http';
 import { ProviderFailure } from '../../../shared/contracts/credentials/index.ts';
 
 export const failure = (

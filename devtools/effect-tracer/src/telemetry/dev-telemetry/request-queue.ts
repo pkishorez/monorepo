@@ -1,5 +1,5 @@
 import { Cause, Duration, Effect, Fiber, Queue } from 'effect';
-import { HttpBody, HttpClient, HttpClientRequest } from 'effect/unstable/http';
+import { HttpBody, HttpClient, HttpClientRequest } from 'effect/http';
 
 export interface ExportRequest {
   readonly url: string;

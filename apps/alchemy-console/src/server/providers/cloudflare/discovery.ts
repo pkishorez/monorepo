@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { HttpClientRequest } from 'effect/unstable/http';
+import { HttpClientRequest } from 'effect/http';
 import {
   apiResult,
   failure,

@@ -1,4 +1,4 @@
-import { Schema } from 'effect';
+import { JsonSchema, Schema } from 'effect';
 
 import {
   ProjectConfigInputSchema,
@@ -50,9 +50,16 @@ export function validateLoadedConfig(
 }
 
 export function projectConfigJsonSchema(): Readonly<Record<string, unknown>> {
-  const standard = Schema.toStandardJSONSchemaV1(ProjectConfigInputSchema);
+  // Unknown keys in laymos.config.json are typos, so the published schema
+  // rejects them. Effect leaves objects open unless told otherwise.
+  const { schema, definitions } = JsonSchema.toDocumentDraft07(
+    Schema.toJsonSchemaDocument(ProjectConfigInputSchema, {
+      onExcessProperty: 'error',
+    }),
+  );
   return {
     $schema: 'http://json-schema.org/draft-07/schema#',
-    ...standard['~standard'].jsonSchema.input({ target: 'draft-07' }),
+    ...schema,
+    ...(Object.keys(definitions).length > 0 ? { definitions } : {}),
   };
 }

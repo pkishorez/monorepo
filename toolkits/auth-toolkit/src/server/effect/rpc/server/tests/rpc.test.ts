@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema } from 'effect';
-import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
+import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {
   Rpc,
   RpcClient,
@@ -7,7 +7,7 @@ import {
   RpcSerialization,
   RpcServer,
   RpcTest,
-} from 'effect/unstable/rpc';
+} from 'effect/rpc';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({

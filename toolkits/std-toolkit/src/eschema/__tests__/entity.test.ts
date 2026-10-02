@@ -1,15 +1,13 @@
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../index.js';
 
 describe('ESchema', () => {
   describe('Entity', () => {
     describe('Make', () => {
-      itEffect('creates a v1 schema with name and id field', () =>
+      it.effect('creates a v1 schema with name and id field', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('User', 'id', {
             name: Schema.String,
@@ -24,7 +22,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('supports complex field types', () =>
+      it.effect('supports complex field types', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Complex', 'id', {
             count: Schema.Number,
@@ -103,7 +101,7 @@ describe('ESchema', () => {
     });
 
     describe('ID handling', () => {
-      itEffect('decoded id is a plain string', () =>
+      it.effect('decoded id is a plain string', () =>
         Effect.gen(function* () {
           const userSchema = EntityESchema.make('User', 'id', {
             name: Schema.String,
@@ -117,7 +115,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('encoded id is a plain string', () =>
+      it.effect('encoded id is a plain string', () =>
         Effect.gen(function* () {
           const userSchema = EntityESchema.make('User', 'id', {
             name: Schema.String,

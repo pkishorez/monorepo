@@ -1,9 +1,9 @@
 import type { RuntimeContext } from 'alchemy';
 import * as Cloudflare from 'alchemy/Cloudflare';
 import { Effect, Layer, Scope } from 'effect';
-import { HttpServerRequest } from 'effect/unstable/http';
-import { RpcSerialization } from 'effect/unstable/rpc';
-import type { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { HttpServerRequest } from 'effect/http';
+import { RpcSerialization } from 'effect/rpc';
+import type { Rpc, RpcGroup } from 'effect/rpc';
 import {
   makeHibernatingWebSocketRpc,
   type ConnectionSlot,
@@ -89,7 +89,7 @@ export const DurableRpcWorker =
       transferredFrom: options.transferredFrom,
     }) {}
 
-    const objectLive = DurableRpcObject.make<never>(
+    const objectLive = DurableRpcObject.make(
       Effect.gen(function* () {
         const state = yield* Cloudflare.DurableObjectState;
         yield* options.init ?? Effect.void;

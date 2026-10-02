@@ -106,8 +106,8 @@ The `@kstackz/ai-toolkit` binary exposes `ai-toolkit serve --port 3001`, which r
 ```ts
 import { createServer } from 'node:http';
 import { Layer } from 'effect';
-import { HttpRouter } from 'effect/unstable/http';
-import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
+import { HttpRouter } from 'effect/http';
+import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
 import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
 import { Memory } from '@kstackz/std-toolkit/db/memory';
@@ -191,7 +191,7 @@ The docs demo connects over WebSocket, syncs `threads` and `messages` into live 
 
 ```ts
 import { Context, Effect, Layer, Scope } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { toUiConversation } from '@kstackz/ai-toolkit/client';
 import {
   AiPlaygroundServerRpc,

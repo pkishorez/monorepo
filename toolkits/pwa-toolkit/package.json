@@ -60,11 +60,11 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "effect": "4.0.0-rc.112",
+    "effect": "^4.0.0",
     "@kstackz/ui-toolkit": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "vite": "catalog:"
+    "vite": "^8.0.0"
   },
   "peerDependenciesMeta": {
     "@kstackz/ui-toolkit": {

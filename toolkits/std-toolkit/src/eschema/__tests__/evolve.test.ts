@@ -1,15 +1,13 @@
 import { readEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { EntityESchema, ESchemaError } from '../index.js';
 
 describe('ESchema', () => {
   describe('Evolution', () => {
     describe('Multiple evolutions', () => {
-      itEffect('chains v1 → v2 → v3 migrations', () =>
+      it.effect('chains v1 → v2 → v3 migrations', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,
@@ -59,7 +57,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('handles field removal in migrations', () =>
+      it.effect('handles field removal in migrations', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,
@@ -78,7 +76,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('handles field transformation in migrations', () =>
+      it.effect('handles field transformation in migrations', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             firstName: Schema.String,
@@ -103,7 +101,7 @@ describe('ESchema', () => {
     });
 
     describe('Failing migrations', () => {
-      itEffect('turns a throwing migration into an ESchemaError', () =>
+      it.effect('turns a throwing migration into an ESchemaError', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,

@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import { HttpServerResponse } from 'effect/unstable/http';
-import { RpcSerialization } from 'effect/unstable/rpc';
+import { HttpServerResponse } from 'effect/http';
+import { RpcSerialization } from 'effect/rpc';
 import {
   makeHibernatingWebSocketRpc,
   type HibernatingSocket,

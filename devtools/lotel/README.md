@@ -96,8 +96,8 @@ SQLite file. This is what `@kstackz/devtools` does.
 ```ts
 import { createServer } from 'node:http';
 import { Layer } from 'effect';
-import { HttpRouter } from 'effect/unstable/http';
-import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
+import { HttpRouter } from 'effect/http';
+import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
 import { LotelOtlpHttpLive, LotelRpc, LotelRpcLive } from '@kstackz/lotel';
 import { sqliteTelemetryStoreLayer } from '@kstackz/lotel/sqlite';
@@ -136,7 +136,7 @@ HTTP.
 
 ```ts
 import { Effect } from 'effect';
-import { RpcTest } from 'effect/unstable/rpc';
+import { RpcTest } from 'effect/rpc';
 import {
   LotelRpc,
   LotelRpcLive,

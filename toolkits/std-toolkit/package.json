@@ -129,6 +129,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
+    "@effect/vitest": "catalog:",
     "@tanstack/query-db-collection": "catalog:",
     "@tanstack/react-db": "catalog:",
     "@tsconfig/node22": "catalog:",
@@ -144,15 +145,16 @@
     "miniflare": "catalog:",
     "react": "catalog:",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
   "peerDependencies": {
     "@tanstack/react-db": "0.4.1",
-    "effect": "4.0.0-rc.112",
+    "effect": "^4.0.0",
     "react": "19.2.8",
-    "alchemy": "2.0.0-beta.76",
-    "vitest": "catalog:"
+    "alchemy": "2.0.0-beta.80",
+    "vitest": "^5.0.0"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-db": {

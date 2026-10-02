@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 
 import { Console, Effect, Option, Result } from 'effect';
-import { Command } from 'effect/unstable/cli';
+import { Command } from 'effect/cli';
 import { analyzeProject, loadChangeSet } from 'laymos';
 
 import {

@@ -8,12 +8,8 @@ import {
 } from 'react';
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientRequest,
-} from 'effect/unstable/http';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
+import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { DevtoolsRpc } from '../../rpc/index.js';
 
 type Client = Effect.Success<ReturnType<typeof makeClientEffect>>;

@@ -1,5 +1,5 @@
 import { Effect, Exit, Schema, Stream } from 'effect';
-import { FetchHttpClient, HttpClient } from 'effect/unstable/http';
+import { FetchHttpClient, HttpClient } from 'effect/http';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';

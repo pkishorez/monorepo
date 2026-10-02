@@ -1,7 +1,7 @@
 import { NodeServices } from '@effect/platform-node';
 import { Effect, Exit, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
-import { RpcClient } from 'effect/unstable/rpc';
+import { FetchHttpClient } from 'effect/http';
+import { RpcClient } from 'effect/rpc';
 import { mkdtemp, readFile, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

@@ -1,4 +1,4 @@
-import { HttpClientRequest } from 'effect/unstable/http';
+import { HttpClientRequest } from 'effect/http';
 import { expect, it, vi } from 'vite-plus/test';
 
 const { rpc, page } = vi.hoisted(() => ({

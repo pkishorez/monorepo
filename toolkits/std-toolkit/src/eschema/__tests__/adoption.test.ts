@@ -1,16 +1,13 @@
 import { readEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 import { Effect, Schema } from 'effect';
 import { ESchema, EntityESchema } from '../index.js';
-
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 
 describe('ESchema', () => {
   describe('Adoption', () => {
     describe('Plain to evolving schema', () => {
       describe('top-level adoption', () => {
-        itEffect('unstamped legacy row folds forward from v1 to latest', () =>
+        it.effect('unstamped legacy row folds forward from v1 to latest', () =>
           Effect.gen(function* () {
             // A schema that was a plain { name } struct before adoption,
             // then wrapped as an ESchema and evolved twice.
@@ -45,7 +42,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect('unstamped that does not match v1 fails loudly', () =>
+        it.effect('unstamped that does not match v1 fails loudly', () =>
           Effect.gen(function* () {
             const User = ESchema.make('User', { name: Schema.String })
               .evolve(
@@ -64,7 +61,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect(
+        it.effect(
           'no-op until evolved: unstamped == latest on a v1-only schema',
           () =>
             Effect.gen(function* () {
@@ -96,7 +93,7 @@ describe('ESchema', () => {
           )
           .build();
 
-        itEffect(
+        it.effect(
           'unstamped nested value folds forward through its own chain (parent stamped)',
           () =>
             Effect.gen(function* () {
@@ -126,7 +123,7 @@ describe('ESchema', () => {
             }),
         );
 
-        itEffect(
+        it.effect(
           'non-isolation: nested evolution changes parent output without parent version change',
           () =>
             Effect.gen(function* () {
@@ -151,7 +148,7 @@ describe('ESchema', () => {
             }),
         );
 
-        itEffect(
+        it.effect(
           'whole-tree pre-adoption: both parent and nested value are unstamped',
           () =>
             Effect.gen(function* () {
@@ -190,7 +187,7 @@ describe('ESchema', () => {
             }),
         );
 
-        itEffect(
+        it.effect(
           'array of nested values at mixed adoption vintages decode independently',
           () =>
             Effect.gen(function* () {
@@ -214,7 +211,7 @@ describe('ESchema', () => {
             }),
         );
 
-        itEffect(
+        it.effect(
           'nested unstamped that does not match nested v1 fails loudly',
           () =>
             Effect.gen(function* () {

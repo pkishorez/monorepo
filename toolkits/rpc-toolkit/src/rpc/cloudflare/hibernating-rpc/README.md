@@ -82,7 +82,7 @@ satisfies as-is; `fromDurableObjectState` builds them from a raw workerd
 Your RPC contract does not change. Nothing about it is Cloudflare-specific:
 
 ```ts
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import * as Schema from 'effect/Schema';
 
 export class CounterUpdate extends Schema.Class<CounterUpdate>('CounterUpdate')(
@@ -389,7 +389,7 @@ single wake. If the object dies mid-request the client's promise never settles.
 **`webSocketError` is not handled.** Only `fetch`, `webSocketMessage`, and `webSocketClose`
 are wired.
 
-**Beta surface.** Built on `effect/unstable/rpc`. The peer range will need bumping as the
+**Beta surface.** Built on `effect/rpc`. The peer range will need bumping as the
 beta moves.
 
 **Raw-workerd path is untested.** `fromDurableObjectState` is typechecked but the app here

@@ -1,11 +1,11 @@
 import { Config, Effect, Layer } from 'effect';
-import { Flag } from 'effect/unstable/cli';
+import { Flag } from 'effect/cli';
 import {
   RpcClient,
   RpcSerialization,
   type RpcClientError,
   type RpcGroup,
-} from 'effect/unstable/rpc';
+} from 'effect/rpc';
 import { NodeHttpClient } from '@effect/platform-node';
 import { DevtoolsRpc } from '../../rpc/index.js';
 
@@ -16,12 +16,12 @@ const urlForPort = (port: number) => `http://127.0.0.1:${port}`;
  * Where the DevTools Server lives. `--url` wins, then `DEVTOOLS_URL`, then the
  * port the server itself reads from `DEVTOOLS_PORT`.
  */
-export const urlFlag = Flag.string('url').pipe(
+export const urlFlag = Flag.String('url').pipe(
   Flag.withDescription('Base URL of the running DevTools Server'),
   Flag.withFallbackConfig(
-    Config.string('DEVTOOLS_URL').pipe(
+    Config.String('DEVTOOLS_URL').pipe(
       Config.orElse(() =>
-        Config.int('DEVTOOLS_PORT').pipe(Config.map(urlForPort)),
+        Config.Int('DEVTOOLS_PORT').pipe(Config.map(urlForPort)),
       ),
     ),
   ),

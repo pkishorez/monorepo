@@ -1,6 +1,6 @@
 import { Effect } from 'effect';
-import type { RpcClient } from 'effect/unstable/rpc';
-import { RpcGroup } from 'effect/unstable/rpc';
+import type { RpcClient } from 'effect/rpc';
+import { RpcGroup } from 'effect/rpc';
 import type { StdTable } from '../db/std-table/table/index.js';
 import { TableSnapshot } from '../snapshot/index.js';
 import { makeEntityReader } from './entity-reader.js';

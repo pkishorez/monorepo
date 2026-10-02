@@ -6,13 +6,13 @@ import {
   type Schema,
   type Scope,
 } from 'effect';
-import { HttpServerRequest, type HttpRouter } from 'effect/unstable/http';
+import { HttpServerRequest, type HttpRouter } from 'effect/http';
 import {
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiMiddleware,
   type HttpApiSecurity,
-} from 'effect/unstable/httpapi';
+} from 'effect/http-api';
 
 type Identifier<K> = K extends { readonly Identifier: infer I } ? I : never;
 type Shape<K> = K extends { readonly Service: infer S } ? S : never;

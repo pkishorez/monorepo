@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import envPaths from 'env-paths';
 import { Config, Effect, References } from 'effect';
-import { Command, Flag } from 'effect/unstable/cli';
+import { Command, Flag } from 'effect/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { getFlowCommand, listFlowsCommand } from '../cli/flows/index.js';
 import { skillsCommand } from '../cli/skills.js';
@@ -31,22 +31,22 @@ const openInBrowser = (url: string) => {
   exec(`${opener} ${JSON.stringify(url)}`, () => {});
 };
 
-const port = Flag.integer('port').pipe(
+const port = Flag.Int('port').pipe(
   Flag.withAlias('p'),
   Flag.withDescription('Port to listen on'),
-  Flag.withFallbackConfig(Config.int('DEVTOOLS_PORT')),
+  Flag.withFallbackConfig(Config.Int('DEVTOOLS_PORT')),
   Flag.withDefault(14400),
 );
 
-const db = Flag.string('db').pipe(
+const db = Flag.String('db').pipe(
   Flag.withDescription(
     'Path to the DevTools database (traces, logs, and flows)',
   ),
-  Flag.withFallbackConfig(Config.string('DEVTOOLS_DB')),
+  Flag.withFallbackConfig(Config.String('DEVTOOLS_DB')),
   Flag.withDefault(DEFAULT_DB_PATH),
 );
 
-const open = Flag.boolean('open').pipe(
+const open = Flag.Boolean('open').pipe(
   Flag.withDescription('Open DevTools in your default browser'),
   Flag.withDefault(false),
 );

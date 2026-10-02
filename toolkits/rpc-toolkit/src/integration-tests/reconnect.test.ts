@@ -1,6 +1,6 @@
 import { Effect, Fiber, Layer, Schema, Stream } from 'effect';
-import { Headers } from 'effect/unstable/http';
-import { Rpc, RpcGroup, RpcTest } from 'effect/unstable/rpc';
+import { Headers } from 'effect/http';
+import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { expect, it, vi } from 'vitest';
 import { Cannotation } from '../rpc/cannotation/index.js';
 import { InvocationKind } from '../rpc/invocation/index.js';

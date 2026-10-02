@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient } from 'effect/http';
 import { execute } from 'alchemy-console/deletion-engine';
 export default {
   async fetch(request: Request) {

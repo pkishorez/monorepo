@@ -1,5 +1,5 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { NegotiationEnvelope } from '../../../negotiation/index.js';
 import { PeerId } from '../../../peer-identity/index.js';
 
@@ -7,13 +7,13 @@ export const PeerMode = Schema.Literals(['Connectable', 'Private']);
 export type PeerMode = typeof PeerMode.Type;
 
 const DurablePeerId = PeerId.check(
-  Schema.isLengthBetween(1, 128),
+  Schema.isBetweenLength(1, 128),
   Schema.isPattern(/^[A-Za-z0-9._:-]+$/),
 );
 
 const PeerName = Schema.String.check(
   Schema.isTrimmed(),
-  Schema.isLengthBetween(1, 80),
+  Schema.isBetweenLength(1, 80),
 );
 
 export const PeerDescriptor = Schema.Struct({

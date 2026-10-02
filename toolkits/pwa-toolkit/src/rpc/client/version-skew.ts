@@ -1,6 +1,6 @@
 import * as Effect from 'effect/Effect';
-import type * as RpcClient from 'effect/unstable/rpc/RpcClient';
-import type { FromServerEncoded } from 'effect/unstable/rpc/RpcMessage';
+import type * as RpcClient from 'effect/rpc/RpcClient';
+import type { FromServerEncoded } from 'effect/rpc/RpcMessage';
 import { VersionSkew } from '../handshake/index.js';
 
 /**

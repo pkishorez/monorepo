@@ -1,10 +1,10 @@
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import type * as Rpc from 'effect/unstable/rpc/Rpc';
-import type * as RpcGroup from 'effect/unstable/rpc/RpcGroup';
-import * as RpcServer from 'effect/unstable/rpc/RpcServer';
-import type { WorkerError } from 'effect/unstable/workers/WorkerError';
-import { WorkerRunnerPlatform } from 'effect/unstable/workers/WorkerRunner';
+import type * as Rpc from 'effect/rpc/Rpc';
+import type * as RpcGroup from 'effect/rpc/RpcGroup';
+import * as RpcServer from 'effect/rpc/RpcServer';
+import type { WorkerError } from 'effect/workers/WorkerError';
+import { WorkerRunnerPlatform } from 'effect/workers/WorkerRunner';
 import { WorkerHost } from '../../shared/worker-host/index.js';
 import { makeRunnerPlatform } from './runner-platform.js';
 

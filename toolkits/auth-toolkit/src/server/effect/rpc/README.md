@@ -16,7 +16,7 @@ hand-written Effect rule for anything the invariant form cannot express.
 // contract.ts — shared by client and server
 import { Effect, Schema } from 'effect';
 import { pipe } from 'effect/Function';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 
 const hasAcmeEmail = Authz.policy(
@@ -36,7 +36,7 @@ const DeleteUser = Rpc.make('DeleteUser', {
 const PrivateApi = pipe(RpcGroup.make(Me, DeleteUser), Authz.guard());
 ```
 
-Effect `4.0.0-rc.110` declares `RpcGroup.pipe` in its types but does not provide
+Effect `4.0.0` declares `RpcGroup.pipe` in its types but does not provide
 it at runtime, so groups must use `pipe(group, Authz.guard(...))` or
 `Authz.guard(...)(group)`. RPC values support their normal `.pipe(...)` method.
 
@@ -66,7 +66,7 @@ handlers. One `resolverLive` can serve both Siblings:
 ```ts
 // server.ts
 import { Layer } from 'effect';
-import { RpcServer } from 'effect/unstable/rpc';
+import { RpcServer } from 'effect/rpc';
 import { authzLayer, resolverLive } from '@kstackz/auth-toolkit/server/rpc';
 
 const RpcLive = RpcServer.layer(PrivateApi).pipe(
@@ -116,7 +116,7 @@ For request/response HTTP, wrap the app to relay cookies refreshed during
 verification:
 
 ```ts
-import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
+import { RpcSerialization, RpcServer } from 'effect/rpc';
 import {
   authzCookies,
   authzLayer,

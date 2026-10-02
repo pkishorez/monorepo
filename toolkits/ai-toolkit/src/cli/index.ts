@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { Config, Effect } from 'effect';
-import { Command, Flag } from 'effect/unstable/cli';
+import { Command, Flag } from 'effect/cli';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { PLAYGROUND_HOST, PLAYGROUND_PORT } from '../runtime/constants.js';
 import { makePlaygroundServer } from './playground-server.js';
 
 const VERSION = '0.0.1';
 
-const port = Flag.integer('port').pipe(
+const port = Flag.Int('port').pipe(
   Flag.withAlias('p'),
   Flag.withDescription('Port to listen on'),
-  Flag.withFallbackConfig(Config.int('PORT')),
+  Flag.withFallbackConfig(Config.Int('PORT')),
   Flag.withDefault(PLAYGROUND_PORT),
 );
 

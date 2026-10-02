@@ -96,7 +96,7 @@ export const itemSchema = (table: TableIndexes): ItemSchema =>
   StoredItemSchema.pipe(
     Schema.decodeTo(
       NativeItemSchema,
-      SchemaTransformation.transformOrFail({
+      SchemaTransformation.transformEffect({
         decode: (item: StoredItem) =>
           Effect.try({
             try: () => toNative(table, item),

@@ -1,15 +1,13 @@
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { ESchema, OutdatedVersion } from '../index.js';
 
 describe('ESchema', () => {
   describe('Plain schema', () => {
     describe('Make', () => {
-      itEffect('creates a v1 schema and encodes with version', () =>
+      it.effect('creates a v1 schema and encodes with version', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('User', {
             name: Schema.String,
@@ -20,7 +18,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('decodes v1 data', () =>
+      it.effect('decodes v1 data', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Counter', {
             name: Schema.String,
@@ -36,7 +34,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('defaults to latest version when _v is missing', () =>
+      it.effect('defaults to latest version when _v is missing', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Doc', { a: Schema.String }).build();
 
@@ -45,7 +43,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('fails with OutdatedVersion on a newer version', () =>
+      it.effect('fails with OutdatedVersion on a newer version', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Doc', { a: Schema.String }).build();
 
@@ -59,7 +57,7 @@ describe('ESchema', () => {
     });
 
     describe('Evolve', () => {
-      itEffect('migrates v1 → v2', () =>
+      it.effect('migrates v1 → v2', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Item', { a: Schema.String })
             .evolve('v2', { b: Schema.Number }, (v) => ({ ...v, b: 42 }))
@@ -73,7 +71,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('chains v1 → v2 → v3', () =>
+      it.effect('chains v1 → v2 → v3', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Item', { a: Schema.String })
             .evolve('v2', { b: Schema.String }, (v) => ({ ...v, b: 'added' }))
@@ -100,7 +98,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('handles field removal', () =>
+      it.effect('handles field removal', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Item', {
             a: Schema.String,
@@ -144,7 +142,7 @@ describe('ESchema', () => {
     });
 
     describe('Roundtrip', () => {
-      itEffect('encode → decode preserves data', () =>
+      it.effect('encode → decode preserves data', () =>
         Effect.gen(function* () {
           const schema = ESchema.make('Counter', {
             name: Schema.String,
@@ -175,7 +173,7 @@ describe('ESchema', () => {
     });
 
     describe('From type', () => {
-      itEffect('passes unknown values through as the requested type', () =>
+      it.effect('passes unknown values through as the requested type', () =>
         Effect.gen(function* () {
           type ExternalShape = {
             readonly expression: readonly [string, readonly unknown[]];

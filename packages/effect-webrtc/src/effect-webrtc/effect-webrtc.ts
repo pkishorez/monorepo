@@ -11,7 +11,7 @@ import {
   SubscriptionRef,
 } from 'effect';
 import * as Scope from 'effect/Scope';
-import type { Rpc, RpcClient, RpcGroup } from 'effect/unstable/rpc';
+import type { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import {
   continueConnectionAttempt,
   startConnectionAttempt,

@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import type { OtlpLogger, OtlpTracer } from 'effect/unstable/observability';
+import type { OtlpLogger, OtlpTracer } from 'effect/observability';
 import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
 import { makeNodeSQLite } from '@kstackz/std-toolkit/db/sqlite/node';
 import { afterEach, expect, it, vi } from 'vite-plus/test';

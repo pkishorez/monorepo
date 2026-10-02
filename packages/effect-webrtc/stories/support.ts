@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { layer as memoryPlatform } from '@kstackz/effect-webrtc/platform/memory';
 import { layer as memorySignaling } from '@kstackz/effect-webrtc/signaling/memory';
 

@@ -4,9 +4,9 @@ import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
 import * as Stream from 'effect/Stream';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
-import { RpcClient } from 'effect/unstable/rpc';
-import type * as RpcSerialization from 'effect/unstable/rpc/RpcSerialization';
-import * as Socket from 'effect/unstable/socket/Socket';
+import { RpcClient } from 'effect/rpc';
+import type * as RpcSerialization from 'effect/rpc/RpcSerialization';
+import * as Socket from 'effect/socket/Socket';
 
 /**
  * `connecting` — never reached the server yet.

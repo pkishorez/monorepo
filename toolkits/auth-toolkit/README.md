@@ -235,7 +235,7 @@ the server provides `authzLayer` with `resolverLive`. Lifted from
 ```ts
 // contract.ts, shared with the browser
 import { Effect, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 
 const GetProfile = Rpc.make('GetProfile', {
@@ -253,7 +253,7 @@ export const Handlers = Api.toLayer({
 
 // server.ts
 import { Layer } from 'effect';
-import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
+import { RpcSerialization, RpcServer } from 'effect/rpc';
 import {
   authzCookies,
   authzLayer,
@@ -323,7 +323,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { CliAuth } from '@kstackz/auth-toolkit/clients/cli';
 import { Console, Effect, Layer } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient } from 'effect/http';
 
 const login = Effect.gen(function* () {
   const auth = yield* CliAuth;

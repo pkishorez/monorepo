@@ -17,8 +17,8 @@ import {
   RpcClientError,
   RpcSerialization,
   RpcServer,
-} from 'effect/unstable/rpc';
-import type { Rpc, RpcGroup, RpcMessage } from 'effect/unstable/rpc';
+} from 'effect/rpc';
+import type { Rpc, RpcGroup, RpcMessage } from 'effect/rpc';
 import {
   continueRpcInvocation,
   startRpcInvocation,

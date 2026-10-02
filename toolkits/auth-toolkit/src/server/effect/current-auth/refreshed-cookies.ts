@@ -1,4 +1,4 @@
-import { Cookies, HttpServerResponse } from 'effect/unstable/http';
+import { Cookies, HttpServerResponse } from 'effect/http';
 
 export const appendRefreshedCookies = (
   response: HttpServerResponse.HttpServerResponse,

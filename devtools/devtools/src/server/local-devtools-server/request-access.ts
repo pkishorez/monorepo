@@ -1,9 +1,5 @@
 import { Effect } from 'effect';
-import {
-  HttpRouter,
-  HttpServerRequest,
-  HttpServerResponse,
-} from 'effect/unstable/http';
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 
 /** Restricts local application access while allowing browser OTLP ingestion. */
 export function makeRequestAccessLive({

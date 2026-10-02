@@ -1,5 +1,5 @@
 import { Effect, type Stream } from 'effect';
-import { RpcClient } from 'effect/unstable/rpc';
+import { RpcClient } from 'effect/rpc';
 import type { Entity } from '@kstackz/std-toolkit/core';
 import {
   createStdSync,
