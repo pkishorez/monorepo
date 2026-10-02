@@ -32,11 +32,23 @@ try {
     platform: 'node',
     conditions: ['worker'],
     format: 'esm',
-    external: ['cloudflare:*', '@effect/platform-bun/*'],
+    // Optional peers that alchemy's providers only load on paths this Worker
+    // never takes: Bun's platform, and Vite's devtools behind Alchemy's
+    // build plugins.
+    external: [
+      'cloudflare:*',
+      '@effect/platform-bun/*',
+      '@vitejs/devtools/config',
+    ],
     // esbuild leaves CommonJS requires for Node builtins; use Workers' supported loader.
     banner: {
       js: "import { createRequire as testCreateRequire } from 'node:module'; const require = testCreateRequire('/bundle/worker.js');",
     },
+    // workerd gives the bundle no module URL, and Node-oriented modules (such
+    // as tinyglobby, behind alchemy's Worker resource) call
+    // `createRequire(import.meta.url)` when they load. The production build
+    // tree-shakes them away; this bundle keeps them, so give them its path.
+    define: { 'import.meta.url': '"file:///bundle/worker.js"' },
     plugins: [
       {
         name: 'node-builtins',

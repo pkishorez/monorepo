@@ -97,7 +97,7 @@ jobs:
         run: pnpm --filter 'kstack^...' run build
 
       - name: Bootstrap Alchemy state store
-        run: pnpm -C apps/kstack exec alchemy cloudflare bootstrap
+        run: pnpm -C apps/kstack exec alchemy provider cloudflare bootstrap
 
       - name: Deploy kstack
         run: pnpm -C apps/kstack exec alchemy deploy --stage "$STAGE" --yes
@@ -112,7 +112,7 @@ jobs:
 
       - name: State tree
         if: always()
-        run: pnpm -C apps/kstack exec alchemy state tree || true
+        run: pnpm -C apps/kstack exec alchemy state list --recursive || true
 
   summary:
     needs: [detect, deploy]

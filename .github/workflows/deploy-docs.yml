@@ -99,7 +99,7 @@ jobs:
         run: pnpm build
 
       - name: Bootstrap Alchemy state store
-        run: pnpm -C apps/docs exec alchemy cloudflare bootstrap
+        run: pnpm -C apps/docs exec alchemy provider cloudflare bootstrap
 
       - name: Deploy docs
         run: pnpm -C apps/docs exec alchemy deploy --stage "$STAGE" --yes
@@ -114,7 +114,7 @@ jobs:
 
       - name: State tree
         if: always()
-        run: pnpm -C apps/docs exec alchemy state tree || true
+        run: pnpm -C apps/docs exec alchemy state list --recursive || true
 
   summary:
     needs: [detect, deploy]
