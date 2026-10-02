@@ -1,5 +1,5 @@
 import { Console, Effect } from 'effect';
-import type { RpcClientError } from 'effect/unstable/rpc';
+import type { RpcClientError } from 'effect/rpc';
 
 export type ClientError =
   | { readonly _tag: 'TraceNotFound'; readonly traceId: string }

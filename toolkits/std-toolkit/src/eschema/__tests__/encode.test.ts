@@ -1,15 +1,13 @@
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 import { Effect, Schema } from 'effect';
 import { EntityESchema } from '../index.js';
 
 describe('ESchema', () => {
   describe('Encoding', () => {
     describe('Encode', () => {
-      itEffect('encodes value with version metadata', () =>
+      it.effect('encodes value with version metadata', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('User', 'id', {
             name: Schema.String,
@@ -23,7 +21,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('encodes with latest version after evolution', () =>
+      it.effect('encodes with latest version after evolution', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             a: Schema.String,
@@ -40,7 +38,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('strips _v from input before encoding', () =>
+      it.effect('strips _v from input before encoding', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             name: Schema.String,
@@ -57,7 +55,7 @@ describe('ESchema', () => {
     });
 
     describe('roundtrip encode/decode', () => {
-      itEffect('preserves data through encode → decode cycle', () =>
+      it.effect('preserves data through encode → decode cycle', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             name: Schema.String,
@@ -71,7 +69,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('preserves data through decode → encode cycle', () =>
+      it.effect('preserves data through decode → encode cycle', () =>
         Effect.gen(function* () {
           const schema = EntityESchema.make('Test', 'id', {
             count: Schema.Number,

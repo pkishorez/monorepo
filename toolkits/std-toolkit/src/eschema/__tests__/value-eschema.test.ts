@@ -1,5 +1,5 @@
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 import { Effect, Schema } from 'effect';
 import {
   ESchema,
@@ -14,13 +14,10 @@ import type {
 } from '../domain/schema-model/index.js';
 import { ESchemaError } from '../index.js';
 
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
-
 describe('ESchema', () => {
   describe('Value', () => {
     describe('Make', () => {
-      itEffect('encodes values with a value envelope', () =>
+      it.effect('encodes values with a value envelope', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.Number).build();
 
@@ -30,7 +27,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('decodes value envelopes', () =>
+      it.effect('decodes value envelopes', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.Number).build();
 
@@ -43,7 +40,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('treats bare values as earliest-version data', () =>
+      it.effect('treats bare values as earliest-version data', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.String)
             .evolve('v2', Schema.Number, (value) => Number(value))
@@ -55,7 +52,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('fails with OutdatedVersion on a newer envelope version', () =>
+      it.effect('fails with OutdatedVersion on a newer envelope version', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Label', Schema.String).build();
 
@@ -68,7 +65,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('reads an object without _value as a bare value', () =>
+      it.effect('reads an object without _value as a bare value', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make(
             'Label',
@@ -87,7 +84,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('refuses an envelope with extra keys', () =>
+      it.effect('refuses an envelope with extra keys', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Label', Schema.String).build();
 
@@ -102,7 +99,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('refuses an envelope without a version', () =>
+      it.effect('refuses an envelope without a version', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Label', Schema.String).build();
 
@@ -115,7 +112,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('refuses an envelope with a non-string version', () =>
+      it.effect('refuses an envelope with a non-string version', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Label', Schema.String).build();
 
@@ -128,7 +125,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('refuses a payload that does not match its version', () =>
+      it.effect('refuses a payload that does not match its version', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.Number).build();
 
@@ -160,7 +157,7 @@ describe('ESchema', () => {
         expect(assertTypeErrors).toBeTypeOf('function');
       });
 
-      itEffect('allows _ keys below the top level', () =>
+      it.effect('allows _ keys below the top level', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make(
             'Payload',
@@ -186,7 +183,7 @@ describe('ESchema', () => {
     });
 
     describe('Evolve', () => {
-      itEffect('migrates through whole-value schema replacements', () =>
+      it.effect('migrates through whole-value schema replacements', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make(
             'Status',
@@ -210,7 +207,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('migrations receive decoded values from prior versions', () =>
+      it.effect('migrations receive decoded values from prior versions', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.Number)
             .evolve('v2', Schema.Number, (value) => value * 2)
@@ -225,7 +222,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('turns a throwing migration into an ESchemaError', () =>
+      it.effect('turns a throwing migration into an ESchemaError', () =>
         Effect.gen(function* () {
           const schema = ValueESchema.make('Count', Schema.String)
             .evolve('v2', Schema.Number, () => {
@@ -258,7 +255,7 @@ describe('ESchema', () => {
         status: Status.schema,
       }).build();
 
-      itEffect('encodes nested values as envelopes', () =>
+      it.effect('encodes nested values as envelopes', () =>
         Effect.gen(function* () {
           const encoded = yield* writeEncoded(Ticket, {
             title: 'Fix billing',
@@ -273,7 +270,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('decodes nested bare legacy values', () =>
+      it.effect('decodes nested bare legacy values', () =>
         Effect.gen(function* () {
           const decoded = yield* readEncoded(Ticket, {
             _v: 'v1',
@@ -288,7 +285,7 @@ describe('ESchema', () => {
         }),
       );
 
-      itEffect('decodes nested value envelopes independently', () =>
+      it.effect('decodes nested value envelopes independently', () =>
         Effect.gen(function* () {
           const decoded = yield* readEncoded(Ticket, {
             _v: 'v1',

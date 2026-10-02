@@ -35,6 +35,24 @@
       "policy": "catalog"
     },
     {
+      "label": "Effect peers accept any Effect 4 release",
+      "dependencies": ["effect"],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "^4.0.0"
+    },
+    {
+      "label": "Vite peers accept any Vite 8 release",
+      "dependencies": ["vite"],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "^8.0.0"
+    },
+    {
+      "label": "Vitest peers accept any Vitest 5 release",
+      "dependencies": ["vitest"],
+      "dependencyTypes": ["peer"],
+      "pinVersion": "^5.0.0"
+    },
+    {
       "label": "Synchronize remaining dependencies",
       "dependencyTypes": [
         "local",
@@ -67,6 +85,12 @@
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
       "isIgnored": true
+    },
+    {
+      "label": "Effect, Vite, and Vitest peers use a caret range",
+      "dependencies": ["effect", "vite", "vitest"],
+      "dependencyTypes": ["peer"],
+      "range": "^"
     },
     {
       "label": "All registry dependencies, including peers, use exact versions",

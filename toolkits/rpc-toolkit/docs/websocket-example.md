@@ -7,7 +7,7 @@ client-supplied identity or roles as trusted authorization.
 ```ts
 // contract.ts — imported by the server and browser
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { Cannotation } from '@kstackz/rpc-toolkit/rpc/cannotation';
 
 export class Forbidden extends Schema.Error<Forbidden>('example/Forbidden')({
@@ -130,7 +130,7 @@ Without Alchemy, build the runtime directly instead:
 ```ts
 // durable-server.ts — host composition without Alchemy
 import { Effect } from 'effect';
-import { RpcSerialization } from 'effect/unstable/rpc';
+import { RpcSerialization } from 'effect/rpc';
 import {
   fromDurableObjectState,
   makeHibernatingWebSocketRpc,
@@ -155,8 +155,8 @@ and WebSocket close callbacks, running them through its Effect integration.
 ```ts
 // client.ts — browser only
 import { Effect, Layer, Stream } from 'effect';
-import { Headers } from 'effect/unstable/http';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
+import { Headers } from 'effect/http';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import {
   keepSubscribed,
   layerWebSocketProtocol,

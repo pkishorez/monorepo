@@ -8,7 +8,7 @@ import {
   StudioRpc,
   type StudioRpcClient,
 } from '@kstackz/std-toolkit/studio-rpc';
-import { RpcTest } from 'effect/unstable/rpc';
+import { RpcTest } from 'effect/rpc';
 import { useComponentLifecycle } from 'use-effect-ts';
 
 import { Spinner } from '#components/ui/spinner';

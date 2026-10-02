@@ -18,7 +18,7 @@ Pick a `preset` by app kind, from the playground's lifecycle runs. `app` (the de
 pnpm add @kstackz/pwa-toolkit effect
 ```
 
-- `effect` (peer, required): every subpath is built on it, and Worker RPC on `effect/unstable/rpc`.
+- `effect` (peer, required): every subpath is built on it, and Worker RPC on `effect/rpc`.
 - `vite` (peer, optional): needed by `@kstackz/pwa-toolkit/vite`.
 - `react`, `react-dom` (peers, optional): needed by `@kstackz/pwa-toolkit/react` and `@kstackz/pwa-toolkit/extras`.
 - `@kstackz/ui-toolkit` (peer, optional): the components `@kstackz/pwa-toolkit/react` (`UpdatePrompt`) and `@kstackz/pwa-toolkit/extras` render with.

@@ -60,8 +60,8 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "effect": "4.0.0-rc.112",
-    "alchemy": "2.0.0-beta.76"
+    "effect": "^4.0.0",
+    "alchemy": "2.0.0-beta.80"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",

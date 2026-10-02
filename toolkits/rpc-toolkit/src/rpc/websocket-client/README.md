@@ -40,7 +40,7 @@ a new connection is established.
 ```ts
 import * as Layer from 'effect/Layer';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
-import { RpcClient } from 'effect/unstable/rpc';
+import { RpcClient } from 'effect/rpc';
 import { layerWebSocketProtocol } from '@kstackz/rpc-toolkit/rpc/websocket-client';
 
 const protocol = layerWebSocketProtocol({

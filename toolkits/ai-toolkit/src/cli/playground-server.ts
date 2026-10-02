@@ -1,11 +1,7 @@
 import { createServer } from 'node:http';
 import { Duration, Layer } from 'effect';
-import {
-  HttpMiddleware,
-  HttpRouter,
-  HttpServerResponse,
-} from 'effect/unstable/http';
-import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
+import { HttpMiddleware, HttpRouter, HttpServerResponse } from 'effect/http';
+import { RpcSerialization, RpcServer } from 'effect/rpc';
 import { NodeHttpServer, NodeServices } from '@effect/platform-node';
 import { defaultBroadcaster } from '@kstackz/std-toolkit/core';
 import { Memory } from '@kstackz/std-toolkit/db/memory';

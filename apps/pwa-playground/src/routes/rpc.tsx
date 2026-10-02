@@ -6,9 +6,9 @@ import * as Fiber from 'effect/Fiber';
 import * as Schedule from 'effect/Schedule';
 import * as Scope from 'effect/Scope';
 import * as Stream from 'effect/Stream';
-import type { RpcClient } from 'effect/unstable/rpc/RpcClient';
-import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
-import type * as RpcGroup from 'effect/unstable/rpc/RpcGroup';
+import type { RpcClient } from 'effect/rpc/RpcClient';
+import type { RpcClientError } from 'effect/rpc/RpcClientError';
+import type * as RpcGroup from 'effect/rpc/RpcGroup';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import { usePwa } from '@kstackz/pwa-toolkit/react';
 import {

@@ -8,7 +8,7 @@ WebRTC gives two endpoints a direct data channel, but the application still has 
 
 Two Services are pluggable. `Signaling` carries negotiation messages between Peers and comes in memory, Nostr, and Durable (authenticated Cloudflare Durable Object) flavours. `WebRtcPlatform` supplies the host WebRTC implementation and comes in memory, browser, and werift (Node) flavours. Tests and stories run entirely in memory with no networking.
 
-RPC uses `effect/unstable/rpc` directly over the data channel. Connection attempts and RPC invocations are traced as Flows from `@kstackz/flow`, so a Flow viewer shows one swim lane per Peer. The Durable Signaling Provider authenticates with `@kstackz/auth-toolkit` and deploys with `@kstackz/rpc-toolkit`'s Alchemy Durable RPC worker.
+RPC uses `effect/rpc` directly over the data channel. Connection attempts and RPC invocations are traced as Flows from `@kstackz/flow`, so a Flow viewer shows one swim lane per Peer. The Durable Signaling Provider authenticates with `@kstackz/auth-toolkit` and deploys with `@kstackz/rpc-toolkit`'s Alchemy Durable RPC worker.
 
 Vocabulary lives in [CONTEXT.md](./CONTEXT.md). Design decisions live in [docs/adr/](./docs/adr/). The demos in `apps/docs/src/demos/effect-webrtc` and `apps/docs/src/demos/durable-webrtc` show a browser Peer chatting with a Node Peer and with other Peers of the same user.
 
@@ -131,7 +131,7 @@ Bob serves an RPC contract. Alice connects and calls it. The memory Layers make 
 
 ```ts
 import { Effect, Layer, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { PeerId, WebRtc } from '@kstackz/effect-webrtc';
 import { layer as memoryPlatform } from '@kstackz/effect-webrtc/platform/memory';
 import { layer as memorySignaling } from '@kstackz/effect-webrtc/signaling/memory';
@@ -176,7 +176,7 @@ Lifted from the docs demo. A Node process reaches a browser Peer through public 
 
 ```ts
 import { Effect, Layer, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { PeerId, WebRtc } from '@kstackz/effect-webrtc';
 import { layer as weriftPlatform } from '@kstackz/effect-webrtc/platform/werift';
 import { layer as nostrSignaling } from '@kstackz/effect-webrtc/signaling/nostr';

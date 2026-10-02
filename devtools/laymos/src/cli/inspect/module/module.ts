@@ -1,12 +1,12 @@
 import { Console, Effect } from 'effect';
-import { Argument, Command } from 'effect/unstable/cli';
+import { Argument, Command } from 'effect/cli';
 
 import { inspectModule } from '../../../orchestrator/inspect/index.js';
 import { resolveInspectionTarget } from '../path.js';
 import { jsonFlag, renderJson } from '../json.js';
 import { renderModuleInspection } from './report.js';
 
-const pathArgument = Argument.string('path').pipe(
+const pathArgument = Argument.String('path').pipe(
   Argument.withDescription('Exact configured Module path.'),
 );
 

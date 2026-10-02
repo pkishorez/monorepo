@@ -1,10 +1,6 @@
 import { Effect, Fiber, Logger, Tracer } from 'effect';
 import { TestClock } from 'effect/testing';
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientResponse,
-} from 'effect/unstable/http';
+import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { expect, it, vi } from 'vite-plus/test';
 import { discover } from '../src/server/providers/cloudflare/discovery.ts';
 

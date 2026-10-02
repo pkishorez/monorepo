@@ -198,7 +198,7 @@ export function makeTraceRecorder(
     const log: CapturedLog = {
       id: `log-${sequence}`,
       sequence,
-      spanId: logOptions.fiber.currentSpan?.spanId ?? null,
+      spanId: logOptions.fiber.cache.span?.spanId ?? null,
       // The tracer stamps spans from Clock's nanosecond source while
       // `logOptions.date` comes from `Date.now()`. Mixing them lets a log sort
       // before the span it was written inside, so read the same clock here.

@@ -56,7 +56,7 @@
   },
   "peerDependencies": {
     "@kstackz/std-toolkit": "workspace:*",
-    "effect": "4.0.0-rc.112"
+    "effect": "^4.0.0"
   },
   "devDependencies": {
     "@kstackz/std-toolkit": "workspace:*",

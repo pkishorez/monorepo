@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { RpcTest } from 'effect/unstable/rpc';
+import { RpcTest } from 'effect/rpc';
 import { Story } from 'laymos/story';
 import { StdTable } from '@kstackz/std-toolkit/db';
 import { EntityESchema } from '@kstackz/std-toolkit/eschema';

@@ -35,7 +35,7 @@ pnpm add -D laymos
 
 Peer dependencies:
 
-- `effect` (`4.0.0-rc.112`): every library function returns an Effect, and
+- `effect` (`^4.0.0`): every library function returns an Effect, and
   Stories are written as Effects.
 
 ## Exports

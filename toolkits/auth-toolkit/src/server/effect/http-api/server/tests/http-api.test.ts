@@ -1,14 +1,14 @@
 import type { Session, User } from 'better-auth';
 import { NodeHttpPlatform, NodeServices } from '@effect/platform-node';
 import { Effect, Layer, Schema } from 'effect';
-import { Etag, HttpRouter } from 'effect/unstable/http';
+import { Etag, HttpRouter } from 'effect/http';
 import {
   HttpApi,
   HttpApiBuilder,
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiTest,
-} from 'effect/unstable/httpapi';
+} from 'effect/http-api';
 import { describe, expect, it } from 'vitest';
 
 import { Authz } from '../../declaration/index.js';

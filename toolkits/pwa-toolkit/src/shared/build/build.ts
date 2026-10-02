@@ -11,7 +11,7 @@ export type BuildId = typeof BuildId.Type;
  * (`/assets/app-3f9a.js`); `revision` is a content hash of the file.
  */
 export const PrecacheEntry = Schema.Struct({
-  url: Schema.String.check(Schema.isStartsWith('/')),
+  url: Schema.String.check(Schema.isStartingWith('/')),
   revision: Schema.NonEmptyString,
 });
 export type PrecacheEntry = typeof PrecacheEntry.Type;

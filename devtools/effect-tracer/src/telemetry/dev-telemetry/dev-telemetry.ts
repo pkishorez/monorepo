@@ -1,6 +1,6 @@
 import { Clock, Duration, Effect, Layer, Logger, Tracer } from 'effect';
-import { FetchHttpClient } from 'effect/unstable/http';
-import { OtlpResource } from 'effect/unstable/observability';
+import { FetchHttpClient } from 'effect/http';
+import { OtlpResource } from 'effect/observability';
 import { makeLogger } from './log-record.js';
 import { makeRequestQueue } from './request-queue.js';
 import { makeTracer } from './span-record.js';

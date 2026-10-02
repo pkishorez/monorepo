@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { RpcTest } from 'effect/unstable/rpc';
+import { RpcTest } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import { LotelRpc, LotelRpcLive, sqliteTelemetryStoreLayer } from '../index.js';
 import {

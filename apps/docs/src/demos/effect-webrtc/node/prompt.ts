@@ -1,14 +1,14 @@
 import { Effect, Terminal } from 'effect';
-import { Flag, Prompt } from 'effect/unstable/cli';
+import { Flag, Prompt } from 'effect/cli';
 import { isPeerIdentifier } from '../contract/index.ts';
 
 const normalize = (raw: string) => raw.trim().toLowerCase();
 
 const peerIdentifier = (name: string, message: string) =>
-  Flag.string(name).pipe(
+  Flag.String(name).pipe(
     Flag.withDescription(message),
     Flag.withFallbackPrompt(
-      Prompt.text({
+      Prompt.String({
         message,
         validate: (raw) =>
           isPeerIdentifier(normalize(raw))

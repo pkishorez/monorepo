@@ -1,5 +1,5 @@
 import { Console, Effect, Schema } from 'effect';
-import { Command } from 'effect/unstable/cli';
+import { Command } from 'effect/cli';
 
 import { ArchitectureAnalysisSchema } from '../../../architecture-analysis-schema/index.js';
 import {

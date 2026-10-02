@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Scope } from 'effect';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
+import { RpcClient, RpcSerialization } from 'effect/rpc';
 import {
   CODEX_MODELS,
   CLAUDE_MODELS,

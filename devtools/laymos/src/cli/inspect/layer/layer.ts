@@ -1,11 +1,11 @@
 import { Console, Effect } from 'effect';
-import { Argument, Command } from 'effect/unstable/cli';
+import { Argument, Command } from 'effect/cli';
 
 import { inspectLayer } from '../../../orchestrator/inspect/index.js';
 import { jsonFlag, renderJson } from '../json.js';
 import { renderLayerInspection } from './report.js';
 
-const nameArgument = Argument.string('name').pipe(
+const nameArgument = Argument.String('name').pipe(
   Argument.withDescription('Exact configured Layer name.'),
 );
 

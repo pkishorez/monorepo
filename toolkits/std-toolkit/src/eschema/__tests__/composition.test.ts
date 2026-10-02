@@ -1,5 +1,5 @@
 import { readEncoded, writeEncoded } from '../domain/encoded/index.js';
-import { it, describe, expect } from 'vitest';
+import { it, describe, expect } from '@effect/vitest';
 import { Effect, Schema } from 'effect';
 import {
   ESchema,
@@ -8,9 +8,6 @@ import {
   findOutdatedVersion,
 } from '../index.js';
 import { buildESchemaDefinitions } from '../../snapshot/capture/eschema-capture/index.js';
-
-const itEffect = <A, E>(name: string, fn: () => Effect.Effect<A, E, never>) =>
-  it(name, () => Effect.runPromise(fn()));
 
 const Address = ESchema.make('Address', {
   street: Schema.String,
@@ -32,7 +29,7 @@ describe('ESchema', () => {
   describe('Composition', () => {
     describe('schema', () => {
       describe('basic composition', () => {
-        itEffect('encodes parent with nested schemas', () =>
+        it.effect('encodes parent with nested schemas', () =>
           Effect.gen(function* () {
             const encoded = yield* writeEncoded(Order, {
               orderId: 'o1',
@@ -74,7 +71,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect('decodes parent with nested schemas', () =>
+        it.effect('decodes parent with nested schemas', () =>
           Effect.gen(function* () {
             const decoded = yield* readEncoded(Order, {
               _v: 'v1',
@@ -93,7 +90,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect('roundtrip encode then decode', () =>
+        it.effect('roundtrip encode then decode', () =>
           Effect.gen(function* () {
             const original = {
               orderId: 'o1',
@@ -126,7 +123,7 @@ describe('ESchema', () => {
           items: Schema.Array(LineItemV2.schema),
         }).build();
 
-        itEffect('migrates nested schema independently of parent', () =>
+        it.effect('migrates nested schema independently of parent', () =>
           Effect.gen(function* () {
             const decoded = yield* readEncoded(OrderWithV2Items, {
               _v: 'v1',
@@ -144,7 +141,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect('handles array elements at different nested versions', () =>
+        it.effect('handles array elements at different nested versions', () =>
           Effect.gen(function* () {
             const decoded = yield* readEncoded(OrderWithV2Items, {
               _v: 'v1',
@@ -192,7 +189,7 @@ describe('ESchema', () => {
           }))
           .build();
 
-        itEffect('migrates parent and decodes nested in new field', () =>
+        it.effect('migrates parent and decodes nested in new field', () =>
           Effect.gen(function* () {
             const decoded = yield* readEncoded(Parent, {
               _v: 'v1',
@@ -206,7 +203,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect('decodes latest version with nested schema', () =>
+        it.effect('decodes latest version with nested schema', () =>
           Effect.gen(function* () {
             const decoded = yield* readEncoded(Parent, {
               _v: 'v2',
@@ -237,7 +234,7 @@ describe('ESchema', () => {
           branch: Branch.schema,
         }).build();
 
-        itEffect('encodes and decodes three levels deep', () =>
+        it.effect('encodes and decodes three levels deep', () =>
           Effect.gen(function* () {
             const original = {
               title: 'root',
@@ -272,7 +269,7 @@ describe('ESchema', () => {
           e: entity.schema,
         }).build();
 
-        itEffect('roundtrips all three nested variant types', () =>
+        it.effect('roundtrips all three nested variant types', () =>
           Effect.gen(function* () {
             const original = {
               p: { x: 42 },
@@ -295,7 +292,7 @@ describe('ESchema', () => {
           child: Schema.NullOr(Child.schema),
         }).build();
 
-        itEffect('roundtrips with child present', () =>
+        it.effect('roundtrips with child present', () =>
           Effect.gen(function* () {
             const original = { name: 'a', child: { val: 'b' } };
             const encoded = yield* writeEncoded(WithNullable, original);
@@ -304,7 +301,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect('roundtrips with child null', () =>
+        it.effect('roundtrips with child null', () =>
           Effect.gen(function* () {
             const original = { name: 'a', child: null };
             const encoded = yield* writeEncoded(WithNullable, original);
@@ -313,7 +310,7 @@ describe('ESchema', () => {
           }),
         );
 
-        itEffect('snapshot includes the nested definition', () => {
+        it.effect('snapshot includes the nested definition', () => {
           const identities = buildESchemaDefinitions([
             { eschema: WithNullable },
           ]).map((d) => d.identity);
@@ -323,7 +320,7 @@ describe('ESchema', () => {
       });
 
       describe('nested decode error', () => {
-        itEffect('propagates nested validation failure', () =>
+        it.effect('propagates nested validation failure', () =>
           Effect.gen(function* () {
             const result = yield* Effect.flip(
               readEncoded(Order, {
@@ -411,7 +408,7 @@ describe('Composed field', () => {
     expect(findOutdatedVersion(exit)?.version).toBe('v2');
   });
 
-  itEffect('fails with the OutdatedVersion two levels down', () =>
+  it.effect('fails with the OutdatedVersion two levels down', () =>
     Effect.gen(function* () {
       const Doc = EntityESchema.make('Doc', 'id', {
         parent: ESchema.make('Mid', { child: Child.schema }).build().schema,

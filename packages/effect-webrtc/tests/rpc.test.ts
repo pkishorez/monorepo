@@ -1,6 +1,6 @@
 import { FlowTelemetry, projectJournal } from '@kstackz/flow';
 import { Deferred, Effect, Fiber, Option, Queue, Schema, Stream } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { describe, expect, it } from 'vitest';
 import {
   ConnectionAttemptId,

@@ -29,7 +29,7 @@ pnpm add @kstackz/flow
 
 Peer dependencies:
 
-- `effect` (`4.0.0-rc.112`): Participants write Entries as Effects and
+- `effect` (`^4.0.0`): Participants write Entries as Effects and
   `FlowTelemetry` is an Effect Reference.
 
 ## Exports

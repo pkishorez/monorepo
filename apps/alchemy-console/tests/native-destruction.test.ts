@@ -1,6 +1,6 @@
 import { Context, Effect, Exit, Layer } from 'effect';
 import { expect, it, vi } from 'vite-plus/test';
-import { FetchHttpClient } from 'effect/unstable/http';
+import { FetchHttpClient } from 'effect/http';
 import { InMemoryService } from 'alchemy/State/InMemoryState';
 import { State, type ActionState, type ResourceState } from 'alchemy/State';
 import type { ProviderService } from 'alchemy/Provider';
@@ -9,7 +9,7 @@ class TestProvider extends Context.Service<TestProvider, ProviderService>()(
 ) {}
 import { Stack } from 'alchemy/Stack';
 import { Stage } from 'alchemy/Stage';
-import { Cli } from 'alchemy/Cli/Cli';
+import { Cli } from 'alchemy/Report';
 import { apply } from 'alchemy/Apply';
 import {
   prepare,
@@ -20,6 +20,13 @@ import { select } from '../src/server/services/deletion/selection/index.ts';
 import { shadows } from '../src/server/services/deletion/forget/index.ts';
 import type { StateService } from 'alchemy/State';
 import type { analysisEvent } from '../src/shared/contracts/deletion/index.ts';
+
+const quietPlanning = {
+  update: () => Effect.void,
+  succeed: () => Effect.void,
+  fail: () => Effect.void,
+  close: Effect.void,
+};
 
 const row = (id: string, options: Partial<ResourceState> = {}): ResourceState =>
   ({
@@ -125,7 +132,7 @@ it('uses native Alchemy ordering, retention, and final stage cleanup', async () 
       );
       expect(deleted).not.toContain('Retained');
       expect(yield* state.listStages('App')).toEqual(['prod']);
-      expect(events).toContain('retained');
+      expect(events).toContain('orphaned');
     }).pipe(
       Effect.scoped,
       Effect.provide(FetchHttpClient.layer),
@@ -148,13 +155,15 @@ it('uses native Alchemy ordering, retention, and final stage cleanup', async () 
       }),
       Effect.provideService(Stage, 'dev'),
       Effect.provideService(Cli, {
+        startPlanningSession: () => Effect.succeed(quietPlanning),
         approvePlan: () => Effect.succeed(false),
         displayPlan: () => Effect.void,
         startApplySession: () =>
           Effect.succeed({
             emit: (event) =>
               Effect.sync(() => {
-                if (event.kind === 'status-change') events.push(event.status);
+                if (event._tag === 'apply.resource.status')
+                  events.push(event.status);
               }),
             done: () => Effect.void,
           }),
@@ -209,6 +218,7 @@ it('keeps unresolved native state after provider failure and blocks dependencies
       }),
       Effect.provideService(Stage, 'dev'),
       Effect.provideService(Cli, {
+        startPlanningSession: () => Effect.succeed(quietPlanning),
         approvePlan: () => Effect.succeed(false),
         displayPlan: () => Effect.void,
         startApplySession: () =>
@@ -391,6 +401,7 @@ it('forgets a blocked row of a supported type without calling its provider', asy
       }),
       Effect.provideService(Stage, 'dev'),
       Effect.provideService(Cli, {
+        startPlanningSession: () => Effect.succeed(quietPlanning),
         approvePlan: () => Effect.succeed(false),
         displayPlan: () => Effect.void,
         startApplySession: () =>

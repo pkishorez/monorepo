@@ -4,7 +4,7 @@ import {
   HttpClientError,
   HttpClientRequest,
   HttpClientResponse,
-} from 'effect/unstable/http';
+} from 'effect/http';
 import {
   authWorkerApiUrl,
   type User as ContractUser,

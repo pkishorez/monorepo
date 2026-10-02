@@ -1,13 +1,13 @@
 import { NodeHttpPlatform, NodeServices } from '@effect/platform-node';
 import { Context, Effect, Layer, Option, Schema } from 'effect';
-import { Etag } from 'effect/unstable/http';
+import { Etag } from 'effect/http';
 import {
   HttpApi,
   HttpApiBuilder,
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiTest,
-} from 'effect/unstable/httpapi';
+} from 'effect/http-api';
 import { describe, expect, it } from 'vitest';
 
 import { Cannotation } from './index.js';

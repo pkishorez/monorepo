@@ -15,7 +15,7 @@ hand-written Effect rule for anything the invariant form cannot express.
 ```ts
 // contract.ts — shared by client and server
 import { Effect, Schema } from 'effect';
-import { HttpApiEndpoint, HttpApiGroup } from 'effect/unstable/httpapi';
+import { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api';
 import { Authz } from '@kstackz/auth-toolkit/http-api';
 
 const administratorOnly = Authz.policy(
@@ -41,7 +41,7 @@ carry `user.id`, `user.email`, and `user.name`. `Authz.scope('notes:write')`
 builds a policy only a Token Principal with that Scope passes:
 
 ```ts
-import { HttpApi, HttpApiBuilder } from 'effect/unstable/httpapi';
+import { HttpApi, HttpApiBuilder } from 'effect/http-api';
 import { Authz } from '@kstackz/auth-toolkit/http-api';
 
 class Api extends HttpApi.make('api').add(PrivateApi) {}

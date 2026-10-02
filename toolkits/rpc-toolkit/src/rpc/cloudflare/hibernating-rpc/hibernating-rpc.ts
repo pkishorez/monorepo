@@ -3,20 +3,20 @@ import * as Context from 'effect/Context';
 import * as Deferred from 'effect/Deferred';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
-import * as HttpServerRequest from 'effect/unstable/http/HttpServerRequest';
-import * as HttpServerResponse from 'effect/unstable/http/HttpServerResponse';
+import * as HttpServerRequest from 'effect/http/HttpServerRequest';
+import * as HttpServerResponse from 'effect/http/HttpServerResponse';
 import * as ManagedRuntime from 'effect/ManagedRuntime';
 import * as Option from 'effect/Option';
 import * as Queue from 'effect/Queue';
 import * as Schema from 'effect/Schema';
-import * as RpcSchema from 'effect/unstable/rpc/RpcSchema';
+import * as RpcSchema from 'effect/rpc/RpcSchema';
 import {
   RpcSerialization,
   RpcServer,
   Rpc,
   RpcMessage,
   type RpcGroup,
-} from 'effect/unstable/rpc';
+} from 'effect/rpc';
 import {
   makeStreamCheckpoint,
   type StreamCheckpointService,
@@ -189,8 +189,10 @@ export const makeHibernatingWebSocketRpc = Effect.fnUntraced(function* <
     const rpc =
       request._tag === 'Request' ? group.requests.get(request.tag) : undefined;
 
+    // The RPC server decodes the envelope in place, so it gets a copy and
+    // `request` stays encoded for the attachment and later replays.
     let effect = Effect.provideService(
-      receive(attachment.clientId, request),
+      receive(attachment.clientId, { ...request }),
       InvocationKind,
       kind,
     );

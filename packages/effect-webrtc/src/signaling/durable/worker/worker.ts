@@ -16,7 +16,7 @@ import {
   validateTrustedOrigins,
 } from '@kstackz/auth-toolkit/worker';
 import type { ConnectionSlot } from '@kstackz/rpc-toolkit/rpc/cloudflare/hibernating-rpc';
-import { HttpServerRequest, HttpServerResponse } from 'effect/unstable/http';
+import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import {
   ConnectionMetadata,
   DurableSignalingRpcs,
