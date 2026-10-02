@@ -1,4 +1,12 @@
-import { Context, Duration, Effect } from 'effect';
+import {
+  Cause,
+  Context,
+  Duration,
+  Effect,
+  Exit,
+  Logger,
+  References,
+} from 'effect';
 import { makeTraceRecorder } from '@kstackz/effect-tracer/recorder';
 import { FlowTelemetry } from '@kstackz/flow';
 
@@ -15,10 +23,31 @@ export class StoryContext extends Context.Service<
   }
 >()('StoryContext') {}
 
+/** Where a running proof reports its sections and assertions. */
+export interface ProofReporter {
+  readonly beginSection: (section: QuestionSection) => void;
+  readonly assert: (description: string, passed: boolean) => void;
+}
+
+/** How a proof ended, as plain data that any copy of `effect` can read. */
+export type ProofOutcome =
+  | { readonly _tag: 'Success'; readonly value: unknown }
+  | { readonly _tag: 'Failure'; readonly error: string };
+
 export interface StoryQuestion {
   readonly question: string;
   readonly answer: string;
   readonly proof: Effect.Effect<unknown, unknown, StoryContext>;
+  /**
+   * Runs `proof` on the copy of `effect` that built it. The runner loads
+   * Stories with their own copy, and fibers from two copies must not mix:
+   * each copy numbers its fibers from zero, so a scope closed by a fiber of
+   * one copy can skip interrupting a fiber of the other with the same id.
+   */
+  readonly run: (
+    reporter: ProofReporter,
+    signal: AbortSignal,
+  ) => Promise<ProofOutcome>;
 }
 
 export interface Story {
@@ -51,7 +80,12 @@ export const Story = {
       readonly proof: Effect.Effect<unknown, unknown, StoryContext>;
     },
   ): StoryQuestion {
-    return { question, answer: options.answer, proof: options.proof };
+    return {
+      question,
+      answer: options.answer,
+      proof: options.proof,
+      run: (reporter, signal) => runProof(options.proof, reporter, signal),
+    };
   },
 
   group(
@@ -106,6 +140,34 @@ export const Story = {
   },
 };
 
+function runProof(
+  proof: Effect.Effect<unknown, unknown, StoryContext>,
+  reporter: ProofReporter,
+  signal: AbortSignal,
+): Promise<ProofOutcome> {
+  return Effect.runPromise(
+    proof.pipe(
+      Effect.provideService(StoryContext, {
+        beginSection: (section) =>
+          Effect.sync(() => reporter.beginSection(section)),
+        assert: (description, passed) =>
+          Effect.sync(() => reporter.assert(description, passed)),
+      }),
+      // A proof must see the same logging whatever host runs it: a Story
+      // that captures its own logs cannot depend on the host's log level.
+      Effect.provideService(References.MinimumLogLevel, 'Info'),
+      Effect.provide(Logger.layer([])),
+      Effect.exit,
+      Effect.map((exit): ProofOutcome =>
+        Exit.isSuccess(exit)
+          ? { _tag: 'Success', value: exit.value }
+          : { _tag: 'Failure', error: Cause.pretty(exit.cause) },
+      ),
+    ),
+    { signal },
+  );
+}
+
 export function isStory(value: unknown): value is Story {
   if (typeof value !== 'object' || value === null) return false;
   const story = value as Story;
@@ -119,7 +181,8 @@ export function isStory(value: unknown): value is Story {
       (question) =>
         typeof question.question === 'string' &&
         typeof question.answer === 'string' &&
-        Effect.isEffect(question.proof),
+        Effect.isEffect(question.proof) &&
+        typeof question.run === 'function',
     )
   );
 }

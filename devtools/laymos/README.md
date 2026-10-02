@@ -114,17 +114,17 @@ Browser-safe.
 
 For Story files. Runs in Node under the Story runner.
 
-| Export           | What it does                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------- |
-| `Story.make`     | Builds a Story from a title, description, source URL, and questions; `spine` defaults to false. |
-| `Story.question` | Builds one question with its prose answer and its proof Effect.                                 |
-| `Story.group`    | Builds a Story Group from a title, description, and children.                                   |
-| `Story.trace`    | Runs an Effect under a trace recorder and attaches the captured trace to the report.            |
-| `Story.flow`     | Runs an Effect with a memory Flow sink and attaches every Journal to the report.                |
-| `Story.assert`   | Records a named pass or fail that decides the question's verdict.                               |
-| `StoryContext`   | The service the runner injects; `Story.trace`, `Story.flow`, and `Story.assert` use it.         |
-| `isStory`        | Type guard for a Story value.                                                                   |
-| `isStoryGroup`   | Type guard for a Story Group value.                                                             |
+| Export           | What it does                                                                                                                           |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `Story.make`     | Builds a Story from a title, description, source URL, and questions; `spine` defaults to false.                                        |
+| `Story.question` | Builds one question with its prose answer, its proof Effect, and a `run` that runs the proof on the Story file's own copy of `effect`. |
+| `Story.group`    | Builds a Story Group from a title, description, and children.                                                                          |
+| `Story.trace`    | Runs an Effect under a trace recorder and attaches the captured trace to the report.                                                   |
+| `Story.flow`     | Runs an Effect with a memory Flow sink and attaches every Journal to the report.                                                       |
+| `Story.assert`   | Records a named pass or fail that decides the question's verdict.                                                                      |
+| `StoryContext`   | The service each question's `run` provides; `Story.trace`, `Story.flow`, and `Story.assert` use it.                                    |
+| `isStory`        | Type guard for a Story value.                                                                                                          |
+| `isStoryGroup`   | Type guard for a Story Group value.                                                                                                    |
 
 ### `laymos/story/schema`
 
@@ -247,7 +247,9 @@ How it works:
 
 - `storiesPath/index.ts` default-exports a `Story.group` that lists every
   Story; `laymos stories` imports it with tsx and runs each proof.
-- The runner provides `StoryContext`; `Story.assert` writes into it.
+- The runner calls each question's `run`, which provides `StoryContext` and
+  runs the proof on the copy of `effect` the Story file loaded, so its fibers
+  never mix with the runner's. `Story.assert` writes into `StoryContext`.
 - Wrap a proof in `Story.trace` or `Story.flow` to attach a trace or a Flow
   Journal to the report.
 

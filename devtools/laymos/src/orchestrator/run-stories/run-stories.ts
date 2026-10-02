@@ -2,23 +2,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  Cause,
-  Duration,
-  Effect,
-  Exit,
-  Logger,
-  Option,
-  References,
-  Stream,
-} from 'effect';
+import { Duration, Effect, Option, Stream } from 'effect';
 import { NodeServices } from '@effect/platform-node';
 import { tsImport } from 'tsx/esm/api';
 
 import {
   isStory,
   isStoryGroup,
-  StoryContext,
   type Story,
   type StoryGroup,
 } from '../../story/index.js';
@@ -524,29 +514,25 @@ function runQuestion(
   return Effect.gen(function* () {
     const sections: QuestionSection[] = [];
     const assertions: StoryAssertion[] = [];
-    const exit = yield* question.proof.pipe(
-      Effect.provideService(StoryContext, {
-        beginSection: (section) =>
-          Effect.sync(() => {
+    const outcome = yield* Effect.promise((signal) =>
+      question.run(
+        {
+          beginSection: (section) => {
             sections.push(section);
-          }),
-        assert: (description, passed) =>
-          Effect.sync(() => {
+          },
+          assert: (description, passed) => {
             assertions.push({ description, passed });
-          }),
-      }),
-      // A proof must see the same logging whatever host runs it: a Story
-      // that captures its own logs cannot depend on the host's log level.
-      Effect.provideService(References.MinimumLogLevel, 'Info'),
-      Effect.provide(Logger.layer([])),
-      Effect.exit,
+          },
+        },
+        signal,
+      ),
     );
     const slug = slugifyQuestion(question.question);
-    if (Exit.isFailure(exit)) {
+    if (outcome._tag === 'Failure') {
       return {
         slug,
         verdict: 'errored',
-        error: Cause.pretty(exit.cause),
+        error: outcome.error,
         assertions,
         sections,
       } satisfies QuestionReport;
@@ -555,7 +541,7 @@ function runQuestion(
     return {
       slug,
       verdict: failed ? 'failed' : 'passed',
-      result: toJsonValue(exit.value),
+      result: toJsonValue(outcome.value),
       assertions,
       sections,
     } satisfies QuestionReport;
