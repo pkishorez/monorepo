@@ -1,3 +1,4 @@
+import * as Deferred from 'effect/Deferred';
 import * as Effect from 'effect/Effect';
 import * as Fiber from 'effect/Fiber';
 import * as Layer from 'effect/Layer';
@@ -57,6 +58,7 @@ const makeBrowser = (builds: { page: string; worker: string }) => {
     },
   };
   const openPages = new Map([[page.id, page]]);
+  let closeAfterNextMessage = false;
 
   let running:
     | {
@@ -109,6 +111,10 @@ const makeBrowser = (builds: { page: string; worker: string }) => {
             void lifetimes.push(promise),
         } as unknown as ExtendableMessageEvent;
         Queue.offerUnsafe(current.queue, event);
+        if (closeAfterNextMessage) {
+          closeAfterNextMessage = false;
+          openPages.delete(page.id);
+        }
       });
     },
   };
@@ -137,7 +143,14 @@ const makeBrowser = (builds: { page: string; worker: string }) => {
         current.alive = false;
         yield* Fiber.interrupt(current.fiber);
       }),
-    closePage: () => openPages.delete(page.id),
+    /**
+     * The page closes right after its next message reaches the worker. A page
+     * closed at any other moment can drop the ack of a stream chunk, and the
+     * worker then waits for the periodic sweep to notice it is gone.
+     */
+    closePageAfterNextMessage: () => {
+      closeAfterNextMessage = true;
+    },
   };
 };
 
@@ -258,12 +271,22 @@ describe('Worker RPC', () => {
     await run(
       Effect.gen(function* () {
         const client = yield* WorkerClient.make(Group);
-        const ticking = yield* client
-          .ticks()
-          .pipe(Stream.runDrain, Effect.forkScoped);
-        yield* Effect.sleep('60 millis');
-        browser.closePage();
-        yield* Effect.sleep('100 millis');
+        const firstTick = yield* Deferred.make<void>();
+        const ticking = yield* client.ticks().pipe(
+          Stream.tap(() => Deferred.succeed(firstTick, undefined)),
+          Stream.runDrain,
+          Effect.forkScoped,
+        );
+        yield* Deferred.await(firstTick);
+        // The page acks the tick and closes; the worker's next tick finds it gone.
+        browser.closePageAfterNextMessage();
+        yield* Effect.sync(() => browser.stats.ticksInterrupted).pipe(
+          Effect.repeat({
+            schedule: Schedule.spaced('5 millis'),
+            until: (interrupted) => interrupted > 0,
+          }),
+          Effect.timeout('2 seconds'),
+        );
         expect(browser.stats.ticksInterrupted).toBe(1);
         yield* Fiber.interrupt(ticking);
       }),
