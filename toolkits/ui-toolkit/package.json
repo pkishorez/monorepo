@@ -1,6 +1,6 @@
 {
   "name": "@kstackz/ui-toolkit",
-  "version": "0.0.0",
+  "version": "0.0.12",
   "private": false,
   "type": "module",
   "imports": {
