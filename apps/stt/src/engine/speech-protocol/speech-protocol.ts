@@ -3,8 +3,8 @@
  * transcribe audio windows into words with timestamps.
  */
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { Transferable } from 'effect/unstable/workers';
+import { Rpc, RpcGroup } from 'effect/rpc';
+import { Transferable } from 'effect/workers';
 import { Word } from '../transcript/index.ts';
 
 export class SpeechError extends Schema.TaggedError<SpeechError>()(

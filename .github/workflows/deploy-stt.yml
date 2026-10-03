@@ -66,9 +66,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter 'stt^...' run build
       - run: pnpm --filter stt build
-      - run: pnpm -C apps/stt exec alchemy cloudflare bootstrap
+      - run: pnpm -C apps/stt exec alchemy provider cloudflare bootstrap
       - name: Inspect stt state without a development port
-        run: env -u PORT pnpm -C apps/stt exec alchemy state stages --stack Stt
+        run: env -u PORT pnpm -C apps/stt exec alchemy state list Stt
       - run: pnpm -C apps/stt exec alchemy deploy --stage "$STAGE" --yes
       - name: Mark PR as having a preview
         env:

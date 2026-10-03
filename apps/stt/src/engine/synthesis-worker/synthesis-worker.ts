@@ -4,7 +4,7 @@
  */
 import type { KokoroTTS } from 'kokoro-js';
 import { Effect, Layer, Ref, Stream } from 'effect';
-import { RpcServer } from 'effect/unstable/rpc';
+import { RpcServer } from 'effect/rpc';
 import { BrowserWorkerRunner } from '@effect/platform-browser';
 import { loadKokoro, speakSentences, type KokoroStep } from './kokoro.ts';
 import {

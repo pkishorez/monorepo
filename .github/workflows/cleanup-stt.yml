@@ -38,8 +38,8 @@ jobs:
         id: preview
         run: |
           if ! printf '%s\n' "$STAGE" | grep -qxE 'pr[0-9]+'; then exit 1; fi
-          if stages=$(pnpm -C apps/stt exec alchemy state stages --stack Stt); then
-            if printf '%s\n' "$stages" | grep -qxF "$STAGE"; then
+          if stages=$(pnpm -C apps/stt exec alchemy state list Stt); then
+            if printf '%s\n' "$stages" | grep -qxF "Stt/$STAGE/"; then
               echo 'exists=true' >> "$GITHUB_OUTPUT"
             else
               echo 'exists=false' >> "$GITHUB_OUTPUT"

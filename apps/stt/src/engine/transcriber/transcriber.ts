@@ -3,8 +3,8 @@
  * transcribe audio windows. One worker, spawned on first use.
  */
 import { Context, Effect, Layer, Stream } from 'effect';
-import { RpcClient } from 'effect/unstable/rpc';
-import type { RpcClientError } from 'effect/unstable/rpc/RpcClientError';
+import { RpcClient } from 'effect/rpc';
+import type { RpcClientError } from 'effect/rpc/RpcClientError';
 import { BrowserWorker } from '@effect/platform-browser';
 import {
   SpeechError,

@@ -3,8 +3,8 @@
  * speak sentences one at a time in a chosen voice.
  */
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/unstable/rpc';
-import { Transferable } from 'effect/unstable/workers';
+import { Rpc, RpcGroup } from 'effect/rpc';
+import { Transferable } from 'effect/workers';
 import { voices } from './voices.ts';
 
 export class SynthesisError extends Schema.TaggedError<SynthesisError>()(
