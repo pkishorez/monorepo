@@ -2,7 +2,7 @@
   "name": "public-monorepo",
   "description": "My monorepo",
   "keywords": [],
-  "license": "ISC",
+  "license": "MIT",
   "author": "Kishore",
   "type": "module",
   "scripts": {
