@@ -1,6 +1,6 @@
 {
   "name": "@kstackz/auth-toolkit",
-  "version": "0.0.0",
+  "version": "0.0.12",
   "private": false,
   "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser and CLI clients",
   "keywords": [

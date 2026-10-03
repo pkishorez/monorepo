@@ -1,6 +1,6 @@
 {
   "name": "@kstackz/use-gesture",
-  "version": "0.0.0",
+  "version": "0.0.12",
   "private": false,
   "description": "Touch gestures for React: every finger of a touch as motion values, in nested zones that own touch.",
   "keywords": [
