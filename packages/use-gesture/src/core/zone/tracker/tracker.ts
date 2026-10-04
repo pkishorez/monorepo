@@ -173,7 +173,7 @@ export const createTracker = () => {
     },
     move: (sample) => {
       fingers.move(sample);
-      // With no touch event to read it first, such as for a mouse, the
+      // With no touch event to read it first, such as for a pen, the
       // Direction is read once a pointer has moved SLOP px.
       const pointer = fingers.pointers().get(sample.id);
       if (settled || pointer === undefined) return;

@@ -136,9 +136,9 @@ const swallowNextClick = (win: Window) => {
 };
 
 /**
- * Feeds every pointer on the page to `sink`, for one Gesture Provider. It
- * listens on the window in the capture phase, so nothing inside a zone can
- * hide a finger from it. Fingers where the zone is disabled, and in text
+ * Feeds every touch and pen pointer on the page to `sink`, for one Gesture
+ * Provider; the mouse is left to the browser. It listens on the window in
+ * the capture phase, so nothing inside a zone can hide a finger from it. Fingers where the zone is disabled, and in text
  * entry, are left alone. Moves and releases of tracked pointers follow
  * them anywhere. The browser taking a touch, such as for a Native Scroll or
  * the system back gesture, or the page going away mid-touch, cancels every
@@ -163,7 +163,9 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
   let swallowing = false;
 
   const onDown = (event: PointerEvent) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    // A Gesture is touch or pen: a mouse drag selects text and never
+    // scrolls, so the browser keeps it.
+    if (event.pointerType === 'mouse') return;
     if (owner === 'browser' || zoneGestureOf(event.target) === 'disabled') {
       return;
     }
@@ -176,7 +178,7 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
     if (!tracked.delete(event.pointerId)) return;
     if (!sink.up(sampleOf(event))) return;
     swallowNextClick(win);
-    if (event.pointerType !== 'mouse') swallowing = true;
+    swallowing = true;
   };
   const onCancel = (event: PointerEvent) => {
     if (tracked.has(event.pointerId)) onAway();

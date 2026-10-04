@@ -31,7 +31,7 @@ The way a touch first moves — up, down, left or right, whichever it moved most
 _Avoid_: axis (two Directions), angle
 
 **Gesture**:
-One continuous touch, from the first finger landing in a Gesture Zone to the last one lifting. Every finger that lands in between, wherever it lands, is one of its Pointers; a Gesture Provider runs one Gesture at a time. The core never classifies it: it reports only its Pointers, and what it means — a pan, a pinch, a two-finger swipe, one finger holding while another moves — is decided by a Recognizer or by the app that reads it. Whether its release also clicks what is under it is the browser's call, unless the app prevents its click.
+One continuous touch, from the first finger landing in a Gesture Zone to the last one lifting. A pen counts as a finger; a mouse never makes a Gesture, so its drags select and click as they would outside a zone. Every finger that lands in between, wherever it lands, is one of its Pointers; a Gesture Provider runs one Gesture at a time. The core never classifies it: it reports only its Pointers, and what it means — a pan, a pinch, a two-finger swipe, one finger holding while another moves — is decided by a Recognizer or by the app that reads it. Whether its release also clicks what is under it is the browser's call, unless the app prevents its click.
 _Avoid_: pan, pinch, swipe, tap, hold (meanings read from a Gesture), drag (moving an element itself), shortcut (a Gesture an app binds to a command), interaction
 
 **Interrupted**:
@@ -39,7 +39,7 @@ How a Gesture ends when the browser takes its touch — a Native Scroll, a touch
 _Avoid_: aborted, lost
 
 **Pointer**:
-One finger of a Gesture: where, when and on what element it landed, counted from the Gesture's start, where it is now and how far it has moved, and where and when it lifted. A lifted Pointer stays part of the Gesture until the Gesture ends.
+One finger, or pen, of a Gesture: where, when and on what element it landed, counted from the Gesture's start, where it is now and how far it has moved, and where and when it lifted. A lifted Pointer stays part of the Gesture until the Gesture ends.
 _Avoid_: touch, finger (outside plain speech), contact
 
 **Active**:

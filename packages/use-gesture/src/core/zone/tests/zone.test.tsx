@@ -19,6 +19,7 @@ const pointer = (
   id: number,
   x: number,
   y: number,
+  pointerType = 'touch',
 ) => {
   const event = new MouseEvent(type, {
     bubbles: true,
@@ -28,7 +29,7 @@ const pointer = (
     clientY: y,
     button: 0,
   });
-  Object.assign(event, { pointerId: id, pointerType: 'touch' });
+  Object.assign(event, { pointerId: id, pointerType });
   target.dispatchEvent(event);
 };
 
@@ -135,6 +136,27 @@ describe('GestureProvider, GestureZone and useGesture', () => {
     );
     act(() => pointer('pointerdown', find('slider'), 1, 0, 0));
     expect(screen).not.toHaveBeenCalled();
+  });
+
+  it('leaves the mouse to the browser, but hears a pen', () => {
+    const start = vi.fn();
+    act(() =>
+      root.render(
+        <GestureProvider>
+          <GestureZone data-testid="screen">
+            <Listener name="on-screen" onStart={start} />
+          </GestureZone>
+        </GestureProvider>,
+      ),
+    );
+    act(() => {
+      pointer('pointerdown', find('screen'), 1, 0, 0, 'mouse');
+      pointer('pointermove', find('screen'), 1, 0, 50, 'mouse');
+      pointer('pointerup', find('screen'), 1, 0, 50, 'mouse');
+    });
+    expect(start).not.toHaveBeenCalled();
+    act(() => pointer('pointerdown', find('screen'), 2, 0, 0, 'pen'));
+    expect(start).toHaveBeenCalledTimes(1);
   });
 
   it('sets touch defaults as inline style that `style` overrides, and no position', () => {
