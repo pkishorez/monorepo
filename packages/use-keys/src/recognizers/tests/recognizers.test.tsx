@@ -349,6 +349,19 @@ describe('review fixes', () => {
     expect(host.textContent).toBe('false');
   });
 
+  it('treats a key going down again before it lifts as a repeat', () => {
+    const onCommit = vi.fn();
+    render(
+      <KeysProvider>
+        <Shortcut keys="j" onCommit={onCommit} />
+      </KeysProvider>,
+    );
+    key('keydown', document.body, { key: 'j', code: 'KeyJ' });
+    key('keydown', document.body, { key: 'j', code: 'KeyJ' });
+    key('keyup', document.body, { key: 'j', code: 'KeyJ' });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+
   it('stops Repeating when another key goes down', () => {
     const held = vi.fn();
     render(

@@ -84,6 +84,10 @@ _Avoid_: phase, mode, layer, context, scope, zone, screen (one kind of it)
 
 **Active Surface**:
 The one Surface the app says the user is in right now, and none when the app names none. The app sets it, never a key: moving to another Surface is something an Action's Handler does. With no Active Surface, only the Global Actions work.
+
+**Open**:
+A Surface while it, or a Surface inside it, is the Active Surface: while a reply is written in the inbox, both the inbox and the reply are Open. Opening a Surface makes it Active and remembers the Active Surface it came from; closing it goes back there, closing every Surface opened after it. A Surface already Open is not opened again, one never opened is not closed, and setting the Active Surface any other way forgets every way back.
+_Avoid_: shown, visible, pushed, mounted
 _Avoid_: current phase, focus, state
 
 **Action**:

@@ -26,14 +26,14 @@ export type { Cancel, Progress } from '../keymap/index.ts';
 
 const ProviderContext = createContext<Dispatcher | undefined>(undefined);
 
-const DEFAULT_TIMING: Timing = { delay: 500, interval: 100, timeout: 1000 };
+const DEFAULT_TIMING: Timing = { delay: 200, interval: 40, timeout: 1000 };
 
 export type KeysProviderProps = {
   /** Whether every listener in it hears keys: true by default. */
   readonly enabled?: boolean;
   /**
    * How a held key Repeats a Shortcut or Sequence that asks to: after `delay` ms, then
-   * every `interval` ms. `{ delay: 500, interval: 100 }` by default.
+   * every `interval` ms. `{ delay: 200, interval: 40 }` by default.
    */
   readonly repeat?: { readonly delay?: number; readonly interval?: number };
   /** How long, in ms, a Sequence waits for its next step: 1000 by default. */
