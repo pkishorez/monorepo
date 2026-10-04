@@ -35,10 +35,11 @@ pnpm add @kstackz/use-keys react react-dom
 
 ### `@kstackz/use-keys`
 
-| Export         | What it does                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------------ |
-| `KeysProvider` | Hears every key on the page for the hooks inside it, and sets the Repeat and Sequence timing.          |
-| `useKeys`      | Reports every key from the first going down until the last lifts, with when each went down and lifted. |
+| Export         | What it does                                                                                                        |
+| -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `KeysProvider` | Hears every key on the page for the hooks inside it, and sets the Repeat and Sequence timing.                       |
+| `useKeys`      | Reports every key from the first going down until the last lifts in a ref, re-rendering only as they start and end. |
+| `useKeysState` | Renders the keys in a `useKeys` ref, re-rendering on every key that goes down or lifts.                             |
 
 ### `@kstackz/use-keys/recognizers`
 
@@ -92,19 +93,34 @@ function Inbox() {
 
 ### Every key
 
-`useKeys` watches without taking anything, for things like hold Space to pan.
+`useKeys` watches without taking anything, for things like hold Space to
+pan. It never re-renders as keys change: read them from `keysRef`, react in
+the callbacks, and use `active`, which changes only as the keys start and
+end.
 
 ```tsx
-import { useKeys } from '@kstackz/use-keys';
+import { useKeys, useKeysState } from '@kstackz/use-keys';
 
 function Canvas() {
-  const { keys } = useKeys();
-  const panning = keys.some((key) => key.name === 'Space' && key.upAt === null);
-  return <Board panning={panning} />;
+  const board = useRef<BoardHandle>(null);
+  const { keysRef, active } = useKeys({
+    onKey: () => {
+      const space = keysRef.current.some(
+        (key) => key.name === 'Space' && key.upAt === null,
+      );
+      board.current?.setPanning(space);
+    },
+  });
+  return <Board ref={board} dimmed={active} />;
+}
+
+function KeyDebugger() {
+  const keys = useKeysState(useKeys().keysRef); // re-renders on every key
+  return <pre>{keys.map((key) => key.name).join(' ')}</pre>;
 }
 ```
 
-- `keys` lists every key from the first going down until the last lifts:
+- `keysRef.current` lists every key from the first going down until the last lifts:
   `code` (the physical key), `name` (`'a'`, `'Shift'`, `'?'`), `downAt`, and
   `upAt` (`null` while down), in ms from the first key.
 - Every key lifts exactly once, even when macOS loses a release under Cmd;
