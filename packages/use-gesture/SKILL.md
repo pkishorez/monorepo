@@ -78,8 +78,9 @@ function RowActions({ row }) {
   zone to the last one lifting. Every finger that lands in between,
   wherever it lands, is part of it. It is never classified: pan, pinch,
   swipe or one finger holding while another moves are meanings your app
-  reads from it.
-- **Pointer** — one finger of a Gesture. A lifted Pointer stays in the
+  reads from it. A pen counts as a finger; the mouse never makes a Gesture,
+  so on a desktop it selects and clicks as it would outside a zone.
+- **Pointer** — one finger, or pen, of a Gesture. A lifted Pointer stays in the
   Gesture until it ends.
 - **Direction** — the way a touch first moves: up, down, left or right,
   whichever it moved most. Read once, at the first movement.
@@ -174,8 +175,7 @@ The package never decides whether a Gesture clicks what is under it: the
 browser does, as it would outside a zone. It skips the click when the touch
 moved or used several fingers. A finger lifting while others stay down never
 clicks. Call `preventClick()` in `onEnd` when your app acted on the Gesture
-and the last release must not click. A mouse drag released on the element
-it started on does click, so call `preventClick()` there too.
+and the last release must not click.
 
 ## Scrolling inside a zone
 
@@ -194,8 +194,8 @@ reads the Direction and decides who owns the touch, once; first match wins:
 When the browser takes it, the Gesture ends as interrupted. When the zone
 takes it, nothing scrolls until every finger lifts, not even under a finger
 on a `disabled` element: the browser treats every finger on the screen as
-one touch. With a mouse, which never scrolls, the Direction is read once it
-has moved 10px. `data-zone-gesture` changes the rules for an element and
+one touch. With a pen that sends no touch events, the Direction is read once
+it has moved 10px. `data-zone-gesture` changes the rules for an element and
 what it holds; the nearest one decides:
 
 | Value      | Meaning                                                            |

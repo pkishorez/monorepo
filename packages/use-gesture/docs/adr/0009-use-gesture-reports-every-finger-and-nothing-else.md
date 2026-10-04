@@ -1,5 +1,5 @@
 ---
-status: partly superseded by ADR-0012 (who keeps a Gesture)
+status: partly superseded by ADR-0012 (who keeps a Gesture) and ADR-0013 (the mouse)
 ---
 
 # useGesture reports every finger; zones nest and pass Gestures up

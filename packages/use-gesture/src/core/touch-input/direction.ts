@@ -6,7 +6,7 @@ export type Directions = 'all' | ReadonlyArray<Direction>;
 
 /**
  * How far a pointer moves, in px, before its Direction is read, when no
- * touch event reads it first: a mouse, or a pen.
+ * touch event reads it first, such as for a pen.
  */
 export const SLOP = 10;
 
