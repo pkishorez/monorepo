@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import type { Key, Keys } from '../key/index.ts';
 import { createKeyInput } from '../key-input/index.ts';
@@ -17,6 +18,7 @@ import {
   type KeysEnd,
   type Timing,
 } from './dispatcher.ts';
+import { createKeysRef, type KeysRef } from './keys-ref.ts';
 
 export type { Key } from '../key/index.ts';
 export type { Cancel, Shortcut, Step } from '../keymap/index.ts';
@@ -131,8 +133,6 @@ const useLatest = <T,>(value: T) => {
   return ref;
 };
 
-const NONE: Keys = [];
-
 export type KeysOptions = {
   /** Whether it hears the next Keys: true by default. Read as their first Key goes down. */
   readonly enabled?: boolean;
@@ -149,39 +149,52 @@ export type KeysOptions = {
  * until the last lifts, lifted ones included. It never Takes a key, so any
  * number of listeners can watch the same one. Keys typed in Text Entry, and
  * in elements marked `data-keys="disabled"`, are not heard; Shift, Ctrl,
- * Alt and Cmd always are.
+ * Alt and Cmd always are. It re-renders only as the Keys start and end;
+ * read every Key from `keysRef`, or render them with `useKeysState`.
  */
 export function useKeys(options: KeysOptions = {}): {
-  /** The Keys under way; empty between them. */
-  readonly keys: Keys;
+  /** The Keys under way, empty between them; changes never re-render. */
+  readonly keysRef: KeysRef;
   /** True from the first Key going down until the last lifts. */
   readonly active: boolean;
 } {
   const dispatcher = useDispatcher('useKeys');
   const latest = useLatest(options);
-  const [keys, setKeys] = useState(NONE);
+  const [keys] = useState(createKeysRef);
+  const [active, setActive] = useState(false);
 
   useEffect(
     () =>
       dispatcher.watch({
         enabled: () => latest.current.enabled !== false,
         start: (next) => {
-          setKeys(next);
+          keys.set(next);
+          setActive(true);
           latest.current.onStart?.(next);
         },
         key: (key, next) => {
-          setKeys(next);
+          keys.set(next);
           latest.current.onKey?.(key, next);
         },
         end: (last, end) => {
           latest.current.onEnd?.(last, end);
-          setKeys(NONE);
+          keys.empty();
+          setActive(false);
         },
       }),
-    [dispatcher, latest],
+    [dispatcher, latest, keys],
   );
 
-  return { keys, active: keys.length > 0 };
+  return { keysRef: keys.ref, active };
+}
+
+/** The Keys in `keysRef` as state: it re-renders on every Key that goes down or lifts. */
+export function useKeysState(keysRef: KeysRef): Keys {
+  return useSyncExternalStore(
+    keysRef.subscribe,
+    () => keysRef.current,
+    () => keysRef.current,
+  );
 }
 
 type DeclareOptions = {

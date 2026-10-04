@@ -2,7 +2,7 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type Key, KeysProvider, useKeys } from '../../index.ts';
+import { type Key, KeysProvider, useKeys, useKeysState } from '../../index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -44,13 +44,14 @@ const watch = (enabled = true) => {
     last: [],
   };
   function Watcher() {
-    const { keys } = useKeys({
+    const { keysRef } = useKeys({
       enabled,
       onStart: () => seen.start++,
       onKey: (_, all) => (seen.last = all),
       onEnd: (all, { interrupted }) =>
         seen.ends.push({ keys: all, interrupted }),
     });
+    const keys = useKeysState(keysRef);
     return <span>{keys.map((k) => k.name).join(',')}</span>;
   }
   act(() =>
@@ -147,7 +148,7 @@ describe('useKeys', () => {
 describe('useKeys and data-keys="enabled"', () => {
   it('does not hear typing in Text Entry marked enabled', () => {
     function Watcher() {
-      const { keys } = useKeys();
+      const keys = useKeysState(useKeys().keysRef);
       return <span>{keys.map((k) => k.name).join(',')}</span>;
     }
     act(() =>
@@ -184,5 +185,35 @@ describe('useKeys and data-keys="enabled"', () => {
     key('keydown', { key: 'j', code: 'KeyJ' });
     view(false);
     expect(ends).toEqual([true]);
+  });
+});
+
+describe('useKeys re-renders', () => {
+  it('only as the Keys start and end, while keysRef follows every Key', () => {
+    let renders = 0;
+    let read: ReadonlyArray<Key> = [];
+    function Watcher() {
+      renders++;
+      const { keysRef, active } = useKeys({
+        onKey: () => (read = keysRef.current),
+      });
+      return <span>{String(active)}</span>;
+    }
+    act(() =>
+      root.render(
+        <KeysProvider>
+          <Watcher />
+        </KeysProvider>,
+      ),
+    );
+    const before = renders;
+    key('keydown', { key: 'Shift', code: 'ShiftLeft', shiftKey: true });
+    expect(host.textContent).toBe('true');
+    key('keydown', { key: 'A', code: 'KeyA', shiftKey: true });
+    key('keyup', { key: 'A', code: 'KeyA', shiftKey: true });
+    expect(read.map((k) => k.name)).toEqual(['Shift', 'a']);
+    key('keyup', { key: 'Shift', code: 'ShiftLeft' });
+    expect(host.textContent).toBe('false');
+    expect(renders - before).toBe(2);
   });
 });

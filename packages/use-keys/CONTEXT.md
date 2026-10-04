@@ -75,3 +75,33 @@ _Avoid_: fire, trigger, match
 **Cancel**:
 A Sequence giving up before its last step, with a reason: a wrong key, too slow, or Interrupted.
 _Avoid_: fail, abort, reset
+
+### Surfaces
+
+**Surface**:
+A part of the app where the user works with the keyboard, such as a screen, a pane or a dialog, named in one central definition with the Actions it offers. Surfaces nest: a Surface sits inside another or at the top. While a Surface is Active, its own Actions, those of every Surface around it, and the Global Actions work; a Surface beside it never does. A Surface says what keys can do there, never where the user is.
+_Avoid_: phase, mode, layer, context, scope, zone, screen (one kind of it)
+
+**Active Surface**:
+The one Surface the app says the user is in right now, and none when the app names none. The app sets it, never a key: moving to another Surface is something an Action's Handler does. With no Active Surface, no Action works.
+_Avoid_: current phase, focus, state
+
+**Action**:
+Something the user can do from a Surface, with a name and a description, such as "Archive the selected thread". It works from keys or by being run directly, as from a command palette. It works only while it has a Handler.
+_Avoid_: command, shortcut (that is its keys), event
+
+**Binding**:
+The keys of an Action, a Shortcut or a Sequence: the default from the central definition, or the user's own in its place. One Action may have several; the user's own replace all of its defaults at once.
+_Avoid_: keybinding, hotkey, mapping
+
+**Global Action**:
+An Action of no Surface, such as opening a command palette, working whichever Surface is Active.
+_Avoid_: app action, root action
+
+**Shadowed**:
+An Action that does not work because an Action of a Surface inside it, nearer the Active Surface, has the same keys or keys that start the same. The nearer one always wins: nothing a Handler does at the moment passes a key on.
+_Avoid_: overridden, bubbled, masked
+
+**Handler**:
+What an Action does, given by the app from the component that has what it needs. The central definition never holds it.
+_Avoid_: callback, listener, effect
