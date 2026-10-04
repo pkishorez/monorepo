@@ -21,21 +21,36 @@
       "paths": ["src/showcases/app-shell"],
       "description": "The App Shell Showcase: a small workspace in ui-toolkit's App Shell, its sidebar, header and account menu each turned on or off by Tweaks",
       "modules": {
-        "src/showcases/app-shell": { "exposed": true }
+        "src/showcases/app-shell": {
+          "exposed": true
+        }
       }
     },
     "gestures-showcase": {
       "paths": ["src/showcases/gestures"],
       "description": "The Gestures Showcase: what use-gesture can do, one Topic per page, each a set of Scenarios with a live demo and its code",
       "modules": {
-        "src/showcases/gestures": { "exposed": true }
+        "src/showcases/gestures": {
+          "exposed": true
+        }
       }
     },
     "features-showcase": {
       "paths": ["src/showcases/features"],
       "description": "The Features Showcase: end-to-end apps where several gestures meet on one screen, such as a mail inbox",
       "modules": {
-        "src/showcases/features": { "exposed": true }
+        "src/showcases/features": {
+          "exposed": true
+        }
+      }
+    },
+    "keyboard-showcase": {
+      "paths": ["src/showcases/keyboard"],
+      "description": "The Keyboard Showcase: a notes app run from the keyboard, its Surfaces and Actions in one definition, with a palette, a list of every key, and settings to record new ones",
+      "modules": {
+        "src/showcases/keyboard": {
+          "exposed": true
+        }
       }
     },
     "infra": {
@@ -49,9 +64,15 @@
       "paths": ["src/common"],
       "description": "What every Showcase shares: the theme the document boots with, Tweaks (how a Showcase declares its settings, saves them and shows them), and the dialog that shows its code",
       "modules": {
-        "src/common/theme.ts": { "exposed": true },
-        "src/common/tweaks.tsx": { "exposed": true },
-        "src/common/code.tsx": { "exposed": true }
+        "src/common/theme.ts": {
+          "exposed": true
+        },
+        "src/common/tweaks.tsx": {
+          "exposed": true
+        },
+        "src/common/code.tsx": {
+          "exposed": true
+        }
       }
     }
   },
@@ -64,13 +85,15 @@
           "common",
           "app-shell-showcase",
           "gestures-showcase",
-          "features-showcase"
+          "features-showcase",
+          "keyboard-showcase"
         ],
         "app-shell-showcase": ["common"],
         "gestures-showcase": ["common"],
         "features-showcase": ["common"],
         "infra": [],
-        "common": []
+        "common": [],
+        "keyboard-showcase": ["common"]
       }
     }
   }

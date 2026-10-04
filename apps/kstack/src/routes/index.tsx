@@ -11,7 +11,7 @@ export const Route = createFileRoute('/')({
 
 /** One Showcase: a complete app of one layout or behaviour, under its own route. */
 interface Showcase {
-  readonly to: '/app-shell' | '/gestures' | '/features';
+  readonly to: '/app-shell' | '/gestures' | '/features' | '/keyboard';
   readonly title: string;
   readonly preview: ReactNode;
 }
@@ -20,6 +20,7 @@ const SHOWCASES: ReadonlyArray<Showcase> = [
   { to: '/app-shell', title: 'App Shell', preview: <AppShellPreview /> },
   { to: '/gestures', title: 'Gestures', preview: <GesturesPreview /> },
   { to: '/features', title: 'Features', preview: <FeaturesPreview /> },
+  { to: '/keyboard', title: 'Keyboard', preview: <KeyboardPreview /> },
 ];
 
 /** A wireframe of the App Shell: the sidebar, and the page as a card beside it. */
@@ -64,6 +65,28 @@ function FeaturesPreview() {
         <div className="w-1/8 bg-destructive/50" />
       </div>
       <div className="h-6 rounded bg-foreground/8" />
+    </div>
+  );
+}
+
+/** A list beside a note, and a key cap waiting for its next key. */
+function KeyboardPreview() {
+  return (
+    <div className="flex size-full gap-1.5 bg-background p-2">
+      <div className="flex w-1/3 flex-col gap-1">
+        <div className="h-4 rounded bg-primary/25" />
+        <div className="h-4 rounded bg-foreground/8" />
+        <div className="h-4 rounded bg-foreground/8" />
+      </div>
+      <div className="flex flex-1 items-center justify-center gap-1 rounded bg-foreground/5">
+        <span className="rounded border border-foreground/30 px-2 py-1 text-xs font-medium">
+          g
+        </span>
+        <span className="text-xs text-muted-foreground">then</span>
+        <span className="rounded border border-dashed border-foreground/30 px-2 py-1 text-xs">
+          ?
+        </span>
+      </div>
     </div>
   );
 }

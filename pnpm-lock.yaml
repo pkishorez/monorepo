@@ -582,6 +582,9 @@ importers:
       '@kstackz/use-gesture':
         specifier: workspace:*
         version: link:../../packages/use-gesture
+      '@kstackz/use-keys':
+        specifier: workspace:*
+        version: link:../../packages/use-keys
       '@tanstack/react-router':
         specifier: 'catalog:'
         version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppShellRouteRouteImport } from './routes/app-shell/route'
 import { Route as GesturesRouteRouteImport } from './routes/gestures/route'
+import { Route as KeyboardRouteImport } from './routes/keyboard'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as AppShellIndexRouteImport } from './routes/app-shell/index'
 import { Route as AppShellSectionRouteImport } from './routes/app-shell/$section'
@@ -34,6 +35,11 @@ const AppShellRouteRoute = AppShellRouteRouteImport.update({
 const GesturesRouteRoute = GesturesRouteRouteImport.update({
   id: '/gestures',
   path: '/gestures',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KeyboardRoute = KeyboardRouteImport.update({
+  id: '/keyboard',
+  path: '/keyboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfflineRoute = OfflineRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app-shell': typeof AppShellRouteRouteWithChildren
   '/gestures': typeof GesturesRouteRouteWithChildren
+  '/keyboard': typeof KeyboardRoute
   '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
   '/features/$feature': typeof FeaturesFeatureRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/keyboard': typeof KeyboardRoute
   '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
   '/features/$feature': typeof FeaturesFeatureRoute
@@ -106,6 +114,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app-shell': typeof AppShellRouteRouteWithChildren
   '/gestures': typeof GesturesRouteRouteWithChildren
+  '/keyboard': typeof KeyboardRoute
   '/offline': typeof OfflineRoute
   '/app-shell/$section': typeof AppShellSectionRoute
   '/features/$feature': typeof FeaturesFeatureRoute
@@ -121,6 +130,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app-shell'
     | '/gestures'
+    | '/keyboard'
     | '/offline'
     | '/app-shell/$section'
     | '/features/$feature'
@@ -132,6 +142,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/keyboard'
     | '/offline'
     | '/app-shell/$section'
     | '/features/$feature'
@@ -145,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app-shell'
     | '/gestures'
+    | '/keyboard'
     | '/offline'
     | '/app-shell/$section'
     | '/features/$feature'
@@ -159,6 +171,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppShellRouteRoute: typeof AppShellRouteRouteWithChildren
   GesturesRouteRoute: typeof GesturesRouteRouteWithChildren
+  KeyboardRoute: typeof KeyboardRoute
   OfflineRoute: typeof OfflineRoute
   FeaturesFeatureRoute: typeof FeaturesFeatureRoute
   FeaturesIndexRoute: typeof FeaturesIndexRoute
@@ -186,6 +199,13 @@ declare module '@tanstack/react-router' {
       path: '/gestures'
       fullPath: '/gestures'
       preLoaderRoute: typeof GesturesRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/keyboard': {
+      id: '/keyboard'
+      path: '/keyboard'
+      fullPath: '/keyboard'
+      preLoaderRoute: typeof KeyboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offline': {
@@ -279,6 +299,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppShellRouteRoute: AppShellRouteRouteWithChildren,
   GesturesRouteRoute: GesturesRouteRouteWithChildren,
+  KeyboardRoute: KeyboardRoute,
   OfflineRoute: OfflineRoute,
   FeaturesFeatureRoute: FeaturesFeatureRoute,
   FeaturesIndexRoute: FeaturesIndexRoute,

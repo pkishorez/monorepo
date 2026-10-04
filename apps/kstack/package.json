@@ -22,7 +22,8 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "@kstackz/use-gesture": "workspace:*",
-    "motion": "catalog:"
+    "motion": "catalog:",
+    "@kstackz/use-keys": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

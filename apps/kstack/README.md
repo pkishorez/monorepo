@@ -16,14 +16,15 @@ saved in the browser as `tweak:<name>` and changed live from a panel), and
 the Code dialog (`code.tsx`), which shows a file exactly as it is, imported
 with `?raw`, so the code shown never drifts from what runs.
 
-| Showcase    | Route        | What it shows                                                                                                                                   |
-| ----------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `App Shell` | `/app-shell` | A sidebar, header and page; Tweaks turn each part on or off and set where a swipe opens the sidebar.                                            |
-| `Gestures`  | `/gestures`  | What `@kstackz/use-gesture` can do, one Topic per page, each Scenario a sentence, a live demo and its code. Topics live in `topics/<topic>`.    |
-| `Features`  | `/features`  | End-to-end apps where gestures meet, such as Mail, Photos and Chat, each full screen with what to try and its code. Each lives in `<feature>/`. |
+| Showcase    | Route        | What it shows                                                                                                                                      |
+| ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `App Shell` | `/app-shell` | A sidebar, header and page; Tweaks turn each part on or off and set where a swipe opens the sidebar.                                               |
+| `Gestures`  | `/gestures`  | What `@kstackz/use-gesture` can do, one Topic per page, each Scenario a sentence, a live demo and its code. Topics live in `topics/<topic>`.       |
+| `Features`  | `/features`  | End-to-end apps where gestures meet, such as Mail, Photos and Chat, each full screen with what to try and its code. Each lives in `<feature>/`.    |
+| `Keyboard`  | `/keyboard`  | A notes app run from the keyboard with `@kstackz/use-keys`: Surfaces, a palette, every key and where it stands, and settings that record new keys. |
 
 UI is `@kstackz/ui-toolkit` (shadcn on Base UI) with Tailwind v4, touch is
-`@kstackz/use-gesture`, and infrastructure is Alchemy (`alchemy.run.ts`,
+`@kstackz/use-gesture`, keys are `@kstackz/use-keys`, and infrastructure is Alchemy (`alchemy.run.ts`,
 `src/infra`), like `apps/docs`.
 
 kstack installs as a PWA through `@kstackz/pwa-toolkit` (`app` preset): the
