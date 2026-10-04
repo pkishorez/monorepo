@@ -18,14 +18,12 @@ import {
   type Timing,
 } from './dispatcher.ts';
 
-export type { Key, Keys } from '../key/index.ts';
+export type { Key } from '../key/index.ts';
 export type { Cancel, Shortcut, Step } from '../keymap/index.ts';
-export type { KeysEnd } from './dispatcher.ts';
 
 const ProviderContext = createContext<Dispatcher | undefined>(undefined);
 
-const DEFAULT_REPEAT = { delay: 500, interval: 100 };
-const DEFAULT_SEQUENCE = { timeout: 1000 };
+const DEFAULT_TIMING: Timing = { delay: 500, interval: 100, timeout: 1000 };
 
 export type KeysProviderProps = {
   /** Whether every listener in it hears keys: true by default. */
@@ -69,33 +67,36 @@ const isApple = () =>
 
 function Provider(props: KeysProviderProps) {
   const latest = useLatest(props);
-  const [dispatcher] = useState(() =>
-    createDispatcher({
-      mac: isApple(),
-      timing: (): Timing => ({
-        ...DEFAULT_REPEAT,
-        ...latest.current.repeat,
-        ...DEFAULT_SEQUENCE,
-        ...latest.current.sequence,
-      }),
-      clock: {
-        now: () => performance.now(),
-        schedule: (run, ms) => {
-          const timer = setTimeout(run, ms);
-          return () => clearTimeout(timer);
+  const [{ mac, dispatcher }] = useState(() => {
+    const apple = isApple();
+    return {
+      mac: apple,
+      dispatcher: createDispatcher({
+        mac: apple,
+        timing: (): Timing => ({
+          ...DEFAULT_TIMING,
+          ...latest.current.repeat,
+          ...latest.current.sequence,
+        }),
+        clock: {
+          now: () => performance.now(),
+          schedule: (run, ms) => {
+            const timer = setTimeout(run, ms);
+            return () => clearTimeout(timer);
+          },
         },
-      },
-    }),
-  );
+      }),
+    };
+  });
 
   // Listens only while Enabled; turning it off lifts every key.
   const enabled = props.enabled !== false;
   useEffect(() => {
     if (typeof window === 'undefined' || !enabled) return;
-    const input = createKeyInput(window, dispatcher.sink, { mac: isApple() });
+    const input = createKeyInput(window, dispatcher.sink, { mac });
     input.start();
     return input.stop;
-  }, [dispatcher, enabled]);
+  }, [dispatcher, mac, enabled]);
 
   useEffect(() => devtools(dispatcher), [dispatcher]);
 
@@ -183,7 +184,7 @@ export function useKeys(options: KeysOptions = {}): {
   return { keys, active: keys.length > 0 };
 }
 
-export type DeclareOptions = {
+type DeclareOptions = {
   readonly enabled: boolean;
   readonly inTextEntry: boolean;
   readonly repeat: boolean;
@@ -203,29 +204,22 @@ export function useDeclare(
   options: DeclareOptions,
 ) {
   const dispatcher = useDispatcher(user);
-  const latest = useLatest(options);
-  const [conflict, setConflict] = useState<Error>();
+  const latest = useLatest({ ...options, paths });
   const { enabled, inTextEntry } = options;
   // Paths are compared by what they say, so inline ones do not re-declare.
   const said = JSON.stringify(paths);
 
-  if (conflict !== undefined) throw conflict;
-
+  // A Conflict throws here, to the nearest error boundary.
   useEffect(() => {
     if (!enabled) return;
-    try {
-      return dispatcher.declare(
-        { paths: JSON.parse(said) as typeof paths, inTextEntry },
-        {
-          commit: () => latest.current.onCommit(),
-          possible: () => latest.current.onPossible?.(),
-          cancel: (reason) => latest.current.onCancel?.(reason),
-          repeat: () => latest.current.repeat,
-        },
-      );
-    } catch (error) {
-      setConflict(error as Error);
-      return;
-    }
+    return dispatcher.declare(
+      { paths: latest.current.paths, inTextEntry },
+      {
+        commit: () => latest.current.onCommit(),
+        possible: () => latest.current.onPossible?.(),
+        cancel: (reason) => latest.current.onCancel?.(reason),
+        repeat: () => latest.current.repeat,
+      },
+    );
   }, [dispatcher, latest, enabled, inTextEntry, said]);
 }

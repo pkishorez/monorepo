@@ -6,7 +6,7 @@ import { isTextEntry } from './text-entry.ts';
  * Shortcuts and Sequences before the element, even in Text Entry; `disabled`
  * keeps its keys from every listener. The nearest one decides.
  */
-export const KEYS_ATTRIBUTE = 'data-keys';
+const KEYS_ATTRIBUTE = 'data-keys';
 
 /** Where the keys the page may hear go. */
 export type KeySink = {
@@ -23,12 +23,9 @@ export type KeySink = {
   readonly interrupt: () => void;
 };
 
-const FLAGS: ReadonlyArray<readonly [Modifier, keyof KeyboardEvent]> = [
-  ['Shift', 'shiftKey'],
-  ['Control', 'ctrlKey'],
-  ['Alt', 'altKey'],
-  ['Meta', 'metaKey'],
-];
+const FLAGS: Readonly<
+  Record<Modifier, 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey'>
+> = { Shift: 'shiftKey', Control: 'ctrlKey', Alt: 'altKey', Meta: 'metaKey' };
 
 const elementOf = (event: Event) => {
   const target = event.composedPath()[0] ?? event.target;
@@ -37,6 +34,10 @@ const elementOf = (event: Event) => {
 
 const markOf = (element: Element | null) =>
   element?.closest(`[${KEYS_ATTRIBUTE}]`)?.getAttribute(KEYS_ATTRIBUTE);
+
+// Text being composed in another script is the browser's.
+const composing = (event: KeyboardEvent) =>
+  event.isComposing || event.keyCode === 229;
 
 /**
  * Listens to every key on the page and gives the sink only what the page
@@ -53,11 +54,15 @@ export const createKeyInput = (
   sink: KeySink,
   options: { readonly mac: boolean },
 ) => {
-  // Keys reported down, by code, in the order they went down; the codes
-  // a listener Took, in Text Entry too; the events capture already pressed.
+  // Keys reported down, by code, in the order they went down; and the codes
+  // a listener Took, in Text Entry too.
   const down = new Map<string, string>();
   const taken = new Set<string>();
-  const handled = new WeakSet<Event>();
+
+  const report = (code: string, name: string) => {
+    down.set(code, name);
+    sink.down(code, name);
+  };
 
   const lift = (code: string) => {
     if (!down.delete(code)) return;
@@ -67,13 +72,10 @@ export const createKeyInput = (
 
   // Brings the modifiers in line with what the browser says is down.
   const sync = (event: KeyboardEvent) => {
-    for (const [modifier, flag] of FLAGS) {
+    for (const [modifier, flag] of Object.entries(FLAGS)) {
       const codes = [...down].filter(([, name]) => name === modifier);
-      if (event[flag] === true && codes.length === 0) {
-        down.set(modifier, modifier);
-        sink.down(modifier, modifier);
-      }
-      if (event[flag] === false) for (const [code] of codes) lift(code);
+      if (event[flag] && codes.length === 0) report(modifier, modifier);
+      if (!event[flag]) for (const [code] of codes) lift(code);
     }
   };
 
@@ -89,10 +91,7 @@ export const createKeyInput = (
       if (taken.has(event.code)) event.preventDefault();
       return taken.has(event.code);
     }
-    if (heard) {
-      down.set(event.code, name);
-      sink.down(event.code, name);
-    }
+    if (heard) report(event.code, name);
     const took = sink.press(name, textEntry);
     if (took) {
       taken.add(event.code);
@@ -104,21 +103,16 @@ export const createKeyInput = (
   // Every key is first seen here, before any element: modifiers, and the
   // keys of `enabled` elements, whose typing is still not heard.
   const capture = (event: KeyboardEvent) => {
-    if (event.isComposing || event.keyCode === 229) return;
+    if (composing(event)) return;
     const name = nameOf(event);
     if (isModifier(name)) {
-      if (!event.repeat && !down.has(event.code)) {
-        down.set(event.code, name);
-        sink.down(event.code, name);
-      }
+      if (!event.repeat && !down.has(event.code)) report(event.code, name);
       sync(event);
-      handled.add(event);
       return;
     }
     sync(event);
     const element = elementOf(event);
     if (markOf(element) !== 'enabled') return;
-    handled.add(event);
     if (press(event, name, !isTextEntry(element), false)) {
       event.stopPropagation();
     }
@@ -126,16 +120,18 @@ export const createKeyInput = (
 
   // Every other key, after the page had its turn.
   const bubble = (event: KeyboardEvent) => {
-    if (event.isComposing || event.keyCode === 229) return;
+    if (composing(event) || event.defaultPrevented) return;
     const element = elementOf(event);
-    if (markOf(element) === 'disabled' || event.defaultPrevented) return;
+    const mark = markOf(element);
+    if (mark === 'disabled') return;
     const name = nameOf(event);
     const textEntry = isTextEntry(element);
     if (textEntry && name === 'Escape') {
       element.blur();
       return;
     }
-    if (handled.has(event)) return;
+    // Capture already had these.
+    if (isModifier(name) || mark === 'enabled') return;
     if (textEntry && !event.ctrlKey && !event.altKey && !event.metaKey) return;
     press(event, name, !textEntry, textEntry);
   };
@@ -144,18 +140,18 @@ export const createKeyInput = (
     const { code } = event;
     // macOS sends no release for keys lifted while Cmd is down, so every
     // key that went down after it lifts with it.
-    const codes = [...down.keys()];
-    const at = codes.indexOf(code);
-    const after =
-      options.mac && nameOf(event) === 'Meta' && at !== -1
-        ? codes.slice(at + 1)
-        : [];
+    const codes =
+      options.mac && nameOf(event) === 'Meta' ? [...down.keys()] : [];
+    const after = codes.includes(code)
+      ? codes.slice(codes.indexOf(code) + 1)
+      : [];
     // A Taken key in Text Entry is not in the Keys, but its release still
     // ends its Repeats.
     if (taken.delete(code) && !down.has(code)) sink.up(code);
     lift(code);
-    for (const other of after)
+    for (const other of after) {
       if (!isModifier(down.get(other) ?? '')) lift(other);
+    }
     sync(event);
   };
 
@@ -187,5 +183,3 @@ export const createKeyInput = (
     },
   };
 };
-
-export type KeyInput = ReturnType<typeof createKeyInput>;

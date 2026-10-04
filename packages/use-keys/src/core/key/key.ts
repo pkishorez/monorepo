@@ -16,15 +16,15 @@ export type Keys = ReadonlyArray<Key>;
 
 export type Modifier = 'Shift' | 'Control' | 'Alt' | 'Meta';
 
-const MODIFIERS: ReadonlySet<string> = new Set<Modifier>([
+export const MODIFIERS: ReadonlyArray<Modifier> = [
   'Shift',
   'Control',
   'Alt',
   'Meta',
-]);
+];
 
 export const isModifier = (name: string): name is Modifier =>
-  MODIFIERS.has(name);
+  (MODIFIERS as ReadonlyArray<string>).includes(name);
 
 const LETTER = /^[a-z]$/i;
 const LETTER_CODE = /^Key([A-Z])$/;
@@ -49,7 +49,3 @@ export const nameOf = (event: {
   if (key === 'Unidentified' || key === '') return code;
   return key;
 };
-
-/** The Keys still down. */
-export const held = (keys: Keys): Keys =>
-  keys.filter((key) => key.upAt === null);
