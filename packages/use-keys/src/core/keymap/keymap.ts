@@ -60,9 +60,9 @@ export const createKeymap = (options: {
 
   const store = (entry: Entry): Stored => ({
     inTextEntry: entry.inTextEntry,
-    paths: entry.paths.map((path) =>
-      path.map((step) => exact(step, options.mac)),
-    ),
+    paths: entry.paths
+      .filter((path) => path.length > 0)
+      .map((path) => path.map((step) => exact(step, options.mac))),
   });
 
   // Whether one path's steps are the same as, or the start of, the other's.
