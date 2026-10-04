@@ -2,7 +2,7 @@
   "name": "@kstackz/use-keys",
   "version": "0.0.0",
   "private": false,
-  "description": "Keyboard shortcuts for React: every key the page hears, and the Shortcuts and Sequences built on it.",
+  "description": "Keyboard shortcuts for React: every key the page hears, the Shortcuts and Sequences built on it, and an app's whole keyboard in one place.",
   "keywords": [
     "react",
     "keyboard",
@@ -30,6 +30,10 @@
     "./recognizers": {
       "types": "./dist/recognizers/index.d.ts",
       "default": "./dist/recognizers/index.js"
+    },
+    "./surfaces": {
+      "types": "./dist/surfaces/index.d.ts",
+      "default": "./dist/surfaces/index.js"
     }
   },
   "scripts": {

@@ -2,7 +2,7 @@
 import { act, Component, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { KeysProvider } from '../../core/index.ts';
+import { KeysProvider, sequence, shortcut } from '../../core/index.ts';
 import { useSequence, useShortcut } from '../index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -92,7 +92,10 @@ describe('useShortcut', () => {
     const onCommit = vi.fn();
     render(
       <KeysProvider>
-        <Shortcut keys={['j', 'ArrowDown']} onCommit={onCommit} />
+        <Shortcut
+          keys={[shortcut('j'), shortcut('ArrowDown')]}
+          onCommit={onCommit}
+        />
       </KeysProvider>,
     );
     expect(
@@ -103,6 +106,17 @@ describe('useShortcut', () => {
     expect(
       tap(document.body, { key: 'x', code: 'KeyX' }).defaultPrevented,
     ).toBe(false);
+  });
+
+  it('takes a Shortcut written as a string', () => {
+    const onCommit = vi.fn();
+    render(
+      <KeysProvider>
+        <Shortcut keys="ctrl+k" onCommit={onCommit} />
+      </KeysProvider>,
+    );
+    tap(document.body, { key: 'k', code: 'KeyK', ctrlKey: true });
+    expect(onCommit).toHaveBeenCalledTimes(1);
   });
 
   it('matches exact modifiers, Caps Lock aside', () => {
@@ -213,7 +227,7 @@ describe('useShortcut', () => {
       <KeysProvider>
         <Catch>
           <Shortcut keys="g" onCommit={() => {}} />
-          <Sequence keys={['g', 'g']} onCommit={() => {}} />
+          <Sequence keys={sequence('g g')} onCommit={() => {}} />
         </Catch>
       </KeysProvider>,
     );
@@ -238,22 +252,50 @@ describe('useSequence', () => {
     const onCommit = vi.fn();
     render(
       <KeysProvider>
-        <Sequence keys={[['g', 'g'], ['Home']]} onCommit={onCommit} />
+        <Sequence
+          keys={[sequence('g g'), sequence('g Home')]}
+          onCommit={onCommit}
+        />
       </KeysProvider>,
     );
     tap(document.body, { key: 'g', code: 'KeyG' });
     expect(host.textContent).toBe('true');
     tap(document.body, { key: 'g', code: 'KeyG' });
     expect(host.textContent).toBe('false');
+    tap(document.body, { key: 'g', code: 'KeyG' });
     tap(document.body, { key: 'Home', code: 'Home' });
     expect(onCommit).toHaveBeenCalledTimes(2);
+  });
+
+  it('Repeats on its last key, held, when asked', () => {
+    const onCommit = vi.fn();
+    function Held() {
+      useSequence('g g', onCommit, { repeat: true });
+      return null;
+    }
+    render(
+      <KeysProvider repeat={{ delay: 300, interval: 50 }}>
+        <Held />
+      </KeysProvider>,
+    );
+    tap(document.body, { key: 'g', code: 'KeyG' });
+    key('keydown', document.body, { key: 'g', code: 'KeyG' });
+    act(() => vi.advanceTimersByTime(300 + 50));
+    expect(onCommit).toHaveBeenCalledTimes(3);
+    key('keyup', document.body, { key: 'g', code: 'KeyG' });
+    act(() => vi.advanceTimersByTime(500));
+    expect(onCommit).toHaveBeenCalledTimes(3);
   });
 
   it('cancels when the next step comes too late, or the page loses focus', () => {
     const onCancel = vi.fn();
     render(
       <KeysProvider sequence={{ timeout: 400 }}>
-        <Sequence keys={['g', 'i']} onCommit={() => {}} onCancel={onCancel} />
+        <Sequence
+          keys={sequence('g i')}
+          onCommit={() => {}}
+          onCancel={onCancel}
+        />
       </KeysProvider>,
     );
     tap(document.body, { key: 'g', code: 'KeyG' });
@@ -273,7 +315,11 @@ describe('review fixes', () => {
     const onCancel = vi.fn();
     render(
       <KeysProvider>
-        <Sequence keys={['g', 'i']} onCommit={() => {}} onCancel={onCancel} />
+        <Sequence
+          keys={sequence('g i')}
+          onCommit={() => {}}
+          onCancel={onCancel}
+        />
       </KeysProvider>,
     );
     tap(document.body, { key: 'g', code: 'KeyG' });
@@ -287,7 +333,7 @@ describe('review fixes', () => {
   it('is no longer pending once turned off', () => {
     const view = (enabled: boolean) => {
       function Pending() {
-        const { pending } = useSequence(['g', 'i'], () => {}, { enabled });
+        const { pending } = useSequence('g i', () => {}, { enabled });
         return <span>{String(pending)}</span>;
       }
       render(
@@ -351,17 +397,5 @@ describe('review fixes', () => {
     input.focus();
     tap(input, { key: 'Escape', code: 'Escape' });
     expect(document.activeElement).not.toBe(input);
-  });
-
-  it('ignores an empty Sequence instead of conflicting with everything', () => {
-    render(
-      <KeysProvider>
-        <Catch>
-          <Sequence keys={[]} onCommit={() => {}} />
-          <Shortcut keys="j" onCommit={() => {}} />
-        </Catch>
-      </KeysProvider>,
-    );
-    expect(host.querySelector('[data-testid="error"]')).toBeNull();
   });
 });

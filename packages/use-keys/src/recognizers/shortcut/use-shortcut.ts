@@ -1,6 +1,10 @@
-import { type Step, useDeclare } from '../../core/provider/index.ts';
-
-export type { Shortcut } from '../../core/provider/index.ts';
+import {
+  shortcut as toShortcut,
+  type Shortcut,
+  type ShortcutObject,
+  type ShortcutString,
+} from '../../core/binding/index.ts';
+import { useDeclare } from '../../core/provider/index.ts';
 
 export type ShortcutOptions = {
   /** Whether it waits for its keys: true by default. */
@@ -19,23 +23,26 @@ export type ShortcutOptions = {
 
 /**
  * Commits as its key goes down while exactly its modifiers are down, and
- * Takes that key. `shortcut` is one Shortcut, a bare key for one with no
- * modifiers, or a list of either for the same action: `['j', 'ArrowDown']`.
+ * Takes that key. `shortcut` is written as a string, `'mod+k'`, or an
+ * object, `{ key: 'k', mod: true }`, or is a list of `shortcut()` values
+ * for the same action: `[shortcut('j'), shortcut('ArrowDown')]`.
  */
 export function useShortcut(
-  shortcut: Step | ReadonlyArray<Step>,
+  shortcut:
+    | ShortcutString
+    | ShortcutObject
+    | Shortcut
+    | ReadonlyArray<Shortcut>,
   onCommit: () => void,
   options: ShortcutOptions = {},
 ): void {
-  const shortcuts = Array.isArray(shortcut) ? shortcut : [shortcut as Step];
-  useDeclare(
-    'useShortcut',
-    shortcuts.map((step) => [step]),
-    {
-      enabled: options.enabled !== false,
-      inTextEntry: options.inTextEntry === true,
-      repeat: options.repeat === true,
-      onCommit,
-    },
-  );
+  const shortcuts = Array.isArray(shortcut)
+    ? (shortcut as ReadonlyArray<Shortcut>)
+    : [toShortcut(shortcut as ShortcutString | ShortcutObject | Shortcut)];
+  useDeclare('useShortcut', shortcuts, {
+    enabled: options.enabled !== false,
+    inTextEntry: options.inTextEntry === true,
+    repeat: options.repeat === true,
+    onCommit,
+  });
 }

@@ -1,16 +1,17 @@
+import { describe } from '../binding/index.ts';
 import type { Key, Keys } from '../key/index.ts';
 import type { KeySink } from '../key-input/index.ts';
 import {
   type Cancel,
   createKeymap,
-  describe,
   type Entry,
   type Outcome,
+  type Progress,
 } from '../keymap/index.ts';
 import { development } from './development.ts';
 
 export type Timing = {
-  /** Ms a key is held before a Shortcut that asks to Repeats. */
+  /** Ms a key is held before a Shortcut or Sequence that asks to Repeats. */
   readonly delay: number;
   /** Ms between Repeats after that. */
   readonly interval: number;
@@ -31,7 +32,7 @@ export type Watcher = {
 
 export type Declared = {
   readonly commit: () => void;
-  readonly possible: () => void;
+  readonly possible: (progress: ReadonlyArray<Progress>) => void;
   readonly cancel: (reason: Cancel) => void;
   /** Whether it Commits again while its key stays down. */
   readonly repeat: () => boolean;
@@ -47,8 +48,8 @@ type Clock = {
 /**
  * One Keys Provider's state: the Keys under way, every listener that
  * watches them, and every Shortcut and Sequence that waits for keys. It
- * hears the page through the KeySink it gives, and runs the timers a
- * Shortcut's Repeats and a Sequence's steps need.
+ * hears the page through the KeySink it gives, and runs the timers
+ * Repeats and a Sequence's steps need.
  */
 export const createDispatcher = (options: {
   readonly mac: boolean;
@@ -74,7 +75,7 @@ export const createDispatcher = (options: {
     for (const outcome of outcomes) {
       const listener = declared.get(outcome.id);
       if (outcome.type === 'commit') listener?.commit();
-      if (outcome.type === 'possible') listener?.possible();
+      if (outcome.type === 'possible') listener?.possible(outcome.progress);
       if (outcome.type === 'cancel') listener?.cancel(outcome.reason);
     }
   };
@@ -201,7 +202,7 @@ export const createDispatcher = (options: {
       const conflict = place(slot);
       if (conflict !== undefined) {
         const other = declared.get(conflict)?.entry;
-        const message = `use-keys: "${entry.paths.map(describe).join('", "')}" conflicts with "${other?.paths.map(describe).join('", "') ?? ''}", which is Enabled in the same KeysProvider.`;
+        const message = `use-keys: "${entry.bindings.map(describe).join('", "')}" conflicts with "${other?.bindings.map(describe).join('", "') ?? ''}", which is Enabled in the same KeysProvider.`;
         if (development()) throw new Error(message);
         console.warn(message);
         blocked.add(slot);
@@ -218,8 +219,12 @@ export const createDispatcher = (options: {
     },
     /** Every declared Shortcut and Sequence, as people write them. */
     declared: () =>
-      [...declared.values()].flatMap(({ entry }) => entry.paths.map(describe)),
+      [...declared.values()].flatMap(({ entry }) =>
+        entry.bindings.map(describe),
+      ),
     keys: () => keys,
+    /** Whether `mod` is Cmd here, as on Apple platforms, or Ctrl. */
+    mac: options.mac,
   };
 };
 

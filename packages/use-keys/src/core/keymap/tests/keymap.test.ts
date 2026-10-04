@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import type { Key } from '../../key/index.ts';
+import {
+  sequence as toSequence,
+  shortcut as toShortcut,
+  type ShortcutObject,
+  type ShortcutString,
+} from '../../binding/index.ts';
 import { createKeymap, type Entry } from '../index.ts';
 
-const shortcut = (...steps: Entry['paths'][number]): Entry => ({
-  paths: steps.map((step) => [step]),
+type Written = ShortcutString | ShortcutObject;
+
+const shortcut = (...steps: Written[]): Entry => ({
+  bindings: steps.map(toShortcut),
   inTextEntry: false,
 });
-const sequence = (...steps: Entry['paths'][number]): Entry => ({
-  paths: [steps],
+const sequence = (...steps: [Written, Written, ...Written[]]): Entry => ({
+  bindings: [toSequence(steps)],
   inTextEntry: false,
 });
 
@@ -86,7 +94,7 @@ describe('keymap', () => {
     const map = keymap();
     const id = added(map, sequence('g', 'g'));
     expect(map.press(press('g', [], 0)).outcomes).toEqual([
-      { id, type: 'possible' },
+      { id, type: 'possible', progress: [{ binding: 0, next: 1 }] },
     ]);
     expect(map.press(press('g', [], 500)).outcomes).toEqual([
       { id, type: 'commit' },
@@ -121,8 +129,8 @@ describe('keymap', () => {
     const gg = added(map, sequence('g', 'g'));
     const gi = added(map, sequence('g', 'i'));
     expect(map.press(press('g')).outcomes).toEqual([
-      { id: gg, type: 'possible' },
-      { id: gi, type: 'possible' },
+      { id: gg, type: 'possible', progress: [{ binding: 0, next: 1 }] },
+      { id: gi, type: 'possible', progress: [{ binding: 0, next: 1 }] },
     ]);
     expect(map.press(press('i')).outcomes).toEqual([
       { id: gi, type: 'commit' },
@@ -153,5 +161,18 @@ describe('keymap', () => {
     expect(map.press(press('k', ctrl, 0, true)).taken).toBe(true);
     expect(map.press(press('s', ctrl, 0, true)).taken).toBe(false);
     expect(map.press(press('j', shift, 0, true)).taken).toBe(false);
+  });
+
+  it('says how far each Sequence under way has come', () => {
+    const map = keymap();
+    const id = added(map, {
+      bindings: [toSequence('g a b'), toSequence('g c d')],
+      inTextEntry: false,
+    });
+    map.press(press('g'));
+    expect(map.press(press('a')).outcomes).toEqual([
+      { id, type: 'possible', progress: [{ binding: 0, next: 2 }] },
+    ]);
+    expect(map.press(press('b')).outcomes).toEqual([{ id, type: 'commit' }]);
   });
 });
