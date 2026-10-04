@@ -1,0 +1,62 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "layers": {
+    "core": {
+      "paths": ["src/core"],
+      "description": "Core — a KeysProvider hears every key on the page, keeps the Keys, and calls every Enabled useKeys; it Takes the keys of the Shortcuts and Sequences declared in it and refuses those that Conflict.",
+      "moduleGraphs": {
+        "core": {
+          "description": "key names one Key; key-input listens to the page and keeps the Kept Keys from it; keymap matches keys to declared Shortcuts and Sequences; provider puts them together for React.",
+          "path": "src/core",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "provider": {
+              "exposed": true
+            },
+            "key": {},
+            "key-input": {},
+            "keymap": {}
+          },
+          "rules": {
+            "index.ts": ["provider"],
+            "provider": ["key", "key-input", "keymap"],
+            "key-input": ["key"],
+            "keymap": ["key"]
+          }
+        }
+      }
+    },
+    "recognizers": {
+      "paths": ["src/recognizers"],
+      "description": "Recognizers — the hooks an app calls: useShortcut and useSequence, each declaring its keys to the nearest KeysProvider. They never know about each other.",
+      "moduleGraphs": {
+        "recognizers": {
+          "description": "Each Recognizer declares its keys through the provider on its own.",
+          "path": "src/recognizers",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "shortcut": {},
+            "sequence": {}
+          },
+          "rules": {
+            "index.ts": ["shortcut", "sequence"]
+          }
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "use-keys": {
+      "description": "Recognizers are built on the core; the core never imports them. Each layer is its own entry point.",
+      "rules": {
+        "core": [],
+        "recognizers": ["core"]
+      }
+    }
+  }
+}
