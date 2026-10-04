@@ -13,3 +13,4 @@ Surfaces look like the states of a state machine, so the obvious design gives th
 - The provider takes `surface` and `onSurfaceChange`, and nothing else; `setSurface` from anywhere calls `onSurfaceChange`.
 - The central definition never names transitions or a default Surface.
 - With no Active Surface, only the Global Actions work.
+- The provider may remember where each opened Surface came from, so a dialog can open and close itself; it still never holds the Active Surface, and setting it any other way, including the app passing a new one, forgets those ways back.

@@ -26,6 +26,7 @@ import {
   type SurfaceId,
 } from '../surface-tree/index.ts';
 import { createHandlers, type Handlers } from './handlers.ts';
+import { createReturns } from './returns.ts';
 import { type Status, statusOf } from './status.ts';
 
 export type { Status } from './status.ts';
@@ -33,6 +34,8 @@ export type { Status } from './status.ts';
 type Keyboard = {
   readonly surface: string | null;
   readonly setSurface: (surface: string | null) => void;
+  readonly openSurface: (surface: string) => void;
+  readonly closeSurface: (surface: string) => void;
   readonly resolution: Resolution;
   readonly handlers: Handlers;
 };
@@ -40,7 +43,10 @@ type Keyboard = {
 type ProviderProps<D extends Definition> = {
   /** The Active Surface, which the app keeps; null when there is none. */
   readonly surface: SurfaceId<D> | null;
-  /** Asked to change the Active Surface, by `setSurface` from `useSurface`. */
+  /**
+   * Asked to change the Active Surface, by `setSurface`, `openSurface` or
+   * `closeSurface` from `useSurface`.
+   */
   readonly onSurfaceChange?: (surface: SurfaceId<D> | null) => void;
   /**
    * The user's own Bindings, by Action id. Each replaces all of that
@@ -134,24 +140,37 @@ export const createKeys = <const D extends Definition>(definition: D) => {
       }
     }, [resolution]);
 
-    const latest = useRef(onSurfaceChange);
+    const latest = useRef({ surface, onSurfaceChange });
     useLayoutEffect(() => {
-      latest.current = onSurfaceChange;
+      latest.current = { surface, onSurfaceChange };
     });
-    const keyboard = useMemo<Keyboard>(
-      () => ({
+    const [returns] = useState(createReturns);
+    useEffect(() => returns.moved(surface), [returns, surface]);
+
+    const keyboard = useMemo<Keyboard>(() => {
+      const move = (next: string | null) => {
+        if (latest.current.onSurfaceChange === undefined) {
+          warn('changing the Surface needs onSurfaceChange on keys.Provider.');
+        }
+        latest.current.onSurfaceChange?.(next as never);
+      };
+      return {
         surface,
         resolution,
         handlers,
         setSurface: (next) => {
-          if (latest.current === undefined) {
-            warn('setSurface needs onSurfaceChange on keys.Provider.');
-          }
-          latest.current?.(next as never);
+          returns.forget();
+          move(next);
         },
-      }),
-      [surface, resolution, handlers],
-    );
+        openSurface: (next) => {
+          if (returns.open(next, latest.current.surface)) move(next);
+        },
+        closeSurface: (id) => {
+          const back = returns.close(id);
+          if (back !== undefined) move(back.to);
+        },
+      };
+    }, [surface, resolution, handlers, returns]);
 
     return (
       <Context value={keyboard}>
@@ -193,13 +212,25 @@ export const createKeys = <const D extends Definition>(definition: D) => {
   return {
     Provider,
 
-    /** The Active Surface, and a way to ask the app to change it. */
+    /**
+     * The Active Surface, and the ways to ask the app to change it:
+     * - `setSurface` moves there, forgetting every way back;
+     * - `openSurface` moves there, remembering where it came from; nothing
+     *   when that Surface is already Open;
+     * - `closeSurface` goes back to where that Surface was opened from,
+     *   closing every Surface opened after it; nothing when it was not
+     *   opened.
+     */
     useSurface: () => {
-      const { surface, setSurface } = useKeyboard('useSurface');
-      return [
-        surface as SurfaceId<D> | null,
-        setSurface as (surface: SurfaceId<D> | null) => void,
-      ] as const;
+      const keyboard = useKeyboard('useSurface');
+      return {
+        surface: keyboard.surface as SurfaceId<D> | null,
+        setSurface: keyboard.setSurface as (
+          surface: SurfaceId<D> | null,
+        ) => void,
+        openSurface: keyboard.openSurface as (surface: SurfaceId<D>) => void,
+        closeSurface: keyboard.closeSurface as (surface: SurfaceId<D>) => void,
+      };
     },
 
     /**

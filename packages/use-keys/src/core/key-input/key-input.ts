@@ -87,7 +87,9 @@ export const createKeyInput = (
     heard: boolean,
     textEntry: boolean,
   ) => {
-    if (event.repeat) {
+    // A key already down going down again is the browser repeating it,
+    // even when it does not say so.
+    if (event.repeat || down.has(event.code)) {
       if (taken.has(event.code)) event.preventDefault();
       return taken.has(event.code);
     }

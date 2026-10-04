@@ -78,7 +78,7 @@ import { KeysProvider, shortcut } from '@kstackz/use-keys';
 import { useSequence, useShortcut } from '@kstackz/use-keys/recognizers';
 
 <KeysProvider
-  repeat={{ delay: 500, interval: 100 }}
+  repeat={{ delay: 200, interval: 40 }}
   sequence={{ timeout: 1000 }}
 >
   <Inbox />
@@ -174,7 +174,7 @@ function App() {
 }
 
 function Inbox() {
-  const [, setSurface] = keys.useSurface();
+  const { setSurface } = keys.useSurface();
   keys.useAction('inbox.next', () => move(1));
   keys.useAction('inbox.sidebar', () => setSurface('sidebar'));
   const { sequence: under } = keys.useStatus();
@@ -190,6 +190,10 @@ function Inbox() {
   around it while it is Active; `globals: false` stops the Global Actions.
 - `bindings` holds the user's own, by Action id, as `shortcut()` and
   `sequence()` values; each replaces all of that Action's defaults.
+- `useSurface` gives the Active Surface and `setSurface`. A dialog uses
+  `openSurface('palette')`, which remembers where it came from, and
+  `closeSurface('palette')`, which goes back there, so it opens and closes
+  itself without knowing who opened it.
 - `useStatus` lists every Action and where it stands, and the Sequence under
   way; `useRun` runs an Action by id, as a command palette does.
 

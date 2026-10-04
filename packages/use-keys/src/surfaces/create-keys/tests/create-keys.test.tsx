@@ -96,7 +96,7 @@ const calls: string[] = [];
 
 // Every Action logs its id when it runs.
 function Handlers(props: { readonly without?: string }) {
-  const [, setSurface] = keys.useSurface();
+  const { setSurface } = keys.useSurface();
   const on = (id: Parameters<typeof keys.useAction>[0]) =>
     keys.useAction(id, () => calls.push(id), {
       enabled: props.without !== id,
@@ -117,9 +117,11 @@ function Handlers(props: { readonly without?: string }) {
 
 let status: ReturnType<typeof keys.useStatus>;
 let run: ReturnType<typeof keys.useRun>;
+let surfaces: ReturnType<typeof keys.useSurface>;
 function Status() {
   status = keys.useStatus();
   run = keys.useRun();
+  surfaces = keys.useSurface();
   return null;
 }
 
@@ -201,6 +203,60 @@ describe('createKeys', () => {
     tap('u');
     expect(calls).toEqual(['inbox.confirm.yes', 'inbox.confirm.locked.unlock']);
     expect(stateOf('close')).toBe('inactive');
+  });
+
+  it('opens a Surface and closes it back to where it was opened from', () => {
+    render(<App surface="inbox.reply" />);
+    act(() => surfaces.openSurface('inbox.confirm'));
+    act(() => surfaces.openSurface('inbox.confirm.locked'));
+    expect(status.surface).toBe('inbox.confirm.locked');
+    act(() => surfaces.closeSurface('inbox.confirm.locked'));
+    expect(status.surface).toBe('inbox.confirm');
+    act(() => surfaces.closeSurface('inbox.confirm'));
+    expect(status.surface).toBe('inbox.reply');
+  });
+
+  it('closes every Surface opened after the one it closes', () => {
+    render(<App />);
+    act(() => surfaces.openSurface('inbox.confirm'));
+    act(() => surfaces.openSurface('sidebar'));
+    act(() => surfaces.openSurface('inbox.reply'));
+    act(() => surfaces.closeSurface('sidebar'));
+    expect(status.surface).toBe('inbox.confirm');
+  });
+
+  it('opens nothing already Open, and closes nothing not opened', () => {
+    render(<App />);
+    act(() => surfaces.openSurface('inbox.confirm'));
+    act(() => surfaces.openSurface('inbox.confirm.locked'));
+    act(() => surfaces.openSurface('inbox.confirm'));
+    expect(status.surface).toBe('inbox.confirm.locked');
+    act(() => surfaces.closeSurface('sidebar'));
+    expect(status.surface).toBe('inbox.confirm.locked');
+    act(() => surfaces.closeSurface('inbox.confirm'));
+    expect(status.surface).toBe('inbox');
+  });
+
+  it('keeps the way back when one Surface closes and another opens at once', () => {
+    render(<App />);
+    act(() => surfaces.openSurface('inbox.confirm'));
+    act(() => {
+      surfaces.closeSurface('inbox.confirm');
+      surfaces.openSurface('sidebar');
+    });
+    expect(status.surface).toBe('sidebar');
+    act(() => surfaces.closeSurface('sidebar'));
+    expect(status.surface).toBe('inbox');
+  });
+
+  it('forgets the way back when the Surface is set', () => {
+    render(<App />);
+    act(() => surfaces.openSurface('inbox.confirm'));
+    act(() => surfaces.setSurface('sidebar'));
+    act(() => surfaces.openSurface('inbox.reply'));
+    act(() => surfaces.setSurface('inbox.confirm'));
+    act(() => surfaces.closeSurface('inbox.confirm'));
+    expect(status.surface).toBe('inbox.confirm');
   });
 
   it('puts the user’s own Bindings in place of the defaults, at once', () => {
