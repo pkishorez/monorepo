@@ -1,4 +1,9 @@
-import { isModifier, type Keys, type Modifier } from '../key/index.ts';
+import {
+  isModifier,
+  type Keys,
+  type Modifier,
+  MODIFIERS,
+} from '../key/index.ts';
 
 // prettier-ignore
 type Letter =
@@ -51,7 +56,7 @@ export type Shortcut = Modifiers &
 /** A Shortcut, or a bare key for one with no modifiers. */
 export type Step = Shortcut | Letter | Character | NamedKey;
 
-type Exact = {
+export type Exact = {
   readonly key: string;
   readonly sides: Readonly<Record<Modifier, Side>>;
 };
@@ -79,12 +84,12 @@ export const exact = (step: Step, mac: boolean): Exact => {
 type Down = { left: boolean; right: boolean; unknown: boolean };
 
 const down = (keys: Keys): Record<Modifier, Down> => {
-  const state = {
-    Shift: { left: false, right: false, unknown: false },
-    Control: { left: false, right: false, unknown: false },
-    Alt: { left: false, right: false, unknown: false },
-    Meta: { left: false, right: false, unknown: false },
-  };
+  const state = Object.fromEntries(
+    MODIFIERS.map((modifier) => [
+      modifier,
+      { left: false, right: false, unknown: false },
+    ]),
+  ) as Record<Modifier, Down>;
   for (const key of keys) {
     if (key.upAt !== null || !isModifier(key.name)) continue;
     const sides = state[key.name];
@@ -103,8 +108,6 @@ const allows = (side: Side, state: Down) => {
   return side ? any : !any;
 };
 
-const MODIFIERS: ReadonlyArray<Modifier> = ['Shift', 'Control', 'Alt', 'Meta'];
-
 /** Whether `name` going down, with `keys` down, presses `step`. */
 export const presses = (step: Exact, name: string, keys: Keys) => {
   if (step.key !== name) return false;
@@ -122,7 +125,7 @@ export const commands = (step: Exact) =>
   });
 
 // The states a Side allows, as none, left, right and both.
-const STATES: Readonly<Record<string, ReadonlyArray<number>>> = {
+const STATES: Readonly<Record<`${Side}`, ReadonlyArray<number>>> = {
   false: [0],
   true: [1, 2, 3],
   any: [0, 1, 2, 3],
@@ -134,29 +137,23 @@ const STATES: Readonly<Record<string, ReadonlyArray<number>>> = {
 export const overlaps = (a: Exact, b: Exact) =>
   a.key === b.key &&
   MODIFIERS.every((modifier) => {
-    const states = STATES[String(b.sides[modifier])] ?? [];
-    return (STATES[String(a.sides[modifier])] ?? []).some((state) =>
+    const states = STATES[`${b.sides[modifier]}`];
+    return STATES[`${a.sides[modifier]}`].some((state) =>
       states.includes(state),
     );
   });
 
-const SHOWN: ReadonlyArray<readonly [keyof Shortcut, string]> = [
-  ['mod', 'mod'],
-  ['ctrl', 'ctrl'],
-  ['alt', 'alt'],
-  ['shift', 'shift'],
-  ['meta', 'meta'],
-];
+const SHOWN = ['mod', 'ctrl', 'alt', 'shift', 'meta'] as const;
 
 /** A Sequence as people write it: `mod+k`, `g g`. */
 export const describe = (path: ReadonlyArray<Step>) =>
   path
     .map((step) => {
       if (typeof step === 'string') return step;
-      const held = SHOWN.flatMap(([field, shown]) => {
+      const held = SHOWN.flatMap((field) => {
         const side = step[field];
         if (side === undefined || side === false) return [];
-        return [side === true ? shown : `${shown}(${String(side)})`];
+        return [side === true ? field : `${field}(${side})`];
       });
       return [...held, step.key].join('+');
     })

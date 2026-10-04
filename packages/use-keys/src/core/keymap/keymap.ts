@@ -1,5 +1,12 @@
 import type { Keys } from '../key/index.ts';
-import { commands, exact, overlaps, presses, type Step } from './shortcut.ts';
+import {
+  commands,
+  exact,
+  type Exact,
+  overlaps,
+  presses,
+  type Step,
+} from './shortcut.ts';
 
 export { describe } from './shortcut.ts';
 export type { Shortcut, Step } from './shortcut.ts';
@@ -9,8 +16,7 @@ export type Cancel = 'key' | 'late' | 'interrupted';
 
 /** What the keymap decided for one of its entries. */
 export type Outcome =
-  | { readonly id: number; readonly type: 'commit' }
-  | { readonly id: number; readonly type: 'possible' }
+  | { readonly id: number; readonly type: 'commit' | 'possible' }
   | { readonly id: number; readonly type: 'cancel'; readonly reason: Cancel };
 
 export type Entry = {
@@ -20,7 +26,7 @@ export type Entry = {
   readonly inTextEntry: boolean;
 };
 
-export type Press = {
+type Press = {
   readonly name: string;
   /** The Keys, with every modifier down right now. */
   readonly keys: Keys;
@@ -28,7 +34,6 @@ export type Press = {
   readonly textEntry: boolean;
 };
 
-type Exact = ReturnType<typeof exact>;
 type Stored = {
   readonly paths: ReadonlyArray<ReadonlyArray<Exact>>;
   readonly inTextEntry: boolean;
@@ -36,6 +41,7 @@ type Stored = {
 // A Sequence under way: `next` is the index of its step still to come.
 type Candidate = {
   readonly id: number;
+  readonly entry: Stored;
   readonly path: ReadonlyArray<Exact>;
   readonly next: number;
 };
@@ -94,18 +100,19 @@ export const createKeymap = (options: {
     const moved: Candidate[] = [];
     const committed = new Set<number>();
     for (const candidate of candidates) {
-      const entry = entries.get(candidate.id);
       const step = candidate.path[candidate.next];
-      if (entry === undefined || step === undefined) continue;
-      if (!pressable(entry, step, press)) continue;
+      if (step === undefined || !pressable(candidate.entry, step, press)) {
+        continue;
+      }
       if (candidate.next + 1 === candidate.path.length) {
         committed.add(candidate.id);
       } else moved.push({ ...candidate, next: candidate.next + 1 });
     }
     if (committed.size === 0 && moved.length === 0) return undefined;
     candidates = committed.size > 0 ? [] : moved;
+    const after = pending();
     const left = [...before].filter(
-      (id) => !committed.has(id) && !pending().has(id),
+      (id) => !committed.has(id) && !after.has(id),
     );
     return [
       ...[...committed].map((id): Outcome => ({ id, type: 'commit' })),
@@ -126,10 +133,18 @@ export const createKeymap = (options: {
         outcomes.push({ id, type: 'commit' });
       } else if (first.length > 0) {
         outcomes.push({ id, type: 'possible' });
-        for (const path of first) started.push({ id, path, next: 1 });
+        for (const path of first) started.push({ id, entry, path, next: 1 });
       }
     }
     candidates = started;
+    return outcomes;
+  };
+
+  /** Cancels the Sequences under way if their next step is late at `now`. */
+  const expire = (now: number): Outcome[] => {
+    if (candidates.length === 0 || now - lastAt <= options.timeout()) return [];
+    const outcomes = cancel(pending(), 'late');
+    candidates = [];
     return outcomes;
   };
 
@@ -174,8 +189,7 @@ export const createKeymap = (options: {
     deadline: () =>
       candidates.length > 0 ? lastAt + options.timeout() : undefined,
 
-    /** Cancels the Sequences under way if their next step is late at `now`. */
-    expire: (now: number) => expire(now),
+    expire,
 
     /** The page lost focus: every Sequence under way Cancels. */
     interrupt: () => {
@@ -184,13 +198,4 @@ export const createKeymap = (options: {
       return outcomes;
     },
   };
-
-  function expire(now: number): Outcome[] {
-    if (candidates.length === 0 || now - lastAt <= options.timeout()) return [];
-    const outcomes = cancel(pending(), 'late');
-    candidates = [];
-    return outcomes;
-  }
 };
-
-export type Keymap = ReturnType<typeof createKeymap>;
