@@ -99,12 +99,16 @@ describe('useKeys', () => {
     expect(host.textContent).toBe('j');
   });
 
-  it('lifts every key when Cmd lifts, since macOS loses those releases', () => {
-    const seen = watch();
+  it('on Apple platforms, lifts the keys pressed after Cmd when it lifts', () => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel');
+    watch();
+    key('keydown', { key: ' ', code: 'Space' });
     key('keydown', { key: 'Meta', code: 'MetaLeft', metaKey: true });
     key('keydown', { key: 'k', code: 'KeyK', metaKey: true });
     key('keyup', { key: 'Meta', code: 'MetaLeft' });
-    expect(seen.ends).toHaveLength(1);
+    expect(host.textContent).toBe('Space,Meta,k');
+    key('keyup', { key: ' ', code: 'Space' });
+    expect(host.textContent).toBe('');
   });
 
   it('lifts a modifier the browser says is no longer down', () => {
@@ -137,5 +141,48 @@ describe('useKeys', () => {
     key('keydown', { key: 'j', code: 'KeyJ' });
     key('keyup', { key: 'j', code: 'KeyJ' });
     expect(seen.start).toBe(0);
+  });
+});
+
+describe('useKeys and data-keys="enabled"', () => {
+  it('does not hear typing in Text Entry marked enabled', () => {
+    function Watcher() {
+      const { keys } = useKeys();
+      return <span>{keys.map((k) => k.name).join(',')}</span>;
+    }
+    act(() =>
+      root.render(
+        <KeysProvider>
+          <Watcher />
+          <input data-keys="enabled" />
+        </KeysProvider>,
+      ),
+    );
+    key(
+      'keydown',
+      { key: 'h', code: 'KeyH' },
+      host.querySelector('input') as Element,
+    );
+    expect(host.textContent).toBe('');
+  });
+
+  it('lifts every key when the provider is turned off', () => {
+    const ends: boolean[] = [];
+    function Watcher() {
+      useKeys({ onEnd: (_, { interrupted }) => ends.push(interrupted) });
+      return null;
+    }
+    const view = (enabled: boolean) =>
+      act(() =>
+        root.render(
+          <KeysProvider enabled={enabled}>
+            <Watcher />
+          </KeysProvider>,
+        ),
+      );
+    view(true);
+    key('keydown', { key: 'j', code: 'KeyJ' });
+    view(false);
+    expect(ends).toEqual([true]);
   });
 });

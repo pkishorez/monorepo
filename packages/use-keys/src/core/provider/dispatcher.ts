@@ -37,6 +37,8 @@ export type Declared = {
   readonly repeat: () => boolean;
 };
 
+type Slot = Declared & { readonly entry: Entry; id: number | undefined };
+
 type Clock = {
   readonly now: () => number;
   readonly schedule: (run: () => void, ms: number) => () => void;
@@ -50,7 +52,6 @@ type Clock = {
  */
 export const createDispatcher = (options: {
   readonly mac: boolean;
-  readonly enabled: () => boolean;
   readonly timing: () => Timing;
   readonly clock: Clock;
 }) => {
@@ -60,7 +61,9 @@ export const createDispatcher = (options: {
     timeout: () => options.timing().timeout,
   });
   const watchers = new Set<Watcher>();
-  const declared = new Map<number, Declared & { readonly entry: Entry }>();
+  const declared = new Map<number, Slot>();
+  // Entries that lost a Conflict in production, waiting for the keys.
+  const blocked = new Set<Slot>();
   let hearing: ReadonlyArray<Watcher> = [];
   let keys: Keys = [];
   let startAt = 0;
@@ -90,17 +93,27 @@ export const createDispatcher = (options: {
     );
   };
 
-  // Commits `id` again while `key` stays down: after the delay, then at
-  // the interval.
-  const repeat = (id: number, key: Key) => {
+  // Commits `id` again after the delay, then at the interval, until any
+  // key goes down or lifts.
+  const repeat = (id: number) => {
     const again = (ms: number) => {
       stopRepeat = clock.schedule(() => {
-        if (!keys.some((k) => k.code === key.code && k.upAt === null)) return;
-        declared.get(id)?.commit();
+        const listener = declared.get(id);
+        if (listener === undefined) return;
+        listener.commit();
         again(options.timing().interval);
       }, ms);
     };
     again(options.timing().delay);
+  };
+
+  // Adds a slot to the keymap, or returns the id it conflicts with.
+  const place = (slot: Slot) => {
+    const added = keymap.add(slot.entry);
+    if ('conflict' in added) return added.conflict;
+    slot.id = added.id;
+    declared.set(added.id, slot);
+    return undefined;
   };
 
   const lift = (index: number, at: number) => {
@@ -129,7 +142,7 @@ export const createDispatcher = (options: {
 
   const sink: KeySink = {
     down: (code, name) => {
-      if (!options.enabled()) return;
+      stopRepeat();
       const now = clock.now();
       if (keys.length === 0) {
         startAt = now;
@@ -141,6 +154,7 @@ export const createDispatcher = (options: {
       for (const watcher of hearing) watcher.key(key, keys);
     },
     up: (code) => {
+      stopRepeat();
       const index = keys.findLastIndex(
         (key) => key.code === code && key.upAt === null,
       );
@@ -149,8 +163,6 @@ export const createDispatcher = (options: {
       if (keys.every((key) => key.upAt !== null)) end(false);
     },
     press: (name, textEntry) => {
-      if (!options.enabled()) return false;
-      stopRepeat();
       const { taken, outcomes } = keymap.press({
         name,
         keys,
@@ -159,14 +171,11 @@ export const createDispatcher = (options: {
       });
       dispatch(outcomes);
       watchDeadline();
-      const pressed = textEntry ? undefined : keys.at(-1);
       const repeats = outcomes.find(
         (outcome) =>
           outcome.type === 'commit' && declared.get(outcome.id)?.repeat(),
       );
-      if (repeats !== undefined && pressed !== undefined) {
-        repeat(repeats.id, pressed);
-      }
+      if (repeats !== undefined) repeat(repeats.id);
       return taken;
     },
     interrupt,
@@ -174,7 +183,6 @@ export const createDispatcher = (options: {
 
   return {
     sink,
-    interrupt,
     /** Adds a listener that watches every Keys while it is Enabled. */
     watch: (watcher: Watcher) => {
       watchers.add(watcher);
@@ -189,18 +197,23 @@ export const createDispatcher = (options: {
      * warns, and the one added first keeps the keys.
      */
     declare: (entry: Entry, listener: Declared) => {
-      const added = keymap.add(entry);
-      if ('conflict' in added) {
-        const other = declared.get(added.conflict)?.entry;
+      const slot: Slot = { ...listener, entry, id: undefined };
+      const conflict = place(slot);
+      if (conflict !== undefined) {
+        const other = declared.get(conflict)?.entry;
         const message = `use-keys: "${entry.paths.map(describe).join('", "')}" conflicts with "${other?.paths.map(describe).join('", "') ?? ''}", which is Enabled in the same KeysProvider.`;
         if (development()) throw new Error(message);
         console.warn(message);
-        return () => {};
+        blocked.add(slot);
       }
-      declared.set(added.id, { ...listener, entry });
       return () => {
-        keymap.remove(added.id);
-        declared.delete(added.id);
+        blocked.delete(slot);
+        if (slot.id === undefined) return;
+        keymap.remove(slot.id);
+        declared.delete(slot.id);
+        for (const waiting of blocked) {
+          if (place(waiting) === undefined) blocked.delete(waiting);
+        }
       };
     },
     /** Every declared Shortcut and Sequence, as people write them. */

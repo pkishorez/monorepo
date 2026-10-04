@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   type Cancel,
   type Step,
@@ -34,11 +34,16 @@ export function useSequence(
   readonly pending: boolean;
 } {
   const [pending, setPending] = useState(false);
+  const enabled = options.enabled !== false;
+  // Turned off mid-way, it is no longer under way.
+  useEffect(() => {
+    if (!enabled) setPending(false);
+  }, [enabled]);
   const sequences = Array.isArray(sequence[0])
     ? (sequence as ReadonlyArray<Sequence>)
     : [sequence as Sequence];
   useDeclare('useSequence', sequences, {
-    enabled: options.enabled !== false,
+    enabled,
     inTextEntry: false,
     repeat: false,
     onCommit: () => {

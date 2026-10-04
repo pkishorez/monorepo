@@ -267,3 +267,101 @@ describe('useSequence', () => {
     expect(onCancel).toHaveBeenLastCalledWith('interrupted');
   });
 });
+
+describe('review fixes', () => {
+  it('cancels a Sequence waiting between steps when the page loses focus', () => {
+    const onCancel = vi.fn();
+    render(
+      <KeysProvider>
+        <Sequence keys={['g', 'i']} onCommit={() => {}} onCancel={onCancel} />
+      </KeysProvider>,
+    );
+    tap(document.body, { key: 'g', code: 'KeyG' });
+    act(() => {
+      window.dispatchEvent(new Event('blur'));
+    });
+    expect(onCancel).toHaveBeenCalledWith('interrupted');
+    expect(host.textContent).toBe('false');
+  });
+
+  it('is no longer pending once turned off', () => {
+    const view = (enabled: boolean) => {
+      function Pending() {
+        const { pending } = useSequence(['g', 'i'], () => {}, { enabled });
+        return <span>{String(pending)}</span>;
+      }
+      render(
+        <KeysProvider>
+          <Pending />
+        </KeysProvider>,
+      );
+    };
+    view(true);
+    tap(document.body, { key: 'g', code: 'KeyG' });
+    expect(host.textContent).toBe('true');
+    view(false);
+    expect(host.textContent).toBe('false');
+  });
+
+  it('stops Repeating when another key goes down', () => {
+    const held = vi.fn();
+    render(
+      <KeysProvider repeat={{ delay: 300, interval: 50 }}>
+        <Shortcut keys="j" onCommit={held} options={{ repeat: true }} />
+      </KeysProvider>,
+    );
+    key('keydown', document.body, { key: 'j', code: 'KeyJ' });
+    key('keydown', document.body, {
+      key: 'Control',
+      code: 'ControlLeft',
+      ctrlKey: true,
+    });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(held).toHaveBeenCalledTimes(1);
+  });
+
+  it('Repeats a Shortcut Taken in Text Entry until its key lifts', () => {
+    const undo = vi.fn();
+    render(
+      <KeysProvider repeat={{ delay: 300, interval: 50 }}>
+        <Shortcut
+          keys={{ key: 'z', ctrl: true }}
+          onCommit={undo}
+          options={{ inTextEntry: true, repeat: true }}
+        />
+        <textarea />
+      </KeysProvider>,
+    );
+    const area = host.querySelector('textarea') as HTMLTextAreaElement;
+    key('keydown', area, { key: 'z', code: 'KeyZ', ctrlKey: true });
+    act(() => vi.advanceTimersByTime(300));
+    expect(undo).toHaveBeenCalledTimes(2);
+    key('keyup', area, { key: 'z', code: 'KeyZ', ctrlKey: true });
+    act(() => vi.advanceTimersByTime(1000));
+    expect(undo).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets Escape leave a data-keys="enabled" field no Shortcut took it from', () => {
+    render(
+      <KeysProvider>
+        <input data-keys="enabled" />
+      </KeysProvider>,
+    );
+    const input = host.querySelector('input') as HTMLInputElement;
+    input.focus();
+    tap(input, { key: 'Escape', code: 'Escape' });
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it('ignores an empty Sequence instead of conflicting with everything', () => {
+    render(
+      <KeysProvider>
+        <Catch>
+          <Sequence keys={[]} onCommit={() => {}} />
+          <Shortcut keys="j" onCommit={() => {}} />
+        </Catch>
+      </KeysProvider>,
+    );
+    expect(host.querySelector('[data-testid="error"]')).toBeNull();
+  });
+});

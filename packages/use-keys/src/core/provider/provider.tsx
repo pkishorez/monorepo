@@ -72,7 +72,6 @@ function Provider(props: KeysProviderProps) {
   const [dispatcher] = useState(() =>
     createDispatcher({
       mac: isApple(),
-      enabled: () => latest.current.enabled !== false,
       timing: (): Timing => ({
         ...DEFAULT_REPEAT,
         ...latest.current.repeat,
@@ -89,20 +88,16 @@ function Provider(props: KeysProviderProps) {
     }),
   );
 
+  // Listens only while Enabled; turning it off lifts every key.
+  const enabled = props.enabled !== false;
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const input = createKeyInput(window, dispatcher.sink);
+    if (typeof window === 'undefined' || !enabled) return;
+    const input = createKeyInput(window, dispatcher.sink, { mac: isApple() });
     input.start();
-    const shown = devtools(dispatcher);
-    return () => {
-      shown();
-      input.stop();
-    };
-  }, [dispatcher]);
+    return input.stop;
+  }, [dispatcher, enabled]);
 
-  useEffect(() => {
-    if (props.enabled === false) dispatcher.interrupt();
-  }, [dispatcher, props.enabled]);
+  useEffect(() => devtools(dispatcher), [dispatcher]);
 
   return <ProviderContext value={dispatcher}>{props.children}</ProviderContext>;
 }
