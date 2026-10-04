@@ -22,6 +22,7 @@
       "@kstackz/std-toolkit",
       "@kstackz/ui-toolkit",
       "@kstackz/use-gesture",
+      "@kstackz/use-keys",
       "laymos"
     ]
   ],

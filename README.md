@@ -37,6 +37,7 @@ version. See [docs/adr/0002-one-version-for-the-kstack-packages.md](./docs/adr/0
 | [`toolkits/auth-toolkit`](./toolkits/auth-toolkit)   | [`@kstackz/auth-toolkit`](https://www.npmjs.com/package/@kstackz/auth-toolkit)   | Shared authentication worker, sessions, and authorization integrations.                                   |
 | [`packages/effect-webrtc`](./packages/effect-webrtc) | [`@kstackz/effect-webrtc`](https://www.npmjs.com/package/@kstackz/effect-webrtc) | Effect-native peer sessions and RPC over WebRTC data channels.                                            |
 | [`packages/use-gesture`](./packages/use-gesture)     | [`@kstackz/use-gesture`](https://www.npmjs.com/package/@kstackz/use-gesture)     | Touch gestures for React: every finger of a touch as motion values, in nested zones that own touch.       |
+| [`packages/use-keys`](./packages/use-keys)           | [`@kstackz/use-keys`](https://www.npmjs.com/package/@kstackz/use-keys)           | Keyboard shortcuts for React: every key the page hears, and the Shortcuts and Sequences built on it.      |
 
 ### Developer tools
 

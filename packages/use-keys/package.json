@@ -1,0 +1,55 @@
+{
+  "name": "@kstackz/use-keys",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Keyboard shortcuts for React: every key the page hears, and the Shortcuts and Sequences built on it.",
+  "keywords": [
+    "react",
+    "keyboard",
+    "shortcuts",
+    "hotkeys",
+    "vim"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "packages/use-keys"
+  },
+  "type": "module",
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist/"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./recognizers": {
+      "types": "./dist/recognizers/index.d.ts",
+      "default": "./dist/recognizers/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
+    "fmt": "vp fmt",
+    "lint": "vp check && tsc --noEmit && laymos lint",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "laymos": "workspace:*",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
