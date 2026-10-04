@@ -1,27 +1,36 @@
-import type { Keys } from '../key/index.ts';
 import {
-  commands,
+  type Binding,
+  conflicts,
   exact,
   type Exact,
-  overlaps,
-  presses,
-  type Step,
-} from './shortcut.ts';
-
-export { describe } from './shortcut.ts';
-export type { Shortcut, Step } from './shortcut.ts';
+  stepsOf,
+} from '../binding/index.ts';
+import type { Keys } from '../key/index.ts';
+import { commands, presses } from './match.ts';
 
 /** Why a Sequence gave up before its last step. */
 export type Cancel = 'key' | 'late' | 'interrupted';
 
+/**
+ * How far a Sequence under way has come: which of the entry's Bindings,
+ * and the index of its step still to come.
+ */
+export type Progress = { readonly binding: number; readonly next: number };
+
 /** What the keymap decided for one of its entries. */
 export type Outcome =
-  | { readonly id: number; readonly type: 'commit' | 'possible' }
+  | { readonly id: number; readonly type: 'commit' }
+  | {
+      readonly id: number;
+      readonly type: 'possible';
+      /** Every one of its Bindings still under way. */
+      readonly progress: ReadonlyArray<Progress>;
+    }
   | { readonly id: number; readonly type: 'cancel'; readonly reason: Cancel };
 
 export type Entry = {
-  /** Its Sequences; a Shortcut is a Sequence of one step. */
-  readonly paths: ReadonlyArray<ReadonlyArray<Step>>;
+  /** Its Shortcuts and Sequences, any of which Commits it. */
+  readonly bindings: ReadonlyArray<Binding>;
   /** Whether a step holding Ctrl, Alt or Cmd may be pressed in Text Entry. */
   readonly inTextEntry: boolean;
 };
@@ -34,15 +43,14 @@ type Press = {
   readonly textEntry: boolean;
 };
 
-type Stored = {
+type Stored = Entry & {
   readonly paths: ReadonlyArray<ReadonlyArray<Exact>>;
-  readonly inTextEntry: boolean;
 };
 // A Sequence under way: `next` is the index of its step still to come.
 type Candidate = {
   readonly id: number;
   readonly entry: Stored;
-  readonly path: ReadonlyArray<Exact>;
+  readonly binding: number;
   readonly next: number;
 };
 
@@ -50,7 +58,7 @@ type Candidate = {
  * Every Enabled Shortcut and Sequence of one Keys Provider, as steps waiting
  * for keys. It refuses an entry whose keys are the same as, or the start of,
  * another's. For each key going down it says which entries Commit, which
- * become Possible and which Cancel, and whether the key is Taken. It never
+ * are Possible and which Cancel, and whether the key is Taken. It never
  * keeps time itself: the caller passes the time, and asks `expire` when
  * `deadline` passes.
  */
@@ -65,20 +73,18 @@ export const createKeymap = (options: {
   let nextId = 0;
 
   const store = (entry: Entry): Stored => ({
-    inTextEntry: entry.inTextEntry,
-    paths: entry.paths
-      .filter((path) => path.length > 0)
-      .map((path) => path.map((step) => exact(step, options.mac))),
+    ...entry,
+    paths: entry.bindings.map((binding) =>
+      stepsOf(binding).map((step) => exact(step, options.mac)),
+    ),
   });
 
-  // Whether one path's steps are the same as, or the start of, the other's.
-  const prefixes = (a: ReadonlyArray<Exact>, b: ReadonlyArray<Exact>) =>
-    a.every((step, i) => i >= b.length || overlaps(step, b[i] as Exact));
-
-  const conflict = (entry: Stored) => {
+  const conflict = (entry: Entry) => {
     for (const [id, other] of entries) {
-      const clash = entry.paths.some((path) =>
-        other.paths.some((theirs) => prefixes(path, theirs)),
+      const clash = entry.bindings.some((binding) =>
+        other.bindings.some((theirs) =>
+          conflicts(binding, theirs, options.mac),
+        ),
       );
       if (clash) return id;
     }
@@ -90,6 +96,19 @@ export const createKeymap = (options: {
   const cancel = (ids: Iterable<number>, reason: Cancel): Outcome[] =>
     [...ids].map((id) => ({ id, type: 'cancel', reason }));
 
+  // One `possible` for each entry with Sequences under way.
+  const possible = (under: ReadonlyArray<Candidate>): Outcome[] => {
+    const byId = new Map<number, Progress[]>();
+    for (const { id, binding, next } of under) {
+      byId.set(id, [...(byId.get(id) ?? []), { binding, next }]);
+    }
+    return [...byId].map(([id, progress]) => ({
+      id,
+      type: 'possible',
+      progress,
+    }));
+  };
+
   const pressable = (entry: Stored, step: Exact, press: Press) =>
     presses(step, press.name, press.keys) &&
     (!press.textEntry || (entry.inTextEntry && commands(step)));
@@ -100,11 +119,12 @@ export const createKeymap = (options: {
     const moved: Candidate[] = [];
     const committed = new Set<number>();
     for (const candidate of candidates) {
-      const step = candidate.path[candidate.next];
+      const path = candidate.entry.paths[candidate.binding] ?? [];
+      const step = path[candidate.next];
       if (step === undefined || !pressable(candidate.entry, step, press)) {
         continue;
       }
-      if (candidate.next + 1 === candidate.path.length) {
+      if (candidate.next + 1 === path.length) {
         committed.add(candidate.id);
       } else moved.push({ ...candidate, next: candidate.next + 1 });
     }
@@ -116,6 +136,7 @@ export const createKeymap = (options: {
     );
     return [
       ...[...committed].map((id): Outcome => ({ id, type: 'commit' })),
+      ...possible(candidates),
       ...cancel(left, 'key'),
     ];
   };
@@ -125,15 +146,23 @@ export const createKeymap = (options: {
     const outcomes: Outcome[] = [];
     const started: Candidate[] = [];
     for (const [id, entry] of entries) {
-      const first = entry.paths.filter((path) => {
+      const first = entry.paths.flatMap((path, binding) => {
         const step = path[0];
-        return step !== undefined && pressable(entry, step, press);
+        return step !== undefined && pressable(entry, step, press)
+          ? [{ path, binding }]
+          : [];
       });
-      if (first.some((path) => path.length === 1)) {
+      if (first.some(({ path }) => path.length === 1)) {
         outcomes.push({ id, type: 'commit' });
-      } else if (first.length > 0) {
-        outcomes.push({ id, type: 'possible' });
-        for (const path of first) started.push({ id, entry, path, next: 1 });
+      } else {
+        const mine = first.map(({ binding }) => ({
+          id,
+          entry,
+          binding,
+          next: 1,
+        }));
+        outcomes.push(...possible(mine));
+        started.push(...mine);
       }
     }
     candidates = started;

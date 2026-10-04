@@ -8,9 +8,10 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import type { Binding } from '../binding/index.ts';
 import type { Key, Keys } from '../key/index.ts';
 import { createKeyInput } from '../key-input/index.ts';
-import type { Cancel, Step } from '../keymap/index.ts';
+import type { Cancel, Progress } from '../keymap/index.ts';
 import { development } from './development.ts';
 import {
   createDispatcher,
@@ -21,7 +22,7 @@ import {
 import { createKeysRef, type KeysRef } from './keys-ref.ts';
 
 export type { Key } from '../key/index.ts';
-export type { Cancel, Shortcut, Step } from '../keymap/index.ts';
+export type { Cancel, Progress } from '../keymap/index.ts';
 
 const ProviderContext = createContext<Dispatcher | undefined>(undefined);
 
@@ -31,7 +32,7 @@ export type KeysProviderProps = {
   /** Whether every listener in it hears keys: true by default. */
   readonly enabled?: boolean;
   /**
-   * How a held key Repeats a Shortcut that asks to: after `delay` ms, then
+   * How a held key Repeats a Shortcut or Sequence that asks to: after `delay` ms, then
    * every `interval` ms. `{ delay: 500, interval: 100 }` by default.
    */
   readonly repeat?: { readonly delay?: number; readonly interval?: number };
@@ -202,37 +203,40 @@ type DeclareOptions = {
   readonly inTextEntry: boolean;
   readonly repeat: boolean;
   readonly onCommit: () => void;
-  readonly onPossible?: () => void;
+  readonly onPossible?: (progress: ReadonlyArray<Progress>) => void;
   readonly onCancel?: (reason: Cancel) => void;
 };
 
 /**
- * Waits for `paths` in the nearest Keys Provider while `enabled`, and
+ * Waits for `bindings` in the nearest Keys Provider while `enabled`, and
  * Takes their keys: for the hooks built on the core. Throws in development
  * when they conflict with another Enabled Shortcut or Sequence.
  */
 export function useDeclare(
   user: string,
-  paths: ReadonlyArray<ReadonlyArray<Step>>,
+  bindings: ReadonlyArray<Binding>,
   options: DeclareOptions,
 ) {
   const dispatcher = useDispatcher(user);
-  const latest = useLatest({ ...options, paths });
+  const latest = useLatest({ ...options, bindings });
   const { enabled, inTextEntry } = options;
-  // Paths are compared by what they say, so inline ones do not re-declare.
-  const said = JSON.stringify(paths);
+  // Bindings are compared by what they say, so inline ones do not re-declare.
+  const said = JSON.stringify(bindings);
 
   // A Conflict throws here, to the nearest error boundary.
   useEffect(() => {
     if (!enabled) return;
     return dispatcher.declare(
-      { paths: latest.current.paths, inTextEntry },
+      { bindings: latest.current.bindings, inTextEntry },
       {
         commit: () => latest.current.onCommit(),
-        possible: () => latest.current.onPossible?.(),
+        possible: (progress) => latest.current.onPossible?.(progress),
         cancel: (reason) => latest.current.onCancel?.(reason),
         repeat: () => latest.current.repeat,
       },
     );
   }, [dispatcher, latest, enabled, inTextEntry, said]);
 }
+
+/** Whether `mod` is Cmd in the nearest Keys Provider, as on Apple platforms. */
+export const useMac = (user: string) => useDispatcher(user).mac;

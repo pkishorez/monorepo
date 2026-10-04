@@ -57,11 +57,11 @@ One key going down while exactly a set of modifiers is down, such as K with Ctrl
 _Avoid_: hotkey, binding, combo, chord, accelerator
 
 **Sequence**:
-Shortcuts pressed in order, each within the Keys Provider's time of the one before, such as G then G. Its steps may fall in one Keys or across several. It is Possible from its first step, Commits on its last, and Cancels on a wrong key, a step too late, or Interrupted. It never Repeats.
+Shortcuts pressed in order, each within the Keys Provider's time of the one before, such as G then G. Its steps may fall in one Keys or across several. It is Possible from its first step, Commits on its last, and Cancels on a wrong key, a step too late, or Interrupted. It Repeats while its last key stays down, when it asks to.
 _Avoid_: chord, combo, multi-key shortcut
 
 **Repeat**:
-A Shortcut Committing again while its key stays down: first after the Keys Provider's delay, then at its interval. The package decides it, never the browser's own repeating.
+A Shortcut or Sequence Committing again while the key that Committed it stays down: first after the Keys Provider's delay, then at its interval. Only that last key is held; the steps before it are not pressed again. The package decides it, never the browser's own repeating.
 _Avoid_: auto-repeat, key repeat
 
 **Conflict**:
@@ -79,11 +79,11 @@ _Avoid_: fail, abort, reset
 ### Surfaces
 
 **Surface**:
-A part of the app where the user works with the keyboard, such as a screen, a pane or a dialog, named in one central definition with the Actions it offers. Surfaces nest: a Surface sits inside another or at the top. While a Surface is Active, its own Actions, those of every Surface around it, and the Global Actions work; a Surface beside it never does. A Surface says what keys can do there, never where the user is.
+A part of the app where the user works with the keyboard, such as a screen, a pane or a dialog, named in one central definition with the Actions it offers. Surfaces nest: a Surface sits inside another or at the top. While a Surface is Active, its own Actions, those of every Surface around it, and the Global Actions work, unless an Isolated Surface or one with Globals off cuts them off; a Surface beside it never does. A Surface says what keys can do there, never where the user is.
 _Avoid_: phase, mode, layer, context, scope, zone, screen (one kind of it)
 
 **Active Surface**:
-The one Surface the app says the user is in right now, and none when the app names none. The app sets it, never a key: moving to another Surface is something an Action's Handler does. With no Active Surface, no Action works.
+The one Surface the app says the user is in right now, and none when the app names none. The app sets it, never a key: moving to another Surface is something an Action's Handler does. With no Active Surface, only the Global Actions work.
 _Avoid_: current phase, focus, state
 
 **Action**:
@@ -95,11 +95,15 @@ The keys of an Action, a Shortcut or a Sequence: the default from the central de
 _Avoid_: keybinding, hotkey, mapping
 
 **Global Action**:
-An Action of no Surface, such as opening a command palette, working whichever Surface is Active.
+An Action of no Surface, such as opening a command palette. It works whichever Surface is Active, and when none is, but every Action of a Surface comes before it. A Surface can turn the Global Actions off while it, or a Surface inside it, is Active.
 _Avoid_: app action, root action
 
+**Isolated**:
+A Surface whose surrounding Surfaces stop working while it, or a Surface inside it, is Active, such as a dialog over a screen. The Global Actions still work, unless it also turns them off. Nothing is Shadowed by it: the Actions it cuts off do not work at all.
+_Avoid_: modal, no bubble, blocking, trapped
+
 **Shadowed**:
-An Action that does not work because an Action of a Surface inside it, nearer the Active Surface, has the same keys or keys that start the same. The nearer one always wins: nothing a Handler does at the moment passes a key on.
+An Action whose keys do nothing because an Action nearer the Active Surface has the same keys, or keys that start the same. The Active Surface is nearest, then each Surface around it, and the Global Actions last. The nearer one always wins: nothing a Handler does at the moment passes a key on.
 _Avoid_: overridden, bubbled, masked
 
 **Handler**:

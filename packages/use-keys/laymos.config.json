@@ -4,10 +4,10 @@
   "layers": {
     "core": {
       "paths": ["src/core"],
-      "description": "Core — a KeysProvider hears every key on the page, keeps the Keys, and calls every Enabled useKeys; it Takes the keys of the Shortcuts and Sequences declared in it and refuses those that Conflict.",
+      "description": "Core \u2014 a KeysProvider hears every key on the page, keeps the Keys, and calls every Enabled useKeys; it Takes the keys of the Bindings declared in it and refuses those that Conflict. Bindings are written with shortcut() and sequence().",
       "moduleGraphs": {
         "core": {
-          "description": "key names one Key; key-input listens to the page and keeps the Kept Keys from it; keymap matches keys to declared Shortcuts and Sequences; provider puts them together for React.",
+          "description": "key names one Key; binding writes Shortcuts and Sequences and says when two Conflict; key-input listens to the page and keeps the Kept Keys from it; keymap matches keys to declared Bindings; provider puts them together for React.",
           "path": "src/core",
           "modules": {
             "index.ts": {
@@ -16,22 +16,26 @@
             "provider": {
               "exposed": true
             },
+            "binding": {
+              "exposed": true
+            },
             "key": {},
             "key-input": {},
             "keymap": {}
           },
           "rules": {
-            "index.ts": ["provider"],
-            "provider": ["key", "key-input", "keymap"],
+            "index.ts": ["provider", "binding"],
+            "provider": ["binding", "key", "key-input", "keymap"],
+            "binding": ["key"],
             "key-input": ["key"],
-            "keymap": ["key"]
+            "keymap": ["binding", "key"]
           }
         }
       }
     },
     "recognizers": {
       "paths": ["src/recognizers"],
-      "description": "Recognizers — the hooks an app calls: useShortcut and useSequence, each declaring its keys to the nearest KeysProvider. They never know about each other.",
+      "description": "Recognizers \u2014 the hooks an app calls: useShortcut and useSequence, each declaring its Bindings to the nearest KeysProvider. They never know about each other.",
       "moduleGraphs": {
         "recognizers": {
           "description": "Each Recognizer declares its keys through the provider on its own.",
@@ -48,14 +52,36 @@
           }
         }
       }
+    },
+    "surfaces": {
+      "paths": ["src/surfaces"],
+      "description": "Surfaces \u2014 an app's whole keyboard from one central definition: its Surfaces and Actions, the Active Surface the app names, and the Handlers it gives. It declares only the Bindings that work to the core.",
+      "moduleGraphs": {
+        "surfaces": {
+          "description": "surface-tree reads the definition and says which Bindings work for an Active Surface, without React; create-keys gives the Provider and the typed hooks.",
+          "path": "src/surfaces",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "create-keys": {},
+            "surface-tree": {}
+          },
+          "rules": {
+            "index.ts": ["create-keys"],
+            "create-keys": ["surface-tree"]
+          }
+        }
+      }
     }
   },
   "layerGraphs": {
     "use-keys": {
-      "description": "Recognizers are built on the core; the core never imports them. Each layer is its own entry point.",
+      "description": "Recognizers and Surfaces are built on the core and never know each other; the core never imports them. Each layer is its own entry point.",
       "rules": {
         "core": [],
-        "recognizers": ["core"]
+        "recognizers": ["core"],
+        "surfaces": ["core"]
       }
     }
   }
