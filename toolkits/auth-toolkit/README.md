@@ -139,9 +139,9 @@ Peer dependencies, all optional; install the ones your subpaths need:
 
 ### `@kstackz/auth-toolkit/clients/browser`
 
-| Export             | What it does                                                                                                      |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `createAuthClient` | Builds the browser client for the Auth Worker with `useSession`, `useLoginError`, `signIn.google`, and `signOut`. |
+| Export             | What it does                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createAuthClient` | Builds the browser client for the Auth Worker with `useSession`, `useLoginError`, `signIn.google`, `signOut`, `signedInAccounts`, and `switchAccount`. |
 
 ### `@kstackz/auth-toolkit/clients/cli`
 
@@ -223,7 +223,7 @@ export const authWorker = await Cloudflare.Worker('auth-worker', {
 - Swap `database` for `memoryPrimaryDatabase()` in tests. The same migrations run.
 - `d1PrimaryDatabaseResource` applies pending migrations on every `alchemy deploy`.
 - Add `authorizationServer` only when a Third-Party program needs Access Tokens. See [`docs/auth-worker-configuration.md`](./docs/auth-worker-configuration.md).
-- A browser can hold several Signed-in Accounts and switch between them from every page. `multiSession: { maximumAccounts }` changes the cap, default 5. See [ADR 0012](./docs/adr/0012-account-switch-is-browser-wide.md).
+- A browser can hold several Signed-in Accounts and switch between them from every page. `multiSession: { maximumAccounts }` changes the cap, default 5. See [ADR 0012](./docs/adr/0012-account-switch-is-browser-wide.md) and [ADR 0014](./docs/adr/0014-first-party-apps-may-switch-and-act-as-an-account.md).
 
 ### Guard an Effect RPC on a Consumer Backend
 

@@ -37,11 +37,11 @@ A User who has signed in within this browser and whom the browser can switch to 
 _Avoid_: device session (better-auth's term; collides with Device Login), profile, multi-session (implementation name)
 
 **Active Account**:
-The one Signed-in Account the browser currently acts as. Every First-Party web app on the Shared Cookie Domain, and the Consent Screen and Device Screen, see the Active Account and no other.
+The one Signed-in Account the browser currently acts as. Every First-Party web app on the Shared Cookie Domain, and the Consent Screen and Device Screen, see the Active Account unless a request carries another Signed-in Account's Session token as a bearer.
 _Avoid_: current user, current session (a Session, not an account)
 
 **Account Switch**:
-Making a different Signed-in Account the Active Account. Happens only on the Auth Worker's pages and takes effect in every First-Party web app on the Shared Cookie Domain at once. Signing out a Signed-in Account removes it entirely; there is no "signed out but remembered" state.
+Making a different Signed-in Account the Active Account. Happens on the Auth Worker's pages or from a First-Party web app, and takes effect in every First-Party web app on the Shared Cookie Domain at once. Signing out a Signed-in Account removes it entirely; there is no "signed out but remembered" state.
 _Avoid_: switch user, set active (the endpoint, not the concept)
 
 **Login Screen**:

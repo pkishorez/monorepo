@@ -3,4 +3,5 @@ export type {
   GoogleSignInOptions,
   LoginError,
   LoginErrorState,
+  SignedInAccount,
 } from './browser.js';
