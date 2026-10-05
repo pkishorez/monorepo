@@ -1,6 +1,6 @@
 import { type Pointer, useGesture } from '@kstackz/use-gesture/core';
 import { useMotionValue } from 'motion/react';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Compass } from './compass.tsx';
 import { read, type Reading, type Way } from './recognize.ts';
@@ -8,7 +8,6 @@ import { read, type Reading, type Way } from './recognize.ts';
 /** One arm of the Compass: the Command a way runs, and whether it works here. */
 export type ThumbCommand = {
   readonly label: string;
-  readonly icon?: ReactNode;
   readonly works: boolean;
 };
 

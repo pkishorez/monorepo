@@ -9,7 +9,14 @@ export {
   written,
   type WrittenKeys,
 } from './bindings.ts';
-export { announce, type Given, useCommand, useGiven } from './feedback.ts';
+export {
+  announce,
+  type Given,
+  quietly,
+  setCommandSounds,
+  useCommand,
+  useGiven,
+} from './feedback.ts';
 export {
   GESTURE_GUIDE,
   GESTURES,

@@ -3,6 +3,7 @@ import {
   bindingsOf,
   keys,
   keysOff,
+  setCommandSounds,
   type Surface,
 } from '../../commands/index.ts';
 import {
@@ -15,7 +16,6 @@ import {
   type User,
   UserProvider,
 } from '../../client/session/index.ts';
-import { setSound } from '../../kit/sound/index.ts';
 import { Frame } from './frame.tsx';
 
 /** The whole app around a Place, for whoever signs in. */
@@ -65,7 +65,7 @@ function Keys(props: { readonly children: ReactNode }) {
     const own = bindingsOf(preferences.keys);
     return keysOn ? own : keysOff(own);
   }, [preferences.keys, keysOn]);
-  useEffect(() => setSound(preferences.sound), [preferences.sound]);
+  useEffect(() => setCommandSounds(preferences.sound), [preferences.sound]);
   useEffect(() => {
     const html = document.documentElement;
     html.toggleAttribute('data-keys-off', !keysOn);

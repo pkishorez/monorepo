@@ -9,6 +9,8 @@ export type SoundName =
   | 'arm'
   /** A Command ran. */
   | 'confirm'
+  /** A gesture's Command ran: softer than confirm. */
+  | 'success'
   /** A sheet opened. */
   | 'open'
   /** A sheet closed. */
@@ -109,6 +111,7 @@ const VOICES: Readonly<Record<SoundName, Voice>> = {
       delay: 0.05,
     }),
   ),
+  success: tone({ from: 1320, to: 1760, length: 0.07, gain: 0.07 }),
   open: air({ from: 500, to: 2400, length: 0.12, gain: 0.16 }),
   close: air({ from: 2200, to: 450, length: 0.11, gain: 0.14 }),
   wrong: both(
@@ -141,7 +144,6 @@ const VOICES: Readonly<Record<SoundName, Voice>> = {
 
 let context: AudioContext | undefined;
 let master: GainNode | undefined;
-let on = true;
 
 // The browser lets sound start only after the user touched or typed, so the
 // context is made on the first sound, which always follows one.
@@ -157,15 +159,9 @@ const output = () => {
   return { context, out: master! };
 };
 
-/** Plays one sound now, unless sound is off. */
+/** Plays one sound now. Whether a sound is wanted is the caller's to say. */
 export const play = (name: SoundName) => {
-  if (!on) return;
   const audio = output();
   if (audio === undefined) return;
   VOICES[name](audio.context, audio.out, audio.context.currentTime);
-};
-
-/** Turns every sound on or off. */
-export const setSound = (enabled: boolean) => {
-  on = enabled;
 };

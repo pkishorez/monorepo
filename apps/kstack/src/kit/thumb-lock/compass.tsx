@@ -5,16 +5,17 @@ import {
   type MotionValue,
   useTransform,
 } from 'motion/react';
-import type { ReactNode } from 'react';
 import { COMMIT, type Reading, type Way, WAYS } from './recognize.ts';
 
 // How far each arm's label sits from the centre, in px.
-const REACH = 92;
-// How far the puck follows the finger, in px.
-const LEASH = 40;
+const REACH = 64;
+// How far the dot follows the finger, in px.
+const LEASH = 28;
 // How far, in px, the centre keeps from each side of the screen, so every
-// arm and the hint above stay on it.
-const MARGIN = { x: 150, top: 200, bottom: 140 };
+// arm stays on it.
+const MARGIN = { x: 110, top: 90, bottom: 90 };
+
+const EASE = [0.23, 1, 0.32, 1] as const;
 
 // Where the Compass stands: under the finger, unless that is too near an edge.
 const placed = (at: { readonly x: number; readonly y: number }) => ({
@@ -31,17 +32,16 @@ const OFFSET: Readonly<
   right: { x: 1, y: 0 },
 };
 
-type Arm = {
-  readonly label: string;
-  readonly icon?: ReactNode;
-  readonly works: boolean;
-};
+type Arm = { readonly label: string; readonly works: boolean };
+
+type ArmState = 'waiting' | 'aside' | 'going' | 'armed' | 'ran';
 
 /**
- * The Thumb Lock as it is seen: a glow under the resting thumb, and under
- * the moving finger a puck on a leash with an arm for each way. The arm
- * the finger goes toward fills as it goes and lights when armed; an arm
- * that does nothing here is dimmed, and going toward it shakes everything.
+ * The Thumb Lock as it is seen, quietly: a faint ring under the resting
+ * thumb, and under the moving finger a dot on a short leash with a small
+ * label for each way that does something here; other ways have none. The
+ * way the finger goes draws a thin line that fills as it goes, and its
+ * label zooms in once armed. Nothing has a backdrop: the page stays in view.
  */
 export function Compass(props: {
   readonly lock:
@@ -66,20 +66,19 @@ export function Compass(props: {
         {lock && (
           <motion.div
             key="thumb"
-            className="absolute size-16 -translate-1/2 rounded-full bg-primary/10 ring-1 ring-primary/30"
+            className="absolute size-10 -translate-1/2 rounded-full ring-1 ring-foreground/25"
             style={{ left: lock.thumb.x, top: lock.thumb.y }}
-            initial={{ opacity: 0, scale: 0.6 }}
+            initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.3 }}
-            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.16, ease: EASE }}
           >
-            <span className="absolute inset-5 rounded-full bg-primary/40" />
             {/* One ripple as the Lock takes hold. */}
             <motion.span
-              className="absolute inset-0 rounded-full ring-2 ring-primary/40"
-              initial={{ opacity: 1, scale: 0.6 }}
-              animate={{ opacity: 0, scale: 1.9 }}
-              transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+              className="absolute inset-0 rounded-full ring-1 ring-foreground/30"
+              initial={{ opacity: 1, scale: 1 }}
+              animate={{ opacity: 0, scale: 1.8 }}
+              transition={{ duration: 0.4, ease: EASE }}
             />
           </motion.div>
         )}
@@ -88,10 +87,10 @@ export function Compass(props: {
             key="compass"
             className="absolute"
             style={placed(lock.origin)}
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.14 } }}
-            transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.12, ease: EASE }}
           >
             <Rose {...props} reading={lock.reading} ran={lock.ran === true} />
           </motion.div>
@@ -111,93 +110,57 @@ function Rose(props: {
   const { reading } = props;
   const way = reading.kind === 'undecided' ? undefined : reading.way;
   const armed = reading.kind === 'going' && reading.armed;
-  const puckX = useTransform(props.dx, (x) => clamp(x, LEASH));
-  const puckY = useTransform(props.dy, (y) => clamp(y, LEASH));
-  // Once the Command runs, the puck flies home to its arm.
+  const dotX = useTransform(props.dx, (x) => clamp(x, LEASH));
+  const dotY = useTransform(props.dy, (y) => clamp(y, LEASH));
+  // Once the Command runs, the dot goes home to its arm.
   const flung = props.ran && way !== undefined ? OFFSET[way] : undefined;
-  const hint =
-    reading.kind === 'wrong'
-      ? 'Nothing that way here'
-      : props.ran && reading.kind === 'going'
-        ? props.commands[reading.way].label
-        : reading.kind === 'going'
-          ? armed
-            ? `Let go to ${props.commands[reading.way].label}`
-            : props.commands[reading.way].label
-          : 'Swipe a way';
+  const stateOf = (each: Way): ArmState =>
+    way === undefined || reading.kind === 'wrong'
+      ? 'waiting'
+      : each !== way
+        ? 'aside'
+        : props.ran
+          ? 'ran'
+          : armed
+            ? 'armed'
+            : 'going';
 
   return (
-    // A new Wrong Way shakes it once, keyed so each one starts afresh.
-    <motion.div
-      key={reading.kind === 'wrong' ? `wrong-${reading.way}` : 'calm'}
-      animate={
-        reading.kind === 'wrong' ? { x: [0, -7, 6, -4, 3, 0] } : { x: 0 }
-      }
-      transition={{ duration: 0.32, ease: 'easeOut' }}
-    >
-      <div className="absolute size-56 -translate-1/2 rounded-full bg-background/70 shadow-2xl ring-1 ring-foreground/10 backdrop-blur-md" />
-      {WAYS.map((each) => (
-        <Track
-          key={each}
-          way={each}
-          shown={each === way && reading.kind === 'going'}
-          {...props}
-        />
-      ))}
-      {WAYS.map((each) => (
+    <>
+      {way !== undefined && reading.kind === 'going' && (
+        <Track way={way} dx={props.dx} dy={props.dy} />
+      )}
+      {/* Only the ways that do something here have a label. */}
+      {WAYS.filter((each) => props.commands[each].works).map((each, i) => (
         <Label
           key={each}
           way={each}
-          arm={props.commands[each]}
-          state={
-            each !== way
-              ? 'idle'
-              : reading.kind === 'wrong'
-                ? 'wrong'
-                : props.ran
-                  ? 'ran'
-                  : armed
-                    ? 'armed'
-                    : 'going'
-          }
+          order={i}
+          label={props.commands[each].label}
+          state={stateOf(each)}
         />
       ))}
       <motion.div
         className={cn(
-          'absolute size-11 -translate-1/2 rounded-full shadow-lg ring-2 transition-colors duration-150',
-          armed
-            ? 'bg-primary ring-primary'
-            : reading.kind === 'wrong'
-              ? 'bg-destructive/80 ring-destructive'
-              : 'bg-foreground/80 ring-background',
+          'absolute size-3 -translate-1/2 rounded-full transition-colors duration-150',
+          reading.kind === 'wrong' ? 'bg-destructive' : 'bg-foreground',
         )}
-        style={flung ? undefined : { x: puckX, y: puckY }}
+        style={flung ? undefined : { x: dotX, y: dotY }}
         animate={
-          flung ? { x: flung.x * REACH, y: flung.y * REACH, scale: 0.4 } : {}
+          flung ? { x: flung.x * REACH, y: flung.y * REACH, scale: 0.3 } : {}
         }
-        transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+        transition={{ duration: 0.16, ease: EASE }}
       />
-      <p
-        className={cn(
-          'absolute top-[-164px] -translate-x-1/2 rounded-full px-3.5 py-1.5 text-sm font-medium tracking-tight whitespace-nowrap shadow-lg ring-1 backdrop-blur-md',
-          reading.kind === 'wrong'
-            ? 'bg-destructive/15 text-destructive ring-destructive/30'
-            : 'bg-background/85 text-foreground ring-foreground/10',
-        )}
-      >
-        {hint}
-      </p>
-    </motion.div>
+    </>
   );
 }
 
 const clamp = (value: number, limit: number) =>
   Math.max(-limit, Math.min(limit, value));
 
-// The line from the centre to an arm, filling as the finger goes that way.
+// The thin line from the centre toward an arm, filling as the finger goes.
 function Track(props: {
   readonly way: Way;
-  readonly shown: boolean;
   readonly dx: MotionValue<number>;
   readonly dy: MotionValue<number>;
 }) {
@@ -209,22 +172,22 @@ function Track(props: {
     ),
   );
   const vertical = x === 0;
+  const length = REACH - 14;
   return (
     <div
       className={cn(
-        'absolute overflow-hidden rounded-full bg-foreground/10 transition-opacity duration-150',
-        props.shown ? 'opacity-100' : 'opacity-0',
-        vertical
-          ? 'h-[64px] w-1 -translate-x-1/2'
-          : 'h-1 w-[64px] -translate-y-1/2',
+        'absolute overflow-hidden rounded-full bg-foreground/10',
+        vertical ? 'w-0.5 -translate-x-1/2' : 'h-0.5 -translate-y-1/2',
       )}
       style={{
-        left: vertical ? 0 : x > 0 ? 8 : -72,
-        top: vertical ? (y > 0 ? 8 : -72) : 0,
+        width: vertical ? undefined : length,
+        height: vertical ? length : undefined,
+        left: vertical ? 0 : x > 0 ? 6 : -6 - length,
+        top: vertical ? (y > 0 ? 6 : -6 - length) : 0,
       }}
     >
       <motion.div
-        className="size-full bg-primary"
+        className="size-full bg-foreground/60"
         style={{
           [vertical ? 'scaleY' : 'scaleX']: fill,
           transformOrigin: vertical
@@ -240,41 +203,58 @@ function Track(props: {
   );
 }
 
+// How each label looks: waiting for a way, set aside for another, the way
+// being swiped, armed to run on release, or run.
+const LOOK: Readonly<
+  Record<ArmState, { readonly opacity: number; readonly scale: number }>
+> = {
+  waiting: { opacity: 0.85, scale: 1 },
+  aside: { opacity: 0.3, scale: 0.92 },
+  going: { opacity: 1, scale: 1 },
+  armed: { opacity: 1, scale: 1.18 },
+  ran: { opacity: 1, scale: 1.26 },
+};
+
+/**
+ * One way's label. It grows out of the finger as the Lock takes hold,
+ * zooms in with a small spring once armed, and settles back if the finger
+ * comes back short of arming.
+ */
 function Label(props: {
   readonly way: Way;
-  readonly arm: Arm;
-  readonly state: 'idle' | 'going' | 'armed' | 'wrong' | 'ran';
+  readonly order: number;
+  readonly label: string;
+  readonly state: ArmState;
 }) {
   const { x, y } = OFFSET[props.way];
-  const { arm, state } = props;
+  const { state } = props;
+  const lit = state === 'armed' || state === 'ran';
   return (
     <motion.div
       className={cn(
-        'absolute flex -translate-1/2 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap ring-1 transition-colors duration-150',
-        state === 'armed' || state === 'ran'
-          ? 'bg-primary text-primary-foreground ring-primary'
-          : state === 'wrong'
-            ? 'bg-destructive/15 text-destructive ring-destructive/40'
-            : state === 'going'
-              ? 'bg-background text-foreground ring-primary/50'
-              : 'bg-background/80 text-foreground ring-foreground/10',
-        !arm.works && state !== 'wrong' && 'opacity-35',
+        'absolute top-0 left-0 rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap shadow-sm transition-colors duration-150',
+        lit
+          ? 'border-primary bg-primary text-primary-foreground'
+          : state === 'going'
+            ? 'bg-popover text-foreground'
+            : 'bg-popover text-muted-foreground',
       )}
-      style={{ left: x * REACH, top: y * REACH }}
-      animate={{
-        scale:
-          state === 'ran'
-            ? 1.2
-            : state === 'armed'
-              ? 1.12
-              : state === 'going'
-                ? 1.04
-                : 1,
-      }}
-      transition={{ type: 'spring', duration: 0.25, bounce: 0.3 }}
+      // Centred on its point by Motion, which owns the transform.
+      style={{ translateX: '-50%', translateY: '-50%' }}
+      initial={{ x: 0, y: 0, opacity: 0, scale: 0.6 }}
+      animate={{ x: x * REACH, y: y * REACH, ...LOOK[state] }}
+      transition={
+        lit
+          ? { type: 'spring', duration: 0.3, bounce: 0.45 }
+          : {
+              type: 'spring',
+              duration: 0.32,
+              bounce: 0.2,
+              delay: state === 'waiting' ? props.order * 0.03 : 0,
+            }
+      }
     >
-      {arm.icon}
-      {arm.label}
+      {props.label}
     </motion.div>
   );
 }

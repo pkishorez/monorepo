@@ -1,1 +1,1 @@
-export { play, setSound, type SoundName } from './sound.ts';
+export { play, type SoundName } from './sound.ts';
