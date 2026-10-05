@@ -13,6 +13,7 @@ import { PwaProvider, pwaHead, UpdatePrompt } from '@kstackz/pwa-toolkit/react';
 import type { ReactNode } from 'react';
 import { appTheme } from '../../../client/state/settings/index.ts';
 import { DEVICE_SCRIPT } from '../../../client/kit/input/index.ts';
+import { splashLinks } from '../splash/index.ts';
 import appCss from '../styles.css?url';
 
 const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
@@ -47,6 +48,7 @@ export const Route = createRootRoute({
         { rel: 'stylesheet', href: appCss },
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         ...pwa.links,
+        ...splashLinks(),
       ],
     };
   },

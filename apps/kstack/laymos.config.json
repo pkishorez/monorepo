@@ -8,10 +8,13 @@
   "layers": {
     "entry-web": {
       "paths": ["src/entry/web"],
-      "description": "Where the browser starts: the router, the document, the offline page, and one thin route for each Place. The router reaches the routes through the generated route tree, so nothing imports them",
+      "description": "Where the browser starts: the router, the document with its Splash for iOS, the offline page, and one thin route for each Place. The router reaches the routes through the generated route tree, so nothing imports them",
       "modules": {
         "src/entry/web/router.tsx": {},
-        "src/entry/web/routes": {}
+        "src/entry/web/routes": {},
+        "src/entry/web/splash": {
+          "shared": true
+        }
       }
     },
     "entry-worker": {

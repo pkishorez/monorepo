@@ -303,6 +303,9 @@ catalogs:
     shadcn:
       specifier: 4.21.0
       version: 4.21.0
+    sharp:
+      specifier: 0.35.4
+      version: 0.35.4
     shiki:
       specifier: 4.4.3
       version: 4.4.3
@@ -649,6 +652,9 @@ importers:
       laymos:
         specifier: workspace:*
         version: link:../../devtools/laymos
+      sharp:
+        specifier: 'catalog:'
+        version: 0.35.4(@types/node@26.4.1)
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.3
