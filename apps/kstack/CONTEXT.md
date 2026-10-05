@@ -109,10 +109,6 @@ The Commands to move one step through what the Place shows: the next Entry, the 
 **Add**:
 The Command to write down a new Entry.
 
-**Amount Pad**:
-The keys for an amount, drawn inside Add on a touch screen, so the phone's own keyboard does not open for it and Add stays still. Where there is a keyboard, the amount is typed instead.
-_Avoid_: numpad, keypad, calculator
-
 **Thumb Lock**:
 The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one. A swipe without it acts on what is under the finger.
 _Avoid_: hold, long press, modifier
