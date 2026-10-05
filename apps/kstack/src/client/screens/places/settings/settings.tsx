@@ -40,6 +40,7 @@ import {
 } from '../../../state/settings/index.ts';
 import { CURRENCIES } from '../../../../domain/ledger/index.ts';
 import { Choice, usePlace } from '../../parts/index.ts';
+import { AppSection } from './app-section.tsx';
 import { GesturesTab } from './gestures-tab.tsx';
 import { KeysTab } from './keys-tab.tsx';
 import { Row, Section } from './rows.tsx';
@@ -48,8 +49,8 @@ import { Row, Section } from './rows.tsx';
 export type SettingsTab = 'general' | 'keys' | 'gestures';
 
 /**
- * Settings, a Place: how Ledger looks and sounds on this device, the User's
- * money, and who is signed in; every key, to change; and every gesture, to
+ * Settings, a Place: how Ledger looks and sounds on this device, installing
+ * it and its version, the User's money, and who is signed in; every key, to change; and every gesture, to
  * learn.
  */
 export function Settings(props: {
@@ -71,6 +72,7 @@ export function Settings(props: {
         </TabsList>
         <TabsContent value="general" className="space-y-10">
           <Appearance />
+          <AppSection />
           <Data />
           <Users />
         </TabsContent>
@@ -106,7 +108,7 @@ function Appearance() {
         </Row>
         <Row
           label="Sounds"
-          hint="A quiet sound as each command runs from a key or a tap. Gesture sounds are under Gestures."
+          hint="Quiet sounds as commands run, from a key, a tap or a gesture."
         >
           <Switch
             checked={settings.sound}
