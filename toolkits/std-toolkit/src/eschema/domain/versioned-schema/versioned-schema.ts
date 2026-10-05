@@ -1,6 +1,7 @@
 import { Effect, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import type { AnyESchema, AnyValueESchema } from '../schema-model/index.js';
 import {
+  type ESchemaIntrospection,
   inspectESchema,
   latestSchema,
   registerESchemaComposition,
@@ -9,6 +10,24 @@ import { readEncoded, writeEncoded } from '../encoded/index.js';
 import type { ESchemaError, OutdatedVersion } from '../eschema-error/index.js';
 
 const compositionSchemas = new WeakMap<object, Schema.Top>();
+
+/**
+ * What an ESchema's value looks like encoded, as JSON or any other codec
+ * carries it: the latest version, with its `_v`. An older or unversioned value
+ * is refused, never guessed at; only stored values are migrated.
+ */
+function wireSchema({ kind, evolutions }: ESchemaIntrospection): Schema.Top {
+  const { version, schema } = evolutions.at(-1)!;
+  const _v = Schema.Literal(version);
+  return kind === 'value'
+    ? Schema.Struct({ _v, _value: Schema.toEncoded(schema) })
+    : Schema.toEncoded(
+        Schema.Struct({
+          ...(schema as Schema.Struct<Schema.Struct.Fields>).fields,
+          _v,
+        }),
+      );
+}
 
 // An ESchema's `schema`: reads any known version and migrates it, writes the
 // latest with `_v` inline.
@@ -27,7 +46,7 @@ export function versionedSchema(
     ? `ValueESchema_${eschema.name}`
     : `ESchema_${eschema.name}`;
   const latest = latestSchema(eschema);
-  const encodedSchema = latest.annotate({ identifier });
+  const wire = wireSchema(introspection).annotate({ identifier });
   const toIssue = (input: unknown, error: ESchemaError | OutdatedVersion) =>
     new SchemaIssue.InvalidValue(
       error._tag === 'OutdatedVersion'
@@ -39,7 +58,7 @@ export function versionedSchema(
     (_input: unknown): _input is unknown => true,
     {
       toCodec: () =>
-        Schema.link<unknown>()(encodedSchema, {
+        Schema.link<unknown>()(wire, {
           decode: SchemaGetter.passthrough({ strict: false }),
           encode: SchemaGetter.passthrough({ strict: false }),
         }),
