@@ -28,8 +28,8 @@ const said = (motion: Motion) => {
 
 /**
  * Every gesture, Place by Place as they nest, each drawn as it moves. They
- * can't be changed yet, only learned; the Thumb Lock ones, and their
- * sounds, turn off with the switches.
+ * can't be changed yet, only learned; the Thumb Lock ones turn off with
+ * the switch. Their sounds follow General's Sounds.
  */
 export function GesturesTab() {
   const settings = useSettings();
@@ -46,17 +46,6 @@ export function GesturesTab() {
             checked={on}
             onCheckedChange={(gesturesOn) => change({ gesturesOn })}
             aria-label="Thumb Lock"
-          />
-        </Row>
-        <Row
-          label="Gesture sounds"
-          hint="A soft sound as the Thumb Lock arms, a tick at each Step, a chime as it goes, and an error sound when there is nowhere to go."
-        >
-          <Switch
-            checked={settings.gestureSounds}
-            disabled={!on}
-            onCheckedChange={(gestureSounds) => change({ gestureSounds })}
-            aria-label="Gesture sounds"
           />
         </Row>
       </div>

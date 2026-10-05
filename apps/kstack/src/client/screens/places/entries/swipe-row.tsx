@@ -45,8 +45,8 @@ function Swiped(props: {
   const x = useMotionValue(0);
   const [armed, setArmed] = useState(false);
   const shown = useTransform(x, [0, -24], [0, 1]);
-  const latest = useRef({ props, sounds: settings.gestureSounds });
-  latest.current = { props, sounds: settings.gestureSounds };
+  const latest = useRef({ props, sounds: settings.sound });
+  latest.current = { props, sounds: settings.sound };
 
   const home = () => void animate(x, 0, SPRING);
   const swipe = useSwipe({

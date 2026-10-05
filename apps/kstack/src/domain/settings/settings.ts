@@ -9,8 +9,8 @@ export type Switching = typeof Switching.Type;
  * How Ledger looks, sounds and is driven on this device, the same for every
  * User of it; one per device. `keys` are its own Bindings, written as people
  * write them (`mod+k`, `g g`), by Action id. `keysOn` and `gesturesOn` say
- * whether Keys and the Thumb Lock work. `gestureSounds` is whether the Thumb
- * Lock sounds; `sound` is for Commands.
+ * whether Keys and the Thumb Lock work. `sound` is whether Ledger sounds at
+ * all: Commands, the Thumb Lock and swiping a row alike.
  */
 export const Settings = EntityESchema.make('settings', 'id', {
   sound: Schema.Boolean,
@@ -19,7 +19,21 @@ export const Settings = EntityESchema.make('settings', 'id', {
   keysOn: Schema.Boolean,
   gesturesOn: Schema.Boolean,
   switching: Switching,
-}).build();
+})
+  // One Sounds setting for everything: gestures follow it too.
+  .evolve(
+    'v2',
+    { gestureSounds: null },
+    ({ id, sound, keys, keysOn, gesturesOn, switching }) => ({
+      id,
+      sound,
+      keys,
+      keysOn,
+      gesturesOn,
+      switching,
+    }),
+  )
+  .build();
 export type Settings = typeof Settings.Type;
 
 /** The one Settings of this device. */
@@ -28,7 +42,6 @@ export const SETTINGS_ID = 'device';
 export const defaultSettings: Settings = {
   id: SETTINGS_ID,
   sound: true,
-  gestureSounds: true,
   keys: {},
   keysOn: true,
   gesturesOn: true,
