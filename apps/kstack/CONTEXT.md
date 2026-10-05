@@ -118,7 +118,7 @@ One Place up or down the Place order (Home, Entries, Months, Settings) in a Thum
 _Avoid_: next screen, page
 
 **Place Picker**:
-What shows, at the top of the screen, as soon as a Thumb Lock swipe goes up or down: every Place in order, where the swipe began and the one its Steps have reached both marked. Lifting goes there; coming back to where the swipe began and lifting goes nowhere. Nothing shows under the fingers.
+What shows, at the top of the screen, from the moment a Thumb Lock holds: every Place in order, where the swipe began and the one its Steps have reached both marked. Lifting goes there; coming back to where the swipe began and lifting goes nowhere. Nothing shows under the fingers.
 _Avoid_: lift hint, place switcher, wheel, menu, launcher
 
 **Gesture Sounds**:
