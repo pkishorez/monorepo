@@ -4,7 +4,7 @@ Date: 2026-10-05
 
 ## Status
 
-Accepted. Amends [ADR 0012](./0012-account-switch-is-browser-wide.md).
+Accepted. Amends [ADR 0012](./0012-account-switch-is-browser-wide.md). Amended by [ADR 0015](./0015-first-party-apps-may-add-and-sign-out-an-account.md).
 
 ## Context
 

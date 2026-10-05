@@ -184,6 +184,29 @@ describe('Signed-in Accounts', () => {
     ).toBe('ada@example.com');
   });
 
+  it('signing out an account that is not active leaves the active one', async () => {
+    const worker = make();
+    const ada = await signIn(worker, 'ada@example.com');
+    const mary = await signIn(worker, 'mary@example.com');
+    const cookie = cookieHeader(mary.active, ada.account, mary.account);
+    const context = await worker.auth.$context;
+
+    // A First-Party app signs out by the token signedInAccounts() listed.
+    const revoked = await post(worker, '/multi-session/revoke', cookie, {
+      sessionToken: ada.token,
+    });
+    expect(revoked.status).toBe(200);
+    expect(await context.internalAdapter.findSession(ada.token)).toBeNull();
+    expect(
+      setCookies(revoked).some((value) =>
+        value.startsWith(`${ada.active.split('=')[0]}=`),
+      ),
+    ).toBe(false);
+    expect(await whoIs(worker, cookieHeader(mary.active, mary.account))).toBe(
+      'mary@example.com',
+    );
+  });
+
   it('signing out of all accounts leaves nothing', async () => {
     const worker = make();
     const ada = await signIn(worker, 'ada@example.com');

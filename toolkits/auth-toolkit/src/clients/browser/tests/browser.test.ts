@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   listDeviceSessions: vi.fn(),
   setActive: vi.fn(),
+  revoke: vi.fn(),
 }));
 
 vi.mock('better-auth/client/plugins', () => ({
@@ -20,6 +21,7 @@ vi.mock('better-auth/react', () => ({
     multiSession: {
       listDeviceSessions: mocks.listDeviceSessions,
       setActive: mocks.setActive,
+      revoke: mocks.revoke,
     },
   }),
 }));
@@ -195,5 +197,21 @@ describe('createAuthClient', () => {
     await client.switchAccount('ada-token');
 
     expect(mocks.setActive).toHaveBeenCalledWith({ sessionToken: 'ada-token' });
+  });
+
+  it('signs out one Signed-in Account by its token', async () => {
+    mocks.revoke.mockResolvedValue({ data: { status: true }, error: null });
+    const client = createAuthClient({ baseURL: 'https://auth.example.com' });
+
+    await client.signOutAccount('ada-token');
+
+    expect(mocks.revoke).toHaveBeenCalledWith({ sessionToken: 'ada-token' });
+  });
+
+  it('throws when signing out an account fails', async () => {
+    mocks.revoke.mockResolvedValue({ data: null, error: { status: 401 } });
+    const client = createAuthClient({ baseURL: 'https://auth.example.com' });
+
+    await expect(client.signOutAccount('gone-token')).rejects.toThrow('401');
   });
 });
