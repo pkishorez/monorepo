@@ -8,6 +8,7 @@ import {
 import { createIsomorphicFn, createServerFn } from '@tanstack/react-start';
 import { getTheme } from '@kstackz/ui-toolkit/components/blocks/theme/tanstack-start';
 import { buttonVariants } from '@kstackz/ui-toolkit/components/ui/button';
+import { InstallPrompt, useInstall } from '@kstackz/pwa-toolkit/extras';
 import { PwaProvider, pwaHead, UpdatePrompt } from '@kstackz/pwa-toolkit/react';
 import type { ReactNode } from 'react';
 import { appTheme } from '../../../client/state/settings/index.ts';
@@ -55,11 +56,15 @@ export const Route = createRootRoute({
 });
 
 // The service worker finds each new deploy; the prompt asks before reloading.
+// The browser offers install once, early, so it is caught here, for the
+// Install Prompt and for Settings.
 function RootComponent() {
+  useInstall();
   return (
     <PwaProvider>
       <Outlet />
       <UpdatePrompt />
+      <InstallPrompt title="Install Ledger" />
     </PwaProvider>
   );
 }
