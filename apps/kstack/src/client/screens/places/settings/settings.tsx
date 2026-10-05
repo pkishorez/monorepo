@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@kstackz/ui-toolkit/components/ui/alert-dialog';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import {
   NativeSelect,
@@ -12,7 +22,11 @@ import {
 } from '@kstackz/ui-toolkit/components/ui/tabs';
 import { ExternalLink, Moon, Sun } from '@kstackz/ui-toolkit/lucide';
 import { useState } from 'react';
-import { AUTH_URL } from '../../../state/machine/index.ts';
+import {
+  AUTH_URL,
+  signOutEveryone,
+  useApp,
+} from '../../../state/machine/index.ts';
 import {
   useMoney,
   useOnline,
@@ -187,17 +201,58 @@ function Users() {
             ]}
           />
         </Row>
-        <Row label={user.name} hint={user.email}>
+        <Row
+          label="Manage Google accounts"
+          hint={`Where ${user.email} is signed in, and the apps it lets in, at the sign-in service.`}
+        >
           <Button
             variant="outline"
             nativeButton={false}
             render={<a href={AUTH_URL} target="_blank" rel="noopener" />}
           >
             <ExternalLink aria-hidden="true" />
-            Manage Google accounts
+            Manage
           </Button>
+        </Row>
+        <Row
+          label="Sign out everyone"
+          hint="Every user leaves this browser, and their money leaves this device."
+        >
+          <SignOutEveryone />
         </Row>
       </div>
     </Section>
+  );
+}
+
+function SignOutEveryone() {
+  const app = useApp();
+  const online = useOnline();
+  const count = app.kind === 'open' ? app.signedIn.length : 0;
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger
+        render={<Button variant="outline" disabled={!online || count === 0} />}
+      >
+        Sign out everyone
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {count === 1 ? 'Sign out?' : `Sign out all ${count} users?`}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Each one’s money leaves this device and stays in their account.
+            Other apps that share this sign-in sign out of this browser too.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <Button variant="destructive" onClick={signOutEveryone}>
+            Sign out everyone
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

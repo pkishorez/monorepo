@@ -25,6 +25,7 @@ export {
   type Motion,
   THUMB,
 } from './gestures.ts';
+export { type Device, useDevice } from '../kit/input/index.ts';
 export {
   type ActionId,
   type Bindings,

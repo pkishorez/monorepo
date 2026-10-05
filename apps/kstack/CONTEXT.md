@@ -41,11 +41,19 @@ Close the open Session and open another User's, at once, without signing anyone 
 _Avoid_: switch account, change account
 
 **User Switcher**:
-What lists every User signed in on this device, to Switch User, with the way to Manage Google Accounts. Ledger itself never adds or signs out a User.
+What lists every User signed in on this device, to Switch User, Add User, or Sign Out the open User.
 _Avoid_: account menu, profile menu
 
+**Add User**:
+Signing in one more User with Google straight from the User Switcher: Google asks which of its accounts, and Ledger comes back to the same Place with that User's Session open. Choosing a User already signed in on this device only switches to them.
+_Avoid_: add account, login, sign up
+
+**Sign Out**:
+Ending one User on this device: their copy of their money leaves it, and another signed-in User opens, or, with no one left, Ledger is signed out. Signing every User out at once is in Settings and is asked about first.
+_Avoid_: log out, remove account
+
 **Manage Google Accounts**:
-Going to the shared sign-in service, in a new tab, to add a User, sign one out, or sign every one out.
+Going to the shared sign-in service, in a new tab, to see and end the User's Sessions and Grants. It is not how a User is added or signed out.
 _Avoid_: sign out, add account
 
 ### Places
@@ -59,7 +67,7 @@ How Ledger looks, sounds and is driven on this device, the same for every User o
 _Avoid_: preferences, options
 
 **Sidebar**:
-What is beside every Place: the User Switcher at its top, the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were.
+What is beside every Place: the User Switcher at its top, the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were. On a touch screen its edge of the screen is its own, open or closed: a swipe from there never goes back a page.
 _Avoid_: nav, menu, drawer
 
 **Home**:
@@ -100,6 +108,10 @@ The Commands to move one step through what the Place shows: the next Entry, the 
 
 **Add**:
 The Command to write down a new Entry.
+
+**Amount Pad**:
+The keys for an amount, drawn inside Add on a touch screen, so the phone's own keyboard does not open for it and Add stays still. Where there is a keyboard, the amount is typed instead.
+_Avoid_: numpad, keypad, calculator
 
 **Thumb Lock**:
 The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one. A swipe without it acts on what is under the finger.

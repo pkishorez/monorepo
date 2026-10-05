@@ -5,8 +5,14 @@ import {
   DrawerTitle,
 } from '@kstackz/ui-toolkit/components/ui/drawer';
 import { Input } from '@kstackz/ui-toolkit/components/ui/input';
+import { cn } from '@kstackz/ui-toolkit/utils';
 import { useState } from 'react';
-import { BindingKeys, keys, useCommand } from '../../../commands/index.ts';
+import {
+  BindingKeys,
+  keys,
+  useCommand,
+  useDevice,
+} from '../../../commands/index.ts';
 import { useMoney, useWrites } from '../../../state/session/index.ts';
 import {
   centsOf,
@@ -16,6 +22,7 @@ import {
   type Way,
 } from '../../../../domain/ledger/index.ts';
 import { AccountIcon, CategoryIcon, Choice } from '../../parts/index.ts';
+import { AmountPad } from './amount-pad.tsx';
 
 /**
  * Add, whole: a sheet from the bottom while its Surface is Open, dragged
@@ -67,6 +74,10 @@ function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
   );
   const category = fits.find((each) => each.id === categoryId) ?? fits[0];
   const cents = centsOf(typed);
+  // A touch screen with no keyboard gets the Amount Pad, so opening Add
+  // does not open the phone's keyboard; any keyboard types the amount.
+  const device = useDevice();
+  const pad = device.touch && !device.keyboard;
   const ready = cents > 0 && category !== undefined && accountId !== '';
 
   const save = () => {
@@ -122,14 +133,26 @@ function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
 
       <label className="flex flex-col items-center gap-1 py-2">
         <span className="sr-only">Amount</span>
-        <input
-          autoFocus
-          inputMode="decimal"
-          value={typed}
-          placeholder="0.00"
-          onChange={(event) => setTyped(event.target.value.replace(',', '.'))}
-          className="w-full bg-transparent text-center text-5xl font-semibold tracking-tight tabular-nums outline-none placeholder:text-muted-foreground/40"
-        />
+        {pad ? (
+          <output
+            aria-live="polite"
+            className={cn(
+              'text-5xl font-semibold tracking-tight tabular-nums',
+              typed === '' && 'text-muted-foreground/40',
+            )}
+          >
+            {typed || '0.00'}
+          </output>
+        ) : (
+          <input
+            autoFocus
+            inputMode="decimal"
+            value={typed}
+            placeholder="0.00"
+            onChange={(event) => setTyped(event.target.value.replace(',', '.'))}
+            className="w-full bg-transparent text-center text-5xl font-semibold tracking-tight tabular-nums outline-none placeholder:text-muted-foreground/40"
+          />
+        )}
         <span className="text-sm text-muted-foreground tabular-nums">
           {cents > 0
             ? `${way === 'in' ? '+' : '−'}${format(cents, currency)}`
@@ -180,6 +203,7 @@ function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
           aria-label="Another day"
         />
       </div>
+      {pad && <AmountPad value={typed} onChange={setTyped} />}
       <Button type="submit" size="lg" className="h-11 gap-2" disabled={!ready}>
         Save
         {saveKey && (

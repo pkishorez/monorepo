@@ -2,7 +2,7 @@ import { Effect, Schema, Stream } from 'effect';
 import { fromEffect, fromEffectEventStream, setupEffect } from '@xstate/effect';
 import type { Session } from '../session/index.ts';
 import { type Checked, check, switchTo } from './check.ts';
-import { Sessions, type SignedIn } from './services.ts';
+import { Sessions, type SignedIn, SignInService } from './services.ts';
 
 /** Everything Ledger knows about who is signed in, and the open Session. */
 export type AppContext = {
@@ -33,6 +33,10 @@ const events = {
   CHECK: Schema.Struct({}),
   /** Open another signed-in User's Session. */
   SWITCH: Schema.Struct({ userId: Schema.String }),
+  /** Sign the open User out of this device. */
+  SIGN_OUT: Schema.Struct({}),
+  /** Sign every User out of this browser. */
+  SIGN_OUT_EVERYONE: Schema.Struct({}),
   /** The invoked Session is open. */
   SESSION_OPENED: Schema.Struct({ session: SessionSchema }),
 };
@@ -57,6 +61,15 @@ const switching = fromEffect(({ input }: { input: SignedIn }) =>
   switchTo(input),
 );
 
+// Signs one User out by their token, or every User given none. The check
+// after it deletes their copies and opens whoever is left.
+const signingOut = fromEffect(({ input }: { input: string | null }) =>
+  Effect.gen(function* () {
+    const service = yield* SignInService;
+    yield* input === null ? service.signOutEveryone : service.signOut(input);
+  }),
+);
+
 // How often an open Session asks who is signed in, besides on focus.
 const RECHECK = 60_000;
 
@@ -79,12 +92,13 @@ const settle = (checked: Checked, current: SignedIn | null) => {
 
 /**
  * Ledger's lifecycle: find who is signed in, then hold the chosen User's
- * Session open until another User is chosen or nobody is signed in. Leaving
- * `open` closes the Session, so nothing of one User outlives their state.
+ * Session open until another User is chosen, the User signs out, or nobody
+ * is signed in. Leaving `open` closes the Session, so nothing of one User
+ * outlives their state; signing out leaves it before their copy is deleted.
  */
 export const appMachine = setupEffect({
   schemas: { context: AppContextSchema, events },
-  actors: { session, checking, switching },
+  actors: { session, checking, switching, signingOut },
 }).createMachine({
   id: 'app',
   context: (): AppContext => ({
@@ -117,6 +131,15 @@ export const appMachine = setupEffect({
         onError: { target: 'checking' },
       },
     },
+    signingOut: {
+      invoke: {
+        src: 'signingOut',
+        // Signing everyone out first forgets who is open.
+        input: ({ context }) => context.user?.token ?? null,
+        onDone: { target: 'checking' },
+        onError: { target: 'checking' },
+      },
+    },
     open: {
       invoke: {
         src: 'session',
@@ -134,6 +157,17 @@ export const appMachine = setupEffect({
             context: { ...context, user: to, session: null },
           };
         },
+        SIGN_OUT: ({ context }) => {
+          if (context.user?.token == null) return;
+          return {
+            target: 'signingOut',
+            context: { ...context, session: null },
+          };
+        },
+        SIGN_OUT_EVERYONE: ({ context }) => ({
+          target: 'signingOut',
+          context: { ...context, user: null, session: null },
+        }),
       },
       initial: 'opening',
       states: {

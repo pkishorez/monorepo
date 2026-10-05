@@ -12,13 +12,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@kstackz/ui-toolkit/components/ui/dropdown-menu';
+import { toast } from '@kstackz/ui-toolkit/components/ui/sonner';
 import {
   Check,
   ChevronsUpDown,
-  ExternalLink,
+  LogOut,
+  UserPlus,
 } from '@kstackz/ui-toolkit/lucide';
-import { AUTH_URL, switchUser, useApp } from '../../state/machine/index.ts';
-import { type User, useUser } from '../../state/session/index.ts';
+import {
+  addUser,
+  signOut,
+  switchUser,
+  useApp,
+} from '../../state/machine/index.ts';
+import { type User, useOnline, useUser } from '../../state/session/index.ts';
 import { LedgerMark } from '../parts/index.ts';
 
 function UserAvatar(props: { readonly user: User }) {
@@ -30,15 +37,23 @@ function UserAvatar(props: { readonly user: User }) {
   );
 }
 
+const add = () =>
+  addUser().catch(() =>
+    toast.error('Couldn’t start adding a user. Try again.'),
+  );
+
 /**
  * Ledger and whose Session is open, atop the Sidebar: it lists every User
- * signed in on this device to Switch User, and goes to Manage Google
- * Accounts for anything else.
+ * signed in on this device to Switch User, Add User, or Sign Out the open
+ * one. Both need the sign-in service, so they wait for the network.
  */
 export function UserSwitcher() {
   const user = useUser();
   const app = useApp();
+  const online = useOnline();
   const signedIn = app.kind === 'open' ? app.signedIn : [];
+  // Remembered offline, the open User has no token to sign out with yet.
+  const reached = online && app.kind === 'open' && app.user.token !== null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -79,12 +94,16 @@ export function UserSwitcher() {
           ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          render={<a href={AUTH_URL} target="_blank" rel="noopener" />}
-        >
-          <ExternalLink aria-hidden="true" />
-          Manage Google accounts
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem disabled={!online} onClick={add}>
+            <UserPlus aria-hidden="true" />
+            Add user
+          </DropdownMenuItem>
+          <DropdownMenuItem disabled={!reached} onClick={signOut}>
+            <LogOut aria-hidden="true" />
+            <span className="truncate">Sign out {user.name}</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

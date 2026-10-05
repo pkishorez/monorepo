@@ -6,8 +6,11 @@ import { authClient, checkAgain } from '../../state/machine/index.ts';
 import { appTheme } from '../../state/settings/index.ts';
 import { LedgerMark } from '../parts/index.ts';
 
-/** While Ledger asks who is signed in, or opens a User's money. */
-export function Opening(props: { readonly name?: string | undefined }) {
+/** While Ledger asks who is signed in, opens a User's money, or signs out. */
+export function Opening(props: {
+  readonly name?: string | undefined;
+  readonly signingOut?: boolean;
+}) {
   return (
     <Card>
       <p
@@ -18,9 +21,11 @@ export function Opening(props: { readonly name?: string | undefined }) {
           className="size-4 motion-safe:animate-spin"
           aria-hidden="true"
         />
-        {props.name === undefined
-          ? 'Checking who is signed in…'
-          : `Opening ${props.name}’s money…`}
+        {props.signingOut
+          ? 'Signing out…'
+          : props.name === undefined
+            ? 'Checking who is signed in…'
+            : `Opening ${props.name}’s money…`}
       </p>
     </Card>
   );

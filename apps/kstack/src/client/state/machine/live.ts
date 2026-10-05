@@ -10,12 +10,20 @@ const TAB_USER = 'ledger:user';
 // localStorage: the User last opened on this device, to open offline.
 const LAST_USER = 'ledger:last-user';
 
+/** Forgets this tab's User, so the browser's active one opens next. */
+export const forgetTabUser = () => sessionStorage.removeItem(TAB_USER);
+
 const reach = <A>(call: () => Promise<A>) =>
   Effect.tryPromise({ try: call, catch: () => new Unreachable() });
 
 const signInLive = Layer.succeed(SignInService, {
   signedIn: reach(() => authClient.signedInAccounts()),
   makeActive: (token) => reach(() => authClient.switchAccount(token)),
+  signOut: (token) => reach(() => authClient.signOutAccount(token)),
+  signOutEveryone: reach(async () => {
+    const { error } = await authClient.signOut();
+    if (error) throw error;
+  }),
 });
 
 const readLastUser = (): User | null => {
