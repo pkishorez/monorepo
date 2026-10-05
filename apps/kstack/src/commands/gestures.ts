@@ -17,6 +17,7 @@ export const GESTURES: Partial<Readonly<Record<ActionId, string>>> = {
   addEntry: 'Thumb Lock, swipe up — or +',
   toggleSidebar: 'Swipe right',
   'entries.open': 'Tap the row',
+  'entries.remove': 'Swipe the row left',
   'entries.entry.back': 'Thumb Lock, swipe down',
   'months.open': 'Tap the month',
   'months.month.back': 'Thumb Lock, swipe down',
@@ -65,7 +66,10 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
   },
   {
     title: 'Entries',
-    gestures: [{ does: 'Open the entry', motion: { kind: 'tap' } }],
+    gestures: [
+      { does: 'Open the entry', motion: { kind: 'tap' } },
+      { does: 'Delete the entry', motion: { kind: 'swipe', way: 'left' } },
+    ],
     inside: [
       {
         title: 'An entry',

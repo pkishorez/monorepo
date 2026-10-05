@@ -19,6 +19,7 @@ import {
   narrowing,
   shownBy,
 } from './filter.ts';
+import { SwipeRow } from './swipe-row.tsx';
 
 /**
  * The list of Entries, by day, with one marked: Next and Previous move the
@@ -94,17 +95,24 @@ export function EntriesList(props: {
   useCommand('entries.open', () => marked && openEntry(marked), {
     enabled: active && marked !== undefined,
   });
+  // Deletes an Entry, marking the one after it if it was marked, with a
+  // way back.
+  const remove = (entry: Entry) => {
+    const index = shown.indexOf(entry);
+    removed.current = entry;
+    if (entry.id === marked) {
+      mark(index + 1 < shown.length ? index + 1 : index - 1);
+    }
+    removeEntry(entry.id);
+    toast(`Deleted ${entry.memo || 'the entry'}`, {
+      action: { label: 'Undo', onClick: () => restoreEntry(entry) },
+    });
+  };
   useCommand(
     'entries.remove',
     () => {
       const entry = shown[at];
-      if (entry === undefined) return;
-      removed.current = entry;
-      mark(at + 1 < shown.length ? at + 1 : at - 1);
-      removeEntry(entry.id);
-      toast(`Deleted ${entry.memo || 'the entry'}`, {
-        action: { label: 'Undo', onClick: () => restoreEntry(entry) },
-      });
+      if (entry) remove(entry);
     },
     { enabled: active && at >= 0 },
   );
@@ -169,19 +177,20 @@ export function EntriesList(props: {
               <Amount cents={net} currency={currency} />
             </h3>
             {entries.map((entry) => (
-              <EntryRow
-                key={entry.id}
-                entry={entry}
-                category={lookup.category.get(entry.categoryId)}
-                account={lookup.account.get(entry.accountId)}
-                currency={currency}
-                marked={entry.id === marked && (active || open === undefined)}
-                open={entry.id === open && wide}
-                onClick={() => {
-                  setMarked(entry.id);
-                  openEntry(entry.id);
-                }}
-              />
+              <SwipeRow key={entry.id} onDelete={() => remove(entry)}>
+                <EntryRow
+                  entry={entry}
+                  category={lookup.category.get(entry.categoryId)}
+                  account={lookup.account.get(entry.accountId)}
+                  currency={currency}
+                  marked={entry.id === marked && (active || open === undefined)}
+                  open={entry.id === open && wide}
+                  onClick={() => {
+                    setMarked(entry.id);
+                    openEntry(entry.id);
+                  }}
+                />
+              </SwipeRow>
             ))}
           </section>
         );
