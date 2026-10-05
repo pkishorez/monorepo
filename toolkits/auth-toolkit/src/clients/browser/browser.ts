@@ -53,6 +53,7 @@ interface MultiSession {
       }>
     >;
     setActive: (input: { sessionToken: string }) => Result<unknown>;
+    revoke: (input: { sessionToken: string }) => Result<unknown>;
   };
 }
 
@@ -193,6 +194,11 @@ export const createAuthClient = (config: AuthClientConfig) => {
     /** Makes a Signed-in Account the Active Account, for the whole browser. */
     switchAccount: async (token: string): Promise<void> => {
       await dataOf(multi.multiSession.setActive({ sessionToken: token }));
+    },
+    /** Signs out one Signed-in Account and ends its Session; the others stay.
+     * Signing out the Active Account makes another one active, if any. */
+    signOutAccount: async (token: string): Promise<void> => {
+      await dataOf(multi.multiSession.revoke({ sessionToken: token }));
     },
   };
 };

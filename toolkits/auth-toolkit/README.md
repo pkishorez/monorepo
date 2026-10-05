@@ -139,9 +139,9 @@ Peer dependencies, all optional; install the ones your subpaths need:
 
 ### `@kstackz/auth-toolkit/clients/browser`
 
-| Export             | What it does                                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `createAuthClient` | Builds the browser client for the Auth Worker with `useSession`, `useLoginError`, `signIn.google`, `signOut`, `signedInAccounts`, and `switchAccount`. |
+| Export             | What it does                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `createAuthClient` | Builds the browser client for the Auth Worker with `useSession`, `useLoginError`, `signIn.google`, `signOut`, `signedInAccounts`, `switchAccount`, and `signOutAccount`. |
 
 ### `@kstackz/auth-toolkit/clients/cli`
 
