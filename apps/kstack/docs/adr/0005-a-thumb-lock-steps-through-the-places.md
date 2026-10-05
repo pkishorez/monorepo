@@ -7,8 +7,8 @@ Add. Now up and down Step through the Place order — Home, Entries, Months,
 Settings — and lifting Goes to the Place reached, through the same Go
 Actions as the keys (ADR 0001). The first Step comes exactly as the swipe
 arms, so a flick goes to the next or previous Place; each further stretch of
-travel is one more Step, and from the second the Lift Hint grows into the
-Place Picker. An Entry or a Month counts as just under its list. Past either
+travel is one more Step, and the Place Picker shows the whole order from the
+moment the swipe goes up or down. An Entry or a Month counts as just under its list. Past either
 end, like sideways, is a Wrong Way.
 
 Add no longer needs a way of its own: on a touch screen it has the plus

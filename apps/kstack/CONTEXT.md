@@ -118,12 +118,8 @@ One Place up or down the Place order (Home, Entries, Months, Settings) in a Thum
 _Avoid_: next screen, page
 
 **Place Picker**:
-What the Lift Hint grows into from a swipe's second Step: every Place in order, the one its Steps have reached marked. Lifting goes there; coming back to where the swipe began and lifting goes nowhere.
-_Avoid_: place switcher, wheel, menu, launcher
-
-**Lift Hint**:
-What names, at the top of the screen, the Place a Thumb Lock will go to when the finger lifts. It shows only once the swipe has gone far enough to arm it, and goes again if the finger comes back short. Nothing shows under the fingers.
-_Avoid_: compass, wheel, HUD, tooltip
+What shows, at the top of the screen, as soon as a Thumb Lock swipe goes up or down: every Place in order, where the swipe began and the one its Steps have reached both marked. Lifting goes there; coming back to where the swipe began and lifting goes nowhere. Nothing shows under the fingers.
+_Avoid_: lift hint, place switcher, wheel, menu, launcher
 
 **Gesture Sounds**:
 The sounds of the Thumb Lock, switched on or off apart from the sounds of Commands: soft as it locks and arms, a tick at each Step, a gentle chime when it goes, an error on a Wrong Way.
