@@ -29,12 +29,16 @@ export const splashScreens = [
 ];
 
 /**
- * The tags that give iOS the Splash. Android draws its own from the
- * manifest's name, icon and background colour.
+ * The tags that give iOS the Splash. iOS shows a startup image only with
+ * `apple-mobile-web-app-capable`; the status bar still follows a theme
+ * switch, as the theme's StatusBar strip paints the top edge. Android draws
+ * its own Splash from the manifest's name, icon and background colour.
  */
-export const splashLinks = () =>
-  splashScreens.map((each) => ({
+export const splashHead = () => ({
+  meta: [{ name: 'apple-mobile-web-app-capable', content: 'yes' }],
+  links: splashScreens.map((each) => ({
     rel: 'apple-touch-startup-image',
     href: each.href,
     media: each.media,
-  }));
+  })),
+});
