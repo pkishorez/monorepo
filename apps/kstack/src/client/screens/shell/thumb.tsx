@@ -24,25 +24,17 @@ const shake = () => {
   );
 };
 
-type Stepped = ReturnType<typeof pick> & {
-  /** The Lift Hint has grown into the Place Picker, until the finger lifts. */
-  readonly list: boolean;
-};
-
-// Something shows once the first Step is taken, and the Place Picker stays
-// until the finger lifts.
-const showing = (stepped: Stepped) => stepped.steps !== 0 || stepped.list;
+type Stepped = ReturnType<typeof pick>;
 
 /**
  * The Thumb Lock of every Place: up and down Step through the Place order,
  * and lifting Goes to the Place reached, through the same Action as its
- * key, so it works exactly where the key would. The first Step comes as
- * the swipe arms, so a flick goes to the next or previous Place; from the
- * second, the Lift Hint grows into the Place Picker. Past either end, or
- * sideways, is a Wrong Way: the screen shakes. It sounds as it locks, arms,
- * Steps, goes and goes wrong, if the user wants gesture sounds, and buzzes
- * where it can. The Go it gives keeps its own sound and Key Bar to itself:
- * the Lift Hint has shown it already.
+ * key. The Place Picker shows as soon as the swipe goes up or down; the
+ * first Step comes as the swipe arms, so a flick goes to the next or
+ * previous Place. Past either end, or sideways, is a Wrong Way: the screen
+ * shakes. It sounds as it locks, Steps, goes and goes wrong, if the user
+ * wants gesture sounds, and buzzes where it can. The Go it gives keeps its
+ * own sound and Key Bar to itself: the Place Picker has shown it already.
  */
 export function Thumb() {
   const settings = useSettings();
@@ -54,13 +46,15 @@ export function Thumb() {
   // What is shown as the swipe moves, ahead of the next render.
   const stepped = useRef<Stepped>(undefined);
   const sounds = settings.gestureSounds;
-  // Go works here, as its keys do, or every way is a Wrong Way.
-  const going = PLACES.every(
-    (place) =>
-      actions.find((action) => action.id === place.command)?.state === 'active',
-  );
+  // A Go whose keys another Surface shadows here still runs for a finger.
+  const goes = (command: string) => {
+    const state = actions.find((action) => action.id === command)?.state;
+    return state === 'active' || state === 'shadowed';
+  };
+  const going = PLACES.some((place) => goes(place.command));
 
-  const still: Stepped = { steps: 0, index: start, past: false, list: false };
+  const at = (travel: number) =>
+    pick({ count: items.length, start, travel, first: FIRST });
 
   const show = (next: Stepped | undefined) => {
     stepped.current = next;
@@ -82,19 +76,10 @@ export function Thumb() {
   };
 
   const move = (travel: number) => {
-    const before = stepped.current ?? still;
-    const now = pick({ count: items.length, start, travel, first: FIRST });
-    const next = { ...now, list: before.list || Math.abs(now.steps) >= 2 };
-    if (
-      next.steps === before.steps &&
-      next.index === before.index &&
-      next.list === before.list
-    )
-      return;
-    if (!showing(before) && showing(next)) {
-      if (sounds) play('arm');
-      buzz(8);
-    } else if (showing(next) && next.index !== before.index) {
+    const before = stepped.current;
+    const next = at(travel);
+    if (before?.index === next.index && before.past === next.past) return;
+    if (before !== undefined && next.index !== before.index) {
       if (sounds) play('tick');
       buzz(4);
     }
@@ -104,27 +89,20 @@ export function Thumb() {
   const lift = (travel: number | undefined) => {
     show(undefined);
     if (travel === undefined) return;
-    const { steps, index, past } = pick({
-      count: items.length,
-      start,
-      travel,
-      first: FIRST,
-    });
+    const { steps, index, past } = at(travel);
     if (steps === 0) return;
-    if (past) return wrong();
     const place = items[index];
-    if (place === undefined || !('command' in place)) return;
+    if (past || place === undefined || !('command' in place)) return wrong();
+    if (!goes(place.command)) return wrong();
     if (sounds) play('success');
     quietly(() => run(place.command));
   };
-
-  const marked = shown && showing(shown) ? items[shown.index]?.id : undefined;
 
   return (
     <>
       <ThumbLock
         works={{ up: going, down: going, left: false, right: false }}
-        onSwipe={(swipe) => move(swipe?.dy ?? 0)}
+        onSwipe={(swipe) => (swipe ? move(swipe.dy) : show(undefined))}
         onLift={(swipe) => lift(swipe?.dy)}
         onFeedback={feedback}
         enabled={settings.gesturesOn}
@@ -132,9 +110,8 @@ export function Thumb() {
       <PlacePicker
         items={items}
         start={items[start]?.id ?? ''}
-        marked={marked}
+        marked={shown && items[shown.index]?.id}
         past={shown?.past ?? false}
-        list={shown?.list ?? false}
       />
     </>
   );
