@@ -7,15 +7,8 @@ import {
   type ThumbFeedback,
   ThumbLock,
   type Way,
+  WAYS,
 } from '../../kit/thumb-lock/index.ts';
-
-// Short names for the arms; the Compass has little room.
-const NAMES: Readonly<Record<Way, string>> = {
-  down: 'Jump',
-  up: 'Add',
-  left: 'Next',
-  right: 'Previous',
-};
 
 const buzz = (pattern: number | ReadonlyArray<number>) =>
   navigator.vibrate?.(pattern as number[]);
@@ -33,9 +26,10 @@ const shake = () => {
 
 /**
  * The Thumb Lock of every Place: each way runs the same Action as its key,
- * so an arm works exactly where the key would, and is faint where not. It
- * sounds as it locks, arms, runs and goes a Wrong Way, if the user wants
- * gesture sounds; the Command it runs then keeps its own sound to itself.
+ * so a way works exactly where the key would. It sounds as it locks, arms,
+ * runs and goes a Wrong Way, if the user wants gesture sounds, and a Wrong
+ * Way shakes the screen. The Command it runs keeps its own sound and Key
+ * Bar to itself: the Lift Hint has shown it already.
  */
 export function Thumb() {
   const { preferences } = useMoney();
@@ -43,13 +37,20 @@ export function Thumb() {
   const run = keys.useRun();
   const sounds = useRef(preferences.gestureSounds);
   sounds.current = preferences.gestureSounds;
-  const works = (way: Way) =>
-    actions.find((action) => action.id === THUMB[way])?.state === 'active';
+  // Each way's Command, named as the palette names it; a way with none
+  // never works.
   const commands = Object.fromEntries(
-    (Object.keys(THUMB) as Way[]).map((way) => [
-      way,
-      { label: NAMES[way], works: works(way) },
-    ]),
+    WAYS.map((way) => {
+      const id = THUMB[way];
+      const action = actions.find((each) => each.id === id);
+      return [
+        way,
+        {
+          label: action?.description ?? '',
+          works: action?.state === 'active',
+        },
+      ];
+    }),
   ) as Record<Way, ThumbCommand>;
 
   const feedback = (kind: ThumbFeedback) => {
@@ -70,7 +71,10 @@ export function Thumb() {
   return (
     <ThumbLock
       commands={commands}
-      onCommand={(way) => quietly(() => run(THUMB[way]))}
+      onCommand={(way) => {
+        const id = THUMB[way];
+        if (id) quietly(() => run(id));
+      }}
       onFeedback={feedback}
       enabled={preferences.gesturesOn !== false}
     />

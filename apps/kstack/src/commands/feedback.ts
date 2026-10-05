@@ -37,7 +37,10 @@ export const setCommandSounds = (on: boolean) => {
   sounding = on;
 };
 
-/** Runs a Command without its sound, as a gesture that sounded already. */
+/**
+ * Runs a Command without its sound or Key Bar, as a gesture that showed
+ * and sounded it already.
+ */
 export const quietly = (run: () => void) => {
   quiet = true;
   try {
@@ -49,7 +52,8 @@ export const quietly = (run: () => void) => {
 
 /** A Command was given: it sounds, and the Key Bar shows it. */
 export const announce = (id: ActionId) => {
-  if (sounding && !quiet) play(SOUNDS[id] ?? 'confirm');
+  if (quiet) return;
+  if (sounding) play(SOUNDS[id] ?? 'confirm');
   given = { id, at: performance.now() };
   for (const listener of listeners) listener();
 };

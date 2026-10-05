@@ -22,7 +22,7 @@ and which stay here.
 
 | What                             | Where                                                     | Why it was needed                                                                                                       | Could become                                                                     |
 | -------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Thumb Lock, Compass, `read`      | `src/kit/thumb-lock`                                      | A two-finger modifier gesture with a live radial readout, Wrong Way shake, lock ripple and run fling.                   | A use-gesture pattern; the Compass in ui-toolkit.                                |
+| Thumb Lock, Lift Hint, `read`    | `src/kit/thumb-lock`                                      | A two-finger modifier gesture: the Lift Hint names the armed Command at the top, a Wrong Way shakes the screen.         | A use-gesture pattern; the Lift Hint in ui-toolkit.                              |
 | `GESTURE_GUIDE`, `GestureFigure` | `src/commands/gestures.ts`, `src/app/settings/figure.tsx` | A read-only list of gestures by Place, each drawn as moving dots. It's hand-written, so it can drift from the Handlers. | Derived from the Actions' gestures once they live in one definition, as keys do. |
 
 ## UI (`@kstackz/ui-toolkit`)

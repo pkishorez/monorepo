@@ -68,10 +68,10 @@ export function GesturesTab() {
         <div className="space-y-1.5 text-sm">
           <h2 className="font-medium">The Thumb Lock</h2>
           <p className="text-pretty text-muted-foreground">
-            Rest your left thumb still on the screen, then swipe with another
-            finger. Small labels under that finger name each way; the one you
-            swipe toward fills, and letting go runs it. A way that does nothing
-            here is faint, and the screen shakes if you try it.
+            Rest your left thumb still on the screen, then swipe up or down with
+            another finger. Once you've gone far enough, the top of the screen
+            names what letting go will do; come back short and it goes. A way
+            that does nothing here shakes the screen.
           </p>
         </div>
       </section>
