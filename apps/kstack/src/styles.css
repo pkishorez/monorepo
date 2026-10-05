@@ -8,10 +8,28 @@
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 }
 
+/*
+ * What the device can be driven by, from `<html>` (see kit/device), and
+ * what the user switched off in Settings: `keyboard:` and `touch:` for the
+ * device, `keys:` and `gestures:` for the hints of each that is on.
+ */
+@custom-variant keyboard (&:where([data-keyboard] *));
+@custom-variant touch (&:where([data-touch] *));
+@custom-variant keys (&:where([data-keyboard]:not([data-keys-off]) *));
+@custom-variant gestures (&:where([data-touch]:not([data-gestures-off]) *));
+
+/* The one focus ring: drawn inside, so no scrolling parent clips it. */
+@utility focus-ring {
+  outline: none;
+  &:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--color-ring);
+  }
+}
+
 @layer base {
   html,
   body {
-    /* Each Showcase scrolls inside itself; the page never rubber-bands. */
+    /* The page scrolls inside the shell; the document never rubber-bands. */
     overscroll-behavior: none;
   }
   body {
@@ -21,22 +39,5 @@
   a,
   button {
     touch-action: manipulation;
-  }
-}
-
-/* Opening a Showcase grows its card into the whole screen. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-}
-
-::view-transition-group(showcase) {
-  animation-duration: 320ms;
-  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(showcase) {
-    animation: none;
   }
 }

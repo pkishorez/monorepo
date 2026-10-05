@@ -4,73 +4,143 @@
   "ignoredPaths": ["src/routeTree.gen.ts", "src/styles.css"],
   "layers": {
     "entry": {
-      "paths": ["src/router.tsx"],
-      "description": "The TanStack router",
+      "paths": ["src/router.tsx", "src/server.ts"],
+      "description": "Where the host starts: the TanStack router in the browser, and the Worker that answers /rpc and serves the app",
       "modules": {
-        "src/router.tsx": {}
+        "src/router.tsx": {},
+        "src/server.ts": {}
       }
     },
     "routes": {
       "paths": ["src/routes"],
-      "description": "The document, the home page listing every Showcase, the offline page the service worker falls back to, and each Showcase's thin routes",
+      "description": "The document, the offline page, and one thin route for each Place, Settings among them, all inside Ledger's shell. The router reaches them through the generated route tree, so nothing imports them",
       "modules": {
         "src/routes": {}
       }
     },
-    "app-shell-showcase": {
-      "paths": ["src/showcases/app-shell"],
-      "description": "The App Shell Showcase: a small workspace in ui-toolkit's App Shell, its sidebar, header and account menu each turned on or off by Tweaks",
+    "preview": {
+      "paths": ["src/preview"],
+      "description": "In development only: Ledger for a stand-in user, its server the real handlers over a table in memory in the tab, to try every key and gesture without signing in",
       "modules": {
-        "src/showcases/app-shell": {
+        "src/preview": {
           "exposed": true
         }
       }
     },
-    "gestures-showcase": {
-      "paths": ["src/showcases/gestures"],
-      "description": "The Gestures Showcase: what use-gesture can do, one Topic per page, each a set of Scenarios with a live demo and its code",
+    "app": {
+      "paths": ["src/app"],
+      "description": "Ledger's screens: the shell around every Place with its Sidebar, each Place, the sheets over them, and the parts they share",
       "modules": {
-        "src/showcases/gestures": {
+        "src/app/parts": {
+          "shared": true
+        },
+        "src/app/shell": {
+          "exposed": true
+        },
+        "src/app/add": {
+          "shared": true
+        },
+        "src/app/accounts": {
+          "shared": true
+        },
+        "src/app/settings": {
+          "exposed": true
+        },
+        "src/app/palette": {
+          "shared": true
+        },
+        "src/app/home": {
+          "exposed": true
+        },
+        "src/app/entries": {
+          "exposed": true
+        },
+        "src/app/months": {
           "exposed": true
         }
       }
     },
-    "features-showcase": {
-      "paths": ["src/showcases/features"],
-      "description": "The Features Showcase: end-to-end apps where several gestures meet on one screen, such as a mail inbox",
+    "commands": {
+      "paths": ["src/commands"],
+      "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and how each sounds and shows when given",
       "modules": {
-        "src/showcases/features": {
+        "src/commands": {
           "exposed": true
         }
       }
     },
-    "keyboard-showcase": {
-      "paths": ["src/showcases/keyboard"],
-      "description": "The Keyboard Showcase: a notes app run from the keyboard, its Surfaces and Actions in one definition, with a palette, a list of every key, and settings to record new ones",
+    "client": {
+      "paths": ["src/client"],
+      "description": "The browser's side of the server: who is signed in, and the user's money kept in IndexedDB and in step with D1",
       "modules": {
-        "src/showcases/keyboard": {
+        "src/client/session": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/client/data": {
+          "exposed": true
+        }
+      }
+    },
+    "kit": {
+      "paths": ["src/kit"],
+      "description": "What Ledger needed that no package has yet: sounds made on demand, the Thumb Lock with its Compass, and what the device can be driven by. Each knows nothing of Ledger",
+      "modules": {
+        "src/kit/sound": {
+          "exposed": true
+        },
+        "src/kit/thumb-lock": {
+          "exposed": true
+        },
+        "src/kit/device": {
+          "exposed": true
+        }
+      }
+    },
+    "server": {
+      "paths": ["src/server"],
+      "description": "The Worker's side: the D1 table of every user's money, the Ledger API's handlers, and the host that answers /rpc for the signed-in user",
+      "modules": {
+        "src/server/storage": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/server/ledger": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/server/rpc-host": {
           "exposed": true
         }
       }
     },
     "infra": {
       "paths": ["src/infra"],
-      "description": "Deployable resources, composed by alchemy.run.ts",
+      "description": "Deployable resources, composed by alchemy.run.ts: the D1 database, its table, and the Worker",
       "modules": {
-        "src/infra": {}
+        "src/infra": {
+          "exposed": true
+        }
+      }
+    },
+    "domain": {
+      "paths": ["src/domain"],
+      "description": "The words of money: Accounts, Categories, Entries and Preferences, the sums over them, and the Ledger API both sides speak",
+      "modules": {
+        "src/domain/ledger": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/domain/ledger-api": {
+          "exposed": true
+        }
       }
     },
     "common": {
       "paths": ["src/common"],
-      "description": "What every Showcase shares: the theme the document boots with, Tweaks (how a Showcase declares its settings, saves them and shows them), and the dialog that shows its code",
+      "description": "The theme the document boots with",
       "modules": {
         "src/common/theme.ts": {
-          "exposed": true
-        },
-        "src/common/tweaks.tsx": {
-          "exposed": true
-        },
-        "src/common/code.tsx": {
           "exposed": true
         }
       }
@@ -78,22 +148,19 @@
   },
   "layerGraphs": {
     "kstack": {
-      "description": "The router over the routes; the routes over the Showcases; each Showcase is self-contained and shares only common",
+      "description": "Places over the vocabulary and the data; the data over the domain both sides speak; the kit and the domain at the bottom, knowing nothing above them",
       "rules": {
-        "entry": [],
-        "routes": [
-          "common",
-          "app-shell-showcase",
-          "gestures-showcase",
-          "features-showcase",
-          "keyboard-showcase"
-        ],
-        "app-shell-showcase": ["common"],
-        "gestures-showcase": ["common"],
-        "features-showcase": ["common"],
-        "infra": [],
-        "common": [],
-        "keyboard-showcase": ["common"]
+        "entry": ["infra"],
+        "routes": ["preview"],
+        "preview": ["app", "server"],
+        "app": ["commands", "client"],
+        "commands": ["kit"],
+        "client": ["domain", "common"],
+        "infra": ["server"],
+        "server": ["domain"],
+        "kit": [],
+        "domain": [],
+        "common": []
       }
     }
   }

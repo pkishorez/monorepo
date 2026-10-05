@@ -1,6 +1,6 @@
 {
   "name": "kstack",
-  "description": "Showcases of the app layouts and behaviours kstack supports, each a complete app, published at kstack.kishore.app.",
+  "description": "Ledger: a money tracker that is the blueprint for every kstack app, run by keys where there is a keyboard and by gestures where there is a touch screen, published at kstack.kishore.app.",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -8,21 +8,26 @@
     "dev": "portless run --force alchemy dev",
     "build": "vp build",
     "preview": "vp preview",
-    "lint": "tsc --noEmit && pnpm lint:laymos",
+    "lint": "tsc --noEmit && pnpm lint:laymos && pnpm lint:colors",
+    "lint:colors": "node scripts/colors.ts",
     "lint:laymos": "laymos lint",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
-    "icons": "node scripts/icons.ts"
+    "icons": "node scripts/icons.ts",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@tanstack/react-db": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "@kstackz/auth-toolkit": "workspace:*",
     "effect": "catalog:",
+    "motion": "catalog:",
     "@kstackz/pwa-toolkit": "workspace:*",
-    "@kstackz/ui-toolkit": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "@kstackz/std-toolkit": "workspace:*",
+    "@kstackz/ui-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
-    "motion": "catalog:",
     "@kstackz/use-keys": "workspace:*"
   },
   "devDependencies": {
@@ -36,6 +41,7 @@
     "laymos": "workspace:*",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

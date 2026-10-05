@@ -1,0 +1,47 @@
+# What Ledger had to invent
+
+Every abstraction the app built because no kstack package had it, with where
+it lives and where it might belong. Decide later which ones become first-class
+and which stay here.
+
+## Keys (`@kstackz/use-keys`)
+
+| What                                                                                            | Where                                                                                | Why it was needed                                                                                                                                                        | Could become                                                                     |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `useCommand`, `announce`, `useGiven`                                                            | `src/commands/feedback.ts`                                                           | Every Action's Handler must also play a sound and show in the Key Bar, from a key, the palette or a gesture. use-keys has no "an Action ran" event.                      | An `onRun(id)` on `keys.Provider`; the wrapper goes away.                        |
+| `usePlace`                                                                                      | `src/app/parts/place.ts`                                                             | A route makes its Surface Active. `setSurface` changes identity with each Surface, so it hides in a ref.                                                                 | A stable `setSurface`, or `useActiveSurface(id)` in use-keys.                    |
+| Marked lists: `scrollMarked`, next/previous/top/bottom                                          | `src/app/entries/list.tsx`, `src/app/months/months.tsx`, `src/app/shell/sidebar.tsx` | Three lists repeat "a mark that j/k move, kept in view".                                                                                                                 | A `useMarkedList` in use-keys (or ui-toolkit).                                   |
+| Sidebar keys: focus in, Escape back                                                             | `useSidebarKeys` in `src/app/shell/sidebar.tsx`                                      | `openSurface`/`closeSurface` track the Surface but not DOM focus, so the app remembers `activeElement`, refocuses it, and leaves on `focusin` elsewhere.                 | `restoreFocus` on `openSurface`, plus `focusSidebar()` on the App Shell.         |
+| `keysOff`, `ACTION_IDS`                                                                         | `src/commands/bindings.ts`                                                           | The Keys switch: every Action gets `[]` except finding a Command and what's open. The ids come from walking the definition.                                              | `keys.actionIds`, and `enabled` per Surface or an `except` list on the Provider. |
+| Storing and recording keys: `bindingsOf`, `written`, `recorded`, `bindingOf`, the 900 ms settle | `src/commands/bindings.ts`, `src/app/settings/keys-tab.tsx`                          | `describe` writes a Binding, but nothing reads it back or records one from key presses.                                                                                  | `parse(text)` (the inverse of `describe`) and `useRecordBinding()`.              |
+| A broken Sequence                                                                               | `src/app/shell/key-bar.tsx`                                                          | Status says `possible` or `idle`. A wrong key is inferred when a Sequence ends with no Command given within 60 ms.                                                       | `sequence: { type: 'broken', pressed, key }` in `useStatus`.                     |
+| `BindingKeys`                                                                                   | `src/commands/binding-keys.tsx`                                                      | Platform labels (⌘ vs Ctrl, ↵, Space) over ui-toolkit's `Kbd`.                                                                                                           | `labels(binding)` in use-keys and a `BindingKeys` in ui-toolkit.                 |
+| Surface-bound sheets                                                                            | `src/app/add/add.tsx`, `src/app/accounts/account-sheet.tsx`                          | A dialog open while its Surface is Active, with a fresh form on each opening, kept while it animates out. The Account sheet passes its target through a module variable. | A `SurfaceDialog` with an `open(payload)`.                                       |
+
+## Gestures (`@kstackz/use-gesture`)
+
+| What                             | Where                                                     | Why it was needed                                                                                                       | Could become                                                                     |
+| -------------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Thumb Lock, Compass, `read`      | `src/kit/thumb-lock`                                      | A two-finger modifier gesture with a live radial readout, Wrong Way shake, lock ripple and run fling.                   | A use-gesture pattern; the Compass in ui-toolkit.                                |
+| `GESTURE_GUIDE`, `GestureFigure` | `src/commands/gestures.ts`, `src/app/settings/figure.tsx` | A read-only list of gestures by Place, each drawn as moving dots. It's hand-written, so it can drift from the Handlers. | Derived from the Actions' gestures once they live in one definition, as keys do. |
+
+## UI (`@kstackz/ui-toolkit`)
+
+| What                                                                                                  | Where                              | Why it was needed                                                                                                                         | Could become                                                    |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Device detection: `useDevice`, `DEVICE_SCRIPT`, the `keyboard:`/`touch:`/`keys:`/`gestures:` variants | `src/kit/device`, `src/styles.css` | Hints follow the device, not the width. The App Shell has only the width-based `isMobile` and a private `useIsTouch`.                     | `useDevice` and the variants in ui-toolkit's `global.css`.      |
+| `Page`, `useWide`                                                                                     | `src/app/parts/page.tsx`           | The App Shell's scroller isn't a container and takes no className, so the app wraps the page in `@container/page` and measures it for JS. | `@container/page` on `app-shell-scroller` and `usePageWidth()`. |
+| `focus-ring` utility                                                                                  | `src/styles.css`                   | One inset focus ring for custom rows and pills.                                                                                           | A utility in ui-toolkit's `global.css`.                         |
+| `Choice`                                                                                              | `src/app/parts/choice.tsx`         | A row of pills that scrolls sideways. `ToggleGroup` doesn't scroll and looks like a toolbar.                                              | A `ToggleGroup` variant, or stay in the app.                    |
+| Key Bar                                                                                               | `src/app/shell/key-bar.tsx`        | A which-key and last-Command toast in one floating bar.                                                                                   | A ui-toolkit block once use-keys reports broken Sequences.      |
+| Sounds                                                                                                | `src/kit/sound`                    | Short synthesized UI sounds, no files.                                                                                                    | A small package, or stay in the app.                            |
+
+Fixed in ui-toolkit while doing this: `SidebarMenuButton` and
+`SidebarMenuSubButton` draw their focus ring inset, so the sidebar's scroll
+area no longer clips it; `TabsTrigger` has one focus ring instead of a border,
+a ring and an outline.
+
+## Stays in the app
+
+`Amount`, `EntryRow`, `CategoryIcon`, `AccountIcon`, `useLookup`: these are
+Ledger's own words.

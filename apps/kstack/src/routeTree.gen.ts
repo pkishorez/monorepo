@@ -9,37 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppShellRouteRouteImport } from './routes/app-shell/route'
-import { Route as GesturesRouteRouteImport } from './routes/gestures/route'
-import { Route as KeyboardRouteImport } from './routes/keyboard'
+import { Route as LedgerRouteRouteImport } from './routes/_ledger/route'
 import { Route as OfflineRouteImport } from './routes/offline'
-import { Route as AppShellIndexRouteImport } from './routes/app-shell/index'
-import { Route as AppShellSectionRouteImport } from './routes/app-shell/$section'
-import { Route as FeaturesIndexRouteImport } from './routes/features/index'
-import { Route as FeaturesFeatureRouteImport } from './routes/features/$feature'
-import { Route as GesturesIndexRouteImport } from './routes/gestures/index'
-import { Route as GesturesTopicRouteImport } from './routes/gestures/$topic'
-import { Route as GesturesTopicScenarioRouteImport } from './routes/gestures_.$topic.$scenario'
+import { Route as LedgerIndexRouteImport } from './routes/_ledger/index'
+import { Route as LedgerEntriesRouteRouteImport } from './routes/_ledger/entries/route'
+import { Route as LedgerSettingsRouteImport } from './routes/_ledger/settings'
+import { Route as LedgerEntriesIndexRouteImport } from './routes/_ledger/entries/index'
+import { Route as LedgerEntriesEntryIdRouteImport } from './routes/_ledger/entries/$entryId'
+import { Route as LedgerMonthsIndexRouteImport } from './routes/_ledger/months/index'
+import { Route as LedgerMonthsMonthRouteImport } from './routes/_ledger/months/$month'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppShellRouteRoute = AppShellRouteRouteImport.update({
-  id: '/app-shell',
-  path: '/app-shell',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GesturesRouteRoute = GesturesRouteRouteImport.update({
-  id: '/gestures',
-  path: '/gestures',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KeyboardRoute = KeyboardRouteImport.update({
-  id: '/keyboard',
-  path: '/keyboard',
+const LedgerRouteRoute = LedgerRouteRouteImport.update({
+  id: '/_ledger',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfflineRoute = OfflineRouteImport.update({
@@ -47,165 +28,118 @@ const OfflineRoute = OfflineRouteImport.update({
   path: '/offline',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppShellIndexRoute = AppShellIndexRouteImport.update({
+const LedgerIndexRoute = LedgerIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppShellRouteRoute,
+  getParentRoute: () => LedgerRouteRoute,
 } as any)
-const AppShellSectionRoute = AppShellSectionRouteImport.update({
-  id: '/$section',
-  path: '/$section',
-  getParentRoute: () => AppShellRouteRoute,
+const LedgerEntriesRouteRoute = LedgerEntriesRouteRouteImport.update({
+  id: '/entries',
+  path: '/entries',
+  getParentRoute: () => LedgerRouteRoute,
 } as any)
-const FeaturesIndexRoute = FeaturesIndexRouteImport.update({
-  id: '/features/',
-  path: '/features/',
-  getParentRoute: () => rootRouteImport,
+const LedgerSettingsRoute = LedgerSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => LedgerRouteRoute,
 } as any)
-const FeaturesFeatureRoute = FeaturesFeatureRouteImport.update({
-  id: '/features/$feature',
-  path: '/features/$feature',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GesturesIndexRoute = GesturesIndexRouteImport.update({
+const LedgerEntriesIndexRoute = LedgerEntriesIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => GesturesRouteRoute,
+  getParentRoute: () => LedgerEntriesRouteRoute,
 } as any)
-const GesturesTopicRoute = GesturesTopicRouteImport.update({
-  id: '/$topic',
-  path: '/$topic',
-  getParentRoute: () => GesturesRouteRoute,
+const LedgerEntriesEntryIdRoute = LedgerEntriesEntryIdRouteImport.update({
+  id: '/$entryId',
+  path: '/$entryId',
+  getParentRoute: () => LedgerEntriesRouteRoute,
 } as any)
-const GesturesTopicScenarioRoute = GesturesTopicScenarioRouteImport.update({
-  id: '/gestures_/$topic/$scenario',
-  path: '/gestures/$topic/$scenario',
-  getParentRoute: () => rootRouteImport,
+const LedgerMonthsIndexRoute = LedgerMonthsIndexRouteImport.update({
+  id: '/months/',
+  path: '/months/',
+  getParentRoute: () => LedgerRouteRoute,
+} as any)
+const LedgerMonthsMonthRoute = LedgerMonthsMonthRouteImport.update({
+  id: '/months/$month',
+  path: '/months/$month',
+  getParentRoute: () => LedgerRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/app-shell': typeof AppShellRouteRouteWithChildren
-  '/gestures': typeof GesturesRouteRouteWithChildren
-  '/keyboard': typeof KeyboardRoute
+  '/': typeof LedgerIndexRoute
   '/offline': typeof OfflineRoute
-  '/app-shell/$section': typeof AppShellSectionRoute
-  '/features/$feature': typeof FeaturesFeatureRoute
-  '/gestures/$topic': typeof GesturesTopicRoute
-  '/app-shell/': typeof AppShellIndexRoute
-  '/features/': typeof FeaturesIndexRoute
-  '/gestures/': typeof GesturesIndexRoute
-  '/gestures/$topic/$scenario': typeof GesturesTopicScenarioRoute
+  '/entries': typeof LedgerEntriesRouteRouteWithChildren
+  '/settings': typeof LedgerSettingsRoute
+  '/entries/$entryId': typeof LedgerEntriesEntryIdRoute
+  '/months/$month': typeof LedgerMonthsMonthRoute
+  '/entries/': typeof LedgerEntriesIndexRoute
+  '/months/': typeof LedgerMonthsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/keyboard': typeof KeyboardRoute
   '/offline': typeof OfflineRoute
-  '/app-shell/$section': typeof AppShellSectionRoute
-  '/features/$feature': typeof FeaturesFeatureRoute
-  '/gestures/$topic': typeof GesturesTopicRoute
-  '/app-shell': typeof AppShellIndexRoute
-  '/features': typeof FeaturesIndexRoute
-  '/gestures': typeof GesturesIndexRoute
-  '/gestures/$topic/$scenario': typeof GesturesTopicScenarioRoute
+  '/settings': typeof LedgerSettingsRoute
+  '/': typeof LedgerIndexRoute
+  '/entries/$entryId': typeof LedgerEntriesEntryIdRoute
+  '/months/$month': typeof LedgerMonthsMonthRoute
+  '/entries': typeof LedgerEntriesIndexRoute
+  '/months': typeof LedgerMonthsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/app-shell': typeof AppShellRouteRouteWithChildren
-  '/gestures': typeof GesturesRouteRouteWithChildren
-  '/keyboard': typeof KeyboardRoute
+  '/_ledger': typeof LedgerRouteRouteWithChildren
   '/offline': typeof OfflineRoute
-  '/app-shell/$section': typeof AppShellSectionRoute
-  '/features/$feature': typeof FeaturesFeatureRoute
-  '/gestures/$topic': typeof GesturesTopicRoute
-  '/app-shell/': typeof AppShellIndexRoute
-  '/features/': typeof FeaturesIndexRoute
-  '/gestures/': typeof GesturesIndexRoute
-  '/gestures_/$topic/$scenario': typeof GesturesTopicScenarioRoute
+  '/_ledger/entries': typeof LedgerEntriesRouteRouteWithChildren
+  '/_ledger/settings': typeof LedgerSettingsRoute
+  '/_ledger/': typeof LedgerIndexRoute
+  '/_ledger/entries/$entryId': typeof LedgerEntriesEntryIdRoute
+  '/_ledger/months/$month': typeof LedgerMonthsMonthRoute
+  '/_ledger/entries/': typeof LedgerEntriesIndexRoute
+  '/_ledger/months/': typeof LedgerMonthsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/app-shell'
-    | '/gestures'
-    | '/keyboard'
     | '/offline'
-    | '/app-shell/$section'
-    | '/features/$feature'
-    | '/gestures/$topic'
-    | '/app-shell/'
-    | '/features/'
-    | '/gestures/'
-    | '/gestures/$topic/$scenario'
+    | '/entries'
+    | '/settings'
+    | '/entries/$entryId'
+    | '/months/$month'
+    | '/entries/'
+    | '/months/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/keyboard'
     | '/offline'
-    | '/app-shell/$section'
-    | '/features/$feature'
-    | '/gestures/$topic'
-    | '/app-shell'
-    | '/features'
-    | '/gestures'
-    | '/gestures/$topic/$scenario'
+    | '/settings'
+    | '/'
+    | '/entries/$entryId'
+    | '/months/$month'
+    | '/entries'
+    | '/months'
   id:
     | '__root__'
-    | '/'
-    | '/app-shell'
-    | '/gestures'
-    | '/keyboard'
+    | '/_ledger'
     | '/offline'
-    | '/app-shell/$section'
-    | '/features/$feature'
-    | '/gestures/$topic'
-    | '/app-shell/'
-    | '/features/'
-    | '/gestures/'
-    | '/gestures_/$topic/$scenario'
+    | '/_ledger/entries'
+    | '/_ledger/settings'
+    | '/_ledger/'
+    | '/_ledger/entries/$entryId'
+    | '/_ledger/months/$month'
+    | '/_ledger/entries/'
+    | '/_ledger/months/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AppShellRouteRoute: typeof AppShellRouteRouteWithChildren
-  GesturesRouteRoute: typeof GesturesRouteRouteWithChildren
-  KeyboardRoute: typeof KeyboardRoute
+  LedgerRouteRoute: typeof LedgerRouteRouteWithChildren
   OfflineRoute: typeof OfflineRoute
-  FeaturesFeatureRoute: typeof FeaturesFeatureRoute
-  FeaturesIndexRoute: typeof FeaturesIndexRoute
-  GesturesTopicScenarioRoute: typeof GesturesTopicScenarioRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_ledger': {
+      id: '/_ledger'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app-shell': {
-      id: '/app-shell'
-      path: '/app-shell'
-      fullPath: '/app-shell'
-      preLoaderRoute: typeof AppShellRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/gestures': {
-      id: '/gestures'
-      path: '/gestures'
-      fullPath: '/gestures'
-      preLoaderRoute: typeof GesturesRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/keyboard': {
-      id: '/keyboard'
-      path: '/keyboard'
-      fullPath: '/keyboard'
-      preLoaderRoute: typeof KeyboardRouteImport
+      preLoaderRoute: typeof LedgerRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offline': {
@@ -215,95 +149,94 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OfflineRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/app-shell/': {
-      id: '/app-shell/'
+    '/_ledger/': {
+      id: '/_ledger/'
       path: '/'
-      fullPath: '/app-shell/'
-      preLoaderRoute: typeof AppShellIndexRouteImport
-      parentRoute: typeof AppShellRouteRoute
+      fullPath: '/'
+      preLoaderRoute: typeof LedgerIndexRouteImport
+      parentRoute: typeof LedgerRouteRoute
     }
-    '/app-shell/$section': {
-      id: '/app-shell/$section'
-      path: '/$section'
-      fullPath: '/app-shell/$section'
-      preLoaderRoute: typeof AppShellSectionRouteImport
-      parentRoute: typeof AppShellRouteRoute
+    '/_ledger/entries': {
+      id: '/_ledger/entries'
+      path: '/entries'
+      fullPath: '/entries'
+      preLoaderRoute: typeof LedgerEntriesRouteRouteImport
+      parentRoute: typeof LedgerRouteRoute
     }
-    '/features/': {
-      id: '/features/'
-      path: '/features'
-      fullPath: '/features/'
-      preLoaderRoute: typeof FeaturesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_ledger/settings': {
+      id: '/_ledger/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof LedgerSettingsRouteImport
+      parentRoute: typeof LedgerRouteRoute
     }
-    '/features/$feature': {
-      id: '/features/$feature'
-      path: '/features/$feature'
-      fullPath: '/features/$feature'
-      preLoaderRoute: typeof FeaturesFeatureRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/gestures/': {
-      id: '/gestures/'
+    '/_ledger/entries/': {
+      id: '/_ledger/entries/'
       path: '/'
-      fullPath: '/gestures/'
-      preLoaderRoute: typeof GesturesIndexRouteImport
-      parentRoute: typeof GesturesRouteRoute
+      fullPath: '/entries/'
+      preLoaderRoute: typeof LedgerEntriesIndexRouteImport
+      parentRoute: typeof LedgerEntriesRouteRoute
     }
-    '/gestures/$topic': {
-      id: '/gestures/$topic'
-      path: '/$topic'
-      fullPath: '/gestures/$topic'
-      preLoaderRoute: typeof GesturesTopicRouteImport
-      parentRoute: typeof GesturesRouteRoute
+    '/_ledger/entries/$entryId': {
+      id: '/_ledger/entries/$entryId'
+      path: '/$entryId'
+      fullPath: '/entries/$entryId'
+      preLoaderRoute: typeof LedgerEntriesEntryIdRouteImport
+      parentRoute: typeof LedgerEntriesRouteRoute
     }
-    '/gestures_/$topic/$scenario': {
-      id: '/gestures_/$topic/$scenario'
-      path: '/gestures/$topic/$scenario'
-      fullPath: '/gestures/$topic/$scenario'
-      preLoaderRoute: typeof GesturesTopicScenarioRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_ledger/months/': {
+      id: '/_ledger/months/'
+      path: '/months'
+      fullPath: '/months/'
+      preLoaderRoute: typeof LedgerMonthsIndexRouteImport
+      parentRoute: typeof LedgerRouteRoute
+    }
+    '/_ledger/months/$month': {
+      id: '/_ledger/months/$month'
+      path: '/months/$month'
+      fullPath: '/months/$month'
+      preLoaderRoute: typeof LedgerMonthsMonthRouteImport
+      parentRoute: typeof LedgerRouteRoute
     }
   }
 }
 
-interface AppShellRouteRouteChildren {
-  AppShellSectionRoute: typeof AppShellSectionRoute
-  AppShellIndexRoute: typeof AppShellIndexRoute
+interface LedgerEntriesRouteRouteChildren {
+  LedgerEntriesEntryIdRoute: typeof LedgerEntriesEntryIdRoute
+  LedgerEntriesIndexRoute: typeof LedgerEntriesIndexRoute
 }
 
-const AppShellRouteRouteChildren: AppShellRouteRouteChildren = {
-  AppShellSectionRoute: AppShellSectionRoute,
-  AppShellIndexRoute: AppShellIndexRoute,
+const LedgerEntriesRouteRouteChildren: LedgerEntriesRouteRouteChildren = {
+  LedgerEntriesEntryIdRoute: LedgerEntriesEntryIdRoute,
+  LedgerEntriesIndexRoute: LedgerEntriesIndexRoute,
 }
 
-const AppShellRouteRouteWithChildren = AppShellRouteRoute._addFileChildren(
-  AppShellRouteRouteChildren,
-)
+const LedgerEntriesRouteRouteWithChildren =
+  LedgerEntriesRouteRoute._addFileChildren(LedgerEntriesRouteRouteChildren)
 
-interface GesturesRouteRouteChildren {
-  GesturesTopicRoute: typeof GesturesTopicRoute
-  GesturesIndexRoute: typeof GesturesIndexRoute
+interface LedgerRouteRouteChildren {
+  LedgerEntriesRouteRoute: typeof LedgerEntriesRouteRouteWithChildren
+  LedgerSettingsRoute: typeof LedgerSettingsRoute
+  LedgerIndexRoute: typeof LedgerIndexRoute
+  LedgerMonthsMonthRoute: typeof LedgerMonthsMonthRoute
+  LedgerMonthsIndexRoute: typeof LedgerMonthsIndexRoute
 }
 
-const GesturesRouteRouteChildren: GesturesRouteRouteChildren = {
-  GesturesTopicRoute: GesturesTopicRoute,
-  GesturesIndexRoute: GesturesIndexRoute,
+const LedgerRouteRouteChildren: LedgerRouteRouteChildren = {
+  LedgerEntriesRouteRoute: LedgerEntriesRouteRouteWithChildren,
+  LedgerSettingsRoute: LedgerSettingsRoute,
+  LedgerIndexRoute: LedgerIndexRoute,
+  LedgerMonthsMonthRoute: LedgerMonthsMonthRoute,
+  LedgerMonthsIndexRoute: LedgerMonthsIndexRoute,
 }
 
-const GesturesRouteRouteWithChildren = GesturesRouteRoute._addFileChildren(
-  GesturesRouteRouteChildren,
+const LedgerRouteRouteWithChildren = LedgerRouteRoute._addFileChildren(
+  LedgerRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AppShellRouteRoute: AppShellRouteRouteWithChildren,
-  GesturesRouteRoute: GesturesRouteRouteWithChildren,
-  KeyboardRoute: KeyboardRoute,
+  LedgerRouteRoute: LedgerRouteRouteWithChildren,
   OfflineRoute: OfflineRoute,
-  FeaturesFeatureRoute: FeaturesFeatureRoute,
-  FeaturesIndexRoute: FeaturesIndexRoute,
-  GesturesTopicScenarioRoute: GesturesTopicScenarioRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

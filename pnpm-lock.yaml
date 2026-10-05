@@ -573,9 +573,15 @@ importers:
 
   apps/kstack:
     dependencies:
+      '@kstackz/auth-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/auth-toolkit
       '@kstackz/pwa-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/pwa-toolkit
+      '@kstackz/std-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/std-toolkit
       '@kstackz/ui-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/ui-toolkit
@@ -585,6 +591,9 @@ importers:
       '@kstackz/use-keys':
         specifier: workspace:*
         version: link:../../packages/use-keys
+      '@tanstack/react-db':
+        specifier: 'catalog:'
+        version: 0.4.1(react@19.2.8)(typescript@7.0.2)
       '@tanstack/react-router':
         specifier: 'catalog:'
         version: 1.170.32(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -637,6 +646,9 @@ importers:
       vite:
         specifier: npm:@voidzero-dev/vite-plus-core@1.0.0
         version: '@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0)'
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/browser-preview@5.0.1)(@vitest/ui@5.0.1)(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(jsdom@29.1.1(@noble/hashes@2.2.0))(msw@2.14.6(@types/node@26.4.1)(typescript@7.0.2))
 
   devtools/devtools:
     dependencies:
