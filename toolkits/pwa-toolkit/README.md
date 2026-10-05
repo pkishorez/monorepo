@@ -65,6 +65,8 @@ pnpm add @kstackz/pwa-toolkit effect
 | `InstallPrompt`         | Bottom sheet on small screens, corner card on larger ones, manual steps on iOS Safari.                            |
 | `Install`               | The Effect service behind `useInstall`, with its `layer`.                                                         |
 | `InstallState`          | Tagged enum `Unsupported`, `Available`, `ManualIos`, `Installed`, `Dismissed`.                                    |
+| `IosSteps`              | The Share, then Add to Home Screen steps `InstallPrompt` shows on iOS Safari, for an app's own install screen.    |
+| `isIosSafari`           | Whether a `navigator` is Safari on iOS or iPadOS, where install has no API and only those steps work.             |
 | `useOnline`             | Whether the browser is online; `true` before mount.                                                               |
 | `OfflineIndicator`      | "You're offline" pill in a live region, stacked above sheets.                                                     |
 | `Online`                | The Effect service behind `useOnline`, with its `layer`.                                                          |

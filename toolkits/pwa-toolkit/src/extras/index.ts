@@ -7,6 +7,8 @@ export {
   Install,
   InstallPrompt,
   InstallState,
+  IosSteps,
+  isIosSafari,
   useInstall,
 } from './install/index.js';
 export { OfflineIndicator, Online, useOnline } from './online/index.js';
