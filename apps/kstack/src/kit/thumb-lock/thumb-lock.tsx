@@ -1,11 +1,10 @@
 import { type Pointer, useGesture } from '@kstackz/use-gesture/core';
-import { useMotionValue } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Compass } from './compass.tsx';
+import { LiftHint } from './lift-hint.tsx';
 import { read, type Reading, type Way } from './recognize.ts';
 
-/** One arm of the Compass: the Command a way runs, and whether it works here. */
+/** What a way runs: its Command's name, and whether it works here. */
 export type ThumbCommand = {
   readonly label: string;
   readonly works: boolean;
@@ -18,23 +17,23 @@ export type ThumbFeedback = 'lock' | 'arm' | 'disarm' | 'wrong' | 'run';
 const THUMB_PART = 0.5;
 // How far, in px, the thumb may drift and still be still.
 const STILL = 14;
-// How long, in ms, the Compass shows a Command running before it goes.
-const RAN = 220;
+// How long, in ms, the Lift Hint shows a Command running before it goes.
+const RAN = 260;
 
 type Lock = {
-  readonly thumb: { readonly x: number; readonly y: number };
-  readonly origin: { readonly x: number; readonly y: number };
   readonly reading: Reading;
-  /** The Command ran: the Compass flings to its arm, then goes. */
+  /** The Command ran: the Lift Hint confirms it, then goes. */
   readonly ran?: boolean;
 };
 
 /**
  * The Thumb Lock of the nearest Gesture Zone: the left thumb resting still
- * while another finger swipes turns that swipe into a Command, shown live
- * on a Compass under the finger. Lifting the finger once it is armed runs
- * the Command; the thumb may stay for another. A swipe of one finger is
- * left to the zones and the browser, so the page still scrolls.
+ * while another finger swipes turns that swipe into a Command. Nothing
+ * shows under the fingers; once the swipe goes far enough to arm a Command,
+ * the Lift Hint names it at the top, and goes if the finger comes back
+ * short. Lifting the finger once armed runs the Command; the thumb may stay
+ * for another. A swipe of one finger is left to the zones and the browser,
+ * so the page still scrolls.
  */
 export function ThumbLock(props: {
   readonly commands: Readonly<Record<Way, ThumbCommand>>;
@@ -43,8 +42,6 @@ export function ThumbLock(props: {
   readonly enabled?: boolean;
 }) {
   const [lock, setLock] = useState<Lock>();
-  const dx = useMotionValue(0);
-  const dy = useMotionValue(0);
   const thumb = useRef<Pointer>(undefined);
   const mover = useRef<Pointer>(undefined);
   const reading = useRef<Reading>({ kind: 'undecided' });
@@ -62,7 +59,7 @@ export function ThumbLock(props: {
     stop.current = [];
   };
 
-  // While set, the Compass is showing a Command that ran.
+  // While set, the Lift Hint is showing a Command that ran.
   const shown = useRef<ReturnType<typeof setTimeout>>(undefined);
   const release = (run: boolean) => {
     const now = reading.current;
@@ -83,8 +80,6 @@ export function ThumbLock(props: {
 
   const follow = (finger: Pointer) => {
     const moved = () => {
-      dx.set(finger.dx.get());
-      dy.set(finger.dy.get());
       const before = reading.current;
       const next = read(
         before,
@@ -146,17 +141,8 @@ export function ThumbLock(props: {
       mover.current = pointer;
       directions.current = 'all';
       reading.current = { kind: 'undecided' };
-      dx.set(0);
-      dy.set(0);
       follow(pointer);
-      setLock({
-        thumb: {
-          x: held.start.x + held.dx.get(),
-          y: held.start.y + held.dy.get(),
-        },
-        origin: { x: pointer.start.x, y: pointer.start.y },
-        reading: reading.current,
-      });
+      setLock({ reading: reading.current });
       feedback('lock');
     },
     onEnd: () => {
@@ -169,7 +155,7 @@ export function ThumbLock(props: {
 
   if (typeof document === 'undefined') return null;
   return createPortal(
-    <Compass lock={lock} commands={props.commands} dx={dx} dy={dy} />,
+    <LiftHint lock={lock} commands={props.commands} />,
     document.body,
   );
 }

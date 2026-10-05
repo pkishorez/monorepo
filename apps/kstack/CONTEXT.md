@@ -83,14 +83,14 @@ The Command to write down a new Entry.
 The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one. A swipe without it acts on what is under the finger.
 _Avoid_: hold, long press, modifier
 
-**Compass**:
-What quietly shows the Commands of a Thumb Lock under the moving finger: a small label for each way that does something in this Place, named for its Command, and none for a way that doesn't. The label being swiped toward brightens as the finger goes, zooms in once armed, and settles back if the finger comes back short.
-_Avoid_: wheel, radial menu, HUD
+**Lift Hint**:
+What names, at the top of the screen, the Command a Thumb Lock will run when the finger lifts. It shows only once the swipe has gone far enough to arm it, and goes again if the finger comes back short. Nothing shows under the fingers.
+_Avoid_: compass, wheel, HUD, tooltip
 
 **Gesture Sounds**:
 The sounds of the Thumb Lock, switched on or off apart from the sounds of Commands: soft as it locks and arms, a gentle chime when its Command runs, an error on a Wrong Way.
 _Avoid_: haptics, audio feedback
 
 **Wrong Way**:
-A Thumb Lock swipe toward a way with no label on the Compass: the whole screen shakes, an error sounds if Gesture Sounds are on, and the phone buzzes where it can.
+A Thumb Lock swipe toward a way with no Command in this Place, up and down being the only ways that have one: the whole screen shakes, an error sounds if Gesture Sounds are on, and the phone buzzes where it can.
 _Avoid_: error, invalid gesture

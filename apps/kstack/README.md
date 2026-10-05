@@ -20,8 +20,9 @@ Command works in exactly the same Places from a key or a finger. Key hints
 show only where there is a keyboard, gestures only where there is a touch
 screen, and the user can switch either off in Settings. On a touch screen
 the **Thumb Lock** is the modifier: the left thumb resting still while another
-finger swipes runs Jump (down), Add (up), Next (left) or Previous (right),
-shown live on the **Compass**. Plain swipes stay plain: one finger scrolls,
+finger swipes runs Jump (down) or Add (up), named at the top of the screen
+by the **Lift Hint** once the swipe goes far enough; any other way shakes
+the screen. Plain swipes stay plain: one finger scrolls,
 or opens the sidebar from anywhere. `Space e` gives the keys to the sidebar,
 and Escape gives them back to whatever had them.
 
@@ -69,11 +70,10 @@ useCommand('entries.remove', () => removeEntry(marked), {
 });
 ```
 
-- An Action with no enabled Handler is dimmed on the Compass, and a swipe
-  toward it is a Wrong Way.
+- A Thumb Lock swipe toward an Action with no enabled Handler is a Wrong
+  Way: the screen shakes.
 - Global Actions such as `next` are answered by whichever Place is shown, so
-  `j` and a Thumb Lock swipe left mean the next Entry on Entries and the next
-  Month on a Month.
+  `j` means the next Entry on Entries and the next Month on a Month.
 
 ### Deploy
 
