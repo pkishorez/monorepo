@@ -10,11 +10,19 @@ export const ZONE_GESTURE_ATTRIBUTE = 'data-zone-gesture';
 /** How the zone treats a touch that lands on an element. */
 export type ZoneGesture = 'enabled' | 'disabled' | 'auto';
 
-// Text entry keeps its own touch handling: selecting and caret dragging.
 const TEXT_ENTRY = 'input, textarea, select, [contenteditable="true"]';
 
-export const isTextEntry = (target: EventTarget | null) =>
-  target instanceof Element && target.closest(TEXT_ENTRY) !== null;
+/**
+ * Whether `target` is in text being edited, which keeps its own touch
+ * handling: selecting and caret dragging. A field that isn't focused is
+ * like any other element: a swipe over it is a Gesture, and a tap still
+ * reaches it, to focus it.
+ */
+export const isTextEntry = (target: EventTarget | null) => {
+  if (!(target instanceof Element)) return false;
+  const entry = target.closest(TEXT_ENTRY);
+  return entry !== null && entry.contains(entry.ownerDocument.activeElement);
+};
 
 /** How the zone treats a touch landing on `target`. */
 export const zoneGestureOf = (target: EventTarget | null): ZoneGesture => {

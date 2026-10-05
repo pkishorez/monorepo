@@ -176,7 +176,7 @@ export const createTracker = () => {
       // With no touch event to read it first, such as for a pen, the
       // Direction is read once a pointer has moved SLOP px.
       const pointer = fingers.pointers().get(sample.id);
-      if (settled || pointer === undefined) return;
+      if (settled || pointer === undefined || sample.undecided) return;
       const dx = pointer.dx.get();
       const dy = pointer.dy.get();
       if (Math.hypot(dx, dy) >= SLOP) settle(directionOf(dx, dy));
