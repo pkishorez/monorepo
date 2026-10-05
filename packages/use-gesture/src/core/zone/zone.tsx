@@ -190,7 +190,8 @@ export type GestureOptions = {
    * The Directions it takes touches in: `['left', 'right']`, or `'all'`. An
    * element under the finger that can still scroll that way keeps it
    * instead. Read at the touch's first movement. Without `directions` or
-   * `captures` it only watches, and never keeps a touch from the browser.
+   * `captures` it only watches, and never keeps a touch from the browser,
+   * apart from the edge it `guardsEdge`.
    */
   readonly directions?: Directions;
   /** The Gesture first moved in `direction`: read once, for every listener. */
@@ -204,6 +205,13 @@ export type GestureOptions = {
     readonly x: number;
     readonly y: number;
   }) => boolean;
+  /**
+   * A side edge it keeps from the browser's edge swipe (back and forward on
+   * iOS) while it is enabled, even when it would not take a touch there. It
+   * neither captures nor wants anything, so it never changes who takes a
+   * Gesture. Read as a touch lands.
+   */
+  readonly guardsEdge?: 'left' | 'right';
 };
 
 export type GestureState = {
@@ -246,6 +254,7 @@ export function useGesture(options: GestureOptions = {}): GestureState {
       },
       captures: (point) => latest.current.captures?.(point) === true,
       directions: () => latest.current.directions,
+      guardsEdge: () => latest.current.guardsEdge,
       acts: () =>
         latest.current.captures !== undefined ||
         latest.current.directions !== undefined,

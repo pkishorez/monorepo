@@ -623,6 +623,57 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       expect(touchStart(find('screen'), innerWidth - 5)).toBe(false);
     });
 
+    it('keeps the edge a listener guards, without it taking the Gesture', () => {
+      const guard = vi.fn();
+      const row = vi.fn();
+      const render = (enabled: boolean) =>
+        act(() =>
+          root.render(
+            <GestureProvider>
+              <GestureZone data-testid="screen">
+                <Listener
+                  name="guard"
+                  guardsEdge="left"
+                  enabled={enabled}
+                  onEnd={guard}
+                />
+                <GestureZone data-testid="row">
+                  <Listener name="row" directions={['right']} onEnd={row} />
+                </GestureZone>
+              </GestureZone>
+            </GestureProvider>,
+          ),
+        );
+      render(true);
+      expect(touchStart(find('screen'), 5)).toBe(true);
+      expect(touchStart(find('screen'), innerWidth - 5)).toBe(false);
+      // It only watches: the row still takes a swipe right from the edge.
+      const target = find('row');
+      const event = (type: string, x: number) => {
+        const point = { identifier: 1, target, clientX: x, clientY: 100 };
+        const sent = new Event(type, { bubbles: true, cancelable: true });
+        const touches = type === 'touchend' ? [] : [point];
+        Object.assign(sent, { touches, changedTouches: [point] });
+        target.dispatchEvent(sent);
+        return sent;
+      };
+      let move: Event | undefined;
+      act(() => {
+        pointer('pointerdown', target, 1, 5, 100);
+        event('touchstart', 5);
+        pointer('pointermove', target, 1, 25, 100);
+        move = event('touchmove', 25);
+        pointer('pointerup', target, 1, 25, 100);
+        event('touchend', 25);
+      });
+      expect(move?.defaultPrevented).toBe(true);
+      const ended = expect.objectContaining({ interrupted: false });
+      expect(row).toHaveBeenLastCalledWith(expect.anything(), ended);
+      expect(guard).toHaveBeenLastCalledWith(expect.anything(), ended);
+      render(false);
+      expect(touchStart(find('screen'), 5)).toBe(false);
+    });
+
     it('leaves it to the browser on what must click, is turned off, or is outside every zone', () => {
       renderEdge();
       expect(touchStart(find('menu'), 5)).toBe(false);

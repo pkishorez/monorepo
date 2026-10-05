@@ -39,6 +39,12 @@ export type GestureListener = {
     readonly x: number;
     readonly y: number;
   }) => boolean;
+  /**
+   * The side edge it keeps from the browser's edge swipe whenever it is
+   * enabled, whether or not it would take a touch there. Read as a touch
+   * lands; it never decides who takes the Gesture.
+   */
+  readonly guardsEdge?: () => 'left' | 'right' | undefined;
   /** The Directions it takes touches in. Read at the touch's first movement. */
   readonly directions?: () => Directions | undefined;
   /**
@@ -195,6 +201,7 @@ export const createTracker = () => {
     claimsEdge: (point, inward) =>
       taking.some(
         ({ listener }) =>
+          listener.guardsEdge?.() === (inward === 'right' ? 'left' : 'right') ||
           listener.captures?.(point) === true ||
           wants(listener.directions?.(), inward),
       ),

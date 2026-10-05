@@ -6,6 +6,7 @@ import {
   useTransform,
 } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import { useGesture } from '../../core/index.ts';
 import { type SwipeRelease, useSwipe } from '../../recognizers/index.ts';
 
 export type SidebarOptions = {
@@ -149,6 +150,11 @@ export function useSidebar(options: SidebarOptions): Sidebar {
     onCommit: release('close'),
     onCancel: (_reason, at) => release('close')(at),
   });
+
+  // Its side's edge is its own, open or closed: a swipe there while open does
+  // nothing, which beats the browser going back a page. It only watches, so
+  // the Swipes still decide who takes the touch.
+  useGesture({ enabled, guardsEdge: side });
 
   useEffect(() => {
     const offOpen = opening.offset.on('change', (offset) => {

@@ -128,7 +128,7 @@ and each gets only its own.
 A zone rendered through a portal still reaches its provider through React,
 but hears only fingers that land in it in the DOM.
 
-## `useGesture({ enabled?, directions?, captures?, onStart?, onDirection?, onPointer?, onEnd? })`
+## `useGesture({ enabled?, directions?, captures?, guardsEdge?, onStart?, onDirection?, onPointer?, onEnd? })`
 
 Returns `pointers`, a `MotionValue<ReadonlyMap<number, Pointer>>` of every
 finger of the Gesture under way by id, in landing order and lifted ones
@@ -149,13 +149,19 @@ values.
 `['left', 'right']`, or `'all'` for a drag, a pan or a hold. An element under
 the finger that can still scroll that way keeps the touch instead. Without
 `directions` or `captures` the hook only watches: it gets every finger until
-the browser takes the touch, and never keeps it from the browser.
+the browser takes the touch, and never keeps it from the browser, apart
+from the edge it `guardsEdge`.
 
 `captures(point)` claims a touch whose first finger landed at `point` (viewport
 px), whichever way it moves, even over an element that could scroll it, as
 `data-zone-gesture="enabled"` does for an element. It is asked at the touch's
 first movement, so taps are never affected. A Swipe with `from` uses it to
 own its edge.
+
+`guardsEdge: 'left' | 'right'` keeps that screen edge from the browser's edge
+swipe while the hook is enabled (see Screen edges), even when it would take no
+touch there. It neither captures nor wants a Direction, so it never changes
+which zone takes a Gesture. `useSidebar` uses it to own its side.
 
 | `Pointer` field | Meaning                                                                         |
 | --------------- | ------------------------------------------------------------------------------- |
@@ -212,7 +218,8 @@ A touch that lands within 24px of the left or right edge of the screen, in a
 zone, is kept from the browser's own edge swipe (back and forward on iOS, in
 Safari and installed) when a hook that hears it could take it there: its
 `captures` claims the spot, or its `directions` holds the Direction away
-from that edge (`right` at the left edge). The zone cancels that touch's
+from that edge (`right` at the left edge); or when a hook `guardsEdge` that
+edge, as an enabled `useSidebar` does for its side, open or closed. The zone cancels that touch's
 `touchstart`, the one thing iOS listens to, so a tap there does not click.
 Where no hook could take it, the back swipe works. Links, buttons, form
 fields, `[role=button]`, focusable elements and anything
@@ -250,7 +257,9 @@ A sidebar opens from a Swipe toward open that starts anywhere, or, with
 `edge`, only within that many px of its side. With `edge` it wants no
 Direction: it captures touches landing there, even over a list that scrolls
 or a zone inside it that wants the same Direction, and leaves the rest of
-the screen alone. It closes from a Swipe back
+the screen alone. While enabled it keeps its side's edge from the browser's
+edge swipe, open or closed, so keep its items 24px clear of that edge or
+they still let a swipe there go back. It closes from a Swipe back
 anywhere; it settles by where the momentum would
 carry it, past half its width. A pull arms at `distance` of indicator travel,
 which takes twice that pull, and holds at `distance` while `onRefresh`

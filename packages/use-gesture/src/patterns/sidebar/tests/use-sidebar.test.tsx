@@ -22,6 +22,26 @@ const pointer = (type: string, x: number, y = 100) => {
   zone?.dispatchEvent(event);
 };
 
+// A touch event on the zone, as iOS sends alongside the pointer events.
+const touch = (type: string, x: number, y = 100) => {
+  const target = host.querySelector('[data-testid="zone"]');
+  const point = { identifier: 1, target, clientX: x, clientY: y };
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  const touches = type === 'touchend' ? [] : [point];
+  Object.assign(event, { touches, changedTouches: [point] });
+  target?.dispatchEvent(event);
+  return event;
+};
+
+// Whether a finger landing at `x` is kept from the browser's edge swipe.
+const guarded = (x: number) => {
+  act(() => pointer('pointerdown', x));
+  const start = touch('touchstart', x);
+  act(() => pointer('pointerup', x));
+  touch('touchend', x);
+  return start.defaultPrevented;
+};
+
 let host: HTMLDivElement;
 let root: Root;
 let sidebar: Sidebar;
@@ -137,6 +157,68 @@ describe('useSidebar', () => {
     expect(sidebar.x.get()).toBe(200);
     swipe(innerWidth - 10, innerWidth - 170, 16, 200);
     expect(onOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  describe('at its edge', () => {
+    const right = () => innerWidth - 5;
+
+    it('keeps its side from the browser’s edge swipe, closed and open', () => {
+      render();
+      expect(guarded(5)).toBe(true);
+      render({ open: true });
+      expect(guarded(5)).toBe(true);
+      expect(guarded(100)).toBe(false);
+    });
+
+    it('keeps the right side when it lives there, closed and open', () => {
+      render({ side: 'right' });
+      expect(guarded(right())).toBe(true);
+      render({ side: 'right', open: true });
+      expect(guarded(right())).toBe(true);
+    });
+
+    it('also keeps it when it opens only from an edge strip', () => {
+      render({ edge: 40, open: true });
+      expect(guarded(5)).toBe(true);
+    });
+
+    it('leaves the other edge to the browser while closed', () => {
+      render();
+      expect(guarded(right())).toBe(false);
+      render({ side: 'right' });
+      expect(guarded(5)).toBe(false);
+    });
+
+    it('closes from a flick that starts in the edge strip', () => {
+      const onOpenChange = render({ defaultOpen: true });
+      act(() => pointer('pointerdown', 20));
+      expect(touch('touchstart', 20).defaultPrevented).toBe(true);
+      const moves: Array<Event> = [];
+      for (const x of [16, 12, 8, 4, 0]) {
+        act(() => vi.advanceTimersByTime(4));
+        act(() => pointer('pointermove', x));
+        act(() => void moves.push(touch('touchmove', x)));
+      }
+      act(() => pointer('pointerup', 0));
+      touch('touchend', 0);
+      expect(moves.every((move) => move.defaultPrevented)).toBe(true);
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(sidebar.open).toBe(false);
+    });
+
+    it('still closes from a drag after a touch in the edge strip', () => {
+      const onOpenChange = render({ defaultOpen: true });
+      expect(guarded(5)).toBe(true);
+      swipe(300, 150, 16, 200);
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    it('gives the edge back when it is disabled', () => {
+      render({ enabled: false });
+      expect(guarded(5)).toBe(false);
+      render({ enabled: false, open: true });
+      expect(guarded(5)).toBe(false);
+    });
   });
 
   it('follows `open` when the app controls it', () => {

@@ -113,7 +113,8 @@ A sidebar Pattern returns motion values; the app renders them. The hook sits
 inside the zone that covers the screen, so a Swipe right anywhere opens it and
 a Swipe back anywhere closes it. `edge: 24` would open it only from the left
 edge instead: it then captures touches landing there and leaves the rest of
-the screen to the browser.
+the screen to the browser. Open or closed, the left edge is the sidebar's, so
+a swipe from it never goes back a page.
 
 ```tsx
 import { useSidebar } from '@kstackz/use-gesture';
