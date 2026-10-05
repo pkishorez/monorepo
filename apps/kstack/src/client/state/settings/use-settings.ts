@@ -13,9 +13,8 @@ export const useSettings = (): Settings => {
   return useMemo(() => {
     const stored = data[0];
     if (stored === undefined) return defaultSettings;
-    const { id, sound, gestureSounds, keys, keysOn, gesturesOn, switching } =
-      stored;
-    return { id, sound, gestureSounds, keys, keysOn, gesturesOn, switching };
+    const { id, sound, keys, keysOn, gesturesOn, switching } = stored;
+    return { id, sound, keys, keysOn, gesturesOn, switching };
   }, [data]);
 };
 

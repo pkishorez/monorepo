@@ -31,7 +31,7 @@ const shake = () => {
  * first Step comes as the swipe arms, so a flick goes to the next or
  * previous Place; past either end it holds there. Sideways is a Wrong
  * Way: the screen shakes. It sounds as it locks, Steps, goes and goes
- * wrong, if the user wants gesture sounds, and buzzes where it can. The Go it gives keeps its
+ * wrong, if the user wants sounds, and buzzes where it can. The Go it gives keeps its
  * own sound and Key Bar to itself: the Place Picker has shown it already.
  */
 export function Thumb() {
@@ -43,7 +43,7 @@ export function Thumb() {
   const [shown, setShown] = useState<number>();
   // What is shown as the swipe moves, ahead of the next render.
   const stepped = useRef<number>(undefined);
-  const sounds = settings.gestureSounds;
+  const sounds = settings.sound;
   // A Go whose keys another Surface shadows here still runs for a finger.
   const goes = (command: string) => {
     const state = actions.find((action) => action.id === command)?.state;
