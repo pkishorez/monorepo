@@ -1,4 +1,6 @@
+import { Schema } from 'effect';
 import { StdTable } from '@kstackz/std-toolkit/db';
+import { EntityESchema } from '@kstackz/std-toolkit/eschema';
 import {
   Account,
   Category,
@@ -36,6 +38,42 @@ export const entries = ledgerTable
 
 export const preferences = ledgerTable
   .entity(Preferences)
+  .primary({ pk: ['userId'] })
+  .index('LSI1', 'changes', { sk: ['_u'] })
+  .build();
+
+// Preferences as they were before the device's Settings left them, under
+// their old name. Nothing reads or writes them; they stay declared because
+// the table's deploy guard refuses to drop an entity that has rows.
+const RetiredPreferences = EntityESchema.make('preferences', 'userId', {
+  currency: Schema.String,
+  sound: Schema.Boolean,
+  keys: Schema.Record(Schema.String, Schema.String),
+})
+  .evolve(
+    'v2',
+    { keysOn: Schema.Boolean, gesturesOn: Schema.Boolean },
+    (before) => ({ ...before, keysOn: true, gesturesOn: true }),
+  )
+  .evolve('v3', { gestureSounds: Schema.Boolean }, (before) => ({
+    ...before,
+    gestureSounds: true,
+  }))
+  .evolve(
+    'v4',
+    {
+      sound: null,
+      keys: null,
+      keysOn: null,
+      gesturesOn: null,
+      gestureSounds: null,
+    },
+    ({ userId, currency }) => ({ userId, currency }),
+  )
+  .build();
+
+ledgerTable
+  .entity(RetiredPreferences)
   .primary({ pk: ['userId'] })
   .index('LSI1', 'changes', { sk: ['_u'] })
   .build();

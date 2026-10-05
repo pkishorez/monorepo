@@ -1,131 +1,137 @@
 {
   "$schema": "../../devtools/laymos/schema.json",
   "sourceRoots": ["src"],
-  "ignoredPaths": ["src/routeTree.gen.ts", "src/styles.css"],
+  "ignoredPaths": [
+    "src/entry/web/routeTree.gen.ts",
+    "src/entry/web/styles.css"
+  ],
   "layers": {
-    "entry": {
-      "paths": ["src/router.tsx", "src/server.ts"],
-      "description": "Where the host starts: the TanStack router in the browser, and the Worker that answers /rpc and serves the app",
+    "entry-web": {
+      "paths": ["src/entry/web"],
+      "description": "Where the browser starts: the router, the document, the offline page, and one thin route for each Place. The router reaches the routes through the generated route tree, so nothing imports them",
       "modules": {
-        "src/router.tsx": {},
-        "src/server.ts": {}
+        "src/entry/web/router.tsx": {},
+        "src/entry/web/routes": {}
       }
     },
-    "routes": {
-      "paths": ["src/routes"],
-      "description": "The document, the offline page, and one thin route for each Place, Settings among them, all inside Ledger's shell. The router reaches them through the generated route tree, so nothing imports them",
+    "entry-worker": {
+      "paths": ["src/entry/worker"],
+      "description": "Where the Worker starts: /rpc goes to the Ledger API, everything else to the app",
       "modules": {
-        "src/routes": {}
+        "src/entry/worker/server.ts": {}
       }
     },
-    "preview": {
-      "paths": ["src/preview"],
-      "description": "In development only: Ledger for a stand-in user, its server the real handlers over a table in memory in the tab, to try every key and gesture without signing in",
+    "entry-infra": {
+      "paths": ["src/entry/infra"],
+      "description": "Deployable resources, composed by alchemy.run.ts: the D1 database, its table, and the Worker",
       "modules": {
-        "src/preview": {
+        "src/entry/infra": {
           "exposed": true
         }
       }
     },
-    "app": {
-      "paths": ["src/app"],
-      "description": "Ledger's screens: the shell around every Place with its Sidebar, each Place, the sheets over them, and the parts they share",
+    "client-screens": {
+      "paths": ["src/client/screens"],
+      "description": "What the user sees: the shell around every Place, each Place, the sheets over them, and the parts they share",
       "modules": {
-        "src/app/parts": {
+        "src/client/screens/shell": {
+          "exposed": true
+        },
+        "src/client/screens/places/home": {
+          "exposed": true
+        },
+        "src/client/screens/places/entries": {
+          "exposed": true
+        },
+        "src/client/screens/places/months": {
+          "exposed": true
+        },
+        "src/client/screens/places/settings": {
+          "exposed": true
+        },
+        "src/client/screens/sheets/add": {
           "shared": true
         },
-        "src/app/shell": {
-          "exposed": true
-        },
-        "src/app/add": {
+        "src/client/screens/sheets/accounts": {
           "shared": true
         },
-        "src/app/accounts": {
+        "src/client/screens/sheets/palette": {
           "shared": true
         },
-        "src/app/settings": {
-          "exposed": true
-        },
-        "src/app/palette": {
+        "src/client/screens/parts": {
           "shared": true
-        },
-        "src/app/home": {
-          "exposed": true
-        },
-        "src/app/entries": {
-          "exposed": true
-        },
-        "src/app/months": {
-          "exposed": true
         }
       }
     },
-    "commands": {
-      "paths": ["src/commands"],
+    "client-commands": {
+      "paths": ["src/client/commands"],
       "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and how each sounds and shows when given",
       "modules": {
-        "src/commands": {
+        "src/client/commands": {
           "exposed": true
         }
       }
     },
-    "client": {
-      "paths": ["src/client"],
-      "description": "The browser's side of the server: who is signed in, and the user's money kept in IndexedDB and in step with D1",
-      "modules": {
-        "src/client/session": {
-          "shared": true,
-          "exposed": true
-        },
-        "src/client/data": {
-          "exposed": true
+    "client-state": {
+      "paths": ["src/client/state"],
+      "description": "What the browser keeps and when: the app machine that finds who is signed in and holds one User's Session open, that Session with the User's money in step with D1, this device's Settings, and the copies of every signed-in User",
+      "moduleGraphs": {
+        "app-state": {
+          "description": "The app machine opens and closes Sessions and keeps the copies; screens read the open Session and the device's Settings",
+          "path": "src/client/state",
+          "modules": {
+            "machine": {
+              "exposed": true
+            },
+            "session": {
+              "exposed": true
+            },
+            "settings": {
+              "exposed": true
+            },
+            "local-copies": {}
+          },
+          "rules": {
+            "machine": ["session", "settings", "local-copies"],
+            "session": ["local-copies"]
+          }
         }
       }
     },
-    "kit": {
-      "paths": ["src/kit"],
-      "description": "What Ledger needed that no package has yet: sounds made on demand, the Thumb Lock with its Compass, and what the device can be driven by. Each knows nothing of Ledger",
+    "client-kit": {
+      "paths": ["src/client/kit"],
+      "description": "What Ledger needed that no package has yet: sounds made on demand, the Thumb Lock with its Lift Hint, and what the device can be driven by. Each knows nothing of Ledger",
       "modules": {
-        "src/kit/sound": {
+        "src/client/kit/sound": {
           "exposed": true
         },
-        "src/kit/thumb-lock": {
+        "src/client/kit/thumb-lock": {
           "exposed": true
         },
-        "src/kit/device": {
+        "src/client/kit/input": {
           "exposed": true
         }
       }
     },
     "server": {
       "paths": ["src/server"],
-      "description": "The Worker's side: the D1 table of every user's money, the Ledger API's handlers, and the host that answers /rpc for the signed-in user",
+      "description": "The Worker's side: the D1 table of every User's money, the Ledger API's handlers, and the host that answers /rpc for the User who signed the request",
       "modules": {
         "src/server/storage": {
           "shared": true,
           "exposed": true
         },
         "src/server/ledger": {
-          "shared": true,
-          "exposed": true
+          "shared": true
         },
         "src/server/rpc-host": {
           "exposed": true
         }
       }
     },
-    "infra": {
-      "paths": ["src/infra"],
-      "description": "Deployable resources, composed by alchemy.run.ts: the D1 database, its table, and the Worker",
-      "modules": {
-        "src/infra": {
-          "exposed": true
-        }
-      }
-    },
     "domain": {
       "paths": ["src/domain"],
-      "description": "The words of money: Accounts, Categories, Entries and Preferences, the sums over them, and the Ledger API both sides speak",
+      "description": "The words of money, Accounts, Categories, Entries and the currency, with the sums over them and the Ledger API both sides speak; and the device's Settings",
       "modules": {
         "src/domain/ledger": {
           "shared": true,
@@ -133,14 +139,8 @@
         },
         "src/domain/ledger-api": {
           "exposed": true
-        }
-      }
-    },
-    "common": {
-      "paths": ["src/common"],
-      "description": "The theme the document boots with",
-      "modules": {
-        "src/common/theme.ts": {
+        },
+        "src/domain/settings": {
           "exposed": true
         }
       }
@@ -148,19 +148,17 @@
   },
   "layerGraphs": {
     "kstack": {
-      "description": "Places over the vocabulary and the data; the data over the domain both sides speak; the kit and the domain at the bottom, knowing nothing above them",
+      "description": "Read top-down as the folders: entry starts the browser and the Worker; the client's screens over its commands and state; the server; the domain both sides speak at the bottom",
       "rules": {
-        "entry": ["infra"],
-        "routes": ["preview"],
-        "preview": ["app", "server"],
-        "app": ["commands", "client"],
-        "commands": ["kit"],
-        "client": ["domain", "common"],
-        "infra": ["server"],
+        "entry-web": ["client-screens", "client-state"],
+        "entry-worker": ["entry-infra", "server"],
+        "entry-infra": ["server"],
+        "client-screens": ["client-commands", "client-state"],
+        "client-commands": ["client-kit"],
+        "client-state": ["domain"],
+        "client-kit": [],
         "server": ["domain"],
-        "kit": [],
-        "domain": [],
-        "common": []
+        "domain": []
       }
     }
   }

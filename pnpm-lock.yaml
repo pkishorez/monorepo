@@ -177,6 +177,9 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: 6.1.1
       version: 6.1.1
+    '@xstate/effect':
+      specifier: 0.1.0-alpha.6
+      version: 0.1.0-alpha.6
     '@xyflow/react':
       specifier: 12.11.6
       version: 12.11.6
@@ -339,6 +342,9 @@ catalogs:
     werift:
       specifier: 0.24.4
       version: 0.24.4
+    xstate:
+      specifier: 6.0.0-alpha.64
+      version: 6.0.0-alpha.64
     yaml:
       specifier: 2.9.0
       version: 2.9.0
@@ -600,6 +606,9 @@ importers:
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.168.49(@voidzero-dev/vite-plus-core@1.0.0(@types/node@26.4.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)(yaml@2.9.0))(crossws@0.4.9(srvx@0.11.20))(esbuild@0.28.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.7)
+      '@xstate/effect':
+        specifier: 'catalog:'
+        version: 0.1.0-alpha.6(effect@4.0.0)(xstate@6.0.0-alpha.64)
       effect:
         specifier: 'catalog:'
         version: 4.0.0
@@ -612,6 +621,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.8(react@19.2.8)
+      xstate:
+        specifier: 'catalog:'
+        version: 6.0.0-alpha.64
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
@@ -5673,6 +5685,12 @@ packages:
     resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
     engines: {node: '>=14.6'}
 
+  '@xstate/effect@0.1.0-alpha.6':
+    resolution: {integrity: sha512-6fQ8vTfQf8evetno5x4vrS49IoS9XuiyPJixDHmQeIabZVXo1nSBtIZp6tw2ofYDkfdtlSPBYUnjoGhPB8T0Rw==}
+    peerDependencies:
+      effect: ^4.0.0
+      xstate: ^6.0.0-alpha.63
+
   '@xyflow/react@12.11.6':
     resolution: {integrity: sha512-9XsEJNHjatKYndszKTF/bsU7FOP9dJ6V/EQwzy3oMdtqgBuUq7BjKSwkEo+C7s4qHstHQfwwoHA3E8QfpPxZZQ==}
     peerDependencies:
@@ -9516,6 +9534,10 @@ packages:
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
+
+  xstate@6.0.0-alpha.64:
+    resolution: {integrity: sha512-TJ3bMBeFq+Qhl+b0R747RdVLUx5D6P7j/JcSfqJMmPajAY+ZadGIQ+p3z8WEPdIsJ5xpzqy7P0Ou5fTDx/FOGw==}
+    hasBin: true
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -13861,6 +13883,11 @@ snapshots:
     optional: true
 
   '@xmldom/xmldom@0.9.12': {}
+
+  '@xstate/effect@0.1.0-alpha.6(effect@4.0.0)(xstate@6.0.0-alpha.64)':
+    dependencies:
+      effect: 4.0.0
+      xstate: 6.0.0-alpha.64
 
   '@xyflow/react@12.11.6(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.1.8)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
@@ -18297,6 +18324,8 @@ snapshots:
 
   xmlchars@2.2.0:
     optional: true
+
+  xstate@6.0.0-alpha.64: {}
 
   xtend@4.0.2:
     optional: true

@@ -28,7 +28,9 @@
     "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/ui-toolkit": "workspace:*",
     "@kstackz/use-gesture": "workspace:*",
-    "@kstackz/use-keys": "workspace:*"
+    "@kstackz/use-keys": "workspace:*",
+    "@xstate/effect": "catalog:",
+    "xstate": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
