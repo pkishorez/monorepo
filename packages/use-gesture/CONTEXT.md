@@ -69,3 +69,7 @@ _Avoid_: flick (a Swipe setting, not its own Recognizer), pan (movement in any d
 **Pattern**:
 One purpose-built touch behaviour an app uses as it is, such as a sidebar or pull to refresh, built from Recognizers. It gives exactly the values its UI needs and settles itself when the Gesture ends. It knows nothing of where the app runs; the app decides when it is on.
 _Avoid_: component, widget, preset
+
+**Sidebar**:
+The Pattern for a panel that slides in from one side of the screen. While it is enabled, that side's edge is its own, open or closed, so the browser's edge swipe never starts there. The other edge is not its.
+_Avoid_: drawer, nav

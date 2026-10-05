@@ -59,7 +59,8 @@ export type PointerSink = {
   readonly settle: (direction: Direction | undefined) => void;
   /**
    * Whether a listener of the Gesture under way could take a touch landing
-   * at `point`: it captures there, or wants `inward`.
+   * at `point`: it captures there, or wants `inward`; or one guards the edge
+   * `inward` leads away from.
    */
   readonly claimsEdge: (
     point: { readonly x: number; readonly y: number },
