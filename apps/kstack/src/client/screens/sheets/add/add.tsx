@@ -19,8 +19,11 @@ import { AccountIcon, CategoryIcon, Choice } from '../../parts/index.ts';
 
 /**
  * Add, whole: a sheet from the bottom while its Surface is Open, dragged
- * down or Escape to close it back where it opened. Each opening starts a
- * fresh Entry.
+ * down by its grip or Escape to close it back where it opened. Each opening
+ * starts a fresh Entry.
+ *
+ * On touch it opens in place, without sliding up, so iOS reads where the
+ * focused amount is once it has settled, not mid-slide.
  */
 export function AddSheet() {
   const { surface, closeSurface } = keys.useSurface();
@@ -40,8 +43,11 @@ export function AddSheet() {
         if (!next) closeSurface('add');
       }}
     >
-      <DrawerContent className="sm:mx-auto sm:mb-6 sm:w-full sm:max-w-lg sm:rounded-xl sm:border sm:after:hidden">
+      <DrawerContent className="pointer-coarse:data-starting-style:[--closed-transform:none]! sm:mx-auto sm:mb-6 sm:w-full sm:max-w-lg sm:rounded-xl sm:border sm:after:hidden">
         <DrawerTitle className="sr-only">Add an entry</DrawerTitle>
+        <div className="flex shrink-0 justify-center pt-3 pb-2 sm:hidden">
+          <div className="h-1.5 w-10 rounded-full bg-muted" />
+        </div>
         <Form key={opened} open={open} onDone={() => closeSurface('add')} />
       </DrawerContent>
     </Drawer>
@@ -98,14 +104,15 @@ function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
   ];
 
   return (
+    // Only the grip drags the sheet closed; a drag on the form scrolls it.
     <form
+      data-base-ui-swipe-ignore=""
       className="flex flex-col gap-5 overflow-y-auto px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]"
       onSubmit={(event) => {
         event.preventDefault();
         save();
       }}
     >
-      <div className="mx-auto h-1.5 w-10 shrink-0 rounded-full bg-muted sm:hidden" />
       <div className="flex items-center justify-between gap-3">
         <Choice<Way>
           label="Money in or out"
