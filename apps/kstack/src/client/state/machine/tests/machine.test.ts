@@ -59,6 +59,17 @@ const world = (options: {
             active: `${entry.user.id}-token` === token,
           }));
         }),
+      signOut: (token) =>
+        Effect.sync(() => {
+          state.log.push(`sign out ${token}`);
+          state.signedIn = state.signedIn.filter(
+            ({ user }) => `${user.id}-token` !== token,
+          );
+        }),
+      signOutEveryone: Effect.sync(() => {
+        state.log.push('sign out everyone');
+        state.signedIn = [];
+      }),
     }),
     Layer.succeed(Device, {
       switching: Effect.sync(() => state.switching),
@@ -255,5 +266,57 @@ describe('the app machine', () => {
       waitFor(actor, (s) => s.matches('signedOut')),
     );
     expect(snapshot.context.unreachable).toBe(true);
+  });
+
+  it('signs out the open User, deletes their copy and opens who is left', async () => {
+    const { layer, state } = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+    });
+    await run(layer, (actor) =>
+      Effect.gen(function* () {
+        yield* waitFor(actor, openOn('ada'));
+        yield* send(actor, { type: 'SIGN_OUT' });
+        yield* waitFor(actor, openOn('mary'));
+      }),
+    );
+    expect(state.log).toEqual([
+      'open ada ada-token',
+      'close ada',
+      'sign out ada-token',
+      'open mary mary-token',
+      'close mary',
+    ]);
+    expect(state.kept.at(-1)).toEqual(['mary']);
+  });
+
+  it('is signed out when the last User signs out', async () => {
+    const { layer, state } = world({
+      signedIn: [{ user: ada, active: true }],
+    });
+    await run(layer, (actor) =>
+      Effect.gen(function* () {
+        yield* waitFor(actor, openOn('ada'));
+        yield* send(actor, { type: 'SIGN_OUT' });
+        yield* waitFor(actor, (s) => s.matches('signedOut'));
+      }),
+    );
+    expect(state.kept.at(-1)).toEqual([]);
+    expect(state.lastUser).toBeNull();
+  });
+
+  it('signs everyone out and deletes every copy', async () => {
+    const { layer, state } = world({
+      signedIn: [{ user: ada, active: true }, { user: mary }],
+    });
+    await run(layer, (actor) =>
+      Effect.gen(function* () {
+        yield* waitFor(actor, openOn('ada'));
+        yield* send(actor, { type: 'SIGN_OUT_EVERYONE' });
+        yield* waitFor(actor, (s) => s.matches('signedOut'));
+      }),
+    );
+    expect(state.log).toContain('sign out everyone');
+    expect(state.kept.at(-1)).toEqual([]);
+    expect(state.lastUser).toBeNull();
   });
 });

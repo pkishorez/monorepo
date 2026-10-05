@@ -3,7 +3,8 @@ import { createEffectActor, type EffectActor } from '@xstate/effect';
 import { useMemo, useSyncExternalStore } from 'react';
 import type { SnapshotFrom } from 'xstate';
 import type { Session } from '../session/index.ts';
-import { appLive } from './live.ts';
+import { authClient } from './auth.ts';
+import { appLive, forgetTabUser } from './live.ts';
 import { appMachine } from './machine.ts';
 import type { SignedIn } from './services.ts';
 
@@ -43,6 +44,7 @@ export type AppView =
   | { readonly kind: 'checking' }
   | { readonly kind: 'signedOut'; readonly unreachable: boolean }
   | { readonly kind: 'opening'; readonly user: SignedIn }
+  | { readonly kind: 'signingOut' }
   | {
       readonly kind: 'open';
       readonly session: Session;
@@ -54,6 +56,7 @@ const viewOf = (snapshot: AppSnapshot | null): AppView => {
   if (snapshot === null || snapshot.matches('checking')) {
     return { kind: 'checking' };
   }
+  if (snapshot.matches('signingOut')) return { kind: 'signingOut' };
   const { context } = snapshot;
   if (snapshot.matches('signedOut')) {
     return { kind: 'signedOut', unreachable: context.unreachable };
@@ -84,3 +87,20 @@ export const switchUser = (userId: string) =>
 
 /** Asks again who is signed in. */
 export const checkAgain = () => getApp().send({ type: 'CHECK' });
+
+/**
+ * Add User: goes to Google and comes back to this Place. Signing in makes the
+ * new User the browser's active one, so this tab forgets its own to open them.
+ */
+export const addUser = async () => {
+  const { error } = await authClient.signIn.google();
+  if (error) throw error;
+  forgetTabUser();
+};
+
+/** Signs the open User out of this device; whoever is left opens. */
+export const signOut = () => getApp().send({ type: 'SIGN_OUT' });
+
+/** Signs every User out of this browser and deletes every copy. */
+export const signOutEveryone = () =>
+  getApp().send({ type: 'SIGN_OUT_EVERYONE' });

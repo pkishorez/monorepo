@@ -24,6 +24,8 @@ export function Shell(props: { readonly children: ReactNode }) {
       return <Opening />;
     case 'signedOut':
       return <SignedOut unreachable={app.unreachable} />;
+    case 'signingOut':
+      return <Opening signingOut />;
     case 'opening':
       return <Opening name={app.user.user.name} />;
     case 'open':

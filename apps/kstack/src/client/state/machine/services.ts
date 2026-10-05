@@ -24,6 +24,10 @@ export class SignInService extends Context.Service<
     readonly signedIn: Effect.Effect<ReadonlyArray<SignedIn>, Unreachable>;
     /** Makes a User the browser's active one, for every tab. */
     readonly makeActive: (token: string) => Effect.Effect<void, Unreachable>;
+    /** Signs one User out of this browser. */
+    readonly signOut: (token: string) => Effect.Effect<void, Unreachable>;
+    /** Signs every User out of this browser. */
+    readonly signOutEveryone: Effect.Effect<void, Unreachable>;
   }
 >()('kstack/SignInService') {}
 
