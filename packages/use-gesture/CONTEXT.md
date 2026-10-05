@@ -35,7 +35,7 @@ One continuous touch, from the first finger landing in a Gesture Zone to the las
 _Avoid_: pan, pinch, swipe, tap, hold (meanings read from a Gesture), drag (moving an element itself), shortcut (a Gesture an app binds to a command), interaction
 
 **Interrupted**:
-How a Gesture ends when the browser takes its touch — a Native Scroll, a touch no listener wants, a system back gesture, an incoming call — or the page loses focus: at once, with every finger lifted where it was. A listener that acts also sees its Gesture end this way when another zone takes it.
+How a Gesture ends when the browser takes its touch — a Native Scroll, a touch no listener wants, a system back gesture, an incoming call — the page loses focus, or a new touch finds fewer fingers on the screen than the Gesture has, because a lift went unheard: at once, with every finger lifted where it was. A listener that acts also sees its Gesture end this way when another zone takes it.
 _Avoid_: aborted, lost
 
 **Pointer**:

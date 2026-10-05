@@ -122,6 +122,60 @@ describe('GestureProvider, GestureZone and useGesture', () => {
     expect(screen).not.toHaveBeenCalled();
   });
 
+  it('hears a finger lift on an element that has left the page', () => {
+    const onEnd = vi.fn();
+    act(() =>
+      root.render(
+        <GestureProvider>
+          <GestureZone>
+            <Listener name="listener" onEnd={onEnd} />
+            <div data-testid="place" />
+          </GestureZone>
+        </GestureProvider>,
+      ),
+    );
+    const place = find('place');
+    act(() => pointer('pointerdown', place, 1, 10, 10));
+    // iOS sends the release to where the finger landed, gone or not.
+    place.remove();
+    act(() => pointer('pointerup', place, 1, 10, 10));
+    expect(onEnd).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ interrupted: false }),
+    );
+  });
+
+  it('ends a Gesture whose finger left unheard as the next touch starts', () => {
+    const onEnd = vi.fn();
+    act(() =>
+      root.render(
+        <GestureProvider>
+          <GestureZone data-testid="screen">
+            <Listener name="listener" onEnd={onEnd} />
+          </GestureZone>
+        </GestureProvider>,
+      ),
+    );
+    const screen = find('screen');
+    act(() => pointer('pointerdown', screen, 1, 10, 10));
+    // Its release never came; a new finger lands, the only one on the screen.
+    act(() => {
+      pointer('pointerdown', screen, 2, 90, 10);
+      const point = { identifier: 2, target: screen, clientX: 90, clientY: 10 };
+      const event = new Event('touchstart', {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.assign(event, { touches: [point], changedTouches: [point] });
+      screen.dispatchEvent(event);
+    });
+    expect(onEnd).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ interrupted: true }),
+    );
+    expect(find('listener').getAttribute('data-active')).toBe('false');
+  });
+
   it('never starts a Gesture where the zone is disabled', () => {
     const screen = vi.fn();
     act(() =>

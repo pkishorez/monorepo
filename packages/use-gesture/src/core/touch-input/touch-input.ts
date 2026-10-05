@@ -159,7 +159,16 @@ const swallowNextClick = (win: Window) => {
  */
 export const createTouchInput = (win: Window, sink: PointerSink) => {
   const doc = win.document;
-  const tracked = new Set<number>();
+  // Each tracked pointer, with whether it is a finger and how to stop
+  // listening on the element it landed on.
+  const tracked = new Map<number, { touch: boolean; unwatch: () => void }>();
+  const untrack = (id: number) => {
+    const pointer = tracked.get(id);
+    if (pointer === undefined) return false;
+    pointer.unwatch();
+    tracked.delete(id);
+    return true;
+  };
   // Where each finger on the screen landed, until the touch is decided.
   const landed = new Map<number, { x: number; y: number }>();
   // Who the fingers on the screen belong to, decided at their first movement.
@@ -175,7 +184,20 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
     if (owner === 'browser' || zoneGestureOf(event.target) === 'disabled') {
       return;
     }
-    if (sink.down(sampleOf(event))) tracked.add(event.pointerId);
+    if (!sink.down(sampleOf(event))) return;
+    // iOS sends a finger's release to the element it landed on, even after
+    // that element has left the page, and from there it never reaches the
+    // window. Listening on the element itself still hears it.
+    const target = event.target;
+    target?.addEventListener('pointerup', onUp as EventListener);
+    target?.addEventListener('pointercancel', onCancel as EventListener);
+    tracked.set(event.pointerId, {
+      touch: event.pointerType === 'touch',
+      unwatch: () => {
+        target?.removeEventListener('pointerup', onUp as EventListener);
+        target?.removeEventListener('pointercancel', onCancel as EventListener);
+      },
+    });
   };
   const onMove = (event: PointerEvent) => {
     if (!tracked.has(event.pointerId)) return;
@@ -185,7 +207,7 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
     sink.move({ ...sampleOf(event), undecided });
   };
   const onUp = (event: PointerEvent) => {
-    if (!tracked.delete(event.pointerId)) return;
+    if (!untrack(event.pointerId)) return;
     if (!sink.up(sampleOf(event))) return;
     swallowNextClick(win);
     swallowing = true;
@@ -194,7 +216,7 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
     if (tracked.has(event.pointerId)) onAway();
   };
   const onAway = () => {
-    tracked.clear();
+    for (const id of [...tracked.keys()]) untrack(id);
     sink.cancelAll();
   };
   const onVisibility = () => {
@@ -215,6 +237,11 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
   const onTouchStart = (event: TouchEvent) => {
     // A swallow meant for a touch whose end came first must not reach this one.
     swallowing = false;
+    // More fingers tracked than are on the screen: a release went unheard,
+    // so the Gesture under way is stale. End it rather than let the next
+    // touch join it.
+    const fingers = [...tracked.values()].filter((pointer) => pointer.touch);
+    if (event.touches.length < fingers.length) onAway();
     for (const touch of event.changedTouches) {
       landed.set(touch.identifier, { x: touch.clientX, y: touch.clientY });
       // iOS starts its back and forward swipe from here, before any touchmove
