@@ -43,6 +43,14 @@ group('sequence', () => {
     );
   });
 
+  it('takes Space as a leader, as its first step', () => {
+    expect(sequence('Space e')).toEqual({
+      type: 'sequence',
+      steps: [shortcut('Space'), shortcut('e')],
+    });
+    expect(describe(sequence('Space e'))).toBe('Space e');
+  });
+
   it('is written back as people write it', () => {
     expect(describe(sequence('g g'))).toBe('g g');
     expect(describe(shortcut({ key: 'k', shift: 'left', ctrl: true }))).toBe(
