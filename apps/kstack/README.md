@@ -1,91 +1,88 @@
 # kstack
 
-Showcases of the app layouts and behaviours kstack supports, each a complete app, published at kstack.kishore.app.
+Ledger: a money tracker that is the blueprint for every kstack app, run by keys where there is a keyboard and by gestures where there is a touch screen, published at kstack.kishore.app.
 
 ## Big picture
 
-Each Showcase is one way an app can be laid out or behave, built as a real,
-complete app you can open on a phone or a wide screen and copy from. The home
-page lists them as cards; opening one grows its card into the whole screen.
-The words are defined in [`CONTEXT.md`](CONTEXT.md).
+kstack is one complete app built only from the kstack packages, so a new app
+can start from it. Ledger writes down the money you spend and earn and shows
+where it goes: Home for this month, Entries, one Entry, Months, and Settings,
+with Add as a sheet over them. The words are defined in
+[`CONTEXT.md`](CONTEXT.md); the tokens, focus ring, container queries and
+keyboard-or-touch rules every screen follows are in [`DESIGN.md`](DESIGN.md).
+What the app had to invent that a package could one day own is listed in
+[`NOTES.md`](NOTES.md).
 
-A Showcase lives in `src/showcases/<showcase>`, a deep module whose
-`index.ts` is all its routes in `src/routes/<showcase>` use. Showcases share
-only `src/common`: the theme (`theme.ts`), Tweaks (`tweaks.tsx`, settings
-saved in the browser as `tweak:<name>` and changed live from a panel), and
-the Code dialog (`code.tsx`), which shows a file exactly as it is, imported
-with `?raw`, so the code shown never drifts from what runs.
+Every Command lives once in `src/commands/keys.ts`, as a
+`@kstackz/use-keys` Action with its keys and its Surface. Gestures from
+`@kstackz/use-gesture` run the same Actions through `keys.useRun()`, so a
+Command works in exactly the same Places from a key or a finger. Key hints
+show only where there is a keyboard, gestures only where there is a touch
+screen, and the user can switch either off in Settings. On a touch screen
+the **Thumb Lock** is the modifier: the left thumb resting still while another
+finger swipes runs Jump (down), Add (up), Next (left) or Previous (right),
+shown live on the **Compass**. Plain swipes stay plain: one finger scrolls,
+or opens the sidebar from anywhere. `Space e` gives the keys to the sidebar,
+and Escape gives them back to whatever had them.
 
-| Showcase    | Route        | What it shows                                                                                                                                      |
-| ----------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `App Shell` | `/app-shell` | A sidebar, header and page; Tweaks turn each part on or off and set where a swipe opens the sidebar.                                               |
-| `Gestures`  | `/gestures`  | What `@kstackz/use-gesture` can do, one Topic per page, each Scenario a sentence, a live demo and its code. Topics live in `topics/<topic>`.       |
-| `Features`  | `/features`  | End-to-end apps where gestures meet, such as Mail, Photos and Chat, each full screen with what to try and its code. Each lives in `<feature>/`.    |
-| `Keyboard`  | `/keyboard`  | A notes app run from the keyboard with `@kstackz/use-keys`: Surfaces, a palette, every key and where it stands, and settings that record new keys. |
-
-UI is `@kstackz/ui-toolkit` (shadcn on Base UI) with Tailwind v4, touch is
-`@kstackz/use-gesture`, keys are `@kstackz/use-keys`, and infrastructure is Alchemy (`alchemy.run.ts`,
-`src/infra`), like `apps/docs`.
-
-kstack installs as a PWA through `@kstackz/pwa-toolkit` (`app` preset): the
-`pwa()` plugin in `vite.config.ts` writes the manifest and service worker, and
-the root shows an Update Prompt when a new deploy is ready. The home page's
-**Check for updates** button asks for one on demand. `/offline` is the Offline
-Fallback the worker needs; the worker is off in `pnpm dev`.
+Money is a std-toolkit `StdTable` in D1, one partition per user
+(`src/server`), served at `/rpc` as an Effect RPC API that auth-toolkit guards
+with the session of `auth.kishore.app`. The browser keeps its own copy in
+IndexedDB through Std Sync and TanStack DB (`src/client/data`), so the app
+opens offline and every write shows at once. `src/kit` holds what the app
+needed that no package has yet; each module there knows nothing of Ledger.
+Layers and their rules are in `laymos.config.json`; why gestures run the
+keys' Actions is in [docs/adr/](docs/adr/).
 
 ## Usage
 
-### Add a Gestures Topic
-
-Make `src/showcases/gestures/topics/<topic>/`: one file per Scenario, and
-`<topic>.ts` listing them, each imported twice, to run and as its code. Then
-add it to a group in `topics.ts`.
-
-```ts
-// src/showcases/gestures/topics/sidebar-scroll/sidebar-scroll.ts
-export const sidebarScroll: Topic = {
-  slug: 'sidebar-scroll',
-  title: 'Sidebar + scrolling page',
-  icon: PanelLeftIcon,
-  scenarios: [
-    {
-      slug: 'anywhere',
-      sentence:
-        'A long page, and a sidebar that opens from anywhere. Drag up or down, then sideways, then diagonally.',
-      Demo: Anywhere,
-      source: anywhere, // import anywhere from './anywhere.tsx?raw'
-      file: 'anywhere.tsx',
-    },
-  ],
-};
-```
-
-- The demo fills a card that is already a trapped Gesture Zone, so the
-  Showcase's sidebar, which opens only from the screen's edge, never hears it.
-- `fullScreen: true` opens it alone at `/gestures/<topic>/<scenario>`, for
-  Scenarios that need the screen's edges.
-- `useStageStatus(text)` writes the line under the demo.
-
 ### Run locally
 
-`pnpm dev` starts Alchemy dev through Portless at
+`pnpm dev` starts Alchemy dev, with a local D1, through Portless at
 `https://kstack.kishore.computer` (with the worktree prefix in a Git worktree;
-use the URL printed at startup).
+use the URL printed at startup). Sign in with Google through the local Auth
+Worker, or open `/?preview=on` for a preview: Ledger for a stand-in user, its
+server the real handlers over a table in memory in the tab. The preview exists
+only in development; `/?preview=off` ends it.
 
 ```bash
+pnpm --filter kstack test    # domain, Thumb Lock, keys, and the Ledger API
 pnpm --filter kstack build   # dist/client and dist/server
-pnpm --filter kstack lint    # tsc --noEmit + laymos lint
+pnpm --filter kstack lint    # tsc --noEmit, laymos lint, and no invented colours
 pnpm --filter kstack icons   # regenerate public/icons (node:zlib only)
 ```
+
+### Add a Command
+
+Give the Action its keys in `src/commands/keys.ts`, its gesture in
+`src/commands/gestures.ts` if it has one, and its Handler in the Place that
+answers it, with `useCommand`. The Handler runs from its keys, the palette,
+and its gesture alike, and each time it sounds and shows in the Key Bar.
+
+```ts
+// src/commands/keys.ts, inside the entries Surface
+remove: { keys: [sequence('d d')], description: 'Delete the entry' },
+
+// src/app/entries/list.tsx
+useCommand('entries.remove', () => removeEntry(marked), {
+  enabled: active && marked !== undefined,
+});
+```
+
+- An Action with no enabled Handler is dimmed on the Compass, and a swipe
+  toward it is a Wrong Way.
+- Global Actions such as `next` are answered by whichever Place is shown, so
+  `j` and a Thumb Lock swipe left mean the next Entry on Entries and the next
+  Month on a Month.
 
 ### Deploy
 
 `.github/workflows/deploy-kstack.yml` deploys `prod` at `kstack.kishore.app`
 on pushes to `main`, and `pr<N>` previews at `pr<N>-kstack.kishore.app` for
 pull requests that touch the app or any workspace package it depends on.
-`cleanup-kstack.yml` destroys a preview when its PR closes. Deployed stages
-refuse to reconcile without `ALLOW_DEPLOY=true`. For a one-off prod deploy
-from your machine:
+`cleanup-kstack.yml` destroys a preview when its PR closes. Each stage has its
+own D1 database, and its table refuses a deploy its stored rows could not be
+read after. Deployed stages refuse to reconcile without `ALLOW_DEPLOY=true`.
 
 ```bash
 pnpm --filter kstack deploy:prod   # ALLOW_DEPLOY=true alchemy deploy --stage prod

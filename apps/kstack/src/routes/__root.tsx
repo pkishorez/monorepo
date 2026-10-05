@@ -11,6 +11,7 @@ import { buttonVariants } from '@kstackz/ui-toolkit/components/ui/button';
 import { PwaProvider, pwaHead, UpdatePrompt } from '@kstackz/pwa-toolkit/react';
 import type { ReactNode } from 'react';
 import { appTheme } from '../common/theme.ts';
+import { DEVICE_SCRIPT } from '../kit/device/index.ts';
 import appCss from '../styles.css?url';
 
 const getCurrentTheme = createServerFn({ method: 'GET' }).handler(() =>
@@ -37,7 +38,7 @@ export const Route = createRootRoute({
           name: 'viewport',
           content: 'width=device-width, initial-scale=1, viewport-fit=cover',
         },
-        { title: 'kstack' },
+        { title: 'Ledger' },
         ...pwa.meta,
       ],
       links: [
@@ -70,7 +71,7 @@ function NotFound() {
         Nothing lives here
       </h1>
       <Link to="/" className={buttonVariants({ className: 'min-h-11' })}>
-        All showcases
+        Home
       </Link>
     </main>
   );
@@ -89,6 +90,8 @@ function RootDocument({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
         <appTheme.Script initialTheme={theme} />
+        {/* Before the first paint: which hints this device shows. */}
+        <script dangerouslySetInnerHTML={{ __html: DEVICE_SCRIPT }} />
       </head>
       <body>
         {children}

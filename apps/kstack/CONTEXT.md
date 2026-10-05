@@ -1,37 +1,92 @@
 # kstack
 
-Showcases of the app layouts and behaviours kstack supports, each a complete app.
+Ledger: one app that writes down the money you spend and earn and shows where it goes. It is the blueprint for every kstack app: the same Commands run from keys on a desktop and from gestures on a phone.
 
 ## Language
 
-**Showcase**:
-One way an app can be laid out or behave, such as the App Shell or gestures, built as a complete, production-quality app under its own route. Everything it needs lives in its own folder; Showcases share nothing but the theme, the way their Tweaks are shown, and the way their code is shown.
-_Avoid_: example, variant, demo, sample, preset
+### Money
 
-**Feature**:
-One end-to-end app in the Features Showcase where several gestures meet on one screen, such as a mail inbox with swipeable rows, pull to refresh and two Sidebars. Where the Gestures Showcase shows one capability at a time, a Feature shows them working together; its Scenarios are listed as things to try in it.
-_Avoid_: app, demo, integration
+**Entry**:
+One movement of money: how much, in or out, what it was for, from which Account, on which day, with a memo.
+_Avoid_: transaction, record, item
 
-**Topic**:
-One page of a Showcase, reached from its Sidebar, that gathers the Scenarios of one idea, such as pull to refresh.
-_Avoid_: section, category, chapter
+**Account**:
+Where money sits, such as Cash, Bank, Card or Savings. Its balance is every Entry of it, in minus out. The user adds and renames Accounts; an Account is never deleted.
+_Avoid_: wallet, source
 
-**Scenario**:
-One situation a Topic shows, told in a single sentence — given this, try that — above a live demo of it, with its code a tap away. A Scenario that needs the whole screen opens full screen from its card.
-_Avoid_: example, demo, case, story
+**Category**:
+What money was for, such as Food or Salary, with the Budget it is allowed each month.
+_Avoid_: tag, label
 
-**App Shell**:
-The frame of an app: the status bar, a header, the area that shows the current page, and optionally a Sidebar; an app turns each part on or off. One App Shell frames every kstack app, and the App Shell Showcase shows its shapes. Not pwa-toolkit's App Shell, which is the HTML an app boots from offline.
-_Avoid_: layout, frame, chrome
+**Budget**:
+How much a Category may spend in one month. A Category without one has no limit.
+_Avoid_: limit, cap
+
+**Month**:
+One calendar month of Entries: what came in, what went out, and where it went by Category.
+_Avoid_: period, analytics, report
+
+### Places
+
+**Place**:
+One screen you go to: Home, Entries, an Entry, a Month, or Settings. Add is a sheet over a Place, never a Place.
+_Avoid_: page, route, view
+
+**Settings**:
+The Place for how Ledger looks, sounds and is driven: the theme, the currency, the Keys and Gestures switches with every Command's key, the user's money, and signing out.
+_Avoid_: preferences screen, options
 
 **Sidebar**:
-The panel of an App Shell that lists where you can go, top to bottom: the app, and the way back to every Showcase; the places to go, in labelled groups; and the Account Menu. On a wide screen it sits beside the page; on a phone the page moves aside, shrinks and dims to show it, and the status bar takes its color.
-_Avoid_: drawer, menu, nav panel
+What is beside every Place: the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were.
+_Avoid_: nav, menu, drawer
 
-**Account Menu**:
-Who is signed in, and everything that belongs to them: signing in and out, and the theme. At the foot of the Sidebar when there is one, at the top right of the header when there is not; never both.
-_Avoid_: user menu, profile menu, settings menu
+**Home**:
+This Month at a glance: what is left, in against out, the Budgets filling up, and the latest Entries.
+_Avoid_: dashboard, overview
 
-**Tweak**:
-A setting a Showcase lets you change while you use it, such as whether its App Shell has a header, so one Scenario shows its variations instead of one Scenario for each. Its panel stays open while you use the Example, so each change shows as you make it. Each starts at the Showcase's default and is remembered in the browser until changed or reset.
-_Avoid_: option, config, variant
+**The List**:
+The Place that lists the things of the Place you are in, with that thing marked: Entries for an Entry or Home, the Months for a Month.
+_Avoid_: index, overview
+
+### Commands
+
+**Command**:
+One thing the user tells the app to do, with one key where there is a keyboard and one gesture where there is a touch screen. Both run the same Action, so a Command works in exactly the same Places either way.
+_Avoid_: shortcut, gesture (each is only one way to give a Command)
+
+**Keys** / **Gestures**:
+The two ways to give Commands, each switched on or off by the user in Settings. Keys show only where a keyboard is, Gestures only where a touch screen is; a device with both shows both. Finding a Command (Cmd K) works even with Keys off.
+_Avoid_: desktop mode, mobile mode
+
+**Key Bar**:
+What shows, at the foot of the screen, the keys still to press to finish a Command, that a key finished none, or the Command just given.
+_Avoid_: status bar, toast, announcer
+
+**Leader**:
+Space, pressed before a letter, for Commands that move the keys rather than the Place: Space E gives the keys to the Sidebar.
+_Avoid_: prefix
+
+**Go**:
+The Command to move to another Place.
+
+**Jump**:
+The Command to go to The List of where you are, with where you were marked.
+_Avoid_: back, up
+
+**Next / Previous**:
+The Commands to move one step through what the Place shows: the next Entry, the next Month.
+
+**Add**:
+The Command to write down a new Entry.
+
+**Thumb Lock**:
+The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one. A swipe without it acts on what is under the finger.
+_Avoid_: hold, long press, modifier
+
+**Compass**:
+What shows the Commands of a Thumb Lock under the moving finger: one arm for each way, each named for its Command, the one being swiped filling as the finger moves, and dimmed where the Place has no such Command.
+_Avoid_: wheel, radial menu, HUD
+
+**Wrong Way**:
+A Thumb Lock swipe toward a dimmed arm of the Compass: the Compass shakes, and the phone buzzes where it can.
+_Avoid_: error, invalid gesture
