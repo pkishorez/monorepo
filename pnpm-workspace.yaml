@@ -159,6 +159,7 @@ catalog:
   recharts: 3.10.1
   remark-gfm: 4.0.1
   shadcn: 4.21.0
+  sharp: 0.35.4
   shiki: 4.4.3
   skott: 0.35.11
   sonner: 2.0.8

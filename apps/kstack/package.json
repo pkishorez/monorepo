@@ -12,7 +12,7 @@
     "lint:colors": "node scripts/colors.ts",
     "lint:laymos": "laymos lint",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
-    "icons": "node scripts/icons.ts",
+    "brand": "node scripts/brand.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -41,6 +41,7 @@
     "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
     "laymos": "workspace:*",
+    "sharp": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

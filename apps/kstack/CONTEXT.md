@@ -56,6 +56,10 @@ _Avoid_: log out, remove account
 Going to the shared sign-in service, in a new tab, to see and end the User's Sessions and Grants. It is not how a User is added or signed out.
 _Avoid_: sign out, add account
 
+**Splash**:
+What shows while Ledger starts on a phone, before any Place: the Ledger mark and name, and at the foot, powered by kstack.
+_Avoid_: launch screen, loading screen
+
 ### Places
 
 **Place**:

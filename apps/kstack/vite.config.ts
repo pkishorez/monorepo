@@ -45,10 +45,10 @@ export default defineConfig({
       // `PWA_DEV=true pnpm dev` runs the worker in dev too (Build ID `dev`).
       dev: process.env['PWA_DEV'] === 'true',
       manifest: {
-        name: 'kstack',
-        short_name: 'kstack',
+        name: 'Ledger',
+        short_name: 'Ledger',
         description:
-          'Showcases of the app layouts and behaviours kstack supports.',
+          'Writes down the money you spend and earn. Powered by kstack.',
         ...createTheme().manifest('dark'),
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
