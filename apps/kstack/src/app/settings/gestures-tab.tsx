@@ -37,7 +37,7 @@ export function GesturesTab() {
       <div className="divide-y">
         <Row
           label="Thumb Lock"
-          hint="Two-finger commands on a touch screen. Taps and the sidebar swipe always work."
+          hint="Two-finger commands on a touch screen. Taps, the sidebar swipe and swiping a row to delete always work."
         >
           <Switch
             checked={on}
