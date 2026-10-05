@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { pick } from '../index.ts';
 import { STEP } from '../steps.ts';
 
-const FIRST = 72;
+const FIRST = 40;
 // Four items, from the second: Home, [Entries], Months, Settings.
 const at = (travel: number, start = 1, count = 4) =>
   pick({ count, start, travel, first: FIRST });

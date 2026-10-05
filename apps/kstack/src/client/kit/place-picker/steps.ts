@@ -1,5 +1,5 @@
 /** How far, in px, each Step past the first takes. */
-export const STEP = 40;
+export const STEP = 30;
 
 /**
  * The Steps a vertical travel has taken, down being more: none short of

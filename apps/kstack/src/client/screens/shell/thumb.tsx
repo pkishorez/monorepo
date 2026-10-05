@@ -8,7 +8,7 @@ import { type ThumbFeedback, ThumbLock } from '../../kit/thumb-lock/index.ts';
 import { PLACES, stepsFrom } from './places.ts';
 
 // How far, in px, a Thumb Lock swipe goes to take its first Step.
-const FIRST = 72;
+const FIRST = 40;
 
 const buzz = (pattern: number | ReadonlyArray<number>) =>
   navigator.vibrate?.(pattern as number[]);
@@ -27,7 +27,7 @@ const shake = () => {
 /**
  * The Thumb Lock of every Place: up and down Step through the Place order,
  * and lifting Goes to the Place reached, through the same Action as its
- * key. The Place Picker shows as soon as the swipe goes up or down; the
+ * key. The Place Picker shows from the moment the Lock holds; the
  * first Step comes as the swipe arms, so a flick goes to the next or
  * previous Place; past either end it holds there. Sideways is a Wrong
  * Way: the screen shakes. It sounds as it locks, Steps, goes and goes
@@ -66,7 +66,10 @@ export function Thumb() {
   };
 
   const feedback = (kind: ThumbFeedback) => {
-    if (kind === 'lock' && sounds) play('tick');
+    if (kind === 'lock') {
+      if (sounds) play('tick');
+      show(start);
+    }
     if (kind === 'wrong') {
       show(undefined);
       wrong();
@@ -99,7 +102,12 @@ export function Thumb() {
     <>
       <ThumbLock
         works={{ up: going, down: going, left: false, right: false }}
-        onSwipe={(swipe) => (swipe ? move(swipe.dy) : show(undefined))}
+        // Near where it landed the finger has no way yet: the picker holds
+        // on the start, and a Wrong Way has already hidden it.
+        onSwipe={(swipe) => {
+          if (swipe !== undefined) move(swipe.dy);
+          else if (stepped.current !== undefined) move(0);
+        }}
         onLift={(swipe) => lift(swipe?.dy)}
         onFeedback={feedback}
         enabled={settings.gesturesOn}
