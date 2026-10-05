@@ -7,14 +7,7 @@ import {
   SidebarMenuItem,
   useAppShell,
 } from '@kstackz/ui-toolkit/components/blocks/app-shell';
-import {
-  CalendarRange,
-  House,
-  List,
-  type LucideIcon,
-  Plus,
-  Settings,
-} from '@kstackz/ui-toolkit/lucide';
+import { Plus, Settings } from '@kstackz/ui-toolkit/lucide';
 import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { BindingKeys, keys, useCommand } from '../../commands/index.ts';
@@ -22,19 +15,10 @@ import { useMoney } from '../../state/session/index.ts';
 import { balances } from '../../../domain/ledger/index.ts';
 import { useOpenAccount } from '../sheets/accounts/index.ts';
 import { AccountIcon, Amount, focusPage } from '../parts/index.ts';
+import { PLACES } from './places.ts';
 
-type PlaceLink = {
-  readonly title: string;
-  readonly icon: LucideIcon;
-  readonly to: '/' | '/entries' | '/months';
-  readonly command: 'toHome' | 'toEntries' | 'toMonths';
-};
-
-const PLACES: ReadonlyArray<PlaceLink> = [
-  { title: 'Home', icon: House, to: '/', command: 'toHome' },
-  { title: 'Entries', icon: List, to: '/entries', command: 'toEntries' },
-  { title: 'Months', icon: CalendarRange, to: '/months', command: 'toMonths' },
-];
+// Every Place but Settings, which sits at the foot of the Sidebar.
+const TOP = PLACES.filter((place) => place.to !== '/settings');
 
 // What the Sidebar's keys move through, top to bottom.
 const ITEM = '[data-sidebar-item]';
@@ -64,7 +48,7 @@ export function SidebarContent() {
       <SidebarGroup>
         <SidebarGroupContent>
           <SidebarMenu>
-            {PLACES.map((place) => {
+            {TOP.map((place) => {
               const binding = keyOf(place.command);
               return (
                 <SidebarMenuItem key={place.to}>
@@ -74,7 +58,7 @@ export function SidebarContent() {
                     render={<Link to={place.to} />}
                   >
                     <place.icon aria-hidden />
-                    <span className="flex-1">{place.title}</span>
+                    <span className="flex-1">{place.label}</span>
                     {binding && (
                       <BindingKeys binding={binding} className="opacity-60" />
                     )}

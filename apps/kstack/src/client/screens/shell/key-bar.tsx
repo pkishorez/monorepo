@@ -36,7 +36,7 @@ type Shown =
  * moves. While a Sequence is under way it shows every way to finish it; a
  * key that finishes none shakes it and it goes; a Command given, by key or
  * gesture, shows for a moment with its key, so the keys teach themselves.
- * Each replaces the last in place.
+ * Each replaces the last in place, and it stays put while the page slides.
  */
 export function KeyBar() {
   const { sequence, actions } = keys.useStatus();
@@ -96,7 +96,7 @@ export function KeyBar() {
         : shown.kind;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] z-40 flex justify-center px-4 touch:bottom-[calc(env(safe-area-inset-bottom)+5.75rem)]">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] z-40 flex justify-center px-4 touch:bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] [view-transition-class:still] [view-transition-name:key-bar]">
       {/* A new one takes the old one's place at once, so the two never show
           together; only the last one fades as it goes. */}
       <AnimatePresence initial={false} custom={shown === undefined}>

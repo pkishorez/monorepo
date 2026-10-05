@@ -50,7 +50,7 @@ export function GesturesTab() {
         </Row>
         <Row
           label="Gesture sounds"
-          hint="A soft sound as the Thumb Lock runs a command, and an error sound when a way does nothing."
+          hint="A soft sound as the Thumb Lock arms, a tick at each Step, a chime as it goes, and an error sound when there is nowhere to go."
         >
           <Switch
             checked={settings.gestureSounds}
@@ -70,9 +70,11 @@ export function GesturesTab() {
           <h2 className="font-medium">The Thumb Lock</h2>
           <p className="text-pretty text-muted-foreground">
             Rest your left thumb still on the screen, then swipe up or down with
-            another finger. Once you've gone far enough, the top of the screen
-            names what letting go will do; come back short and it goes. A way
-            that does nothing here shakes the screen.
+            another finger to Step through Home, Entries, Months and Settings. A
+            flick goes one Place; keep going and the top of the screen lists
+            them all, for letting go on the one you want. Come back to where you
+            began and it goes nowhere. Past either end, or sideways, the screen
+            shakes.
           </p>
         </div>
       </section>
