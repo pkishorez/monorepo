@@ -114,7 +114,7 @@ The left thumb resting still on the screen while another finger moves. It turns 
 _Avoid_: hold, long press, modifier
 
 **Step**:
-One Place up or down the Place order (Home, Entries, Months, Settings) in a Thumb Lock swipe. The first Step is reached as the swipe arms, so a flick goes to the next or previous Place; each further stretch of travel is one more Step, either way. An Entry or a Month counts as just under its list: up from it goes to the list. The order does not wrap.
+One Place up or down the Place order (Home, Entries, Months, Settings) in a Thumb Lock swipe. The first Step is reached as the swipe arms, so a flick goes to the next or previous Place; each further stretch of travel is one more Step, either way. An Entry or a Month counts as just under its list: up from it goes to the list. Past either end it holds there; the order does not wrap.
 _Avoid_: next screen, page
 
 **Place Picker**:
@@ -126,5 +126,5 @@ The sounds of the Thumb Lock, switched on or off apart from the sounds of Comman
 _Avoid_: haptics, audio feedback
 
 **Wrong Way**:
-A Thumb Lock swipe sideways, or a Step past either end of the Place order: the whole screen shakes, an error sounds if Gesture Sounds are on, and the phone buzzes where it can.
+A Thumb Lock swipe sideways: the whole screen shakes, an error sounds if Gesture Sounds are on, and the phone buzzes where it can.
 _Avoid_: error, invalid gesture
