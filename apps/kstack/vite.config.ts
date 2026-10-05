@@ -22,6 +22,9 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
     tanstackStart({
+      // The browser starts in src/entry/web, the Worker in src/entry/worker.
+      srcDirectory: 'src/entry/web',
+      server: { entry: '../worker/server.ts' },
       // App Shell and Offline Fallback, both precached by pwa().
       spa: { enabled: true, prerender: { outputPath: '/_shell' } },
       pages: [

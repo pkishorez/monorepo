@@ -1,4 +1,4 @@
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { Authz } from '@kstackz/auth-toolkit/rpc';
 import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
@@ -47,6 +47,25 @@ const run = <A, E>(
 };
 
 describe('the Ledger API', () => {
+  // RpcTest skips serialization; the browser sends JSON.
+  it('reads every write as JSON carries it', () => {
+    for (const [tag, value] of [
+      ['Preferences.Put', { userId: 'u1', currency: 'INR' }],
+      [
+        'Accounts.Put',
+        { id: 'a1', userId: 'u1', name: 'Cash', kind: 'cash', createdAt: '' },
+      ],
+    ] as const) {
+      const json = Schema.toCodecJson(
+        LedgerApi.requests.get(tag)!.payloadSchema,
+      ) as unknown as Schema.Codec<unknown, unknown>;
+      const wire = JSON.parse(
+        JSON.stringify(Schema.encodeUnknownSync(json)({ value })),
+      );
+      expect(Schema.decodeUnknownSync(json)(wire)).toEqual({ value });
+    }
+  });
+
   it('writes the sample once, and sends every change after a cursor', async () => {
     await run((rpc) =>
       Effect.gen(function* () {

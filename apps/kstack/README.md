@@ -13,7 +13,7 @@ keyboard-or-touch rules every screen follows are in [`DESIGN.md`](DESIGN.md).
 What the app had to invent that a package could one day own is listed in
 [`NOTES.md`](NOTES.md).
 
-Every Command lives once in `src/commands/keys.ts`, as a
+Every Command lives once in `src/client/commands/keys.ts`, as a
 `@kstackz/use-keys` Action with its keys and its Surface. Gestures from
 `@kstackz/use-gesture` run the same Actions through `keys.useRun()`, so a
 Command works in exactly the same Places from a key or a finger. Key hints
@@ -26,14 +26,25 @@ the screen. Plain swipes stay plain: one finger scrolls,
 or opens the sidebar from anywhere. `Space e` gives the keys to the sidebar,
 and Escape gives them back to whatever had them.
 
-Money is a std-toolkit `StdTable` in D1, one partition per user
-(`src/server`), served at `/rpc` as an Effect RPC API that auth-toolkit guards
-with the session of `auth.kishore.app`. The browser keeps its own copy in
-IndexedDB through Std Sync and TanStack DB (`src/client/data`), so the app
-opens offline and every write shows at once. `src/kit` holds what the app
-needed that no package has yet; each module there knows nothing of Ledger.
-Layers and their rules are in `laymos.config.json`; why gestures run the
-keys' Actions is in [docs/adr/](docs/adr/).
+`src/` has four parts, read top-down: `entry` starts the browser
+(`entry/web`) and the Worker (`entry/worker`) and deploys them (`entry/infra`);
+`client` holds the screens, the Commands, the state and the kit; `server`
+holds the D1 table and the Ledger API's handlers; and `domain` holds the words
+both sides speak. Layers and their rules are in `laymos.config.json`.
+
+Money is a std-toolkit `StdTable` in D1, one partition per User, served at
+`/rpc` as an Effect RPC API that auth-toolkit guards. Several Users can be
+signed in at `auth.kishore.app` at once. One XState machine, run as an Effect
+actor (`src/client/state/machine`), finds who is signed in and holds one
+User's Session open: their copy in IndexedDB through Std Sync and TanStack DB,
+so the app opens offline and every write shows at once, signed with that
+User's own token whichever User the browser has active. Switch User closes
+that Session and opens another; the copies of Users no longer signed in are
+deleted. The device's Settings are a `StdTable` in IndexedDB alone, read the
+same way. `src/client/kit` holds what the app needed that no package has yet;
+each module there knows nothing of Ledger. Why gestures run the keys' Actions,
+why a Session signs its own requests, and why the lifecycle is one machine are
+in [docs/adr/](docs/adr/).
 
 ## Usage
 
@@ -42,12 +53,10 @@ keys' Actions is in [docs/adr/](docs/adr/).
 `pnpm dev` starts Alchemy dev, with a local D1, through Portless at
 `https://kstack.kishore.computer` (with the worktree prefix in a Git worktree;
 use the URL printed at startup). Sign in with Google through the local Auth
-Worker, or open `/?preview=on` for a preview: Ledger for a stand-in user, its
-server the real handlers over a table in memory in the tab. The preview exists
-only in development; `/?preview=off` ends it.
+Worker at `https://auth.kishore.computer`, which must be running too.
 
 ```bash
-pnpm --filter kstack test    # domain, Thumb Lock, keys, and the Ledger API
+pnpm --filter kstack test    # domain, Thumb Lock, keys, the app machine, and the Ledger API
 pnpm --filter kstack build   # dist/client and dist/server
 pnpm --filter kstack lint    # tsc --noEmit, laymos lint, and no invented colours
 pnpm --filter kstack icons   # regenerate public/icons (node:zlib only)
@@ -55,16 +64,16 @@ pnpm --filter kstack icons   # regenerate public/icons (node:zlib only)
 
 ### Add a Command
 
-Give the Action its keys in `src/commands/keys.ts`, its gesture in
-`src/commands/gestures.ts` if it has one, and its Handler in the Place that
+Give the Action its keys in `src/client/commands/keys.ts`, its gesture in
+`src/client/commands/gestures.ts` if it has one, and its Handler in the Place that
 answers it, with `useCommand`. The Handler runs from its keys, the palette,
 and its gesture alike, and each time it sounds and shows in the Key Bar.
 
 ```ts
-// src/commands/keys.ts, inside the entries Surface
+// src/client/commands/keys.ts, inside the entries Surface
 remove: { keys: [sequence('d d')], description: 'Delete the entry' },
 
-// src/app/entries/list.tsx
+// src/client/screens/places/entries/list.tsx
 useCommand('entries.remove', () => removeEntry(marked), {
   enabled: active && marked !== undefined,
 });

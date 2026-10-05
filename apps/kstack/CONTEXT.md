@@ -26,6 +26,28 @@ _Avoid_: limit, cap
 One calendar month of Entries: what came in, what went out, and where it went by Category.
 _Avoid_: period, analytics, report
 
+### Users
+
+**User**:
+One person signed in with Google. Several Users can be signed in on one device at once; each has their own money, and none sees another's.
+_Avoid_: account (an Account is where money sits), profile, login
+
+**Session**:
+One User at work in Ledger on this device, with their own copy of their money kept in step with the server. Only one Session is open at a time; it opens when its User is chosen and closes completely when another is chosen or the User signs out.
+_Avoid_: login, connection, client
+
+**Switch User**:
+Close the open Session and open another User's, at once, without signing anyone out. Each User's copy of their money stays on the device until that User signs out.
+_Avoid_: switch account, change account
+
+**User Switcher**:
+What lists every User signed in on this device, to Switch User, with the way to Manage Google Accounts. Ledger itself never adds or signs out a User.
+_Avoid_: account menu, profile menu
+
+**Manage Google Accounts**:
+Going to the shared sign-in service, in a new tab, to add a User, sign one out, or sign every one out.
+_Avoid_: sign out, add account
+
 ### Places
 
 **Place**:
@@ -33,11 +55,11 @@ One screen you go to: Home, Entries, an Entry, a Month, or Settings. Add is a sh
 _Avoid_: page, route, view
 
 **Settings**:
-The Place for how Ledger looks, sounds and is driven: the theme, the currency, the Keys and Gestures switches with every Command's key, the user's money, and signing out.
-_Avoid_: preferences screen, options
+How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the sounds, the Keys and Gestures switches with every Command's key, and whether Switch User reaches other tabs. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts.
+_Avoid_: preferences, options
 
 **Sidebar**:
-What is beside every Place: the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were.
+What is beside every Place: the User Switcher at its top, the Places to Go to, then each Account with its balance. It can be given the keys, and gives them back to where they were.
 _Avoid_: nav, menu, drawer
 
 **Home**:

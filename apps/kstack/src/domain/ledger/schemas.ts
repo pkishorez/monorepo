@@ -42,35 +42,15 @@ export const Entry = EntityESchema.make('entry', 'id', {
 export type Entry = typeof Entry.Type;
 
 /**
- * One user's own settings, one per user. `keys` are their own Bindings,
- * written as people write them (`mod+k`, `g g`), by Action id. `keysOn`
- * and `gesturesOn` say whether Keys and the Thumb Lock work; before v2
- * both always did. `gestureSounds` is whether the Thumb Lock sounds as it
- * locks, arms, runs, and goes a Wrong Way; `sound` is for Commands.
+ * What belongs to one User's money rather than to the device, one per User:
+ * the currency it is counted in.
  */
-export const Preferences = EntityESchema.make('preferences', 'userId', {
+export const Preferences = EntityESchema.make('user-preferences', 'userId', {
   currency: Schema.String,
-  sound: Schema.Boolean,
-  keys: Schema.Record(Schema.String, Schema.String),
-})
-  .evolve(
-    'v2',
-    { keysOn: Schema.Boolean, gesturesOn: Schema.Boolean },
-    (before) => ({ ...before, keysOn: true, gesturesOn: true }),
-  )
-  .evolve('v3', { gestureSounds: Schema.Boolean }, (before) => ({
-    ...before,
-    gestureSounds: true,
-  }))
-  .build();
+}).build();
 export type Preferences = typeof Preferences.Type;
 
 export const defaultPreferences = (userId: string): Preferences => ({
   userId,
   currency: 'USD',
-  sound: true,
-  keys: {},
-  keysOn: true,
-  gesturesOn: true,
-  gestureSounds: true,
 });
