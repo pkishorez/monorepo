@@ -25,8 +25,8 @@ const said = (motion: Motion) => {
 
 /**
  * Every gesture, Place by Place as they nest, each drawn as it moves. They
- * can't be changed yet, only learned; the Thumb Lock ones turn off with
- * the switch.
+ * can't be changed yet, only learned; the Thumb Lock ones, and their
+ * sounds, turn off with the switches.
  */
 export function GesturesTab() {
   const { preferences } = useMoney();
@@ -45,6 +45,19 @@ export function GesturesTab() {
             aria-label="Thumb Lock"
           />
         </Row>
+        <Row
+          label="Gesture sounds"
+          hint="A soft sound as the Thumb Lock runs a command, and an error sound when a way does nothing."
+        >
+          <Switch
+            checked={preferences.gestureSounds}
+            disabled={!on}
+            onCheckedChange={(gestureSounds) =>
+              setPreferences({ gestureSounds })
+            }
+            aria-label="Gesture sounds"
+          />
+        </Row>
       </div>
 
       <section className="flex items-start gap-4 rounded-xl border p-4">
@@ -56,9 +69,9 @@ export function GesturesTab() {
           <h2 className="font-medium">The Thumb Lock</h2>
           <p className="text-pretty text-muted-foreground">
             Rest your left thumb still on the screen, then swipe with another
-            finger. A compass opens under that finger, naming each way; the way
-            you swipe fills, and letting go runs it. A way that does nothing
-            here is dimmed, and shakes if you try it.
+            finger. Small labels under that finger name each way; the one you
+            swipe toward fills, and letting go runs it. A way that does nothing
+            here is faint, and the screen shakes if you try it.
           </p>
         </div>
       </section>

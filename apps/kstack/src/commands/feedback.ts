@@ -27,10 +27,29 @@ export type Given = { readonly id: ActionId; readonly at: number };
 
 let given: Given | undefined;
 const listeners = new Set<() => void>();
+// Whether Commands sound: the user's Sounds setting.
+let sounding = true;
+// Set while a gesture runs its Command, which has a sound of its own.
+let quiet = false;
 
-/** A Command was given: it sounds, and the Announcer shows it. */
+/** Turns the sounds of Commands on or off. */
+export const setCommandSounds = (on: boolean) => {
+  sounding = on;
+};
+
+/** Runs a Command without its sound, as a gesture that sounded already. */
+export const quietly = (run: () => void) => {
+  quiet = true;
+  try {
+    run();
+  } finally {
+    quiet = false;
+  }
+};
+
+/** A Command was given: it sounds, and the Key Bar shows it. */
 export const announce = (id: ActionId) => {
-  play(SOUNDS[id] ?? 'confirm');
+  if (sounding && !quiet) play(SOUNDS[id] ?? 'confirm');
   given = { id, at: performance.now() };
   for (const listener of listeners) listener();
 };

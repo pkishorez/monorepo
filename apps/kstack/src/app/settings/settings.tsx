@@ -86,7 +86,10 @@ function Appearance() {
             ]}
           />
         </Row>
-        <Row label="Sounds" hint="A quiet sound as each command runs.">
+        <Row
+          label="Sounds"
+          hint="A quiet sound as each command runs from a key or a tap. Gesture sounds are under Gestures."
+        >
           <Switch
             checked={preferences.sound}
             onCheckedChange={(sound) => setPreferences({ sound })}

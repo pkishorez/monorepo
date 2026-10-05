@@ -84,9 +84,13 @@ The left thumb resting still on the screen while another finger moves. It turns 
 _Avoid_: hold, long press, modifier
 
 **Compass**:
-What shows the Commands of a Thumb Lock under the moving finger: one arm for each way, each named for its Command, the one being swiped filling as the finger moves, and dimmed where the Place has no such Command.
+What quietly shows the Commands of a Thumb Lock under the moving finger: a small label for each way that does something in this Place, named for its Command, and none for a way that doesn't. The label being swiped toward brightens as the finger goes, zooms in once armed, and settles back if the finger comes back short.
 _Avoid_: wheel, radial menu, HUD
 
+**Gesture Sounds**:
+The sounds of the Thumb Lock, switched on or off apart from the sounds of Commands: soft as it locks and arms, a gentle chime when its Command runs, an error on a Wrong Way.
+_Avoid_: haptics, audio feedback
+
 **Wrong Way**:
-A Thumb Lock swipe toward a dimmed arm of the Compass: the Compass shakes, and the phone buzzes where it can.
+A Thumb Lock swipe toward a way with no label on the Compass: the whole screen shakes, an error sounds if Gesture Sounds are on, and the phone buzzes where it can.
 _Avoid_: error, invalid gesture
