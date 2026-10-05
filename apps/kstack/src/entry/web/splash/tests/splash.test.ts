@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { splashLinks, splashScreens } from '../index.ts';
+import { splashHead, splashScreens } from '../index.ts';
 
 describe('splash', () => {
   it('gives every iOS screen its own image', () => {
-    const media = splashLinks().map((link) => link.media);
+    const media = splashHead().links.map((link) => link.media);
     expect(new Set(media).size).toBe(media.length);
     const hrefs = splashScreens.map((each) => each.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
+  });
+
+  it('runs the installed app in the mode iOS shows startup images in', () => {
+    expect(splashHead().meta).toContainEqual({
+      name: 'apple-mobile-web-app-capable',
+      content: 'yes',
+    });
   });
 
   it('draws an iPad held sideways as wide as it is held', () => {

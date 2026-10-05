@@ -1,1 +1,1 @@
-export { splashLinks, splashScreens } from './splash.ts';
+export { splashHead, splashScreens } from './splash.ts';
