@@ -122,6 +122,41 @@ describe('Signed-in Accounts', () => {
     expect(await whoIs(worker, afterSwitch)).toBe('ada@example.com');
   });
 
+  it('lists nobody for a browser with no Signed-in Account', async () => {
+    const response = await get(
+      make(),
+      '/multi-session/list-device-sessions',
+      '',
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual([]);
+  });
+
+  it('a listed token, sent as a bearer, is that account whoever is active', async () => {
+    const worker = make();
+    const ada = await signIn(worker, 'ada@example.com');
+    const mary = await signIn(worker, 'mary@example.com');
+    const cookie = cookieHeader(mary.active, ada.account, mary.account);
+    const listed = (await (
+      await get(worker, '/multi-session/list-device-sessions', cookie)
+    ).json()) as Array<{ user: { email: string }; session: { token: string } }>;
+    const token = listed.find(
+      (entry) => entry.user.email === 'ada@example.com',
+    )!.session.token;
+
+    // A Consumer Backend forwards only the bearer when there is one.
+    const response = await worker.handler(
+      new Request(`${baseURL}/api/auth/get-session`, {
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    );
+    const resolved = (await response.json()) as {
+      user: { email: string };
+    } | null;
+    expect(resolved?.user.email).toBe('ada@example.com');
+    expect(await whoIs(worker, cookie)).toBe('mary@example.com');
+  });
+
   it('signing out one account leaves the other and makes it active', async () => {
     const worker = make();
     const ada = await signIn(worker, 'ada@example.com');

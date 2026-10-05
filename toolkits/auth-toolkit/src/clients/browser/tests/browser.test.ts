@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   signInSocial: vi.fn(),
+  getSession: vi.fn(),
+  listDeviceSessions: vi.fn(),
+  setActive: vi.fn(),
+}));
+
+vi.mock('better-auth/client/plugins', () => ({
+  multiSessionClient: () => ({ id: 'multi-session' }),
 }));
 
 vi.mock('better-auth/react', () => ({
@@ -9,6 +16,11 @@ vi.mock('better-auth/react', () => ({
     useSession: vi.fn(),
     signIn: { social: mocks.signInSocial },
     signOut: vi.fn(),
+    getSession: mocks.getSession,
+    multiSession: {
+      listDeviceSessions: mocks.listDeviceSessions,
+      setActive: mocks.setActive,
+    },
   }),
 }));
 
@@ -134,5 +146,54 @@ describe('createAuthClient', () => {
 
     expect(browser.dispatchEvent).toHaveBeenCalledOnce();
     expect(browser.location.href).toBe('https://app.example.com/home');
+  });
+
+  it('lists Signed-in Accounts with the Active Account marked', async () => {
+    const user = (id: string) => ({ id, name: id, email: `${id}@x.com` });
+    mocks.getSession.mockResolvedValue({
+      data: { session: { token: 'mary-token' } },
+      error: null,
+    });
+    mocks.listDeviceSessions.mockResolvedValue({
+      data: [
+        { user: user('ada'), session: { token: 'ada-token' } },
+        { user: user('mary'), session: { token: 'mary-token' } },
+      ],
+      error: null,
+    });
+    const client = createAuthClient({ baseURL: 'https://auth.example.com' });
+
+    expect(await client.signedInAccounts()).toEqual([
+      {
+        user: { ...user('ada'), image: null },
+        token: 'ada-token',
+        active: false,
+      },
+      {
+        user: { ...user('mary'), image: null },
+        token: 'mary-token',
+        active: true,
+      },
+    ]);
+  });
+
+  it('throws when the Auth Worker refuses, instead of listing nobody', async () => {
+    mocks.getSession.mockResolvedValue({ data: null, error: null });
+    mocks.listDeviceSessions.mockResolvedValue({
+      data: null,
+      error: { status: 503 },
+    });
+    const client = createAuthClient({ baseURL: 'https://auth.example.com' });
+
+    await expect(client.signedInAccounts()).rejects.toThrow('503');
+  });
+
+  it('switches the Active Account by its token', async () => {
+    mocks.setActive.mockResolvedValue({ data: {}, error: null });
+    const client = createAuthClient({ baseURL: 'https://auth.example.com' });
+
+    await client.switchAccount('ada-token');
+
+    expect(mocks.setActive).toHaveBeenCalledWith({ sessionToken: 'ada-token' });
   });
 });

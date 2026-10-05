@@ -1,3 +1,4 @@
+import { multiSessionClient } from 'better-auth/client/plugins';
 import { createAuthClient as createBetterAuthClient } from 'better-auth/react';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
@@ -19,6 +20,49 @@ export interface LoginErrorState {
   error: LoginError | null;
   dismiss: () => void;
 }
+
+/** A User signed in within this browser, as a First-Party app sees them. */
+export interface SignedInAccount {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    image: string | null;
+  };
+  /** The account's Session token: send it as `Authorization: Bearer` to act
+   * as this account whichever one is active. */
+  token: string;
+  /** Whether this is the Active Account, the one the session cookie names. */
+  active: boolean;
+}
+
+type Result<T> = Promise<{
+  data: T | null;
+  error: { message?: string | undefined; status: number } | null;
+}>;
+
+/** Typed by hand: Better Auth's inferred plugin types reach into zod
+ * internals and break the package's declarations. */
+interface MultiSession {
+  getSession: () => Result<{ session: { token: string } }>;
+  multiSession: {
+    listDeviceSessions: () => Result<
+      Array<{
+        user: SignedInAccount['user'] & { image?: string | null };
+        session: { token: string };
+      }>
+    >;
+    setActive: (input: { sessionToken: string }) => Result<unknown>;
+  };
+}
+
+const dataOf = async <T>(result: Result<T>): Promise<T | null> => {
+  const { data, error } = await result;
+  if (error) {
+    throw new Error(error.message ?? `Auth Worker answered ${error.status}`);
+  }
+  return data;
+};
 
 interface AuthClientConfig {
   /** The Auth Worker's own deployed URL. */
@@ -92,7 +136,9 @@ export const createAuthClient = (config: AuthClientConfig) => {
   const client = createBetterAuthClient({
     baseURL: config.baseURL,
     fetchOptions: { credentials: 'include' },
+    plugins: [multiSessionClient()],
   });
+  const multi = client as unknown as MultiSession;
 
   return {
     useSession: client.useSession,
@@ -126,5 +172,27 @@ export const createAuthClient = (config: AuthClientConfig) => {
       },
     },
     signOut: () => client.signOut(),
+    /** Every Signed-in Account of this browser, the Active Account marked;
+     * none when signed out. Throws when the Auth Worker can't be reached. */
+    signedInAccounts: async (): Promise<SignedInAccount[]> => {
+      const [current, listed] = await Promise.all([
+        dataOf(multi.getSession()),
+        dataOf(multi.multiSession.listDeviceSessions()),
+      ]);
+      return (listed ?? []).map(({ user, session }) => ({
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image ?? null,
+        },
+        token: session.token,
+        active: session.token === current?.session.token,
+      }));
+    },
+    /** Makes a Signed-in Account the Active Account, for the whole browser. */
+    switchAccount: async (token: string): Promise<void> => {
+      await dataOf(multi.multiSession.setActive({ sessionToken: token }));
+    },
   };
 };
