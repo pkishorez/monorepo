@@ -24,16 +24,14 @@ const shake = () => {
   );
 };
 
-type Stepped = ReturnType<typeof pick>;
-
 /**
  * The Thumb Lock of every Place: up and down Step through the Place order,
  * and lifting Goes to the Place reached, through the same Action as its
  * key. The Place Picker shows as soon as the swipe goes up or down; the
  * first Step comes as the swipe arms, so a flick goes to the next or
- * previous Place. Past either end, or sideways, is a Wrong Way: the screen
- * shakes. It sounds as it locks, Steps, goes and goes wrong, if the user
- * wants gesture sounds, and buzzes where it can. The Go it gives keeps its
+ * previous Place; past either end it holds there. Sideways is a Wrong
+ * Way: the screen shakes. It sounds as it locks, Steps, goes and goes
+ * wrong, if the user wants gesture sounds, and buzzes where it can. The Go it gives keeps its
  * own sound and Key Bar to itself: the Place Picker has shown it already.
  */
 export function Thumb() {
@@ -42,9 +40,9 @@ export function Thumb() {
   const run = keys.useRun();
   const pathname = useLocation({ select: (location) => location.pathname });
   const { items, start } = stepsFrom(pathname);
-  const [shown, setShown] = useState<Stepped>();
+  const [shown, setShown] = useState<number>();
   // What is shown as the swipe moves, ahead of the next render.
-  const stepped = useRef<Stepped>(undefined);
+  const stepped = useRef<number>(undefined);
   const sounds = settings.gestureSounds;
   // A Go whose keys another Surface shadows here still runs for a finger.
   const goes = (command: string) => {
@@ -56,7 +54,7 @@ export function Thumb() {
   const at = (travel: number) =>
     pick({ count: items.length, start, travel, first: FIRST });
 
-  const show = (next: Stepped | undefined) => {
+  const show = (next: number | undefined) => {
     stepped.current = next;
     setShown(next);
   };
@@ -78,8 +76,8 @@ export function Thumb() {
   const move = (travel: number) => {
     const before = stepped.current;
     const next = at(travel);
-    if (before?.index === next.index && before.past === next.past) return;
-    if (before !== undefined && next.index !== before.index) {
+    if (next === before) return;
+    if (before !== undefined) {
       if (sounds) play('tick');
       buzz(4);
     }
@@ -89,10 +87,9 @@ export function Thumb() {
   const lift = (travel: number | undefined) => {
     show(undefined);
     if (travel === undefined) return;
-    const { steps, index, past } = at(travel);
-    if (steps === 0) return;
+    const index = at(travel);
     const place = items[index];
-    if (past || place === undefined || !('command' in place)) return wrong();
+    if (index === start || place === undefined || !('command' in place)) return;
     if (!goes(place.command)) return wrong();
     if (sounds) play('success');
     quietly(() => run(place.command));
@@ -110,8 +107,7 @@ export function Thumb() {
       <PlacePicker
         items={items}
         start={items[start]?.id ?? ''}
-        marked={shown && items[shown.index]?.id}
-        past={shown?.past ?? false}
+        marked={shown === undefined ? undefined : items[shown]?.id}
       />
     </>
   );

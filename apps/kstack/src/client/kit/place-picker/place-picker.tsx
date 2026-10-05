@@ -10,10 +10,9 @@ const FADE = { duration: 0.14, ease: EASE } as const;
 const AT_ONCE = { duration: 0 } as const;
 
 /**
- * Where a vertical travel, in px and down being more, has Stepped to among
- * `count` items from the one at `start`: the `steps` taken, none short of
- * `first` px, the `index` they reach, held at either end, and whether
- * they went `past` it.
+ * The item a vertical travel, in px and down being more, has Stepped to
+ * among `count` from the one at `start`: no Step short of `first` px, then
+ * one more each STEP px, held at either end.
  */
 export const pick = ({
   count,
@@ -25,11 +24,7 @@ export const pick = ({
   readonly start: number;
   readonly travel: number;
   readonly first: number;
-}) => {
-  const steps = stepsOf(travel, first);
-  const index = clamp(count, start + steps);
-  return { steps, index, past: index !== start + steps };
-};
+}) => clamp(count, start + stepsOf(travel, first));
 
 /**
  * Where letting go will take you, at the top centre of the screen and
@@ -42,7 +37,6 @@ export function PlacePicker(props: {
   readonly items: ReadonlyArray<Item>;
   readonly start: string;
   readonly marked: string | undefined;
-  readonly past: boolean;
 }) {
   const still = useReducedMotion() === true;
   if (typeof document === 'undefined') return null;
@@ -65,7 +59,6 @@ export function PlacePicker(props: {
               items={props.items}
               marked={props.marked}
               start={props.start}
-              past={props.past}
               move={still ? AT_ONCE : SPRING}
             />
           </motion.div>

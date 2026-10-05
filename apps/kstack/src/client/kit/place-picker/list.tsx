@@ -4,14 +4,12 @@ import type { Item } from './item.ts';
 
 /**
  * Every item in order, the marked one under a highlight that springs from
- * row to row, and a dot beside where the travel began. Past an end the
- * highlight turns to a warning: letting go there goes nowhere.
+ * row to row, and a dot beside where the travel began.
  */
 export function List(props: {
   readonly items: ReadonlyArray<Item>;
   readonly marked: string;
   readonly start: string;
-  readonly past: boolean;
   readonly move: Transition;
 }) {
   return (
@@ -28,10 +26,7 @@ export function List(props: {
               <motion.span
                 layoutId="place-picker-mark"
                 transition={props.move}
-                className={cn(
-                  'absolute inset-0 rounded-[10px]',
-                  props.past ? 'bg-destructive/15' : 'bg-accent',
-                )}
+                className="absolute inset-0 rounded-[10px] bg-accent"
               />
             )}
             <item.icon

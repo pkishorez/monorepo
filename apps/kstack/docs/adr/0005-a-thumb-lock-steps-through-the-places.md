@@ -9,7 +9,7 @@ Actions as the keys (ADR 0001). The first Step comes exactly as the swipe
 arms, so a flick goes to the next or previous Place; each further stretch of
 travel is one more Step, and the Place Picker shows the whole order from the
 moment the swipe goes up or down. An Entry or a Month counts as just under its list. Past either
-end, like sideways, is a Wrong Way.
+end the Steps hold there, and lifting goes to it; sideways is a Wrong Way.
 
 Add no longer needs a way of its own: on a touch screen it has the plus
 button at the thumb. And one stepping model covers both the quick flick and
@@ -27,7 +27,7 @@ still.
   gesture.** Rejected: two gestures for nearly the same motion, and Add
   already has the plus button.
 - **Wrap from Settings back to Home.** Rejected: with no end, a long swipe
-  lands somewhere unpredictable; an end that shakes tells the finger where
-  it is.
+  lands somewhere unpredictable; an end that holds lands where the finger
+  expects.
 - **A slide only for Thumb Lock Steps.** Rejected: the page should move the
   same way whether Go came from a key, a Sidebar tap or a Step.
