@@ -229,6 +229,107 @@ describe('GestureProvider, GestureZone and useGesture', () => {
       expect(move?.defaultPrevented).toBe(true);
       expect(onEnd).not.toHaveBeenCalled();
     });
+
+    // A row scrolled partway, under a listener that wants a swipe right,
+    // as a sidebar that opens from anywhere does.
+    const sideways = () => {
+      const onDirection = vi.fn();
+      const onEnd = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener
+                name="sidebar"
+                directions={['right']}
+                onDirection={onDirection}
+                onEnd={onEnd}
+              />
+              <div data-testid="row" style={{ overflowX: 'auto' }} />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      const row = find('row');
+      Object.defineProperties(row, {
+        scrollWidth: { value: 1000 },
+        clientWidth: { value: 400 },
+      });
+      row.scrollLeft = 100;
+      act(() => {
+        pointer('pointerdown', row, 1, 100, 100);
+        touch('touchstart', row, 100, 100);
+      });
+      return { row, onDirection, onEnd };
+    };
+
+    it('never tells a listener the Direction of a touch the scroller keeps', () => {
+      const { row, onDirection, onEnd } = sideways();
+      let move: Event | undefined;
+      act(() => {
+        pointer('pointermove', row, 1, 104, 100);
+        move = touch('touchmove', row, 104, 100);
+      });
+      expect(move?.defaultPrevented).toBe(false);
+      expect(onDirection).not.toHaveBeenCalled();
+      expect(onEnd.mock.lastCall?.[1]).toMatchObject({ interrupted: true });
+    });
+
+    // A swipe right over a text field, as over the amount of an Entry.
+    const overField = (focused: boolean) => {
+      const onDirection = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Listener
+                name="sidebar"
+                directions={['right']}
+                onDirection={onDirection}
+              />
+              <input data-testid="field" />
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      const field = find('field') as HTMLInputElement;
+      if (focused) field.focus();
+      act(() => {
+        pointer('pointerdown', field, 1, 100, 100);
+        touch('touchstart', field, 100, 100);
+      });
+      let move: Event | undefined;
+      act(() => {
+        pointer('pointermove', field, 1, 104, 100);
+        move = touch('touchmove', field, 104, 100);
+      });
+      return { prevented: move?.defaultPrevented, onDirection };
+    };
+
+    it('takes a swipe over a text field that is not being edited', () => {
+      const { prevented, onDirection } = overField(false);
+      expect(prevented).toBe(true);
+      expect(onDirection).toHaveBeenCalledWith('right');
+    });
+
+    it('leaves a text field being edited its own touches', () => {
+      const { prevented, onDirection } = overField(true);
+      expect(prevented).toBe(false);
+      expect(onDirection).not.toHaveBeenCalled();
+    });
+
+    it('waits for the touch to decide, even when a finger first moves far', () => {
+      const { row, onDirection } = sideways();
+      // The pointer event comes before the touch event, already past SLOP.
+      act(() => pointer('pointermove', row, 1, 130, 100));
+      expect(onDirection).not.toHaveBeenCalled();
+      let move: Event | undefined;
+      act(() => {
+        move = touch('touchmove', row, 130, 100);
+      });
+      expect(move?.defaultPrevented).toBe(false);
+      expect(onDirection).not.toHaveBeenCalled();
+    });
   });
 
   describe('at the first movement', () => {

@@ -22,6 +22,11 @@ export type PointerSample = {
   readonly y: number;
   readonly t: number;
   readonly target: Element | null;
+  /**
+   * A touch event still to come decides who owns this finger and its
+   * Direction, so a move must not decide either first.
+   */
+  readonly undecided?: boolean;
 };
 
 /**
@@ -172,7 +177,11 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
     if (sink.down(sampleOf(event))) tracked.add(event.pointerId);
   };
   const onMove = (event: PointerEvent) => {
-    if (tracked.has(event.pointerId)) sink.move(sampleOf(event));
+    if (!tracked.has(event.pointerId)) return;
+    // The browser sends a finger's pointermove before its touchmove: until
+    // that decides, the move only moves.
+    const undecided = owner === 'undecided' && landed.size > 0;
+    sink.move({ ...sampleOf(event), undecided });
   };
   const onUp = (event: PointerEvent) => {
     if (!tracked.delete(event.pointerId)) return;
@@ -237,7 +246,9 @@ export const createTouchInput = (win: Window, sink: PointerSink) => {
       if (nativeScrollKeeps(touch.target, zone, dx, dy)) return 'browser';
       return how === 'directions' ? 'zone' : 'browser';
     })();
-    sink.settle(direction);
+    // Only a touch the zone keeps has a Direction for its listeners: one the
+    // browser scrolls must not start them moving before it cancels them.
+    if (owner === 'zone') sink.settle(direction);
     return owner;
   };
   // From each zone's element: keeps a Gesture's touch from the browser.
