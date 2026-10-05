@@ -168,6 +168,15 @@ function WithSidebar(props: FrameProps & { readonly sidebar: ReactNode }) {
             style={SIDEBAR_STYLE}
             className="absolute inset-y-0 left-0 z-0 flex w-(--sidebar-width-mobile) flex-col bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] text-sidebar-foreground md:w-(--sidebar-width) md:py-2"
           >
+            {/* On touch, use-gesture keeps the first 24px from the edge from
+                the browser's back swipe, but not on a link or button. This
+                strip covers the items there, so the swipe never reaches one. */}
+            {props.swipe !== 'off' && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-y-0 left-0 z-10 hidden w-6 pointer-coarse:block"
+              />
+            )}
             {props.sidebar}
           </aside>
           <main

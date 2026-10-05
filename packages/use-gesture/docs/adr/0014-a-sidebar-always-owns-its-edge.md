@@ -16,5 +16,6 @@ stays under ADR 0012.
 - A tap within the edge strip of a Sidebar's side does not click on a plain
   element, open or closed.
 - Links and buttons in that strip are still left to the browser, so an edge
-  swipe that starts on one can still go back. The app shell's Sidebar keeps its
-  padding as it was rather than give up width to close that gap.
+  swipe that starts on one can still go back. ui-toolkit's app shell covers
+  its Sidebar's strip with a plain element on touch, so nothing there is a
+  link; a tap in the strip does nothing.
