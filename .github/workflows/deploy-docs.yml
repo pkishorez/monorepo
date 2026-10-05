@@ -93,10 +93,11 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --filter docs...
 
-      - name: Build
-        run: pnpm build
+      # Build the app's workspace dependencies; Alchemy builds the app itself.
+      - name: Build workspace dependencies
+        run: pnpm --filter 'docs^...' run build
 
       - name: Bootstrap Alchemy state store
         run: pnpm -C apps/docs exec alchemy provider cloudflare bootstrap
