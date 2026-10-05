@@ -4,7 +4,7 @@ Status: accepted
 
 Every Command of Ledger is one `@kstackz/use-keys` Action. A gesture never
 does the work itself: it runs the Action through `keys.useRun()`, and a
-Thumb Lock arm is dimmed when its Action is not active. So the Surfaces —
+Thumb Lock swipe is a Wrong Way where its Action is not active. So the Surfaces —
 which Place has the keys, what Add and Settings shut off while open — decide
 for keys and fingers alike, and the Settings list of every key and gesture
 reads one source.

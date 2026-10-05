@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COMMIT, DECIDE, read, type Reading, type Way } from '../recognize.ts';
+import { DECIDE, read, type Reading, type Way } from '../recognize.ts';
 
 const all = () => true;
 const start: Reading = { kind: 'undecided' };
@@ -20,18 +20,13 @@ describe('the Thumb Lock reading the moving finger', () => {
     expect(follow([[0, DECIDE]])).toMatchObject({ kind: 'going', way: 'down' });
   });
 
-  it('fills toward its Command and arms it at the commit distance', () => {
-    expect(follow([[-COMMIT / 2, 3]])).toMatchObject({
-      way: 'left',
-      progress: 0.5,
-      armed: false,
-    });
+  it('keeps its way however far the finger goes', () => {
     expect(
       follow([
         [-20, 0],
-        [-COMMIT, 10],
+        [-200, 10],
       ]),
-    ).toMatchObject({ way: 'left', armed: true });
+    ).toEqual({ kind: 'going', way: 'left' });
   });
 
   it('keeps its way as the finger wanders, until it comes back to the start', () => {
@@ -50,7 +45,7 @@ describe('the Thumb Lock reading the moving finger', () => {
     ).toMatchObject({ way: 'left' });
   });
 
-  it('is Wrong toward a Command that does nothing here, until it comes back', () => {
+  it('is Wrong toward a way that does not work here, until it comes back', () => {
     const works = (way: Way) => way !== 'left';
     expect(
       follow(

@@ -1,26 +1,20 @@
 import type { Way } from '../kit/thumb-lock/index.ts';
 import type { ActionId } from './keys.ts';
 
-/**
- * The Command each way of a Thumb Lock gives, in every Place: down to The
- * List, up to Add. Sideways gives none: stepping one at a time is for keys
- * and taps. A way with no Command, or none here, is a Wrong Way.
- */
-export const THUMB: Partial<Readonly<Record<Way, ActionId>>> = {
-  down: 'jump',
-  up: 'addEntry',
-};
+// Every Go is a Thumb Lock Step, or a few, through the Place order.
+const STEP = 'Thumb Lock, Step up or down to it';
 
 /** How each Command is given on a touch screen, where it has a gesture. */
 export const GESTURES: Partial<Readonly<Record<ActionId, string>>> = {
-  jump: 'Thumb Lock, swipe down',
-  addEntry: 'Thumb Lock, swipe up — or +',
+  toHome: STEP,
+  toEntries: STEP,
+  toMonths: STEP,
+  toSettings: STEP,
+  addEntry: 'Tap +',
   toggleSidebar: 'Swipe right',
   'entries.open': 'Tap the row',
   'entries.remove': 'Swipe the row left',
-  'entries.entry.back': 'Thumb Lock, swipe down',
   'months.open': 'Tap the month',
-  'months.month.back': 'Thumb Lock, swipe down',
   'add.cancel': 'Drag the sheet down',
 };
 
@@ -52,16 +46,17 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
   {
     title: 'Everywhere',
     gestures: [
-      { does: 'Add an entry', motion: { kind: 'thumb', way: 'up' } },
+      {
+        does: 'Step to the place before',
+        motion: { kind: 'thumb', way: 'up' },
+      },
+      {
+        does: 'Step to the place after',
+        motion: { kind: 'thumb', way: 'down' },
+      },
       { does: 'Add an entry', motion: { kind: 'tap' } },
       { does: 'Open the sidebar', motion: { kind: 'swipe', way: 'right' } },
       { does: 'Close the sidebar', motion: { kind: 'swipe', way: 'left' } },
-    ],
-  },
-  {
-    title: 'Home',
-    gestures: [
-      { does: 'Jump to the entries', motion: { kind: 'thumb', way: 'down' } },
     ],
   },
   {
@@ -74,7 +69,7 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
       {
         title: 'An entry',
         gestures: [
-          { does: 'Back to the list', motion: { kind: 'thumb', way: 'down' } },
+          { does: 'Up to the entries', motion: { kind: 'thumb', way: 'up' } },
         ],
       },
     ],
@@ -86,10 +81,7 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
       {
         title: 'A month',
         gestures: [
-          {
-            does: 'Back to the months',
-            motion: { kind: 'thumb', way: 'down' },
-          },
+          { does: 'Up to the months', motion: { kind: 'thumb', way: 'up' } },
         ],
       },
     ],

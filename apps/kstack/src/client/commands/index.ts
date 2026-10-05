@@ -23,7 +23,6 @@ export {
   type Gesture,
   type GestureGroup,
   type Motion,
-  THUMB,
 } from './gestures.ts';
 export {
   type ActionId,

@@ -81,7 +81,7 @@ _Avoid_: index, overview
 ### Commands
 
 **Command**:
-One thing the user tells the app to do, with one key where there is a keyboard and one gesture where there is a touch screen. Both run the same Action, so a Command works in exactly the same Places either way.
+One thing the user tells the app to do, with one key where there is a keyboard and, for most, a gesture where there is a touch screen. Both run the same Action, so a Command works in exactly the same Places either way.
 _Avoid_: shortcut, gesture (each is only one way to give a Command)
 
 **Keys** / **Gestures**:
@@ -97,7 +97,7 @@ Space, pressed before a letter, for Commands that move the keys rather than the 
 _Avoid_: prefix
 
 **Go**:
-The Command to move to another Place.
+The Command to move to another Place. The page slides up or down by the Place order, however Go was given.
 
 **Jump**:
 The Command to go to The List of where you are, with where you were marked.
@@ -107,20 +107,28 @@ _Avoid_: back, up
 The Commands to move one step through what the Place shows: the next Entry, the next Month.
 
 **Add**:
-The Command to write down a new Entry.
+The Command to write down a new Entry: a key, or the plus button on a touch screen.
 
 **Thumb Lock**:
-The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one. A swipe without it acts on what is under the finger.
+The left thumb resting still on the screen while another finger moves. It turns the other finger's swipe into a Command, as holding Ctrl turns a key into one: up and down Step through the Places. A swipe without it acts on what is under the finger.
 _Avoid_: hold, long press, modifier
 
+**Step**:
+One Place up or down the Place order (Home, Entries, Months, Settings) in a Thumb Lock swipe. The first Step is reached as the swipe arms, so a flick goes to the next or previous Place; each further stretch of travel is one more Step, either way. An Entry or a Month counts as just under its list: up from it goes to the list. The order does not wrap.
+_Avoid_: next screen, page
+
+**Place Picker**:
+What the Lift Hint grows into from a swipe's second Step: every Place in order, the one its Steps have reached marked. Lifting goes there; coming back to where the swipe began and lifting goes nowhere.
+_Avoid_: place switcher, wheel, menu, launcher
+
 **Lift Hint**:
-What names, at the top of the screen, the Command a Thumb Lock will run when the finger lifts. It shows only once the swipe has gone far enough to arm it, and goes again if the finger comes back short. Nothing shows under the fingers.
+What names, at the top of the screen, the Place a Thumb Lock will go to when the finger lifts. It shows only once the swipe has gone far enough to arm it, and goes again if the finger comes back short. Nothing shows under the fingers.
 _Avoid_: compass, wheel, HUD, tooltip
 
 **Gesture Sounds**:
-The sounds of the Thumb Lock, switched on or off apart from the sounds of Commands: soft as it locks and arms, a gentle chime when its Command runs, an error on a Wrong Way.
+The sounds of the Thumb Lock, switched on or off apart from the sounds of Commands: soft as it locks and arms, a tick at each Step, a gentle chime when it goes, an error on a Wrong Way.
 _Avoid_: haptics, audio feedback
 
 **Wrong Way**:
-A Thumb Lock swipe toward a way with no Command in this Place, up and down being the only ways that have one: the whole screen shakes, an error sounds if Gesture Sounds are on, and the phone buzzes where it can.
+A Thumb Lock swipe sideways, or a Step past either end of the Place order: the whole screen shakes, an error sounds if Gesture Sounds are on, and the phone buzzes where it can.
 _Avoid_: error, invalid gesture
