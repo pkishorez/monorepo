@@ -2,7 +2,7 @@
   "name": "@kstackz/use-gesture",
   "version": "0.0.0",
   "private": false,
-  "description": "Touch gestures for React: every finger of a touch as motion values, in nested zones that own touch.",
+  "description": "Touch gestures: a platform-free core that reads every finger of a touch from any touch source, and React bindings for the web, with every finger as motion values in nested zones that own touch.",
   "keywords": [
     "react",
     "gestures",
@@ -27,25 +27,32 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "default": "./dist/core/index.js"
-    },
-    "./recognizers": {
-      "types": "./dist/recognizers/index.d.ts",
-      "default": "./dist/recognizers/index.js"
+    "./web": {
+      "types": "./dist/web/index.d.ts",
+      "default": "./dist/web/index.js"
     }
   },
   "scripts": {
     "build": "rm -rf ./dist && tsc -p tsconfig.build.json",
     "fmt": "vp fmt",
-    "lint": "vp check && tsc --noEmit && laymos lint",
+    "lint": "vp check && tsc --noEmit && tsc --noEmit -p tsconfig.core.json && laymos lint",
     "test": "vitest run"
   },
   "peerDependencies": {
     "motion": "13.2.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
+  },
+  "peerDependenciesMeta": {
+    "motion": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/react": "catalog:",

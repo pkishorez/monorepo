@@ -1,38 +1,10 @@
+import { TreeWalk } from '@kstackz/use-gesture';
 import { useRef, useState } from 'react';
+import type { Choice } from './choice.ts';
 import { useThumbLock } from './lock.ts';
-import { type Column, Menu } from './menu.tsx';
-import { type Choice, idsAlong, listsAlong } from './tree.ts';
-import {
-  begin,
-  chosen,
-  DISTANCES,
-  type Event,
-  move,
-  type Walk,
-} from './walk.ts';
+import { Menu } from './menu.tsx';
 
-export type { Choice } from './tree.ts';
-
-// Each list the walk has opened, with what is marked in it and, on the
-// way to where the swipe began, where you are.
-const columnsOf = (
-  walk: Walk,
-  tree: ReadonlyArray<Choice>,
-  start: ReadonlyArray<string>,
-): ReadonlyArray<Column> => {
-  const { path } = walk;
-  const ids = idsAlong(tree, path);
-  return listsAlong(tree, path).map((choices, depth) => {
-    const onStart = ids.slice(0, depth).every((id, at) => id === start[at]);
-    const here = choices.findIndex((choice) => choice.id === start[depth]);
-    return {
-      id: ids.slice(0, depth).join('/'),
-      choices,
-      marked: path[depth] ?? 0,
-      here: onStart && here >= 0 ? here : undefined,
-    };
-  });
-};
+export type { Choice } from './choice.ts';
 
 /**
  * A Thumb Lock that picks from a tree of choices: the left thumb resting
@@ -52,22 +24,22 @@ export function ThumbPicker(props: {
   readonly tree: ReadonlyArray<Choice>;
   /** The ids of the choices the swipe begins at, top to bottom. */
   readonly start: ReadonlyArray<string>;
-  readonly onFeedback?: (feedback: 'lock' | Event) => void;
+  readonly onFeedback?: (feedback: 'lock' | TreeWalk.Event) => void;
   readonly enabled?: boolean;
   /** How far, in px, the finger goes before anything shows: 14 unless told. */
   readonly reveal?: number;
   /** How far, in px, the finger goes for each move: 30 unless told. */
   readonly step?: number;
 }) {
-  const [walk, setWalk] = useState<Walk>();
+  const [walk, setWalk] = useState<TreeWalk.Walk>();
   // How many Wrong Ways the menu has shaken for.
   const [shakes, setShakes] = useState(0);
   // The walk as the finger left it, ahead of the next render.
-  const walking = useRef<Walk>(undefined);
+  const walking = useRef<TreeWalk.Walk>(undefined);
   const latest = useRef(props);
   latest.current = props;
 
-  const show = (next: Walk | undefined) => {
+  const show = (next: TreeWalk.Walk | undefined) => {
     walking.current = next;
     setWalk(next);
   };
@@ -76,15 +48,15 @@ export function ThumbPicker(props: {
     enabled: props.enabled !== false,
     onLock: () => {
       const { tree, start, onFeedback } = latest.current;
-      show(begin(tree, start));
+      show(TreeWalk.begin(tree, start));
       onFeedback?.('lock');
     },
     onMove: (finger) => {
       const { tree, start, onFeedback, reveal, step } = latest.current;
       if (walking.current === undefined) return;
-      const after = move(walking.current, tree, start, finger, {
-        reveal: reveal ?? DISTANCES.reveal,
-        step: step ?? DISTANCES.step,
+      const after = TreeWalk.move(walking.current, tree, start, finger, {
+        reveal: reveal ?? TreeWalk.DISTANCES.reveal,
+        step: step ?? TreeWalk.DISTANCES.step,
       });
       for (const event of after.events) onFeedback?.(event);
       if (after.events.includes('wrong')) setShakes((count) => count + 1);
@@ -95,7 +67,7 @@ export function ThumbPicker(props: {
       show(undefined);
       if (!lifted || last === undefined) return;
       const { tree, start } = latest.current;
-      chosen(last, tree, start)?.onSelect?.();
+      TreeWalk.chosen(last, tree, start)?.onSelect?.();
     },
   });
 
@@ -105,7 +77,7 @@ export function ThumbPicker(props: {
       columns={
         walk === undefined || !walk.shown
           ? undefined
-          : columnsOf(walk, props.tree, props.start)
+          : TreeWalk.columns(walk, props.tree, props.start)
       }
     />
   );

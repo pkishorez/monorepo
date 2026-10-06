@@ -1,7 +1,8 @@
 import { ChevronRight } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
+import { TreeWalk } from '@kstackz/use-gesture';
 import { motion, type Transition } from 'motion/react';
-import { type Choice, opens } from './tree.ts';
+import type { Choice } from './choice.ts';
 
 /**
  * Every choice of one list in order, the marked one under a highlight that
@@ -55,7 +56,7 @@ export function List(props: {
                 className="relative size-1.5 rounded-full bg-muted-foreground"
               />
             )}
-            {opens(choice) && (
+            {TreeWalk.opens(choice) && (
               <ChevronRight
                 aria-label="Has more inside"
                 className={cn(

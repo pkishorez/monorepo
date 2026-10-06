@@ -1,30 +1,35 @@
 ---
 name: use-gesture
-description: Add touch gestures with @kstackz/use-gesture — a GestureProvider at the root, nested GestureZones for the areas that own touch, Patterns such as useSidebar and usePullToRefresh, Recognizers such as useSwipe, and useGesture, which reports every finger of a touch as motion values. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
+description: Add touch gestures with @kstackz/use-gesture/web — a GestureProvider at the root, nested GestureZones for the areas that own touch, Patterns such as useSidebar and usePullToRefresh, Recognizers such as useSwipe, and useGesture, which reports every finger of a touch as motion values. Use when a screen or element should respond to gestures such as opening a sidebar, pulling to refresh, swiping a row, pinching a card, or a multi-finger swipe; or when choosing between it and Motion's own element gestures.
 ---
 
 # use-gesture
 
-`@kstackz/use-gesture`: a `GestureProvider`, `GestureZone`s that nest, and
-three layers of hooks that read the Gestures their nearest zone hears. Reach
-for the highest one that fits:
+`@kstackz/use-gesture/web`: a `GestureProvider`, `GestureZone`s that nest,
+and three layers of hooks that read the Gestures their nearest zone hears.
+Reach for the highest one that fits:
 
 1. **Patterns** — `useSidebar`, `usePullToRefresh`: one UI behaviour, done.
 2. **Recognizers** — `useSwipe`: one generic meaning, with live feedback.
 3. **Core** — `useGesture`: every finger, and nothing else.
 
-Each layer has its own entry point:
+All of them come from `./web`:
 
 ```ts
 import {
   GestureProvider,
   GestureZone,
+  useGesture,
   usePullToRefresh,
   useSidebar,
-} from '@kstackz/use-gesture';
-import { useSwipe } from '@kstackz/use-gesture/recognizers';
-import { useGesture } from '@kstackz/use-gesture/core';
+  useSwipe,
+} from '@kstackz/use-gesture/web';
 ```
+
+The package root, `@kstackz/use-gesture`, is the platform-free core under
+them: `createGestureProvider`, which any touch source feeds plain finger
+samples, the `Swipe` rules and the `TreeWalk` a picker moves through. Reach
+for it only to bring gestures to another platform; on the web, use `./web`.
 
 ```tsx
 // The whole app is a zone; the inbox list is one inside it; each row is one

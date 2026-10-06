@@ -1,7 +1,6 @@
 import { Trash2 } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
-import { GestureZone } from '@kstackz/use-gesture';
-import { useSwipe } from '@kstackz/use-gesture/recognizers';
+import { GestureZone, useSwipe } from '@kstackz/use-gesture/web';
 import {
   animate,
   motion,

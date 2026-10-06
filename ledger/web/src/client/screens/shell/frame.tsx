@@ -2,7 +2,7 @@ import { AppShell } from '@kstackz/ui-toolkit/components/blocks/app-shell';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import { Toaster } from '@kstackz/ui-toolkit/components/ui/sonner';
 import { Plus, WifiOff } from '@kstackz/ui-toolkit/lucide';
-import { GestureProvider, GestureZone } from '@kstackz/use-gesture';
+import { GestureProvider, GestureZone } from '@kstackz/use-gesture/web';
 import { useLocation } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { BindingKeys } from '../../kit/keyboard/index.ts';

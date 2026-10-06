@@ -1,6 +1,6 @@
 # Use Gesture
 
-Touch gestures for React: every finger of a touch, read in nested areas that own touch, and the meanings built on top of it.
+Touch gestures: every finger of a touch, read in nested areas that own touch, and the meanings built on top of it. The core is platform-free; the web is one platform on it.
 
 ## Language
 
@@ -39,12 +39,20 @@ How a Gesture ends when the browser takes its touch — a Native Scroll, a touch
 _Avoid_: aborted, lost
 
 **Pointer**:
-One finger, or pen, of a Gesture: where, when and on what element it landed, counted from the Gesture's start, where it is now and how far it has moved, and where and when it lifted. A lifted Pointer stays part of the Gesture until the Gesture ends.
+One finger, or pen, of a Gesture: where, when and on what it landed (an element on the web, a view on a phone), counted from the Gesture's start, where it is now and how far it has moved, and where and when it lifted. A lifted Pointer stays part of the Gesture until the Gesture ends.
 _Avoid_: touch, finger (outside plain speech), contact
 
 **Active**:
 A Gesture listener while a Gesture it reads is under way; it stops being Active when the last finger lifts. A listener that is not enabled is never Active.
 _Avoid_: dragging, pressed, engaged
+
+**Touch Source**:
+What feeds a Gesture Provider its fingers on one platform: as each lands, moves and lifts, where, when and on what, and when the platform takes the touch away. The browser's pointer and touch events are the web's; Gesture Handler's touches are a phone's. A source that decides who owns a touch, as the browser does at its first movement, also settles its Direction; any other leaves it to the provider.
+_Avoid_: input (the web's source is one), driver, adapter
+
+**Zone Tree**:
+How a platform's Gesture Zones nest, as a Gesture Provider sees them: the innermost zone around what a finger landed on, the zone around each zone, and which are Trapped. The web reads it from the DOM.
+_Avoid_: hierarchy, view tree (a phone's own), DOM
 
 ### Recognizers
 
@@ -73,3 +81,9 @@ _Avoid_: component, widget, preset
 **Sidebar**:
 The Pattern for a panel that slides in from one side of the screen. While it is enabled, that side's edge is its own, open or closed, so the browser's edge swipe never starts there, and a one-finger swipe from it always moves the Sidebar, even where a zone inside wants that Direction. The other edge is not its.
 _Avoid_: drawer, nav
+
+### Pickers
+
+**Tree Walk**:
+How a picker moves through a tree of choices as one finger goes, with no say in how the finger is read or the choices drawn: every so many px up or down Steps through a list, right opens the marked choice's own choices, left goes back, and a push sideways where there is nothing to open or go back to is a Wrong Way. Letting go chooses the marked choice, unless it is where the swipe began or on the way to it. Ledger's Place Picker moves this way.
+_Avoid_: menu, navigation, path
