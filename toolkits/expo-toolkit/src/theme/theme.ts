@@ -9,16 +9,23 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
+/** A theme to use: light, dark, or `'system'` to follow the device. */
+export type ThemeName = 'light' | 'dark' | 'system';
+
 /**
- * The scheme in use, `'light'` or `'dark'`, and a setter that also takes
- * `'system'` to follow the device. Uniwind applies a change natively, without
- * re-rendering the tree.
+ * Uses a theme from now on, outside React too (to restore a saved one at
+ * launch). Uniwind applies it natively, without re-rendering the tree.
  */
+export function setTheme(name: ThemeName): void {
+  Uniwind.setTheme(name);
+}
+
+/** The scheme in use, `'light'` or `'dark'`, and `setTheme`. */
 export function useTheme() {
   const { theme } = useUniwind();
   return {
     theme: theme === 'dark' ? ('dark' as const) : ('light' as const),
-    setTheme: (name: 'light' | 'dark' | 'system') => Uniwind.setTheme(name),
+    setTheme,
   };
 }
 

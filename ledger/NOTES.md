@@ -533,3 +533,177 @@ EXDevMenuIsOnboardingFinished -bool YES`.
 
 - `pnpm add-panelui` makes adding a Panel UI component one command, like
   ui-toolkit's `addcomp`.
+
+## Phase 3a: Expo frame
+
+`ledger/expo` is Ledger's frame on the Local Backend. On the iPhone 17 Pro
+Simulator in Expo Go: the Splash, the Remote card (signing in there is a
+Phase 4 stub, so it says the sign-in service could not be reached), Use the
+Local Backend, sign in by name, Home, the Sidebar with the User Switcher and
+balances, Add User, Switch User, Settings (theme, Sounds, Haptics, Backend,
+Sign out everyone; the Gestures Section's Thumb Lock switch), Sign Out down to
+the signed-out card. Every route opens by deep link. Screens:
+`ledger/expo/docs/screens/phase-3a-*.png`. Whole-repo `pnpm lint`,
+`pnpm test` and `pnpm build` pass; `laymos lint` passes for `ledger/expo`,
+`ledger/core`, `ledger/web`, expo-toolkit and auth-toolkit.
+
+**What is where** (the seams 3b and 3c build on)
+
+- The app, by laymos layer (`ledger/expo/laymos.config.json`): `entry`
+  (`index.ts` runs `src/runtime/hermes.ts`, then `expo-router/entry`; `app/`
+  holds one thin route per Place: `index`, `entries/index`,
+  `entries/[entryId]`, `months/index`, `months/[month]`, `settings` with
+  `?tab=gestures`), `client-screens` (`src/screens`, a module graph: `shell`,
+  `places/{home,entries,months,settings}`, `parts`), `client-ledger`
+  (`src/ledger`: `createLedger(expoPlatform)`, the theme remembered in
+  `expo-sqlite/kv-store`, `playCommand` and `buzz`), `client-platform`
+  (`src/platform`) and `runtime`.
+- **Place screens (3b):** `ledger/expo/src/screens/places/<place>/`, each a
+  deep module behind `index.ts`; they are placeholders with the real props
+  (`Entries({ account })`, `Entry({ entryId })`, `Month({ month })`,
+  `Settings({ section, onSection })`). Sheets (Add, Accounts) go beside them
+  under `src/screens/sheets/` and into the `screens` module graph.
+- **Gestures (3c):** `ledger/expo/src/screens/shell/gestures.tsx`,
+  `GestureLayer`, wraps every Place under the header, inside the Session,
+  the Commands and the `PortalScope`. The Thumb Lock and Place Picker belong
+  in `toolkits/expo-toolkit/src/patterns/thumb-picker` (and touches in
+  `src/input`); Ledger feeds it `stopsFrom` from `@ledger/core/client/places`
+  (now shared by both apps, with `sections` to leave Keys out on a phone),
+  runs Go through `keys.useRun()`, plays `playCommand` and `buzz(settings.haptics, …)`.
+  The Sidebar's edge swipe opens it through `useSidebar()` from
+  `@kstackz/expo-toolkit/patterns/sidebar`.
+- **Commands:** `src/screens/shell/commands.tsx` mounts `keys.Provider` with
+  `enabled={false}` (no keyboard listener) and every key off;
+  `src/screens/shell/globals.tsx` answers Go (`router.navigate`), the theme
+  and the Sidebar. The header's menu button runs `toggleSidebar` through
+  `keys.useRun`, so a Command given by a tap already works end to end.
+- **The platform Layer** (`src/platform`): `storage.ts` opens `device.db`,
+  `local-backend.db` and `copies.db` (WAL), sets each table up once,
+  synchronously, then hands std-toolkit's async Expo driver's Layer; copies
+  use `sync/platform/expo`. `last-user.ts` keeps the last User in
+  expo-secure-store. `lifecycle.ts` takes the network from expo-network (not
+  NetInfo: only expo-network is in the catalog; online until it says
+  otherwise), the foreground from `AppState`, and `?backend=local|remote`
+  from the launch link (`expo-linking`'s `getLinkingURL`). `remote.ts` is the
+  Phase 4 stub: an `Auth` that fails `Unreachable`, and
+  `EXPO_PUBLIC_LEDGER_URL` (default `https://kstack.kishore.app`).
+- **Shared, moved to core:** the Place order (`PLACES`,
+  `SETTINGS_SECTIONS`, `stopsFrom`, `placeTitle`) moved from web's shell to
+  `@ledger/core/client/places` (layer `client-places` →
+  `client-commands`, `shared`), with icons named (`StopIcon`) for each app to
+  draw. Web maps them to Lucide in `screens/parts/icons.tsx`; behaviour is
+  unchanged.
+- **Generic, in expo-toolkit:** `patterns/sidebar` (`SidebarProvider`,
+  `useSidebar`, `Sidebar` over Panel UI's Drawer), `patterns/local-sign-in`
+  (the native twin of ui-toolkit's `LocalSignIn`),
+  `components/glyph` (any Hugeicons glyph in theme colours) and
+  `components/portal-scope` (a portal host inside the app's providers), and
+  `setTheme` from `./theme`.
+- **Settings** gained `haptics` (schema `v4`, on by default); the glossary's
+  Settings entry names Sounds and Haptics (Gesture Haptics was already
+  there).
+
+**How the Simulator was driven**
+
+- No tap tool here: no idb, no t3-code `device_*` tools, and `osascript` is
+  refused. `ledger/expo/scripts/drive.mjs` taps instead: it connects to
+  Metro's inspector (`/json/list`, then the page's WebSocket with
+  `Origin: http://127.0.0.1:8081`, which Metro requires) and runs
+  `Runtime.evaluate`, finding the mounted element with that
+  `accessibilityLabel` or text through React DevTools' hook and calling its
+  `onPress`. It drives the app's own handlers, not touches, so it cannot do
+  gestures (3c needs a real touch tool: idb, Maestro, or XCUITest).
+  `xcrun simctl openurl booted exp://127.0.0.1:8081/--/<route>` opens a
+  route; `xcrun simctl io booted screenshot` shows it.
+
+**Challenges**
+
+- Expo Router took `src/app` as its root once it existed (it prefers
+  `src/app` over `app`), so the client folder is `src/ledger`, not
+  `src/app` as on the web. Stale `.expo/types` from that run broke typed
+  routes until deleted.
+- Hermes has no `Array.prototype.toSorted` (std-toolkit's schema snapshots
+  and SQLite setup use it) and no `crypto.randomUUID`; both are polyfilled
+  in `src/runtime/hermes.ts` (`toSorted`, `toReversed`, `toSpliced`, `with`;
+  `randomUUID` and `getRandomValues` from expo-crypto, added to the catalog
+  at 57.0.3).
+- Metro does not tree-shake. `@kstackz/auth-toolkit/rpc` (the
+  browser-safe Declaration) and `/server/rpc` (which core's Local Backend
+  uses for `resolverLocal` and `authzLayer`) both reached `resolverLive`
+  through Current Auth's door, and with it better-auth's server code, whose
+  `import("node:async_hooks")` Hermes cannot parse. `resolverLive` moved to
+  its own entry, `@kstackz/auth-toolkit/server/resolver-live` (module
+  `src/server/effect/resolver-live`, changeset
+  `auth-toolkit-resolver-live-entry`); `server/rpc` and `server/http-api` no
+  longer export it. Ledger web's Worker and alchemy-console import it from
+  the new entry. A release build would have failed outright: hermesc
+  compiles the whole bundle.
+- Core's Gate builds each Backend's Layer with `runSync`, and std-toolkit's
+  Expo driver is async, so an async `SQLite.setup` inside `storage.table`
+  failed with `AsyncFiberError`. Tables are set up with expo-sqlite's sync
+  calls (a small setup-only driver in `storage.ts`), then served by the
+  async driver.
+- Overlays render into Panel UI's root portal host, above the
+  `SessionProvider`, so the Sidebar's User Switcher had no Session.
+  `PortalScope` puts a host inside the open Session.
+- A change made before the stored Settings were read (as tapping a Backend
+  right after launch) overwrote every other Setting with its default; seen
+  on the phone as Haptics coming back on. `openSettings` now writes only the
+  changed fields over what is stored (`ledger/core`, with a test); the web
+  had the same bug.
+
+**Hacks**
+
+- `drive.mjs` calls `onPress` rather than touching the screen.
+- `expo-types.d.ts` references `expo/types` so `tsc` passes without Metro
+  having written the ignored `expo-env.d.ts` (the CSS import failed lint in
+  a fresh worktree).
+- `tsconfig.json` sets `allowImportingTsExtensions`, since core imports with
+  `.ts` and the app type-checks core's source.
+- One tick sound stands for every `CommandSound`.
+
+**Drawbacks**
+
+- Breaking import change in auth-toolkit (`resolverLive`'s entry). The
+  `mine` repo's sign-in service uses the published toolkit; check it when it
+  moves to this version.
+- The setup-only sync driver duplicates a little of std-toolkit's Expo
+  driver; a `makeExpoSQLiteSync` (or a sync `setup`) in std-toolkit would
+  own it. The Remote copies' store (`sync/platform/expo`) still sets up
+  asynchronously inside a Layer; Phase 4b must check it is never built with
+  `runSync`.
+- The Local Sign-In presets (Ada, Grace) are written in both apps' shells.
+- The Expo Go loading screen is white with the icon; the `splash` config
+  (dark, with the mark) shows only in a development build. The JS Splash
+  (mark, name, powered by kstack) covers the app while Ledger checks who is
+  signed in, which on the Local Backend is a moment, then fades.
+
+**Parity gaps** (web has, native does not yet)
+
+- Places are placeholders (3b). No Add or Accounts sheet, no Jump, Next or
+  Previous, no Add button (3b). No Thumb Lock, Place Picker, edge swipe to
+  open the Sidebar, Gesture Sounds or Gesture Haptics (3c); Haptics is a
+  stored setting nothing reads yet.
+- Settings: no Keys Section (left out on purpose), no "Your money" rows
+  (currency, sample money, delete everything: 3b), no App rows (install has
+  no meaning; a version row could come later), no Manage Google Accounts
+  (Phase 4). Sample money loads from Home's placeholder for now.
+- Remote Backend: sign-in is a stub until Phase 4.
+- The Sidebar has no "Add an account" (3b) and no keys.
+- The web's Commands sound six ways; native plays one tick.
+
+**Open questions**
+
+- Go is wired to `router.navigate`, but only the Sidebar's menu Command was
+  given end to end; Go itself runs when 3c's Place Picker or a tap gives it.
+- Stack with `animation: 'none'` matches "the new page shows at once"; an
+  Entry or a Month may want a push animation from its list (3b).
+- `useCommand`'s `keys` provider still runs use-keys' dispatcher with no
+  keyboard; harmless, but use-keys' core/`./web` split (Phase 1, 2a) is
+  still owed.
+
+**Cleanup owed**
+
+- Move `PRESETS` and the signed-out copy into one shared place if they grow.
+- Upstream Panel UI note: a context-keeping portal (our `PortalScope`).
+- 3c: replace `drive.mjs` taps with a real touch driver for gestures.

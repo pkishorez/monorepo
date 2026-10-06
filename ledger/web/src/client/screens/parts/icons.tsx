@@ -1,21 +1,31 @@
 import {
   Banknote,
   Briefcase,
+  CalendarDays,
+  CalendarRange,
   Car,
   Circle,
   Coffee,
   CreditCard,
+  FileText,
   Film,
   Gift,
+  Hand,
   HeartPulse,
   House,
+  Keyboard,
   Landmark,
+  List,
   type LucideIcon,
   PiggyBank,
+  Settings,
   ShoppingBag,
+  SlidersHorizontal,
   Utensils,
+  Wallet,
 } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
+import type { StopIcon } from '@ledger/core/client/places';
 import type { Account } from '@ledger/core/shared/ledger';
 
 const CATEGORY_ICONS: Readonly<Record<string, LucideIcon>> = {
@@ -52,9 +62,25 @@ const ACCOUNT_ICONS: Readonly<Record<Account['kind'], LucideIcon>> = {
   savings: PiggyBank,
 };
 
-/** The icon of an Account's kind. */
-export const accountIcon = (kind: Account['kind'] | undefined): LucideIcon =>
+const accountIcon = (kind: Account['kind'] | undefined): LucideIcon =>
   (kind && ACCOUNT_ICONS[kind]) || Circle;
+
+const STOP_ICONS: Readonly<Record<StopIcon, LucideIcon>> = {
+  ...ACCOUNT_ICONS,
+  home: House,
+  entries: List,
+  months: CalendarRange,
+  settings: Settings,
+  general: SlidersHorizontal,
+  keys: Keyboard,
+  gestures: Hand,
+  entry: FileText,
+  month: CalendarDays,
+  accounts: Wallet,
+};
+
+/** The icon of a Place, a Section or another stop of the Thumb Picker. */
+export const stopIcon = (icon: StopIcon): LucideIcon => STOP_ICONS[icon];
 
 /** An Account's icon, by its kind. */
 export function AccountIcon(props: {

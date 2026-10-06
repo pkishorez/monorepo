@@ -11,8 +11,9 @@ export type Backend = typeof Backend.Type;
  * User of it; one per device. `keys` are its own Bindings, written as people
  * write them (`mod+k`, `g g`), by Action id. `keysOn` and `gesturesOn` say
  * whether Keys and the Thumb Lock work. `sound` is whether Ledger sounds at
- * all: Commands, the Thumb Lock and swiping a row alike. `backend` is the
- * Backend Ledger runs on.
+ * all: Commands, the Thumb Lock and swiping a row alike. `haptics` is
+ * whether the Thumb Lock buzzes on a phone, apart from `sound`. `backend` is
+ * the Backend Ledger runs on.
  */
 export const Settings = EntityESchema.make('settings', 'id', {
   sound: Schema.Boolean,
@@ -49,6 +50,20 @@ export const Settings = EntityESchema.make('settings', 'id', {
       backend: 'remote' as const,
     }),
   )
+  // Gesture Haptics follow their own switch, on until a User turns it off.
+  .evolve(
+    'v4',
+    { haptics: Schema.Boolean },
+    ({ id, sound, keys, keysOn, gesturesOn, backend }) => ({
+      id,
+      sound,
+      haptics: true,
+      keys,
+      keysOn,
+      gesturesOn,
+      backend,
+    }),
+  )
   .build();
 export type Settings = typeof Settings.Type;
 
@@ -58,6 +73,7 @@ export const SETTINGS_ID = 'device';
 export const defaultSettings: Settings = {
   id: SETTINGS_ID,
   sound: true,
+  haptics: true,
   keys: {},
   keysOn: true,
   gesturesOn: true,

@@ -13,9 +13,28 @@
     "android": {
       "package": "app.kishore.ledger"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/icon.png",
+          "imageWidth": 120,
+          "backgroundColor": "#0a0a0a"
+        }
+      ],
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "icon": "./assets/images/icon.png",
+    "backgroundColor": "#0a0a0a",
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0a0a0a"
     }
   }
 }

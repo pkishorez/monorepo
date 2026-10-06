@@ -23,7 +23,7 @@ so the seam cannot be skipped.
 `src/` reads top-down as in `laymos.config.json`: the Gate over each
 Backend's client half, built from the platform and the client's state and
 domain; the Local Backend's server half over the Backend's domain; the words
-of money at the bottom; and the Commands on their own. The Remote Backend's
+of money at the bottom; and the Commands, with the Place order that names them, on their own. The Remote Backend's
 server half is not here: web hosts it, and the Expo app points at it.
 
 ## Exports
@@ -99,6 +99,15 @@ server half is not here: web hosts it, and the Expo app points at it.
 | `useCommand`, `announce`, `quietly`, `useGiven`               | Runs a Command and tells the Key Bar and the sounds.    |
 | `setCommandSounds`                                            | Plays Commands' sounds the platform's way, or none.     |
 | `bindingsOf`, `written`, `bindingOf`, `keysOff`, `ACTION_IDS` | The User's own keys, stored and read back.              |
+
+### `@ledger/core/client/places`
+
+| Export              | What it does                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| `PLACES`            | Every Place in the Place order, with its address and the Command that Goes there.        |
+| `SETTINGS_SECTIONS` | The Sections of Settings in order, each with its Command.                                |
+| `stopsFrom`         | What a Thumb Lock picks from where you are, and where it starts; icons named, not drawn. |
+| `placeTitle`        | What the header calls the Place at an address.                                           |
 
 ## Usage
 
