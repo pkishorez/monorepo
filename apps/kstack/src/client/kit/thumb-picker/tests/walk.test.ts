@@ -1,16 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { STEP } from '../steps.ts';
 import type { Choice } from '../tree.ts';
-import {
-  begin,
-  chosen,
-  type Event,
-  FIRST,
-  move,
-  pathOf,
-  type Point,
-  SIDE,
-} from '../walk.ts';
+import { begin, chosen, DISTANCES, type Event, move } from '../walk.ts';
+
+const { reveal: REVEAL, step: STEP } = DISTANCES;
 
 const leaf = (id: string): Choice => ({ id, label: id, onSelect: () => {} });
 
@@ -25,8 +17,8 @@ const TREE: ReadonlyArray<Choice> = [
   leaf('about'),
 ];
 
-// Walks a finger through `points` from `start`: the path it marks, and
-// what each move did.
+// Walks a finger through `points` from `start`: the walk, the path it
+// marks, and what each move did.
 const walkThrough = (
   points: ReadonlyArray<readonly [number, number]>,
   start: ReadonlyArray<string> = ['entries'],
@@ -34,40 +26,74 @@ const walkThrough = (
   let walk = begin(TREE, start);
   const events: Array<Event> = [];
   for (const [x, y] of points) {
-    const after = move(walk, TREE, start, { x, y } satisfies Point);
+    const after = move(walk, TREE, start, { x, y });
     walk = after.walk;
-    if (after.event) events.push(after.event);
+    events.push(...after.events);
   }
-  return { walk, path: pathOf(walk), events };
+  return { walk, path: walk.path, events };
 };
 
+describe('a Thumb Picker walk showing', () => {
+  it('shows nothing short of the reveal distance', () => {
+    expect(walkThrough([[0, REVEAL - 1]]).walk.shown).toBe(false);
+  });
+
+  it('shows from the reveal distance, before any move', () => {
+    const { walk, events } = walkThrough([[0, REVEAL]]);
+    expect(walk.shown).toBe(true);
+    expect(events).toEqual([]);
+  });
+
+  it('takes its distances from the caller', () => {
+    const walk = begin(TREE, ['entries']);
+    const after = move(
+      walk,
+      TREE,
+      ['entries'],
+      { x: 0, y: 10 },
+      {
+        reveal: 5,
+        step: 10,
+      },
+    );
+    expect(after.walk.shown).toBe(true);
+    expect(after.walk.path).toEqual([2]);
+  });
+});
+
 describe('a Thumb Picker walk Stepping up and down', () => {
-  it('stays on the start short of the first Step', () => {
-    expect(walkThrough([[0, FIRST - 1]]).path).toEqual([1]);
+  it('Steps once each step distance, either way', () => {
+    expect(walkThrough([[0, STEP - 1]]).path).toEqual([1]);
+    expect(walkThrough([[0, STEP]]).path).toEqual([2]);
+    expect(walkThrough([[0, -STEP]]).path).toEqual([0]);
+    expect(walkThrough([[0, 2 * STEP]]).path).toEqual([3]);
   });
 
-  it('takes the first Step at the first travel, then one each stretch', () => {
-    expect(walkThrough([[0, FIRST]]).path).toEqual([2]);
-    expect(walkThrough([[0, -FIRST]]).path).toEqual([0]);
-    expect(walkThrough([[0, FIRST + STEP]]).path).toEqual([3]);
+  it('tells each Step of a fast move', () => {
+    expect(walkThrough([[0, 2 * STEP]]).events).toEqual(['step', 'step']);
   });
 
-  it('holds at either end', () => {
-    expect(walkThrough([[0, 1000]]).path).toEqual([3]);
-    expect(walkThrough([[0, -1000]]).path).toEqual([0]);
+  it('turns back at once, from where it turned, even past an end', () => {
+    // Down to About, far past it, then back one step distance.
+    expect(
+      walkThrough([
+        [0, 400],
+        [0, 400 - STEP],
+      ]).path,
+    ).toEqual([2]);
   });
 
   it('starts where it was told, else on the first', () => {
-    expect(begin(TREE, ['about']).levels[0]?.at).toBe(3);
-    expect(begin(TREE, ['nowhere']).levels[0]?.at).toBe(0);
+    expect(begin(TREE, ['about']).path).toEqual([3]);
+    expect(begin(TREE, ['nowhere']).path).toEqual([0]);
   });
 });
 
 describe('a Thumb Picker walk going sideways', () => {
   it('opens a choice with choices inside, on the first', () => {
     const { path, events } = walkThrough([
-      [0, FIRST],
-      [SIDE, FIRST],
+      [0, STEP],
+      [STEP, STEP],
     ]);
     expect(path).toEqual([2, 0]);
     expect(events).toEqual(['step', 'open']);
@@ -76,19 +102,19 @@ describe('a Thumb Picker walk going sideways', () => {
   it('Steps through the opened choices from where it turned', () => {
     expect(
       walkThrough([
-        [0, FIRST],
-        [SIDE, FIRST],
-        [SIDE, 2 * FIRST],
+        [0, STEP],
+        [STEP, STEP],
+        [STEP, 2 * STEP],
       ]).path,
     ).toEqual([2, 1]);
   });
 
   it('goes back, keeping the choice it had marked', () => {
     const { path, events } = walkThrough([
-      [0, FIRST],
-      [SIDE, FIRST],
-      [SIDE, 2 * FIRST],
-      [0, 2 * FIRST],
+      [0, STEP],
+      [STEP, STEP],
+      [STEP, 2 * STEP],
+      [0, 2 * STEP],
     ]);
     expect(path).toEqual([2]);
     expect(events).toEqual(['step', 'open', 'step', 'back']);
@@ -97,40 +123,49 @@ describe('a Thumb Picker walk going sideways', () => {
   it('opens again on the choice last marked there', () => {
     expect(
       walkThrough([
-        [0, FIRST],
-        [SIDE, FIRST],
-        [SIDE, 2 * FIRST],
-        [0, 2 * FIRST],
-        [SIDE, 2 * FIRST],
+        [0, STEP],
+        [STEP, STEP],
+        [STEP, 2 * STEP],
+        [0, 2 * STEP],
+        [STEP, 2 * STEP],
       ]).path,
     ).toEqual([2, 1]);
   });
 
   it('opens on where the swipe began, when it began inside', () => {
-    expect(walkThrough([[SIDE, 0]], ['settings', 'gestures']).path).toEqual([
+    expect(walkThrough([[STEP, 0]], ['settings', 'gestures']).path).toEqual([
       2, 2,
     ]);
   });
 
-  it('goes wrong once where there is nothing to open or go back to', () => {
-    expect(walkThrough([[SIDE, 0]]).events).toEqual(['wrong']);
+  it('goes wrong once a push where there is nothing to open', () => {
     expect(
       walkThrough([
-        [-SIDE, 0],
-        [-2 * SIDE, 0],
+        [STEP, 0],
+        [3 * STEP, 0],
       ]).events,
     ).toEqual(['wrong']);
-    expect(
-      walkThrough([
-        [SIDE, 0],
-        [0, 0],
-        [SIDE, 0],
-      ]).events,
-    ).toEqual(['wrong', 'wrong']);
+  });
+
+  it('turns from a wrong push at once, from where it turned', () => {
+    // Far left with nowhere to go back to, Step to Settings, then right.
+    const { path, events } = walkThrough(
+      [
+        [-100, 0],
+        [-100, STEP],
+        [-100 + STEP, STEP],
+      ],
+      ['entries'],
+    );
+    expect(events).toEqual(['wrong', 'step', 'open']);
+    expect(path).toEqual([2, 0]);
   });
 
   it('ignores a drift sideways while Stepping', () => {
-    expect(walkThrough([[SIDE, 3 * FIRST]]).events).toEqual(['step']);
+    expect(walkThrough([[STEP - 1, 2 * STEP]]).events).toEqual([
+      'step',
+      'step',
+    ]);
   });
 });
 
@@ -141,12 +176,12 @@ describe('what lifting a Thumb Picker walk chooses', () => {
   ) => chosen(walkThrough(points, start).walk, TREE, start)?.id;
 
   it('chooses the marked choice', () => {
-    expect(lift([[0, -FIRST]])).toBe('home');
+    expect(lift([[0, -STEP]])).toBe('home');
     expect(
       lift([
-        [0, FIRST],
-        [SIDE, FIRST],
-        [SIDE, 2 * FIRST],
+        [0, STEP],
+        [STEP, STEP],
+        [STEP, 2 * STEP],
       ]),
     ).toBe('keys');
   });
@@ -154,12 +189,12 @@ describe('what lifting a Thumb Picker walk chooses', () => {
   it('chooses nothing where the swipe began or on the way to it', () => {
     expect(lift([[0, 0]])).toBeUndefined();
     expect(lift([[0, 0]], ['settings', 'keys'])).toBeUndefined();
-    expect(lift([[SIDE, 0]], ['settings', 'keys'])).toBeUndefined();
+    expect(lift([[STEP, 0]], ['settings', 'keys'])).toBeUndefined();
     expect(
       lift(
         [
-          [SIDE, 0],
-          [SIDE, -FIRST],
+          [STEP, 0],
+          [STEP, -STEP],
         ],
         ['settings', 'keys'],
       ),

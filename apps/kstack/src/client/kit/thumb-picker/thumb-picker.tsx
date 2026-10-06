@@ -2,12 +2,16 @@ import { useRef, useState } from 'react';
 import { useThumbLock } from './lock.ts';
 import { type Column, Menu } from './menu.tsx';
 import { type Choice, idsAlong, listsAlong } from './tree.ts';
-import { begin, chosen, type Event, move, pathOf, type Walk } from './walk.ts';
+import {
+  begin,
+  chosen,
+  DISTANCES,
+  type Event,
+  move,
+  type Walk,
+} from './walk.ts';
 
 export type { Choice } from './tree.ts';
-
-/** How far, in px, the finger goes before a swipe shows anything. */
-const ARM = 14;
 
 // Each list the walk has opened, with what is marked in it and, on the
 // way to where the swipe began, where you are.
@@ -16,7 +20,7 @@ const columnsOf = (
   tree: ReadonlyArray<Choice>,
   start: ReadonlyArray<string>,
 ): ReadonlyArray<Column> => {
-  const path = pathOf(walk);
+  const { path } = walk;
   const ids = idsAlong(tree, path);
   return listsAlong(tree, path).map((choices, depth) => {
     const onStart = ids.slice(0, depth).every((id, at) => id === start[at]);
@@ -32,13 +36,14 @@ const columnsOf = (
 
 /**
  * A Thumb Lock that picks from a tree of choices: the left thumb resting
- * still while another finger swipes. Nothing shows until the finger has
- * moved; then the choices show over everything else, dimmed and blurred,
- * starting on the one `start` names. Up and down Step through a list;
- * right opens the marked choice's own choices, starting on the one last
- * marked there in this swipe, and left goes back. Lifting chooses the
- * marked choice, unless it is where the swipe began or on the way to it.
- * Each Lock, Step, opening, going back and Wrong Way is told, for sound
+ * still while another finger swipes. The walk starts on the choice `start`
+ * names; nothing shows until the finger has gone `reveal` px, then the
+ * choices show over everything else, dimmed and blurred. Each `step` px
+ * the finger goes from where it last moved something makes one move. Up and down Step
+ * through a list; right opens the marked choice's own choices, starting
+ * on the one last marked there in this swipe, and left goes back. Lifting
+ * the finger chooses the marked choice, unless it is where the swipe began
+ * or on the way to it; lifting the thumb first chooses nothing. Each Lock, Step, opening, going back and Wrong Way is told, for sound
  * and touch to follow.
  */
 export function ThumbPicker(props: {
@@ -47,6 +52,10 @@ export function ThumbPicker(props: {
   readonly start: ReadonlyArray<string>;
   readonly onFeedback?: (feedback: 'lock' | Event) => void;
   readonly enabled?: boolean;
+  /** How far, in px, the finger goes before anything shows: 14 unless told. */
+  readonly reveal?: number;
+  /** How far, in px, the finger goes for each move: 30 unless told. */
+  readonly step?: number;
 }) {
   const [walk, setWalk] = useState<Walk>();
   // The walk as the finger left it, ahead of the next render.
@@ -61,15 +70,19 @@ export function ThumbPicker(props: {
 
   useThumbLock({
     enabled: props.enabled !== false,
-    onLock: () => latest.current.onFeedback?.('lock'),
-    onMove: (finger) => {
+    onLock: () => {
       const { tree, start, onFeedback } = latest.current;
-      const armed = Math.hypot(finger.x, finger.y) >= ARM;
-      const before =
-        walking.current ?? (armed ? begin(tree, start) : undefined);
-      if (before === undefined) return;
-      const after = move(before, tree, start, finger);
-      if (after.event !== undefined) onFeedback?.(after.event);
+      show(begin(tree, start));
+      onFeedback?.('lock');
+    },
+    onMove: (finger) => {
+      const { tree, start, onFeedback, reveal, step } = latest.current;
+      if (walking.current === undefined) return;
+      const after = move(walking.current, tree, start, finger, {
+        reveal: reveal ?? DISTANCES.reveal,
+        step: step ?? DISTANCES.step,
+      });
+      for (const event of after.events) onFeedback?.(event);
       if (after.walk !== walking.current) show(after.walk);
     },
     onEnd: (lifted) => {
@@ -84,7 +97,7 @@ export function ThumbPicker(props: {
   return (
     <Menu
       columns={
-        walk === undefined
+        walk === undefined || !walk.shown
           ? undefined
           : columnsOf(walk, props.tree, props.start)
       }
