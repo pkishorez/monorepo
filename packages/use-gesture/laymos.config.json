@@ -4,10 +4,10 @@
   "layers": {
     "core": {
       "paths": ["src/core"],
-      "description": "Core — platform-free: a Gesture Provider that any touch source feeds plain finger samples, finding its zones through a Zone Tree it is handed; the Direction a touch first moves; what a Swipe decides; and the Tree Walk a picker moves through as a finger goes. No DOM, no React, no Motion: a browser and a phone both build on it.",
+      "description": "Core \u2014 platform-free: a Gesture Provider that any touch source feeds plain finger samples, finding its zones through a Zone Tree it is handed; the Direction a touch first moves; what a Swipe decides; the Tree Walk a picker moves through as a finger goes; and the Thumb Lock, a still left thumb beside a moving finger. No DOM, no React, no Motion: a browser and a phone both build on it.",
       "moduleGraphs": {
         "core": {
-          "description": "provider runs the one Gesture under way and reads its Direction; swipe judges a Swipe by Direction; tree-walk reads a finger's moves as Directions through a tree. Each stands on direction alone.",
+          "description": "provider runs the one Gesture under way and reads its Direction; swipe judges a Swipe by Direction; tree-walk reads a finger's moves as Directions through a tree; thumb-lock is a provider listener that reads a still left thumb beside a moving finger. Each stands on direction, and thumb-lock on provider too.",
           "path": "src/core",
           "modules": {
             "direction": {
@@ -21,19 +21,23 @@
             },
             "tree-walk": {
               "exposed": true
+            },
+            "thumb-lock": {
+              "exposed": true
             }
           },
           "rules": {
             "provider": ["direction"],
             "swipe": ["direction"],
-            "tree-walk": ["direction"]
+            "tree-walk": ["direction"],
+            "thumb-lock": ["provider", "direction"]
           }
         }
       }
     },
     "entry": {
       "paths": ["src/index.ts"],
-      "description": "Entry — the package root, the platform-free core's one door: what a touch source on any platform builds on, the web's included.",
+      "description": "Entry \u2014 the package root, the platform-free core's one door: what a touch source on any platform builds on, the web's included.",
       "modules": {
         "src/index.ts": {
           "exposed": true
@@ -42,7 +46,7 @@
     },
     "web-zones": {
       "paths": ["src/web/zones"],
-      "description": "Web zones — the browser as the touch source: a GestureProvider feeds the core every touch and pen pointer on the page and holds the browser back on each zone, leaving Native Scrolls their touches; GestureZones are DOM elements; useGesture hands each enabled listener every finger as motion values. It never says what a Gesture means.",
+      "description": "Web zones \u2014 the browser as the touch source: a GestureProvider feeds the core every touch and pen pointer on the page and holds the browser back on each zone, leaving Native Scrolls their touches; GestureZones are DOM elements; useGesture hands each enabled listener every finger as motion values. It never says what a Gesture means.",
       "moduleGraphs": {
         "zones": {
           "description": "touch-input listens to the page, holds the browser back on each zone and says how zones nest in the DOM; zone runs the core's provider over it and puts it together for React with motion values. Whether a release clicks is the browser's call unless a listener prevents it",
@@ -63,7 +67,7 @@
     },
     "web-recognizers": {
       "paths": ["src/web/recognizers"],
-      "description": "Web recognizers — one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live motion values for feedback, then a Commit or a Cancel, decided by the core's rules. They never know about each other.",
+      "description": "Web recognizers \u2014 one generic meaning read from a Gesture, such as a Swipe: Possible, then Tracking with live motion values for feedback, then a Commit or a Cancel, decided by the core's rules. They never know about each other.",
       "moduleGraphs": {
         "recognizers": {
           "description": "Each Recognizer reads Pointers from useGesture on its own.",
@@ -82,7 +86,7 @@
     },
     "web-patterns": {
       "paths": ["src/web/patterns"],
-      "description": "Web patterns — purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the motion values their UI needs and settling themselves.",
+      "description": "Web patterns \u2014 purpose-built touch behaviours an app uses as they are, built from Recognizers, giving exactly the motion values their UI needs and settling themselves.",
       "moduleGraphs": {
         "patterns": {
           "description": "Each Pattern stands alone on the Recognizers.",
@@ -102,7 +106,7 @@
     },
     "web-entry": {
       "paths": ["src/web/index.ts"],
-      "description": "Web entry — `./web`: the provider, zone and useGesture, the Recognizers and the Patterns, for apps in a browser.",
+      "description": "Web entry \u2014 `./web`: the provider, zone and useGesture, the Recognizers and the Patterns, for apps in a browser.",
       "modules": {
         "src/web/index.ts": {
           "exposed": true

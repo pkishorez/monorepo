@@ -10,7 +10,7 @@ It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (U
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as ui-toolkit owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
-The package ships TypeScript source; Metro compiles it. `input`, `patterns/thumb-picker`, `patterns/sheet` and `patterns/key-bar` export nothing yet: they wait on Ledger's native Thumb Lock and Places.
+The package ships TypeScript source; Metro compiles it. `patterns/sheet` and `patterns/key-bar` export nothing yet.
 
 ## Install
 
@@ -25,6 +25,8 @@ Peer dependencies, at Expo SDK 57's versions:
 - `expo-font`: `useThemeFonts` loads Inter with it.
 - `react-native-reanimated`, `react-native-worklets`, `react-native-gesture-handler`, `react-native-safe-area-context`, `react-native-svg` (optional): needed by `./components/*`.
 - `expo-haptics`, `expo-audio` (optional): needed by `./feedback`.
+- `react-native-gesture-handler`, `react-native-reanimated`, `react-native-worklets` (optional): needed by `./input`, which also depends on `@kstackz/use-gesture`'s core.
+- `expo-blur` (optional): the Thumb Picker blurs what is behind it.
 
 Components also reach `@expo/ui`, `expo-blur` and `react-native-keyboard-controller` when installed (the `native` prop, blurred scrims, keyboard avoidance) and skip them otherwise.
 
@@ -62,7 +64,10 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./input`
 
-Nothing yet.
+| Export           | What it does                                                                                                    |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- |
+| `GestureSurface` | Tracks every finger on its children through one Gesture Handler manual gesture and feeds use-gesture's core.    |
+| `useGesture`     | Hears the nearest surface's touches with a core listener, and returns `claim` to take the touch from the views. |
 
 ### `./components/*`
 
@@ -97,13 +102,15 @@ Nothing yet.
 
 ### `./patterns/*`
 
-| Export                                     | What it does                                                                     |
-| ------------------------------------------ | -------------------------------------------------------------------------------- |
-| `sidebar`: `SidebarProvider`, `useSidebar` | Whether the Sidebar is open, and the ways to open, shut and toggle it.           |
-| `sidebar`: `Sidebar`                       | The Sidebar as a drawer from the start edge: a header, a scrolling body, a foot. |
-| `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.    |
+| Export                                     | What it does                                                                      |
+| ------------------------------------------ | --------------------------------------------------------------------------------- |
+| `sidebar`: `SidebarProvider`, `useSidebar` | Whether the Sidebar is open, and the ways to open, shut and toggle it.            |
+| `sidebar`: `Sidebar`                       | The Sidebar as a drawer from the start edge: a header, a scrolling body, a foot.  |
+| `sidebar`: `SidebarEdge`                   | Inside a surface, a swipe right of one finger from the left edge opens it.        |
+| `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices: Steps, Sections, Wrong Way shake. |
+| `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.     |
 
-`thumb-picker`, `sheet` and `key-bar` export nothing yet.
+`sheet` and `key-bar` export nothing yet.
 
 ## Usage
 

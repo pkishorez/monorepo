@@ -358,7 +358,20 @@ function DrawerContent({
    * and with nothing on it to close.
    */
   useEffect(() => {
-    if (open) travel.value = 0;
+    if (open) {
+      travel.value = 0;
+      return;
+    }
+    /*
+     * And parked again once a swipe-dismiss has slid out. Reset only on open,
+     * the drawer that mounts next drew its first frame from the old `travel`
+     * and the entering slide then left it there, part way in (seen on iOS
+     * after every drag to close). The exit has read `travel` already.
+     */
+    const parked = setTimeout(() => {
+      travel.value = 0;
+    }, EXIT_DURATION + 50);
+    return () => clearTimeout(parked);
   }, [open, travel]);
 
   const pan = useMemo(() => {

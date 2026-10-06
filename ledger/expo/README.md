@@ -8,7 +8,7 @@ The native shell of Ledger (glossary: [`../CONTEXT.md`](../CONTEXT.md)). Everyth
 
 The app is thin, laid out in [Laymos](laymos.config.json) layers: `entry` (`index.ts` readies Hermes, then one thin route per Place in `app/`), `client-screens` (`src/screens`: the shell, each Place, shared parts), `client-ledger` (`src/ledger`: Ledger's client from core, the remembered theme, the sounds of Commands), `client-platform` and `runtime`. Place screens live in `src/screens/places/<place>`; gestures mount in `src/screens/shell/gestures.tsx`.
 
-Today it runs on the Local Backend: Splash, sign-in by name, the Sidebar with the User Switcher and balances, Switch User, Add User, Sign Out, and Settings (theme, Sounds, Haptics, Backend). The Places are placeholders, and signing in to the Remote Backend arrives in Phase 4. Screens: [`docs/screens/`](docs/screens/).
+Today it runs on the Local Backend: Splash, sign-in by name, the Sidebar with the User Switcher and balances, Switch User, Add User, Sign Out, Settings (theme, Sounds, Haptics, Backend), and the Thumb Lock with its Place Picker, Gesture Sounds and Gesture Haptics, and the Sidebar's edge swipe. The Places are placeholders, and signing in to the Remote Backend arrives in Phase 4. Screens: [`docs/screens/`](docs/screens/).
 
 ## Usage
 

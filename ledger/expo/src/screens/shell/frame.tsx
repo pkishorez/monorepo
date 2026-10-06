@@ -18,16 +18,18 @@ import { Globals } from './globals';
 import { LedgerSidebar } from './sidebar';
 
 /**
- * Ledger's frame on a phone: the header with the Place's title, the Place
- * in the gesture layer, and the Sidebar as a drawer over both.
+ * Ledger's frame on a phone: the header with the Place's title and the
+ * Place, both in the gesture layer, and the Sidebar as a drawer over them.
  */
 export function Frame(props: { readonly children: ReactNode }) {
   return (
     <SidebarProvider>
       <View className="flex-1 bg-background">
         <Globals />
-        <Header />
-        <GestureLayer>{props.children}</GestureLayer>
+        <GestureLayer>
+          <Header />
+          {props.children}
+        </GestureLayer>
       </View>
       <LedgerSidebar />
     </SidebarProvider>
