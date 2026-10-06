@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - ledger/*
   - devtools/*
   - packages/*
   - toolkits/*
@@ -149,11 +150,14 @@ catalog:
   oxc-parser: 0.148.0
   oxc-resolver: 11.24.2
   playwright-core: 1.63.0
-  react: 19.2.8
+  # React follows the Expo SDK (spec requirement 19): one React for web and
+  # native. These are the exact pins in Expo SDK 57's bundledNativeModules.json.
+  # Upgrade React only with the next Expo SDK.
+  react: 19.2.3
   react-cosmos: 7.4.1
   react-cosmos-plugin-vite: 7.4.0
   react-day-picker: 10.0.1
-  react-dom: 19.2.8
+  react-dom: 19.2.3
   react-markdown: 10.1.0
   react-resizable-panels: 4.12.3
   recharts: 3.10.1
@@ -181,6 +185,45 @@ catalog:
   yaml: 2.9.0
   yoctocolors: 2.2.0
   zustand: 5.0.15
+  # Expo SDK 57 (React Native 0.86) for @ledger/expo and @kstackz/expo-toolkit.
+  # Versions are the exact ones expo@57.0.26's bundledNativeModules.json
+  # expects (what `expo install --check` accepts), resolved to the newest
+  # release past minimumReleaseAge. expo 57.0.27 (2026-10-06) bumps expo-router,
+  # expo-sqlite, expo-constants and expo-linking by one patch; move the
+  # whole set together once those clear the hold.
+  '@expo/metro-runtime': 57.0.16
+  '@react-native-masked-view/masked-view': 0.3.2
+  babel-preset-expo: 57.0.13
+  expo: 57.0.26
+  expo-constants: 57.0.20
+  expo-font: 57.0.4
+  expo-haptics: 57.0.3
+  expo-linear-gradient: 57.0.2
+  expo-linking: 57.0.11
+  expo-network: 57.0.2
+  expo-router: 57.0.24
+  expo-secure-store: 57.0.4
+  expo-splash-screen: 57.0.9
+  expo-sqlite: 57.0.3
+  expo-status-bar: 57.0.1
+  expo-system-ui: 57.0.4
+  expo-web-browser: 57.0.3
+  react-native: 0.86.3
+  react-native-gesture-handler: 2.32.0
+  react-native-reanimated: 4.5.1
+  react-native-safe-area-context: 5.7.0
+  react-native-screens: 4.26.2
+  react-native-svg: 15.15.4
+  react-native-worklets: 0.10.1
+  # Not in the Expo SDK. Web Audio on native for Ledger's sounds; its RN 0.86
+  # support is unconfirmed until a dev build plays a sound (requirement 14).
+  react-native-audio-api: 0.13.6
+  # Tailwind for React Native, which Panel UI's components are styled with.
+  uniwind: 1.12.2
+  # Panel UI is copied into the Expo Toolkit as source with its CLI
+  # (requirement 8); panelui-native is pinned only as the reference copy.
+  panelui-cli: 0.6.2
+  panelui-native: 0.105.1
 
 catalogs:
   typescript6:
