@@ -707,3 +707,175 @@ the signed-out card. Every route opens by deep link. Screens:
 - Move `PRESETS` and the signed-out copy into one shared place if they grow.
 - Upstream Panel UI note: a context-keeping portal (our `PortalScope`).
 - 3c: replace `drive.mjs` taps with a real touch driver for gestures.
+
+## Phase 3c: Thumb Lock and gestures
+
+The Thumb Lock and its Place Picker run on the iPhone 17 Pro Simulator: a
+Step, Steps to the Accounts and Settings, right into Settings' Sections
+(General, Gestures; no Keys on a phone), lifting Goes there through the same
+Go Action as web, lifting the thumb first calls it off, coming back to where
+it began goes nowhere, and a Wrong Way shakes the picker. Gesture Sounds and
+Gesture Haptics follow their own settings. A swipe right from the left edge
+opens the Sidebar. Whole-repo `pnpm lint`, `pnpm test` and `pnpm build`
+pass; `laymos lint` passes for use-gesture, expo-toolkit and `ledger/expo`.
+Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar-edge}.png`.
+
+**What is where**
+
+- **use-gesture core** (`packages/use-gesture/src/core/thumb-lock`):
+  `thumbLock(options)`, the Thumb Lock as a core `GestureListener`: a still
+  left thumb (left half, within 14 px) beside a second finger; takes no
+  Direction until the Lock holds, then `'all'`; tells `onLock`, `onMove`
+  (the finger's dx, dy) and `onEnd(lifted)`. Same rule as web's
+  `kit/thumb-picker/lock.ts`, but on the core's immutable Pointers and with
+  the screen width handed in. Tested with plain touch sequences.
+- **expo-toolkit `./input`** (module graph `input`): `GestureSurface` runs
+  one Gesture Handler `Gesture.Manual()` on a shared parent, tracking fingers
+  by id (`onTouchesDown/Move/Up/Cancelled`), and feeds a core provider with
+  one zone through `feed.ts` (GH touch events → `PointerSample`s on
+  `absoluteX/Y`). `useGesture(listener)` hears it and returns `claim()`,
+  which activates the manual gesture so the views and gestures under the
+  fingers are cancelled. Callbacks are UI-thread worklets that hand the
+  touches to JS with `scheduleOnRN`; `claim` is a mutable the worklets read
+  at the next touch event. `dev-touches.ts`: with `devName`, in `__DEV__`
+  only, the sink is at `globalThis.__touches[devName]`.
+- **expo-toolkit `./patterns/thumb-picker`** (module graph `thumb-picker`):
+  `ThumbPicker({ tree, start, onFeedback, enabled, reveal, step })`, the
+  native twin of web's kit. `picking.ts` is the UI-free walk (Lock → TreeWalk
+  begin, moves, choose on lift; tested); `menu.tsx` draws the scrim (expo-blur
+  plus black/40), the open list at the top centre and the lists behind it to
+  the top left, the Wrong Way shake; `list.tsx` the rows, with a springing
+  highlight, the "where you are" dot and a chevron; `motion.ts` the springs,
+  the web's curve, and reduced motion (`useReducedMotion`: no shake, no
+  slides).
+- **expo-toolkit `./patterns/sidebar`** (now a module graph): `SidebarEdge`,
+  with `edge.ts`, a core listener: one finger landing within 24 points of
+  the left edge, moving right, opens on lift by Swipe's `DEFAULT_COMMIT`
+  (80 points or 500 points/s). Two fingers leave it to the Thumb Lock.
+- **Ledger** (`ledger/expo/src/screens/shell/gestures.tsx`): `GestureLayer`
+  is the surface around the header and the Place, with `SidebarEdge` and
+  `Thumb` (web's `thumb.tsx` mirrored: `stopsFrom` with
+  `sections: ['general', 'gestures']`, Go through `keys.useRun` in
+  `quietly`, an Account to its Entries). `feelGesture(moment, settings)` in
+  `src/ledger/feedback.ts` maps lock/step/go to sounds (tick, tick, success,
+  as web) and haptics (light, selection, medium); a Wrong Way calls
+  neither. Each `CommandSound` now has its own sound: `scripts/sounds.mjs`
+  renders web's Web Audio voices to `assets/sounds/*.wav`.
+- The Stack's iOS back swipe is off (`gestureEnabled: false`): the left edge
+  is the Sidebar's, as the glossary says.
+
+**How gestures were tested, and what each proves**
+
+- Unit tests (vitest, no React Native): `thumb-lock.test.ts` (8 cases on the
+  core provider) and expo-toolkit's `test/thumb-picker.test.ts`, which feeds
+  Gesture-Handler-shaped events through `createFeed` into the core with
+  `thumbLock` and `createPicking`: two fingers, the left thumb still and the
+  other swiping: Steps and Go, right into a Section, Wrong Way (one shake,
+  nothing chosen), thumb lifted first, back to the start, one finger left
+  alone, cancelled by GH; and the edge swipe (opens, too short, away from
+  the edge, two fingers).
+- Simulator, real touches with **idb** (`idb ui tap`, `idb ui swipe`;
+  installed `idb-companion` with brew and `fb-idb` with pipx): taps reach
+  Pressables through the surface (the header's menu button); one-finger
+  swipes reach the surface (logged every down/move/up while debugging); the
+  edge swipe opened the Sidebar 10 times out of 10, and a drag closed it each
+  time. idb cannot hold one finger while moving another, so the Thumb Lock
+  was not driven by real touches.
+- Simulator, the Thumb Lock with the **dev-only injector**:
+  `ledger/expo/scripts/touch.mjs` (`thumb 0,40`, `more 40,0`, `lift`,
+  `drop`) evaluates through Metro's inspector, like `drive.mjs`, and calls
+  `globalThis.__touches.ledger`, feeding `PointerSample`s into the same core
+  sink Gesture Handler feeds. It proved the picker draws and Goes on the
+  device: lock shown, a Step to Entries and lifting Went to `/entries`,
+  three Steps then right into Settings' Sections and lifting Went to
+  `/settings?tab=gestures`, eight Steps up held at Home, the thumb lifting
+  first called it off. The Wrong Way shake was caught in a burst of
+  screenshots: the menu's edge sat 9 device px (3 points, one keyframe of
+  the shake) left of rest in the first frame and back at rest after.
+  It does not prove Gesture Handler delivers two simultaneous fingers, nor
+  that `claim` stops a scroll under a real Thumb Lock.
+
+**Gesture Sounds latency** (Simulator, expo-audio 57.0.5)
+
+- A preloaded player's `play()` (after `seekTo(0)`) reported `playing`
+  within one frame (≈16 ms) in 8 of 8 tries; `currentTime` first moved
+  130–165 ms after `play()`, which looks like AVPlayer's coarse time
+  reporting rather than when sound starts (the tick is 25 ms long). Nothing
+  was heard: the agent has no ears on the Simulator. The toolkit already
+  plays from a pool (3 preloaded players per sound, round-robin, Phase 2c),
+  so no change. If it lags on a phone, `react-native-audio-api` (Web
+  Audio's model, as web) is the next step.
+
+**Challenges**
+
+- Evaluating an `async` function through Metro's inspector crashed Expo Go
+  57.0.9 in Hermes' debugger (`Debugger::runUntilValidPauseLocation`,
+  SIGSEGV) as its promise resumed. `touch.mjs` runs each command
+  synchronously instead; moves land in one batch, so React draws only the
+  end state of each command.
+- Gesture Handler's state manager cannot be used from `runOnJS(true)`
+  callbacks ("You can not use setGestureState in non-worklet function"):
+  the first version's `claim` silently did nothing. Callbacks are worklets
+  now; JS asks through a mutable.
+- `simctl io recordVideo` stopped by a kill left "Host recording is already
+  in progress" for the rest of the session, so the shake was measured from
+  screenshots, not a video.
+- The Panel UI Drawer came back part way open on every other open after a
+  drag closed it (by the menu button too, so not the edge swipe). Its
+  `travel` was reset only on open; it is now parked again after the exit
+  (`components/drawer.tsx`). 10 of 10 opens were then whole.
+
+**Hacks**
+
+- `touch.mjs` and the `devName` hook are dev-only; Metro strips the
+  `__DEV__` branch from a release bundle. The injected touches skip Gesture
+  Handler, so `claim` does nothing for them.
+- The sounds are rendered once to WAV with a plain JS port of web's voices
+  (tones and a band-passed noise); close, not sample-identical.
+
+**Drawbacks**
+
+- One zone per `GestureSurface`: nested surfaces would each hear every
+  finger as separate providers. Ledger needs one. Settings' Section swipe
+  (a zone of its own on web) is not built; nested zones need hit-testing
+  which view a finger landed in.
+- `claim` takes effect at the next touch event after the Lock (one move
+  later), so a Place's scroll may move a few points as a Thumb Lock starts.
+  Whether GH's activation cancels React Native's own `ScrollView` pan on iOS
+  is unproven: the Places are 3b's and were placeholders here.
+- The edge swipe opens on lift; the drawer does not follow the finger as
+  web's does.
+- expo-blur is a new optional peer of expo-toolkit and a dependency of
+  `@ledger/expo` (catalog 57.0.3, SDK 57's pin): lockfile change to merge
+  with 3b.
+- The Thumb Lock rule now exists twice: use-gesture's `thumbLock` (native)
+  and web's `kit/thumb-picker/lock.ts` (Motion values). Same constants and
+  behaviour; web was not moved, to keep it unchanged in this phase.
+
+**Parity gaps**
+
+- Web vibrates only on Steps (`navigator.vibrate`); native buzzes as it
+  locks, at each Step and as it goes, as the glossary asks.
+- No interactive (finger-following) Sidebar open; no Settings Section swipe.
+- The web's 'arm' and 'wrong' sounds are not rendered: nothing on a phone
+  plays them (a Wrong Way is silent by the glossary).
+- The Gestures Section's guide (`GESTURE_GUIDE`) is still 3b's placeholder.
+- Gestures of the Places (tap a row, swipe a row to delete, drag the Add
+  sheet down) are 3b's.
+
+**Open questions**
+
+- Haptics and sounds were wired but neither felt nor heard. Check on a
+  phone: the haptic strengths (light/selection/medium) and whether the tick
+  lands with the Step.
+- Should web move to `thumbLock` from the core (behind its Motion mirror)?
+  It would leave one Thumb Lock rule.
+
+**Cleanup owed**
+
+- Prove the two-finger Thumb Lock with real touches: XCUITest
+  (`XCUICoordinate` press-and-hold with a second coordinate's drag) or a
+  phone by hand.
+- Move web's lock onto `thumbLock` (see above); later the web-toolkit merge
+  takes `./web`.
+- Nested zones in `./input` if a Place needs its own swipes.

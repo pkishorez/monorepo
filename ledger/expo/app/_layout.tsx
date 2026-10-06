@@ -26,7 +26,14 @@ export default function Layout() {
         <ThemeProvider value={navigation}>
           <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
           <Shell>
-            <Stack screenOptions={{ headerShown: false, animation: 'none' }} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'none',
+                // The left edge is the Sidebar's: a swipe there never goes back.
+                gestureEnabled: false,
+              }}
+            />
           </Shell>
         </ThemeProvider>
       </PanelUIProvider>

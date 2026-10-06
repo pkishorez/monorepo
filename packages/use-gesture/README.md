@@ -64,6 +64,7 @@ Every peer is optional: the core needs none of them.
 | `Swipe.release`         | Where a Swipe was as it let go, and where its momentum would carry it.                                              |
 | `Swipe.createVelocity`  | Velocity over the last 100ms, falling to 0 while the fingers rest.                                                  |
 | `Swipe.DEFAULT_COMMIT`  | What a Swipe needs to Commit unless told otherwise: 80px or 500px/s.                                                |
+| `thumbLock`             | The Thumb Lock as a listener: a still left thumb beside a moving finger, telling the Lock, each move and the end.   |
 | `TreeWalk.begin`        | A walk through a tree of choices, starting on the one named.                                                        |
 | `TreeWalk.move`         | The walk after the finger moves: Steps, opening a choice, going back, or a Wrong Way.                               |
 | `TreeWalk.chosen`       | The choice letting go chooses, unless it is where the swipe began.                                                  |

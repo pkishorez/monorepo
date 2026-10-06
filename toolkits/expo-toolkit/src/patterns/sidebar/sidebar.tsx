@@ -3,9 +3,12 @@ import {
   type ReactNode,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { Drawer } from '../../components/drawer';
+import { useGesture } from '../../input';
+import { edgeSwipe } from './edge';
 
 type SidebarState = {
   readonly open: boolean;
@@ -58,4 +61,30 @@ export function Sidebar(props: {
       </Drawer.Content>
     </Drawer>
   );
+}
+
+/**
+ * The Sidebar's edge, inside a GestureSurface: a swipe right of one finger
+ * from the left edge of the screen opens it. The edge is its own, so a
+ * swipe there never scrolls or goes back a page; a touch of two fingers,
+ * such as a Thumb Lock, is left to the others. Closing is the drawer's own
+ * drag back.
+ */
+export function SidebarEdge(props: { readonly enabled?: boolean }) {
+  const sidebar = useSidebar();
+  const latest = useRef({ sidebar, enabled: props.enabled !== false });
+  latest.current = { sidebar, enabled: props.enabled !== false };
+  const claim = useRef<() => void>(() => {});
+  const listener = useMemo(
+    () =>
+      edgeSwipe({
+        enabled: () => latest.current.enabled && !latest.current.sidebar.open,
+        onOpen: () => latest.current.sidebar.setOpen(true),
+        claim: () => claim.current(),
+        clock: () => performance.now(),
+      }),
+    [],
+  );
+  claim.current = useGesture(listener).claim;
+  return null;
 }

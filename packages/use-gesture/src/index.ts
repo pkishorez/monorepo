@@ -16,3 +16,5 @@ export { directionOf, SLOP, wants } from './core/direction/index.ts';
 export type { Direction, Directions } from './core/direction/index.ts';
 export * as Swipe from './core/swipe/index.ts';
 export * as TreeWalk from './core/tree-walk/index.ts';
+export { thumbLock } from './core/thumb-lock/index.ts';
+export type { Finger, ThumbLockOptions } from './core/thumb-lock/index.ts';
