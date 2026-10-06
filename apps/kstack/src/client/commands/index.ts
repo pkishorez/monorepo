@@ -23,6 +23,7 @@ export {
   type Gesture,
   type GestureGroup,
   type Motion,
+  type Way,
 } from './gestures.ts';
 export {
   type ActionId,

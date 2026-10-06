@@ -2,7 +2,7 @@ import { cn } from '@kstackz/ui-toolkit/utils';
 import { motion, useInView, useReducedMotion } from 'motion/react';
 import { useRef, useState } from 'react';
 import type { Motion } from '../../../commands/index.ts';
-import type { Way } from '../../../kit/thumb-lock/index.ts';
+import type { Way } from '../../../commands/index.ts';
 
 // How far, in px, the finger travels in a figure.
 const TRAVEL = 14;

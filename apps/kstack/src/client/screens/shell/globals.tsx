@@ -20,6 +20,15 @@ export function Globals() {
   useCommand('toEntries', () => void navigate({ to: '/entries' }));
   useCommand('toMonths', () => void navigate({ to: '/months' }));
   useCommand('toSettings', () => void navigate({ to: '/settings' }));
+  useCommand('toGeneralSettings', () => void navigate({ to: '/settings' }));
+  useCommand(
+    'toKeysSettings',
+    () => void navigate({ to: '/settings', search: { tab: 'keys' } }),
+  );
+  useCommand(
+    'toGesturesSettings',
+    () => void navigate({ to: '/settings', search: { tab: 'gestures' } }),
+  );
   useCommand(
     'help',
     () => void navigate({ to: '/settings', search: { tab: 'keys' } }),

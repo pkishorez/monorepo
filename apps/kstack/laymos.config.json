@@ -103,15 +103,12 @@
     },
     "client-kit": {
       "paths": ["src/client/kit"],
-      "description": "What Ledger needed that no package has yet: sounds made on demand, the Thumb Lock, the Place Picker with its Lift Hint, and what the device can be driven by. Each knows nothing of Ledger",
+      "description": "What Ledger needed that no package has yet: sounds made on demand, the Thumb Picker, and what the device can be driven by. Each knows nothing of Ledger",
       "modules": {
         "src/client/kit/sound": {
           "exposed": true
         },
-        "src/client/kit/thumb-lock": {
-          "exposed": true
-        },
-        "src/client/kit/place-picker": {
+        "src/client/kit/thumb-picker": {
           "exposed": true
         },
         "src/client/kit/input": {
