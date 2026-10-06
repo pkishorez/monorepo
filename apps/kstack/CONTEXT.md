@@ -150,10 +150,6 @@ The sounds of the Thumb Lock: soft as it locks and arms, a tick at each Step, a 
 _Avoid_: audio feedback
 
 **Gesture Haptics**:
-The buzzes of the Thumb Lock on a phone: as it locks, at each Step, and when it goes. A Wrong Way makes none. They follow their own Haptics setting, apart from Sounds, so a User can mute one and keep the other.
-_Avoid_: vibration, gesture sounds
-
-**Gesture Haptics**:
 The taps of the Thumb Lock on a phone that can tap: a light one as it arms, a tick at each Step, a firmer one when it goes. A Wrong Way makes none. They have their own switch in Settings, apart from Sounds.
 _Avoid_: vibration, buzz
 
