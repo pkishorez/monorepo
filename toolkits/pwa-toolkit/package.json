@@ -1,6 +1,6 @@
 {
   "name": "@kstackz/pwa-toolkit",
-  "version": "0.0.0",
+  "version": "0.0.12",
   "private": false,
   "description": "Effect-native service worker, precache, update and install utilities that turn a TanStack Start app into a PWA",
   "keywords": [
