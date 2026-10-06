@@ -149,6 +149,10 @@ _Avoid_: lift hint, place switcher, wheel, menu, launcher
 The sounds of the Thumb Lock: soft as it locks and arms, a tick at each Step, a gentle chime when it goes. A Wrong Way makes none. They follow the one Sounds setting, like the sounds of Commands.
 _Avoid_: haptics, audio feedback
 
+**Gesture Haptics**:
+The taps of the Thumb Lock on a phone that can tap: a light one as it arms, a tick at each Step, a firmer one when it goes. A Wrong Way makes none. They have their own switch in Settings, apart from Sounds.
+_Avoid_: vibration, buzz
+
 **Wrong Way**:
 A Thumb Lock swipe sideways where there is nowhere to go: right on a Place with no Sections, or left among the Places. The Place Picker shakes; nothing sounds or buzzes.
 _Avoid_: error, invalid gesture
