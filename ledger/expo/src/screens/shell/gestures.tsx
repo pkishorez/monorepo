@@ -14,16 +14,16 @@ import { StopIcon } from '../parts';
 
 /**
  * Where Ledger's gestures are heard: the header and the Place, with the
- * Thumb Lock over them and the Sidebar's edge beside them. In development
- * a script can touch it by hand as `globalThis.__touches.ledger`
- * (scripts/touch.mjs).
+ * Thumb Lock over them and the Sidebar's edge beside them. The edge swipe
+ * works with the Thumb Lock switched off too, as the switch's hint says.
+ * In development a script can touch it by hand as
+ * `globalThis.__touches.ledger` (scripts/touch.mjs).
  */
 export function GestureLayer(props: { readonly children: ReactNode }) {
-  const settings = useSettings();
   return (
     <GestureSurface devName="ledger">
       {props.children}
-      <SidebarEdge enabled={settings.gesturesOn} />
+      <SidebarEdge />
       <Thumb />
     </GestureSurface>
   );

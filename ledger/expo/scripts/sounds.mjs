@@ -1,7 +1,9 @@
 // Renders Ledger's sounds to assets/sounds/*.wav: the same voices the web
 // makes with Web Audio as they play (ledger/web/src/client/kit/sound), here
 // rendered once to files, as a phone plays preloaded players instead.
-//   node scripts/sounds.mjs
+//   node scripts/sounds.mjs            every sound
+//   node scripts/sounds.mjs arm        only those named (the noise voices
+//                                      differ on each render)
 import { writeFileSync } from 'node:fs';
 
 const RATE = 44100;
@@ -74,10 +76,17 @@ const both =
     for (const voice of voices) voice(out);
   };
 
-// The web's voices, by name (kit/sound/sound.ts), but for 'arm' and 'wrong',
-// which nothing on the phone plays.
+// The web's voices, by name (kit/sound/sound.ts), but for 'wrong', which
+// nothing on the phone plays (a Wrong Way is silent).
 const VOICES = {
   tick: tone({ from: 1850, to: 1400, length: 0.025, gain: 0.12 }),
+  arm: tone({
+    from: 1180,
+    to: 1320,
+    type: 'triangle',
+    length: 0.05,
+    gain: 0.12,
+  }),
   confirm: both(
     tone({ from: 660, length: 0.07, gain: 0.14, type: 'triangle' }),
     tone({
@@ -132,7 +141,9 @@ const wav = (samples) => {
   return Buffer.concat([head, data]);
 };
 
+const only = process.argv.slice(2);
 for (const [name, voice] of Object.entries(VOICES)) {
+  if (only.length > 0 && !only.includes(name)) continue;
   const out = new Float64Array(Math.round(0.25 * RATE));
   voice(out);
   // Trim the silence after the last sound.

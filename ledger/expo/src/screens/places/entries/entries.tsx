@@ -19,10 +19,13 @@ import { byDay, dayName, type Entry, signed } from '@ledger/core/shared/ledger';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { SectionList, View } from 'react-native';
-import { useSettings } from '../../../ledger';
+import { feelSwipe, useSettings } from '../../../ledger';
 import { useOpenAccount } from '../../sheets/accounts';
 import { Amount, EntryRow } from '../../parts';
 import { useRemoveEntry } from './remove';
+
+// About how tall a row is, in points, to jump toward a row not drawn yet.
+const ROW = 56;
 
 /**
  * Entries, a Place: the Entries a search shows, by day, newest first. A tap
@@ -49,7 +52,7 @@ export function Entries(props: { readonly search: EntriesSearch }) {
 
   // Comes back with the Entry Jump left marked, and keeps the mark in view.
   useEffect(() => setMarked(search.at), [search.at]);
-  useEffect(() => {
+  const scrollToMark = () => {
     const section = days.findIndex(([, each]) =>
       each.some((entry) => entry.id === marked),
     );
@@ -60,8 +63,27 @@ export function Entries(props: { readonly search: EntriesSearch }) {
       itemIndex: item,
       viewPosition: 0.4,
     });
-    // Only a new mark scrolls; the list changing under it does not.
-  }, [marked]);
+  };
+  // Only a new mark scrolls; the list changing under it does not.
+  useEffect(scrollToMark, [marked]);
+  // A row not laid out yet cannot be scrolled to: jump toward it by the
+  // rows' height (a guess until some are measured), then try again once the
+  // rows around it are drawn, a few times at most.
+  const tries = useRef({ mark: marked, count: 0 });
+  const missed = (info: {
+    readonly averageItemLength: number;
+    readonly index: number;
+  }) => {
+    if (tries.current.mark !== marked)
+      tries.current = { mark: marked, count: 0 };
+    if (tries.current.count >= 5) return;
+    tries.current.count += 1;
+    const row = info.averageItemLength > 0 ? info.averageItemLength : ROW;
+    list.current
+      ?.getScrollResponder()
+      ?.scrollTo({ y: row * info.index, animated: false });
+    setTimeout(scrollToMark, 100);
+  };
 
   const at = shown.findIndex((entry) => entry.id === marked);
   const mark = (index: number) =>
@@ -119,7 +141,7 @@ export function Entries(props: { readonly search: EntriesSearch }) {
       keyExtractor={(entry) => entry.id}
       stickySectionHeadersEnabled
       contentContainerClassName="px-2 pb-28"
-      onScrollToIndexFailed={() => {}}
+      onScrollToIndexFailed={missed}
       ListHeaderComponent={
         narrowed === undefined ? null : (
           <View className="flex-row items-center justify-between gap-2 px-2 pt-4">
@@ -181,7 +203,11 @@ export function Entries(props: { readonly search: EntriesSearch }) {
         </View>
       )}
       renderItem={({ item: entry }) => (
-        <SwipeRow onDelete={() => remove(entry)} haptics={settings.haptics}>
+        <SwipeRow
+          onArm={() => feelSwipe('arm', settings)}
+          onCommit={() => feelSwipe('delete', settings)}
+          onDelete={() => remove(entry)}
+        >
           <EntryRow
             entry={entry}
             category={lookup.category.get(entry.categoryId)}

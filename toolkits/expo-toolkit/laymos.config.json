@@ -225,7 +225,7 @@
     },
     "patterns": {
       "paths": ["src/patterns"],
-      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Thumb Picker, the Sidebar as a drawer with its edge swipe, the Local Sign-In dialog, the sheet for a short form, the row swiped to delete, and the Key Bar's message at the foot. A pattern with parts is a module graph of its own.",
+      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Thumb Picker, the Sidebar that pushes the page aside, with its edge swipe, the Local Sign-In dialog, the sheet for a short form, the row swiped to delete, pages turned by a sideways swipe, and the Key Bar's message at the foot. A pattern with parts is a module graph of its own.",
       "modules": {
         "src/patterns/sheet": {
           "exposed": true
@@ -237,6 +237,9 @@
           "exposed": true
         },
         "src/patterns/swipe-row": {
+          "exposed": true
+        },
+        "src/patterns/pages": {
           "exposed": true
         }
       },
@@ -264,18 +267,21 @@
           }
         },
         "sidebar": {
-          "description": "sidebar.tsx holds whether it is open, draws the drawer and hears the edge; edge is the edge swipe as a core listener.",
+          "description": "sidebar.tsx holds whether it is open and how far, and hears the edge; push draws the page pushed aside with the Sidebar under it and the drag that shuts it; motion holds the width, the spring and when a drag shuts; edge is the edge swipe as a core listener.",
           "path": "src/patterns/sidebar",
           "modules": {
             "index.ts": {
               "exposed": true
             },
             "sidebar.tsx": {},
+            "push.tsx": {},
+            "motion.ts": {},
             "edge.ts": {}
           },
           "rules": {
             "index.ts": ["sidebar.tsx"],
-            "sidebar.tsx": ["edge.ts"]
+            "sidebar.tsx": ["edge.ts", "motion.ts", "push.tsx"],
+            "push.tsx": ["motion.ts"]
           }
         }
       }

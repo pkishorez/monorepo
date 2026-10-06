@@ -104,16 +104,18 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 
 ### `./patterns/*`
 
-| Export                                     | What it does                                                                      |
-| ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `sidebar`: `SidebarProvider`, `useSidebar` | Whether the Sidebar is open, and the ways to open, shut and toggle it.            |
-| `sidebar`: `Sidebar`                       | The Sidebar as a drawer from the start edge: a header, a scrolling body, a foot.  |
-| `sidebar`: `SidebarEdge`                   | Inside a surface, a swipe right of one finger from the left edge opens it.        |
-| `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices: Steps, Sections, Wrong Way shake. |
-| `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.     |
-| `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                |
-| `swipe-row`: `SwipeRow`                    | A row swiped left to delete, with a tick as it arms and Delete to tap.            |
-| `key-bar`: `KeyBar`                        | A bar at the foot that shows a message for a moment, replaced in place.           |
+| Export                                     | What it does                                                                                                         |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `sidebar`: `SidebarProvider`, `useSidebar` | The page with a Sidebar under it that pushes it aside; whether it is open, and the ways to open, shut and toggle it. |
+| `sidebar`: `Sidebar`                       | What the Sidebar shows: a header, a scrolling body, a foot.                                                          |
+| `sidebar`: `SidebarEdge`                   | Inside a surface, a swipe right of one finger from the left edge opens it under the finger.                          |
+| `sidebar`: `useSidebarDrag`                | The Sidebar's open as a drag another swipe can hand on.                                                              |
+| `pages`: `Pages`                           | Pages side by side, turned by a one-finger sideways swipe that follows the finger.                                   |
+| `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices: Steps, Sections, Wrong Way shake.                                    |
+| `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.                                        |
+| `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                                                   |
+| `swipe-row`: `SwipeRow`                    | A row swiped left to delete: arms past a line, slides away, or springs home.                                         |
+| `key-bar`: `KeyBar`                        | A bar at the foot that shows a message for a moment, replaced in place.                                              |
 
 ## Usage
 
@@ -163,9 +165,9 @@ export function Home() {
 - `createSounds` loads three players per sound up front and takes them in turn, so a quick repeat overlaps instead of waiting; sounds mix with other apps and stay quiet on silent.
 - `haptic` never throws: a device without haptics feels nothing.
 
-### A Sidebar over a signed-in app
+### A Sidebar beside a signed-in app
 
-The Sidebar's state sits above the header that opens it; the drawer renders into a `PortalScope` inside the app's own providers, so its rows can read the signed-in User. Lifted from `ledger/expo/src/screens/shell`.
+`SidebarProvider` wraps the page and draws the Sidebar under it, inside the app's own providers, so its rows can read the signed-in User. Lifted from `ledger/expo/src/screens/shell`.
 
 ```tsx
 import { PortalScope } from '@kstackz/expo-toolkit/components/portal-scope';
@@ -197,5 +199,5 @@ function Header() {
 }
 ```
 
-- `Sidebar` is Panel UI's `Drawer` from the `start` edge, controlled by `SidebarProvider`; a tap on the backdrop or a drag back shuts it.
+- `Sidebar` renders nothing where it is written; it hands what it shows to `SidebarProvider`, which draws it under the page. As it opens the page moves aside, shrinks, rounds and dims, as on the web's phone layout; a tap on the page or a drag left shuts it.
 - Overlays render into the nearest portal host; `PanelUIProvider`'s sits above every app provider, so a `PortalScope` inside them keeps their context.

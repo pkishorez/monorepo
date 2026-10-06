@@ -11,6 +11,7 @@ const sounds = createSounds({
   close: require('../../assets/sounds/close.wav'),
   coin: require('../../assets/sounds/coin.wav'),
   theme: require('../../assets/sounds/theme.wav'),
+  arm: require('../../assets/sounds/arm.wav'),
 });
 
 /** Plays a Command's sound. */
@@ -51,4 +52,20 @@ export const feelGesture = (
 ) => {
   if (on.sound) sounds.play(GESTURE_SOUNDS[moment]);
   if (on.haptics) haptic(GESTURE_HAPTICS[moment]);
+};
+
+/** A moment of a row swiped to delete: it arms past the line, it deletes. */
+export type SwipeMoment = 'arm' | 'delete';
+
+/**
+ * The sound and buzz of a row swiped to delete, as on the web: the arm
+ * click and a short buzz as it arms, the gentle chime as it deletes. Sounds
+ * follow the Sounds setting, the buzz the Haptics one.
+ */
+export const feelSwipe = (
+  moment: SwipeMoment,
+  on: { readonly sound: boolean; readonly haptics: boolean },
+) => {
+  if (on.sound) sounds.play(moment === 'arm' ? 'arm' : 'success');
+  if (on.haptics && moment === 'arm') haptic('light');
 };
