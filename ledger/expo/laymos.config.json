@@ -61,7 +61,7 @@
     },
     "client-platform": {
       "paths": ["src/platform"],
-      "description": "The phone's platform Layer core asks for: tables and Remote copies in expo-sqlite, the last User in secure storage, the network from expo-network and the foreground from AppState, and the Remote Backend's sign-in (a stub until Phase 4)",
+      "description": "The phone's platform Layer core asks for: tables and Remote copies in expo-sqlite, the last User in secure storage, the network from expo-network and the foreground from AppState, and the Remote Backend: where its /rpc answers and each User's sign-in through the system sign-in sheet, with their tokens in secure storage",
       "modules": {
         "src/platform": {
           "exposed": true

@@ -94,6 +94,9 @@ export const webPlatform = Layer.sync(LedgerPlatform, () => ({
   remote: {
     auth: authLive({ authWorkerUrl: AUTH_URL }),
     ledgerUrl: window.location.origin,
+    manageAccounts: async () => {
+      window.open(AUTH_URL, '_blank', 'noopener');
+    },
   },
   lifecycle: {
     online: () => navigator.onLine,

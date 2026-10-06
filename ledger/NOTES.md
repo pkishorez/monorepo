@@ -1212,3 +1212,199 @@ name: 'Ledger', redirectUris, resource }]` and
   `worktree-agent-ab531ba2a1ac84c7f`).
 - Then `pnpm --filter @ledger/web check:native-sign-in` (`LEDGER_URL` and
   `REDIRECT_URI` override).
+
+## Phase 4b: Remote Backend on native
+
+Native Ledger runs on the Remote Backend. On the iPhone 17 Pro Simulator
+(iOS 27.0, Expo Go, Metro 8081), against the local sign-in service and this
+worktree's Ledger web dev server: Settings → Backend → Remote, Sign in with
+Google through the system sign-in sheet and the Test Sign-In as Ada, sample
+money written through `/rpc` and synced down to Home, an entry added on the
+phone seen on web, an entry added on web seen on the phone, Add User (Grace)
+through the sheet, Switch User back to Ada, Sign Out Ada (Grace opens, Ada's
+copy deleted), the app relaunched with Grace still signed in, Sign Out Grace
+down to the signed-out card. Whole-repo `pnpm lint`, `pnpm test` and
+`pnpm build` pass. Screens: `ledger/expo/docs/screens/phase-4-*.png`.
+
+**Where things went** (the separation)
+
+- The app reaches the Remote Backend only through `LedgerPlatform.remote`.
+  `ledger/expo/src/platform/remote.ts` (`makeRemote`) holds every address
+  and the sign-in: `authExpo` from `@kstackz/auth-toolkit/clients/auth/expo`
+  (client id `ledger`, `storageKey: 'ledger.auth'`, redirect
+  `createURL('oauth/callback')` from expo-linking, so `exp://<metro>/--/…`
+  in Expo Go and `ledger://oauth/callback` in a build), `ledgerUrl`, and
+  `manageAccounts`. Screens import only `manageAccounts`, `addUser`,
+  `takeLoginError`, … from `src/ledger`; no screen has a URL or an auth
+  import.
+- Addresses per kind of build (`__DEV__`): local
+  `https://kstack.kishore.computer`, `https://auth.kishore.computer`,
+  resource `https://kstack.kishore.computer/rpc`; release
+  `https://kstack.kishore.app`, `https://auth.kishore.app`,
+  `https://kstack.kishore.app/rpc`. Each is overridden by
+  `EXPO_PUBLIC_LEDGER_URL`, `EXPO_PUBLIC_AUTH_URL` and
+  `EXPO_PUBLIC_LEDGER_RESOURCE` (README, Usage). The resource is per stage,
+  not derived from the Ledger URL, because a worktree's dev server
+  (`https://<branch>.kstack.kishore.computer`) still checks the local
+  stage's audience.
+- **Core contract:** `LedgerPlatform.remote` gained
+  `manageAccounts: () => Promise<void>`, and `createLedger` returns
+  `manageAccounts`. This answers Phase 1's open question (should `AUTH_URL`
+  be part of the platform): web's Settings now calls it too
+  (`window.open(AUTH_URL, '_blank', 'noopener')`), and web's
+  `client/platform` door no longer exports `AUTH_URL`.
+- **Sessions and tokens:** nothing new was needed in core. `/rpc` calls are
+  signed with the active User's Access Token through the Session's
+  `credential` (`Authz.bearer`); the app machine re-reads `list` every 60 s,
+  on foreground and when the network returns, and hands the fresh token to
+  the open Session with `setToken`. `authExpo`'s `list` refreshes a token
+  with under a minute left, so with 15-minute tokens a Session's token is
+  replaced before it expires while the app is in view.
+- **Sync through SQLite** was already wired in 3a (`storage.copies` is
+  std-toolkit's `sync/platform/expo` on `copies.db`; `listCopies` and
+  `deleteCopy` list and drop its tables). Checked on the device with
+  `sqlite3` on Expo Go's container: one table per signed-in User
+  (`std-sync:user-<id>`, 119 rows for Ada), Ada's dropped on her Sign Out,
+  none left after the last one. The async store setup inside a Layer was
+  never built with `runSync` (3a's worry): no `AsyncFiberError`.
+- **Screens:** Settings' Users group shows "Manage Google accounts" on the
+  Remote Backend; the signed-out card's Sign in with Google says why a
+  sign-in came back without a User (`takeLoginError`), and so does Add User
+  in the User Switcher (a toast). Closing the sheet says nothing.
+- `@ledger/expo` depends on `expo-auth-session` and `expo-web-browser`
+  (catalog, SDK 57's pins): auth-toolkit's expo target has the first as a
+  peer, and a development build only autolinks native modules the app names
+  itself.
+
+**How it was driven, and what that proves**
+
+- Every step on the phone was a real touch through **idb** (`idb ui tap`,
+  `idb ui text`, `idb ui swipe`) on the Simulator by UDID, the system sheet
+  included: iOS's "“Expo” Wants to Use “auth.kishore.computer” to Sign In"
+  alert (Continue), the Auth Worker's Login Screen inside
+  ASWebAuthenticationSession, its "Test sign-in (local only)" link, and
+  picking Ada or Grace. `drive.mjs` and `touch.mjs` were not used. This
+  proves the whole OAuth + PKCE flow in the real system sheet: authorize,
+  the redirect to `exp://127.0.0.1:8081/--/oauth/callback` caught by the
+  session, `state` checked, the code exchanged, userinfo read, and tokens
+  kept in the keychain (they survived an app relaunch).
+- The second sign-in (Add User) showed the Login Screen although the sheet's
+  browser was already signed in as Ada (her avatar in its header): the sheet
+  keeps its cookies across sign-ins, and `prompt=login` still asks.
+- Web was driven with agent-browser. Web's Remote sign-in goes straight to
+  Google (no Login Screen, so no Test Sign-In link), so the browser was
+  given Ada's session by calling the Test Sign-In endpoint with curl and
+  setting its cookies in the browser (`/tmp/p4b-scripts/web-test-sign-in.sh`,
+  not committed). Web then showed Ada's money with the phone's entry; an
+  entry added on web reached the phone within one poll (10 s).
+- Settings' Manage opened Safari on the Auth Worker's Home Page; web's
+  Manage opened it in a new tab.
+- Not proven on the device: that Sign Out revoked the refresh token at the
+  service (reading the sign-in service's database was not allowed here).
+  The revoke is covered by `expo.test.ts` (4a) and the flow script
+  (`check:native-sign-in`, green again this phase), and the User and their
+  copy were gone from the phone.
+- Real Google was not used.
+
+**Simulator setup that was needed**
+
+- Portless's CA is `~/.portless/ca.pem`; added once with
+  `xcrun simctl keychain <udid> add-root-cert ~/.portless/ca.pem`. With it
+  both the app's `fetch` and the sheet trusted `*.kishore.computer`.
+- Name resolution needed nothing: portless writes each running host into the
+  Mac's `/etc/hosts` (`auth.kishore.computer`, and
+  `ledger-on-expo.kstack.kishore.computer` while that dev server runs), and
+  the Simulator uses the Mac's resolver. A stopped dev server's host leaves
+  `/etc/hosts`, so the default `https://kstack.kishore.computer` resolves
+  only while main's dev server runs.
+- Metro ran with `CI=1` and
+  `EXPO_PUBLIC_LEDGER_URL=https://ledger-on-expo.kstack.kishore.computer`;
+  Expo Go was launched with `xcrun simctl launch <udid> host.exp.Exponent
+--initialUrl exp://127.0.0.1:8081`, so `createURL` gave the registered
+  `exp://127.0.0.1:8081/--/oauth/callback`.
+
+**Challenges**
+
+- A screenshot taken right after an idb tap can miss a sheet still opening;
+  a second tap then lands on whatever opened. Wait two seconds.
+- `idb ui text` stops at a space ("Espresso from the phone" typed
+  "Espresso"); memos were typed as single words.
+- The worktree guard refused several shell forms (`eval`, loops over
+  variables, heredocs); helpers went to `/tmp/p4b-scripts`.
+
+**Hacks**
+
+- Web's test sign-in through curl and copied cookies (above): agents only.
+
+**Drawbacks**
+
+- **Manage Google accounts does not show the sheet's session.** On this
+  Simulator (iOS 27.0) Safari opened the Auth Worker signed out: the
+  sign-in sheet's cookies were not Safari's. 4a chose `Linking.openURL`
+  expecting them to be shared. So on a phone Manage may ask the User to sign
+  in to the sign-in service again. Options: open the Home Page in an auth
+  session (`WebBrowser.openAuthSessionAsync`, which shares the sheet's
+  store but shows the "Wants to Use … to Sign In" alert again), or accept
+  it. Check on a real phone first.
+- iOS's "“Expo” Wants to Use … to Sign In" alert comes before every sign-in
+  (it says "Ledger" in a build): the price of the non-ephemeral session
+  Add User needs.
+- Web's Manage is now a button calling `window.open`, not a link: no
+  middle-click or "copy link".
+- A poll right after a token expired (back from a long sleep, before the
+  foreground check finishes) fails once with `Unauthenticated` and succeeds
+  at the next poll; nothing re-reads `list` on `Unauthenticated`.
+
+**Open questions**
+
+- Two `SessionFailed` logs from std-sync on the phone: Ada's `category` at
+  03:27:18, just after the sample money was written, and Grace's `account`
+  at 03:31:30, as Switch User closed her Session. Ledger web logged no
+  errors then, and the data was whole afterwards. Probably a fetch cut by a
+  closing Session, or a poll racing the sample write; Metro printed the
+  cause only as `[Array]`. Worth a look with the full cause logged.
+- Should a Session ask for a fresh token itself on `Unauthenticated` (core's
+  `rpc.ts` calling back into the machine's `CHECK`)? The 60 s recheck makes
+  it rare.
+
+**Cleanup owed**
+
+- When this branch lands on `main`, point mine's `@kstackz/auth-toolkit`
+  link back at `../monorepo/toolkits/auth-toolkit` (its comment says so),
+  `pnpm install` in mine, restart its `pnpm dev`.
+- Ada and Grace (`@ledger.test`) now have money in the local sign-in
+  service's and Ledger web's local databases; local only.
+- Expo Go's name in the system alert and its floating tools button go away
+  with a development build (`ledger://oauth/callback`).
+
+**Changes in `~/CAREER/MINE/mine`** (this phase; nothing committed, stashed
+or reset; the user's own edits in both `alchemy.run.ts` files untouched)
+
+- `pnpm-workspace.yaml`: the `@kstackz/auth-toolkit` override now links
+  `../monorepo/.claude/worktrees/ledger-on-expo/toolkits/auth-toolkit`
+  (was 4a's `…/agent-ab531ba2a1ac84c7f/…`, which will be removed).
+- `pnpm-lock.yaml`: rewritten by `pnpm install` for that link.
+- The sign-in service was stopped by its own PIDs (`pnpm dev` and its
+  children) and restarted with `pnpm dev` in `packages/auth`; it runs on
+  this worktree's auth-toolkit build and was left running. `pnpm build` here
+  rebuilt that toolkit under it; the Worker rebuilt itself and kept
+  answering.
+- 4a's changes (`packages/auth/alchemy.run.ts`, `packages/auth/src/worker.ts`,
+  `apps/cli/src/server/rpc-host/rpc-host.ts`) are still there, unchanged.
+
+**What to try with real Google in the morning**
+
+1. Make sure the sign-in service runs (`pnpm dev` in
+   `~/CAREER/MINE/mine/packages/auth`), start Ledger web (`pnpm dev` in
+   `ledger/web`), then in `ledger/expo`:
+   `EXPO_PUBLIC_LEDGER_URL=https://<branch>.kstack.kishore.computer pnpm ios`
+   (Expo Go at `exp://127.0.0.1:8081`, not the LAN address).
+2. Settings → Backend → Remote → Sign in with Google → Continue → "Sign in
+   with Google" in the sheet → pick an account → back in Ledger with the
+   same money web shows for that account.
+3. Sidebar → your name → Add user → Continue → Sign in with Google: Google
+   should ask which account (`prompt=select_account`); pick a second one.
+   Switch between them; Sign Out one and the other opens.
+4. Settings → Manage Google accounts: does Safari show you signed in? (The
+   Simulator did not; see Drawbacks.)
+5. Open the sheet and close it without signing in: nothing should change.

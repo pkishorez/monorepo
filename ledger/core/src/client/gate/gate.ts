@@ -251,6 +251,9 @@ export const createLedger = (platform: Layer.Layer<LedgerPlatform>) => {
       );
     },
 
+    /** Opens the sign-in service's page for managing Google accounts. */
+    manageAccounts: () => services().remote.manageAccounts(),
+
     /** Signs the open User out of this device; whoever is left opens. */
     signOut: () => running?.actor.send({ type: 'SIGN_OUT' }),
 
