@@ -24,7 +24,11 @@ import {
   CategoryIcon,
   Choice,
 } from '../../parts/index.ts';
-import { type EntriesSearch, narrowing, shownBy } from './filter.ts';
+import {
+  type EntriesSearch,
+  entryAt,
+  narrowing,
+} from '@ledger/core/client/views';
 
 /**
  * One Entry, open: every part of it changes where it stands, and saves as
@@ -40,9 +44,11 @@ export function EntryPane(props: {
   const navigate = useNavigate();
   const { surface, setSurface } = keys.useSurface();
   const { removeEntry, restoreEntry } = useWrites();
-  const shown = shownBy(money.entries, props.search);
-  const at = shown.findIndex((entry) => entry.id === props.id);
-  const entry = shown[at] ?? money.entries.find((each) => each.id === props.id);
+  const { entry, position, next, previous } = entryAt(
+    money.entries,
+    props.search,
+    props.id,
+  );
   const active = surface === 'entries.entry';
 
   const go = (id: string) =>
@@ -61,8 +67,6 @@ export function EntryPane(props: {
       });
   };
 
-  const next = shown[at + 1];
-  const previous = shown[at - 1];
   useCommand('next', () => next && go(next.id), {
     enabled: active && next !== undefined,
   });
@@ -97,7 +101,7 @@ export function EntryPane(props: {
       key={entry.id}
       entry={entry}
       active={active}
-      position={at >= 0 ? `${at + 1} of ${shown.length}` : undefined}
+      position={position}
       onBack={back}
       onNext={next && (() => go(next.id))}
       onPrevious={previous && (() => go(previous.id))}

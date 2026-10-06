@@ -46,9 +46,9 @@ import {
   useOnline,
   useSettings,
 } from '../../../app/index.ts';
+import { usePlace } from '@ledger/core/client/commands';
 import { useMoney, useUser, useWrites } from '@ledger/core/client/session';
 import { CURRENCIES } from '@ledger/core/shared/ledger';
-import { usePlace } from '../../parts/index.ts';
 import { AppSection } from './app-section.tsx';
 import { GesturesTab } from './gestures-tab.tsx';
 import { KeysTab } from './keys-tab.tsx';

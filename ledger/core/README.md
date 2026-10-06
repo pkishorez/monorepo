@@ -23,21 +23,21 @@ so the seam cannot be skipped.
 `src/` reads top-down as in `laymos.config.json`: the Gate over each
 Backend's client half, built from the platform and the client's state and
 domain; the Local Backend's server half over the Backend's domain; the words
-of money at the bottom; and the Commands, with the Place order that names them, on their own. The Remote Backend's
+of money at the bottom; the Commands, with the Place order that names them, on their own; and what each Place shows, worked out once over the open Session's money. The Remote Backend's
 server half is not here: web hosts it, and the Expo app points at it.
 
 ## Exports
 
 ### `@ledger/core/shared/ledger`
 
-| Export                                                                          | What it does                                                    |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `Account`, `Category`, `Entry`, `Preferences`, `Way`                            | The Schemas of money every side speaks.                         |
-| `defaultPreferences`                                                            | A User's Preferences before they change any.                    |
-| `CURRENCIES`, `centsOf`, `money`, `signed`                                      | Amounts in cents, and how they read in a currency.              |
-| `today`, `dayOf`, `dayName`, `monthOf`, `monthName`, `shiftMonth`, `isMonthKey` | Days and Months, by their keys.                                 |
-| `balances`, `byDay`, `monthsOf`, `newestFirst`, `summarize`                     | The sums over Entries: balances, days, Months and their totals. |
-| `sample`                                                                        | The sample Accounts, Categories and Entries for a new User.     |
+| Export                                                                                      | What it does                                                    |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `Account`, `Category`, `Entry`, `Preferences`, `Way`                                        | The Schemas of money every side speaks.                         |
+| `defaultPreferences`                                                                        | A User's Preferences before they change any.                    |
+| `CURRENCIES`, `centsOf`, `money`, `signed`                                                  | Amounts in cents, and how they read in a currency.              |
+| `today`, `dayOf`, `dayName`, `shiftDay`, `monthOf`, `monthName`, `shiftMonth`, `isMonthKey` | Days and Months, by their keys.                                 |
+| `balances`, `byDay`, `monthsOf`, `newestFirst`, `summarize`                                 | The sums over Entries: balances, days, Months and their totals. |
+| `sample`                                                                                    | The sample Accounts, Categories and Entries for a new User.     |
 
 ### `@ledger/core/shared/ledger-api`
 
@@ -98,6 +98,8 @@ server half is not here: web hosts it, and the Expo app points at it.
 | `GESTURES`, `GESTURE_GUIDE`                                   | How each Command is given on a touch screen.            |
 | `useCommand`, `announce`, `quietly`, `useGiven`               | Runs a Command and tells the Key Bar and the sounds.    |
 | `setCommandSounds`                                            | Plays Commands' sounds the platform's way, or none.     |
+| `usePlace`                                                    | Gives Commands to a Place's Surface while it is shown.  |
+| `said`                                                        | A gesture in words, as the Gestures Section says it.    |
 | `bindingsOf`, `written`, `bindingOf`, `keysOff`, `ACTION_IDS` | The User's own keys, stored and read back.              |
 
 ### `@ledger/core/client/places`
@@ -108,6 +110,17 @@ server half is not here: web hosts it, and the Expo app points at it.
 | `SETTINGS_SECTIONS` | The Sections of Settings in order, each with its Command.                                |
 | `stopsFrom`         | What a Thumb Lock picks from where you are, and where it starts; icons named, not drawn. |
 | `placeTitle`        | What the header calls the Place at an address.                                           |
+
+### `@ledger/core/client/views`
+
+| Export                                                        | What it does                                                               |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `glance`                                                      | Home's Month: what is left, in against out, Budgets fullest first, latest. |
+| `monthsView`, `monthView`                                     | The Months with the biggest of any; one Month, its days and its turns.     |
+| `validateEntriesSearch`, `shownBy`, `narrowedTo`, `narrowing` | Which Entries an Entries search shows, and the narrowing in words.         |
+| `entryAt`, `markAfterRemoving`                                | An open Entry's place and neighbours; where the mark goes after a delete.  |
+| `firstAccount`, `quickDays`, `ACCOUNT_KINDS`                  | What a new Entry or Account starts from.                                   |
+| `useLookup`                                                   | The User's Accounts and Categories by id.                                  |
 
 ## Usage
 

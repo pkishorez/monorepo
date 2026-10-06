@@ -13,10 +13,10 @@
     },
     "client-screens": {
       "paths": ["src/screens"],
-      "description": "What the user sees on a phone: the shell around every Place (Splash, signed-out card, header, Sidebar with the User Switcher, Local Sign-In, the Commands, and the layer gestures mount in), each Place, and the parts they share",
+      "description": "What the user sees on a phone: the shell around every Place (Splash, signed-out card, header, Sidebar with the User Switcher, Local Sign-In, the Commands, and the layer gestures mount in), each Place, the Add and Accounts sheets, and the parts they share",
       "moduleGraphs": {
         "screens": {
-          "description": "The shell holds the frame; each Place is its own module a route opens; all of them draw with the shared parts",
+          "description": "The shell holds the frame and opens the sheets over it; each Place is its own module a route opens, and Entries opens the Accounts sheet to rename one; all of them draw with the shared parts",
           "path": "src/screens",
           "modules": {
             "shell": {
@@ -34,13 +34,18 @@
             "places/settings": {
               "exposed": true
             },
+            "sheets/add": {},
+            "sheets/accounts": {},
             "parts": {}
           },
           "rules": {
-            "shell": ["parts"],
+            "shell": ["parts", "sheets/add", "sheets/accounts"],
             "places/home": ["parts"],
-            "places/entries": ["parts"],
-            "places/months": ["parts"]
+            "places/entries": ["parts", "sheets/accounts"],
+            "places/months": ["parts"],
+            "places/settings": ["parts"],
+            "sheets/add": ["parts"],
+            "sheets/accounts": ["parts"]
           }
         }
       }

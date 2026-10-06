@@ -1,7 +1,7 @@
 import '../global.css';
 import { PanelUIProvider } from '@kstackz/expo-toolkit/components/panel-ui-provider';
 import { useTheme, useThemeFonts } from '@kstackz/expo-toolkit/theme';
-import { DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DefaultTheme, Slot, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { restoreTheme } from '../src/ledger';
@@ -16,7 +16,12 @@ const navigation = {
   colors: { ...DefaultTheme.colors, background: 'transparent' },
 };
 
-/** Every Place, inside Ledger's shell. Go shows the new Place at once. */
+/**
+ * Every Place, inside Ledger's shell, one at a time: Go shows the new Place
+ * at once, and nothing stays mounted behind it to answer Commands, as on the
+ * web. There is no back stack to swipe through; the left edge is the
+ * Sidebar's.
+ */
 export default function Layout() {
   const { theme } = useTheme();
   if (!useThemeFonts()) return null;
@@ -26,14 +31,7 @@ export default function Layout() {
         <ThemeProvider value={navigation}>
           <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
           <Shell>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: 'none',
-                // The left edge is the Sidebar's: a swipe there never goes back.
-                gestureEnabled: false,
-              }}
-            />
+            <Slot />
           </Shell>
         </ThemeProvider>
       </PanelUIProvider>

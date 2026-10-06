@@ -11,15 +11,9 @@ import { useState } from 'react';
 import { keys, useCommand } from '@ledger/core/client/commands';
 import { useMoney, useWrites } from '@ledger/core/client/session';
 import { useOnline } from '../../../app/index.ts';
+import { ACCOUNT_KINDS } from '@ledger/core/client/views';
 import type { Account } from '@ledger/core/shared/ledger';
 import { AccountIcon, Choice } from '../../parts/index.ts';
-
-const KINDS: ReadonlyArray<{ value: Account['kind']; label: string }> = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
-  { value: 'bank', label: 'Bank' },
-  { value: 'savings', label: 'Savings' },
-];
 
 // The Account the sheet opens for; none for a new one.
 let asked: string | undefined;
@@ -98,7 +92,7 @@ function Form(props: {
           value={kind}
           onChange={setKind}
           className="mx-0 px-0"
-          options={KINDS.map((each) => ({
+          options={ACCOUNT_KINDS.map((each) => ({
             ...each,
             icon: <AccountIcon kind={each.value} />,
           }))}

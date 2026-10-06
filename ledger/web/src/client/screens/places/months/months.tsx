@@ -2,10 +2,11 @@ import { CalendarRange } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import { keys, useCommand } from '@ledger/core/client/commands';
+import { keys, useCommand, usePlace } from '@ledger/core/client/commands';
+import { monthsView } from '@ledger/core/client/views';
 import { useMoney } from '@ledger/core/client/session';
-import { monthName, monthsOf } from '@ledger/core/shared/ledger';
-import { Amount, scrollMarked, usePlace } from '../../parts/index.ts';
+import { monthName } from '@ledger/core/shared/ledger';
+import { Amount, scrollMarked } from '../../parts/index.ts';
 
 /**
  * The Months: each with what came in and went out. Next and Previous move
@@ -16,11 +17,10 @@ export function Months(props: { readonly at: string | undefined }) {
   const money = useMoney();
   const navigate = useNavigate();
   const { surface } = keys.useSurface();
-  const months = monthsOf(money.entries, money.categories);
+  const { months, most } = monthsView(money);
   const [marked, setMarked] = useState(props.at ?? months[0]?.month);
   const list = useRef<HTMLUListElement>(null);
   const currency = money.currency;
-  const most = Math.max(1, ...months.flatMap((month) => [month.in, month.out]));
   useEffect(() => {
     if (marked === undefined && months[0]) setMarked(months[0].month);
   }, [marked, months]);

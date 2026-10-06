@@ -8,17 +8,14 @@ import { useMoney, useWrites } from '@ledger/core/client/session';
 import { byDay, dayName, type Entry, signed } from '@ledger/core/shared/ledger';
 import { useOpenAccount } from '../../sheets/accounts/index.ts';
 import {
-  Amount,
-  EntryRow,
-  scrollMarked,
-  useLookup,
-} from '../../parts/index.ts';
-import {
   type EntriesSearch,
+  markAfterRemoving,
   narrowedTo,
   narrowing,
   shownBy,
-} from './filter.ts';
+  useLookup,
+} from '@ledger/core/client/views';
+import { Amount, EntryRow, scrollMarked } from '../../parts/index.ts';
 import { SwipeRow } from './swipe-row.tsx';
 
 /**
@@ -98,11 +95,9 @@ export function EntriesList(props: {
   // Deletes an Entry, marking the one after it if it was marked, with a
   // way back.
   const remove = (entry: Entry) => {
-    const index = shown.indexOf(entry);
     removed.current = entry;
-    if (entry.id === marked) {
-      mark(index + 1 < shown.length ? index + 1 : index - 1);
-    }
+    const after = markAfterRemoving(shown, entry, marked);
+    if (entry.id === marked && after !== undefined) markEntry(after);
     removeEntry(entry.id);
     toast(`Deleted ${entry.memo || 'the entry'}`, {
       action: { label: 'Undo', onClick: () => restoreEntry(entry) },

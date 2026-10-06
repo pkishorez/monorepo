@@ -879,3 +879,146 @@ Screens: `ledger/expo/docs/screens/phase-3c-{lock,step,section,wrong-way,sidebar
 - Move web's lock onto `thumbLock` (see above); later the web-toolkit merge
   takes `./web`.
 - Nested zones in `./input` if a Place needs its own swipes.
+
+## Phase 3b: Places
+
+Every Place is drawn on the phone: Home (the glance, or the welcome for a new
+User), Entries (by day, narrowed by Account, Category or Month, with Rename
+and Everything), an Entry (edited in place, Next/Previous, back with it
+marked, Delete with Undo), Months and a Month (stats, each day, where it
+went, its entries), Settings' General (Look and feel, App, Your money, Users)
+and Gestures (the Thumb Lock switch, how it works, the whole gesture guide
+with figures), the Add sheet, the Accounts sheet (new and rename), rows swiped
+to delete, the floating Add button, and the Sidebar's "Add an account".
+Light and dark. Screens: `ledger/expo/docs/screens/phase-3b-*.png`.
+Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass; `laymos lint`
+passes in core, web, expo and expo-toolkit.
+
+**Where things went** (the separation)
+
+- **`@ledger/core/client/views`** (new layer `client-views` → `client-state`,
+  `shared`): what each Place shows, once for both apps. `glance` (Home),
+  `monthsView`, `monthView` (with `dailySpend` inside), the Entries search
+  (`validateEntriesSearch`, `shownBy`, `narrowedTo`, `narrowing`, moved from
+  web's `entries/filter.ts`), `entryAt` (an Entry's place and neighbours),
+  `markAfterRemoving`, `firstAccount`, `quickDays`, `ACCOUNT_KINDS`, and
+  `useLookup` (moved from web's parts). Tested in
+  `src/client/views/tests/views.test.ts`.
+- **`@ledger/core/client/commands`**: `usePlace` (moved from web's parts) and
+  `said` (a gesture in words, moved from web's Gestures tab).
+- **`@ledger/core/shared/ledger`**: `shiftDay`; `money(…, { compact })`
+  writes compact money by hand where Intl has no compact notation (Hermes
+  printed `$1,600.0`). The browser still uses Intl's own, so web is unchanged.
+- **Web** now imports all of the above; its own `filter.ts` and `lookup.ts`
+  are gone. Behaviour unchanged (smoke-tested below).
+- **`@kstackz/expo-toolkit`**: `components/choice` (pills that scroll
+  sideways, `bleed` to reach the screen edge), `components/meter` (a thin
+  bar with an optional limit mark), `patterns/sheet` (`Sheet`, over Panel
+  UI's bottom sheet, grown above the keyboard with Reanimated's
+  `useAnimatedKeyboard`), `patterns/swipe-row` (`SwipeRow`, over Panel UI's
+  `Swipe` with a destructive Delete tile, full swipe and the arm tick).
+  Changeset `expo-toolkit-places`.
+- **The app** (`ledger/expo/src/screens`): Places stay thin. New
+  `sheets/add` and `sheets/accounts` modules in the `screens` module graph
+  (shell → both sheets; `places/entries` → `sheets/accounts` for Rename).
+  Parts: `Amount` (compact), `EntryRow`, `Heading`, `Scroll`, `DayStepper`,
+  `CategoryIcon`/`AccountIcon` (web's Lucide names drawn with Hugeicons),
+  `useToneOf`. Globals answers `addEntry`; the Frame mounts the Add button
+  and both sheets.
+
+**How it was driven** (iPhone 17, Metro on 8082, Expo Go 57.0.9 installed
+from `~/.expo/ios-simulator-app-cache`)
+
+- Signed in as Ada on the Local Backend, started with sample money, added two
+  Entries through the Add sheet (out/Food/Card today; in/Gifts/Cash
+  yesterday), opened Entries and an Entry, Next, changed In/Out, Back to the
+  list (marked), deleted from an Entry and brought it back with Undo, opened
+  Months, a Month, a Category's entries (narrowed), an Account's entries,
+  renamed it through the Accounts sheet, added an Account, changed currency,
+  armed Delete everything (not confirmed), both Settings Sections, light and
+  dark.
+- **Swipe to delete:** `drive.mjs` cannot swipe. The delete was tested by
+  pressing the row's own Delete tile (`Swipe.Action`'s `onPress`, the
+  handler a full swipe fires), which deleted the row and raised the Undo
+  toast. The swipe gesture itself (Panel UI's Pan) was not performed.
+- `drive.mjs` gained `type "<label>" "<text>"` (calls `onChangeText`),
+  `call "<label>" <handler>`, and `METRO_PORT`.
+
+**Challenges**
+
+- `xcrun simctl openurl` on a fresh simulator raises "Open in Expo Go?",
+  which nothing here can tap. Expo Go accepts `--initialUrl`:
+  `xcrun simctl launch <udid> host.exp.Exponent --initialUrl exp://127.0.0.1:8082`.
+  It ignores a path after `/--/`, so routes were reached through the Sidebar.
+- Expo Go crashed once in Hermes' debugger (`Debugger::runUntilValidPauseLocation`,
+  SIGSEGV) while the sample money's lazily bundled module loaded with the
+  inspector attached; relaunching was enough. Fast refresh after an edit
+  often left "runtime not ready" errors; a relaunch fixed each.
+- **The Stack kept every Place mounted**, so two Entries screens both
+  registered `next`/`entries.*` handlers ("has two Handlers; the first one
+  keeps it", the stale one winning). The root layout now uses `Slot`: one
+  Place at a time, as on the web, and no back stack (the left edge is the
+  Sidebar's anyway).
+- A ghost button hands its glyph the button's colour, so `tone` could not
+  dim a disabled chevron; `useToneOf` gives the colour itself.
+- Toolkit `Text` sets `text-foreground`, so a nested `Amount` does not
+  inherit a parent's red; each nested Amount gets its tone explicitly.
+
+**Hacks**
+
+- `drive.mjs` picks the _last_ mounted element with a label, so labels must
+  be unique per screen: the Entry's Delete is "Delete the entry", apart
+  from the rows' "Delete" tiles.
+- The Add sheet's day: Today/Yesterday pills plus a `DayStepper` (a day at a
+  time, never past today) instead of a date picker, to add no dependency.
+  The Entry's Day uses the stepper alone.
+- Currency is a row of pills, not a select.
+
+**Drawbacks**
+
+- No back stack: Android's back button leaves the app instead of Jumping
+  (Phase 5 should map it to Jump).
+- Entries is a `SectionList` with sticky day headers; the marked row is
+  scrolled to with `scrollToLocation`, which can miss rows not yet laid out
+  (`onScrollToIndexFailed` is ignored).
+- Nothing is marked on Entries or Months until Jump comes back or Next and
+  Previous move the mark: with no keys, the web's always-marked first row
+  would only look selected.
+- The memo field is a multiline Panel `Input`, taller than the web's.
+- Compact money on Hermes rounds 144.45 down to `$144.4` where Chrome shows
+  `$144.5`, and its suffix case follows our table (`K`), not the locale.
+
+**Parity gaps** (web has, native does not yet)
+
+- Swiping between Settings Sections (web turns tabs with a sideways swipe);
+  tabs are tapped. With the Sidebar's edge swipe and 3c's Thumb Lock in the
+  same place, this belongs with 3c's gestures.
+- The swipe row plays no "arm" or "success" sound (Panel's `Swipe` reports
+  neither); it ticks the phone (`haptics` follows the Haptics setting).
+- Wide layouts (Entries list and Entry side by side, two-column budgets):
+  phones only for now.
+- App rows: no install (no meaning) and no "Check for updates" (no
+  expo-updates); the Version row shows `expo.version`.
+- Manage Google Accounts (Phase 4), and the Keys Section (left out).
+- The welcome copy says "every gesture", not "every key and gesture".
+
+**Web smoke test** (agent-browser, iPhone 14, Local Backend, this
+worktree's dev server): sign in as Ada, sample money, Home, Entries, an
+Entry (Next, Delete with the Undo toast, back to the list with `?at=`),
+Months, a Month, the Gestures tab (`said`), the Add sheet with Yesterday
+(`quickDays`), and Settings saving: Sounds off and currency EUR survived a
+reload, then put back. No regressions seen.
+
+**Open questions**
+
+- Should the left edge's back gesture ever exist on iOS? With `Slot` there
+  is none; the glossary gives the edge to the Sidebar.
+- Should `Choice`, `Meter` and the day stepper move into ui-toolkit's web
+  twin later, so web and native share the same component names?
+
+**Cleanup owed**
+
+- Expo Go's floating tools button shows in every screenshot; a development
+  build would drop it.
+- The earlier `||||||| be46cd20` merge markers in this file (after Phase 2b
+  and 2a) were left as they are.

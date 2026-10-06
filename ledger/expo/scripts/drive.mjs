@@ -1,20 +1,23 @@
-// Drives the running app for agents, with Metro on :8081 and the app open on
+// Drives the running app for agents, with Metro on :8081 (or METRO_PORT) and the app open on
 // the Simulator, through Metro's inspector (CDP Runtime.evaluate):
 //   node scripts/drive.mjs tap "<accessibilityLabel or text>"
+//   node scripts/drive.mjs type "<accessibilityLabel>" "<text>"
+//   node scripts/drive.mjs call "<accessibilityLabel or text>" <handler>
 //   node scripts/drive.mjs js "<expression>"
 // A "tap" finds the last mounted element, in tree order, with that label or
 // text and an onPress, and calls it: the app's own handler, not a real touch,
 // so gestures (Gesture Handler) are out of its reach. Screenshots:
 // `xcrun simctl io booted screenshot <file>`.
-const [, , command, arg] = process.argv;
-const list = await (await fetch('http://127.0.0.1:8081/json/list')).json();
+const [, , command, arg, more] = process.argv;
+const port = process.env.METRO_PORT ?? '8081';
+const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
 const target = list.find((page) => page.title.includes('iPhone')) ?? list[0];
 const ws = new WebSocket(target.webSocketDebuggerUrl, {
-  headers: { Origin: 'http://127.0.0.1:8081' },
+  headers: { Origin: `http://127.0.0.1:${port}` },
 });
 await new Promise((resolve) => ws.addEventListener('open', resolve));
 
-const TAP = (label) => `(() => {
+const ACT = (label, handler, value) => `(() => {
   const hook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__;
   const roots = [];
   for (const id of hook.renderers.keys()) for (const r of hook.getFiberRoots(id)) roots.push(r);
@@ -32,18 +35,29 @@ const TAP = (label) => `(() => {
   let found = null;
   const walk = (f) => { for (; f; f = f.sibling) {
     const p = f.memoizedProps;
-    if (p && typeof p === 'object' && typeof p.onPress === 'function' &&
+    if (p && typeof p === 'object' && typeof p[${JSON.stringify(handler)}] === 'function' &&
         (p.accessibilityLabel === want || text(f) === want)) found = f;
     walk(f.child);
   } };
   for (const r of roots) walk(r.current);
   if (!found) return 'not found: ' + want;
   if (found.memoizedProps.disabled) return 'disabled: ' + want;
-  found.memoizedProps.onPress({ nativeEvent: {}, persist() {} });
-  return 'tapped: ' + want;
+  found.memoizedProps[${JSON.stringify(handler)}](${
+    value === undefined
+      ? '{ nativeEvent: {}, persist() {} }'
+      : JSON.stringify(value)
+  });
+  return ${JSON.stringify(handler)} + ': ' + want;
 })()`;
 
-const expression = command === 'tap' ? TAP(arg) : arg;
+const expression =
+  command === 'tap'
+    ? ACT(arg, 'onPress')
+    : command === 'type'
+      ? ACT(arg, 'onChangeText', more)
+      : command === 'call'
+        ? ACT(arg, more)
+        : arg;
 ws.send(
   JSON.stringify({
     id: 1,

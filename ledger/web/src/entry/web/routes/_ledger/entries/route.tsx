@@ -1,8 +1,6 @@
 import { createFileRoute, Outlet, useParams } from '@tanstack/react-router';
-import {
-  Entries,
-  validateEntriesSearch,
-} from '../../../../../client/screens/places/entries/index.ts';
+import { validateEntriesSearch } from '@ledger/core/client/views';
+import { Entries } from '../../../../../client/screens/places/entries/index.ts';
 
 // The list and the open Entry stay one page, so the list keeps its place.
 export const Route = createFileRoute('/_ledger/entries')({

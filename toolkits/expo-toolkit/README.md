@@ -10,7 +10,7 @@ It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (U
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as ui-toolkit owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
-The package ships TypeScript source; Metro compiles it. `patterns/sheet` and `patterns/key-bar` export nothing yet.
+The package ships TypeScript source; Metro compiles it. `patterns/key-bar` exports nothing yet: it waits on Keys.
 
 ## Install
 
@@ -79,6 +79,7 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | `bottom-sheet`: `BottomSheet`                         | Draggable sheet anchored to the bottom of the screen.                       |
 | `bottom-sheet`: `bottomSheetDetentHeight`             | The height a detent resolves to.                                            |
 | `card`: `Card`                                        | Content surface with header, body and footer.                               |
+| `choice`: `Choice`                                    | One of a few things as a row of pills that scrolls sideways.                |
 | `dialog`: `Dialog`                                    | Modal dialog with a backdrop and footer actions.                            |
 | `drawer`: `Drawer`                                    | A panel from an edge of the screen that covers the app until dismissed.     |
 | `empty-state`: `EmptyState`                           | Placeholder for a list or screen with no content.                           |
@@ -88,6 +89,7 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | `input`: `Input`                                      | Text field with label, description and error message.                       |
 | `item`: `Item`                                        | Row of media, text and actions, for lists and settings.                     |
 | `label`: `Label`                                      | Form label with required, invalid and disabled states.                      |
+| `meter`: `Meter`                                      | A thin bar of how full something is, with an optional limit mark.           |
 | `portal-scope`: `PortalScope`                         | A portal host inside the app's providers, so overlays keep their context.   |
 | `separator`: `Separator`                              | Horizontal or vertical rule, optionally labelled.                           |
 | `spinner`: `Spinner`                                  | Indeterminate loading indicator.                                            |
@@ -109,8 +111,10 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | `sidebar`: `SidebarEdge`                   | Inside a surface, a swipe right of one finger from the left edge opens it.        |
 | `thumb-picker`: `ThumbPicker`              | A Thumb Lock that picks from a tree of choices: Steps, Sections, Wrong Way shake. |
 | `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.     |
+| `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                |
+| `swipe-row`: `SwipeRow`                    | A row swiped left to delete, with a tick as it arms and Delete to tap.            |
 
-`sheet` and `key-bar` export nothing yet.
+`key-bar` exports nothing yet.
 
 ## Usage
 

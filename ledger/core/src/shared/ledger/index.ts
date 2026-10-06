@@ -14,6 +14,7 @@ export {
   type MonthKey,
   monthName,
   monthOf,
+  shiftDay,
   shiftMonth,
   today,
 } from './month.ts';

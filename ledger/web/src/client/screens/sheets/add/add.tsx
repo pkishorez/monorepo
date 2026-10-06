@@ -9,9 +9,9 @@ import { useState } from 'react';
 import { BindingKeys } from '../../../kit/keyboard/index.ts';
 import { keys, useCommand } from '@ledger/core/client/commands';
 import { useMoney, useWrites } from '@ledger/core/client/session';
+import { firstAccount, quickDays } from '@ledger/core/client/views';
 import {
   centsOf,
-  dayOf,
   money as format,
   today,
   type Way,
@@ -66,11 +66,8 @@ function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
   const [day, setDay] = useState(today());
   const fits = money.categories.filter((category) => category.way === way);
   const [categoryId, setCategoryId] = useState<string>();
-  const [accountId, setAccountId] = useState<string>(
-    () =>
-      money.accounts.find((account) => account.kind === 'card')?.id ??
-      money.accounts[0]?.id ??
-      '',
+  const [accountId, setAccountId] = useState<string>(() =>
+    firstAccount(money.accounts),
   );
   const category = fits.find((each) => each.id === categoryId) ?? fits[0];
   const cents = centsOf(typed);
@@ -97,12 +94,7 @@ function Form(props: { readonly open: boolean; readonly onDone: () => void }) {
   const saveKey = keyOf('add.save');
   const wayKey = keyOf('add.way');
 
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const days = [
-    { value: today(), label: 'Today' },
-    { value: dayOf(yesterday), label: 'Yesterday' },
-  ];
+  const days = quickDays();
 
   return (
     // Only the grip drags the sheet closed; a drag on the form scrolls it.

@@ -1,4 +1,8 @@
 export { Amount } from './amount';
-export { StopIcon } from './icons';
+export { DayStepper } from './day-stepper';
+export { EntryRow } from './entry-row';
+export { Heading } from './heading';
+export { AccountIcon, CategoryIcon, StopIcon } from './icons';
 export { LedgerMark } from './ledger-mark';
-export { Placeholder } from './placeholder';
+export { Scroll } from './scroll';
+export { useToneOf } from './tone';

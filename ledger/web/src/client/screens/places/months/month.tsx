@@ -6,16 +6,11 @@ import {
 } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { keys, useCommand } from '@ledger/core/client/commands';
+import { keys, useCommand, usePlace } from '@ledger/core/client/commands';
+import { monthView } from '@ledger/core/client/views';
 import { useMoney } from '@ledger/core/client/session';
-import {
-  monthName,
-  monthOf,
-  shiftMonth,
-  summarize,
-  today,
-} from '@ledger/core/shared/ledger';
-import { Amount, CategoryIcon, usePlace } from '../../parts/index.ts';
+import { monthName } from '@ledger/core/shared/ledger';
+import { Amount, CategoryIcon } from '../../parts/index.ts';
 
 /**
  * One Month: what came in, what went out, each day's spending, and where
@@ -28,12 +23,8 @@ export function Month(props: { readonly month: string }) {
   const money = useMoney();
   const navigate = useNavigate();
   const currency = money.currency;
-  const summary = summarize(month, money.entries, money.categories);
-  const first = money.entries.at(-1);
-  const later = shiftMonth(month, 1);
-  const earlier = shiftMonth(month, -1);
-  const hasLater = later <= monthOf(today());
-  const hasEarlier = first !== undefined && earlier >= monthOf(first.day);
+  const { summary, left, later, earlier, hasLater, hasEarlier, days, peak } =
+    monthView(money, month);
   const turn = (to: string) =>
     void navigate({
       to: '/months/$month',
@@ -53,10 +44,6 @@ export function Month(props: { readonly month: string }) {
     'months.month.open',
     () => void navigate({ to: '/entries', search: { month } }),
   );
-
-  const days = dailySpend(money.entries, month);
-  const peak = Math.max(1, ...days);
-  const left = summary.in - summary.out;
 
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-6 pb-28 @md:px-8 @md:py-10">
@@ -211,19 +198,3 @@ function Stat(props: {
     </div>
   );
 }
-
-// Money out on each day of the Month, from the first.
-const dailySpend = (
-  entries: ReturnType<typeof useMoney>['entries'],
-  month: string,
-) => {
-  const [year = 0, index = 1] = month.split('-').map(Number);
-  const length = new Date(year, index, 0).getDate();
-  const days = Array.from({ length }, () => 0);
-  for (const entry of entries) {
-    if (entry.way !== 'out' || !entry.day.startsWith(month)) continue;
-    const day = Number(entry.day.slice(8, 10)) - 1;
-    days[day] = (days[day] ?? 0) + entry.cents;
-  }
-  return days;
-};
