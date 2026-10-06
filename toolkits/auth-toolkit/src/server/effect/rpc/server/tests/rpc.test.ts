@@ -23,7 +23,8 @@ import type { Session, User } from 'better-auth';
 
 import type { CurrentAuthValue } from '../../../current-auth/index.js';
 import { Authz } from '../../declaration/index.js';
-import { authzCookies, authzLayer, resolverLive } from '../server.js';
+import { resolverLive } from '../../../resolver-live/index.js';
+import { authzCookies, authzLayer } from '../server.js';
 
 const authLayer = authzLayer.pipe(
   Layer.provide(resolverLive({ authWorkerUrl: 'https://auth.example.com' })),

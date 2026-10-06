@@ -1,7 +1,11 @@
 import { Effect, Layer } from 'effect';
 
 import { verifyAccessToken } from '../../vanilla/access-token/index.js';
-import { auth, type CurrentAuthResolution } from './current-auth.js';
+import {
+  auth,
+  bearerToken,
+  type CurrentAuthResolution,
+} from '../current-auth/index.js';
 import { verifyRequest } from '../../vanilla/session/index.js';
 
 interface ResolverConfig {
@@ -12,12 +16,6 @@ interface ResolverConfig {
    * Server that accepts Access Tokens; omit it to accept Sessions only. */
   resource?: string;
 }
-
-export const bearerToken = (request: Request): string | null => {
-  const header = request.headers.get('authorization');
-  const match = header ? /^bearer\s+(\S+)$/i.exec(header) : null;
-  return match?.[1] ?? null;
-};
 
 const resolve = async (
   { authWorkerUrl, resource }: ResolverConfig,
@@ -51,6 +49,10 @@ const resolve = async (
       };
 };
 
+/** The production Current Auth Resolver: asks the Auth Worker about the
+ * request's cookie or bearer, and verifies Access Tokens itself when given
+ * a `resource`. Kept apart from the rest of Current Auth because it brings
+ * better-auth's server code, which a device-only backend never needs. */
 export const resolverLive = (config: ResolverConfig) =>
   Layer.succeed(
     auth.Resolver,

@@ -13,8 +13,8 @@ vi.mock('../../../vanilla/access-token/index.js', () => ({
   verifyAccessToken: mocks.verifyAccessToken,
 }));
 
-import { auth } from '../current-auth.js';
-import { resolverLive } from '../resolver.js';
+import { auth } from '../../current-auth/index.js';
+import { resolverLive } from '../resolver-live.js';
 
 const authWorkerUrl = 'https://auth.example.com';
 const jwt = 'eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJ1MSJ9.c2ln';

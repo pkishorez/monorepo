@@ -1,7 +1,8 @@
 import { Effect, Layer } from 'effect';
 import { FetchHttpClient, HttpEffect } from 'effect/http';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
-import { authzCookies, resolverLive } from '@kstackz/auth-toolkit/server/rpc';
+import { resolverLive } from '@kstackz/auth-toolkit/server/resolver-live';
+import { authzCookies } from '@kstackz/auth-toolkit/server/rpc';
 import { SQLite } from '@kstackz/std-toolkit/db/sqlite';
 import { makeD1SQLite } from '@kstackz/std-toolkit/db/sqlite/d1';
 import { LedgerApi } from '@ledger/core/shared/ledger-api';

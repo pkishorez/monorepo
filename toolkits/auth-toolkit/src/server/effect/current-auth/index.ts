@@ -7,5 +7,5 @@ export {
   type CurrentAuthValue,
 } from './current-auth.js';
 export { appendRefreshedCookies } from './refreshed-cookies.js';
-export { resolverLive } from './resolver.js';
+export { bearerToken } from './bearer-token.js';
 export { resolverLocal } from './resolver-local.js';
