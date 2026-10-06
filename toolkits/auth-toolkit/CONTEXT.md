@@ -56,13 +56,13 @@ _Avoid_: consent page, authorize page
 The Auth Worker's page at `/device`, where the User enters and approves a Device Login code.
 _Avoid_: device page, verification page
 
-**Test Account**:
-A User that exists only to be signed in without an identity provider: it lives on a reserved domain no Google account can ever hold, is created on its first Test Login, and can be removed outright. A real Principal like any other; what it may do is each Consumer Backend's Authorization Policy to decide.
-_Avoid_: mock user, fake user, bypass account, public account
+**Mock Account**:
+A User that exists only in mocked auth: signed in by naming it, with no Auth Worker and no identity provider involved. Each Signed-in Account behaves as it would with a real sign-in, so switching and signing out work the same way.
+_Avoid_: test account, fake user, demo user
 
-**Test Login**:
-The sign-in method that issues an ordinary Session for a Test Account when the Test Login secret is presented. Nothing downstream is bypassed: the Session, the Home Page listing, revocation, and every guard behave exactly as for a Google sign-in. Configured per Auth Worker instance; may be present on production.
-_Avoid_: test bypass, mock auth, impersonation (an Administrator acting as another User, which this is not)
+**Mock Token**:
+The Session token mocked auth hands a Mock Account, which carries the User it names. A mocked Current Auth Resolver reads the User straight out of it without asking anyone, so mocked auth on the browser side and on the Consumer Backend side never share state, wherever either runs. Any Mock Token is accepted, and signing out revokes nothing.
+_Avoid_: fake token, test token
 
 **Device Login**:
 How a First-Party program without a browser, such as a CLI, obtains a Session: it shows a code and URL, the User approves the code in a browser on the Auth Worker's device page, and the program receives a Session token. Always a Session, never an Access Token; no Client Registration, Scopes, or consent are involved.
@@ -157,7 +157,7 @@ An optional rule that accepts or rejects an identity when it first registers, li
 _Avoid_: invariant, user validation
 
 **Direct Session Check**:
-The browser calling the Auth Worker itself (cross-origin, not proxied) to ask "am I logged in" — used by the client subpath's hooks for `useSession`, sign-in, and sign-out. Requires the Auth Worker to allow the browser's origin (see Trusted Origin) and needs its cookie readable across origins (see Shared Cookie Domain).
+The browser calling the Auth Worker itself (cross-origin, not proxied) to ask "am I logged in" — used by the browser's Accounts to list, sign in, switch, and sign out. Requires the Auth Worker to allow the browser's origin (see Trusted Origin) and needs its cookie readable across origins (see Shared Cookie Domain).
 _Avoid_: proxied check (that's the separate Server-Side Verification path)
 
 **Server-Side Verification**:

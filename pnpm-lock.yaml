@@ -1128,6 +1128,9 @@ importers:
       '@kstackz/rpc-toolkit':
         specifier: workspace:*
         version: link:../rpc-toolkit
+      '@kstackz/std-toolkit':
+        specifier: workspace:*
+        version: link:../std-toolkit
       '@kstackz/ui-toolkit':
         specifier: workspace:*
         version: link:../ui-toolkit

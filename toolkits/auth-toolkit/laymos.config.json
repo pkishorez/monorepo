@@ -187,11 +187,11 @@
         }
       }
     },
-    "browser": {
-      "paths": ["src/clients/browser"],
-      "description": "Direct Session Check for a First-Party web app: React hooks for session state, login errors, sign-in, and sign-out",
+    "accounts": {
+      "paths": ["src/clients/accounts"],
+      "description": "A First-Party web app's Signed-in Accounts as one Effect service, Accounts: live against the Auth Worker, or mocked with Mock Accounts kept in a StdTable; plus fetch signed as one account",
       "modules": {
-        "src/clients/browser": {
+        "src/clients/accounts": {
           "exposed": true
         }
       }
@@ -226,10 +226,10 @@
       }
     },
     "clients": {
-      "description": "First-Party programs holding a Session: the browser and the CLI, each reading only the contract.",
+      "description": "First-Party programs holding a Session: the browser's Accounts and the CLI, each reading only the contract.",
       "rules": {
         "auth-worker-contract": [],
-        "browser": ["auth-worker-contract"],
+        "accounts": ["auth-worker-contract"],
         "cli": ["auth-worker-contract"]
       }
     }

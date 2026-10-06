@@ -67,9 +67,9 @@
       "types": "./dist/server/effect/http-api/declaration/index.d.ts",
       "default": "./dist/server/effect/http-api/declaration/index.js"
     },
-    "./clients/browser": {
-      "types": "./dist/clients/browser/index.d.ts",
-      "default": "./dist/clients/browser/index.js"
+    "./clients/accounts": {
+      "types": "./dist/clients/accounts/index.d.ts",
+      "default": "./dist/clients/accounts/index.js"
     },
     "./clients/cli": {
       "types": "./dist/clients/cli/index.d.ts",
@@ -102,6 +102,7 @@
   },
   "peerDependencies": {
     "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
     "alchemy": "2.0.0-beta.80",
     "better-sqlite3": "13.0.3",
     "effect": "^4.0.0",
@@ -109,6 +110,9 @@
   },
   "peerDependenciesMeta": {
     "@kstackz/rpc-toolkit": {
+      "optional": true
+    },
+    "@kstackz/std-toolkit": {
       "optional": true
     },
     "alchemy": {
@@ -127,6 +131,7 @@
   "devDependencies": {
     "@effect/platform-node": "catalog:",
     "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
     "@kstackz/ui-toolkit": "workspace:*",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/node22": "catalog:",

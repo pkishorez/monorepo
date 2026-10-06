@@ -28,7 +28,7 @@ src/
         deletion/                    Review, credential selection, confirmation and progress
         queries/                     Store cache addresses
         state-view/                  Consistent state presentation and navigation props
-    session/rpc-session/             Owns connection lifetime, query/action hooks and user-facing error text
+    session/rpc-session/             Owns the signed-in account, connection lifetime, query/action hooks and user-facing error text
     connections/
       auth/                          Connects to the authentication service
       rpc/                           Creates the typed RPC runtime

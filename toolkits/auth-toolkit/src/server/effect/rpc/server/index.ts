@@ -1,1 +1,6 @@
-export { authzCookies, authzLayer, resolverLive } from './server.js';
+export {
+  authzCookies,
+  authzLayer,
+  resolverLive,
+  resolverMock,
+} from './server.js';

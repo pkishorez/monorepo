@@ -11,25 +11,11 @@ export type SignedIn = {
   readonly active: boolean;
 };
 
-/** The sign-in service could not be reached. */
+/** The sign-in service could not be reached, and nobody was opened here
+ * before to open offline. */
 export class Unreachable extends Schema.Error<Unreachable>(
   'kstack/Unreachable',
 )({ _tag: Schema.tag('Unreachable') }) {}
-
-/** The shared sign-in service, as Ledger uses it. */
-export class SignInService extends Context.Service<
-  SignInService,
-  {
-    /** Every User signed in on this device. */
-    readonly signedIn: Effect.Effect<ReadonlyArray<SignedIn>, Unreachable>;
-    /** Makes a User the browser's active one, for every tab. */
-    readonly makeActive: (token: string) => Effect.Effect<void, Unreachable>;
-    /** Signs one User out of this browser. */
-    readonly signOut: (token: string) => Effect.Effect<void, Unreachable>;
-    /** Signs every User out of this browser. */
-    readonly signOutEveryone: Effect.Effect<void, Unreachable>;
-  }
->()('kstack/SignInService') {}
 
 /** What this device and tab remember, and the copies they keep. */
 export class Device extends Context.Service<

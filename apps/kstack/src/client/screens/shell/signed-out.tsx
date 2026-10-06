@@ -1,8 +1,12 @@
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import { GoogleButton } from '@kstackz/ui-toolkit/components/ui/google-button';
 import { CircleAlert, LoaderCircle } from '@kstackz/ui-toolkit/lucide';
-import { type ReactNode, useState } from 'react';
-import { authClient, checkAgain } from '../../state/machine/index.ts';
+import { type ReactNode, useEffect, useState } from 'react';
+import {
+  addUser,
+  checkAgain,
+  takeLoginError,
+} from '../../state/machine/index.ts';
 import { appTheme } from '../../state/settings/index.ts';
 import { LedgerMark } from '../parts/index.ts';
 
@@ -56,25 +60,27 @@ export function SignedOut(props: { readonly unreachable: boolean }) {
 
 function GoogleSignIn() {
   const { theme } = appTheme.useTheme();
-  const loginError = authClient.useLoginError();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
+  // The error a sign-in came back with, shown once.
+  useEffect(() => {
+    void takeLoginError().then((taken) => {
+      if (taken !== null) {
+        setError(taken.description ?? 'Sign in didn’t finish. Try again.');
+      }
+    });
+  }, []);
   const start = async () => {
     setPending(true);
     setError(undefined);
-    loginError.dismiss();
     try {
-      const result = await authClient.signIn.google();
-      if (result.error) {
-        setError(result.error.message ?? 'Sign in didn’t finish. Try again.');
-      }
+      await addUser();
     } catch {
       setError('The sign-in service didn’t answer. Try again.');
     } finally {
       setPending(false);
     }
   };
-  const shown = error ?? loginError.error?.description;
   return (
     <div className="space-y-3">
       <div className="w-fit">
@@ -85,13 +91,13 @@ function GoogleSignIn() {
           onClick={() => void start()}
         />
       </div>
-      {shown && (
+      {error && (
         <p
           role="alert"
           className="flex items-start gap-1.5 text-sm text-destructive"
         >
           <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          {shown}
+          {error}
         </p>
       )}
     </div>

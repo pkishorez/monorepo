@@ -27,8 +27,8 @@
       "@kstackz/auth-toolkit/http-api": [
         "./src/server/effect/http-api/declaration/index.ts"
       ],
-      "@kstackz/auth-toolkit/clients/browser": [
-        "./src/clients/browser/index.ts"
+      "@kstackz/auth-toolkit/clients/accounts": [
+        "./src/clients/accounts/index.ts"
       ],
       "@kstackz/auth-toolkit/clients/cli": ["./src/clients/cli/index.ts"]
     },

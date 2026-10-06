@@ -8,6 +8,7 @@
     "src/components/blocks/auth/fixtures",
     "src/components/blocks/auth/home-screen.fixture.tsx",
     "src/components/blocks/auth/login-screen.fixture.tsx",
+    "src/components/blocks/auth/mock-sign-in.fixture.tsx",
     "src/components/blocks/auth/not-found-screen.fixture.tsx",
     "src/components/blocks/devtools-panel/devtools-panel.fixture.tsx",
     "src/components/blocks/flow-swimlane/examples",
@@ -95,7 +96,8 @@
             "grant-list": {},
             "scope-list": {},
             "account-switcher": {},
-            "email-privacy": {}
+            "email-privacy": {},
+            "mock-sign-in": {}
           },
           "rules": {
             "auth-screens": [
@@ -105,12 +107,14 @@
               "action-button",
               "session-list",
               "grant-list",
-              "scope-list"
+              "scope-list",
+              "mock-sign-in"
             ],
             "session-list": ["action-button", "disclosure-list"],
             "grant-list": ["action-button", "disclosure-list", "scope-list"],
             "screen-frame": ["email-privacy", "account-switcher"],
-            "account-switcher": ["email-privacy"]
+            "account-switcher": ["email-privacy"],
+            "mock-sign-in": ["email-privacy"]
           }
         },
         "recorded-flow-explorer": {

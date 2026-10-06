@@ -4,3 +4,4 @@ export {
   useRpcQuery,
   useRpcAction,
 } from './rpc-session.tsx';
+export { SessionProvider, useSession } from './auth-session.tsx';

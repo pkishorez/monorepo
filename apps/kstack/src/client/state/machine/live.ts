@@ -1,9 +1,10 @@
 import { Effect, Layer } from 'effect';
+import { accountsLive } from '@kstackz/auth-toolkit/clients/accounts';
 import { reconcileCopies } from '../local-copies/index.ts';
 import { openSession, type User } from '../session/index.ts';
 import { deviceSettings } from '../settings/index.ts';
-import { authClient } from './auth.ts';
-import { Device, Sessions, SignInService, Unreachable } from './services.ts';
+import { AUTH_URL } from './auth.ts';
+import { Device, Sessions } from './services.ts';
 
 // sessionStorage: the User of this tab, kept across reloads of it.
 const TAB_USER = 'ledger:user';
@@ -12,19 +13,6 @@ const LAST_USER = 'ledger:last-user';
 
 /** Forgets this tab's User, so the browser's active one opens next. */
 export const forgetTabUser = () => sessionStorage.removeItem(TAB_USER);
-
-const reach = <A>(call: () => Promise<A>) =>
-  Effect.tryPromise({ try: call, catch: () => new Unreachable() });
-
-const signInLive = Layer.succeed(SignInService, {
-  signedIn: reach(() => authClient.signedInAccounts()),
-  makeActive: (token) => reach(() => authClient.switchAccount(token)),
-  signOut: (token) => reach(() => authClient.signOutAccount(token)),
-  signOutEveryone: reach(async () => {
-    const { error } = await authClient.signOut();
-    if (error) throw error;
-  }),
-});
 
 const readLastUser = (): User | null => {
   try {
@@ -59,4 +47,8 @@ const deviceLive = Layer.succeed(Device, {
 const sessionsLive = Layer.succeed(Sessions, { open: openSession });
 
 /** Everything the app machine needs, in this browser. */
-export const appLive = Layer.mergeAll(signInLive, deviceLive, sessionsLive);
+export const appLive = Layer.mergeAll(
+  accountsLive({ authWorkerUrl: AUTH_URL }),
+  deviceLive,
+  sessionsLive,
+);

@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, ManagedRuntime } from 'effect';
-import { FetchHttpClient } from 'effect/http';
+import { signedFetchLayer } from '@kstackz/auth-toolkit/clients/accounts';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import { LedgerApi } from '../../../domain/ledger-api/index.ts';
 
@@ -18,25 +18,10 @@ export class Rpc extends Context.Service<
 export type Credential = { token: string | null };
 
 /**
- * `fetch`, signed as the Session's User whoever the browser's active User is,
- * and never by the cookie: a request with no token is not sent.
+ * A runtime whose effects call the Ledger API at `/rpc` as one User, signed
+ * with their token whoever the browser's active User is, and never by the
+ * cookie: a request with no token yet is not sent.
  */
-const signedFetch = (credential: Credential): typeof fetch =>
-  Object.assign(
-    (input: RequestInfo | URL, init?: RequestInit) => {
-      if (credential.token === null) {
-        return Promise.reject(
-          new Error('[session] no token for this User yet'),
-        );
-      }
-      const headers = new Headers(init?.headers);
-      headers.set('authorization', `Bearer ${credential.token}`);
-      return fetch(input, { ...init, headers, credentials: 'omit' });
-    },
-    { preconnect: fetch.preconnect },
-  );
-
-/** A runtime whose effects call the Ledger API at `/rpc` as one User. */
 export const makeRpcRuntime = (credential: Credential) =>
   ManagedRuntime.make(
     Layer.effect(Rpc, makeClient).pipe(
@@ -45,11 +30,7 @@ export const makeRpcRuntime = (credential: Credential) =>
           url: new URL('/rpc', window.location.origin).href,
         }).pipe(
           Layer.provide([
-            FetchHttpClient.layer.pipe(
-              Layer.provide(
-                Layer.succeed(FetchHttpClient.Fetch, signedFetch(credential)),
-              ),
-            ),
+            signedFetchLayer(() => credential.token),
             RpcSerialization.layerNdjson,
           ]),
         ),

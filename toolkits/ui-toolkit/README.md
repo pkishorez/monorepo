@@ -109,6 +109,7 @@ object and a state union, and renders loading, error, and ready states.
 | `DeviceScreen`   | Walks through device-code login: enter a code, confirm the client, then show the result.                        |
 | `NotFoundScreen` | Renders a branded page-not-found message with a link home.                                                      |
 | `ErrorScreen`    | Renders a branded error page with an optional error code and description.                                       |
+| `MockSignIn`     | Asks who to sign in as when sign-in is mocked, with one-tap presets and an email and name form.                 |
 
 ### `@kstackz/ui-toolkit/components/blocks/theme`
 

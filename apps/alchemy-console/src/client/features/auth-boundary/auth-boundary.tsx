@@ -1,37 +1,46 @@
 import { Effect } from 'effect';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useRunEffect } from 'use-effect-ts';
+import { useComponentLifecycle, useRunEffect } from 'use-effect-ts';
+import type { LoginError } from '@kstackz/auth-toolkit/clients/accounts';
 import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import { GoogleButton } from '@kstackz/ui-toolkit/components/ui/google-button';
 import { CircleAlert, LoaderCircle } from '@kstackz/ui-toolkit/lucide';
 import { LogoMark } from '../brand/index.ts';
-import { authClient } from '../../connections/auth/index.ts';
+import { accounts } from '../../connections/auth/index.ts';
 import { appTheme, ThemeToggle } from './theme-toggle.tsx';
-import { RpcProvider, useRpc } from '../../session/rpc-session/index.ts';
+import {
+  RpcProvider,
+  SessionProvider,
+  useRpc,
+  useSession,
+} from '../../session/rpc-session/index.ts';
 
 function useAuthAction(action: 'login' | 'logout') {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginError, setLoginError] = useState<LoginError | null>(null);
   const active = useRef(false);
-  const loginError = authClient.useLoginError();
+  const session = useSession();
+  useComponentLifecycle(
+    action === 'login'
+      ? accounts.takeLoginError.pipe(
+          Effect.flatMap((taken) => Effect.sync(() => setLoginError(taken))),
+        )
+      : Effect.void,
+  );
   const run = useRunEffect(() =>
-    Effect.tryPromise(async () => {
-      const result = await (action === 'login'
-        ? authClient.signIn.google()
-        : authClient.signOut());
-      return { error: result.error };
-    }).pipe(
-      Effect.match({
-        onSuccess: (result) => {
-          if (result.error)
-            setError(
-              result.error.message ?? 'Sign in didn’t complete. Try again.',
-            );
-        },
-        onFailure: () =>
+    (action === 'login'
+      ? accounts.signIn()
+      : accounts.signOutAll.pipe(
+          Effect.andThen(Effect.promise(session.refresh)),
+        )
+    ).pipe(
+      Effect.catch(() =>
+        Effect.sync(() =>
           setError('The sign-in service didn’t respond. Try again.'),
-      }),
+        ),
+      ),
       Effect.ensuring(
         Effect.sync(() => {
           active.current = false;
@@ -45,13 +54,13 @@ function useAuthAction(action: 'login' | 'logout') {
     active.current = true;
     setPending(true);
     setError(null);
-    loginError.dismiss();
+    setLoginError(null);
     void run();
   };
   return {
     pending,
     start,
-    error: error ?? loginError.error?.description ?? null,
+    error: error ?? loginError?.description ?? null,
   };
 }
 
@@ -178,8 +187,16 @@ export function AccountMenu() {
 }
 
 export function AuthBoundary({ children }: { children: ReactNode }) {
-  const session = authClient.useSession();
-  if (session.isPending)
+  return (
+    <SessionProvider>
+      <SessionGate>{children}</SessionGate>
+    </SessionProvider>
+  );
+}
+
+function SessionGate({ children }: { children: ReactNode }) {
+  const session = useSession();
+  if (session.pending)
     return (
       <AuthScreen
         description="Your infrastructure, in one place."
@@ -207,11 +224,11 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
               Retry, or reload the page if this keeps happening.
             </p>
           </div>
-          <Button onClick={() => void session.refetch()}>Retry</Button>
+          <Button onClick={() => void session.refresh()}>Retry</Button>
         </div>
       </div>
     );
-  if (!session.data)
+  if (!session.account)
     return (
       <AuthScreen
         description="Your infrastructure, in one place."
@@ -220,7 +237,7 @@ export function AuthBoundary({ children }: { children: ReactNode }) {
     );
 
   return (
-    <RpcProvider key={session.data.session.id}>
+    <RpcProvider key={session.account.token}>
       <ConnectionGate>{children}</ConnectionGate>
     </RpcProvider>
   );

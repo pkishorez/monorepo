@@ -1,16 +1,11 @@
 import { Effect, Layer } from 'effect';
+import { Accounts, Unreachable } from '@kstackz/auth-toolkit/clients/accounts';
 import { createEffectActor, send, waitFor } from '@xstate/effect';
 import { describe, expect, it, vi } from 'vitest';
 import type { Switching } from '../../../../domain/settings/index.ts';
 import type { Session, User } from '../../session/index.ts';
 import { appMachine } from '../machine.ts';
-import {
-  Device,
-  Sessions,
-  type SignedIn,
-  SignInService,
-  Unreachable,
-} from '../services.ts';
+import { Device, Sessions } from '../services.ts';
 
 const user = (id: string): User => ({
   id,
@@ -38,20 +33,21 @@ const world = (options: {
     log: [] as string[],
     tokens: new Map<string, string | null>(),
   };
-  const listed = (): SignedIn[] =>
+  const listed = () =>
     state.signedIn.map(({ user, active }) => ({
       user,
       token: `${user.id}-token`,
       active: active ?? false,
     }));
   const layer = Layer.mergeAll(
-    Layer.succeed(SignInService, {
-      signedIn: Effect.suspend(() =>
+    Layer.succeed(Accounts, {
+      list: Effect.suspend(() =>
         state.reachable
           ? Effect.succeed(listed())
-          : Effect.fail(new Unreachable()),
+          : Effect.fail(new Unreachable({ reason: 'offline' })),
       ),
-      makeActive: (token) =>
+      signIn: () => Effect.void,
+      switchTo: (token) =>
         Effect.sync(() => {
           state.log.push(`active ${token}`);
           state.signedIn = state.signedIn.map((entry) => ({
@@ -66,10 +62,11 @@ const world = (options: {
             ({ user }) => `${user.id}-token` !== token,
           );
         }),
-      signOutEveryone: Effect.sync(() => {
+      signOutAll: Effect.sync(() => {
         state.log.push('sign out everyone');
         state.signedIn = [];
       }),
+      takeLoginError: Effect.succeed(null),
     }),
     Layer.succeed(Device, {
       switching: Effect.sync(() => state.switching),
@@ -110,7 +107,7 @@ const world = (options: {
 };
 
 const run = <A>(
-  layer: Layer.Layer<SignInService | Device | Sessions>,
+  layer: Layer.Layer<Accounts | Device | Sessions>,
   program: (
     actor: Effect.Success<
       ReturnType<typeof createEffectActor<typeof appMachine>>
