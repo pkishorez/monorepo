@@ -3,8 +3,8 @@
 Source: the grilling session's brief (`plan.md` at the worktree root, kept
 untracked), which supersedes the earlier version of this spec. That version
 signed native Users in with Device Login; native signs in as an OAuth client
-with PKCE instead (Ledger ADR 0009). The parity checklist beside this file
-(`ledger-on-expo.parity.md`) lists every web behaviour native must match.
+with PKCE instead (Ledger ADR 0009). The parity audit
+(`ledger/docs/parity.md`) lists every web behaviour native must match.
 
 ## Outcome
 
