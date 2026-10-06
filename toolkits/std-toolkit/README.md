@@ -101,11 +101,11 @@ See [src/db/memory/README.md](src/db/memory/README.md).
 
 ### `@kstackz/std-toolkit/db/sqlite`
 
-See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the driver entrypoints `./db/sqlite/node`, `./db/sqlite/bun`, `./db/sqlite/better-sqlite3`, `./db/sqlite/d1`, and `./db/sqlite/durable-object`.
+See [src/db/sqlite/README.md](src/db/sqlite/README.md). It also covers the driver entrypoints `./db/sqlite/node`, `./db/sqlite/bun`, `./db/sqlite/better-sqlite3`, `./db/sqlite/d1`, `./db/sqlite/durable-object`, and `./db/sqlite/expo`.
 
 ### `@kstackz/std-toolkit/sync`
 
-See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced` and `./sync/platform/browser`.
+See [src/sync/README.md](src/sync/README.md). It also covers `./sync/paced`, `./sync/platform/browser`, and `./sync/platform/expo`.
 
 ## Usage
 

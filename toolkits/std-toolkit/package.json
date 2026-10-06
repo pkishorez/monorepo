@@ -6,6 +6,7 @@
   "keywords": [
     "dynamodb",
     "effect",
+    "expo",
     "indexeddb",
     "in-memory",
     "schema",
@@ -58,6 +59,10 @@
       "types": "./dist/db/sqlite/drivers/durable-object/index.d.ts",
       "default": "./dist/db/sqlite/drivers/durable-object/index.js"
     },
+    "./db/sqlite/expo": {
+      "types": "./dist/db/sqlite/drivers/expo/index.d.ts",
+      "default": "./dist/db/sqlite/drivers/expo/index.js"
+    },
     "./db/sqlite/node": {
       "types": "./dist/db/sqlite/drivers/node/index.d.ts",
       "default": "./dist/db/sqlite/drivers/node/index.js"
@@ -93,6 +98,10 @@
     "./sync/platform/browser": {
       "types": "./dist/sync/platform/browser/index.d.ts",
       "default": "./dist/sync/platform/browser/index.js"
+    },
+    "./sync/platform/expo": {
+      "types": "./dist/sync/platform/expo/index.d.ts",
+      "default": "./dist/sync/platform/expo/index.js"
     },
     "./alchemy": {
       "types": "./dist/alchemy/index.d.ts",

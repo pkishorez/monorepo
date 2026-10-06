@@ -26,6 +26,7 @@
     "src/sync/domain/identity/__tests__",
     "src/sync/paced/__tests__",
     "src/sync/platform/browser/__tests__",
+    "src/sync/platform/expo/__tests__",
     "src/sync/session/__tests__",
     "src/sync/strategy/__tests__"
   ],
@@ -321,6 +322,9 @@
         },
         "src/db/sqlite/drivers/durable-object": {
           "exposed": true
+        },
+        "src/db/sqlite/drivers/expo": {
+          "exposed": true
         }
       }
     },
@@ -511,7 +515,7 @@
     },
     "sync.platform": {
       "paths": ["src/sync/platform"],
-      "description": "Platform — the environment a Std Sync runs in: the contract and the Memory and browser presets",
+      "description": "Platform — the environment a Std Sync runs in: the contract and the Memory, browser, and Expo presets",
       "moduleGraphs": {
         "platform": {
           "description": "The contract and its machinery; each preset assembles a Sync Store, Leadership, and Doorbell.",
@@ -531,12 +535,16 @@
             },
             "browser": {
               "exposed": true
+            },
+            "expo": {
+              "exposed": true
             }
           },
           "rules": {
             "sync-store": ["contract"],
             "memory": ["contract"],
-            "browser": ["contract"]
+            "browser": ["contract"],
+            "expo": ["contract"]
           }
         }
       }
@@ -716,6 +724,8 @@
         "sync.strategy": ["core.public", "eschema.public"],
         "sync.platform": [
           "idb.public",
+          "sqlite.public",
+          "sqlite.drivers",
           "memory.public",
           "db.public",
           "sync.domain"
