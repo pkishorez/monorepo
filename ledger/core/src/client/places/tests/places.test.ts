@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stopsFrom } from '../places.ts';
+import { placeTitle, stopsFrom } from '../index.ts';
 
 const ACCOUNTS = [
   { id: 'cash', name: 'Cash', kind: 'cash' as const },
@@ -59,5 +59,27 @@ describe('the stops of a Thumb Lock', () => {
       ids('/entries', { account: 'bank', accounts: ACCOUNTS }).start,
     ).toEqual(['accounts', 'bank']);
     expect(ids('/entries', { account: 'gone' }).start).toEqual(['entries']);
+  });
+
+  it('keeps only the Sections an app shows', () => {
+    const { tree } = stopsFrom({
+      pathname: '/',
+      accounts: [],
+      sections: ['general', 'gestures'],
+    });
+    expect(tree.at(-1)?.children?.map((stop) => stop.id)).toEqual([
+      'general',
+      'gestures',
+    ]);
+  });
+});
+
+describe('the title of a Place', () => {
+  it('names each Place, an Entry and a Month', () => {
+    expect(placeTitle('/')).toBe('Home');
+    expect(placeTitle('/entries')).toBe('Entries');
+    expect(placeTitle('/entries/abc')).toBe('Entry');
+    expect(placeTitle('/months')).toBe('Months');
+    expect(placeTitle('/settings')).toBe('Settings');
   });
 });

@@ -31,7 +31,7 @@
     },
     "components": {
       "paths": ["src/components"],
-      "description": "Owned Panel UI copies, restyled through the theme's tokens. Exposed components are the package's ./components/*; parts/ is their private interior.",
+      "description": "Owned Panel UI copies, restyled through the theme's tokens. Exposed components are the package's ./components/*; parts/ is their private interior. glyph.tsx (an app's Hugeicons in the theme's colours) and portal-scope.tsx (a portal host inside the app's providers) are the toolkit's own.",
       "moduleGraphs": {
         "panel": {
           "description": "Panel UI as copied: each exposed component is a door; text, icons and the parts/ internals (portal, scrim, pressable, direction, keyboard and platform bridges) are what they share, each edge declared.",
@@ -58,6 +58,9 @@
             "field.tsx": {
               "exposed": true
             },
+            "glyph.tsx": {
+              "exposed": true
+            },
             "icons.tsx": {
               "exposed": true
             },
@@ -71,6 +74,9 @@
               "exposed": true
             },
             "panel-ui-provider.tsx": {
+              "exposed": true
+            },
+            "portal-scope.tsx": {
               "exposed": true
             },
             "separator.tsx": {
@@ -146,6 +152,7 @@
             ],
             "empty-state.tsx": ["text.tsx"],
             "field.tsx": ["label.tsx", "separator.tsx", "text.tsx"],
+            "glyph.tsx": ["icons.tsx"],
             "icons.tsx": ["parts/use-direction.ts"],
             "input.tsx": [
               "icons.tsx",
@@ -158,6 +165,7 @@
             "item.tsx": ["parts/animated-pressable.tsx", "text.tsx"],
             "label.tsx": ["text.tsx"],
             "panel-ui-provider.tsx": ["parts/portal.tsx", "toast.tsx"],
+            "portal-scope.tsx": ["parts/portal.tsx"],
             "separator.tsx": ["text.tsx"],
             "swipe.tsx": [
               "icons.tsx",
@@ -197,7 +205,7 @@
     },
     "patterns": {
       "paths": ["src/patterns"],
-      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Place Picker, the Sidebar, the sheet, the Key Bar. Stubs until Phase 3; each becomes a module graph.",
+      "description": "Whole interactions built from components, input and feedback: the Sidebar as a drawer and the Local Sign-In dialog today; the Thumb Lock's Place Picker, the sheet and the Key Bar are stubs until Phase 3b/3c. Each becomes a module graph once it has parts.",
       "modules": {
         "src/patterns/thumb-picker": {
           "exposed": true
@@ -209,6 +217,9 @@
           "exposed": true
         },
         "src/patterns/key-bar": {
+          "exposed": true
+        },
+        "src/patterns/local-sign-in": {
           "exposed": true
         }
       }

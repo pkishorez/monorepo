@@ -1,0 +1,88 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["index.ts", "app", "src"],
+  "ignoredPaths": [],
+  "layers": {
+    "entry": {
+      "paths": ["index.ts", "app"],
+      "description": "Where the phone starts: the runtime made ready for core, then Expo Router's root layout and one thin route for each Place. Expo Router reaches the routes itself, so nothing imports them",
+      "modules": {
+        "index.ts": {},
+        "app": {}
+      }
+    },
+    "client-screens": {
+      "paths": ["src/screens"],
+      "description": "What the user sees on a phone: the shell around every Place (Splash, signed-out card, header, Sidebar with the User Switcher, Local Sign-In, the Commands, and the layer gestures mount in), each Place, and the parts they share",
+      "moduleGraphs": {
+        "screens": {
+          "description": "The shell holds the frame; each Place is its own module a route opens; all of them draw with the shared parts",
+          "path": "src/screens",
+          "modules": {
+            "shell": {
+              "exposed": true
+            },
+            "places/home": {
+              "exposed": true
+            },
+            "places/entries": {
+              "exposed": true
+            },
+            "places/months": {
+              "exposed": true
+            },
+            "places/settings": {
+              "exposed": true
+            },
+            "parts": {}
+          },
+          "rules": {
+            "shell": ["parts"],
+            "places/home": ["parts"],
+            "places/entries": ["parts"],
+            "places/months": ["parts"]
+          }
+        }
+      }
+    },
+    "client-ledger": {
+      "paths": ["src/ledger"],
+      "description": "Ledger's client from core, made once on the phone's platform Layer, with the theme remembered on this phone and the sounds and haptics of Commands: what every screen uses for Ledger's state, Settings, Users and Backend",
+      "modules": {
+        "src/ledger": {
+          "exposed": true
+        }
+      }
+    },
+    "client-platform": {
+      "paths": ["src/platform"],
+      "description": "The phone's platform Layer core asks for: tables and Remote copies in expo-sqlite, the last User in secure storage, the network from expo-network and the foreground from AppState, and the Remote Backend's sign-in (a stub until Phase 4)",
+      "modules": {
+        "src/platform": {
+          "exposed": true
+        }
+      }
+    },
+    "runtime": {
+      "paths": ["src/runtime"],
+      "description": "What Hermes lacks that core expects of a runtime, put in place before anything else loads: crypto.randomUUID and getRandomValues",
+      "modules": {
+        "src/runtime/hermes.ts": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "ledger-expo": {
+      "description": "Read top-down: entry readies the runtime and routes to the screens; the screens stand on Ledger's client from core, made on the phone's platform Layer. Everything shared with the web app is in @ledger/core; generic native UI, gestures and feedback are in @kstackz/expo-toolkit",
+      "rules": {
+        "entry": ["runtime", "client-screens"],
+        "client-screens": ["client-ledger"],
+        "client-ledger": ["client-platform"],
+        "client-platform": [],
+        "runtime": []
+      }
+    }
+  }
+}

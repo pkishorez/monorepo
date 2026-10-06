@@ -23,13 +23,17 @@ export const openSettings = (
   table: Layer.Layer<StdTableService<typeof settingsTable.logicalName>>,
 ) => {
   const runtime = ManagedRuntime.make(table);
-  const put = (value: Settings) =>
+  // Writes `changed` over what is stored, or `value` when nothing is yet. A
+  // change made before the stored Settings were read keeps the rest of them.
+  const put = (value: Settings, changed: Partial<Settings>) =>
     Effect.gen(function* () {
       const stored = yield* settings.get(key);
       return stored === null
         ? yield* settings.insert(value)
-        : yield* settings.getAndUpdate(key, value);
+        : yield* settings.getAndUpdate(key, { ...stored.value, ...changed });
     });
+  // What was changed while the stored Settings were still unread.
+  let early: Partial<Omit<Settings, 'id'>> = {};
   const sync = createStdSync({ name: 'device', runtime });
   const collection = sync.collection(Settings, {
     sync: {
@@ -44,8 +48,10 @@ export const openSettings = (
         pollEvery: POLL,
       }),
     },
-    onInsert: (items) => Effect.forEach(items, put),
-    onUpdate: ({ current, updates }) => put({ ...current, ...updates }),
+    onInsert: (items) =>
+      Effect.forEach(items, (item) => put(item, { ...early })),
+    onUpdate: ({ current, updates }) =>
+      put({ ...current, ...updates }, updates),
   });
   return {
     collection,
@@ -67,6 +73,7 @@ export const openSettings = (
           Object.assign(draft, changes);
         });
       } else {
+        early = { ...early, ...changes };
         collection.insert({ ...defaultSettings, ...changes });
       }
     },

@@ -9,7 +9,7 @@ export const useSettings = ({ collection }: DeviceSettings): Settings => {
   return useMemo(() => {
     const stored = data[0];
     if (stored === undefined) return defaultSettings;
-    const { id, sound, keys, keysOn, gesturesOn, backend } = stored;
-    return { id, sound, keys, keysOn, gesturesOn, backend };
+    const { id, sound, haptics, keys, keysOn, gesturesOn, backend } = stored;
+    return { id, sound, haptics, keys, keysOn, gesturesOn, backend };
   }, [data]);
 };

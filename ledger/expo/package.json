@@ -2,22 +2,33 @@
   "name": "@ledger/expo",
   "description": "Ledger on iOS and Android: an Expo Router app on the Expo Toolkit that talks to @ledger/web's /rpc and never hosts a server.",
   "private": true,
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "ios": "expo start --ios",
     "android": "expo start --android",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit && pnpm lint:laymos",
+    "lint:laymos": "laymos lint"
   },
   "dependencies": {
+    "@hugeicons/core-free-icons": "catalog:",
+    "@kstackz/auth-toolkit": "workspace:*",
     "@kstackz/expo-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "@ledger/core": "workspace:*",
+    "effect": "catalog:",
     "expo": "catalog:",
     "expo-audio": "catalog:",
     "expo-constants": "catalog:",
+    "expo-crypto": "catalog:",
     "expo-font": "catalog:",
     "expo-haptics": "catalog:",
     "expo-linking": "catalog:",
+    "expo-network": "catalog:",
     "expo-router": "catalog:",
+    "expo-secure-store": "catalog:",
+    "expo-splash-screen": "catalog:",
+    "expo-sqlite": "catalog:",
     "expo-status-bar": "catalog:",
     "react": "catalog:",
     "react-native": "catalog:",
@@ -32,6 +43,7 @@
   },
   "devDependencies": {
     "@types/react": "catalog:",
+    "laymos": "workspace:*",
     "typescript": "catalog:"
   }
 }

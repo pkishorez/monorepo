@@ -13,7 +13,8 @@
     "./client/settings": "./src/client/domain/settings/index.ts",
     "./client/session": "./src/client/state/session/index.ts",
     "./client/gate": "./src/client/gate/index.ts",
-    "./client/commands": "./src/client/commands/index.ts"
+    "./client/commands": "./src/client/commands/index.ts",
+    "./client/places": "./src/client/places/index.ts"
   },
   "scripts": {
     "lint": "tsc --noEmit && tsc --noEmit -p tests && pnpm lint:laymos",

@@ -73,6 +73,15 @@
         }
       }
     },
+    "client-places": {
+      "paths": ["src/client/places"],
+      "description": "The Place order both apps follow: every Place with its address and Go Command, the Sections of Settings, the title of each Place, and the stops a Thumb Lock picks from where you are. Icons are named, for each app to draw",
+      "modules": {
+        "src/client/places": {
+          "exposed": true
+        }
+      }
+    },
     "client-commands": {
       "paths": ["src/client/commands"],
       "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and the sound and Key Bar of each as it is given, played however the app plays sounds",
@@ -123,13 +132,14 @@
   },
   "layerGraphs": {
     "ledger-core": {
-      "description": "Read top-down: the Gate runs one Backend's services, built from the platform Layer, over the client's state and domain; the Local Backend's server half over the Backend's domain; what both sides speak at the bottom. The Commands stand alone. The client reaches the server only through the Local Backend, and the platform only through the seam",
+      "description": "Read top-down: the Gate runs one Backend's services, built from the platform Layer, over the client's state and domain; the Local Backend's server half over the Backend's domain; what both sides speak at the bottom. The Commands stand alone; the Place order names them. The client reaches the server only through the Local Backend, and the platform only through the seam",
       "rules": {
         "client-gate": ["client-backends"],
         "client-backends": ["client-platform", "client-state", "server-local"],
         "client-platform": ["client-domain"],
         "client-state": ["client-domain"],
         "client-domain": ["shared"],
+        "client-places": ["client-commands", "shared"],
         "client-commands": [],
         "server-local": ["server-domain"],
         "server-domain": ["shared"],

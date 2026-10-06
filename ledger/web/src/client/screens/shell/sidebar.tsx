@@ -15,8 +15,8 @@ import { keys, useCommand } from '@ledger/core/client/commands';
 import { useMoney } from '@ledger/core/client/session';
 import { balances } from '@ledger/core/shared/ledger';
 import { useOpenAccount } from '../sheets/accounts/index.ts';
-import { AccountIcon, Amount, focusPage } from '../parts/index.ts';
-import { PLACES } from './places.ts';
+import { PLACES } from '@ledger/core/client/places';
+import { AccountIcon, Amount, focusPage, stopIcon } from '../parts/index.ts';
 
 // Every Place but Settings, which sits at the foot of the Sidebar.
 const TOP = PLACES.filter((place) => place.to !== '/settings');
@@ -51,6 +51,7 @@ export function SidebarContent() {
           <SidebarMenu>
             {TOP.map((place) => {
               const binding = keyOf(place.command);
+              const Icon = stopIcon(place.id);
               return (
                 <SidebarMenuItem key={place.to}>
                   <SidebarMenuButton
@@ -58,7 +59,7 @@ export function SidebarContent() {
                     isActive={here(place.to) && search.account === undefined}
                     render={<Link to={place.to} />}
                   >
-                    <place.icon aria-hidden />
+                    <Icon aria-hidden />
                     <span className="flex-1">{place.label}</span>
                     {binding && (
                       <BindingKeys binding={binding} className="opacity-60" />

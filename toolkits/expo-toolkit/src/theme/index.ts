@@ -1,1 +1,1 @@
-export { cn, useTheme, useThemeFonts } from './theme';
+export { cn, setTheme, type ThemeName, useTheme, useThemeFonts } from './theme';

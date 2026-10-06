@@ -83,7 +83,7 @@ One screen you go to: Home, Entries, an Entry, a Month, or Settings. Add is a sh
 _Avoid_: page, route, view
 
 **Settings**:
-How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the sounds, the Keys and Gestures switches with every Command's key,. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts.
+How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the Sounds and Haptics, the Keys and Gestures switches with every Command’s key. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts.
 _Avoid_: preferences, options
 
 **Section**:

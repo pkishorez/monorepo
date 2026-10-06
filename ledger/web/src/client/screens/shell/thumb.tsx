@@ -4,7 +4,8 @@ import { useSettings } from '../../app/index.ts';
 import { useMoney } from '@ledger/core/client/session';
 import { play } from '../../kit/sound/index.ts';
 import { type Choice, ThumbPicker } from '../../kit/thumb-picker/index.ts';
-import { PLACES, type Stop, stopsFrom } from './places.ts';
+import { PLACES, type Stop, stopsFrom } from '@ledger/core/client/places';
+import { stopIcon } from '../parts/index.ts';
 
 const buzz = (pattern: number | ReadonlyArray<number>) =>
   navigator.vibrate?.(pattern as number[]);
@@ -54,7 +55,7 @@ export function Thumb() {
   const choiceOf = (stop: Stop): Choice => ({
     id: stop.id,
     label: stop.label,
-    icon: stop.icon,
+    icon: stopIcon(stop.icon),
     onSelect:
       stop.command !== undefined || stop.account !== undefined
         ? go(stop)

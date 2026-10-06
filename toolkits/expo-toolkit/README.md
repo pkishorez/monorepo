@@ -10,7 +10,7 @@ It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (U
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as ui-toolkit owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
-The package ships TypeScript source; Metro compiles it. `input` and `patterns/*` export nothing yet: they wait on use-gesture's platform-free core and Ledger's native Thumb Lock.
+The package ships TypeScript source; Metro compiles it. `input`, `patterns/thumb-picker`, `patterns/sheet` and `patterns/key-bar` export nothing yet: they wait on Ledger's native Thumb Lock and Places.
 
 ## Install
 
@@ -43,6 +43,7 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | Export          | What it does                                                                 |
 | --------------- | ---------------------------------------------------------------------------- |
 | `useTheme`      | The scheme in use (`light` or `dark`) and a setter that also takes `system`. |
+| `setTheme`      | Uses a theme from now on, outside React too, as to restore a saved one.      |
 | `useThemeFonts` | Loads the Inter faces the theme names; `true` once text can draw in them.    |
 | `cn`            | Merges class names, the later class winning a Tailwind conflict.             |
 
@@ -77,10 +78,12 @@ Nothing yet.
 | `drawer`: `Drawer`                                    | A panel from an edge of the screen that covers the app until dismissed.     |
 | `empty-state`: `EmptyState`                           | Placeholder for a list or screen with no content.                           |
 | `field`: `Field`, `useFieldLabelledBy`                | Layout and validation state a form control composes into.                   |
+| `glyph`: `Glyph`                                      | Any Hugeicons drawing the app imports, coloured from context or the theme.  |
 | `icons`: `IconColorProvider`, `useIconColor`, `*Icon` | The Hugeicons set Panel UI uses, tinted from context.                       |
 | `input`: `Input`                                      | Text field with label, description and error message.                       |
 | `item`: `Item`                                        | Row of media, text and actions, for lists and settings.                     |
 | `label`: `Label`                                      | Form label with required, invalid and disabled states.                      |
+| `portal-scope`: `PortalScope`                         | A portal host inside the app's providers, so overlays keep their context.   |
 | `separator`: `Separator`                              | Horizontal or vertical rule, optionally labelled.                           |
 | `spinner`: `Spinner`                                  | Indeterminate loading indicator.                                            |
 | `swipe`: `Swipe`, `useSwipeGroup`                     | A row that slides aside to reveal its actions (swipe to delete).            |
@@ -94,13 +97,19 @@ Nothing yet.
 
 ### `./patterns/*`
 
-`thumb-picker`, `sidebar`, `sheet` and `key-bar` export nothing yet.
+| Export                                     | What it does                                                                     |
+| ------------------------------------------ | -------------------------------------------------------------------------------- |
+| `sidebar`: `SidebarProvider`, `useSidebar` | Whether the Sidebar is open, and the ways to open, shut and toggle it.           |
+| `sidebar`: `Sidebar`                       | The Sidebar as a drawer from the start edge: a header, a scrolling body, a foot. |
+| `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.    |
+
+`thumb-picker`, `sheet` and `key-bar` export nothing yet.
 
 ## Usage
 
 ### A themed screen with feedback
 
-The root layout waits for the fonts and mounts the provider; a screen uses the components and plays a haptic and a sound on a tap. Lifted from `ledger/expo/app`.
+The root layout waits for the fonts and mounts the provider; a screen uses the components and plays a haptic and a sound on a tap. Lifted from the first `ledger/expo` shell.
 
 ```tsx
 import { PanelUIProvider } from '@kstackz/expo-toolkit/components/panel-ui-provider';
@@ -143,3 +152,40 @@ export function Home() {
 - `theme.css` sets `font-normal` … `font-bold` to Inter faces; `useThemeFonts` registers them under those names.
 - `createSounds` loads three players per sound up front and takes them in turn, so a quick repeat overlaps instead of waiting; sounds mix with other apps and stay quiet on silent.
 - `haptic` never throws: a device without haptics feels nothing.
+
+### A Sidebar over a signed-in app
+
+The Sidebar's state sits above the header that opens it; the drawer renders into a `PortalScope` inside the app's own providers, so its rows can read the signed-in User. Lifted from `ledger/expo/src/screens/shell`.
+
+```tsx
+import { PortalScope } from '@kstackz/expo-toolkit/components/portal-scope';
+import {
+  Sidebar,
+  SidebarProvider,
+  useSidebar,
+} from '@kstackz/expo-toolkit/patterns/sidebar';
+
+function Frame(props: { children: ReactNode }) {
+  return (
+    <SessionProvider session={session}>
+      <PortalScope>
+        <SidebarProvider>
+          <Header />
+          {props.children}
+          <Sidebar header={<UserSwitcher />} footer={<SettingsRow />}>
+            <PlaceRows />
+          </Sidebar>
+        </SidebarProvider>
+      </PortalScope>
+    </SessionProvider>
+  );
+}
+
+function Header() {
+  const { toggle } = useSidebar();
+  return <Pressable accessibilityLabel="Open the sidebar" onPress={toggle} />;
+}
+```
+
+- `Sidebar` is Panel UI's `Drawer` from the `start` edge, controlled by `SidebarProvider`; a tap on the backdrop or a drag back shuts it.
+- Overlays render into the nearest portal host; `PanelUIProvider`'s sits above every app provider, so a `PortalScope` inside them keeps their context.

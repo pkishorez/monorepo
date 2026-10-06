@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import { BindingKeys } from '../../kit/keyboard/index.ts';
 import { keys } from '@ledger/core/client/commands';
 import { appTheme, useOnline } from '../../app/index.ts';
-import { isMonthKey, monthName } from '@ledger/core/shared/ledger';
+import { placeTitle } from '@ledger/core/client/places';
 import { AccountSheet } from '../sheets/accounts/index.ts';
 import { AddSheet } from '../sheets/add/index.ts';
 import { Palette } from '../sheets/palette/index.ts';
@@ -24,15 +24,6 @@ import { KeyBar } from './key-bar.tsx';
 const STATUS_BAR = {
   shut: 'light-dark(#ffffff, #0a0a0a)',
   open: 'light-dark(#fafafa, #151515)',
-};
-
-const titleOf = (pathname: string) => {
-  const [, place, part] = pathname.split('/');
-  if (place === 'entries') return part ? 'Entry' : 'Entries';
-  if (place === 'months')
-    return part && isMonthKey(part) ? monthName(part) : 'Months';
-  if (place === 'settings') return 'Settings';
-  return 'Home';
 };
 
 /**
@@ -56,7 +47,7 @@ export function Frame(props: { readonly children: ReactNode }) {
             content: <SidebarContent />,
             footer: <SidebarFooter />,
           }}
-          header={{ title: titleOf(pathname), actions: <HeaderActions /> }}
+          header={{ title: placeTitle(pathname), actions: <HeaderActions /> }}
         >
           <GestureZone className="flex min-h-full flex-col">
             <Globals />
