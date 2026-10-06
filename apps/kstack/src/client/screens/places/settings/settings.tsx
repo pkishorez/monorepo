@@ -22,7 +22,7 @@ import {
 import { ExternalLink, Moon, Sun } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { GestureZone } from '@kstackz/use-gesture';
-import { useSwipe } from '@kstackz/use-gesture/recognizers';
+import { type SwipeRelease, useSwipe } from '@kstackz/use-gesture/recognizers';
 import {
   animate,
   motion,
@@ -72,7 +72,11 @@ const LABELS: Readonly<Record<SettingsTab, string>> = {
   gestures: 'Gestures',
 };
 
-const SPRING = { type: 'spring', visualDuration: 0.3, bounce: 0 } as const;
+// Quick, as the sidebar settles: a tab takes the fingers' speed and lands.
+const SPRING = { type: 'spring', visualDuration: 0.15, bounce: 0 } as const;
+
+// A short drag or a light flick turns the tab.
+const COMMIT = { distance: 60, velocity: 300 };
 
 /**
  * Settings, a Place: how Ledger looks and sounds on this device, installing
@@ -146,18 +150,23 @@ function Pages(props: {
   const from = useRef<number>(undefined);
   const dragging = useRef(false);
 
-  const settle = (to: number) => {
+  const width = () => track.current?.offsetWidth || 1;
+  // `velocity` is in tabs per second, so the spring carries on from the fingers.
+  const settle = (to: number, velocity = 0) => {
     dragging.current = false;
     from.current = undefined;
     if (still) page.jump(to);
-    else void animate(page, to, SPRING);
+    else void animate(page, to, { ...SPRING, velocity });
   };
-  const go = (to: number) => {
+  const go = (to: number, velocity: number) => {
     const tab = SETTINGS_TABS[to];
     if (tab === undefined) return settle(at);
-    settle(to);
+    settle(to, velocity);
     props.onTab(tab);
   };
+  // A left swipe's speed moves toward later tabs; a right one's, earlier.
+  const speed = (sign: 1 | -1, release?: SwipeRelease) =>
+    release === undefined ? 0 : (sign * release.velocity) / width();
   const grab = () => {
     dragging.current = true;
     from.current = undefined;
@@ -167,23 +176,24 @@ function Pages(props: {
   const left = useSwipe({
     direction: 'left',
     enabled: at < SETTINGS_TABS.length - 1,
+    commit: COMMIT,
     onStart: grab,
-    onCommit: () => go(at + 1),
-    onCancel: () => settle(at),
+    onCommit: (release) => go(at + 1, speed(1, release)),
+    onCancel: (_, release) => settle(at, speed(1, release)),
   });
   const right = useSwipe({
     direction: 'right',
     enabled: at > 0,
+    commit: COMMIT,
     onStart: grab,
-    onCommit: () => go(at - 1),
-    onCancel: () => settle(at),
+    onCommit: (release) => go(at - 1, speed(-1, release)),
+    onCancel: (_, release) => settle(at, speed(-1, release)),
   });
   const follow = () => {
     if (!dragging.current) return;
-    const width = track.current?.offsetWidth || 1;
     const moved = left.offset.get() - right.offset.get();
     from.current ??= moved;
-    page.set(at + (moved - from.current) / width);
+    page.set(at + (moved - from.current) / width());
   };
   useMotionValueEvent(left.offset, 'change', follow);
   useMotionValueEvent(right.offset, 'change', follow);
