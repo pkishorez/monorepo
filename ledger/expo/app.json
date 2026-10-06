@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "app.kishore.ledger",
-      "supportsTablet": true
+      "supportsTablet": false
     },
     "android": {
       "package": "app.kishore.ledger"

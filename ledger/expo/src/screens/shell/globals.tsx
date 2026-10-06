@@ -1,6 +1,8 @@
 import { useSidebar } from '@kstackz/expo-toolkit/patterns/sidebar';
 import { keys, useCommand } from '@ledger/core/client/commands';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { BackHandler } from 'react-native';
 import { useAppTheme, useOnline } from '../../ledger';
 
 /**
@@ -30,5 +32,30 @@ export function Globals() {
   useCommand('toggleSidebar', toggle);
   // A new Entry needs the server, so Add waits for the network.
   useCommand('addEntry', () => openSurface('add'), { enabled: online });
+  useBackButton();
   return null;
+}
+
+/**
+ * Android's back button: Jump where the Place answers it, from an Entry or
+ * a Month; Home from any other Place; and from Home it leaves the app. An
+ * open sheet or the Sidebar takes it first and closes.
+ */
+function useBackButton() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const run = keys.useRun();
+  const back = useRef<() => boolean>(() => false);
+  back.current = () => {
+    if (pathname === '/') return false;
+    if (!run('jump')) router.navigate('/');
+    return true;
+  };
+  // Added once, so a sheet or the Sidebar opened later is asked before it.
+  useEffect(() => {
+    const listener = BackHandler.addEventListener('hardwareBackPress', () =>
+      back.current(),
+    );
+    return () => listener.remove();
+  }, []);
 }
