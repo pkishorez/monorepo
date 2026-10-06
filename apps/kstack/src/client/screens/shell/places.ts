@@ -18,8 +18,8 @@ type Place = {
 };
 
 /**
- * Every Place to Go to, in the Place order: what the Sidebar lists, what a
- * Thumb Lock Steps through, and what the page slides by.
+ * Every Place to Go to, in the Place order: what the Sidebar lists and what
+ * a Thumb Lock Steps through.
  */
 export const PLACES: ReadonlyArray<Place> = [
   { id: 'home', label: 'Home', icon: House, to: '/', command: 'toHome' },
@@ -90,26 +90,4 @@ export const stepsFrom = (pathname: string) => {
     ],
     start: at.index + 1,
   };
-};
-
-const orderOf = (pathname: string) => {
-  const at = whereIs(pathname);
-  return at && at.index + (at.under ? 0.5 : 0);
-};
-
-/**
- * How the page moves on every Go, however it was given: up to a Place later
- * in the order, down to an earlier one, and not at all within one Place or
- * outside Ledger's. The styles key on these view transition types.
- */
-export const PAGE_TRANSITION = {
-  types: (change: {
-    readonly fromLocation?: { readonly pathname: string };
-    readonly toLocation: { readonly pathname: string };
-  }) => {
-    const from = change.fromLocation && orderOf(change.fromLocation.pathname);
-    const to = orderOf(change.toLocation.pathname);
-    if (from === undefined || to === undefined || from === to) return false;
-    return [to > from ? 'up' : 'down'];
-  },
 };

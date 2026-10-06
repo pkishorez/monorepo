@@ -41,10 +41,9 @@ export function PlacePicker(props: {
   const still = useReducedMotion() === true;
   if (typeof document === 'undefined') return null;
   return createPortal(
-    // Its own view transition name keeps it still while the page slides.
     <div
       aria-live="polite"
-      className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4.5rem)] z-[100] flex justify-center px-4 [view-transition-class:still] [view-transition-name:lift-hint]"
+      className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4.5rem)] z-[100] flex justify-center px-4"
     >
       <AnimatePresence>
         {props.marked !== undefined && (
