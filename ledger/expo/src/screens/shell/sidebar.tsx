@@ -1,3 +1,5 @@
+import PlusSignIcon from '@hugeicons/core-free-icons/PlusSignIcon';
+import { Glyph } from '@kstackz/expo-toolkit/components/glyph';
 import { Text } from '@kstackz/expo-toolkit/components/text';
 import { Sidebar, useSidebar } from '@kstackz/expo-toolkit/patterns/sidebar';
 import { PLACES, type StopIcon as Icon } from '@ledger/core/client/places';
@@ -12,6 +14,7 @@ import {
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 import { Amount, StopIcon } from '../parts';
+import { useOpenAccount } from '../sheets/accounts';
 import { UserSwitcher } from './user-switcher';
 
 // Every Place but Settings, which sits at the foot of the Sidebar.
@@ -69,6 +72,11 @@ export function LedgerSidebar() {
     setOpen(false);
     router.navigate(href);
   };
+  const openAccount = useOpenAccount();
+  const addAccount = () => {
+    setOpen(false);
+    openAccount();
+  };
 
   return (
     <Sidebar
@@ -97,11 +105,33 @@ export function LedgerSidebar() {
           />
         ))}
       </View>
-      {money.ready && money.accounts.length > 0 && (
+      {money.ready && (
         <View className="mt-5 gap-0.5">
-          <Text muted className="px-3 pb-1 text-xs">
-            Accounts
-          </Text>
+          <View className="flex-row items-center justify-between pl-3">
+            <Text muted className="text-xs">
+              Accounts
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add an account"
+              onPress={addAccount}
+              className="size-8 items-center justify-center rounded-md active:bg-muted"
+            >
+              <Glyph icon={PlusSignIcon} size={16} />
+            </Pressable>
+          </View>
+          {money.accounts.length === 0 && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={addAccount}
+              className="flex-row items-center gap-3 rounded-lg px-3 py-2.5 active:bg-muted"
+            >
+              <Glyph icon={PlusSignIcon} size={18} />
+              <Text muted className="text-sm">
+                Add an account
+              </Text>
+            </Pressable>
+          )}
           {money.accounts.map((each) => (
             <Row
               key={each.id}

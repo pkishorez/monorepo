@@ -21,8 +21,10 @@ export {
   type Gesture,
   type GestureGroup,
   type Motion,
+  said,
   type Way,
 } from './gestures.ts';
+export { usePlace } from './place.ts';
 export {
   type ActionId,
   type Bindings,

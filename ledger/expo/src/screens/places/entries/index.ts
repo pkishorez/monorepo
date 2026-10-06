@@ -1,1 +1,2 @@
-export { Entries, Entry } from './entries';
+export { Entries } from './entries';
+export { Entry } from './entry';

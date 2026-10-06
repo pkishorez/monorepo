@@ -44,7 +44,7 @@
     },
     "components": {
       "paths": ["src/components"],
-      "description": "Owned Panel UI copies, restyled through the theme's tokens. Exposed components are the package's ./components/*; parts/ is their private interior. glyph.tsx (an app's Hugeicons in the theme's colours) and portal-scope.tsx (a portal host inside the app's providers) are the toolkit's own.",
+      "description": "Owned Panel UI copies, restyled through the theme's tokens. Exposed components are the package's ./components/*; parts/ is their private interior. glyph.tsx (an app's Hugeicons in the theme's colours), portal-scope.tsx (a portal host inside the app's providers), choice.tsx (a row of pills to pick one) and meter.tsx (a thin bar of how full) are the toolkit's own.",
       "moduleGraphs": {
         "panel": {
           "description": "Panel UI as copied: each exposed component is a door; text, icons and the parts/ internals (portal, scrim, pressable, direction, keyboard and platform bridges) are what they share, each edge declared.",
@@ -57,6 +57,9 @@
               "exposed": true
             },
             "card.tsx": {
+              "exposed": true
+            },
+            "choice.tsx": {
               "exposed": true
             },
             "dialog.tsx": {
@@ -84,6 +87,9 @@
               "exposed": true
             },
             "label.tsx": {
+              "exposed": true
+            },
+            "meter.tsx": {
               "exposed": true
             },
             "panel-ui-provider.tsx": {
@@ -149,6 +155,7 @@
               "text.tsx"
             ],
             "card.tsx": ["text.tsx"],
+            "choice.tsx": ["icons.tsx", "text.tsx"],
             "dialog.tsx": [
               "parts/portal.tsx",
               "parts/scrim.tsx",
@@ -218,7 +225,7 @@
     },
     "patterns": {
       "paths": ["src/patterns"],
-      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Thumb Picker, the Sidebar as a drawer with its edge swipe, and the Local Sign-In dialog; the sheet and the Key Bar are stubs. A pattern with parts is a module graph of its own.",
+      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Thumb Picker, the Sidebar as a drawer with its edge swipe, the Local Sign-In dialog, the sheet for a short form, and the row swiped to delete; the Key Bar is a stub. A pattern with parts is a module graph of its own.",
       "modules": {
         "src/patterns/sheet": {
           "exposed": true
@@ -227,6 +234,9 @@
           "exposed": true
         },
         "src/patterns/local-sign-in": {
+          "exposed": true
+        },
+        "src/patterns/swipe-row": {
           "exposed": true
         }
       },

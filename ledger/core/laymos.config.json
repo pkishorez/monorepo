@@ -73,6 +73,15 @@
         }
       }
     },
+    "client-views": {
+      "paths": ["src/client/views"],
+      "description": "What each Place shows, worked out once for both apps: Home's glance, the Months and a Month, which Entries a search shows and the one beside an open Entry, and what a new Entry or Account starts from. Pure, over the open Session's money",
+      "modules": {
+        "src/client/views": {
+          "exposed": true
+        }
+      }
+    },
     "client-places": {
       "paths": ["src/client/places"],
       "description": "The Place order both apps follow: every Place with its address and Go Command, the Sections of Settings, the title of each Place, and the stops a Thumb Lock picks from where you are. Icons are named, for each app to draw",
@@ -139,6 +148,7 @@
         "client-platform": ["client-domain"],
         "client-state": ["client-domain"],
         "client-domain": ["shared"],
+        "client-views": ["client-state", "shared"],
         "client-places": ["client-commands", "shared"],
         "client-commands": [],
         "server-local": ["server-domain"],

@@ -19,12 +19,41 @@ const formatOf = (currency: string, compact: boolean) => {
   return format;
 };
 
+// Hermes' Intl has no compact notation: it ignores `notation` and prints
+// `$1,600.0`. Where so, compact money is written out by hand.
+let compactWorks: boolean | undefined;
+const SCALES = [
+  { at: 1e9, suffix: 'B' },
+  { at: 1e6, suffix: 'M' },
+  { at: 1e3, suffix: 'K' },
+] as const;
+
+const handCompact = (value: number, currency: string) => {
+  const scale = SCALES.find((each) => Math.abs(value) >= each.at);
+  const short = scale ? value / scale.at : value;
+  const text = new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(short);
+  return scale ? `${text}${scale.suffix}` : text;
+};
+
 /** Cents as money: `$4.50`; compact, `$1.2K`. */
 export const money = (
   cents: number,
   currency: string,
   options: { readonly compact?: boolean } = {},
-) => formatOf(currency, options.compact === true).format(cents / 100);
+) => {
+  const compact = options.compact === true;
+  if (compact) {
+    compactWorks ??= !formatOf('USD', true).format(1500).includes('500');
+    if (!compactWorks) return handCompact(cents / 100, currency);
+  }
+  return formatOf(currency, compact).format(cents / 100);
+};
 
 /** Cents with their sign: in is plus, out is minus. */
 export const signed = (cents: number, way: Way) =>

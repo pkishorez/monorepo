@@ -9,6 +9,12 @@ export const dayOf = (date: Date) =>
 
 export const today = () => dayOf(new Date());
 
+/** The day `by` days after `day`; before when negative. */
+export const shiftDay = (day: string, by: number) => {
+  const [year = 0, month = 1, date = 1] = day.split('-').map(Number);
+  return dayOf(new Date(year, month - 1, date + by));
+};
+
 /** The Month a day is in. */
 export const monthOf = (day: string): MonthKey => day.slice(0, 7);
 

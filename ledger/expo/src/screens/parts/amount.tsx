@@ -3,12 +3,14 @@ import { money, type Way } from '@ledger/core/shared/ledger';
 
 /**
  * Money as it is read: in with a plus, out with a minus, a balance as it
- * stands, in digits that line up.
+ * stands, in digits that line up. Colour is the reader's to add, and only
+ * for trouble.
  */
 export function Amount(props: {
   readonly cents: number;
   readonly currency: string;
   readonly way?: Way;
+  readonly compact?: boolean;
   readonly className?: string;
 }) {
   const { cents, way } = props;
@@ -16,7 +18,9 @@ export function Amount(props: {
   return (
     <Text className={props.className} style={{ fontVariant: ['tabular-nums'] }}>
       {sign}
-      {money(Math.abs(cents), props.currency)}
+      {money(Math.abs(cents), props.currency, {
+        compact: props.compact === true,
+      })}
     </Text>
   );
 }

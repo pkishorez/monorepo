@@ -1,8 +1,9 @@
 import { MousePointerClick } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
-import { usePlace, useWide } from '../../parts/index.ts';
+import { usePlace } from '@ledger/core/client/commands';
+import type { EntriesSearch } from '@ledger/core/client/views';
+import { useWide } from '../../parts/index.ts';
 import { EntryPane } from './entry.tsx';
-import type { EntriesSearch } from './filter.ts';
 import { EntriesList } from './list.tsx';
 
 // What the header leaves of the screen's height: the two columns each

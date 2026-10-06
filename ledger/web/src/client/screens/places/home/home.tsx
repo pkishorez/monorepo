@@ -3,7 +3,8 @@ import { ArrowRight } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { keys, useCommand } from '@ledger/core/client/commands';
+import { keys, useCommand, usePlace } from '@ledger/core/client/commands';
+import { glance, useLookup } from '@ledger/core/client/views';
 import {
   type Money,
   useMoney,
@@ -11,19 +12,12 @@ import {
   useWrites,
 } from '@ledger/core/client/session';
 import { useOnline } from '../../../app/index.ts';
-import {
-  monthName,
-  monthOf,
-  summarize,
-  today,
-} from '@ledger/core/shared/ledger';
+import { monthName, monthOf, today } from '@ledger/core/shared/ledger';
 import {
   Amount,
   CategoryIcon,
   EntryRow,
   LedgerMark,
-  useLookup,
-  usePlace,
 } from '../../parts/index.ts';
 
 /**
@@ -52,19 +46,7 @@ function Glance(props: { readonly money: Money; readonly month: string }) {
   const lookup = useLookup(money);
   const navigate = useNavigate();
   const currency = money.currency;
-  const summary = summarize(month, money.entries, money.categories);
-  const left = summary.in - summary.out;
-  const budgets = money.categories
-    .filter((category) => category.budget > 0)
-    .map((category) => ({
-      category,
-      spent:
-        summary.spent.find((spend) => spend.category.id === category.id)
-          ?.cents ?? 0,
-    }))
-    .sort((a, b) => b.spent / b.category.budget - a.spent / a.category.budget);
-  const recent = money.entries.slice(0, 6);
-  const most = Math.max(summary.in, summary.out, 1);
+  const { summary, left, budgets, recent, most } = glance(money, month);
 
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-6 pb-28 @md:px-8 @md:py-10">

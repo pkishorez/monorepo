@@ -108,3 +108,17 @@ export const GESTURE_GUIDE: ReadonlyArray<GestureGroup> = [
     ],
   },
 ];
+
+/** A gesture as it is said: "Thumb Lock, swipe up". */
+export const said = (motion: Motion) => {
+  switch (motion.kind) {
+    case 'thumb':
+      return `Thumb Lock, swipe ${motion.way}`;
+    case 'swipe':
+      return `Swipe ${motion.way}`;
+    case 'drag':
+      return `Drag the sheet ${motion.way}`;
+    case 'tap':
+      return 'Tap';
+  }
+};

@@ -3,25 +3,11 @@ import {
   type Gesture,
   GESTURE_GUIDE,
   type GestureGroup,
-  type Motion,
+  said,
 } from '@ledger/core/client/commands';
 import { useChangeSettings, useSettings } from '../../../app/index.ts';
 import { GestureFigure } from './figure.tsx';
 import { Row } from './rows.tsx';
-
-// A gesture as it is said: "Thumb Lock, swipe up".
-const said = (motion: Motion) => {
-  switch (motion.kind) {
-    case 'thumb':
-      return `Thumb Lock, swipe ${motion.way}`;
-    case 'swipe':
-      return `Swipe ${motion.way}`;
-    case 'drag':
-      return `Drag the sheet ${motion.way}`;
-    case 'tap':
-      return 'Tap';
-  }
-};
 
 /**
  * Every gesture, Place by Place as they nest, each drawn as it moves. They
