@@ -115,9 +115,14 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | Export          | What it does                                                                                            |
 | --------------- | ------------------------------------------------------------------------------------------------------- |
 | `authzLayer`    | Server Implementation of the RPC Auth Cannotation; requires `Authz.Resolver`.                           |
-| `resolverLive`  | Production Current Auth Resolver; verifies Sessions, and Access Tokens too when given a `resource`.     |
 | `resolverLocal` | Local Current Auth Resolver; reads the User out of a Local Token bearer, asking no one.                 |
 | `authzCookies`  | Wraps an RPC HTTP app to verify once per batched request and relay refreshed cookies onto the response. |
+
+### `@kstackz/auth-toolkit/server/resolver-live`
+
+| Export         | What it does                                                                                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolverLive` | Production Current Auth Resolver; verifies Sessions, and Access Tokens too when given a `resource`. Its own entry, so a backend on a device never bundles better-auth. |
 
 ### `@kstackz/auth-toolkit/http-api`
 
@@ -138,7 +143,6 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | Export          | What it does                                                                                                    |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
 | `authzLayer`    | Server Implementation of the HTTP API Auth Cannotation; requires `Authz.Resolver` and relays refreshed cookies. |
-| `resolverLive`  | Production Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                    |
 | `resolverLocal` | Local Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                         |
 
 ### `@kstackz/auth-toolkit/clients/auth`
@@ -267,11 +271,8 @@ export const Handlers = Api.toLayer({
 // server.ts
 import { Layer } from 'effect';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
-import {
-  authzCookies,
-  authzLayer,
-  resolverLive,
-} from '@kstackz/auth-toolkit/server/rpc';
+import { resolverLive } from '@kstackz/auth-toolkit/server/resolver-live';
+import { authzCookies, authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 
 const dependencies = Layer.mergeAll(
   Handlers,

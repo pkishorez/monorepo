@@ -59,10 +59,8 @@ API handlers. One `resolverLive` can serve both Siblings:
 ```ts
 // server.ts
 import { Layer } from 'effect';
-import {
-  authzLayer,
-  resolverLive,
-} from '@kstackz/auth-toolkit/server/http-api';
+import { resolverLive } from '@kstackz/auth-toolkit/server/resolver-live';
+import { authzLayer } from '@kstackz/auth-toolkit/server/http-api';
 
 export const ApiLive = HttpApiBuilder.layer(Api).pipe(
   Layer.provide(Handlers),
@@ -124,7 +122,7 @@ the same name and different paths.
 
 | Path                                      | Role                                                                                                                         |
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `src/server/effect/current-auth/`         | The identity, errors, `policy()` and `resolverLive` every `Authz` shares, over the vanilla Session and Access Token doors    |
+| `src/server/effect/current-auth/`         | The identity, errors, `policy()` and `resolverLocal` every `Authz` shares; `resolver-live/` holds `resolverLive`             |
 | `src/server/effect/http-api/cannotation/` | The raw Cannotation, private to the http-api graph                                                                           |
 | `src/server/effect/http-api/declaration/` | The curated `Authz` that `@kstackz/auth-toolkit/http-api` exports                                                            |
 | `src/server/effect/http-api/server/`      | The Server Implementation behind `@kstackz/auth-toolkit/server/http-api`: verification, policies, and refreshed-cookie relay |

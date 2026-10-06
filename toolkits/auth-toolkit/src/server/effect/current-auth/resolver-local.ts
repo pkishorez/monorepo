@@ -2,7 +2,7 @@ import { Effect, Layer } from 'effect';
 
 import { localToken } from '../../../auth-worker-contract/index.js';
 import { auth } from './current-auth.js';
-import { bearerToken } from './resolver.js';
+import { bearerToken } from './bearer-token.js';
 
 // A Local Token never expires and was never issued, so its dates are fixed.
 const EPOCH = new Date(0);

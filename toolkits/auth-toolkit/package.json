@@ -55,6 +55,10 @@
       "types": "./dist/server/effect/rpc/server/index.d.ts",
       "default": "./dist/server/effect/rpc/server/index.js"
     },
+    "./server/resolver-live": {
+      "types": "./dist/server/effect/resolver-live/index.d.ts",
+      "default": "./dist/server/effect/resolver-live/index.js"
+    },
     "./server/http-api": {
       "types": "./dist/server/effect/http-api/server/index.d.ts",
       "default": "./dist/server/effect/http-api/server/index.js"

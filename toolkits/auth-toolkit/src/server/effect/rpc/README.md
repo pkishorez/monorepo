@@ -67,7 +67,8 @@ handlers. One `resolverLive` can serve both Siblings:
 // server.ts
 import { Layer } from 'effect';
 import { RpcServer } from 'effect/rpc';
-import { authzLayer, resolverLive } from '@kstackz/auth-toolkit/server/rpc';
+import { resolverLive } from '@kstackz/auth-toolkit/server/resolver-live';
+import { authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 
 const RpcLive = RpcServer.layer(PrivateApi).pipe(
   Layer.provide(Handlers),
@@ -117,11 +118,8 @@ verification:
 
 ```ts
 import { RpcSerialization, RpcServer } from 'effect/rpc';
-import {
-  authzCookies,
-  authzLayer,
-  resolverLive,
-} from '@kstackz/auth-toolkit/server/rpc';
+import { resolverLive } from '@kstackz/auth-toolkit/server/resolver-live';
+import { authzCookies, authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 
 const makeApp = Effect.gen(function* () {
   const rpcApp = yield* RpcServer.toHttpEffect(PrivateApi);
@@ -144,7 +142,7 @@ still works without the wrapper, but refreshed cookies are not relayed.
 
 | Path                                 | Role                                                                                                                                                                             |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/server/effect/current-auth/`    | The identity, errors, `policy()` and `resolverLive` every `Authz` shares, over the vanilla Session and Access Token doors                                                        |
+| `src/server/effect/current-auth/`    | The identity, errors, `policy()` and `resolverLocal` every `Authz` shares; `resolver-live/` holds `resolverLive`, over the vanilla Session and Access Token doors                |
 | `src/server/effect/rpc/cannotation/` | The raw Cannotation, private to the rpc graph                                                                                                                                    |
 | `src/server/effect/rpc/declaration/` | The curated `Authz` that `@kstackz/auth-toolkit/rpc` exports                                                                                                                     |
 | `src/server/effect/rpc/server/`      | The Server Implementation behind `@kstackz/auth-toolkit/server/rpc`: verification and policy evaluation (`middleware.ts`), per-request caching and `authzCookies` (`cookies.ts`) |

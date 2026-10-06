@@ -144,10 +144,13 @@
     },
     "effect": {
       "paths": ["src/server/effect"],
-      "description": "The vanilla doors lifted into Effect: one Current Auth that resolves a request to a Principal, and an Auth Cannotation per Sibling (RPC, HTTP API), each split into a browser-safe Declaration and its Server Implementation",
+      "description": "The vanilla doors lifted into Effect: one Current Auth that resolves a request to a Principal (its live Resolver, which asks the Auth Worker through better-auth, kept apart so a device-only backend never bundles it), and an Auth Cannotation per Sibling (RPC, HTTP API), each split into a browser-safe Declaration and its Server Implementation",
       "modules": {
         "src/server/effect/current-auth": {
           "shared": true
+        },
+        "src/server/effect/resolver-live": {
+          "exposed": true
         }
       },
       "moduleGraphs": {

@@ -1,9 +1,6 @@
 import { Effect, Layer } from 'effect';
-import {
-  authzCookies,
-  authzLayer,
-  resolverLive,
-} from '@kstackz/auth-toolkit/server/rpc';
+import { resolverLive } from '@kstackz/auth-toolkit/server/resolver-live';
+import { authzCookies, authzLayer } from '@kstackz/auth-toolkit/server/rpc';
 import { ConsoleApi } from '../../../shared/api/console-api/index.ts';
 import { ConsoleHandlers } from '../../handlers/console-handlers/index.ts';
 import { FetchHttpClient } from 'effect/http';
