@@ -16,12 +16,22 @@ import {
 import { Switch } from '@kstackz/ui-toolkit/components/ui/switch';
 import {
   Tabs,
-  TabsContent,
   TabsList,
   TabsTrigger,
 } from '@kstackz/ui-toolkit/components/ui/tabs';
 import { ExternalLink, Moon, Sun } from '@kstackz/ui-toolkit/lucide';
-import { useState } from 'react';
+import { cn } from '@kstackz/ui-toolkit/utils';
+import { GestureZone } from '@kstackz/use-gesture';
+import { useSwipe } from '@kstackz/use-gesture/recognizers';
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useMotionValueEvent,
+  useReducedMotion,
+  useTransform,
+} from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AUTH_URL,
   signOutEveryone,
@@ -39,14 +49,30 @@ import {
   useSettings,
 } from '../../../state/settings/index.ts';
 import { CURRENCIES } from '../../../../domain/ledger/index.ts';
-import { Choice, usePlace } from '../../parts/index.ts';
+import { usePlace } from '../../parts/index.ts';
 import { AppSection } from './app-section.tsx';
 import { GesturesTab } from './gestures-tab.tsx';
 import { KeysTab } from './keys-tab.tsx';
-import { Row, Section } from './rows.tsx';
+import { Flip, Row, Section } from './rows.tsx';
 
 /** A tab of Settings. */
 export type SettingsTab = 'general' | 'keys' | 'gestures';
+
+/** The tabs of Settings, in order. */
+export const SETTINGS_TABS: ReadonlyArray<SettingsTab> = [
+  'general',
+  'keys',
+  'gestures',
+];
+
+/** What each tab is called. */
+const LABELS: Readonly<Record<SettingsTab, string>> = {
+  general: 'General',
+  keys: 'Keys',
+  gestures: 'Gestures',
+};
+
+const SPRING = { type: 'spring', visualDuration: 0.3, bounce: 0 } as const;
 
 /**
  * Settings, a Place: how Ledger looks and sounds on this device, installing
@@ -58,31 +84,127 @@ export function Settings(props: {
   readonly onTab: (tab: SettingsTab) => void;
 }) {
   usePlace('settings');
+  // A Gesture Zone of its own, so its swipes turn the tabs before the
+  // sidebar hears them.
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 pb-28 @md:px-8 @md:py-10">
-      <Tabs
-        value={props.tab}
-        onValueChange={(tab) => props.onTab(tab as SettingsTab)}
-        className="gap-8"
-      >
-        <TabsList variant="line" className="-ml-2">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="keys">Keys</TabsTrigger>
-          <TabsTrigger value="gestures">Gestures</TabsTrigger>
-        </TabsList>
-        <TabsContent value="general" className="space-y-10">
-          <Appearance />
-          <AppSection />
-          <Data />
-          <Users />
-        </TabsContent>
-        <TabsContent value="keys">
-          <KeysTab />
-        </TabsContent>
-        <TabsContent value="gestures">
-          <GesturesTab />
-        </TabsContent>
-      </Tabs>
+    <GestureZone>
+      <div className="mx-auto max-w-2xl px-4 py-6 pb-28 @md:px-8 @md:py-10">
+        <Tabs
+          value={props.tab}
+          onValueChange={(tab) => props.onTab(tab as SettingsTab)}
+          className="gap-8"
+        >
+          <TabsList variant="line" className="-ml-2">
+            {SETTINGS_TABS.map((tab) => (
+              <TabsTrigger key={tab} value={tab}>
+                {LABELS[tab]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <Pages tab={props.tab} onTab={props.onTab} />
+        </Tabs>
+      </div>
+    </GestureZone>
+  );
+}
+
+function pageOf(tab: SettingsTab) {
+  if (tab === 'keys') return <KeysTab />;
+  if (tab === 'gestures') return <GesturesTab />;
+  return (
+    <div className="space-y-10">
+      <Appearance />
+      <AppSection />
+      <Data />
+      <Users />
+    </div>
+  );
+}
+
+/**
+ * Every tab side by side, the chosen one in view, the others inert. A swipe
+ * left or right drags them under the finger and, let go far or fast
+ * enough, settles on the next tab or the one before; otherwise they spring
+ * back. On the first tab a swipe right is not theirs, so it opens the
+ * sidebar. A tap on a tab slides them there too.
+ */
+function Pages(props: {
+  readonly tab: SettingsTab;
+  readonly onTab: (tab: SettingsTab) => void;
+}) {
+  const at = SETTINGS_TABS.indexOf(props.tab);
+  const track = useRef<HTMLDivElement>(null);
+  // Which tab is in view, in tabs: 1.5 is halfway from the second to the third.
+  const page = useMotionValue(at);
+  const x = useTransform(page, (p) => `${-p * 100}%`);
+  const still = useReducedMotion() === true;
+  const dragging = useRef(false);
+
+  const settle = (to: number) => {
+    dragging.current = false;
+    if (still) page.jump(to);
+    else void animate(page, to, SPRING);
+  };
+  const go = (to: number) => {
+    const tab = SETTINGS_TABS[to];
+    if (tab === undefined) return settle(at);
+    settle(to);
+    props.onTab(tab);
+  };
+  const grab = () => {
+    dragging.current = true;
+    page.stop();
+  };
+
+  const left = useSwipe({
+    direction: 'left',
+    enabled: at < SETTINGS_TABS.length - 1,
+    onStart: grab,
+    onCommit: () => go(at + 1),
+    onCancel: () => settle(at),
+  });
+  const right = useSwipe({
+    direction: 'right',
+    enabled: at > 0,
+    onStart: grab,
+    onCommit: () => go(at - 1),
+    onCancel: () => settle(at),
+  });
+  const follow = () => {
+    if (!dragging.current) return;
+    const width = track.current?.offsetWidth || 1;
+    page.set(at + (left.offset.get() - right.offset.get()) / width);
+  };
+  useMotionValueEvent(left.offset, 'change', follow);
+  useMotionValueEvent(right.offset, 'change', follow);
+
+  // A tab chosen another way, by a tap or the address, slides into view.
+  useEffect(() => {
+    if (dragging.current) return;
+    if (still) page.jump(at);
+    else void animate(page, at, SPRING);
+  }, [at, page, still]);
+
+  // Clipped to the chosen tab's height: the others are flat, so the page
+  // scrolls only as far as the tab in view.
+  return (
+    <div ref={track} className="-mx-4 overflow-clip @md:-mx-8">
+      <motion.div className="flex items-start" style={{ x }}>
+        {SETTINGS_TABS.map((tab, index) => (
+          <div
+            key={tab}
+            role="tabpanel"
+            aria-label={LABELS[tab]}
+            inert={index !== at}
+            className={cn(
+              'w-full shrink-0 px-4 text-sm @md:px-8',
+              index !== at && 'h-0',
+            )}
+          >
+            {pageOf(tab)}
+          </div>
+        ))}
+      </motion.div>
     </div>
   );
 }
@@ -95,11 +217,10 @@ function Appearance() {
     <Section title="Look and sound">
       <div className="divide-y">
         <Row label="Theme">
-          <Choice
+          <Flip
             label="Theme"
             value={theme}
             onChange={setTheme}
-            className="mx-0 px-0"
             options={[
               { value: 'light', label: 'Light', icon: <Sun /> },
               { value: 'dark', label: 'Dark', icon: <Moon /> },
@@ -192,11 +313,10 @@ function Users() {
           label="Switching user"
           hint="Whether choosing another user in the sidebar changes every tab, or this tab only."
         >
-          <Choice
+          <Flip
             label="Switching user"
             value={settings.switching}
             onChange={(switching) => change({ switching })}
-            className="mx-0 px-0"
             options={[
               { value: 'browser', label: 'Every tab' },
               { value: 'tab', label: 'This tab' },

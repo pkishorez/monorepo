@@ -1,3 +1,4 @@
+import { Button } from '@kstackz/ui-toolkit/components/ui/button';
 import type { ReactNode } from 'react';
 
 /** A part of Settings under its heading. */
@@ -31,5 +32,35 @@ export function Row(props: {
       </span>
       {props.children}
     </div>
+  );
+}
+
+type FlipOption<T extends string> = {
+  readonly value: T;
+  readonly label: string;
+  readonly icon?: ReactNode;
+};
+
+/** One of two, showing the one chosen: a tap changes it to the other, in place. */
+export function Flip<T extends string>(props: {
+  readonly label: string;
+  readonly value: T;
+  readonly options: readonly [FlipOption<T>, FlipOption<T>];
+  readonly onChange: (value: T) => void;
+}) {
+  const [first, second] = props.options;
+  const [chosen, other] =
+    props.value === first.value ? [first, second] : [second, first];
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={`${props.label}: ${chosen.label}, change to ${other.label}`}
+      onClick={() => props.onChange(other.value)}
+      className="min-w-24 shrink-0"
+    >
+      {chosen.icon}
+      {chosen.label}
+    </Button>
   );
 }

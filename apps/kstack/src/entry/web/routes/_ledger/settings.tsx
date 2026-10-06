@@ -1,14 +1,13 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
+  SETTINGS_TABS,
   Settings,
   type SettingsTab,
 } from '../../../../client/screens/places/settings/index.ts';
 
-const TABS: ReadonlyArray<SettingsTab> = ['general', 'keys', 'gestures'];
-
 export const Route = createFileRoute('/_ledger/settings')({
   validateSearch: (search): { tab?: SettingsTab } =>
-    TABS.includes(search['tab'] as SettingsTab)
+    SETTINGS_TABS.includes(search['tab'] as SettingsTab)
       ? { tab: search['tab'] as SettingsTab }
       : {},
   component: SettingsRoute,
