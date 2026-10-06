@@ -192,10 +192,29 @@
     },
     "accounts": {
       "paths": ["src/clients/auth"],
-      "description": "A First-Party web app's Signed-in Accounts as one Effect service, Auth: live against the Auth Worker, or local with Local Accounts kept in a StdTable; plus fetch signed as one Session",
-      "modules": {
-        "src/clients/auth": {
-          "exposed": true
+      "description": "A First-Party app's Signed-in Accounts as one Effect service, Auth, with one target per platform: live against the Auth Worker in a browser, local with Local Accounts kept in a StdTable, and expo, where each User signs in as the app's OAuth client and keeps their own tokens on the phone; plus fetch signed as one account",
+      "moduleGraphs": {
+        "accounts": {
+          "description": "The Auth service and its targets. The browser door (index.ts) gathers the service, live, local and signed; expo is its own door, so a phone bundles none of the browser's code and the browser none of Expo's.",
+          "path": "src/clients/auth",
+          "modules": {
+            "index.ts": {
+              "exposed": true
+            },
+            "expo": {
+              "exposed": true
+            },
+            "service": {},
+            "live": {},
+            "local": {},
+            "signed": {}
+          },
+          "rules": {
+            "index.ts": ["service", "live", "local", "signed"],
+            "expo": ["service"],
+            "live": ["service"],
+            "local": ["service"]
+          }
         }
       }
     },

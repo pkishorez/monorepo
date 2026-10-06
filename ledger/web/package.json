@@ -13,7 +13,8 @@
     "lint:laymos": "laymos lint",
     "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
     "brand": "node scripts/brand.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:native-sign-in": "node --use-system-ca scripts/native-sign-in.ts"
   },
   "dependencies": {
     "effect": "catalog:",
@@ -38,6 +39,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "alchemy": "catalog:",
+    "jose": "catalog:",
     "laymos": "workspace:*",
     "sharp": "catalog:",
     "tailwindcss": "catalog:",

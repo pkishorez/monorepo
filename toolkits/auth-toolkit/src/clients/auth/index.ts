@@ -4,13 +4,13 @@ export {
   type LoginError,
   type SignedInAccount,
   type SignInOptions,
-} from './auth.js';
-export { authLive } from './live.js';
+} from './service/index.js';
+export { authLive } from './live/index.js';
 export {
   authLocal,
   localAccountsTable,
   localChooser,
   type LocalChoice,
-} from './local.js';
-export { signedFetch, signedFetchLayer } from './signed.js';
+} from './local/index.js';
+export { signedFetch, signedFetchLayer } from './signed/index.js';
 export { localToken, localUser } from '../../auth-worker-contract/index.js';

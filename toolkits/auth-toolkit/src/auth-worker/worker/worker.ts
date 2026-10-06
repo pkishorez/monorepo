@@ -14,6 +14,10 @@ import {
   type PagesContext,
 } from '../../auth-worker-contract/index.js';
 import { servePages, type PagesApp } from './pages.js';
+import { TEST_SIGN_IN_STAGE, testSignIn } from './plugins/index.js';
+import { isTrustedOrigin, validateTrustedOrigins } from './trusted-origins.js';
+
+export { isTrustedOrigin, validateTrustedOrigins };
 
 type ValidateUser = NonNullable<
   NonNullable<BetterAuthOptions['user']>['validateUserInfo']
@@ -33,72 +37,16 @@ interface AuthWorkerConfig {
   validateUser?: ValidateUser | undefined;
   authorizationServer?: AuthorizationServerConfig | undefined;
   pages?: PagesApp | undefined;
+  /** Turns the Test Sign-In on: anyone with a `.test` email signs in by
+   * naming it. Only the `local` stage may; any other `stage` makes
+   * `createAuthWorker` throw, so the service refuses to start. */
+  testSignIn?: { stage: string } | undefined;
 }
 
 const REGISTRATION_PATH = `${AUTH_API_PATH}/oauth2/register`;
 const WELL_KNOWN_PATH = '/.well-known/';
 
 const CORS_METHODS = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS';
-
-const escapeRegExp = (value: string) =>
-  value.replace(/[|\\{}()[\]^$+*?.-]/g, '\\$&');
-
-const validateTrustedOrigin = (pattern: string) => {
-  const hasWildcard = pattern.includes('*') || pattern.includes('?');
-  const usage =
-    'expected a full origin (e.g. "https://app.example.com") or a host pattern (e.g. "*.example.com")';
-
-  if (!hasWildcard) {
-    try {
-      new URL(pattern);
-      return;
-    } catch {
-      throw new Error(`Invalid trustedOrigins pattern "${pattern}": ${usage}.`);
-    }
-  }
-
-  const probe = pattern.replaceAll('*', 'x').replaceAll('?', 'x');
-  const hasScheme = probe.includes('://');
-  try {
-    const url = hasScheme ? new URL(probe) : new URL(`https://${probe}`);
-    const isBareOrigin = url.pathname === '/' && !url.search && !url.hash;
-    const hostMatches = hasScheme || url.host === probe;
-    if (isBareOrigin && hostMatches) return;
-  } catch {
-    // fall through to the shared error below
-  }
-  throw new Error(`Invalid trustedOrigins pattern "${pattern}": ${usage}.`);
-};
-
-const matchesTrustedOrigin = (origin: string, pattern: string) => {
-  if (!pattern.includes('*') && !pattern.includes('?')) {
-    return new URL(pattern).origin === origin;
-  }
-
-  let value = origin;
-  if (!pattern.includes('://')) {
-    let url: URL;
-    try {
-      url = new URL(origin);
-    } catch {
-      return false;
-    }
-    if (url.protocol !== 'https:') return false;
-    value = url.host;
-  }
-  const source = escapeRegExp(pattern)
-    .replaceAll('\\*', '.*')
-    .replaceAll('\\?', '.');
-  return new RegExp(`^${source}$`, 'i').test(value);
-};
-
-export const validateTrustedOrigins = (patterns: ReadonlyArray<string>) =>
-  patterns.forEach(validateTrustedOrigin);
-
-export const isTrustedOrigin = (
-  origin: string,
-  patterns: ReadonlyArray<string>,
-) => patterns.some((pattern) => matchesTrustedOrigin(origin, pattern));
 
 const corsHeaders = (request: Request, trustedOrigins: string[]) => {
   const headers = new Headers({ Vary: 'Origin' });
@@ -143,6 +91,11 @@ export const createAuthWorker = (
   handler: (request: Request) => Promise<Response>;
 } => {
   validateTrustedOrigins(config.trustedOrigins);
+  if (config.testSignIn && config.testSignIn.stage !== TEST_SIGN_IN_STAGE) {
+    throw new Error(
+      `The Test Sign-In runs only on the "${TEST_SIGN_IN_STAGE}" stage, not "${config.testSignIn.stage}".`,
+    );
+  }
 
   const modelOptions = authModelOptions(config);
   const authorizationServer = config.authorizationServer
@@ -162,6 +115,7 @@ export const createAuthWorker = (
     plugins: [
       ...(modelOptions.plugins ?? []),
       ...(authorizationServer?.plugins ?? []),
+      ...(config.testSignIn ? [testSignIn()] : []),
       ...(dashApiKey ? [dash({ apiKey: dashApiKey })] : []),
     ],
     disabledPaths: authorizationServer?.disabledPaths,
@@ -180,6 +134,7 @@ export const createAuthWorker = (
   const pagesContext: PagesContext = {
     branding,
     multiSession: { maximumAccounts },
+    testSignIn: config.testSignIn !== undefined,
     authorizationServer: role
       ? {
           scopes: Object.fromEntries(

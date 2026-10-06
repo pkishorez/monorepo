@@ -1,12 +1,12 @@
 import { Effect, Fiber, Layer } from 'effect';
 import { Memory } from '@kstackz/std-toolkit/db/memory';
 import { describe, expect, it } from 'vitest';
-import { localToken } from '../../../auth-worker-contract/index.js';
+import { localToken } from '../../../../auth-worker-contract/index.js';
 import {
   auth,
   resolverLocal,
-} from '../../../server/effect/current-auth/index.js';
-import { Auth } from '../auth.js';
+} from '../../../../server/effect/current-auth/index.js';
+import { Auth } from '../../service/index.js';
 import {
   authLocal,
   type LocalChoice,

@@ -2,7 +2,7 @@
   "name": "@kstackz/auth-toolkit",
   "version": "0.0.0",
   "private": false,
-  "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser and CLI clients",
+  "description": "Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser, Expo and CLI clients",
   "keywords": [
     "better-auth",
     "auth",
@@ -75,6 +75,10 @@
       "types": "./dist/clients/auth/index.d.ts",
       "default": "./dist/clients/auth/index.js"
     },
+    "./clients/auth/expo": {
+      "types": "./dist/clients/auth/expo/index.d.ts",
+      "default": "./dist/clients/auth/expo/index.js"
+    },
     "./clients/cli": {
       "types": "./dist/clients/cli/index.d.ts",
       "default": "./dist/clients/cli/index.js"
@@ -110,7 +114,10 @@
     "alchemy": "2.0.0-beta.80",
     "better-sqlite3": "13.0.3",
     "effect": "^4.0.0",
-    "react": "19.2.3"
+    "expo-auth-session": "57.0.13",
+    "expo-secure-store": "57.0.4",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
   },
   "peerDependenciesMeta": {
     "@kstackz/rpc-toolkit": {
@@ -128,7 +135,16 @@
     "effect": {
       "optional": true
     },
+    "expo-auth-session": {
+      "optional": true
+    },
+    "expo-secure-store": {
+      "optional": true
+    },
     "react": {
+      "optional": true
+    },
+    "react-native": {
       "optional": true
     }
   },
@@ -150,10 +166,14 @@
     "better-sqlite3": "catalog:",
     "drizzle-kit": "catalog:",
     "effect": "catalog:",
+    "expo": "catalog:",
+    "expo-auth-session": "catalog:",
+    "expo-secure-store": "catalog:",
     "jose": "catalog:",
     "laymos": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-native": "catalog:",
     "typescript": "catalog:typescript6",
     "vite": "catalog:",
     "vitest": "catalog:"
