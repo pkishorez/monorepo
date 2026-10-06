@@ -29,15 +29,31 @@ _Avoid_: period, analytics, report
 ### Users
 
 **User**:
-One person signed in with Google. Several Users can be signed in on one device at once; each has their own money, and none sees another's.
+One person signed in to a Backend: with Google on the Remote Backend, by name on the Local Backend. Several Users can be signed in on one device at once; each has their own money, and none sees another's.
 _Avoid_: account (an Account is where money sits), profile, login
 
+**Backend**:
+What keeps every User's money and knows who they are: the Remote Backend, unless Settings chose the Local Backend. Each has its own Users; changing Backend signs no one out of either.
+_Avoid_: mode, server, environment, demo
+
+**Remote Backend**:
+The Backend somewhere else, where a User signs in with Google and their money is kept for every device. Ledger starts on it.
+_Avoid_: cloud backend, real backend, production
+
+**Local Backend**:
+The Backend on this device, where a User signs in by choosing any name and their money never leaves the device. It is chosen to try Ledger out, and is how an agent drives it.
+_Avoid_: demo, mock backend, browser backend, sandbox, offline mode
+
 **Session**:
-One User at work in Ledger on this device, with their own copy of their money kept in step with the server. Only one Session is open at a time; it opens when its User is chosen and closes completely when another is chosen or the User signs out.
-_Avoid_: login, connection, client
+One User signed in on this device. Several can be at once, one of them the Active Session.
+_Avoid_: login, account
+
+**Active Session**:
+The Session Ledger has open, the same in every tab: its User's copy of their money, kept in step with the Backend. It changes when another User is chosen or this one signs out.
+_Avoid_: open session, current user, connection
 
 **Switch User**:
-Close the open Session and open another User's, at once, without signing anyone out. Each User's copy of their money stays on the device until that User signs out.
+Make another User's Session the Active Session, at once, in every tab, without signing anyone out. Each User's copy of their money stays on the device until that User signs out.
 _Avoid_: switch account, change account
 
 **User Switcher**:
@@ -45,7 +61,7 @@ What lists every User signed in on this device, to Switch User, Add User, or Sig
 _Avoid_: account menu, profile menu
 
 **Add User**:
-Signing in one more User with Google straight from the User Switcher: Google asks which of its accounts, and Ledger comes back to the same Place with that User's Session open. Choosing a User already signed in on this device only switches to them.
+Signing in one more User straight from the User Switcher: Google asks which of its accounts, or the Local Backend asks for a name, and Ledger comes back to the same Place with that User's Session active. Choosing a User already signed in on this device only switches to them.
 _Avoid_: add account, login, sign up
 
 **Sign Out**:
@@ -67,7 +83,7 @@ One screen you go to: Home, Entries, an Entry, a Month, or Settings. Add is a sh
 _Avoid_: page, route, view
 
 **Settings**:
-How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the sounds, the Keys and Gestures switches with every Command's key, and whether Switch User reaches other tabs. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts.
+How Ledger looks, sounds and is driven on this device, the same for every User of it: the theme, the sounds, the Keys and Gestures switches with every Command's key,. Also the Place to change them, along with the currency of the User's money and the way to Manage Google Accounts.
 _Avoid_: preferences, options
 
 **Section**:

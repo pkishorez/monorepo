@@ -1,5 +1,5 @@
 import { cn } from '@kstackz/ui-toolkit/utils';
-import { money, type Way } from '../../../domain/ledger/index.ts';
+import { money, type Way } from '../../../shared/ledger/index.ts';
 
 /**
  * Money as it is read: in with a plus, out with a minus, a balance as it

@@ -16,7 +16,7 @@ import {
   dayName,
   type Entry,
   today,
-} from '../../../../domain/ledger/index.ts';
+} from '../../../../shared/ledger/index.ts';
 import {
   AccountIcon,
   Amount,

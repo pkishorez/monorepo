@@ -34,9 +34,11 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import {
   AUTH_URL,
+  setBackend,
   signOutEveryone,
   useApp,
-} from '../../../state/machine/index.ts';
+  useBackend,
+} from '../../../gate/index.ts';
 import {
   useMoney,
   useOnline,
@@ -48,7 +50,7 @@ import {
   useChangeSettings,
   useSettings,
 } from '../../../state/settings/index.ts';
-import { CURRENCIES } from '../../../../domain/ledger/index.ts';
+import { CURRENCIES } from '../../../../shared/ledger/index.ts';
 import { usePlace } from '../../parts/index.ts';
 import { AppSection } from './app-section.tsx';
 import { GesturesTab } from './gestures-tab.tsx';
@@ -277,11 +279,14 @@ function Data() {
       setSure(false);
     }
   };
+  const backend = useBackend();
   return (
     <Section title="Your money">
       <p className="text-sm text-muted-foreground">
-        {money.entries.length} entries in {money.accounts.length} accounts, kept
-        on this device and in your account.
+        {money.entries.length} entries in {money.accounts.length} accounts,
+        {backend === 'local'
+          ? ' kept on this device only.'
+          : ' kept on this device and in your account.'}
       </p>
       <div className="divide-y">
         <Row label="Currency">
@@ -324,38 +329,39 @@ function Data() {
 
 function Users() {
   const user = useUser();
-  const settings = useSettings();
-  const change = useChangeSettings();
+  const backend = useBackend();
   return (
     <Section title="Users">
       <div className="divide-y">
         <Row
-          label="Switching user"
-          hint="Whether choosing another user in the sidebar changes every tab, or this tab only."
+          label="Backend"
+          hint="Remote keeps your money for every device, with Google to sign in. Local keeps it on this device, with anyone to sign in as. Each keeps its own users."
         >
           <Flip
-            label="Switching user"
-            value={settings.switching}
-            onChange={(switching) => change({ switching })}
+            label="Backend"
+            value={backend ?? 'remote'}
+            onChange={(next) => void setBackend(next)}
             options={[
-              { value: 'browser', label: 'Every tab' },
-              { value: 'tab', label: 'This tab' },
+              { value: 'remote', label: 'Remote' },
+              { value: 'local', label: 'Local' },
             ]}
           />
         </Row>
-        <Row
-          label="Manage Google accounts"
-          hint={`Where ${user.email} is signed in, and the apps it lets in, at the sign-in service.`}
-        >
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<a href={AUTH_URL} target="_blank" rel="noopener" />}
+        {backend === 'remote' && (
+          <Row
+            label="Manage Google accounts"
+            hint={`Where ${user.email} is signed in, and the apps it lets in, at the sign-in service.`}
           >
-            <ExternalLink aria-hidden="true" />
-            Manage
-          </Button>
-        </Row>
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<a href={AUTH_URL} target="_blank" rel="noopener" />}
+            >
+              <ExternalLink aria-hidden="true" />
+              Manage
+            </Button>
+          </Row>
+        )}
         <Row
           label="Sign out everyone"
           hint="Every user leaves this browser, and their money leaves this device."

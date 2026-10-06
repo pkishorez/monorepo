@@ -23,6 +23,7 @@
     "effect": "catalog:",
     "motion": "catalog:",
     "@kstackz/pwa-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
     "@kstackz/std-toolkit": "workspace:*",

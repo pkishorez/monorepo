@@ -8,7 +8,7 @@ open, and Switch User) is one XState machine run as an Effect actor through
 while the machine is in that state, so leaving it (switching or signing out)
 closes the User's sync and runtime and nothing of theirs is left in context.
 `xstate` 6 and `@xstate/effect` are alphas, pinned to exact versions and
-imported only by `src/client/state/machine`, so a breaking alpha touches one
+imported only by `src/client/domain/machine` and the Gate that runs it, so a breaking alpha touches one
 folder. Commands, Surfaces and the active Surface stay in `@kstackz/use-keys`
 inside React: the machine owns only what outlives a Place.
 

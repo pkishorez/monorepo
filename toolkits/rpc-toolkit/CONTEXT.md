@@ -28,6 +28,10 @@ _Avoid_: merge, combine, override chain
 The RPC and HTTP flavours of the toolkit. Each is self-contained with the same shape; they share vocabulary, not a common core.
 _Avoid_: adapter, transport layer
 
+**In-Process Connection**:
+An RPC connection whose server is the group's handlers in the same process. Requests, headers, and middleware run as over a wire; nothing is sent or serialized.
+_Avoid_: mock, local server, test client
+
 **Hibernation Replay**:
 Restarting an active streaming call after its server wakes, using the saved request and checkpoint while the client's connection remains open.
 _Avoid_: reconnect, fiber resume

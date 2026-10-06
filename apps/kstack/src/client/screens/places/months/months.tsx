@@ -4,7 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import { keys, useCommand } from '../../../commands/index.ts';
 import { useMoney } from '../../../state/session/index.ts';
-import { monthName, monthsOf } from '../../../../domain/ledger/index.ts';
+import { monthName, monthsOf } from '../../../../shared/ledger/index.ts';
 import { Amount, scrollMarked, usePlace } from '../../parts/index.ts';
 
 /**

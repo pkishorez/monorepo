@@ -18,7 +18,7 @@ export {
   type UserView,
 } from './auth-screens';
 export {
-  MockSignIn,
-  type MockSignInChoice,
-  type MockSignInProps,
-} from '../mock-sign-in';
+  LocalSignIn,
+  type LocalSignInChoice,
+  type LocalSignInProps,
+} from '../local-sign-in';

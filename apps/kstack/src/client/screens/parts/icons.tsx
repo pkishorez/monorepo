@@ -16,7 +16,7 @@ import {
   Utensils,
 } from '@kstackz/ui-toolkit/lucide';
 import { cn } from '@kstackz/ui-toolkit/utils';
-import type { Account } from '../../../domain/ledger/index.ts';
+import type { Account } from '../../../shared/ledger/index.ts';
 
 const CATEGORY_ICONS: Readonly<Record<string, LucideIcon>> = {
   utensils: Utensils,

@@ -1,42 +1,47 @@
 import { Effect } from 'effect';
 import type { Entity } from '@kstackz/std-toolkit/core';
 import type { AnyEntityESchema } from '@kstackz/std-toolkit/eschema';
-import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
-import { browser } from '@kstackz/std-toolkit/sync/platform/browser';
+import {
+  createStdSync,
+  type StdSyncPlatform,
+  strategy,
+} from '@kstackz/std-toolkit/sync';
 import {
   Account,
   Category,
   Entry,
   Preferences,
-} from '../../../domain/ledger/index.ts';
+} from '../../../shared/ledger/index.ts';
+import type { Session, User } from '../../domain/session/index.ts';
 import { copyName } from '../local-copies/index.ts';
-import { type Credential, makeRpcRuntime, Rpc } from './rpc.ts';
+import {
+  type Connection,
+  type Credential,
+  makeRpcRuntime,
+  Rpc,
+} from './rpc.ts';
 
 // How often the browser asks for what other devices changed.
 const POLL = '10 seconds';
 
 type Kind = 'Accounts' | 'Categories' | 'Entries' | 'Preferences';
 
-/** One person signed in with Google. */
-export type User = {
-  readonly id: string;
-  readonly name: string;
-  readonly email: string;
-  readonly image: string | null;
+/** Where a Backend's Sessions reach it, and where their copies live: in
+ * memory unless a platform keeps them. */
+export type SessionLink = {
+  readonly connection: Connection;
+  readonly platform?: StdSyncPlatform;
 };
 
-/**
- * One User's money in this browser: a Collection for each kind, kept in
- * IndexedDB and in step with the server, and the server's own commands.
- * Writes show at once and roll back if the server refuses them.
- */
-const makeSession = (user: User, token: string | null) => {
+/** One User's money on this device, kept in step with the Backend `link`
+ * reaches. */
+const makeSession = (link: SessionLink, user: User, token: string | null) => {
   const credential: Credential = { token };
-  const runtime = makeRpcRuntime(credential);
+  const runtime = makeRpcRuntime(link.connection, credential);
   const sync = createStdSync({
     name: copyName(user.id),
-    platform: browser(),
     runtime,
+    ...(link.platform === undefined ? {} : { platform: link.platform }),
   });
 
   // Each kind reads every change after the newest it has, and writes one
@@ -82,7 +87,7 @@ const makeSession = (user: User, token: string | null) => {
       }),
     );
 
-  return {
+  const session: Session & { readonly dispose: () => Promise<void> } = {
     user,
     userId: user.id,
     /** Signs the Session's next requests with a fresh token for its User. */
@@ -106,17 +111,17 @@ const makeSession = (user: User, token: string | null) => {
       await runtime.dispose();
     },
   };
+  return session;
 };
 
-/** A Session open for one User; it closes when its scope does. */
-export type Session = Omit<ReturnType<typeof makeSession>, 'dispose'>;
-
 /**
- * Opens a User's Session for as long as the scope lasts: their copy, kept in
- * step with the server and signed with `token`, closed with the scope.
+ * Opens Sessions over `link`, each for as long as its scope lasts: the
+ * User's copy, kept in step with the Backend and signed with `token`,
+ * closed with the scope.
  */
-export const openSession = (user: User, token: string | null) =>
-  Effect.acquireRelease(
-    Effect.sync(() => makeSession(user, token)),
-    (session) => Effect.promise(() => session.dispose()),
-  ).pipe(Effect.map((session): Session => session));
+export const openSessions =
+  (link: SessionLink) => (user: User, token: string | null) =>
+    Effect.acquireRelease(
+      Effect.sync(() => makeSession(link, user, token)),
+      (session) => Effect.promise(() => session.dispose()),
+    ).pipe(Effect.map((session): Session => session));

@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/react-router';
 import { Month } from '../../../../../client/screens/places/months/index.ts';
-import { isMonthKey } from '../../../../../domain/ledger/index.ts';
+import { isMonthKey } from '../../../../../shared/ledger/index.ts';
 
 export const Route = createFileRoute('/_ledger/months/$month')({
   beforeLoad: ({ params }) => {

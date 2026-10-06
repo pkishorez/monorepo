@@ -35,6 +35,10 @@
       "types": "./dist/rpc/invocation/index.d.ts",
       "default": "./dist/rpc/invocation/index.js"
     },
+    "./rpc/in-process": {
+      "types": "./dist/rpc/in-process/index.d.ts",
+      "default": "./dist/rpc/in-process/index.js"
+    },
     "./rpc/websocket-client": {
       "types": "./dist/rpc/websocket-client/index.d.ts",
       "default": "./dist/rpc/websocket-client/index.js"

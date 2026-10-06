@@ -14,7 +14,7 @@ import {
   money as format,
   today,
   type Way,
-} from '../../../../domain/ledger/index.ts';
+} from '../../../../shared/ledger/index.ts';
 import { AccountIcon, CategoryIcon, Choice } from '../../parts/index.ts';
 
 /**

@@ -588,6 +588,9 @@ importers:
       '@kstackz/pwa-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/pwa-toolkit
+      '@kstackz/rpc-toolkit':
+        specifier: workspace:*
+        version: link:../../toolkits/rpc-toolkit
       '@kstackz/std-toolkit':
         specifier: workspace:*
         version: link:../../toolkits/std-toolkit

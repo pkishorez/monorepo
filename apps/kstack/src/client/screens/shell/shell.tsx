@@ -6,7 +6,8 @@ import {
   setCommandSounds,
   type Surface,
 } from '../../commands/index.ts';
-import { useApp } from '../../state/machine/index.ts';
+import { LocalSignIn } from '@kstackz/ui-toolkit/components/blocks/auth';
+import { useApp, useLocalSignIn } from '../../gate/index.ts';
 import { SessionProvider } from '../../state/session/index.ts';
 import { useSettings } from '../../state/settings/index.ts';
 import { Frame } from './frame.tsx';
@@ -18,6 +19,15 @@ import { Opening, SignedOut } from './signed-out.tsx';
  * Place afresh.
  */
 export function Shell(props: { readonly children: ReactNode }) {
+  return (
+    <>
+      <Lifecycle>{props.children}</Lifecycle>
+      <LocalSignInDialog />
+    </>
+  );
+}
+
+function Lifecycle(props: { readonly children: ReactNode }) {
   const app = useApp();
   switch (app.kind) {
     case 'checking':
@@ -37,6 +47,25 @@ export function Shell(props: { readonly children: ReactNode }) {
         </SessionProvider>
       );
   }
+}
+
+// Who to try the Local Backend as, in one tap.
+const PRESETS = [
+  { email: 'ada@example.com', name: 'Ada Lovelace' },
+  { email: 'grace@example.com', name: 'Grace Hopper' },
+];
+
+// Asks who signs in to the Local Backend, the first User or an Add User.
+function LocalSignInDialog() {
+  const { asking, answer } = useLocalSignIn();
+  return (
+    <LocalSignIn
+      open={asking}
+      presets={PRESETS}
+      onChoose={answer}
+      onCancel={() => answer(null)}
+    />
+  );
 }
 
 // The keys of Ledger: the app keeps the Active Surface, and the device's own

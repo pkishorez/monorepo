@@ -42,8 +42,8 @@ pnpm add @kstackz/auth-toolkit
 
 Peer dependencies, all optional; install the ones your subpaths need:
 
-- `effect`: the `rpc`, `server/rpc`, `http-api`, `server/http-api`, `clients/accounts`, and `clients/cli` subpaths are Effect Layers and Services.
-- `@kstackz/std-toolkit`: `accountsMock` from `@kstackz/auth-toolkit/clients/accounts` keeps Mock Accounts in a StdTable.
+- `effect`: the `rpc`, `server/rpc`, `http-api`, `server/http-api`, `clients/auth`, and `clients/cli` subpaths are Effect Layers and Services.
+- `@kstackz/std-toolkit`: `authLocal` from `@kstackz/auth-toolkit/clients/auth` keeps Local Accounts in a StdTable.
 - `react`: the Auth Worker's own pages are React.
 - `better-sqlite3`: `@kstackz/auth-toolkit/worker/database/memory` runs SQLite in-process for tests.
 - `alchemy`: `@kstackz/auth-toolkit/worker/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
@@ -101,6 +101,7 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | ------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `Authz`                         | The Auth Cannotation for Effect RPC; safe to import from contracts shared with the browser.     |
 | `Authz.guard`                   | Attaches an Authentication Requirement, or an Authorization Policy, to an RPC or an RPC group.  |
+| `Authz.bearer`                  | Client Layer that signs every guarded call with one Session's token, over any RPC Protocol.     |
 | `Authz.policy`                  | Builds an Authorization Policy from a boolean or Effect invariant and the reason it fails with. |
 | `Authz.scope`                   | Builds a policy that passes only a Token Principal carrying every listed Scope.                 |
 | `Authz.CurrentAuth`             | Service holding the verified Principal while a guarded handler runs.                            |
@@ -111,12 +112,12 @@ Peer dependencies, all optional; install the ones your subpaths need:
 
 ### `@kstackz/auth-toolkit/server/rpc`
 
-| Export         | What it does                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------- |
-| `authzLayer`   | Server Implementation of the RPC Auth Cannotation; requires `Authz.Resolver`.                           |
-| `resolverLive` | Production Current Auth Resolver; verifies Sessions, and Access Tokens too when given a `resource`.     |
-| `resolverMock` | Mocked Current Auth Resolver; reads the User out of a Mock Token bearer, asking no one.                 |
-| `authzCookies` | Wraps an RPC HTTP app to verify once per batched request and relay refreshed cookies onto the response. |
+| Export          | What it does                                                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `authzLayer`    | Server Implementation of the RPC Auth Cannotation; requires `Authz.Resolver`.                           |
+| `resolverLive`  | Production Current Auth Resolver; verifies Sessions, and Access Tokens too when given a `resource`.     |
+| `resolverLocal` | Local Current Auth Resolver; reads the User out of a Local Token bearer, asking no one.                 |
+| `authzCookies`  | Wraps an RPC HTTP app to verify once per batched request and relay refreshed cookies onto the response. |
 
 ### `@kstackz/auth-toolkit/http-api`
 
@@ -134,24 +135,26 @@ Peer dependencies, all optional; install the ones your subpaths need:
 
 ### `@kstackz/auth-toolkit/server/http-api`
 
-| Export         | What it does                                                                                                    |
-| -------------- | --------------------------------------------------------------------------------------------------------------- |
-| `authzLayer`   | Server Implementation of the HTTP API Auth Cannotation; requires `Authz.Resolver` and relays refreshed cookies. |
-| `resolverLive` | Production Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                    |
-| `resolverMock` | Mocked Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                        |
+| Export          | What it does                                                                                                    |
+| --------------- | --------------------------------------------------------------------------------------------------------------- |
+| `authzLayer`    | Server Implementation of the HTTP API Auth Cannotation; requires `Authz.Resolver` and relays refreshed cookies. |
+| `resolverLive`  | Production Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                    |
+| `resolverLocal` | Local Current Auth Resolver; the same value `@kstackz/auth-toolkit/server/rpc` exports.                         |
 
-### `@kstackz/auth-toolkit/clients/accounts`
+### `@kstackz/auth-toolkit/clients/auth`
 
-| Export              | What it does                                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `Accounts`          | Service for the browser's Signed-in Accounts: list, sign in, switch, sign out one or all, and the login error. |
-| `Unreachable`       | Error when the Auth Worker could not be reached or refused the call.                                           |
-| `accountsLive`      | Layer of `Accounts` against the Auth Worker, with Google to sign in.                                           |
-| `accountsMock`      | Layer of `Accounts` over Mock Accounts, asking a `choose` effect who signs in; in memory unless given storage. |
-| `mockAccountsTable` | The StdTable Mock Accounts live in, to realize on an adapter such as IDB or SQLite.                            |
-| `mockChooser`       | Builds a `choose` that waits for a dialog to answer it.                                                        |
-| `signedFetch`       | Wraps `fetch` to send one account's token as a bearer and never the cookie.                                    |
-| `signedFetchLayer`  | `FetchHttpClient.layer` over `signedFetch`, so every Effect HTTP or RPC client on it is signed.                |
+| Export               | What it does                                                                                                   |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `Auth`               | Service for the browser's Signed-in Accounts: list, sign in, switch, sign out one or all, and the login error. |
+| `Unreachable`        | Error when the Auth Worker could not be reached or refused the call.                                           |
+| `authLive`           | Layer of `Auth` against the Auth Worker, with Google to sign in.                                               |
+| `authLocal`          | Layer of `Auth` over Local Accounts, asking a `choose` effect who signs in; in memory unless given storage.    |
+| `localAccountsTable` | The StdTable Local Accounts live in, to realize on an adapter such as IDB or SQLite.                           |
+| `localChooser`       | Builds a `choose` that waits for a dialog to answer it.                                                        |
+| `localToken`         | Makes and reads Local Tokens, to sign a test's calls as any User.                                              |
+| `localUser`          | The Local Account an email names; the same email is always the same User.                                      |
+| `signedFetch`        | Wraps `fetch` to send one account's token as a bearer and never the cookie.                                    |
+| `signedFetchLayer`   | `FetchHttpClient.layer` over `signedFetch`, so every Effect HTTP or RPC client on it is signed.                |
 
 ### `@kstackz/auth-toolkit/clients/cli`
 
@@ -295,37 +298,36 @@ const app = Effect.gen(function* () {
 ### Sign a User in from a First-Party client
 
 Both clients hold a Session and talk only to the Auth Worker. In a browser,
-`Accounts` lists the Signed-in Accounts and signs one in with Google; each
-account's token signs that account's own requests. Lifted from
+`Auth` lists the Signed-in Accounts and signs one in with Google; each
+account's token signs that account's own calls through `Authz.bearer`. Lifted from
 `apps/kstack/src/client/state`. In a CLI, `CliAuth` plays the browser's part:
 it runs Device Login, keeps the Session, attaches it to every call, and drops
 it on sign-out; lifted from `src/clients/cli/tests/cli.test.ts`.
 
 ```ts
 // Browser: this app's origin must be in the Auth Worker's `trustedOrigins`.
-import {
-  Accounts,
-  accountsLive,
-  signedFetchLayer,
-} from '@kstackz/auth-toolkit/clients/accounts';
+import { Auth, authLive } from '@kstackz/auth-toolkit/clients/auth';
+import { Authz } from '@kstackz/auth-toolkit/rpc';
 
 const runtime = ManagedRuntime.make(
-  accountsLive({ authWorkerUrl: 'https://auth.example.com' }),
+  authLive({ authWorkerUrl: 'https://auth.example.com' }),
 );
 
 const open = Effect.gen(function* () {
-  const accounts = yield* Accounts;
-  const active = (yield* accounts.list).find(({ active }) => active);
+  const auth = yield* Auth;
+  const active = (yield* auth.list).find(({ active }) => active);
   // Nobody signed in: leave for Google and come back here.
-  if (active === undefined) return yield* accounts.signIn();
+  if (active === undefined) return yield* auth.signIn();
   return active;
 });
 
-// Each account's calls carry its own token, whichever account is active.
+// Each account's calls carry its own token, whichever account is active,
+// over HTTP or any other Protocol.
 const rpcFor = (token: string) =>
-  RpcClient.layerProtocolHttp({ url: '/rpc' }).pipe(
-    Layer.provide([signedFetchLayer(() => token), RpcSerialization.layerJson]),
-  );
+  Layer.mergeAll(
+    RpcClient.layerProtocolHttp({ url: '/rpc' }),
+    Authz.bearer(() => token),
+  ).pipe(Layer.provide([FetchHttpClient.layer, RpcSerialization.layerJson]));
 ```
 
 ```ts
@@ -364,7 +366,7 @@ Layer.mergeAll(
 
 - In the browser, `list` is a Direct Session Check against the Auth Worker, sent with its cookie. `signIn` returns to the current page; a failed sign-in comes back once from `takeLoginError`, which clears it from the URL.
 - `switchTo` makes an account the Active Account for every app on the Shared Cookie Domain; `signOut` ends one account and `signOutAll` every one.
-- To run without Google or the Auth Worker, provide `accountsMock({ choose })` in the browser and `resolverMock` on the backend: a Mock Account's token is a Mock Token, which `resolverMock` reads without asking anyone. `mockChooser` and ui-toolkit's `MockSignIn` dialog ask who to sign in as. See [ADR 0016](./docs/adr/0016-auth-is-mocked-at-two-seams-joined-by-a-mock-token.md).
+- To run without Google or the Auth Worker, provide `authLocal({ choose })` in the browser and `resolverLocal` on the backend: a Local Account's token is a Local Token, which `resolverLocal` reads without asking anyone. `localChooser` and ui-toolkit's `LocalSignIn` dialog ask who to sign in as. See [ADR 0016](./docs/adr/0016-auth-runs-locally-at-two-seams-joined-by-a-local-token.md).
 - In the CLI, `login` prints the code and device URL, opens the browser when run in a terminal, polls until the User approves, and stores the Session at `$XDG_STATE_HOME/<app>/auth.json` (default `~/.local/state`) with mode `0600`.
 - `whoami` asks the Auth Worker who the Session belongs to. `token` reads it. `logout` ends the Session at the Auth Worker and deletes the file.
 - Every request names the CLI as `<app>/<version>`, which is how it appears on the Home Page.

@@ -8,4 +8,4 @@ export {
 } from './current-auth.js';
 export { appendRefreshedCookies } from './refreshed-cookies.js';
 export { resolverLive } from './resolver.js';
-export { resolverMock } from './resolver-mock.js';
+export { resolverLocal } from './resolver-local.js';

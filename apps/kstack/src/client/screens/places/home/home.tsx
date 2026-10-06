@@ -16,7 +16,7 @@ import {
   monthOf,
   summarize,
   today,
-} from '../../../../domain/ledger/index.ts';
+} from '../../../../shared/ledger/index.ts';
 import {
   Amount,
   CategoryIcon,

@@ -1,1 +1,1 @@
-export { authzLayer, resolverLive, resolverMock } from './server.js';
+export { authzLayer, resolverLive, resolverLocal } from './server.js';

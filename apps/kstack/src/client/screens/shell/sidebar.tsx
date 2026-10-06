@@ -12,7 +12,7 @@ import { Link, useLocation, useSearch } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { BindingKeys, keys, useCommand } from '../../commands/index.ts';
 import { useMoney } from '../../state/session/index.ts';
-import { balances } from '../../../domain/ledger/index.ts';
+import { balances } from '../../../shared/ledger/index.ts';
 import { useOpenAccount } from '../sheets/accounts/index.ts';
 import { AccountIcon, Amount, focusPage } from '../parts/index.ts';
 import { PLACES } from './places.ts';

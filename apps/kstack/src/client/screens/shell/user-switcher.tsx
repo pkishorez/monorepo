@@ -19,12 +19,7 @@ import {
   LogOut,
   UserPlus,
 } from '@kstackz/ui-toolkit/lucide';
-import {
-  addUser,
-  signOut,
-  switchUser,
-  useApp,
-} from '../../state/machine/index.ts';
+import { addUser, signOut, switchUser, useApp } from '../../gate/index.ts';
 import { type User, useOnline, useUser } from '../../state/session/index.ts';
 import { LedgerMark } from '../parts/index.ts';
 

@@ -56,12 +56,12 @@ _Avoid_: consent page, authorize page
 The Auth Worker's page at `/device`, where the User enters and approves a Device Login code.
 _Avoid_: device page, verification page
 
-**Mock Account**:
-A User that exists only in mocked auth: signed in by naming it, with no Auth Worker and no identity provider involved. Each Signed-in Account behaves as it would with a real sign-in, so switching and signing out work the same way.
+**Local Account**:
+A User that exists only in local auth: signed in by naming it, with no Auth Worker and no identity provider involved. Each Signed-in Account behaves as it would with a real sign-in, so switching and signing out work the same way.
 _Avoid_: test account, fake user, demo user
 
-**Mock Token**:
-The Session token mocked auth hands a Mock Account, which carries the User it names. A mocked Current Auth Resolver reads the User straight out of it without asking anyone, so mocked auth on the browser side and on the Consumer Backend side never share state, wherever either runs. Any Mock Token is accepted, and signing out revokes nothing.
+**Local Token**:
+The Session token local auth hands a Local Account, which carries the User it names. A local Current Auth Resolver reads the User straight out of it without asking anyone, so local auth on the browser side and on the Consumer Backend side never share state, wherever either runs. Any Local Token is accepted, and signing out revokes nothing.
 _Avoid_: fake token, test token
 
 **Device Login**:
@@ -157,7 +157,7 @@ An optional rule that accepts or rejects an identity when it first registers, li
 _Avoid_: invariant, user validation
 
 **Direct Session Check**:
-The browser calling the Auth Worker itself (cross-origin, not proxied) to ask "am I logged in" — used by the browser's Accounts to list, sign in, switch, and sign out. Requires the Auth Worker to allow the browser's origin (see Trusted Origin) and needs its cookie readable across origins (see Shared Cookie Domain).
+The browser calling the Auth Worker itself (cross-origin, not proxied) to ask "am I logged in" — used by the browser's Auth to list, sign in, switch, and sign out. Requires the Auth Worker to allow the browser's origin (see Trusted Origin) and needs its cookie readable across origins (see Shared Cookie Domain).
 _Avoid_: proxied check (that's the separate Server-Side Verification path)
 
 **Server-Side Verification**:

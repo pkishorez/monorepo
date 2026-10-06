@@ -1,6 +1,6 @@
 import handler from '@tanstack/react-start/server-entry';
 import type { WorkerEnv } from '../infra/index.ts';
-import { handleRpc } from '../../server/rpc-host/index.ts';
+import { handleRpc } from '../../server/backends/remote/index.ts';
 
 /** `/rpc` is the Ledger API; everything else is the app. */
 export default {
