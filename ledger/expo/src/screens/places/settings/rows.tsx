@@ -1,6 +1,8 @@
+import { Glyph, type GlyphProps } from '@kstackz/expo-toolkit/components/glyph';
 import { Text } from '@kstackz/expo-toolkit/components/text';
+import { cn } from '@kstackz/expo-toolkit/theme';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 /** A titled part of a Settings Section. */
 export function Group(props: {
@@ -38,13 +40,15 @@ export function Row(props: {
   );
 }
 
-/** Two or three choices side by side, the chosen one filled. */
+/** Two or three choices side by side, the chosen one filled, each with an
+ * optional icon before its name. */
 export function Flip<T extends string>(props: {
   readonly value: T;
   readonly onChange: (value: T) => void;
   readonly options: ReadonlyArray<{
     readonly value: T;
     readonly label: string;
+    readonly icon?: GlyphProps['icon'];
   }>;
 }) {
   return (
@@ -52,19 +56,33 @@ export function Flip<T extends string>(props: {
       {props.options.map((option) => {
         const on = option.value === props.value;
         return (
-          <Text
+          <Pressable
             key={option.value}
             accessibilityRole="button"
+            accessibilityLabel={option.label}
             accessibilityState={{ selected: on }}
             onPress={() => props.onChange(option.value)}
-            className={
-              on
-                ? 'rounded-md bg-background px-3 py-1.5 text-sm text-foreground'
-                : 'px-3 py-1.5 text-sm text-muted-foreground'
-            }
+            className={cn(
+              'flex-row items-center gap-1.5 rounded-md px-3 py-1.5',
+              on && 'bg-background',
+            )}
           >
-            {option.label}
-          </Text>
+            {option.icon !== undefined && (
+              <Glyph
+                icon={option.icon}
+                size={14}
+                tone={on ? 'foreground' : 'muted-foreground'}
+              />
+            )}
+            <Text
+              className={cn(
+                'text-sm',
+                on ? 'text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
         );
       })}
     </View>

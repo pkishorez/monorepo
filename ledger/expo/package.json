@@ -4,9 +4,9 @@
   "private": true,
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "ios": "expo start --ios",
-    "android": "expo start --android",
+    "start": "EXPO_PUBLIC_COMMIT=$(git rev-parse --short HEAD) expo start",
+    "ios": "EXPO_PUBLIC_COMMIT=$(git rev-parse --short HEAD) expo start --ios",
+    "android": "EXPO_PUBLIC_COMMIT=$(git rev-parse --short HEAD) expo start --android",
     "lint": "tsc --noEmit && pnpm lint:laymos",
     "lint:laymos": "laymos lint"
   },

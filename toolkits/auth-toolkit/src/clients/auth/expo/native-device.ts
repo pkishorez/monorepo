@@ -4,7 +4,7 @@ import {
   ResponseType,
 } from 'expo-auth-session';
 import * as SecureStore from 'expo-secure-store';
-import { Linking } from 'react-native';
+import { openAuthSessionAsync } from 'expo-web-browser';
 import type { Device } from './device.js';
 
 // Readable once the phone has been unlocked after a restart, so a refresh
@@ -14,8 +14,8 @@ const keychain = {
 };
 
 /** The phone itself: the keychain (Keystore on Android) through
- * expo-secure-store, ASWebAuthenticationSession (Custom Tabs on Android)
- * through expo-auth-session, and the system browser. */
+ * expo-secure-store, and ASWebAuthenticationSession (Custom Tabs on Android)
+ * through expo-auth-session and expo-web-browser. */
 export const nativeDevice = (): Device => ({
   secrets: {
     get: (key) => SecureStore.getItemAsync(key, keychain),
@@ -57,5 +57,10 @@ export const nativeDevice = (): Device => ({
     if (!code || !request.codeVerifier) return { type: 'cancelled' };
     return { type: 'code', code, codeVerifier: request.codeVerifier };
   },
-  open: (url) => Linking.openURL(url),
+  // In the same sheet as sign-in, not Safari: on iOS the sheet keeps its
+  // own cookies, so only there is the User still signed in. It waits for
+  // nothing to come back (no redirect) and ends when the User closes it.
+  open: async (url) => {
+    await openAuthSessionAsync(url, null, { preferEphemeralSession: false });
+  },
 });

@@ -1,3 +1,5 @@
+import Moon02Icon from '@hugeicons/core-free-icons/Moon02Icon';
+import Sun03Icon from '@hugeicons/core-free-icons/Sun03Icon';
 import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Choice } from '@kstackz/expo-toolkit/components/choice';
 import { Dialog } from '@kstackz/expo-toolkit/components/dialog';
@@ -5,7 +7,7 @@ import { Switch } from '@kstackz/expo-toolkit/components/switch';
 import { Text } from '@kstackz/expo-toolkit/components/text';
 import { useMoney, useUser, useWrites } from '@ledger/core/client/session';
 import { CURRENCIES } from '@ledger/core/shared/ledger';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { useState } from 'react';
 import { View } from 'react-native';
 import {
@@ -47,8 +49,8 @@ function LookAndFeel() {
           value={theme}
           onChange={setTheme}
           options={[
-            { value: 'light', label: 'Light' },
-            { value: 'dark', label: 'Dark' },
+            { value: 'light', label: 'Light', icon: Sun03Icon },
+            { value: 'dark', label: 'Dark', icon: Moon02Icon },
           ]}
         />
       </Row>
@@ -76,12 +78,23 @@ function LookAndFeel() {
   );
 }
 
+// Which build runs, as the web's "Deployed … · commit": Expo Go, or the
+// build's number, and the commit Metro bundled (set by `pnpm start`).
+const BUILT = [
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+    ? 'Expo Go'
+    : Constants.nativeBuildVersion && `Build ${Constants.nativeBuildVersion}`,
+  process.env.EXPO_PUBLIC_COMMIT,
+]
+  .filter(Boolean)
+  .join(' · ');
+
 // The web's App rows: there is nothing to install on a phone, so only the
-// version this app runs.
+// version this app runs; updates come from the store.
 function App() {
   return (
     <Group title="App">
-      <Row label="Version">
+      <Row label="Version" hint={BUILT || undefined}>
         <Text muted className="text-sm">
           {Constants.expoConfig?.version ?? '—'}
         </Text>
@@ -204,7 +217,7 @@ function SignOutEveryone() {
     <Dialog open={open} onOpenChange={setOpen}>
       <Dialog.Trigger>
         <Button variant="outline" size="sm" disabled={!online || count === 0}>
-          Sign out
+          Sign out everyone
         </Button>
       </Dialog.Trigger>
       <Dialog.Content>

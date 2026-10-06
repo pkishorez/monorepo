@@ -8,9 +8,59 @@ import { useMoney } from '@ledger/core/client/session';
 import { monthsView } from '@ledger/core/client/views';
 import { monthName } from '@ledger/core/shared/ledger';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { Amount, Scroll } from '../../parts';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, View } from 'react-native';
+import { Amount } from '../../parts';
+
+// Room kept above and below the marked card when it is scrolled to; the
+// foot also clears the Add button.
+const ROOM = { top: 16, bottom: 112 } as const;
+
+type Box = { readonly y: number; readonly height: number };
+
+// Keeps the marked Month in view, scrolling no more than needed (the web's
+// `scrollIntoView({ block: 'nearest' })`). A card not laid out yet is
+// scrolled to when it is.
+function useMarkInView(marked: string | undefined) {
+  const list = useRef<ScrollView>(null);
+  const boxes = useRef(new Map<string, Box>());
+  const view = useRef({ top: 0, height: 0 });
+  const pending = useRef<string | undefined>(undefined);
+
+  const reveal = (month: string) => {
+    const box = boxes.current.get(month);
+    const { top, height } = view.current;
+    if (box === undefined || height === 0) {
+      pending.current = month;
+      return;
+    }
+    pending.current = undefined;
+    const above = box.y - ROOM.top;
+    const below = box.y + box.height + ROOM.bottom - height;
+    if (above < top) list.current?.scrollTo({ y: Math.max(0, above) });
+    else if (below > top) list.current?.scrollTo({ y: below });
+  };
+
+  // Only a new mark scrolls; the list changing under it does not.
+  useEffect(() => {
+    if (marked !== undefined) reveal(marked);
+  }, [marked]);
+
+  return {
+    ref: list,
+    onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+      view.current.top = event.nativeEvent.contentOffset.y;
+    },
+    onLayout: (event: { nativeEvent: { layout: { height: number } } }) => {
+      view.current.height = event.nativeEvent.layout.height;
+      if (pending.current !== undefined) reveal(pending.current);
+    },
+    card: (month: string) => (event: { nativeEvent: { layout: Box } }) => {
+      boxes.current.set(month, event.nativeEvent.layout);
+      if (pending.current === month) reveal(month);
+    },
+  };
+}
 
 /**
  * Months, a Place: each with what came in and went out, and what was left.
@@ -26,6 +76,7 @@ export function Months(props: { readonly at: string | undefined }) {
   const [marked, setMarked] = useState(props.at);
   const currency = money.currency;
   useEffect(() => setMarked(props.at), [props.at]);
+  const inView = useMarkInView(marked);
 
   const at = months.findIndex((month) => month.month === marked);
   const active = surface === 'months';
@@ -51,12 +102,20 @@ export function Months(props: { readonly at: string | undefined }) {
     );
   }
   return (
-    <Scroll className="gap-2">
+    <ScrollView
+      ref={inView.ref}
+      onScroll={inView.onScroll}
+      scrollEventThrottle={32}
+      onLayout={inView.onLayout}
+      keyboardShouldPersistTaps="handled"
+      contentContainerClassName="gap-2 px-4 pt-5 pb-28"
+    >
       {months.map((month) => {
         const left = month.in - month.out;
         return (
           <Pressable
             key={month.month}
+            onLayout={inView.card(month.month)}
             accessibilityRole="button"
             accessibilityLabel={monthName(month.month)}
             accessibilityState={{ selected: month.month === marked }}
@@ -102,7 +161,7 @@ export function Months(props: { readonly at: string | undefined }) {
           </Pressable>
         );
       })}
-    </Scroll>
+    </ScrollView>
   );
 }
 

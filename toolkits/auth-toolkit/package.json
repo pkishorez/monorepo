@@ -116,6 +116,7 @@
     "effect": "^4.0.0",
     "expo-auth-session": "57.0.13",
     "expo-secure-store": "57.0.4",
+    "expo-web-browser": "57.0.3",
     "react": "19.2.3",
     "react-native": "0.86.3"
   },
@@ -139,6 +140,9 @@
       "optional": true
     },
     "expo-secure-store": {
+      "optional": true
+    },
+    "expo-web-browser": {
       "optional": true
     },
     "react": {
@@ -169,6 +173,7 @@
     "expo": "catalog:",
     "expo-auth-session": "catalog:",
     "expo-secure-store": "catalog:",
+    "expo-web-browser": "catalog:",
     "jose": "catalog:",
     "laymos": "workspace:*",
     "react": "catalog:",

@@ -1,5 +1,7 @@
 # Ledger on Expo: build notes
 
+> **Coordinator, stopped by a usage limit:** Phases 1–4 and Phase 5 batches B and C are merged. Batch A (gestures and motion) ran in its own worktree and still needs merging; `ledger/docs/parity.md` took batch C's copy in the merge, so batch B's row updates (5B section below) need re-applying to it. The Android pass and Phase 6 (review, morning summary) are not done.
+
 Running log of the Ledger on Expo build (brief: the untracked `plan.md`;
 spec: `.claude/specs/ledger-on-expo.md`). Each phase adds a section:
 challenges, hacks, drawbacks, open questions, cleanup still owed, and
@@ -1473,3 +1475,124 @@ Batch B of `ledger/docs/parity.md`: every row it owns is fixed or done.
 - On Android an OAuth redirect delivered as an intent would now land on Home
   instead of the "Unmatched route" screen; the auth session normally catches
   it first.
+
+## Phase 5C: Places polish and core
+
+Batch C of `ledger/docs/parity.md`, all nine rows: no half-read copy on any
+Place, compact money the same on Hermes and in a browser, Home's bars grow,
+the marked Month stays in view, Settings' Theme icons, Version hint and
+"Sign out everyone" button, the gesture guide's Sidebar line, and Manage
+Google accounts signed in. Proven on the **iPhone Air** Simulator (iOS 27.0,
+UDID `9E30BE77-…`, Expo Go 57.0.9, Metro on **8083**), on the Local Backend
+and on the Remote one against the running sign-in service and this
+worktree's own Ledger web dev server. Web smoke-tested with agent-browser
+(Home, Entries, the Gestures tab). Whole-repo `pnpm lint`, `pnpm test` and
+`pnpm build` pass. Screens: `ledger/expo/docs/screens/phase-5c-*.png`.
+
+**What changed, where**
+
+- `@ledger/core` `useMoney` (`client/state/session/use-session.tsx`): every
+  list is empty until all four live queries are ready, so no Place in either
+  app draws Entries without their Categories. Native Home draws nothing until
+  `ready` (no `$0.00` frame, no Welcome flash); web's Home still mounts its
+  Glance at once and its bars grow when the copy lands, as before.
+- `@ledger/core` `money` (`shared/ledger/money.ts`): compact money is rounded
+  once, in whole cents, half away from zero, to a tenth of its scale, and
+  only then handed to `Intl` (browser) or the hand path (Hermes, whose Intl
+  ignores `notation`). A scale that rounds up to a thousand moves to the next
+  (`$999.96` is `$1K`). `tests/money.test.ts` runs one table through the
+  browser path and a Hermes-like `Intl` (no `notation`), both in `en-US`.
+  Seen on the phone: Food's budget reads `$144.5 of $450` (it was `$144.4`).
+- `@ledger/core` gestures (`client/commands/gestures.ts`): a swipe `Motion`
+  may carry `edge`; `said(motion, { fromEdge: true })` says "Swipe right
+  from the left edge". Only the Sidebar's open swipe has `edge`; native's
+  Gestures Section passes `fromEdge`, web does not, so web reads "Swipe
+  right" as before. No new export (the commands door is unchanged).
+- expo-toolkit `Meter`: the fill is an `Animated.View` whose width grows
+  from 0 on mount and eases to each new value, 500 ms on
+  `Easing.bezier(0.4, 0, 0.2, 1)` (Tailwind's default curve, the web's
+  `transition-[width] duration-500`); with reduced motion it is set at once.
+  Every Meter animates (Home, Budgets, Months, a Month). Changeset added.
+- Months (`months.tsx`): `useMarkInView` keeps the marked card in view,
+  scrolling no more than needed (the web's `block: 'nearest'`), with room
+  above (16) and below (112, clear of +). A mark set before its card is laid
+  out is scrolled to from the card's `onLayout`. The page is a `ScrollView`
+  with `Scroll`'s classes (that part takes no ref, and is not this batch's).
+- Settings: `Flip` options take an optional icon (sun, moon); the Version
+  row's hint is "Expo Go · {commit}" (or "Build {n} · {commit}" in a build);
+  the button reads "Sign out everyone". The commit is `EXPO_PUBLIC_COMMIT`,
+  set by `pnpm start`, `pnpm ios` and `pnpm android` in `ledger/expo` from
+  `git rev-parse --short HEAD` (an `expo start` by hand shows only "Expo Go").
+- auth-toolkit's expo target: `manageAccounts` opens the Auth Worker's Home
+  Page with `openAuthSessionAsync(url, null, { preferEphemeralSession: false })`
+  instead of `Linking.openURL`. `expo-web-browser` is a new optional peer
+  (and dev dependency) of auth-toolkit; `ledger/expo` already had it.
+  Changeset added.
+
+**Manage Google accounts: the decision**
+
+On iOS the sign-in sheet (ASWebAuthenticationSession, not ephemeral) keeps a
+cookie store of its own; Safari's is another, so Safari may never show the
+User signed in (4b saw it signed out). Whatever a real phone does with
+Safari, the sheet is the one place sure to hold the sign-in, so the choice
+does not wait on a phone. ADR 0009 says the app opens the sign-in service in the system
+sheet, never a web view, and that the sheet shares the sign-in's cookies;
+opening Manage in the same sheet keeps both promises. On the device: Manage
+→ iOS's "“Expo” Wants to Use “auth.kishore.computer” to Sign In" → the Auth
+Worker's Home Page signed in as ada@ledger.test with her sessions → the
+close button → back in Settings, unchanged. The alert is the price (it says
+"Sign In" for a page that is not one); `plan.md`'s "opens the system
+browser" is now "opens the sign-in sheet". On Android the auth session is a
+Custom Tab, which shares Chrome's cookies anyway.
+
+**How it was driven**
+
+- Taps through **idb** by UDID; Ledger's own buttons through `drive.mjs`
+  (`METRO_PORT=8083`). Deep links (`xcrun simctl openurl … exp://127.0.0.1:8083/--/months?at=2026-08`)
+  raise iOS's "Open in “Expo Go”?" alert; `idb ui key 40` (Return) opens.
+- The marked Month: with the largest accessibility text size
+  (`xcrun simctl ui <udid> content_size accessibility-extra-extra-extra-large`)
+  three Months overflow the screen; `?at=2026-08` scrolled August into view
+  above the +, and `?at=2026-10` scrolled back up. Set back to `large`.
+- The bars growing: a burst of six `simctl io screenshot`s right after
+  tapping Home in the Sidebar; the second frame caught In at about 65 % of
+  its width and Out about two thirds of its own
+  (`phase-5c-home-bars-grow.png`, six frames stacked). No frame showed a
+  half-read Home.
+- Web: agent-browser on `https://<worktree>.kstack.kishore.computer/?backend=local`,
+  Ada, sample money: Home shows `$144.5` for Food, Entries lists, and the
+  Gestures tab still says "Swipe right" for the Sidebar.
+
+**Challenges**
+
+- `simctl io recordVideo` failed ("Host recording is already in progress")
+  after a first recording was stopped with SIGKILL; bursts of screenshots
+  stood in.
+- An iOS alert queued behind another does not show in screenshots: the
+  first "Sign in with Google" seemed to do nothing until
+  `idb ui describe-all` showed its "Wants to Use" alert waiting. Read the
+  tree when a tap seems lost.
+- `idb ui tap` failed at first with "dtuhidd did not answer a liveness
+  probe" on the freshly booted device; it answered a few minutes later.
+- The machine's locale is `en-IN`: `Intl`'s compact notation there writes
+  `$10L` for a million. The tests pin `en-US`.
+
+**Drawbacks**
+
+- On Hermes the compact suffixes are English (K, M, B) whatever the locale;
+  a browser in `en-IN` writes L and Cr. Accepted (parity row). In such a
+  locale web can round twice (to a tenth of a thousand, then of a lakh).
+- Manage shows the "Wants to Use … to Sign In" alert each time.
+- `Meter` animates everywhere, also where web's bars do not (Months, a
+  Month): a short grow on arrival.
+- Version shows `0.0.0` (`app.json`); the commit is the last one, not the
+  working tree's.
+
+**Left**
+
+- Try Manage on a real iPhone with real Google (the morning list in 4b,
+  step 4): it should now show the account signed in, after the alert.
+- Rows of batches A and B.
+- This worktree's Ledger web dev server and Metro were stopped; the iPhone
+  Air Simulator was shut down. Ada (`ada@ledger.test`) has an account in
+  this worktree's local D1 and the sign-in service.

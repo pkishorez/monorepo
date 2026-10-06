@@ -59,7 +59,8 @@ const plain = <T extends object>(row: T): T => {
 /**
  * The user's money as it stands, live: every Account, Category and Entry
  * (Entries newest first), their currency, and whether the first read
- * from this device's copy is done.
+ * from this device's copy is done. Until it is, every list is empty, so no
+ * Place draws half a copy (Entries without their Categories).
  */
 export const useMoney = () => {
   const ledger = useSession();
@@ -68,29 +69,31 @@ export const useMoney = () => {
   const entries = useLiveQuery((q) => q.from({ row: ledger.entries }));
   const preferences = useLiveQuery((q) => q.from({ row: ledger.preferences }));
   return useMemo(() => {
-    const own = preferences.data[0];
+    const ready =
+      accounts.isReady &&
+      categories.isReady &&
+      entries.isReady &&
+      preferences.isReady;
+    const rows = <T extends object>(data: ReadonlyArray<T>) =>
+      ready ? data.map((row) => plain(row)) : [];
+    const own = rows(preferences.data)[0];
     return {
-      ready:
-        accounts.isReady &&
-        categories.isReady &&
-        entries.isReady &&
-        preferences.isReady,
-      accounts: (accounts.data.map(plain) as Account[]).sort(
+      ready,
+      accounts: (rows(accounts.data) as Account[]).sort(
         (a, b) =>
           KINDS.indexOf(a.kind) - KINDS.indexOf(b.kind) ||
           a.name.localeCompare(b.name),
       ),
-      categories: (categories.data.map(plain) as Category[]).sort((a, b) =>
+      categories: (rows(categories.data) as Category[]).sort((a, b) =>
         a.way === b.way
           ? a.name.localeCompare(b.name)
           : a.way === 'out'
             ? -1
             : 1,
       ),
-      entries: (entries.data.map(plain) as Entry[]).sort(newestFirst),
-      currency: (own === undefined
-        ? defaultPreferences(ledger.userId)
-        : (plain(own) as Preferences)
+      entries: (rows(entries.data) as Entry[]).sort(newestFirst),
+      currency: (
+        (own as Preferences | undefined) ?? defaultPreferences(ledger.userId)
       ).currency,
     };
   }, [
