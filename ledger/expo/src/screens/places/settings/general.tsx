@@ -3,12 +3,13 @@ import { Choice } from '@kstackz/expo-toolkit/components/choice';
 import { Dialog } from '@kstackz/expo-toolkit/components/dialog';
 import { Switch } from '@kstackz/expo-toolkit/components/switch';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import { useMoney, useWrites } from '@ledger/core/client/session';
+import { useMoney, useUser, useWrites } from '@ledger/core/client/session';
 import { CURRENCIES } from '@ledger/core/shared/ledger';
 import Constants from 'expo-constants';
 import { useState } from 'react';
 import { View } from 'react-native';
 import {
+  manageAccounts,
   setBackend,
   signOutEveryone,
   useApp,
@@ -154,6 +155,7 @@ function Data() {
 
 function Users() {
   const backend = useBackend();
+  const user = useUser();
   return (
     <Group title="Users">
       <Row
@@ -169,6 +171,20 @@ function Users() {
           ]}
         />
       </Row>
+      {backend === 'remote' && (
+        <Row
+          label="Manage Google accounts"
+          hint={`Where ${user.email} is signed in, and the apps it lets in, at the sign-in service.`}
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            onPress={() => void manageAccounts()}
+          >
+            Manage
+          </Button>
+        </Row>
+      )}
       <Row
         label="Sign out everyone"
         hint="Every user leaves this phone, and their money leaves it too."

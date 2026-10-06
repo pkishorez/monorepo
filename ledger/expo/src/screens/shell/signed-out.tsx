@@ -1,10 +1,16 @@
 import { Button } from '@kstackz/expo-toolkit/components/button';
 import { Spinner } from '@kstackz/expo-toolkit/components/spinner';
 import { Text } from '@kstackz/expo-toolkit/components/text';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { addUser, checkAgain, setBackend, useBackend } from '../../ledger';
+import {
+  addUser,
+  checkAgain,
+  setBackend,
+  takeLoginError,
+  useBackend,
+} from '../../ledger';
 import { LedgerMark } from '../parts';
 
 /** While Ledger asks who is signed in, opens a User's money, or signs out. */
@@ -57,12 +63,44 @@ export function SignedOut(props: { readonly unreachable: boolean }) {
           </Button>
         </>
       ) : (
-        <Button onPress={() => void addUser().catch(() => {})}>
-          Sign in with Google
-        </Button>
+        <GoogleSignIn />
       )}
       <OtherBackend to="local" />
     </Card>
+  );
+}
+
+// Opens the system sign-in sheet; says why when it comes back without a
+// User, unless the sheet was closed.
+function GoogleSignIn() {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string>();
+  const start = async () => {
+    setPending(true);
+    setError(undefined);
+    try {
+      await addUser();
+      const taken = await takeLoginError();
+      if (taken !== null) {
+        setError(taken.description ?? 'Sign in didn’t finish. Try again.');
+      }
+    } catch {
+      setError('The sign-in service didn’t answer. Try again.');
+    } finally {
+      setPending(false);
+    }
+  };
+  return (
+    <View className="gap-3">
+      <Button disabled={pending} onPress={() => void start()}>
+        Sign in with Google
+      </Button>
+      {error !== undefined && (
+        <Text className="text-sm text-destructive" accessibilityRole="alert">
+          {error}
+        </Text>
+      )}
+    </View>
   );
 }
 

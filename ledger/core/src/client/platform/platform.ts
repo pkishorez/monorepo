@@ -47,6 +47,9 @@ export class LedgerPlatform extends Context.Service<
     readonly remote: {
       readonly auth: Layer.Layer<Auth>;
       readonly ledgerUrl: string;
+      /** Opens the sign-in service's own page, where a User manages the
+       * Google accounts signed in there and the apps they let in. */
+      readonly manageAccounts: () => Promise<void>;
     };
     /** When the app is online and in view. */
     readonly lifecycle: {

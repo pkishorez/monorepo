@@ -8,7 +8,14 @@ import { toast } from '@kstackz/expo-toolkit/components/toast';
 import { type User, useUser } from '@ledger/core/client/session';
 import { type ReactNode, useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
-import { addUser, signOut, switchUser, useApp, useOnline } from '../../ledger';
+import {
+  addUser,
+  signOut,
+  switchUser,
+  takeLoginError,
+  useApp,
+  useOnline,
+} from '../../ledger';
 import { LedgerMark } from '../parts';
 
 function UserAvatar(props: { readonly user: User }) {
@@ -47,13 +54,18 @@ function Choice(props: {
   );
 }
 
+const failed = (label: string) => toast.show({ variant: 'destructive', label });
+
+// Add User, then why it came back without one, unless the sheet was closed.
 const add = () =>
-  addUser().catch(() =>
-    toast.show({
-      variant: 'destructive',
-      label: 'Couldn’t start adding a user. Try again.',
-    }),
-  );
+  addUser()
+    .then(takeLoginError)
+    .then((taken) => {
+      if (taken !== null) {
+        failed(taken.description ?? 'Adding a user didn’t finish. Try again.');
+      }
+    })
+    .catch(() => failed('Couldn’t start adding a user. Try again.'));
 
 /**
  * Ledger and whose Session is open, atop the Sidebar. A tap lists every

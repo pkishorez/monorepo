@@ -35,9 +35,9 @@ import {
   useTransform,
 } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
-import { AUTH_URL } from '../../../platform/index.ts';
 import {
   appTheme,
+  manageAccounts,
   setBackend,
   signOutEveryone,
   useApp,
@@ -349,11 +349,7 @@ function Users() {
             label="Manage Google accounts"
             hint={`Where ${user.email} is signed in, and the apps it lets in, at the sign-in service.`}
           >
-            <Button
-              variant="outline"
-              nativeButton={false}
-              render={<a href={AUTH_URL} target="_blank" rel="noopener" />}
-            >
+            <Button variant="outline" onClick={() => void manageAccounts()}>
               <ExternalLink aria-hidden="true" />
               Manage
             </Button>

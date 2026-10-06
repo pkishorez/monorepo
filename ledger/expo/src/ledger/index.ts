@@ -1,6 +1,7 @@
 export {
   addUser,
   checkAgain,
+  manageAccounts,
   setBackend,
   signOut,
   signOutEveryone,

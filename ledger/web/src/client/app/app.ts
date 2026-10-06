@@ -7,6 +7,7 @@ export { appTheme } from './theme.ts';
 export const {
   addUser,
   checkAgain,
+  manageAccounts,
   setBackend,
   signOut,
   signOutEveryone,

@@ -5,6 +5,7 @@ import { expoPlatform } from '../platform';
 export const {
   addUser,
   checkAgain,
+  manageAccounts,
   setBackend,
   signOut,
   signOutEveryone,

@@ -2,6 +2,7 @@ export {
   addUser,
   appTheme,
   checkAgain,
+  manageAccounts,
   setBackend,
   signOut,
   signOutEveryone,
