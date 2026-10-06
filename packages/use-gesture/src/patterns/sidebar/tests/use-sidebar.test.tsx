@@ -3,7 +3,11 @@ import { MotionGlobalConfig } from 'motion/react';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GestureProvider, GestureZone } from '../../../core/zone/index.ts';
+import {
+  GestureProvider,
+  GestureZone,
+  useGesture,
+} from '../../../core/zone/index.ts';
 import { type Sidebar, type SidebarOptions, useSidebar } from '../index.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -20,6 +24,19 @@ const pointer = (type: string, x: number, y = 100) => {
   Object.assign(event, { pointerId: 1, pointerType: 'touch' });
   const zone = host.querySelector('[data-testid="zone"]');
   zone?.dispatchEvent(event);
+};
+
+// A second finger, landing at `x` on the zone.
+const second = (type: string, x: number) => {
+  const event = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX: x,
+    clientY: 300,
+    button: 0,
+  });
+  Object.assign(event, { pointerId: 2, pointerType: 'touch' });
+  host.querySelector('[data-testid="zone"]')?.dispatchEvent(event);
 };
 
 // A touch event on the zone, as iOS sends alongside the pointer events.
@@ -142,6 +159,61 @@ describe('useSidebar', () => {
     expect(onOpenChange).not.toHaveBeenCalled();
     swipe(10, 250, 16, 200);
     expect(onOpenChange).toHaveBeenCalledWith(true);
+  });
+
+  describe('over a zone inside that wants a Swipe right', () => {
+    const inner = vi.fn();
+
+    function Tabs() {
+      useGesture({ directions: ['right'], onEnd: inner });
+      return null;
+    }
+
+    const renderNested = () => {
+      inner.mockClear();
+      const onOpenChange = vi.fn();
+      act(() =>
+        root.render(
+          <GestureProvider>
+            <GestureZone>
+              <Probe side="left" width={200} onOpenChange={onOpenChange} />
+              <GestureZone data-testid="zone">
+                <Tabs />
+              </GestureZone>
+            </GestureZone>
+          </GestureProvider>,
+        ),
+      );
+      return onOpenChange;
+    };
+
+    it('opens from a Swipe that starts in its edge strip', () => {
+      const onOpenChange = renderNested();
+      swipe(10, 250, 16, 200);
+      expect(onOpenChange).toHaveBeenCalledWith(true);
+      expect(inner.mock.lastCall?.[1]).toMatchObject({ interrupted: true });
+    });
+
+    it('leaves a Swipe that starts past the strip to the zone inside', () => {
+      const onOpenChange = renderNested();
+      swipe(100, 350, 16, 200);
+      expect(onOpenChange).not.toHaveBeenCalled();
+      expect(inner.mock.lastCall?.[1]).toMatchObject({ interrupted: false });
+    });
+
+    it('leaves a touch of more fingers in the strip to the zone inside', () => {
+      const onOpenChange = renderNested();
+      act(() => pointer('pointerdown', 10));
+      act(() => second('pointerdown', 200));
+      for (let step = 1; step <= 5; step += 1) {
+        act(() => vi.advanceTimersByTime(16));
+        act(() => second('pointermove', 200 + step * 30));
+      }
+      act(() => second('pointerup', 350));
+      act(() => pointer('pointerup', 10));
+      expect(onOpenChange).not.toHaveBeenCalled();
+      expect(inner.mock.lastCall?.[1]).toMatchObject({ interrupted: false });
+    });
   });
 
   it('closes from a Swipe back anywhere while open', () => {

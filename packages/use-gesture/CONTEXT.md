@@ -71,5 +71,5 @@ One purpose-built touch behaviour an app uses as it is, such as a sidebar or pul
 _Avoid_: component, widget, preset
 
 **Sidebar**:
-The Pattern for a panel that slides in from one side of the screen. While it is enabled, that side's edge is its own, open or closed, so the browser's edge swipe never starts there. The other edge is not its.
+The Pattern for a panel that slides in from one side of the screen. While it is enabled, that side's edge is its own, open or closed, so the browser's edge swipe never starts there, and a one-finger swipe from it always moves the Sidebar, even where a zone inside wants that Direction. The other edge is not its.
 _Avoid_: drawer, nav

@@ -114,7 +114,8 @@ inside the zone that covers the screen, so a Swipe right anywhere opens it and
 a Swipe back anywhere closes it. `edge: 24` would open it only from the left
 edge instead: it then captures touches landing there and leaves the rest of
 the screen to the browser. Open or closed, the left edge is the sidebar's, so
-a swipe from it never goes back a page.
+a swipe from it never goes back a page, and a one-finger swipe from it always
+moves the sidebar, even over a zone inside that wants a Swipe right.
 
 ```tsx
 import { useSidebar } from '@kstackz/use-gesture';

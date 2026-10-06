@@ -259,7 +259,10 @@ Direction: it captures touches landing there, even over a list that scrolls
 or a zone inside it that wants the same Direction, and leaves the rest of
 the screen alone. While enabled it keeps its side's edge from the browser's
 edge swipe, open or closed, so keep its items 24px clear of that edge or
-they still let a swipe there go back. It closes from a Swipe back
+they still let a swipe there go back. Either way, a one-finger touch that
+lands within 24px of its side (or `edge` px) is always its own, even over a
+zone inside it that wants the same Direction, such as swipeable tabs; a
+touch of more fingers there is left to the zones. It closes from a Swipe back
 anywhere; it settles by where the momentum would
 carry it, past half its width. A pull arms at `distance` of indicator travel,
 which takes twice that pull, and holds at `distance` while `onRefresh`
