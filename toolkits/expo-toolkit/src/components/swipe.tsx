@@ -75,7 +75,12 @@ const SPRING = { damping: 22, stiffness: 220, mass: 0.7 } as const;
  */
 const OVERSHOOT_FRICTION = 8;
 
-/** How far past the panel a drag has to reach before a release fires an action. */
+/**
+ * How far the finger has to drag, as a share of the panel, before a release
+ * fires an action. Measured on the finger, not the rubber-banded row: past
+ * the panel the row moves an eighth as far, so 1.6 panels of row would need
+ * more drag than a phone is wide.
+ */
 const FULL_SWIPE_RATIO = 1.6;
 
 /** Fraction of the panel a release has to clear for the row to stay open. */
@@ -671,7 +676,7 @@ const SwipeRoot = forwardRef<SwipeHandle, SwipeProps>(
                 : next;
 
             if (!fullSwipe) return;
-            const reached = Math.abs(offset.value) > limit * FULL_SWIPE_RATIO;
+            const reached = Math.abs(next) > limit * FULL_SWIPE_RATIO;
             if (reached !== armed.value) {
               armed.value = reached;
               if (reached && haptics) runOnJS(tick)();

@@ -11,7 +11,13 @@ import {
   type ReactNode,
 } from 'react';
 import { Pressable, View, type ViewProps } from 'react-native';
-import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedKeyboard,
+  useAnimatedStyle,
+  ZoomIn,
+} from 'react-native-reanimated';
 import { tv, type VariantProps } from 'tailwind-variants';
 import { ModalPortal } from './parts/portal';
 import { Scrim } from './parts/scrim';
@@ -97,6 +103,15 @@ export interface DialogContentProps extends ViewProps {
   children?: ReactNode;
 }
 
+// As tall as the keyboard, under the centred panel, so a dialog with a field
+// rises out of the keyboard's way instead of hiding its lower fields and its
+// buttons behind it.
+function KeyboardRoom() {
+  const keyboard = useAnimatedKeyboard();
+  const style = useAnimatedStyle(() => ({ height: keyboard.height.value }));
+  return <Animated.View style={style} />;
+}
+
 function DialogContent({
   className,
   dismissible = true,
@@ -143,6 +158,7 @@ function DialogContent({
           >
             {textChildren(children)}
           </Animated.View>
+          <KeyboardRoom />
         </Animated.View>
       </DialogContext.Provider>
     </ModalPortal>
