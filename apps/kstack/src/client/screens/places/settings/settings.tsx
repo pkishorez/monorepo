@@ -88,19 +88,22 @@ export function Settings(props: {
   // sidebar hears them.
   return (
     <GestureZone>
-      <div className="mx-auto max-w-2xl px-4 py-6 pb-28 @md:px-8 @md:py-10">
+      <div className="mx-auto max-w-2xl px-4 pt-4 pb-28 @md:px-8 @md:py-8">
         <Tabs
           value={props.tab}
           onValueChange={(tab) => props.onTab(tab as SettingsTab)}
-          className="gap-8"
+          className="gap-6"
         >
-          <TabsList variant="line" className="-ml-2">
-            {SETTINGS_TABS.map((tab) => (
-              <TabsTrigger key={tab} value={tab}>
-                {LABELS[tab]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          {/* Stays at the top as the tab under it scrolls. */}
+          <div className="sticky top-0 z-10 -mx-4 bg-background px-4 py-2 @md:-mx-8 @md:px-8">
+            <TabsList variant="line" className="-ml-2">
+              {SETTINGS_TABS.map((tab) => (
+                <TabsTrigger key={tab} value={tab}>
+                  {LABELS[tab]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
           <Pages tab={props.tab} onTab={props.onTab} />
         </Tabs>
       </div>
@@ -138,10 +141,14 @@ function Pages(props: {
   const page = useMotionValue(at);
   const x = useTransform(page, (p) => `${-p * 100}%`);
   const still = useReducedMotion() === true;
+  // How far the fingers had gone when the swipe took the tabs: it starts
+  // past where they landed, and the tabs move only from there.
+  const from = useRef<number>(undefined);
   const dragging = useRef(false);
 
   const settle = (to: number) => {
     dragging.current = false;
+    from.current = undefined;
     if (still) page.jump(to);
     else void animate(page, to, SPRING);
   };
@@ -153,6 +160,7 @@ function Pages(props: {
   };
   const grab = () => {
     dragging.current = true;
+    from.current = undefined;
     page.stop();
   };
 
@@ -173,7 +181,9 @@ function Pages(props: {
   const follow = () => {
     if (!dragging.current) return;
     const width = track.current?.offsetWidth || 1;
-    page.set(at + (left.offset.get() - right.offset.get()) / width);
+    const moved = left.offset.get() - right.offset.get();
+    from.current ??= moved;
+    page.set(at + (moved - from.current) / width);
   };
   useMotionValueEvent(left.offset, 'change', follow);
   useMotionValueEvent(right.offset, 'change', follow);
