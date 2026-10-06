@@ -20,9 +20,11 @@ export type SidebarOptions = {
   readonly defaultOpen?: boolean;
   readonly onOpenChange?: (open: boolean) => void;
   /**
-   * Opt in to opening only from a strip along `side`, this many px wide. A
-   * touch that starts there is always the sidebar's, even over a list that
-   * scrolls. Without it, a Swipe that starts anywhere opens it.
+   * Opt in to opening only from a strip along `side`, this many px wide.
+   * Without it, a Swipe that starts anywhere opens it. Either way a
+   * one-finger touch that starts in the strip, EDGE_STRIP px wide without
+   * `edge`, is always the sidebar's, even over a list that scrolls or a zone
+   * inside that wants its Direction.
    */
   readonly edge?: number;
   /** Whether Swipes open and close it: true by default. */
@@ -52,6 +54,9 @@ const CLOSE_SPRING = {
   visualDuration: 0.1,
   bounce: 0,
 } as const;
+
+/** How wide the edge strip that is always the sidebar's is, in px, without `edge`. */
+const EDGE_STRIP = 24;
 
 /**
  * A sidebar that follows a Swipe toward open, from anywhere or only from its
@@ -152,9 +157,24 @@ export function useSidebar(options: SidebarOptions): Sidebar {
   });
 
   // Its side's edge is its own, open or closed: a swipe there while open does
-  // nothing, which beats the browser going back a page. It only watches, so
-  // the Swipes still decide who takes the touch.
-  useGesture({ enabled, guardsEdge: side });
+  // nothing, which beats the browser going back a page. And a one-finger
+  // touch landing in its strip is its zone's, even where a zone inside wants
+  // its Direction, so a swipe from the edge always moves it. A touch with
+  // more fingers is left to the zones, for gestures such as a resting thumb.
+  const fingers = useRef(0);
+  const strip = edge ?? EDGE_STRIP;
+  useGesture({
+    enabled,
+    guardsEdge: side,
+    onPointer: (_pointer, pointers) => {
+      fingers.current = [...pointers.values()].filter(
+        (finger) => finger.end === undefined,
+      ).length;
+    },
+    captures: (point) =>
+      fingers.current === 1 &&
+      (side === 'left' ? point.x <= strip : point.x >= innerWidth - strip),
+  });
 
   useEffect(() => {
     const offOpen = opening.offset.on('change', (offset) => {
