@@ -33,7 +33,7 @@ Every user-observable behaviour of the web Ledger (`apps/kstack`) that `@ledger/
 - [ ] A Backend another tab chose is followed when this tab becomes visible. **n/a native: one process, no tabs.** `client/gate/gate.ts` (`visibilitychange`)
 - [ ] `?backend=local|remote` chooses the Backend, saves it, and leaves the address. **n/a native: no address bar; Settings is the only way.** `client/gate/gate.ts` (`backendFromAddress`)
 - [ ] The Local Backend's code loads only when chosen. `client/gate/gate.ts` (`layerOf`)
-- [ ] Remote: sign-in service is `auth.kishore.computer` in dev, `auth.kishore.app` in prod; Ledger API at the web origin's `/rpc`. **native differs: Remote URL from the deployed `@ledger/web` (dev stage by default, `EXPO_PUBLIC_REMOTE_URL` override).** `client/backends/remote/auth-url.ts`, `client/backends/remote/remote.ts`
+- [ ] Remote: sign-in service is `auth.kishore.computer` in dev, `auth.kishore.app` in prod; Ledger API at the web origin's `/rpc`. **native differs: the Ledger URL comes from `EXPO_PUBLIC_LEDGER_URL` (the Mac's local web dev server in development, `https://kstack.kishore.app` in production builds); spec req 4.** `client/backends/remote/auth-url.ts`, `client/backends/remote/remote.ts`
 - [ ] Remote calls carry the Session's own token and never the cookie. `client/backends/remote/remote.ts`, `client/state/session/rpc.ts`
 - [ ] Local: the Backend's own handlers answer in-process from on-device storage (IndexedDB on web, SQLite on native). `client/backends/local/local.ts`, `server/backends/local/local.ts`
 - [ ] Local: nobody opens offline (it is always there) and there are no copies to delete. `client/backends/local/local.ts` (`deviceLocal`)
@@ -46,7 +46,7 @@ Every user-observable behaviour of the web Ledger (`apps/kstack`) that `@ledger/
 - [ ] Remote: a sign-in that came back with an error shows it once ("Sign in didn't finish. Try again." or the error's description). `client/screens/shell/signed-out.tsx`, `client/gate/gate.ts` (`takeLoginError`)
 - [ ] Remote: a sign-in that could not start shows "The sign-in service didn't answer. Try again." `client/screens/shell/signed-out.tsx`
 - [ ] Remote, sign-in service unreachable with nobody to open offline: "Couldn't reach the sign-in service.", Try again, and the way to the Local Backend. `client/screens/shell/signed-out.tsx`, `client/domain/machine/machine.ts` (`unreachable`)
-- [ ] Remote: signing in leaves for Google and comes back to the same Place with that User active. **native differs: in-app browser sign-in per ADR 0009 / spec (mechanism still being settled); still returns to the same Place.** `client/gate/gate.ts` (`addUser`)
+- [ ] Remote: signing in leaves for Google and comes back to the same Place with that User active. **native differs: OAuth + PKCE in the system sign-in sheet (ADR 0009, spec req 15); still returns to the same Place.** `client/gate/gate.ts` (`addUser`)
 - [ ] Local, signed out: a "Sign in" button that opens the Local Sign-In dialog. `client/screens/shell/signed-out.tsx` (`LocalSignInButton`)
 - [ ] Local Sign-In dialog: "Who should sign in?", "Nothing here leaves this device. Pick anyone to continue as.", presets Ada Lovelace and Grace Hopper, Email (required, "someone@example.com"), Name (optional), Sign in disabled until an email. `client/screens/shell/shell.tsx` (`PRESETS`), `toolkits/ui-toolkit/src/components/blocks/auth/local-sign-in/local-sign-in.tsx`
 - [ ] Closing the Local Sign-In dialog signs nobody in. `client/screens/shell/shell.tsx` (`LocalSignInDialog`)
@@ -73,7 +73,7 @@ Every user-observable behaviour of the web Ledger (`apps/kstack`) that `@ledger/
 - [ ] Sign Out is disabled offline, and while the open User was opened offline with no token yet. `client/screens/shell/user-switcher.tsx` (`reached`), `client/domain/machine/machine.ts`
 - [ ] After Sign Out, "Signing out…", then another signed-in User opens, or with nobody left Ledger is signed out. `client/domain/machine/machine.ts` (`signingOut` → `checking`)
 - [ ] The signed-out User's copy of their money leaves the device. `client/domain/machine/check.ts` (`keepCopies`), `client/state/local-copies/local-copies.ts`
-- [ ] **native differs:** Sign Out also revokes that Session on the Auth Worker and deletes its token from secure storage. spec req 16
+- [ ] **native differs:** Sign Out also revokes that User's refresh token and deletes their tokens from secure storage. spec req 16
 
 ### Sign out everyone
 
@@ -375,7 +375,7 @@ All sounds are synthesized as they play, under 150 ms, quiet; master gain 0.9; n
 - [ ] Wrong Way: silent. `client/screens/shell/thumb.tsx`
 - [ ] Swipe-to-delete: `arm` (1180→1320 Hz triangle) as it arms, `success` as it deletes. `client/screens/places/entries/swipe-row.tsx`
 - [ ] `wrong` sound exists but nothing plays it. `client/kit/sound/sound.ts`
-- [ ] Web buzzes `navigator.vibrate(4)` at each Step, open and back (not on lock, not on Wrong Way), and `vibrate(8)` as a row arms, following no setting. **native differs: Gesture Haptics — light tap as the Thumb Lock arms, a tick at each Step, a firmer tap when it goes, none on a Wrong Way, behind their own switch (spec req 13).** `client/screens/shell/thumb.tsx`, `client/screens/places/entries/swipe-row.tsx`
+- [ ] Web buzzes `navigator.vibrate(4)` at each Step, open and back (not on lock, not on Wrong Way), and `vibrate(8)` as a row arms, following no setting. **native differs: Gesture Haptics — a buzz as the Thumb Lock locks, at each Step, and when it goes, none on a Wrong Way, behind their own Haptics setting (spec req 13).** `client/screens/shell/thumb.tsx`, `client/screens/places/entries/swipe-row.tsx`
 - [ ] Sound starts only after the first touch or key (browser rule). **n/a native: `react-native-audio-api` has no such gate; sound must still match.** `client/kit/sound/sound.ts`
 
 ## 11. Theme, light and dark, colours, motion

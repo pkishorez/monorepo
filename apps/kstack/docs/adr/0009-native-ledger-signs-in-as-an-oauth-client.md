@@ -9,12 +9,14 @@ OAuth server: better-auth's OAuth provider, with PKCE and refresh tokens, and
 auth-toolkit already verifies its access tokens.
 
 The app opens the sign-in service in the system's sign-in sheet, never in a
-web view, so it never sees the Google password. The sign-in service redirects
+web view, so it never sees the Google password. The sheet shares the
+browser's cookies, so the sign-in service asks Google which account to use,
+and Add User can pick another. The sign-in service redirects
 back to the app's scheme with a one-time code, which is useless without the
 secret the app kept. Each User gets a short-lived access token and a refresh
 token that is replaced on every use, kept in the device's secure storage, and
 revoked on Sign Out. The native app is a fixed, first-party client in the Auth
-Worker's config: its redirects match exactly, `exp://` ones only on the dev
+Worker's config: its redirects match exactly, `exp://` ones only on the `local`
 stage, and it skips the consent screen. The Remote Backend accepts these
 access tokens beside session tokens, only with Ledger as their audience.
 
@@ -36,4 +38,5 @@ A public client cannot prove it is Ledger: another app can start its own flow
 under Ledger's client id. The custom scheme carries this risk until Ledger
 ships to the stores with https redirects claimed by the app (Universal Links,
 App Links). An access token keeps working until it expires, up to its
-lifetime after Sign Out.
+lifetime after Sign Out. Rooted or jailbroken phones, where the keychain can
+be read, are out of scope.
