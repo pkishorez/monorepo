@@ -1,6 +1,6 @@
 {
   "name": "@kstackz/effect-tracer",
-  "version": "0.0.0",
+  "version": "0.0.12",
   "private": false,
   "description": "Effect tracing tools for in-process recording and OTLP export",
   "repository": {
