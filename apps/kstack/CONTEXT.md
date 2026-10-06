@@ -122,11 +122,11 @@ The left thumb resting still on the screen while another finger moves. It turns 
 _Avoid_: hold, long press, modifier
 
 **Step**:
-One Place up or down the Place order (Home, Entries, Months, Settings) in a Thumb Lock swipe. The first Step is reached as the swipe arms, so a flick goes to the next or previous Place; each further stretch of travel is one more Step, either way. An Entry or a Month counts as just under its list: up from it goes to the list. Past either end it holds there; the order does not wrap.
+One row up or down the Place Picker in a Thumb Lock swipe. Each same short stretch of travel from where the finger last moved something is one Step, either way, and so is moving into or out of Sections; turning around counts from where the finger turned, never from where it began. An Entry or a Month counts as just under its list: up from it goes to the list. Past either end it holds there; the order does not wrap.
 _Avoid_: next screen, page
 
 **Place Picker**:
-What shows, at the top of the screen, from the moment a Thumb Lock swipe first moves, with everything behind it dimmed and blurred: every Place in order, where the swipe began and the one its Steps have reached both marked, and a mark on each Place that has Sections. Moving right opens the marked Place's Sections beside it, with the Places drawn back to the top left; moving left goes back to the Places. Opening a Place's Sections again in the same swipe marks the Section last reached there; otherwise the Section you are on, else the first. Lifting goes to what is marked; coming back to where the swipe began and lifting goes nowhere. A Thumb Lock that never moves shows nothing. Nothing shows under the fingers.
+What shows, at the top of the screen, from the moment a Thumb Lock swipe first moves, with everything behind it dimmed and blurred: every Place in order, where the swipe began and the one its Steps have reached both marked, and a mark on each Place that has Sections. Moving right opens the marked Place's Sections beside it, with the Places drawn back to the top left; moving left goes back to the Places. Opening a Place's Sections again in the same swipe marks the Section last reached there; otherwise the Section you are on, else the first. Lifting the finger goes to what is marked; coming back to where the swipe began and lifting goes nowhere, and lifting the thumb first calls the swipe off. A Thumb Lock that never moves shows nothing. Nothing shows under the fingers.
 _Avoid_: lift hint, place switcher, wheel, menu, launcher
 
 **Gesture Sounds**:

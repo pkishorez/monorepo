@@ -10,8 +10,9 @@ const STILL = 14;
 /**
  * The Thumb Lock of the nearest Gesture Zone: the left thumb resting still
  * while another finger moves. It reports the Lock as it holds, the other
- * finger as it moves, from where it landed, and the end, lifted or not.
- * The thumb may stay for another swipe. A swipe of one finger is left to
+ * finger as it moves, from where it landed, and the end: lifted, when the
+ * finger lifts first, or called off, when the thumb does. The thumb may
+ * stay for another swipe. A swipe of one finger is left to
  * the zones and the browser, so the page still scrolls.
  */
 export function useThumbLock(props: {
@@ -62,9 +63,10 @@ export function useThumbLock(props: {
       const held = thumb.current;
       if (pointer.end !== undefined) {
         if (pointer.id === mover.current?.id) release(true);
+        // The thumb lifting first calls the swipe off.
         else if (pointer.id === held?.id) {
           thumb.current = undefined;
-          release(true);
+          release(false);
         }
         return;
       }
