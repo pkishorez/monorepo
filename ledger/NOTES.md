@@ -1408,3 +1408,68 @@ or reset; the user's own edits in both `alchemy.run.ts` files untouched)
 4. Settings → Manage Google accounts: does Safari show you signed in? (The
    Simulator did not; see Drawbacks.)
 5. Open the sheet and close it without signing in: nothing should change.
+
+## Phase 5B: shell, navigation and the Key Bar
+
+Batch B of `ledger/docs/parity.md`: every row it owns is fixed or done.
+
+**What changed**
+
+- **Android back runs Jump.** `shell/globals.tsx` (`useBackButton`) adds one
+  `hardwareBackPress` listener: on Home it lets the press through, so the
+  app leaves; elsewhere it runs `jump` where the Place answers it (an Entry,
+  a Month) and goes Home where none does (Entries, Months, Settings). It is
+  added once, so the sheets' and the Sidebar's own listeners, added later as
+  they open, are asked first and close them. Home's Jump (to Entries) is
+  skipped on purpose: back from Home would otherwise never leave.
+- **The Key Bar.** `expo-toolkit/patterns/key-bar` is now a generic
+  `KeyBar`: a message at the foot for 1.4 s, replaced in place, fading out
+  in 150 ms (rising 6 points in 180 ms as it shows; fade only under Reduce
+  Motion), never taking a touch. `shell/key-bar.tsx` feeds it core's
+  `useGiven` and the Command's description, 92 points up (above the +), as
+  web raises it on touch. A Command given before the Frame mounted (another
+  User's Session) stays unsaid. Thumb Lock Go stays quiet (`quietly`), as on
+  web. No keys or Sequences, by decision.
+- **Unknown address.** `app/+not-found.tsx` redirects to Home.
+- **Dark at first launch.** `restoreTheme` sets dark when nothing is saved.
+- **Add User's failure toast** at the top, as the delete toasts.
+- **`supportsTablet: false`** until wide layouts exist.
+
+**How it was checked** (iPhone 17 `EFD38250-…`, Metro on 8082, Expo Go
+57.0.9 reinstalled for a clean first launch, Simulator appearance light)
+
+- First launch: the signed-out page is dark although the device is light
+  (`docs/screens/phase-5b-dark-first-launch.png`).
+- Key Bar: the menu button tapped (through `drive.mjs`) to close the
+  Sidebar showed "Show or hide the sidebar" above the +, gone 2 s later
+  (`phase-5b-key-bar.png`).
+- Unknown address: on Months, `simctl openurl exp://127.0.0.1:8082/--/nowhere/at/all`
+  (with "Open in Expo Go?" accepted by an idb tap) landed on Home, Session
+  intact (`phase-5b-not-found-home.png`: before, after).
+- `pnpm lint`, `pnpm build`, `pnpm test` pass.
+
+**Not proven here**
+
+- Android's back button: there is no Android device in this pass and
+  `ledger/expo` has no test runner; the Android pass should press back on an
+  Entry (Entries, the Entry marked), a Month, Settings (Home) and Home
+  (leaves), and once with the Add sheet and once with the Sidebar open
+  (each closes).
+- Add User's failure toast: a failure could not be caused on the Local
+  Backend. It uses the same `placement: 'top'` as the delete toasts, which
+  were seen at the top in Phase 3b.
+
+**Findings**
+
+- On a phone only two taps give a Command: + (Add) and the menu button
+  (the Sidebar). Each opens something that covers the foot, so the Key Bar
+  shows mostly as the Sidebar closes, and when Android's back runs Jump.
+  Web is the same: its Key Bar (`z-40`) sits under its sheets (`z-50`).
+  The Entry's arrows call their handlers directly and give no Command.
+- The run hit the crash earlier phases saw: Expo Go 57.0.9 died
+  once with the inspector attached; relaunching was enough. `simctl` and
+  `idb` were slow (tens of seconds) while other sessions drove their own
+  Simulators.
+- On Android an OAuth redirect delivered as an intent would now land on Home
+  instead of the "Unmatched route" screen; the auth session normally catches
+  it first.

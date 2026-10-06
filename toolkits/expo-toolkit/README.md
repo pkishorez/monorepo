@@ -10,7 +10,7 @@ It is laid out in [Laymos](laymos.config.json) layers, bottom to top: `theme` (U
 
 The components are copies of [Panel UI](https://panelui.dev) (MIT, see [`src/components/LICENSE-panelui`](src/components/LICENSE-panelui)), made with its CLI and owned here from then on, as ui-toolkit owns its shadcn copies. `pnpm add-panelui <name...>` copies more: it runs `panelui-cli` in a scratch folder, puts the named components in `src/components` and what they pull in under `src/components/parts` (private), and rewrites their imports. `src/components` is left out of `vp check` and `vp fmt` so copies stay close to upstream.
 
-The package ships TypeScript source; Metro compiles it. `patterns/key-bar` exports nothing yet: it waits on Keys.
+The package ships TypeScript source; Metro compiles it.
 
 ## Install
 
@@ -113,8 +113,7 @@ The app's `global.css`, named as Uniwind's `cssEntryFile` in `metro.config.js`:
 | `local-sign-in`: `LocalSignIn`             | Asks who to sign in as when sign-in is local: a preset, or an email and name.     |
 | `sheet`: `Sheet`                           | A sheet from the bottom for a short form, kept above the keyboard.                |
 | `swipe-row`: `SwipeRow`                    | A row swiped left to delete, with a tick as it arms and Delete to tap.            |
-
-`key-bar` exports nothing yet.
+| `key-bar`: `KeyBar`                        | A bar at the foot that shows a message for a moment, replaced in place.           |
 
 ## Usage
 

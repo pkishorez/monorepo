@@ -19,12 +19,14 @@ import { AccountSheet } from '../sheets/accounts';
 import { AddSheet } from '../sheets/add';
 import { GestureLayer } from './gestures';
 import { Globals } from './globals';
+import { KeyBar } from './key-bar';
 import { LedgerSidebar } from './sidebar';
 
 /**
  * Ledger's frame on a phone: the header with the Place's title and the
- * Place, both in the gesture layer with the Add button at the thumb, the
- * Sidebar as a drawer over them, and the Add and Accounts sheets.
+ * Place, both in the gesture layer with the Add button at the thumb and
+ * the Key Bar above it, the Sidebar as a drawer over them, and the Add and
+ * Accounts sheets.
  */
 export function Frame(props: { readonly children: ReactNode }) {
   return (
@@ -36,6 +38,7 @@ export function Frame(props: { readonly children: ReactNode }) {
           {props.children}
         </GestureLayer>
         <AddButton />
+        <KeyBar />
       </View>
       <LedgerSidebar />
       <AddSheet />

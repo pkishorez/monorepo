@@ -54,7 +54,8 @@ function Choice(props: {
   );
 }
 
-const failed = (label: string) => toast.show({ variant: 'destructive', label });
+const failed = (label: string) =>
+  toast.show({ variant: 'destructive', label, placement: 'top' });
 
 // Add User, then why it came back without one, unless the sheet was closed.
 const add = () =>

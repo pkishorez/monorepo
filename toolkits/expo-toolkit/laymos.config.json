@@ -225,7 +225,7 @@
     },
     "patterns": {
       "paths": ["src/patterns"],
-      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Thumb Picker, the Sidebar as a drawer with its edge swipe, the Local Sign-In dialog, the sheet for a short form, and the row swiped to delete; the Key Bar is a stub. A pattern with parts is a module graph of its own.",
+      "description": "Whole interactions built from components, input and feedback: the Thumb Lock's Thumb Picker, the Sidebar as a drawer with its edge swipe, the Local Sign-In dialog, the sheet for a short form, the row swiped to delete, and the Key Bar's message at the foot. A pattern with parts is a module graph of its own.",
       "modules": {
         "src/patterns/sheet": {
           "exposed": true
