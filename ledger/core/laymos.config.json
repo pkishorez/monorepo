@@ -1,0 +1,140 @@
+{
+  "$schema": "../../devtools/laymos/schema.json",
+  "sourceRoots": ["src"],
+  "ignoredPaths": [],
+  "layers": {
+    "client-gate": {
+      "paths": ["src/client/gate"],
+      "description": "Where the client starts, made once per app over its platform Layer: reads the Backend Settings chose, runs the app machine on that Backend's services, runs it again on the other Backend when the User changes it, in memory, and gives the screens Ledger's state, Settings and whether it is online",
+      "modules": {
+        "src/client/gate": {
+          "exposed": true
+        }
+      }
+    },
+    "client-backends": {
+      "paths": ["src/client/backends"],
+      "description": "Each Backend's client half, one Layer of the services the app machine needs, built from the platform's: who is signed in, how a Session reaches the Backend, and where its copy lives",
+      "modules": {
+        "src/client/backends/remote": {
+          "exposed": true
+        },
+        "src/client/backends/local": {
+          "exposed": true
+        }
+      }
+    },
+    "client-platform": {
+      "paths": ["src/client/platform"],
+      "description": "The seam: the one service each app hands core as a Layer, for what differs by platform. Where tables and copies are kept, how a User signs in to the Remote Backend and where it is, the last User, and when the app is online or in view. Holds no implementation",
+      "modules": {
+        "src/client/platform": {
+          "exposed": true
+        }
+      }
+    },
+    "client-state": {
+      "paths": ["src/client/state"],
+      "description": "How the client keeps what its domain promises, over storage it is handed: a Session over the connection and copy it is given, this device's Settings over a table, and the copies of every signed-in User",
+      "moduleGraphs": {
+        "app-state": {
+          "description": "A Session keeps one User's copy; the device's Settings and the copies stand alone",
+          "path": "src/client/state",
+          "modules": {
+            "session": {
+              "exposed": true
+            },
+            "settings": {
+              "exposed": true
+            },
+            "local-copies": {
+              "exposed": true
+            }
+          },
+          "rules": {
+            "session": ["local-copies"]
+          }
+        }
+      }
+    },
+    "client-domain": {
+      "paths": ["src/client/domain"],
+      "description": "What the client means, with no I/O: the device's Settings and their table, what an Active Session offers, and the app machine that opens it, over services each Backend provides",
+      "modules": {
+        "src/client/domain/settings": {
+          "exposed": true
+        },
+        "src/client/domain/session": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/client/domain/machine": {
+          "exposed": true
+        }
+      }
+    },
+    "client-commands": {
+      "paths": ["src/client/commands"],
+      "description": "The vocabulary: every Command with its keys, the gesture that gives it on a touch screen, the guide to every gesture, and the sound and Key Bar of each as it is given, played however the app plays sounds",
+      "modules": {
+        "src/client/commands": {
+          "exposed": true
+        }
+      }
+    },
+    "server-local": {
+      "paths": ["src/server/backends/local"],
+      "description": "The Local Backend's server half: the Backend on a table the app hands in, trusting Local Tokens, as an in-process connection. The only server module the client reaches",
+      "modules": {
+        "src/server/backends/local": {
+          "exposed": true
+        }
+      }
+    },
+    "server-domain": {
+      "paths": ["src/server/domain"],
+      "description": "The Backend wherever it runs: the ledger table, the Ledger API's handlers, and the one Layer that checks each call's User. It needs a table adapter and a Resolver, and nothing of any host",
+      "modules": {
+        "src/server/domain/storage": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/server/domain/ledger": {
+          "shared": true
+        },
+        "src/server/domain/backend": {
+          "exposed": true
+        }
+      }
+    },
+    "shared": {
+      "paths": ["src/shared"],
+      "description": "The words of money, Accounts, Categories, Entries and the currency, with the sums over them and the Ledger API both sides speak",
+      "modules": {
+        "src/shared/ledger": {
+          "shared": true,
+          "exposed": true
+        },
+        "src/shared/ledger-api": {
+          "exposed": true
+        }
+      }
+    }
+  },
+  "layerGraphs": {
+    "ledger-core": {
+      "description": "Read top-down: the Gate runs one Backend's services, built from the platform Layer, over the client's state and domain; the Local Backend's server half over the Backend's domain; what both sides speak at the bottom. The Commands stand alone. The client reaches the server only through the Local Backend, and the platform only through the seam",
+      "rules": {
+        "client-gate": ["client-backends"],
+        "client-backends": ["client-platform", "client-state", "server-local"],
+        "client-platform": ["client-domain"],
+        "client-state": ["client-domain"],
+        "client-domain": ["shared"],
+        "client-commands": [],
+        "server-local": ["server-domain"],
+        "server-domain": ["shared"],
+        "shared": []
+      }
+    }
+  }
+}

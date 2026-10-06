@@ -5,7 +5,7 @@
     {
       "label": "Unversioned workspace roots",
       "dependencyTypes": ["local"],
-      "packages": ["public-monorepo", "docs", "kstack"],
+      "packages": ["public-monorepo", "docs", "@ledger/core", "@ledger/web"],
       "isIgnored": true
     },
     {
@@ -25,6 +25,7 @@
         "@kstackz/pwa-toolkit",
         "@kstackz/rpc-toolkit",
         "@kstackz/std-toolkit",
+        "@ledger/core",
         "use-effect-ts"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],
@@ -83,6 +84,7 @@
         "@kstackz/pwa-toolkit",
         "@kstackz/rpc-toolkit",
         "@kstackz/std-toolkit",
+        "@ledger/core",
         "use-effect-ts"
       ],
       "dependencyTypes": ["prod", "dev", "peer"],

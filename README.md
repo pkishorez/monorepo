@@ -13,11 +13,12 @@ is available at [docs.kishore.app](https://docs.kishore.app).
 
 ### Applications
 
-| Workspace                                        | Purpose                                                                                                                       |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| [`apps/docs`](./apps/docs)                       | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers.        |
-| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials. |
-| [`apps/kstack`](./apps/kstack)                   | Ledger: a money tracker that is the blueprint for every kstack app, run by keys on desktop and by gestures on a phone.        |
+| Workspace                                        | Purpose                                                                                                                           |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| [`apps/docs`](./apps/docs)                       | Documentation site for the public packages, built with Fumadocs and TanStack Start and deployed to Cloudflare Workers.            |
+| [`apps/alchemy-console`](./apps/alchemy-console) | Web console for browsing Alchemy state stores and deleting stacks, stages and resources with user-owned provider credentials.     |
+| [`ledger/web`](./ledger/web)                     | Ledger on the web: a money tracker that is the blueprint for every kstack app, run by keys on desktop and by gestures on a phone. |
+| [`ledger/core`](./ledger/core)                   | Everything Ledger's web and Expo apps share, platform-free; each app hands it one platform Layer.                                 |
 
 ## kstack packages
 
