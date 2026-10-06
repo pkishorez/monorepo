@@ -1,0 +1,8 @@
+{
+  // Tests about core run in Node, so they alone see Node's globals.
+  "extends": "../tsconfig.json",
+  "include": ["."],
+  "compilerOptions": {
+    "types": ["node"]
+  }
+}

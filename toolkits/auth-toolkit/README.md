@@ -300,7 +300,7 @@ const app = Effect.gen(function* () {
 Both clients hold a Session and talk only to the Auth Worker. In a browser,
 `Auth` lists the Signed-in Accounts and signs one in with Google; each
 account's token signs that account's own calls through `Authz.bearer`. Lifted from
-`apps/kstack/src/client/state`. In a CLI, `CliAuth` plays the browser's part:
+`ledger/core/src/client/state`. In a CLI, `CliAuth` plays the browser's part:
 it runs Device Login, keeps the Session, attaches it to every call, and drops
 it on sign-out; lifted from `src/clients/cli/tests/cli.test.ts`.
 

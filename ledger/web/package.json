@@ -1,0 +1,48 @@
+{
+  "name": "@ledger/web",
+  "description": "Ledger on the web, published at kstack.kishore.app: the TanStack Start pages, the Worker serving the Remote Backend's /rpc, the infra, the PWA and the web platform Layer, deployed in one go.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "portless run --force alchemy dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "lint": "tsc --noEmit && pnpm lint:laymos && pnpm lint:colors",
+    "lint:colors": "node scripts/colors.ts",
+    "lint:laymos": "laymos lint",
+    "deploy:prod": "ALLOW_DEPLOY=true alchemy deploy --stage prod",
+    "brand": "node scripts/brand.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/pwa-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "@kstackz/ui-toolkit": "workspace:*",
+    "@kstackz/use-gesture": "workspace:*",
+    "@kstackz/use-keys": "workspace:*",
+    "@ledger/core": "workspace:*",
+    "motion": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "alchemy": "catalog:",
+    "laymos": "workspace:*",
+    "sharp": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

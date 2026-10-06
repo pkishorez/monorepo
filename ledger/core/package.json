@@ -1,0 +1,42 @@
+{
+  "name": "@ledger/core",
+  "description": "Everything Ledger's web and Expo apps share: the words of money, the Backend's domain and the Local Backend, the client's domain, state, Backends and Gate, and the Commands. Platform-free; each app hands it one platform Layer.",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./shared/ledger": "./src/shared/ledger/index.ts",
+    "./shared/ledger-api": "./src/shared/ledger-api/index.ts",
+    "./server/storage": "./src/server/domain/storage/index.ts",
+    "./server/backend": "./src/server/domain/backend/index.ts",
+    "./client/platform": "./src/client/platform/index.ts",
+    "./client/settings": "./src/client/domain/settings/index.ts",
+    "./client/session": "./src/client/state/session/index.ts",
+    "./client/gate": "./src/client/gate/index.ts",
+    "./client/commands": "./src/client/commands/index.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit && tsc --noEmit -p tests && pnpm lint:laymos",
+    "lint:laymos": "laymos lint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@kstackz/auth-toolkit": "workspace:*",
+    "@kstackz/rpc-toolkit": "workspace:*",
+    "@kstackz/std-toolkit": "workspace:*",
+    "@kstackz/use-keys": "workspace:*",
+    "@tanstack/react-db": "catalog:",
+    "@xstate/effect": "catalog:",
+    "effect": "catalog:",
+    "react": "catalog:",
+    "xstate": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "laymos": "workspace:*",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
