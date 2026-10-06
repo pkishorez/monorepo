@@ -1,1 +1,1 @@
-export { Settings, type SettingsTab } from './settings.tsx';
+export { SETTINGS_TABS, Settings, type SettingsTab } from './settings.tsx';
