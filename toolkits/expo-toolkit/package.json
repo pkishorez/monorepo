@@ -1,0 +1,107 @@
+{
+  "name": "@kstackz/expo-toolkit",
+  "version": "0.0.0",
+  "private": false,
+  "description": "UI, theme, haptics and sound for native apps built with Expo: owned Panel UI components on Uniwind, styled with Ledger's tokens.",
+  "keywords": [
+    "expo",
+    "react-native",
+    "uniwind",
+    "panel-ui",
+    "haptics"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pkishorez/monorepo",
+    "directory": "toolkits/expo-toolkit"
+  },
+  "type": "module",
+  "files": [
+    "README.md",
+    "LICENSE",
+    "src/"
+  ],
+  "exports": {
+    "./theme": "./src/theme/index.ts",
+    "./theme.css": "./src/theme/theme.css",
+    "./feedback": "./src/feedback/index.ts",
+    "./input": "./src/input/index.ts",
+    "./components/parts/*": null,
+    "./components/*": "./src/components/*.tsx",
+    "./patterns/*": "./src/patterns/*/index.ts"
+  },
+  "scripts": {
+    "add-panelui": "node scripts/add-panelui.mjs",
+    "fmt": "vp fmt",
+    "lint": "vp check && pnpm lint:tsc && laymos lint",
+    "lint:tsc": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@expo-google-fonts/inter": "catalog:",
+    "@hugeicons/core-free-icons": "catalog:",
+    "@hugeicons/react-native": "catalog:",
+    "clsx": "catalog:",
+    "tailwind-merge": "catalog:",
+    "tailwind-variants": "catalog:"
+  },
+  "peerDependencies": {
+    "expo-audio": "57.0.5",
+    "expo-font": "57.0.4",
+    "expo-haptics": "57.0.3",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-worklets": "0.10.1",
+    "tailwindcss": "4.3.3",
+    "uniwind": "1.12.2"
+  },
+  "peerDependenciesMeta": {
+    "expo-audio": {
+      "optional": true
+    },
+    "expo-haptics": {
+      "optional": true
+    },
+    "react-native-gesture-handler": {
+      "optional": true
+    },
+    "react-native-reanimated": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
+    },
+    "react-native-svg": {
+      "optional": true
+    },
+    "react-native-worklets": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "expo": "catalog:",
+    "expo-audio": "catalog:",
+    "expo-font": "catalog:",
+    "expo-haptics": "catalog:",
+    "laymos": "workspace:*",
+    "panelui-cli": "catalog:",
+    "react": "catalog:",
+    "react-native": "catalog:",
+    "react-native-gesture-handler": "catalog:",
+    "react-native-reanimated": "catalog:",
+    "react-native-safe-area-context": "catalog:",
+    "react-native-svg": "catalog:",
+    "react-native-worklets": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "uniwind": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

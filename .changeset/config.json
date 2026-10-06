@@ -15,6 +15,7 @@
       "@kstackz/devtools",
       "@kstackz/effect-tracer",
       "@kstackz/effect-webrtc",
+      "@kstackz/expo-toolkit",
       "@kstackz/flow",
       "@kstackz/lotel",
       "@kstackz/pwa-toolkit",

@@ -9,4 +9,4 @@ Every `@kstackz/*` package and `laymos` sit in one changeset `fixed` group, so t
 
 ## Consequences
 
-Every release republishes all twelve packages, including ones that did not change. Packages that apps use alongside each other are peer dependencies (optional when only some entry points need them), so an app keeps one copy of each.
+Every release republishes all fifteen packages, including ones that did not change. Packages that apps use alongside each other are peer dependencies (optional when only some entry points need them), so an app keeps one copy of each.

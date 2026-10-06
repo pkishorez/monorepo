@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Ledger",
+    "slug": "ledger",
+    "scheme": "ledger",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "app.kishore.ledger",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "app.kishore.ledger"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

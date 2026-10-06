@@ -195,6 +195,8 @@ catalog:
   '@react-native-masked-view/masked-view': 0.3.2
   babel-preset-expo: 57.0.13
   expo: 57.0.26
+  expo-audio: 57.0.5
+  expo-auth-session: 57.0.13
   expo-constants: 57.0.20
   expo-font: 57.0.4
   expo-haptics: 57.0.3
@@ -215,15 +217,17 @@ catalog:
   react-native-screens: 4.26.2
   react-native-svg: 15.15.4
   react-native-worklets: 0.10.1
-  # Not in the Expo SDK. Web Audio on native for Ledger's sounds; its RN 0.86
-  # support is unconfirmed until a dev build plays a sound (requirement 14).
-  react-native-audio-api: 0.13.6
   # Tailwind for React Native, which Panel UI's components are styled with.
   uniwind: 1.12.2
   # Panel UI is copied into the Expo Toolkit as source with its CLI
-  # (requirement 8); panelui-native is pinned only as the reference copy.
+  # (toolkits/expo-toolkit/scripts/add-panelui.mjs reads this pin); the copies
+  # need tailwind-variants and the Hugeicons set.
   panelui-cli: 0.6.2
-  panelui-native: 0.105.1
+  tailwind-variants: 3.3.1
+  '@hugeicons/core-free-icons': 4.3.5
+  '@hugeicons/react-native': 1.0.16
+  # Inter, the face Ledger's web app uses, as static TTFs for expo-font.
+  '@expo-google-fonts/inter': 0.4.2
 
 catalogs:
   typescript6:

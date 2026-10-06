@@ -9,6 +9,8 @@ export default defineConfig({
       '**/__tests__/fixtures/**',
       '**/test/fixtures/**',
       'toolkits/ui-toolkit/src/components/ui/**',
+      'toolkits/expo-toolkit/src/components/**',
+      'ledger/expo/uniwind-types.d.ts',
     ],
   },
   fmt: {
@@ -23,6 +25,8 @@ export default defineConfig({
       '**/__tests__/fixtures/**',
       '**/test/fixtures/**',
       'toolkits/ui-toolkit/src/components/ui/**',
+      'toolkits/expo-toolkit/src/components/**',
+      'ledger/expo/uniwind-types.d.ts',
       '**/package.json',
       'devtools/laymos/schema.json',
     ],
