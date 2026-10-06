@@ -177,34 +177,52 @@ describe('Thumb Lock on a phone', () => {
 describe('Sidebar edge on a phone', () => {
   const edge = () => {
     const log: Array<string> = [];
+    const moves: Array<number> = [];
     let now = 0;
     const listener = edgeSwipe({
       enabled: () => true,
-      onOpen: () => log.push('open'),
+      onMove: (offset) => moves.push(offset),
+      onEnd: (open) => log.push(open ? 'open' : 'shut'),
       claim: () => log.push('claim'),
       clock: () => (now += 200),
     });
-    return { log, listener };
+    return { log, moves, listener };
   };
 
-  it('opens on a swipe right from the left edge', () => {
+  it('opens under the finger on a swipe right from the left edge', () => {
     const touch = phone();
-    const { log, listener } = edge();
+    const { log, moves, listener } = edge();
     touch.listen(listener);
     touch.down(1, 8, 400);
     touch.slide(1, { x: 8, y: 400 }, { dx: 120, dy: 4 });
     touch.up(1, 128, 404);
     expect(log).toEqual(['claim', 'open']);
+    expect(moves.length).toBeGreaterThan(1);
+    expect(moves.at(-1)).toBe(120);
+    expect(moves).toEqual([...moves].sort((a, b) => a - b));
   });
 
-  it('stays shut for a short swipe', () => {
+  it('springs back shut for a short swipe', () => {
     const touch = phone();
-    const { log, listener } = edge();
+    const { log, moves, listener } = edge();
     touch.listen(listener);
     touch.down(1, 8, 400);
     touch.slide(1, { x: 8, y: 400 }, { dx: 30, dy: 0 }, 3);
     touch.up(1, 38, 400);
-    expect(log).toEqual(['claim']);
+    expect(log).toEqual(['claim', 'shut']);
+    expect(moves.at(-1)).toBe(30);
+  });
+
+  it('springs back shut when a second finger lands', () => {
+    const touch = phone();
+    const { log, listener } = edge();
+    touch.listen(listener);
+    touch.down(1, 8, 400);
+    touch.slide(1, { x: 8, y: 400 }, { dx: 60, dy: 0 });
+    touch.down(2, 300, 400);
+    touch.up(2, 300, 400);
+    touch.up(1, 68, 400);
+    expect(log).toEqual(['claim', 'shut']);
   });
 
   it('leaves a swipe from away from the edge, or with two fingers', () => {
@@ -219,6 +237,7 @@ describe('Sidebar edge on a phone', () => {
     touch.slide(2, FINGER, { dx: 150, dy: 0 });
     touch.up(2, 450, 400);
     touch.up(1, 8, 700);
-    expect(log).toEqual([]);
+    // The thumb landing in the strip is claimed, so nothing scrolls; it never opens.
+    expect(log).toEqual(['claim']);
   });
 });

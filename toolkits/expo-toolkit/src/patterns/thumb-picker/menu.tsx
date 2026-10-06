@@ -1,7 +1,7 @@
 import type { TreeWalk } from '@kstackz/use-gesture';
 import { BlurView } from 'expo-blur';
 import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
 import Animated, {
   type EntryExitAnimationFunction,
   useAnimatedStyle,
@@ -46,6 +46,15 @@ export function Menu(props: {
 
   const columns = props.columns;
   const last = (columns?.length ?? 0) - 1;
+  const open = columns?.[last];
+  const marked = open?.choices[open.marked]?.label;
+  // Android reads the polite live region below as it changes; iOS has no
+  // live regions, so the marked choice is announced, as web's aria-live.
+  useEffect(() => {
+    if (Platform.OS === 'ios' && marked !== undefined) {
+      AccessibilityInfo.announceForAccessibility(marked);
+    }
+  }, [marked]);
   // Always mounted, so the scrim and the menu can fade out as they go.
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>

@@ -1,6 +1,6 @@
 # Ledger on Expo: build notes
 
-> **Coordinator, stopped by a usage limit:** Phases 1–4 and Phase 5 batches B and C are merged. Batch A (gestures and motion) ran in its own worktree and still needs merging; `ledger/docs/parity.md` took batch C's copy in the merge, so batch B's row updates (5B section below) need re-applying to it. The Android pass and Phase 6 (review, morning summary) are not done.
+> **Coordinator:** Phases 1–4 and all three Phase 5 batches (A, B and C) are merged, and `ledger/docs/parity.md` is reconciled: it carries every batch's row updates and its Counts table is recounted. The Android pass and Phase 6 (review, morning summary) are not done.
 
 Running log of the Ledger on Expo build (brief: the untracked `plan.md`;
 spec: `.claude/specs/ledger-on-expo.md`). Each phase adds a section:
@@ -1596,3 +1596,137 @@ Custom Tab, which shares Chrome's cookies anyway.
 - This worktree's Ledger web dev server and Metro were stopped; the iPhone
   Air Simulator was shut down. Ada (`ada@ledger.test`) has an account in
   this worktree's local D1 and the sign-in service.
+
+## Phase 5A: gestures and motion
+
+Batch A of `ledger/docs/parity.md`. On the iPhone 17 Pro Simulator (Expo Go,
+Metro 8081, Local Backend as Ada with sample money), every gesture by real
+touches through idb: the Sidebar opens under the finger from the left edge,
+springs back from a short swipe, and opens with the Thumb Lock switched off;
+the page is pushed aside, shrunk, rounded and dimmed; a tap on the page or a
+drag left on the page or the Sidebar shuts it; Settings' tabs stay put while
+a Section scrolls; a sideways swipe turns the Section under the finger, and a
+right swipe on General opens the Sidebar under the finger; a swipe row
+springs home from a short swipe, arms (deeper tile, label popped) and
+deletes, playing `arm` then `success`; Entries brings a far marked row back
+into view. Light and dark. Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass
+(`laymos lint` runs in each package's lint). Screens:
+`ledger/expo/docs/screens/phase-5a-*.png`.
+
+**Where things went** (the separation)
+
+- **`@kstackz/expo-toolkit/patterns/sidebar`** (module graph, now
+  `sidebar.tsx`, `push.tsx`, `motion.ts`, `edge.ts`): `SidebarProvider`
+  wraps the page and holds how open the Sidebar is as a Reanimated shared
+  value (0 to 1); `push.tsx` draws the page moved aside with the Sidebar
+  under it, from the web's `geometry.ts` (288 pt, scale 0.92 from the left
+  centre, 32 pt rounding, dim 0.3 light / 0.5 dark; the Sidebar slides its
+  last 20 % and fades up) and the drag and tap that shut it, on the UI
+  thread; `motion.ts` the width, the web's spring (0.3 s, no bounce;
+  Reanimated's `duration` is perceptual like Motion's `visualDuration`) and
+  Swipe's commit rule. `Sidebar` renders nothing where it is written: it
+  hands its header, body and footer to the provider, which draws them under
+  the page. `edge.ts` now reports `onMove(offset)` and `onEnd(open, speed)`,
+  so the edge swipe drives the shared value under the finger. New
+  `useSidebarDrag()`: the open as worklets (`move`, `end`) another swipe can
+  hand on. Android's back button shuts an open Sidebar first.
+- **`patterns/pages`** (new, exposed module; the `./patterns/*` wildcard
+  already exports it, so `package.json` is unchanged; `laymos.config.json`
+  gained one module entry): `Pages`, one-finger horizontal Pan
+  (`maxPointers(1)`, `activeOffsetX`, `failOffsetY`), the web's 60 pt or
+  300 pt/s and 0.15 s spring carrying the finger's speed, rubber band at the
+  ends, pages out of view inert to touch and screen readers, reduced motion
+  jumps; `beforeFirst` takes a drag handed on from a right swipe on the first
+  page; `edge` leaves the Sidebar's strip alone.
+- **`patterns/swipe-row`**: written over Gesture Handler and Reanimated
+  instead of Panel's `Swipe` (left unchanged): web's numbers (shows from
+  24 pt, arms past 112 pt, 180 ms slide away, spring home with a little
+  bounce, label pop 115 %, tile deepens). It reports `onArm`, `onCommit` (as
+  it starts sliding away) and `onDelete` (once gone); the `haptics` prop is
+  gone. Delete stays a screen-reader action on the row.
+- **`patterns/thumb-picker`**: iOS announces the marked choice
+  (`AccessibilityInfo.announceForAccessibility`), as Android's live region.
+- **Ledger** (`ledger/expo`): `GestureLayer` mounts `SidebarEdge` always.
+  `feelSwipe('arm' | 'delete', settings)` in `src/ledger/feedback.ts`
+  (sound by Sounds, buzz by Haptics; exported through `src/ledger/index.ts`,
+  a one-line change outside batch A's list). `scripts/sounds.mjs` renders
+  web's `arm` voice and takes names (`node scripts/sounds.mjs arm`) so the
+  noise voices are not re-rendered. Settings puts the tabs above `Pages`,
+  each Section its own `Scroll`. Entries wires `feelSwipe` and retries the
+  mark scroll.
+- Changeset `expo-toolkit-gestures-and-motion`; README rows and the Sidebar
+  usage updated.
+
+**How it was driven, and what each proves**
+
+- Real touches with idb by UDID: taps, quick swipes, and slow swipes
+  (`idb ui swipe --duration 3 --delta 4`) with a screenshot taken during
+  the swipe, which is how "follows the finger" was seen (a half-open
+  Sidebar mid-swipe, then open after lift). Helpers in `/tmp/a5s` (not
+  committed): `tap.sh`, `swipe.sh`, `mid.sh`, `texts.mjs` (every mounted
+  text and label through the inspector).
+- Sounds: `AudioPlayer.prototype.play` was wrapped through the inspector to
+  record each play's duration: an armed swipe played a 51 ms sound (`arm`)
+  then 1.2 s later, at release, a 71 ms one (`success`); a short swipe
+  played nothing. Not heard (no ears on the Simulator).
+- The Thumb Lock claim (parity row "the page stops scrolling"): a
+  diagonal swipe from the edge over Entries first scrolled the list and the
+  Sidebar stayed shut: the list's own pan began before the edge listener
+  claimed (it claimed at the direction, after the slop), and a claim after a
+  scroll starts loses. Claiming as the finger lands in the strip fixed it:
+  the same swipe then left the list still and opened the Sidebar. So Gesture
+  Handler's activation does cancel React Native's `ScrollView` on iOS, if it
+  comes first. The Thumb Lock claims as the second finger lands, before it
+  moves, so it should come first; idb cannot hold two fingers, so that is
+  unproven. The injected Thumb Lock (`touch.mjs`) still shows the picker.
+
+**Challenges**
+
+- `GestureDetector` around a layout-only `View` (the Sidebar's column, the
+  page cover) warned "child that may get view-flattened" and, worse,
+  attached its Pan to an ancestor: the shut drag covered the whole screen
+  while shut, took every sideways swipe and cancelled the surface, so the
+  edge swipe did nothing. `collapsable={false}` on each such child, and the
+  shut drag is enabled only while open.
+- The mark scroll: on returning to Entries nothing was measured yet
+  (`averageItemLength` 0), so one retry at the reported average went
+  nowhere. It now jumps by a 56 pt row guess, then retries every 100 ms, at
+  most 5 times.
+- Metro in CI mode does not reload; it ran in watch mode for the second
+  half, and fast refresh applied edits without a relaunch this time.
+- An idb tap at the Undo of the toast hit Expo Go's floating tools button
+  (same corner) and opened its menu, so "Cold brew" from the sample money
+  stayed deleted on the Simulator's Local Backend.
+
+**Hacks**
+
+- The play recorder and the `/tmp/a5s` scripts were for this check only.
+
+**Drawbacks**
+
+- `Sidebar` hands its content to the provider in an effect, so it shows one
+  frame after a change in what it draws (unseen in practice).
+- The Sidebar is under the page now, so anything an app draws outside
+  `SidebarProvider` (none in Ledger) would not move with the page.
+- A touch landing in the 24 pt edge strip is claimed at once: a vertical
+  scroll that starts there does not scroll (taps still work, as only a
+  moving finger is taken).
+- `Pages` measures its width on layout, so the first frame has no swipe;
+  pages are positional (keyed by index).
+- A sideways swipe on Settings' currency pills does not turn the Section:
+  their own sideways `ScrollView` (`components/choice`) keeps the touch,
+  even when the pills fit. Swipe anywhere else on the Section.
+
+**Parity gaps** (left after 5A)
+
+- Two-finger Thumb Lock claim and VoiceOver announcements: check on a phone.
+- The Accepted rows (edge-only Sidebar, no iOS back swipe) stand.
+
+**Open questions**
+
+- Should Panel's `Drawer` keep its own copy now that the Sidebar no longer
+  uses it? It is still exported and used by nothing in Ledger.
+
+**Cleanup owed**
+
+- Recount the parity Counts table once batches A, B and C land.
