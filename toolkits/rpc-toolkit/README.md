@@ -41,6 +41,12 @@ pnpm add @kstackz/rpc-toolkit effect
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `InvocationKind` | Context reference set by the server to `fresh` or `replay`; middleware reads it to skip admission on Hibernation Replay. |
 
+### `@kstackz/rpc-toolkit/rpc/in-process`
+
+| Export                   | What it does                                                                                                                        |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `layerInProcessProtocol` | Layer that provides an `RpcClient.Protocol` calling a group's handlers in the same process, with no transport and no serialization. |
+
 ### `@kstackz/rpc-toolkit/rpc/websocket-client`
 
 Long-form guide: [src/rpc/websocket-client/README.md](src/rpc/websocket-client/README.md).
@@ -193,6 +199,35 @@ export default class CounterWorker extends DurableRpcWorker<CounterWorker>()(
 - Streaming handlers are re-run, not resumed. Read the checkpoint first and keep the pre-stream section idempotent.
 - Attachments hold about 2 KB per socket, shared by the connection value and every in-flight stream. Store cursors, not payloads.
 - Continuous revocation during an uninterrupted stream stays application policy; the toolkit only rechecks at fresh calls and replays.
+
+### Call a group's handlers in the same process
+
+`layerInProcessProtocol` connects `RpcClient.make(group)` to the group's handlers without a server: a page that runs its backend locally, a React Native process, or a test. Client code does not change when the transport later becomes HTTP or a WebSocket. Lifted from `src/rpc/in-process/in-process.test.ts`.
+
+```ts
+import { Effect, Layer } from 'effect';
+import { RpcClient } from 'effect/rpc';
+import { layerInProcessProtocol } from '@kstackz/rpc-toolkit/rpc/in-process';
+
+const program = Effect.gen(function* () {
+  const client = yield* RpcClient.make(Api);
+  return yield* client.WhoAmI();
+}).pipe(
+  Effect.scoped,
+  Effect.provide(
+    Layer.merge(
+      layerInProcessProtocol(Api).pipe(
+        Layer.provide(Layer.merge(Handlers, AuthLive)),
+      ),
+      AuthClient,
+    ),
+  ),
+);
+```
+
+- The protocol needs the group's handlers and server middleware; the client still needs any client middleware the group requires.
+- Headers from client middleware and `RpcClient.withHeaders` reach server middleware unchanged, and handler errors arrive typed.
+- Nothing is serialized. Values are checked against the type side of their schemas, so a handler that returns the wrong shape still fails.
 
 ### Keep a browser subscription alive across reconnects
 

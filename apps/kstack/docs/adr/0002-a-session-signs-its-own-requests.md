@@ -8,8 +8,9 @@ active now, so another tab or the sign-in service itself can change it under
 an open Session. A Session therefore sends its own User's session token as
 `Authorization: Bearer` on every `/rpc` call, instead of relying on the
 cookie. The server already resolves a bearer token before the cookie, so one
-User's sync can never read or write another User's money, and a tab can stay
-on a User other than the browser's active one.
+User's sync can never read or write another User's money. The token rides
+as an RPC header, through auth-toolkit's `Authz.bearer`, so it signs a call
+over HTTP and over the Local Backend's in-process connection alike.
 
 ## Considered options
 

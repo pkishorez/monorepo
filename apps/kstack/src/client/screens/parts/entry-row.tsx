@@ -1,5 +1,5 @@
 import { cn } from '@kstackz/ui-toolkit/utils';
-import type { Account, Category, Entry } from '../../../domain/ledger/index.ts';
+import type { Account, Category, Entry } from '../../../shared/ledger/index.ts';
 import { Amount } from './amount.tsx';
 import { CategoryIcon } from './icons.tsx';
 

@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import { BindingKeys, keys } from '../../commands/index.ts';
 import { appTheme } from '../../state/settings/index.ts';
 import { useOnline } from '../../state/session/index.ts';
-import { isMonthKey, monthName } from '../../../domain/ledger/index.ts';
+import { isMonthKey, monthName } from '../../../shared/ledger/index.ts';
 import { AccountSheet } from '../sheets/accounts/index.ts';
 import { AddSheet } from '../sheets/add/index.ts';
 import { Palette } from '../sheets/palette/index.ts';

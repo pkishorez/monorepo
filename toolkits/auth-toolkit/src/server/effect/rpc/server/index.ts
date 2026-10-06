@@ -2,5 +2,5 @@ export {
   authzCookies,
   authzLayer,
   resolverLive,
-  resolverMock,
+  resolverLocal,
 } from './server.js';

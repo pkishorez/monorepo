@@ -3,7 +3,7 @@ import * as Cloudflare from 'alchemy/Cloudflare';
 import * as Output from 'alchemy/Output';
 import { Effect } from 'effect';
 import { D1 } from '@kstackz/std-toolkit/alchemy';
-import { ledgerTable } from '../../server/storage/index.ts';
+import { ledgerTable } from '../../server/domain/storage/index.ts';
 import {
   assertStageIsSafe,
   devConfigFor,

@@ -67,9 +67,9 @@
       "types": "./dist/server/effect/http-api/declaration/index.d.ts",
       "default": "./dist/server/effect/http-api/declaration/index.js"
     },
-    "./clients/accounts": {
-      "types": "./dist/clients/accounts/index.d.ts",
-      "default": "./dist/clients/accounts/index.js"
+    "./clients/auth": {
+      "types": "./dist/clients/auth/index.d.ts",
+      "default": "./dist/clients/auth/index.js"
     },
     "./clients/cli": {
       "types": "./dist/clients/cli/index.d.ts",

@@ -14,7 +14,7 @@ import {
   shiftMonth,
   summarize,
   today,
-} from '../../../../domain/ledger/index.ts';
+} from '../../../../shared/ledger/index.ts';
 import { Amount, CategoryIcon, usePlace } from '../../parts/index.ts';
 
 /**

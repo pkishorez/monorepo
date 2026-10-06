@@ -5,8 +5,10 @@ import { type ReactNode, useEffect, useState } from 'react';
 import {
   addUser,
   checkAgain,
+  setBackend,
   takeLoginError,
-} from '../../state/machine/index.ts';
+  useBackend,
+} from '../../gate/index.ts';
 import { appTheme } from '../../state/settings/index.ts';
 import { LedgerMark } from '../parts/index.ts';
 
@@ -35,8 +37,22 @@ export function Opening(props: {
   );
 }
 
-/** Nobody is signed in, or the sign-in service could not be reached. */
+/**
+ * Nobody is signed in, or the sign-in service could not be reached. Each
+ * Backend offers its own sign-in, and the way to the other Backend.
+ */
 export function SignedOut(props: { readonly unreachable: boolean }) {
+  const backend = useBackend();
+  if (backend === 'local') {
+    return (
+      <Card>
+        <div className="space-y-3">
+          <LocalSignInButton />
+          <OtherBackend to="remote" />
+        </div>
+      </Card>
+    );
+  }
   if (props.unreachable) {
     return (
       <Card>
@@ -47,15 +63,42 @@ export function SignedOut(props: { readonly unreachable: boolean }) {
           <Button variant="outline" onClick={checkAgain}>
             Try again
           </Button>
+          <OtherBackend to="local" />
         </div>
       </Card>
     );
   }
   return (
     <Card>
-      <GoogleSignIn />
+      <div className="space-y-3">
+        <GoogleSignIn />
+        <OtherBackend to="local" />
+      </div>
     </Card>
   );
+}
+
+// The way from one Backend to the other.
+function OtherBackend(props: { readonly to: 'local' | 'remote' }) {
+  return (
+    <p className="text-sm text-muted-foreground">
+      {props.to === 'local'
+        ? 'Or try Ledger on this device, without an account.'
+        : 'Or sign in with Google, to keep your money on every device.'}{' '}
+      <Button
+        variant="link"
+        className="h-auto p-0"
+        onClick={() => void setBackend(props.to)}
+      >
+        {props.to === 'local' ? 'Use the Local Backend' : 'Use Google'}
+      </Button>
+    </p>
+  );
+}
+
+// Asks who to be on the Local Backend; anyone will do.
+function LocalSignInButton() {
+  return <Button onClick={() => void addUser()}>Sign in</Button>;
 }
 
 function GoogleSignIn() {

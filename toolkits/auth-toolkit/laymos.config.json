@@ -188,10 +188,10 @@
       }
     },
     "accounts": {
-      "paths": ["src/clients/accounts"],
-      "description": "A First-Party web app's Signed-in Accounts as one Effect service, Accounts: live against the Auth Worker, or mocked with Mock Accounts kept in a StdTable; plus fetch signed as one account",
+      "paths": ["src/clients/auth"],
+      "description": "A First-Party web app's Signed-in Accounts as one Effect service, Auth: live against the Auth Worker, or local with Local Accounts kept in a StdTable; plus fetch signed as one Session",
       "modules": {
-        "src/clients/accounts": {
+        "src/clients/auth": {
           "exposed": true
         }
       }
@@ -226,7 +226,7 @@
       }
     },
     "clients": {
-      "description": "First-Party programs holding a Session: the browser's Accounts and the CLI, each reading only the contract.",
+      "description": "First-Party programs holding a Session: the browser's Auth and the CLI, each reading only the contract.",
       "rules": {
         "auth-worker-contract": [],
         "accounts": ["auth-worker-contract"],

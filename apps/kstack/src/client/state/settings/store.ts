@@ -1,27 +1,20 @@
 import { Effect, ManagedRuntime } from 'effect';
-import { StdTable } from '@kstackz/std-toolkit/db';
 import { IDB } from '@kstackz/std-toolkit/db/idb';
 import { createStdSync, strategy } from '@kstackz/std-toolkit/sync';
 import {
   defaultSettings,
   Settings,
   SETTINGS_ID,
-} from '../../../domain/settings/index.ts';
+  settingsEntity as settings,
+  settingsTable,
+} from '../../domain/settings/index.ts';
 
 // How often a tab reads what another tab of this device changed.
 const POLL = '2 seconds';
 
-/** The device's own table, in this browser's IndexedDB: never on a server. */
-const settingsTable = StdTable.make('settings')
-  .primary('pk', 'sk')
-  .lsi('LSI1', 'LSI1SK')
-  .build();
-
-const settings = settingsTable
-  .entity(Settings)
-  .primary({ pk: ['id'] })
-  .index('LSI1', 'changes', { sk: ['_u'] })
-  .build();
+/** The device's own IndexedDB database: its Settings, and whoever is signed
+ * in to the Local Backend. */
+export const deviceDatabase = () => IDB.database({ databaseName: 'device' });
 
 const key = { id: SETTINGS_ID };
 
@@ -32,9 +25,7 @@ const key = { id: SETTINGS_ID };
  */
 const openSettings = () => {
   const runtime = ManagedRuntime.make(
-    IDB.make(settingsTable, {
-      database: IDB.database({ databaseName: 'device' }),
-    }).layer,
+    IDB.make(settingsTable, { database: deviceDatabase() }).layer,
   );
   const put = (value: Settings) =>
     Effect.gen(function* () {

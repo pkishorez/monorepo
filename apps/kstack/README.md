@@ -29,23 +29,29 @@ and Escape gives them back to whatever had them.
 
 `src/` has four parts, read top-down: `entry` starts the browser
 (`entry/web`) and the Worker (`entry/worker`) and deploys them (`entry/infra`);
-`client` holds the screens, the Commands, the state and the kit; `server`
-holds the D1 table and the Ledger API's handlers; and `domain` holds the words
-both sides speak. Layers and their rules are in `laymos.config.json`.
+`client` holds the screens, the Commands, the Gate, each Backend's client
+half, the state, the client's domain and the kit; `server` holds the Backend
+(`server/domain`) and each Backend's server half (`server/backends`); and
+`shared` holds the words both sides speak. Layers and their rules are in
+`laymos.config.json`.
 
-Money is a std-toolkit `StdTable` in D1, one partition per User, served at
-`/rpc` as an Effect RPC API that auth-toolkit guards. Several Users can be
-signed in at `auth.kishore.app` at once. One XState machine, run as an Effect
-actor (`src/client/state/machine`), finds who is signed in and holds one
-User's Session open: their copy in IndexedDB through Std Sync and TanStack DB,
-so the app opens offline and every write shows at once, signed with that
-User's own token whichever User the browser has active. Switch User closes
-that Session and opens another; the copies of Users no longer signed in are
-deleted. The device's Settings are a `StdTable` in IndexedDB alone, read the
-same way. `src/client/kit` holds what the app needed that no package has yet;
-each module there knows nothing of Ledger. Why gestures run the keys' Actions,
-why a Session signs its own requests, and why the lifecycle is one machine are
-in [docs/adr/](docs/adr/).
+Ledger runs on one of two Backends, as Settings choose: the Remote Backend,
+where money is a std-toolkit `StdTable` in D1 served at `/rpc` and Users sign
+in with Google at `auth.kishore.app`, or the Local Backend, where the same
+handlers answer in the page from IndexedDB and anyone signs in by name. Only
+the edges differ: the table adapter, the Resolver, the connection, and
+auth-toolkit's `authLive` or `authLocal`. The Gate (`src/client/gate`) reads
+the Backend, runs one XState machine as an Effect actor
+(`src/client/domain/machine`) on that Backend's services, and runs it again on
+the other when the User changes it, without a reload. The machine finds who is
+signed in and holds the Active Session open: the User's copy through Std Sync
+and TanStack DB, so every write shows at once, each call signed with that
+User's own token. On the Remote Backend the copy is in IndexedDB, so Ledger
+opens offline, and the copies of Users no longer signed in are deleted. The
+device's Settings are a `StdTable` in IndexedDB alone, read the same way.
+`src/client/kit` holds what the app needed that no package has yet; each
+module there knows nothing of Ledger. The decisions behind gestures, signing,
+the machine, and the two Backends are in [docs/adr/](docs/adr/).
 
 ## Usage
 
@@ -54,7 +60,9 @@ in [docs/adr/](docs/adr/).
 `pnpm dev` starts Alchemy dev, with a local D1, through Portless at
 `https://kstack.kishore.computer` (with the worktree prefix in a Git worktree;
 use the URL printed at startup). Sign in with Google through the local Auth
-Worker at `https://auth.kishore.computer`, which must be running too.
+Worker at `https://auth.kishore.computer`, which must be running too, or open
+the app with `?backend=local` to use the Local Backend, which needs neither:
+that is how an agent or a browser test drives Ledger.
 
 ```bash
 pnpm --filter kstack test    # domain, Thumb Lock, keys, the app machine, and the Ledger API

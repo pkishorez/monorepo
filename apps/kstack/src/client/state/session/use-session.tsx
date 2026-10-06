@@ -13,8 +13,8 @@ import {
   type Entry,
   newestFirst,
   type Preferences,
-} from '../../../domain/ledger/index.ts';
-import type { Session } from './session.ts';
+} from '../../../shared/ledger/index.ts';
+import type { Session } from '../../domain/session/index.ts';
 
 const SessionContext = createContext<Session | undefined>(undefined);
 

@@ -30,6 +30,15 @@
         }
       }
     },
+    "in-process": {
+      "paths": ["src/rpc/in-process"],
+      "description": "RPC connection to handlers in the same process, with no transport.",
+      "modules": {
+        "src/rpc/in-process": {
+          "exposed": true
+        }
+      }
+    },
     "websocket-client": {
       "paths": ["src/rpc/websocket-client"],
       "description": "RPC socket transport and subscription lifecycle.",
@@ -71,6 +80,7 @@
         "rpc": [],
         "http": [],
         "invocation": [],
+        "in-process": [],
         "websocket-client": [],
         "hibernating-rpc": ["invocation"],
         "alchemy": ["hibernating-rpc"]

@@ -45,6 +45,7 @@ it('keeps browser and contract imports independent of Cloudflare and Alchemy', (
     'rpc/cannotation',
     'http/cannotation',
     'rpc/invocation',
+    'rpc/in-process',
     'rpc/websocket-client',
   ]) {
     const imports = externalImports(`rpc-toolkit/src/${entry}/index.ts`);

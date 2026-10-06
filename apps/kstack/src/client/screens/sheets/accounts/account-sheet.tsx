@@ -14,7 +14,7 @@ import {
   useOnline,
   useWrites,
 } from '../../../state/session/index.ts';
-import type { Account } from '../../../../domain/ledger/index.ts';
+import type { Account } from '../../../../shared/ledger/index.ts';
 import { AccountIcon, Choice } from '../../parts/index.ts';
 
 const KINDS: ReadonlyArray<{ value: Account['kind']; label: string }> = [

@@ -10,7 +10,7 @@ import {
   dayName,
   type Entry,
   signed,
-} from '../../../../domain/ledger/index.ts';
+} from '../../../../shared/ledger/index.ts';
 import { useOpenAccount } from '../../sheets/accounts/index.ts';
 import {
   Amount,

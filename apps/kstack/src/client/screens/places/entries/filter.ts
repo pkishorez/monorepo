@@ -4,7 +4,7 @@ import {
   isMonthKey,
   monthName,
   monthOf,
-} from '../../../../domain/ledger/index.ts';
+} from '../../../../shared/ledger/index.ts';
 
 /** What Entries shows: all, or one Account, Category or Month; `at` is marked. */
 export type EntriesSearch = {
