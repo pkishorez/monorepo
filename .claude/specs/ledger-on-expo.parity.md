@@ -1,10 +1,10 @@
 # Parity checklist: Ledger on Expo
 
-Every user-observable behaviour of the web Ledger (`apps/kstack`) that `@ledger/expo` must match, one line each: the behaviour, then where it lives on web. Paths are under `apps/kstack/src/` unless they start with `toolkits/` or `apps/`. Words follow `apps/kstack/CONTEXT.md`. Items marked **n/a native** stay listed with the reason; items marked **native differs** are behaviours the spec changes on purpose (`.claude/specs/ledger-on-expo.md`).
+Every user-observable behaviour of the web Ledger (`ledger/web`) that `@ledger/expo` must match, one line each: the behaviour, then where it lives on web. Paths are under `ledger/web/src/` for `entry/`, `client/screens/`, `client/kit/` and `server/backends/remote/`, and under `ledger/core/src/` for the rest (`shared/`, `server/domain/`, `server/backends/local/`, and `client/` `domain`, `state`, `backends`, `gate`, `commands`), unless they start with `toolkits/`, `packages/` or `apps/`. What only a browser has (IndexedDB, `localStorage`, window events, `?backend=`) is in `ledger/web/src/client/platform/platform.ts`; `BindingKeys` and `recorded` moved to `ledger/web/src/client/kit/keyboard`. Words follow `ledger/CONTEXT.md`. Items marked **n/a native** stay listed with the reason; items marked **native differs** are behaviours the spec changes on purpose (`.claude/specs/ledger-on-expo.md`).
 
 ## 1. Splash and start
 
-- [ ] Splash on launch, before any Place: the Ledger mark over the name "Ledger" a little above the middle, "Powered by kstack" at the foot clear of the home indicator, on the dark theme's background. `apps/kstack/scripts/brand/splash.ts`, `entry/web/splash/splash.ts`
+- [ ] Splash on launch, before any Place: the Ledger mark over the name "Ledger" a little above the middle, "Powered by kstack" at the foot clear of the home indicator, on the dark theme's background. `ledger/web/scripts/brand/splash.ts`, `entry/web/splash/splash.ts`
 - [ ] The Ledger mark: a rounded square in `foreground` with three `background` bars, the last rising. `client/screens/parts/ledger-mark.tsx`
 - [ ] Web draws the Splash only as iOS startup images per screen size; Android uses the manifest. **n/a native: Expo's splash config replaces `apple-touch-startup-image` tags.** `entry/web/splash/splash.ts`, `entry/web/splash/devices.ts`
 - [ ] Before a Session, one centred card holds every state so nothing jumps: the mark, "Ledger", and "Write down what you spend and earn, and see where it goes. Keys on a desktop, a thumb on a phone." `client/screens/shell/signed-out.tsx` (`Card`)
@@ -56,7 +56,7 @@ Every user-observable behaviour of the web Ledger (`apps/kstack`) that `@ledger/
 - [ ] User Switcher > "Add user" signs one more User in and makes them the Active Session. `client/screens/shell/user-switcher.tsx`, `client/gate/gate.ts` (`addUser`)
 - [ ] Add User is disabled offline. `client/screens/shell/user-switcher.tsx`
 - [ ] Add User that fails to start shows the toast "Couldn't start adding a user. Try again." `client/screens/shell/user-switcher.tsx`
-- [ ] Choosing a User already signed in on this device only switches to them. `apps/kstack/CONTEXT.md` (Add User), auth-toolkit `clients/auth`
+- [ ] Choosing a User already signed in on this device only switches to them. `ledger/CONTEXT.md` (Add User), auth-toolkit `clients/auth`
 - [ ] Local Add User asks through the same Local Sign-In dialog. `client/gate/gate.ts` (`useLocalSignIn`)
 
 ### Switch User
@@ -190,7 +190,7 @@ Every user-observable behaviour of the web Ledger (`apps/kstack`) that `@ledger/
 - [ ] Gestures Section: "The Thumb Lock" explainer card with its figure and text. `client/screens/places/settings/gestures-tab.tsx`
 - [ ] Gestures Section: every gesture by Place (Everywhere, Entries > An entry, Months > A month, Add), each "does" with how it is said ("Thumb Lock, swipe up", "Swipe right", "Drag the sheet down", "Tap"). `client/commands/gestures.ts` (`GESTURE_GUIDE`), `client/screens/places/settings/gestures-tab.tsx`
 - [ ] Gesture figures: dots on a small screen (thumb ringed at the left), play once on coming into view, again on tap (and hover on web), still for reduced motion. `client/screens/places/settings/figure.tsx`
-- [ ] **native differs:** a Gesture Haptics switch, apart from Sounds (spec req 13). `apps/kstack/CONTEXT.md` (Gesture Haptics)
+- [ ] **native differs:** a Gesture Haptics switch, apart from Sounds (spec req 13). `ledger/CONTEXT.md` (Gesture Haptics)
 
 ## 5. Sheets
 
@@ -342,7 +342,7 @@ Where: G = every Place (Globals), H = Home, E = Entries list, N = an Entry, M = 
 - [ ] Wide: the Sidebar (16rem) sits beside the page, which is a card with a 0.5rem margin; crossing the breakpoint morphs. **Tablets only on native.** `toolkits/ui-toolkit/src/components/blocks/app-shell/frame/frame.tsx`
 - [ ] Starts shut on a phone, open on a wide screen. `toolkits/ui-toolkit/src/components/blocks/app-shell/frame/state.ts`
 - [ ] On touch, a one-finger swipe right from anywhere opens it under the finger, left shuts it; it springs (0.3 s, no bounce) on release. `toolkits/ui-toolkit/src/components/blocks/app-shell/frame/motion.ts`
-- [ ] Its screen edge is its own: the 24px strip at the left edge is kept from the system back swipe, and covers the Sidebar's items there so a swipe from the edge never taps a link. **native: disable the stack's edge-back gesture where the Sidebar owns the edge.** `toolkits/ui-toolkit/src/components/blocks/app-shell/frame/frame.tsx`, `apps/kstack/CONTEXT.md` (Sidebar)
+- [ ] Its screen edge is its own: the 24px strip at the left edge is kept from the system back swipe, and covers the Sidebar's items there so a swipe from the edge never taps a link. **native: disable the stack's edge-back gesture where the Sidebar owns the edge.** `toolkits/ui-toolkit/src/components/blocks/app-shell/frame/frame.tsx`, `ledger/CONTEXT.md` (Sidebar)
 - [ ] Zones nest: the page's Thumb Lock hears first, then the Sidebar swipe; Settings and each row are zones of their own. `client/screens/shell/frame.tsx`
 - [ ] While open on a phone the page is inert; a tap on it shuts the Sidebar. `toolkits/ui-toolkit/src/components/blocks/app-shell/frame/frame.tsx`
 - [ ] Tapping a link in it on a phone Goes and shuts it. `toolkits/ui-toolkit/src/components/blocks/app-shell/blocks.tsx` (`useShutOnPhone`)
@@ -383,15 +383,15 @@ All sounds are synthesized as they play, under 150 ms, quiet; master gain 0.9; n
 - [ ] Two themes, light and dark; dark by default. `toolkits/ui-toolkit/src/components/blocks/theme/model.ts`
 - [ ] Changed by Settings' Flip or `t`; shows at once everywhere. `client/screens/places/settings/settings.tsx`, `client/screens/shell/globals.tsx`
 - [ ] Web keeps it in a cookie shared across `*.kishore.app` / `*.kishore.computer` and follows other tabs. **n/a native: stored on the device.** `client/state/settings/theme.ts`
-- [ ] Only ui-toolkit tokens (foreground, muted-foreground, border, accent, primary, muted, destructive, popover); no palette colours or raw values (`lint:colors`). `apps/kstack/DESIGN.md`, `apps/kstack/scripts/colors.ts`
-- [ ] Money in has a `+`, out a `−`, neither coloured; `destructive` only for trouble (over Budget, negative left, Delete). `client/screens/parts/amount.tsx`, `apps/kstack/DESIGN.md`
+- [ ] Only ui-toolkit tokens (foreground, muted-foreground, border, accent, primary, muted, destructive, popover); no palette colours or raw values (`lint:colors`). `ledger/web/DESIGN.md`, `ledger/web/scripts/colors.ts`
+- [ ] Money in has a `+`, out a `−`, neither coloured; `destructive` only for trouble (over Budget, negative left, Delete). `client/screens/parts/amount.tsx`, `ledger/web/DESIGN.md`
 - [ ] Digits in tabular figures. `client/screens/parts/amount.tsx`
 - [ ] Money formatted with the narrow currency symbol, two decimals; compact (`$1.2K`) in stats and Budgets. `shared/ledger/money.ts`
 - [ ] Months and days in the device's locale ("October 2026", "Mon, Oct 5"). `shared/ledger/month.ts`
 - [ ] Categories told apart by icon and name, never hue; fixed Category and Account icon sets, a circle when unknown. `client/screens/parts/icons.tsx`
 - [ ] Pills: one filled (`primary`), others bordered; a row scrolls sideways when it does not fit. `client/screens/parts/choice.tsx`
 - [ ] Inter font. `entry/web/styles.css`
-- [ ] Motion under 200 ms, `cubic-bezier(0.23, 1, 0.32, 1)`, transform and opacity only; a tap needs no feedback; reduced motion respected everywhere it moves. `apps/kstack/DESIGN.md`
+- [ ] Motion under 200 ms, `cubic-bezier(0.23, 1, 0.32, 1)`, transform and opacity only; a tap needs no feedback; reduced motion respected everywhere it moves. `ledger/web/DESIGN.md`
 - [ ] Inset focus ring. **n/a native (no keyboard focus).** `entry/web/styles.css`
 - [ ] Hints follow the device, not the width: keyboard hints only with a keyboard and Keys on, gesture hints only on touch with the Thumb Lock on. **native: touch only, so no key hints anywhere.** `client/kit/input/device.ts`, `entry/web/styles.css`
 
