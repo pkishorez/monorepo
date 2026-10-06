@@ -13,6 +13,10 @@ cleanup still owed, and improvements.
   Device Login is what was built. Pick one: if Device Login stands, revert
   9eb9f68a's ADR (it also collides with ADR number 0009). Its duplicate
   Gesture Haptics glossary entry was merged into the one approved here.
+- **An untracked `plan.md` at the repo root** (also from the other session) is
+  a brief for a fresh session to rebuild this with OAuth + PKCE and revert the
+  Device Login work. It was left untouched. Don't start a session on it unless
+  you choose OAuth + PKCE.
 
 ## Step 1: workspace
 
