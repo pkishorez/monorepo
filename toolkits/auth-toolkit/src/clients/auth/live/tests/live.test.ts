@@ -27,7 +27,7 @@ vi.mock('better-auth/client', () => ({
   }),
 }));
 
-import { Auth } from '../auth.js';
+import { Auth } from '../../service/index.js';
 import { authLive } from '../live.js';
 
 const stubBrowser = (href: string) => {

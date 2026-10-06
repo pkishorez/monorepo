@@ -6,8 +6,8 @@ import {
   localToken,
   localUser,
   type User,
-} from '../../auth-worker-contract/index.js';
-import { Auth, type SignedInAccount } from './auth.js';
+} from '../../../auth-worker-contract/index.js';
+import { Auth, type SignedInAccount } from '../service/index.js';
 
 /** Who to sign in as: an email, and optionally a name. */
 export interface LocalChoice {

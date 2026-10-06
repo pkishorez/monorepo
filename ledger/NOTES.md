@@ -1020,70 +1020,195 @@ reload, then put back. No regressions seen.
 
 - Expo Go's floating tools button shows in every screenshot; a development
   build would drop it.
-- The earlier `||||||| be46cd20` merge markers in this file (after Phase 2b
-  and 2a) were left as they are.
+- The earlier `
 
-## Phase 3 check
+## Phase 4a: native sign-in
 
-3b and 3c merged, then driven end to end on the iPhone 17 Pro Simulator
-(Expo Go 57.0.9, Metro 8081), mostly with real touches (`idb ui tap`,
-`idb ui swipe`, `idb ui text`). Screens: `ledger/expo/docs/screens/phase-3-*.png`.
-Whole-repo `pnpm lint`, `pnpm test` and `pnpm build` pass.
+The sign-in service now knows native Ledger as a fixed First-Party Client,
+auth-toolkit has an `expo` target of `Auth`, and Ledger web's `/rpc` accepts
+Ledger Access Tokens. `ledger/web/scripts/native-sign-in.ts`
+(`pnpm --filter @ledger/web check:native-sign-in`) proves the whole flow
+against the local services without the app: authorize with PKCE and `state`
+→ Test Sign-In → code (no consent) → tokens (900 s) → `/rpc` with the Access
+Token → refresh (rotated) → `/rpc` again → the spent refresh token refused and
+its reuse revoking the chain → a new sign-in revoked on Sign Out. It passes
+with `exp://127.0.0.1:8081/--/oauth/callback` and `ledger://oauth/callback`;
+`ledger://evil` is refused. Whole-repo `pnpm lint`, `pnpm test` and
+`pnpm build` pass.
 
-**Passed:** the JS Splash; Sign out everyone, then sign in by name ("Kai
-Check", typed) to the welcome and Start empty; two Entries added through
-the Add button and Add sheet (out/Food today, in/Salary yesterday); Entries,
-an Entry, Next, back with it marked; Months and a Month; the Accounts sheet
-from the Sidebar's "Add an account"; the Thumb Lock (injector): a Step, Steps
-to Settings and into its Sections, Go, the thumb lifted first calling it off,
-into the Accounts and Go to an Account's Entries; a Wrong Way raised the
-picker's shake count (read from the fiber); the Sidebar's edge swipe (idb);
-the User Switcher, Add User (Grace, sample money), Switch User back; a row
-swiped open on Delete and tapped, and a full idb swipe deleting with the
-Undo toast and Undo bringing it back (marked); Settings General (Light and
-Dark, Sounds, Haptics) and Gestures; Sign Out of each User down to the
-signed-out card. The root `<Slot />` and the frame's `GestureLayer` around
-the header and Place showed no stale Places or lost taps.
+**What is where** (what 4b builds on)
 
-**Fixed** (expo-toolkit, changeset `expo-toolkit-phase-3-check`)
+- **Expo target:** `@kstackz/auth-toolkit/clients/auth/expo` exports
+  `authExpo({ authWorkerUrl, clientId, redirectUri, resource, storageKey? })`
+  (a `Layer<Auth>`, the same service as web's) and
+  `manageAccounts(authWorkerUrl)` (Safari or the default browser, through
+  React Native's `Linking`, which shares the sheet's cookies; an in-app
+  SFSafariViewController would not). Ledger's values: client id `ledger`;
+  redirect `ledger://oauth/callback` (development build), or
+  `exp://127.0.0.1:8081/--/oauth/callback` /
+  `exp://localhost:8081/--/oauth/callback` (Expo Go, local stage only);
+  resource `https://kstack.kishore.computer/rpc` locally and
+  `https://kstack.kishore.app/rpc` in prod (`LEDGER_RESOURCE` in
+  `ledger/web/src/server/backends/remote/remote.ts`).
+- `SignedInAccount.token` is the User's Access Token. It changes every 15
+  minutes; `list` refreshes one with under a minute left. 4b must re-read
+  `list` (on `Unauthenticated`, on foreground) to keep `credential.token`
+  fresh. `switchTo` and `signOut` find the User by the token's `sub`, so an
+  older token of theirs still works.
+- **Module layout:** `src/clients/auth` is now a laymos module graph:
+  `service` (the `Auth` contract), `live`, `local`, `signed`, `expo`, and the
+  root `index.ts` (the unchanged `./clients/auth` door). `expo` reaches only
+  `service`, so the expo entry bundles no better-auth client and no
+  std-toolkit, and `./clients/auth` bundles nothing from Expo (checked in
+  `dist`). Inside `expo`: `expo.ts` (the door's implementation),
+  `accounts.ts` (the platform-free orchestration, tested), `keychain.ts`
+  (the secure-storage layout: one entry per User, a roster without tokens),
+  `token-endpoint.ts` (token, refresh, revoke, userinfo), `device.ts` (the
+  port) and `native-device.ts` (expo-auth-session, expo-secure-store with
+  `AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`, `Linking`).
+- **Auth Worker:** `authorizationServer.firstPartyClients` (new
+  `first-party-clients.ts`: a better-auth `ClientDiscovery` extension that
+  writes the client row from config on first use and when the config
+  changes, and links its Resource Server; other clients cannot ask for that
+  resource, and it cannot ask for theirs); `testSignIn: { stage }` (new
+  `plugins/test-sign-in.ts`, `POST /api/auth/sign-in/test` for `.test`
+  emails, and a "Test sign-in (local only)" link on the Login Screen using
+  ui-toolkit's `LocalSignIn` with Ada and Grace `@ledger.test`);
+  `trustedOrigins` moved to `trusted-origins.ts`, an app scheme now matched
+  by scheme and path and the opaque origin `null` never trusted. ADR:
+  `toolkits/auth-toolkit/docs/adr/0017`. Glossary: First-Party Client, Test
+  Sign-In. README and `docs/auth-worker-configuration.md` updated.
+- **Remote Backend:** `ledgerResolver()` is `resolverLive` with
+  `resource: LEDGER_RESOURCE`. Tests in
+  `ledger/web/src/server/backends/remote/tests/remote.test.ts`: a Ledger
+  token is a Token Principal; an MCP audience, another issuer and an expired
+  token are refused.
 
-- `Dialog` had no keyboard avoidance: the Local Sign-In's Name field and
-  Continue sat under the keyboard. A keyboard-high spacer under the panel
-  (as `Sheet`'s) now lifts it.
-- `SwipeRow` could never delete by swiping: `Swipe` armed a full swipe at
-  1.6 panels of the _rubber-banded_ row, which for an 80-point tile meant
-  about 464 points of drag, wider than the phone. It now arms on the
-  finger's drag (128 points; web's line is 112).
+**Answers to the plan's open questions**
 
-**Seen, not fixed**
+- **Reuse detection:** better-auth's OAuth provider (1.7.2) already does it.
+  With `refreshTokenReuseInterval` at its default 0, presenting a spent
+  refresh token calls `invalidateRefreshFamily`, which deletes every refresh
+  token (and their Access Token rows) of that client for that User. Nothing
+  was added; tests prove it (`first-party-client.test.ts`, `expo.test.ts`,
+  the flow script). It is wider than one chain: it signs that User out of
+  Ledger on every phone.
+- **`state`:** confirmed. `AuthRequest.parseReturnUrl` in expo-auth-session
+  57.0.13 returns `state_mismatch` whenever the returned `state` is not the
+  one it generated; the expo target reports it once through
+  `takeLoginError`. Its default `state` is 10 characters from a 62-letter
+  alphabet (about 59 bits); PKCE protects the code anyway.
+- **Google `prompt=select_account`:** already set on the Google provider
+  (`auth-model.ts`). The app also sends `prompt=login` to the Auth Worker, so
+  the Login Screen shows even when the sheet's browser is signed in, which
+  Add User needs.
 
-- Right after launch Home drew one frame with the Entry as "No category"
-  and no Budgets: `useMoney().ready` was true before the categories'
-  rows arrived.
-- The Entry's Category pills list every Category, out and in; an income's
-  Category is off screen to the right, not scrolled into view.
-- Expo Go's floating tools button sits on the toast's Undo; a real tap
-  there opened the dev menu. A development build has no such button.
-- A fresh idb tap was sometimes lost (the first on "Start empty"); the
-  second worked. Not reproduced since.
-- An idb swipe of 350 points in 0.3 s did nothing (Pan likely never
-  activated in time); 0.6 s worked.
+**Challenges**
 
-**Unproven**
+- The first `pnpm build` in the fresh worktree failed once (the known
+  `apps/alchemy-console` `./declaration.js`) and passed on the rerun.
+- A fetch to `/oauth2/authorize` gets the redirect as JSON
+  (`{ redirect, url }`), a navigating browser a 302; the script reads both.
+- Rebuilding auth-toolkit (`rm -rf dist`) under a running Ledger web dev
+  server broke its module cache (`Failed to load url
+../../../auth-worker-contract/index.js`); restart the dev server after a
+  toolkit build.
+- `oauthClient.metadata` is a text column; the client row keeps its resource
+  there as JSON text.
 
-- The Wrong Way shake on screen: screenshots are too slow for 320 ms and
-  `simctl io recordVideo` still says "Host recording is already in
-  progress".
-- The two-finger Thumb Lock through Gesture Handler (the injector skips
-  it) and `claim` stopping a Place's scroll.
-- Sounds and haptics felt or heard.
+**Hacks**
 
-**Driving notes**
+- The flow script runs with `node --use-system-ca` so Node trusts portless's
+  local CA.
+- The Login Screen asserts better-auth's client to the hand-typed
+  `AuthorizationClient` (`as unknown as`), because `signIn.test` comes from a
+  server plugin the client has no types for.
+- The Test Sign-In reuses `LocalSignIn`, whose copy says "Nothing here
+  leaves this device", which is not true there. Local only, so left.
 
-- Every `touch.mjs` run opens and closes an inspector connection, and
-  Expo Go crashed twice in Hermes' debugger (`runUntilValidPauseLocation`)
-  inside a timer soon after. One connection held for a whole sequence
-  (a local runner doing `thumb`, `more`, `lift`, `shot` in turn) did not
-  crash; `touch.mjs` could take several commands per run.
-- A Thumb Lock Step is about 30 points of finger, counted from the Lock,
-  so `thumb 0,40` then `more 0,40` twice lands four Steps down.
+**Drawbacks**
+
+- Files inside auth-toolkit's `src/clients/auth` moved into folders; the
+  public `./clients/auth` entry is unchanged.
+- Peers pinned exactly to SDK 57 (`expo-auth-session` 57.0.13,
+  `expo-secure-store` 57.0.4, `react-native` 0.86.3), as syncpack wants and
+  expo-toolkit does; each SDK bump moves them. expo-web-browser is not a
+  peer: the target never imports it (expo-auth-session depends on it).
+  `pnpm why -r expo react-native` stays on 57.0.26 / 0.86.3.
+- `accessTokenLifetime` is read only when the Resource Server row is first
+  seeded (`resourceSeedMode` stays `insertOnly`; `merge` would write on
+  every request, since the Worker is built per request). Changing it later
+  means updating `oauth_resource.access_token_ttl` by hand.
+- Access Tokens carry `aud: [ledger, …/oauth2/userinfo]`; the Remote Backend
+  accepts any token whose audience includes Ledger.
+- Offline, `list` keeps a User with their last (maybe expired) token rather
+  than failing, so the app can open the local copy; `signOut` offline fails
+  `Unreachable` and keeps the User, since it cannot revoke.
+- If the app dies between receiving a rotated refresh token and writing it,
+  the stored one is spent and the next refresh signs the User out
+  (`refreshTokenReuseInterval` could soften that; left at 0).
+- `ledger://` and `exp://` are not RFC 8252 reverse-domain schemes;
+  better-auth would refuse them at dynamic registration, but the fixed
+  client never registers. A store release should use Universal Links / App
+  Links, or `app.kishore.ledger:/oauth/callback`.
+- An Access Token lives up to 15 minutes after Sign Out (JWTs cannot be
+  revoked), as ADR 0009 says.
+
+**Open questions**
+
+- Should the client id, redirect and resource live in `@ledger/core` so web
+  and expo cannot disagree? Today 4b writes them in the expo platform.
+- Expo Go on a real phone uses the Mac's LAN address
+  (`exp://192.168.x.y:8081/--/oauth/callback`), which is not in the redirect
+  list; add it locally or use a development build with `ledger://`.
+
+**What to try with real Google in the morning**
+
+1. Native, once 4b lands: Add User in the Simulator → the sheet shows the
+   Login Screen → Sign in with Google → pick an account → back in Ledger.
+   Add User again and pick a second Google account (Google should ask
+   which, `prompt=select_account`).
+2. Sign Out one User; the other stays. Manage Google Accounts opens Safari
+   on the Auth Worker's Home Page with the sheet's session.
+3. Web's Remote Backend still signs in with Google as before (unchanged).
+
+**Cleanup owed**
+
+- Repoint `~/CAREER/MINE/mine/pnpm-workspace.yaml`'s `@kstackz/auth-toolkit`
+  link from this worktree to wherever this branch lives next (the
+  `ledger-on-expo` worktree, then `main`), build auth-toolkit there,
+  `pnpm install` in mine, and restart its `pnpm dev`.
+- `apps/kishore-app` in mine imports `@kstackz/auth-toolkit/clients/browser`,
+  which no branch here exports; it was already broken against `main` and was
+  left alone.
+- Upstream: ui-toolkit's `LocalSignIn` could take its title and copy as
+  props.
+
+**Uncommitted changes in `~/CAREER/MINE/mine`** (nothing committed, stashed
+or reset; the user's own edits in both `alchemy.run.ts` files are as they
+were)
+
+- `pnpm-workspace.yaml`: the `@kstackz/auth-toolkit` override links
+  `../monorepo/.claude/worktrees/agent-ab531ba2a1ac84c7f/toolkits/auth-toolkit`
+  (was `../monorepo/toolkits/auth-toolkit`), with a comment.
+- `pnpm-lock.yaml`: rewritten by `pnpm install` for that link.
+- `packages/auth/alchemy.run.ts`: new Worker env `LEDGER_RESOURCE`,
+  `LEDGER_REDIRECT_URIS` (`ledger://oauth/callback`, plus the two `exp://`
+  ones on `local` only), `STAGE`, and `TEST_SIGN_IN` (`on` only on `local`).
+- `packages/auth/src/worker.ts`: `firstPartyClients: [{ clientId: 'ledger',
+name: 'Ledger', redirectUris, resource }]` and
+  `testSignIn: env.TEST_SIGN_IN === 'on' ? { stage: env.STAGE } : undefined`.
+- `apps/cli/src/server/rpc-host/rpc-host.ts`: `resolverLive` imported from
+  `@kstackz/auth-toolkit/server/resolver-live` (Phase 3a's entry).
+- Its local server was restarted (`pnpm dev` in `packages/auth`, stopped by
+  its own PIDs) and runs on this worktree's toolkit build; never deployed.
+
+**Starting the local services**
+
+- Sign-in service: `pnpm dev` in `~/CAREER/MINE/mine/packages/auth` →
+  `https://auth.kishore.computer`.
+- Ledger web: `pnpm dev` in `ledger/web` →
+  `https://<branch>.kstack.kishore.computer` (here
+  `worktree-agent-ab531ba2a1ac84c7f`).
+- Then `pnpm --filter @ledger/web check:native-sign-in` (`LEDGER_URL` and
+  `REDIRECT_URI` override).

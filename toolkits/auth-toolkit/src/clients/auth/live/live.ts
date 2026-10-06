@@ -7,7 +7,7 @@ import {
   type SignedInAccount,
   type SignInOptions,
   Unreachable,
-} from './auth.js';
+} from '../service/index.js';
 
 type Result<T> = Promise<{
   data: T | null;

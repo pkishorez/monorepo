@@ -1,10 +1,16 @@
 import {
+  LocalSignIn,
   LoginScreen,
   type Branding,
+  type LocalSignInChoice,
 } from '@kstackz/ui-toolkit/components/blocks/auth';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import { createAuthorizationClient, pageQuery } from '../auth-api/index.js';
+import {
+  createAuthorizationClient,
+  navigate,
+  pageQuery,
+} from '../auth-api/index.js';
 import {
   ADD_ACCOUNT,
   returnDestination,
@@ -18,9 +24,21 @@ import {
 interface LoginPageProps {
   branding: Branding;
   multiSession: MultiSessionOptions;
+  /** Offers the Test Sign-In beside Google (local stage only). */
+  testSignIn?: boolean | undefined;
 }
 
-export function LoginPage({ branding, multiSession }: LoginPageProps) {
+const TEST_PRESETS: ReadonlyArray<LocalSignInChoice> = [
+  { email: 'ada@ledger.test', name: 'Ada' },
+  { email: 'grace@ledger.test', name: 'Grace' },
+];
+
+export function LoginPage({
+  branding,
+  multiSession,
+  testSignIn,
+}: LoginPageProps) {
+  const [testing, setTesting] = useState(false);
   const client = useMemo(createAuthorizationClient, []);
   const session = client.useSession();
   const show = useScreenRoute('login', session);
@@ -41,16 +59,45 @@ export function LoginPage({ branding, multiSession }: LoginPageProps) {
           ).href,
     });
 
+  const signInForTest = async (choice: LocalSignInChoice) => {
+    setTesting(false);
+    const { data } = await client.signIn.test(choice);
+    navigate(
+      data?.url ??
+        new URL(returnDestination(window.location.search), window.location.href)
+          .href,
+    );
+  };
+
   return (
-    <LoginScreen
-      branding={branding}
-      state={
-        show
-          ? { status: 'ready', continuing, adding, error }
-          : { status: 'loading' }
-      }
-      accounts={accounts}
-      onSignIn={signIn}
-    />
+    <>
+      <LoginScreen
+        branding={branding}
+        state={
+          show
+            ? { status: 'ready', continuing, adding, error }
+            : { status: 'loading' }
+        }
+        accounts={accounts}
+        onSignIn={signIn}
+      />
+      {testSignIn ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-x-0 bottom-4 mx-auto w-fit text-xs text-muted-foreground underline"
+            onClick={() => setTesting(true)}
+          >
+            Test sign-in (local only)
+          </button>
+          <LocalSignIn
+            open={testing}
+            presets={TEST_PRESETS}
+            onChoose={(choice) => void signInForTest(choice)}
+            onCancel={() => setTesting(false)}
+          />
+        </>
+      ) : null}
+    </>
   );
 }

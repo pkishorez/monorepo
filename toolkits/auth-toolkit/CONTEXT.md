@@ -13,8 +13,12 @@ What every program talking to the Auth Worker may rely on without running it: wh
 _Avoid_: shared, common, types
 
 **First-Party**:
-A program the deployment owns, in which the User signs in to the product itself: a web app or a CLI. Served by the Identity Role alone; its credential is a Session and there is nothing to register or consent to.
+A program the deployment owns, in which the User signs in to the product itself: a web app, a CLI, or a native app. A web app or a CLI is served by the Identity Role alone; its credential is a Session and there is nothing to register or consent to. A native app is a First-Party Client.
 _Avoid_: internal app, our client
+
+**First-Party Client**:
+A First-Party native app that signs Users in as an OAuth client, because it can neither share the browser's cookie nor ask for a code on another screen. The deployment lists it, with its exact redirects and its own Resource Server; it never sees the Consent Screen, and each User signed in to it holds their own Access Token and refresh token on the device. Not a Client Application: nobody registers it and nobody consents.
+_Avoid_: native client, mobile client, trusted client
 
 **Third-Party**:
 A program the deployment does not own that wants to act as the User against a Resource Server, such as an MCP client. Served by the Authorization Server Role; it is a Client Application, the User consents to Scopes, and its credential is an Access Token. The First-Party/Third-Party split, not web/CLI/MCP, decides which role and which credential apply.
@@ -64,6 +68,10 @@ _Avoid_: test account, fake user, demo user
 The Session token local auth hands a Local Account, which carries the User it names. A local Current Auth Resolver reads the User straight out of it without asking anyone, so local auth on the browser side and on the Consumer Backend side never share state, wherever either runs. Any Local Token is accepted, and signing out revokes nothing.
 _Avoid_: fake token, test token
 
+**Test Sign-In**:
+Signing a User in by naming a `.test` email, with no Google, on a developer's own machine, so agents and tests can sign in. Exists only on the local stage; the Auth Worker refuses to start with it anywhere else.
+_Avoid_: fake login, dev login, Local Account (that has no Auth Worker at all)
+
 **Device Login**:
 How a First-Party program without a browser, such as a CLI, obtains a Session: it shows a code and URL, the User approves the code in a browser on the Auth Worker's device page, and the program receives a Session token. Always a Session, never an Access Token; no Client Registration, Scopes, or consent are involved.
 _Avoid_: device flow, device authorization grant (the Third-Party OAuth grant, which the toolkit does not offer), CLI auth
@@ -77,7 +85,7 @@ The Auth Worker's opt-in job: letting a Third-Party Client Application obtain an
 _Avoid_: OAuth provider (collides with Provider), authorization mode
 
 **Client Application**:
-A Third-Party program that holds an Access Token to act for a User: an MCP client or an approved third-party web app. A First-Party CLI is not one; it holds a Session through Device Login. Whether it registered itself or was approved by hand does not change what it is.
+A Third-Party program that holds an Access Token to act for a User: an MCP client or an approved third-party web app. A First-Party CLI is not one; it holds a Session through Device Login. Nor is a First-Party Client, though it holds Access Tokens too. Whether it registered itself or was approved by hand does not change what it is.
 _Avoid_: client (reserved for a First-Party program's side: the browser, the CLI), Provider, third party (some Client Applications are first-party)
 
 **Grant**:

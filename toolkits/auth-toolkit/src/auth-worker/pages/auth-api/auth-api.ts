@@ -56,6 +56,12 @@ export interface AuthorizationClient {
       provider: 'google';
       callbackURL?: string | undefined;
     }) => Promise<unknown>;
+    /** The Test Sign-In (local stage only). From an authorization, `url`
+     * continues it. */
+    test: (input: {
+      email: string;
+      name?: string | undefined;
+    }) => Result<{ url?: string | undefined }>;
   };
   signOut: () => Promise<unknown>;
   listSessions: () => Result<SessionRecord[]>;
@@ -90,6 +96,8 @@ export interface AuthorizationClient {
   };
 }
 
+// The Test Sign-In's `signIn.test` comes from a server plugin the client
+// has no types for, so the client is asserted to the hand-typed shape.
 export const createAuthorizationClient = (): AuthorizationClient =>
   createAuthClient({
     plugins: [
@@ -97,7 +105,7 @@ export const createAuthorizationClient = (): AuthorizationClient =>
       deviceAuthorizationClient(),
       multiSessionClient(),
     ],
-  });
+  }) as unknown as AuthorizationClient;
 
 export class AuthorizationClientError extends Error {
   readonly name = 'AuthorizationClientError';

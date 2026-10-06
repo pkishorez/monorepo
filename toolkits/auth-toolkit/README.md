@@ -1,6 +1,6 @@
 # @kstackz/auth-toolkit
 
-Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser and CLI clients
+Curated better-auth building blocks: one shared Auth Worker (Cloudflare D1) with its own pages, server doors for Consumer Backends, and browser, Expo and CLI clients
 
 ## Big picture
 
@@ -10,7 +10,10 @@ this?" instead of touching auth state. Which door a program uses follows one
 split: a First-Party program (your web app, your CLI) holds a Session and is
 served by the always-on Identity Role; a Third-Party program (an MCP client)
 holds an Access Token and needs the opt-in Authorization Server Role. Web,
-CLI, and MCP are three stories on that one split, not three systems.
+CLI, and MCP are three stories on that one split, not three systems. A
+First-Party native app is the one exception: it signs in as a First-Party
+Client, a fixed OAuth client with PKCE and no consent, and holds its own
+tokens on the phone ([ADR 0017](./docs/adr/0017-first-party-native-apps-are-fixed-oauth-clients.md)).
 
 The package builds on `@kstackz/rpc-toolkit` for the `Authz` Cannotation that guards
 Effect RPC and HTTP API endpoints, and on `@kstackz/ui-toolkit` for the prebuilt
@@ -47,6 +50,9 @@ Peer dependencies, all optional; install the ones your subpaths need:
 - `react`: the Auth Worker's own pages are React.
 - `better-sqlite3`: `@kstackz/auth-toolkit/worker/database/memory` runs SQLite in-process for tests.
 - `alchemy`: `@kstackz/auth-toolkit/worker/alchemy/d1` declares the D1 resource in `alchemy.run.ts`.
+- `expo-auth-session`: `@kstackz/auth-toolkit/clients/auth/expo` runs the authorization in the system sign-in sheet, with PKCE and a checked `state`.
+- `expo-secure-store`: `@kstackz/auth-toolkit/clients/auth/expo` keeps each User's tokens in the keychain (Keystore on Android).
+- `react-native`: `manageAccounts` opens the system browser.
 
 ## Exports
 
@@ -56,7 +62,7 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `createAuthWorker`       | Assembles the Auth Worker and returns the better-auth instance plus a fetch handler that serves the API and pages. |
 | `isTrustedOrigin`        | Tells whether an origin matches any of the given trusted origin patterns.                                          |
-| `validateTrustedOrigins` | Throws when a trusted origin pattern is neither a full origin nor a host pattern.                                  |
+| `validateTrustedOrigins` | Throws when a trusted origin pattern is neither a full origin, a host pattern, nor an app scheme and path.         |
 | `AUTH_PAGES`             | The paths of the login, consent, device, and error pages.                                                          |
 
 ### `@kstackz/auth-toolkit/worker/database/d1`
@@ -159,6 +165,13 @@ Peer dependencies, all optional; install the ones your subpaths need:
 | `localUser`          | The Local Account an email names; the same email is always the same User.                                      |
 | `signedFetch`        | Wraps `fetch` to send one account's token as a bearer and never the cookie.                                    |
 | `signedFetchLayer`   | `FetchHttpClient.layer` over `signedFetch`, so every Effect HTTP or RPC client on it is signed.                |
+
+### `@kstackz/auth-toolkit/clients/auth/expo`
+
+| Export           | What it does                                                                                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `authExpo`       | Layer of `Auth` on a phone: each User signs in as the app's First-Party Client and keeps their own tokens in secure storage. |
+| `manageAccounts` | Opens the Auth Worker's Home Page in the system browser, which shares the sign-in sheet's cookies.                           |
 
 ### `@kstackz/auth-toolkit/clients/cli`
 
@@ -373,3 +386,54 @@ Layer.mergeAll(
 - Every request names the CLI as `<app>/<version>`, which is how it appears on the Home Page.
 - No Session or a dead one fails with `SignedOut`. A denied or expired code fails `login` with `DeviceLoginFailed`. Auth Worker problems fail with `AuthWorkerUnreachable`, `AuthWorkerUnavailable`, `AuthWorkerRejected`, or `InvalidAuthWorkerResponse`, each with a printable `message`.
 - Nothing to refresh: the token never changes and the Auth Worker slides its expiry on use. Consumer Backends need no opt-in; see [ADR 0010](./docs/adr/0010-device-login-is-a-first-party-session.md).
+
+### Sign a User in on a phone
+
+A native app is a First-Party Client: the Auth Worker lists it with its
+exact redirects and its own Resource Server, and `authExpo` gives the app the
+same `Auth` as the browser. Each User signs in in the system sign-in sheet
+and keeps their own Access and refresh tokens; the app's backend accepts the
+Access Token through `resolverLive` with its `resource`. Lifted from
+`src/clients/auth/expo/tests/expo.test.ts` and Ledger.
+
+```ts
+// The Auth Worker
+createAuthWorker({
+  // ...
+  authorizationServer: {
+    resources: [],
+    firstPartyClients: [
+      {
+        clientId: 'ledger',
+        name: 'Ledger',
+        redirectUris: ['ledger://oauth/callback'],
+        resource: 'https://ledger.example.com/rpc',
+      },
+    ],
+  },
+  // Local stage only: anyone with a `.test` email signs in by naming it.
+  testSignIn: stage === 'local' ? { stage } : undefined,
+});
+
+// The app
+import { authExpo } from '@kstackz/auth-toolkit/clients/auth/expo';
+
+const auth = authExpo({
+  authWorkerUrl: 'https://auth.example.com',
+  clientId: 'ledger',
+  redirectUri: 'ledger://oauth/callback',
+  resource: 'https://ledger.example.com/rpc',
+});
+
+// The app's backend
+resolverLive({
+  authWorkerUrl: 'https://auth.example.com',
+  resource: 'https://ledger.example.com/rpc',
+});
+```
+
+- `signIn` opens the authorization with PKCE and `prompt=login` in ASWebAuthenticationSession (Custom Tabs on Android), never a web view; expo-auth-session refuses a redirect whose `state` it did not send, and that comes back once from `takeLoginError`. Closing the sheet signs nobody in.
+- Each User has one secure-storage entry; a roster without tokens names who is signed in and who is active. `switchTo` changes the active User on this phone only.
+- An Access Token lives 15 minutes. `list` refreshes one about to expire, one refresh per User at a time; the refresh token turns over on every use, and a reused one makes the Auth Worker revoke the User's tokens for that client, after which `list` drops the User. Offline, `list` keeps the last token.
+- `signOut` revokes the User's refresh token, then forgets them; an Access Token already handed out works until it expires.
+- The client never sees the Consent Screen, may ask only for its own Resource Server, and no other client may ask for that one.

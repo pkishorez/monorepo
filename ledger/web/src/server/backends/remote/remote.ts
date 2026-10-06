@@ -15,6 +15,23 @@ export const AUTH_URL = import.meta.env.DEV
   : 'https://auth.kishore.app';
 
 /**
+ * Ledger's audience at the sign-in service: native Ledger's Access Tokens
+ * are minted for it alone, so a token for anything else (an MCP Server, say)
+ * is refused here.
+ */
+export const LEDGER_RESOURCE = import.meta.env.DEV
+  ? 'https://kstack.kishore.computer/rpc'
+  : 'https://kstack.kishore.app/rpc';
+
+/**
+ * Who a `/rpc` call is from: a Session token (the web app) or a Ledger
+ * Access Token (native Ledger), both asked of or checked against the
+ * sign-in service for this stage.
+ */
+export const ledgerResolver = () =>
+  resolverLive({ authWorkerUrl: AUTH_URL, resource: LEDGER_RESOURCE });
+
+/**
  * The Remote Backend's host: answers one `/rpc` request, the Ledger API over
  * NDJSON, for the User its bearer token names, against the D1 database.
  */
@@ -42,10 +59,7 @@ export function handleRpc(
   );
   const dependencies = Layer.mergeAll(
     ledgerBackend.pipe(
-      Layer.provide([
-        table.layer,
-        resolverLive({ authWorkerUrl: AUTH_URL }).pipe(Layer.provide(http)),
-      ]),
+      Layer.provide([table.layer, ledgerResolver().pipe(Layer.provide(http))]),
     ),
     RpcSerialization.layerNdjson,
   );

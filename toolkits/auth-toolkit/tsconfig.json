@@ -28,6 +28,9 @@
         "./src/server/effect/http-api/declaration/index.ts"
       ],
       "@kstackz/auth-toolkit/clients/auth": ["./src/clients/auth/index.ts"],
+      "@kstackz/auth-toolkit/clients/auth/expo": [
+        "./src/clients/auth/expo/index.ts"
+      ],
       "@kstackz/auth-toolkit/clients/cli": ["./src/clients/cli/index.ts"]
     },
     "rootDir": ".",

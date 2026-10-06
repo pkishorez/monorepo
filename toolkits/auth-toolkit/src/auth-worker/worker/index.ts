@@ -10,6 +10,7 @@ export {
   type BrandStyle,
   type PagesContext,
 } from '../../auth-worker-contract/index.js';
+export type { FirstPartyClient } from './first-party-clients.js';
 export type {
   AuthorizationServerConfig,
   ClientRegistration,
