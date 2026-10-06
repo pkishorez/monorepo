@@ -104,8 +104,7 @@ function HeaderActions() {
   );
 }
 
-// On a touch screen: the one button, at the thumb. It stays put while the
-// page it floats over slides.
+// On a touch screen: the one button, at the thumb.
 function AddButton() {
   const run = keys.useRun();
   const online = useOnline();
@@ -115,7 +114,7 @@ function AddButton() {
       aria-label="Add an entry"
       disabled={!online}
       onClick={() => run('addEntry')}
-      className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] z-30 hidden size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-40 touch:grid [view-transition-class:still] [view-transition-name:add-button]"
+      className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] z-30 hidden size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-40 touch:grid"
     >
       <Plus className="size-6" aria-hidden="true" />
     </button>

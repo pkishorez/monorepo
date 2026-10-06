@@ -20,6 +20,7 @@ Every Go, however it is given, slides the page up toward a later Place and
 down toward an earlier one: a same-document view transition, typed by the
 router from where it goes, with the shell and what floats over the page held
 still.
+ADR 0006 drops the slide: a Go now shows the new page at once.
 
 ## Considered options
 

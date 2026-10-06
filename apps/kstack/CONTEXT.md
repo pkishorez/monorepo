@@ -101,7 +101,7 @@ Space, pressed before a letter, for Commands that move the keys rather than the 
 _Avoid_: prefix
 
 **Go**:
-The Command to move to another Place. The page slides up or down by the Place order, however Go was given.
+The Command to move to another Place. The new page shows at once, however Go was given.
 
 **Jump**:
 The Command to go to The List of where you are, with where you were marked.
